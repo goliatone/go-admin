@@ -1,11 +1,17 @@
 import type { DraftSyncService } from './draft-sync-service';
 import type { WizardStateManager } from './state-manager';
 import type { ActiveTabController } from './active-tab-controller';
+import {
+  buildSendDebugFields,
+  logSendInfo,
+  logSendWarn,
+} from './send-debug';
 
 export interface SyncControllerOptions {
   stateManager: WizardStateManager;
   syncService: DraftSyncService;
   activeTabController: ActiveTabController;
+  storageKey: string;
   statusUpdater(status: string): void;
   showConflictDialog(serverRevision: number): void;
   syncDebounceMs: number;
@@ -82,6 +88,19 @@ export class SyncController {
 
   scheduleSync(): void {
     if (!this.ensureActiveTabOwnership('schedule_sync', { allowClaimIfAvailable: false })) {
+      logSendWarn('sync_schedule_blocked', buildSendDebugFields({
+        state: this.stateManager.getState(),
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason || 'passive_tab',
+        },
+        sendAttemptId: null,
+        extra: {
+          reason: 'passive_tab',
+        },
+      }));
       this.options.statusUpdater('paused');
       return;
     }
@@ -102,10 +121,40 @@ export class SyncController {
     }
 
     const useKeepalive = options.keepalive === true;
+    const state = this.stateManager.getState();
     if (!this.ensureActiveTabOwnership(useKeepalive ? 'keepalive_sync' : 'force_sync', { allowClaimIfAvailable: true })) {
+      logSendWarn('sync_force_blocked', buildSendDebugFields({
+        state,
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason || 'passive_tab',
+        },
+        sendAttemptId: null,
+        extra: {
+          keepalive: useKeepalive,
+          reason: 'passive_tab',
+        },
+      }));
       return { blocked: true, reason: 'passive_tab' };
     }
-    const state = this.stateManager.getState();
+    logSendInfo('sync_force_start', buildSendDebugFields({
+      state,
+      storageKey: this.options.storageKey,
+      ownership: {
+        isOwner: this.isOwner,
+        claim: this.currentClaim,
+        blockedReason: this.lastBlockedReason,
+      },
+      sendAttemptId: null,
+      extra: {
+        keepalive: useKeepalive,
+        mode: state.serverDraftId ? 'update' : 'create',
+        targetDraftId: String(state.serverDraftId || '').trim() || null,
+        expectedRevision: Number(state.serverRevision || 0),
+      },
+    }));
     if (!useKeepalive) {
       return this.performSync();
     }
@@ -120,6 +169,21 @@ export class SyncController {
         updated_by_user_id: this.options.currentUserID,
       });
       try {
+        logSendInfo('sync_keepalive_request', buildSendDebugFields({
+          state,
+          storageKey: this.options.storageKey,
+          ownership: {
+            isOwner: this.isOwner,
+            claim: this.currentClaim,
+            blockedReason: this.lastBlockedReason,
+          },
+          sendAttemptId: null,
+          extra: {
+            mode: 'update',
+            targetDraftId: String(state.serverDraftId || '').trim() || null,
+            expectedRevision: Number(state.serverRevision || 0),
+          },
+        }));
         const response = await this.fetchImpl(this.options.draftEndpointWithUserID(`${this.options.draftsEndpoint}/${state.serverDraftId}`), {
           method: 'PUT',
           credentials: 'same-origin',
@@ -133,6 +197,21 @@ export class SyncController {
           const currentRevision = Number(error?.error?.details?.current_revision || 0);
           this.options.statusUpdater('conflict');
           this.options.showConflictDialog(currentRevision > 0 ? currentRevision : state.serverRevision);
+          logSendWarn('sync_keepalive_conflict', buildSendDebugFields({
+            state,
+            storageKey: this.options.storageKey,
+            ownership: {
+              isOwner: this.isOwner,
+              claim: this.currentClaim,
+              blockedReason: this.lastBlockedReason,
+            },
+            sendAttemptId: null,
+            extra: {
+              mode: 'update',
+              targetDraftId: String(state.serverDraftId || '').trim() || null,
+              currentRevision,
+            },
+          }));
           return { conflict: true };
         }
 
@@ -148,10 +227,40 @@ export class SyncController {
           this.options.statusUpdater('saved');
           this.retryCount = 0;
           this.broadcastSyncCompleted(syncedDraftID, syncedRevision);
+          logSendInfo('sync_keepalive_success', buildSendDebugFields({
+            state: this.stateManager.getState(),
+            storageKey: this.options.storageKey,
+            ownership: {
+              isOwner: this.isOwner,
+              claim: this.currentClaim,
+              blockedReason: this.lastBlockedReason,
+            },
+            sendAttemptId: null,
+            extra: {
+              mode: 'update',
+              targetDraftId: syncedDraftID,
+              returnedRevision: syncedRevision,
+            },
+          }));
           return { success: true, draftId: syncedDraftID, revision: syncedRevision };
         }
       } catch {
         // Fall back to canonical sync path.
+        logSendWarn('sync_keepalive_fallback', buildSendDebugFields({
+          state,
+          storageKey: this.options.storageKey,
+          ownership: {
+            isOwner: this.isOwner,
+            claim: this.currentClaim,
+            blockedReason: this.lastBlockedReason,
+          },
+          sendAttemptId: null,
+          extra: {
+            mode: 'update',
+            targetDraftId: String(state.serverDraftId || '').trim() || null,
+            reason: 'keepalive_failed_fallback',
+          },
+        }));
       }
     }
 
@@ -161,17 +270,58 @@ export class SyncController {
   async performSync(): Promise<Record<string, any>> {
     if (this.isSyncing) return { blocked: true, reason: 'sync_in_progress' };
     if (!this.ensureActiveTabOwnership('perform_sync', { allowClaimIfAvailable: true })) {
+      logSendWarn('sync_perform_blocked', buildSendDebugFields({
+        state: this.stateManager.getState(),
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason || 'passive_tab',
+        },
+        sendAttemptId: null,
+        extra: {
+          reason: 'passive_tab',
+        },
+      }));
       return { blocked: true, reason: 'passive_tab' };
     }
 
     const state = this.stateManager.getState();
     if (!state.syncPending) {
       this.options.statusUpdater('saved');
+      logSendInfo('sync_perform_skipped', buildSendDebugFields({
+        state,
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason,
+        },
+        sendAttemptId: null,
+        extra: {
+          reason: 'not_pending',
+        },
+      }));
       return { skipped: true, reason: 'not_pending' };
     }
 
     this.isSyncing = true;
     this.options.statusUpdater('saving');
+    logSendInfo('sync_perform_start', buildSendDebugFields({
+      state,
+      storageKey: this.options.storageKey,
+      ownership: {
+        isOwner: this.isOwner,
+        claim: this.currentClaim,
+        blockedReason: this.lastBlockedReason,
+      },
+      sendAttemptId: null,
+      extra: {
+        mode: state.serverDraftId ? 'update' : 'create',
+        targetDraftId: String(state.serverDraftId || '').trim() || null,
+        expectedRevision: Number(state.serverRevision || 0),
+      },
+    }));
 
     const result = await this.syncService.sync();
     this.isSyncing = false;
@@ -182,16 +332,61 @@ export class SyncController {
       }
       this.options.statusUpdater('saved');
       this.retryCount = 0;
+      logSendInfo('sync_perform_success', buildSendDebugFields({
+        state: this.stateManager.getState(),
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason,
+        },
+        sendAttemptId: null,
+        extra: {
+          mode: state.serverDraftId ? 'update' : 'create',
+          targetDraftId: String(result.result?.id || state.serverDraftId || '').trim() || null,
+          returnedRevision: Number(result.result?.revision || 0),
+        },
+      }));
       return { success: true, draftId: result.result?.id || null, revision: result.result?.revision || 0 };
     }
     if (result.conflict) {
       this.options.statusUpdater('conflict');
       this.options.showConflictDialog(Number(result.currentRevision || state.serverRevision || 0));
+      logSendWarn('sync_perform_conflict', buildSendDebugFields({
+        state,
+        storageKey: this.options.storageKey,
+        ownership: {
+          isOwner: this.isOwner,
+          claim: this.currentClaim,
+          blockedReason: this.lastBlockedReason,
+        },
+        sendAttemptId: null,
+        extra: {
+          mode: state.serverDraftId ? 'update' : 'create',
+          targetDraftId: String(state.serverDraftId || '').trim() || null,
+          currentRevision: Number(result.currentRevision || 0),
+        },
+      }));
       return { conflict: true, currentRevision: result.currentRevision };
     }
 
     this.options.statusUpdater('error');
     this.scheduleRetry();
+    logSendWarn('sync_perform_error', buildSendDebugFields({
+      state,
+      storageKey: this.options.storageKey,
+      ownership: {
+        isOwner: this.isOwner,
+        claim: this.currentClaim,
+        blockedReason: this.lastBlockedReason,
+      },
+      sendAttemptId: null,
+      extra: {
+        mode: state.serverDraftId ? 'update' : 'create',
+        targetDraftId: String(state.serverDraftId || '').trim() || null,
+        reason: result.error || 'sync_failed',
+      },
+    }));
     return { error: true, reason: result.error || 'sync_failed' };
   }
 

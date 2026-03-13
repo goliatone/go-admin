@@ -71,9 +71,11 @@ test('runtime extraction contract: agreement-form extraction boundaries are docu
 test('runtime extraction contract: typed helper modules do not use ts-nocheck', () => {
   const helperModules = [
     '../src/esign/pages/agreement-form/bootstrap-config.ts',
+    '../src/esign/pages/agreement-form/composition.ts',
     '../src/esign/pages/agreement-form/telemetry.ts',
     '../src/esign/pages/agreement-form/runtime-actions.ts',
     '../src/esign/pages/agreement-form/form-payload.ts',
+    '../src/esign/pages/agreement-form/form-submit.ts',
     '../src/esign/pages/agreement-form/feedback.ts',
     '../src/esign/pages/agreement-form/state-binding.ts',
     '../src/esign/pages/agreement-form/resume-flow.ts',

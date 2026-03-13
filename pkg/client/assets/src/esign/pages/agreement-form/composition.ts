@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import {
   PLACEMENT_SOURCE,
   TOTAL_WIZARD_STEPS,
@@ -10,6 +8,7 @@ import { createPreviewCard } from './preview-card';
 import { bootAgreementFormRuntime } from './boot';
 import type {
   AgreementFormContext,
+  NormalizedAgreementFormConfig,
   AgreementFormRuntime,
 } from './context';
 import { collectAgreementFormRefs } from './refs';
@@ -33,6 +32,9 @@ import { createAgreementResumeController } from './resume-flow';
 import { createAgreementFeedbackController } from './feedback';
 import { createAgreementRuntimeActionsController } from './runtime-actions';
 import {
+  type AgreementFormRuntimeInputConfig,
+  type AgreementProgressState,
+  type AgreementTitleSourceShape,
   createAgreementWizardPersistenceSettings,
   createDraftRequestHelpers,
   hasMeaningfulWizardProgress,
@@ -40,10 +42,63 @@ import {
   normalizeAgreementTitleSource,
 } from './bootstrap-config';
 import { createLinkGroupState } from './linked-placement';
+import type { LinkGroupState, ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance } from './contracts';
 import { parsePositiveInt } from './normalization';
 import { escapeHtml, showToast } from './ui-utils';
+import type { ParticipantsController, SignerParticipantSummary } from './participants';
+import type { FieldDefinitionsController } from './field-definitions';
+import type { PlacementEditorController } from './placement-editor';
+import type { AgreementStateBindingController } from './state-binding';
+import type { AgreementWizardValidationController } from './wizard-validation';
+import type { AgreementResumeController } from './resume-flow';
+import type { AgreementFeedbackController, AgreementFeedbackAPIError } from './feedback';
+import type { DocumentSelectionController } from './document-selection';
+import type { WizardNavigationController } from './wizard-navigation';
+import type { SendReadinessController } from './send-readiness';
+import type { AgreementFormSubmitController } from './form-submit';
+import type { AgreementTelemetryEmitter } from './telemetry';
 
-export function createAgreementFormRuntimeCoordinator(inputConfig = {}): AgreementFormRuntime {
+interface CoordinatorWizardDocumentState {
+  id?: string | null;
+  title?: string | null;
+  pageCount?: number | null;
+}
+
+interface CoordinatorWizardDetailsState {
+  title?: string;
+  message?: string;
+}
+
+interface CoordinatorWizardState extends AgreementProgressState {
+  document?: CoordinatorWizardDocumentState | null;
+  details?: CoordinatorWizardDetailsState | null;
+  titleSource?: unknown;
+  updatedAt?: string | null;
+  syncPending?: boolean;
+  serverDraftId?: string | null;
+  serverRevision?: number;
+  lastSyncedAt?: string | null;
+  fieldPlacements?: NormalizedPlacementInstance[];
+  fieldRules?: FieldRuleState[];
+}
+
+function requireElement<T>(value: T | null | undefined, label: string): T {
+  if (!value) {
+    throw new Error(`Agreement form boot failed: missing required ${label}`);
+  }
+  return value;
+}
+
+function requireButton(value: HTMLElement | null | undefined, label: string): HTMLButtonElement {
+  if (!(value instanceof HTMLButtonElement)) {
+    throw new Error(`Agreement form boot failed: missing required ${label}`);
+  }
+  return value;
+}
+
+export function createAgreementFormRuntimeCoordinator(
+  inputConfig: AgreementFormRuntimeInputConfig = {},
+): AgreementFormRuntime {
   const {
     config,
     normalizedConfig,
@@ -82,10 +137,10 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     isEditMode,
   });
 
-  const emitWizardTelemetry = createAgreementTelemetryEmitter();
-  const normalizeTitleSource = (value, fallback = TITLE_SOURCE.AUTOFILL) =>
+  const emitWizardTelemetry: AgreementTelemetryEmitter = createAgreementTelemetryEmitter();
+  const normalizeTitleSource = (value: unknown, fallback: string = TITLE_SOURCE.AUTOFILL): string =>
     normalizeAgreementTitleSource(value, fallback);
-  const hasMeaningfulProgress = (state) => hasMeaningfulWizardProgress(state, {
+  const hasMeaningfulProgress = (state: CoordinatorWizardState | null | undefined): boolean => hasMeaningfulWizardProgress(state, {
     normalizeTitleSource,
     titleSource: TITLE_SOURCE,
   });
@@ -95,38 +150,74 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
   });
 
   const form = agreementRefs.form.root;
-  const submitBtn = agreementRefs.form.submitBtn;
+  const submitBtn = requireButton(agreementRefs.form.submitBtn, 'submit button');
   const formAnnouncements = agreementRefs.form.announcements;
 
-  let participantsController;
-  let fieldDefinitionsController;
-  let placementController;
-  let stateBindingController;
-  let validationController;
-  let resumeController;
-  let feedbackController;
-  let runtimeActionsController;
-  let placementLinkGroupState = createLinkGroupState();
+  let participantsController: ParticipantsController | null = null;
+  let fieldDefinitionsController: FieldDefinitionsController | null = null;
+  let placementController: PlacementEditorController | null = null;
+  let stateBindingController: AgreementStateBindingController | null = null;
+  let validationController: AgreementWizardValidationController | null = null;
+  let resumeController: AgreementResumeController | null = null;
+  let feedbackController: AgreementFeedbackController | null = null;
+  let runtimeActionsController: ReturnType<typeof createAgreementRuntimeActionsController> | null = null;
+  let placementLinkGroupState: LinkGroupState = createLinkGroupState();
 
   const debouncedTrackChanges = () => stateBindingController?.debouncedTrackChanges?.();
   const trackWizardStateChanges = () => runtimeActionsController?.trackWizardStateChanges?.();
-  const formatRelativeTime = (value) => feedbackController.formatRelativeTime(value);
-  const restoreSyncStatusFromState = () => feedbackController.restoreSyncStatusFromState();
-  const updateSyncStatus = (status) => feedbackController.updateSyncStatus(status);
-  const showSyncConflictDialog = (serverRevision) => feedbackController.showSyncConflictDialog(serverRevision);
-  const mapUserFacingError = (message, code = '', status = 0) =>
-    feedbackController.mapUserFacingError(message, code, status);
-  const parseAPIError = (response, fallbackMessage) =>
-    feedbackController.parseAPIError(response, fallbackMessage);
-  const announceError = (message, code = '', status = 0) =>
-    feedbackController.announceError(message, code, status);
-  const surfaceSyncOutcome = (resultPromise, options = {}) =>
-    feedbackController.surfaceSyncOutcome(resultPromise, options);
+  const formatRelativeTime = (value?: string | null): string => feedbackController?.formatRelativeTime(value) || 'unknown';
+  const restoreSyncStatusFromState = (): void => feedbackController?.restoreSyncStatusFromState();
+  const updateSyncStatus = (status?: string): void => feedbackController?.updateSyncStatus(status);
+  const showSyncConflictDialog = (serverRevision?: number | string): void => feedbackController?.showSyncConflictDialog(serverRevision);
+  const mapUserFacingError = (message: string, code = '', status = 0): string =>
+    feedbackController?.mapUserFacingError(message, code, status) || String(message || '').trim();
+  const parseAPIError = (response: Response, fallbackMessage: string): Promise<AgreementFeedbackAPIError> =>
+    feedbackController
+      ? feedbackController.parseAPIError(response, fallbackMessage)
+      : Promise.resolve({ status: Number(response.status || 0), code: '', details: {}, message: fallbackMessage });
+  const announceError = (message: string, code = '', status = 0): void =>
+    feedbackController?.announceError(message, code, status);
+  const surfaceSyncOutcome = (
+    resultPromise: Promise<Record<string, unknown>> | Record<string, unknown>,
+    options: { errorMessage?: string } = {},
+  ): Promise<Record<string, unknown>> =>
+    feedbackController
+      ? feedbackController.surfaceSyncOutcome(resultPromise, options)
+      : Promise.resolve({});
+  const getActiveTabDebugState = () => ({
+    isOwner: syncOrchestrator?.isOwner ?? activeTabController.isOwner,
+    claim: syncOrchestrator?.currentClaim ?? activeTabController.currentClaim,
+    blockedReason: syncOrchestrator?.lastBlockedReason ?? activeTabController.lastBlockedReason,
+  });
 
   const ownershipUI = createOwnershipUIController(agreementRefs, {
     formatRelativeTime,
   });
   const updateActiveTabOwnershipUI = (context = {}) => ownershipUI.render(context);
+  const parseControllerAPIError = async (
+    response: Response,
+    fallbackMessage: string,
+  ): Promise<Error & { code?: string; status?: number }> => {
+    const apiError = await parseAPIError(response, fallbackMessage);
+    const error = new Error(apiError.message) as Error & { code?: string; status?: number };
+    error.code = apiError.code;
+    error.status = apiError.status;
+    return error;
+  };
+  const documentSelectionStateManager = {
+    hasResumableState: (): boolean => stateManager.hasResumableState(),
+    setTitleSource: (source: string, options?: { syncPending?: boolean }): void => stateManager.setTitleSource(source, options),
+    updateDocument: (doc: { id: string | null; title: string | null; pageCount: number | null }): void => stateManager.updateDocument(doc),
+    updateDetails: (details: { title?: string; message?: string }, options?: { titleSource?: string }): void =>
+      stateManager.updateDetails(details, options),
+    getState: (): { titleSource?: unknown; details: { message?: string } } => {
+      const state = stateManager.getState();
+      return {
+        titleSource: state.titleSource,
+        details: state.details && typeof state.details === 'object' ? state.details : {},
+      };
+    },
+  };
 
   const stateManager = new WizardStateManager({
     storageKey: WIZARD_STORAGE_KEY,
@@ -138,7 +229,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     normalizeTitleSource,
     parsePositiveInt,
     hasMeaningfulWizardProgress: hasMeaningfulProgress,
-    collectFormState: () => {
+    collectFormState: (): CoordinatorWizardState => {
       const docId = agreementRefs.form.documentIdInput?.value || null;
       const docTitle = document.getElementById('selected-document-title')?.textContent?.trim() || null;
       const activeTitleSource = normalizeTitleSource(
@@ -163,7 +254,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
         fieldRules: fieldDefinitionsController?.collectFieldRulesForState?.() || [],
       };
     },
-    restoreDocumentState: (state) => {
+    restoreDocumentState: (state: CoordinatorWizardState) => {
       if (!state?.document?.id) return;
       const selectedDoc = document.getElementById('selected-document');
       const docPicker = document.getElementById('document-picker');
@@ -179,7 +270,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
       if (selectedDoc) selectedDoc.classList.remove('hidden');
       if (docPicker) docPicker.classList.add('hidden');
     },
-    restoreDetailsState: (state) => {
+    restoreDetailsState: (state: CoordinatorWizardState) => {
       agreementRefs.form.titleInput.value = state?.details?.title || '';
       agreementRefs.form.messageInput.value = state?.details?.message || '';
     },
@@ -201,7 +292,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     draftRequestHeaders,
   });
 
-  let syncOrchestrator;
+  let syncOrchestrator: SyncController;
   const activeTabController = new ActiveTabController({
     storageKey: ACTIVE_TAB_STORAGE_KEY,
     channelName: WIZARD_CHANNEL_NAME,
@@ -222,8 +313,8 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
         notify: false,
       });
       if (mergeResult.replacedLocalState) {
-        const reconcilePromise = resumeController?.reconcileBootstrapState?.({ reason: 'state_updated' });
-        if (reconcilePromise && typeof reconcilePromise.then === 'function') {
+        const reconcilePromise = resumeController?.reconcileBootstrapState?.();
+        if (reconcilePromise) {
           void reconcilePromise.then(() => {
             stateManager.notifyListeners();
           });
@@ -255,6 +346,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     stateManager,
     syncService,
     activeTabController,
+    storageKey: WIZARD_STORAGE_KEY,
     statusUpdater: updateSyncStatus,
     showConflictDialog: showSyncConflictDialog,
     syncDebounceMs: SYNC_DEBOUNCE_MS,
@@ -288,8 +380,8 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
       },
       startSideEffects() {
         void resumeController?.maybeShowResumeDialog?.();
-        documentSelectionController.loadDocuments();
-        documentSelectionController.loadRecentDocuments();
+        void documentSelectionController.loadDocuments();
+        void documentSelectionController.loadRecentDocuments();
       },
       destroy() {
         ownershipUI.destroy();
@@ -298,7 +390,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     },
   });
 
-  const documentSelectionController = createDocumentSelectionController({
+  const documentSelectionController: DocumentSelectionController = createDocumentSelectionController({
     apiBase,
     apiVersionBase,
     currentUserID,
@@ -306,9 +398,9 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     isEditMode,
     titleSource: TITLE_SOURCE,
     normalizeTitleSource,
-    stateManager,
+    stateManager: documentSelectionStateManager,
     previewCard,
-    parseAPIError,
+    parseAPIError: parseControllerAPIError,
     announceError,
     showToast,
     mapUserFacingError,
@@ -317,16 +409,10 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
   documentSelectionController.initializeTitleSourceSeed();
   documentSelectionController.bindEvents();
 
-  const {
-    documentIdInput,
-    selectedDocument,
-    documentPicker,
-    documentSearch,
-    documentList,
-    selectedDocumentTitle,
-    selectedDocumentInfo,
-    documentPageCountInput,
-  } = documentSelectionController.refs;
+  const documentIdInput = requireElement(documentSelectionController.refs.documentIdInput, 'document id input');
+  const documentSearch = requireElement(documentSelectionController.refs.documentSearch, 'document search input');
+  const selectedDocumentTitle = documentSelectionController.refs.selectedDocumentTitle;
+  const documentPageCountInput = documentSelectionController.refs.documentPageCountInput;
   const ensureSelectedDocumentCompatibility = documentSelectionController.ensureSelectedDocumentCompatibility;
   const getCurrentDocumentPageCount = documentSelectionController.getCurrentDocumentPageCount;
 
@@ -337,9 +423,9 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
   participantsController.initialize();
   participantsController.bindEvents();
 
-  const participantsContainer = participantsController.refs.participantsContainer;
-  const addParticipantBtn = participantsController.refs.addParticipantBtn;
-  const getSignerParticipants = () => participantsController.getSignerParticipants();
+  const participantsContainer = requireElement(participantsController.refs.participantsContainer, 'participants container');
+  const addParticipantBtn = requireElement(participantsController.refs.addParticipantBtn, 'add participant button');
+  const getSignerParticipants = (): SignerParticipantSummary[] => participantsController?.getSignerParticipants() || [];
 
   fieldDefinitionsController = createFieldDefinitionsController({
     initialFieldInstances,
@@ -351,7 +437,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     onRulesChanged: () => debouncedTrackChanges(),
     onParticipantsChanged: () => fieldDefinitionsController?.updateFieldParticipantOptions?.(),
     getPlacementLinkGroupState: () => placementController?.getLinkGroupState?.() || placementLinkGroupState,
-    setPlacementLinkGroupState: (nextState) => {
+    setPlacementLinkGroupState: (nextState: LinkGroupState | null | undefined) => {
       placementLinkGroupState = nextState || createLinkGroupState();
       placementController?.setLinkGroupState?.(placementLinkGroupState);
     },
@@ -359,21 +445,26 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
   fieldDefinitionsController.bindEvents();
   fieldDefinitionsController.initialize();
 
-  const fieldDefinitionsContainer = fieldDefinitionsController.refs.fieldDefinitionsContainer;
+  const fieldDefinitionsContainer = requireElement(fieldDefinitionsController.refs.fieldDefinitionsContainer, 'field definitions container');
   const fieldRulesContainer = fieldDefinitionsController.refs.fieldRulesContainer;
-  const addFieldBtn = fieldDefinitionsController.refs.addFieldBtn;
+  const addFieldBtn = requireElement(fieldDefinitionsController.refs.addFieldBtn, 'add field button');
   const fieldPlacementsJSONInput = fieldDefinitionsController.refs.fieldPlacementsJSONInput;
   const fieldRulesJSONInput = fieldDefinitionsController.refs.fieldRulesJSONInput;
-  const collectFieldRulesForState = () => fieldDefinitionsController.collectFieldRulesForState();
-  const collectFieldRulesForForm = () => fieldDefinitionsController.collectFieldRulesForForm();
-  const expandRulesForPreview = (rules, terminalPage) => fieldDefinitionsController.expandRulesForPreview(rules, terminalPage);
-  const updateFieldParticipantOptions = () => fieldDefinitionsController.updateFieldParticipantOptions();
+  const collectFieldRulesForState = (): FieldRuleState[] => fieldDefinitionsController?.collectFieldRulesForState() || [];
+  const collectFieldRulesForReadiness = (): Record<string, unknown>[] =>
+    (fieldDefinitionsController?.collectFieldRulesForState() || []) as unknown as Record<string, unknown>[];
+  const collectFieldRulesForForm = (): FieldRuleFormPayload[] => fieldDefinitionsController?.collectFieldRulesForForm() || [];
+  const expandRulesForPreview = (rules: Array<Partial<FieldRuleState>>, terminalPage: number): ExpandedRuleField[] =>
+    fieldDefinitionsController?.expandRulesForPreview(rules, terminalPage) || [];
+  const updateFieldParticipantOptions = (): void => fieldDefinitionsController?.updateFieldParticipantOptions();
   const collectPlacementFieldDefinitions = () => fieldDefinitionsController.collectPlacementFieldDefinitions();
-  const getFieldDefinitionById = (definitionId) => fieldDefinitionsController.getFieldDefinitionById(definitionId);
-  const findSignersMissingRequiredSignatureField = () => fieldDefinitionsController.findSignersMissingRequiredSignatureField();
-  const missingSignatureFieldMessage = (missingSigners) => fieldDefinitionsController.missingSignatureFieldMessage(missingSigners);
+  const getFieldDefinitionById = (definitionId: string) => fieldDefinitionsController?.getFieldDefinitionById(definitionId) || null;
+  const findSignersMissingRequiredSignatureField = (): SignerParticipantSummary[] =>
+    fieldDefinitionsController?.findSignersMissingRequiredSignatureField() || [];
+  const missingSignatureFieldMessage = (missingSigners: SignerParticipantSummary[]): string =>
+    fieldDefinitionsController?.missingSignatureFieldMessage(missingSigners) || '';
 
-  const sendReadinessController = createSendReadinessController({
+  const sendReadinessController: SendReadinessController = createSendReadinessController({
     documentIdInput,
     selectedDocumentTitle,
     participantsContainer,
@@ -383,7 +474,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     escapeHtml,
     getSignerParticipants,
     getCurrentDocumentPageCount,
-    collectFieldRulesForState,
+    collectFieldRulesForState: collectFieldRulesForReadiness,
     expandRulesForPreview,
     findSignersMissingRequiredSignatureField,
     goToStep: (stepNum) => wizardNavigationController.goToStep(stepNum),
@@ -394,11 +485,11 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     apiVersionBase,
     documentIdInput,
     fieldPlacementsJSONInput,
-    initialFieldInstances: fieldDefinitionsController.buildInitialPlacementInstances(),
+    initialFieldInstances: fieldDefinitionsController.buildInitialPlacementInstances() as unknown as Array<Record<string, unknown>>,
     initialLinkGroupState: placementLinkGroupState,
     collectPlacementFieldDefinitions,
     getFieldDefinitionById,
-    parseAPIError,
+    parseAPIError: parseControllerAPIError,
     mapUserFacingError,
     showToast,
     escapeHtml,
@@ -407,7 +498,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
   placementController.bindEvents();
   placementLinkGroupState = placementController.getLinkGroupState();
 
-  const wizardNavigationController = createWizardNavigationController({
+  const wizardNavigationController: WizardNavigationController = createWizardNavigationController({
     totalWizardSteps: TOTAL_WIZARD_STEPS,
     wizardStep: WIZARD_STEP,
     nextStepLabels: WIZARD_NEXT_STEP_LABELS,
@@ -415,14 +506,14 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     syncOrchestrator,
     previewCard,
     updateActiveTabOwnershipUI,
-    validateStep: (stepNum) => validationController.validateStep(stepNum),
+    validateStep: (stepNum: number) => validationController?.validateStep(stepNum) !== false,
     onPlacementStep() {
       void placementController.initPlacementEditor();
     },
     onReviewStep() {
       sendReadinessController.initSendReadinessCheck();
     },
-    onStepChanged(stepNum) {
+    onStepChanged(stepNum: number) {
       stateManager.updateStep(stepNum);
       trackWizardStateChanges();
       void syncOrchestrator.forceSync();
@@ -455,8 +546,9 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     fieldDefinitionsContainer,
     fieldPlacementsJSONInput,
     fieldRulesJSONInput,
-    collectFieldRulesForForm,
-    buildPlacementFormEntries: () => placementController?.buildPlacementFormEntries?.() || [],
+    collectFieldRulesForForm: () => collectFieldRulesForForm() as unknown as Record<string, unknown>[],
+    buildPlacementFormEntries: () =>
+      (placementController?.buildPlacementFormEntries?.() || []) as unknown as Record<string, unknown>[],
     getCurrentStep: () => wizardNavigationController.getCurrentStep(),
     totalWizardSteps: TOTAL_WIZARD_STEPS,
   });
@@ -497,16 +589,18 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
 
   resumeController = createAgreementResumeController({
     isEditMode,
+    storageKey: WIZARD_STORAGE_KEY,
     stateManager,
     syncOrchestrator,
     syncService,
     hasMeaningfulWizardProgress,
     formatRelativeTime,
-    emitWizardTelemetry,
+    emitWizardTelemetry: (eventName, fields) => emitWizardTelemetry(eventName, fields as unknown as Record<string, unknown>),
+    getActiveTabDebugState,
   });
   resumeController.bindEvents();
 
-  const formSubmitController = createAgreementFormSubmitController({
+  const formSubmitController: AgreementFormSubmitController = createAgreementFormSubmitController({
     config,
     form,
     submitBtn,
@@ -520,6 +614,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     fieldPlacementsJSONInput,
     fieldRulesJSONInput,
     currentUserID,
+    storageKey: WIZARD_STORAGE_KEY,
     draftsEndpoint,
     draftEndpointWithUserID,
     draftRequestHeaders,
@@ -545,6 +640,7 @@ export function createAgreementFormRuntimeCoordinator(inputConfig = {}): Agreeme
     parseAPIError,
     goToStep: (stepNum) => wizardNavigationController.goToStep(stepNum),
     surfaceSyncOutcome,
+    getActiveTabDebugState,
     addFieldBtn,
   });
   formSubmitController.bindEvents();

@@ -98,6 +98,9 @@ test('translation queue runtime: mount renders saved filters and rows from share
   assert.match(container.innerHTML, /Due State/);
   assert.match(container.innerHTML, /Assignee/);
   assert.match(container.innerHTML, /Reviewer/);
+  assert.doesNotMatch(container.innerHTML, /data-action-group="review"/);
+  assert.match(container.innerHTML, /data-action-group="manage"/);
+  assert.match(container.innerHTML, /data-action="archive"/);
 });
 
 test('translation queue runtime: version conflicts roll back optimistic claim state', async () => {
@@ -130,7 +133,7 @@ test('translation queue runtime: version conflicts roll back optimistic claim st
   await screen.runInlineAction('claim', 'asg-open-1');
 
   assert.equal(screen.getRows()[0].queue_state, 'pending');
-  assert.equal(screen.getFeedback()?.code, 'VERSION_CONFLICT');
+  assert.equal(screen.getFeedback()?.code, 'TRANSLATION_QUEUE_VERSION_CONFLICT');
   assert.match(screen.getFeedback()?.message || '', /version/i);
 });
 
@@ -153,4 +156,28 @@ test('translation queue runtime: disabled action reasons render with backend par
 
   assert.match(container.innerHTML, /missing permission: admin\.translations\.claim/);
   assert.match(container.innerHTML, /aria-disabled="true"/);
+});
+
+test('translation queue runtime: review rows keep reviewer actions separate from management archive', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.review_ready.meta,
+      ...fixtures.meta,
+    },
+    data: fixtures.states.review_ready.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  assert.match(container.innerHTML, /data-action-group="review"/);
+  assert.match(container.innerHTML, /data-action="approve"/);
+  assert.match(container.innerHTML, /data-action="reject"/);
+  assert.match(container.innerHTML, /data-action-group="manage"/);
+  assert.match(container.innerHTML, /data-action="archive"/);
 });

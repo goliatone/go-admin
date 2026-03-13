@@ -1,3 +1,10 @@
+import {
+  buildSendDebugFields,
+  logSendInfo,
+  logSendWarn,
+} from './send-debug';
+import type { SendDebugOwnershipState } from './send-debug';
+
 interface ResumeDocumentState {
   id?: string | null;
   title?: string | null;
@@ -62,12 +69,14 @@ interface ResumeTelemetryFields {
 
 interface ResumeControllerOptions {
   isEditMode: boolean;
+  storageKey: string;
   stateManager: ResumeStateManager;
   syncOrchestrator: ResumeSyncOrchestrator;
   syncService: ResumeSyncService;
   hasMeaningfulWizardProgress(state: ResumeWizardState): boolean;
   formatRelativeTime(value?: string | null): string;
   emitWizardTelemetry(eventName: string, fields?: ResumeTelemetryFields): void;
+  getActiveTabDebugState?(): SendDebugOwnershipState | null;
 }
 
 type ResumeAction = 'continue' | 'start_new' | 'proceed' | 'discard';
@@ -89,12 +98,14 @@ export function createAgreementResumeController(
 ): AgreementResumeController {
   const {
     isEditMode,
+    storageKey,
     stateManager,
     syncOrchestrator,
     syncService,
     hasMeaningfulWizardProgress,
     formatRelativeTime,
     emitWizardTelemetry,
+    getActiveTabDebugState,
   } = options;
 
   function mergeUnsyncedLocalOntoServer(
@@ -121,9 +132,27 @@ export function createAgreementResumeController(
   async function reconcileBootstrapState(): Promise<ResumeWizardState> {
     if (isEditMode) return stateManager.getState();
     const localState = stateManager.normalizeLoadedState(stateManager.getState());
+    logSendInfo('resume_reconcile_start', buildSendDebugFields({
+      state: localState,
+      storageKey,
+      ownership: getActiveTabDebugState?.() || undefined,
+      sendAttemptId: null,
+      extra: {
+        source: 'local_bootstrap',
+      },
+    }));
     const localDraftID = String(localState?.serverDraftId || '').trim();
     if (!localDraftID) {
       stateManager.setState(localState, { syncPending: Boolean(localState.syncPending), notify: false });
+      logSendInfo('resume_reconcile_complete', buildSendDebugFields({
+        state: localState,
+        storageKey,
+        ownership: getActiveTabDebugState?.() || undefined,
+        sendAttemptId: null,
+        extra: {
+          source: 'local_only',
+        },
+      }));
       return stateManager.getState();
     }
 
@@ -141,6 +170,17 @@ export function createAgreementResumeController(
         ? mergeUnsyncedLocalOntoServer(localState, serverState)
         : serverState;
       stateManager.setState(reconciled, { syncPending: Boolean(reconciled.syncPending), notify: false });
+      logSendInfo('resume_reconcile_complete', buildSendDebugFields({
+        state: reconciled,
+        storageKey,
+        ownership: getActiveTabDebugState?.() || undefined,
+        sendAttemptId: null,
+        extra: {
+          source: sameDraft && localState.syncPending === true ? 'merged_local_over_remote' : 'remote_draft',
+          loadedDraftId: String(serverDraft?.id || localDraftID).trim() || null,
+          loadedRevision: Number(serverDraft?.revision || 0),
+        },
+      }));
       return stateManager.getState();
     } catch (error: unknown) {
       const status = typeof error === 'object' && error !== null && 'status' in error
@@ -154,8 +194,30 @@ export function createAgreementResumeController(
           lastSyncedAt: null,
         });
         stateManager.setState(localOnlyState, { syncPending: Boolean(localOnlyState.syncPending), notify: false });
+        logSendWarn('resume_reconcile_remote_missing', buildSendDebugFields({
+          state: localOnlyState,
+          storageKey,
+          ownership: getActiveTabDebugState?.() || undefined,
+          sendAttemptId: null,
+          extra: {
+            source: 'remote_missing_reset_local',
+            staleDraftId: localDraftID,
+            status,
+          },
+        }));
         return stateManager.getState();
       }
+      logSendWarn('resume_reconcile_failed', buildSendDebugFields({
+        state: localState,
+        storageKey,
+        ownership: getActiveTabDebugState?.() || undefined,
+        sendAttemptId: null,
+        extra: {
+          source: 'reconcile_failed_keep_local',
+          staleDraftId: localDraftID,
+          status,
+        },
+      }));
       return stateManager.getState();
     }
   }

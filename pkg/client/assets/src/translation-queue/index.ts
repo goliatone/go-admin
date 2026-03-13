@@ -70,6 +70,19 @@ export interface AssignmentReviewActionStates {
   submit_review: TranslationActionState;
   approve: TranslationActionState;
   reject: TranslationActionState;
+  archive: TranslationActionState;
+}
+
+export interface AssignmentReviewFeedback {
+  last_rejection_reason?: string;
+  last_reviewer_id?: string;
+}
+
+export interface AssignmentQASummary {
+  enabled: boolean;
+  warning_count: number;
+  blocker_count: number;
+  finding_count: number;
 }
 
 export interface AssignmentListRow {
@@ -98,6 +111,9 @@ export interface AssignmentListRow {
   created_at: string;
   actions: AssignmentActionStates;
   review_actions: AssignmentReviewActionStates;
+  last_rejection_reason?: string;
+  review_feedback?: AssignmentReviewFeedback;
+  qa_summary?: AssignmentQASummary;
 }
 
 export interface AssignmentListMeta {
@@ -136,6 +152,7 @@ export interface AssignmentActionResponse {
 export interface AssignmentActionRequest {
   expected_version: number;
   idempotency_key?: string;
+  reason?: string;
 }
 
 export interface AssignmentQueueScreenConfig {
@@ -233,6 +250,32 @@ function normalizeActionState(value: unknown): TranslationActionState {
     reason: asString(raw.reason) || undefined,
     reason_code: asString(raw.reason_code) || undefined,
     permission: asString(raw.permission) || undefined,
+  };
+}
+
+function normalizeReviewFeedback(value: unknown): AssignmentReviewFeedback | undefined {
+  const raw = asRecord(value);
+  const lastRejectionReason = asString(raw.last_rejection_reason);
+  const lastReviewerID = asString(raw.last_reviewer_id);
+  if (!lastRejectionReason && !lastReviewerID) return undefined;
+  return {
+    last_rejection_reason: lastRejectionReason || undefined,
+    last_reviewer_id: lastReviewerID || undefined,
+  };
+}
+
+function normalizeQASummary(value: unknown): AssignmentQASummary | undefined {
+  const raw = asRecord(value);
+  const enabled = raw.enabled === true;
+  const warningCount = asNumber(raw.warning_count);
+  const blockerCount = asNumber(raw.blocker_count);
+  const findingCount = asNumber(raw.finding_count);
+  if (!enabled && warningCount <= 0 && blockerCount <= 0 && findingCount <= 0) return undefined;
+  return {
+    enabled,
+    warning_count: warningCount,
+    blocker_count: blockerCount,
+    finding_count: findingCount,
   };
 }
 
@@ -411,7 +454,11 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
       submit_review: normalizeActionState(asRecord(raw.review_actions).submit_review),
       approve: normalizeActionState(asRecord(raw.review_actions).approve),
       reject: normalizeActionState(asRecord(raw.review_actions).reject),
+      archive: normalizeActionState(asRecord(raw.review_actions).archive),
     },
+    last_rejection_reason: asString(raw.last_rejection_reason) || undefined,
+    review_feedback: normalizeReviewFeedback(raw.review_feedback),
+    qa_summary: normalizeQASummary(raw.qa_summary),
   };
 }
 
@@ -456,7 +503,7 @@ export async function fetchAssignmentList(
 async function runAssignmentAction(
   endpoint: string,
   assignmentId: string,
-  action: 'claim' | 'release',
+  action: 'claim' | 'release' | 'approve' | 'reject' | 'archive',
   request: AssignmentActionRequest,
 ): Promise<AssignmentActionResponse> {
   const payload: AssignmentActionRequest = {
@@ -464,6 +511,9 @@ async function runAssignmentAction(
   };
   if (request.idempotency_key) {
     payload.idempotency_key = request.idempotency_key;
+  }
+  if (request.reason) {
+    payload.reason = request.reason;
   }
   const response = await httpRequest(`${endpoint}/${encodeURIComponent(assignmentId)}/actions/${action}`, {
     method: 'POST',
@@ -509,6 +559,10 @@ function buildActionIdempotencyKey(action: 'claim' | 'release', row: AssignmentL
   return `queue-${action}-${row.id}-${row.version}-${Date.now()}`;
 }
 
+function buildReviewActionIdempotencyKey(action: 'approve' | 'reject' | 'archive', row: AssignmentListRow): string {
+  return `queue-${action}-${row.id}-${row.version}-${Date.now()}`;
+}
+
 function cloneRow(row: AssignmentListRow): AssignmentListRow {
   return {
     ...row,
@@ -520,7 +574,10 @@ function cloneRow(row: AssignmentListRow): AssignmentListRow {
       submit_review: { ...row.review_actions.submit_review },
       approve: { ...row.review_actions.approve },
       reject: { ...row.review_actions.reject },
+      archive: { ...row.review_actions.archive },
     },
+    review_feedback: row.review_feedback ? { ...row.review_feedback } : undefined,
+    qa_summary: row.qa_summary ? { ...row.qa_summary } : undefined,
   };
 }
 
@@ -586,6 +643,24 @@ function formatQueueActionError(error: unknown, fallback: string): AssignmentQue
     kind: 'error',
     message: fallback,
   };
+}
+
+function queueLifecycleState(row: AssignmentListRow): string {
+  return asString(row.queue_state || row.status);
+}
+
+function isReviewQueueState(state: string): boolean {
+  return state === 'review' || state === 'in_review';
+}
+
+function shouldShowQueueReviewActions(row: AssignmentListRow): boolean {
+  const state = queueLifecycleState(row);
+  if (isReviewQueueState(state)) return true;
+  return Boolean(row.review_actions.approve.enabled || row.review_actions.reject.enabled);
+}
+
+function shouldShowQueueManagementActions(row: AssignmentListRow): boolean {
+  return Boolean(row.review_actions.archive.enabled);
 }
 
 export class AssignmentQueueScreen {
@@ -707,6 +782,60 @@ export class AssignmentQueueScreen {
       };
     } catch (error) {
       this.rows[index] = previous;
+      this.feedback = formatQueueActionError(error, `Failed to ${action} assignment.`);
+    } finally {
+      this.pendingActions.delete(pendingKey);
+      this.render();
+    }
+  }
+
+  async runReviewAction(action: 'approve' | 'reject' | 'archive', assignmentId: string): Promise<void> {
+    const index = this.rows.findIndex((row) => row.id === assignmentId);
+    if (index < 0) return;
+    const current = this.rows[index];
+    const actionState = current.review_actions[action];
+    if (!actionState?.enabled) {
+      this.feedback = {
+        kind: actionState?.reason_code === 'PERMISSION_DENIED' ? 'error' : 'conflict',
+        message: actionState?.reason || `Cannot ${action} this assignment.`,
+        code: actionState?.reason_code || null,
+      };
+      this.render();
+      return;
+    }
+    const request: AssignmentActionRequest = {
+      expected_version: current.version,
+      idempotency_key: buildReviewActionIdempotencyKey(action, current),
+    };
+    if (action === 'reject') {
+      const reason = typeof window !== 'undefined' ? window.prompt('Reject reason') : '';
+      if (!reason || !reason.trim()) {
+        this.feedback = {
+          kind: 'error',
+          message: 'Reject reason is required.',
+          code: 'VALIDATION_ERROR',
+        };
+        this.render();
+        return;
+      }
+      request.reason = reason.trim();
+    }
+    const pendingKey = `${action}:${assignmentId}`;
+    this.pendingActions.add(pendingKey);
+    this.feedback = null;
+    this.render();
+    try {
+      const response = await runAssignmentAction(this.config.endpoint, assignmentId, action, request);
+      this.rows[index] = cloneRow(response.data.assignment);
+      this.feedback = {
+        kind: 'success',
+        message: action === 'approve'
+          ? 'Assignment approved.'
+          : action === 'reject'
+            ? 'Assignment rejected.'
+            : 'Assignment archived.',
+      };
+    } catch (error) {
       this.feedback = formatQueueActionError(error, `Failed to ${action} assignment.`);
     } finally {
       this.pendingActions.delete(pendingKey);
@@ -903,8 +1032,13 @@ export class AssignmentQueueScreen {
   private renderRow(row: AssignmentListRow): string {
     const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
     const pendingRelease = this.pendingActions.has(`release:${row.id}`);
+    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
+    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
+    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
     const claimDisabled = pendingClaim || !row.actions.claim.enabled;
     const releaseDisabled = pendingRelease || !row.actions.release.enabled;
+    const showReviewActions = shouldShowQueueReviewActions(row);
+    const showManagementActions = shouldShowQueueManagementActions(row);
     return `
       <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
         <td>
@@ -924,12 +1058,18 @@ export class AssignmentQueueScreen {
           <div class="queue-status-cell">
             ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
             <span class="queue-content-state">${escapeHtml(humanizeToken(row.content_state))}</span>
+            ${row.qa_summary?.enabled ? `
+              <span class="queue-qa-chip ${row.qa_summary.blocker_count > 0 ? 'is-blocked' : ''}">
+                QA ${row.qa_summary.finding_count}
+              </span>
+            ` : ''}
           </div>
         </td>
         <td>
           <div class="queue-owner-cell">
             <span><strong>Assignee:</strong> ${escapeHtml(row.assignee_id || 'Open pool')}</span>
             <span><strong>Reviewer:</strong> ${escapeHtml(row.reviewer_id || 'Not set')}</span>
+            ${row.last_rejection_reason ? `<span class="queue-feedback-note">${escapeHtml(row.last_rejection_reason)}</span>` : ''}
           </div>
         </td>
         <td>
@@ -943,28 +1083,71 @@ export class AssignmentQueueScreen {
         </td>
         <td>
           <div class="queue-action-cell">
-            <button
-              type="button"
-              class="queue-action-button"
-              data-action="claim"
-              data-assignment-id="${escapeAttr(row.id)}"
-              ${claimDisabled ? 'disabled' : ''}
-              aria-disabled="${claimDisabled ? 'true' : 'false'}"
-              title="${escapeAttr(pendingClaim ? 'Claiming assignment…' : (row.actions.claim.reason || 'Claim assignment'))}"
-            >
-              ${pendingClaim ? 'Claiming…' : 'Claim'}
-            </button>
-            <button
-              type="button"
-              class="queue-action-button"
-              data-action="release"
-              data-assignment-id="${escapeAttr(row.id)}"
-              ${releaseDisabled ? 'disabled' : ''}
-              aria-disabled="${releaseDisabled ? 'true' : 'false'}"
-              title="${escapeAttr(pendingRelease ? 'Releasing assignment…' : (row.actions.release.reason || 'Release assignment'))}"
-            >
-              ${pendingRelease ? 'Releasing…' : 'Release'}
-            </button>
+            <div class="queue-action-group" data-action-group="lifecycle">
+              <button
+                type="button"
+                class="queue-action-button"
+                data-action="claim"
+                data-assignment-id="${escapeAttr(row.id)}"
+                ${claimDisabled ? 'disabled' : ''}
+                aria-disabled="${claimDisabled ? 'true' : 'false'}"
+                title="${escapeAttr(pendingClaim ? 'Claiming assignment…' : (row.actions.claim.reason || 'Claim assignment'))}"
+              >
+                ${pendingClaim ? 'Claiming…' : 'Claim'}
+              </button>
+              <button
+                type="button"
+                class="queue-action-button"
+                data-action="release"
+                data-assignment-id="${escapeAttr(row.id)}"
+                ${releaseDisabled ? 'disabled' : ''}
+                aria-disabled="${releaseDisabled ? 'true' : 'false'}"
+                title="${escapeAttr(pendingRelease ? 'Releasing assignment…' : (row.actions.release.reason || 'Release assignment'))}"
+              >
+                ${pendingRelease ? 'Releasing…' : 'Release'}
+              </button>
+            </div>
+            ${showReviewActions ? `
+              <div class="queue-action-group" data-action-group="review">
+                <button
+                  type="button"
+                  class="queue-action-button review-approve-button"
+                  data-action="approve"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
+                  aria-disabled="${pendingApprove || !row.review_actions.approve.enabled ? 'true' : 'false'}"
+                  title="${escapeAttr(pendingApprove ? 'Approving assignment…' : (row.review_actions.approve.reason || 'Approve assignment'))}"
+                >
+                  ${pendingApprove ? 'Approving…' : 'Approve'}
+                </button>
+                <button
+                  type="button"
+                  class="queue-action-button review-reject-button"
+                  data-action="reject"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
+                  aria-disabled="${pendingReject || !row.review_actions.reject.enabled ? 'true' : 'false'}"
+                  title="${escapeAttr(pendingReject ? 'Rejecting assignment…' : (row.review_actions.reject.reason || 'Reject assignment'))}"
+                >
+                  ${pendingReject ? 'Rejecting…' : 'Reject'}
+                </button>
+              </div>
+            ` : ''}
+            ${showManagementActions ? `
+              <div class="queue-action-group" data-action-group="manage">
+                <button
+                  type="button"
+                  class="queue-action-button review-archive-button"
+                  data-action="archive"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
+                  aria-disabled="${pendingArchive || !row.review_actions.archive.enabled ? 'true' : 'false'}"
+                  title="${escapeAttr(pendingArchive ? 'Archiving assignment…' : (row.review_actions.archive.reason || 'Archive assignment'))}"
+                >
+                  ${pendingArchive ? 'Archiving…' : 'Archive'}
+                </button>
+              </div>
+            ` : ''}
           </div>
         </td>
       </tr>
@@ -1033,6 +1216,10 @@ export class AssignmentQueueScreen {
         const assignmentId = button.dataset.assignmentId;
         if ((action === 'claim' || action === 'release') && assignmentId) {
           void this.runInlineAction(action, assignmentId);
+          return;
+        }
+        if ((action === 'approve' || action === 'reject' || action === 'archive') && assignmentId) {
+          void this.runReviewAction(action, assignmentId);
         }
       });
     });
@@ -1434,11 +1621,51 @@ export function getAssignmentQueueStyles(): string {
       font-size: 0.82rem;
     }
 
+    .queue-qa-chip {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .queue-qa-chip.is-blocked {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .queue-feedback-note {
+      color: #92400e;
+      font-size: 0.82rem;
+    }
+
     .queue-action-cell {
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
       justify-content: flex-end;
+    }
+
+    .queue-action-group {
+      display: inline-flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .review-approve-button {
+      border-color: #86efac;
+      color: #166534;
+    }
+
+    .review-reject-button {
+      border-color: #fda4af;
+      color: #be123c;
     }
 
     .queue-action-button[disabled],

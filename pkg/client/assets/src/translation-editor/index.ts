@@ -40,6 +40,52 @@ export interface TranslationEditorStyleGuideSummary {
   rules: string[];
 }
 
+export type TranslationEditorQASeverity = 'warning' | 'blocker';
+export type TranslationEditorQACategory = 'terminology' | 'style';
+
+export interface TranslationEditorQAFinding {
+  id: string;
+  category: TranslationEditorQACategory;
+  severity: TranslationEditorQASeverity;
+  field_path: string;
+  message: string;
+}
+
+export interface TranslationEditorQACategorySummary {
+  category: string;
+  enabled: boolean;
+  feature_flag?: string;
+  finding_count: number;
+  warning_count: number;
+  blocker_count: number;
+}
+
+export interface TranslationEditorQAResults {
+  enabled: boolean;
+  summary: {
+    finding_count: number;
+    warning_count: number;
+    blocker_count: number;
+  };
+  categories: Record<string, TranslationEditorQACategorySummary>;
+  findings: TranslationEditorQAFinding[];
+  save_blocked: boolean;
+  submit_blocked: boolean;
+}
+
+export interface TranslationEditorReviewFeedbackComment {
+  id: string;
+  body: string;
+  kind: string;
+  created_at: string;
+  author_id?: string;
+}
+
+export interface TranslationEditorReviewFeedback {
+  last_rejection_reason?: string;
+  comments: TranslationEditorReviewFeedbackComment[];
+}
+
 export interface TranslationEditorAssistPayload {
   glossary_matches: TranslationEditorGlossaryMatch[];
   style_guide_summary: TranslationEditorStyleGuideSummary;
@@ -137,6 +183,9 @@ export interface TranslationAssignmentEditorDetail {
   attachment_summary: TranslationEditorAttachmentSummary;
   translation_assignment: TranslationEditorAssignmentSummary;
   assist: TranslationEditorAssistPayload;
+  last_rejection_reason?: string;
+  review_feedback: TranslationEditorReviewFeedback;
+  qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
 }
@@ -149,6 +198,7 @@ export interface TranslationEditorUpdateResponse {
   field_drift: Record<string, TranslationEditorFieldDrift>;
   field_validations: Record<string, TranslationEditorFieldValidation>;
   assist: TranslationEditorAssistPayload;
+  qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
 }
@@ -380,6 +430,96 @@ function normalizeHistoryPage(value: unknown): TranslationEditorHistoryPage {
   };
 }
 
+function normalizeReviewFeedbackComment(value: unknown): TranslationEditorReviewFeedbackComment | null {
+  const record = asRecord(value);
+  const id = asString(record.id);
+  const body = asString(record.body);
+  if (!id && !body) return null;
+  return {
+    id: id || body || 'review-feedback',
+    body,
+    kind: asString(record.kind) || 'review_feedback',
+    created_at: asString(record.created_at),
+    author_id: asString(record.author_id) || undefined,
+  };
+}
+
+function normalizeReviewFeedback(value: unknown, fallbackReason?: unknown): TranslationEditorReviewFeedback {
+  const record = asRecord(value);
+  const comments = Array.isArray(record.comments)
+    ? record.comments
+        .map((entry) => normalizeReviewFeedbackComment(entry))
+        .filter((entry): entry is TranslationEditorReviewFeedbackComment => entry !== null)
+    : [];
+  const lastRejectionReason = asString(record.last_rejection_reason || fallbackReason) || undefined;
+  if (!comments.length && lastRejectionReason) {
+    comments.push({
+      id: 'last-rejection-reason',
+      body: lastRejectionReason,
+      kind: 'review_feedback',
+      created_at: '',
+    });
+  }
+  return {
+    last_rejection_reason: lastRejectionReason,
+    comments,
+  };
+}
+
+function normalizeQAFinding(value: unknown): TranslationEditorQAFinding | null {
+  const record = asRecord(value);
+  const id = asString(record.id);
+  const message = asString(record.message);
+  if (!id || !message) return null;
+  return {
+    id,
+    category: asString(record.category) === 'style' ? 'style' : 'terminology',
+    severity: asString(record.severity) === 'blocker' ? 'blocker' : 'warning',
+    field_path: asString(record.field_path),
+    message,
+  };
+}
+
+function normalizeQACategorySummary(value: unknown, category: string): TranslationEditorQACategorySummary {
+  const record = asRecord(value);
+  return {
+    category: asString(record.category) || category,
+    enabled: asBoolean(record.enabled),
+    feature_flag: asString(record.feature_flag) || undefined,
+    finding_count: asNumber(record.finding_count),
+    warning_count: asNumber(record.warning_count),
+    blocker_count: asNumber(record.blocker_count),
+  };
+}
+
+function normalizeQAResults(value: unknown): TranslationEditorQAResults {
+  const record = asRecord(value);
+  const summary = asRecord(record.summary);
+  const categoriesRecord = asRecord(record.categories);
+  const categories: Record<string, TranslationEditorQACategorySummary> = {};
+  for (const [key, entry] of Object.entries(categoriesRecord)) {
+    if (!key.trim()) continue;
+    categories[key.trim()] = normalizeQACategorySummary(entry, key.trim());
+  }
+  const findings = Array.isArray(record.findings)
+    ? record.findings
+        .map((entry) => normalizeQAFinding(entry))
+        .filter((entry): entry is TranslationEditorQAFinding => entry !== null)
+    : [];
+  return {
+    enabled: asBoolean(record.enabled),
+    summary: {
+      finding_count: asNumber(summary.finding_count, findings.length),
+      warning_count: asNumber(summary.warning_count),
+      blocker_count: asNumber(summary.blocker_count),
+    },
+    categories,
+    findings,
+    save_blocked: asBoolean(record.save_blocked),
+    submit_blocked: asBoolean(record.submit_blocked),
+  };
+}
+
 function normalizeAssignmentSummary(value: unknown): TranslationEditorAssignmentSummary {
   const record = asRecord(value);
   return {
@@ -524,6 +664,9 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
     attachment_summary: normalizeAttachmentSummary(record.attachment_summary, attachments),
     translation_assignment: normalizeAssignmentSummary(record.translation_assignment),
     assist: normalizeEditorAssistPayload(record.assist, record),
+    last_rejection_reason: asString(record.last_rejection_reason) || undefined,
+    review_feedback: normalizeReviewFeedback(record.review_feedback, record.last_rejection_reason),
+    qa_results: normalizeQAResults(record.qa_results),
     assignment_action_states: normalizeActionStateMap(
       record.assignment_action_states ?? record.editor_actions ?? record.actions
     ),
@@ -544,6 +687,7 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
     field_drift: normalizeFieldMap(record.field_drift, normalizeFieldDrift),
     field_validations: normalizeFieldMap(record.field_validations, normalizeFieldValidation),
     assist: normalizeEditorAssistPayload(record.assist, record),
+    qa_results: normalizeQAResults(record.qa_results),
     assignment_action_states: normalizeActionStateMap(record.assignment_action_states),
     review_action_states: normalizeActionStateMap(record.review_action_states),
   };
@@ -563,6 +707,7 @@ function rebuildFieldEntries(detail: TranslationAssignmentEditorDetail): Transla
 function computeCanSubmitReview(detail: TranslationAssignmentEditorDetail): boolean {
   const submit = detail.assignment_action_states.submit_review;
   if (!submit?.enabled) return false;
+  if (detail.qa_results.submit_blocked) return false;
   for (const entry of Object.values(detail.field_completeness)) {
     if (entry.required && entry.missing) return false;
   }
@@ -661,6 +806,7 @@ export function applyEditorUpdateResponse(
     field_drift: update.field_drift,
     field_validations: update.field_validations,
     assist: update.assist,
+    qa_results: update.qa_results,
     assignment_action_states: update.assignment_action_states,
     review_action_states: update.review_action_states,
   };
@@ -799,6 +945,24 @@ function sentenceCase(value: string): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+function assignmentLifecycleStatus(detail: TranslationAssignmentEditorDetail): string {
+  return asString(detail.status || detail.translation_assignment.status || detail.translation_assignment.queue_state);
+}
+
+function isReviewLifecycleStatus(status: string): boolean {
+  return status === 'review' || status === 'in_review';
+}
+
+function shouldShowReviewActions(detail: TranslationAssignmentEditorDetail): boolean {
+  const status = assignmentLifecycleStatus(detail);
+  if (isReviewLifecycleStatus(status)) return true;
+  return Boolean(detail.review_action_states.approve?.enabled || detail.review_action_states.reject?.enabled);
+}
+
+function shouldShowManagementActions(detail: TranslationAssignmentEditorDetail): boolean {
+  return Boolean(detail.assignment_action_states.archive?.enabled);
+}
+
 function autosaveStateLabel(
   editorState: TranslationEditorState | null,
   hasDirtyFields: boolean,
@@ -880,11 +1044,14 @@ function renderHeader(
   saving: boolean
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
-  const submitDisabled = !submitState?.enabled || saving || submitting || detail.history.total < 0;
+  const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
   const saveDisabled = saving || !hasDirtyFields;
   const sourceLocale = (detail.source_locale || 'source').toUpperCase();
   const targetLocale = (detail.target_locale || 'target').toUpperCase();
   const assignment = detail.translation_assignment;
+  const submitTitle = detail.qa_results.submit_blocked
+    ? 'Resolve QA blockers before submitting for review.'
+    : (submitState?.reason || '');
   return `
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -915,7 +1082,7 @@ function renderHeader(
             type="button"
             class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white ${submitDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-sky-700'}"
             data-action="submit-review"
-            title="${escapeAttribute(submitState?.reason || '')}"
+            title="${escapeAttribute(submitTitle)}"
             ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
           >
             ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
@@ -1033,6 +1200,143 @@ function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
   `;
 }
 
+function renderReviewFeedbackPanel(detail: TranslationAssignmentEditorDetail): string {
+  const comments = detail.review_feedback.comments;
+  if (!comments.length && !detail.last_rejection_reason) {
+    return '';
+  }
+  return `
+    <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+      <h2 class="text-lg font-semibold text-amber-950">Reviewer feedback</h2>
+      ${detail.last_rejection_reason
+        ? `<p class="mt-3 rounded-2xl bg-white/70 px-3 py-3 text-sm text-amber-900">${escapeHTML(detail.last_rejection_reason)}</p>`
+        : ''}
+      ${comments.length
+        ? `<ol class="mt-4 space-y-3">${comments.map((entry) => `
+            <li class="rounded-2xl border border-amber-200 bg-white px-3 py-3 text-sm text-amber-900">
+              <p>${escapeHTML(entry.body || 'Feedback unavailable')}</p>
+              <p class="mt-2 text-xs text-amber-700">${escapeHTML(entry.author_id || 'Reviewer')}${entry.created_at ? ` • ${escapeHTML(formatTimestamp(entry.created_at))}` : ''}</p>
+            </li>
+          `).join('')}</ol>`
+        : ''}
+    </section>
+  `;
+}
+
+function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
+  const qa = detail.qa_results;
+  if (!qa.enabled) {
+    return '';
+  }
+  const findings = qa.findings;
+  return `
+    <section class="rounded-3xl border ${qa.submit_blocked ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-white'} p-5 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-950">QA checks</h2>
+          <p class="mt-1 text-sm ${qa.submit_blocked ? 'text-rose-700' : 'text-slate-600'}">
+            ${qa.submit_blocked ? 'Submit is blocked until blockers are resolved.' : 'Warnings are advisory; blockers must be resolved before submit.'}
+          </p>
+        </div>
+        <span class="rounded-full ${qa.submit_blocked ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'} px-3 py-1 text-xs font-semibold">
+          ${qa.summary.finding_count} findings
+        </span>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Warnings ${qa.summary.warning_count}</span>
+        <span class="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-800">Blockers ${qa.summary.blocker_count}</span>
+      </div>
+      ${findings.length
+        ? `<ol class="mt-4 space-y-3">${findings.map((finding) => `
+            <li class="rounded-2xl border ${finding.severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
+              <div class="flex items-center justify-between gap-3">
+                <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
+                <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${finding.severity === 'blocker' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHTML(finding.severity)}</span>
+              </div>
+              <p class="mt-2">${escapeHTML(finding.message)}</p>
+              ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
+            </li>
+          `).join('')}</ol>`
+        : '<p class="mt-4 text-sm text-slate-500">No QA findings for this assignment.</p>'}
+    </section>
+  `;
+}
+
+function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
+  const approveState = detail.review_action_states.approve;
+  const rejectState = detail.review_action_states.reject;
+  if (!shouldShowReviewActions(detail)) {
+    return '';
+  }
+  const actions = [
+    {
+      key: 'approve',
+      label: 'Approve',
+      state: approveState,
+      tone: 'border-emerald-300 text-emerald-700',
+    },
+    {
+      key: 'reject',
+      label: 'Reject',
+      state: rejectState,
+      tone: 'border-rose-300 text-rose-700',
+    },
+  ];
+  return `
+    <section
+      class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      data-editor-panel="review-actions"
+      aria-label="Review actions"
+    >
+      <h2 class="text-lg font-semibold text-slate-950">Review actions</h2>
+      <div class="mt-4 flex flex-wrap gap-3">
+        ${actions.map((action) => {
+          const disabled = !action.state?.enabled || submitting;
+          return `
+            <button
+              type="button"
+              class="rounded-xl border px-4 py-2 text-sm font-semibold ${action.tone} ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-50'}"
+              data-action="${escapeAttribute(action.key)}"
+              title="${escapeAttribute(action.state?.reason || '')}"
+              ${disabled ? 'disabled aria-disabled="true"' : ''}
+            >
+              ${escapeHTML(action.label)}
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
+  if (!shouldShowManagementActions(detail)) {
+    return '';
+  }
+  const archiveState = detail.assignment_action_states.archive;
+  const disabled = !archiveState?.enabled || submitting;
+  return `
+    <section
+      class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      data-editor-panel="management-actions"
+      aria-label="Management actions"
+    >
+      <h2 class="text-lg font-semibold text-slate-950">Management actions</h2>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-50'}"
+          data-action="archive"
+          title="${escapeAttribute(archiveState?.reason || '')}"
+          ${disabled ? 'disabled aria-disabled="true"' : ''}
+        >
+          Archive
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 function renderAttachmentPanel(detail: TranslationAssignmentEditorDetail): string {
   return `
     <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1127,6 +1431,10 @@ export function renderTranslationEditorState(
           ${renderFieldList(detail)}
         </div>
         <aside class="space-y-6">
+          ${renderReviewActionsPanel(detail, runtime.submitting === true)}
+          ${renderManagementActionsPanel(detail, runtime.submitting === true)}
+          ${renderReviewFeedbackPanel(detail)}
+          ${renderQAPanel(detail)}
           ${renderAssistPanel(detail)}
           ${renderAttachmentPanel(detail)}
           ${renderHistoryPanel(detail)}
@@ -1242,6 +1550,15 @@ export class TranslationEditorScreen {
     this.container.querySelector<HTMLElement>('[data-action="submit-review"]')?.addEventListener('click', () => {
       void this.submitForReview();
     });
+    this.container.querySelector<HTMLElement>('[data-action="approve"]')?.addEventListener('click', () => {
+      void this.runReviewAction('approve');
+    });
+    this.container.querySelector<HTMLElement>('[data-action="reject"]')?.addEventListener('click', () => {
+      void this.runReviewAction('reject');
+    });
+    this.container.querySelector<HTMLElement>('[data-action="archive"]')?.addEventListener('click', () => {
+      void this.runReviewAction('archive');
+    });
     this.container.querySelector<HTMLElement>('[data-action="reload-server-state"]')?.addEventListener('click', () => {
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
       void this.load(this.editorState?.detail.history.page);
@@ -1311,6 +1628,21 @@ export class TranslationEditorScreen {
       this.render();
       return;
     }
+    if (!this.editorState.can_submit_review) {
+      const missingRequiredFields = Object.entries(this.editorState.detail.field_completeness)
+        .filter(([, entry]) => entry.required && entry.missing)
+        .map(([field]) => field);
+      this.feedback = {
+        kind: this.editorState.detail.qa_results.submit_blocked ? 'conflict' : 'error',
+        message: this.editorState.detail.qa_results.submit_blocked
+          ? 'Resolve QA blockers before submitting for review.'
+          : missingRequiredFields.length
+            ? `Complete required fields before submitting for review: ${missingRequiredFields.join(', ')}.`
+            : 'Submit for review is unavailable.',
+      };
+      this.render();
+      return;
+    }
     if (Object.keys(this.editorState.dirty_fields).length) {
       const saved = await this.saveDirtyFields(false);
       if (!saved) return;
@@ -1339,6 +1671,59 @@ export class TranslationEditorScreen {
       message: status === 'approved'
         ? 'Submitted and auto-approved.'
         : 'Submitted for review.',
+    };
+    this.submitting = false;
+    await this.load(this.editorState.detail.history.page);
+  }
+
+  private async runReviewAction(action: 'approve' | 'reject' | 'archive'): Promise<void> {
+    if (!this.editorState || this.submitting) return;
+    const detail = this.editorState.detail;
+    const actionState = action === 'archive'
+      ? detail.assignment_action_states.archive
+      : detail.review_action_states[action];
+    if (!actionState?.enabled) {
+      this.feedback = { kind: 'error', message: actionState?.reason || `${sentenceCase(action)} is unavailable.` };
+      this.render();
+      return;
+    }
+    const request: Record<string, unknown> = {
+      expected_version: detail.translation_assignment.version,
+    };
+    if (action === 'reject') {
+      const reason = typeof window !== 'undefined'
+        ? window.prompt('Reject reason')
+        : '';
+      if (!reason || !reason.trim()) {
+        this.feedback = { kind: 'error', message: 'Reject reason is required.' };
+        this.render();
+        return;
+      }
+      request.reason = reason.trim();
+    }
+    this.submitting = true;
+    this.render();
+    const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/actions/${action}`, {
+      method: 'POST',
+      json: request,
+    });
+    if (!response.ok) {
+      const error = await buildEditorRequestError(response, `Failed to ${action} assignment`);
+      this.feedback = {
+        kind: error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+        message: error.message,
+      };
+      this.submitting = false;
+      this.render();
+      return;
+    }
+    this.feedback = {
+      kind: 'success',
+      message: action === 'approve'
+        ? 'Assignment approved.'
+        : action === 'reject'
+          ? 'Assignment rejected.'
+          : 'Assignment archived.',
     };
     this.submitting = false;
     await this.load(this.editorState.detail.history.page);

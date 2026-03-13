@@ -54,4 +54,29 @@ test.describe('Translation Queue MVP', () => {
     await expect(disabledClaim).toHaveAttribute('title', /missing permission: admin\.translations\.claim/);
     await expect(disabledClaim).toHaveAttribute('aria-disabled', 'true');
   });
+
+  test('review rows separate reviewer actions from management archive', async ({ page }) => {
+    await page.route('**/api/translations/assignments*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          meta: {
+            ...fixtures.states.review_ready.meta,
+            ...fixtures.meta,
+          },
+          data: fixtures.states.review_ready.data,
+        }),
+      });
+    });
+
+    await navigateToTranslationQueue(page);
+
+    const row = page.locator('[data-assignment-id="asg-review-1"]');
+    await expect(row.locator('[data-action-group="review"]')).toBeVisible();
+    await expect(row.locator('[data-action-group="review"] [data-action="approve"]')).toBeVisible();
+    await expect(row.locator('[data-action-group="review"] [data-action="reject"]')).toBeVisible();
+    await expect(row.locator('[data-action-group="manage"]')).toBeVisible();
+    await expect(row.locator('[data-action-group="manage"] [data-action="archive"]')).toBeVisible();
+  });
 });
