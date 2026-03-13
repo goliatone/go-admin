@@ -2,9 +2,33 @@ package admin
 
 func TranslationQueueContractPayload() map[string]any {
 	return map[string]any{
-		"supported_sort_keys":  TranslationQueueSupportedSortKeys(),
-		"default_sort":         translationQueueDefaultSortContract(),
-		"saved_filter_presets": TranslationQueueSavedFilterPresets(),
+		"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
+		"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
+		"supported_review_states":      TranslationQueueSupportedReviewStates(),
+		"default_sort":                 translationQueueDefaultSortContract(),
+		"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
+		"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
+		"default_review_filter_preset": "review_inbox",
+		"review_aggregate_count_keys":  TranslationQueueReviewAggregateCountKeys(),
+	}
+}
+
+func TranslationQueueSupportedFilterKeys() []string {
+	return []string{
+		"status",
+		"assignee_id",
+		"reviewer_id",
+		"due_state",
+		"locale",
+		"priority",
+		"translation_group_id",
+		"review_state",
+	}
+}
+
+func TranslationQueueSupportedReviewStates() []string {
+	return []string{
+		"qa_blocked",
 	}
 }
 
@@ -75,6 +99,66 @@ func TranslationQueueSavedFilterPresets() []map[string]any {
 				"order":    "asc",
 			},
 		},
+	}
+}
+
+func TranslationQueueSavedReviewFilterPresets() []map[string]any {
+	return []map[string]any{
+		{
+			"id":          "review_inbox",
+			"label":       "Review Inbox",
+			"description": "Assignments currently waiting on the active reviewer.",
+			"query": map[string]any{
+				"status":      "review",
+				"reviewer_id": "__me__",
+				"sort":        "due_date",
+				"order":       "asc",
+			},
+		},
+		{
+			"id":          "review_overdue",
+			"label":       "Review Overdue",
+			"description": "Reviewer-owned assignments that are already overdue.",
+			"query": map[string]any{
+				"status":      "review",
+				"reviewer_id": "__me__",
+				"due_state":   "overdue",
+				"sort":        "due_date",
+				"order":       "asc",
+			},
+		},
+		{
+			"id":           "review_blocked",
+			"label":        "QA Blocked",
+			"description":  "Reviewer inbox items with blocking QA findings.",
+			"review_state": "qa_blocked",
+			"query": map[string]any{
+				"status":      "review",
+				"reviewer_id": "__me__",
+				"sort":        "due_date",
+				"order":       "asc",
+			},
+		},
+		{
+			"id":          "review_changes_requested",
+			"label":       "Changes Requested",
+			"description": "Assignments the active reviewer already sent back for fixes.",
+			"query": map[string]any{
+				"status":      "rejected",
+				"reviewer_id": "__me__",
+				"sort":        "updated_at",
+				"order":       "desc",
+			},
+		},
+	}
+}
+
+func TranslationQueueReviewAggregateCountKeys() []string {
+	return []string{
+		"review_inbox",
+		"review_overdue",
+		"review_blocked",
+		"review_changes_requested",
 	}
 }
 

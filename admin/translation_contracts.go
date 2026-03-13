@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const translationSharedContractSchemaVersionCurrent = 1
+const translationSharedContractSchemaVersionCurrent = 5
 
 const (
 	translationQueueContentStateDraft    = "draft"
@@ -41,7 +41,9 @@ func TranslationSharedContractsPayload() map[string]any {
 	return map[string]any{
 		"schema_version":        translationSharedContractSchemaVersionCurrent,
 		"status_enums":          TranslationStatusEnumContract(),
+		"dashboard_contracts":   TranslationDashboardContractPayload(),
 		"queue_contracts":       TranslationQueueContractPayload(),
+		"matrix_contracts":      TranslationMatrixContractPayload(),
 		"disabled_reason_codes": ActionDisabledReasonCodes(),
 		"source_target_drift":   TranslationSourceTargetDriftContract(),
 		"editor_contracts":      TranslationEditorContractPayload(),

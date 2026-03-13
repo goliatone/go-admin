@@ -13,6 +13,8 @@ const (
 	translationBlockedTransitionCountMetric = "admin_translation_blocked_transition_count"
 	translationCreateActionCountMetric      = "admin_translation_create_action_count"
 	translationCreateLocaleCountMetric      = "admin_translation_create_locale_count"
+	translationReviewActionCountMetric      = "admin_translation_review_action_count"
+	translationQAOutcomeCountMetric         = "admin_translation_qa_outcome_count"
 )
 
 // TranslationMetrics captures counters for translation workflow observability.
@@ -20,12 +22,16 @@ type TranslationMetrics interface {
 	IncrementBlockedTransition(ctx context.Context, tags map[string]string)
 	IncrementCreateAction(ctx context.Context, tags map[string]string)
 	IncrementCreateLocaleAction(ctx context.Context, tags map[string]string)
+	IncrementReviewAction(ctx context.Context, tags map[string]string)
+	IncrementQAOutcome(ctx context.Context, tags map[string]string)
 }
 
 var defaultTranslationMetrics TranslationMetrics = &expvarTranslationMetrics{
 	blockedTransitions: expvar.NewMap(translationBlockedTransitionCountMetric),
 	createActions:      expvar.NewMap(translationCreateActionCountMetric),
 	createLocales:      expvar.NewMap(translationCreateLocaleCountMetric),
+	reviewActions:      expvar.NewMap(translationReviewActionCountMetric),
+	qaOutcomes:         expvar.NewMap(translationQAOutcomeCountMetric),
 }
 
 var translationObservabilityLogger = slog.Default()
@@ -34,6 +40,8 @@ type expvarTranslationMetrics struct {
 	blockedTransitions *expvar.Map
 	createActions      *expvar.Map
 	createLocales      *expvar.Map
+	reviewActions      *expvar.Map
+	qaOutcomes         *expvar.Map
 }
 
 func (m *expvarTranslationMetrics) IncrementBlockedTransition(_ context.Context, tags map[string]string) {
@@ -57,6 +65,20 @@ func (m *expvarTranslationMetrics) IncrementCreateLocaleAction(_ context.Context
 	m.createLocales.Add(translationMetricTagsKey(tags), 1)
 }
 
+func (m *expvarTranslationMetrics) IncrementReviewAction(_ context.Context, tags map[string]string) {
+	if m == nil || m.reviewActions == nil {
+		return
+	}
+	m.reviewActions.Add(translationMetricTagsKey(tags), 1)
+}
+
+func (m *expvarTranslationMetrics) IncrementQAOutcome(_ context.Context, tags map[string]string) {
+	if m == nil || m.qaOutcomes == nil {
+		return
+	}
+	m.qaOutcomes.Add(translationMetricTagsKey(tags), 1)
+}
+
 type translationCreateActionEvent struct {
 	Entity             string
 	EntityID           string
@@ -76,6 +98,29 @@ type translationCreateLocaleEvent struct {
 	Environment string
 	Outcome     string
 	Err         error
+}
+
+type translationReviewActionEvent struct {
+	Action       string
+	Flow         string
+	AssignmentID string
+	EntityType   string
+	Locale       string
+	Environment  string
+	Outcome      string
+	ReasonCode   string
+	Err          error
+}
+
+type translationQAOutcomeEvent struct {
+	Trigger      string
+	AssignmentID string
+	EntityType   string
+	Locale       string
+	Environment  string
+	Outcome      string
+	WarningCount int
+	BlockerCount int
 }
 
 func recordTranslationBlockedTransitionMetric(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError) {
@@ -119,6 +164,40 @@ func recordTranslationCreateLocaleMetric(ctx context.Context, event translationC
 	}
 	defaultTranslationMetrics.IncrementCreateLocaleAction(ctx, tags)
 	logTranslationCreateLocale(ctx, event, tags)
+}
+
+func recordTranslationReviewActionMetric(ctx context.Context, event translationReviewActionEvent) {
+	if defaultTranslationMetrics == nil {
+		return
+	}
+	tags := map[string]string{
+		"action":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Action), "unknown"),
+		"flow":        primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Flow), strings.TrimSpace(event.Action), "unknown"),
+		"entity_type": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityType), "unknown"),
+		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
+		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
+	}
+	if strings.TrimSpace(event.ReasonCode) != "" {
+		tags["reason_code"] = strings.TrimSpace(event.ReasonCode)
+	}
+	defaultTranslationMetrics.IncrementReviewAction(ctx, tags)
+	logTranslationReviewAction(ctx, event, tags)
+}
+
+func recordTranslationQAOutcomeMetric(ctx context.Context, event translationQAOutcomeEvent) {
+	if defaultTranslationMetrics == nil {
+		return
+	}
+	tags := map[string]string{
+		"trigger":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Trigger), "unknown"),
+		"entity_type": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityType), "unknown"),
+		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
+		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
+	}
+	defaultTranslationMetrics.IncrementQAOutcome(ctx, tags)
+	logTranslationQAOutcome(ctx, event, tags)
 }
 
 func translationMetricTagsKey(tags map[string]string) string {
@@ -222,4 +301,53 @@ func logTranslationCreateLocale(ctx context.Context, event translationCreateLoca
 		return
 	}
 	logger.InfoContext(ctx, "translation family create-locale handled", attrs...)
+}
+
+func logTranslationReviewAction(ctx context.Context, event translationReviewActionEvent, tags map[string]string) {
+	logger := translationObservabilityLogger
+	if logger == nil {
+		return
+	}
+	attrs := []any{
+		"event", "translation.review.action",
+		"action", tags["action"],
+		"flow", tags["flow"],
+		"outcome", tags["outcome"],
+		"assignment_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.AssignmentID), "unknown"),
+		"entity_type", tags["entity_type"],
+		"target_locale", tags["locale"],
+		"environment", tags["environment"],
+		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
+		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
+	}
+	if strings.TrimSpace(event.ReasonCode) != "" {
+		attrs = append(attrs, "reason_code", strings.TrimSpace(event.ReasonCode))
+	}
+	if event.Err != nil {
+		attrs = append(attrs, "error", event.Err.Error())
+		logger.WarnContext(ctx, "translation review action failed", attrs...)
+		return
+	}
+	logger.InfoContext(ctx, "translation review action handled", attrs...)
+}
+
+func logTranslationQAOutcome(ctx context.Context, event translationQAOutcomeEvent, tags map[string]string) {
+	logger := translationObservabilityLogger
+	if logger == nil {
+		return
+	}
+	attrs := []any{
+		"event", "translation.qa.outcome",
+		"trigger", tags["trigger"],
+		"outcome", tags["outcome"],
+		"assignment_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.AssignmentID), "unknown"),
+		"entity_type", tags["entity_type"],
+		"target_locale", tags["locale"],
+		"environment", tags["environment"],
+		"warning_count", event.WarningCount,
+		"blocker_count", event.BlockerCount,
+		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
+		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
+	}
+	logger.InfoContext(ctx, "translation qa outcome recorded", attrs...)
 }

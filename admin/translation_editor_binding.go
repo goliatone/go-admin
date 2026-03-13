@@ -216,6 +216,17 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	reloaded.TargetRecordID = strings.TrimSpace(editorVariantRecordID(updatedRecord))
 	reloaded.TargetRowVersion = nextVersion
 	currentAssignment := translationEditorAssignmentByLocale(reloaded.Family, reloaded.TargetVariant.Locale)
+	qaResults := b.translationQAResults(reloaded)
+	recordTranslationQAOutcomeMetric(adminCtx.Context, translationQAOutcomeEvent{
+		Trigger:      "save",
+		AssignmentID: strings.TrimSpace(currentAssignment.ID),
+		EntityType:   strings.TrimSpace(reloaded.Family.ContentType),
+		Locale:       strings.TrimSpace(reloaded.TargetVariant.Locale),
+		Environment:  environment,
+		Outcome:      translationQAOutcomeLabel(qaResults),
+		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
+		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
+	})
 
 	return map[string]any{
 		"data": map[string]any{
@@ -234,7 +245,7 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 			"updated_at":               translationEditorRecordUpdatedAt(updatedRecord),
 			"assignment_action_states": b.assignmentEditorActionStates(adminCtx.Context, reloaded, currentAssignment),
 			"review_action_states":     b.reviewActionStates(adminCtx.Context, currentAssignment),
-			"qa_results":               b.translationQAResults(reloaded),
+			"qa_results":               qaResults,
 			"assist":                   translationEditorAssistPayload(reloaded),
 		},
 		"meta": map[string]any{
@@ -273,31 +284,7 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 			"family_id": strings.TrimSpace(assignment.TranslationGroupID),
 		})
 	}
-
-	sourceVariant := translationFamilySourceVariant(family)
-	targetVariant, hasTarget := translationFamilyVariantByLocale(family, assignment.TargetLocale)
-
-	sourceFields := cloneStringMap(sourceVariant.Fields)
-	targetFields := map[string]string{}
-	targetRecordID := strings.TrimSpace(assignment.TargetRecordID)
-	targetStatus := string(translationcore.VariantStatusDraft)
-	targetVersion := translationEditorDefaultVersion
-	lastSyncedSourceHash := ""
-	lastSyncedFields := map[string]string{}
-
-	if hasTarget {
-		targetFields = cloneStringMap(targetVariant.Fields)
-		if targetRecordID == "" {
-			targetRecordID = strings.TrimSpace(targetVariant.SourceRecordID)
-		}
-		targetStatus = strings.TrimSpace(targetVariant.Status)
-		targetVersion = translationEditorVariantVersionFromMetadata(targetVariant.Metadata)
-		lastSyncedSourceHash = strings.TrimSpace(firstNonEmpty(
-			targetVariant.SourceHashAtLastSync,
-			translationEditorSourceHashFromMetadata(targetVariant.Metadata),
-		))
-		lastSyncedFields = translationEditorSourceFieldsFromMetadata(targetVariant.Metadata)
-	}
+	editorCtx, _ := translationEditorContextFromFamily(family, assignment, environment)
 
 	entries := []ActivityEntry{}
 	if b != nil && b.admin != nil && b.admin.activity != nil {
@@ -307,29 +294,12 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 	}
 
 	sourceVersion := ""
-	if !sourceVariant.UpdatedAt.IsZero() {
-		sourceVersion = sourceVariant.UpdatedAt.UTC().Format(time.RFC3339)
+	if !editorCtx.SourceVariant.UpdatedAt.IsZero() {
+		sourceVersion = editorCtx.SourceVariant.UpdatedAt.UTC().Format(time.RFC3339)
 	}
-
-	return translationEditorContext{
-		Environment:          environment,
-		Family:               family,
-		Policy:               family.Policy,
-		SourceVariant:        sourceVariant,
-		TargetVariant:        targetVariant,
-		SourceFields:         sourceFields,
-		TargetFields:         targetFields,
-		CurrentSourceHash:    translationEditorHashFields(sourceFields),
-		LastSyncedSourceHash: lastSyncedSourceHash,
-		LastSyncedFields:     lastSyncedFields,
-		TargetRowVersion:     targetVersion,
-		SourceVersion:        sourceVersion,
-		SourceRecordID:       strings.TrimSpace(sourceVariant.SourceRecordID),
-		TargetRecordID:       targetRecordID,
-		TargetStatus:         targetStatus,
-		ActivityEntries:      entries,
-		HasTarget:            hasTarget,
-	}, nil
+	editorCtx.SourceVersion = sourceVersion
+	editorCtx.ActivityEntries = entries
+	return editorCtx, nil
 }
 
 func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, variantID, environment string) (translationEditorContext, error) {
@@ -378,8 +348,53 @@ func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, 
 	})
 }
 
+func translationEditorContextFromFamily(family translationservices.FamilyRecord, assignment TranslationAssignment, environment string) (translationEditorContext, bool) {
+	sourceVariant := translationFamilySourceVariant(family)
+	targetVariant, hasTarget := translationFamilyVariantByLocale(family, assignment.TargetLocale)
+
+	sourceFields := cloneStringMap(sourceVariant.Fields)
+	targetFields := map[string]string{}
+	targetRecordID := strings.TrimSpace(assignment.TargetRecordID)
+	targetStatus := string(translationcore.VariantStatusDraft)
+	targetVersion := translationEditorDefaultVersion
+	lastSyncedSourceHash := ""
+	lastSyncedFields := map[string]string{}
+
+	if hasTarget {
+		targetFields = cloneStringMap(targetVariant.Fields)
+		if targetRecordID == "" {
+			targetRecordID = strings.TrimSpace(targetVariant.SourceRecordID)
+		}
+		targetStatus = strings.TrimSpace(targetVariant.Status)
+		targetVersion = translationEditorVariantVersionFromMetadata(targetVariant.Metadata)
+		lastSyncedSourceHash = strings.TrimSpace(firstNonEmpty(
+			targetVariant.SourceHashAtLastSync,
+			translationEditorSourceHashFromMetadata(targetVariant.Metadata),
+		))
+		lastSyncedFields = translationEditorSourceFieldsFromMetadata(targetVariant.Metadata)
+	}
+
+	return translationEditorContext{
+		Environment:          environment,
+		Family:               family,
+		Policy:               family.Policy,
+		SourceVariant:        sourceVariant,
+		TargetVariant:        targetVariant,
+		SourceFields:         sourceFields,
+		TargetFields:         targetFields,
+		CurrentSourceHash:    translationEditorHashFields(sourceFields),
+		LastSyncedSourceHash: lastSyncedSourceHash,
+		LastSyncedFields:     lastSyncedFields,
+		TargetRowVersion:     targetVersion,
+		SourceRecordID:       strings.TrimSpace(sourceVariant.SourceRecordID),
+		TargetRecordID:       targetRecordID,
+		TargetStatus:         targetStatus,
+		HasTarget:            hasTarget,
+	}, hasTarget
+}
+
 func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext, now time.Time, historyPage, historyPerPage int) map[string]any {
-	row := b.assignmentContractRow(ctx, assignment, now)
+	row := b.assignmentContractRow(ctx, assignment, now, editorCtx.Environment)
 	editorActions := b.assignmentEditorActionStates(ctx, editorCtx, assignment)
 	fieldCompleteness := translationEditorFieldCompleteness(editorCtx)
 	fieldDrift := translationEditorFieldDrift(editorCtx)
@@ -1145,6 +1160,16 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 		})
 	}
 	qaResults := b.translationQAResults(editorCtx)
+	recordTranslationQAOutcomeMetric(adminCtx.Context, translationQAOutcomeEvent{
+		Trigger:      "submit_review",
+		AssignmentID: strings.TrimSpace(assignment.ID),
+		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
+		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
+		Environment:  environment,
+		Outcome:      translationQAOutcomeLabel(qaResults),
+		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
+		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
+	})
 	if toBool(qaResults["submit_blocked"]) {
 		return TranslationAssignment{}, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation QA blockers must be resolved before submit_review", map[string]any{
 			"assignment_id": strings.TrimSpace(assignment.ID),
@@ -1166,20 +1191,42 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 
 	targetStatus := string(translationcore.VariantStatusInReview)
 	final := submitted
+	var autoApproveEvent *translationReviewActionEvent
 	if !editorCtx.Policy.ReviewRequired {
+		reviewEvent := &translationReviewActionEvent{
+			Action:       "approve",
+			Flow:         "auto_approve",
+			AssignmentID: strings.TrimSpace(submitted.ID),
+			EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
+			Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
+			Environment:  environment,
+			Outcome:      "success",
+		}
 		final, err = service.Approve(adminCtx.Context, TranslationQueueApproveInput{
 			AssignmentID:    strings.TrimSpace(submitted.ID),
 			ReviewerID:      actorID,
 			ExpectedVersion: submitted.Version,
 		})
 		if err != nil {
+			reviewEvent.Outcome = "error"
+			reviewEvent.Err = err
+			recordTranslationReviewActionMetric(adminCtx.Context, *reviewEvent)
 			return TranslationAssignment{}, err
 		}
+		autoApproveEvent = reviewEvent
 		targetStatus = string(translationcore.VariantStatusApproved)
 	}
 
 	if err := b.persistEditorVariantStatus(adminCtx.Context, editorCtx, targetStatus, actorID); err != nil {
+		if autoApproveEvent != nil {
+			autoApproveEvent.Outcome = "error"
+			autoApproveEvent.Err = err
+			recordTranslationReviewActionMetric(adminCtx.Context, *autoApproveEvent)
+		}
 		return TranslationAssignment{}, err
+	}
+	if autoApproveEvent != nil {
+		recordTranslationReviewActionMetric(adminCtx.Context, *autoApproveEvent)
 	}
 	return final, nil
 }
@@ -1191,6 +1238,15 @@ func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, servic
 		return TranslationAssignment{}, err
 	}
 	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	event := translationReviewActionEvent{
+		Action:       "approve",
+		Flow:         "approve",
+		AssignmentID: strings.TrimSpace(assignment.ID),
+		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
+		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
+		Environment:  environment,
+		Outcome:      "success",
+	}
 	updated, err := service.Approve(adminCtx.Context, TranslationQueueApproveInput{
 		AssignmentID:     strings.TrimSpace(assignment.ID),
 		ReviewerID:       actorID,
@@ -1200,11 +1256,18 @@ func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, servic
 		ExpectedVersion:  expectedVersion,
 	})
 	if err != nil {
+		event.Outcome = "error"
+		event.Err = err
+		recordTranslationReviewActionMetric(adminCtx.Context, event)
 		return TranslationAssignment{}, err
 	}
 	if err := b.persistEditorVariantStatus(adminCtx.Context, editorCtx, string(translationcore.VariantStatusApproved), actorID); err != nil {
+		event.Outcome = "error"
+		event.Err = err
+		recordTranslationReviewActionMetric(adminCtx.Context, event)
 		return TranslationAssignment{}, err
 	}
+	recordTranslationReviewActionMetric(adminCtx.Context, event)
 	return updated, nil
 }
 
@@ -1215,6 +1278,15 @@ func (b *translationQueueBinding) runRejectAction(adminCtx AdminContext, service
 		return TranslationAssignment{}, err
 	}
 	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	event := translationReviewActionEvent{
+		Action:       "reject",
+		Flow:         "request_changes",
+		AssignmentID: strings.TrimSpace(assignment.ID),
+		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
+		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
+		Environment:  environment,
+		Outcome:      "success",
+	}
 	updated, err := service.Reject(adminCtx.Context, TranslationQueueRejectInput{
 		AssignmentID:     strings.TrimSpace(assignment.ID),
 		ReviewerID:       actorID,
@@ -1225,12 +1297,33 @@ func (b *translationQueueBinding) runRejectAction(adminCtx AdminContext, service
 		ExpectedVersion:  expectedVersion,
 	})
 	if err != nil {
+		event.Outcome = "error"
+		event.Err = err
+		recordTranslationReviewActionMetric(adminCtx.Context, event)
 		return TranslationAssignment{}, err
 	}
 	if err := b.persistEditorVariantStatus(adminCtx.Context, editorCtx, string(translationcore.VariantStatusInProgress), actorID); err != nil {
+		event.Outcome = "error"
+		event.Err = err
+		recordTranslationReviewActionMetric(adminCtx.Context, event)
 		return TranslationAssignment{}, err
 	}
+	recordTranslationReviewActionMetric(adminCtx.Context, event)
 	return updated, nil
+}
+
+func translationQAOutcomeLabel(results map[string]any) string {
+	if !toBool(results["enabled"]) {
+		return "disabled"
+	}
+	summary := extractMap(results["summary"])
+	if intValue(summary["blocker_count"]) > 0 {
+		return "blocked"
+	}
+	if intValue(summary["warning_count"]) > 0 {
+		return "warnings"
+	}
+	return "clean"
 }
 
 func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context, editorCtx translationEditorContext, status, actorID string) error {

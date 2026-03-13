@@ -12,10 +12,13 @@ import (
 	"time"
 
 	translationcore "github.com/goliatone/go-admin/translations/core"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	router "github.com/goliatone/go-router"
 )
 
 const translationQueueDueSoonWindow = 48 * time.Hour
+const translationQueueMissingActorFilterToken = "__missing_actor__"
+const translationQueueReviewStateQABlocked = "qa_blocked"
 
 var translationQueuePrioritySortRank = map[string]int{
 	"low":    0,
@@ -32,10 +35,11 @@ var translationQueueDueStateSortRank = map[string]int{
 }
 
 type translationQueueBinding struct {
-	admin         *Admin
-	now           func() time.Time
-	idempotencyMu sync.Mutex
-	idempotency   map[string]translationQueueActionReplay
+	admin                *Admin
+	now                  func() time.Time
+	dashboardLoadRuntime func(context.Context, string) (*translationFamilyRuntime, error)
+	idempotencyMu        sync.Mutex
+	idempotency          map[string]translationQueueActionReplay
 }
 
 type translationQueueActionReplay struct {
@@ -75,28 +79,41 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 		return nil, err
 	}
 	obsCtx = adminCtx.Context
+	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
-	assignments, total, err := b.listAssignments(adminCtx.Context, repo, filter, page, perPage)
+	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
+	allAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, filter.SortBy, nil)
 	if err != nil {
 		return nil, err
 	}
+	assignments, total := b.filterAssignments(adminCtx.Context, allAssignments, filter, page, perPage, environment, now)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now))
+		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now, environment))
+	}
+	reviewAggregateCounts, err := b.reviewerAggregateCounts(adminCtx.Context, allAssignments, filter, actorID, environment, now)
+	if err != nil {
+		return nil, err
 	}
 	return map[string]any{
 		"data": rows,
 		"meta": map[string]any{
-			"page":                 page,
-			"per_page":             perPage,
-			"total":                total,
-			"updated_at":           now,
-			"supported_sort_keys":  TranslationQueueSupportedSortKeys(),
-			"default_sort":         translationQueueDefaultSortContract(),
-			"saved_filter_presets": TranslationQueueSavedFilterPresets(),
+			"page":                         page,
+			"per_page":                     perPage,
+			"total":                        total,
+			"updated_at":                   now,
+			"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
+			"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
+			"supported_review_states":      TranslationQueueSupportedReviewStates(),
+			"default_sort":                 translationQueueDefaultSortContract(),
+			"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
+			"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
+			"default_review_filter_preset": "review_inbox",
+			"review_actor_id":              actorID,
+			"review_aggregate_counts":      reviewAggregateCounts,
 		},
 	}, nil
 }
@@ -125,6 +142,7 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	}
 	obsCtx = adminCtx.Context
 	identity := translationIdentityFromAdminContext(adminCtx)
+	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
 	if identity.ActorID == "" {
 		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment actions require an authenticated actor", map[string]any{
 			"component": "translation_queue_binding",
@@ -235,7 +253,7 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 			"status":        normalizeTranslationQueueState(string(updated.Status)),
 			"row_version":   updated.Version,
 			"updated_at":    updated.UpdatedAt,
-			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now),
+			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now, environment),
 		},
 		"meta": map[string]any{
 			"idempotency_hit": false,
@@ -277,6 +295,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	}
 
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	now := b.now().UTC()
@@ -325,7 +344,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now)
+		row := b.assignmentContractRow(adminCtx.Context, assignment, now, environment)
 		rows = append(rows, row)
 	}
 	for _, assignment := range summaryAssignments {
@@ -382,6 +401,7 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	}
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
+	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
 	now := b.now().UTC()
 
 	filters := map[string]any{}
@@ -413,7 +433,7 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	byQueueState := map[string]int{}
 	byDueState := map[string]int{}
 	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now)
+		row := b.assignmentContractRow(adminCtx.Context, assignment, now, environment)
 		rows = append(rows, row)
 	}
 	for _, assignment := range summaryAssignments {
@@ -460,16 +480,18 @@ func (b *translationQueueBinding) prepareAssignmentRequest(c router.Context) (Ad
 func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminContext, c router.Context) translationAssignmentListFilter {
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 	filter := translationAssignmentListFilter{
-		Status:     strings.TrimSpace(strings.ToLower(c.Query("status"))),
-		AssigneeID: translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
-		ReviewerID: translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
-		DueState:   strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
-		Locale:     strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
-		Priority:   strings.TrimSpace(strings.ToLower(c.Query("priority"))),
-		SortBy:     strings.TrimSpace(strings.ToLower(c.Query("sort"))),
-		SortDesc:   strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
-		TenantID:   strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
-		OrgID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
+		Status:             strings.TrimSpace(strings.ToLower(c.Query("status"))),
+		AssigneeID:         translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
+		ReviewerID:         translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
+		DueState:           strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
+		Locale:             strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
+		Priority:           strings.TrimSpace(strings.ToLower(c.Query("priority"))),
+		ReviewState:        normalizeTranslationQueueReviewState(c.Query("review_state")),
+		TranslationGroupID: strings.TrimSpace(c.Query("translation_group_id")),
+		SortBy:             strings.TrimSpace(strings.ToLower(c.Query("sort"))),
+		SortDesc:           strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
+		TenantID:           strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
+		OrgID:              strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
 	}
 	if !filter.SortDesc && strings.EqualFold(strings.TrimSpace(c.Query("direction")), "desc") {
 		filter.SortDesc = true
@@ -491,45 +513,85 @@ func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminCont
 }
 
 type translationAssignmentListFilter struct {
-	Status     string
-	AssigneeID string
-	ReviewerID string
-	DueState   string
-	Locale     string
-	Priority   string
-	SortBy     string
-	SortDesc   bool
-	TenantID   string
-	OrgID      string
+	Status             string
+	AssigneeID         string
+	ReviewerID         string
+	DueState           string
+	Locale             string
+	Priority           string
+	ReviewState        string
+	TranslationGroupID string
+	SortBy             string
+	SortDesc           bool
+	TenantID           string
+	OrgID              string
 }
 
-func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int) ([]TranslationAssignment, int, error) {
+func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string) ([]TranslationAssignment, int, error) {
 	assignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
 	if err != nil {
 		return nil, 0, err
 	}
+	paged, total := b.filterAssignments(ctx, assignments, filter, page, perPage, environment, b.now().UTC())
+	return paged, total, nil
+}
+
+func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignments []TranslationAssignment, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int) {
+	matched := b.matchAssignments(assignments, filter, now)
+	if filter.ReviewState != "" {
+		matched = b.applyReviewStateFilter(ctx, matched, filter.ReviewState, environment)
+	}
+	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
+	total := len(matched)
+	start := (page - 1) * perPage
+	if start >= total {
+		return []TranslationAssignment{}, total
+	}
+	end := start + perPage
+	if end > total {
+		end = total
+	}
+	return matched[start:end], total
+}
+
+func (b *translationQueueBinding) matchAssignments(assignments []TranslationAssignment, filter translationAssignmentListFilter, now time.Time) []TranslationAssignment {
 	matched := make([]TranslationAssignment, 0, len(assignments))
-	now := b.now().UTC()
 	for _, assignment := range assignments {
 		if !matchesAssignmentListFilter(assignment, filter, now) {
 			continue
 		}
 		matched = append(matched, assignment)
 	}
-	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
-	total := len(matched)
-	start := (page - 1) * perPage
-	if start >= total {
-		return []TranslationAssignment{}, total, nil
+	return matched
+}
+
+func (b *translationQueueBinding) applyReviewStateFilter(ctx context.Context, assignments []TranslationAssignment, reviewState, environment string) []TranslationAssignment {
+	reviewState = normalizeTranslationQueueReviewState(reviewState)
+	if reviewState == "" || len(assignments) == 0 {
+		return assignments
 	}
-	end := start + perPage
-	if end > total {
-		end = total
+	switch reviewState {
+	case translationQueueReviewStateQABlocked:
+		blocked := b.reviewBlockedAssignments(ctx, assignments, environment)
+		if len(blocked) == 0 {
+			return []TranslationAssignment{}
+		}
+		filtered := make([]TranslationAssignment, 0, len(assignments))
+		for _, assignment := range assignments {
+			if _, ok := blocked[strings.TrimSpace(assignment.ID)]; ok {
+				filtered = append(filtered, assignment)
+			}
+		}
+		return filtered
+	default:
+		return assignments
 	}
-	return matched[start:end], total, nil
 }
 
 func matchesAssignmentListFilter(assignment TranslationAssignment, filter translationAssignmentListFilter, now time.Time) bool {
+	if filter.AssigneeID == translationQueueMissingActorFilterToken || filter.ReviewerID == translationQueueMissingActorFilterToken {
+		return false
+	}
 	if !translationQueueListFilterMatches(filter.Status, string(assignment.Status), normalizeTranslationQueueState) {
 		return false
 	}
@@ -548,6 +610,9 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 	if !translationQueueListFilterMatches(filter.Priority, string(assignment.Priority), normalizeTranslationQueuePriorityFilterValue) {
 		return false
 	}
+	if filter.TranslationGroupID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TranslationGroupID), strings.TrimSpace(filter.TranslationGroupID)) {
+		return false
+	}
 	if filter.TenantID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TenantID), filter.TenantID) {
 		return false
 	}
@@ -560,7 +625,10 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 func translationQueueResolveActorFilter(value, actorID string) string {
 	value = strings.TrimSpace(value)
 	if strings.EqualFold(value, "__me__") {
-		return strings.TrimSpace(actorID)
+		if actorID = strings.TrimSpace(actorID); actorID != "" {
+			return actorID
+		}
+		return translationQueueMissingActorFilterToken
 	}
 	return value
 }
@@ -588,6 +656,15 @@ func normalizeTranslationQueuePriorityFilterValue(value string) string {
 
 func normalizeTranslationQueueLocaleFilterValue(value string) string {
 	return strings.TrimSpace(strings.ToLower(value))
+}
+
+func normalizeTranslationQueueReviewState(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case translationQueueReviewStateQABlocked:
+		return translationQueueReviewStateQABlocked
+	default:
+		return ""
+	}
 }
 
 func sortAssignments(assignments []TranslationAssignment, sortBy string, sortDesc bool, now time.Time) {
@@ -1295,6 +1372,89 @@ func (b *translationQueueBinding) listAssignmentsForSummary(ctx context.Context,
 	return summary, nil
 }
 
+func (b *translationQueueBinding) reviewerAggregateCounts(ctx context.Context, assignments []TranslationAssignment, filter translationAssignmentListFilter, actorID, environment string, now time.Time) (map[string]int, error) {
+	counts := map[string]int{}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		counts[key] = 0
+	}
+	if strings.TrimSpace(actorID) == "" {
+		return counts, nil
+	}
+	scopeFilter := translationAssignmentListFilter{
+		TenantID: strings.TrimSpace(filter.TenantID),
+		OrgID:    strings.TrimSpace(filter.OrgID),
+	}
+	reviewAssignments := make([]TranslationAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if !matchesAssignmentListFilter(assignment, scopeFilter, now) {
+			continue
+		}
+		reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+		if reviewerID == "" || !strings.EqualFold(reviewerID, actorID) {
+			continue
+		}
+		switch assignment.Status {
+		case AssignmentStatusReview:
+			reviewAssignments = append(reviewAssignments, assignment)
+			counts["review_inbox"]++
+			if translationQueueDueState(assignment.DueDate, now) == translationQueueDueStateOverdue {
+				counts["review_overdue"]++
+			}
+		case AssignmentStatusRejected:
+			counts["review_changes_requested"]++
+		}
+	}
+	for assignmentID := range b.reviewBlockedAssignments(ctx, reviewAssignments, environment) {
+		if assignmentID != "" {
+			counts["review_blocked"]++
+		}
+	}
+	return counts, nil
+}
+
+func (b *translationQueueBinding) reviewBlockedAssignments(ctx context.Context, assignments []TranslationAssignment, environment string) map[string]struct{} {
+	blocked := map[string]struct{}{}
+	if !b.translationQAEnabled() || len(assignments) == 0 {
+		return blocked
+	}
+	familyBinding := &translationFamilyBinding{admin: b.admin}
+	runtime, err := familyBinding.runtime(ctx, environment)
+	if err != nil || runtime == nil || runtime.service == nil {
+		return blocked
+	}
+	assignmentsByFamily := map[string][]TranslationAssignment{}
+	for _, assignment := range assignments {
+		familyID := strings.TrimSpace(assignment.TranslationGroupID)
+		if familyID == "" {
+			continue
+		}
+		assignmentsByFamily[familyID] = append(assignmentsByFamily[familyID], assignment)
+	}
+	for familyID, familyAssignments := range assignmentsByFamily {
+		if len(familyAssignments) == 0 {
+			continue
+		}
+		scope := translationservices.Scope{
+			TenantID: strings.TrimSpace(primitives.FirstNonEmptyRaw(familyAssignments[0].TenantID, tenantIDFromContext(ctx))),
+			OrgID:    strings.TrimSpace(primitives.FirstNonEmptyRaw(familyAssignments[0].OrgID, orgIDFromContext(ctx))),
+		}
+		family, ok, detailErr := runtime.service.Detail(ctx, translationservices.GetFamilyInput{
+			Scope:       scope,
+			Environment: environment,
+			FamilyID:    familyID,
+		})
+		if detailErr != nil || !ok {
+			continue
+		}
+		for _, assignment := range familyAssignments {
+			if b.assignmentHasQABlockersForFamily(assignment, family, environment) {
+				blocked[strings.TrimSpace(assignment.ID)] = struct{}{}
+			}
+		}
+	}
+	return blocked
+}
+
 func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentRepository, error) {
 	if b == nil || b.admin == nil || b.admin.registry == nil {
 		return nil, serviceNotConfiguredDomainError("translation assignment repository", map[string]any{
@@ -1316,7 +1476,7 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 	return repo.repo, nil
 }
 
-func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time) map[string]any {
+func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time, environment string) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
 	row["actions"] = b.assignmentActionStates(ctx, assignment)
 	row["review_actions"] = b.reviewActionStates(ctx, assignment)
@@ -1324,7 +1484,7 @@ func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, ass
 		row["review_feedback"] = feedback
 		row["last_rejection_reason"] = feedback["last_rejection_reason"]
 	}
-	if summary := b.assignmentQASummary(ctx, assignment); len(summary) > 0 {
+	if summary := b.assignmentQASummary(ctx, assignment, environment); len(summary) > 0 {
 		row["qa_summary"] = summary
 	}
 	return row
@@ -1417,25 +1577,36 @@ func (b *translationQueueBinding) reviewLifecycleActionState(ctx context.Context
 	return state
 }
 
-func (b *translationQueueBinding) assignmentQASummary(ctx context.Context, assignment TranslationAssignment) map[string]any {
+func (b *translationQueueBinding) assignmentQASummary(ctx context.Context, assignment TranslationAssignment, environment string) map[string]any {
 	if !b.translationQAEnabled() || strings.TrimSpace(assignment.TargetRecordID) == "" {
 		return nil
 	}
-	editorCtx, err := b.loadAssignmentEditorContext(ctx, assignment, "")
+	editorCtx, err := b.loadAssignmentEditorContext(ctx, assignment, environment)
 	if err != nil {
 		return nil
 	}
-	results := b.translationQAResults(editorCtx)
-	summary := extractMap(results["summary"])
-	if len(summary) == 0 {
+	return translationQASummaryPayload(b.translationQAResults(editorCtx))
+}
+
+func (b *translationQueueBinding) assignmentQASummaryForFamily(assignment TranslationAssignment, family translationservices.FamilyRecord, environment string) map[string]any {
+	if !b.translationQAEnabled() || strings.TrimSpace(assignment.TargetRecordID) == "" {
 		return nil
 	}
-	return map[string]any{
-		"enabled":       toBool(results["enabled"]),
-		"warning_count": intValue(summary["warning_count"]),
-		"blocker_count": intValue(summary["blocker_count"]),
-		"finding_count": intValue(summary["finding_count"]),
+	editorCtx, ok := translationEditorContextFromFamily(family, assignment, environment)
+	if !ok {
+		return nil
 	}
+	return translationQASummaryPayload(b.translationQAResults(editorCtx))
+}
+
+func (b *translationQueueBinding) assignmentHasQABlockers(ctx context.Context, assignment TranslationAssignment) bool {
+	summary := b.assignmentQASummary(ctx, assignment, "")
+	return intValue(summary["blocker_count"]) > 0
+}
+
+func (b *translationQueueBinding) assignmentHasQABlockersForFamily(assignment TranslationAssignment, family translationservices.FamilyRecord, environment string) bool {
+	summary := b.assignmentQASummaryForFamily(assignment, family, environment)
+	return intValue(summary["blocker_count"]) > 0
 }
 
 func (b *translationQueueBinding) queueActionState(ctx context.Context, statusAllowed bool, permission, statusReason string) map[string]any {

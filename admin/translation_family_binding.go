@@ -107,6 +107,7 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 			OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
 		},
 		Environment:    environment,
+		FamilyID:       strings.TrimSpace(c.Query("family_id")),
 		ContentType:    strings.TrimSpace(strings.ToLower(c.Query("content_type"))),
 		ReadinessState: strings.TrimSpace(strings.ToLower(c.Query("readiness_state"))),
 		BlockerCode:    strings.TrimSpace(strings.ToLower(c.Query("blocker_code"))),

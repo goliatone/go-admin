@@ -100,6 +100,19 @@ func (b *translationQueueBinding) translationQAResults(editorCtx translationEdit
 	}
 }
 
+func translationQASummaryPayload(results map[string]any) map[string]any {
+	summary := extractMap(results["summary"])
+	if len(summary) == 0 {
+		return nil
+	}
+	return map[string]any{
+		"enabled":       toBool(results["enabled"]),
+		"warning_count": intValue(summary["warning_count"]),
+		"blocker_count": intValue(summary["blocker_count"]),
+		"finding_count": intValue(summary["finding_count"]),
+	}
+}
+
 func translationQACategoryEnvelope(category string, enabled bool, featureFlag string) map[string]any {
 	return map[string]any{
 		"category":      strings.TrimSpace(category),
