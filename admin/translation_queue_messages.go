@@ -122,10 +122,13 @@ func (m TranslationQueueSubmitInput) Validate() error {
 
 // TranslationQueueApproveInput approves a review item.
 type TranslationQueueApproveInput struct {
-	AssignmentID    string                 `json:"assignment_id"`
-	ReviewerID      string                 `json:"reviewer_id"`
-	ExpectedVersion int64                  `json:"expected_version"`
-	Result          *TranslationAssignment `json:"-"`
+	AssignmentID     string                 `json:"assignment_id"`
+	ReviewerID       string                 `json:"reviewer_id"`
+	Comment          string                 `json:"comment,omitempty"`
+	TerminologyNotes []string               `json:"terminology_notes,omitempty"`
+	StyleNotes       []string               `json:"style_notes,omitempty"`
+	ExpectedVersion  int64                  `json:"expected_version"`
+	Result           *TranslationAssignment `json:"-"`
 }
 
 func (TranslationQueueApproveInput) Type() string { return translationQueueApproveCommandName }
@@ -145,11 +148,14 @@ func (m TranslationQueueApproveInput) Validate() error {
 
 // TranslationQueueRejectInput rejects a review item with required reason.
 type TranslationQueueRejectInput struct {
-	AssignmentID    string                 `json:"assignment_id"`
-	ReviewerID      string                 `json:"reviewer_id"`
-	Reason          string                 `json:"reason"`
-	ExpectedVersion int64                  `json:"expected_version"`
-	Result          *TranslationAssignment `json:"-"`
+	AssignmentID     string                 `json:"assignment_id"`
+	ReviewerID       string                 `json:"reviewer_id"`
+	Reason           string                 `json:"reason"`
+	Comment          string                 `json:"comment,omitempty"`
+	TerminologyNotes []string               `json:"terminology_notes,omitempty"`
+	StyleNotes       []string               `json:"style_notes,omitempty"`
+	ExpectedVersion  int64                  `json:"expected_version"`
+	Result           *TranslationAssignment `json:"-"`
 }
 
 func (TranslationQueueRejectInput) Type() string { return translationQueueRejectCommandName }

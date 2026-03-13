@@ -233,7 +233,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 			"field_validations":        translationEditorFieldValidations(reloaded),
 			"updated_at":               translationEditorRecordUpdatedAt(updatedRecord),
 			"assignment_action_states": b.assignmentEditorActionStates(adminCtx.Context, reloaded, currentAssignment),
-			"review_action_states":     b.reviewActionStates(adminCtx.Context, currentAssignment.Status),
+			"review_action_states":     b.reviewActionStates(adminCtx.Context, currentAssignment),
+			"qa_results":               b.translationQAResults(reloaded),
 			"assist":                   translationEditorAssistPayload(reloaded),
 		},
 		"meta": map[string]any{
@@ -386,6 +387,7 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 	fields := translationEditorFieldPayloads(editorCtx)
 	comments, events := translationEditorTimeline(editorCtx, assignment)
 	attachments := translationEditorAttachments(editorCtx)
+	reviewFeedback := translationEditorReviewFeedbackPayload(assignment, comments)
 
 	payload := map[string]any{
 		"assignment_id":            strings.TrimSpace(assignment.ID),
@@ -414,13 +416,16 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 		"actions":                  editorActions,
 		"editor_actions":           editorActions,
 		"assignment_action_states": editorActions,
-		"review_actions":           b.reviewActionStates(ctx, assignment.Status),
-		"review_action_states":     b.reviewActionStates(ctx, assignment.Status),
+		"review_actions":           b.reviewActionStates(ctx, assignment),
+		"review_action_states":     b.reviewActionStates(ctx, assignment),
 		"comments":                 comments,
 		"events":                   events,
 		"history":                  translationEditorHistoryPayload(comments, events, historyPage, historyPerPage),
 		"attachments":              attachments,
 		"attachment_summary":       translationEditorAttachmentSummary(attachments),
+		"review_feedback":          reviewFeedback,
+		"last_rejection_reason":    strings.TrimSpace(assignment.LastRejectionReason),
+		"qa_results":               b.translationQAResults(editorCtx),
 		"assist":                   translationEditorAssistPayload(editorCtx),
 		"glossary_matches":         translationEditorGlossaryMatches(editorCtx),
 		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
@@ -441,8 +446,8 @@ func (b *translationQueueBinding) assignmentEditorActionStates(ctx context.Conte
 	submitState["auto_approve"] = !editorCtx.Policy.ReviewRequired
 	submitState["missing_required_fields"] = translationEditorMissingRequiredFields(editorCtx)
 	actions["submit_review"] = submitState
-	actions["approve"] = b.queueActionState(ctx, assignment.Status == AssignmentStatusReview, PermAdminTranslationsApprove, "assignment must be in review")
-	actions["reject"] = b.queueActionState(ctx, assignment.Status == AssignmentStatusReview, PermAdminTranslationsApprove, "assignment must be in review")
+	actions["approve"] = b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review")
+	actions["reject"] = b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review")
 	actions["archive"] = b.queueActionState(ctx, assignment.Status != AssignmentStatusPublished, PermAdminTranslationsManage, "published assignments cannot be archived")
 	return actions
 }
@@ -727,11 +732,13 @@ func translationEditorAttachments(editorCtx translationEditorContext) []map[stri
 func translationEditorTimeline(editorCtx translationEditorContext, assignment TranslationAssignment) ([]map[string]any, []map[string]any) {
 	comments := []map[string]any{}
 	events := []map[string]any{}
-	if reason := strings.TrimSpace(assignment.LastRejectionReason); reason != "" {
+	lastReason := strings.TrimSpace(assignment.LastRejectionReason)
+	if lastReason != "" && !translationEditorHasCommentBody(editorCtx.ActivityEntries, lastReason) {
 		comments = append(comments, map[string]any{
 			"id":         "comment:last_rejection_reason",
 			"author_id":  strings.TrimSpace(firstNonEmpty(assignment.LastReviewerID, assignment.ReviewerID)),
-			"body":       reason,
+			"title":      "Review feedback",
+			"body":       lastReason,
 			"created_at": assignment.UpdatedAt,
 			"kind":       "review_feedback",
 		})
@@ -755,17 +762,14 @@ func translationEditorTimeline(editorCtx translationEditorContext, assignment Tr
 
 func translationEditorCommentFromActivity(entry ActivityEntry) (map[string]any, bool) {
 	action := strings.TrimSpace(strings.ToLower(entry.Action))
-	if action == "" || !strings.Contains(action, "comment") {
+	if action == "" {
 		return nil, false
 	}
 	metadata := cloneAnyMap(entry.Metadata)
-	body := strings.TrimSpace(firstNonEmpty(
-		toString(metadata["body"]),
-		toString(metadata["comment"]),
-		toString(metadata["message"]),
-		toString(metadata["text"]),
-		toString(metadata["reason"]),
-	))
+	body := translationEditorCommentBody(metadata)
+	if !strings.Contains(action, "comment") && !strings.EqualFold(toString(metadata["kind"]), "review_feedback") && !strings.EqualFold(action, "translation.review.feedback") {
+		return nil, false
+	}
 	if body == "" {
 		return nil, false
 	}
@@ -785,6 +789,65 @@ func translationEditorCommentFromActivity(entry ActivityEntry) (map[string]any, 
 		"metadata":   metadata,
 		"created_at": entry.CreatedAt,
 	}, true
+}
+
+func translationEditorCommentBody(metadata map[string]any) string {
+	lines := []string{}
+	body := strings.TrimSpace(firstNonEmpty(
+		toString(metadata["body"]),
+		toString(metadata["comment"]),
+		toString(metadata["message"]),
+		toString(metadata["text"]),
+		toString(metadata["reason"]),
+	))
+	if body != "" {
+		lines = append(lines, body)
+	}
+	for _, note := range toStringSlice(metadata["terminology_notes"]) {
+		note = strings.TrimSpace(note)
+		if note == "" {
+			continue
+		}
+		lines = append(lines, "Terminology: "+note)
+	}
+	for _, note := range toStringSlice(metadata["style_notes"]) {
+		note = strings.TrimSpace(note)
+		if note == "" {
+			continue
+		}
+		lines = append(lines, "Style: "+note)
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func translationEditorHasCommentBody(entries []ActivityEntry, body string) bool {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return false
+	}
+	for _, entry := range entries {
+		if strings.EqualFold(translationEditorCommentBody(entry.Metadata), body) {
+			return true
+		}
+	}
+	return false
+}
+
+func translationEditorReviewFeedbackPayload(assignment TranslationAssignment, comments []map[string]any) map[string]any {
+	reviewComments := []map[string]any{}
+	for _, comment := range comments {
+		if !strings.EqualFold(strings.TrimSpace(toString(comment["kind"])), "review_feedback") {
+			continue
+		}
+		reviewComments = append(reviewComments, cloneAnyMap(comment))
+	}
+	if len(reviewComments) == 0 && strings.TrimSpace(assignment.LastRejectionReason) == "" {
+		return nil
+	}
+	return map[string]any{
+		"last_rejection_reason": strings.TrimSpace(assignment.LastRejectionReason),
+		"comments":              reviewComments,
+	}
 }
 
 func translationEditorHistoryPayload(comments, events []map[string]any, page, perPage int) map[string]any {
@@ -1081,6 +1144,15 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 			"field_completeness": translationEditorFieldCompleteness(editorCtx),
 		})
 	}
+	qaResults := b.translationQAResults(editorCtx)
+	if toBool(qaResults["submit_blocked"]) {
+		return TranslationAssignment{}, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation QA blockers must be resolved before submit_review", map[string]any{
+			"assignment_id": strings.TrimSpace(assignment.ID),
+			"variant_id":    strings.TrimSpace(editorCtx.TargetVariant.ID),
+			"family_id":     strings.TrimSpace(editorCtx.Family.ID),
+			"qa_results":    qaResults,
+		})
+	}
 
 	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
 	submitted, err := service.SubmitReview(adminCtx.Context, TranslationQueueSubmitInput{
@@ -1110,6 +1182,55 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 		return TranslationAssignment{}, err
 	}
 	return final, nil
+}
+
+func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, service *DefaultTranslationQueueService, assignment TranslationAssignment, expectedVersion int64, body map[string]any) (TranslationAssignment, error) {
+	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), adminCtx.Channel))
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	updated, err := service.Approve(adminCtx.Context, TranslationQueueApproveInput{
+		AssignmentID:     strings.TrimSpace(assignment.ID),
+		ReviewerID:       actorID,
+		Comment:          strings.TrimSpace(toString(body["comment"])),
+		TerminologyNotes: toStringSlice(body["terminology_notes"]),
+		StyleNotes:       toStringSlice(body["style_notes"]),
+		ExpectedVersion:  expectedVersion,
+	})
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	if err := b.persistEditorVariantStatus(adminCtx.Context, editorCtx, string(translationcore.VariantStatusApproved), actorID); err != nil {
+		return TranslationAssignment{}, err
+	}
+	return updated, nil
+}
+
+func (b *translationQueueBinding) runRejectAction(adminCtx AdminContext, service *DefaultTranslationQueueService, assignment TranslationAssignment, expectedVersion int64, body map[string]any) (TranslationAssignment, error) {
+	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), adminCtx.Channel))
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	updated, err := service.Reject(adminCtx.Context, TranslationQueueRejectInput{
+		AssignmentID:     strings.TrimSpace(assignment.ID),
+		ReviewerID:       actorID,
+		Reason:           strings.TrimSpace(toString(body["reason"])),
+		Comment:          strings.TrimSpace(toString(body["comment"])),
+		TerminologyNotes: toStringSlice(body["terminology_notes"]),
+		StyleNotes:       toStringSlice(body["style_notes"]),
+		ExpectedVersion:  expectedVersion,
+	})
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	if err := b.persistEditorVariantStatus(adminCtx.Context, editorCtx, string(translationcore.VariantStatusInProgress), actorID); err != nil {
+		return TranslationAssignment{}, err
+	}
+	return updated, nil
 }
 
 func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context, editorCtx translationEditorContext, status, actorID string) error {

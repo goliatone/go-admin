@@ -197,6 +197,28 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 			expectedVersion = current.Version
 		}
 		updated, err = b.runSubmitReviewAction(adminCtx, service, current, expectedVersion, body)
+	case "approve":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = b.runApproveAction(adminCtx, service, current, expectedVersion, body)
+	case "reject":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = b.runRejectAction(adminCtx, service, current, expectedVersion, body)
+	case "archive":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = service.Archive(adminCtx.Context, TranslationQueueArchiveInput{
+			AssignmentID:    assignmentID,
+			ActorID:         identity.ActorID,
+			ExpectedVersion: expectedVersion,
+		})
 	default:
 		return nil, validationDomainError("unsupported assignment action", map[string]any{
 			"field":  "action",
@@ -718,6 +740,35 @@ func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx Adm
 		}
 		if assignment.Status != AssignmentStatusInProgress {
 			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in progress before it can be submitted", map[string]any{
+				"assignment_id": assignment.ID,
+				"status":        assignment.Status,
+			})
+		}
+	case "approve", "reject":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsApprove, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status != AssignmentStatusReview {
+			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in review before review actions can run", map[string]any{
+				"assignment_id": assignment.ID,
+				"status":        assignment.Status,
+			})
+		}
+		actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+		expectedReviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+		if expectedReviewerID != "" && actorID != "" && !strings.EqualFold(expectedReviewerID, actorID) {
+			return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment is assigned to a different reviewer", map[string]any{
+				"assignment_id":        assignment.ID,
+				"reviewer_id":          actorID,
+				"expected_reviewer_id": expectedReviewerID,
+			})
+		}
+	case "archive":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status == AssignmentStatusPublished {
+			return NewDomainError(string(translationcore.ErrorInvalidStatus), "published assignments cannot be archived", map[string]any{
 				"assignment_id": assignment.ID,
 				"status":        assignment.Status,
 			})
@@ -1268,7 +1319,14 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
 	row["actions"] = b.assignmentActionStates(ctx, assignment)
-	row["review_actions"] = b.reviewActionStates(ctx, assignment.Status)
+	row["review_actions"] = b.reviewActionStates(ctx, assignment)
+	if feedback := translationAssignmentReviewFeedbackPayload(assignment); len(feedback) > 0 {
+		row["review_feedback"] = feedback
+		row["last_rejection_reason"] = feedback["last_rejection_reason"]
+	}
+	if summary := b.assignmentQASummary(ctx, assignment); len(summary) > 0 {
+		row["qa_summary"] = summary
+	}
 	return row
 }
 
@@ -1305,6 +1363,17 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 	return row
 }
 
+func translationAssignmentReviewFeedbackPayload(assignment TranslationAssignment) map[string]any {
+	reason := strings.TrimSpace(assignment.LastRejectionReason)
+	if reason == "" {
+		return nil
+	}
+	return map[string]any{
+		"last_rejection_reason": reason,
+		"last_reviewer_id":      strings.TrimSpace(firstNonEmpty(assignment.LastReviewerID, assignment.ReviewerID)),
+	}
+}
+
 func (b *translationQueueBinding) assignmentActionStates(ctx context.Context, assignment TranslationAssignment) map[string]any {
 	return map[string]any{
 		"claim":   b.claimActionState(ctx, assignment),
@@ -1322,11 +1391,50 @@ func (b *translationQueueBinding) releaseActionState(ctx context.Context, assign
 	return b.queueActionState(ctx, statusAllowed, PermAdminTranslationsAssign, "assignment must be assigned or in progress before it can be released")
 }
 
-func (b *translationQueueBinding) reviewActionStates(ctx context.Context, status AssignmentStatus) map[string]any {
+func (b *translationQueueBinding) reviewActionStates(ctx context.Context, assignment TranslationAssignment) map[string]any {
 	return map[string]any{
-		"submit_review": b.queueActionState(ctx, status == AssignmentStatusInProgress, PermAdminTranslationsEdit, "assignment must be in progress"),
-		"approve":       b.queueActionState(ctx, status == AssignmentStatusReview, PermAdminTranslationsApprove, "assignment must be in review"),
-		"reject":        b.queueActionState(ctx, status == AssignmentStatusReview, PermAdminTranslationsApprove, "assignment must be in review"),
+		"submit_review": b.queueActionState(ctx, assignment.Status == AssignmentStatusInProgress, PermAdminTranslationsEdit, "assignment must be in progress"),
+		"approve":       b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review"),
+		"reject":        b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review"),
+		"archive":       b.queueActionState(ctx, assignment.Status != AssignmentStatusPublished, PermAdminTranslationsManage, "published assignments cannot be archived"),
+	}
+}
+
+func (b *translationQueueBinding) reviewLifecycleActionState(ctx context.Context, assignment TranslationAssignment, permission, statusReason string) map[string]any {
+	state := b.queueActionState(ctx, assignment.Status == AssignmentStatusReview, permission, statusReason)
+	if enabled, _ := state["enabled"].(bool); !enabled {
+		return state
+	}
+	actorID := strings.TrimSpace(actorFromContext(ctx))
+	expectedReviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+	if expectedReviewerID == "" || actorID == "" || strings.EqualFold(actorID, expectedReviewerID) {
+		return state
+	}
+	state["enabled"] = false
+	state["reason"] = "assignment is assigned to a different reviewer"
+	state["reason_code"] = ActionDisabledReasonCodePermissionDenied
+	state["expected_reviewer_id"] = expectedReviewerID
+	return state
+}
+
+func (b *translationQueueBinding) assignmentQASummary(ctx context.Context, assignment TranslationAssignment) map[string]any {
+	if !b.translationQAEnabled() || strings.TrimSpace(assignment.TargetRecordID) == "" {
+		return nil
+	}
+	editorCtx, err := b.loadAssignmentEditorContext(ctx, assignment, "")
+	if err != nil {
+		return nil
+	}
+	results := b.translationQAResults(editorCtx)
+	summary := extractMap(results["summary"])
+	if len(summary) == 0 {
+		return nil
+	}
+	return map[string]any{
+		"enabled":       toBool(results["enabled"]),
+		"warning_count": intValue(summary["warning_count"]),
+		"blocker_count": intValue(summary["blocker_count"]),
+		"finding_count": intValue(summary["finding_count"]),
 	}
 }
 

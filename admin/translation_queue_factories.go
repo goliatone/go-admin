@@ -115,9 +115,12 @@ func buildTranslationQueueApproveInput(payload map[string]any, ids []string) (Tr
 		return TranslationQueueApproveInput{}, err
 	}
 	msg := TranslationQueueApproveInput{
-		AssignmentID:    assignmentID,
-		ReviewerID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
-		ExpectedVersion: queueExpectedVersion(payload),
+		AssignmentID:     assignmentID,
+		ReviewerID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
+		Comment:          strings.TrimSpace(toString(payload["comment"])),
+		TerminologyNotes: toStringSlice(payload["terminology_notes"]),
+		StyleNotes:       toStringSlice(payload["style_notes"]),
+		ExpectedVersion:  queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -131,10 +134,13 @@ func buildTranslationQueueRejectInput(payload map[string]any, ids []string) (Tra
 		return TranslationQueueRejectInput{}, err
 	}
 	msg := TranslationQueueRejectInput{
-		AssignmentID:    assignmentID,
-		ReviewerID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
-		Reason:          strings.TrimSpace(toString(payload["reason"])),
-		ExpectedVersion: queueExpectedVersion(payload),
+		AssignmentID:     assignmentID,
+		ReviewerID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
+		Reason:           strings.TrimSpace(toString(payload["reason"])),
+		Comment:          strings.TrimSpace(toString(payload["comment"])),
+		TerminologyNotes: toStringSlice(payload["terminology_notes"]),
+		StyleNotes:       toStringSlice(payload["style_notes"]),
+		ExpectedVersion:  queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err

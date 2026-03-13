@@ -200,6 +200,9 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 	if assignment.Status != AssignmentStatusReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "approve", assignment)
 	}
+	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
+		return TranslationAssignment{}, err
+	}
 
 	assignment.Status = AssignmentStatusApproved
 	now := time.Now().UTC()
@@ -212,6 +215,7 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 		return TranslationAssignment{}, err
 	}
 	s.recordTransition(ctx, "approved", strings.TrimSpace(input.ReviewerID), updated)
+	s.recordReviewFeedback(ctx, updated, strings.TrimSpace(input.ReviewerID), strings.TrimSpace(input.Comment), "", input.TerminologyNotes, input.StyleNotes)
 	return updated, nil
 }
 
@@ -231,6 +235,9 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 	if assignment.Status != AssignmentStatusReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "reject", assignment)
 	}
+	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
+		return TranslationAssignment{}, err
+	}
 
 	assignment.Status = AssignmentStatusRejected
 	assignment.ReviewerID = strings.TrimSpace(input.ReviewerID)
@@ -242,6 +249,7 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 		return TranslationAssignment{}, err
 	}
 	s.recordTransition(ctx, "rejected", strings.TrimSpace(input.ReviewerID), updated)
+	s.recordReviewFeedback(ctx, updated, strings.TrimSpace(input.ReviewerID), strings.TrimSpace(input.Comment), strings.TrimSpace(input.Reason), input.TerminologyNotes, input.StyleNotes)
 	return updated, nil
 }
 
@@ -395,6 +403,20 @@ func invalidQueueTransitionError(from AssignmentStatus, transition string, assig
 	})
 }
 
+func translationQueueReviewerGuard(assignment TranslationAssignment, reviewerID string) error {
+	reviewerID = strings.TrimSpace(reviewerID)
+	expectedReviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+	if reviewerID == "" || expectedReviewerID == "" || strings.EqualFold(reviewerID, expectedReviewerID) {
+		return nil
+	}
+	return NewDomainError(TextCodeForbidden, "assignment is assigned to a different reviewer", map[string]any{
+		"assignment_id":        strings.TrimSpace(assignment.ID),
+		"reviewer_id":          reviewerID,
+		"expected_reviewer_id": expectedReviewerID,
+		"assignment_status":    strings.TrimSpace(string(assignment.Status)),
+	})
+}
+
 func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, action, actorID string, assignment TranslationAssignment) {
 	action = strings.TrimSpace(action)
 	if action == "" {
@@ -422,6 +444,48 @@ func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, a
 			Read:      false,
 		})
 	}
+}
+
+func (s *DefaultTranslationQueueService) recordReviewFeedback(ctx context.Context, assignment TranslationAssignment, actorID, comment, reason string, terminologyNotes, styleNotes []string) {
+	comment = strings.TrimSpace(comment)
+	reason = strings.TrimSpace(reason)
+	terminologyNotes = dedupeStrings(terminologyNotes)
+	styleNotes = dedupeStrings(styleNotes)
+	if s == nil || s.Activity == nil {
+		return
+	}
+	if comment == "" && reason == "" && len(terminologyNotes) == 0 && len(styleNotes) == 0 {
+		return
+	}
+	body := comment
+	if body == "" {
+		body = reason
+	}
+	metadata := map[string]any{
+		"assignment_id":        strings.TrimSpace(assignment.ID),
+		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
+		"variant_id":           strings.TrimSpace(assignment.TargetRecordID),
+		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
+		"kind":                 "review_feedback",
+		"translator_visible":   true,
+		"comment":              body,
+	}
+	if reason != "" {
+		metadata["reason"] = reason
+		metadata["reject_reason"] = reason
+	}
+	if len(terminologyNotes) > 0 {
+		metadata["terminology_notes"] = append([]string{}, terminologyNotes...)
+	}
+	if len(styleNotes) > 0 {
+		metadata["style_notes"] = append([]string{}, styleNotes...)
+	}
+	_ = s.Activity.Record(ctx, ActivityEntry{
+		Actor:    actorID,
+		Action:   "translation.review.feedback",
+		Object:   "translation_assignment:" + strings.TrimSpace(assignment.ID),
+		Metadata: metadata,
+	})
 }
 
 func (s *DefaultTranslationQueueService) transitionMetadata(action string, assignment TranslationAssignment) map[string]any {

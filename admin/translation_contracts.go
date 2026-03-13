@@ -138,6 +138,23 @@ func TranslationEditorContractPayload() map[string]any {
 			"assignment_action_state_payloads": []string{"actions", "editor_actions", "assignment_action_states"},
 			"review_action_state_payloads":     []string{"review_actions", "review_action_states"},
 		},
+		"qa": map[string]any{
+			"payload_key":             "qa_results",
+			"summary_key":             "summary",
+			"category_key":            "categories",
+			"findings_key":            "findings",
+			"severities":              []string{translationQASeverityWarning, translationQASeverityBlocker},
+			"categories":              []string{"terminology", "style"},
+			"required_summary":        []string{"finding_count", "warning_count", "blocker_count"},
+			"required_finding_fields": []string{"id", "category", "severity", "field_path", "message"},
+			"feature_flags":           []string{string(FeatureTranslationQATerms), string(FeatureTranslationQAStyle)},
+		},
+		"review_feedback": map[string]any{
+			"payload_key":             "review_feedback",
+			"legacy_reason_key":       "last_rejection_reason",
+			"comments_key":            "comments",
+			"required_comment_fields": []string{"id", "body", "kind", "created_at"},
+		},
 		"history": map[string]any{
 			"payload_key":     "history",
 			"required_fields": []string{"items", "page", "per_page", "total", "has_more"},
