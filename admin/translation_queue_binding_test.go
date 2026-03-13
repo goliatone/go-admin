@@ -326,6 +326,16 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	if int(meta["total"].(float64)) != 1 {
 		t.Fatalf("expected meta.total=1, got %+v", meta)
 	}
+	if got := strings.TrimSpace(toString(meta["default_review_filter_preset"])); got != "review_inbox" {
+		t.Fatalf("expected default_review_filter_preset review_inbox, got %q", got)
+	}
+	if reviewPresets, _ := meta["saved_review_filter_presets"].([]any); len(reviewPresets) != 4 {
+		t.Fatalf("expected four saved review presets, got %d", len(reviewPresets))
+	}
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	if got := intValue(reviewCounts["review_inbox"]); got != 0 {
+		t.Fatalf("expected empty review_inbox count for non-reviewer result, got %+v", reviewCounts)
+	}
 	data, _ := payload["data"].([]any)
 	if len(data) != 1 {
 		t.Fatalf("expected one data row, got %d", len(data))
@@ -452,6 +462,140 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	}
 	if got := intValue(qaSummary["blocker_count"]); got <= 0 {
 		t.Fatalf("expected qa blocker count > 0, got %+v", qaSummary)
+	}
+
+	reqReviewer := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
+	reqReviewer.Header.Set("X-User-ID", "reviewer-1")
+	respReviewer, err := fixture.app.Test(reqReviewer)
+	if err != nil {
+		t.Fatalf("reviewer request error: %v", err)
+	}
+	if respReviewer.StatusCode != http.StatusOK {
+		t.Fatalf("reviewer status=%d want=200", respReviewer.StatusCode)
+	}
+	defer respReviewer.Body.Close()
+
+	reviewerPayload := map[string]any{}
+	if err := json.NewDecoder(respReviewer.Body).Decode(&reviewerPayload); err != nil {
+		t.Fatalf("decode reviewer payload: %v", err)
+	}
+	meta := extractMap(reviewerPayload["meta"])
+	if got := strings.TrimSpace(toString(meta["review_actor_id"])); got != "reviewer-1" {
+		t.Fatalf("expected review_actor_id reviewer-1, got %+v", meta)
+	}
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	if got := intValue(reviewCounts["review_inbox"]); got != 1 {
+		t.Fatalf("expected review_inbox count 1, got %+v", reviewCounts)
+	}
+	if got := intValue(reviewCounts["review_blocked"]); got != 1 {
+		t.Fatalf("expected review_blocked count 1, got %+v", reviewCounts)
+	}
+
+	reqActorlessPreset := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__", nil)
+	respActorlessPreset, err := fixture.app.Test(reqActorlessPreset)
+	if err != nil {
+		t.Fatalf("actorless preset request error: %v", err)
+	}
+	if respActorlessPreset.StatusCode != http.StatusOK {
+		t.Fatalf("actorless preset status=%d want=200", respActorlessPreset.StatusCode)
+	}
+	defer respActorlessPreset.Body.Close()
+
+	actorlessPresetPayload := map[string]any{}
+	if err := json.NewDecoder(respActorlessPreset.Body).Decode(&actorlessPresetPayload); err != nil {
+		t.Fatalf("decode actorless preset payload: %v", err)
+	}
+	actorlessData, _ := actorlessPresetPayload["data"].([]any)
+	if got := len(actorlessData); got != 0 {
+		t.Fatalf("expected actorless reviewer preset to match zero assignments, got %d", got)
+	}
+	actorlessMeta := extractMap(actorlessPresetPayload["meta"])
+	if got := strings.TrimSpace(toString(actorlessMeta["review_actor_id"])); got != "" {
+		t.Fatalf("expected empty review_actor_id for actorless reviewer preset, got %+v", actorlessMeta)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilters(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+	enableTranslationEditorQAWithBlockers(t, fixture)
+
+	reviewAssignment, err := fixture.repo.Get(context.Background(), fixture.assignmentID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	reviewAssignment.Status = AssignmentStatusReview
+	reviewAssignment.ReviewerID = "reviewer-1"
+	reviewAssignment.LastReviewerID = "reviewer-1"
+	reviewAssignment.TranslationGroupID = "tg-page-1"
+	reviewAssignment.TargetRecordID = fixture.targetRecordID
+	if _, err := fixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); err != nil {
+		t.Fatalf("update review assignment: %v", err)
+	}
+
+	otherDue := time.Date(2026, 3, 12, 14, 0, 0, 0, time.UTC)
+	if _, err := fixture.repo.Create(context.Background(), TranslationAssignment{
+		ID:                 "asg-clean-1",
+		TranslationGroupID: "tg-post-2",
+		EntityType:         "posts",
+		SourceRecordID:     "post-2",
+		TargetRecordID:     "post-2-fr",
+		SourceLocale:       "en",
+		TargetLocale:       "fr",
+		ReviewerID:         "reviewer-1",
+		LastReviewerID:     "reviewer-1",
+		AssignmentType:     AssignmentTypeDirect,
+		Status:             AssignmentStatusReview,
+		Priority:           PriorityNormal,
+		DueDate:            &otherDue,
+		TenantID:           "tenant-1",
+		OrgID:              "org-1",
+	}); err != nil {
+		t.Fatalf("create clean review assignment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&translation_group_id=tg-page-1&environment=production&tenant_id=tenant-1&org_id=org-1", nil)
+	req.Header.Set("X-User-ID", "reviewer-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	supportedFilters := toStringSlice(meta["supported_filter_keys"])
+	if !containsString(supportedFilters, "review_state") || !containsString(supportedFilters, "translation_group_id") {
+		t.Fatalf("expected supported_filter_keys to advertise review_state and translation_group_id, got %+v", supportedFilters)
+	}
+	supportedReviewStates := toStringSlice(meta["supported_review_states"])
+	if len(supportedReviewStates) != 1 || supportedReviewStates[0] != translationQueueReviewStateQABlocked {
+		t.Fatalf("expected supported_review_states to include qa_blocked, got %+v", supportedReviewStates)
+	}
+	data, _ := payload["data"].([]any)
+	if len(data) != 1 {
+		t.Fatalf("expected one qa-blocked assignment in the selected translation group, got %d", len(data))
+	}
+	row := extractMap(data[0])
+	if got := strings.TrimSpace(toString(row["id"])); got != fixture.assignmentID {
+		t.Fatalf("expected blocked assignment %q, got %q", fixture.assignmentID, got)
+	}
+	if got := strings.TrimSpace(toString(row["translation_group_id"])); got != "tg-page-1" {
+		t.Fatalf("expected translation_group_id tg-page-1, got %q", got)
+	}
+	qaSummary := extractMap(row["qa_summary"])
+	if got := intValue(qaSummary["blocker_count"]); got <= 0 {
+		t.Fatalf("expected qa_summary blocker_count > 0, got %+v", qaSummary)
+	}
+	if got := toInt(meta["total"]); got != 1 {
+		t.Fatalf("expected filtered total=1, got %d", got)
 	}
 }
 
@@ -980,6 +1124,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		})
 	})
 	r := adapter.Router()
+	r.Get("/admin/api/translations/dashboard", func(c router.Context) error {
+		payload, err := binding.Dashboard(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
 	r.Get("/admin/api/translations/assignments", func(c router.Context) error {
 		payload, err := binding.Assignments(c)
 		if err != nil {

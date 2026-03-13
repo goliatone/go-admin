@@ -41,6 +41,13 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 	if len(presets) != 5 {
 		t.Fatalf("expected five saved filter presets, got %d", len(presets))
 	}
+	reviewPresets, _ := meta["saved_review_filter_presets"].([]any)
+	if len(reviewPresets) != 4 {
+		t.Fatalf("expected four saved review filter presets, got %d", len(reviewPresets))
+	}
+	if got := toString(meta["default_review_filter_preset"]); got != "review_inbox" {
+		t.Fatalf("expected default_review_filter_preset review_inbox, got %q", got)
+	}
 
 	states, _ := fixture["states"].(map[string]any)
 	if states == nil {
@@ -116,6 +123,9 @@ func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
 	assertStringSliceEqual(t, meta["supported_sort_keys"], TranslationQueueSupportedSortKeys())
 	if presets, _ := meta["saved_filter_presets"].([]any); len(presets) != 5 {
 		t.Fatalf("expected five saved presets, got %d", len(presets))
+	}
+	if reviewPresets, _ := meta["saved_review_filter_presets"].([]any); len(reviewPresets) != 4 {
+		t.Fatalf("expected four review presets, got %d", len(reviewPresets))
 	}
 }
 

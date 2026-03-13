@@ -217,6 +217,43 @@ func TestMemoryIdempotencyStoreRejectsCommitForUnknownReservation(t *testing.T) 
 	}
 }
 
+func TestMemoryIdempotencyStoreRecoverCommitStoresReplayResult(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 12, 14, 30, 0, 0, time.UTC)
+	idempotencyStore := store.NewMemoryIdempotencyStore()
+	idempotencyStore.Now = func() time.Time { return now }
+
+	first, err := idempotencyStore.Reserve(context.Background(), "idem_recover", 5*time.Minute)
+	if err != nil {
+		t.Fatalf("reserve key: %v", err)
+	}
+	if first.Reservation == nil {
+		t.Fatal("expected reservation")
+	}
+
+	result := core.MutationResult{
+		Snapshot: core.Snapshot{
+			ResourceRef: core.ResourceRef{Kind: "agreement_draft", ID: "draft_recover"},
+			Data:        []byte(`{"status":"sent"}`),
+			Revision:    4,
+			UpdatedAt:   now,
+		},
+		Applied: true,
+	}
+	if err := idempotencyStore.RecoverCommit(context.Background(), *first.Reservation, result, 5*time.Minute); err != nil {
+		t.Fatalf("recover commit: %v", err)
+	}
+
+	replay, err := idempotencyStore.Reserve(context.Background(), "idem_recover", 5*time.Minute)
+	if err != nil {
+		t.Fatalf("reserve replay key: %v", err)
+	}
+	if replay.Result == nil || replay.Result.Snapshot.Revision != 4 {
+		t.Fatalf("expected recovered replay result, got %+v", replay)
+	}
+}
+
 func TestMemoryResourceStorePreservesJSONPayload(t *testing.T) {
 	t.Parallel()
 

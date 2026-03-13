@@ -14,8 +14,6 @@ import (
 )
 
 func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
-	t.Parallel()
-
 	testCases := []struct {
 		name     string
 		profile  UserMigrationsProfile
@@ -69,8 +67,6 @@ func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
 }
 
 func TestRegisterUserMigrations_InvalidProfile(t *testing.T) {
-	t.Parallel()
-
 	client := newUserMigrationsPersistenceClient(t)
 	err := RegisterUserMigrations(
 		client,

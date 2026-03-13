@@ -32,7 +32,7 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&environment=production", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?family_id=tg-page-1&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&environment=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -597,6 +597,35 @@ func newTranslationFamilyTestApp(t *testing.T, binding *translationFamilyBinding
 	})
 	r.Post("/admin/api/translations/families/:family_id/variants", func(c router.Context) error {
 		payload, err := binding.Create(c, c.Param("family_id"))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/matrix", func(c router.Context) error {
+		payload, err := binding.Matrix(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/matrix/actions/create-missing", func(c router.Context) error {
+		body, err := parseOptionalJSONMap(c.Body())
+		if err != nil {
+			return writeError(c, err)
+		}
+		payload, err := binding.CreateMissingBulk(c, body)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/matrix/actions/export-selected", func(c router.Context) error {
+		body, err := parseOptionalJSONMap(c.Body())
+		if err != nil {
+			return writeError(c, err)
+		}
+		payload, err := binding.ExportSelectedBulk(c, body)
 		if err != nil {
 			return writeError(c, err)
 		}

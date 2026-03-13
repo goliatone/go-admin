@@ -135,7 +135,7 @@ func TestSyncServiceMutateReplaysStoredIdempotentResult(t *testing.T) {
 	}
 }
 
-func TestSyncServiceMutateReturnsTemporaryFailureWhenReplayCommitFails(t *testing.T) {
+func TestSyncServiceMutateRecoversReplayPersistenceAfterCommitFailure(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, time.March, 12, 18, 0, 0, 0, time.UTC)
 	resourceStore := store.NewMemoryResourceStore(seedSnapshot(now, 12))
@@ -155,12 +155,12 @@ func TestSyncServiceMutateReturnsTemporaryFailureWhenReplayCommitFails(t *testin
 	)
 
 	input := seededMutation()
-	_, err := svc.Mutate(ctx, input)
-	if err == nil {
-		t.Fatal("expected temporary failure when replay commit fails")
+	first, err := svc.Mutate(ctx, input)
+	if err != nil {
+		t.Fatalf("expected recovery after replay commit failure, got %v", err)
 	}
-	if !core.HasCode(err, core.CodeTemporaryFailure) {
-		t.Fatalf("expected temporary failure code, got %v", err)
+	if first.Replay {
+		t.Fatalf("expected first mutation not to be a replay, got %+v", first)
 	}
 	if resourceStore.MutateCalls != 1 {
 		t.Fatalf("expected one applied mutation, got %d", resourceStore.MutateCalls)
@@ -174,30 +174,58 @@ func TestSyncServiceMutateReturnsTemporaryFailureWhenReplayCommitFails(t *testin
 		t.Fatalf("expected mutation to be applied once at revision 13, got %d", current.Revision)
 	}
 
-	_, err = svc.Mutate(ctx, input)
+	replayed, err := svc.Mutate(ctx, input)
 	if err == nil {
-		t.Fatal("expected temporary failure while pending reservation blocks duplicate execution")
+		if !replayed.Replay {
+			t.Fatalf("expected recovered retry to replay original result, got %+v", replayed)
+		}
+	} else {
+		t.Fatalf("expected replay after recovered commit failure, got %v", err)
+	}
+	if resourceStore.MutateCalls != 1 {
+		t.Fatalf("expected retry to avoid a second mutate call, got %d", resourceStore.MutateCalls)
+	}
+	if !logger.containsAttr("recovered_commit", "true") {
+		t.Fatalf("expected recovered commit log entry, got %+v", logger.entries)
+	}
+}
+
+func TestSyncServiceMutateReturnsTemporaryFailureWhenReplayRecoveryFails(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, time.March, 12, 18, 0, 0, 0, time.UTC)
+	resourceStore := store.NewMemoryResourceStore(seedSnapshot(now, 12))
+	resourceStore.Now = func() time.Time { return now.Add(2 * time.Second) }
+
+	idempotencyStore := store.NewMemoryIdempotencyStore()
+	idempotencyStore.Now = func() time.Time { return now }
+	idempotencyStore.CommitError = errors.New("commit unavailable")
+	idempotencyStore.RecoverError = errors.New("recovery unavailable")
+	metrics := &captureMetrics{}
+	logger := &captureLogger{}
+
+	svc := mustNewSyncService(t,
+		resourceStore,
+		idempotencyStore,
+		service.WithMetrics(metrics),
+		service.WithLogger(logger),
+	)
+
+	input := seededMutation()
+	_, err := svc.Mutate(ctx, input)
+	if err == nil {
+		t.Fatal("expected temporary failure when replay recovery fails")
 	}
 	if !core.HasCode(err, core.CodeTemporaryFailure) {
-		t.Fatalf("expected temporary failure code on retry, got %v", err)
+		t.Fatalf("expected temporary failure code, got %v", err)
 	}
 	if resourceStore.MutateCalls != 1 {
-		t.Fatalf("expected retry to be blocked before a second mutate call, got %d", resourceStore.MutateCalls)
+		t.Fatalf("expected exactly one applied mutation, got %d mutate calls", resourceStore.MutateCalls)
 	}
 	if metrics.retries == 0 {
-		t.Fatalf("expected retry metrics after replay commit failure, got %+v", metrics)
+		t.Fatalf("expected retry metrics after replay recovery failure, got %+v", metrics)
 	}
 	if !logger.containsAttr("stored", "false") {
-		t.Fatalf("expected commit failure log entry, got %+v", logger.entries)
-	}
-
-	idempotencyStore.Now = func() time.Time { return now.Add(365 * 24 * time.Hour) }
-	_, err = svc.Mutate(ctx, input)
-	if err == nil {
-		t.Fatal("expected unresolved reservation to remain blocked after ttl horizon")
-	}
-	if resourceStore.MutateCalls != 1 {
-		t.Fatalf("expected unresolved reservation to prevent duplicate execution, got %d mutate calls", resourceStore.MutateCalls)
+		t.Fatalf("expected unrecovered commit failure log entry, got %+v", logger.entries)
 	}
 }
 

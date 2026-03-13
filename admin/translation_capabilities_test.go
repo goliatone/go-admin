@@ -202,6 +202,15 @@ func TestTranslationCapabilitiesExposeCleanBreakRoutes(t *testing.T) {
 	if got := strings.TrimSpace(routes["admin.api.translations.families"]); got != "/admin/api/translations/families" {
 		t.Fatalf("expected families api route, got %q", got)
 	}
+	if got := strings.TrimSpace(routes["admin.api.translations.dashboard"]); got != "/admin/api/translations/dashboard" {
+		t.Fatalf("expected dashboard api route, got %q", got)
+	}
+	if got := strings.TrimSpace(routes["admin.translations.matrix"]); got != "/admin/translations/matrix" {
+		t.Fatalf("expected matrix ui route, got %q", got)
+	}
+	if got := strings.TrimSpace(routes["admin.api.translations.matrix.actions.create_missing"]); got != "/admin/api/translations/matrix/actions/create-missing" {
+		t.Fatalf("expected matrix create-missing route, got %q", got)
+	}
 	if got := strings.TrimSpace(routes["admin.api.translations.import.validate"]); got != "/admin/api/translations/exchange/import/validate" {
 		t.Fatalf("expected clean-break import validate route, got %q", got)
 	}

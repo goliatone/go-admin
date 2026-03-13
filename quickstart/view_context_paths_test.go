@@ -42,12 +42,20 @@ func TestPathViewContextUsesURLResolver(t *testing.T) {
 				Routes: map[string]string{
 					"dashboard": "/",
 				},
-			},
-			{
-				Name:    "admin.api.v1",
-				BaseURL: "/console/api/v1",
-				Routes: map[string]string{
-					"errors": "/errors",
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Groups: []urlkit.GroupConfig{
+							{
+								Name: "v1",
+								Path: "/v1",
+								Routes: map[string]string{
+									"errors": "/errors",
+								},
+							},
+						},
+					},
 				},
 			},
 		},

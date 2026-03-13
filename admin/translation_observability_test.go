@@ -15,6 +15,8 @@ type capturingTranslationMetrics struct {
 	blockedTags      []map[string]string
 	createTags       []map[string]string
 	createLocaleTags []map[string]string
+	reviewActionTags []map[string]string
+	qaOutcomeTags    []map[string]string
 }
 
 func (m *capturingTranslationMetrics) IncrementBlockedTransition(_ context.Context, tags map[string]string) {
@@ -27,6 +29,14 @@ func (m *capturingTranslationMetrics) IncrementCreateAction(_ context.Context, t
 
 func (m *capturingTranslationMetrics) IncrementCreateLocaleAction(_ context.Context, tags map[string]string) {
 	m.createLocaleTags = append(m.createLocaleTags, cloneTagsMap(tags))
+}
+
+func (m *capturingTranslationMetrics) IncrementReviewAction(_ context.Context, tags map[string]string) {
+	m.reviewActionTags = append(m.reviewActionTags, cloneTagsMap(tags))
+}
+
+func (m *capturingTranslationMetrics) IncrementQAOutcome(_ context.Context, tags map[string]string) {
+	m.qaOutcomeTags = append(m.qaOutcomeTags, cloneTagsMap(tags))
 }
 
 func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
@@ -313,6 +323,126 @@ func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
 	}
 	if attrs["request_id"] != "req-telemetry-1" || attrs["trace_id"] != "trace-telemetry-1" {
 		t.Fatalf("expected request/trace correlation attrs, got %+v", attrs)
+	}
+}
+
+func TestRecordTranslationReviewActionMetricCapturesApproveAndRequestChanges(t *testing.T) {
+	metrics := &capturingTranslationMetrics{}
+	original := defaultTranslationMetrics
+	originalLogger := translationObservabilityLogger
+	logCapture := &capturingSlogHandler{}
+	defaultTranslationMetrics = metrics
+	translationObservabilityLogger = slog.New(logCapture)
+	t.Cleanup(func() {
+		defaultTranslationMetrics = original
+		translationObservabilityLogger = originalLogger
+	})
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, requestIDContextKey, "req-review-1")
+	ctx = context.WithValue(ctx, traceIDContextKey, "trace-review-1")
+
+	recordTranslationReviewActionMetric(ctx, translationReviewActionEvent{
+		Action:       "approve",
+		Flow:         "approve",
+		AssignmentID: "asg-review-1",
+		EntityType:   "pages",
+		Locale:       "fr",
+		Environment:  "production",
+		Outcome:      "success",
+	})
+	recordTranslationReviewActionMetric(ctx, translationReviewActionEvent{
+		Action:       "reject",
+		Flow:         "request_changes",
+		AssignmentID: "asg-review-2",
+		EntityType:   "pages",
+		Locale:       "fr",
+		Environment:  "production",
+		Outcome:      "error",
+		Err:          errors.New("reviewer guard"),
+	})
+
+	if len(metrics.reviewActionTags) != 2 {
+		t.Fatalf("expected two review action metrics, got %d", len(metrics.reviewActionTags))
+	}
+	if metrics.reviewActionTags[0]["action"] != "approve" || metrics.reviewActionTags[0]["flow"] != "approve" || metrics.reviewActionTags[0]["outcome"] != "success" {
+		t.Fatalf("unexpected approve review metric tags: %+v", metrics.reviewActionTags[0])
+	}
+	if metrics.reviewActionTags[1]["action"] != "reject" || metrics.reviewActionTags[1]["flow"] != "request_changes" || metrics.reviewActionTags[1]["outcome"] != "error" {
+		t.Fatalf("unexpected request-changes review metric tags: %+v", metrics.reviewActionTags[1])
+	}
+
+	records := logCapture.Records()
+	if len(records) != 2 {
+		t.Fatalf("expected two review action log entries, got %d", len(records))
+	}
+	firstAttrs := slogRecordAttrs(records[0])
+	if firstAttrs["event"] != "translation.review.action" || firstAttrs["flow"] != "approve" || firstAttrs["request_id"] != "req-review-1" {
+		t.Fatalf("unexpected approve review log attrs: %+v", firstAttrs)
+	}
+	secondAttrs := slogRecordAttrs(records[1])
+	if secondAttrs["flow"] != "request_changes" || secondAttrs["outcome"] != "error" || secondAttrs["trace_id"] != "trace-review-1" {
+		t.Fatalf("unexpected request-changes review log attrs: %+v", secondAttrs)
+	}
+}
+
+func TestRecordTranslationQAOutcomeMetricCapturesSaveAndSubmitStates(t *testing.T) {
+	metrics := &capturingTranslationMetrics{}
+	original := defaultTranslationMetrics
+	originalLogger := translationObservabilityLogger
+	logCapture := &capturingSlogHandler{}
+	defaultTranslationMetrics = metrics
+	translationObservabilityLogger = slog.New(logCapture)
+	t.Cleanup(func() {
+		defaultTranslationMetrics = original
+		translationObservabilityLogger = originalLogger
+	})
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, requestIDContextKey, "req-qa-1")
+	ctx = context.WithValue(ctx, traceIDContextKey, "trace-qa-1")
+
+	recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
+		Trigger:      "save",
+		AssignmentID: "asg-editor-1",
+		EntityType:   "pages",
+		Locale:       "fr",
+		Environment:  "production",
+		Outcome:      "warnings",
+		WarningCount: 2,
+	})
+	recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
+		Trigger:      "submit_review",
+		AssignmentID: "asg-editor-1",
+		EntityType:   "pages",
+		Locale:       "fr",
+		Environment:  "production",
+		Outcome:      "blocked",
+		WarningCount: 1,
+		BlockerCount: 2,
+	})
+
+	if len(metrics.qaOutcomeTags) != 2 {
+		t.Fatalf("expected two qa outcome metrics, got %d", len(metrics.qaOutcomeTags))
+	}
+	if metrics.qaOutcomeTags[0]["trigger"] != "save" || metrics.qaOutcomeTags[0]["outcome"] != "warnings" {
+		t.Fatalf("unexpected save qa metric tags: %+v", metrics.qaOutcomeTags[0])
+	}
+	if metrics.qaOutcomeTags[1]["trigger"] != "submit_review" || metrics.qaOutcomeTags[1]["outcome"] != "blocked" {
+		t.Fatalf("unexpected submit qa metric tags: %+v", metrics.qaOutcomeTags[1])
+	}
+
+	records := logCapture.Records()
+	if len(records) != 2 {
+		t.Fatalf("expected two qa outcome log entries, got %d", len(records))
+	}
+	firstAttrs := slogRecordAttrs(records[0])
+	if firstAttrs["event"] != "translation.qa.outcome" || firstAttrs["warning_count"] != int64(2) {
+		t.Fatalf("unexpected save qa log attrs: %+v", firstAttrs)
+	}
+	secondAttrs := slogRecordAttrs(records[1])
+	if secondAttrs["trigger"] != "submit_review" || secondAttrs["blocker_count"] != int64(2) || secondAttrs["request_id"] != "req-qa-1" {
+		t.Fatalf("unexpected submit qa log attrs: %+v", secondAttrs)
 	}
 }
 

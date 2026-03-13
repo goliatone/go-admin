@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -379,6 +380,15 @@ func (m *quickstartStartupValidatorModule) Manifest() admin.ModuleManifest {
 
 func (m *quickstartStartupValidatorModule) Register(admin.ModuleContext) error {
 	return nil
+}
+
+func (m *quickstartStartupValidatorModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "quickstart_startup_validator",
+		UIRoutes: map[string]string{
+			"quickstart_startup_validator.index": "/quickstart-startup-validator",
+		},
+	}
 }
 
 func (m *quickstartStartupValidatorModule) ValidateStartup(context.Context) error {

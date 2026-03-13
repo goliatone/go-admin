@@ -207,6 +207,49 @@ func TestSeedExampleTranslationQueueFixtureRepairsLegacyQATargetFamily(t *testin
 	require.NoError(t, err)
 	require.Equal(t, strings.TrimSpace(repairedTarget.ID), strings.TrimSpace(assignment.TargetRecordID))
 	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(assignment.TranslationGroupID)))
+	require.Equal(t, coreadmin.AssignmentStatusReview, assignment.Status)
+	require.Equal(t, exampleTranslationQueueFallbackUser, strings.TrimSpace(assignment.ReviewerID))
+	require.NotNil(t, assignment.SubmittedAt)
+}
+
+func TestSeedExampleTranslationQueueFixtureSeedsReviewerOwnedReviewAssignments(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	err = seedExampleTranslationQueueFixture(ctx, repo, cmsOpts.Container.ContentService(), "", "", "reviewer-qa", "translator-qa")
+	require.NoError(t, err)
+
+	assignments, total, err := repo.List(ctx, coreadmin.ListOptions{
+		Filters: map[string]any{
+			"status":      string(coreadmin.AssignmentStatusReview),
+			"reviewer_id": "reviewer-qa",
+		},
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, total, 2)
+	require.NotEmpty(t, assignments)
+
+	hasEditorQA := false
+	hasPostReview := false
+	for _, assignment := range assignments {
+		require.Equal(t, coreadmin.AssignmentStatusReview, assignment.Status)
+		require.Equal(t, "reviewer-qa", strings.TrimSpace(assignment.ReviewerID))
+		switch strings.TrimSpace(assignment.ID) {
+		case exampleTranslationQAAssignmentID:
+			hasEditorQA = true
+		default:
+			if strings.EqualFold(strings.TrimSpace(assignment.EntityType), "posts") {
+				hasPostReview = true
+			}
+		}
+	}
+	require.True(t, hasEditorQA, "expected seeded QA editor assignment in reviewer inbox")
+	require.True(t, hasPostReview, "expected seeded review post assignment in reviewer inbox")
 }
 
 func TestTranslationQAFamilyTargetResolvesCurrentFixtureFamily(t *testing.T) {

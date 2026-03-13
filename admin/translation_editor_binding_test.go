@@ -564,6 +564,12 @@ func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
 		ReviewRequired: true,
 	})
 	enableTranslationEditorQAWithBlockers(t, fixture)
+	metrics := &capturingTranslationMetrics{}
+	originalMetrics := defaultTranslationMetrics
+	defaultTranslationMetrics = metrics
+	t.Cleanup(func() {
+		defaultTranslationMetrics = originalMetrics
+	})
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"environment":      "production",
@@ -581,11 +587,23 @@ func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
 	if blocked, _ := qaResults["submit_blocked"].(bool); !blocked {
 		t.Fatalf("expected submit_blocked true in metadata, got %+v", qaResults)
 	}
+	if len(metrics.qaOutcomeTags) != 1 {
+		t.Fatalf("expected one qa outcome metric, got %d", len(metrics.qaOutcomeTags))
+	}
+	if metrics.qaOutcomeTags[0]["trigger"] != "submit_review" || metrics.qaOutcomeTags[0]["outcome"] != "blocked" {
+		t.Fatalf("unexpected qa outcome tags: %+v", metrics.qaOutcomeTags[0])
+	}
 }
 
 func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	rejectFixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: true,
+	})
+	metrics := &capturingTranslationMetrics{}
+	originalMetrics := defaultTranslationMetrics
+	defaultTranslationMetrics = metrics
+	t.Cleanup(func() {
+		defaultTranslationMetrics = originalMetrics
 	})
 	reviewAssignment, err := rejectFixture.repo.Get(context.Background(), rejectFixture.assignmentID)
 	if err != nil {
@@ -626,6 +644,12 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	}
 	if got := rejectedTarget.Status; got != string(translationcore.VariantStatusInProgress) {
 		t.Fatalf("expected rejected target status in_progress, got %q", got)
+	}
+	if len(metrics.reviewActionTags) == 0 {
+		t.Fatalf("expected review action metric for reject")
+	}
+	if metrics.reviewActionTags[0]["action"] != "reject" || metrics.reviewActionTags[0]["flow"] != "request_changes" || metrics.reviewActionTags[0]["outcome"] != "success" {
+		t.Fatalf("unexpected reject review metric tags: %+v", metrics.reviewActionTags[0])
 	}
 
 	approveFixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
@@ -670,11 +694,23 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if got := approvedTarget.Status; got != string(translationcore.VariantStatusApproved) {
 		t.Fatalf("expected approved target status approved, got %q", got)
 	}
+	if len(metrics.reviewActionTags) < 2 {
+		t.Fatalf("expected review action metric for approve, got %+v", metrics.reviewActionTags)
+	}
+	if metrics.reviewActionTags[1]["action"] != "approve" || metrics.reviewActionTags[1]["flow"] != "approve" || metrics.reviewActionTags[1]["outcome"] != "success" {
+		t.Fatalf("unexpected approve review metric tags: %+v", metrics.reviewActionTags[1])
+	}
 }
 
 func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: false,
+	})
+	metrics := &capturingTranslationMetrics{}
+	originalMetrics := defaultTranslationMetrics
+	defaultTranslationMetrics = metrics
+	t.Cleanup(func() {
+		defaultTranslationMetrics = originalMetrics
 	})
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
@@ -704,6 +740,18 @@ func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testin
 	}
 	if got := target.Status; got != string(translationcore.VariantStatusApproved) {
 		t.Fatalf("expected target variant approved, got %q", got)
+	}
+	if len(metrics.qaOutcomeTags) != 1 {
+		t.Fatalf("expected one qa outcome metric for submit review, got %d", len(metrics.qaOutcomeTags))
+	}
+	if metrics.qaOutcomeTags[0]["trigger"] != "submit_review" {
+		t.Fatalf("unexpected qa outcome metric tags: %+v", metrics.qaOutcomeTags[0])
+	}
+	if len(metrics.reviewActionTags) != 1 {
+		t.Fatalf("expected one review action metric for auto-approve, got %+v", metrics.reviewActionTags)
+	}
+	if metrics.reviewActionTags[0]["action"] != "approve" || metrics.reviewActionTags[0]["flow"] != "auto_approve" || metrics.reviewActionTags[0]["outcome"] != "success" {
+		t.Fatalf("unexpected auto-approve review metric tags: %+v", metrics.reviewActionTags[0])
 	}
 }
 

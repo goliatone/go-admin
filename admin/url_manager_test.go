@@ -123,6 +123,14 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if translationsDashboard != "/admin/translations/dashboard" {
 		t.Fatalf("expected /admin/translations/dashboard, got %q", translationsDashboard)
 	}
+
+	translationsDashboardAPI, err := manager.Resolve("admin.api", "translations.dashboard", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve admin.api translations.dashboard: %v", err)
+	}
+	if translationsDashboardAPI != "/admin/api/translations/dashboard" {
+		t.Fatalf("expected /admin/api/translations/dashboard, got %q", translationsDashboardAPI)
+	}
 }
 
 func TestDefaultURLKitConfigUsesRoutingRootOverrides(t *testing.T) {
