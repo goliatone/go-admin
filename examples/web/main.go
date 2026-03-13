@@ -347,6 +347,10 @@ func main() {
 		queueRepository,
 		runtimeConfig.Translation,
 	)
+	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled {
+		featureDefaults[string(coreadmin.FeatureTranslationQATerms)] = true
+		featureDefaults[string(coreadmin.FeatureTranslationQAStyle)] = true
+	}
 	workflowConfigPath := resolveWorkflowConfigPath(runtimeConfig.Admin.WorkflowConfigPath, configDir)
 	var workflowRuntime coreadmin.WorkflowRuntime = coreadmin.NewWorkflowRuntimeService(
 		coreadmin.NewInMemoryWorkflowDefinitionRepository(),
