@@ -28,6 +28,8 @@ func defaultFeatureFlagKeys() []string {
 		string(FeatureOrganizations),
 		string(FeatureTranslationExchange),
 		string(FeatureTranslationQueue),
+		string(FeatureTranslationQAStyle),
+		string(FeatureTranslationQATerms),
 		"debug",
 		"users.invite",
 		fggate.FeatureUsersSignup,
