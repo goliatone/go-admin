@@ -1126,9 +1126,9 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 }
 
 type stubTranslationQueueBinding struct {
-	assignmentsCalled           int
-	assignmentDetailCalled      int
-	updateVariantCalled         int
+	assignmentsCalled          int
+	assignmentDetailCalled     int
+	updateVariantCalled        int
 	myWorkCalled               int
 	queueCalled                int
 	entityTypesOptionsCalled   int
