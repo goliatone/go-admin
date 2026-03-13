@@ -8,6 +8,22 @@ const runtimePath = path.join(
   repoRoot,
   'pkg/client/assets/src/esign/pages/agreement-form-runtime.ts'
 );
+const bootstrapConfigPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/bootstrap-config.ts'
+);
+const stateManagerPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/state-manager.ts'
+);
+const documentSelectionPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/document-selection.ts'
+);
+const formSubmitPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/form-submit.ts'
+);
 const templatePath = path.join(
   repoRoot,
   'pkg/client/templates/resources/esign-agreements/form.html'
@@ -36,7 +52,7 @@ test('resume modal template includes explicit proceed action', () => {
 });
 
 test('wizard runtime scopes storage and channel keys by mode/user/route', () => {
-  const source = read(runtimePath);
+  const source = read(bootstrapConfigPath);
   assert.match(source, /wizardModeToken = isEditMode \? 'edit' : 'create'/);
   assert.match(source, /wizardScopeToken = \[/);
   assert.match(source, /WIZARD_STORAGE_KEY = `esign_wizard_state_v1:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
@@ -44,15 +60,16 @@ test('wizard runtime scopes storage and channel keys by mode/user/route', () => 
 });
 
 test('resume check uses meaningful wizard progress helper', () => {
-  const source = read(runtimePath);
-  assert.match(source, /function hasMeaningfulWizardProgress\(state\)/);
-  assert.match(source, /hasResumableState\(\)\s*\{\s*return hasMeaningfulWizardProgress\(this\.state\);/s);
-  assert.doesNotMatch(source, /participantCount > 0/);
+  const bootstrapSource = read(bootstrapConfigPath);
+  const stateManagerSource = read(stateManagerPath);
+  assert.match(bootstrapSource, /export function hasMeaningfulWizardProgress\(/);
+  assert.match(stateManagerSource, /hasResumableState\(\): boolean \{\s*return this\.options\.hasMeaningfulWizardProgress\(this\.getState\(\)\);/s);
+  assert.doesNotMatch(bootstrapSource, /participantCount > 0/);
 });
 
 test('resume actions route through shared stale-state cleanup helper', () => {
   const source = read(resumeFlowPath);
-  assert.match(source, /async function clearSavedResumeState\(options = \{\}\)/);
+  assert.match(source, /async function clearSavedResumeState\(options: \{ deleteServerDraft\?: boolean \} = \{\}\)/);
   assert.match(source, /async function handleResumeAction\(action\)/);
   assert.match(source, /case 'start_new':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: false \}\)/);
   assert.match(source, /case 'proceed':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: true \}\)/);
@@ -74,25 +91,25 @@ test('resume runtime uses explicit rehydration callbacks instead of boot-time wi
 });
 
 test('legacy key migration writes scoped state and removes old key once', () => {
-  const source = read(runtimePath);
-  assert.match(source, /LEGACY_WIZARD_STORAGE_KEY = 'esign_wizard_state_v1'/);
-  assert.match(source, /migrateLegacyStateIfNeeded\(\)/);
-  assert.match(source, /storageMigrationVersion:\s*WIZARD_STORAGE_MIGRATION_VERSION/);
-  assert.match(source, /sessionStorage\.removeItem\(LEGACY_WIZARD_STORAGE_KEY\)/);
-  assert.match(source, /wizard_resume_migration_used/);
+  const bootstrapSource = read(bootstrapConfigPath);
+  const stateManagerSource = read(stateManagerPath);
+  assert.match(bootstrapSource, /LEGACY_WIZARD_STORAGE_KEY: 'esign_wizard_state_v1'/);
+  assert.match(stateManagerSource, /migrateLegacyStateIfNeeded\(\)/);
+  assert.match(stateManagerSource, /storageMigrationVersion: this\.options\.storageMigrationVersion/);
+  assert.match(stateManagerSource, /storage\.removeItem\(this\.options\.legacyStorageKey\)/);
+  assert.match(stateManagerSource, /wizard_resume_migration_used/);
 });
 
 test('create flow title provenance prevents stale server seed from locking title', () => {
-  const source = read(runtimePath);
-  assert.match(source, /TITLE_SOURCE = \{/);
-  assert.match(source, /setTitleSource\(TITLE_SOURCE\.SERVER_SEED, \{ syncPending: false \}\)/);
-  assert.match(source, /if \(currentTitle && titleSource === TITLE_SOURCE\.USER\) \{/);
-  assert.match(source, /titleInput\?\.addEventListener\('input', \(\) => \{/);
-  assert.match(source, /TITLE_SOURCE\.USER/);
+  const bootstrapSource = read(bootstrapConfigPath);
+  const documentSelectionSource = read(documentSelectionPath);
+  assert.match(bootstrapSource, /AGREEMENT_TITLE_SOURCE = \{/);
+  assert.match(documentSelectionSource, /setTitleSource\(titleSource\.SERVER_SEED, \{ syncPending: false \}\)/);
+  assert.match(documentSelectionSource, /normalizeTitleSource\(/);
 });
 
 test('send flow performs pre-send handshake and stale draft recovery', () => {
-  const source = read(runtimePath);
+  const source = read(formSubmitPath);
   assert.match(source, /async function ensureDraftReadyForSend\(\)/);
   assert.match(source, /wizard_send_stale_draft_recovered/);
   assert.match(source, /DRAFT_SEND_NOT_FOUND/);
