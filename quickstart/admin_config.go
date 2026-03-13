@@ -78,6 +78,8 @@ func DefaultAdminFeatures() map[string]bool {
 		string(admin.FeatureOrganizations):       false,
 		string(admin.FeatureTranslationExchange): false,
 		string(admin.FeatureTranslationQueue):    false,
+		string(admin.FeatureTranslationQAStyle):  false,
+		string(admin.FeatureTranslationQATerms):  false,
 	}
 }
 
