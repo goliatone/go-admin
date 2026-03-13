@@ -86,6 +86,7 @@ type ESignModule struct {
 	google            googleIntegrationService
 	googleImportQueue *jobs.GoogleDriveImportQueue
 	emailOutbox       *jobs.EmailOutboxDispatcher
+	signingWorkflows  *jobs.SigningWorkflowOutboxDispatcher
 	integrations      services.IntegrationFoundationService
 	activityMap       *AuditActivityProjector
 	uploadManager     *uploader.Manager
@@ -177,6 +178,10 @@ func (m *ESignModule) Close() {
 	if m.emailOutbox != nil {
 		m.emailOutbox.Close()
 		m.emailOutbox = nil
+	}
+	if m.signingWorkflows != nil {
+		m.signingWorkflows.Close()
+		m.signingWorkflows = nil
 	}
 }
 
@@ -391,6 +396,15 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	emailOutbox.NotifyScope(m.defaultScope)
 	m.emailOutbox = emailOutbox
+	signingWorkflowOutbox, err := jobs.NewSigningWorkflowOutboxDispatcher(
+		m.store,
+		jobs.NewSigningWorkflowOutboxPublisher(jobHandlers, emailWorkflow, emailWorkflow),
+	)
+	if err != nil {
+		return fmt.Errorf("esign module: signing workflow outbox dispatcher: %w", err)
+	}
+	signingWorkflowOutbox.NotifyScope(m.defaultScope)
+	m.signingWorkflows = signingWorkflowOutbox
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementAuditStore(m.store),
@@ -413,6 +427,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
+		services.WithSigningWorkflowOutbox(m.store),
+		services.WithSigningWorkflowDispatchTrigger(signingWorkflowOutbox),
 		services.WithSigningCompletionWorkflow(emailWorkflow),
 		services.WithSigningStageWorkflow(emailWorkflow),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),

@@ -2229,6 +2229,199 @@ func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *t
 	}
 }
 
+func TestSigningServiceSubmitEnqueuesCompletionWorkflowOutboxWhenConfigured(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase5-submit-outbox-completion"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	completionFlow := &capturingCompletionWorkflow{}
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	signingSvc := NewSigningService(store,
+		WithSigningWorkflowOutbox(store),
+		WithSigningWorkflowDispatchTrigger(dispatcher),
+		WithSigningCompletionWorkflow(completionFlow),
+	)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-outbox-completion.png",
+		SHA256:    strings.Repeat("c", 64),
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+
+	submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-outbox-completion-key-1"})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if !submit.Completed {
+		t.Fatal("expected final signer submit to complete agreement")
+	}
+	if completionFlow.calls != 0 {
+		t.Fatalf("expected completion workflow bypassed when outbox is configured, got %d calls", completionFlow.calls)
+	}
+	if dispatcher.calls != 1 {
+		t.Fatalf("expected outbox dispatcher notified once, got %d calls", dispatcher.calls)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: SigningWorkflowOutboxTopicCompletion})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 1 {
+		t.Fatalf("expected one completion outbox message, got %+v", outbox)
+	}
+	var payload SigningWorkflowOutboxPayload
+	if err := json.Unmarshal([]byte(outbox[0].PayloadJSON), &payload); err != nil {
+		t.Fatalf("Unmarshal outbox payload: %v", err)
+	}
+	if payload.AgreementID != agreement.ID {
+		t.Fatalf("expected agreement id %q, got %q", agreement.ID, payload.AgreementID)
+	}
+	if payload.RecipientID != signer.ID {
+		t.Fatalf("expected recipient id %q, got %q", signer.ID, payload.RecipientID)
+	}
+	if payload.CorrelationID != "submit-outbox-completion-key-1" {
+		t.Fatalf("expected correlation submit-outbox-completion-key-1, got %q", payload.CorrelationID)
+	}
+	if payload.FailureAuditEvent != SignerCompletionWorkflowFailedAuditEvent {
+		t.Fatalf("expected failure audit event %q, got %q", SignerCompletionWorkflowFailedAuditEvent, payload.FailureAuditEvent)
+	}
+}
+
+func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer-1@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
+	}
+	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer-2@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signerOne.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signer one: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signerTwo.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signer two: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase5-submit-outbox-stage"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	stageFlow := &capturingStageWorkflow{}
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	signingSvc := NewSigningService(store,
+		WithSigningWorkflowOutbox(store),
+		WithSigningWorkflowDispatchTrigger(dispatcher),
+		WithSigningStageWorkflow(stageFlow),
+	)
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerOne.ID,
+	}
+	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-outbox-stage.png",
+		SHA256:    strings.Repeat("d", 64),
+		ValueText: "Signer One",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+
+	submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-outbox-stage-key-1"})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if submit.Completed {
+		t.Fatal("expected first signer submit to keep agreement in progress")
+	}
+	if stageFlow.calls != 0 {
+		t.Fatalf("expected stage workflow bypassed when outbox is configured, got %d calls", stageFlow.calls)
+	}
+	if dispatcher.calls != 1 {
+		t.Fatalf("expected outbox dispatcher notified once, got %d calls", dispatcher.calls)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: SigningWorkflowOutboxTopicStageActivation})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 1 {
+		t.Fatalf("expected one stage activation outbox message, got %+v", outbox)
+	}
+	var payload SigningWorkflowOutboxPayload
+	if err := json.Unmarshal([]byte(outbox[0].PayloadJSON), &payload); err != nil {
+		t.Fatalf("Unmarshal outbox payload: %v", err)
+	}
+	if payload.AgreementID != agreement.ID {
+		t.Fatalf("expected agreement id %q, got %q", agreement.ID, payload.AgreementID)
+	}
+	if payload.RecipientID != signerOne.ID {
+		t.Fatalf("expected completed recipient id %q, got %q", signerOne.ID, payload.RecipientID)
+	}
+	if !hasRecipientID(payload.RecipientIDs, signerTwo.ID) {
+		t.Fatalf("expected next signer id %q in %+v", signerTwo.ID, payload.RecipientIDs)
+	}
+	if payload.CorrelationID != "submit-outbox-stage-key-1" {
+		t.Fatalf("expected correlation submit-outbox-stage-key-1, got %q", payload.CorrelationID)
+	}
+	if payload.FailureAuditEvent != SignerStageActivationWorkflowFailedAuditEvent {
+		t.Fatalf("expected failure audit event %q, got %q", SignerStageActivationWorkflowFailedAuditEvent, payload.FailureAuditEvent)
+	}
+}
+
 func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
