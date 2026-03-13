@@ -1,13 +1,16 @@
 {
   "name": "@goliatone/go-sync-client-workspace",
-  "version": "0.0.0-phase1",
+  "version": "0.0.0-phase5",
   "private": true,
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
+    "version:sync": "node ./scripts/sync-version.mjs",
     "build": "npm run build --workspaces --if-present",
+    "build:sync": "node ./scripts/build-sync.mjs",
+    "verify": "node ./scripts/verify-package.mjs",
     "test": "npm run build && node --test tests/*.test.mjs packages/*/tests/*.test.mjs"
   },
   "devDependencies": {

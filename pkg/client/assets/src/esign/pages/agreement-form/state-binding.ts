@@ -1,11 +1,11 @@
-import type { AgreementTitleSourceShape } from './bootstrap-config';
+import type { AgreementProgressState, AgreementTitleSourceShape } from './bootstrap-config';
 import type { AgreementFormRefs } from './refs';
 import type { ParticipantStateRecord, ParticipantsController } from './participants';
 import type { FieldDefinitionsController } from './field-definitions';
 import type { PlacementEditorController } from './placement-editor';
 import type { DocumentPreviewCard } from './preview-card';
 import type { WizardNavigationController } from './wizard-navigation';
-import type { FieldRuleState } from './contracts';
+import type { FieldRuleState, NormalizedPlacementInstance } from './contracts';
 
 interface FieldDefinitionStateRecord {
   tempId: string;
@@ -15,16 +15,22 @@ interface FieldDefinitionStateRecord {
   required: boolean;
 }
 
-interface AgreementStateShape {
+interface AgreementDetailsState {
+  title?: unknown;
+  message?: unknown;
+}
+
+interface AgreementStateShape extends AgreementProgressState {
   document?: {
     id?: string | null;
     title?: string | null;
     pageCount?: number | null;
   } | null;
+  details?: AgreementDetailsState | null;
   participants?: ParticipantStateRecord[];
   fieldDefinitions?: FieldDefinitionStateRecord[];
   fieldRules?: FieldRuleState[];
-  fieldPlacements?: Array<Record<string, unknown> | null | undefined>;
+  fieldPlacements?: NormalizedPlacementInstance[];
 }
 
 interface StateBindingStateManager {

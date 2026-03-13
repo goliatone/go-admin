@@ -45,7 +45,7 @@ import { createLinkGroupState } from './linked-placement';
 import type { LinkGroupState, ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance } from './contracts';
 import { parsePositiveInt } from './normalization';
 import { escapeHtml, showToast } from './ui-utils';
-import type { ParticipantsController, SignerParticipantSummary } from './participants';
+import type { ParticipantStateRecord, ParticipantsController, SignerParticipantSummary } from './participants';
 import type { FieldDefinitionsController } from './field-definitions';
 import type { PlacementEditorController } from './placement-editor';
 import type { AgreementStateBindingController } from './state-binding';
@@ -69,9 +69,19 @@ interface CoordinatorWizardDetailsState {
   message?: string;
 }
 
+interface CoordinatorWizardFieldDefinitionState {
+  tempId: string;
+  type: string;
+  participantTempId: string;
+  page: number;
+  required: boolean;
+}
+
 interface CoordinatorWizardState extends AgreementProgressState {
   document?: CoordinatorWizardDocumentState | null;
   details?: CoordinatorWizardDetailsState | null;
+  participants?: ParticipantStateRecord[];
+  fieldDefinitions?: CoordinatorWizardFieldDefinitionState[];
   titleSource?: unknown;
   updatedAt?: string | null;
   syncPending?: boolean;

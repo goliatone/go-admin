@@ -336,7 +336,14 @@ export function normalizePlacementSource(value: unknown): string {
   }
 }
 
-export function normalizePlacementInstance(instance: RawPlacementInstance, index = 0): NormalizedPlacementInstance {
+export function normalizePlacementInstance(
+  instance: RawPlacementInstance | NormalizedPlacementInstance,
+  index?: number,
+): NormalizedPlacementInstance;
+export function normalizePlacementInstance(
+  instance: RawPlacementInstance | NormalizedPlacementInstance,
+  index = 0,
+): NormalizedPlacementInstance {
   const raw = (instance || {}) as Record<string, unknown>;
   const id = asString(raw.id) || `fi_init_${index}`;
   const definitionID = asString(raw.definitionId || raw.definition_id || raw.field_definition_id) || id;
@@ -364,7 +371,10 @@ export function normalizePlacementInstance(instance: RawPlacementInstance, index
   };
 }
 
-export function toPlacementFormPayload(instance: RawPlacementInstance, index = 0): PlacementFormPayload {
+export function toPlacementFormPayload(
+  instance: RawPlacementInstance | NormalizedPlacementInstance,
+  index = 0,
+): PlacementFormPayload {
   const normalized = normalizePlacementInstance(instance, index);
   return {
     id: normalized.id,

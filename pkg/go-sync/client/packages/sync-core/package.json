@@ -1,11 +1,16 @@
 {
   "name": "@goliatone/sync-core",
-  "version": "0.0.0-phase1",
+  "version": "0.0.0-phase5",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist-types/index.d.ts",
+  "files": [
+    "dist",
+    "dist-types",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist-types/index.d.ts",

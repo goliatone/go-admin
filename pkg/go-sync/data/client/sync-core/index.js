@@ -1,4 +1,4 @@
-const pe = "@goliatone/sync-core", he = "0.0.0-phase1";
+const pe = "@goliatone/sync-core", he = "0.0.0-phase5";
 function R(e) {
   return e == null ? e : typeof structuredClone == "function" ? structuredClone(e) : I(e);
 }

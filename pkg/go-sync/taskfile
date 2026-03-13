@@ -1,0 +1,85 @@
+#!/bin/bash
+
+if [[ $* == *-debug* ]]; then
+    set -x
+fi
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGE_ROOT="${SCRIPT_DIR}"
+CLIENT_ROOT="${PACKAGE_ROOT}/client"
+VERSION_FILE="${PACKAGE_ROOT}/.version"
+
+PATH="${CLIENT_ROOT}/node_modules/.bin:${PATH}"
+
+function _client:require:command {
+    local name="${1}"
+    if ! command -v "${name}" >/dev/null 2>&1; then
+        echo "required command not found: ${name}"
+        return 1
+    fi
+}
+
+function _client:require:workspace {
+    if [ ! -f "${VERSION_FILE}" ]; then
+        echo "missing package version file: ${VERSION_FILE}"
+        return 1
+    fi
+    if [ ! -f "${CLIENT_ROOT}/package.json" ]; then
+        echo "missing client workspace package.json: ${CLIENT_ROOT}/package.json"
+        return 1
+    fi
+}
+
+function _client:npm {
+    _client:require:command npm
+    _client:require:workspace
+    (
+        cd "${CLIENT_ROOT}" || exit "$?"
+        npm "$@"
+    )
+}
+
+function _client:node {
+    _client:require:command node
+    _client:require:workspace
+    node "$@"
+}
+
+function client:release {
+    _client:node "${CLIENT_ROOT}/scripts/sync-version.mjs"
+    client:build
+}
+
+function client:build {
+    _client:npm run build
+    _client:node "${CLIENT_ROOT}/scripts/build-sync.mjs"
+    _client:node "${CLIENT_ROOT}/scripts/verify-package.mjs"
+}
+
+function client:test {
+    _client:npm test
+    _client:node "${CLIENT_ROOT}/scripts/verify-package.mjs"
+}
+
+function client:build:all {
+    client:build
+}
+
+function _main {
+    local command="${1:-}"
+    if [ -z "${command}" ]; then
+        echo "usage: ${0} <command>"
+        echo "available commands: client:release client:build client:test client:build:all"
+        return 1
+    fi
+    shift || true
+    if ! declare -f "${command}" >/dev/null 2>&1; then
+        echo "unknown command: ${command}"
+        return 1
+    fi
+    "${command}" "$@"
+}
+
+_main "$@"

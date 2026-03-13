@@ -55,8 +55,8 @@ test('wizard runtime scopes storage and channel keys by mode/user/route', () => 
   const source = read(bootstrapConfigPath);
   assert.match(source, /wizardModeToken = isEditMode \? 'edit' : 'create'/);
   assert.match(source, /wizardScopeToken = \[/);
-  assert.match(source, /WIZARD_STORAGE_KEY = `esign_wizard_state_v1:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
-  assert.match(source, /WIZARD_CHANNEL_NAME = `esign_wizard_sync:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
+  assert.match(source, /WIZARD_STORAGE_KEY:\s*`esign_wizard_state_v1:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
+  assert.match(source, /WIZARD_CHANNEL_NAME:\s*`esign_wizard_sync:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
 });
 
 test('resume check uses meaningful wizard progress helper', () => {
@@ -70,7 +70,7 @@ test('resume check uses meaningful wizard progress helper', () => {
 test('resume actions route through shared stale-state cleanup helper', () => {
   const source = read(resumeFlowPath);
   assert.match(source, /async function clearSavedResumeState\(options: \{ deleteServerDraft\?: boolean \} = \{\}\)/);
-  assert.match(source, /async function handleResumeAction\(action\)/);
+  assert.match(source, /async function handleResumeAction\(action: ResumeAction\): Promise<void>/);
   assert.match(source, /case 'start_new':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: false \}\)/);
   assert.match(source, /case 'proceed':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: true \}\)/);
   assert.match(source, /case 'discard':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: true \}\)/);

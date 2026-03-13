@@ -3,6 +3,7 @@ import type {
   LinkGroupState,
   NormalizedPlacementInstance,
   PlacementFormPayload,
+  RawPlacementInstance,
 } from './contracts';
 import {
   addLinkGroup,
@@ -212,7 +213,9 @@ export interface PlacementEditorController {
   setLinkGroupState(nextState: LinkGroupState | null | undefined): void;
   buildPlacementFormEntries(): PlacementFormPayload[];
   updateFieldInstancesFormData(options?: { silent?: boolean }): PlacementFormPayload[];
-  restoreFieldPlacementsFromState(nextState: { fieldPlacements?: Array<Record<string, unknown> | null | undefined> } | null | undefined): void;
+  restoreFieldPlacementsFromState(
+    nextState: { fieldPlacements?: Array<NormalizedPlacementInstance | RawPlacementInstance> } | null | undefined,
+  ): void;
 }
 
 declare global {
@@ -1539,7 +1542,7 @@ export function createPlacementEditorController(
   }
 
   function restoreFieldPlacementsFromState(
-    nextState: { fieldPlacements?: Array<Record<string, unknown> | null | undefined> } | null | undefined,
+    nextState: { fieldPlacements?: Array<NormalizedPlacementInstance | RawPlacementInstance> } | null | undefined,
   ): void {
     const fieldPlacements = Array.isArray(nextState?.fieldPlacements) ? nextState.fieldPlacements : [];
     state.fieldInstances = fieldPlacements.map((instance, index) => normalizePlacementInstance(instance, index));
