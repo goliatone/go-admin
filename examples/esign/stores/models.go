@@ -3,6 +3,7 @@ package stores
 import (
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/admin/txoutbox"
 	"github.com/uptrace/bun"
 )
@@ -32,9 +33,22 @@ const (
 )
 
 const (
-	SigningTokenStatusActive  = "active"
-	SigningTokenStatusRevoked = "revoked"
-	SigningTokenStatusExpired = "expired"
+	SigningTokenStatusPending    = "pending"
+	SigningTokenStatusActive     = "active"
+	SigningTokenStatusSuperseded = "superseded"
+	SigningTokenStatusAborted    = "aborted"
+	SigningTokenStatusRevoked    = "revoked"
+	SigningTokenStatusExpired    = "expired"
+)
+
+const (
+	AgreementDeliveryStatusPrepared     = guardedeffects.StatusPrepared
+	AgreementDeliveryStatusDispatching  = guardedeffects.StatusDispatching
+	AgreementDeliveryStatusGuardPending = guardedeffects.StatusGuardPending
+	AgreementDeliveryStatusFinalized    = guardedeffects.StatusFinalized
+	AgreementDeliveryStatusRetrying     = guardedeffects.StatusRetrying
+	AgreementDeliveryStatusAborted      = guardedeffects.StatusAborted
+	AgreementDeliveryStatusDeadLettered = guardedeffects.StatusDeadLettered
 )
 
 const (
@@ -174,6 +188,10 @@ type AgreementRecord struct {
 	Message                string
 	Version                int64
 	SentAt                 *time.Time
+	DeliveryStatus         string
+	DeliveryEffectID       string
+	LastDeliveryError      string
+	LastDeliveryAttemptAt  *time.Time
 	CompletedAt            *time.Time
 	VoidedAt               *time.Time
 	DeclinedAt             *time.Time
@@ -257,9 +275,16 @@ type SigningTokenRecord struct {
 	RecipientID   string
 	TokenHash     string
 	Status        string
+	ActivatedAt   *time.Time
 	ExpiresAt     time.Time
 	RevokedAt     *time.Time
 	CreatedAt     time.Time
+}
+
+// GuardedEffectRecord stores a durable guarded external effect lifecycle row.
+type GuardedEffectRecord struct {
+	bun.BaseModel `bun:"table:guarded_effects,alias:gef"`
+	guardedeffects.Record
 }
 
 // FieldRecord stores e-sign field placements and assignment.
@@ -945,6 +970,23 @@ type RemediationDispatchRecord struct {
 	MaxAttempts    int
 	EnqueuedAt     *time.Time
 	UpdatedAt      time.Time
+}
+
+type GuardedEffectQuery struct {
+	SubjectType string
+	SubjectID   string
+	Kind        string
+	Status      string
+	Limit       int
+	Offset      int
+	SortDesc    bool
+}
+
+type AgreementDeliveryStatePatch struct {
+	DeliveryStatus        *string
+	DeliveryEffectID      *string
+	LastDeliveryError     *string
+	LastDeliveryAttemptAt *time.Time
 }
 
 type AgreementQuery struct {

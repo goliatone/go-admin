@@ -183,9 +183,16 @@ func buildTrustedSyncRequestIdentity(c router.Context, cfg registerConfig) (http
 		})
 	}
 
+	resolvedScope := cfg.resolveScope(c)
 	scope := stores.Scope{
-		TenantID: strings.TrimSpace(authenticated.TenantID),
-		OrgID:    strings.TrimSpace(authenticated.OrgID),
+		TenantID: strings.TrimSpace(resolvedScope.TenantID),
+		OrgID:    strings.TrimSpace(resolvedScope.OrgID),
+	}
+	if strings.TrimSpace(scope.TenantID) == "" {
+		scope.TenantID = strings.TrimSpace(authenticated.TenantID)
+	}
+	if strings.TrimSpace(scope.OrgID) == "" {
+		scope.OrgID = strings.TrimSpace(authenticated.OrgID)
 	}
 	if strings.TrimSpace(scope.TenantID) == "" || strings.TrimSpace(scope.OrgID) == "" {
 		return httptransport.RequestIdentity{}, synccore.NewError(synccore.CodeInvalidMutation, "tenant and org are required", map[string]any{

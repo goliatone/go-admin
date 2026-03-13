@@ -26,6 +26,10 @@ func (*SigningTokenRecord) TableName() string {
 	return "signing_tokens"
 }
 
+func (*GuardedEffectRecord) TableName() string {
+	return "guarded_effects"
+}
+
 func (*FieldRecord) TableName() string {
 	return "fields"
 }
