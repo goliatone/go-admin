@@ -1,0 +1,1018 @@
+{
+  "meta": {
+    "schema_version": 2,
+    "cell_states": [
+      "ready",
+      "missing",
+      "in_progress",
+      "in_review",
+      "fallback",
+      "not_required"
+    ],
+    "latency_target_ms": 400,
+    "query_model": {
+      "id": "family_locale_matrix",
+      "description": "Families as rows and locales as columns, with backend-resolved cell states and bulk-action contracts.",
+      "scope_fields": [
+        "tenant_id",
+        "org_id"
+      ],
+      "supported_filters": [
+        "family_id",
+        "content_type",
+        "readiness_state",
+        "blocker_code",
+        "locale",
+        "locales",
+        "environment"
+      ],
+      "stable_sort_keys": [
+        "updated_at",
+        "content_type",
+        "family_id"
+      ],
+      "default_page_size": 25,
+      "max_page_size": 100,
+      "default_locale_limit": 20,
+      "max_locale_limit": 50,
+      "viewport_target": {
+        "rows": 100,
+        "locales": 20
+      },
+      "index_hints": [
+        "content_families_scope_readiness_idx",
+        "content_families_scope_type_updated_idx",
+        "family_blockers_scope_code_locale_family_idx",
+        "translation_assignments_scope_family_locale_scope_status_idx",
+        "locale_variants_scope_status_updated_idx"
+      ],
+      "ui_route": "translations.matrix",
+      "api_route": "translations.matrix",
+      "resolver_keys": [
+        "admin.translations.matrix",
+        "admin.api.translations.matrix",
+        "admin.api.translations.matrix.actions.create_missing",
+        "admin.api.translations.matrix.actions.export_selected"
+      ]
+    },
+    "bulk_actions": {
+      "create_missing": {
+        "id": "create_missing",
+        "permission": "admin.translations.edit",
+        "endpoint_route": "translations.matrix.actions.create_missing",
+        "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+        "required_fields": [
+          "family_ids"
+        ],
+        "optional_fields": [
+          "locales",
+          "auto_create_assignment",
+          "assignee_id",
+          "priority",
+          "due_date",
+          "environment"
+        ],
+        "result_statuses": [
+          "created",
+          "skipped",
+          "failed"
+        ],
+        "selection_required": true
+      },
+      "export_selected": {
+        "id": "export_selected",
+        "permission": "admin.translations.export",
+        "endpoint_route": "translations.matrix.actions.export_selected",
+        "resolver_key": "admin.api.translations.matrix.actions.export_selected",
+        "required_fields": [
+          "family_ids"
+        ],
+        "optional_fields": [
+          "locales",
+          "include_source_hash",
+          "format",
+          "environment"
+        ],
+        "result_statuses": [
+          "export_ready",
+          "skipped",
+          "failed"
+        ],
+        "selection_required": true
+      }
+    },
+    "ui_metadata": {
+      "locale_policy_key": "meta.locale_policy",
+      "quick_action_targets_key": "meta.quick_action_targets",
+      "row_link_keys": [
+        "family",
+        "content_detail",
+        "content_edit"
+      ],
+      "cell_quick_action_keys": [
+        "open",
+        "create"
+      ],
+      "selection_bulk_actions_key": "data.selection.bulk_actions"
+    }
+  },
+  "states": {
+    "viewport": {
+      "data": {
+        "columns": [
+          {
+            "locale": "en",
+            "label": "EN",
+            "required_by_count": 0,
+            "source_count": 2,
+            "source_locale": true,
+            "sticky": true
+          },
+          {
+            "locale": "de",
+            "label": "DE",
+            "required_by_count": 0,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": false
+          },
+          {
+            "locale": "es",
+            "label": "ES",
+            "required_by_count": 2,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": false
+          },
+          {
+            "locale": "fr",
+            "label": "FR",
+            "required_by_count": 2,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": false
+          }
+        ],
+        "rows": [
+          {
+            "family_id": "tg-news-matrix-1",
+            "content_type": "news",
+            "source_locale": "en",
+            "source_record_id": "news-1",
+            "source_title": "News 1",
+            "readiness_state": "blocked",
+            "blocker_codes": [
+              "pending_review"
+            ],
+            "links": {
+              "family": {
+                "href": "/admin/translations/families/tg-news-matrix-1",
+                "key": "family",
+                "label": "Open family",
+                "description": "Open the family detail surface for this row.",
+                "relation": "primary"
+              },
+              "content_detail": {
+                "href": "/admin/content/news/news-1",
+                "key": "content_detail",
+                "label": "Source content",
+                "description": "Open the source content detail view.",
+                "relation": "secondary"
+              },
+              "content_edit": {
+                "href": "/admin/content/news/news-1/edit?locale=en",
+                "key": "content_edit",
+                "label": "Edit source",
+                "description": "Open the source locale editor.",
+                "relation": "secondary"
+              }
+            },
+            "cells": {
+              "en": {
+                "locale": "en",
+                "state": "ready",
+                "required": false,
+                "not_required": true,
+                "fallback": false,
+                "blocker_codes": [],
+                "variant": {
+                  "id": "variant-news-en",
+                  "locale": "en",
+                  "status": "published",
+                  "is_source": true,
+                  "source_record_id": "news-1"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open source",
+                    "description": "Open the content record for this locale.",
+                    "href": "/admin/content/news/news-1",
+                    "route": "translations.assignments.id"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-news-matrix-1"
+                      ],
+                      "locales": [
+                        "en"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "de": {
+                "locale": "de",
+                "state": "ready",
+                "required": false,
+                "not_required": true,
+                "fallback": false,
+                "blocker_codes": [],
+                "variant": {
+                  "id": "variant-news-de",
+                  "locale": "de",
+                  "status": "approved",
+                  "is_source": false,
+                  "source_record_id": "news-1-de"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open locale",
+                    "description": "Open the content record for this locale.",
+                    "href": "/admin/content/news/news-1-de/edit?locale=de"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-news-matrix-1"
+                      ],
+                      "locales": [
+                        "de"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "es": {
+                "locale": "es",
+                "state": "ready",
+                "required": true,
+                "not_required": false,
+                "fallback": false,
+                "blocker_codes": [],
+                "variant": {
+                  "id": "variant-news-es",
+                  "locale": "es",
+                  "status": "approved",
+                  "is_source": false,
+                  "source_record_id": "news-1-es"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open locale",
+                    "description": "Open the content record for this locale.",
+                    "href": "/admin/content/news/news-1-es/edit?locale=es"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-news-matrix-1"
+                      ],
+                      "locales": [
+                        "es"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "fr": {
+                "locale": "fr",
+                "state": "in_review",
+                "required": true,
+                "not_required": false,
+                "fallback": false,
+                "blocker_codes": [
+                  "pending_review"
+                ],
+                "variant": {
+                  "id": "variant-news-fr",
+                  "locale": "fr",
+                  "status": "in_review",
+                  "is_source": false,
+                  "source_record_id": "news-1-fr"
+                },
+                "assignment": {
+                  "id": "asg-news-fr",
+                  "status": "in_review",
+                  "reviewer_id": "reviewer-1",
+                  "work_scope": "localization"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open assignment",
+                    "description": "Open the assignment editor for this locale.",
+                    "href": "/admin/translations/assignments/asg-news-fr/edit",
+                    "route": "translations.assignments.id",
+                    "resolver_key": "admin.translations.assignments.id"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-news-matrix-1"
+                      ],
+                      "locales": [
+                        "fr"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "family_id": "tg-page-matrix-1",
+            "content_type": "pages",
+            "source_locale": "en",
+            "source_record_id": "page-1",
+            "source_title": "Page 1",
+            "readiness_state": "blocked",
+            "blocker_codes": [
+              "missing_locale",
+              "missing_field"
+            ],
+            "links": {
+              "family": {
+                "href": "/admin/translations/families/tg-page-matrix-1",
+                "key": "family",
+                "label": "Open family",
+                "description": "Open the family detail surface for this row.",
+                "relation": "primary"
+              },
+              "content_detail": {
+                "href": "/admin/content/pages/page-1",
+                "key": "content_detail",
+                "label": "Source content",
+                "description": "Open the source content detail view.",
+                "relation": "secondary"
+              },
+              "content_edit": {
+                "href": "/admin/content/pages/page-1/edit?locale=en",
+                "key": "content_edit",
+                "label": "Edit source",
+                "description": "Open the source locale editor.",
+                "relation": "secondary"
+              }
+            },
+            "cells": {
+              "en": {
+                "locale": "en",
+                "state": "ready",
+                "required": false,
+                "not_required": true,
+                "fallback": false,
+                "blocker_codes": [],
+                "variant": {
+                  "id": "variant-page-en",
+                  "locale": "en",
+                  "status": "published",
+                  "is_source": true,
+                  "source_record_id": "page-1"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open source",
+                    "description": "Open the content record for this locale.",
+                    "href": "/admin/content/pages/page-1"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-page-matrix-1"
+                      ],
+                      "locales": [
+                        "en"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "de": {
+                "locale": "de",
+                "state": "not_required",
+                "required": false,
+                "not_required": true,
+                "fallback": false,
+                "blocker_codes": [],
+                "quick_actions": {
+                  "open": {
+                    "enabled": false,
+                    "label": "Open",
+                    "reason": "This locale is optional for the current family policy.",
+                    "reason_code": "INVALID_STATUS"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-page-matrix-1"
+                      ],
+                      "locales": [
+                        "de"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "This locale is optional for the current family policy.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "es": {
+                "locale": "es",
+                "state": "in_progress",
+                "required": true,
+                "not_required": false,
+                "fallback": false,
+                "blocker_codes": [
+                  "missing_field"
+                ],
+                "variant": {
+                  "id": "variant-page-es",
+                  "locale": "es",
+                  "status": "draft",
+                  "is_source": false,
+                  "source_record_id": "page-1-es"
+                },
+                "assignment": {
+                  "id": "asg-page-es",
+                  "status": "in_progress",
+                  "assignee_id": "translator-1",
+                  "work_scope": "localization"
+                },
+                "quick_actions": {
+                  "open": {
+                    "enabled": true,
+                    "label": "Open assignment",
+                    "description": "Open the assignment editor for this locale.",
+                    "href": "/admin/translations/assignments/asg-page-es/edit",
+                    "route": "translations.assignments.id",
+                    "resolver_key": "admin.translations.assignments.id"
+                  },
+                  "create": {
+                    "enabled": false,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-page-matrix-1"
+                      ],
+                      "locales": [
+                        "es"
+                      ],
+                      "environment": "production"
+                    },
+                    "reason": "Locale work already exists for this cell.",
+                    "reason_code": "INVALID_STATUS"
+                  }
+                }
+              },
+              "fr": {
+                "locale": "fr",
+                "state": "fallback",
+                "required": true,
+                "not_required": false,
+                "fallback": true,
+                "blocker_codes": [
+                  "missing_locale"
+                ],
+                "quick_actions": {
+                  "open": {
+                    "enabled": false,
+                    "label": "Open",
+                    "reason": "Fallback content is still in use for this locale. Create the locale before opening work.",
+                    "reason_code": "TRANSLATION_MISSING"
+                  },
+                  "create": {
+                    "enabled": true,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-page-matrix-1"
+                      ],
+                      "locales": [
+                        "fr"
+                      ],
+                      "environment": "production"
+                    },
+                    "description": "Create the missing locale variant and refresh matrix readiness."
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "selection": {
+          "bulk_actions": {
+            "create_missing": {
+              "enabled": true,
+              "permission": "admin.translations.edit"
+            },
+            "export_selected": {
+              "enabled": true,
+              "permission": "admin.translations.export"
+            }
+          }
+        }
+      },
+      "meta": {
+        "environment": "production",
+        "page": 1,
+        "per_page": 25,
+        "total": 2,
+        "total_locales": 4,
+        "locale_offset": 0,
+        "locale_limit": 4,
+        "has_more_locales": false,
+        "latency_target_ms": 400,
+        "scope": {
+          "tenant_id": "tenant-1",
+          "org_id": "org-1"
+        },
+        "locale_policy": [
+          {
+            "locale": "en",
+            "label": "EN",
+            "sticky": true,
+            "source_locale": true,
+            "required_by_count": 0,
+            "optional_family_count": 0,
+            "not_required_family_ids": []
+          },
+          {
+            "locale": "de",
+            "label": "DE",
+            "sticky": false,
+            "source_locale": false,
+            "required_by_count": 0,
+            "optional_family_count": 1,
+            "not_required_family_ids": [
+              "tg-page-matrix-1"
+            ]
+          },
+          {
+            "locale": "es",
+            "label": "ES",
+            "sticky": false,
+            "source_locale": false,
+            "required_by_count": 2,
+            "optional_family_count": 0,
+            "not_required_family_ids": []
+          },
+          {
+            "locale": "fr",
+            "label": "FR",
+            "sticky": false,
+            "source_locale": false,
+            "required_by_count": 2,
+            "optional_family_count": 0,
+            "not_required_family_ids": []
+          }
+        ],
+        "quick_action_targets": {
+          "create_missing": {
+            "method": "POST",
+            "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+            "route": "translations.matrix.actions.create_missing",
+            "resolver_key": "admin.api.translations.matrix.actions.create_missing"
+          },
+          "export_selected": {
+            "method": "POST",
+            "endpoint": "/admin/api/translations/matrix/actions/export-selected",
+            "route": "translations.matrix.actions.export_selected",
+            "resolver_key": "admin.api.translations.matrix.actions.export_selected"
+          },
+          "family_detail": {
+            "route": "translations.families.id",
+            "resolver_key": "admin.translations.families.id"
+          },
+          "assignment_editor": {
+            "route": "translations.assignments.id",
+            "resolver_key": "admin.translations.assignments.id"
+          },
+          "content_detail": {
+            "base_path": "/admin",
+            "type": "content_detail"
+          },
+          "content_edit": {
+            "base_path": "/admin",
+            "type": "content_edit"
+          }
+        }
+      }
+    },
+    "missing_cell": {
+      "data": {
+        "columns": [
+          {
+            "locale": "it",
+            "label": "IT",
+            "required_by_count": 1,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": true
+          }
+        ],
+        "rows": [
+          {
+            "family_id": "tg-page-matrix-1",
+            "content_type": "pages",
+            "source_locale": "en",
+            "source_record_id": "page-1",
+            "source_title": "Page 1",
+            "readiness_state": "blocked",
+            "blocker_codes": [
+              "missing_locale",
+              "missing_field"
+            ],
+            "cells": {
+              "it": {
+                "locale": "it",
+                "state": "missing",
+                "required": true,
+                "not_required": false,
+                "fallback": false,
+                "blocker_codes": [],
+                "quick_actions": {
+                  "open": {
+                    "enabled": false,
+                    "label": "Open",
+                    "reason": "No variant or assignment exists for this locale yet.",
+                    "reason_code": "TRANSLATION_MISSING"
+                  },
+                  "create": {
+                    "enabled": true,
+                    "label": "Create locale",
+                    "permission": "admin.translations.edit",
+                    "endpoint": "/admin/api/translations/matrix/actions/create-missing",
+                    "method": "POST",
+                    "route": "translations.matrix.actions.create_missing",
+                    "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+                    "payload": {
+                      "family_ids": [
+                        "tg-page-matrix-1"
+                      ],
+                      "locales": [
+                        "it"
+                      ],
+                      "environment": "production"
+                    },
+                    "description": "Create the missing locale variant and refresh matrix readiness."
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "selection": {
+          "bulk_actions": {
+            "create_missing": {
+              "enabled": true,
+              "permission": "admin.translations.edit"
+            },
+            "export_selected": {
+              "enabled": true,
+              "permission": "admin.translations.export"
+            }
+          }
+        }
+      },
+      "meta": {
+        "environment": "production",
+        "page": 1,
+        "per_page": 25,
+        "total": 1,
+        "total_locales": 1,
+        "locale_offset": 0,
+        "locale_limit": 1,
+        "has_more_locales": false,
+        "scope": {
+          "tenant_id": "tenant-1",
+          "org_id": "org-1"
+        }
+      }
+    },
+    "filtered": {
+      "data": {
+        "columns": [
+          {
+            "locale": "de",
+            "label": "DE",
+            "required_by_count": 0,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": true
+          },
+          {
+            "locale": "fr",
+            "label": "FR",
+            "required_by_count": 1,
+            "source_count": 0,
+            "source_locale": false,
+            "sticky": false
+          }
+        ],
+        "rows": [
+          {
+            "family_id": "tg-page-matrix-1",
+            "content_type": "pages",
+            "source_locale": "en",
+            "source_record_id": "page-1",
+            "source_title": "Page 1",
+            "readiness_state": "blocked",
+            "blocker_codes": [
+              "missing_locale",
+              "missing_field"
+            ],
+            "cells": {
+              "de": {
+                "locale": "de",
+                "state": "not_required",
+                "required": false,
+                "not_required": true,
+                "fallback": false,
+                "blocker_codes": []
+              },
+              "fr": {
+                "locale": "fr",
+                "state": "fallback",
+                "required": true,
+                "not_required": false,
+                "fallback": true,
+                "blocker_codes": [
+                  "missing_locale"
+                ]
+              }
+            }
+          }
+        ],
+        "selection": {
+          "bulk_actions": {
+            "create_missing": {
+              "enabled": true,
+              "permission": "admin.translations.edit"
+            },
+            "export_selected": {
+              "enabled": true,
+              "permission": "admin.translations.export"
+            }
+          }
+        }
+      },
+      "meta": {
+        "environment": "production",
+        "page": 1,
+        "per_page": 25,
+        "total": 1,
+        "total_locales": 2,
+        "locale_offset": 0,
+        "locale_limit": 2,
+        "has_more_locales": false,
+        "scope": {
+          "tenant_id": "tenant-1",
+          "org_id": "org-1"
+        }
+      }
+    }
+  },
+  "actions": {
+    "create_missing": {
+      "data": {
+        "action": "create_missing",
+        "summary": {
+          "families_processed": 1,
+          "locales_requested": 1,
+          "created": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        "results": [
+          {
+            "family_id": "tg-page-1",
+            "content_type": "pages",
+            "source_record_id": "page-1",
+            "requested_locales": [
+              "fr"
+            ],
+            "status": "created",
+            "created": [
+              {
+                "locale": "fr",
+                "variant_id": "txvar_fr_1",
+                "record_id": "page-1-fr",
+                "status": "draft",
+                "assignment_id": "txasg_fr_1",
+                "assignment_status": "assigned"
+              }
+            ],
+            "skipped": [],
+            "failures": []
+          }
+        ]
+      },
+      "meta": {
+        "environment": "production",
+        "contracts": {
+          "schema_version": 1
+        }
+      }
+    },
+    "export_selected": {
+      "data": {
+        "action": "export_selected",
+        "summary": {
+          "families_processed": 2,
+          "export_ready": 2,
+          "skipped": 0,
+          "failed": 0,
+          "estimated_rows": 6
+        },
+        "results": [
+          {
+            "family_id": "tg-page-matrix-1",
+            "content_type": "pages",
+            "source_record_id": "page-1",
+            "requested_locales": [
+              "es",
+              "fr"
+            ],
+            "status": "export_ready",
+            "exportable_locales": [
+              "es"
+            ],
+            "estimated_rows": 2
+          },
+          {
+            "family_id": "tg-news-matrix-1",
+            "content_type": "news",
+            "source_record_id": "news-1",
+            "requested_locales": [
+              "es",
+              "fr"
+            ],
+            "status": "export_ready",
+            "exportable_locales": [
+              "es",
+              "fr"
+            ],
+            "estimated_rows": 4
+          }
+        ],
+        "export_request": {
+          "endpoint": "/admin/api/translations/exchange/export",
+          "method": "POST",
+          "filter": {
+            "resources": [
+              "news",
+              "pages"
+            ],
+            "entity_ids": [
+              "news-1",
+              "page-1"
+            ],
+            "target_locales": [
+              "es",
+              "fr"
+            ],
+            "include_source_hash": true,
+            "options": {
+              "family_ids": [
+                "tg-news-matrix-1",
+                "tg-page-matrix-1"
+              ],
+              "format": "json"
+            }
+          }
+        },
+        "preview_rows": [
+          {
+            "resource": "pages",
+            "entity_id": "page-1",
+            "translation_group_id": "tg-page-matrix-1",
+            "source_locale": "en",
+            "target_locale": "es",
+            "field_path": "title",
+            "source_text": "Page 1"
+          },
+          {
+            "resource": "pages",
+            "entity_id": "page-1",
+            "translation_group_id": "tg-page-matrix-1",
+            "source_locale": "en",
+            "target_locale": "es",
+            "field_path": "body",
+            "source_text": "Hello"
+          },
+          {
+            "resource": "news",
+            "entity_id": "news-1",
+            "translation_group_id": "tg-news-matrix-1",
+            "source_locale": "en",
+            "target_locale": "fr",
+            "field_path": "title",
+            "source_text": "News 1"
+          }
+        ]
+      },
+      "meta": {
+        "environment": "production",
+        "contracts": {
+          "schema_version": 1
+        }
+      }
+    }
+  },
+  "action_errors": {
+    "permission_denied": {
+      "error": {
+        "category": "authorization",
+        "code": 403,
+        "message": "missing permission admin.translations.export for translations",
+        "metadata": {
+          "missing_permission": "admin.translations.export",
+          "permission": "admin.translations.export",
+          "resource": "translations"
+        },
+        "severity": "ERROR"
+      }
+    }
+  }
+}

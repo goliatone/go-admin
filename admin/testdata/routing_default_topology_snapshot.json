@@ -15,6 +15,7 @@
   },
   "routes": {
     "admin.api|errors": "/admin/api/errors",
+    "admin.api|translations.dashboard": "/admin/api/translations/dashboard",
     "admin.api|translations.queue": "/admin/api/translations/queue",
     "admin|dashboard": "/admin/",
     "admin|translations.dashboard": "/admin/translations/dashboard",

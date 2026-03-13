@@ -1,4 +1,177 @@
 {
+  "dashboard_contracts": {
+    "alert_states": [
+      "ok",
+      "warning",
+      "critical",
+      "degraded"
+    ],
+    "card_ids": [
+      "my_tasks",
+      "needs_review",
+      "overdue_tasks",
+      "blocked_families",
+      "missing_required_locales"
+    ],
+    "default_limits": {
+      "blocked_families": 5,
+      "top_overdue_assignments": 5
+    },
+    "query_models": {
+      "blocked_families": {
+        "api_route": "translations.families",
+        "default_limit": 5,
+        "description": "Blocked families in the visible scope, ranked by missing required locales and review pressure.",
+        "drilldown_links": {
+          "api": {
+            "description": "Open the blocked family API feed scoped to this family.",
+            "entity_type": "family",
+            "group": "admin.api",
+            "key": "api",
+            "label": "Open blocker feed",
+            "relation": "secondary",
+            "resolver_key": "admin.api.translations.families",
+            "route": "translations.families"
+          },
+          "family": {
+            "description": "Open the family detail screen for blocker diagnosis.",
+            "entity_type": "family",
+            "group": "admin",
+            "key": "family",
+            "label": "Open family",
+            "relation": "primary",
+            "resolver_key": "admin.translations.families.id",
+            "route": "translations.families.id"
+          }
+        },
+        "drilldown_route": "translations.families.id",
+        "id": "blocked_families",
+        "index_hints": [
+          "content_families_scope_readiness_idx",
+          "content_families_scope_missing_required_locales_idx"
+        ],
+        "resolver_keys": [
+          "admin.translations.families.id",
+          "admin.api.translations.families"
+        ],
+        "scope_fields": [
+          "tenant_id",
+          "org_id"
+        ],
+        "stable_sort_keys": [
+          "missing_required_locale_count",
+          "pending_review_count",
+          "updated_at",
+          "family_id"
+        ],
+        "supported_filters": [
+          "tenant_id",
+          "org_id",
+          "family_id",
+          "readiness_state",
+          "blocker_code",
+          "missing_locale"
+        ]
+      },
+      "top_overdue_assignments": {
+        "default_limit": 5,
+        "description": "Top overdue assignments across the visible scope, sorted by oldest due date first.",
+        "drilldown_links": {
+          "assignment": {
+            "description": "Open the assignment editor for the overdue work item.",
+            "entity_type": "assignment",
+            "group": "admin",
+            "key": "assignment",
+            "label": "Open assignment",
+            "relation": "primary",
+            "resolver_key": "admin.translations.assignments.edit",
+            "route": "translations.assignments.edit"
+          },
+          "queue": {
+            "description": "Open the translation queue filtered to the related family.",
+            "entity_type": "translation_group",
+            "group": "admin",
+            "key": "queue",
+            "label": "Open queue context",
+            "relation": "secondary",
+            "resolver_key": "admin.translations.queue",
+            "route": "translations.queue"
+          }
+        },
+        "drilldown_route": "translations.assignments.edit",
+        "id": "top_overdue_assignments",
+        "index_hints": [
+          "translation_assignments_scope_due_date_idx",
+          "translation_assignments_scope_status_due_idx"
+        ],
+        "queue_route": "translations.queue",
+        "resolver_keys": [
+          "admin.translations.assignments.edit",
+          "admin.translations.queue"
+        ],
+        "scope_fields": [
+          "tenant_id",
+          "org_id"
+        ],
+        "stable_sort_keys": [
+          "due_date",
+          "priority",
+          "updated_at",
+          "assignment_id"
+        ],
+        "supported_filters": [
+          "tenant_id",
+          "org_id",
+          "status",
+          "overdue",
+          "assignee_id",
+          "reviewer_id",
+          "translation_group_id"
+        ]
+      }
+    },
+    "runbooks": [
+      {
+        "description": "Review past-due assignments, rebalance ownership, and clear blockers before SLA breach windows compound.",
+        "id": "translations.dashboard.overdue_triage",
+        "query": {
+          "due_state": "overdue",
+          "order": "asc",
+          "sort": "due_date"
+        },
+        "resolver_key": "admin.translations.queue",
+        "route": "translations.queue",
+        "title": "Overdue assignment triage"
+      },
+      {
+        "description": "Focus reviewer-owned items waiting in review and escalate anything already overdue.",
+        "id": "translations.dashboard.review_backlog",
+        "query": {
+          "order": "asc",
+          "sort": "due_date",
+          "status": "review"
+        },
+        "resolver_key": "admin.translations.queue",
+        "route": "translations.queue",
+        "title": "Reviewer backlog triage"
+      },
+      {
+        "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
+        "group": "admin.api",
+        "id": "translations.dashboard.publish_blockers",
+        "query": {
+          "readiness_state": "blocked"
+        },
+        "resolver_key": "admin.api.translations.families",
+        "route": "translations.families",
+        "title": "Publish blocker remediation"
+      }
+    ],
+    "table_ids": [
+      "top_overdue_assignments",
+      "blocked_families"
+    ]
+  },
   "disabled_reason_codes": [
     "TRANSLATION_MISSING",
     "INVALID_STATUS",
@@ -235,16 +408,140 @@
       ]
     }
   },
+  "matrix_contracts": {
+    "bulk_actions": {
+      "create_missing": {
+        "endpoint_route": "translations.matrix.actions.create_missing",
+        "id": "create_missing",
+        "optional_fields": [
+          "locales",
+          "auto_create_assignment",
+          "assignee_id",
+          "priority",
+          "due_date",
+          "environment"
+        ],
+        "permission": "admin.translations.edit",
+        "required_fields": [
+          "family_ids"
+        ],
+        "resolver_key": "admin.api.translations.matrix.actions.create_missing",
+        "result_statuses": [
+          "created",
+          "skipped",
+          "failed"
+        ],
+        "selection_required": true
+      },
+      "export_selected": {
+        "endpoint_route": "translations.matrix.actions.export_selected",
+        "id": "export_selected",
+        "optional_fields": [
+          "locales",
+          "include_source_hash",
+          "format",
+          "environment"
+        ],
+        "permission": "admin.translations.export",
+        "required_fields": [
+          "family_ids"
+        ],
+        "resolver_key": "admin.api.translations.matrix.actions.export_selected",
+        "result_statuses": [
+          "export_ready",
+          "skipped",
+          "failed"
+        ],
+        "selection_required": true
+      }
+    },
+    "cell_states": [
+      "ready",
+      "missing",
+      "in_progress",
+      "in_review",
+      "fallback",
+      "not_required"
+    ],
+    "latency_target_ms": 400,
+    "query_model": {
+      "api_route": "translations.matrix",
+      "default_locale_limit": 20,
+      "default_page_size": 25,
+      "description": "Families as rows and locales as columns, with backend-resolved cell states and bulk-action contracts.",
+      "id": "family_locale_matrix",
+      "index_hints": [
+        "content_families_scope_readiness_idx",
+        "content_families_scope_type_updated_idx",
+        "family_blockers_scope_code_locale_family_idx",
+        "translation_assignments_scope_family_locale_scope_status_idx",
+        "locale_variants_scope_status_updated_idx"
+      ],
+      "max_locale_limit": 50,
+      "max_page_size": 100,
+      "resolver_keys": [
+        "admin.translations.matrix",
+        "admin.api.translations.matrix",
+        "admin.api.translations.matrix.actions.create_missing",
+        "admin.api.translations.matrix.actions.export_selected"
+      ],
+      "scope_fields": [
+        "tenant_id",
+        "org_id"
+      ],
+      "stable_sort_keys": [
+        "updated_at",
+        "content_type",
+        "family_id"
+      ],
+      "supported_filters": [
+        "family_id",
+        "content_type",
+        "readiness_state",
+        "blocker_code",
+        "locale",
+        "locales",
+        "environment"
+      ],
+      "ui_route": "translations.matrix",
+      "viewport_target": {
+        "locales": 20,
+        "rows": 100
+      }
+    },
+    "schema_version": 2,
+    "ui_metadata": {
+      "cell_quick_action_keys": [
+        "open",
+        "create"
+      ],
+      "locale_policy_key": "meta.locale_policy",
+      "quick_action_targets_key": "meta.quick_action_targets",
+      "row_link_keys": [
+        "family",
+        "content_detail",
+        "content_edit"
+      ],
+      "selection_bulk_actions_key": "data.selection.bulk_actions"
+    }
+  },
   "openapi": {
-    "artifact_bytes": 8792,
+    "artifact_bytes": 11711,
     "artifact_path": "translations/ui/openapi/translations.json",
     "schema_version": 1
   },
   "queue_contracts": {
+    "default_review_filter_preset": "review_inbox",
     "default_sort": {
       "key": "updated_at",
       "order": "desc"
     },
+    "review_aggregate_count_keys": [
+      "review_inbox",
+      "review_overdue",
+      "review_blocked",
+      "review_changes_requested"
+    ],
     "saved_filter_presets": [
       {
         "description": "Assignments currently assigned to the active actor.",
@@ -298,6 +595,67 @@
         }
       }
     ],
+    "saved_review_filter_presets": [
+      {
+        "description": "Assignments currently waiting on the active reviewer.",
+        "id": "review_inbox",
+        "label": "Review Inbox",
+        "query": {
+          "order": "asc",
+          "reviewer_id": "__me__",
+          "sort": "due_date",
+          "status": "review"
+        }
+      },
+      {
+        "description": "Reviewer-owned assignments that are already overdue.",
+        "id": "review_overdue",
+        "label": "Review Overdue",
+        "query": {
+          "due_state": "overdue",
+          "order": "asc",
+          "reviewer_id": "__me__",
+          "sort": "due_date",
+          "status": "review"
+        }
+      },
+      {
+        "description": "Reviewer inbox items with blocking QA findings.",
+        "id": "review_blocked",
+        "label": "QA Blocked",
+        "query": {
+          "order": "asc",
+          "reviewer_id": "__me__",
+          "sort": "due_date",
+          "status": "review"
+        },
+        "review_state": "qa_blocked"
+      },
+      {
+        "description": "Assignments the active reviewer already sent back for fixes.",
+        "id": "review_changes_requested",
+        "label": "Changes Requested",
+        "query": {
+          "order": "desc",
+          "reviewer_id": "__me__",
+          "sort": "updated_at",
+          "status": "rejected"
+        }
+      }
+    ],
+    "supported_filter_keys": [
+      "status",
+      "assignee_id",
+      "reviewer_id",
+      "due_state",
+      "locale",
+      "priority",
+      "translation_group_id",
+      "review_state"
+    ],
+    "supported_review_states": [
+      "qa_blocked"
+    ],
     "supported_sort_keys": [
       "updated_at",
       "created_at",
@@ -310,7 +668,7 @@
       "reviewer_id"
     ]
   },
-  "schema_version": 1,
+  "schema_version": 5,
   "source_target_drift": {
     "key": "source_target_drift",
     "required_fields": [
