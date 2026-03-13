@@ -346,9 +346,17 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	m.settings = registerRuntimeSettings(ctx.Admin.SettingsService())
 	adminScopeDefaults := ctx.Admin.ScopeDefaults()
 	if adminScopeDefaults.Enabled {
+		tenantID := strings.TrimSpace(adminScopeDefaults.TenantID)
+		if tenantID == "" {
+			tenantID = strings.TrimSpace(m.defaultScope.TenantID)
+		}
+		orgID := strings.TrimSpace(adminScopeDefaults.OrgID)
+		if orgID == "" {
+			orgID = strings.TrimSpace(m.defaultScope.OrgID)
+		}
 		m.defaultScope = stores.Scope{
-			TenantID: firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.TenantID), strings.TrimSpace(m.defaultScope.TenantID)),
-			OrgID:    firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.OrgID), strings.TrimSpace(m.defaultScope.OrgID)),
+			TenantID: tenantID,
+			OrgID:    orgID,
 		}
 	}
 	if m.defaultScope.TenantID == "" || m.defaultScope.OrgID == "" {

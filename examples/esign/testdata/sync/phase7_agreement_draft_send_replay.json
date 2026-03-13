@@ -1,0 +1,18 @@
+{
+  "data": {
+    "id": "draft-phase7-bootstrap-001",
+    "agreement_id": "agreement-phase7-001",
+    "status": "sent",
+    "draft_deleted": true
+  },
+  "revision": 3,
+  "updated_at": "2026-03-12T12:06:00Z",
+  "metadata": {
+    "agreement_id": "agreement-phase7-001",
+    "status": "sent",
+    "draft_deleted": true,
+    "operation": "send"
+  },
+  "applied": true,
+  "replay": true
+}
