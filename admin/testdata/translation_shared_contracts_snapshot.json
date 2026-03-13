@@ -106,6 +106,47 @@
         "has_more"
       ]
     },
+    "qa": {
+      "categories": [
+        "terminology",
+        "style"
+      ],
+      "category_key": "categories",
+      "feature_flags": [
+        "translations.qa.terminology",
+        "translations.qa.style"
+      ],
+      "findings_key": "findings",
+      "payload_key": "qa_results",
+      "required_finding_fields": [
+        "id",
+        "category",
+        "severity",
+        "field_path",
+        "message"
+      ],
+      "required_summary": [
+        "finding_count",
+        "warning_count",
+        "blocker_count"
+      ],
+      "severities": [
+        "warning",
+        "blocker"
+      ],
+      "summary_key": "summary"
+    },
+    "review_feedback": {
+      "comments_key": "comments",
+      "legacy_reason_key": "last_rejection_reason",
+      "payload_key": "review_feedback",
+      "required_comment_fields": [
+        "id",
+        "body",
+        "kind",
+        "created_at"
+      ]
+    },
     "source_sync": {
       "ack_request_fields": [
         "acknowledged_source_hash",

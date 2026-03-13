@@ -1,5 +1,133 @@
 {
+  "action_errors": {
+    "permission_denied": {
+      "error": {
+        "category": "authorization",
+        "code": 403,
+        "location": {
+          "file": "/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/admin/translation_queue_binding_test.go",
+          "function": "github.com/goliatone/go-admin/admin.newTranslationQueueTestApp.func4",
+          "line": 1004
+        },
+        "message": "missing permission admin.translations.claim for translations",
+        "metadata": {
+          "hint": "Grant the missing translation permission to the current role and reload the page.",
+          "method": "POST",
+          "missing_permission": "admin.translations.claim",
+          "path": "/admin/api/translations/assignments/asg-denied-1/actions/claim",
+          "permission": "admin.translations.claim",
+          "resource": "translations"
+        },
+        "severity": "ERROR",
+        "source": "missing permission admin.translations.claim for translations",
+        "text_code": "FORBIDDEN",
+        "timestamp": "2026-03-12T15:18:30-07:00"
+      },
+      "status": 403
+    },
+    "reject_requires_reason": {
+      "error": {
+        "category": "validation",
+        "code": 400,
+        "location": {
+          "file": "/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/admin/error_codes.go",
+          "function": "github.com/goliatone/go-admin/admin.NewDomainError",
+          "line": 150
+        },
+        "message": "reason required",
+        "metadata": {
+          "field": "reason",
+          "method": "POST",
+          "path": "/admin/api/translations/assignments/asg-editor-1/actions/reject"
+        },
+        "severity": "ERROR",
+        "text_code": "VALIDATION_ERROR",
+        "timestamp": "2026-03-12T15:18:30-07:00"
+      },
+      "status": 400
+    },
+    "version_conflict": {
+      "error": {
+        "category": "conflict",
+        "code": 409,
+        "location": {
+          "file": "/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/admin/error_codes.go",
+          "function": "github.com/goliatone/go-admin/admin.NewDomainError",
+          "line": 150
+        },
+        "message": "translation assignment \"asg-open-1\" version conflict",
+        "metadata": {
+          "actual_version": 2,
+          "assignment_id": "asg-open-1",
+          "expected_version": 1,
+          "method": "POST",
+          "path": "/admin/api/translations/assignments/asg-open-1/actions/claim"
+        },
+        "severity": "ERROR",
+        "text_code": "TRANSLATION_QUEUE_VERSION_CONFLICT",
+        "timestamp": "2026-03-12T15:18:30-07:00"
+      },
+      "status": 409
+    }
+  },
   "meta": {
+    "default_sort": {
+      "key": "updated_at",
+      "order": "desc"
+    },
+    "saved_filter_presets": [
+      {
+        "description": "Assignments currently assigned to the active actor.",
+        "id": "mine",
+        "label": "Mine",
+        "query": {
+          "assignee_id": "__me__",
+          "order": "asc",
+          "sort": "due_date"
+        }
+      },
+      {
+        "description": "Claimable or active assignments that still need translator work.",
+        "id": "open",
+        "label": "Open",
+        "query": {
+          "order": "desc",
+          "sort": "updated_at",
+          "status": "pending,assigned,in_progress,rejected"
+        }
+      },
+      {
+        "description": "Assignments awaiting review for the active actor.",
+        "id": "needs_review",
+        "label": "Needs Review",
+        "query": {
+          "order": "asc",
+          "reviewer_id": "__me__",
+          "sort": "due_date",
+          "status": "review"
+        }
+      },
+      {
+        "description": "Past-due assignments across the visible queue scope.",
+        "id": "overdue",
+        "label": "Overdue",
+        "query": {
+          "due_state": "overdue",
+          "order": "asc",
+          "sort": "due_date"
+        }
+      },
+      {
+        "description": "Assignments marked high or urgent.",
+        "id": "high_priority",
+        "label": "High Priority",
+        "query": {
+          "order": "asc",
+          "priority": "high,urgent",
+          "sort": "due_date"
+        }
+      }
+    ],
     "supported_sort_keys": [
       "updated_at",
       "created_at",
@@ -10,98 +138,12 @@
       "priority",
       "assignee_id",
       "reviewer_id"
-    ],
-    "default_sort": {
-      "key": "updated_at",
-      "order": "desc"
-    },
-    "saved_filter_presets": [
-      {
-        "id": "mine",
-        "label": "Mine",
-        "description": "Assignments currently assigned to the active actor.",
-        "query": {
-          "assignee_id": "__me__",
-          "sort": "due_date",
-          "order": "asc"
-        }
-      },
-      {
-        "id": "open",
-        "label": "Open",
-        "description": "Claimable or active assignments that still need translator work.",
-        "query": {
-          "status": "pending,assigned,in_progress,rejected",
-          "sort": "updated_at",
-          "order": "desc"
-        }
-      },
-      {
-        "id": "needs_review",
-        "label": "Needs Review",
-        "description": "Assignments awaiting review for the active actor.",
-        "query": {
-          "status": "review",
-          "reviewer_id": "__me__",
-          "sort": "due_date",
-          "order": "asc"
-        }
-      },
-      {
-        "id": "overdue",
-        "label": "Overdue",
-        "description": "Past-due assignments across the visible queue scope.",
-        "query": {
-          "due_state": "overdue",
-          "sort": "due_date",
-          "order": "asc"
-        }
-      },
-      {
-        "id": "high_priority",
-        "label": "High Priority",
-        "description": "Assignments marked high or urgent.",
-        "query": {
-          "priority": "high,urgent",
-          "sort": "due_date",
-          "order": "asc"
-        }
-      }
     ]
   },
   "states": {
     "open_pool": {
-      "meta": {
-        "page": 1,
-        "per_page": 25,
-        "total": 1,
-        "updated_at": "2026-03-12T10:00:00Z"
-      },
       "data": [
         {
-          "id": "asg-open-1",
-          "translation_group_id": "tg-open-1",
-          "entity_type": "pages",
-          "source_record_id": "page-open-1",
-          "target_record_id": "",
-          "source_locale": "en",
-          "target_locale": "fr",
-          "work_scope": "__all__",
-          "source_title": "Launch page",
-          "source_path": "/launch",
-          "assignee_id": "",
-          "reviewer_id": "",
-          "assignment_type": "open_pool",
-          "content_state": "draft",
-          "queue_state": "pending",
-          "status": "pending",
-          "priority": "normal",
-          "due_state": "due_soon",
-          "due_date": "2026-03-13T09:00:00Z",
-          "row_version": 3,
-          "version": 3,
-          "updated_at": "2026-03-12T09:45:00Z",
-          "created_at": "2026-03-11T18:00:00Z",
           "actions": {
             "claim": {
               "enabled": true,
@@ -114,257 +156,134 @@
               "reason_code": "INVALID_STATUS"
             }
           },
-          "review_actions": {
-            "submit_review": {
-              "enabled": false,
-              "permission": "admin.translations.edit",
-              "reason": "assignment must be in progress",
-              "reason_code": "INVALID_STATUS"
-            },
-            "approve": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            },
-            "reject": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            }
-          }
-        }
-      ]
-    },
-    "assigned": {
-      "meta": {
-        "page": 1,
-        "per_page": 25,
-        "total": 1,
-        "updated_at": "2026-03-12T10:00:00Z"
-      },
-      "data": [
-        {
-          "id": "asg-assigned-1",
-          "translation_group_id": "tg-assigned-1",
-          "entity_type": "posts",
-          "source_record_id": "post-assigned-1",
-          "target_record_id": "post-assigned-fr-1",
-          "source_locale": "en",
-          "target_locale": "fr",
-          "work_scope": "__all__",
-          "source_title": "Product update",
-          "source_path": "/blog/product-update",
-          "assignee_id": "translator-1",
-          "reviewer_id": "reviewer-1",
-          "assignment_type": "direct",
-          "content_state": "draft",
-          "queue_state": "assigned",
-          "status": "assigned",
-          "priority": "high",
-          "due_state": "on_track",
-          "due_date": "2026-03-16T18:00:00Z",
-          "row_version": 7,
-          "version": 7,
-          "updated_at": "2026-03-12T09:10:00Z",
-          "created_at": "2026-03-10T17:00:00Z",
-          "actions": {
-            "claim": {
-              "enabled": false,
-              "permission": "admin.translations.claim",
-              "reason": "assignment must be open pool before it can be claimed",
-              "reason_code": "INVALID_STATUS"
-            },
-            "release": {
-              "enabled": true,
-              "permission": "admin.translations.assign"
-            }
-          },
-          "review_actions": {
-            "submit_review": {
-              "enabled": false,
-              "permission": "admin.translations.edit",
-              "reason": "assignment must be in progress",
-              "reason_code": "INVALID_STATUS"
-            },
-            "approve": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            },
-            "reject": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            }
-          }
-        }
-      ]
-    },
-    "in_progress": {
-      "meta": {
-        "page": 1,
-        "per_page": 25,
-        "total": 1,
-        "updated_at": "2026-03-12T10:00:00Z"
-      },
-      "data": [
-        {
-          "id": "asg-progress-1",
-          "translation_group_id": "tg-progress-1",
-          "entity_type": "news",
-          "source_record_id": "news-progress-1",
-          "target_record_id": "news-progress-es-1",
-          "source_locale": "en",
-          "target_locale": "es",
-          "work_scope": "__all__",
-          "source_title": "Quarterly forecast",
-          "source_path": "/news/forecast",
-          "assignee_id": "translator-2",
-          "reviewer_id": "reviewer-2",
-          "assignment_type": "direct",
-          "content_state": "draft",
-          "queue_state": "in_progress",
-          "status": "in_progress",
-          "priority": "urgent",
-          "due_state": "due_soon",
-          "due_date": "2026-03-12T20:00:00Z",
-          "row_version": 9,
-          "version": 9,
-          "updated_at": "2026-03-12T09:30:00Z",
-          "created_at": "2026-03-11T08:00:00Z",
-          "actions": {
-            "claim": {
-              "enabled": false,
-              "permission": "admin.translations.claim",
-              "reason": "assignment must be open pool before it can be claimed",
-              "reason_code": "INVALID_STATUS"
-            },
-            "release": {
-              "enabled": true,
-              "permission": "admin.translations.assign"
-            }
-          },
-          "review_actions": {
-            "submit_review": {
-              "enabled": true,
-              "permission": "admin.translations.edit"
-            },
-            "approve": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            },
-            "reject": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            }
-          }
-        }
-      ]
-    },
-    "overdue": {
-      "meta": {
-        "page": 1,
-        "per_page": 25,
-        "total": 1,
-        "updated_at": "2026-03-12T10:00:00Z"
-      },
-      "data": [
-        {
-          "id": "asg-overdue-1",
-          "translation_group_id": "tg-overdue-1",
-          "entity_type": "pages",
-          "source_record_id": "page-overdue-1",
-          "target_record_id": "page-overdue-de-1",
-          "source_locale": "en",
-          "target_locale": "de",
-          "work_scope": "__all__",
-          "source_title": "Release checklist",
-          "source_path": "/release-checklist",
-          "assignee_id": "translator-3",
-          "reviewer_id": "",
-          "assignment_type": "direct",
-          "content_state": "draft",
-          "queue_state": "in_progress",
-          "status": "in_progress",
-          "priority": "high",
-          "due_state": "overdue",
-          "due_date": "2026-03-11T08:00:00Z",
-          "row_version": 4,
-          "version": 4,
-          "updated_at": "2026-03-12T08:05:00Z",
-          "created_at": "2026-03-10T09:00:00Z",
-          "actions": {
-            "claim": {
-              "enabled": false,
-              "permission": "admin.translations.claim",
-              "reason": "assignment must be open pool before it can be claimed",
-              "reason_code": "INVALID_STATUS"
-            },
-            "release": {
-              "enabled": true,
-              "permission": "admin.translations.assign"
-            }
-          },
-          "review_actions": {
-            "submit_review": {
-              "enabled": true,
-              "permission": "admin.translations.edit"
-            },
-            "approve": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            },
-            "reject": {
-              "enabled": false,
-              "permission": "admin.translations.approve",
-              "reason": "assignment must be in review",
-              "reason_code": "INVALID_STATUS"
-            }
-          }
-        }
-      ]
-    },
-    "permission_denied": {
-      "meta": {
-        "page": 1,
-        "per_page": 25,
-        "total": 1,
-        "updated_at": "2026-03-12T10:00:00Z"
-      },
-      "data": [
-        {
-          "id": "asg-denied-1",
-          "translation_group_id": "tg-denied-1",
-          "entity_type": "pages",
-          "source_record_id": "page-denied-1",
-          "target_record_id": "",
-          "source_locale": "en",
-          "target_locale": "it",
-          "work_scope": "__all__",
-          "source_title": "Policy page",
-          "source_path": "/policy",
           "assignee_id": "",
-          "reviewer_id": "",
           "assignment_type": "open_pool",
           "content_state": "draft",
-          "queue_state": "pending",
-          "status": "pending",
+          "created_at": "2026-03-12T22:18:30.405411Z",
+          "due_date": "2026-03-13T09:00:00Z",
+          "due_state": "due_soon",
+          "entity_type": "pages",
+          "id": "asg-open-1",
           "priority": "normal",
-          "due_state": "none",
-          "row_version": 2,
-          "version": 2,
-          "updated_at": "2026-03-12T07:20:00Z",
-          "created_at": "2026-03-10T07:20:00Z",
+          "queue_state": "pending",
+          "review_actions": {
+            "approve": {
+              "enabled": false,
+              "permission": "admin.translations.approve",
+              "reason": "assignment must be in review",
+              "reason_code": "INVALID_STATUS"
+            },
+            "archive": {
+              "enabled": true,
+              "permission": "admin.translations.manage"
+            },
+            "reject": {
+              "enabled": false,
+              "permission": "admin.translations.approve",
+              "reason": "assignment must be in review",
+              "reason_code": "INVALID_STATUS"
+            },
+            "submit_review": {
+              "enabled": false,
+              "permission": "admin.translations.edit",
+              "reason": "assignment must be in progress",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "reviewer_id": "",
+          "row_version": 1,
+          "source_locale": "en",
+          "source_path": "/launch",
+          "source_record_id": "page-open-1",
+          "source_title": "Launch page",
+          "status": "pending",
+          "target_locale": "fr",
+          "target_record_id": "",
+          "translation_group_id": "tg-open-1",
+          "updated_at": "2026-03-12T22:18:30.405411Z",
+          "version": 1,
+          "work_scope": "__all__"
+        }
+      ],
+      "meta": {
+        "default_sort": {
+          "key": "updated_at",
+          "order": "desc"
+        },
+        "page": 1,
+        "per_page": 50,
+        "saved_filter_presets": [
+          {
+            "description": "Assignments currently assigned to the active actor.",
+            "id": "mine",
+            "label": "Mine",
+            "query": {
+              "assignee_id": "__me__",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Claimable or active assignments that still need translator work.",
+            "id": "open",
+            "label": "Open",
+            "query": {
+              "order": "desc",
+              "sort": "updated_at",
+              "status": "pending,assigned,in_progress,rejected"
+            }
+          },
+          {
+            "description": "Assignments awaiting review for the active actor.",
+            "id": "needs_review",
+            "label": "Needs Review",
+            "query": {
+              "order": "asc",
+              "reviewer_id": "__me__",
+              "sort": "due_date",
+              "status": "review"
+            }
+          },
+          {
+            "description": "Past-due assignments across the visible queue scope.",
+            "id": "overdue",
+            "label": "Overdue",
+            "query": {
+              "due_state": "overdue",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Assignments marked high or urgent.",
+            "id": "high_priority",
+            "label": "High Priority",
+            "query": {
+              "order": "asc",
+              "priority": "high,urgent",
+              "sort": "due_date"
+            }
+          }
+        ],
+        "supported_sort_keys": [
+          "updated_at",
+          "created_at",
+          "due_date",
+          "due_state",
+          "status",
+          "locale",
+          "priority",
+          "assignee_id",
+          "reviewer_id"
+        ],
+        "total": 1,
+        "updated_at": "2026-03-12T10:00:00Z"
+      },
+      "status": 200
+    },
+    "permission_denied": {
+      "data": [
+        {
           "actions": {
             "claim": {
               "enabled": false,
@@ -379,17 +298,26 @@
               "reason_code": "PERMISSION_DENIED"
             }
           },
+          "assignee_id": "",
+          "assignment_type": "open_pool",
+          "content_state": "draft",
+          "created_at": "2026-03-12T22:18:30.412731Z",
+          "due_state": "none",
+          "entity_type": "pages",
+          "id": "asg-denied-1",
+          "priority": "normal",
+          "queue_state": "pending",
           "review_actions": {
-            "submit_review": {
-              "enabled": false,
-              "permission": "admin.translations.edit",
-              "reason": "missing permission: admin.translations.edit",
-              "reason_code": "PERMISSION_DENIED"
-            },
             "approve": {
               "enabled": false,
               "permission": "admin.translations.approve",
               "reason": "missing permission: admin.translations.approve",
+              "reason_code": "PERMISSION_DENIED"
+            },
+            "archive": {
+              "enabled": false,
+              "permission": "admin.translations.manage",
+              "reason": "missing permission: admin.translations.manage",
               "reason_code": "PERMISSION_DENIED"
             },
             "reject": {
@@ -397,35 +325,544 @@
               "permission": "admin.translations.approve",
               "reason": "missing permission: admin.translations.approve",
               "reason_code": "PERMISSION_DENIED"
+            },
+            "submit_review": {
+              "enabled": false,
+              "permission": "admin.translations.edit",
+              "reason": "missing permission: admin.translations.edit",
+              "reason_code": "PERMISSION_DENIED"
+            }
+          },
+          "reviewer_id": "",
+          "row_version": 1,
+          "source_locale": "en",
+          "source_path": "/policy",
+          "source_record_id": "page-denied-1",
+          "source_title": "Policy page",
+          "status": "pending",
+          "target_locale": "it",
+          "target_record_id": "",
+          "translation_group_id": "tg-denied-1",
+          "updated_at": "2026-03-12T22:18:30.412731Z",
+          "version": 1,
+          "work_scope": "__all__"
+        }
+      ],
+      "meta": {
+        "default_sort": {
+          "key": "updated_at",
+          "order": "desc"
+        },
+        "page": 1,
+        "per_page": 50,
+        "saved_filter_presets": [
+          {
+            "description": "Assignments currently assigned to the active actor.",
+            "id": "mine",
+            "label": "Mine",
+            "query": {
+              "assignee_id": "__me__",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Claimable or active assignments that still need translator work.",
+            "id": "open",
+            "label": "Open",
+            "query": {
+              "order": "desc",
+              "sort": "updated_at",
+              "status": "pending,assigned,in_progress,rejected"
+            }
+          },
+          {
+            "description": "Assignments awaiting review for the active actor.",
+            "id": "needs_review",
+            "label": "Needs Review",
+            "query": {
+              "order": "asc",
+              "reviewer_id": "__me__",
+              "sort": "due_date",
+              "status": "review"
+            }
+          },
+          {
+            "description": "Past-due assignments across the visible queue scope.",
+            "id": "overdue",
+            "label": "Overdue",
+            "query": {
+              "due_state": "overdue",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Assignments marked high or urgent.",
+            "id": "high_priority",
+            "label": "High Priority",
+            "query": {
+              "order": "asc",
+              "priority": "high,urgent",
+              "sort": "due_date"
             }
           }
-        }
-      ]
-    }
-  },
-  "action_errors": {
-    "permission_denied": {
-      "status": 403,
-      "error": {
-        "text_code": "PERMISSION_DENIED",
-        "message": "missing permission: admin.translations.claim",
-        "metadata": {
-          "assignment_id": "asg-denied-1",
-          "permission": "admin.translations.claim"
-        }
-      }
+        ],
+        "supported_sort_keys": [
+          "updated_at",
+          "created_at",
+          "due_date",
+          "due_state",
+          "status",
+          "locale",
+          "priority",
+          "assignee_id",
+          "reviewer_id"
+        ],
+        "total": 1,
+        "updated_at": "2026-03-12T10:00:00Z"
+      },
+      "status": 200
     },
-    "version_conflict": {
-      "status": 409,
-      "error": {
-        "text_code": "VERSION_CONFLICT",
-        "message": "assignment version does not match current record",
-        "metadata": {
-          "assignment_id": "asg-open-1",
-          "expected_version": 3,
-          "actual_version": 4
+    "qa_summary": {
+      "data": [
+        {
+          "actions": {
+            "claim": {
+              "enabled": false,
+              "permission": "admin.translations.claim",
+              "reason": "assignment must be open pool before it can be claimed",
+              "reason_code": "INVALID_STATUS"
+            },
+            "release": {
+              "enabled": false,
+              "permission": "admin.translations.assign",
+              "reason": "assignment must be assigned or in progress before it can be released",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "assignee_id": "translator-1",
+          "assignment_type": "assigned",
+          "content_state": "review",
+          "created_at": "2026-03-12T22:18:30.409734Z",
+          "due_state": "none",
+          "entity_type": "pages",
+          "id": "asg-editor-1",
+          "last_rejection_reason": "Please preserve the CTA token.",
+          "priority": "high",
+          "qa_summary": {
+            "blocker_count": 3,
+            "enabled": true,
+            "finding_count": 6,
+            "warning_count": 3
+          },
+          "queue_state": "review",
+          "review_actions": {
+            "approve": {
+              "enabled": false,
+              "expected_reviewer_id": "reviewer-1",
+              "permission": "admin.translations.approve",
+              "reason": "assignment is assigned to a different reviewer",
+              "reason_code": "PERMISSION_DENIED"
+            },
+            "archive": {
+              "enabled": true,
+              "permission": "admin.translations.manage"
+            },
+            "reject": {
+              "enabled": false,
+              "expected_reviewer_id": "reviewer-1",
+              "permission": "admin.translations.approve",
+              "reason": "assignment is assigned to a different reviewer",
+              "reason_code": "PERMISSION_DENIED"
+            },
+            "submit_review": {
+              "enabled": false,
+              "permission": "admin.translations.edit",
+              "reason": "assignment must be in progress",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "review_feedback": {
+            "last_rejection_reason": "Please preserve the CTA token.",
+            "last_reviewer_id": "reviewer-1"
+          },
+          "reviewer_id": "reviewer-1",
+          "row_version": 3,
+          "source_locale": "en",
+          "source_path": "/page-1",
+          "source_record_id": "page-1",
+          "source_title": "Translation guide",
+          "status": "review",
+          "target_locale": "fr",
+          "target_record_id": "page-1-fr",
+          "translation_group_id": "tg-page-1",
+          "updated_at": "2026-03-12T22:18:30.411346Z",
+          "version": 3,
+          "work_scope": "__all__"
         }
-      }
+      ],
+      "meta": {
+        "default_sort": {
+          "key": "updated_at",
+          "order": "desc"
+        },
+        "page": 1,
+        "per_page": 50,
+        "saved_filter_presets": [
+          {
+            "description": "Assignments currently assigned to the active actor.",
+            "id": "mine",
+            "label": "Mine",
+            "query": {
+              "assignee_id": "__me__",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Claimable or active assignments that still need translator work.",
+            "id": "open",
+            "label": "Open",
+            "query": {
+              "order": "desc",
+              "sort": "updated_at",
+              "status": "pending,assigned,in_progress,rejected"
+            }
+          },
+          {
+            "description": "Assignments awaiting review for the active actor.",
+            "id": "needs_review",
+            "label": "Needs Review",
+            "query": {
+              "order": "asc",
+              "reviewer_id": "__me__",
+              "sort": "due_date",
+              "status": "review"
+            }
+          },
+          {
+            "description": "Past-due assignments across the visible queue scope.",
+            "id": "overdue",
+            "label": "Overdue",
+            "query": {
+              "due_state": "overdue",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Assignments marked high or urgent.",
+            "id": "high_priority",
+            "label": "High Priority",
+            "query": {
+              "order": "asc",
+              "priority": "high,urgent",
+              "sort": "due_date"
+            }
+          }
+        ],
+        "supported_sort_keys": [
+          "updated_at",
+          "created_at",
+          "due_date",
+          "due_state",
+          "status",
+          "locale",
+          "priority",
+          "assignee_id",
+          "reviewer_id"
+        ],
+        "total": 1,
+        "updated_at": "2026-03-12T12:00:00Z"
+      },
+      "status": 200
+    },
+    "review_guarded": {
+      "data": [
+        {
+          "actions": {
+            "claim": {
+              "enabled": false,
+              "permission": "admin.translations.claim",
+              "reason": "assignment must be open pool before it can be claimed",
+              "reason_code": "INVALID_STATUS"
+            },
+            "release": {
+              "enabled": false,
+              "permission": "admin.translations.assign",
+              "reason": "assignment must be assigned or in progress before it can be released",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "assignee_id": "translator-2",
+          "assignment_type": "assigned",
+          "content_state": "review",
+          "created_at": "2026-03-12T22:18:30.409505Z",
+          "due_state": "none",
+          "entity_type": "news",
+          "id": "asg-review-guarded-1",
+          "priority": "urgent",
+          "queue_state": "review",
+          "review_actions": {
+            "approve": {
+              "enabled": false,
+              "expected_reviewer_id": "reviewer-1",
+              "permission": "admin.translations.approve",
+              "reason": "assignment is assigned to a different reviewer",
+              "reason_code": "PERMISSION_DENIED"
+            },
+            "archive": {
+              "enabled": true,
+              "permission": "admin.translations.manage"
+            },
+            "reject": {
+              "enabled": false,
+              "expected_reviewer_id": "reviewer-1",
+              "permission": "admin.translations.approve",
+              "reason": "assignment is assigned to a different reviewer",
+              "reason_code": "PERMISSION_DENIED"
+            },
+            "submit_review": {
+              "enabled": false,
+              "permission": "admin.translations.edit",
+              "reason": "assignment must be in progress",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "reviewer_id": "reviewer-1",
+          "row_version": 1,
+          "source_locale": "en",
+          "source_path": "/news/forecast",
+          "source_record_id": "news-review-1",
+          "source_title": "Quarterly forecast",
+          "status": "review",
+          "target_locale": "de",
+          "target_record_id": "news-review-de-1",
+          "translation_group_id": "tg-review-guarded-1",
+          "updated_at": "2026-03-12T22:18:30.409505Z",
+          "version": 1,
+          "work_scope": "__all__"
+        }
+      ],
+      "meta": {
+        "default_sort": {
+          "key": "updated_at",
+          "order": "desc"
+        },
+        "page": 1,
+        "per_page": 50,
+        "saved_filter_presets": [
+          {
+            "description": "Assignments currently assigned to the active actor.",
+            "id": "mine",
+            "label": "Mine",
+            "query": {
+              "assignee_id": "__me__",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Claimable or active assignments that still need translator work.",
+            "id": "open",
+            "label": "Open",
+            "query": {
+              "order": "desc",
+              "sort": "updated_at",
+              "status": "pending,assigned,in_progress,rejected"
+            }
+          },
+          {
+            "description": "Assignments awaiting review for the active actor.",
+            "id": "needs_review",
+            "label": "Needs Review",
+            "query": {
+              "order": "asc",
+              "reviewer_id": "__me__",
+              "sort": "due_date",
+              "status": "review"
+            }
+          },
+          {
+            "description": "Past-due assignments across the visible queue scope.",
+            "id": "overdue",
+            "label": "Overdue",
+            "query": {
+              "due_state": "overdue",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Assignments marked high or urgent.",
+            "id": "high_priority",
+            "label": "High Priority",
+            "query": {
+              "order": "asc",
+              "priority": "high,urgent",
+              "sort": "due_date"
+            }
+          }
+        ],
+        "supported_sort_keys": [
+          "updated_at",
+          "created_at",
+          "due_date",
+          "due_state",
+          "status",
+          "locale",
+          "priority",
+          "assignee_id",
+          "reviewer_id"
+        ],
+        "total": 1,
+        "updated_at": "2026-03-12T10:00:00Z"
+      },
+      "status": 200
+    },
+    "review_ready": {
+      "data": [
+        {
+          "actions": {
+            "claim": {
+              "enabled": false,
+              "permission": "admin.translations.claim",
+              "reason": "assignment must be open pool before it can be claimed",
+              "reason_code": "INVALID_STATUS"
+            },
+            "release": {
+              "enabled": false,
+              "permission": "admin.translations.assign",
+              "reason": "assignment must be assigned or in progress before it can be released",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "assignee_id": "translator-1",
+          "assignment_type": "assigned",
+          "content_state": "review",
+          "created_at": "2026-03-12T22:18:30.407426Z",
+          "due_date": "2026-03-16T18:00:00Z",
+          "due_state": "on_track",
+          "entity_type": "posts",
+          "id": "asg-review-1",
+          "last_rejection_reason": "Please tighten the CTA tone.",
+          "priority": "high",
+          "queue_state": "review",
+          "review_actions": {
+            "approve": {
+              "enabled": true,
+              "permission": "admin.translations.approve"
+            },
+            "archive": {
+              "enabled": true,
+              "permission": "admin.translations.manage"
+            },
+            "reject": {
+              "enabled": true,
+              "permission": "admin.translations.approve"
+            },
+            "submit_review": {
+              "enabled": false,
+              "permission": "admin.translations.edit",
+              "reason": "assignment must be in progress",
+              "reason_code": "INVALID_STATUS"
+            }
+          },
+          "review_feedback": {
+            "last_rejection_reason": "Please tighten the CTA tone.",
+            "last_reviewer_id": "reviewer-1"
+          },
+          "reviewer_id": "reviewer-1",
+          "row_version": 1,
+          "source_locale": "en",
+          "source_path": "/blog/product-update",
+          "source_record_id": "post-review-1",
+          "source_title": "Product update",
+          "status": "review",
+          "target_locale": "fr",
+          "target_record_id": "post-review-fr-1",
+          "translation_group_id": "tg-review-1",
+          "updated_at": "2026-03-12T22:18:30.407426Z",
+          "version": 1,
+          "work_scope": "__all__"
+        }
+      ],
+      "meta": {
+        "default_sort": {
+          "key": "updated_at",
+          "order": "desc"
+        },
+        "page": 1,
+        "per_page": 50,
+        "saved_filter_presets": [
+          {
+            "description": "Assignments currently assigned to the active actor.",
+            "id": "mine",
+            "label": "Mine",
+            "query": {
+              "assignee_id": "__me__",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Claimable or active assignments that still need translator work.",
+            "id": "open",
+            "label": "Open",
+            "query": {
+              "order": "desc",
+              "sort": "updated_at",
+              "status": "pending,assigned,in_progress,rejected"
+            }
+          },
+          {
+            "description": "Assignments awaiting review for the active actor.",
+            "id": "needs_review",
+            "label": "Needs Review",
+            "query": {
+              "order": "asc",
+              "reviewer_id": "__me__",
+              "sort": "due_date",
+              "status": "review"
+            }
+          },
+          {
+            "description": "Past-due assignments across the visible queue scope.",
+            "id": "overdue",
+            "label": "Overdue",
+            "query": {
+              "due_state": "overdue",
+              "order": "asc",
+              "sort": "due_date"
+            }
+          },
+          {
+            "description": "Assignments marked high or urgent.",
+            "id": "high_priority",
+            "label": "High Priority",
+            "query": {
+              "order": "asc",
+              "priority": "high,urgent",
+              "sort": "due_date"
+            }
+          }
+        ],
+        "supported_sort_keys": [
+          "updated_at",
+          "created_at",
+          "due_date",
+          "due_state",
+          "status",
+          "locale",
+          "priority",
+          "assignee_id",
+          "reviewer_id"
+        ],
+        "total": 1,
+        "updated_at": "2026-03-12T10:00:00Z"
+      },
+      "status": 200
     }
   }
 }
