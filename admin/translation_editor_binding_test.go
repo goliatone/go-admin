@@ -516,6 +516,162 @@ func TestTranslationEditorSubmitReviewBlocksWhenRequiredFieldsMissing(t *testing
 	}
 }
 
+func TestTranslationEditorDetailIncludesReviewFeedbackAndQAResults(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired:      true,
+		LastRejectionReason: "Please preserve the CTA token.",
+	})
+	enableTranslationEditorQAWithBlockers(t, fixture)
+
+	status, payload := doTranslationEditorJSONRequest(
+		t,
+		fixture.app,
+		http.MethodGet,
+		"/admin/api/translations/assignments/"+fixture.assignmentID+"?environment=production&tenant_id=tenant-1&org_id=org-1",
+		nil,
+	)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	if got := toString(data["last_rejection_reason"]); got != "Please preserve the CTA token." {
+		t.Fatalf("expected last_rejection_reason, got %+v", data)
+	}
+	reviewFeedback := extractMap(data["review_feedback"])
+	comments, _ := reviewFeedback["comments"].([]any)
+	if len(comments) != 1 {
+		t.Fatalf("expected one review_feedback comment, got %+v", reviewFeedback)
+	}
+	qaResults := extractMap(data["qa_results"])
+	if enabled, _ := qaResults["enabled"].(bool); !enabled {
+		t.Fatalf("expected qa_results enabled, got %+v", qaResults)
+	}
+	summary := extractMap(qaResults["summary"])
+	if got := toInt(summary["warning_count"]); got <= 0 {
+		t.Fatalf("expected warning_count > 0, got %+v", summary)
+	}
+	if got := toInt(summary["blocker_count"]); got <= 0 {
+		t.Fatalf("expected blocker_count > 0, got %+v", summary)
+	}
+	if blocked, _ := qaResults["submit_blocked"].(bool); !blocked {
+		t.Fatalf("expected submit_blocked true, got %+v", qaResults)
+	}
+}
+
+func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+	enableTranslationEditorQAWithBlockers(t, fixture)
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"environment":      "production",
+		"expected_version": 2,
+	})
+	if status != http.StatusConflict {
+		t.Fatalf("status=%d want=409 payload=%+v", status, payload)
+	}
+
+	errPayload := extractMap(payload["error"])
+	if got := toString(errPayload["text_code"]); got != string(translationcore.ErrorPolicyBlocked) {
+		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
+	}
+	qaResults := extractMap(extractMap(errPayload["metadata"])["qa_results"])
+	if blocked, _ := qaResults["submit_blocked"].(bool); !blocked {
+		t.Fatalf("expected submit_blocked true in metadata, got %+v", qaResults)
+	}
+}
+
+func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
+	rejectFixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+	reviewAssignment, err := rejectFixture.repo.Get(context.Background(), rejectFixture.assignmentID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	reviewAssignment.Status = AssignmentStatusReview
+	reviewAssignment.ReviewerID = "reviewer-1"
+	reviewAssignment.LastReviewerID = "reviewer-1"
+	reviewAssignment.Version = 2
+	if _, err := rejectFixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); err != nil {
+		t.Fatalf("update review assignment: %v", err)
+	}
+
+	var rejectBody bytes.Buffer
+	if err := json.NewEncoder(&rejectBody).Encode(map[string]any{
+		"environment":      "production",
+		"expected_version": 3,
+		"reason":           "Please align the CTA wording.",
+		"comment":          "Keep the glossary term consistent.",
+	}); err != nil {
+		t.Fatalf("encode reject body: %v", err)
+	}
+	rejectReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?environment=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
+	rejectReq.Header.Set("Content-Type", "application/json")
+	rejectReq.Header.Set("X-User-ID", "reviewer-1")
+	rejectResp, err := rejectFixture.app.Test(rejectReq)
+	if err != nil {
+		t.Fatalf("reject request error: %v", err)
+	}
+	defer rejectResp.Body.Close()
+	if rejectResp.StatusCode != http.StatusOK {
+		t.Fatalf("reject status=%d want=200", rejectResp.StatusCode)
+	}
+
+	rejectedTarget, err := rejectFixture.content.Page(context.Background(), rejectFixture.targetRecordID, "")
+	if err != nil || rejectedTarget == nil {
+		t.Fatalf("load rejected target: %v", err)
+	}
+	if got := rejectedTarget.Status; got != string(translationcore.VariantStatusInProgress) {
+		t.Fatalf("expected rejected target status in_progress, got %q", got)
+	}
+
+	approveFixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+	approveAssignment, err := approveFixture.repo.Get(context.Background(), approveFixture.assignmentID)
+	if err != nil {
+		t.Fatalf("load approve assignment: %v", err)
+	}
+	approveAssignment.Status = AssignmentStatusReview
+	approveAssignment.ReviewerID = "reviewer-1"
+	approveAssignment.LastReviewerID = "reviewer-1"
+	approveAssignment.Version = 2
+	if _, err := approveFixture.repo.Update(context.Background(), approveAssignment, approveAssignment.Version); err != nil {
+		t.Fatalf("update approve assignment: %v", err)
+	}
+
+	var approveBody bytes.Buffer
+	if err := json.NewEncoder(&approveBody).Encode(map[string]any{
+		"environment":      "production",
+		"expected_version": 3,
+		"comment":          "Looks good for publish.",
+	}); err != nil {
+		t.Fatalf("encode approve body: %v", err)
+	}
+	approveReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?environment=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
+	approveReq.Header.Set("Content-Type", "application/json")
+	approveReq.Header.Set("X-User-ID", "reviewer-1")
+	approveResp, err := approveFixture.app.Test(approveReq)
+	if err != nil {
+		t.Fatalf("approve request error: %v", err)
+	}
+	defer approveResp.Body.Close()
+	if approveResp.StatusCode != http.StatusOK {
+		t.Fatalf("approve status=%d want=200", approveResp.StatusCode)
+	}
+
+	approvedTarget, err := approveFixture.content.Page(context.Background(), approveFixture.targetRecordID, "")
+	if err != nil || approvedTarget == nil {
+		t.Fatalf("load approved target: %v", err)
+	}
+	if got := approvedTarget.Status; got != string(translationcore.VariantStatusApproved) {
+		t.Fatalf("expected approved target status approved, got %q", got)
+	}
+}
+
 func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: false,
@@ -588,4 +744,37 @@ func mapString(data map[string]any) map[string]string {
 		out[key] = toString(value)
 	}
 	return out
+}
+
+func enableTranslationEditorQAWithBlockers(t *testing.T, fixture translationEditorTestFixture) {
+	t.Helper()
+
+	fixture.admin.featureGate = featureGateFromKeys(
+		FeatureCMS,
+		FeatureTranslationQueue,
+		FeatureTranslationQATerms,
+		FeatureTranslationQAStyle,
+	)
+
+	source, err := fixture.content.Page(context.Background(), "page-1", "")
+	if err != nil || source == nil {
+		t.Fatalf("load source page: %v", err)
+	}
+	updatedSource := cloneCMSPage(*source)
+	updatedSource.Title = "Translation publish guide {{cta}}"
+	updatedSource.Data["body"] = "Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>."
+	if _, err := fixture.content.UpdatePage(context.Background(), updatedSource); err != nil {
+		t.Fatalf("update source page: %v", err)
+	}
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load target page: %v", err)
+	}
+	updatedTarget := cloneCMSPage(*target)
+	updatedTarget.Title = "Guide de contenu"
+	updatedTarget.Data["body"] = "Publier le contenu depuis l'accueil."
+	if _, err := fixture.content.UpdatePage(context.Background(), updatedTarget); err != nil {
+		t.Fatalf("update target page: %v", err)
+	}
 }

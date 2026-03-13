@@ -28,6 +28,8 @@ func TestDefaultAdminFeaturesIncludeAllCoreAdminFeatures(t *testing.T) {
 		admin.FeatureOrganizations,
 		admin.FeatureTranslationExchange,
 		admin.FeatureTranslationQueue,
+		admin.FeatureTranslationQAStyle,
+		admin.FeatureTranslationQATerms,
 	}
 
 	for _, feature := range coreFeatures {

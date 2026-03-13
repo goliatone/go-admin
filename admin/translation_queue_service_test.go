@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	goerrors "github.com/goliatone/go-errors"
 )
 
 func TestDefaultTranslationQueueServiceLifecycleApprove(t *testing.T) {
@@ -340,6 +342,98 @@ func TestDefaultTranslationQueueServiceClaimRejectResumeApprovePublishFlow(t *te
 	}
 	if !published.Status.IsTerminal() {
 		t.Fatalf("expected published status to be terminal")
+	}
+}
+
+func TestDefaultTranslationQueueServiceReviewerGuardAndFeedbackActivity(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	activity := NewActivityFeed()
+	svc := &DefaultTranslationQueueService{
+		Repository: repo,
+		Activity:   activity,
+	}
+	ctx := context.Background()
+
+	created, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg-review-feedback",
+		EntityType:         "pages",
+		SourceRecordID:     "page-review-feedback",
+		SourceLocale:       "en",
+		TargetLocale:       "fr",
+		TargetRecordID:     "page-review-feedback-fr",
+		AssignmentType:     AssignmentTypeDirect,
+		Status:             AssignmentStatusReview,
+		ReviewerID:         "reviewer-1",
+		Priority:           PriorityHigh,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	_, err = svc.Reject(ctx, TranslationQueueRejectInput{
+		AssignmentID:    created.ID,
+		ReviewerID:      "reviewer-2",
+		Reason:          "wrong reviewer",
+		ExpectedVersion: created.Version,
+	})
+	if err == nil {
+		t.Fatalf("expected reviewer guard error")
+	}
+	var domainErr *goerrors.Error
+	if !errors.As(err, &domainErr) {
+		t.Fatalf("expected domain error, got %v", err)
+	}
+	if got := strings.TrimSpace(domainErr.TextCode); got != TextCodeForbidden {
+		t.Fatalf("expected text_code %q, got %q", TextCodeForbidden, got)
+	}
+	if got := strings.TrimSpace(toString(domainErr.Metadata["expected_reviewer_id"])); got != "reviewer-1" {
+		t.Fatalf("expected expected_reviewer_id reviewer-1, got %+v", domainErr.Metadata)
+	}
+
+	rejected, err := svc.Reject(ctx, TranslationQueueRejectInput{
+		AssignmentID:     created.ID,
+		ReviewerID:       "reviewer-1",
+		Reason:           "Missing CTA placeholder",
+		Comment:          "Please preserve the source token.",
+		TerminologyNotes: []string{"Use traduction for translation."},
+		StyleNotes:       []string{"Preserve {{cta}} placeholders."},
+		ExpectedVersion:  created.Version,
+	})
+	if err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if rejected.Status != AssignmentStatusRejected {
+		t.Fatalf("expected rejected status, got %q", rejected.Status)
+	}
+
+	entries, err := activity.List(ctx, 10)
+	if err != nil {
+		t.Fatalf("activity list: %v", err)
+	}
+	var feedback *ActivityEntry
+	for idx := range entries {
+		if entries[idx].Action == "translation.review.feedback" {
+			feedback = &entries[idx]
+			break
+		}
+	}
+	if feedback == nil {
+		t.Fatalf("expected translation.review.feedback activity, got %+v", entries)
+	}
+	if got := strings.TrimSpace(toString(feedback.Metadata["comment"])); got != "Please preserve the source token." {
+		t.Fatalf("expected feedback comment, got %+v", feedback.Metadata)
+	}
+	if got := strings.TrimSpace(toString(feedback.Metadata["reject_reason"])); got != "Missing CTA placeholder" {
+		t.Fatalf("expected reject_reason metadata, got %+v", feedback.Metadata)
+	}
+	if visible, _ := feedback.Metadata["translator_visible"].(bool); !visible {
+		t.Fatalf("expected translator_visible metadata, got %+v", feedback.Metadata)
+	}
+	if notes := toStringSlice(feedback.Metadata["terminology_notes"]); len(notes) != 1 || notes[0] != "Use traduction for translation." {
+		t.Fatalf("expected terminology notes, got %+v", feedback.Metadata)
+	}
+	if notes := toStringSlice(feedback.Metadata["style_notes"]); len(notes) != 1 || notes[0] != "Preserve {{cta}} placeholders." {
+		t.Fatalf("expected style notes, got %+v", feedback.Metadata)
 	}
 }
 

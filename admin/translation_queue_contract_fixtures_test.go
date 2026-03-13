@@ -47,15 +47,39 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 		t.Fatalf("expected states payload")
 	}
 	assertQueueStateActionCode(t, states, "open_pool", "claim", "", true)
-	assertQueueStateActionCode(t, states, "assigned", "release", "", true)
+	assertQueueStateActionCode(t, states, "review_ready", "approve", "", true)
+	assertQueueStateActionCode(t, states, "review_ready", "archive", "", true)
+	assertQueueStateActionCode(t, states, "review_guarded", "approve", ActionDisabledReasonCodePermissionDenied, false)
 	assertQueueStateActionCode(t, states, "permission_denied", "claim", ActionDisabledReasonCodePermissionDenied, false)
+
+	qaSummaryState := extractMap(states["qa_summary"])
+	qaRows, _ := qaSummaryState["data"].([]any)
+	if len(qaRows) != 1 {
+		t.Fatalf("expected one qa_summary row, got %+v", qaSummaryState)
+	}
+	qaRow := extractMap(qaRows[0])
+	if got := toString(qaRow["last_rejection_reason"]); got == "" {
+		t.Fatalf("expected qa_summary last_rejection_reason, got %+v", qaRow)
+	}
+	reviewFeedback := extractMap(qaRow["review_feedback"])
+	if got := toString(reviewFeedback["last_reviewer_id"]); got == "" {
+		t.Fatalf("expected review_feedback.last_reviewer_id, got %+v", reviewFeedback)
+	}
+	summary := extractMap(qaRow["qa_summary"])
+	if got := toInt(summary["warning_count"]); got <= 0 {
+		t.Fatalf("expected qa warning_count > 0, got %+v", summary)
+	}
+	if got := toInt(summary["blocker_count"]); got <= 0 {
+		t.Fatalf("expected qa blocker_count > 0, got %+v", summary)
+	}
 
 	actionErrors, _ := fixture["action_errors"].(map[string]any)
 	if actionErrors == nil {
 		t.Fatalf("expected action_errors payload")
 	}
-	assertActionErrorCode(t, actionErrors, "permission_denied", "PERMISSION_DENIED")
-	assertActionErrorCode(t, actionErrors, "version_conflict", "VERSION_CONFLICT")
+	assertActionErrorCode(t, actionErrors, "permission_denied", TextCodeForbidden)
+	assertActionErrorCode(t, actionErrors, "version_conflict", TextCodeTranslationQueueVersionConflict)
+	assertActionErrorCode(t, actionErrors, "reject_requires_reason", TextCodeValidationError)
 }
 
 func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
@@ -184,6 +208,10 @@ func assertQueueStateActionCode(t *testing.T, states map[string]any, stateKey, a
 	row, _ := rows[0].(map[string]any)
 	actions, _ := row["actions"].(map[string]any)
 	action, _ := actions[actionKey].(map[string]any)
+	if len(action) == 0 {
+		reviewActions, _ := row["review_actions"].(map[string]any)
+		action, _ = reviewActions[actionKey].(map[string]any)
+	}
 	if got, _ := action["enabled"].(bool); got != enabled {
 		t.Fatalf("expected %s.%s enabled=%t, got %+v", stateKey, actionKey, enabled, action)
 	}

@@ -351,6 +351,155 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	}
 }
 
+func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASummary(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired:      true,
+		LastRejectionReason: "Please preserve the CTA token.",
+	})
+	fixture.admin.featureGate = featureGateFromKeys(
+		FeatureCMS,
+		FeatureTranslationQueue,
+		FeatureTranslationQATerms,
+		FeatureTranslationQAStyle,
+	)
+
+	assignment, err := fixture.repo.Get(context.Background(), fixture.assignmentID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	assignment.Status = AssignmentStatusReview
+	assignment.ReviewerID = "reviewer-1"
+	assignment.LastReviewerID = "reviewer-1"
+	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
+		t.Fatalf("update assignment: %v", err)
+	}
+
+	source, err := fixture.content.Page(context.Background(), "page-1", "")
+	if err != nil || source == nil {
+		t.Fatalf("load source page: %v", err)
+	}
+	updatedSource := cloneCMSPage(*source)
+	updatedSource.Title = "Translation publish guide {{cta}}"
+	updatedSource.Data["body"] = "Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>."
+	if _, err := fixture.content.UpdatePage(context.Background(), updatedSource); err != nil {
+		t.Fatalf("update source page: %v", err)
+	}
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load target page: %v", err)
+	}
+	updatedTarget := cloneCMSPage(*target)
+	updatedTarget.Title = "Guide de contenu"
+	updatedTarget.Data["body"] = "Publier le contenu depuis l'accueil."
+	if _, err := fixture.content.UpdatePage(context.Background(), updatedTarget); err != nil {
+		t.Fatalf("update target page: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
+	req.Header.Set("X-User-ID", "reviewer-2")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	data, _ := payload["data"].([]any)
+	if len(data) != 1 {
+		t.Fatalf("expected one queue row, got %d", len(data))
+	}
+	row := extractMap(data[0])
+	if got := strings.TrimSpace(toString(row["last_rejection_reason"])); got != "Please preserve the CTA token." {
+		t.Fatalf("expected last_rejection_reason, got %+v", row)
+	}
+	reviewFeedback := extractMap(row["review_feedback"])
+	if got := strings.TrimSpace(toString(reviewFeedback["last_rejection_reason"])); got != "Please preserve the CTA token." {
+		t.Fatalf("expected review_feedback last_rejection_reason, got %+v", reviewFeedback)
+	}
+	if got := strings.TrimSpace(toString(reviewFeedback["last_reviewer_id"])); got != "reviewer-1" {
+		t.Fatalf("expected review_feedback last_reviewer_id reviewer-1, got %+v", reviewFeedback)
+	}
+
+	reviewActions := extractMap(row["review_actions"])
+	approve := extractMap(reviewActions["approve"])
+	if enabled, _ := approve["enabled"].(bool); enabled {
+		t.Fatalf("expected approve disabled for non-reviewer, got %+v", approve)
+	}
+	if got := strings.TrimSpace(toString(approve["reason_code"])); got != ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected reviewer guard permission denied, got %+v", approve)
+	}
+	if got := strings.TrimSpace(toString(approve["expected_reviewer_id"])); got != "reviewer-1" {
+		t.Fatalf("expected expected_reviewer_id reviewer-1, got %+v", approve)
+	}
+	archive := extractMap(reviewActions["archive"])
+	if enabled, _ := archive["enabled"].(bool); !enabled {
+		t.Fatalf("expected archive enabled for review row, got %+v", archive)
+	}
+
+	qaSummary := extractMap(row["qa_summary"])
+	if enabled, _ := qaSummary["enabled"].(bool); !enabled {
+		t.Fatalf("expected qa_summary enabled, got %+v", qaSummary)
+	}
+	if got := intValue(qaSummary["warning_count"]); got <= 0 {
+		t.Fatalf("expected qa warning count > 0, got %+v", qaSummary)
+	}
+	if got := intValue(qaSummary["blocker_count"]); got <= 0 {
+		t.Fatalf("expected qa blocker count > 0, got %+v", qaSummary)
+	}
+}
+
+func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+
+	assignment, err := fixture.repo.Get(context.Background(), fixture.assignmentID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	assignment.Status = AssignmentStatusReview
+	assignment.ReviewerID = "reviewer-1"
+	assignment.LastReviewerID = "reviewer-1"
+	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
+		t.Fatalf("update assignment: %v", err)
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/reject",
+		strings.NewReader(`{"expected_version":3}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "reviewer-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode < 400 || resp.StatusCode >= 500 {
+		t.Fatalf("status=%d want=4xx", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	errPayload := extractMap(payload["error"])
+	if got := strings.TrimSpace(toString(errPayload["text_code"])); got != TextCodeValidationError {
+		t.Fatalf("expected validation error text_code, got %+v", errPayload)
+	}
+	if got := strings.TrimSpace(toString(extractMap(errPayload["metadata"])["field"])); got != "reason" {
+		t.Fatalf("expected missing reason field metadata, got %+v", errPayload)
+	}
+}
+
 func TestSortAssignmentsOrdersPriorityBySeverity(t *testing.T) {
 	assignments := []TranslationAssignment{
 		{ID: "asg-high", Priority: PriorityHigh},

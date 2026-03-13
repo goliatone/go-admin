@@ -29,6 +29,8 @@ func TestDefaultFeatureFlagKeysIncludeAllCoreFeatureKeys(t *testing.T) {
 		FeatureOrganizations,
 		FeatureTranslationExchange,
 		FeatureTranslationQueue,
+		FeatureTranslationQAStyle,
+		FeatureTranslationQATerms,
 	}
 
 	for _, feature := range coreFeatures {

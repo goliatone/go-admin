@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 func TestTranslationEditorContractFixtures(t *testing.T) {
@@ -22,7 +24,21 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 		t.Fatalf("expected detail.assignment_id")
 	}
 	assertEditorActionEnvelope(t, detail["assignment_action_states"], "submit_review")
+	assertEditorActionEnvelope(t, detail["assignment_action_states"], "archive")
 	assertEditorActionEnvelope(t, detail["review_action_states"], "approve")
+	reviewFeedback := extractMap(detail["review_feedback"])
+	comments, _ := reviewFeedback["comments"].([]any)
+	if len(comments) == 0 {
+		t.Fatalf("expected review_feedback comments")
+	}
+	qaResults := extractMap(detail["qa_results"])
+	summary := extractMap(qaResults["summary"])
+	if got := toInt(summary["warning_count"]); got <= 0 {
+		t.Fatalf("expected qa_results warning_count > 0, got %+v", qaResults)
+	}
+	if got := toInt(summary["blocker_count"]); got <= 0 {
+		t.Fatalf("expected qa_results blocker_count > 0, got %+v", qaResults)
+	}
 
 	assist := extractMap(detail["assist"])
 	glossaryMatches, _ := assist["glossary_matches"].([]any)
@@ -39,6 +55,10 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 		t.Fatalf("expected update row_version > 0, got %d", got)
 	}
 	assertEditorActionEnvelope(t, update["assignment_action_states"], "submit_review")
+	updateQA := extractMap(update["qa_results"])
+	if blocked, _ := updateQA["submit_blocked"].(bool); !blocked {
+		t.Fatalf("expected variant_update qa_results.submit_blocked=true, got %+v", updateQA)
+	}
 
 	history := extractMap(detail["history"])
 	if got := toInt(history["total"]); got <= 0 {
@@ -53,14 +73,23 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 		t.Fatalf("expected attachment_summary total=%d, got %+v", len(attachments), attachmentSummary)
 	}
 
-	conflict := extractMap(extractMap(fixture["autosave_conflict"])["error"])
-	if got := toString(conflict["text_code"]); got != TextCodeAutosaveConflict {
-		t.Fatalf("expected autosave conflict text_code %q, got %q", TextCodeAutosaveConflict, got)
+	submitBlocked := extractMap(extractMap(fixture["submit_blocked"])["error"])
+	if got := toString(submitBlocked["text_code"]); got != string(translationcore.ErrorPolicyBlocked) {
+		t.Fatalf("expected submit_blocked text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
 	}
 
 	autoApprove := extractMap(extractMap(fixture["no_review_auto_approve"])["data"])
 	if got := toString(autoApprove["status"]); got != string(AssignmentStatusApproved) {
 		t.Fatalf("expected no_review_auto_approve status %q, got %q", AssignmentStatusApproved, got)
+	}
+
+	reviewReject := extractMap(extractMap(fixture["review_reject"])["data"])
+	if got := toString(reviewReject["status"]); got != string(AssignmentStatusRejected) {
+		t.Fatalf("expected review_reject status %q, got %q", AssignmentStatusRejected, got)
+	}
+	reviewApprove := extractMap(extractMap(fixture["review_approve"])["data"])
+	if got := toString(reviewApprove["status"]); got != string(AssignmentStatusApproved) {
+		t.Fatalf("expected review_approve status %q, got %q", AssignmentStatusApproved, got)
 	}
 
 	backcompat := extractMap(fixture["assist_backcompat"])
