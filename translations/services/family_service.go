@@ -95,6 +95,7 @@ type FamilyRecord struct {
 type ListFamiliesInput struct {
 	Scope          Scope
 	Environment    string
+	FamilyID       string
 	ContentType    string
 	ReadinessState string
 	BlockerCode    string
@@ -388,6 +389,9 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 		if !familyMatchesScope(family, input.Scope) {
 			continue
 		}
+		if input.FamilyID != "" && !strings.EqualFold(strings.TrimSpace(family.ID), strings.TrimSpace(input.FamilyID)) {
+			continue
+		}
 		if input.ContentType != "" && !strings.EqualFold(strings.TrimSpace(family.ContentType), strings.TrimSpace(input.ContentType)) {
 			continue
 		}
@@ -558,8 +562,19 @@ func recomputeLocaleBlockers(family FamilyRecord, policy FamilyPolicy, source Fa
 	scope := Scope{TenantID: family.TenantID, OrgID: family.OrgID}
 	blockers := []FamilyBlocker{}
 	variantsByLocale := map[string]FamilyVariant{}
+	existingMissingLocaleBlockers := map[string]FamilyBlocker{}
 	for _, variant := range family.Variants {
 		variantsByLocale[strings.TrimSpace(strings.ToLower(variant.Locale))] = variant
+	}
+	for _, blocker := range family.Blockers {
+		if !strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerMissingLocale)) {
+			continue
+		}
+		locale := strings.TrimSpace(strings.ToLower(blocker.Locale))
+		if locale == "" {
+			continue
+		}
+		existingMissingLocaleBlockers[locale] = blocker
 	}
 	requiredLocales := normalizedStringSlice(policy.RequiredLocales)
 	if len(requiredLocales) == 0 && source.Locale != "" {
@@ -568,14 +583,18 @@ func recomputeLocaleBlockers(family FamilyRecord, policy FamilyPolicy, source Fa
 	for _, locale := range requiredLocales {
 		variant, ok := variantsByLocale[locale]
 		if !ok {
-			blockers = append(blockers, FamilyBlocker{
+			blocker := FamilyBlocker{
 				ID:          DeterministicBlockerID(scope, family.ID, string(translationcore.FamilyBlockerMissingLocale), locale, ""),
 				FamilyID:    family.ID,
 				TenantID:    family.TenantID,
 				OrgID:       family.OrgID,
 				BlockerCode: string(translationcore.FamilyBlockerMissingLocale),
 				Locale:      locale,
-			})
+			}
+			if existing, ok := existingMissingLocaleBlockers[locale]; ok && len(existing.Details) > 0 {
+				blocker.Details = cloneAnyMap(existing.Details)
+			}
+			blockers = append(blockers, blocker)
 			continue
 		}
 		for _, field := range normalizedStringSlice(policy.RequiredFields[locale]) {

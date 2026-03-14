@@ -100,6 +100,44 @@
         "operationId": "getTranslationExchangeJob",
         "summary": "Get translation exchange job status"
       }
+    },
+    "/api/translations/matrix": {
+      "get": {
+        "operationId": "queryTranslationMatrix",
+        "summary": "Query the translation family-by-locale matrix viewport"
+      }
+    },
+    "/api/translations/matrix/actions/create-missing": {
+      "post": {
+        "operationId": "createMissingTranslationMatrixVariants",
+        "summary": "Bulk create missing locale variants from matrix selection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixCreateMissingRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/matrix/actions/export-selected": {
+      "post": {
+        "operationId": "exportSelectedTranslationMatrixFamilies",
+        "summary": "Build a typed export request from matrix selection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixExportSelectedRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -334,6 +372,83 @@
             }
           }
         }
+      },
+      "MatrixCreateMissingRequest": {
+        "type": "object",
+        "required": [
+          "family_ids"
+        ],
+        "properties": {
+          "family_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locales": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "auto_create_assignment": {
+            "type": "boolean"
+          },
+          "assignee_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "environment": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MatrixExportSelectedRequest": {
+        "type": "object",
+        "required": [
+          "family_ids"
+        ],
+        "properties": {
+          "family_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locales": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_source_hash": {
+            "type": "boolean"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json",
+              "csv"
+            ]
+          },
+          "environment": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

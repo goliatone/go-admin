@@ -8,6 +8,7 @@ func ModuleUIRoutes() map[string]string {
 	return cloneRoutes(map[string]string{
 		"translations.dashboard":        "/dashboard",
 		"translations.exchange":         "/exchange",
+		"translations.matrix":           "/matrix",
 		"translations.families.id":      "/families/:family_id",
 		"translations.assignments.id":   "/assignments/:assignment_id",
 		"translations.assignments.edit": "/assignments/:assignment_id/edit",
@@ -16,26 +17,32 @@ func ModuleUIRoutes() map[string]string {
 
 func ModuleAPIRoutes() map[string]string {
 	return cloneRoutes(map[string]string{
-		"translations.families":            "/families",
-		"translations.families.id":         "/families/:family_id",
-		"translations.families.variants":   "/families/:family_id/variants",
-		"translations.variants.id":         "/variants/:variant_id",
-		"translations.assignments":         "/assignments",
-		"translations.assignments.id":      "/assignments/:assignment_id",
-		"translations.assignments.actions": "/assignments/:assignment_id/actions/:action",
-		"translations.export":              "/exchange/export",
-		"translations.template":            "/exchange/template",
-		"translations.import.validate":     "/exchange/import/validate",
-		"translations.import.apply":        "/exchange/import/apply",
-		"translations.jobs.id":             "/exchange/jobs/:job_id",
-		"translations.my_work":             "/my-work",
-		"translations.queue":               "/queue",
+		"translations.dashboard":                    "/dashboard",
+		"translations.matrix":                       "/matrix",
+		"translations.matrix.actions.create_missing": "/matrix/actions/create-missing",
+		"translations.matrix.actions.export_selected": "/matrix/actions/export-selected",
+		"translations.families":                     "/families",
+		"translations.families.id":                  "/families/:family_id",
+		"translations.families.variants":            "/families/:family_id/variants",
+		"translations.variants.id":                  "/variants/:variant_id",
+		"translations.assignments":                  "/assignments",
+		"translations.assignments.id":               "/assignments/:assignment_id",
+		"translations.assignments.actions":          "/assignments/:assignment_id/actions/:action",
+		"translations.export":                       "/exchange/export",
+		"translations.template":                     "/exchange/template",
+		"translations.import.validate":              "/exchange/import/validate",
+		"translations.import.apply":                 "/exchange/import/apply",
+		"translations.jobs.id":                      "/exchange/jobs/:job_id",
+		"translations.my_work":                      "/my-work",
+		"translations.queue":                        "/queue",
 	})
 }
 
 func AdminUIRoutes() map[string]string {
 	routes := prefixRoutes("/translations", ModuleUIRoutes())
-	routes["translations.queue"] = "/translations/queue"
+	// The queue UI is panel-backed, so its canonical admin entrypoint lives under
+	// the shared content surface rather than the translations module mount.
+	routes["translations.queue"] = "/content/translations"
 	return routes
 }
 
