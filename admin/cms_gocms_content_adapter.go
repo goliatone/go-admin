@@ -980,6 +980,14 @@ func (a *GoCMSContentAdapter) prepareContentMetadata(ctx context.Context, conten
 	data := primitives.CloneAnyMap(content.Data)
 	metadata := primitives.CloneAnyMap(content.Metadata)
 	if existing != nil {
+		content.TranslationGroupID = strings.TrimSpace(primitives.FirstNonEmptyRaw(content.TranslationGroupID, existing.TranslationGroupID))
+	}
+	groupID := adapterRequestedTranslationGroupID(content.TranslationGroupID, data, metadata)
+	if existing != nil {
+		groupID = adapterRequestedTranslationGroupID(groupID, existing.Data, existing.Metadata)
+	}
+	data, metadata = adapterPersistTranslationGroupMetadata(groupID, data, metadata)
+	if existing != nil {
 		if content.ContentType == "" {
 			content.ContentType = existing.ContentType
 		}
@@ -1239,16 +1247,19 @@ func (a *GoCMSContentAdapter) createPageFromContent(ctx context.Context, page CM
 	} else if embedded, present := embeddedBlocksFromData(data); present {
 		data["blocks"] = embedded
 	}
+	groupID := adapterRequestedTranslationGroupID(page.TranslationGroupID, data, page.Metadata)
+	data, metadata := adapterPersistTranslationGroupMetadata(groupID, data, page.Metadata)
 
 	created, err := a.CreateContent(ctx, CMSContent{
-		Title:       page.Title,
-		Slug:        page.Slug,
-		Status:      page.Status,
-		Locale:      locale,
-		ContentType: "page",
-		Blocks:      append([]string{}, page.Blocks...),
-		Data:        data,
-		Metadata:    primitives.CloneAnyMap(page.Metadata),
+		Title:              page.Title,
+		Slug:               page.Slug,
+		Status:             page.Status,
+		Locale:             locale,
+		TranslationGroupID: groupID,
+		ContentType:        "page",
+		Blocks:             append([]string{}, page.Blocks...),
+		Data:               data,
+		Metadata:           metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -1301,6 +1312,9 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 	} else if embedded, present := embeddedBlocksFromData(data); present {
 		data["blocks"] = embedded
 	}
+	metadata := mergeMetadata(primitives.CloneAnyMap(existing.Metadata), primitives.CloneAnyMap(page.Metadata))
+	groupID := adapterRequestedTranslationGroupID(primitives.FirstNonEmptyRaw(page.TranslationGroupID, existing.TranslationGroupID), data, metadata)
+	data, metadata = adapterPersistTranslationGroupMetadata(groupID, data, metadata)
 
 	title := strings.TrimSpace(page.Title)
 	if title == "" {
@@ -1320,15 +1334,16 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 	}
 
 	updated, err := a.UpdateContent(ctx, CMSContent{
-		ID:          existing.ID,
-		Title:       title,
-		Slug:        slug,
-		Status:      status,
-		Locale:      locale,
-		ContentType: "page",
-		Blocks:      blocks,
-		Data:        data,
-		Metadata:    primitives.CloneAnyMap(page.Metadata),
+		ID:                 existing.ID,
+		Title:              title,
+		Slug:               slug,
+		Status:             status,
+		Locale:             locale,
+		TranslationGroupID: groupID,
+		ContentType:        "page",
+		Blocks:             blocks,
+		Data:               data,
+		Metadata:           metadata,
 		EmbeddedBlocks: func() []map[string]any {
 			if page.EmbeddedBlocks != nil {
 				return cloneEmbeddedBlocks(page.EmbeddedBlocks)
@@ -1486,6 +1501,7 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 	if meta := mapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
+	out.TranslationGroupID = adapterResolvedTranslationGroupID(out.TranslationGroupID, out.Data, out.Metadata)
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
 	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
 	if len(out.Navigation) > 0 {
@@ -1657,6 +1673,7 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 	if meta := mapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
+	out.TranslationGroupID = adapterResolvedTranslationGroupID(out.TranslationGroupID, out.Data, out.Metadata)
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
 	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
 	if len(out.Navigation) > 0 {
@@ -1867,6 +1884,44 @@ func blockDefinitionCacheEnv(ctx context.Context, def CMSBlockDefinition) string
 	return strings.TrimSpace(resolveCMSContentChannel("", ctx))
 }
 
+func adapterResolvedTranslationGroupID(groupID string, maps ...map[string]any) string {
+	for _, source := range maps {
+		if source == nil {
+			continue
+		}
+		if resolved := strings.TrimSpace(toString(source["translation_group_id"])); resolved != "" {
+			return resolved
+		}
+	}
+	return strings.TrimSpace(groupID)
+}
+
+func adapterRequestedTranslationGroupID(groupID string, maps ...map[string]any) string {
+	groupID = strings.TrimSpace(groupID)
+	if groupID != "" {
+		return groupID
+	}
+	return adapterResolvedTranslationGroupID("", maps...)
+}
+
+func adapterPersistTranslationGroupMetadata(groupID string, data, metadata map[string]any) (map[string]any, map[string]any) {
+	groupID = strings.TrimSpace(groupID)
+	data = primitives.CloneAnyMap(data)
+	metadata = primitives.CloneAnyMap(metadata)
+	if groupID == "" {
+		return data, metadata
+	}
+	if data == nil {
+		data = map[string]any{}
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	data["translation_group_id"] = groupID
+	metadata["translation_group_id"] = groupID
+	return data, metadata
+}
+
 func pageFromContent(content CMSContent) CMSPage {
 	data := primitives.CloneAnyMap(content.Data)
 	meta := normalizeStructuralMetadata(content.Metadata)
@@ -1886,11 +1941,16 @@ func pageFromContent(content CMSContent) CMSPage {
 	}
 
 	out := CMSPage{
-		ID:             content.ID,
-		Title:          content.Title,
-		Slug:           content.Slug,
-		TemplateID:     templateID,
-		Locale:         content.Locale,
+		ID:         content.ID,
+		Title:      content.Title,
+		Slug:       content.Slug,
+		TemplateID: templateID,
+		Locale:     content.Locale,
+		TranslationGroupID: adapterResolvedTranslationGroupID(
+			content.TranslationGroupID,
+			data,
+			content.Metadata,
+		),
 		ParentID:       parentID,
 		Blocks:         append([]string{}, content.Blocks...),
 		EmbeddedBlocks: nil,

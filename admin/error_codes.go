@@ -14,7 +14,14 @@ const (
 	TextCodeInvalidFeatureConfig                 = "INVALID_FEATURE_CONFIG"
 	TextCodeForbidden                            = "FORBIDDEN"
 	TextCodeNotFound                             = string(translationcore.ErrorNotFound)
+	TextCodeInvalidStatus                        = string(translationcore.DisabledReasonInvalidStatus)
+	TextCodeMissingContext                       = string(translationcore.DisabledReasonMissingContext)
 	TextCodeFeatureDisabled                      = string(translationcore.DisabledReasonFeatureDisabled)
+	TextCodeResourceInUse                        = "RESOURCE_IN_USE"
+	TextCodePreconditionFailed                   = "PRECONDITION_FAILED"
+	TextCodeInvalidSelection                     = "INVALID_SELECTION"
+	TextCodeRateLimited                          = "RATE_LIMITED"
+	TextCodeTemporarilyUnavailable               = "TEMPORARILY_UNAVAILABLE"
 	TextCodeReplSessionLimit                     = "REPL_SESSION_LIMIT"
 	TextCodeWorkflowNotFound                     = "WORKFLOW_NOT_FOUND"
 	TextCodeWorkflowInvalidTransition            = "WORKFLOW_INVALID_TRANSITION"
@@ -69,7 +76,14 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeInvalidFeatureConfig, Description: "Feature configuration is invalid or missing dependencies.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
 	{Code: TextCodeForbidden, Description: "The request is not authorized.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodeNotFound, Description: "The requested resource was not found.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
+	{Code: TextCodeInvalidStatus, Description: "The requested action is invalid for the current resource state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeMissingContext, Description: "Required resource context is missing for the requested action.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeFeatureDisabled, Description: "The requested feature is disabled.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
+	{Code: TextCodeResourceInUse, Description: "The requested action cannot complete because the resource is in use.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodePreconditionFailed, Description: "The requested action cannot complete because one or more preconditions are not met.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeInvalidSelection, Description: "The requested bulk selection is invalid for the action.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
+	{Code: TextCodeRateLimited, Description: "The request is currently rate limited.", Category: goerrors.CategoryRateLimit, HTTPStatus: 429},
+	{Code: TextCodeTemporarilyUnavailable, Description: "The requested action is temporarily unavailable.", Category: goerrors.CategoryInternal, HTTPStatus: 503},
 	{Code: TextCodeReplSessionLimit, Description: "REPL session limit reached.", Category: goerrors.CategoryRateLimit, HTTPStatus: 429},
 	{Code: TextCodeWorkflowNotFound, Description: "Workflow definition is missing for the entity type.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
 	{Code: TextCodeWorkflowInvalidTransition, Description: "Workflow transition is invalid for the current state.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},

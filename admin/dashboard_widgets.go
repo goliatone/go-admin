@@ -87,7 +87,7 @@ func (a *Admin) registerDashboardProviders() error {
 			statsSpec := DashboardProviderSpec{
 				Code:          WidgetUserStats,
 				Name:          "User Statistics",
-				DefaultArea:   "admin.dashboard.main",
+				DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
 				DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
 				DefaultSpan:   4,
 				Permission:    "",
@@ -138,7 +138,7 @@ func (a *Admin) registerDashboardProviders() error {
 			quickActionsSpec := DashboardProviderSpec{
 				Code:          WidgetQuickActions,
 				Name:          "Quick Actions",
-				DefaultArea:   "admin.dashboard.sidebar",
+				DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementSidebar, ""),
 				DefaultConfig: map[string]any{},
 				Permission:    "admin.quick_actions.view",
 				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
@@ -166,7 +166,7 @@ func (a *Admin) registerDashboardProviders() error {
 			chartSpec := DashboardProviderSpec{
 				Code:          WidgetChartSample,
 				Name:          "Sample Chart",
-				DefaultArea:   "admin.dashboard.main",
+				DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
 				DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
 				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
 					resolvedCfg, err := DecodeWidgetConfig[chartSampleWidgetConfig](cfg)
@@ -246,7 +246,7 @@ func (a *Admin) registerSettingsWidget() error {
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          WidgetSettingsOverview,
 		Name:          "Settings Overview",
-		DefaultArea:   "admin.dashboard.sidebar",
+		DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementSidebar, ""),
 		DefaultConfig: map[string]any{"keys": []string{"admin.title", "admin.default_locale"}},
 		Permission:    a.config.SettingsPermission,
 		Handler:       handler,
@@ -288,7 +288,7 @@ func (a *Admin) registerNotificationsWidget() error {
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          WidgetNotifications,
 		Name:          "Notifications",
-		DefaultArea:   "admin.dashboard.sidebar",
+		DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementSidebar, ""),
 		DefaultConfig: map[string]any{"limit": 5},
 		Handler:       handler,
 	})
@@ -321,7 +321,7 @@ func (a *Admin) registerActivityWidget() error {
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          WidgetActivityFeed,
 		Name:          "Recent Activity",
-		DefaultArea:   "admin.dashboard.main",
+		DefaultArea:   dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
 		DefaultConfig: map[string]any{"limit": 5},
 		Permission:    "",
 		Handler:       handler,

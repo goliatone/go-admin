@@ -52,22 +52,22 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeStateNotFound):
-		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeStateNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeStateNotFound))
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeInvalidTransition), hasFlowTextCode(err, flow.ErrCodeGuardRejected):
-		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, flowErrorMessage(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected), flowErrorMetadataForTextCode(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected))
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeAuthoringNotFound):
-		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeAuthoringNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringNotFound))
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeAuthoringValidationFailed):
-		mapped = NewDomainError(TextCodeValidationError, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodeValidationError, flowErrorMessage(err, flow.ErrCodeAuthoringValidationFailed), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringValidationFailed))
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeVersionConflict), hasFlowTextCode(err, flow.ErrCodeIdempotencyConflict):
-		mapped = NewDomainError(TextCodeConflict, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodeConflict, flowErrorMessage(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict), flowErrorMetadataForTextCode(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict))
 		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodePreconditionFailed):
-		mapped = NewDomainError(TextCodeValidationError, err.Error(), flowErrorMetadata(err))
+		mapped = NewDomainError(TextCodePreconditionFailed, flowErrorMessage(err, flow.ErrCodePreconditionFailed), flowErrorMetadataForTextCode(err, flow.ErrCodePreconditionFailed))
 		status = mapped.Code
 	case errors.As(err, &missingTranslations):
 		missingLocales := normalizeLocaleList(missingTranslations.MissingLocales)
@@ -514,17 +514,72 @@ func hasMissingFieldFailures(missingFieldsByLocale map[string][]string) bool {
 }
 
 func hasFlowTextCode(err error, textCode string) bool {
-	var typed *goerrors.Error
-	if !goerrors.As(err, &typed) || typed == nil {
+	target := strings.TrimSpace(textCode)
+	if target == "" {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(typed.TextCode), strings.TrimSpace(textCode))
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		var typed *goerrors.Error
+		if !goerrors.As(current, &typed) || typed == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(typed.TextCode), target) {
+			return true
+		}
+	}
+	return false
 }
 
-func flowErrorMetadata(err error) map[string]any {
-	var typed *goerrors.Error
-	if !goerrors.As(err, &typed) || typed == nil || len(typed.Metadata) == 0 {
+func flowErrorMessage(err error, textCodes ...string) string {
+	if typed := flowErrorByTextCode(err, textCodes...); typed != nil {
+		if message := strings.TrimSpace(typed.Message); message != "" {
+			return message
+		}
+	}
+	if err == nil {
+		return ""
+	}
+	return strings.TrimSpace(err.Error())
+}
+
+func flowErrorMetadataForTextCode(err error, textCodes ...string) map[string]any {
+	if typed := flowErrorByTextCode(err, textCodes...); typed != nil && len(typed.Metadata) > 0 {
+		return primitives.CloneAnyMap(typed.Metadata)
+	}
+	var metadata map[string]any
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		var typed *goerrors.Error
+		if !goerrors.As(current, &typed) || typed == nil || len(typed.Metadata) == 0 {
+			continue
+		}
+		metadata = primitives.CloneAnyMap(typed.Metadata)
+	}
+	return metadata
+}
+
+func flowErrorByTextCode(err error, textCodes ...string) *goerrors.Error {
+	if len(textCodes) == 0 {
 		return nil
 	}
-	return primitives.CloneAnyMap(typed.Metadata)
+	targets := make([]string, 0, len(textCodes))
+	for _, textCode := range textCodes {
+		if trimmed := strings.TrimSpace(textCode); trimmed != "" {
+			targets = append(targets, trimmed)
+		}
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		var typed *goerrors.Error
+		if !goerrors.As(current, &typed) || typed == nil {
+			continue
+		}
+		for _, target := range targets {
+			if strings.EqualFold(strings.TrimSpace(typed.TextCode), target) {
+				return typed
+			}
+		}
+	}
+	return nil
 }

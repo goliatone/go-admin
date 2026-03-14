@@ -47,13 +47,19 @@ func TranslationSharedContractsPayload() map[string]any {
 		"disabled_reason_codes": ActionDisabledReasonCodes(),
 		"source_target_drift":   TranslationSourceTargetDriftContract(),
 		"editor_contracts":      TranslationEditorContractPayload(),
-		"flow_vocabulary":       translationcore.VocabularyPayload(),
+		"flow_vocabulary":       translationFlowVocabularyPayload(),
 		"openapi": map[string]any{
 			"schema_version": translationcore.SchemaVersion,
 			"artifact_path":  "translations/ui/openapi/translations.json",
 			"artifact_bytes": len(translationui.OpenAPISpec()),
 		},
 	}
+}
+
+func translationFlowVocabularyPayload() map[string]any {
+	payload := translationcore.VocabularyPayload()
+	payload["disabled_reason_codes"] = ActionDisabledReasonCodes()
+	return payload
 }
 
 // TranslationStatusEnumContract returns stable status enums shared across

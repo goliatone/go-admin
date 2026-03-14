@@ -139,7 +139,7 @@ func phase4AffordanceRecord() map[string]any {
 				"severity":    "info",
 				"kind":        "workflow",
 				"metadata": map[string]any{
-					"current_status": "draft",
+					"current_status":  "draft",
 					"required_status": "approved",
 				},
 			},

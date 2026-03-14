@@ -325,6 +325,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"workflows.bindings.id":               "/workflows/bindings/:id",
 		"users.import":                        "/users-import",
 		"users.import.template":               "/users-import/template",
+		"translations.dashboard":             "/translations/dashboard",
 		"translations.options.entity_types":   "/translations/options/entity-types",
 		"translations.options.source_records": "/translations/options/source-records",
 		"translations.options.locales":        "/translations/options/locales",

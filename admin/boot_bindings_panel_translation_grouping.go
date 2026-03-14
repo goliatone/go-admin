@@ -485,9 +485,9 @@ func parseTranslationGroupTimestamp(raw any) (time.Time, string, bool) {
 	return time.Time{}, value, false
 }
 
-func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[string]any, actions []Action) []map[string]any {
+func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[string]any, actions []Action) ([]map[string]any, error) {
 	if len(groups) == 0 || len(actions) == 0 {
-		return groups
+		return groups, nil
 	}
 	out := make([]map[string]any, 0, len(groups))
 	for _, group := range groups {
@@ -495,7 +495,10 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 		children := toMapSlice(cloned["children"])
 		parent := extractMap(cloned["parent"])
 		if len(children) == 0 && len(parent) == 0 {
-			rowWithState := p.withRowActionState(ctx, []map[string]any{cloned}, actions)
+			rowWithState, err := p.withRowActionState(ctx, []map[string]any{cloned}, actions)
+			if err != nil {
+				return nil, err
+			}
 			if len(rowWithState) > 0 {
 				out = append(out, rowWithState[0])
 			} else {
@@ -504,22 +507,28 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 			continue
 		}
 		if len(children) > 0 {
-			childrenWithState := p.withRowActionState(ctx, children, actions)
+			childrenWithState, err := p.withRowActionState(ctx, children, actions)
+			if err != nil {
+				return nil, err
+			}
 			cloned["children"] = childrenWithState
 			cloned["records"] = childrenWithState
 		}
 		if len(parent) > 0 {
-			parentWithState := p.withRowActionState(ctx, []map[string]any{parent}, actions)
+			parentWithState, err := p.withRowActionState(ctx, []map[string]any{parent}, actions)
+			if err != nil {
+				return nil, err
+			}
 			if len(parentWithState) > 0 {
 				cloned["parent"] = parentWithState[0]
-				if state := extractMap(parentWithState[0]["_action_state"]); len(state) > 0 {
+				if state := actionStateEnvelope(parentWithState[0]["_action_state"]); len(state) > 0 {
 					cloned["_action_state"] = state
 				}
 			}
 		}
 		out = append(out, cloned)
 	}
-	return out
+	return out, nil
 }
 
 func withCanonicalTranslationGroupIDs(records []map[string]any) []map[string]any {
@@ -598,83 +607,6 @@ func (p *panelBinding) translationReadinessPolicy() TranslationPolicy {
 		return p.admin.translationPolicy
 	}
 	return nil
-}
-
-func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransitionInfo, transitionsErr error) map[string]map[string]any {
-	if len(record) == 0 || len(actions) == 0 {
-		return nil
-	}
-	state := strings.TrimSpace(toString(record["status"]))
-	id := strings.TrimSpace(toString(record["id"]))
-	out := map[string]map[string]any{}
-	for _, action := range actions {
-		name := strings.TrimSpace(action.Name)
-		if name == "" {
-			continue
-		}
-		availability := map[string]any{"enabled": true}
-		if !actionContextRequiredSatisfied(record, action.ContextRequired) {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeMissingContext
-			availability["reason"] = "record does not include required context for this action"
-			out[name] = availability
-			continue
-		}
-		if action.Permission != "" && p.panel.authorizer != nil && !p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodePermissionDenied
-			availability["reason"] = "you do not have permission to execute this action"
-			out[name] = availability
-			continue
-		}
-		lowered := strings.ToLower(name)
-		if _, workflowAction := workflowActionNames[lowered]; !workflowAction {
-			out[name] = availability
-			continue
-		}
-		if p.panel.workflow == nil {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
-			availability["reason"] = "workflow is not configured for this panel"
-			out[name] = availability
-			continue
-		}
-		if id == "" {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeMissingContext
-			availability["reason"] = "record id required to evaluate workflow action"
-			out[name] = availability
-			continue
-		}
-		if transitionsErr != nil {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
-			availability["reason"] = "workflow transitions are unavailable"
-			out[name] = availability
-			continue
-		}
-		transitionNames := workflowTransitionNamesList(transitions)
-		availability["available_transitions"] = transitionNames
-		if !actionMatchesAvailableWorkflowTransition(name, transitions) {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
-			availability["reason"] = fmt.Sprintf("transition %q is not available from state %q", name, primitives.FirstNonEmptyRaw(state, "unknown"))
-			out[name] = availability
-			continue
-		}
-		if reason, blocked := translationBlockedActionReason(name, record); blocked {
-			availability["enabled"] = false
-			availability["reason_code"] = ActionDisabledReasonCodeTranslationMissing
-			availability["reason"] = reason
-			out[name] = availability
-			continue
-		}
-		out[name] = availability
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func translationBlockedActionReason(actionName string, record map[string]any) (string, bool) {

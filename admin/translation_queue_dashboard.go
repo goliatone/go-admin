@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -106,7 +107,7 @@ func RegisterTranslationProgressWidget(dash *Dashboard, stats TranslationQueueSt
 		Code:        WidgetTranslationProgress,
 		Name:        "Translation Progress",
 		Description: "Overview of translation queue and completion status",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
 		DefaultSpan: 6,
 		Permission:  PermAdminTranslationsView,
 		Handler: func(ctx AdminContext, _ map[string]any) (WidgetPayload, error) {

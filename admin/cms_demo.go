@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"path"
@@ -444,10 +445,20 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 	if svc, ok := a.widgetSvc.(*InMemoryWidgetService); ok {
 		if len(svc.definitions) == 0 {
 			_ = svc.RegisterDefinition(ctx, WidgetDefinition{Code: "stats", Name: "Stats", Schema: map[string]any{"type": "stats"}})
-			_ = svc.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: "admin.dashboard.main", Name: "Dashboard", Scope: "admin"})
+			_ = svc.RegisterAreaDefinition(ctx, WidgetAreaDefinition{
+				Code:  dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
+				Name:  "Dashboard",
+				Scope: "admin",
+			})
 		}
 		if len(svc.instances) == 0 {
-			_, _ = svc.SaveInstance(ctx, WidgetInstance{DefinitionCode: "stats", Area: "admin.dashboard.main", PageID: "", Locale: "en", Position: 1})
+			_, _ = svc.SaveInstance(ctx, WidgetInstance{
+				DefinitionCode: "stats",
+				Area:           dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
+				PageID:         "",
+				Locale:         "en",
+				Position:       1,
+			})
 		}
 	}
 	if svc, ok := a.menuSvc.(*InMemoryMenuService); ok {

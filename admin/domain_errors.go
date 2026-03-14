@@ -33,6 +33,18 @@ func conflictDomainError(message string, meta map[string]any) error {
 	return NewDomainError(TextCodeConflict, message, withDomainErrorMeta(meta, nil))
 }
 
+func resourceInUseDomainError(message string, meta map[string]any) error {
+	return NewDomainError(TextCodeResourceInUse, message, withDomainErrorMeta(meta, nil))
+}
+
+func preconditionFailedDomainError(message string, meta map[string]any) error {
+	return NewDomainError(TextCodePreconditionFailed, message, withDomainErrorMeta(meta, nil))
+}
+
+func invalidSelectionDomainError(message string, meta map[string]any) error {
+	return NewDomainError(TextCodeInvalidSelection, message, withDomainErrorMeta(meta, nil))
+}
+
 func serviceNotConfiguredDomainError(dependency string, meta map[string]any) error {
 	dependency = strings.TrimSpace(dependency)
 	if dependency == "" {

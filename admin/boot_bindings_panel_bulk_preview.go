@@ -94,11 +94,12 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 				"environment":   environment,
 				"policy_entity": primitives.FirstNonEmptyRaw(policyEntity, resolvePolicyEntity(sourceWithReadiness, p.name)),
 			}
-			createdData, createErr := p.Action(c, locale, CreateTranslationKey, payload)
+			createdResponse, createErr := p.Action(c, locale, CreateTranslationKey, payload)
 			if createErr != nil {
 				failures = append(failures, bulkCreateMissingTranslationsError(targetLocale, createErr))
 				continue
 			}
+			createdData := createdResponse.Data
 			entry := map[string]any{
 				"locale": targetLocale,
 				"status": strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(createdData["status"]), "created")),

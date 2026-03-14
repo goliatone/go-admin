@@ -618,7 +618,7 @@ func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 }
 
 func orderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
-	preferred := []string{"admin.dashboard.main", "admin.dashboard.sidebar", "admin.dashboard.footer"}
+	preferred := dashinternal.PreferredAreaCodes()
 	seen := map[string]bool{}
 	order := []string{}
 	for _, code := range preferred {

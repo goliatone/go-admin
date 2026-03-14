@@ -6,6 +6,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
+	command "github.com/goliatone/go-command"
 	crud "github.com/goliatone/go-crud"
 	router "github.com/goliatone/go-router"
 )
@@ -40,6 +41,8 @@ type PanelBuilder struct {
 	uiRouteMode                    PanelUIRouteMode
 	entryMode                      PanelEntryMode
 	actionDefaultsMode             PanelActionDefaultsMode
+	actionStateResolver            BatchActionStateResolver
+	bulkActionStateResolver        BulkActionStateResolver
 }
 
 // Panel represents a registered panel.
@@ -70,6 +73,8 @@ type Panel struct {
 	uiRouteMode                    PanelUIRouteMode
 	entryMode                      PanelEntryMode
 	actionDefaultsMode             PanelActionDefaultsMode
+	actionStateResolver            BatchActionStateResolver
+	bulkActionStateResolver        BulkActionStateResolver
 }
 
 // PanelUIRouteMode declares who owns the panel's HTML UI route surface.
@@ -224,6 +229,7 @@ type Action struct {
 	IdempotencyField string         `json:"idempotency_field,omitempty"`
 	PayloadRequired  []string       `json:"payload_required,omitempty"`
 	PayloadSchema    map[string]any `json:"payload_schema,omitempty"`
+	Guard            ActionGuard    `json:"-"`
 }
 
 // PanelPermissions declares resource actions.
@@ -451,6 +457,18 @@ func (b *PanelBuilder) WithActionDefaults(mode PanelActionDefaultsMode) *PanelBu
 	return b
 }
 
+// WithActionStateResolver attaches a batch resolver for row/detail action state.
+func (b *PanelBuilder) WithActionStateResolver(resolver BatchActionStateResolver) *PanelBuilder {
+	b.actionStateResolver = resolver
+	return b
+}
+
+// WithBulkActionStateResolver attaches a resolver for static list bulk action state.
+func (b *PanelBuilder) WithBulkActionStateResolver(resolver BulkActionStateResolver) *PanelBuilder {
+	b.bulkActionStateResolver = resolver
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -492,6 +510,8 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		uiRouteMode:                    normalizePanelUIRouteMode(b.uiRouteMode),
 		entryMode:                      normalizePanelEntryMode(b.entryMode),
 		actionDefaultsMode:             normalizePanelActionDefaultsMode(b.actionDefaultsMode),
+		actionStateResolver:            b.actionStateResolver,
+		bulkActionStateResolver:        b.bulkActionStateResolver,
 	}, nil
 }
 
@@ -1376,27 +1396,51 @@ func (p *Panel) ServeSubresource(ctx AdminContext, c router.Context, id, subreso
 	return ErrNotFound
 }
 
-// RunAction dispatches a command-backed action.
-func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
+// RunActionResponse dispatches a command-backed action and returns a structured response.
+func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[string]any, ids []string) (ActionResponse, error) {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				return permissionDenied(action.Permission, p.name)
+				return ActionResponse{}, permissionDenied(action.Permission, p.name)
 			}
-			err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
+			collector := &ActionResponseCollector{}
+			actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
+			err := p.commandBus.DispatchByName(actionCtx, action.CommandName, payload, ids)
 			if err == nil {
 				p.recordActivity(ctx, "panel.action", map[string]any{
 					"panel":  p.name,
 					"action": name,
 				})
 			}
-			return err
+			if err != nil {
+				return ActionResponse{}, err
+			}
+			if response, ok := collector.Load(); ok {
+				return normalizeActionResponse(response), nil
+			}
+			// Fall back to generic command result when a command stored one directly.
+			result := command.ResultFromContext[map[string]any](actionCtx)
+			if result != nil {
+				if value, stored := result.Load(); stored && len(value) > 0 {
+					return normalizeActionResponse(ActionResponse{Data: value}), nil
+				}
+			}
+			return normalizeActionResponse(ActionResponse{}), nil
 		}
 	}
-	return notFoundDomainError("action not found", map[string]any{
+	return ActionResponse{}, notFoundDomainError("action not found", map[string]any{
 		"panel":  p.name,
 		"action": name,
 	})
+}
+
+// RunAction dispatches a command-backed action.
+func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any, ids []string) (map[string]any, error) {
+	response, err := p.RunActionResponse(ctx, name, payload, ids)
+	if err != nil {
+		return nil, err
+	}
+	return cloneActionResponseMap(response.Data), nil
 }
 
 // RunBulkAction dispatches a command-backed bulk action.
@@ -1408,11 +1452,19 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 			"action": name,
 		})
 	}
+	selection := dedupeStrings(ids)
+	if len(selection) == 0 {
+		return invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
+			"panel":  p.name,
+			"action": strings.TrimSpace(name),
+			"field":  "ids",
+		})
+	}
 	if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
 		return permissionDenied(action.Permission, p.name)
 	}
 	if action.CommandName != "" && p.commandBus != nil {
-		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
+		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, selection)
 		if err == nil {
 			p.recordActivity(ctx, "panel.bulk_action", map[string]any{
 				"panel":  p.name,
@@ -1422,13 +1474,13 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		return err
 	}
 	if isBuiltInBulkDeleteAction(action.Name) {
-		if err := p.runBuiltInBulkDelete(ctx, ids); err != nil {
+		if err := p.runBuiltInBulkDelete(ctx, selection); err != nil {
 			return err
 		}
 		p.recordActivity(ctx, "panel.bulk_action", map[string]any{
 			"panel":  p.name,
 			"action": strings.TrimSpace(name),
-			"count":  len(ids),
+			"count":  len(selection),
 		})
 		return nil
 	}

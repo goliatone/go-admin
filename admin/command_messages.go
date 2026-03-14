@@ -381,7 +381,7 @@ func commandIDsFromPayload(ids []string, payload map[string]any) []string {
 
 func requireIDs(ids []string, msg string) error {
 	if len(ids) == 0 {
-		return validationDomainError(msg, map[string]any{
+		return invalidSelectionDomainError(msg, map[string]any{
 			"field": "ids",
 		})
 	}

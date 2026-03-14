@@ -48,6 +48,13 @@ func (responderAdapter) WriteJSON(c router.Context, payload any) error {
 	return writeJSON(c, payload)
 }
 
+func (responderAdapter) WriteJSONStatus(c router.Context, statusCode int, payload any) error {
+	if statusCode < 200 || statusCode >= 600 {
+		statusCode = 200
+	}
+	return c.JSON(statusCode, payload)
+}
+
 func (responderAdapter) WriteHTML(c router.Context, html string) error {
 	return writeHTML(c, html)
 }
@@ -86,7 +93,7 @@ func newPanelBindings(a *Admin) []boot.PanelBinding {
 
 func (p *panelBinding) Name() string { return p.name }
 
-func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptions) ([]map[string]any, int, any, any, error) {
+func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptions) ([]map[string]any, int, any, any, map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	listOpts := ListOptions{
 		Page:     opts.Page,
@@ -134,17 +141,17 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 	if groupedByTranslationGroup {
 		records, total, err = p.listGroupedByTranslationGroup(ctx, baseListOpts, requestedListOpts, readinessPredicates)
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 	} else if len(readinessPredicates) > 0 {
 		records, total, err = p.listWithTranslationReadinessPredicates(ctx, baseListOpts, requestedListOpts, readinessPredicates)
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 	} else {
 		records, total, err = p.panel.List(ctx, requestedListOpts)
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 		records = p.withTranslationReadiness(ctx, records, requestedListOpts.Filters)
 	}
@@ -153,15 +160,18 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
 	if groupedByTranslationGroup {
-		records = p.withGroupedRowActionState(ctx, records, schema.Actions)
+		records, err = p.withGroupedRowActionState(ctx, records, schema.Actions)
 	} else {
-		records = p.withRowActionState(ctx, records, schema.Actions)
+		records, err = p.withRowActionState(ctx, records, schema.Actions)
+	}
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
 	}
 	if p.admin != nil {
 		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
 	}
 	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
-		return nil, 0, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
@@ -170,10 +180,18 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 			p.admin.applyContentTypeSchemaFromContext(ctx, &form.Schema, p.name)
 		}
 		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 	}
-	return records, total, schema, form, nil
+	meta := map[string]any{
+		"count": total,
+	}
+	if bulkActionState, err := p.bulkActionState(ctx, schema.BulkActions, requestedListOpts); err != nil {
+		return nil, 0, nil, nil, nil, err
+	} else if len(bulkActionState) > 0 {
+		meta["bulk_action_state"] = bulkActionState
+	}
+	return records, total, schema, form, meta, nil
 }
 
 func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[string]any, error) {
@@ -201,6 +219,7 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
 		return nil, err
 	}
+	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeDetail)
 	var form PanelFormRequest
 	if p.admin.panelForm != nil {
 		form = p.admin.panelForm.Build(p.panel, ctx, record, nil)
@@ -209,6 +228,16 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 		}
 		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
 			return nil, err
+		}
+	}
+
+	if len(schema.Actions) > 0 {
+		withState, err := p.withScopedActionState(ctx, []map[string]any{record}, schema.Actions, ActionScopeDetail)
+		if err != nil {
+			return nil, err
+		}
+		if len(withState) > 0 {
+			record = withState[0]
 		}
 	}
 
@@ -509,7 +538,7 @@ func (p *panelBinding) panelDetailPath(id string) string {
 	return "/admin/api/panels/" + strings.Trim(strings.TrimSpace(p.name), "/") + "/" + id
 }
 
-func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
+func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (boot.ActionResponse, error) {
 	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	body = mergePanelActionActorContext(body, ctx)
@@ -520,26 +549,26 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 	if actionDefined {
 		body = applyActionPayloadDefaults(actionDef, body, ids)
 		if err := validateActionPayload(actionDef, body); err != nil {
-			return nil, err
+			return boot.ActionResponse{}, err
 		}
 	}
 
 	if action == "create_translation" {
 		if primaryID == "" {
-			return nil, validationDomainError("translation requires a single id", map[string]any{
+			return boot.ActionResponse{}, validationDomainError("translation requires a single id", map[string]any{
 				"field": "id",
 			})
 		}
 		targetLocale := normalizeCreateTranslationLocale(toString(body["locale"]))
 		if targetLocale == "" {
-			return nil, validationDomainError("translation locale required", map[string]any{
+			return boot.ActionResponse{}, validationDomainError("translation locale required", map[string]any{
 				"field": "locale",
 			})
 		}
 		environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
 		record, err := p.panel.Get(ctx, primaryID)
 		if err != nil {
-			return nil, err
+			return boot.ActionResponse{}, err
 		}
 		groupID := strings.TrimSpace(translationGroupIDFromRecord(record))
 		if groupID == "" {
@@ -571,7 +600,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					"locale":               targetLocale,
 					"translation_group_id": groupID,
 				})
-				return buildCreateTranslationResponse(created, targetLocale, groupID), nil
+				return bootActionResponse(normalizeActionResponse(ActionResponse{Data: buildCreateTranslationResponse(created, targetLocale, groupID)})), nil
 			}
 			var dup TranslationAlreadyExistsError
 			if errors.As(createErr, &dup) ||
@@ -589,7 +618,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					Outcome:            "duplicate",
 					TranslationGroupID: duplicateGroupID,
 				})
-				return nil, createErr
+				return boot.ActionResponse{}, createErr
 			}
 			if !errors.Is(createErr, ErrTranslationCreateUnsupported) {
 				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
@@ -603,7 +632,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					TranslationGroupID: groupID,
 					Err:                createErr,
 				})
-				return nil, createErr
+				return boot.ActionResponse{}, createErr
 			}
 		}
 		translationExists := translationLocaleExists(record, targetLocale)
@@ -630,7 +659,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				Locale:             targetLocale,
 				TranslationGroupID: groupID,
 			}
-			return nil, dup
+			return boot.ActionResponse{}, dup
 		}
 		clone := map[string]any{}
 		for k, v := range record {
@@ -660,7 +689,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					Outcome:            "duplicate",
 					TranslationGroupID: groupID,
 				})
-				return nil, err
+				return boot.ActionResponse{}, err
 			}
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 				Entity:             p.name,
@@ -673,7 +702,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				TranslationGroupID: groupID,
 				Err:                err,
 			})
-			return nil, err
+			return boot.ActionResponse{}, err
 		}
 		recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 			Entity:             p.name,
@@ -691,14 +720,14 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			"locale":               targetLocale,
 			"translation_group_id": groupID,
 		})
-		return buildCreateTranslationResponse(created, targetLocale, groupID), nil
+		return bootActionResponse(normalizeActionResponse(ActionResponse{Data: buildCreateTranslationResponse(created, targetLocale, groupID)})), nil
 	}
 
 	if p.panel.workflow != nil && primaryID != "" {
 		record, err := p.panel.Get(ctx, primaryID)
 		if err != nil {
 			if workflowBackedAction {
-				return nil, err
+				return boot.ActionResponse{}, err
 			}
 		} else {
 			state := ""
@@ -708,7 +737,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, primaryID, state, record, true)
 			if err != nil {
 				if workflowBackedAction {
-					return nil, err
+					return boot.ActionResponse{}, err
 				}
 			} else {
 				candidates := workflowTransitionCandidates(action)
@@ -720,7 +749,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					for _, a := range p.panel.actions {
 						if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
 							if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
-								return nil, permissionDenied(a.Permission, p.name)
+								return boot.ActionResponse{}, permissionDenied(a.Permission, p.name)
 							}
 						}
 					}
@@ -736,7 +765,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 					}
 					if err := applyTranslationPolicyWithQueueHook(ctx.Context, p.panel.translationPolicy, policyInput, record, p.panel.translationQueueAutoCreateHook); err != nil {
 						p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
-						return nil, err
+						return boot.ActionResponse{}, err
 					}
 					req := buildWorkflowApplyRequest(ctx.Context, p.name, primaryID, state, workflowTransitionTargetState(t), body)
 					req.Event = transitionName
@@ -753,32 +782,44 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 						if len(persisted) > 0 {
 							updated, updateErr := p.panel.repo.Update(ctx.Context, primaryID, persisted)
 							if updateErr != nil {
-								return nil, updateErr
+								return boot.ActionResponse{}, updateErr
 							}
 							if updated != nil {
-								return map[string]any{
+								return bootActionResponse(normalizeActionResponse(ActionResponse{Data: map[string]any{
 									"workflow": response,
 									"record":   updated,
-								}, nil
+								}})), nil
 							}
 						}
-						return map[string]any{
+						return bootActionResponse(normalizeActionResponse(ActionResponse{Data: map[string]any{
 							"workflow": response,
-						}, nil
+						}})), nil
 					}
 					if err != nil {
-						return nil, err
+						return boot.ActionResponse{}, err
 					}
-					return nil, nil
+					return bootActionResponse(normalizeActionResponse(ActionResponse{})), nil
 				}
 				if workflowBackedAction {
-					return nil, workflowInvalidTransitionDomainError(p.name, primaryID, action, state, transitions)
+					return boot.ActionResponse{}, workflowInvalidTransitionDomainError(p.name, primaryID, action, state, transitions)
 				}
 			}
 		}
 	}
 
-	return nil, p.panel.RunAction(ctx, action, body, ids)
+	response, err := p.panel.RunActionResponse(ctx, action, body, ids)
+	if err != nil {
+		return boot.ActionResponse{}, err
+	}
+	return bootActionResponse(response), nil
+}
+
+func bootActionResponse(response ActionResponse) boot.ActionResponse {
+	response = normalizeActionResponse(response)
+	return boot.ActionResponse{
+		StatusCode: response.StatusCode,
+		Data:       cloneActionResponseMap(response.Data),
+	}
 }
 
 func workflowTransitionCandidates(action string) []string {
@@ -857,33 +898,6 @@ func workflowTransitionNamesList(transitions []WorkflowTransitionInfo) []string 
 		}
 		seen[name] = struct{}{}
 		out = append(out, name)
-	}
-	return out
-}
-
-func (p *panelBinding) withRowActionState(ctx AdminContext, records []map[string]any, actions []Action) []map[string]any {
-	if len(records) == 0 || len(actions) == 0 {
-		return records
-	}
-	workflowTransitionsByRecord := map[string][]WorkflowTransitionInfo{}
-	workflowTransitionErrByRecord := map[string]error{}
-	out := make([]map[string]any, 0, len(records))
-	for _, record := range records {
-		cloned := primitives.CloneAnyMap(record)
-		state := strings.TrimSpace(toString(cloned["status"]))
-		recordID := strings.TrimSpace(toString(cloned["id"]))
-		if p.panel.workflow != nil {
-			if _, seen := workflowTransitionsByRecord[recordID]; !seen {
-				transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, recordID, state, cloned, true)
-				workflowTransitionsByRecord[recordID] = append([]WorkflowTransitionInfo{}, transitions...)
-				workflowTransitionErrByRecord[recordID] = err
-			}
-		}
-		actionState := p.rowActionStateForRecord(ctx, cloned, actions, workflowTransitionsByRecord[recordID], workflowTransitionErrByRecord[recordID])
-		if len(actionState) > 0 {
-			cloned["_action_state"] = actionState
-		}
-		out = append(out, cloned)
 	}
 	return out
 }

@@ -134,3 +134,38 @@ func toString(v any) string {
 		return ""
 	}
 }
+
+func intValue(v any) int {
+	switch t := v.(type) {
+	case int:
+		return t
+	case int8:
+		return int(t)
+	case int16:
+		return int(t)
+	case int32:
+		return int(t)
+	case int64:
+		return int(t)
+	case uint:
+		return int(t)
+	case uint8:
+		return int(t)
+	case uint16:
+		return int(t)
+	case uint32:
+		return int(t)
+	case uint64:
+		return int(t)
+	case float32:
+		return int(t)
+	case float64:
+		return int(t)
+	case string:
+		value, err := strconv.Atoi(t)
+		if err == nil {
+			return value
+		}
+	}
+	return 0
+}
