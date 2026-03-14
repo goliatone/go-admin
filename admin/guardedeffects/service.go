@@ -25,6 +25,16 @@ type Handler interface {
 	Fail(ctx context.Context, effect Record, result DispatchResult, nextRetryAt *time.Time) error
 }
 
+// PendingHandler receives provider-accepted, not-yet-final outcomes.
+type PendingHandler interface {
+	Pending(ctx context.Context, effect Record, result DispatchResult) error
+}
+
+// AbortHandler receives explicit effect-abort lifecycle events.
+type AbortHandler interface {
+	Abort(ctx context.Context, effect Record, reason string) error
+}
+
 // Service coordinates durable status changes around guarded external effects.
 type Service struct {
 	store Store
@@ -46,6 +56,8 @@ func (s Service) Prepare(ctx context.Context, scope Scope, record Record) (Recor
 	}
 	record.TenantID = strings.TrimSpace(scope.TenantID)
 	record.OrgID = strings.TrimSpace(scope.OrgID)
+	record.GroupType = strings.TrimSpace(record.GroupType)
+	record.GroupID = strings.TrimSpace(record.GroupID)
 	record.Status = NormalizeStatus(record.Status)
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = s.now().UTC()
@@ -61,6 +73,33 @@ func (s Service) Prepare(ctx context.Context, scope Scope, record Record) (Recor
 	}
 	saved, err := s.store.SaveGuardedEffect(ctx, scope, record)
 	return saved, false, err
+}
+
+// MarkDispatching records the start of a real provider dispatch attempt.
+func (s Service) MarkDispatching(
+	ctx context.Context,
+	scope Scope,
+	effectID string,
+	dispatchID string,
+) (Record, error) {
+	if s.store == nil {
+		return Record{}, nil
+	}
+	record, err := s.store.GetGuardedEffect(ctx, effectID)
+	if err != nil {
+		return Record{}, err
+	}
+	if record.Status == StatusFinalized || record.Status == StatusAborted {
+		return record, nil
+	}
+	now := s.now().UTC()
+	record.Status = StatusDispatching
+	record.DispatchID = strings.TrimSpace(dispatchID)
+	record.AttemptCount++
+	record.DispatchedAt = &now
+	record.RetryAt = nil
+	record.UpdatedAt = now
+	return s.store.SaveGuardedEffect(ctx, scope, record)
 }
 
 // Complete applies one dispatch result and delegates workflow-specific finalize/failure handling.
@@ -91,20 +130,33 @@ func (s Service) Complete(
 	record.DispatchID = strings.TrimSpace(result.DispatchID)
 	record.ResultPayloadJSON = strings.TrimSpace(result.MetadataJSON)
 	record.UpdatedAt = now
-	if record.AttemptCount < 1 {
-		record.AttemptCount = 1
-	}
 	switch eval.Outcome {
 	case OutcomeCompleted:
 		record.Status = StatusFinalized
 		record.FinalizedAt = &now
+		record.AbortedAt = nil
 		record.ErrorJSON = ""
+		record.RetryAt = nil
 		saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
 		if saveErr != nil {
 			return Record{}, saveErr
 		}
 		if handler != nil {
 			if err := handler.Finalize(ctx, saved, result); err != nil {
+				return Record{}, err
+			}
+		}
+		return saved, nil
+	case OutcomePending:
+		record.Status = StatusGuardPending
+		record.ErrorJSON = ""
+		record.RetryAt = nil
+		saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
+		if saveErr != nil {
+			return Record{}, saveErr
+		}
+		if pendingHandler, ok := handler.(PendingHandler); ok {
+			if err := pendingHandler.Pending(ctx, saved, result); err != nil {
 				return Record{}, err
 			}
 		}
@@ -128,4 +180,40 @@ func (s Service) Complete(
 		}
 		return saved, nil
 	}
+}
+
+// Abort moves an effect into an explicit aborted terminal state.
+func (s Service) Abort(
+	ctx context.Context,
+	scope Scope,
+	effectID string,
+	reason string,
+	handler Handler,
+) (Record, error) {
+	if s.store == nil {
+		return Record{}, nil
+	}
+	record, err := s.store.GetGuardedEffect(ctx, effectID)
+	if err != nil {
+		return Record{}, err
+	}
+	if record.Status == StatusFinalized || record.Status == StatusAborted {
+		return record, nil
+	}
+	now := s.now().UTC()
+	record.Status = StatusAborted
+	record.AbortedAt = &now
+	record.RetryAt = nil
+	record.ErrorJSON = strings.TrimSpace(reason)
+	record.UpdatedAt = now
+	saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
+	if saveErr != nil {
+		return Record{}, saveErr
+	}
+	if abortHandler, ok := handler.(AbortHandler); ok {
+		if err := abortHandler.Abort(ctx, saved, strings.TrimSpace(reason)); err != nil {
+			return Record{}, err
+		}
+	}
+	return saved, nil
 }

@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	StatusPrepared    = "prepared"
-	StatusDispatching = "dispatching"
+	StatusPrepared     = "prepared"
+	StatusDispatching  = "dispatching"
 	StatusGuardPending = "guard_pending"
-	StatusFinalized   = "finalized"
-	StatusRetrying    = "retrying"
-	StatusAborted     = "aborted"
+	StatusFinalized    = "finalized"
+	StatusRetrying     = "retrying"
+	StatusAborted      = "aborted"
 	StatusDeadLettered = "dead_lettered"
 
 	OutcomeCompleted = "completed"
@@ -23,29 +23,31 @@ const (
 
 // Record is the durable lifecycle boundary for a guarded external effect.
 type Record struct {
-	EffectID           string
-	TenantID           string
-	OrgID              string
-	Kind               string
-	SubjectType        string
-	SubjectID          string
-	IdempotencyKey     string
-	CorrelationID      string
-	Status             string
-	AttemptCount       int
-	MaxAttempts        int
-	GuardPolicy        string
-	PreparePayloadJSON string
+	EffectID            string
+	TenantID            string
+	OrgID               string
+	Kind                string
+	GroupType           string
+	GroupID             string
+	SubjectType         string
+	SubjectID           string
+	IdempotencyKey      string
+	CorrelationID       string
+	Status              string
+	AttemptCount        int
+	MaxAttempts         int
+	GuardPolicy         string
+	PreparePayloadJSON  string
 	DispatchPayloadJSON string
-	ResultPayloadJSON  string
-	ErrorJSON          string
-	DispatchID         string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	DispatchedAt       *time.Time
-	FinalizedAt        *time.Time
-	AbortedAt          *time.Time
-	RetryAt            *time.Time
+	ResultPayloadJSON   string
+	ErrorJSON           string
+	DispatchID          string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	DispatchedAt        *time.Time
+	FinalizedAt         *time.Time
+	AbortedAt           *time.Time
+	RetryAt             *time.Time
 }
 
 // DispatchResult is the structured external-effect completion signal consumed by effect finalizers.
