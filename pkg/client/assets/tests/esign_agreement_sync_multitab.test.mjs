@@ -134,13 +134,7 @@ test('agreement sync multitab: different draft tabs ignore each other remote syn
   const tabBRemoteSync = [];
 
   const controllerA = new ActiveTabController({
-    storageKey: 'wizard-active-tab',
     channelName: 'esign_wizard_sync',
-    heartbeatMs: 250,
-    staleMs: 1000,
-    telemetry() {},
-    onOwnershipChange() {},
-    onRemoteState() {},
     onRemoteSync(draftId, revision) {
       tabARemoteSync.push({ draftId, revision });
     },
@@ -149,17 +143,10 @@ test('agreement sync multitab: different draft tabs ignore each other remote syn
     onBeforeUnload() {},
     documentRef: tabA.window.document,
     windowRef: tabA.window,
-    localStorageRef: tabA.window.localStorage,
     broadcastChannelFactory: (name) => network.connect(name),
   });
   const controllerB = new ActiveTabController({
-    storageKey: 'wizard-active-tab',
     channelName: 'esign_wizard_sync',
-    heartbeatMs: 250,
-    staleMs: 1000,
-    telemetry() {},
-    onOwnershipChange() {},
-    onRemoteState() {},
     onRemoteSync(draftId, revision) {
       tabBRemoteSync.push({ draftId, revision });
     },
@@ -168,7 +155,6 @@ test('agreement sync multitab: different draft tabs ignore each other remote syn
     onBeforeUnload() {},
     documentRef: tabB.window.document,
     windowRef: tabB.window,
-    localStorageRef: tabB.window.localStorage,
     broadcastChannelFactory: (name) => network.connect(name),
   });
 
@@ -232,13 +218,7 @@ test('agreement sync multitab: same draft refreshes when clean and surfaces stal
     };
 
     const activeTabController = new ActiveTabController({
-      storageKey: 'wizard-active-tab',
       channelName: 'esign_wizard_sync',
-      heartbeatMs: 250,
-      staleMs: 1000,
-      telemetry() {},
-      onOwnershipChange() {},
-      onRemoteState() {},
       onRemoteSync(draftId) {
         if (String(stateManager.getState().serverDraftId || '').trim() !== String(draftId || '').trim()) return;
         if (stateManager.getState().syncPending) return;
@@ -249,7 +229,6 @@ test('agreement sync multitab: same draft refreshes when clean and surfaces stal
       onBeforeUnload() {},
       documentRef: dom.window.document,
       windowRef: dom.window,
-      localStorageRef: dom.window.localStorage,
       broadcastChannelFactory: (name) => network.connect(name),
     });
 

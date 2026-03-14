@@ -51,11 +51,12 @@ test('resume modal template includes explicit proceed action', () => {
   assert.match(html, /This agreement is OK, proceed/);
 });
 
-test('wizard runtime scopes storage and channel keys by mode and route', () => {
+test('wizard runtime scopes storage and channel keys by server-authored storage scope, mode, and route', () => {
   const source = read(bootstrapConfigPath);
+  assert.match(source, /storageScopeToken = String\(config\.sync\?\.storage_scope \|\| ''\)\.trim\(\) \|\| 'anonymous'/);
   assert.match(source, /wizardModeToken = isEditMode \? 'edit' : 'create'/);
   assert.match(source, /wizardScopeToken = \[/);
-  assert.match(source, /WIZARD_STORAGE_KEY:\s*`esign_wizard_state_v1:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
+  assert.match(source, /WIZARD_STORAGE_KEY:\s*`esign_wizard_state_v2:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
   assert.match(source, /WIZARD_CHANNEL_NAME:\s*`esign_wizard_sync:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
 });
 

@@ -237,7 +237,8 @@
       "bootstrap_path": "{{ api_base_path|default:"/admin/api/v1" }}/esign/sync/bootstrap/agreement-draft",
       "client_base_path": "{{ base_path|default:"/admin" }}/sync-client/sync-core",
       "resource_kind": "agreement_draft",
-      "action_operations": ["send", "discard"]
+      "storage_scope": "{{ agreement_form_storage_scope|default:"" }}",
+      "action_operations": ["send", "dispose"]
     },
     "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
     "create_success": {{ create_success|default:false|yesno:"true,false" }},
@@ -287,18 +288,10 @@
   {# Live region for form validation announcements #}
   <div id="form-announcements" class="sr-only" role="alert" aria-live="polite"></div>
   <div id="active-tab-banner" class="hidden max-w-4xl mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" role="status" aria-live="polite">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-3">
       <p id="active-tab-message" class="text-sm text-slate-700">
-        This agreement is active in another tab.
+        Draft coordination updates are unavailable in this tab.
       </p>
-      <div class="flex items-center gap-2">
-        <button type="button" id="active-tab-take-control-btn" class="btn btn-primary btn-sm">
-          Take Control
-        </button>
-        <button type="button" id="active-tab-reload-btn" class="btn btn-secondary btn-sm">
-          Reload
-        </button>
-      </div>
     </div>
   </div>
   {% if create_success %}

@@ -61,18 +61,6 @@ export class SyncController {
     this.activeTabController.stop();
   }
 
-  get isOwner(): boolean {
-    return true;
-  }
-
-  get currentClaim() {
-    return null;
-  }
-
-  get lastBlockedReason(): string {
-    return '';
-  }
-
   broadcastStateUpdate(): void {
     this.activeTabController.setActiveDraft(this.stateManager.getState()?.serverDraftId || null);
   }
@@ -136,11 +124,6 @@ export class SyncController {
     logSendInfo('sync_perform_start', buildSendDebugFields({
       state,
       storageKey: this.options.storageKey,
-      ownership: {
-        isOwner: true,
-        claim: null,
-        blockedReason: undefined,
-      },
       sendAttemptId: null,
       extra: {
         mode: state.serverDraftId ? 'update' : 'bootstrap_autosave',
@@ -171,11 +154,6 @@ export class SyncController {
       logSendWarn('sync_perform_conflict', buildSendDebugFields({
         state,
         storageKey: this.options.storageKey,
-        ownership: {
-          isOwner: true,
-          claim: null,
-          blockedReason: undefined,
-        },
         sendAttemptId: null,
         extra: {
           targetDraftId: String(state.serverDraftId || '').trim() || null,

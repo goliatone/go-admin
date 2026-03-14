@@ -1,4 +1,4 @@
-import { r as C } from "../chunks/translation-status-vocabulary-TlPBUpe_.js";
+import { r as C } from "../chunks/translation-status-vocabulary-0I1VBkAK.js";
 import { h as j, r as D } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as N } from "../toast/error-helpers.js";
 import { r as B, H as x, a as z, l as Q, o as f, q as O, u as U, v as M } from "../chunks/breadcrumb-DNcVtCCy.js";

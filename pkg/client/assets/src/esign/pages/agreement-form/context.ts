@@ -11,6 +11,7 @@ export interface NormalizedAgreementFormConfig {
     bootstrap_path: string;
     client_base_path: string;
     resource_kind: string;
+    storage_scope: string;
     action_operations: string[];
   };
   base_path: string;

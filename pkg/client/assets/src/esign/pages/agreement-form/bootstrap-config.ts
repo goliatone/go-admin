@@ -6,6 +6,7 @@ export interface AgreementFormRuntimeInputConfig {
     bootstrap_path?: string;
     client_base_path?: string;
     resource_kind?: string;
+    storage_scope?: string;
     action_operations?: string[];
   };
   base_path?: string;
@@ -74,6 +75,7 @@ export interface NormalizedAgreementSyncConfig {
   bootstrap_path: string;
   client_base_path: string;
   resource_kind: string;
+  storage_scope: string;
   action_operations: string[];
 }
 
@@ -83,9 +85,6 @@ export interface AgreementWizardPersistenceSettings {
   WIZARD_CHANNEL_NAME: string;
   SYNC_DEBOUNCE_MS: number;
   SYNC_RETRY_DELAYS: number[];
-  ACTIVE_TAB_STORAGE_KEY: string;
-  ACTIVE_TAB_HEARTBEAT_MS: number;
-  ACTIVE_TAB_STALE_MS: number;
   TITLE_SOURCE: typeof AGREEMENT_TITLE_SOURCE;
 }
 
@@ -183,7 +182,8 @@ export function normalizeAgreementFormConfig(
     bootstrap_path: String(syncConfig.bootstrap_path || '').trim() || `${defaultSyncBaseURL}/sync/bootstrap/agreement-draft`,
     client_base_path: String(syncConfig.client_base_path || '').trim() || `${basePath}/sync-client/sync-core`,
     resource_kind: String(syncConfig.resource_kind || '').trim() || 'agreement_draft',
-    action_operations: actionOperations.length > 0 ? actionOperations : ['send', 'discard'],
+    storage_scope: String(syncConfig.storage_scope || '').trim(),
+    action_operations: actionOperations.length > 0 ? actionOperations : ['send', 'dispose'],
   };
 
   const normalizedConfig: NormalizedAgreementFormConfig = {
@@ -241,20 +241,19 @@ export function createAgreementWizardPersistenceSettings(options: {
       || (typeof window !== 'undefined' ? window.location.pathname : '')
       || 'agreement-form',
   ).trim().toLowerCase();
+  const storageScopeToken = String(config.sync?.storage_scope || '').trim() || 'anonymous';
   const wizardScopeToken = [
+    storageScopeToken,
     wizardModeToken,
     wizardRouteToken || 'agreement-form',
   ].join('|');
 
   return {
-    WIZARD_STATE_VERSION: 1,
-    WIZARD_STORAGE_KEY: `esign_wizard_state_v1:${encodeURIComponent(wizardScopeToken)}`,
+    WIZARD_STATE_VERSION: 2,
+    WIZARD_STORAGE_KEY: `esign_wizard_state_v2:${encodeURIComponent(wizardScopeToken)}`,
     WIZARD_CHANNEL_NAME: `esign_wizard_sync:${encodeURIComponent(wizardScopeToken)}`,
     SYNC_DEBOUNCE_MS: 2000,
     SYNC_RETRY_DELAYS: [1000, 2000, 5000, 10000, 30000],
-    ACTIVE_TAB_STORAGE_KEY: `esign_wizard_active_tab_v1:${encodeURIComponent(wizardScopeToken)}`,
-    ACTIVE_TAB_HEARTBEAT_MS: 5000,
-    ACTIVE_TAB_STALE_MS: 20000,
     TITLE_SOURCE: AGREEMENT_TITLE_SOURCE,
   };
 }

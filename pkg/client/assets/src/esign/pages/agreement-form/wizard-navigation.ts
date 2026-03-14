@@ -1,4 +1,3 @@
-import type { ActiveTabClaim } from './active-tab-controller';
 import type { DocumentPreviewCard } from './preview-card';
 
 interface WizardStepMap {
@@ -10,24 +9,13 @@ interface WizardStepMap {
   REVIEW: number;
 }
 
-interface WizardNavigationSyncLike {
-  isOwner: boolean;
-  lastBlockedReason: string;
-  currentClaim: ActiveTabClaim | null;
-}
-
 interface WizardNavigationControllerOptions {
   totalWizardSteps: number;
   wizardStep: WizardStepMap;
   nextStepLabels: Record<number, string>;
   submitBtn: HTMLElement;
-  syncOrchestrator: WizardNavigationSyncLike;
   previewCard: DocumentPreviewCard;
-  updateActiveTabOwnershipUI(state?: {
-    isOwner: boolean;
-    reason: string;
-    claim: ActiveTabClaim | null;
-  }): void;
+  updateCoordinationUI(): void;
   validateStep(stepNum: number): boolean;
   onPlacementStep?(): void;
   onReviewStep?(): void;
@@ -56,9 +44,8 @@ export function createWizardNavigationController(
     wizardStep,
     nextStepLabels,
     submitBtn,
-    syncOrchestrator,
     previewCard,
-    updateActiveTabOwnershipUI,
+    updateCoordinationUI,
     validateStep,
     onPlacementStep,
     onReviewStep,
@@ -125,11 +112,7 @@ export function createWizardNavigationController(
     wizardNextBtn?.classList.toggle('hidden', currentStep === totalWizardSteps);
     wizardSaveBtn?.classList.toggle('hidden', currentStep !== totalWizardSteps);
     submitBtn.classList.toggle('hidden', currentStep !== totalWizardSteps);
-    updateActiveTabOwnershipUI({
-      isOwner: syncOrchestrator.isOwner,
-      reason: syncOrchestrator.lastBlockedReason,
-      claim: syncOrchestrator.currentClaim,
-    });
+    updateCoordinationUI();
 
     if (currentStep < totalWizardSteps) {
       const nextStepName = nextStepLabels[currentStep] || 'Next';

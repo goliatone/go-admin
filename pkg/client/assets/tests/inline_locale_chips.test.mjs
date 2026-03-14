@@ -436,6 +436,22 @@ test('InlineLocaleChips handles _action_state without create_translation', () =>
   assert.equal(component.isCreateActionEnabled(), true);
 });
 
+test('InlineLocaleChips fails closed when create_translation state omits enabled', () => {
+  const record = createMockRecord({
+    _action_state: {
+      create_translation: {
+        reason: 'Translation creation is temporarily unavailable',
+        reason_code: 'TEMPORARILY_UNAVAILABLE',
+      },
+    },
+  });
+  const config = createMockConfig();
+  const component = new InlineLocaleChips(record, config);
+
+  assert.equal(component.isCreateActionEnabled(), false);
+  assert.equal(component.getDisabledReason(), 'Translation creation is temporarily unavailable');
+});
+
 // =============================================================================
 // Overflow Tooltip Tests
 // =============================================================================

@@ -14176,38 +14176,29 @@ test('Phase 31.FE.1: agreement form script wires rule lifecycle and payload sync
   assert.match(source, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
 });
 
-test('Phase 30.FE.9: agreement form template includes explicit active-tab ownership controls', () => {
+test('Phase 0.FE.11: agreement form template keeps coordination banner but removes take-control ownership controls', () => {
   const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
 
   assert.match(template, /id="active-tab-banner"/);
   assert.match(template, /id="active-tab-message"/);
-  assert.match(template, /id="active-tab-take-control-btn"/);
-  assert.match(template, /id="active-tab-reload-btn"/);
+  assert.doesNotMatch(template, /id="active-tab-take-control-btn"/);
+  assert.doesNotMatch(template, /id="active-tab-reload-btn"/);
 });
 
-test('Phase 30.FE.9: agreement form runtime uses explicit active-tab claims and paused sync state', () => {
+test('Phase 0.FE.7: agreement form runtime wrapper stays bootstrap-only and omits legacy identity or ownership hints', () => {
   const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
 
-  assert.match(source, /ACTIVE_TAB_STORAGE_KEY = `esign_wizard_active_tab_v1:/);
-  assert.match(source, /type: 'active_tab_claimed'/);
-  assert.match(source, /type: 'active_tab_released'/);
-  assert.match(source, /takeControl\(\)/);
-  assert.match(source, /case 'paused':/);
-  assert.match(source, /storage_unavailable/);
-  assert.match(source, /state: this\.stateManager\.getState\(\)/);
-  assert.match(source, /applyRemoteSync\(/);
-  assert.match(source, /surfaceSyncOutcome\(syncOrchestrator\.manualRetry\(\)/);
-  assert.match(source, /surfaceSyncOutcome\(syncOrchestrator\.performSync\(\)/);
-  assert.doesNotMatch(source, /type: 'presence'|type: 'ownership_claim'/);
+  assert.match(source, /createAgreementFormRuntimeCoordinator/);
+  assert.match(source, /window\.__esignAgreementRuntimeInitialized = true/);
+  assert.doesNotMatch(source, /user_id/);
+  assert.doesNotMatch(source, /takeControl|ownership_claim|active-tab-take-control-btn/);
 });
 
-test('Phase 30.FE.9: active-tab ownership UI resolves DOM lazily during boot', () => {
-  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+test('Phase 0.FE.8: agreement form template emits server-authored storage scope for session-scoped persistence', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
 
-  assert.match(source, /function setOwnershipControlledActionsDisabled\(disabled\) \{[\s\S]*const submitButton = document\.getElementById\('submit-btn'\)/);
-  assert.match(source, /function updateActiveTabOwnershipUI\(context = \{\}\) \{[\s\S]*const banner = document\.getElementById\('active-tab-banner'\);[\s\S]*const message = document\.getElementById\('active-tab-message'\);[\s\S]*const takeControlButton = document\.getElementById\('active-tab-take-control-btn'\);/);
-  assert.match(source, /if \(!banner \|\| !message\) \{/);
-  assert.match(source, /takeControlButton\?\.removeAttribute\('disabled'\)/);
+  assert.match(template, /"storage_scope": "{{ agreement_form_storage_scope\|default:"" }}"/);
+  assert.match(template, /"action_operations": \["send", "dispose"\]/);
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {

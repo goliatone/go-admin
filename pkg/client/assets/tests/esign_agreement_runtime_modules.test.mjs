@@ -41,8 +41,6 @@ function agreementFormMarkup() {
       <div id="document-picker"></div>
       <div id="active-tab-banner" class="hidden"></div>
       <div id="active-tab-message"></div>
-      <button id="active-tab-take-control-btn" type="button">Take control</button>
-      <button id="active-tab-reload-btn" type="button">Reload</button>
       <div id="sync-status-indicator"></div>
       <div id="sync-status-icon"></div>
       <div id="sync-status-text"></div>
@@ -286,7 +284,7 @@ test('collectAgreementFormRefs returns required refs and throws targeted errors 
   const refs = collectAgreementFormRefs(document);
   assert.equal(refs.form.root.id, 'agreement-form');
   assert.equal(refs.form.submitBtn.id, 'submit-btn');
-  assert.equal(refs.ownership.banner?.id, 'active-tab-banner');
+  assert.equal(refs.coordination.banner?.id, 'active-tab-banner');
 
   document.getElementById('submit-btn')?.remove();
   assert.throws(
@@ -295,43 +293,42 @@ test('collectAgreementFormRefs returns required refs and throws targeted errors 
   );
 });
 
-test('ownership UI controller keeps authoring actions enabled for coordinated tabs', async () => {
+test('coordination banner controller keeps authoring actions enabled for coordinated tabs', async () => {
   setupDom();
-  const [{ collectAgreementFormRefs }, { createOwnershipUIController }] = await Promise.all([
+  const [{ collectAgreementFormRefs }, { createCoordinationBannerController }] = await Promise.all([
     importSourceModule('refs.ts'),
     importSourceModule('ownership-ui.ts'),
   ]);
 
   const refs = collectAgreementFormRefs(document);
-  const controller = createOwnershipUIController(refs, {
+  const controller = createCoordinationBannerController(refs, {
     formatRelativeTime: () => 'moments ago',
   });
 
   controller.render({
-    isOwner: false,
     coordinationAvailable: true,
-    claim: { lastSeenAt: '2026-03-12T10:00:00Z' },
+    lastSeenAt: '2026-03-12T10:00:00Z',
   });
 
-  assert.equal(refs.ownership.banner?.classList.contains('hidden'), true);
+  assert.equal(refs.coordination.banner?.classList.contains('hidden'), true);
   assert.equal(refs.form.submitBtn.disabled, false);
   assert.equal(refs.form.wizardSaveBtn.disabled, false);
 
   controller.render({
     coordinationAvailable: false,
-    claim: { lastSeenAt: '2026-03-12T10:00:00Z' },
+    lastSeenAt: '2026-03-12T10:00:00Z',
   });
 
-  assert.equal(refs.ownership.banner?.classList.contains('hidden'), false);
+  assert.equal(refs.coordination.banner?.classList.contains('hidden'), false);
   assert.equal(refs.form.submitBtn.disabled, false);
   assert.equal(refs.form.wizardSaveBtn.disabled, false);
-  assert.match(refs.ownership.message?.textContent || '', /moments ago/);
+  assert.match(refs.coordination.message?.textContent || '', /moments ago/);
 });
 
 test('active tab controller construction is side-effect free and only broadcasts same-draft events', async () => {
   const dom = setupDom();
   const { ActiveTabController } = await importSourceModule('active-tab-controller.ts');
-  const ownershipStates = [];
+  const coordinationStates = [];
   const broadcastMessages = [];
   const remoteSyncCalls = [];
   const channel = {
@@ -343,15 +340,10 @@ test('active tab controller construction is side-effect free and only broadcasts
   };
 
   const controller = new ActiveTabController({
-    storageKey: 'test-active-tab',
     channelName: 'test-active-tab-channel',
-    heartbeatMs: 1000,
-    staleMs: 5000,
-    telemetry() {},
-    onOwnershipChange(state) {
-      ownershipStates.push(state);
+    onCoordinationAvailabilityChange(available) {
+      coordinationStates.push(available);
     },
-    onRemoteState() {},
     onRemoteSync(draftId, revision) {
       remoteSyncCalls.push({ draftId, revision });
     },
@@ -360,20 +352,16 @@ test('active tab controller construction is side-effect free and only broadcasts
     onBeforeUnload() {},
     documentRef: dom.window.document,
     windowRef: dom.window,
-    localStorageRef: dom.window.localStorage,
     broadcastChannelFactory: () => channel,
-    now: () => '2026-03-12T10:00:00Z',
   });
 
-  assert.equal(ownershipStates.length, 0);
+  assert.equal(coordinationStates.length, 0);
   assert.equal(broadcastMessages.length, 0);
 
   controller.start();
   controller.setActiveDraft('draft-1');
 
-  assert.equal(controller.isOwner, true);
-  assert.equal(ownershipStates.length > 0, true);
-  assert.equal(dom.window.localStorage.getItem('test-active-tab'), null);
+  assert.deepEqual(coordinationStates, [true]);
 
   controller.broadcastSyncCompleted('draft-1', 3);
   assert.equal(broadcastMessages[0]?.type, 'sync_completed');
@@ -407,9 +395,6 @@ test('sync controller only starts active-tab coordination from start and stops i
   let stopCalls = 0;
 
   const activeTabController = {
-    isOwner: true,
-    currentClaim: null,
-    lastBlockedReason: '',
     setActiveDraft() {},
     start() {
       startCalls += 1;
@@ -494,9 +479,6 @@ test('sync controller surfaces same-draft stale conflicts instead of passive-tab
       },
     },
     activeTabController: {
-      isOwner: true,
-      currentClaim: null,
-      lastBlockedReason: '',
       setActiveDraft() {},
       start() {},
       stop() {},
@@ -548,9 +530,6 @@ test('sync controller refreshes the bound draft on window focus', async () => {
       },
     },
     activeTabController: {
-      isOwner: true,
-      currentClaim: null,
-      lastBlockedReason: '',
       setActiveDraft() {},
       start() {},
       stop() {},

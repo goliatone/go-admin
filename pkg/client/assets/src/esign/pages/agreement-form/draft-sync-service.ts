@@ -133,10 +133,10 @@ export class DraftSyncService {
 
     if (revision > 0) {
       await this.resource!.mutate({
-        operation: 'discard',
+        operation: 'dispose',
         payload: {},
         expectedRevision: revision,
-        idempotencyKey: `discard:${draftId}:${revision}`,
+        idempotencyKey: `dispose:${draftId}:${revision}`,
       });
     }
 

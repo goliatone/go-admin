@@ -12,6 +12,8 @@
  */
 
 import type { ActionButton, ActionVariant } from './actions.js';
+import type { ActionState } from './action-contracts.js';
+import { resolveActionState } from './action-contracts.js';
 import {
   executeActionRequest,
   formatStructuredErrorForDisplay,
@@ -19,7 +21,7 @@ import {
   isTranslationBlocker,
   type StructuredError,
 } from '../toast/error-helpers.js';
-import { getDisabledReasonDisplay } from './translation-status-vocabulary.js';
+import { getActionBlockDisplay } from './translation-status-vocabulary.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
 
 // ============================================================================
@@ -60,13 +62,6 @@ export interface SchemaAction {
   permission?: string;
   /** Server-authoritative display order (lower numbers appear first) */
   order?: number;
-}
-
-export interface ActionState {
-  enabled?: boolean;
-  reason?: string;
-  reason_code?: string;
-  available_transitions?: string[];
 }
 
 /**
@@ -385,15 +380,7 @@ export class SchemaActionBuilder {
   }
 
   private resolveRecordActionState(record: Record<string, unknown>, actionName: string): ActionState | null {
-    const rawState = record['_action_state'];
-    if (!rawState || typeof rawState !== 'object' || Array.isArray(rawState)) {
-      return null;
-    }
-    const perAction = (rawState as Record<string, unknown>)[actionName];
-    if (!perAction || typeof perAction !== 'object' || Array.isArray(perAction)) {
-      return null;
-    }
-    return perAction as ActionState;
+    return resolveActionState(record, actionName);
   }
 
   private applyActionState(action: ActionButton, state: ActionState | null): ActionButton {
@@ -418,7 +405,7 @@ export class SchemaActionBuilder {
     }
     const normalizedCode = typeof state.reason_code === 'string' ? state.reason_code.trim() : '';
     if (normalizedCode) {
-      const shared = getDisabledReasonDisplay(normalizedCode);
+      const shared = getActionBlockDisplay({ reason_code: normalizedCode });
       if (shared?.message) {
         return shared.message;
       }

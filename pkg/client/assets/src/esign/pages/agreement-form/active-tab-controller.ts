@@ -1,24 +1,6 @@
-export interface ActiveTabClaim {
-  tabId: string;
-  claimedAt: string;
-  lastSeenAt: string;
-}
-
-export interface ActiveTabOwnershipState {
-  isOwner: boolean;
-  reason: string;
-  claim: ActiveTabClaim | null;
-  coordinationAvailable: boolean;
-}
-
 export interface ActiveTabControllerOptions {
-  storageKey: string;
   channelName: string;
-  heartbeatMs: number;
-  staleMs: number;
-  telemetry(eventName: string, fields?: Record<string, unknown>): void;
-  onOwnershipChange(state: ActiveTabOwnershipState): void;
-  onRemoteState(state: Record<string, any>): void;
+  onCoordinationAvailabilityChange?(available: boolean): void;
   onRemoteSync(draftId: string, revision: number): void;
   onRemoteDraftDisposed?(draftId: string, reason?: string): void;
   onVisibilityHidden(): void;
@@ -26,19 +8,23 @@ export interface ActiveTabControllerOptions {
   onBeforeUnload(): void;
   documentRef?: Document;
   windowRef?: Window;
-  localStorageRef?: Storage | null;
-  broadcastChannelFactory?: (name: string) => { postMessage(message: any): void; close?(): void; onmessage: ((event: MessageEvent) => void) | null };
-  now?(): string;
+  broadcastChannelFactory?: (name: string) => {
+    postMessage(message: any): void;
+    close?(): void;
+    onmessage: ((event: MessageEvent) => void) | null;
+  };
 }
 
 export class ActiveTabController {
   private readonly options: ActiveTabControllerOptions;
-  private channel: { postMessage(message: any): void; close?(): void; onmessage: ((event: MessageEvent) => void) | null } | null = null;
+  private channel: {
+    postMessage(message: any): void;
+    close?(): void;
+    onmessage: ((event: MessageEvent) => void) | null;
+  } | null = null;
   private cleanupFns: Array<() => void> = [];
   private activeDraftId = '';
-  isOwner = true;
-  currentClaim: ActiveTabClaim | null = null;
-  lastBlockedReason = '';
+  private coordinationAvailable = false;
 
   constructor(options: ActiveTabControllerOptions) {
     this.options = options;
@@ -47,12 +33,7 @@ export class ActiveTabController {
   start(): void {
     this.initBroadcastChannel();
     this.initEventListeners();
-    this.options.onOwnershipChange({
-      isOwner: true,
-      reason: '',
-      claim: null,
-      coordinationAvailable: Boolean(this.channel),
-    });
+    this.options.onCoordinationAvailabilityChange?.(this.coordinationAvailable);
   }
 
   stop(): void {
@@ -62,6 +43,7 @@ export class ActiveTabController {
       this.channel.close();
     }
     this.channel = null;
+    this.coordinationAvailable = false;
     this.activeDraftId = '';
   }
 
@@ -99,10 +81,6 @@ export class ActiveTabController {
     });
   }
 
-  private now(): string {
-    return this.options.now ? this.options.now() : new Date().toISOString();
-  }
-
   private win(): Window | null {
     return this.options.windowRef || (typeof window === 'undefined' ? null : window);
   }
@@ -114,12 +92,17 @@ export class ActiveTabController {
   private initBroadcastChannel(): void {
     const factory = this.options.broadcastChannelFactory
       || ((name: string) => new BroadcastChannel(name));
-    if (typeof BroadcastChannel === 'undefined' && !this.options.broadcastChannelFactory) return;
+    if (typeof BroadcastChannel === 'undefined' && !this.options.broadcastChannelFactory) {
+      this.coordinationAvailable = false;
+      return;
+    }
     try {
       this.channel = factory(this.options.channelName);
       this.channel.onmessage = (event: MessageEvent) => this.handleChannelMessage(event.data);
+      this.coordinationAvailable = true;
     } catch {
       this.channel = null;
+      this.coordinationAvailable = false;
     }
   }
 

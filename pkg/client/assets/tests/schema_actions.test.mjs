@@ -182,6 +182,27 @@ test('uses fallback disabled reason when _action_state has reason_code only', ()
   assert.equal(actions[0].disabledReason, 'Action is not available in the current workflow state.');
 });
 
+test('fails closed when _action_state entry omits enabled', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord({
+    _action_state: {
+      publish: {
+        reason: 'Publishing is temporarily unavailable',
+        reason_code: 'TEMPORARILY_UNAVAILABLE',
+      },
+    },
+  });
+  const schemaActions = [
+    { name: 'publish', label: 'Publish' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].disabled, true);
+  assert.equal(actions[0].disabledReason, 'Publishing is temporarily unavailable');
+});
+
 test('schema actions suppress default actions (no duplicates)', () => {
   const builder = createBuilder();
   const record = createMockRecord();

@@ -14,6 +14,7 @@ import type {
   DataGridShareState,
   DataGridStateStoreConfig,
 } from './state-store.js';
+import type { ActionState, ActionStateRecord, BulkActionStateMap } from './action-contracts.js';
 
 export interface DataGridConfig {
   tableId: string;
@@ -82,21 +83,25 @@ export interface DataGridState {
   hasPersistedExpandState: boolean;
 }
 
+export interface ApiResponseMeta {
+  count?: number;
+  bulk_action_state?: BulkActionStateMap;
+  [key: string]: unknown;
+}
+
 export interface ApiResponse<T = any> {
   success?: boolean;
   data?: T[];
   records?: T[];
   total?: number;
   count?: number;
-  $meta?: {
-    count?: number;
-  };
+  $meta?: ApiResponseMeta;
   schema?: Record<string, any>;
   form?: Record<string, any>;
 }
 
-export interface DetailResponse<T = any> {
-  data?: T;
+export interface DetailResponse<T = Record<string, unknown>> {
+  data?: T & ActionStateRecord;
   schema?: Record<string, any>;
   form?: Record<string, any>;
 }
@@ -114,6 +119,7 @@ export type {
   ViewMode,
   GroupedData,
   GroupExpandMode,
+  ActionState,
   DataGridStateStore,
   DataGridPersistedState,
   DataGridShareState,

@@ -1,5 +1,7 @@
 import type { DisabledReasonCode, TranslationErrorEnvelope } from '../translation-contracts/index.js';
+import { normalizeActionBlockCode, type ActionBlockCodeInput } from './action-contracts.js';
 export type { DisabledReasonCode } from '../translation-contracts/index.js';
+export type { ActionBlockCodeInput } from './action-contracts.js';
 
 /**
  * Translation Status Vocabulary (Phase 5 - TX-052)
@@ -18,6 +20,7 @@ export type { DisabledReasonCode } from '../translation-contracts/index.js';
  *
  * Disabled Reason Codes:
  * - TRANSLATION_MISSING, INVALID_STATUS, PERMISSION_DENIED, MISSING_CONTEXT, FEATURE_DISABLED
+ * - RESOURCE_IN_USE, PRECONDITION_FAILED, INVALID_SELECTION, RATE_LIMITED, TEMPORARILY_UNAVAILABLE
  */
 
 // ============================================================================
@@ -535,6 +538,57 @@ export const DISABLED_REASON_DISPLAY: Record<DisabledReasonCode, DisabledReasonD
     severity: 'info',
     actionable: false,
   },
+  RESOURCE_IN_USE: {
+    message: 'This resource is currently in use',
+    shortMessage: 'Resource in use',
+    colorClass: 'bg-amber-100 text-amber-800',
+    bgClass: 'bg-amber-50',
+    textClass: 'text-amber-800',
+    icon: ICONS.warning,
+    severity: 'warning',
+    actionable: true,
+    actionLabel: 'Review usage',
+  },
+  PRECONDITION_FAILED: {
+    message: 'Action preconditions are not satisfied',
+    shortMessage: 'Precondition failed',
+    colorClass: 'bg-amber-100 text-amber-800',
+    bgClass: 'bg-amber-50',
+    textClass: 'text-amber-800',
+    icon: ICONS.warning,
+    severity: 'warning',
+    actionable: false,
+  },
+  INVALID_SELECTION: {
+    message: 'The current selection is not valid for this action',
+    shortMessage: 'Invalid selection',
+    colorClass: 'bg-gray-100 text-gray-700',
+    bgClass: 'bg-gray-50',
+    textClass: 'text-gray-700',
+    icon: ICONS.info,
+    severity: 'info',
+    actionable: false,
+  },
+  RATE_LIMITED: {
+    message: 'Too many requests. Please try again shortly',
+    shortMessage: 'Rate limited',
+    colorClass: 'bg-orange-100 text-orange-800',
+    bgClass: 'bg-orange-50',
+    textClass: 'text-orange-800',
+    icon: ICONS.clock,
+    severity: 'warning',
+    actionable: false,
+  },
+  TEMPORARILY_UNAVAILABLE: {
+    message: 'This action is temporarily unavailable',
+    shortMessage: 'Temporarily unavailable',
+    colorClass: 'bg-gray-100 text-gray-700',
+    bgClass: 'bg-gray-50',
+    textClass: 'text-gray-700',
+    icon: ICONS.ban,
+    severity: 'info',
+    actionable: false,
+  },
 };
 
 // ============================================================================
@@ -584,7 +638,25 @@ export function getStatusDisplay(status: string, domain?: StatusDomain): StatusD
  * Get display configuration for a disabled reason code
  */
 export function getDisabledReasonDisplay(code: string): DisabledReasonDisplayConfig | null {
-  const normalized = code.toUpperCase();
+  const normalized = normalizeActionBlockCode(code);
+  if (!normalized) {
+    return null;
+  }
+  if (normalized in DISABLED_REASON_DISPLAY) {
+    return DISABLED_REASON_DISPLAY[normalized as DisabledReasonCode];
+  }
+  return null;
+}
+
+/**
+ * Normalize either a reason_code or an execution text_code into one shared
+ * vocabulary lookup path.
+ */
+export function getActionBlockDisplay(input: ActionBlockCodeInput): DisabledReasonDisplayConfig | null {
+  const normalized = normalizeActionBlockCode(input);
+  if (!normalized) {
+    return null;
+  }
   if (normalized in DISABLED_REASON_DISPLAY) {
     return DISABLED_REASON_DISPLAY[normalized as DisabledReasonCode];
   }

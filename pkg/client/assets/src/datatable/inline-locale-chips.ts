@@ -22,6 +22,11 @@ import {
   extractTranslationReadiness,
   type TranslationReadiness,
 } from './translation-context.js';
+import {
+  resolveActionState,
+  type ActionState,
+} from './action-contracts.js';
+import { getActionBlockDisplay } from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -53,15 +58,6 @@ export interface InlineLocaleChipsConfig {
   onError?: (locale: string, message: string) => void;
 }
 
-/**
- * Action state from record _action_state field
- */
-export interface ActionStateEntry {
-  enabled?: boolean;
-  reason?: string;
-  reason_code?: string;
-}
-
 // ============================================================================
 // Inline Locale Chips Component
 // ============================================================================
@@ -73,7 +69,7 @@ export interface ActionStateEntry {
 export class InlineLocaleChips {
   private config: InlineLocaleChipsConfig;
   private readiness: TranslationReadiness;
-  private actionState: ActionStateEntry | null;
+  private actionState: ActionState | null;
   private chips: Map<string, LocaleActionChip> = new Map();
   private element: HTMLElement | null = null;
 
@@ -96,16 +92,8 @@ export class InlineLocaleChips {
   private extractActionState(
     record: Record<string, unknown>,
     actionName: string
-  ): ActionStateEntry | null {
-    const rawState = record._action_state;
-    if (!rawState || typeof rawState !== 'object' || Array.isArray(rawState)) {
-      return null;
-    }
-    const perAction = (rawState as Record<string, unknown>)[actionName];
-    if (!perAction || typeof perAction !== 'object' || Array.isArray(perAction)) {
-      return null;
-    }
-    return perAction as ActionStateEntry;
+  ): ActionState | null {
+    return resolveActionState(record, actionName);
   }
 
   /**
@@ -116,8 +104,7 @@ export class InlineLocaleChips {
     if (!this.actionState) {
       return true;
     }
-    // Explicit enabled: false means disabled
-    return this.actionState.enabled !== false;
+    return this.actionState.enabled;
   }
 
   /**
@@ -130,8 +117,11 @@ export class InlineLocaleChips {
     if (this.actionState?.reason) {
       return this.actionState.reason;
     }
-    // Map reason codes to human-readable messages
-    const code = this.actionState?.reason_code;
+    const shared = getActionBlockDisplay({ reason_code: this.actionState?.reason_code });
+    if (shared?.message) {
+      return shared.message;
+    }
+    const code = String(this.actionState?.reason_code || '').trim().toLowerCase();
     if (code === 'workflow_transition_not_available') {
       return 'Translation creation is not available in the current workflow state.';
     }

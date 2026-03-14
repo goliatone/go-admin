@@ -17,7 +17,6 @@ interface SendReadinessControllerOptions {
   participantsContainer: ParentNode;
   fieldDefinitionsContainer: ParentNode;
   submitBtn: HTMLButtonElement | HTMLElement;
-  syncOrchestrator: { isOwner: boolean };
   escapeHtml(value: unknown): string;
   getSignerParticipants(): SendReadinessSigner[];
   getCurrentDocumentPageCount(): number;
@@ -68,7 +67,6 @@ export function createSendReadinessController(
     participantsContainer,
     fieldDefinitionsContainer,
     submitBtn,
-    syncOrchestrator,
     escapeHtml,
     getSignerParticipants,
     getCurrentDocumentPageCount,
@@ -241,20 +239,6 @@ export function createSendReadinessController(
       `;
       sendConfirmation.classList.remove('hidden');
       setSubmitDisabled(submitBtn, false);
-    }
-
-    if (!syncOrchestrator.isOwner) {
-      sendValidationStatus.className = 'p-4 rounded-lg bg-slate-50 border border-slate-200';
-      sendValidationStatus.innerHTML = `
-        <div class="flex items-center gap-2 text-slate-800">
-          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 00-2-2H7a2 2 0 00-2 2v6m10-6h2a2 2 0 012 2v6m-8 0h6a2 2 0 002-2v-2M9 17H7a2 2 0 01-2-2v-2m4 4l3-3m0 0l3 3m-3-3v8"/>
-          </svg>
-          <span class="font-medium">Take control in this tab before sending</span>
-        </div>
-      `;
-      sendConfirmation.classList.add('hidden');
-      setSubmitDisabled(submitBtn, true);
     }
 
     if (issues.length > 0) {

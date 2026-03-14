@@ -1,55 +1,43 @@
 import type { AgreementFormRefs } from './refs';
 
-export interface OwnershipClaimSnapshot {
-  tabId?: string;
-  claimedAt?: string;
-  lastSeenAt?: string;
-}
-
-export interface OwnershipRenderState {
-  isOwner?: boolean;
+export interface CoordinationBannerState {
   coordinationAvailable?: boolean;
-  claim?: OwnershipClaimSnapshot | null;
+  lastSeenAt?: string | null;
 }
 
-export interface OwnershipUIController {
-  render(state?: OwnershipRenderState): void;
+export interface CoordinationBannerController {
+  render(state?: CoordinationBannerState): void;
   destroy(): void;
 }
 
-export interface OwnershipUIControllerOptions {
+export interface CoordinationBannerControllerOptions {
   formatRelativeTime(value: string): string;
 }
 
-export function createOwnershipUIController(
+export function createCoordinationBannerController(
   refs: AgreementFormRefs,
-  options: OwnershipUIControllerOptions,
-): OwnershipUIController {
+  options: CoordinationBannerControllerOptions,
+): CoordinationBannerController {
   return {
-    render(state: OwnershipRenderState = {}) {
+    render(state: CoordinationBannerState = {}) {
       const coordinationAvailable = state?.coordinationAvailable !== false;
-      const banner = refs.ownership.banner;
-      const message = refs.ownership.message;
+      const banner = refs.coordination.banner;
+      const message = refs.coordination.message;
       if (!banner || !message) {
         return;
       }
 
-      if (!coordinationAvailable) {
-        const claim = state?.claim;
-        const seenLabel = claim?.lastSeenAt ? options.formatRelativeTime(claim.lastSeenAt) : 'recently';
-        message.textContent = `Draft coordination updates are unavailable in this tab. Changes in another tab may not appear until you refresh. Last seen ${seenLabel}.`;
-        banner.classList.remove('hidden');
-        return;
-      }
-
-      if (state?.isOwner !== false) {
+      if (coordinationAvailable) {
         banner.classList.add('hidden');
         return;
       }
-      banner.classList.add('hidden');
+
+      const seenLabel = state?.lastSeenAt ? options.formatRelativeTime(state.lastSeenAt) : 'recently';
+      message.textContent = `Draft coordination updates are unavailable in this tab. Changes in another tab may not appear until you refresh. Last seen ${seenLabel}.`;
+      banner.classList.remove('hidden');
     },
     destroy() {
-      refs.ownership.banner?.classList.add('hidden');
+      refs.coordination.banner?.classList.add('hidden');
     },
   };
 }

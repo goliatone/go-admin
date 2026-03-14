@@ -26,6 +26,7 @@ function normalizeAgreementFormConfig(config: AgreementFormConfig): AgreementFor
         bootstrap_path: String(config.sync.bootstrap_path || '').trim(),
         client_base_path: String(config.sync.client_base_path || '').trim(),
         resource_kind: String(config.sync.resource_kind || '').trim(),
+        storage_scope: String(config.sync.storage_scope || '').trim(),
         action_operations: Array.isArray(config.sync.action_operations)
           ? config.sync.action_operations.map((value) => String(value || '').trim()).filter(Boolean)
           : [],
@@ -33,7 +34,6 @@ function normalizeAgreementFormConfig(config: AgreementFormConfig): AgreementFor
       : undefined,
     base_path: String(config.base_path || config.basePath || '').trim(),
     api_base_path: String(config.api_base_path || config.apiBasePath || '').trim(),
-    user_id: String(config.user_id || '').trim(),
     is_edit: Boolean(config.is_edit ?? config.isEditMode),
     create_success: Boolean(config.create_success ?? config.createSuccess),
     submit_mode: String(config.submit_mode || 'json').trim().toLowerCase(),
@@ -80,13 +80,13 @@ export function bootstrapAgreementForm(config: {
     bootstrap_path?: string;
     client_base_path?: string;
     resource_kind?: string;
+    storage_scope?: string;
     action_operations?: string[];
   };
   basePath?: string;
   apiBasePath?: string;
   base_path?: string;
   api_base_path?: string;
-  user_id?: string;
   isEditMode?: boolean;
   is_edit?: boolean;
   createSuccess?: boolean;
@@ -107,7 +107,6 @@ export function bootstrapAgreementForm(config: {
     apiBasePath: config.apiBasePath,
     base_path: config.base_path,
     api_base_path: config.api_base_path,
-    user_id: config.user_id,
     isEditMode: config.isEditMode,
     is_edit: config.is_edit,
     createSuccess: config.createSuccess,
@@ -138,7 +137,6 @@ if (typeof document !== 'undefined') {
         sync: config.sync && typeof config.sync === 'object' ? config.sync : undefined,
         base_path: config.base_path || config.basePath,
         api_base_path: config.api_base_path || config.apiBasePath,
-        user_id: config.user_id || config.userId,
         is_edit: config.is_edit || config.isEditMode || false,
         create_success: config.create_success || config.createSuccess || false,
         submit_mode: config.submit_mode || 'json',

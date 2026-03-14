@@ -9,11 +9,11 @@ export interface AgreementFormRuntimeConfig {
     bootstrap_path?: string;
     client_base_path?: string;
     resource_kind?: string;
+    storage_scope?: string;
     action_operations?: string[];
   };
   base_path?: string;
   api_base_path?: string;
-  user_id?: string;
   is_edit?: boolean;
   create_success?: boolean;
   submit_mode?: 'form' | 'json' | string;

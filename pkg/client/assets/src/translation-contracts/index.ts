@@ -14,13 +14,26 @@ export type DisabledReasonCode =
   | 'INVALID_STATUS'
   | 'PERMISSION_DENIED'
   | 'MISSING_CONTEXT'
-  | 'FEATURE_DISABLED';
+  | 'FEATURE_DISABLED'
+  | 'RESOURCE_IN_USE'
+  | 'PRECONDITION_FAILED'
+  | 'INVALID_SELECTION'
+  | 'RATE_LIMITED'
+  | 'TEMPORARILY_UNAVAILABLE';
 
 export interface TranslationActionState {
   enabled: boolean;
   reason?: string;
   reason_code?: string;
+  severity?: string;
+  kind?: string;
   permission?: string;
+  metadata?: Record<string, unknown>;
+  remediation?: {
+    label?: string;
+    href?: string;
+    kind?: string;
+  };
 }
 
 export interface TranslationModuleState {
@@ -57,9 +70,12 @@ export interface TranslationSuccessEnvelope<T> {
 
 export interface TranslationErrorEnvelope {
   error: {
-    code: string;
+    code?: string;
+    text_code?: string;
     message: string;
     details?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+    validation_errors?: Array<Record<string, unknown>>;
     request_id?: string;
   };
 }

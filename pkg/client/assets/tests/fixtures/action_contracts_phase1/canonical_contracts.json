@@ -1,0 +1,134 @@
+{
+  "detail_contract": {
+    "data": {
+      "_action_state": {
+        "delete": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "agreement_count": 2
+          },
+          "reason": "Document is used by 2 agreements",
+          "reason_code": "RESOURCE_IN_USE",
+          "remediation": {
+            "href": "/admin/content/esign_agreements?document_id=doc_123",
+            "kind": "link",
+            "label": "View agreements"
+          },
+          "severity": "warning"
+        }
+      },
+      "id": "doc_123",
+      "title": "Master Services Agreement"
+    },
+    "schema": {
+      "actions": [
+        {
+          "label": "Delete",
+          "name": "delete",
+          "scope": "detail"
+        }
+      ]
+    }
+  },
+  "disabled_reason_codes": [
+    "TRANSLATION_MISSING",
+    "INVALID_STATUS",
+    "PERMISSION_DENIED",
+    "MISSING_CONTEXT",
+    "FEATURE_DISABLED",
+    "RESOURCE_IN_USE",
+    "PRECONDITION_FAILED",
+    "INVALID_SELECTION",
+    "RATE_LIMITED",
+    "TEMPORARILY_UNAVAILABLE"
+  ],
+  "execution_failure": {
+    "error": {
+      "message": "Document cannot be deleted while attached to agreements",
+      "metadata": {
+        "agreement_count": 2,
+        "remediation": {
+          "href": "/admin/content/esign_agreements?document_id=doc_123",
+          "kind": "link",
+          "label": "View agreements"
+        }
+      },
+      "text_code": "RESOURCE_IN_USE"
+    }
+  },
+  "list_contract": {
+    "$meta": {
+      "bulk_action_state": {
+        "delete": {
+          "enabled": false,
+          "kind": "business_rule",
+          "reason": "Some selected records cannot be deleted",
+          "reason_code": "INVALID_SELECTION",
+          "severity": "warning"
+        }
+      },
+      "count": 1
+    },
+    "data": [
+      {
+        "id": "doc_123",
+        "title": "Master Services Agreement"
+      }
+    ],
+    "schema": {
+      "bulk_actions": [
+        {
+          "label": "Delete selected",
+          "name": "delete",
+          "scope": "bulk"
+        }
+      ]
+    }
+  },
+  "row_contract": {
+    "record": {
+      "_action_state": {
+        "delete": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "agreement_count": 2
+          },
+          "reason": "Document is used by 2 agreements",
+          "reason_code": "RESOURCE_IN_USE",
+          "remediation": {
+            "href": "/admin/content/esign_agreements?document_id=doc_123",
+            "kind": "link",
+            "label": "View agreements"
+          },
+          "severity": "warning"
+        }
+      },
+      "id": "doc_123",
+      "title": "Master Services Agreement"
+    },
+    "schema": {
+      "actions": [
+        {
+          "label": "Delete",
+          "name": "delete",
+          "scope": "row"
+        }
+      ]
+    }
+  },
+  "schema_version": 1,
+  "shared_execution_text_codes": [
+    "TRANSLATION_MISSING",
+    "INVALID_STATUS",
+    "PERMISSION_DENIED",
+    "MISSING_CONTEXT",
+    "FEATURE_DISABLED",
+    "RESOURCE_IN_USE",
+    "PRECONDITION_FAILED",
+    "INVALID_SELECTION",
+    "RATE_LIMITED",
+    "TEMPORARILY_UNAVAILABLE"
+  ]
+}

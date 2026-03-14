@@ -12,7 +12,7 @@ import type {
   AgreementFormRuntime,
 } from './context';
 import { collectAgreementFormRefs } from './refs';
-import { createOwnershipUIController } from './ownership-ui';
+import { createCoordinationBannerController } from './ownership-ui';
 import { WizardStateManager } from './state-manager';
 import { DraftSyncService } from './draft-sync-service';
 import { ActiveTabController } from './active-tab-controller';
@@ -130,9 +130,6 @@ export function createAgreementFormRuntimeCoordinator(
     WIZARD_CHANNEL_NAME,
     SYNC_DEBOUNCE_MS,
     SYNC_RETRY_DELAYS,
-    ACTIVE_TAB_STORAGE_KEY,
-    ACTIVE_TAB_HEARTBEAT_MS,
-    ACTIVE_TAB_STALE_MS,
     TITLE_SOURCE,
   } = createAgreementWizardPersistenceSettings({
     config,
@@ -192,16 +189,12 @@ export function createAgreementFormRuntimeCoordinator(
     feedbackController
       ? feedbackController.surfaceSyncOutcome(resultPromise, options)
       : Promise.resolve({});
-  const getActiveTabDebugState = () => ({
-    isOwner: syncOrchestrator?.isOwner ?? activeTabController.isOwner,
-    claim: syncOrchestrator?.currentClaim ?? activeTabController.currentClaim,
-    blockedReason: syncOrchestrator?.lastBlockedReason ?? activeTabController.lastBlockedReason,
-  });
+  const getActiveTabDebugState = () => null;
 
-  const ownershipUI = createOwnershipUIController(agreementRefs, {
+  const coordinationBanner = createCoordinationBannerController(agreementRefs, {
     formatRelativeTime,
   });
-  const updateActiveTabOwnershipUI = (context = {}) => ownershipUI.render(context);
+  const updateCoordinationUI = () => coordinationBanner.render({ coordinationAvailable: true });
   const parseControllerAPIError = async (
     response: Response,
     fallbackMessage: string,
@@ -278,16 +271,11 @@ export function createAgreementFormRuntimeCoordinator(
 
   let syncOrchestrator: SyncController;
   const activeTabController = new ActiveTabController({
-    storageKey: ACTIVE_TAB_STORAGE_KEY,
     channelName: WIZARD_CHANNEL_NAME,
-    heartbeatMs: ACTIVE_TAB_HEARTBEAT_MS,
-    staleMs: ACTIVE_TAB_STALE_MS,
-    telemetry: emitWizardTelemetry,
-    onOwnershipChange: (state) => {
+    onCoordinationAvailabilityChange: (available) => {
       restoreSyncStatusFromState();
-      ownershipUI.render(state);
+      coordinationBanner.render({ coordinationAvailable: available });
     },
-    onRemoteState: () => {},
     onRemoteSync: (draftId) => {
       if (String(stateManager.getState()?.serverDraftId || '').trim() !== String(draftId || '').trim()) {
         return;
@@ -370,7 +358,7 @@ export function createAgreementFormRuntimeCoordinator(
         void documentSelectionController.loadRecentDocuments();
       },
       destroy() {
-        ownershipUI.destroy();
+        coordinationBanner.destroy();
         stateManager.destroy();
       },
     },
@@ -455,7 +443,6 @@ export function createAgreementFormRuntimeCoordinator(
     participantsContainer,
     fieldDefinitionsContainer,
     submitBtn,
-    syncOrchestrator,
     escapeHtml,
     getSignerParticipants,
     getCurrentDocumentPageCount,
@@ -488,9 +475,8 @@ export function createAgreementFormRuntimeCoordinator(
     wizardStep: WIZARD_STEP,
     nextStepLabels: WIZARD_NEXT_STEP_LABELS,
     submitBtn,
-    syncOrchestrator,
     previewCard,
-    updateActiveTabOwnershipUI,
+    updateCoordinationUI,
     validateStep: (stepNum: number) => validationController?.validateStep(stepNum) !== false,
     onPlacementStep() {
       void placementController.initPlacementEditor();
@@ -519,11 +505,9 @@ export function createAgreementFormRuntimeCoordinator(
     getCurrentStep: () => wizardNavigationController.getCurrentStep(),
     reviewStep: WIZARD_STEP.REVIEW,
     onReviewStepRequested: () => sendReadinessController.initSendReadinessCheck(),
-    updateActiveTabOwnershipUI,
   });
   runtimeActionsController.handleCreateSuccessCleanup();
   runtimeActionsController.bindRetryAndConflictHandlers();
-  runtimeActionsController.bindOwnershipHandlers();
 
   const payloadBuilder = createAgreementFormPayloadBuilder({
     documentIdInput,

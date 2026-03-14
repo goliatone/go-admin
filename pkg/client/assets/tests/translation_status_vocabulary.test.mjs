@@ -49,6 +49,8 @@ const {
   // Lookup functions
   getStatusDisplay,
   getDisabledReasonDisplay,
+  getActionBlockDisplay,
+  normalizeActionBlockCode,
   isValidStatus,
   isValidReasonCode,
   getStatusesForDomain,
@@ -149,7 +151,18 @@ describe('EXCHANGE_JOB_STATUS_DISPLAY', () => {
 
 describe('DISABLED_REASON_DISPLAY', () => {
   it('should have all canonical reason codes', () => {
-    const codes = ['TRANSLATION_MISSING', 'INVALID_STATUS', 'PERMISSION_DENIED', 'MISSING_CONTEXT', 'FEATURE_DISABLED'];
+    const codes = [
+      'TRANSLATION_MISSING',
+      'INVALID_STATUS',
+      'PERMISSION_DENIED',
+      'MISSING_CONTEXT',
+      'FEATURE_DISABLED',
+      'RESOURCE_IN_USE',
+      'PRECONDITION_FAILED',
+      'INVALID_SELECTION',
+      'RATE_LIMITED',
+      'TEMPORARILY_UNAVAILABLE',
+    ];
     for (const code of codes) {
       assert.ok(DISABLED_REASON_DISPLAY[code], `Missing code: ${code}`);
     }
@@ -244,6 +257,32 @@ describe('getDisabledReasonDisplay', () => {
   });
 });
 
+describe('normalizeActionBlockCode', () => {
+  it('should normalize plain string codes', () => {
+    assert.strictEqual(normalizeActionBlockCode('resource_in_use'), 'RESOURCE_IN_USE');
+  });
+
+  it('should normalize reason_code and textCode object inputs', () => {
+    assert.strictEqual(normalizeActionBlockCode({ reason_code: 'invalid_selection' }), 'INVALID_SELECTION');
+    assert.strictEqual(normalizeActionBlockCode({ textCode: 'rate_limited' }), 'RATE_LIMITED');
+    assert.strictEqual(normalizeActionBlockCode({ text_code: 'temporarily_unavailable' }), 'TEMPORARILY_UNAVAILABLE');
+  });
+});
+
+describe('getActionBlockDisplay', () => {
+  it('should resolve display config from reason_code input', () => {
+    const display = getActionBlockDisplay({ reason_code: 'RESOURCE_IN_USE' });
+    assert.ok(display);
+    assert.strictEqual(display.shortMessage, 'Resource in use');
+  });
+
+  it('should resolve display config from execution textCode input', () => {
+    const display = getActionBlockDisplay({ textCode: 'PRECONDITION_FAILED' });
+    assert.ok(display);
+    assert.strictEqual(display.shortMessage, 'Precondition failed');
+  });
+});
+
 describe('isValidStatus', () => {
   it('should return true for valid statuses', () => {
     assert.strictEqual(isValidStatus('ready'), true);
@@ -304,7 +343,9 @@ describe('getAllReasonCodes', () => {
     assert.ok(codes.includes('TRANSLATION_MISSING'));
     assert.ok(codes.includes('PERMISSION_DENIED'));
     assert.ok(codes.includes('FEATURE_DISABLED'));
-    assert.strictEqual(codes.length, 5);
+    assert.ok(codes.includes('RESOURCE_IN_USE'));
+    assert.ok(codes.includes('TEMPORARILY_UNAVAILABLE'));
+    assert.strictEqual(codes.length, 10);
   });
 });
 

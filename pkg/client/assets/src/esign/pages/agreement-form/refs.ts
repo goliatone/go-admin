@@ -10,11 +10,9 @@ export interface AgreementFormRefs {
     titleInput: HTMLInputElement;
     messageInput: HTMLTextAreaElement | HTMLInputElement;
   };
-  ownership: {
+  coordination: {
     banner: HTMLElement | null;
     message: HTMLElement | null;
-    takeControlBtn: HTMLElement | null;
-    reloadBtn: HTMLElement | null;
   };
   sync: {
     indicator: HTMLElement | null;
@@ -62,11 +60,9 @@ export function collectAgreementFormRefs(root: ParentNode = document): Agreement
       titleInput: requireById<HTMLInputElement>(root, 'title', 'title input'),
       messageInput: requireById<HTMLTextAreaElement | HTMLInputElement>(root, 'message', 'message input'),
     },
-    ownership: {
+    coordination: {
       banner: findById(root, 'active-tab-banner'),
       message: findById(root, 'active-tab-message'),
-      takeControlBtn: findById(root, 'active-tab-take-control-btn'),
-      reloadBtn: findById(root, 'active-tab-reload-btn'),
     },
     sync: {
       indicator: findById(root, 'sync-status-indicator'),

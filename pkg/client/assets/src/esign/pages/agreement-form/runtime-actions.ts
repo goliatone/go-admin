@@ -41,7 +41,6 @@ interface RuntimeActionsControllerOptions {
   getCurrentStep(): number;
   reviewStep: number;
   onReviewStepRequested(): void;
-  updateActiveTabOwnershipUI(state?: Record<string, unknown>): void;
 }
 
 export function createAgreementRuntimeActionsController(options: RuntimeActionsControllerOptions) {
@@ -56,7 +55,6 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
     getCurrentStep,
     reviewStep,
     onReviewStepRequested,
-    updateActiveTabOwnershipUI,
   } = options;
 
   function trackWizardStateChanges() {
@@ -118,22 +116,7 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
     });
   }
 
-  function bindOwnershipHandlers() {
-    document.getElementById('active-tab-take-control-btn')?.addEventListener('click', async () => {
-      updateActiveTabOwnershipUI();
-      await syncOrchestrator.refreshCurrentDraft?.({ preserveDirty: true, force: true });
-      if (getCurrentStep() === reviewStep) {
-        onReviewStepRequested();
-      }
-    });
-
-    document.getElementById('active-tab-reload-btn')?.addEventListener('click', () => {
-      window.location.reload();
-    });
-  }
-
   return {
-    bindOwnershipHandlers,
     bindRetryAndConflictHandlers,
     handleCreateSuccessCleanup,
     trackWizardStateChanges,

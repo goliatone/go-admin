@@ -12,9 +12,6 @@ import type {
   APIError,
   GoogleIntegrationStatus,
   GoogleImportRun,
-  DraftSummary,
-  DraftDetail,
-  WizardState,
 } from './types.js';
 
 export interface ESignAPIClientConfig {
@@ -127,61 +124,6 @@ export class ESignAPIClient {
 
   async getGoogleImportStatus(importRunId: string): Promise<GoogleImportRun> {
     return this.get<GoogleImportRun>(`/esign/google-drive/imports/${importRunId}`);
-  }
-
-  // Draft persistence endpoints
-  async listDrafts(params?: {
-    limit?: number;
-    cursor?: string;
-  }): Promise<{ drafts: DraftSummary[]; next_cursor: string | null; total: number }> {
-    const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.set('limit', String(params.limit));
-    if (params?.cursor) queryParams.set('cursor', params.cursor);
-
-    return this.get(`/esign/drafts?${queryParams.toString()}`);
-  }
-
-  async getDraft(id: string): Promise<DraftDetail> {
-    return this.get<DraftDetail>(`/esign/drafts/${id}`);
-  }
-
-  async createDraft(params: {
-    wizard_id: string;
-    wizard_state: WizardState;
-    title: string;
-    current_step: number;
-    document_id?: string | null;
-  }): Promise<DraftDetail> {
-    return this.post<DraftDetail>('/esign/drafts', params);
-  }
-
-  async updateDraft(
-    id: string,
-    params: {
-      expected_revision: number;
-      wizard_state: WizardState;
-      title: string;
-      current_step: number;
-      document_id?: string | null;
-    }
-  ): Promise<DraftDetail> {
-    return this.put<DraftDetail>(`/esign/drafts/${id}`, params);
-  }
-
-  async deleteDraft(id: string): Promise<void> {
-    return this.delete(`/esign/drafts/${id}`);
-  }
-
-  async sendDraft(
-    id: string,
-    params: { expected_revision: number }
-  ): Promise<{
-    agreement_id: string;
-    status: 'queued' | 'sent';
-    draft_id: string;
-    draft_deleted: boolean;
-  }> {
-    return this.post(`/esign/drafts/${id}/send`, params);
   }
 
   // Generic HTTP methods

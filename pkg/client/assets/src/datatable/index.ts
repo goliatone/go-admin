@@ -81,6 +81,20 @@ export type {
   PayloadSchema,
   PayloadSchemaProperty
 } from './schema-actions.js';
+export type {
+  ActionState,
+  ActionRemediation,
+  ActionStateMap,
+  ActionStateRecord,
+  BulkActionStateMap,
+  ActionBlockCodeInput,
+} from './action-contracts.js';
+export {
+  normalizeActionBlockCode,
+  normalizeActionState,
+  normalizeActionStateMap,
+  resolveActionState,
+} from './action-contracts.js';
 
 // Export payload modal as lazy proxy so schema-actions can keep payload-modal in a split chunk.
 export { PayloadInputModal } from './payload-modal-lazy.js';
@@ -166,6 +180,10 @@ export type {
   QuickFilterState,
   QuickFiltersConfig
 } from './quick-filters.js';
+
+export {
+  getActionBlockDisplay,
+} from './translation-status-vocabulary.js';
 
 // Export translation panel controller
 export {
@@ -266,8 +284,7 @@ export {
   createInlineLocaleChipsRenderer
 } from './inline-locale-chips.js';
 export type {
-  InlineLocaleChipsConfig,
-  ActionStateEntry
+  InlineLocaleChipsConfig
 } from './inline-locale-chips.js';
 
 // Export keyboard shortcuts registry (Phase 3)
@@ -387,7 +404,7 @@ export {
 } from './capability-gate.js';
 export type {
   CapabilityMode,
-  ActionState,
+  ActionState as CapabilityActionState,
   ModuleState,
   RouteConfig,
   TranslationCapabilities,

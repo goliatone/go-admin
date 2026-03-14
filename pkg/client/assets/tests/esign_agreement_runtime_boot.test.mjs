@@ -87,12 +87,12 @@ function setupDom() {
     configScript.textContent = JSON.stringify({
       base_path: '/admin',
       api_base_path: '/admin/api',
-      user_id: 'user-123',
       sync: {
         base_url: '/admin/api/v1/esign',
         bootstrap_path: '/admin/api/v1/esign/sync/bootstrap/agreement-draft',
         client_base_path: '/admin/sync-client/sync-core',
         resource_kind: 'agreement_draft',
+        storage_scope: 'afs_user_123',
         action_operations: ['send'],
       },
       is_edit: false,
@@ -133,7 +133,7 @@ function createSyncHarness() {
     return {
       kind: 'agreement_draft',
       id,
-      scope: { user_id: 'user-123' },
+      scope: { tenant_id: 'tenant-1', org_id: 'org-1', actor_id: 'user-123' },
     };
   }
 
@@ -359,7 +359,7 @@ test('agreement form boot loads documents from the built bundle without throwing
     const controller = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
@@ -385,12 +385,10 @@ test('agreement form boot loads documents from the built bundle without throwing
   }
 });
 
-test('agreement form boot succeeds when ownership banner nodes are absent', async () => {
+test('agreement form boot succeeds when coordination banner nodes are absent', async () => {
   setupDom();
   document.getElementById('active-tab-banner')?.remove();
   document.getElementById('active-tab-message')?.remove();
-  document.getElementById('active-tab-take-control-btn')?.remove();
-  document.getElementById('active-tab-reload-btn')?.remove();
 
   const { calls, fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
@@ -401,7 +399,7 @@ test('agreement form boot succeeds when ownership banner nodes are absent', asyn
     const controller = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
@@ -416,7 +414,7 @@ test('agreement form boot succeeds when ownership banner nodes are absent', asyn
 
     assert.ok(
       calls.some((href) => href.includes('/admin/api/panels/esign_documents?')),
-      'expected agreement boot to request documents without ownership nodes',
+      'expected agreement boot to request documents without coordination nodes',
     );
 
     controller.destroy();
@@ -426,7 +424,7 @@ test('agreement form boot succeeds when ownership banner nodes are absent', asyn
   }
 });
 
-test('agreement form destroy does not persist legacy active-tab ownership state', async () => {
+test('agreement form destroy does not persist legacy active-tab leftovers', async () => {
   setupDom();
   const { fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
@@ -437,7 +435,7 @@ test('agreement form destroy does not persist legacy active-tab ownership state'
     const controller = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
@@ -458,7 +456,7 @@ test('agreement form destroy does not persist legacy active-tab ownership state'
   }
 });
 
-test('agreement form ignores stale localStorage ownership leftovers on boot', async () => {
+test('agreement form ignores stale localStorage coordination leftovers on boot', async () => {
   setupDom();
   window.localStorage.setItem('legacy-ownership-claim', JSON.stringify({ stale: true }));
 
@@ -471,7 +469,7 @@ test('agreement form ignores stale localStorage ownership leftovers on boot', as
     const controller = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
@@ -505,7 +503,7 @@ test('agreement form controller destroy releases the shared runtime so a new con
     const first = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
@@ -524,7 +522,7 @@ test('agreement form controller destroy releases the shared runtime so a new con
     const second = new AgreementFormController({
       basePath: '/admin',
       apiBasePath: '/admin/api',
-      user_id: 'user-123',
+      sync: { storage_scope: 'afs_user_123' },
       routes: {
         index: '/admin/content/esign_agreements',
         documents: '/admin/content/esign_documents',
