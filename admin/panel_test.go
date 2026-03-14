@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -155,6 +156,29 @@ func (c *payloadCommand) Execute(ctx context.Context, msg payloadCommandMsg) err
 	return nil
 }
 
+type responseCommand struct {
+	called bool
+}
+
+type responseCommandMsg struct{}
+
+func (responseCommandMsg) Type() string { return "do.response" }
+
+func (c *responseCommand) Execute(ctx context.Context, _ responseCommandMsg) error {
+	c.called = true
+	collector := ActionResponseCollectorFromContext(ctx)
+	if collector == nil {
+		return nil
+	}
+	collector.Store(ActionResponse{
+		StatusCode: http.StatusAccepted,
+		Data: map[string]any{
+			"queued": true,
+		},
+	})
+	return nil
+}
+
 func TestPanelActionDispatchesCommand(t *testing.T) {
 	registry.WithTestRegistry(func() {
 		reg := NewCommandBus(true)
@@ -177,7 +201,7 @@ func TestPanelActionDispatchesCommand(t *testing.T) {
 			commandBus: reg,
 		}
 		ctx := AdminContext{Context: context.Background()}
-		if err := panel.RunAction(ctx, "run", nil, nil); err != nil {
+		if _, err := panel.RunAction(ctx, "run", nil, nil); err != nil {
 			t.Fatalf("action dispatch failed: %v", err)
 		}
 		if !cmd.called {
@@ -240,7 +264,7 @@ func TestPanelActionDispatchesPayload(t *testing.T) {
 		}
 		ctx := AdminContext{Context: context.Background()}
 		payload := map[string]any{"note": "hello"}
-		if err := panel.RunAction(ctx, "run", payload, nil); err != nil {
+		if _, err := panel.RunAction(ctx, "run", payload, nil); err != nil {
 			t.Fatalf("action dispatch failed: %v", err)
 		}
 		if !cmd.called {
@@ -248,6 +272,56 @@ func TestPanelActionDispatchesPayload(t *testing.T) {
 		}
 		if cmd.payload["note"] != "hello" {
 			t.Fatalf("payload not forwarded")
+		}
+	})
+}
+
+func TestPanelRunActionResponseReturnsStructuredStatusWithoutHTTPStatusField(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &responseCommand{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.response", func(payload map[string]any, ids []string) (responseCommandMsg, error) {
+			return responseCommandMsg{}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+
+		panel := &Panel{
+			name: "actions",
+			actions: []Action{
+				{Name: "run", CommandName: "do.response"},
+			},
+			commandBus: reg,
+		}
+		ctx := AdminContext{Context: context.Background()}
+
+		response, err := panel.RunActionResponse(ctx, "run", nil, nil)
+		if err != nil {
+			t.Fatalf("action dispatch failed: %v", err)
+		}
+		if !cmd.called {
+			t.Fatalf("command not executed")
+		}
+		if response.StatusCode != http.StatusAccepted {
+			t.Fatalf("expected accepted status, got %d", response.StatusCode)
+		}
+		if queued, _ := response.Data["queued"].(bool); !queued {
+			t.Fatalf("expected queued response payload, got %#v", response.Data)
+		}
+		if _, ok := response.Data["http_status"]; ok {
+			t.Fatalf("expected response data without http_status side channel, got %#v", response.Data)
+		}
+
+		compat, err := panel.RunAction(ctx, "run", nil, nil)
+		if err != nil {
+			t.Fatalf("compat action dispatch failed: %v", err)
+		}
+		if _, ok := compat["http_status"]; ok {
+			t.Fatalf("expected compat payload without http_status side channel, got %#v", compat)
 		}
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -274,13 +275,14 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	}
 	c := newPanelBindingMockContext()
 
-	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+	response, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":     "page_123",
 		"locale": "es",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	data := response.Data
 	if data["locale"] != "es" {
 		t.Fatalf("expected locale es, got %v", data["locale"])
 	}
@@ -338,13 +340,14 @@ func TestPanelBindingCreateTranslationUsesRepositoryCommandWhenAvailable(t *test
 	}
 	c := newPanelBindingMockContext()
 
-	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+	response, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":     "post_123",
 		"locale": "es",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	data := response.Data
 	if repo.createTranslationCalls != 1 {
 		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
 	}
@@ -393,13 +396,14 @@ func TestPanelBindingCreateTranslationFallsBackToCloneWhenRepositoryCommandUnsup
 	}
 	c := newPanelBindingMockContext()
 
-	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+	response, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":     "post_123",
 		"locale": "fr",
 	})
 	if err != nil {
 		t.Fatalf("expected clone fallback to succeed, got %v", err)
 	}
+	data := response.Data
 	if repo.createTranslationCalls != 1 {
 		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
 	}
@@ -452,7 +456,7 @@ func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *te
 	}
 	c := newPanelBindingMockContext()
 
-	data, err := binding.Action(c, "en", "create_translation", map[string]any{
+	response, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":            "page_123",
 		"locale":        "es",
 		"policy_entity": "pages",
@@ -460,6 +464,7 @@ func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *te
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	data := response.Data
 	if data["locale"] != "es" {
 		t.Fatalf("expected locale es, got %v", data["locale"])
 	}
@@ -908,7 +913,7 @@ func TestPanelBindingListIncludesRowActionStateFromWorkflowAvailability(t *testi
 	}
 	c := newPanelBindingMockContext()
 
-	records, total, schemaAny, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	records, total, schemaAny, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -1018,7 +1023,7 @@ func TestPanelBindingListSetsTranslationMissingReasonCodeForBlockedPublish(t *te
 	}
 	c := newPanelBindingMockContext()
 
-	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	records, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -1086,7 +1091,7 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	}
 	c := newPanelBindingMockContext()
 
-	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	records, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -1498,7 +1503,7 @@ func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
 	}
 	c := newPanelBindingMockContext()
 
-	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+	records, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
@@ -1533,7 +1538,7 @@ func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
 		}
 	}
 
-	pageTwo, pageTwoTotal, _, _, err := binding.List(c, "en", boot.ListOptions{
+	pageTwo, pageTwoTotal, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    2,
 		PerPage: 1,
 		Filters: map[string]any{
@@ -1597,7 +1602,7 @@ func TestPanelBindingListSupportsReadinessStatePredicateAlias(t *testing.T) {
 	}
 	c := newPanelBindingMockContext()
 
-	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+	records, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
@@ -1697,7 +1702,7 @@ func TestPanelBindingListSupportsReadinessStateFilterValues(t *testing.T) {
 			}
 			for _, tc := range tests {
 				t.Run(tc.state, func(t *testing.T) {
-					records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+					records, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 						Page:    1,
 						PerPage: 10,
 						Filters: map[string]any{
@@ -1804,7 +1809,7 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 			}
 			c := newPanelBindingMockContext()
 
-			pageOne, pageOneTotal, _, _, err := binding.List(c, "en", boot.ListOptions{
+			pageOne, pageOneTotal, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    1,
 				PerPage: 1,
 				Filters: map[string]any{
@@ -1827,7 +1832,7 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 			}
 			assertGroupedTranslationRecord(t, pageOne[0], "tg_alpha", 2)
 
-			pageTwo, pageTwoTotal, _, _, err := binding.List(c, "en", boot.ListOptions{
+			pageTwo, pageTwoTotal, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    2,
 				PerPage: 1,
 				Filters: map[string]any{
@@ -1896,7 +1901,7 @@ func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *te
 	}
 	c := newPanelBindingMockContext()
 
-	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+	rows, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
@@ -1977,7 +1982,7 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	}
 	c := newPanelBindingMockContext()
 
-	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+	rows, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
@@ -2000,6 +2005,14 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	groupedRow := rows[0]
 	if got := strings.TrimSpace(toString(groupedRow["translation_group_id"])); got != "tg_alpha" {
 		t.Fatalf("expected grouped row translation_group_id tg_alpha, got %q", got)
+	}
+	groupedState := actionStateEnvelope(groupedRow["_action_state"])
+	if len(groupedState) == 0 {
+		t.Fatalf("expected _action_state on grouped row, got %#v", groupedRow["_action_state"])
+	}
+	parentState := actionStateEnvelope(extractMap(groupedRow["parent"])["_action_state"])
+	if !reflect.DeepEqual(groupedState, parentState) {
+		t.Fatalf("expected grouped row _action_state to match parent, got row=%#v parent=%#v", groupedState, parentState)
 	}
 
 	ungroupedRow := rows[1]
@@ -2071,7 +2084,7 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 	}
 	c := newPanelBindingMockContext()
 
-	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+	rows, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
@@ -2145,7 +2158,7 @@ func TestPanelBindingListEmitsCanonicalTranslationGroupIDFromNestedMetadata(t *t
 			}
 			c := newPanelBindingMockContext()
 
-			records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+			records, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    1,
 				PerPage: 10,
 			})
@@ -2236,7 +2249,7 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	}
 	c := newPanelBindingMockContext()
 
-	page1, total1, _, _, err := binding.List(c, "en", boot.ListOptions{
+	page1, total1, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 1,
 		Filters: map[string]any{"group_by": "translation_group_id"},
@@ -2257,7 +2270,7 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 		t.Fatalf("expected deterministic locale order en,es,fr for tg_alpha, got %v", locales1)
 	}
 
-	page2, total2, _, _, err := binding.List(c, "en", boot.ListOptions{
+	page2, total2, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    2,
 		PerPage: 1,
 		Filters: map[string]any{"group_by": "translation_group_id"},
@@ -2273,7 +2286,7 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	}
 	assertGroupedTranslationRecord(t, page2[0], "tg_beta", 2)
 
-	page3, total3, _, _, err := binding.List(c, "en", boot.ListOptions{
+	page3, total3, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    3,
 		PerPage: 1,
 		Filters: map[string]any{"group_by": "translation_group_id"},
@@ -2503,7 +2516,7 @@ func TestPanelBindingListTranslationReadinessMemoizesRequirementsForBatch(t *tes
 	}
 	c := newPanelBindingMockContext()
 
-	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+	records, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 50,
 		Filters: map[string]any{"environment": "production"},
@@ -2555,7 +2568,7 @@ func TestPanelBindingListTranslationReadinessAggregatesLocalesByGroup(t *testing
 	}
 	c := newPanelBindingMockContext()
 
-	records, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	records, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -2615,7 +2628,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 		invocations := 0
 		for i := 0; i < warmupRuns; i++ {
 			c := newPanelBindingMockContext()
-			_, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+			_, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    1,
 				PerPage: 50,
 				Filters: filters,
@@ -2629,7 +2642,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 		for i := 0; i < runs; i++ {
 			c := newPanelBindingMockContext()
 			started := time.Now()
-			_, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+			_, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    1,
 				PerPage: 50,
 				Filters: filters,

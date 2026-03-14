@@ -13,14 +13,20 @@ import (
 )
 
 type stubResponder struct {
-	jsonCalled int
-	htmlCalled int
-	errCalled  int
-	lastJSON   any
+	jsonCalled     int
+	htmlCalled     int
+	errCalled      int
+	lastJSONStatus int
+	lastJSON       any
 }
 
 func (s *stubResponder) WriteJSON(_ router.Context, payload any) error {
+	return s.WriteJSONStatus(nil, 200, payload)
+}
+
+func (s *stubResponder) WriteJSONStatus(_ router.Context, statusCode int, payload any) error {
 	s.jsonCalled++
+	s.lastJSONStatus = statusCode
 	s.lastJSON = payload
 	return nil
 }
@@ -186,48 +192,48 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 						Name: "api",
 						Path: "/api",
 						Routes: map[string]string{
-							"dashboard":                           "/dashboard",
-							"dashboard.preferences":               "/dashboard/preferences",
-							"dashboard.config":                    "/dashboard/config",
-							"dashboard.debug":                     "/dashboard/debug",
-							"navigation":                          "/navigation",
-							"settings":                            "/settings",
-							"settings.form":                       "/settings/form",
-							"workflows":                           "/workflows",
-							"workflows.id":                        "/workflows/:id",
-							"workflows.bindings":                  "/workflows/bindings",
-							"workflows.bindings.id":               "/workflows/bindings/:id",
-						"translations.export":                       "/translations/exchange/export",
-						"translations.template":                     "/translations/exchange/template",
-						"translations.dashboard":                    "/translations/dashboard",
-						"translations.matrix":                       "/translations/matrix",
-						"translations.matrix.actions.create_missing": "/translations/matrix/actions/create-missing",
-						"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
-						"translations.assignments":                  "/translations/assignments",
-						"translations.assignments.id":               "/translations/assignments/:assignment_id",
-							"translations.assignments.actions":    "/translations/assignments/:assignment_id/actions/:action",
-							"translations.families":               "/translations/families",
-							"translations.families.id":            "/translations/families/:family_id",
-							"translations.families.variants":      "/translations/families/:family_id/variants",
-							"translations.my_work":                "/translations/my-work",
-							"translations.queue":                  "/translations/queue",
-							"translations.variants.id":            "/translations/variants/:variant_id",
-							"translations.options.entity_types":   "/translations/options/entity-types",
-							"translations.options.source_records": "/translations/options/source-records",
-							"translations.options.locales":        "/translations/options/locales",
-							"translations.options.groups":         "/translations/options/groups",
-							"translations.options.assignees":      "/translations/options/assignees",
-							"translations.jobs.id":                "/translations/exchange/jobs/:job_id",
-							"translations.import.validate":        "/translations/exchange/import/validate",
-							"translations.import.apply":           "/translations/exchange/import/apply",
-							"schemas":                             "/schemas",
-							"schemas.resource":                    "/schemas/:resource",
-							"panel":                               "/panels/:panel",
-							"panel.id":                            "/panels/:panel/:id",
-							"panel.action":                        "/panels/:panel/actions/:action",
-							"panel.bulk":                          "/panels/:panel/bulk/:action",
-							"panel.preview":                       "/panels/:panel/:id/preview",
-							"panel.subresource":                   "/panels/:panel/:id/:subresource/:value",
+							"dashboard":              "/dashboard",
+							"dashboard.preferences":  "/dashboard/preferences",
+							"dashboard.config":       "/dashboard/config",
+							"dashboard.debug":        "/dashboard/debug",
+							"navigation":             "/navigation",
+							"settings":               "/settings",
+							"settings.form":          "/settings/form",
+							"workflows":              "/workflows",
+							"workflows.id":           "/workflows/:id",
+							"workflows.bindings":     "/workflows/bindings",
+							"workflows.bindings.id":  "/workflows/bindings/:id",
+							"translations.export":    "/translations/exchange/export",
+							"translations.template":  "/translations/exchange/template",
+							"translations.dashboard": "/translations/dashboard",
+							"translations.matrix":    "/translations/matrix",
+							"translations.matrix.actions.create_missing":  "/translations/matrix/actions/create-missing",
+							"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
+							"translations.assignments":                    "/translations/assignments",
+							"translations.assignments.id":                 "/translations/assignments/:assignment_id",
+							"translations.assignments.actions":            "/translations/assignments/:assignment_id/actions/:action",
+							"translations.families":                       "/translations/families",
+							"translations.families.id":                    "/translations/families/:family_id",
+							"translations.families.variants":              "/translations/families/:family_id/variants",
+							"translations.my_work":                        "/translations/my-work",
+							"translations.queue":                          "/translations/queue",
+							"translations.variants.id":                    "/translations/variants/:variant_id",
+							"translations.options.entity_types":           "/translations/options/entity-types",
+							"translations.options.source_records":         "/translations/options/source-records",
+							"translations.options.locales":                "/translations/options/locales",
+							"translations.options.groups":                 "/translations/options/groups",
+							"translations.options.assignees":              "/translations/options/assignees",
+							"translations.jobs.id":                        "/translations/exchange/jobs/:job_id",
+							"translations.import.validate":                "/translations/exchange/import/validate",
+							"translations.import.apply":                   "/translations/exchange/import/apply",
+							"schemas":                                     "/schemas",
+							"schemas.resource":                            "/schemas/:resource",
+							"panel":                                       "/panels/:panel",
+							"panel.id":                                    "/panels/:panel/:id",
+							"panel.action":                                "/panels/:panel/actions/:action",
+							"panel.bulk":                                  "/panels/:panel/bulk/:action",
+							"panel.preview":                               "/panels/:panel/:id/preview",
+							"panel.subresource":                           "/panels/:panel/:id/:subresource/:value",
 						},
 					},
 				},
@@ -403,7 +409,7 @@ type stubPanelBinding struct {
 	subresourceCalled int
 	lastLocale        string
 	lastActionBody    map[string]any
-	actionResult      map[string]any
+	actionResult      ActionResponse
 	bulkResult        map[string]any
 	subresources      []PanelSubresourceSpec
 	lastSubresource   struct {
@@ -411,13 +417,18 @@ type stubPanelBinding struct {
 		name  string
 		value string
 	}
+	listMeta map[string]any
 }
 
 func (s *stubPanelBinding) Name() string { return s.name }
-func (s *stubPanelBinding) List(_ router.Context, locale string, _ ListOptions) ([]map[string]any, int, any, any, error) {
+func (s *stubPanelBinding) List(_ router.Context, locale string, _ ListOptions) ([]map[string]any, int, any, any, map[string]any, error) {
 	s.listCalled++
 	s.lastLocale = locale
-	return []map[string]any{{"id": "1"}}, 1, map[string]any{"schema": true}, map[string]any{"form": true}, nil
+	meta := s.listMeta
+	if meta == nil {
+		meta = map[string]any{"count": 1}
+	}
+	return []map[string]any{{"id": "1"}}, 1, map[string]any{"schema": true}, map[string]any{"form": true}, meta, nil
 }
 func (s *stubPanelBinding) Detail(router.Context, string, string) (map[string]any, error) {
 	return map[string]any{"id": "1"}, nil
@@ -429,12 +440,12 @@ func (s *stubPanelBinding) Update(router.Context, string, string, map[string]any
 	return map[string]any{"id": "3"}, nil
 }
 func (s *stubPanelBinding) Delete(router.Context, string, string) error { return nil }
-func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body map[string]any) (map[string]any, error) {
+func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body map[string]any) (ActionResponse, error) {
 	s.actionCalled++
 	s.lastLocale = locale
 	s.lastActionBody = body
 	if action == "" {
-		return nil, errors.New("missing action")
+		return ActionResponse{}, errors.New("missing action")
 	}
 	return s.actionResult, nil
 }
@@ -514,7 +525,7 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	resp := &stubResponder{}
 	binding := &stubPanelBinding{
 		name:         "users",
-		actionResult: map[string]any{"id": "2", "locale": "es"},
+		actionResult: ActionResponse{Data: map[string]any{"id": "2", "locale": "es"}},
 	}
 	ctx := &stubCtx{
 		router:     rr,
@@ -535,11 +546,52 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	require.NoError(t, rr.calls[6].handler(actionCtx))
 	payload, ok := resp.lastJSON.(map[string]any)
 	require.True(t, ok)
+	require.Equal(t, 200, resp.lastJSONStatus)
 	require.Equal(t, "ok", payload["status"])
 	data, ok := payload["data"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "2", data["id"])
 	require.Equal(t, "es", data["locale"])
+}
+
+func TestPanelStepActionSuccessEnvelopeUsesResponderForNon200Status(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{
+		name: "users",
+		actionResult: ActionResponse{
+			StatusCode: 202,
+			Data:       map[string]any{"id": "2", "queued": true},
+		},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Len(t, rr.calls, 9)
+
+	actionCtx := router.NewMockContext()
+	actionCtx.ParamsM["panel"] = "users"
+	actionCtx.ParamsM["action"] = "queue"
+	actionCtx.On("Body").Return([]byte{})
+
+	require.NoError(t, rr.calls[6].handler(actionCtx))
+	require.Equal(t, 1, resp.jsonCalled)
+	require.Equal(t, 202, resp.lastJSONStatus)
+	payload, ok := resp.lastJSON.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "ok", payload["status"])
+	data, ok := payload["data"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "2", data["id"])
+	require.Equal(t, true, data["queued"])
+	_, hasHTTPStatus := data["http_status"]
+	require.False(t, hasHTTPStatus)
 }
 
 func TestPanelStepBulkSuccessEnvelopeWithData(t *testing.T) {
@@ -735,6 +787,46 @@ func TestPanelStepResolvesPanelBindingAtRequestTime(t *testing.T) {
 	missingCtx := router.NewMockContext()
 	require.NoError(t, rr.calls[0].handler(missingCtx))
 	require.Equal(t, 1, resp.errCalled)
+}
+
+func TestPanelStepListPublishesResponseMeta(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{
+		name: "users",
+		listMeta: map[string]any{
+			"count": 1,
+			"bulk_action_state": map[string]any{
+				"delete": map[string]any{
+					"enabled":     false,
+					"reason_code": "INVALID_SELECTION",
+				},
+			},
+		},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Len(t, rr.calls, 9)
+
+	listCtx := router.NewMockContext()
+	require.NoError(t, rr.calls[0].handler(listCtx))
+
+	payload, ok := resp.lastJSON.(map[string]any)
+	require.True(t, ok)
+	meta, ok := payload["$meta"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, 1, meta["count"])
+	bulkState, ok := meta["bulk_action_state"].(map[string]any)
+	require.True(t, ok)
+	_, ok = bulkState["delete"]
+	require.True(t, ok)
 }
 
 type stubNavigationBinding struct {

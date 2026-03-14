@@ -35,7 +35,10 @@ func TestTranslationMatrixContractFixtures(t *testing.T) {
 	assertTranslationMatrixViewportFixture(t, viewport)
 
 	missing := extractMap(states["missing_cell"])
-	missingRows := extractListMaps(extractMap(extractMap(missing["data"])["rows"]))
+	missingRows := extractListMaps(extractMap(missing["data"])["rows"])
+	if len(missingRows) == 0 {
+		t.Fatalf("expected missing_cell fixture rows, got %+v", missing["data"])
+	}
 	if got := toString(extractMap(extractMap(missingRows[0]["cells"])["it"])["state"]); got != translationMatrixCellStateMissing {
 		t.Fatalf("expected missing_cell fixture to expose pages/it missing state, got %q", got)
 	}

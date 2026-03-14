@@ -231,7 +231,7 @@ func TestTranslationQueuePanelRunActionRequiresPermission(t *testing.T) {
 		commandBus: NewCommandBus(true),
 		authorizer: denyAll{},
 	}
-	err := panel.RunAction(AdminContext{Context: context.Background()}, "claim", nil, nil)
+	_, err := panel.RunAction(AdminContext{Context: context.Background()}, "claim", nil, nil)
 	if err == nil {
 		t.Fatalf("expected permission denied error")
 	}
