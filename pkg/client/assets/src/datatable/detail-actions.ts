@@ -58,14 +58,13 @@ function detailButtonClasses(action: ActionButton, disabled: boolean): string {
 }
 
 export function renderDetailActions(actions: ActionButton[]): string {
-  const visibleActions = actions.filter((action) => !action.condition || action.condition({}));
-  if (visibleActions.length === 0) {
+  if (actions.length === 0) {
     return '';
   }
 
   return `
     <div class="flex flex-wrap items-start justify-end gap-3" data-panel-detail-actions-list="true" aria-label="Detail actions" role="toolbar">
-      ${visibleActions.map((action, index) => {
+      ${actions.map((action, index) => {
         const disabled = action.disabled === true;
         const key = actionKey(action, index);
         const reason = disabled ? (action.disabledReason || 'Action unavailable').trim() : '';

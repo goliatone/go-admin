@@ -5613,39 +5613,38 @@ function zn(r, e) {
   }
 }
 function Nn(r) {
-  const e = r.filter((t) => !t.condition || t.condition({}));
-  return e.length === 0 ? "" : `
+  return r.length === 0 ? "" : `
     <div class="flex flex-wrap items-start justify-end gap-3" data-panel-detail-actions-list="true" aria-label="Detail actions" role="toolbar">
-      ${e.map((t, s) => {
-    const n = t.disabled === !0, o = St(t, s), a = n ? (t.disabledReason || "Action unavailable").trim() : "", i = a ? `detail-action-reason-${o}` : "", l = n && t.remediation?.href && t.remediation?.label ? {
-      href: t.remediation.href.trim(),
-      label: t.remediation.label.trim(),
-      kind: typeof t.remediation.kind == "string" ? t.remediation.kind.trim() : ""
-    } : null, c = i ? `aria-describedby="${i}"` : "", d = a ? `${t.label} unavailable: ${a}` : t.label, u = l ? `
+      ${r.map((e, t) => {
+    const s = e.disabled === !0, n = St(e, t), o = s ? (e.disabledReason || "Action unavailable").trim() : "", a = o ? `detail-action-reason-${n}` : "", i = s && e.remediation?.href && e.remediation?.label ? {
+      href: e.remediation.href.trim(),
+      label: e.remediation.label.trim(),
+      kind: typeof e.remediation.kind == "string" ? e.remediation.kind.trim() : ""
+    } : null, l = a ? `aria-describedby="${a}"` : "", c = o ? `${e.label} unavailable: ${o}` : e.label, d = i ? `
               <a
-                href="${L(l.href)}"
+                href="${L(i.href)}"
                 class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                data-detail-action-remediation="${L(o)}"
+                data-detail-action-remediation="${L(n)}"
               >
-                ${L(l.label)}
+                ${L(i.label)}
               </a>
             ` : "";
     return `
-          <div class="min-w-[12rem] max-w-[16rem] rounded-xl border border-gray-200 bg-white p-3 shadow-sm" data-detail-action-card="${L(o)}">
+          <div class="min-w-[12rem] max-w-[16rem] rounded-xl border border-gray-200 bg-white p-3 shadow-sm" data-detail-action-card="${L(n)}">
             <button
               type="button"
-              class="${zn(t, n)}"
-              data-detail-action-button="${L(o)}"
-              data-detail-action-name="${L(t.id || t.label)}"
-              data-disabled="${n}"
-              aria-disabled="${n ? "true" : "false"}"
-              aria-label="${L(d)}"
-              ${c}
+              class="${zn(e, s)}"
+              data-detail-action-button="${L(n)}"
+              data-detail-action-name="${L(e.id || e.label)}"
+              data-disabled="${s}"
+              aria-disabled="${s ? "true" : "false"}"
+              aria-label="${L(c)}"
+              ${l}
             >
-              ${L(t.label)}
+              ${L(e.label)}
             </button>
-            ${a ? `<p id="${i}" class="mt-2 text-xs leading-5 text-gray-600" data-detail-action-reason="${L(o)}">${L(a)}</p>` : ""}
-            ${u}
+            ${o ? `<p id="${a}" class="mt-2 text-xs leading-5 text-gray-600" data-detail-action-reason="${L(n)}">${L(o)}</p>` : ""}
+            ${d}
           </div>
         `;
   }).join("")}

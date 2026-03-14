@@ -1,0 +1,197 @@
+{
+  "detail_contract": {
+    "data": {
+      "_action_state": {
+        "approve": {
+          "enabled": false,
+          "kind": "permission",
+          "metadata": {
+            "workspace": "legal"
+          },
+          "permission": "admin.content.approve",
+          "reason": "You need approval permission for this workspace.",
+          "reason_code": "PERMISSION_DENIED",
+          "severity": "error"
+        },
+        "delete": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "agreement_count": 2,
+            "agreement_statuses": [
+              "sent",
+              "completed"
+            ]
+          },
+          "reason": "Document is used by 2 active agreements.",
+          "reason_code": "RESOURCE_IN_USE",
+          "remediation": {
+            "href": "/admin/esign_agreements?document_id=doc_123",
+            "kind": "link",
+            "label": "View agreements"
+          },
+          "severity": "warning"
+        },
+        "publish": {
+          "enabled": false,
+          "kind": "workflow",
+          "metadata": {
+            "current_status": "draft",
+            "required_status": "approved"
+          },
+          "reason": "Only approved documents can be published.",
+          "reason_code": "INVALID_STATUS",
+          "severity": "info"
+        },
+        "submit_for_approval": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "missing_fields_by_locale": {
+              "fr": [
+                "title",
+                "summary"
+              ]
+            },
+            "missing_locales": [
+              "fr"
+            ]
+          },
+          "reason": "Add the missing French translation fields before submitting.",
+          "reason_code": "TRANSLATION_MISSING",
+          "remediation": {
+            "href": "/admin/translations/families/tg_doc_123?locale=fr",
+            "kind": "link",
+            "label": "Open translation family"
+          },
+          "severity": "warning"
+        }
+      },
+      "id": "doc_123",
+      "title": "Master Services Agreement"
+    },
+    "schema": {
+      "actions": [
+        {
+          "label": "Submit for approval",
+          "name": "submit_for_approval",
+          "scope": "detail"
+        },
+        {
+          "label": "Publish",
+          "name": "publish",
+          "scope": "detail"
+        },
+        {
+          "label": "Approve",
+          "name": "approve",
+          "permission": "admin.content.approve",
+          "scope": "detail"
+        },
+        {
+          "label": "Delete",
+          "name": "delete",
+          "scope": "detail"
+        }
+      ]
+    }
+  },
+  "row_contract": {
+    "record": {
+      "_action_state": {
+        "approve": {
+          "enabled": false,
+          "kind": "permission",
+          "metadata": {
+            "workspace": "legal"
+          },
+          "permission": "admin.content.approve",
+          "reason": "You need approval permission for this workspace.",
+          "reason_code": "PERMISSION_DENIED",
+          "severity": "error"
+        },
+        "delete": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "agreement_count": 2,
+            "agreement_statuses": [
+              "sent",
+              "completed"
+            ]
+          },
+          "reason": "Document is used by 2 active agreements.",
+          "reason_code": "RESOURCE_IN_USE",
+          "remediation": {
+            "href": "/admin/esign_agreements?document_id=doc_123",
+            "kind": "link",
+            "label": "View agreements"
+          },
+          "severity": "warning"
+        },
+        "publish": {
+          "enabled": false,
+          "kind": "workflow",
+          "metadata": {
+            "current_status": "draft",
+            "required_status": "approved"
+          },
+          "reason": "Only approved documents can be published.",
+          "reason_code": "INVALID_STATUS",
+          "severity": "info"
+        },
+        "submit_for_approval": {
+          "enabled": false,
+          "kind": "business_rule",
+          "metadata": {
+            "missing_fields_by_locale": {
+              "fr": [
+                "title",
+                "summary"
+              ]
+            },
+            "missing_locales": [
+              "fr"
+            ]
+          },
+          "reason": "Add the missing French translation fields before submitting.",
+          "reason_code": "TRANSLATION_MISSING",
+          "remediation": {
+            "href": "/admin/translations/families/tg_doc_123?locale=fr",
+            "kind": "link",
+            "label": "Open translation family"
+          },
+          "severity": "warning"
+        }
+      },
+      "id": "doc_123",
+      "title": "Master Services Agreement"
+    },
+    "schema": {
+      "actions": [
+        {
+          "label": "Submit for approval",
+          "name": "submit_for_approval",
+          "scope": "row"
+        },
+        {
+          "label": "Publish",
+          "name": "publish",
+          "scope": "row"
+        },
+        {
+          "label": "Approve",
+          "name": "approve",
+          "permission": "admin.content.approve",
+          "scope": "row"
+        },
+        {
+          "label": "Delete",
+          "name": "delete",
+          "scope": "row"
+        }
+      ]
+    }
+  },
+  "schema_version": 1
+}
