@@ -2094,6 +2094,8 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 		record.EffectID = uuid.NewString()
 	}
 	record.Kind = strings.TrimSpace(record.Kind)
+	record.GroupType = strings.TrimSpace(record.GroupType)
+	record.GroupID = normalizeRelationalID(record.GroupID)
 	record.SubjectType = strings.TrimSpace(record.SubjectType)
 	record.SubjectID = normalizeRelationalID(record.SubjectID)
 	if record.Kind == "" {
@@ -2128,6 +2130,12 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 		}
 		if record.GuardPolicy == "" {
 			record.GuardPolicy = current.GuardPolicy
+		}
+		if record.GroupType == "" {
+			record.GroupType = current.GroupType
+		}
+		if record.GroupID == "" {
+			record.GroupID = current.GroupID
 		}
 		if record.DispatchID == "" {
 			record.DispatchID = current.DispatchID
@@ -2167,7 +2175,7 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 		}
 		if _, err := s.tx.NewUpdate().
 			Model(&relationalGuardedEffectModel{GuardedEffectRecord: stores.GuardedEffectRecord{Record: record}}).
-			Column("kind", "subject_type", "subject_id", "idempotency_key", "correlation_id", "status", "attempt_count", "max_attempts", "guard_policy", "prepare_payload_json", "dispatch_payload_json", "result_payload_json", "error_json", "dispatch_id", "created_at", "updated_at", "dispatched_at", "finalized_at", "aborted_at", "retry_at").
+			Column("kind", "group_type", "group_id", "subject_type", "subject_id", "idempotency_key", "correlation_id", "status", "attempt_count", "max_attempts", "guard_policy", "prepare_payload_json", "dispatch_payload_json", "result_payload_json", "error_json", "dispatch_id", "created_at", "updated_at", "dispatched_at", "finalized_at", "aborted_at", "retry_at").
 			Where("tenant_id = ?", scope.TenantID).
 			Where("org_id = ?", scope.OrgID).
 			Where("effect_id = ?", record.EffectID).

@@ -76,6 +76,40 @@ func TestEnsureRuntimeParityColumnsSQLiteBackfillsEmailLogUpdatedAt(t *testing.T
 	}
 
 	if _, err := sqlDB.ExecContext(context.Background(),
+		`INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, source_sha256, size_bytes, page_count, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"document-repair",
+		"tenant-repair",
+		"org-repair",
+		"Runtime Parity Repair",
+		"repair.pdf",
+		"tenant/tenant-repair/org/org-repair/docs/repair.pdf",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		1024,
+		1,
+		"2026-03-09T00:30:00Z",
+		"2026-03-09T00:30:00Z",
+	); err != nil {
+		t.Fatalf("insert document seed: %v", err)
+	}
+	if _, err := sqlDB.ExecContext(context.Background(),
+		`INSERT INTO agreements (id, tenant_id, org_id, document_id, status, title, message, version, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"agreement-repair",
+		"tenant-repair",
+		"org-repair",
+		"document-repair",
+		"sent",
+		"Repair Agreement",
+		"",
+		1,
+		"2026-03-09T00:45:00Z",
+		"2026-03-09T00:45:00Z",
+	); err != nil {
+		t.Fatalf("insert agreement seed: %v", err)
+	}
+
+	if _, err := sqlDB.ExecContext(context.Background(),
 		`INSERT INTO email_logs (id, tenant_id, org_id, agreement_id, template_code, status, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		"log-repair-1",

@@ -348,6 +348,7 @@ type ResendResult struct {
 	Recipient       stores.RecipientRecord
 	ActiveRecipient stores.RecipientRecord
 	Token           stores.IssuedSigningToken
+	Effects         []AgreementNotificationEffectDetail
 }
 
 type agreementNotificationEffectPreparePayload struct {
@@ -973,6 +974,8 @@ func (s AgreementService) prepareAgreementNotificationEffect(
 		TenantID:            strings.TrimSpace(scope.TenantID),
 		OrgID:               strings.TrimSpace(scope.OrgID),
 		Kind:                strings.TrimSpace(kind),
+		GroupType:           GuardedEffectGroupTypeAgreement,
+		GroupID:             strings.TrimSpace(notification.AgreementID),
 		SubjectType:         "agreement_recipient_notification",
 		SubjectID:           strings.TrimSpace(notification.RecipientID),
 		IdempotencyKey:      effectKey,
@@ -1182,7 +1185,6 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		}
 		outboxStartedAt := time.Now()
 		enqueuedCount := 0
-		firstEffectID := ""
 		for _, activeSigner := range activeSigners {
 			issued := pendingByRecipient[activeSigner.ID]
 			notification := AgreementNotification{
@@ -1192,7 +1194,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				Type:          NotificationSigningInvitation,
 				Token:         issued,
 			}
-			effect, replayed, effectErr := txSvc.prepareAgreementNotificationEffect(
+			_, replayed, effectErr := txSvc.prepareAgreementNotificationEffect(
 				ctx,
 				scope,
 				GuardedEffectKindAgreementSendInvitation,
@@ -1208,19 +1210,11 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				}))
 				return effectErr
 			}
-			if firstEffectID == "" {
-				firstEffectID = strings.TrimSpace(effect.EffectID)
-			}
 			if !replayed {
 				enqueuedCount++
 			}
 		}
-		transitioned, err = txSvc.agreements.UpdateAgreementDeliveryState(ctx, scope, transitioned.ID, stores.AgreementDeliveryStatePatch{
-			DeliveryStatus:        ptrString(guardedeffects.StatusPrepared),
-			DeliveryEffectID:      ptrString(firstEffectID),
-			LastDeliveryError:     ptrString(""),
-			LastDeliveryAttemptAt: agreementTimePtr(txSvc.now()),
-		})
+		transitioned, _, err = ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, transitioned.ID)
 		if err != nil {
 			return err
 		}
@@ -1446,7 +1440,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			Type:          NotificationSigningReminder,
 			Token:         issued,
 		}
-		effect, _, err := txSvc.prepareAgreementNotificationEffect(
+		_, _, err = txSvc.prepareAgreementNotificationEffect(
 			ctx,
 			scope,
 			GuardedEffectKindAgreementResendReminder,
@@ -1457,12 +1451,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err != nil {
 			return err
 		}
-		agreement, err = txSvc.agreements.UpdateAgreementDeliveryState(ctx, scope, agreement.ID, stores.AgreementDeliveryStatePatch{
-			DeliveryStatus:        ptrString(guardedeffects.StatusPrepared),
-			DeliveryEffectID:      ptrString(effect.EffectID),
-			LastDeliveryError:     ptrString(""),
-			LastDeliveryAttemptAt: agreementTimePtr(txSvc.now()),
-		})
+		agreement, summary, err := ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, agreement.ID)
 		if err != nil {
 			return err
 		}
@@ -1477,6 +1466,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			Recipient:       target,
 			ActiveRecipient: activeSigners[0],
 			Token:           issued,
+			Effects:         append([]AgreementNotificationEffectDetail{}, summary.Effects...),
 		}
 		return nil
 	}); err != nil {

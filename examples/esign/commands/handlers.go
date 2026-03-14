@@ -27,6 +27,10 @@ type AgreementLifecycleService interface {
 	Resend(ctx context.Context, scope stores.Scope, agreementID string, input services.ResendInput) (services.ResendResult, error)
 }
 
+type AgreementNotificationEffectsReader interface {
+	ListAgreementNotificationEffects(ctx context.Context, scope stores.Scope, agreementID string) ([]services.AgreementNotificationEffectDetail, error)
+}
+
 // TokenRotator captures explicit token rotation behavior.
 type TokenRotator interface {
 	Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
@@ -56,8 +60,14 @@ type PDFRemediationCommandService interface {
 	Remediate(ctx context.Context, scope stores.Scope, input services.PDFRemediationRequest) (services.PDFRemediationResult, error)
 }
 
+type GuardedEffectRecoveryService interface {
+	ResumeEffect(ctx context.Context, scope stores.Scope, effectID string, input services.GuardedEffectResumeInput) (services.GuardedEffectResumeResult, error)
+	ResumeAgreementDelivery(ctx context.Context, scope stores.Scope, agreementID string, input services.AgreementDeliveryResumeInput) (services.AgreementDeliveryResumeResult, error)
+}
+
 type registerOptions struct {
-	remediation PDFRemediationCommandService
+	remediation    PDFRemediationCommandService
+	effectRecovery GuardedEffectRecoveryService
 }
 
 // RegisterOption customizes command registration behavior.
@@ -70,6 +80,15 @@ func WithPDFRemediationService(service PDFRemediationCommandService) RegisterOpt
 			return
 		}
 		opts.remediation = service
+	}
+}
+
+func WithGuardedEffectRecoveryService(service GuardedEffectRecoveryService) RegisterOption {
+	return func(opts *registerOptions) {
+		if opts == nil {
+			return
+		}
+		opts.effectRecovery = service
 	}
 }
 
@@ -102,6 +121,21 @@ func Register(
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &AgreementResendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
 		return err
+	}
+	if opts.effectRecovery != nil {
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementDeliveryResumeCommand{
+			recovery:     opts.effectRecovery,
+			defaultScope: defaultScope,
+			projector:    projector,
+		}); err != nil {
+			return err
+		}
+		if _, err := coreadmin.RegisterCommand(bus, &GuardedEffectResumeCommand{
+			recovery:     opts.effectRecovery,
+			defaultScope: defaultScope,
+		}); err != nil {
+			return err
+		}
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector}); err != nil {
 		return err
@@ -201,7 +235,7 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 		})
 		return err
 	}
-	storeAgreementQueuedResponse(ctx, agreement, correlationID)
+	storeAgreementQueuedResponse(ctx, agreement, correlationID, agreementNotificationEffects(ctx, c.agreements, scope, agreement.ID))
 	observability.ObserveSend(ctx, time.Since(startedAt), true)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_send", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementSend,
@@ -334,7 +368,11 @@ func (c *AgreementResendCommand) Execute(ctx context.Context, msg AgreementResen
 		})
 		return err
 	}
-	storeAgreementQueuedResponse(ctx, result.Agreement, correlationID)
+	effects := append([]services.AgreementNotificationEffectDetail{}, result.Effects...)
+	if len(effects) == 0 {
+		effects = agreementNotificationEffects(ctx, c.agreements, scope, result.Agreement.ID)
+	}
+	storeAgreementQueuedResponse(ctx, result.Agreement, correlationID, effects)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_resend", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementResend,
 		"agreement_id": strings.TrimSpace(result.Agreement.ID),
@@ -342,7 +380,29 @@ func (c *AgreementResendCommand) Execute(ctx context.Context, msg AgreementResen
 	return nil
 }
 
-func storeAgreementQueuedResponse(ctx context.Context, agreement stores.AgreementRecord, correlationID string) {
+func agreementNotificationEffects(
+	ctx context.Context,
+	service AgreementLifecycleService,
+	scope stores.Scope,
+	agreementID string,
+) []services.AgreementNotificationEffectDetail {
+	reader, ok := service.(AgreementNotificationEffectsReader)
+	if !ok || reader == nil {
+		return nil
+	}
+	effects, err := reader.ListAgreementNotificationEffects(ctx, scope, agreementID)
+	if err != nil {
+		return nil
+	}
+	return append([]services.AgreementNotificationEffectDetail{}, effects...)
+}
+
+func storeAgreementQueuedResponse(
+	ctx context.Context,
+	agreement stores.AgreementRecord,
+	correlationID string,
+	effects []services.AgreementNotificationEffectDetail,
+) {
 	collector := coreadmin.ActionResponseCollectorFromContext(ctx)
 	if collector == nil {
 		return
@@ -355,6 +415,20 @@ func storeAgreementQueuedResponse(ctx context.Context, agreement stores.Agreemen
 		"status":         strings.TrimSpace(agreement.DeliveryStatus),
 		"correlation_id": strings.TrimSpace(correlationID),
 	}
+	effectIDs := make([]string, 0, len(effects))
+	statusURLs := make([]string, 0, len(effects))
+	for _, effect := range effects {
+		effectID := strings.TrimSpace(effect.EffectID)
+		if effectID == "" {
+			continue
+		}
+		effectIDs = append(effectIDs, effectID)
+		statusURLs = append(statusURLs, "/admin/api/v1/esign/effects/"+effectID)
+	}
+	if len(effectIDs) > 0 {
+		data["effect_ids"] = effectIDs
+		data["status_urls"] = statusURLs
+	}
 	if effectID := strings.TrimSpace(agreement.DeliveryEffectID); effectID != "" {
 		data["status_url"] = "/admin/api/v1/esign/effects/" + effectID
 	}
@@ -362,6 +436,87 @@ func storeAgreementQueuedResponse(ctx context.Context, agreement stores.Agreemen
 		StatusCode: http.StatusAccepted,
 		Data:       data,
 	})
+}
+
+type AgreementDeliveryResumeCommand struct {
+	recovery     GuardedEffectRecoveryService
+	defaultScope stores.Scope
+	projector    AgreementActivityProjector
+}
+
+var _ gocommand.Commander[AgreementDeliveryResumeInput] = (*AgreementDeliveryResumeCommand)(nil)
+
+func (c *AgreementDeliveryResumeCommand) Execute(ctx context.Context, msg AgreementDeliveryResumeInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.AgreementID, CommandAgreementDeliveryResume)
+	if c == nil || c.recovery == nil {
+		return fmt.Errorf("agreement delivery resume command not configured")
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	result, err := c.recovery.ResumeAgreementDelivery(ctx, scope, strings.TrimSpace(msg.AgreementID), services.AgreementDeliveryResumeInput{
+		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		CorrelationID: strings.TrimSpace(correlationID),
+	})
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_delivery_resume", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementDeliveryResume,
+			"agreement_id": strings.TrimSpace(msg.AgreementID),
+		})
+		return err
+	}
+	if err := projectAgreementActivity(ctx, c.projector, scope, result.Agreement.ID); err != nil {
+		return err
+	}
+	storeAgreementQueuedResponse(ctx, result.Agreement, correlationID, result.Effects)
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_delivery_resume", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementDeliveryResume,
+		"agreement_id": strings.TrimSpace(result.Agreement.ID),
+	})
+	return nil
+}
+
+type GuardedEffectResumeCommand struct {
+	recovery     GuardedEffectRecoveryService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[GuardedEffectResumeInput] = (*GuardedEffectResumeCommand)(nil)
+
+func (c *GuardedEffectResumeCommand) Execute(ctx context.Context, msg GuardedEffectResumeInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.EffectID, CommandGuardedEffectResume)
+	if c == nil || c.recovery == nil {
+		return fmt.Errorf("guarded effect resume command not configured")
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	_, err = c.recovery.ResumeEffect(ctx, scope, strings.TrimSpace(msg.EffectID), services.GuardedEffectResumeInput{
+		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		CorrelationID: strings.TrimSpace(correlationID),
+	})
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "guarded_effect_resume", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandGuardedEffectResume,
+			"effect_id":    strings.TrimSpace(msg.EffectID),
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "guarded_effect_resume", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandGuardedEffectResume,
+		"effect_id":    strings.TrimSpace(msg.EffectID),
+	})
+	return nil
 }
 
 // TokenRotateCommand dispatches explicit token rotation transitions.
@@ -850,6 +1005,28 @@ func resolveCommandRequestIP(ctx context.Context) string {
 			),
 		); resolved != "" {
 			return resolved
+		}
+	}
+	return ""
+}
+
+func resolveCommandActorID(ctx context.Context) string {
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if id := strings.TrimSpace(actor.ActorID); id != "" {
+			return id
+		}
+		if id := strings.TrimSpace(fmt.Sprint(actor.Metadata["user_id"])); id != "" && id != "<nil>" {
+			return id
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
 		}
 	}
 	return ""

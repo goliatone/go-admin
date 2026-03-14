@@ -93,6 +93,42 @@ func (m AgreementResendInput) ResendInput() services.ResendInput {
 	}
 }
 
+type AgreementDeliveryResumeInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ActorID       string
+	CorrelationID string
+}
+
+func (AgreementDeliveryResumeInput) Type() string {
+	return CommandAgreementDeliveryResume
+}
+
+func (m AgreementDeliveryResumeInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	return nil
+}
+
+type GuardedEffectResumeInput struct {
+	Scope         stores.Scope
+	EffectID      string
+	ActorID       string
+	CorrelationID string
+}
+
+func (GuardedEffectResumeInput) Type() string {
+	return CommandGuardedEffectResume
+}
+
+func (m GuardedEffectResumeInput) Validate() error {
+	if strings.TrimSpace(m.EffectID) == "" {
+		return fmt.Errorf("effect_id required")
+	}
+	return nil
+}
+
 // TokenRotateInput captures payload for explicit token-rotation actions.
 type TokenRotateInput struct {
 	Scope         stores.Scope

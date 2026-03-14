@@ -241,6 +241,12 @@ func TestDocumentPanelRepositoryDeleteRejectsReferencedDocument(t *testing.T) {
 	if !goerrors.As(err, &typedErr) || typedErr == nil {
 		t.Fatalf("expected typed validation error, got %T", err)
 	}
+	if got := strings.TrimSpace(typedErr.TextCode); got != coreadmin.TextCodeResourceInUse {
+		t.Fatalf("expected text_code %q, got %q (%v)", coreadmin.TextCodeResourceInUse, got, err)
+	}
+	if got := strings.TrimSpace(typedErr.Message); got != "document cannot be deleted while attached to agreements" {
+		t.Fatalf("expected canonical message, got %q (%v)", got, err)
+	}
 	if got := strings.TrimSpace(toString(typedErr.Metadata["reason"])); got != "in use by agreements" {
 		t.Fatalf("expected in-use metadata reason, got %q (%v)", got, err)
 	}

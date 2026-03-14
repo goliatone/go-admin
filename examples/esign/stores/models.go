@@ -975,6 +975,8 @@ type RemediationDispatchRecord struct {
 type GuardedEffectQuery struct {
 	SubjectType string
 	SubjectID   string
+	GroupType   string
+	GroupID     string
 	Kind        string
 	Status      string
 	Limit       int

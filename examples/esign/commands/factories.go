@@ -20,6 +20,9 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementResend, buildAgreementResendInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementDeliveryResume, buildAgreementDeliveryResumeInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSweep, buildAgreementReminderSweepInput); err != nil {
 		return err
 	}
@@ -39,6 +42,9 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 		return err
 	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandTokenRotate, buildTokenRotateInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandGuardedEffectResume, buildGuardedEffectResumeInput); err != nil {
 		return err
 	}
 	return coreadmin.RegisterMessageFactory(bus, CommandDraftCleanup, buildDraftCleanupInput)
@@ -93,6 +99,43 @@ func buildAgreementResendInput(payload map[string]any, ids []string) (AgreementR
 		AllowOutOfOrder:    boolWithDefault(payloadValue(payload, "allow_out_of_order"), false),
 		IdempotencyKey:     strings.TrimSpace(toString(payloadValue(payload, "idempotency_key"))),
 		CorrelationID:      strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementDeliveryResumeInput(payload map[string]any, ids []string) (AgreementDeliveryResumeInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementDeliveryResumeInput{}, err
+	}
+	msg := AgreementDeliveryResumeInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildGuardedEffectResumeInput(payload map[string]any, ids []string) (GuardedEffectResumeInput, error) {
+	effectID := ""
+	if len(ids) > 0 {
+		effectID = strings.TrimSpace(ids[0])
+	}
+	if effectID == "" {
+		effectID = strings.TrimSpace(toString(payloadValue(payload, "effect_id")))
+	}
+	msg := GuardedEffectResumeInput{
+		Scope:         scopeFromPayload(payload),
+		EffectID:      effectID,
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err

@@ -1083,6 +1083,130 @@ func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
 	}
 }
 
+func TestAgreementServiceSendQueuesGroupedEffectsForParallelSigners(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	svc := NewAgreementService(store,
+		WithAgreementTokenService(tokenService),
+		WithAgreementNotificationOutbox(store),
+	)
+
+	for _, email := range []string{"parallel-a@example.com", "parallel-b@example.com"} {
+		signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+			Email:        stringPtr(email),
+			Role:         stringPtr(stores.RecipientRoleSigner),
+			SigningOrder: primitives.Int(1),
+		}, 0)
+		if err != nil {
+			t.Fatalf("UpsertRecipientDraft %s: %v", email, err)
+		}
+		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  primitives.Int(1),
+			Required:    boolPtr(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft %s: %v", signer.ID, err)
+		}
+	}
+
+	sent, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "parallel-send"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if sent.DeliveryStatus != guardedeffects.StatusPrepared {
+		t.Fatalf("expected prepared delivery status, got %q", sent.DeliveryStatus)
+	}
+	effects, err := svc.ListAgreementNotificationEffects(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementNotificationEffects: %v", err)
+	}
+	if len(effects) != 2 {
+		t.Fatalf("expected 2 notification effects, got %+v", effects)
+	}
+	for _, effect := range effects {
+		if effect.GroupType != GuardedEffectGroupTypeAgreement || effect.GroupID != agreement.ID {
+			t.Fatalf("expected grouped effect for agreement %q, got %+v", agreement.ID, effect)
+		}
+		if effect.Status != guardedeffects.StatusPrepared {
+			t.Fatalf("expected prepared effect, got %+v", effect)
+		}
+	}
+}
+
+func TestAgreementNotificationRecoveryServiceResumeEffectReusesEffectIDAndRefreshesToken(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	initial, err := tokenService.IssuePending(ctx, scope, agreement.ID, "recipient-1")
+	if err != nil {
+		t.Fatalf("IssuePending: %v", err)
+	}
+	preparePayload, err := json.Marshal(agreementNotificationEffectPreparePayload{
+		AgreementID:       agreement.ID,
+		RecipientID:       "recipient-1",
+		PendingTokenID:    initial.Record.ID,
+		Notification:      string(NotificationSigningInvitation),
+		FailureAuditEvent: AgreementSendNotificationFailedAuditEvent,
+	})
+	if err != nil {
+		t.Fatalf("Marshal prepare payload: %v", err)
+	}
+	effect, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+		EffectID:           "effect-dead-lettered",
+		Kind:               GuardedEffectKindAgreementSendInvitation,
+		GroupType:          GuardedEffectGroupTypeAgreement,
+		GroupID:            agreement.ID,
+		SubjectType:        "agreement_recipient_notification",
+		SubjectID:          "recipient-1",
+		Status:             guardedeffects.StatusDeadLettered,
+		CorrelationID:      "corr-original",
+		PreparePayloadJSON: string(preparePayload),
+		ErrorJSON:          "provider failed permanently",
+		CreatedAt:          time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC),
+		UpdatedAt:          time.Date(2026, 3, 1, 10, 5, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("SaveGuardedEffect: %v", err)
+	}
+	recovery := NewAgreementNotificationRecoveryService(store, tokenService)
+
+	result, err := recovery.ResumeEffect(ctx, scope, effect.EffectID, GuardedEffectResumeInput{
+		ActorID:       "ops-user",
+		CorrelationID: "corr-resume",
+	})
+	if err != nil {
+		t.Fatalf("ResumeEffect: %v", err)
+	}
+	if result.Effect.EffectID != effect.EffectID {
+		t.Fatalf("expected same effect id %q, got %+v", effect.EffectID, result)
+	}
+	if result.Effect.Status != guardedeffects.StatusPrepared {
+		t.Fatalf("expected prepared resumed effect, got %+v", result.Effect)
+	}
+	resumed, err := store.GetGuardedEffect(ctx, effect.EffectID)
+	if err != nil {
+		t.Fatalf("GetGuardedEffect: %v", err)
+	}
+	payload := agreementNotificationPayload(resumed)
+	if payload.PendingTokenID == "" || payload.PendingTokenID == initial.Record.ID {
+		t.Fatalf("expected new pending token id, got %+v", payload)
+	}
+	initialRecord, err := store.GetSigningToken(ctx, scope, initial.Record.ID)
+	if err != nil {
+		t.Fatalf("GetSigningToken initial: %v", err)
+	}
+	if initialRecord.Status != stores.SigningTokenStatusAborted {
+		t.Fatalf("expected initial token aborted, got %+v", initialRecord)
+	}
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 1 {
+		t.Fatalf("expected one outbox message, got %+v", outbox)
+	}
+}
+
 func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)

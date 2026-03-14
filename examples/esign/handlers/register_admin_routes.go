@@ -64,6 +64,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"admin_document_remediate":          routes.AdminDocumentRemediate,
 				"admin_remediation_dispatch_status": routes.AdminRemediationDispatchStatus,
 				"admin_guarded_effect_status":       routes.AdminGuardedEffectStatus,
+				"admin_guarded_effect_resume":       routes.AdminGuardedEffectResume,
 				"signer_session":                    routes.SignerSession,
 				"signer_consent":                    routes.SignerConsent,
 				"signer_field_values":               routes.SignerFieldValues,
@@ -352,31 +353,89 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"effect_id": effectID,
 			})
 		}
+		detail := services.AgreementNotificationEffectDetailFromRecord(record)
 		return c.JSON(http.StatusOK, map[string]any{
 			"status": "ok",
 			"effect": map[string]any{
-				"effect_id":       strings.TrimSpace(record.EffectID),
-				"kind":            strings.TrimSpace(record.Kind),
-				"subject_type":    strings.TrimSpace(record.SubjectType),
-				"subject_id":      strings.TrimSpace(record.SubjectID),
-				"status":          strings.TrimSpace(record.Status),
-				"guard_policy":    strings.TrimSpace(record.GuardPolicy),
-				"attempt_count":   record.AttemptCount,
-				"max_attempts":    record.MaxAttempts,
-				"dispatch_id":     stableString(record.DispatchID),
-				"correlation_id":  stableString(record.CorrelationID),
-				"created_at":      formatTime(&record.CreatedAt),
-				"updated_at":      formatTime(&record.UpdatedAt),
-				"dispatched_at":   formatTime(record.DispatchedAt),
-				"finalized_at":    formatTime(record.FinalizedAt),
-				"aborted_at":      formatTime(record.AbortedAt),
-				"retry_at":        formatTime(record.RetryAt),
-				"result_payload":  stableString(record.ResultPayloadJSON),
-				"error_payload":   stableString(record.ErrorJSON),
-				"prepare_payload": stableString(record.PreparePayloadJSON),
+				"effect_id":        strings.TrimSpace(record.EffectID),
+				"group_type":       strings.TrimSpace(record.GroupType),
+				"group_id":         strings.TrimSpace(record.GroupID),
+				"kind":             strings.TrimSpace(record.Kind),
+				"subject_type":     strings.TrimSpace(record.SubjectType),
+				"subject_id":       strings.TrimSpace(record.SubjectID),
+				"recipient_id":     strings.TrimSpace(detail.RecipientID),
+				"notification":     strings.TrimSpace(detail.Notification),
+				"status":           strings.TrimSpace(record.Status),
+				"guard_policy":     strings.TrimSpace(record.GuardPolicy),
+				"attempt_count":    record.AttemptCount,
+				"max_attempts":     record.MaxAttempts,
+				"dispatch_id":      stableString(record.DispatchID),
+				"correlation_id":   stableString(record.CorrelationID),
+				"created_at":       formatTime(&record.CreatedAt),
+				"updated_at":       formatTime(&record.UpdatedAt),
+				"dispatched_at":    formatTime(record.DispatchedAt),
+				"finalized_at":     formatTime(record.FinalizedAt),
+				"aborted_at":       formatTime(record.AbortedAt),
+				"retry_at":         formatTime(record.RetryAt),
+				"resumable":        detail.Resumable,
+				"result_payload":   stableString(record.ResultPayloadJSON),
+				"error_payload":    stableString(record.ErrorJSON),
+				"prepare_payload":  stableString(record.PreparePayloadJSON),
+				"dispatch_payload": stableString(record.DispatchPayloadJSON),
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Post(routes.AdminGuardedEffectResume, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		effectID := strings.TrimSpace(c.Param("effect_id"))
+		if effectID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "effect_id is required", nil)
+		}
+		if cfg.guardedEffectRecovery == nil || cfg.guardedEffects == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "guarded effect recovery is not configured", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		record, err := cfg.guardedEffects.GetGuardedEffect(c.Context(), effectID)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusNotFound, "EFFECT_NOT_FOUND", "guarded effect not found", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		requestScope := cfg.resolveScope(c)
+		effectScope := stores.Scope{
+			TenantID: strings.TrimSpace(record.TenantID),
+			OrgID:    strings.TrimSpace(record.OrgID),
+		}
+		if scopeConflict(effectScope, requestScope) {
+			return writeAPIError(c, nil, http.StatusForbidden, string(services.ErrorCodeScopeDenied), "scope denied", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), effectID, "guarded_effect_resume")
+		result, err := cfg.guardedEffectRecovery.ResumeEffect(c.Context(), effectScope, effectID, services.GuardedEffectResumeInput{
+			ActorID:       resolveAdminUserID(c),
+			CorrelationID: correlationID,
+		})
+		if err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, "EFFECT_RESUME_FAILED", "unable to resume guarded effect", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		return c.JSON(http.StatusAccepted, map[string]any{
+			"status": "accepted",
+			"effect": map[string]any{
+				"effect_id":    strings.TrimSpace(result.Effect.EffectID),
+				"agreement_id": strings.TrimSpace(result.AgreementID),
+				"status":       strings.TrimSpace(result.Effect.Status),
+				"resumable":    result.Effect.Resumable,
+				"status_url":   strings.Replace(routes.AdminGuardedEffectStatus, ":effect_id", strings.TrimSpace(result.Effect.EffectID), 1),
+			},
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminSend))
 }
 
 func parseRemediationExecutionMode(raw string) (string, error) {

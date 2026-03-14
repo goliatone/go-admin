@@ -737,6 +737,12 @@ func listGuardedEffectRecords(ctx context.Context, idb bun.IDB, scope stores.Sco
 	if subjectID := normalizeRelationalID(query.SubjectID); subjectID != "" {
 		sel = sel.Where("subject_id = ?", subjectID)
 	}
+	if groupType := strings.TrimSpace(query.GroupType); groupType != "" {
+		sel = sel.Where("group_type = ?", groupType)
+	}
+	if groupID := normalizeRelationalID(query.GroupID); groupID != "" {
+		sel = sel.Where("group_id = ?", groupID)
+	}
 	if kind := strings.TrimSpace(query.Kind); kind != "" {
 		sel = sel.Where("kind = ?", kind)
 	}

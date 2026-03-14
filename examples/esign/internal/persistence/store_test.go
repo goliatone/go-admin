@@ -90,6 +90,15 @@ func TestStoreAdapterPreservesOptimisticLockVersionConflicts(t *testing.T) {
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-phase4-opt", OrgID: "org-phase4-opt"}
+	if _, err := adapter.Create(ctx, scope, stores.DocumentRecord{
+		ID:                 "doc-opt-lock",
+		Title:              "Phase4 Optimistic Lock Doc",
+		SourceObjectKey:    "tenant/tenant-phase4-opt/org/org-phase4-opt/docs/doc-opt-lock.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+	}); err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
 
 	agreement, err := adapter.CreateDraft(ctx, scope, stores.AgreementRecord{
 		DocumentID: "doc-opt-lock",
@@ -121,9 +130,25 @@ func TestStoreAdapterAuditEventsRemainAppendOnly(t *testing.T) {
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-phase4-audit", OrgID: "org-phase4-audit"}
+	if _, err := adapter.Create(ctx, scope, stores.DocumentRecord{
+		ID:                 "doc-phase4-audit",
+		Title:              "Phase4 Audit Doc",
+		SourceObjectKey:    "tenant/tenant-phase4-audit/org/org-phase4-audit/docs/doc-phase4-audit.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("b", 64),
+	}); err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+	agreement, err := adapter.CreateDraft(ctx, scope, stores.AgreementRecord{
+		DocumentID: "doc-phase4-audit",
+		Title:      "Phase4 Audit Agreement",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
 
 	event, err := adapter.Append(ctx, scope, stores.AuditEventRecord{
-		AgreementID: "agreement-phase4",
+		AgreementID: agreement.ID,
 		EventType:   "agreement.created",
 		ActorType:   "user",
 		ActorID:     "phase4-user",

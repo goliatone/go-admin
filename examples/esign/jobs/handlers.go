@@ -220,6 +220,7 @@ type agreementNotificationEffectPayload struct {
 type agreementNotificationEffectHandler struct {
 	scope      stores.Scope
 	agreements stores.AgreementStore
+	effects    stores.GuardedEffectStore
 	tokens     stores.SigningTokenStore
 	audits     stores.AuditEventStore
 	now        func() time.Time
@@ -237,13 +238,8 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 		}
 	}
 	now := h.now().UTC()
-	if h.agreements != nil && strings.TrimSpace(payload.AgreementID) != "" {
-		if _, err := h.agreements.UpdateAgreementDeliveryState(ctx, h.scope, payload.AgreementID, stores.AgreementDeliveryStatePatch{
-			DeliveryStatus:        stringPtr(guardedeffects.StatusFinalized),
-			DeliveryEffectID:      stringPtr(effect.EffectID),
-			LastDeliveryError:     stringPtr(""),
-			LastDeliveryAttemptAt: timePtr(now),
-		}); err != nil {
+	if h.agreements != nil && h.effects != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		if _, _, err := services.ApplyAgreementNotificationSummary(ctx, h.agreements, h.effects, h.scope, payload.AgreementID); err != nil {
 			return err
 		}
 	}
@@ -266,40 +262,36 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 	return nil
 }
 
-func (h agreementNotificationEffectHandler) Fail(ctx context.Context, effect guardedeffects.Record, result guardedeffects.DispatchResult, nextRetryAt *time.Time) error {
+func (h agreementNotificationEffectHandler) Pending(ctx context.Context, effect guardedeffects.Record, _ guardedeffects.DispatchResult) error {
 	var payload agreementNotificationEffectPayload
 	if err := json.Unmarshal([]byte(effect.PreparePayloadJSON), &payload); err != nil {
 		return err
 	}
-	now := h.now().UTC()
-	if h.agreements != nil && strings.TrimSpace(payload.AgreementID) != "" {
-		status := guardedeffects.StatusDeadLettered
-		if nextRetryAt != nil {
-			status = guardedeffects.StatusRetrying
-		}
-		if _, err := h.agreements.UpdateAgreementDeliveryState(ctx, h.scope, payload.AgreementID, stores.AgreementDeliveryStatePatch{
-			DeliveryStatus:        stringPtr(status),
-			DeliveryEffectID:      stringPtr(effect.EffectID),
-			LastDeliveryError:     stringPtr(strings.TrimSpace(result.MetadataJSON)),
-			LastDeliveryAttemptAt: timePtr(now),
-		}); err != nil {
+	if h.agreements != nil && h.effects != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		if _, _, err := services.ApplyAgreementNotificationSummary(ctx, h.agreements, h.effects, h.scope, payload.AgreementID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func stringPtr(value string) *string {
-	out := value
-	return &out
-}
-
-func timePtr(value time.Time) *time.Time {
-	if value.IsZero() {
-		return nil
+func (h agreementNotificationEffectHandler) Fail(ctx context.Context, effect guardedeffects.Record, result guardedeffects.DispatchResult, nextRetryAt *time.Time) error {
+	var payload agreementNotificationEffectPayload
+	if err := json.Unmarshal([]byte(effect.PreparePayloadJSON), &payload); err != nil {
+		return err
 	}
-	normalized := value.UTC()
-	return &normalized
+	if nextRetryAt == nil && h.tokens != nil && strings.TrimSpace(payload.PendingTokenID) != "" {
+		tokenSvc := stores.NewTokenService(h.tokens, stores.WithTokenClock(h.now))
+		if _, err := tokenSvc.AbortPending(ctx, h.scope, payload.PendingTokenID); err != nil {
+			return err
+		}
+	}
+	if h.agreements != nil && h.effects != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		if _, _, err := services.ApplyAgreementNotificationSummary(ctx, h.agreements, h.effects, h.scope, payload.AgreementID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
@@ -422,6 +414,10 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			})
 		}
 		emailInput.CompletionURL = completionURL
+	}
+
+	if err := h.markNotificationEffectDispatching(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run); err != nil {
+		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
 	}
 
 	providerMessageID, sendErr := h.emailProvider.Send(ctx, emailInput)
@@ -1088,6 +1084,7 @@ func (h Handlers) finalizeNotificationEffect(
 			agreementNotificationEffectHandler{
 				scope:      scope,
 				agreements: agreementStore,
+				effects:    effectStore,
 				tokens:     tokenStore,
 				audits:     audits,
 				now:        h.now,
@@ -1126,15 +1123,16 @@ func (h Handlers) failNotificationEffect(
 			effectID,
 			guardedeffects.SMTPAcceptedPolicy{},
 			guardedeffects.DispatchResult{
-				Outcome:    guardedeffects.OutcomeFailed,
-				DispatchID: strings.TrimSpace(run.ID),
+				Outcome:      guardedeffects.OutcomeFailed,
+				DispatchID:   strings.TrimSpace(run.ID),
 				MetadataJSON: strings.TrimSpace(cause.Error()),
-				OccurredAt: h.now().UTC(),
+				OccurredAt:   h.now().UTC(),
 			},
 			nextRetry,
 			agreementNotificationEffectHandler{
 				scope:      scope,
 				agreements: agreementStore,
+				effects:    effectStore,
 				tokens:     tokenStore,
 				audits:     audits,
 				now:        h.now,
@@ -1151,6 +1149,34 @@ func (h Handlers) failNotificationEffect(
 		return fail(h.effects, h.agreements, tokenStore, h.audits)
 	}
 	return nil
+}
+
+func (h Handlers) markNotificationEffectDispatching(
+	ctx context.Context,
+	scope stores.Scope,
+	effectID string,
+	run stores.JobRunRecord,
+) error {
+	effectID = strings.TrimSpace(effectID)
+	if effectID == "" || h.effects == nil {
+		return nil
+	}
+	mark := func(effectStore stores.GuardedEffectStore) error {
+		service := guardedeffects.NewService(guardedEffectStoreAdapter{store: effectStore}, h.now)
+		_, err := service.MarkDispatching(
+			ctx,
+			guardedeffects.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID},
+			effectID,
+			strings.TrimSpace(run.ID),
+		)
+		return err
+	}
+	if h.tx != nil {
+		return h.tx.WithTx(ctx, func(tx stores.TxStore) error {
+			return mark(tx)
+		})
+	}
+	return mark(h.effects)
 }
 
 func (h Handlers) failEmailJob(

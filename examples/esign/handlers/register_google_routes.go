@@ -18,7 +18,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -50,7 +50,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -71,7 +71,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -91,7 +91,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -111,7 +111,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -134,7 +134,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -161,7 +161,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
@@ -196,7 +196,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
 				return err
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
@@ -286,7 +286,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
 				return err
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
@@ -320,7 +320,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
 				return err
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
@@ -360,7 +360,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, err, nil)
 				return asHandlerError(err)
 			}
-			userID := resolveAdminUserID(c)
+			userID := resolveGoogleAdminUserID(c)
 			if userID == "" {
 				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 				logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
@@ -432,4 +432,8 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			return respErr
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 	}
+}
+
+func resolveGoogleAdminUserID(c router.Context) string {
+	return stableString(firstNonEmpty(resolveAdminUserID(c), c.Query("user_id")))
 }

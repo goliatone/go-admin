@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -247,7 +248,7 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 	}
 }
 
-func TestAgreementSendCommandFallsBackToResendWhenAlreadySent(t *testing.T) {
+func TestAgreementSendCommandReturnsValidationErrorWhenAlreadySent(t *testing.T) {
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
@@ -272,17 +273,21 @@ func TestAgreementSendCommandFallsBackToResendWhenAlreadySent(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 
-	if err := bus.DispatchByName(context.Background(), CommandAgreementSend, map[string]any{
+	err := bus.DispatchByName(context.Background(), CommandAgreementSend, map[string]any{
 		"agreement_id":    "agreement-1",
 		"idempotency_key": "k-send-fallback",
-	}, nil); err != nil {
-		t.Fatalf("DispatchByName send fallback: %v", err)
+	}, nil)
+	if err == nil {
+		t.Fatal("expected send to fail for non-draft agreement")
 	}
 	if agreementSvc.sentCalls != 1 {
 		t.Fatalf("expected send call count 1, got %d", agreementSvc.sentCalls)
 	}
-	if agreementSvc.resendCalls != 1 {
-		t.Fatalf("expected resend call count 1, got %d", agreementSvc.resendCalls)
+	if agreementSvc.resendCalls != 0 {
+		t.Fatalf("expected resend call count 0, got %d", agreementSvc.resendCalls)
+	}
+	if !strings.Contains(err.Error(), "esign.agreements.send") {
+		t.Fatalf("expected send command validation wrapper, got %v", err)
 	}
 }
 

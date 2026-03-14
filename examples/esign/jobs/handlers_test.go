@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -672,6 +674,98 @@ func TestHandlersPermanentEmailFailureTransitionsToTerminalFailed(t *testing.T) 
 	}
 	if failed.NextRetryAt != nil {
 		t.Fatalf("expected no next retry at terminal failure, got %+v", failed)
+	}
+}
+
+func TestHandlersTerminalNotificationFailureAbortsPendingTokenAndMarksEffectResumable(t *testing.T) {
+	ctx, scope, store, agreement, signer, _ := setupCompletedAgreement(t)
+	pipeline := newTestArtifactPipeline(t, store)
+	tokenService := stores.NewTokenService(store)
+	issued, err := tokenService.IssuePending(ctx, scope, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("IssuePending: %v", err)
+	}
+	preparePayload, err := json.Marshal(map[string]any{
+		"agreement_id":        agreement.ID,
+		"recipient_id":        signer.ID,
+		"pending_token_id":    issued.Record.ID,
+		"notification":        string(services.NotificationSigningInvitation),
+		"failure_audit_event": services.AgreementSendNotificationFailedAuditEvent,
+	})
+	if err != nil {
+		t.Fatalf("Marshal prepare payload: %v", err)
+	}
+	effect, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+		EffectID:           "effect-terminal-failure",
+		Kind:               services.GuardedEffectKindAgreementSendInvitation,
+		GroupType:          services.GuardedEffectGroupTypeAgreement,
+		GroupID:            agreement.ID,
+		SubjectType:        "agreement_recipient_notification",
+		SubjectID:          signer.ID,
+		Status:             guardedeffects.StatusPrepared,
+		PreparePayloadJSON: string(preparePayload),
+		CreatedAt:          time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
+		UpdatedAt:          time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("SaveGuardedEffect: %v", err)
+	}
+
+	currentTime := time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC)
+	handlers := NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		Effects:       store,
+		Artifacts:     store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		Audits:        store,
+		Pipeline:      pipeline,
+		EmailProvider: alwaysFailEmailProvider{},
+		RetryPolicy: RetryPolicy{
+			BaseDelay:   time.Second,
+			MaxAttempts: 1,
+		},
+		Now: func() time.Time { return currentTime },
+	})
+
+	err = handlers.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
+		Scope:         scope,
+		AgreementID:   agreement.ID,
+		RecipientID:   signer.ID,
+		EffectID:      effect.EffectID,
+		CorrelationID: "corr-email-dead-letter",
+		SignURL:       "https://example.test/sign/token-terminal",
+	})
+	if err == nil {
+		t.Fatal("expected permanent notification failure")
+	}
+
+	tokenRecord, err := store.GetSigningToken(ctx, scope, issued.Record.ID)
+	if err != nil {
+		t.Fatalf("GetSigningToken: %v", err)
+	}
+	if tokenRecord.Status != stores.SigningTokenStatusAborted {
+		t.Fatalf("expected pending token aborted, got %+v", tokenRecord)
+	}
+	failedEffect, err := store.GetGuardedEffect(ctx, effect.EffectID)
+	if err != nil {
+		t.Fatalf("GetGuardedEffect: %v", err)
+	}
+	if failedEffect.Status != guardedeffects.StatusDeadLettered {
+		t.Fatalf("expected dead-lettered effect, got %+v", failedEffect)
+	}
+	if failedEffect.AttemptCount != 1 || failedEffect.DispatchedAt == nil {
+		t.Fatalf("expected dispatch attempt recorded, got %+v", failedEffect)
+	}
+	detail, err := pipeline.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("AgreementDeliveryDetail: %v", err)
+	}
+	if detail.NotificationStatus != guardedeffects.StatusDeadLettered {
+		t.Fatalf("expected dead-lettered notification status, got %+v", detail)
+	}
+	if !detail.NotificationRecoverable {
+		t.Fatalf("expected recoverable notification detail, got %+v", detail)
 	}
 }
 

@@ -69,6 +69,7 @@ type registerConfig struct {
 	agreements            AgreementStatsService
 	auditEvents           stores.AuditEventStore
 	guardedEffects        stores.GuardedEffectStore
+	guardedEffectRecovery GuardedEffectRecoveryService
 	google                GoogleIntegrationService
 	googleImportRuns      stores.GoogleImportRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
@@ -112,6 +113,10 @@ type RemediationDispatchReceipt struct {
 // RemediationTrigger dispatches remediation command execution.
 type RemediationTrigger interface {
 	TriggerRemediation(ctx context.Context, input RemediationTriggerInput) (RemediationDispatchReceipt, error)
+}
+
+type GuardedEffectRecoveryService interface {
+	ResumeEffect(ctx context.Context, scope stores.Scope, effectID string, input services.GuardedEffectResumeInput) (services.GuardedEffectResumeResult, error)
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -491,6 +496,15 @@ func WithGuardedEffectStore(store stores.GuardedEffectStore) RegisterOption {
 			return
 		}
 		cfg.guardedEffects = store
+	}
+}
+
+func WithGuardedEffectRecoveryService(service GuardedEffectRecoveryService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.guardedEffectRecovery = service
 	}
 }
 
@@ -1068,6 +1082,11 @@ func (cfg registerConfig) logSecurityEvent(event string, fields map[string]any) 
 
 func defaultScopeResolver(c router.Context, fallback stores.Scope) stores.Scope {
 	scope := defaultActorScopeResolver(c)
+	if c != nil {
+		scope.TenantID = firstNonEmpty(c.Query("tenant_id"), scope.TenantID, fallback.TenantID)
+		scope.OrgID = firstNonEmpty(c.Query("org_id"), scope.OrgID, fallback.OrgID)
+		return scope
+	}
 	scope.TenantID = firstNonEmpty(scope.TenantID, fallback.TenantID)
 	scope.OrgID = firstNonEmpty(scope.OrgID, fallback.OrgID)
 	return scope

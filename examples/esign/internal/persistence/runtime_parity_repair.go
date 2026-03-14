@@ -79,6 +79,8 @@ func ensureSQLiteRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		{table: "email_logs", column: "correlation_id", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "email_logs", column: "next_retry_at", ddl: "TIMESTAMP NULL"},
 		{table: "email_logs", column: "updated_at", ddl: "TIMESTAMP NOT NULL DEFAULT '1970-01-01T00:00:00Z'"},
+		{table: "guarded_effects", column: "group_type", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "guarded_effects", column: "group_id", ddl: "TEXT NOT NULL DEFAULT ''"},
 
 		{table: "integration_credentials", column: "profile_json", ddl: "TEXT NOT NULL DEFAULT '{}'"},
 		{table: "integration_credentials", column: "last_used_at", ddl: "TIMESTAMP NULL"},
@@ -196,6 +198,8 @@ func ensurePostgresRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE IF EXISTS email_logs ADD COLUMN IF NOT EXISTS correlation_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS email_logs ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMP NULL`,
 		`ALTER TABLE IF EXISTS email_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT '1970-01-01T00:00:00Z'`,
+		`ALTER TABLE IF EXISTS guarded_effects ADD COLUMN IF NOT EXISTS group_type TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS guarded_effects ADD COLUMN IF NOT EXISTS group_id TEXT NOT NULL DEFAULT ''`,
 
 		`ALTER TABLE IF EXISTS integration_credentials ADD COLUMN IF NOT EXISTS profile_json TEXT NOT NULL DEFAULT '{}'`,
 		`ALTER TABLE IF EXISTS integration_credentials ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP NULL`,

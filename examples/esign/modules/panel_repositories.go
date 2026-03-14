@@ -137,7 +137,14 @@ func (r *documentPanelRepository) Create(ctx context.Context, record map[string]
 }
 
 func (r *documentPanelRepository) Update(context.Context, string, map[string]any) (map[string]any, error) {
-	return nil, fmt.Errorf("documents are immutable after upload")
+	return nil, coreadmin.NewDomainError(
+		coreadmin.TextCodePreconditionFailed,
+		"documents are immutable after upload",
+		map[string]any{
+			"entity": "documents",
+			"field":  "document",
+		},
+	)
 }
 
 func (r *documentPanelRepository) Delete(ctx context.Context, id string) error {
@@ -148,7 +155,29 @@ func (r *documentPanelRepository) Delete(ctx context.Context, id string) error {
 	if r.store == nil {
 		return fmt.Errorf("document store not configured")
 	}
-	return r.store.Delete(ctx, scope, strings.TrimSpace(id))
+	id = strings.TrimSpace(id)
+	if err := r.store.Delete(ctx, scope, id); err != nil {
+		var typedErr *goerrors.Error
+		if goerrors.As(err, &typedErr) && typedErr != nil {
+			reason := strings.ToLower(strings.TrimSpace(toString(typedErr.Metadata["reason"])))
+			entity := strings.ToLower(strings.TrimSpace(toString(typedErr.Metadata["entity"])))
+			field := strings.TrimSpace(toString(typedErr.Metadata["field"]))
+			if entity == "documents" && field == "id" && strings.Contains(reason, "in use by agreements") {
+				return coreadmin.NewDomainError(
+					coreadmin.TextCodeResourceInUse,
+					"document cannot be deleted while attached to agreements",
+					map[string]any{
+						"entity": "documents",
+						"field":  "id",
+						"id":     id,
+						"reason": strings.TrimSpace(toString(typedErr.Metadata["reason"])),
+					},
+				)
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 // ServePanelSubresource serves the source PDF for a document.
@@ -536,7 +565,14 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 }
 
 func (r *agreementPanelRepository) Delete(context.Context, string) error {
-	return fmt.Errorf("agreements cannot be deleted; use void action")
+	return coreadmin.NewDomainError(
+		coreadmin.TextCodePreconditionFailed,
+		"agreements cannot be deleted; use void action",
+		map[string]any{
+			"entity": "agreements",
+			"action": "delete",
+		},
+	)
 }
 
 func (r *agreementPanelRepository) ServePanelSubresource(ctx coreadmin.AdminContext, c router.Context, agreementID, subresource, value string) error {
@@ -830,14 +866,17 @@ func agreementRecordToMap(
 	}
 	if delivery.AgreementID != "" {
 		payload["delivery"] = map[string]any{
-			"agreement_id":           delivery.AgreementID,
-			"executed_status":        delivery.ExecutedStatus,
-			"certificate_status":     delivery.CertificateStatus,
-			"distribution_status":    delivery.DistributionStatus,
-			"executed_object_key":    delivery.ExecutedObjectKey,
-			"certificate_object_key": delivery.CertificateObjectKey,
-			"last_error":             delivery.LastError,
-			"correlation_ids":        append([]string{}, delivery.CorrelationIDs...),
+			"agreement_id":             delivery.AgreementID,
+			"executed_status":          delivery.ExecutedStatus,
+			"certificate_status":       delivery.CertificateStatus,
+			"distribution_status":      delivery.DistributionStatus,
+			"notification_status":      delivery.NotificationStatus,
+			"executed_object_key":      delivery.ExecutedObjectKey,
+			"certificate_object_key":   delivery.CertificateObjectKey,
+			"last_error":               delivery.LastError,
+			"correlation_ids":          append([]string{}, delivery.CorrelationIDs...),
+			"notification_recoverable": delivery.NotificationRecoverable,
+			"notification_effects":     append([]services.AgreementNotificationEffectDetail{}, delivery.NotificationEffects...),
 		}
 	}
 	return payload

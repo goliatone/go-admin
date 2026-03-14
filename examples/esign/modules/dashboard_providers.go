@@ -10,6 +10,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 type agreementStatsWidgetPayload struct {
@@ -89,11 +90,13 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	if dash == nil {
 		return
 	}
+	mainArea := quickstart.DefaultDashboardArea(quickstart.DashboardPlacementMain)
+	sidebarArea := quickstart.DefaultDashboardArea(quickstart.DashboardPlacementSidebar)
 
 	dash.RegisterProvider(coreadmin.DashboardProviderSpec{
 		Code:        "esign.widget.agreement_stats",
 		Name:        "E-Sign Agreement Stats",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.agreementStatsWidgetData(ctx.Context)
 		},
@@ -101,7 +104,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	dash.RegisterProvider(coreadmin.DashboardProviderSpec{
 		Code:        "esign.widget.signing_activity",
 		Name:        "E-Sign Signing Activity",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.signingActivityWidgetData(ctx.Context)
 		},
@@ -109,7 +112,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	dash.RegisterProvider(coreadmin.DashboardProviderSpec{
 		Code:        "esign.widget.delivery_health",
 		Name:        "E-Sign Delivery Health",
-		DefaultArea: "admin.dashboard.sidebar",
+		DefaultArea: sidebarArea,
 		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.deliveryHealthWidgetData(ctx.Context)
 		},
@@ -117,7 +120,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	dash.RegisterProvider(coreadmin.DashboardProviderSpec{
 		Code:        "esign.widget.pending_signatures",
 		Name:        "E-Sign Pending Signatures",
-		DefaultArea: "admin.dashboard.sidebar",
+		DefaultArea: sidebarArea,
 		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.pendingSignaturesWidgetData(ctx.Context)
 		},

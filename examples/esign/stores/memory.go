@@ -346,6 +346,8 @@ func cloneGuardedEffectRecord(record guardedeffects.Record) guardedeffects.Recor
 	record.TenantID = strings.TrimSpace(record.TenantID)
 	record.OrgID = strings.TrimSpace(record.OrgID)
 	record.Kind = strings.TrimSpace(record.Kind)
+	record.GroupType = strings.TrimSpace(record.GroupType)
+	record.GroupID = normalizeID(record.GroupID)
 	record.SubjectType = strings.TrimSpace(record.SubjectType)
 	record.SubjectID = normalizeID(record.SubjectID)
 	record.IdempotencyKey = strings.TrimSpace(record.IdempotencyKey)
@@ -1004,6 +1006,8 @@ func (s *InMemoryStore) SaveGuardedEffect(ctx context.Context, scope Scope, reco
 		record.EffectID = uuid.NewString()
 	}
 	record.SubjectID = normalizeID(record.SubjectID)
+	record.GroupType = strings.TrimSpace(record.GroupType)
+	record.GroupID = normalizeID(record.GroupID)
 	record.Kind = strings.TrimSpace(record.Kind)
 	record.SubjectType = strings.TrimSpace(record.SubjectType)
 	if record.Kind == "" {
@@ -1034,6 +1038,12 @@ func (s *InMemoryStore) SaveGuardedEffect(ctx context.Context, scope Scope, reco
 		}
 		if record.GuardPolicy == "" {
 			record.GuardPolicy = existing.GuardPolicy
+		}
+		if record.GroupType == "" {
+			record.GroupType = existing.GroupType
+		}
+		if record.GroupID == "" {
+			record.GroupID = existing.GroupID
 		}
 		if record.PreparePayloadJSON == "" {
 			record.PreparePayloadJSON = existing.PreparePayloadJSON
@@ -1122,6 +1132,8 @@ func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, que
 	}
 	subjectType := strings.TrimSpace(query.SubjectType)
 	subjectID := normalizeID(query.SubjectID)
+	groupType := strings.TrimSpace(query.GroupType)
+	groupID := normalizeID(query.GroupID)
 	kind := strings.TrimSpace(query.Kind)
 	status := strings.TrimSpace(query.Status)
 	out := make([]guardedeffects.Record, 0)
@@ -1136,6 +1148,12 @@ func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, que
 			continue
 		}
 		if subjectID != "" && record.SubjectID != subjectID {
+			continue
+		}
+		if groupType != "" && record.GroupType != groupType {
+			continue
+		}
+		if groupID != "" && record.GroupID != groupID {
 			continue
 		}
 		if kind != "" && record.Kind != kind {

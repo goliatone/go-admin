@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-auth"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -70,6 +71,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	connectReq.Header.Set("X-User-ID", "ops-user")
 	connectReq.Header.Set("X-Forwarded-Proto", "https")
 	connectReq.Host = "localhost:8082"
+	connectReq = connectReq.WithContext(auth.WithActorContext(connectReq.Context(), &auth.ActorContext{ActorID: "ops-user", Subject: "ops-user"}))
 	connectResp, err := server.WrappedRouter().Test(connectReq, -1)
 	if err != nil {
 		t.Fatalf("google connect request failed: %v", err)
@@ -87,6 +89,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	createReq.Header.Set("X-User-ID", "ops-user")
 	createReq.Header.Set("X-Forwarded-Proto", "https")
 	createReq.Host = "localhost:8082"
+	createReq = createReq.WithContext(auth.WithActorContext(createReq.Context(), &auth.ActorContext{ActorID: "ops-user", Subject: "ops-user"}))
 	createResp, err := server.WrappedRouter().Test(createReq, -1)
 	if err != nil {
 		t.Fatalf("google async import request failed: %v", err)
@@ -111,6 +114,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 		statusReq.Header.Set("X-User-ID", "ops-user")
 		statusReq.Header.Set("X-Forwarded-Proto", "https")
 		statusReq.Host = "localhost:8082"
+		statusReq = statusReq.WithContext(auth.WithActorContext(statusReq.Context(), &auth.ActorContext{ActorID: "ops-user", Subject: "ops-user"}))
 		statusResp, pollErr := server.WrappedRouter().Test(statusReq, -1)
 		if pollErr != nil {
 			t.Fatalf("status poll failed: %v", pollErr)

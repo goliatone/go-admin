@@ -25,9 +25,11 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
@@ -723,7 +725,7 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	if objectKey == "" {
 		t.Fatalf("expected object_key in upload response, got %+v", payload)
 	}
-	if !strings.HasPrefix(objectKey, "tenant/tenant-bootstrap/org/org-bootstrap/docs/") {
+	if matched, _ := regexp.MatchString(`^tenant/[^/]+/org/[^/]+/docs/`, objectKey); !matched {
 		t.Fatalf("expected tenant/org scoped object key, got %q", objectKey)
 	}
 	if strings.TrimSpace(fmt.Sprint(payload["url"])) == "" {
@@ -809,6 +811,9 @@ func TestLoadESignAuthSeedResolvesRelativeConfigPath(t *testing.T) {
 }
 
 func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
+	jobs.ResetCapturedRecipientLinks()
+	t.Cleanup(jobs.ResetCapturedRecipientLinks)
+
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
@@ -965,18 +970,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	tokenSvc := esignModule.TokenService()
-	if tokenSvc == nil {
-		t.Fatal("expected module token service")
-	}
-	issued, err := tokenSvc.Issue(context.Background(), scope, agreementID, recipientID)
-	if err != nil {
-		t.Fatalf("issue signer token: %v", err)
-	}
-	signerToken := strings.TrimSpace(issued.Token)
-	if signerToken == "" {
-		t.Fatal("expected issued signer token")
-	}
+	signerToken := waitForCapturedSignerToken(t, scope, agreementID, recipientID)
 
 	reviewPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
 	defer reviewPageResp.Body.Close()
@@ -1098,6 +1092,9 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 }
 
 func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T) {
+	jobs.ResetCapturedRecipientLinks()
+	t.Cleanup(jobs.ResetCapturedRecipientLinks)
+
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
@@ -1259,18 +1256,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	tokenSvc := esignModule.TokenService()
-	if tokenSvc == nil {
-		t.Fatal("expected module token service")
-	}
-	issued, err := tokenSvc.Issue(context.Background(), scope, agreementID, recipientID)
-	if err != nil {
-		t.Fatalf("issue signer token: %v", err)
-	}
-	signerToken := strings.TrimSpace(issued.Token)
-	if signerToken == "" {
-		t.Fatal("expected issued signer token")
-	}
+	signerToken := waitForCapturedSignerToken(t, scope, agreementID, recipientID)
 
 	entryResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
 	defer entryResp.Body.Close()
@@ -1555,6 +1541,56 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 		App:    server.WrappedRouter(),
 		Module: esignModule,
 	}, nil
+}
+
+func waitForCapturedSignerToken(t *testing.T, scope stores.Scope, agreementID, recipientID string) string {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		captured, ok := jobs.LookupCapturedRecipientLink(scope, agreementID, recipientID, "signing_invitation")
+		if ok {
+			token := signerTokenFromLink(t, captured.SignURL)
+			if token != "" {
+				return token
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	t.Fatalf("expected captured signer link for agreement=%s recipient=%s", agreementID, recipientID)
+	return ""
+}
+
+func signerTokenFromLink(t *testing.T, raw string) string {
+	t.Helper()
+
+	link := strings.TrimSpace(raw)
+	if link == "" {
+		t.Fatal("expected non-empty signer link")
+	}
+	parsed, err := url.Parse(link)
+	if err != nil {
+		t.Fatalf("parse signer link %q: %v", link, err)
+	}
+	trimmedPath := strings.Trim(strings.TrimSpace(parsed.Path), "/")
+	parts := strings.Split(trimmedPath, "/")
+	for idx := 0; idx < len(parts)-1; idx++ {
+		if parts[idx] != "sign" {
+			continue
+		}
+		token, err := url.PathUnescape(parts[idx+1])
+		if err != nil {
+			t.Fatalf("unescape signer token from %q: %v", link, err)
+		}
+		token = strings.TrimSpace(token)
+		if token == "" {
+			t.Fatalf("expected signer token in link %q", link)
+		}
+		return token
+	}
+	t.Fatalf("expected /sign/:token path in %q", link)
+	return ""
 }
 
 func extractESignPageConfigFromHTML(t *testing.T, html string) map[string]any {

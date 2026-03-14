@@ -215,6 +215,7 @@ type ArtifactPipelineService struct {
 	artifacts   stores.AgreementArtifactStore
 	jobRuns     stores.JobRunStore
 	emailLogs   stores.EmailLogStore
+	effects     stores.GuardedEffectStore
 	tx          stores.TransactionManager
 	objectStore artifactObjectStore
 	renderer    ArtifactRenderer
@@ -263,6 +264,7 @@ func NewArtifactPipelineService(
 		artifacts:  store,
 		jobRuns:    store,
 		emailLogs:  store,
+		effects:    store,
 		tx:         store,
 		renderer:   renderer,
 	}
@@ -283,6 +285,7 @@ func (s ArtifactPipelineService) forTx(tx stores.TxStore) ArtifactPipelineServic
 	txSvc.artifacts = tx
 	txSvc.jobRuns = tx
 	txSvc.emailLogs = tx
+	txSvc.effects = tx
 	return txSvc
 }
 
@@ -437,14 +440,17 @@ func (s ArtifactPipelineService) GenerateCertificateArtifact(ctx context.Context
 }
 
 type AgreementDeliveryDetail struct {
-	AgreementID          string   `json:"agreement_id"`
-	ExecutedStatus       string   `json:"executed_status"`
-	CertificateStatus    string   `json:"certificate_status"`
-	DistributionStatus   string   `json:"distribution_status"`
-	ExecutedObjectKey    string   `json:"executed_object_key,omitempty"`
-	CertificateObjectKey string   `json:"certificate_object_key,omitempty"`
-	LastError            string   `json:"last_error,omitempty"`
-	CorrelationIDs       []string `json:"correlation_ids,omitempty"`
+	AgreementID             string                              `json:"agreement_id"`
+	ExecutedStatus          string                              `json:"executed_status"`
+	CertificateStatus       string                              `json:"certificate_status"`
+	DistributionStatus      string                              `json:"distribution_status"`
+	NotificationStatus      string                              `json:"notification_status,omitempty"`
+	ExecutedObjectKey       string                              `json:"executed_object_key,omitempty"`
+	CertificateObjectKey    string                              `json:"certificate_object_key,omitempty"`
+	LastError               string                              `json:"last_error,omitempty"`
+	CorrelationIDs          []string                            `json:"correlation_ids,omitempty"`
+	NotificationRecoverable bool                                `json:"notification_recoverable"`
+	NotificationEffects     []AgreementNotificationEffectDetail `json:"notification_effects,omitempty"`
 }
 
 func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, scope stores.Scope, agreementID string) (AgreementDeliveryDetail, error) {
@@ -492,6 +498,19 @@ func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, sc
 				detail.LastError = strings.TrimSpace(log.FailureReason)
 			}
 			detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(log.CorrelationID))
+		}
+	}
+	if s.effects != nil {
+		records, err := listAgreementNotificationEffectRecords(ctx, s.effects, scope, agreementID)
+		if err != nil {
+			return detail, err
+		}
+		summary := summarizeAgreementNotificationEffects(records)
+		detail.NotificationStatus = strings.TrimSpace(summary.Status)
+		detail.NotificationRecoverable = summary.Recoverable
+		detail.NotificationEffects = append(detail.NotificationEffects, summary.Effects...)
+		if detail.LastError == "" {
+			detail.LastError = strings.TrimSpace(summary.LastError)
 		}
 	}
 	detail.CorrelationIDs = dedupeStrings(detail.CorrelationIDs)
