@@ -191,6 +191,24 @@ test('translation matrix runtime: mount renders filters, viewport controls, and 
   page.unmount();
 });
 
+test('translation matrix runtime: resolves breadcrumb base path from endpoint and uses shared neutral styling', async () => {
+  const { root } = setupDom('http://localhost/workspace/admin/translations/matrix');
+  root.dataset.endpoint = '/workspace/admin/api/translations/matrix';
+  const page = initTranslationMatrixPage(root, {
+    fetch: async () => createJsonResponse(fixtures.states.viewport, 200, {
+      'content-type': 'application/json',
+    }),
+  });
+
+  await flushAsync();
+
+  assert.ok(page);
+  assert.match(root.innerHTML, /href="\/workspace\/admin\/translations"/);
+  assert.doesNotMatch(root.innerHTML, /slate-/);
+
+  page.unmount();
+});
+
 test('translation matrix runtime: loading, empty, and error states render published affordances', async () => {
   {
     const { root } = setupDom();

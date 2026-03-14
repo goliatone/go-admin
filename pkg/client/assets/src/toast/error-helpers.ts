@@ -69,6 +69,18 @@ export interface ActionErrorResponse {
 
 export type ActionResponse = ActionSuccessResponse | ActionErrorResponse;
 
+export interface StructuredRequestResult {
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: StructuredError;
+  status: number;
+}
+
+export interface StructuredActionError extends Error {
+  structuredError?: StructuredError;
+  handled?: boolean;
+}
+
 // ============================================================================
 // Structured Error Extraction
 // ============================================================================
@@ -367,6 +379,91 @@ export function parseActionResponse(data: unknown): {
   };
 }
 
+function createNetworkStructuredError(err: unknown): StructuredError {
+  return {
+    textCode: null,
+    message: err instanceof Error ? err.message : 'Network error',
+    metadata: null,
+    fields: null,
+    validationErrors: null,
+  };
+}
+
+async function safeParseJSONRecord(response: Response): Promise<Record<string, unknown> | undefined> {
+  const bodyText = await response.text().catch(() => '');
+  if (!bodyText.trim()) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(bodyText) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Ignore parse failures for empty/non-JSON success bodies.
+  }
+  return undefined;
+}
+
+export async function executeStructuredRequest(
+  endpoint: string,
+  options: RequestInit,
+  parseSuccess?: (response: Response) => Promise<{
+    success: boolean;
+    data?: Record<string, unknown>;
+    error?: StructuredError;
+  }>
+): Promise<StructuredRequestResult> {
+  try {
+    const response = await fetch(endpoint, options);
+
+    if (!response.ok) {
+      const error = await extractStructuredError(response);
+      return { success: false, error, status: response.status };
+    }
+
+    if (parseSuccess) {
+      const parsed = await parseSuccess(response);
+      return { ...parsed, status: response.status };
+    }
+
+    const data = await safeParseJSONRecord(response);
+    return { success: true, data, status: response.status };
+  } catch (err) {
+    return {
+      success: false,
+      error: createNetworkStructuredError(err),
+      status: 0,
+    };
+  }
+}
+
+export function createStructuredActionError(
+  error: StructuredError,
+  fallbackMessage = 'Request failed',
+  handled = false
+): StructuredActionError {
+  const actionError = new Error(formatStructuredErrorForDisplay(error, fallbackMessage)) as StructuredActionError;
+  actionError.structuredError = error;
+  actionError.handled = handled;
+  return actionError;
+}
+
+export function getStructuredActionError(error: unknown): StructuredError | null {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+  const structured = (error as StructuredActionError).structuredError;
+  if (!structured || typeof structured !== 'object') {
+    return null;
+  }
+  return structured;
+}
+
+export function isHandledActionError(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as StructuredActionError).handled === true;
+}
+
 /**
  * Execute a panel action and parse the response with typed handling.
  * Handles both success and error envelopes.
@@ -380,8 +477,7 @@ export async function executeActionRequest(
   data?: Record<string, unknown>;
   error?: StructuredError;
 }> {
-  try {
-    const response = await fetch(endpoint, {
+  const result = await executeStructuredRequest(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -389,27 +485,12 @@ export async function executeActionRequest(
       },
       ...options,
       body: JSON.stringify(payload),
-    });
+    }, async (response) => parseActionResponse(await response.json()));
 
-    if (!response.ok) {
-      const error = await extractStructuredError(response);
-      return { success: false, error };
-    }
-
-    const data = await response.json();
-    return parseActionResponse(data);
-  } catch (err) {
-    return {
-      success: false,
-      error: {
-        textCode: null,
-        message: err instanceof Error ? err.message : 'Network error',
-        metadata: null,
-        fields: null,
-        validationErrors: null,
-      },
-    };
+  if (result.success) {
+    return { success: true, data: result.data };
   }
+  return { success: false, error: result.error };
 }
 
 // ============================================================================

@@ -4,23 +4,26 @@ function C(e) {
 function l(e) {
   return (typeof e == "string" ? e.trim() : "") || void 0;
 }
-function w(e) {
+function b(e) {
+  return !!e && typeof e == "object" && !Array.isArray(e);
+}
+function I(e) {
   if (!e || typeof e != "object" || Array.isArray(e))
     return null;
-  const s = e, t = l(s.label), r = l(s.href), n = l(s.kind);
-  return !t && !r && !n ? null : {
-    ...t ? { label: t } : {},
+  const t = e, s = l(t.label), r = l(t.href), n = l(t.kind);
+  return !s && !r && !n ? null : {
+    ...s ? { label: s } : {},
     ...r ? { href: r } : {},
     ...n ? { kind: n } : {}
   };
 }
-function z(e) {
+function k(e) {
   if (!Array.isArray(e))
     return;
-  const s = e.map((t) => l(t)).filter((t) => !!t);
-  return s.length > 0 ? s : void 0;
+  const t = e.map((s) => l(s)).filter((s) => !!s);
+  return t.length > 0 ? t : void 0;
 }
-function I(e) {
+function R(e) {
   return [
     "enabled",
     "reason",
@@ -31,43 +34,76 @@ function I(e) {
     "metadata",
     "remediation",
     "available_transitions"
-  ].some((s) => s in e);
+  ].some((t) => t in e);
 }
-function _(e, s = 0) {
-  return !e || s > 2 ? "" : C(e.reason_code) || C(e.textCode) || C(e.text_code) || _(e.error ?? void 0, s + 1);
+function w(e, t = 0) {
+  return !e || t > 2 ? "" : C(e.reason_code) || C(e.textCode) || C(e.text_code) || w(e.error ?? void 0, t + 1);
 }
-function A(e) {
+function S(e) {
   if (typeof e == "string")
     return e.trim().toUpperCase() || null;
   if (!e || typeof e != "object" || Array.isArray(e))
     return null;
-  const t = _(e);
-  return t ? t.toUpperCase() : null;
-}
-function M(e) {
-  if (!e || typeof e != "object" || Array.isArray(e))
-    return null;
-  const s = e;
-  if (!I(s))
-    return null;
-  const t = A({ reason_code: s.reason_code }), r = {
-    enabled: typeof s.enabled == "boolean" ? s.enabled : !1
-  }, n = l(s.reason), i = l(s.severity), c = l(s.kind), g = l(s.permission), b = s.metadata && typeof s.metadata == "object" && !Array.isArray(s.metadata) ? s.metadata : null, d = w(s.remediation), u = z(s.available_transitions);
-  return n && (r.reason = n), t && (r.reason_code = t), i && (r.severity = i), c && (r.kind = c), g && (r.permission = g), b && (r.metadata = b), d && (r.remediation = d), u && (r.available_transitions = u), r;
+  const s = w(e);
+  return s ? s.toUpperCase() : null;
 }
 function E(e) {
   if (!e || typeof e != "object" || Array.isArray(e))
-    return {};
-  const s = e, t = {};
-  for (const [r, n] of Object.entries(s)) {
-    const i = l(r), c = M(n);
-    !i || !c || (t[i] = c);
-  }
-  return t;
+    return null;
+  const t = e;
+  if (!R(t))
+    return null;
+  const s = S({ reason_code: t.reason_code }), r = {
+    enabled: typeof t.enabled == "boolean" ? t.enabled : !1
+  }, n = l(t.reason), i = l(t.severity), c = l(t.kind), g = l(t.permission), u = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, d = I(t.remediation), y = k(t.available_transitions);
+  return n && (r.reason = n), s && (r.reason_code = s), i && (r.severity = i), c && (r.kind = c), g && (r.permission = g), u && (r.metadata = u), d && (r.remediation = d), y && (r.available_transitions = y), r;
 }
-function $(e, s) {
-  const t = l(s);
-  return t && E(e._action_state)[t] || null;
+function _(e) {
+  if (!b(e))
+    return {};
+  const t = e, s = {};
+  for (const [r, n] of Object.entries(t)) {
+    const i = l(r), c = E(n);
+    !i || !c || (s[i] = c);
+  }
+  return s;
+}
+function L(e) {
+  return _(e);
+}
+function M(e) {
+  if (!b(e))
+    return null;
+  const t = _(e._action_state);
+  return Object.keys(t).length === 0 ? { ...e } : {
+    ...e,
+    _action_state: t
+  };
+}
+function $(e) {
+  if (!b(e))
+    return null;
+  const t = L(e.bulk_action_state);
+  return Object.keys(t).length === 0 ? { ...e } : {
+    ...e,
+    bulk_action_state: t
+  };
+}
+function j(e) {
+  if (!b(e))
+    return null;
+  const t = Array.isArray(e.data) ? e.data : Array.isArray(e.records) ? e.records : null, s = t && t.map((i) => M(i) ?? i), r = $(e.$meta), n = { ...e };
+  return s && (Array.isArray(e.data) && (n.data = s), Array.isArray(e.records) && (n.records = s)), r && (n.$meta = r), n;
+}
+function P(e) {
+  return b(e) ? b(e.data) ? {
+    ...e,
+    data: M(e.data)
+  } : { ...e } : null;
+}
+function U(e, t) {
+  const s = l(t);
+  return s && _(e._action_state)[s] || null;
 }
 const a = {
   check: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
@@ -130,7 +166,7 @@ const a = {
     severity: "error",
     description: "Missing translations and incomplete fields"
   }
-}, f = {
+}, m = {
   pending: {
     label: "Pending",
     colorClass: "bg-gray-100 text-gray-700",
@@ -211,7 +247,7 @@ const a = {
     severity: "neutral",
     description: "Translation archived"
   }
-}, m = {
+}, v = {
   draft: {
     label: "Draft",
     colorClass: "bg-gray-100 text-gray-700",
@@ -252,7 +288,7 @@ const a = {
     severity: "neutral",
     description: "Content archived"
   }
-}, v = {
+}, h = {
   overdue: {
     label: "Overdue",
     colorClass: "bg-red-100 text-red-700",
@@ -293,7 +329,7 @@ const a = {
     severity: "neutral",
     description: "No due date set"
   }
-}, h = {
+}, A = {
   success: {
     label: "Success",
     colorClass: "bg-green-100 text-green-700",
@@ -365,7 +401,7 @@ const a = {
     severity: "error",
     description: "Job failed"
   }
-}, y = {
+}, p = {
   TRANSLATION_MISSING: {
     message: "Required translation is missing",
     shortMessage: "Translation missing",
@@ -469,137 +505,137 @@ const a = {
     actionable: !1
   }
 };
-function p(e, s) {
-  const t = e.toLowerCase();
-  if ((!s || s === "core") && t in x)
-    return x[t];
-  if (!s || s === "queue") {
-    if (t in f)
-      return f[t];
-    if (t in m)
-      return m[t];
-    if (t in v)
-      return v[t];
+function f(e, t) {
+  const s = e.toLowerCase();
+  if ((!t || t === "core") && s in x)
+    return x[s];
+  if (!t || t === "queue") {
+    if (s in m)
+      return m[s];
+    if (s in v)
+      return v[s];
+    if (s in h)
+      return h[s];
   }
-  if (!s || s === "exchange") {
-    if (t in h)
-      return h[t];
-    if (t in T)
-      return T[t];
+  if (!t || t === "exchange") {
+    if (s in A)
+      return A[s];
+    if (s in T)
+      return T[s];
   }
   return null;
 }
-function S(e) {
-  const s = A(e);
-  return s && s in y ? y[s] : null;
+function z(e) {
+  const t = S(e);
+  return t && t in p ? p[t] : null;
 }
-function D(e) {
-  const s = A(e);
-  return s && s in y ? y[s] : null;
+function V(e) {
+  const t = S(e);
+  return t && t in p ? p[t] : null;
 }
-function N(e, s) {
-  return p(e, s) !== null;
+function H(e, t) {
+  return f(e, t) !== null;
 }
-function O(e) {
-  return S(e) !== null;
+function B(e) {
+  return z(e) !== null;
 }
-function j(e) {
+function F(e) {
   switch (e) {
     case "core":
       return Object.keys(x);
     case "queue":
       return [
-        ...Object.keys(f),
         ...Object.keys(m),
-        ...Object.keys(v)
+        ...Object.keys(v),
+        ...Object.keys(h)
       ];
     case "exchange":
       return [
-        ...Object.keys(h),
+        ...Object.keys(A),
         ...Object.keys(T)
       ];
     default:
       return [];
   }
 }
-function P() {
-  return Object.keys(y);
+function q() {
+  return Object.keys(p);
 }
-function U(e, s) {
-  return p(e, s) ? `status-${e.toLowerCase()}` : "";
+function Y(e, t) {
+  return f(e, t) ? `status-${e.toLowerCase()}` : "";
 }
-function V(e, s) {
-  const t = p(e, s);
-  return t ? `severity-${t.severity}` : "";
+function G(e, t) {
+  const s = f(e, t);
+  return s ? `severity-${s.severity}` : "";
 }
-function R(e, s = {}) {
-  const t = p(e, s.domain);
-  if (!t)
+function D(e, t = {}) {
+  const s = f(e, t.domain);
+  if (!s)
     return `<span class="inline-flex items-center px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">${o(e)}</span>`;
-  const { size: r = "default", showIcon: n = !0, showLabel: i = !0, extraClass: c = "" } = s, g = {
+  const { size: r = "default", showIcon: n = !0, showLabel: i = !0, extraClass: c = "" } = t, g = {
     xs: "px-1.5 py-0.5 text-[10px]",
     sm: "px-2 py-0.5 text-xs",
     default: "px-2.5 py-1 text-xs"
-  }, b = n ? k(t, r) : "", d = i ? `<span>${o(t.label)}</span>` : "";
-  return `<span class="inline-flex items-center ${n && i ? "gap-1" : ""} rounded font-medium ${g[r]} ${t.colorClass} ${c}"
-                title="${o(t.description || t.label)}"
-                aria-label="${o(t.label)}"
+  }, u = n ? N(s, r) : "", d = i ? `<span>${o(s.label)}</span>` : "";
+  return `<span class="inline-flex items-center ${n && i ? "gap-1" : ""} rounded font-medium ${g[r]} ${s.colorClass} ${c}"
+                title="${o(s.description || s.label)}"
+                aria-label="${o(s.label)}"
                 data-status="${o(e)}">
-    ${b}${d}
+    ${u}${d}
   </span>`;
 }
-function k(e, s = "default") {
-  const t = {
+function N(e, t = "default") {
+  const s = {
     xs: "w-3 h-3",
     sm: "w-3.5 h-3.5",
     default: "w-4 h-4"
   };
-  return e.iconType === "char" ? `<span class="${t[s]} inline-flex items-center justify-center" aria-hidden="true">${e.icon}</span>` : `<svg class="${t[s]}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+  return e.iconType === "char" ? `<span class="${s[t]} inline-flex items-center justify-center" aria-hidden="true">${e.icon}</span>` : `<svg class="${s[t]}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
     <path fill-rule="evenodd" d="${e.icon}" clip-rule="evenodd"/>
   </svg>`;
 }
-function L(e, s = {}) {
-  const t = S(e);
-  if (!t)
+function O(e, t = {}) {
+  const s = z(e);
+  if (!s)
     return `<span class="text-gray-500 text-xs">${o(e)}</span>`;
-  const { size: r = "default", showIcon: n = !0, showFullMessage: i = !1, extraClass: c = "" } = s, g = {
+  const { size: r = "default", showIcon: n = !0, showFullMessage: i = !1, extraClass: c = "" } = t, g = {
     sm: "px-2 py-0.5 text-xs",
     default: "px-2.5 py-1 text-sm"
   }, d = n ? `<svg class="${r === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path fill-rule="evenodd" d="${t.icon}" clip-rule="evenodd"/>
-      </svg>` : "", u = i ? t.message : t.shortMessage;
-  return `<span class="inline-flex items-center gap-1.5 rounded ${g[r]} ${t.colorClass} ${c}"
+        <path fill-rule="evenodd" d="${s.icon}" clip-rule="evenodd"/>
+      </svg>` : "", y = i ? s.message : s.shortMessage;
+  return `<span class="inline-flex items-center gap-1.5 rounded ${g[r]} ${s.colorClass} ${c}"
                 role="status"
-                aria-label="${o(t.message)}"
+                aria-label="${o(s.message)}"
                 data-reason-code="${o(e)}">
     ${d}
-    <span>${o(u)}</span>
+    <span>${o(y)}</span>
   </span>`;
 }
-function H(e, s) {
-  const t = S(e);
-  if (!t)
+function J(e, t) {
+  const s = z(e);
+  if (!s)
     return "";
-  const r = s || t.message;
-  return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full ${t.bgClass} ${t.textClass}"
+  const r = t || s.message;
+  return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full ${s.bgClass} ${s.textClass}"
                 title="${o(r)}"
-                aria-label="${o(t.shortMessage)}"
+                aria-label="${o(s.shortMessage)}"
                 data-reason-code="${o(e)}">
     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-      <path fill-rule="evenodd" d="${t.icon}" clip-rule="evenodd"/>
+      <path fill-rule="evenodd" d="${s.icon}" clip-rule="evenodd"/>
     </svg>
   </span>`;
 }
-function B(e = {}) {
-  return (s) => typeof s != "string" || !s ? '<span class="text-gray-400">-</span>' : R(s, e);
+function Q(e = {}) {
+  return (t) => typeof t != "string" || !t ? '<span class="text-gray-400">-</span>' : D(t, e);
 }
-function q(e = {}) {
-  return (s) => typeof s != "string" || !s ? "" : L(s, e);
+function X(e = {}) {
+  return (t) => typeof t != "string" || !t ? "" : O(t, e);
 }
-function F(e) {
+function W(e) {
   e.schema_version !== 1 && console.warn("[TranslationStatusVocabulary] Unknown schema version:", e.schema_version);
 }
-function Y() {
+function K() {
   return `
     /* Status Vocabulary Styles */
     [data-status],
@@ -630,33 +666,38 @@ function o(e) {
   return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 export {
+  X as A,
+  W as B,
   x as C,
-  y as D,
-  h as E,
-  f as Q,
-  k as a,
-  $ as b,
-  D as c,
-  L as d,
-  U as e,
-  M as f,
-  p as g,
-  E as h,
-  m as i,
-  v as j,
-  T as k,
-  S as l,
-  N as m,
-  A as n,
-  O as o,
-  j as p,
-  P as q,
-  R as r,
-  V as s,
+  p as D,
+  A as E,
+  K as F,
+  m as Q,
+  N as a,
+  P as b,
+  U as c,
+  V as d,
+  O as e,
+  Y as f,
+  f as g,
+  S as h,
+  E as i,
+  _ as j,
+  L as k,
+  M as l,
+  $ as m,
+  j as n,
+  v as o,
+  h as p,
+  T as q,
+  D as r,
+  z as s,
   H as t,
   B as u,
-  q as v,
-  F as w,
-  Y as x
+  F as v,
+  q as w,
+  G as x,
+  J as y,
+  Q as z
 };
-//# sourceMappingURL=translation-status-vocabulary-0I1VBkAK.js.map
+//# sourceMappingURL=translation-status-vocabulary-CGVyPGTR.js.map

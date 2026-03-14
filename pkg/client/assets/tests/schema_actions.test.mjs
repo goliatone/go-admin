@@ -979,6 +979,89 @@ test('delete action uses record id in API path', () => {
   assert.equal(actions[0].variant, 'danger');
 });
 
+test('schema-backed delete uses structured errors and success callbacks', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  let actionSuccess = 0;
+  let actionError = null;
+  let requestedURL = '';
+
+  globalThis.window = {
+    confirm: () => true,
+    location: { href: '' },
+  };
+
+  try {
+    globalThis.fetch = async (url) => {
+      requestedURL = String(url);
+      return new Response('', { status: 409, headers: { 'Content-Type': 'application/json' } });
+    };
+
+    const builder = createBuilder({
+      onActionSuccess: () => {
+        actionSuccess += 1;
+      },
+      onActionError: (_name, error) => {
+        actionError = error;
+      },
+    });
+    const record = createMockRecord({ id: 'deletable_record_456' });
+    const actions = builder.buildRowActions(record, [{ name: 'delete', label: 'Delete' }]);
+
+    globalThis.fetch = async (url) => {
+      requestedURL = String(url);
+      return new Response(JSON.stringify({
+        error: {
+          text_code: 'RESOURCE_IN_USE',
+          message: 'Document cannot be deleted while attached to agreements',
+          metadata: { id: 'deletable_record_456' },
+        },
+      }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+    };
+
+    await assert.rejects(() => actions[0].action(record), /RESOURCE_IN_USE: Document cannot be deleted while attached to agreements/);
+    assert.equal(requestedURL, '/admin/api/panels/pages/deletable_record_456');
+    assert.equal(actionSuccess, 0);
+    assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
+  }
+});
+
+test('schema-backed post actions can reconcile after structured domain failures', async () => {
+  const originalFetch = globalThis.fetch;
+  let reconcileCalls = 0;
+  let actionError = null;
+
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      error: {
+        text_code: 'PRECONDITION_FAILED',
+        message: 'publish requires a reviewed record',
+        metadata: { field: 'status' },
+      },
+    }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+
+    const builder = createBuilder({
+      reconcileOnDomainFailure: async () => {
+        reconcileCalls += 1;
+      },
+      onActionError: (_name, error) => {
+        actionError = error;
+      },
+    });
+    const record = createMockRecord({ id: 'page_123' });
+    const actions = builder.buildRowActions(record, [{ name: 'publish', label: 'Publish' }]);
+
+    await assert.rejects(() => actions[0].action(record), /PRECONDITION_FAILED: publish requires a reviewed record/);
+    assert.equal(reconcileCalls, 1);
+    assert.equal(actionError?.textCode, 'PRECONDITION_FAILED');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('confirm message from schema is used', () => {
   const builder = createBuilder();
   const record = createMockRecord();

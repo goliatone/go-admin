@@ -1080,7 +1080,7 @@ export class TranslationDashboardPage {
       && Object.values(payload.data.tables).every((table) => table.rows.length === 0);
     const degraded = payload.meta.degraded
       ? `
-        <section class="rounded-2xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
+        <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
           <p class="mt-2">${escapeHTML(payload.meta.degradedReasons.map((item) => `${item.component}: ${item.message}`).join(' | ') || 'Retry the dashboard request to refresh family blocker data.')}</p>

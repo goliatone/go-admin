@@ -13,6 +13,15 @@ import {
   HEADER_DESCRIPTION,
   renderBreadcrumb,
   buildQueueBreadcrumb,
+  MOBILE_CARD,
+  MOBILE_CARD_HEADER,
+  MOBILE_CARD_TITLE,
+  MOBILE_CARD_SUBTITLE,
+  MOBILE_CARD_BODY,
+  MOBILE_CARD_ROW,
+  MOBILE_CARD_LABEL,
+  MOBILE_CARD_VALUE,
+  MOBILE_CARD_ACTIONS,
 } from '../translation-shared/index.js';
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
@@ -1168,7 +1177,12 @@ export class AssignmentQueueScreen {
       return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
     }
     return `
-      <div class="assignment-queue-table-wrap">
+      <!-- Mobile Card View (visible on small screens) -->
+      <div class="flex flex-col gap-3 sm:hidden" data-queue-mobile-view="true">
+        ${rows.map((row) => this.renderMobileCard(row)).join('')}
+      </div>
+      <!-- Desktop Table View (hidden on small screens) -->
+      <div class="assignment-queue-table-wrap hidden sm:block">
         <table class="assignment-queue-table" aria-label="Translation assignment queue">
           <thead>
             <tr>
@@ -1210,7 +1224,7 @@ export class AssignmentQueueScreen {
     const showReviewActions = shouldShowQueueReviewActions(row);
     const showManagementActions = shouldShowQueueManagementActions(row);
     return `
-      <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
+      <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
         <td>
           <div class="queue-content-cell">
             <strong>${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
@@ -1324,6 +1338,113 @@ export class AssignmentQueueScreen {
     `;
   }
 
+  private renderMobileCard(row: AssignmentListRow): string {
+    const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
+    const pendingRelease = this.pendingActions.has(`release:${row.id}`);
+    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
+    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
+    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
+    const claimDisabled = pendingClaim || !row.actions.claim.enabled;
+    const releaseDisabled = pendingRelease || !row.actions.release.enabled;
+    const showReviewActions = shouldShowQueueReviewActions(row);
+    const showManagementActions = shouldShowQueueManagementActions(row);
+    return `
+      <article
+        class="${MOBILE_CARD}"
+        data-assignment-id="${escapeAttr(row.id)}"
+        data-assignment-card="true"
+        data-assignment-nav-group="mobile"
+        tabindex="0"
+        role="button"
+        aria-label="${escapeAttr(buildRowAriaLabel(row))}"
+      >
+        <div class="${MOBILE_CARD_HEADER}">
+          <div>
+            <h3 class="${MOBILE_CARD_TITLE}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
+            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.translation_group_id)}</p>
+          </div>
+          ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
+        </div>
+        <div class="${MOBILE_CARD_BODY}">
+          <div class="${MOBILE_CARD_ROW}">
+            <span class="${MOBILE_CARD_LABEL}">Locale</span>
+            <span class="${MOBILE_CARD_VALUE}">
+              <span class="locale-pill">${escapeHtml(row.source_locale.toUpperCase())}</span>
+              <span class="locale-arrow">→</span>
+              <span class="locale-pill locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
+            </span>
+          </div>
+          <div class="${MOBILE_CARD_ROW}">
+            <span class="${MOBILE_CARD_LABEL}">Assignee</span>
+            <span class="${MOBILE_CARD_VALUE}">${escapeHtml(row.assignee_id || 'Open pool')}</span>
+          </div>
+          <div class="${MOBILE_CARD_ROW}">
+            <span class="${MOBILE_CARD_LABEL}">Due</span>
+            <span class="${MOBILE_CARD_VALUE}">
+              <span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>
+              ${row.due_date ? `<span class="text-gray-500 ml-1">${escapeHtml(formatDueDate(row.due_date))}</span>` : ''}
+            </span>
+          </div>
+          <div class="${MOBILE_CARD_ROW}">
+            <span class="${MOBILE_CARD_LABEL}">Priority</span>
+            <span class="priority-pill priority-${escapeAttr(row.priority)}">${escapeHtml(humanizeToken(row.priority))}</span>
+          </div>
+        </div>
+        <div class="${MOBILE_CARD_ACTIONS}">
+          <button
+            type="button"
+            class="${BTN_SECONDARY_SM} flex-1"
+            data-action="claim"
+            data-assignment-id="${escapeAttr(row.id)}"
+            ${claimDisabled ? 'disabled' : ''}
+          >
+            ${pendingClaim ? 'Claiming…' : 'Claim'}
+          </button>
+          <button
+            type="button"
+            class="${BTN_SECONDARY_SM} flex-1"
+            data-action="release"
+            data-assignment-id="${escapeAttr(row.id)}"
+            ${releaseDisabled ? 'disabled' : ''}
+          >
+            ${pendingRelease ? 'Releasing…' : 'Release'}
+          </button>
+          ${showReviewActions ? `
+            <button
+              type="button"
+              class="${BTN_PRIMARY_SM} flex-1"
+              data-action="approve"
+              data-assignment-id="${escapeAttr(row.id)}"
+              ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
+            >
+              ${pendingApprove ? 'Approving…' : 'Approve'}
+            </button>
+            <button
+              type="button"
+              class="${BTN_DANGER_SM} flex-1"
+              data-action="reject"
+              data-assignment-id="${escapeAttr(row.id)}"
+              ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
+            >
+              ${pendingReject ? 'Rejecting…' : 'Reject'}
+            </button>
+          ` : ''}
+          ${showManagementActions ? `
+            <button
+              type="button"
+              class="${BTN_SECONDARY_SM}"
+              data-action="archive"
+              data-assignment-id="${escapeAttr(row.id)}"
+              ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
+            >
+              ${pendingArchive ? 'Archiving…' : 'Archive'}
+            </button>
+          ` : ''}
+        </div>
+      </article>
+    `;
+  }
+
   private attachEventListeners(): void {
     if (!this.container) {
       return;
@@ -1403,31 +1524,48 @@ export class AssignmentQueueScreen {
       });
     });
 
-    this.container.querySelectorAll<HTMLElement>('[data-assignment-row]').forEach((row) => {
-      row.addEventListener('click', (event) => {
+    this.attachAssignmentNavigationTargets('[data-assignment-row]');
+    this.attachAssignmentNavigationTargets('[data-assignment-card]');
+  }
+
+  private attachAssignmentNavigationTargets(selector: string): void {
+    if (!this.container) {
+      return;
+    }
+    this.container.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      element.addEventListener('click', (event) => {
         const target = event.target as HTMLElement | null;
-        if (target?.closest('button')) {
+        if (target?.closest('button, a, input, select, textarea')) {
           return;
         }
-        this.openAssignment(row.dataset.assignmentId || '');
+        this.openAssignment(element.dataset.assignmentId || '');
       });
-      row.addEventListener('keydown', (event) => {
+      element.addEventListener('keydown', (event) => {
         const key = event.key;
         if (key === 'Enter' || key === ' ') {
           event.preventDefault();
-          this.openAssignment(row.dataset.assignmentId || '');
+          this.openAssignment(element.dataset.assignmentId || '');
           return;
         }
-        if (key === 'ArrowDown' || key === 'ArrowUp') {
-          event.preventDefault();
-          const rows = Array.from(this.container?.querySelectorAll<HTMLElement>('[data-assignment-row]') || []);
-          const index = rows.indexOf(row);
-          if (index < 0) {
-            return;
-          }
-          const nextIndex = key === 'ArrowDown' ? Math.min(index + 1, rows.length - 1) : Math.max(index - 1, 0);
-          rows[nextIndex]?.focus();
+        if (key !== 'ArrowDown' && key !== 'ArrowUp') {
+          return;
         }
+        const group = element.dataset.assignmentNavGroup;
+        if (!group) {
+          return;
+        }
+        event.preventDefault();
+        const elements = Array.from(
+          this.container?.querySelectorAll<HTMLElement>(`[data-assignment-nav-group="${group}"]`) || []
+        );
+        const index = elements.indexOf(element);
+        if (index < 0) {
+          return;
+        }
+        const nextIndex = key === 'ArrowDown'
+          ? Math.min(index + 1, elements.length - 1)
+          : Math.max(index - 1, 0);
+        elements[nextIndex]?.focus();
       });
     });
   }

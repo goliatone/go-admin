@@ -264,6 +264,255 @@ export const MODAL_OVERLAY = 'fixed inset-0 z-50 flex items-center justify-cente
 export const MODAL_CONTENT = 'w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-2xl';
 
 // =============================================================================
+// CSS Custom Property Status Colors
+// Use these instead of hardcoded Tailwind colors for translation status badges.
+// These reference the CSS custom properties defined in input.css.
+// =============================================================================
+
+/**
+ * Status color classes using CSS custom properties.
+ * These enable theming and dark mode support.
+ */
+
+/** Success status (ready, approved, published, on_track) - uses CSS variables */
+export const STATUS_COLOR_SUCCESS =
+  'bg-[var(--translation-status-success-bg)] text-[var(--translation-status-success-text)] border-[var(--translation-status-success-border)]';
+
+/** Warning status (pending_review, due_soon, missing_field) - uses CSS variables */
+export const STATUS_COLOR_WARNING =
+  'bg-[var(--translation-status-warning-bg)] text-[var(--translation-status-warning-text)] border-[var(--translation-status-warning-border)]';
+
+/** Error status (blocked, overdue, rejected, missing_locale) - uses CSS variables */
+export const STATUS_COLOR_ERROR =
+  'bg-[var(--translation-status-error-bg)] text-[var(--translation-status-error-text)] border-[var(--translation-status-error-border)]';
+
+/** Info status (in_progress, assigned, in_review) - uses CSS variables */
+export const STATUS_COLOR_INFO =
+  'bg-[var(--translation-status-info-bg)] text-[var(--translation-status-info-text)] border-[var(--translation-status-info-border)]';
+
+/** Neutral status (draft, archived, none, not_required) - uses CSS variables */
+export const STATUS_COLOR_NEUTRAL =
+  'bg-[var(--translation-status-neutral-bg)] text-[var(--translation-status-neutral-text)] border-[var(--translation-status-neutral-border)]';
+
+/** Purple status (in_review, changes_requested) - uses CSS variables */
+export const STATUS_COLOR_PURPLE =
+  'bg-[var(--translation-status-purple-bg)] text-[var(--translation-status-purple-text)] border-[var(--translation-status-purple-border)]';
+
+/**
+ * Maps severity levels to CSS custom property classes.
+ */
+export const SEVERITY_COLOR_MAP: Record<string, string> = {
+  success: STATUS_COLOR_SUCCESS,
+  warning: STATUS_COLOR_WARNING,
+  error: STATUS_COLOR_ERROR,
+  info: STATUS_COLOR_INFO,
+  neutral: STATUS_COLOR_NEUTRAL,
+  purple: STATUS_COLOR_PURPLE,
+};
+
+/**
+ * Gets the CSS custom property class for a severity level.
+ */
+export function getStatusColorClass(severity: string): string {
+  return SEVERITY_COLOR_MAP[severity.toLowerCase()] ?? STATUS_COLOR_NEUTRAL;
+}
+
+/**
+ * Maps status strings to their severity level.
+ */
+export const STATUS_SEVERITY_MAP: Record<string, string> = {
+  // Success
+  ready: 'success',
+  approved: 'success',
+  published: 'success',
+  completed: 'success',
+  on_track: 'success',
+  success: 'success',
+
+  // Warning
+  pending: 'warning',
+  pending_review: 'warning',
+  due_soon: 'warning',
+  missing_fields: 'warning',
+  missing_field: 'warning',
+  conflict: 'warning',
+  changes_requested: 'warning',
+
+  // Error
+  blocked: 'error',
+  rejected: 'error',
+  failed: 'error',
+  overdue: 'error',
+  missing_locale: 'error',
+  missing_locales: 'error',
+  missing_locales_and_fields: 'error',
+  error: 'error',
+
+  // Info
+  in_progress: 'info',
+  assigned: 'info',
+  in_review: 'info',
+  review: 'info',
+  running: 'info',
+
+  // Neutral
+  draft: 'neutral',
+  archived: 'neutral',
+  none: 'neutral',
+  not_required: 'neutral',
+  skipped: 'neutral',
+  inactive: 'neutral',
+};
+
+/**
+ * Gets the CSS custom property class for a status value.
+ */
+export function getStatusSeverityClass(status: string): string {
+  const normalized = status.toLowerCase().replace(/-/g, '_');
+  const severity = STATUS_SEVERITY_MAP[normalized] ?? 'neutral';
+  return getStatusColorClass(severity);
+}
+
+// =============================================================================
+// Mobile Responsive Layout Classes
+// =============================================================================
+
+/** Grid that collapses to single column on mobile, 2 columns on tablet, main+sidebar on xl */
+export const GRID_RESPONSIVE_MAIN_SIDEBAR =
+  'grid grid-cols-1 md:grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6';
+
+/** Grid that shows sidebar below main on mobile, reorders on xl */
+export const GRID_EDITOR_LAYOUT =
+  'grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-4 xl:gap-6';
+
+/** Stack layout that becomes row on sm+ screens */
+export const FLEX_STACK_TO_ROW = 'flex flex-col sm:flex-row gap-4';
+
+/** Full-width button on mobile, auto-width on sm+ */
+export const BTN_RESPONSIVE = 'w-full sm:w-auto';
+
+/** Reduced padding on mobile */
+export const PADDING_RESPONSIVE = 'p-4 sm:p-6 lg:p-8';
+
+/** Responsive card that fills width on mobile */
+export const CARD_RESPONSIVE = 'bg-white border border-gray-200 rounded-xl w-full';
+
+// =============================================================================
+// Mobile Card View Classes (for table alternatives)
+// =============================================================================
+
+/** Container for mobile card list view */
+export const MOBILE_CARD_LIST = 'flex flex-col gap-3 sm:hidden';
+
+/** Individual mobile card */
+export const MOBILE_CARD =
+  'rounded-xl border border-gray-200 bg-white p-4 shadow-sm';
+
+/** Mobile card header row */
+export const MOBILE_CARD_HEADER =
+  'flex items-start justify-between gap-3';
+
+/** Mobile card title */
+export const MOBILE_CARD_TITLE = 'text-sm font-semibold text-gray-900';
+
+/** Mobile card subtitle */
+export const MOBILE_CARD_SUBTITLE = 'text-xs text-gray-500 mt-1';
+
+/** Mobile card body */
+export const MOBILE_CARD_BODY = 'mt-3 space-y-2';
+
+/** Mobile card row (label + value) */
+export const MOBILE_CARD_ROW = 'flex items-center justify-between text-sm';
+
+/** Mobile card label */
+export const MOBILE_CARD_LABEL = 'text-gray-500';
+
+/** Mobile card value */
+export const MOBILE_CARD_VALUE = 'font-medium text-gray-900';
+
+/** Mobile card actions row */
+export const MOBILE_CARD_ACTIONS =
+  'mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100';
+
+/** Hide on mobile, show as table on sm+ */
+export const TABLE_RESPONSIVE = 'hidden sm:table';
+
+// =============================================================================
+// Matrix View Documentation (Task 4.6)
+// =============================================================================
+
+/**
+ * Translation Matrix Virtualization Requirements
+ *
+ * The translation matrix view displays a dense family-by-locale grid with
+ * potentially hundreds of rows and dozens of locale columns. This section
+ * documents requirements for future virtualization optimization.
+ *
+ * CURRENT IMPLEMENTATION:
+ * - Horizontal scrolling via `overflow-x-auto` on the grid container
+ * - Sticky header row (`sticky top-0 z-20`) for locale column headers
+ * - Sticky first column (`sticky left-0 z-10/z-30`) for family info
+ * - Server-side pagination for rows (page, per_page)
+ * - Server-side locale windowing (locale_offset, locale_limit)
+ * - Keyboard navigation (Arrow keys to move between cells)
+ *
+ * VIRTUALIZATION REQUIREMENTS (for large datasets):
+ *
+ * 1. Horizontal Scroll Behavior:
+ *    - Maintain sticky first column during horizontal scroll
+ *    - Preserve sticky header visibility on scroll
+ *    - Consider horizontal virtualization for 50+ locale columns
+ *    - Touch gesture support for horizontal swipe on mobile
+ *
+ * 2. Sticky Header Requirements:
+ *    - Header row must remain visible during vertical scroll
+ *    - First column (family info) must remain visible during horizontal scroll
+ *    - z-index layering: header (z-20), first column (z-10), corner cell (z-30)
+ *    - Shadow indicators for scroll position feedback
+ *
+ * 3. Touch/Swipe Support:
+ *    - Horizontal swipe to navigate between locale columns
+ *    - Touch-friendly cell action buttons (min 44px touch target)
+ *    - Momentum scrolling for table overflow
+ *    - Consider pull-to-refresh for data reload
+ *
+ * 4. Virtual Rendering (future optimization):
+ *    - Only render visible rows + buffer (overscan)
+ *    - Dynamic row height support for variable content
+ *    - Recycle DOM elements during scroll
+ *    - Estimated row count for scroll positioning
+ *
+ * 5. Performance Targets:
+ *    - Backend latency target: configurable via meta.latency_target_ms
+ *    - Viewport target: meta.query_model.viewport_target.{rows, locales}
+ *    - Default page size: 25 rows, 10 locales
+ *    - Maximum render: ~500 cells before considering virtualization
+ *
+ * CSS PATTERNS FOR MATRIX:
+ */
+
+/** Matrix grid container with horizontal scroll and sticky positioning */
+export const MATRIX_GRID_CONTAINER = 'overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm';
+
+/** Matrix table with fixed-height cells for potential virtualization */
+export const MATRIX_TABLE = 'min-w-full border-separate border-spacing-0';
+
+/** Sticky header row */
+export const MATRIX_HEADER_ROW = 'sticky top-0 z-20 bg-white';
+
+/** Sticky first column cell (for family info) */
+export const MATRIX_STICKY_CELL = 'sticky left-0 z-10 bg-white';
+
+/** Corner cell (header + first column intersection) */
+export const MATRIX_CORNER_CELL = 'sticky left-0 z-30 bg-white';
+
+/** Standard matrix cell */
+export const MATRIX_CELL = 'border-b border-gray-200 px-3 py-3 align-top';
+
+/** Mobile-friendly matrix: horizontal scroll with touch momentum */
+export const MATRIX_MOBILE = 'overflow-x-auto -webkit-overflow-scrolling-touch scroll-smooth';
+
+// =============================================================================
 // Focus Trap Utility
 // =============================================================================
 
@@ -320,16 +569,30 @@ export function trapFocus(modal: HTMLElement, onClose?: () => void): () => void 
   };
 }
 
+function isNaturallyFocusable(element: HTMLElement): boolean {
+  const tagName = element.tagName.toLowerCase();
+  if (tagName === 'input' || tagName === 'select' || tagName === 'textarea' || tagName === 'button') {
+    return true;
+  }
+  if (tagName === 'a') {
+    return element.hasAttribute('href');
+  }
+  return element.isContentEditable;
+}
+
 /**
- * Sets up sequential tab indices for editor fields.
- * Creates a logical Tab flow through source-target field pairs.
+ * Normalizes editor field focusability without overriding the document tab order.
+ * Native controls rely on DOM order, while custom field shells are promoted into it.
  *
  * @param container - Container element with data-field-input elements
- * @param startIndex - Starting tabindex value (default: 1)
  */
-export function setupFieldTabOrder(container: HTMLElement, startIndex = 1): void {
+export function setupFieldTabOrder(container: HTMLElement): void {
   const inputs = container.querySelectorAll<HTMLElement>('[data-field-input]');
-  inputs.forEach((input, index) => {
-    input.setAttribute('tabindex', String(startIndex + index));
+  inputs.forEach((input) => {
+    if (isNaturallyFocusable(input)) {
+      input.removeAttribute('tabindex');
+      return;
+    }
+    input.setAttribute('tabindex', '0');
   });
 }

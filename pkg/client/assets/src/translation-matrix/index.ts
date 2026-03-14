@@ -11,6 +11,7 @@ import {
   BTN_DANGER,
   HEADER_PRETITLE,
   HEADER_TITLE,
+  HEADER_DESCRIPTION,
   EMPTY_STATE,
   EMPTY_STATE_TITLE,
   EMPTY_STATE_TEXT,
@@ -18,6 +19,12 @@ import {
   ERROR_STATE_TITLE,
   ERROR_STATE_TEXT,
   LOADING_STATE,
+  MATRIX_GRID_CONTAINER,
+  MATRIX_TABLE,
+  MATRIX_HEADER_ROW,
+  MATRIX_STICKY_CELL,
+  MATRIX_CORNER_CELL,
+  MATRIX_CELL,
   renderBreadcrumb,
   buildMatrixBreadcrumb,
 } from '../translation-shared/index.js';
@@ -243,6 +250,7 @@ export interface TranslationMatrixPageConfig {
   endpoint: string;
   fetch?: typeof fetch;
   title?: string;
+  basePath?: string;
 }
 
 export type TranslationMatrixPageState = 'loading' | 'ready' | 'empty' | 'error';
@@ -295,6 +303,30 @@ function asObjectArray(value: unknown): Record<string, unknown>[] {
   return value
     .map((item) => asRecord(item))
     .filter((item) => Object.keys(item).length > 0);
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function deriveBasePathFromEndpoint(endpoint: string): string {
+  const candidate = asString(endpoint);
+  if (!candidate) {
+    return '';
+  }
+  const pathname = candidate.startsWith('http://') || candidate.startsWith('https://')
+    ? new URL(candidate).pathname
+    : candidate;
+  return trimTrailingSlash(pathname.replace(/\/api(?:\/.*)?$/, ''));
+}
+
+function resolveMatrixBasePath(basePath: string, endpoint: string): string {
+  const explicit = trimTrailingSlash(asString(basePath));
+  if (explicit) {
+    return explicit;
+  }
+  const derived = deriveBasePathFromEndpoint(endpoint);
+  return derived || '/admin';
 }
 
 function normalizeTranslationMatrixLink(value: unknown): TranslationMatrixLink | null {
@@ -876,7 +908,7 @@ function renderActionButton(
   const disabledReason = action.reason || 'Action unavailable';
   const tone = action.enabled
     ? 'border-sky-300 bg-sky-50 text-sky-900 hover:border-sky-400 hover:bg-sky-100'
-    : 'border-slate-200 bg-slate-100 text-slate-400';
+    : 'border-gray-200 bg-gray-100 text-gray-500';
   return `<button type="button" class="inline-flex min-h-[2.5rem] min-w-[6rem] items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${tone}" ${attrText} ${action.enabled ? '' : 'disabled'} title="${escapeAttribute(action.enabled ? action.description || label : disabledReason)}">${escapeHTML(label)}</button>`;
 }
 
@@ -887,13 +919,13 @@ function renderMatrixCellSummary(cell: TranslationMatrixCell): string {
     in_progress: 'border-amber-200 bg-amber-50 text-amber-800',
     in_review: 'border-indigo-200 bg-indigo-50 text-indigo-800',
     fallback: 'border-orange-200 bg-orange-50 text-orange-800',
-    not_required: 'border-slate-200 bg-slate-100 text-slate-500',
+    not_required: 'border-gray-200 bg-gray-100 text-gray-600',
   }[cell.state];
   const detail = cell.assignment?.status || cell.variant?.status || formatLabel(cell.state);
   return `
     <div class="flex items-center justify-between gap-2">
       <span class="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(tone)}">${escapeHTML(formatLabel(cell.state))}</span>
-      <span class="truncate text-[11px] text-slate-500">${escapeHTML(formatLabel(detail))}</span>
+      <span class="truncate text-[11px] text-gray-500">${escapeHTML(formatLabel(detail))}</span>
     </div>
   `;
 }
@@ -908,11 +940,11 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
   const columns = payload.data.columns;
   const rows = payload.data.rows;
   return `
-    <div class="overflow-x-auto rounded-[28px] border border-slate-200 bg-white shadow-sm" data-matrix-grid="true">
-      <table class="min-w-full border-separate border-spacing-0">
-        <thead class="sticky top-0 z-20 bg-white">
+    <div class="${MATRIX_GRID_CONTAINER}" data-matrix-grid="true">
+      <table class="${MATRIX_TABLE}">
+        <thead class="${MATRIX_HEADER_ROW}">
           <tr>
-            <th scope="col" class="sticky left-0 z-30 border-b border-slate-200 bg-white px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <th scope="col" class="${MATRIX_CORNER_CELL} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" data-matrix-toggle-all-families="true" ${selection.family_ids.length === rows.length && rows.length > 0 ? 'checked' : ''}>
                 <span>Families</span>
@@ -922,11 +954,11 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
               const policy = payload.meta.locale_policy.find((entry) => entry.locale === column.locale);
               const selected = selection.locales.includes(column.locale);
               return `
-                <th scope="col" class="border-b border-slate-200 bg-white px-3 py-3 text-left align-top">
-                  <button type="button" data-matrix-locale-toggle="${escapeAttribute(column.locale)}" class="flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}">
-                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">${escapeHTML(column.label)}</span>
-                    <span class="mt-1 text-[11px] text-slate-500">${escapeHTML(column.source_locale ? 'Source locale' : `${policy?.required_by_count ?? column.required_by_count} required families`)}</span>
-                    <span class="mt-1 text-[11px] text-slate-400">${escapeHTML(policy && policy.optional_family_count > 0 ? `${policy.optional_family_count} optional` : 'Header action')}</span>
+                <th scope="col" class="border-b border-gray-200 bg-white px-3 py-3 text-left align-top">
+                  <button type="button" data-matrix-locale-toggle="${escapeAttribute(column.locale)}" class="flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${selected ? 'border-sky-300 bg-sky-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}">
+                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">${escapeHTML(column.label)}</span>
+                    <span class="mt-1 text-[11px] text-gray-500">${escapeHTML(column.source_locale ? 'Source locale' : `${policy?.required_by_count ?? column.required_by_count} required families`)}</span>
+                    <span class="mt-1 text-[11px] text-gray-400">${escapeHTML(policy && policy.optional_family_count > 0 ? `${policy.optional_family_count} optional` : 'Header action')}</span>
                   </button>
                 </th>
               `;
@@ -936,18 +968,18 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
         <tbody>
           ${rows.map((row, rowIndex) => `
             <tr data-matrix-row="${escapeAttribute(row.family_id)}">
-              <th scope="row" class="sticky left-0 z-10 border-b border-slate-200 bg-white px-4 py-4 text-left align-top">
+              <th scope="row" class="${MATRIX_STICKY_CELL} border-b border-gray-200 px-4 py-4 text-left align-top">
                 <div class="flex items-start gap-3">
                   <input type="checkbox" data-matrix-family-toggle="${escapeAttribute(row.family_id)}" ${selection.family_ids.includes(row.family_id) ? 'checked' : ''} class="mt-1">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                      <a class="text-sm font-semibold text-slate-900 hover:text-sky-700 hover:underline" href="${escapeAttribute(row.links.family?.href || '#')}">${escapeHTML(row.source_title || row.family_id)}</a>
-                      <span class="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">${escapeHTML(row.content_type)}</span>
+                      <a class="text-sm font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="${escapeAttribute(row.links.family?.href || '#')}">${escapeHTML(row.source_title || row.family_id)}</a>
+                      <span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">${escapeHTML(row.content_type)}</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">${escapeHTML(row.family_id)}</p>
+                    <p class="mt-1 text-xs text-gray-500">${escapeHTML(row.family_id)}</p>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                      ${row.links.content_detail?.href ? `<a class="rounded-full border border-slate-200 px-2.5 py-1 text-slate-600 hover:border-slate-300 hover:text-slate-900" href="${escapeAttribute(row.links.content_detail.href)}">Source</a>` : ''}
-                      ${row.links.content_edit?.href ? `<a class="rounded-full border border-slate-200 px-2.5 py-1 text-slate-600 hover:border-slate-300 hover:text-slate-900" href="${escapeAttribute(row.links.content_edit.href)}">Edit source</a>` : ''}
+                      ${row.links.content_detail?.href ? `<a class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600 hover:border-gray-300 hover:text-gray-900" href="${escapeAttribute(row.links.content_detail.href)}">Source</a>` : ''}
+                      ${row.links.content_edit?.href ? `<a class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600 hover:border-gray-300 hover:text-gray-900" href="${escapeAttribute(row.links.content_edit.href)}">Edit source</a>` : ''}
                     </div>
                   </div>
                 </div>
@@ -956,8 +988,8 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
                 const cell = row.cells[column.locale];
                 const action = preferredCellAction(cell);
                 return `
-                  <td class="border-b border-slate-200 px-3 py-3 align-top">
-                    <div class="min-w-[10rem] rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <td class="${MATRIX_CELL}">
+                    <div class="min-w-[10rem] rounded-xl border border-gray-200 bg-gray-50 p-3">
                       ${renderMatrixCellSummary(cell)}
                       <div class="mt-3">
                         ${renderActionButton(action, {
@@ -969,7 +1001,7 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
                           'data-action-kind': action.enabled && action.href ? 'open' : 'create',
                         }, action.enabled && action.href ? 'Open' : 'Create')}
                       </div>
-                      ${(action.reason && !action.enabled) ? `<p class="mt-2 text-[11px] leading-5 text-slate-400">${escapeHTML(action.reason)}</p>` : ''}
+                      ${(action.reason && !action.enabled) ? `<p class="mt-2 text-[11px] leading-5 text-gray-400">${escapeHTML(action.reason)}</p>` : ''}
                     </div>
                   </td>
                 `;
@@ -1002,16 +1034,16 @@ function renderBulkToolbar(
       ? 'Select at least one family row.'
       : '';
   return `
-    <section class="rounded-[28px] border border-slate-200 bg-slate-950 px-5 py-4 text-sm text-slate-100 shadow-sm" data-matrix-bulk-toolbar="true">
+    <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-100 shadow-sm" data-matrix-bulk-toolbar="true">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Bulk Actions</p>
-          <p class="mt-2 text-sm text-slate-300">Selected families: <strong class="text-white">${escapeHTML(String(selection.family_ids.length))}</strong> · Selected locales: <strong class="text-white">${escapeHTML(selection.locales.length > 0 ? selection.locales.join(', ') : 'auto')}</strong></p>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Bulk Actions</p>
+          <p class="mt-2 text-sm text-gray-300">Selected families: <strong class="text-white">${escapeHTML(String(selection.family_ids.length))}</strong> · Selected locales: <strong class="text-white">${escapeHTML(selection.locales.length > 0 ? selection.locales.join(', ') : 'auto')}</strong></p>
           ${feedback ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-emerald-300" data-matrix-feedback="true">${escapeHTML(feedback)}</p>` : ''}
         </div>
         <div class="flex flex-wrap gap-3">
-          <button type="button" data-matrix-bulk-action="create_missing" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!createState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-slate-400' : 'bg-sky-500 text-white hover:bg-sky-400'}" ${(!createState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(createDisabledReason || 'Create missing locale work')}">${escapeHTML(working ? 'Working…' : 'Create Missing')}</button>
-          <button type="button" data-matrix-bulk-action="export_selected" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!exportState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-slate-400' : 'bg-white text-slate-950 hover:bg-slate-100'}" ${(!exportState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(exportDisabledReason || 'Export selected locale work')}">${escapeHTML(working ? 'Working…' : 'Export Selected')}</button>
+          <button type="button" data-matrix-bulk-action="create_missing" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!createState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-gray-400' : 'bg-sky-500 text-white hover:bg-sky-400'}" ${(!createState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(createDisabledReason || 'Create missing locale work')}">${escapeHTML(working ? 'Working…' : 'Create Missing')}</button>
+          <button type="button" data-matrix-bulk-action="export_selected" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!exportState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-gray-400' : 'bg-white text-gray-900 hover:bg-gray-100'}" ${(!exportState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(exportDisabledReason || 'Export selected locale work')}">${escapeHTML(working ? 'Working…' : 'Export Selected')}</button>
         </div>
       </div>
     </section>
@@ -1024,11 +1056,11 @@ function renderViewportControls(payload: TranslationMatrixResponse): string {
   const previousLocaleDisabled = payload.meta.locale_offset <= 0;
   const nextLocaleDisabled = !payload.meta.has_more_locales;
   return `
-    <section class="rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-sm" data-matrix-viewport="true">
+    <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm" data-matrix-viewport="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Viewport</p>
-          <p class="mt-2 text-sm text-slate-600">Rows ${escapeHTML(String(payload.data.rows.length))} of ${escapeHTML(String(payload.meta.total))} · Locales ${escapeHTML(String(payload.meta.locale_offset + 1))}-${escapeHTML(String(Math.min(payload.meta.locale_offset + payload.meta.locale_limit, payload.meta.total_locales)))} of ${escapeHTML(String(payload.meta.total_locales))}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Viewport</p>
+          <p class="mt-2 text-sm text-gray-600">Rows ${escapeHTML(String(payload.data.rows.length))} of ${escapeHTML(String(payload.meta.total))} · Locales ${escapeHTML(String(payload.meta.locale_offset + 1))}-${escapeHTML(String(Math.min(payload.meta.locale_offset + payload.meta.locale_limit, payload.meta.total_locales)))} of ${escapeHTML(String(payload.meta.total_locales))}</p>
         </div>
         <div class="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.16em]">
           <button type="button" data-matrix-page="prev" class="${BTN_SECONDARY_SM}" ${previousPageDisabled ? 'disabled' : ''}>Prev families</button>
@@ -1043,23 +1075,23 @@ function renderViewportControls(payload: TranslationMatrixResponse): string {
 
 function renderFilters(query: TranslationMatrixQuery, busy = false): string {
   return `
-    <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm" data-matrix-filters="true">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-matrix-filters="true">
       <form data-matrix-filter-form="true" class="grid gap-4 lg:grid-cols-5">
-        <label class="text-sm text-slate-600">Content type
-          <input name="content_type" value="${escapeAttribute(query.contentType || '')}" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" placeholder="pages, news">
+        <label class="text-sm text-gray-600">Content type
+          <input name="content_type" value="${escapeAttribute(query.contentType || '')}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="pages, news">
         </label>
-        <label class="text-sm text-slate-600">Readiness
-          <select name="readiness_state" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900">
+        <label class="text-sm text-gray-600">Readiness
+          <select name="readiness_state" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900">
             <option value="">All</option>
             <option value="ready" ${query.readinessState === 'ready' ? 'selected' : ''}>Ready</option>
             <option value="blocked" ${query.readinessState === 'blocked' ? 'selected' : ''}>Blocked</option>
           </select>
         </label>
-        <label class="text-sm text-slate-600">Blocker code
-          <input name="blocker_code" value="${escapeAttribute(query.blockerCode || '')}" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" placeholder="missing_locale">
+        <label class="text-sm text-gray-600">Blocker code
+          <input name="blocker_code" value="${escapeAttribute(query.blockerCode || '')}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="missing_locale">
         </label>
-        <label class="text-sm text-slate-600">Locales
-          <input name="locales" value="${escapeAttribute((query.locales || []).join(', '))}" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" placeholder="fr, es">
+        <label class="text-sm text-gray-600">Locales
+          <input name="locales" value="${escapeAttribute((query.locales || []).join(', '))}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="fr, es">
         </label>
         <div class="flex items-end gap-3">
           <button type="submit" class="${BTN_PRIMARY} w-full" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply filters')}</button>
@@ -1101,7 +1133,8 @@ function renderMatrixPage(
   selection: TranslationMatrixSelectionState,
   feedback: string,
   error: unknown,
-  working = false
+  working = false,
+  basePath = '/admin'
 ): string {
   const summary = summarizeScope(query);
   const body = payload == null
@@ -1111,15 +1144,15 @@ function renderMatrixPage(
       : `${renderBulkToolbar(payload, selection, feedback, working)}<div class="grid gap-5">${renderViewportControls(payload)}${renderMatrixGrid(payload, selection)}</div>`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
-      ${renderBreadcrumb(buildMatrixBreadcrumb('/admin'))}
-      <section class="rounded-[32px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
+      ${renderBreadcrumb(buildMatrixBreadcrumb(basePath))}
+      <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p class="${HEADER_PRETITLE}">Translation Coverage</p>
             <h1 class="${HEADER_TITLE} mt-2">${escapeHTML(title)}</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
+            <p class="${HEADER_DESCRIPTION} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
           </div>
-          ${summary ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">${escapeHTML(summary)}</p>` : ''}
+          ${summary ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${escapeHTML(summary)}</p>` : ''}
         </div>
       </section>
       ${renderFilters(query, state === 'loading' || working)}
@@ -1141,9 +1174,11 @@ export class TranslationMatrixPage {
   private working = false;
 
   constructor(config: TranslationMatrixPageConfig) {
+    const basePath = resolveMatrixBasePath(config.basePath || '', config.endpoint);
     this.config = {
-      title: 'Translation Matrix',
       ...config,
+      basePath,
+      title: config.title || 'Translation Matrix',
     };
     this.client = createTranslationMatrixClient(this.config);
     this.query = readQueryFromLocation();
@@ -1209,7 +1244,8 @@ export class TranslationMatrixPage {
       this.selection,
       this.feedback,
       this.error,
-      this.working
+      this.working,
+      this.config.basePath
     );
   }
 
@@ -1429,6 +1465,7 @@ export function initTranslationMatrixPage(root: HTMLElement, options: Partial<Tr
     endpoint,
     fetch: options.fetch,
     title: options.title || asString(root.dataset.title) || 'Translation Matrix',
+    basePath: options.basePath || asString(root.dataset.basePath),
   });
   page.mount(root);
   return page;

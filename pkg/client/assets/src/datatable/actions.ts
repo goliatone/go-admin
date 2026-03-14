@@ -1,11 +1,17 @@
 /**
  * Action System for DataGrid
- * Provides extensible row and bulk action capabilities
+ * Provides extensible row, detail, and bulk action capabilities.
  */
 
+import type { ActionRemediation } from './action-contracts.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
-import { extractErrorMessage } from '../toast/error-helpers.js';
+import {
+  createStructuredActionError,
+  executeStructuredRequest,
+  formatStructuredErrorForDisplay,
+  isHandledActionError,
+} from '../toast/error-helpers.js';
 import { Modal, escapeHtml as escapeModalHtml } from '../shared/modal.js';
 
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
@@ -19,6 +25,10 @@ export interface ActionButton {
   condition?: (record: any) => boolean;
   disabled?: boolean;
   disabledReason?: string;
+  disabledReasonCode?: string;
+  disabledSeverity?: string;
+  disabledKind?: string;
+  remediation?: ActionRemediation | null;
   variant?: ActionVariant;
   className?: string;
 }
@@ -310,6 +320,18 @@ export class ActionRenderer {
       const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : '';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
+      const disabledReasonId = disabled && action.disabledReason
+        ? `${actionKey}-disabled-reason`
+        : '';
+      const describedByAttr = disabledReasonId
+        ? `aria-describedby="${disabledReasonId}"`
+        : '';
+      const ariaLabel = disabled && action.disabledReason
+        ? `${action.label} unavailable: ${action.disabledReason}`
+        : action.label;
+      const reasonAssistiveText = disabledReasonId
+        ? `<span id="${disabledReasonId}" class="sr-only">${this.escapeHtml(action.disabledReason || 'Action unavailable')}</span>`
+        : '';
       const titleAttr = action.disabledReason
         ? `title="${this.escapeHtml(action.disabledReason)}"`
         : '';
@@ -323,11 +345,14 @@ export class ActionRenderer {
           data-record-id="${record.id}"
           data-disabled="${disabled}"
           ${ariaDisabledAttr}
+          aria-label="${this.escapeHtml(ariaLabel)}"
+          ${describedByAttr}
           ${titleAttr}
         >
           ${icon}
           ${this.sanitize(action.label)}
         </button>
+        ${reasonAssistiveText}
       `;
     }).join('');
 
@@ -380,6 +405,12 @@ export class ActionRenderer {
       const actionKey = this.getActionKey(action);
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const needsDivider = this.shouldShowDivider(action, index, actions);
+      const disabledReason = disabled
+        ? (action.disabledReason || 'Action unavailable').trim()
+        : '';
+      const reasonID = disabledReason
+        ? `${actionKey}-disabled-reason`
+        : '';
 
       const divider = needsDivider
         ? '<div class="action-divider border-t border-gray-200 my-1"></div>'
@@ -392,8 +423,15 @@ export class ActionRenderer {
         : 'action-item text-gray-700 hover:bg-gray-50';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
+      const describedByAttr = reasonID ? `aria-describedby="${reasonID}"` : '';
+      const ariaLabel = disabledReason
+        ? `${action.label} unavailable: ${disabledReason}`
+        : action.label;
       const titleAttr = action.disabledReason
         ? `title="${this.escapeHtml(action.disabledReason)}"`
+        : '';
+      const reasonMarkup = disabledReason
+        ? `<span id="${reasonID}" class="action-item-reason text-xs leading-5 text-gray-500">${this.escapeHtml(disabledReason)}</span>`
         : '';
 
       return `
@@ -406,9 +444,14 @@ export class ActionRenderer {
                 data-disabled="${disabled}"
                 role="menuitem"
                 ${ariaDisabledAttr}
+                aria-label="${this.escapeHtml(ariaLabel)}"
+                ${describedByAttr}
                 ${titleAttr}>
           <span class="flex-shrink-0 w-5 h-5">${icon}</span>
-          <span class="text-sm font-medium">${this.escapeHtml(action.label)}</span>
+          <span class="flex min-w-0 flex-1 flex-col items-start">
+            <span class="text-sm font-medium">${this.escapeHtml(action.label)}</span>
+            ${reasonMarkup}
+          </span>
         </button>
       `;
     }).join('');
@@ -563,22 +606,39 @@ export class ActionRenderer {
     }
 
     try {
-      const response = await fetch(config.endpoint, {
+      const result = await executeStructuredRequest(config.endpoint, {
         method: config.method || 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
         body: JSON.stringify(requestPayload),
-      });
+      }, async (response) => ({
+        success: true,
+        data: await response.json().catch(() => undefined),
+      }));
 
-      if (!response.ok) {
-        const errorMsg = await extractErrorMessage(response);
-        this.notifier.error(errorMsg);
-        throw new Error(errorMsg);
+      if (!result.success) {
+        const structuredError = result.error;
+        const errorMsg = structuredError
+          ? formatStructuredErrorForDisplay(structuredError, `Bulk action '${config.id}' failed`)
+          : `Bulk action '${config.id}' failed`;
+        if (!config.onError) {
+          this.notifier.error(errorMsg);
+        }
+        const actionError = structuredError
+          ? createStructuredActionError(structuredError, `Bulk action '${config.id}' failed`, true)
+          : createStructuredActionError({
+            textCode: null,
+            message: errorMsg,
+            metadata: null,
+            fields: null,
+            validationErrors: null,
+          }, `Bulk action '${config.id}' failed`, true);
+        throw actionError;
       }
 
-      const data = await response.json();
+      const data = result.data;
       this.notifier.success(this.buildBulkSuccessMessage(config, data, selectedIds.length));
 
       if (config.onSuccess) {
@@ -588,7 +648,7 @@ export class ActionRenderer {
       console.error(`Bulk action "${config.id}" failed:`, error);
 
       // Show error toast if onError callback didn't handle it
-      if (!config.onError) {
+      if (!config.onError && !isHandledActionError(error)) {
         const errorMsg = error instanceof Error ? error.message : 'Bulk action failed';
         this.notifier.error(errorMsg);
       }
@@ -924,8 +984,11 @@ export class ActionRenderer {
   }
 
   private escapeHtml(str: string): string {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

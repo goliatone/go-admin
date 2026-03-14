@@ -2,6 +2,16 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
+
+const { JSDOM } = await loadJSDOM();
+
 const fixtureURL = new URL('../../../../admin/testdata/translation_editor_contract_fixtures.json', import.meta.url);
 const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 
@@ -55,6 +65,31 @@ function createJsonResponse(body, status = 200, headers = {}) {
 
 async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function setGlobals(win) {
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Document = win.Document;
+  globalThis.Element = win.Element;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLButtonElement = win.HTMLButtonElement;
+  globalThis.HTMLInputElement = win.HTMLInputElement;
+  globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
+  globalThis.Event = win.Event;
+  globalThis.KeyboardEvent = win.KeyboardEvent;
+  globalThis.URL = win.URL;
+  globalThis.URLSearchParams = win.URLSearchParams;
+  Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
+  Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
+}
+
+function setupDom(url = 'http://localhost/admin/translations/assignments/asg-editor-1/edit') {
+  const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url });
+  setGlobals(dom.window);
+  return {
+    root: dom.window.document.getElementById('root'),
+  };
 }
 
 function makeSubmitReadyFixture() {
@@ -235,6 +270,26 @@ test('translation editor state model: dirty fields, validation, autosave conflic
   assert.deepEqual(synced.dirty_fields, {});
   assert.equal(synced.detail.target_fields.title, 'Guide de publication');
   assert.equal(synced.can_submit_review, true);
+});
+
+test('translation editor runtime: field inputs keep the natural document tab order', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.detail));
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    variantEndpointBase: '/admin/api/translations/variants',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const fields = Array.from(root.querySelectorAll('[data-field-input]'));
+  assert.ok(fields.length > 0);
+  fields.forEach((field) => {
+    assert.equal(field.hasAttribute('tabindex'), false);
+  });
 });
 
 test('translation editor runtime: renders full screen with history, attachments, and assist fallbacks', () => {

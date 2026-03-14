@@ -3,13 +3,17 @@ import assert from 'node:assert/strict';
 
 // Import the error helpers from the dist output
 const {
+  createStructuredActionError,
+  executeStructuredRequest,
   extractStructuredError,
   extractTranslationBlocker,
-  isTranslationBlocker,
-  parseActionResponse,
   extractErrorMessage,
   getErrorMessage,
   formatStructuredErrorForDisplay,
+  getStructuredActionError,
+  isHandledActionError,
+  isTranslationBlocker,
+  parseActionResponse,
 } = await import('../dist/toast/error-helpers.js');
 
 // Helper to create mock Response objects
@@ -134,6 +138,45 @@ test('extractStructuredError falls back to status code on empty response', async
   const result = await extractStructuredError(response);
 
   assert.equal(result.message, 'Request failed (500)');
+});
+
+test('executeStructuredRequest parses structured error envelopes for non-POST flows', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => mockResponse({
+    error: {
+      text_code: 'RESOURCE_IN_USE',
+      message: 'Document cannot be deleted while attached to agreements',
+      metadata: { id: 'doc_123' },
+    },
+  }, { status: 409 });
+
+  try {
+    const result = await executeStructuredRequest('/admin/api/panels/documents/doc_123', {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.status, 409);
+    assert.equal(result.error.textCode, 'RESOURCE_IN_USE');
+    assert.equal(result.error.message, 'Document cannot be deleted while attached to agreements');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('createStructuredActionError stores structured metadata and handled flag', () => {
+  const actionError = createStructuredActionError({
+    textCode: 'PRECONDITION_FAILED',
+    message: 'publish requires a reviewed record',
+    metadata: { field: 'status' },
+    fields: null,
+    validationErrors: null,
+  }, 'Publish failed', true);
+
+  assert.equal(actionError.message, 'PRECONDITION_FAILED: publish requires a reviewed record');
+  assert.equal(getStructuredActionError(actionError)?.textCode, 'PRECONDITION_FAILED');
+  assert.equal(isHandledActionError(actionError), true);
 });
 
 // =============================================================================

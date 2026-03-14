@@ -2,7 +2,12 @@
 import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
 import { renderGroupedEmptyState } from './grouped-mode.js';
-import { httpRequest } from '../shared/transport/http-client.js';
+import {
+  executeStructuredRequest,
+  formatStructuredErrorForDisplay,
+  getStructuredActionError,
+  isHandledActionError,
+} from '../toast/error-helpers.js';
 
 export function updateColumnVisibility(grid: any, visibleColumns: string[], skipURLUpdate: boolean = false): void {
     if (!grid.tableEl) return;
@@ -249,8 +254,14 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
               await action.action(item);
             } catch (error) {
               console.error(`Action "${action.label}" failed:`, error);
-              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-              grid.notify(errorMsg, 'error');
+              const structured = getStructuredActionError(error);
+              if (structured?.textCode) {
+                await grid.refresh();
+              }
+              if (!isHandledActionError(error)) {
+                const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+                grid.notify(errorMsg, 'error');
+              }
             }
           });
         }
@@ -295,8 +306,14 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
               await action.action();
             } catch (error) {
               console.error(`Action "${action.label}" failed:`, error);
-              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-              grid.notify(errorMsg, 'error');
+              const structured = getStructuredActionError(error);
+              if (structured?.textCode) {
+                await grid.refresh();
+              }
+              if (!isHandledActionError(error)) {
+                const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+                grid.notify(errorMsg, 'error');
+              }
             }
           });
         }
@@ -325,13 +342,23 @@ export async function handleDelete(grid: any, id: string): Promise<void> {
     }
 
     try {
-      const response = await httpRequest(`${grid.config.apiEndpoint}/${id}`, {
+      const result = await executeStructuredRequest(`${grid.config.apiEndpoint}/${id}`, {
         method: 'DELETE',
-        accept: 'application/json',
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
-      if (!response.ok) {
-        throw new Error('Delete failed');
+      if (!result.success) {
+        const structured = result.error;
+        const message = structured
+          ? formatStructuredErrorForDisplay(structured, 'Delete failed')
+          : 'Delete failed';
+        if (structured?.textCode) {
+          await grid.refresh();
+        }
+        grid.showError(message);
+        return;
       }
 
       await grid.refresh();

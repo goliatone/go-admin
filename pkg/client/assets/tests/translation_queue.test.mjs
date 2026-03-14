@@ -2,6 +2,16 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
+
+const { JSDOM } = await loadJSDOM();
+
 const fixtureURL = new URL('../../../../admin/testdata/translation_queue_contract_fixtures.json', import.meta.url);
 const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 
@@ -51,6 +61,36 @@ function createJsonResponse(body, status = 200, headers = {}) {
 async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+function setGlobals(win) {
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Document = win.Document;
+  globalThis.Element = win.Element;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLButtonElement = win.HTMLButtonElement;
+  globalThis.HTMLInputElement = win.HTMLInputElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
+  globalThis.Event = win.Event;
+  globalThis.MouseEvent = win.MouseEvent;
+  globalThis.KeyboardEvent = win.KeyboardEvent;
+  globalThis.URL = win.URL;
+  globalThis.URLSearchParams = win.URLSearchParams;
+  Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
+  Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
+}
+
+function setupDom(url = 'http://localhost/admin/translations/queue') {
+  const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url });
+  setGlobals(dom.window);
+  return {
+    root: dom.window.document.getElementById('root'),
+  };
+}
+
+setGlobals(new JSDOM('<!doctype html><html><body></body></html>', {
+  url: 'http://localhost/admin/translations/queue',
+}).window);
 
 test('translation queue contracts: normalize shared fixture metadata and rows', () => {
   const response = normalizeAssignmentListResponse({
@@ -138,6 +178,38 @@ test('translation queue runtime: mount renders saved filters and rows from share
   assert.doesNotMatch(container.innerHTML, /data-action-group="review"/);
   assert.match(container.innerHTML, /data-action-group="manage"/);
   assert.match(container.innerHTML, /data-action="archive"/);
+});
+
+test('translation queue runtime: mobile cards are keyboard-accessible navigation targets', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const opened = [];
+  screen.mount(root);
+  await flushAsync();
+  screen.openAssignment = (assignmentId) => {
+    opened.push(assignmentId);
+  };
+
+  const card = root.querySelector('[data-assignment-card="true"]');
+  assert.ok(card);
+  assert.equal(card.getAttribute('tabindex'), '0');
+  assert.equal(card.getAttribute('role'), 'button');
+  assert.match(card.getAttribute('aria-label') || '', /EN to FR/i);
+
+  card.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+  assert.deepEqual(opened, ['asg-open-1']);
 });
 
 test('translation queue runtime: version conflicts roll back optimistic claim state', async () => {

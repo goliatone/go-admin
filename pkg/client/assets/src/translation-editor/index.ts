@@ -1040,7 +1040,7 @@ function renderFeedback(
       ? 'border-amber-200 bg-amber-50 text-amber-800'
       : 'border-rose-200 bg-rose-50 text-rose-800';
   return `
-    <div class="rounded-2xl border px-4 py-3 text-sm font-medium ${tone}" data-editor-feedback-kind="${escapeAttribute(feedback.kind)}" role="status" aria-live="polite">
+    <div class="rounded-xl border px-4 py-3 text-sm font-medium ${tone}" data-editor-feedback-kind="${escapeAttribute(feedback.kind)}" role="status" aria-live="polite">
       ${escapeHTML(feedback.message)}
     </div>
   `;
@@ -1193,7 +1193,7 @@ function renderHeader(
 function renderDriftNotice(entry: TranslationEditorFieldEntry): string {
   if (!entry.drift.changed) return '';
   return `
-    <div class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${escapeAttribute(entry.path)}">
+    <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${escapeAttribute(entry.path)}">
       <p class="font-semibold">Source changed since the last synced draft.</p>
       <p class="mt-1"><span class="font-medium">Before:</span> ${escapeHTML(entry.drift.previous_source_value || 'Unavailable')}</p>
       <p class="mt-1"><span class="font-medium">Current:</span> ${escapeHTML(entry.drift.current_source_value || entry.source_value || 'Unavailable')}</p>
@@ -1234,12 +1234,12 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
               Copy source
             </button>
           </div>
-          <div class="mt-4 grid gap-4 xl:grid-cols-2">
-            <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
               <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${escapeHTML(entry.source_value || 'No source text')}</div>
             </div>
-            <div class="rounded-2xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
+            <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
               ${entry.input_type === 'textarea'
                 ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}">${escapeHTML(entry.target_value)}</textarea>`
@@ -1272,7 +1272,7 @@ function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${glossary.length
             ? `<ul class="mt-3 space-y-2">${glossary.map((entry) => `
-                <li class="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
                   <strong class="text-gray-900">${escapeHTML(entry.term)}</strong> → ${escapeHTML(entry.preferred_translation)}
                   ${entry.notes ? `<p class="mt-1 text-xs text-gray-500">${escapeHTML(entry.notes)}</p>` : ''}
                 </li>
@@ -1283,7 +1283,7 @@ function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
           <h3 class="text-sm font-semibold text-gray-800">Style guide</h3>
           ${styleGuide.available
             ? `
-              <div class="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
+              <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                 <p class="text-sm font-semibold text-gray-900">${escapeHTML(styleGuide.title)}</p>
                 <p class="mt-2 text-sm text-gray-700">${escapeHTML(styleGuide.summary)}</p>
                 <ul class="mt-3 space-y-2 text-sm text-gray-700">
@@ -1363,7 +1363,7 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
           ${severity === 'blocker' ? `Blocking findings (${findings.length})` : `Warnings (${findings.length})`}
         </h3>
         <ol class="mt-3 space-y-3">${findings.map((finding) => `
-          <li class="rounded-2xl border ${severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
+          <li class="rounded-xl border ${severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
             <div class="flex items-center justify-between gap-3">
               <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
               <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${severity === 'blocker' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHTML(finding.severity)}</span>
@@ -1544,7 +1544,7 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
       </div>
       ${items.length
         ? `<ol class="mt-4 space-y-3">${items.map((entry) => `
-            <li class="rounded-2xl border ${entry.tone === 'review' ? 'border-amber-200 bg-amber-50' : entry.tone === 'qa' ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-gray-50'} px-3 py-3 text-sm ${entry.tone === 'review' ? 'text-amber-900' : entry.tone === 'qa' ? 'text-rose-900' : 'text-gray-700'}" data-history-entry="${escapeAttribute(entry.id)}">
+            <li class="rounded-xl border ${entry.tone === 'review' ? 'border-amber-200 bg-amber-50' : entry.tone === 'qa' ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-gray-50'} px-3 py-3 text-sm ${entry.tone === 'review' ? 'text-amber-900' : entry.tone === 'qa' ? 'text-rose-900' : 'text-gray-700'}" data-history-entry="${escapeAttribute(entry.id)}">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
                   <p class="font-semibold ${entry.tone === 'review' ? 'text-amber-950' : entry.tone === 'qa' ? 'text-rose-950' : 'text-gray-900'}">${escapeHTML(entry.title)}</p>
@@ -1594,11 +1594,11 @@ export function renderTranslationEditorState(
           </div>
         </section>
       ` : ''}
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div class="order-1 space-y-4 sm:space-y-6">
           ${renderFieldList(detail)}
         </div>
-        <aside class="space-y-6">
+        <aside class="order-2 space-y-4 sm:space-y-6">
           ${renderReviewActionsPanel(detail, runtime.submitting === true)}
           ${renderManagementActionsPanel(detail, runtime.submitting === true)}
           ${renderQAPanel(detail)}

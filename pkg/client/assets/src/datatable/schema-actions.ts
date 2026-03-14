@@ -12,11 +12,14 @@
  */
 
 import type { ActionButton, ActionVariant } from './actions.js';
-import type { ActionState } from './action-contracts.js';
+import type { ActionRemediation, ActionState } from './action-contracts.js';
 import { resolveActionState } from './action-contracts.js';
 import {
+  createStructuredActionError,
+  executeStructuredRequest,
   executeActionRequest,
   formatStructuredErrorForDisplay,
+  type StructuredRequestResult,
   extractTranslationBlocker,
   isTranslationBlocker,
   type StructuredError,
@@ -115,6 +118,8 @@ export interface SchemaActionBuilderConfig {
   onActionSuccess?: (actionName: string, result: ActionResult) => void;
   /** Callback after action error */
   onActionError?: (actionName: string, error: StructuredError) => void;
+  /** Optional reconciliation hook after a structured domain failure */
+  reconcileOnDomainFailure?: (actionName: string, error: StructuredError) => Promise<void> | void;
   /** Whether to use default actions as fallback (default: true) */
   useDefaultFallback?: boolean;
   /** Explicit compatibility mode: append defaults even with schema actions */
@@ -395,6 +400,27 @@ export class SchemaActionBuilder {
       ...action,
       disabled: true,
       disabledReason,
+      disabledReasonCode: typeof state.reason_code === 'string' ? state.reason_code : undefined,
+      disabledSeverity: typeof state.severity === 'string' ? state.severity : undefined,
+      disabledKind: typeof state.kind === 'string' ? state.kind : undefined,
+      remediation: this.normalizeRemediation(state.remediation),
+    };
+  }
+
+  private normalizeRemediation(remediation: ActionRemediation | null | undefined): ActionRemediation | null {
+    if (!remediation || typeof remediation !== 'object') {
+      return null;
+    }
+    const label = typeof remediation.label === 'string' ? remediation.label.trim() : '';
+    const href = typeof remediation.href === 'string' ? remediation.href.trim() : '';
+    const kind = typeof remediation.kind === 'string' ? remediation.kind.trim() : '';
+    if (!label && !href && !kind) {
+      return null;
+    }
+    return {
+      ...(label ? { label } : {}),
+      ...(href ? { href } : {}),
+      ...(kind ? { kind } : {}),
     };
   }
 
@@ -520,14 +546,18 @@ export class SchemaActionBuilder {
         const confirmed = window.confirm(`Are you sure you want to delete this item?`);
         if (!confirmed) return;
 
-        const response = await fetch(`${endpoint}/${recordId}`, {
+        const result = await executeStructuredRequest(`${endpoint}/${recordId}`, {
           method: 'DELETE',
           headers: { 'Accept': 'application/json' },
         });
-
-        if (!response.ok) {
-          throw new Error('Delete failed');
+        if (result.success) {
+          this.config.onActionSuccess?.('delete', {
+            success: true,
+            data: result.data,
+          });
+          return;
         }
+        await this.handleStructuredActionFailure('delete', result, 'Delete failed');
       },
     };
   }
@@ -594,12 +624,8 @@ export class SchemaActionBuilder {
       return result;
     }
 
-    if (!result.error) {
-      return result;
-    }
-
     // Translation blockers require a modal-first remediation flow with retry support.
-    if (isTranslationBlocker(result.error)) {
+    if (result.error && isTranslationBlocker(result.error)) {
       const blockerInfo = extractTranslationBlocker(result.error);
       if (blockerInfo && this.config.onTranslationBlocker) {
         const retryPayload = { ...input.payload };
@@ -621,12 +647,31 @@ export class SchemaActionBuilder {
       }
     }
 
-    const formattedMessage = this.buildActionErrorMessage(input.actionName, result.error);
-    this.config.onActionError?.(input.actionName, {
+    await this.handleStructuredActionFailure(input.actionName, result, `${input.actionName} failed`);
+    return { success: false, error: result.error };
+  }
+
+  private async handleStructuredActionFailure(
+    actionName: string,
+    result: StructuredRequestResult | ActionResult,
+    fallbackMessage: string
+  ): Promise<ActionResult> {
+    if (!result.error) {
+      return result;
+    }
+
+    const formattedMessage = this.buildActionErrorMessage(actionName, result.error);
+    const normalizedError = {
       ...result.error,
       message: formattedMessage,
-    });
-    throw new Error(formattedMessage);
+    };
+
+    if (normalizedError.textCode && this.config.reconcileOnDomainFailure) {
+      await this.config.reconcileOnDomainFailure(actionName, normalizedError);
+    }
+
+    this.config.onActionError?.(actionName, normalizedError);
+    throw createStructuredActionError(normalizedError, fallbackMessage, !!this.config.onActionError);
   }
 
   /**

@@ -1,7 +1,7 @@
 import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
 import { r as O } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as N } from "../toast/error-helpers.js";
-import { r as z, k as F, E as R, c as I, d as S, L as P, C as v, e as A, f as j, g as $, H, a as B, l as K, B as D, m as U } from "../chunks/breadcrumb-DNcVtCCy.js";
+import { r as z, k as F, E as R, c as I, d as S, L as P, C as v, e as A, f as j, g as $, H, a as B, l as K, B as D, m as U } from "../chunks/breadcrumb-BXeageNv.js";
 class b extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -654,7 +654,7 @@ class yt {
     if (!this.container || !this.payload)
       return;
     const t = this.payload, r = t.data.cards.map(at).join(""), s = Object.values(t.data.tables).map(lt).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
-        <section class="rounded-2xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
+        <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
           <p class="mt-2">${i(t.meta.degradedReasons.map((u) => `${u.component}: ${u.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>

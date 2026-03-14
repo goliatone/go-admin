@@ -7,26 +7,29 @@
 {% endblock %}
 
 {% block content %}
+{% set canonical_panel_name = panel_name|default:resource %}
+{% set canonical_panel_base_path = routes.index|default:(base_path + "/" + canonical_panel_name) %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <div>
+    {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
     {% block header_pretitle %}{% endblock %}
     <h1 class="text-3xl font-bold text-admin-dark">{% block header_title %}{{ singularize(resource_label|default:resource)|title }}{% endblock %}</h1>
   </div>
-  <div class="flex gap-3">
+  <div class="flex flex-wrap items-start justify-end gap-3">
     {% block header_actions %}
       {% block header_actions_prepend %}{% endblock %}
-      {% if resource_item.actions.edit %}
-        <a href="{{ resource_item.actions.edit }}" class="btn btn-primary">
-          <i class="iconoir-edit-pencil"></i>
-          Edit
-        </a>
-      {% endif %}
-      {% if resource_item.actions.delete %}
-        <button type="button" class="btn btn-danger" onclick="confirmDelete('{{ resource_item.actions.delete }}', 'Delete this {{ singularize(resource_label|default:resource)|lower }}?')">
-          <i class="iconoir-trash"></i>
-          Delete
-        </button>
-      {% endif %}
+      {% block detail_action_mount %}
+      <div
+        data-panel-detail-actions
+        data-panel="{{ canonical_panel_name }}"
+        data-record-id="{{ resource_item.id|default:'' }}"
+        data-base-path="{{ base_path }}"
+        data-api-base-path="{{ api_base_path }}"
+        data-panel-base-path="{{ canonical_panel_base_path }}"
+        data-back-href="{{ routes.index|default:canonical_panel_base_path }}"
+        aria-live="polite"
+      ></div>
+      {% endblock %}
       {% if routes.index %}
         <a href="{{ routes.index }}" class="btn btn-secondary">
           <i class="iconoir-arrow-left"></i>
@@ -142,24 +145,9 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  async function confirmDelete(url, message) {
-    if (!window.toastManager) {
-      const confirmed = window.confirm(message || 'Are you sure you want to delete this item?');
-      if (!confirmed) return;
-    } else {
-      const confirmed = await window.toastManager.confirm(
-        message || 'Are you sure you want to delete this item?',
-        { title: 'Confirm Delete', confirmText: 'Delete', cancelText: 'Cancel' }
-      );
-      if (!confirmed) return;
-    }
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = url;
-    document.body.appendChild(form);
-    form.submit();
-  }
+<script type="module">
+  import { initPanelDetailActions } from '{{ base_path }}/assets/dist/datatable/index.js';
+  initPanelDetailActions();
 </script>
 {% block detail_scripts %}{% endblock %}
 {% endblock %}

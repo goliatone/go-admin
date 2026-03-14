@@ -5,6 +5,7 @@
 
 export { DataGrid } from './core.js';
 export type { DataGridConfig } from './core.js';
+export { handleDelete } from './core-rendering.js';
 export {
   createDataGridStateStore,
   LocalDataGridStateStore,
@@ -58,6 +59,12 @@ export type { ServerColumnVisibilityConfig } from './go-crud/index.js';
 // Export actions system
 export { ActionRenderer } from './actions.js';
 export type { ActionButton, BulkActionConfig, ActionVariant } from './actions.js';
+export {
+  DetailActionsController,
+  initPanelDetailActions,
+  renderDetailActions,
+} from './detail-actions.js';
+export type { DetailActionsMountConfig } from './detail-actions.js';
 
 // Export cell renderers
 export { CellRendererRegistry, CommonRenderers } from './renderers.js';
@@ -93,6 +100,11 @@ export {
   normalizeActionBlockCode,
   normalizeActionState,
   normalizeActionStateMap,
+  normalizeBulkActionStateMap,
+  normalizeActionStateRecord,
+  normalizeActionStateMeta,
+  normalizeListActionStatePayload,
+  normalizeDetailActionStatePayload,
   resolveActionState,
 } from './action-contracts.js';
 

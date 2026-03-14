@@ -6,6 +6,7 @@
 <header class="px-8 py-6 border-b border-slate-200 bg-white">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
+      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Translations</p>
       <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Family detail</h1>
       <p class="mt-2 max-w-3xl text-sm text-slate-600">

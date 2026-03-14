@@ -2,7 +2,7 @@ import { n as W } from "../chunks/index-Dvt9oAtQ.js";
 import { a as d, e as m } from "../chunks/html-Br-oQr7i.js";
 import { h as v, r as F } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as z } from "../toast/error-helpers.js";
-import { B, s as K, t as X, L as J, E as Z, c as ee, d as te, e as se, f as ae, g as re, C as k, r as ie, H as ne, a as oe, h as S, n as de, j as M, o as q, M as ce, i as le, m as ue } from "../chunks/breadcrumb-DNcVtCCy.js";
+import { B, s as K, t as X, L as J, E as Z, c as ee, d as te, e as se, f as ae, g as re, C as k, r as ie, H as ne, a as oe, h as S, n as de, j as M, o as q, M as ce, i as le, m as ue } from "../chunks/breadcrumb-BXeageNv.js";
 function l(t) {
   return t && typeof t == "object" ? t : {};
 }
@@ -543,7 +543,7 @@ function G(t) {
 }
 function Me(t) {
   return t ? `
-    <div class="rounded-2xl border px-4 py-3 text-sm font-medium ${t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : t.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${m(t.kind)}" role="status" aria-live="polite">
+    <div class="rounded-xl border px-4 py-3 text-sm font-medium ${t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : t.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${m(t.kind)}" role="status" aria-live="polite">
       ${d(t.message)}
     </div>
   ` : "";
@@ -652,7 +652,7 @@ function Qe(t, e, s, a, r, n = "") {
 }
 function Ge(t) {
   return t.drift.changed ? `
-    <div class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${m(t.path)}">
+    <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${m(t.path)}">
       <p class="font-semibold">Source changed since the last synced draft.</p>
       <p class="mt-1"><span class="font-medium">Before:</span> ${d(t.drift.previous_source_value || "Unavailable")}</p>
       <p class="mt-1"><span class="font-medium">Current:</span> ${d(t.drift.current_source_value || t.source_value || "Unavailable")}</p>
@@ -690,12 +690,12 @@ function Ve(t) {
               Copy source
             </button>
           </div>
-          <div class="mt-4 grid gap-4 xl:grid-cols-2">
-            <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
               <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${d(e.source_value || "No source text")}</div>
             </div>
-            <div class="rounded-2xl border ${e.validation.valid ? "border-gray-200" : "border-rose-200"} bg-white p-4">
+            <div class="rounded-xl border ${e.validation.valid ? "border-gray-200" : "border-rose-200"} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${m(e.path)}">Translation</label>
               ${e.input_type === "textarea" ? `<textarea id="editor-field-${m(e.path)}" class="mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${m(e.path)}">${d(e.target_value)}</textarea>` : `<input id="editor-field-${m(e.path)}" type="text" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${m(e.path)}" value="${m(e.target_value)}" />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
@@ -723,7 +723,7 @@ function We(t) {
         <div>
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${e.length ? `<ul class="mt-3 space-y-2">${e.map((a) => `
-                <li class="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
                   <strong class="text-gray-900">${d(a.term)}</strong> → ${d(a.preferred_translation)}
                   ${a.notes ? `<p class="mt-1 text-xs text-gray-500">${d(a.notes)}</p>` : ""}
                 </li>
@@ -732,7 +732,7 @@ function We(t) {
         <div>
           <h3 class="text-sm font-semibold text-gray-800">Style guide</h3>
           ${s.available ? `
-              <div class="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
+              <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                 <p class="text-sm font-semibold text-gray-900">${d(s.title)}</p>
                 <p class="mt-2 text-sm text-gray-700">${d(s.summary)}</p>
                 <ul class="mt-3 space-y-2 text-sm text-gray-700">
@@ -783,7 +783,7 @@ function Xe(t) {
           ${o === "blocker" ? `Blocking findings (${n.length})` : `Warnings (${n.length})`}
         </h3>
         <ol class="mt-3 space-y-3">${n.map((c) => `
-          <li class="rounded-2xl border ${o === "blocker" ? "border-rose-200 bg-white text-rose-900" : "border-amber-200 bg-white text-amber-900"} px-3 py-3 text-sm">
+          <li class="rounded-xl border ${o === "blocker" ? "border-rose-200 bg-white text-rose-900" : "border-amber-200 bg-white text-amber-900"} px-3 py-3 text-sm">
             <div class="flex items-center justify-between gap-3">
               <strong>${d(x(c.category))}</strong>
               <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${o === "blocker" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}">${d(c.severity)}</span>
@@ -942,7 +942,7 @@ function st(t) {
         <span class="text-xs text-gray-500">Page ${e.page} of ${Math.max(1, Math.ceil(e.total / Math.max(1, e.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => `
-            <li class="rounded-2xl border ${a.tone === "review" ? "border-amber-200 bg-amber-50" : a.tone === "qa" ? "border-rose-200 bg-rose-50" : "border-gray-200 bg-gray-50"} px-3 py-3 text-sm ${a.tone === "review" ? "text-amber-900" : a.tone === "qa" ? "text-rose-900" : "text-gray-700"}" data-history-entry="${m(a.id)}">
+            <li class="rounded-xl border ${a.tone === "review" ? "border-amber-200 bg-amber-50" : a.tone === "qa" ? "border-rose-200 bg-rose-50" : "border-gray-200 bg-gray-50"} px-3 py-3 text-sm ${a.tone === "review" ? "text-amber-900" : a.tone === "qa" ? "text-rose-900" : "text-gray-700"}" data-history-entry="${m(a.id)}">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
                   <p class="font-semibold ${a.tone === "review" ? "text-amber-950" : a.tone === "qa" ? "text-rose-950" : "text-gray-900"}">${d(a.title)}</p>
@@ -983,11 +983,11 @@ function at(t, e, s = {}, a = {}) {
           </div>
         </section>
       ` : ""}
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div class="order-1 space-y-4 sm:space-y-6">
           ${Ve(r)}
         </div>
-        <aside class="space-y-6">
+        <aside class="order-2 space-y-4 sm:space-y-6">
           ${Je(r, a.submitting === !0)}
           ${et(r, a.submitting === !0)}
           ${Xe(r)}

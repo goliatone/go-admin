@@ -1,6 +1,10 @@
 // @ts-nocheck
 import type { ApiResponse, DetailResponse } from './core-types.js';
 import { httpRequest } from '../shared/transport/http-client.js';
+import {
+  normalizeDetailActionStatePayload,
+  normalizeListActionStatePayload,
+} from './action-contracts.js';
 
 export async function refresh(grid: any): Promise<void> {
     console.log('[DataGrid] ===== refresh() CALLED =====');
@@ -27,7 +31,8 @@ export async function refresh(grid: any): Promise<void> {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse = await response.json();
+      const rawData: ApiResponse = await response.json();
+      const data = normalizeListActionStatePayload(rawData) as ApiResponse || rawData;
       console.log('[DataGrid] API Response:', data);
       console.log('[DataGrid] API Response data array:', data.data);
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
@@ -193,8 +198,9 @@ export async function fetchDetail(grid: any, id: string): Promise<{ data: any; s
 }
 
 export function normalizeDetailResponse(_grid: any, payload: any): { data: any; schema?: Record<string, any>; form?: Record<string, any> } {
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    const detail = payload as DetailResponse;
+  const normalizedPayload = normalizeDetailActionStatePayload(payload) || payload;
+  if (normalizedPayload && typeof normalizedPayload === 'object' && 'data' in normalizedPayload) {
+    const detail = normalizedPayload as DetailResponse;
     return {
       data: detail.data,
       schema: detail.schema,

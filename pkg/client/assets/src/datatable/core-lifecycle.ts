@@ -1,7 +1,11 @@
 // @ts-nocheck
 import type { ColumnFilter } from './core-types.js';
 import { ColumnManager } from './column-manager.js';
-import { extractErrorMessage } from '../toast/error-helpers.js';
+import {
+  extractErrorMessage,
+  getStructuredActionError,
+  isHandledActionError,
+} from '../toast/error-helpers.js';
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
 
 export function bindSearchInput(grid: any): void {
@@ -481,7 +485,13 @@ export function bindBulkActions(grid: any): void {
               await grid.refresh();
             } catch (error) {
               console.error('Bulk action failed:', error);
-              grid.showError('Bulk action failed');
+              const structured = getStructuredActionError(error);
+              if (structured?.textCode) {
+                await grid.refresh();
+              }
+              if (!isHandledActionError(error)) {
+                grid.showError(error instanceof Error ? error.message : 'Bulk action failed');
+              }
             }
             return;
           }
@@ -508,7 +518,13 @@ export function bindBulkActions(grid: any): void {
             await grid.refresh();
           } catch (error) {
             console.error('Bulk action failed:', error);
-            grid.showError('Bulk action failed');
+            const structured = getStructuredActionError(error);
+            if (structured?.textCode) {
+              await grid.refresh();
+            }
+            if (!isHandledActionError(error)) {
+              grid.showError(error instanceof Error ? error.message : 'Bulk action failed');
+            }
           }
           return;
         }
@@ -521,7 +537,13 @@ export function bindBulkActions(grid: any): void {
             grid.updateBulkActionsBar();
           } catch (error) {
             console.error('Bulk action failed:', error);
-            grid.showError('Bulk action failed');
+            const structured = getStructuredActionError(error);
+            if (structured?.textCode) {
+              await grid.refresh();
+            }
+            if (!isHandledActionError(error)) {
+              grid.showError(error instanceof Error ? error.message : 'Bulk action failed');
+            }
           }
         }
       });

@@ -13,12 +13,20 @@ func TestSharedDetailTemplateDefinesContentHooks(t *testing.T) {
 		"{% block detail_content %}",
 		"{% block detail_content_pre %}",
 		"{% block detail_content_post %}",
+		`data-panel-detail-actions`,
+		`initPanelDetailActions`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(template, fragment) {
 			continue
 		}
 		t.Fatalf("expected shared detail template fragment not found: %q", fragment)
+	}
+	if strings.Contains(template, "resource_item.actions.edit") {
+		t.Fatalf("shared detail template must not hard-code resource_item.actions.edit")
+	}
+	if strings.Contains(template, "confirmDelete(") {
+		t.Fatalf("shared detail template must not use legacy confirmDelete helper")
 	}
 }
 
