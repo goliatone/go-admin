@@ -602,7 +602,7 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	// even when translation operation permissions are denied for the current user.
 	adm.WithAuthorizer(denyTranslationPermissionAuthorizer{})
 	navItems := BuildNavItems(adm, cfg, context.Background(), "")
-	if item := findNavItemByKey(navItems, "translations"); item == nil {
+	if item := findNavItemByKey(navItems, "translation_queue"); item == nil {
 		t.Fatalf("expected translation queue sidebar entrypoint")
 	} else {
 		href := strings.TrimSpace(toString(item["href"]))

@@ -188,6 +188,15 @@ func TestDefaultPlacementsIncludeSidebarUtilityMenu(t *testing.T) {
 	if code != admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode) {
 		t.Fatalf("expected sidebar utility menu code %q, got %q", admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode), code)
 	}
+	if area := placements.DashboardAreaFor(DashboardPlacementSidebar, ""); area != "admin.dashboard.sidebar" {
+		t.Fatalf("expected dashboard sidebar placement area admin.dashboard.sidebar, got %q", area)
+	}
+	if area := placements.DashboardAreaFor(DashboardPlacementMain, ""); area != "admin.dashboard.main" {
+		t.Fatalf("expected dashboard main area admin.dashboard.main, got %q", area)
+	}
+	if area := placements.DashboardAreaFor(DashboardPlacementFooter, ""); area != "admin.dashboard.footer" {
+		t.Fatalf("expected dashboard footer area admin.dashboard.footer, got %q", area)
+	}
 }
 
 func TestBuildNavItemsPrunesEmptyGroupNodes(t *testing.T) {

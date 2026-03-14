@@ -118,7 +118,7 @@ func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
 	nav.UseCMS(false)
 	nav.AddFallback(admin.NavigationItem{Label: "Home", Position: intPtr(1)})
 
-	_ = BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), "sidebar", context.Background(), "")
+	_ = BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, context.Background(), "")
 
 	if got := logger.count("debug", "nav payload"); got == 0 {
 		t.Fatalf("expected nav payload to be logged via injected logger")

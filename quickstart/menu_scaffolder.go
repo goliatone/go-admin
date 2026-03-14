@@ -8,11 +8,17 @@ import (
 
 const (
 	// SidebarPlacementPrimary is the placement key used for the main sidebar tree.
-	SidebarPlacementPrimary = "sidebar"
+	SidebarPlacementPrimary PlacementKey = "sidebar"
 	// SidebarPlacementUtility is the placement key used for fixed utility links above the user pod.
-	SidebarPlacementUtility = "sidebar_utility"
+	SidebarPlacementUtility PlacementKey = "sidebar_utility"
 	// FooterPlacement is the placement key used for footer navigation.
-	FooterPlacement = "footer"
+	FooterPlacement PlacementKey = "footer"
+	// DashboardPlacementMain is the placement key used for the main dashboard area.
+	DashboardPlacementMain PlacementKey = "dashboard_main"
+	// DashboardPlacementSidebar is the placement key used for the dashboard sidebar area.
+	DashboardPlacementSidebar PlacementKey = "dashboard_sidebar"
+	// DashboardPlacementFooter is the placement key used for the dashboard footer area.
+	DashboardPlacementFooter PlacementKey = "dashboard_footer"
 
 	// NavigationGroupMainID is the canonical main navigation group parent ID.
 	NavigationGroupMainID = "nav-group-main"
@@ -53,6 +59,9 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Position:      intPtr(0),
 		Menu:          menuCode,
 		Collapsible:   true,
+		Target: map[string]any{
+			"breadcrumb_hidden": true,
+		},
 	}
 	content := admin.MenuItem{
 		ID:          NavigationSectionContentID,
@@ -82,6 +91,9 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Position:      intPtr(90),
 		Menu:          menuCode,
 		Collapsible:   true,
+		Target: map[string]any{
+			"breadcrumb_hidden": true,
+		},
 	}
 	translations := admin.MenuItem{
 		ID:            NavigationGroupTranslationsID,
@@ -91,6 +103,9 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Position:      intPtr(80),
 		Menu:          menuCode,
 		Collapsible:   true,
+		Target: map[string]any{
+			"breadcrumb_hidden": true,
+		},
 	}
 	return []admin.MenuItem{mainGroup, content, translations, tools}
 }

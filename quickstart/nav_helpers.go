@@ -18,36 +18,61 @@ type navRequestScope struct {
 	Channel    string
 }
 
-// PlacementConfig maps logical placements to menu codes and dashboard areas.
+// PlacementKey identifies a logical UI placement.
+type PlacementKey string
+
+// PlacementSpec describes menu/dashboard routing for a placement.
+type PlacementSpec struct {
+	MenuCode      string
+	DashboardArea string
+	Extra         map[string]any
+}
+
+// PlacementConfig maps logical placements to typed placement specs.
 type PlacementConfig struct {
-	MenuCodes      map[string]string
-	DashboardAreas map[string]string
+	Items map[PlacementKey]PlacementSpec
 }
 
 // DefaultPlacements builds a placement map seeded with defaults.
 func DefaultPlacements(cfg admin.Config) PlacementConfig {
-	menuCode := admin.NormalizeMenuSlug(cfg.NavMenuCode)
-	if menuCode == "" {
-		menuCode = admin.NormalizeMenuSlug("admin.main")
-	}
 	return PlacementConfig{
-		MenuCodes: map[string]string{
-			SidebarPlacementPrimary: menuCode,
-			SidebarPlacementUtility: admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode),
-			FooterPlacement:         admin.NormalizeMenuSlug("admin.footer"),
-		},
-		DashboardAreas: map[string]string{
-			"main":    "admin.dashboard.main",
-			"sidebar": "admin.dashboard.sidebar",
-			"footer":  "admin.dashboard.footer",
+		Items: map[PlacementKey]PlacementSpec{
+			SidebarPlacementPrimary: {
+				MenuCode:      cfg.NavMenuCode,
+				DashboardArea: "admin.dashboard.sidebar",
+			},
+			SidebarPlacementUtility: {
+				MenuCode: DefaultSidebarUtilityMenuCode,
+			},
+			FooterPlacement: {
+				MenuCode: "admin.footer",
+			},
+			DashboardPlacementMain: {
+				DashboardArea: "admin.dashboard.main",
+			},
+			DashboardPlacementSidebar: {
+				DashboardArea: "admin.dashboard.sidebar",
+			},
+			DashboardPlacementFooter: {
+				DashboardArea: "admin.dashboard.footer",
+			},
 		},
 	}
 }
 
+// PlacementFor returns the placement spec for a logical placement, if present.
+func (p PlacementConfig) PlacementFor(placement PlacementKey) (PlacementSpec, bool) {
+	if p.Items == nil {
+		return PlacementSpec{}, false
+	}
+	spec, ok := p.Items[placement]
+	return spec, ok
+}
+
 // MenuCodeFor returns the menu code for a placement, falling back to the provided default.
-func (p PlacementConfig) MenuCodeFor(placement, fallback string) string {
-	if p.MenuCodes != nil {
-		if code := strings.TrimSpace(p.MenuCodes[placement]); code != "" {
+func (p PlacementConfig) MenuCodeFor(placement PlacementKey, fallback string) string {
+	if spec, ok := p.PlacementFor(placement); ok {
+		if code := strings.TrimSpace(spec.MenuCode); code != "" {
 			return admin.NormalizeMenuSlug(code)
 		}
 	}
@@ -59,9 +84,9 @@ func (p PlacementConfig) MenuCodeFor(placement, fallback string) string {
 }
 
 // DashboardAreaFor returns the dashboard area for a placement, with fallback support.
-func (p PlacementConfig) DashboardAreaFor(placement, fallback string) string {
-	if p.DashboardAreas != nil {
-		if area := strings.TrimSpace(p.DashboardAreas[placement]); area != "" {
+func (p PlacementConfig) DashboardAreaFor(placement PlacementKey, fallback string) string {
+	if spec, ok := p.PlacementFor(placement); ok {
+		if area := strings.TrimSpace(spec.DashboardArea); area != "" {
 			return area
 		}
 	}
@@ -77,7 +102,7 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 }
 
 // WithNavPlacements is like WithNav but allows selecting a placement-specific menu.
-func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, active string, reqCtx context.Context) router.ViewContext {
+func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement PlacementKey, active string, reqCtx context.Context) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
@@ -104,7 +129,8 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	}
 	ctx["session_user"] = sessionView
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
-	ctx["nav_items"] = BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
+	navItems := BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
+	ctx["nav_items"] = navItems
 	ctx["nav_utility_items"] = BuildNavItemsForPlacement(adm, cfg, placements, SidebarPlacementUtility, reqCtx, active)
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	ctx["users_import_available"] = adm.UserImportEnabled()
@@ -112,6 +138,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if active != "" {
 		ctx["active"] = active
 	}
+	ctx = withResolvedBreadcrumbs(ctx, navItems, active)
 	if cfg.NavDebug {
 		if raw, err := json.MarshalIndent(ctx["nav_items"], "", "  "); err == nil {
 			ctx["nav_items_json"] = string(raw)
@@ -127,7 +154,7 @@ func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, acti
 }
 
 // BuildNavItemsForPlacement resolves a menu for a placement and returns render-ready entries.
-func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, ctx context.Context, active string) []map[string]any {
+func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement PlacementKey, ctx context.Context, active string) []map[string]any {
 	entries := []map[string]any{}
 	if adm == nil {
 		return entries
@@ -237,7 +264,7 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 
 func translationModuleForNavKey(key string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "translations", "translation_dashboard":
+	case "translations", "translation_dashboard", "translation_queue":
 		return "queue", true
 	case "translation_exchange":
 		return "exchange", true
@@ -305,6 +332,15 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"active":          isActive,
 		"expanded":        collapsible && !collapsed,
 		"child_active":    childActive,
+	}
+	if breadcrumbLabel := strings.TrimSpace(toNavString(target["breadcrumb_label"])); breadcrumbLabel != "" {
+		entry["breadcrumb_label"] = breadcrumbLabel
+	}
+	if breadcrumbHref := strings.TrimSpace(toNavString(target["breadcrumb_href"])); breadcrumbHref != "" {
+		entry["breadcrumb_href"] = withNavScopeQuery(breadcrumbHref, scope)
+	}
+	if breadcrumbHidden, ok := target["breadcrumb_hidden"].(bool); ok {
+		entry["breadcrumb_hidden"] = breadcrumbHidden
 	}
 	if targetEnabled, ok := target["enabled"].(bool); ok {
 		entry["enabled"] = targetEnabled

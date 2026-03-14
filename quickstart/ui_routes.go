@@ -36,6 +36,7 @@ type uiRouteOptions struct {
 	translationShellTemplate        string
 	translationFamilyDetailTemplate string
 	translationEditorTemplate       string
+	translationMatrixTemplate       string
 	translationDashboardTemplate    string
 	translationExchangeTemplate     string
 	dashboardTitle                  string
@@ -385,6 +386,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		translationShellTemplate:        "resources/translations/shell",
 		translationFamilyDetailTemplate: "resources/translations/family-detail",
 		translationEditorTemplate:       "resources/translations/editor",
+		translationMatrixTemplate:       "resources/translations/matrix",
 		translationDashboardTemplate:    "resources/translations/dashboard",
 		translationExchangeTemplate:     "resources/translations/exchange",
 		dashboardTitle:                  strings.TrimSpace(cfg.Title),
@@ -532,20 +534,11 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationDashboardPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			return renderView(c, options.translationDashboardTemplate, options.translationDashboardTitle, options.translationDashboardActive, router.ViewContext{
-				"translation_dashboard_api_path": prefixBasePath(apiBase, path.Join("translations", "my-work")),
+				"translation_dashboard_api_path": prefixBasePath(apiBase, path.Join("translations", "dashboard")),
 				"translation_queue_api_path":     prefixBasePath(apiBase, path.Join("translations", "queue")),
-				"translation_panels_base_path":   path.Join(options.basePath, "content"),
+				"translation_families_api_path":  prefixBasePath(apiBase, path.Join("translations", "families")),
 			})
 		}))
-	}
-
-	renderTranslationShell := func(c router.Context, title, active, surface, description, endpoint string) error {
-		return renderView(c, options.translationShellTemplate, title, active, router.ViewContext{
-			"translation_shell_surface":     surface,
-			"translation_shell_title":       title,
-			"translation_shell_description": description,
-			"translation_shell_api_path":    endpoint,
-		})
 	}
 
 	if options.registerTranslationQueue {
@@ -566,11 +559,13 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			familyID := strings.TrimSpace(c.Param("family_id"))
-			return renderView(c, options.translationFamilyDetailTemplate, options.translationFamilyDetailTitle, options.translationFamilyDetailActive, router.ViewContext{
+			view := WithBreadcrumbAnchor(router.ViewContext{
 				"translation_family_id":       familyID,
 				"translation_family_api_path": prefixBasePath(apiBase, path.Join("translations", "families", familyID)),
 				"translation_content_base":    path.Join(options.basePath, "content"),
-			})
+			}, options.translationDashboardActive)
+			view = WithBreadcrumbAppend(view, CurrentBreadcrumb(fmt.Sprintf("Family %s", familyID)))
+			return renderView(c, options.translationFamilyDetailTemplate, options.translationFamilyDetailTitle, options.translationFamilyDetailActive, view)
 		}))
 	}
 
@@ -578,25 +573,25 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationEditorPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			assignmentID := strings.TrimSpace(c.Param("assignment_id"))
-			return renderView(c, options.translationEditorTemplate, options.translationEditorTitle, options.translationEditorActive, router.ViewContext{
+			view := WithBreadcrumbAnchor(router.ViewContext{
 				"translation_assignment_id":           assignmentID,
 				"translation_editor_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments", assignmentID)),
 				"translation_editor_variant_api_base": prefixBasePath(apiBase, path.Join("translations", "variants")),
 				"translation_editor_action_api_base":  prefixBasePath(apiBase, path.Join("translations", "assignments")),
-			})
+			}, options.translationQueueActive)
+			view = WithBreadcrumbAppend(view, CurrentBreadcrumb(fmt.Sprintf("Assignment %s", assignmentID)))
+			return renderView(c, options.translationEditorTemplate, options.translationEditorTitle, options.translationEditorActive, view)
 		}))
 	}
 
 	if options.registerTranslationMatrix {
 		r.Get(options.translationMatrixPath, wrap(func(c router.Context) error {
-			return renderTranslationShell(
-				c,
-				options.translationMatrixTitle,
-				options.translationMatrixActive,
-				"matrix",
-				"Matrix shell used to validate route rollout and shared empty-state handling before the dense locale grid ships.",
-				"",
-			)
+			apiBase := resolveAPIBase()
+			view := WithBreadcrumbAnchor(router.ViewContext{
+				"translation_matrix_api_path": prefixBasePath(apiBase, path.Join("translations", "matrix")),
+			}, options.translationDashboardActive)
+			view = WithBreadcrumbAppend(view, CurrentBreadcrumb("Matrix"))
+			return renderView(c, options.translationMatrixTemplate, options.translationMatrixTitle, options.translationMatrixActive, view)
 		}))
 	}
 
