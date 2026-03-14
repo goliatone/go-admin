@@ -23,6 +23,11 @@ func TestActionDisabledReasonCodesCanonicalVocabulary(t *testing.T) {
 		ActionDisabledReasonCodePermissionDenied,
 		ActionDisabledReasonCodeMissingContext,
 		ActionDisabledReasonCodeFeatureDisabled,
+		ActionDisabledReasonCodeResourceInUse,
+		ActionDisabledReasonCodePreconditionFailed,
+		ActionDisabledReasonCodeInvalidSelection,
+		ActionDisabledReasonCodeRateLimited,
+		ActionDisabledReasonCodeTemporarilyUnavailable,
 	} {
 		if _, ok := seen[required]; !ok {
 			t.Fatalf("missing required reason code %q from %+v", required, codes)

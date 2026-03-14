@@ -1,0 +1,459 @@
+package admin
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
+)
+
+type actionStateEvaluationContext struct {
+	adminContext   AdminContext
+	panelName      string
+	panel          *Panel
+	scope          ActionScope
+	action         Action
+	record         map[string]any
+	transitions    []WorkflowTransitionInfo
+	transitionsErr error
+}
+
+func defaultEnabledActionState() ActionState {
+	return ActionState{Enabled: true}
+}
+
+func (p *panelBinding) withRowActionState(ctx AdminContext, records []map[string]any, actions []Action) ([]map[string]any, error) {
+	return p.withScopedActionState(ctx, records, actions, ActionScopeRow)
+}
+
+func (p *panelBinding) withScopedActionState(ctx AdminContext, records []map[string]any, actions []Action, scope ActionScope) ([]map[string]any, error) {
+	if len(records) == 0 {
+		return records, nil
+	}
+	out := cloneActionStateRecords(records)
+	if len(actions) == 0 {
+		return out, nil
+	}
+
+	workflowTransitionsByRecord, workflowTransitionErrByRecord := p.workflowTransitionsForRecords(ctx, out, actions)
+	resolverStates, err := p.resolveBatchActionStates(ctx, out, actions, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	for index, record := range out {
+		recordID := strings.TrimSpace(toString(record["id"]))
+		state := p.actionStateForRecord(
+			ctx,
+			record,
+			actions,
+			scope,
+			workflowTransitionsByRecord[recordID],
+			workflowTransitionErrByRecord[recordID],
+			resolverStates[recordID],
+		)
+		if len(state) == 0 {
+			continue
+		}
+		out[index]["_action_state"] = actionStatePayloadMap(state)
+	}
+	return out, nil
+}
+
+func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransitionInfo, transitionsErr error) map[string]map[string]any {
+	if len(record) == 0 || len(actions) == 0 {
+		return nil
+	}
+	state := p.actionStateForRecord(ctx, primitives.CloneAnyMap(record), actions, ActionScopeRow, transitions, transitionsErr, nil)
+	return actionStatePayloadMap(state)
+}
+
+func (p *panelBinding) actionStateForRecord(
+	ctx AdminContext,
+	record map[string]any,
+	actions []Action,
+	scope ActionScope,
+	transitions []WorkflowTransitionInfo,
+	transitionsErr error,
+	resolverStates map[string]ActionState,
+) map[string]ActionState {
+	if len(record) == 0 || len(actions) == 0 {
+		return nil
+	}
+	out := make(map[string]ActionState, len(actions))
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		evalCtx := actionStateEvaluationContext{
+			adminContext:   ctx,
+			panelName:      p.name,
+			panel:          p.panel,
+			scope:          scope,
+			action:         action,
+			record:         record,
+			transitions:    transitions,
+			transitionsErr: transitionsErr,
+		}
+
+		state := defaultEnabledActionState()
+		candidate, applies := p.evaluateBuiltInScopeAndContext(evalCtx)
+		state = mergeActionState(state, candidate, applies)
+		candidate, applies = p.evaluateBuiltInPermission(evalCtx)
+		state = mergeActionState(state, candidate, applies)
+		candidate, applies = p.evaluateBuiltInWorkflow(evalCtx)
+		state = mergeActionState(state, candidate, applies)
+		candidate, applies = p.evaluateBuiltInTranslationReadiness(evalCtx)
+		state = mergeActionState(state, candidate, applies)
+		candidate, applies = p.evaluateGuard(evalCtx)
+		state = mergeActionState(state, candidate, applies)
+		if candidate, ok := resolverStates[name]; ok {
+			state = mergeActionState(state, candidate, true)
+		}
+		out[name] = state
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (p *panelBinding) resolveBatchActionStates(
+	ctx AdminContext,
+	records []map[string]any,
+	actions []Action,
+	scope ActionScope,
+) (map[string]map[string]ActionState, error) {
+	if p == nil || p.panel == nil || p.panel.actionStateResolver == nil || len(records) == 0 || len(actions) == 0 {
+		return nil, nil
+	}
+	return p.panel.actionStateResolver(
+		ctx,
+		cloneActionStateRecords(records),
+		append([]Action{}, actions...),
+		scope,
+	)
+}
+
+func (p *panelBinding) workflowTransitionsForRecords(
+	ctx AdminContext,
+	records []map[string]any,
+	actions []Action,
+) (map[string][]WorkflowTransitionInfo, map[string]error) {
+	transitionsByRecord := map[string][]WorkflowTransitionInfo{}
+	errByRecord := map[string]error{}
+	if p == nil || p.panel == nil || p.panel.workflow == nil || len(records) == 0 || !hasWorkflowBackedAction(actions) {
+		return transitionsByRecord, errByRecord
+	}
+	for _, record := range records {
+		recordID := strings.TrimSpace(toString(record["id"]))
+		if recordID == "" {
+			continue
+		}
+		if _, seen := transitionsByRecord[recordID]; seen {
+			continue
+		}
+		state := strings.TrimSpace(toString(record["status"]))
+		transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, recordID, state, record, true)
+		transitionsByRecord[recordID] = append([]WorkflowTransitionInfo{}, transitions...)
+		errByRecord[recordID] = err
+	}
+	return transitionsByRecord, errByRecord
+}
+
+func (p *panelBinding) evaluateBuiltInScopeAndContext(evalCtx actionStateEvaluationContext) (ActionState, bool) {
+	action := evalCtx.action
+	if action.Scope != ActionScopeAny && action.Scope != "" && action.Scope != evalCtx.scope {
+		return ActionState{
+			Enabled:    false,
+			ReasonCode: ActionDisabledReasonCodePreconditionFailed,
+			Reason:     fmt.Sprintf("action is not available in %q scope", evalCtx.scope),
+		}, true
+	}
+	if !actionContextRequiredSatisfied(evalCtx.record, action.ContextRequired) {
+		return ActionState{
+			Enabled:    false,
+			ReasonCode: ActionDisabledReasonCodeMissingContext,
+			Reason:     "record does not include required context for this action",
+		}, true
+	}
+	return ActionState{}, false
+}
+
+func (p *panelBinding) evaluateBuiltInPermission(evalCtx actionStateEvaluationContext) (ActionState, bool) {
+	action := evalCtx.action
+	if action.Permission == "" || p == nil || p.panel == nil || p.panel.authorizer == nil {
+		return ActionState{}, false
+	}
+	if p.panel.authorizer.Can(evalCtx.adminContext.Context, action.Permission, p.name) {
+		return ActionState{
+			Enabled:    true,
+			Permission: strings.TrimSpace(action.Permission),
+		}, true
+	}
+	return ActionState{
+		Enabled:    false,
+		ReasonCode: ActionDisabledReasonCodePermissionDenied,
+		Reason:     "you do not have permission to execute this action",
+		Permission: strings.TrimSpace(action.Permission),
+	}, true
+}
+
+func (p *panelBinding) evaluateBuiltInWorkflow(evalCtx actionStateEvaluationContext) (ActionState, bool) {
+	actionName := strings.ToLower(strings.TrimSpace(evalCtx.action.Name))
+	if _, workflowAction := workflowActionNames[actionName]; !workflowAction {
+		return ActionState{}, false
+	}
+	if p == nil || p.panel == nil || p.panel.workflow == nil {
+		return ActionState{
+			Enabled:    false,
+			ReasonCode: ActionDisabledReasonCodeInvalidStatus,
+			Reason:     "workflow is not configured for this panel",
+		}, true
+	}
+	recordID := strings.TrimSpace(toString(evalCtx.record["id"]))
+	if recordID == "" {
+		return ActionState{
+			Enabled:    false,
+			ReasonCode: ActionDisabledReasonCodeMissingContext,
+			Reason:     "record id required to evaluate workflow action",
+		}, true
+	}
+	candidate := ActionState{
+		Enabled:              true,
+		AvailableTransitions: workflowTransitionNamesList(evalCtx.transitions),
+	}
+	if evalCtx.transitionsErr != nil {
+		candidate.Enabled = false
+		candidate.ReasonCode = ActionDisabledReasonCodeInvalidStatus
+		candidate.Reason = "workflow transitions are unavailable"
+		return candidate, true
+	}
+	if actionMatchesAvailableWorkflowTransition(actionName, evalCtx.transitions) {
+		return candidate, true
+	}
+	currentState := primitives.FirstNonEmptyRaw(strings.TrimSpace(toString(evalCtx.record["status"])), "unknown")
+	candidate.Enabled = false
+	candidate.ReasonCode = ActionDisabledReasonCodeInvalidStatus
+	candidate.Reason = fmt.Sprintf("transition %q is not available from state %q", evalCtx.action.Name, currentState)
+	return candidate, true
+}
+
+func (p *panelBinding) evaluateBuiltInTranslationReadiness(evalCtx actionStateEvaluationContext) (ActionState, bool) {
+	reason, blocked := translationBlockedActionReason(evalCtx.action.Name, evalCtx.record)
+	if !blocked {
+		return ActionState{}, false
+	}
+	return ActionState{
+		Enabled:    false,
+		ReasonCode: ActionDisabledReasonCodeTranslationMissing,
+		Reason:     reason,
+	}, true
+}
+
+func (p *panelBinding) evaluateGuard(evalCtx actionStateEvaluationContext) (ActionState, bool) {
+	if evalCtx.action.Guard == nil {
+		return ActionState{}, false
+	}
+	return evalCtx.action.Guard(ActionGuardContext{
+		AdminContext: evalCtx.adminContext,
+		Panel:        p.panel,
+		Action:       evalCtx.action,
+		Record:       primitives.CloneAnyMap(evalCtx.record),
+		Scope:        evalCtx.scope,
+	}), true
+}
+
+func (p *panelBinding) bulkActionState(ctx AdminContext, actions []Action, listOpts ListOptions) (map[string]map[string]any, error) {
+	states, err := p.bulkActionStates(ctx, actions, listOpts)
+	if err != nil {
+		return nil, err
+	}
+	return actionStatePayloadMap(states), nil
+}
+
+func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, listOpts ListOptions) (map[string]ActionState, error) {
+	if len(actions) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]ActionState, len(actions))
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		state := defaultEnabledActionState()
+		if action.Scope != ActionScopeAny && action.Scope != "" && action.Scope != ActionScopeBulk {
+			state = mergeActionState(state, ActionState{
+				Enabled:    false,
+				ReasonCode: ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "action is not available for bulk execution",
+			}, true)
+		}
+		if action.Permission != "" && p != nil && p.panel != nil && p.panel.authorizer != nil {
+			if p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
+				state = mergeActionState(state, ActionState{
+					Enabled:    true,
+					Permission: strings.TrimSpace(action.Permission),
+				}, true)
+			} else {
+				state = mergeActionState(state, ActionState{
+					Enabled:    false,
+					ReasonCode: ActionDisabledReasonCodePermissionDenied,
+					Reason:     "you do not have permission to execute this action",
+					Permission: strings.TrimSpace(action.Permission),
+				}, true)
+			}
+		}
+		out[name] = state
+	}
+
+	if p != nil && p.panel != nil && p.panel.bulkActionStateResolver != nil {
+		resolved, err := p.panel.bulkActionStateResolver(ctx, append([]Action{}, actions...), cloneListOptions(listOpts))
+		if err != nil {
+			return nil, err
+		}
+		for _, action := range actions {
+			name := strings.TrimSpace(action.Name)
+			if name == "" {
+				continue
+			}
+			if candidate, ok := resolved[name]; ok {
+				out[name] = mergeActionState(out[name], candidate, true)
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func mergeActionState(current ActionState, next ActionState, applies bool) ActionState {
+	if !applies {
+		return current
+	}
+	merged := current
+	if !current.Enabled && next.Enabled {
+		return enrichActionState(merged, next)
+	}
+	if current.Enabled && !next.Enabled {
+		merged.Enabled = false
+	}
+	return enrichActionState(merged, next)
+}
+
+func enrichActionState(current ActionState, next ActionState) ActionState {
+	if current.ReasonCode == "" {
+		current.ReasonCode = strings.TrimSpace(next.ReasonCode)
+	}
+	if current.Reason == "" {
+		current.Reason = strings.TrimSpace(next.Reason)
+	}
+	if current.Severity == "" {
+		current.Severity = strings.TrimSpace(next.Severity)
+	}
+	if current.Kind == "" {
+		current.Kind = strings.TrimSpace(next.Kind)
+	}
+	if current.Permission == "" {
+		current.Permission = strings.TrimSpace(next.Permission)
+	}
+	if len(current.Metadata) == 0 && len(next.Metadata) > 0 {
+		current.Metadata = primitives.CloneAnyMap(next.Metadata)
+	} else if len(current.Metadata) > 0 && len(next.Metadata) > 0 {
+		for key, value := range next.Metadata {
+			if _, exists := current.Metadata[key]; exists {
+				continue
+			}
+			current.Metadata[key] = value
+		}
+	}
+	if current.Remediation == nil && next.Remediation != nil {
+		current.Remediation = &ActionRemediation{
+			Label: strings.TrimSpace(next.Remediation.Label),
+			Href:  strings.TrimSpace(next.Remediation.Href),
+			Kind:  strings.TrimSpace(next.Remediation.Kind),
+		}
+	}
+	if len(current.AvailableTransitions) == 0 && len(next.AvailableTransitions) > 0 {
+		current.AvailableTransitions = append([]string{}, next.AvailableTransitions...)
+	}
+	return current
+}
+
+func actionStatePayloadMap(states map[string]ActionState) map[string]map[string]any {
+	if len(states) == 0 {
+		return nil
+	}
+	out := make(map[string]map[string]any, len(states))
+	for actionName, state := range states {
+		out[actionName] = actionStatePayload(state)
+	}
+	return out
+}
+
+func actionStatePayload(state ActionState) map[string]any {
+	payload := map[string]any{
+		"enabled": state.Enabled,
+	}
+	if reasonCode := strings.TrimSpace(state.ReasonCode); reasonCode != "" {
+		payload["reason_code"] = reasonCode
+	}
+	if reason := strings.TrimSpace(state.Reason); reason != "" {
+		payload["reason"] = reason
+	}
+	if severity := strings.TrimSpace(state.Severity); severity != "" {
+		payload["severity"] = severity
+	}
+	if kind := strings.TrimSpace(state.Kind); kind != "" {
+		payload["kind"] = kind
+	}
+	if permission := strings.TrimSpace(state.Permission); permission != "" {
+		payload["permission"] = permission
+	}
+	if len(state.Metadata) > 0 {
+		payload["metadata"] = primitives.CloneAnyMap(state.Metadata)
+	}
+	if state.Remediation != nil {
+		remediation := map[string]any{}
+		if label := strings.TrimSpace(state.Remediation.Label); label != "" {
+			remediation["label"] = label
+		}
+		if href := strings.TrimSpace(state.Remediation.Href); href != "" {
+			remediation["href"] = href
+		}
+		if kind := strings.TrimSpace(state.Remediation.Kind); kind != "" {
+			remediation["kind"] = kind
+		}
+		if len(remediation) > 0 {
+			payload["remediation"] = remediation
+		}
+	}
+	if len(state.AvailableTransitions) > 0 {
+		payload["available_transitions"] = append([]string{}, state.AvailableTransitions...)
+	}
+	return payload
+}
+
+func cloneActionStateRecords(records []map[string]any) []map[string]any {
+	if len(records) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, primitives.CloneAnyMap(record))
+	}
+	return out
+}
+
+func hasWorkflowBackedAction(actions []Action) bool {
+	for _, action := range actions {
+		if _, ok := workflowActionNames[strings.ToLower(strings.TrimSpace(action.Name))]; ok {
+			return true
+		}
+	}
+	return false
+}
