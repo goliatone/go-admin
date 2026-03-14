@@ -122,17 +122,21 @@ func PanelStep(ctx BootCtx) error {
 					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					records, total, schema, form, err := binding.List(c, localeFromRequest(c), parseListOptions(c))
+					records, total, schema, form, meta, err := binding.List(c, localeFromRequest(c), parseListOptions(c))
 					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					return responder.WriteJSON(c, map[string]any{
+					payload := map[string]any{
 						"total":   total,
 						"records": records,
 						"items":   records,
 						"schema":  schema,
 						"form":    form,
-					})
+					}
+					if len(meta) > 0 {
+						payload["$meta"] = meta
+					}
+					return responder.WriteJSON(c, payload)
 				},
 			},
 			RouteSpec{
@@ -252,15 +256,16 @@ func PanelStep(ctx BootCtx) error {
 						return responder.WriteError(c, err)
 					}
 					body = mergeActionContextFromRequest(c, body, localeFromRequest(c))
-					data, err := binding.Action(c, localeFromRequest(c), actionName, body)
+					response, err := binding.Action(c, localeFromRequest(c), actionName, body)
 					if err != nil {
 						return responder.WriteError(c, err)
 					}
+					response = normalizeActionResponse(response)
 					payload := map[string]any{"status": "ok"}
-					if len(data) > 0 {
-						payload["data"] = data
+					if len(response.Data) > 0 {
+						payload["data"] = response.Data
 					}
-					return responder.WriteJSON(c, payload)
+					return responder.WriteJSONStatus(c, response.StatusCode, payload)
 				},
 			},
 			RouteSpec{

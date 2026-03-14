@@ -46,12 +46,7 @@ func RegisterWidgetAreas(registrar DashboardAreaRegistrar, widgetSvc WidgetServi
 			return nil
 		}
 	}
-	areas := []WidgetAreaDefinition{
-		{Code: "admin.dashboard.main", Name: "Main Dashboard Area", Scope: "global"},
-		{Code: "admin.dashboard.sidebar", Name: "Dashboard Sidebar", Scope: "global"},
-		{Code: "admin.dashboard.footer", Name: "Dashboard Footer", Scope: "global"},
-	}
-	for _, area := range areas {
+	for _, area := range DefaultAreaDefinitions() {
 		if registrar != nil {
 			registrar.RegisterArea(area)
 		} else if widgetSvc != nil {

@@ -41,6 +41,30 @@ func TranslationFamiliesRouteStep(ctx BootCtx) error {
 				return writeJSONOrError(responder, c, payload, err)
 			}),
 		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.matrix"),
+			Handler: withFeatureGate(responder, gates, FeatureCMS, func(c router.Context) error {
+				payload, err := binding.Matrix(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "POST",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.matrix.actions.create_missing"),
+			Handler: withFeatureGate(responder, gates, FeatureCMS, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+				payload, err := binding.CreateMissingBulk(c, body)
+				return writeJSONOrError(responder, c, payload, err)
+			})),
+		},
+		{
+			Method: "POST",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.matrix.actions.export_selected"),
+			Handler: withFeatureGate(responder, gates, FeatureCMS, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+				payload, err := binding.ExportSelectedBulk(c, body)
+				return writeJSONOrError(responder, c, payload, err)
+			})),
+		},
 	}
 	return applyRoutes(ctx, routes)
 }

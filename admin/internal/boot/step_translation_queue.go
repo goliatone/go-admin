@@ -19,6 +19,14 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 	routes := []RouteSpec{
 		{
 			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.dashboard"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.Dashboard(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments"),
 			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
 				payload, err := binding.Assignments(c)

@@ -42,6 +42,19 @@ type RouteSpec struct {
 	Handler router.HandlerFunc
 }
 
+// ActionResponse captures structured panel action output and an optional HTTP status override.
+type ActionResponse struct {
+	StatusCode int
+	Data       map[string]any
+}
+
+func normalizeActionResponse(response ActionResponse) ActionResponse {
+	if response.StatusCode < 200 || response.StatusCode >= 600 {
+		response.StatusCode = 200
+	}
+	return response
+}
+
 // FeatureGates exposes feature checks.
 type FeatureGates interface {
 	Enabled(key string) bool
@@ -51,6 +64,7 @@ type FeatureGates interface {
 // Responder centralizes response helpers.
 type Responder interface {
 	WriteJSON(router.Context, any) error
+	WriteJSONStatus(router.Context, int, any) error
 	WriteHTML(router.Context, string) error
 	WriteError(router.Context, error) error
 }
@@ -83,12 +97,12 @@ type PanelSubresourceSpec struct {
 // PanelBinding exposes panel CRUD/action handlers for routes.
 type PanelBinding interface {
 	Name() string
-	List(router.Context, string, ListOptions) ([]map[string]any, int, any, any, error)
+	List(router.Context, string, ListOptions) ([]map[string]any, int, any, any, map[string]any, error)
 	Detail(router.Context, string, string) (map[string]any, error)
 	Create(router.Context, string, map[string]any) (map[string]any, error)
 	Update(router.Context, string, string, map[string]any) (map[string]any, error)
 	Delete(router.Context, string, string) error
-	Action(router.Context, string, string, map[string]any) (map[string]any, error)
+	Action(router.Context, string, string, map[string]any) (ActionResponse, error)
 	Bulk(router.Context, string, string, map[string]any) (map[string]any, error)
 	Preview(router.Context, string, string) (map[string]any, error)
 	Subresources() []PanelSubresourceSpec
@@ -160,6 +174,9 @@ type TranslationFamiliesBinding interface {
 	List(router.Context) (any, error)
 	Detail(router.Context, string) (any, error)
 	Create(router.Context, string) (any, error)
+	Matrix(router.Context) (any, error)
+	CreateMissingBulk(router.Context, map[string]any) (any, error)
+	ExportSelectedBulk(router.Context, map[string]any) (any, error)
 }
 
 // TranslationQueueBinding exposes translation queue aggregate transport operations.
@@ -168,6 +185,7 @@ type TranslationQueueBinding interface {
 	AssignmentDetail(router.Context, string) (any, error)
 	RunAssignmentAction(router.Context, string, string, map[string]any) (any, error)
 	UpdateVariant(router.Context, string, map[string]any) (any, error)
+	Dashboard(router.Context) (any, error)
 	MyWork(router.Context) (any, error)
 	Queue(router.Context) (any, error)
 	EntityTypesOptions(router.Context) (any, error)
