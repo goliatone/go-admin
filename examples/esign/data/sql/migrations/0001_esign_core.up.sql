@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS signing_tokens (
     agreement_id TEXT NOT NULL,
     recipient_id TEXT NOT NULL,
     token_hash TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked', 'expired')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending', 'active', 'superseded', 'aborted', 'revoked', 'expired')),
     expires_at TIMESTAMP NOT NULL,
     revoked_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

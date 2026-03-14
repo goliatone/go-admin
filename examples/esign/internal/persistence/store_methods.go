@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -84,6 +85,36 @@ func (s *StoreAdapter) GetRemediationDispatchByIdempotencyKey(ctx context.Contex
 	return loadRemediationDispatchByIdempotencyKeyRecord(ctx, idb, scope, key)
 }
 
+func (s *StoreAdapter) SaveGuardedEffect(ctx context.Context, scope stores.Scope, record guardedeffects.Record) (guardedeffects.Record, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (guardedeffects.Record, error) {
+		return tx.SaveGuardedEffect(ctx, scope, record)
+	})
+}
+
+func (s *StoreAdapter) GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	return loadGuardedEffectRecord(ctx, idb, effectID)
+}
+
+func (s *StoreAdapter) GetGuardedEffectByIdempotencyKey(ctx context.Context, scope stores.Scope, key string) (guardedeffects.Record, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	return loadGuardedEffectByIdempotencyKeyRecord(ctx, idb, scope, key)
+}
+
+func (s *StoreAdapter) ListGuardedEffects(ctx context.Context, scope stores.Scope, query stores.GuardedEffectQuery) ([]guardedeffects.Record, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listGuardedEffectRecords(ctx, idb, scope, query)
+}
+
 func (s *StoreAdapter) CreateDraft(ctx context.Context, scope stores.Scope, record stores.AgreementRecord) (stores.AgreementRecord, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRecord, error) {
 		return tx.CreateDraft(ctx, scope, record)
@@ -109,6 +140,12 @@ func (s *StoreAdapter) ListAgreements(ctx context.Context, scope stores.Scope, q
 func (s *StoreAdapter) UpdateDraft(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDraftPatch, expectedVersion int64) (stores.AgreementRecord, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRecord, error) {
 		return tx.UpdateDraft(ctx, scope, id, patch, expectedVersion)
+	})
+}
+
+func (s *StoreAdapter) UpdateAgreementDeliveryState(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDeliveryStatePatch) (stores.AgreementRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRecord, error) {
+		return tx.UpdateAgreementDeliveryState(ctx, scope, id, patch)
 	})
 }
 
@@ -239,6 +276,28 @@ func (s *StoreAdapter) ListFields(ctx context.Context, scope stores.Scope, agree
 		return nil, err
 	}
 	return listFieldRecords(ctx, idb, scope, agreementID)
+}
+
+func (s *StoreAdapter) GetSigningToken(ctx context.Context, scope stores.Scope, id string) (stores.SigningTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.SigningTokenRecord{}, err
+	}
+	return loadSigningTokenRecord(ctx, idb, scope, id)
+}
+
+func (s *StoreAdapter) ListSigningTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID string) ([]stores.SigningTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listSigningTokenRecords(ctx, idb, scope, agreementID, recipientID)
+}
+
+func (s *StoreAdapter) SaveSigningToken(ctx context.Context, scope stores.Scope, record stores.SigningTokenRecord) (stores.SigningTokenRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.SigningTokenRecord, error) {
+		return tx.SaveSigningToken(ctx, scope, record)
+	})
 }
 
 func (s *StoreAdapter) CreateDraftSession(ctx context.Context, scope stores.Scope, record stores.DraftRecord) (stores.DraftRecord, bool, error) {

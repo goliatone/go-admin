@@ -102,21 +102,29 @@ func (s TokenService) ForTx(tx TxStore) TokenService {
 }
 
 func (s TokenService) Issue(ctx context.Context, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
+	return s.issueWithStatus(ctx, scope, agreementID, recipientID, SigningTokenStatusActive)
+}
+
+func (s TokenService) IssuePending(ctx context.Context, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
+	return s.issueWithStatus(ctx, scope, agreementID, recipientID, SigningTokenStatusPending)
+}
+
+func (s TokenService) issueWithStatus(ctx context.Context, scope Scope, agreementID, recipientID, status string) (IssuedSigningToken, error) {
 	if s.tx != nil {
 		var issued IssuedSigningToken
 		if err := s.tx.WithTx(ctx, func(tx TxStore) error {
 			var err error
-			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID)
+			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID, status)
 			return err
 		}); err != nil {
 			return IssuedSigningToken{}, err
 		}
 		return issued, nil
 	}
-	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID)
+	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID, status)
 }
 
-func (s TokenService) issueWithStore(ctx context.Context, store SigningTokenStore, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
+func (s TokenService) issueWithStore(ctx context.Context, store SigningTokenStore, scope Scope, agreementID, recipientID, status string) (IssuedSigningToken, error) {
 	if store == nil {
 		return IssuedSigningToken{}, invalidRecordError("signing_tokens", "store", "not configured")
 	}
@@ -142,7 +150,7 @@ func (s TokenService) issueWithStore(ctx context.Context, store SigningTokenStor
 		AgreementID: agreementID,
 		RecipientID: recipientID,
 		TokenHash:   s.hashToken(rawToken),
-		Status:      SigningTokenStatusActive,
+		Status:      status,
 		ExpiresAt:   now.Add(s.ttl),
 		CreatedAt:   now,
 	})
@@ -165,7 +173,7 @@ func (s TokenService) Rotate(ctx context.Context, scope Scope, agreementID, reci
 				return err
 			}
 			var err error
-			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID)
+			issued, err = s.issueWithStore(ctx, tx, scope, agreementID, recipientID, SigningTokenStatusActive)
 			return err
 		}); err != nil {
 			return IssuedSigningToken{}, err
@@ -176,21 +184,61 @@ func (s TokenService) Rotate(ctx context.Context, scope Scope, agreementID, reci
 	if _, err := s.store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, now); err != nil {
 		return IssuedSigningToken{}, err
 	}
-	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID)
+	return s.issueWithStore(ctx, s.store, scope, agreementID, recipientID, SigningTokenStatusActive)
 }
 
 func (s TokenService) Revoke(ctx context.Context, scope Scope, agreementID, recipientID string) error {
 	if s.store == nil {
 		return invalidRecordError("signing_tokens", "store", "not configured")
 	}
+	revoke := func(store SigningTokenStore) error {
+		scope, err := validateScope(scope)
+		if err != nil {
+			return err
+		}
+		agreementID = normalizeID(agreementID)
+		recipientID = normalizeID(recipientID)
+		if agreementID == "" {
+			return invalidRecordError("signing_tokens", "agreement_id", "required")
+		}
+		if recipientID == "" {
+			return invalidRecordError("signing_tokens", "recipient_id", "required")
+		}
+		now := s.now().UTC()
+		if _, err := store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, now); err != nil {
+			return err
+		}
+		tokens, err := store.ListSigningTokens(ctx, scope, agreementID, recipientID)
+		if err != nil {
+			return err
+		}
+		for _, record := range tokens {
+			if record.RevokedAt != nil {
+				continue
+			}
+			switch record.Status {
+			case SigningTokenStatusPending:
+				record.Status = SigningTokenStatusAborted
+				record.RevokedAt = tokenTimePtr(now)
+				record.ActivatedAt = nil
+			case SigningTokenStatusActive:
+				record.Status = SigningTokenStatusRevoked
+				record.RevokedAt = tokenTimePtr(now)
+			default:
+				continue
+			}
+			if _, err := store.SaveSigningToken(ctx, scope, record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if s.tx != nil {
 		return s.tx.WithTx(ctx, func(tx TxStore) error {
-			_, err := tx.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, s.now())
-			return err
+			return revoke(tx)
 		})
 	}
-	_, err := s.store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, s.now())
-	return err
+	return revoke(s.store)
 }
 
 func (s TokenService) Validate(ctx context.Context, scope Scope, rawToken string) (SigningTokenRecord, error) {
@@ -229,6 +277,102 @@ func (s TokenService) Validate(ctx context.Context, scope Scope, rawToken string
 	return record, nil
 }
 
+func (s TokenService) PromotePending(ctx context.Context, scope Scope, tokenID string) (SigningTokenRecord, error) {
+	if s.store == nil {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "store", "not configured")
+	}
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SigningTokenRecord{}, err
+	}
+	tokenID = normalizeID(tokenID)
+	if tokenID == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "id", "required")
+	}
+	promote := func(store SigningTokenStore) (SigningTokenRecord, error) {
+		record, err := store.GetSigningToken(ctx, scope, tokenID)
+		if err != nil {
+			return SigningTokenRecord{}, err
+		}
+		if record.Status == SigningTokenStatusActive {
+			return record, nil
+		}
+		if record.Status != SigningTokenStatusPending {
+			return SigningTokenRecord{}, invalidRecordError("signing_tokens", "status", "token is not pending")
+		}
+		now := s.now().UTC()
+		tokens, err := store.ListSigningTokens(ctx, scope, record.AgreementID, record.RecipientID)
+		if err != nil {
+			return SigningTokenRecord{}, err
+		}
+		for _, candidate := range tokens {
+			switch candidate.Status {
+			case SigningTokenStatusActive:
+				candidate.Status = SigningTokenStatusSuperseded
+				candidate.RevokedAt = tokenTimePtr(now)
+				if _, err := store.SaveSigningToken(ctx, scope, candidate); err != nil {
+					return SigningTokenRecord{}, err
+				}
+			}
+		}
+		record.Status = SigningTokenStatusActive
+		record.ActivatedAt = tokenTimePtr(now)
+		record.RevokedAt = nil
+		return store.SaveSigningToken(ctx, scope, record)
+	}
+	if s.tx != nil {
+		var promoted SigningTokenRecord
+		err := s.tx.WithTx(ctx, func(tx TxStore) error {
+			var innerErr error
+			promoted, innerErr = promote(tx)
+			return innerErr
+		})
+		return promoted, err
+	}
+	return promote(s.store)
+}
+
+func (s TokenService) AbortPending(ctx context.Context, scope Scope, tokenID string) (SigningTokenRecord, error) {
+	if s.store == nil {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "store", "not configured")
+	}
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SigningTokenRecord{}, err
+	}
+	tokenID = normalizeID(tokenID)
+	if tokenID == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "id", "required")
+	}
+	abort := func(store SigningTokenStore) (SigningTokenRecord, error) {
+		record, err := store.GetSigningToken(ctx, scope, tokenID)
+		if err != nil {
+			return SigningTokenRecord{}, err
+		}
+		if record.Status == SigningTokenStatusAborted {
+			return record, nil
+		}
+		if record.Status != SigningTokenStatusPending {
+			return SigningTokenRecord{}, invalidRecordError("signing_tokens", "status", "token is not pending")
+		}
+		now := s.now().UTC()
+		record.Status = SigningTokenStatusAborted
+		record.RevokedAt = tokenTimePtr(now)
+		record.ActivatedAt = nil
+		return store.SaveSigningToken(ctx, scope, record)
+	}
+	if s.tx != nil {
+		var aborted SigningTokenRecord
+		err := s.tx.WithTx(ctx, func(tx TxStore) error {
+			var innerErr error
+			aborted, innerErr = abort(tx)
+			return innerErr
+		})
+		return aborted, err
+	}
+	return abort(s.store)
+}
+
 func (s TokenService) hashToken(rawToken string) string {
 	payload := strings.TrimSpace(rawToken)
 	if payload == "" {
@@ -250,4 +394,12 @@ func generateOpaqueToken(source io.Reader) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func tokenTimePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	normalized := value.UTC()
+	return &normalized
 }

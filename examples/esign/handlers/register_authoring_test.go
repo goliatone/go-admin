@@ -43,6 +43,11 @@ func setupAgreementAuthoringApp(t *testing.T, allowed map[string]bool) (*fiber.A
 
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(authorizerFromAllowedMap(allowed)),
+		WithAdminRouteMiddleware(withClaimsUserPermissions("admin-user",
+			DefaultPermissions.AdminView,
+			DefaultPermissions.AdminEdit,
+			DefaultPermissions.AdminSend,
+		)),
 		WithAgreementAuthoringService(agreementSvc),
 		WithDefaultScope(scope),
 	)
@@ -85,7 +90,7 @@ func TestRegisterAgreementAuthoringRoutesRequirePermissions(t *testing.T) {
 		t.Fatalf("expected send-readiness status 403, got %d", status)
 	}
 
-	status, _ = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/auto-place", `{"user_id":"admin-user"}`)
+	status, _ = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/auto-place", `{}`)
 	if status != http.StatusForbidden {
 		t.Fatalf("expected auto-place status 403, got %d", status)
 	}
@@ -200,7 +205,7 @@ func TestRegisterAgreementAuthoringCRUDAndReadinessEndpoints(t *testing.T) {
 		t.Fatalf("expected ready=true in payload, got %s", string(body))
 	}
 
-	status, body = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/auto-place", `{"user_id":"admin-user"}`)
+	status, body = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/auto-place", `{}`)
 	if status != http.StatusOK {
 		t.Fatalf("expected auto-place 200, got %d body=%s", status, string(body))
 	}
@@ -228,7 +233,7 @@ func TestRegisterAgreementAuthoringCRUDAndReadinessEndpoints(t *testing.T) {
 		t.Fatalf("expected run payload in placement-run detail, got %s", string(body))
 	}
 
-	status, body = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/placement-runs/"+placementRunID+"/apply", `{"user_id":"admin-user"}`)
+	status, body = doJSONRequest(t, app, http.MethodPost, "/admin/api/v1/esign/agreements/"+agreementID+"/placement-runs/"+placementRunID+"/apply", `{}`)
 	if status != http.StatusOK {
 		t.Fatalf("expected placement apply 200, got %d body=%s", status, string(body))
 	}

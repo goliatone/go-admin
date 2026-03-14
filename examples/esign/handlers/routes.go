@@ -23,6 +23,7 @@ const (
 	agreementsSegment       = "agreements"
 	documentsSegment        = "documents"
 	dispatchesSegment       = "dispatches"
+	effectsSegment          = "effects"
 	remediateSegment        = "remediate"
 	draftsSegment           = "drafts"
 	adminStatusSegment      = "status"
@@ -106,6 +107,7 @@ type RouteSet struct {
 	AdminDocumentsUpload             string
 	AdminDocumentRemediate           string
 	AdminRemediationDispatchStatus   string
+	AdminGuardedEffectStatus         string
 	SignerSession                    string
 	SignerConsent                    string
 	SignerFieldValues                string
@@ -190,6 +192,7 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminDocumentsUpload:             joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
 		AdminDocumentRemediate:           joinPath(adminAPIBase, esignSegment, documentsSegment, ":document_id", remediateSegment),
 		AdminRemediationDispatchStatus:   joinPath(adminAPIBase, esignSegment, dispatchesSegment, ":dispatch_id"),
+		AdminGuardedEffectStatus:         joinPath(adminAPIBase, esignSegment, effectsSegment, ":effect_id"),
 		SignerSession:                    joinPath(signingBase, sessionSegment, ":token"),
 		SignerConsent:                    joinPath(signingBase, consentSegment, ":token"),
 		SignerFieldValues:                joinPath(signingBase, fieldValuesSegment, ":token"),

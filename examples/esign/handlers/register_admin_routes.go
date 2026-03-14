@@ -63,6 +63,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"admin_documents_upload":            routes.AdminDocumentsUpload,
 				"admin_document_remediate":          routes.AdminDocumentRemediate,
 				"admin_remediation_dispatch_status": routes.AdminRemediationDispatchStatus,
+				"admin_guarded_effect_status":       routes.AdminGuardedEffectStatus,
 				"signer_session":                    routes.SignerSession,
 				"signer_consent":                    routes.SignerConsent,
 				"signer_field_values":               routes.SignerFieldValues,
@@ -318,6 +319,61 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"canceled_at":     formatTime(dispatch.CanceledAt),
 				"terminal_reason": stableString(dispatch.TerminalReason),
 				"updated_at":      formatTime(dispatch.UpdatedAt),
+			},
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(routes.AdminGuardedEffectStatus, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		effectID := strings.TrimSpace(c.Param("effect_id"))
+		if effectID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "effect_id is required", nil)
+		}
+		if cfg.guardedEffects == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "guarded effect status is not configured", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		record, err := cfg.guardedEffects.GetGuardedEffect(c.Context(), effectID)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusNotFound, "EFFECT_NOT_FOUND", "guarded effect not found", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		requestScope := cfg.resolveScope(c)
+		effectScope := stores.Scope{
+			TenantID: strings.TrimSpace(record.TenantID),
+			OrgID:    strings.TrimSpace(record.OrgID),
+		}
+		if scopeConflict(effectScope, requestScope) {
+			return writeAPIError(c, nil, http.StatusForbidden, string(services.ErrorCodeScopeDenied), "scope denied", map[string]any{
+				"effect_id": effectID,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+			"effect": map[string]any{
+				"effect_id":       strings.TrimSpace(record.EffectID),
+				"kind":            strings.TrimSpace(record.Kind),
+				"subject_type":    strings.TrimSpace(record.SubjectType),
+				"subject_id":      strings.TrimSpace(record.SubjectID),
+				"status":          strings.TrimSpace(record.Status),
+				"guard_policy":    strings.TrimSpace(record.GuardPolicy),
+				"attempt_count":   record.AttemptCount,
+				"max_attempts":    record.MaxAttempts,
+				"dispatch_id":     stableString(record.DispatchID),
+				"correlation_id":  stableString(record.CorrelationID),
+				"created_at":      formatTime(&record.CreatedAt),
+				"updated_at":      formatTime(&record.UpdatedAt),
+				"dispatched_at":   formatTime(record.DispatchedAt),
+				"finalized_at":    formatTime(record.FinalizedAt),
+				"aborted_at":      formatTime(record.AbortedAt),
+				"retry_at":        formatTime(record.RetryAt),
+				"result_payload":  stableString(record.ResultPayloadJSON),
+				"error_payload":   stableString(record.ErrorJSON),
+				"prepare_payload": stableString(record.PreparePayloadJSON),
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))

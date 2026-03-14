@@ -3,15 +3,15 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/google/uuid"
 )
 
 // AgreementService manages draft agreement lifecycle and recipient/field mutations.
@@ -24,6 +24,7 @@ type AgreementService struct {
 	audits                stores.AuditEventStore
 	emails                AgreementEmailWorkflow
 	outbox                stores.OutboxStore
+	effects               stores.GuardedEffectStore
 	placementOrchestrator AgreementPlacementOrchestrator
 	placementPolicy       AgreementPlacementPolicyResolver
 	placementObjectStore  PlacementDocumentObjectStore
@@ -44,8 +45,11 @@ type AgreementServiceOption func(*AgreementService)
 // AgreementTokenService captures signing-token lifecycle operations used by agreement flows.
 type AgreementTokenService interface {
 	Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
+	IssuePending(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 	Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 	Revoke(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error
+	PromotePending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error)
+	AbortPending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error)
 }
 
 // AgreementNotificationType defines notification policy kinds emitted by agreement lifecycle transitions.
@@ -57,10 +61,16 @@ const (
 	NotificationCompletionPackage AgreementNotificationType = "completion_delivery"
 )
 
+const (
+	GuardedEffectKindAgreementSendInvitation = "esign.agreements.send_invitation"
+	GuardedEffectKindAgreementResendReminder = "esign.agreements.resend_reminder"
+)
+
 // AgreementNotification carries canonical email notification payload context.
 type AgreementNotification struct {
 	AgreementID   string
 	RecipientID   string
+	EffectID      string
 	CorrelationID string
 	Type          AgreementNotificationType
 	Token         stores.IssuedSigningToken
@@ -221,6 +231,8 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 		placementRuns: store,
 		reminders:     store,
 		audits:        store,
+		outbox:        store,
+		effects:       store,
 		tokens:        stores.NewTokenService(store),
 		tx:            store,
 		pdfs:          NewPDFService(),
@@ -248,6 +260,9 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 	}
 	if txSvc.outbox != nil && !txSvc.customOutbox {
 		txSvc.outbox = tx
+	}
+	if txSvc.effects != nil {
+		txSvc.effects = tx
 	}
 	if !txSvc.customAudits {
 		txSvc.audits = tx
@@ -333,6 +348,35 @@ type ResendResult struct {
 	Recipient       stores.RecipientRecord
 	ActiveRecipient stores.RecipientRecord
 	Token           stores.IssuedSigningToken
+}
+
+type agreementNotificationEffectPreparePayload struct {
+	AgreementID       string `json:"agreement_id"`
+	RecipientID       string `json:"recipient_id"`
+	PendingTokenID    string `json:"pending_token_id"`
+	Notification      string `json:"notification"`
+	FailureAuditEvent string `json:"failure_audit_event"`
+}
+
+func agreementNotificationEffectIdempotencyKey(
+	scope stores.Scope,
+	kind, agreementID, recipientID, idempotencyKey string,
+) string {
+	kind = strings.TrimSpace(kind)
+	agreementID = strings.TrimSpace(agreementID)
+	recipientID = strings.TrimSpace(recipientID)
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if kind == "" || agreementID == "" || recipientID == "" || idempotencyKey == "" {
+		return ""
+	}
+	return strings.Join([]string{
+		strings.TrimSpace(scope.TenantID),
+		strings.TrimSpace(scope.OrgID),
+		kind,
+		agreementID,
+		recipientID,
+		idempotencyKey,
+	}, "|")
 }
 
 // CreateDraft creates a draft agreement scoped to tenant/org.
@@ -886,6 +930,71 @@ func (s AgreementService) resolveAgreementDocumentCompatibility(ctx context.Cont
 	return document, resolveDocumentCompatibility(policy, document), nil
 }
 
+func (s AgreementService) prepareAgreementNotificationEffect(
+	ctx context.Context,
+	scope stores.Scope,
+	kind string,
+	notification AgreementNotification,
+	failureAuditEvent string,
+	idempotencyKey string,
+) (guardedeffects.Record, bool, error) {
+	if s.effects == nil {
+		return guardedeffects.Record{}, false, domainValidationError("guarded_effects", "store", "not configured")
+	}
+	if s.outbox == nil {
+		return guardedeffects.Record{}, false, domainValidationError("notifications", "outbox", "not configured")
+	}
+	effectKey := agreementNotificationEffectIdempotencyKey(scope, kind, notification.AgreementID, notification.RecipientID, idempotencyKey)
+	if effectKey != "" {
+		record, err := s.effects.GetGuardedEffectByIdempotencyKey(ctx, scope, effectKey)
+		if err == nil {
+			return record, true, nil
+		}
+	}
+
+	now := s.now().UTC()
+	notification.EffectID = uuid.NewString()
+	preparePayload, err := json.Marshal(agreementNotificationEffectPreparePayload{
+		AgreementID:       strings.TrimSpace(notification.AgreementID),
+		RecipientID:       strings.TrimSpace(notification.RecipientID),
+		PendingTokenID:    strings.TrimSpace(notification.Token.Record.ID),
+		Notification:      strings.TrimSpace(string(notification.Type)),
+		FailureAuditEvent: strings.TrimSpace(failureAuditEvent),
+	})
+	if err != nil {
+		return guardedeffects.Record{}, false, err
+	}
+	outboxRecord, err := buildEmailNotificationOutboxRecord(scope, notification, failureAuditEvent, now)
+	if err != nil {
+		return guardedeffects.Record{}, false, err
+	}
+	effect := guardedeffects.Record{
+		EffectID:            notification.EffectID,
+		TenantID:            strings.TrimSpace(scope.TenantID),
+		OrgID:               strings.TrimSpace(scope.OrgID),
+		Kind:                strings.TrimSpace(kind),
+		SubjectType:         "agreement_recipient_notification",
+		SubjectID:           strings.TrimSpace(notification.RecipientID),
+		IdempotencyKey:      effectKey,
+		CorrelationID:       strings.TrimSpace(notification.CorrelationID),
+		Status:              guardedeffects.StatusPrepared,
+		MaxAttempts:         5,
+		GuardPolicy:         guardedeffects.PolicySMTPAccepted,
+		PreparePayloadJSON:  string(preparePayload),
+		DispatchPayloadJSON: strings.TrimSpace(outboxRecord.PayloadJSON),
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+	saved, err := s.effects.SaveGuardedEffect(ctx, scope, effect)
+	if err != nil {
+		return guardedeffects.Record{}, false, err
+	}
+	if _, err := s.outbox.EnqueueOutboxMessage(ctx, scope, outboxRecord); err != nil {
+		return guardedeffects.Record{}, false, err
+	}
+	return saved, false, nil
+}
+
 // Send transitions a draft agreement to sent while honoring idempotency keys.
 func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreementID string, input SendInput) (stores.AgreementRecord, error) {
 	if s.agreements == nil {
@@ -981,7 +1090,6 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if txSvc.tokens == nil {
 			return domainValidationError("signing_tokens", "service", "not configured")
 		}
-		tokenIssueStartedAt := time.Now()
 		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -990,43 +1098,12 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if !ok {
 			return domainValidationError("recipients", "role", "no active signer recipient found")
 		}
-		issuedByRecipient := map[string]stores.IssuedSigningToken{}
-		issuedRecipientIDs := make([]string, 0)
-		for _, recipient := range recipients {
-			if recipient.Role != stores.RecipientRoleSigner {
-				continue
-			}
-			issued, issueErr := txSvc.tokens.Issue(ctx, scope, agreementID, recipient.ID)
-			if issueErr != nil {
-				return issueErr
-			}
-			issuedByRecipient[recipient.ID] = issued
-			issuedRecipientIDs = append(issuedRecipientIDs, recipient.ID)
-		}
-		if len(issuedByRecipient) == 0 {
-			return domainValidationError("recipients", "role", "no active signer recipient found")
-		}
-		LogSendPhaseDuration("agreement_service", "token_issuance_complete", tokenIssueStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":           strings.TrimSpace(agreement.ID),
-			"issued_recipient_count": len(issuedRecipientIDs),
-			"active_stage":           activeStage,
-		}))
-
 		transitionStartedAt := time.Now()
 		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
 			ToStatus:        stores.AgreementStatusSent,
 			ExpectedVersion: agreement.Version,
 		})
 		if err != nil {
-			var rollbackErr error
-			for recipientID := range issuedByRecipient {
-				if revokeErr := txSvc.tokens.Revoke(ctx, scope, agreementID, recipientID); revokeErr != nil {
-					rollbackErr = errors.Join(rollbackErr, revokeErr)
-				}
-			}
-			if rollbackErr != nil {
-				return errors.Join(err, rollbackErr)
-			}
 			LogSendPhaseDuration("agreement_service", "transition_failed", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"agreement_id": strings.TrimSpace(agreement.ID),
 				"error":        strings.TrimSpace(err.Error()),
@@ -1053,6 +1130,22 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		}))
 
 		activeRecipientIDs := recipientIDs(activeSigners)
+		pendingByRecipient := map[string]stores.IssuedSigningToken{}
+		pendingRecipientIDs := make([]string, 0, len(activeSigners))
+		tokenIssueStartedAt := time.Now()
+		for _, activeSigner := range activeSigners {
+			issued, issueErr := txSvc.tokens.IssuePending(ctx, scope, agreementID, activeSigner.ID)
+			if issueErr != nil {
+				return issueErr
+			}
+			pendingByRecipient[activeSigner.ID] = issued
+			pendingRecipientIDs = append(pendingRecipientIDs, activeSigner.ID)
+		}
+		LogSendPhaseDuration("agreement_service", "token_issuance_complete", tokenIssueStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":           strings.TrimSpace(agreement.ID),
+			"issued_recipient_count": len(pendingRecipientIDs),
+			"active_stage":           activeStage,
+		}))
 		auditStartedAt := time.Now()
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
 			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
@@ -1065,7 +1158,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				return append([]string{}, activeRecipientIDs...)
 			}(),
 			"issued_recipient_ids": func() []string {
-				return append([]string{}, issuedRecipientIDs...)
+				return append([]string{}, pendingRecipientIDs...)
 			}(),
 		}); err != nil {
 			LogSendPhaseDuration("agreement_service", "audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
@@ -1087,63 +1180,57 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				return err
 			}
 		}
-		enqueuedNotification := false
+		outboxStartedAt := time.Now()
 		enqueuedCount := 0
-		if txSvc.outbox != nil {
-			outboxStartedAt := time.Now()
-			for _, activeSigner := range activeSigners {
-				issued := issuedByRecipient[activeSigner.ID]
-				notification := AgreementNotification{
-					AgreementID:   transitioned.ID,
-					RecipientID:   activeSigner.ID,
-					CorrelationID: correlationID,
-					Type:          NotificationSigningInvitation,
-					Token:         issued,
-				}
-				if err := txSvc.enqueueEmailNotificationOutbox(ctx, scope, notification, AgreementSendNotificationFailedAuditEvent); err != nil {
-					LogSendPhaseDuration("agreement_service", "outbox_enqueue_failed", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-						"agreement_id": strings.TrimSpace(transitioned.ID),
-						"recipient_id": strings.TrimSpace(activeSigner.ID),
-						"error":        strings.TrimSpace(err.Error()),
-					}))
-					return err
-				}
+		firstEffectID := ""
+		for _, activeSigner := range activeSigners {
+			issued := pendingByRecipient[activeSigner.ID]
+			notification := AgreementNotification{
+				AgreementID:   transitioned.ID,
+				RecipientID:   activeSigner.ID,
+				CorrelationID: correlationID,
+				Type:          NotificationSigningInvitation,
+				Token:         issued,
+			}
+			effect, replayed, effectErr := txSvc.prepareAgreementNotificationEffect(
+				ctx,
+				scope,
+				GuardedEffectKindAgreementSendInvitation,
+				notification,
+				AgreementSendNotificationFailedAuditEvent,
+				idempotencyKey,
+			)
+			if effectErr != nil {
+				LogSendPhaseDuration("agreement_service", "outbox_enqueue_failed", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+					"agreement_id": strings.TrimSpace(transitioned.ID),
+					"recipient_id": strings.TrimSpace(activeSigner.ID),
+					"error":        strings.TrimSpace(effectErr.Error()),
+				}))
+				return effectErr
+			}
+			if firstEffectID == "" {
+				firstEffectID = strings.TrimSpace(effect.EffectID)
+			}
+			if !replayed {
 				enqueuedCount++
 			}
-			LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id":   strings.TrimSpace(transitioned.ID),
-				"enqueued_count": enqueuedCount,
-				"active_signers": len(activeSigners),
-			}))
-			enqueuedNotification = len(activeSigners) > 0
-		} else if txSvc.emails != nil {
-			for _, activeSigner := range activeSigners {
-				issued := issuedByRecipient[activeSigner.ID]
-				notification := AgreementNotification{
-					AgreementID:   transitioned.ID,
-					RecipientID:   activeSigner.ID,
-					CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-					Type:          NotificationSigningInvitation,
-					Token:         issued,
-				}
-				hooks.AfterCommit(func() error {
-					if err := s.emails.OnAgreementSent(ctx, scope, notification); err != nil {
-						auditErr := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
-							"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-							"recipient_id":    notification.RecipientID,
-							"error":           strings.TrimSpace(err.Error()),
-						})
-						if auditErr != nil {
-							log.Printf("agreement send notification failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", transitioned.ID, notification.RecipientID, err, auditErr)
-							return nil
-						}
-						log.Printf("agreement send notification failed: agreement_id=%s recipient_id=%s err=%v", transitioned.ID, notification.RecipientID, err)
-					}
-					return nil
-				})
-			}
 		}
-		if enqueuedNotification && hooks != nil && s.notificationDispatch != nil {
+		transitioned, err = txSvc.agreements.UpdateAgreementDeliveryState(ctx, scope, transitioned.ID, stores.AgreementDeliveryStatePatch{
+			DeliveryStatus:        ptrString(guardedeffects.StatusPrepared),
+			DeliveryEffectID:      ptrString(firstEffectID),
+			LastDeliveryError:     ptrString(""),
+			LastDeliveryAttemptAt: agreementTimePtr(txSvc.now()),
+		})
+		if err != nil {
+			return err
+		}
+		result = transitioned
+		LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":   strings.TrimSpace(transitioned.ID),
+			"enqueued_count": enqueuedCount,
+			"active_signers": len(activeSigners),
+		}))
+		if len(activeSigners) > 0 && hooks != nil && s.notificationDispatch != nil {
 			hooks.AfterCommit(func() error {
 				s.notificationDispatch.NotifyScope(scope)
 				return nil
@@ -1332,12 +1419,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			return domainValidationError("recipients", "signing_stage", "resend target is not in active signing stage")
 		}
 
-		var issued stores.IssuedSigningToken
-		if input.RotateToken || input.InvalidateExisting {
-			issued, err = txSvc.tokens.Rotate(ctx, scope, agreementID, target.ID)
-		} else {
-			issued, err = txSvc.tokens.Issue(ctx, scope, agreementID, target.ID)
-		}
+		issued, err := txSvc.tokens.IssuePending(ctx, scope, agreementID, target.ID)
 		if err != nil {
 			return err
 		}
@@ -1357,39 +1439,36 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds); err != nil {
 			return err
 		}
-		if txSvc.outbox != nil {
-			notification := AgreementNotification{
-				AgreementID:   agreement.ID,
-				RecipientID:   target.ID,
-				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-				Type:          NotificationSigningReminder,
-				Token:         issued,
-			}
-			if err := txSvc.enqueueEmailNotificationOutbox(ctx, scope, notification, AgreementResendNotificationFailedAuditEvent); err != nil {
-				return err
-			}
-			if hooks != nil && s.notificationDispatch != nil {
-				hooks.AfterCommit(func() error {
-					s.notificationDispatch.NotifyScope(scope)
-					return nil
-				})
-			}
-		} else if txSvc.emails != nil {
-			notification := AgreementNotification{
-				AgreementID:   agreement.ID,
-				RecipientID:   target.ID,
-				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-				Type:          NotificationSigningReminder,
-				Token:         issued,
-			}
+		notification := AgreementNotification{
+			AgreementID:   agreement.ID,
+			RecipientID:   target.ID,
+			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+			Type:          NotificationSigningReminder,
+			Token:         issued,
+		}
+		effect, _, err := txSvc.prepareAgreementNotificationEffect(
+			ctx,
+			scope,
+			GuardedEffectKindAgreementResendReminder,
+			notification,
+			AgreementResendNotificationFailedAuditEvent,
+			strings.TrimSpace(input.IdempotencyKey),
+		)
+		if err != nil {
+			return err
+		}
+		agreement, err = txSvc.agreements.UpdateAgreementDeliveryState(ctx, scope, agreement.ID, stores.AgreementDeliveryStatePatch{
+			DeliveryStatus:        ptrString(guardedeffects.StatusPrepared),
+			DeliveryEffectID:      ptrString(effect.EffectID),
+			LastDeliveryError:     ptrString(""),
+			LastDeliveryAttemptAt: agreementTimePtr(txSvc.now()),
+		})
+		if err != nil {
+			return err
+		}
+		if hooks != nil && s.notificationDispatch != nil {
 			hooks.AfterCommit(func() error {
-				if err := s.emails.OnAgreementResent(ctx, scope, notification); err != nil {
-					_ = s.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resend_notification_failed", "system", "", map[string]any{
-						"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-						"recipient_id":    notification.RecipientID,
-						"error":           strings.TrimSpace(err.Error()),
-					})
-				}
+				s.notificationDispatch.NotifyScope(scope)
 				return nil
 			})
 		}
@@ -1776,6 +1855,19 @@ func activeSignerStage(recipients []stores.RecipientRecord) (int, []stores.Recip
 		return 0, nil, false
 	}
 	return activeStage, active, true
+}
+
+func ptrString(value string) *string {
+	out := value
+	return &out
+}
+
+func agreementTimePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	value = value.UTC()
+	return &value
 }
 
 func recipientIDs(recipients []stores.RecipientRecord) []string {

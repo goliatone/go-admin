@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -93,6 +95,7 @@ func buildESignAgreementFormPageConfig(
 	basePath string,
 	apiBasePath string,
 	routes map[string]string,
+	storageScope string,
 ) eSignPageConfig {
 	resolvedBasePath := normalizeESignBasePath(basePath)
 	resolvedAPIBase := normalizeAPIBasePath(apiBasePath)
@@ -109,10 +112,23 @@ func buildESignAgreementFormPageConfig(
 				"bootstrap_path":    path.Join(syncBaseURL, "sync", "bootstrap", "agreement-draft"),
 				"client_base_path":  path.Join(resolvedBasePath, "sync-client", "sync-core"),
 				"resource_kind":     "agreement_draft",
-				"action_operations": []string{"send", "discard"},
+				"storage_scope":     strings.TrimSpace(storageScope),
+				"action_operations": []string{"send", "dispose"},
 			},
 		},
 	}
+}
+
+func buildESignAgreementFormStorageScope(actorID, tenantID, orgID, routePath string) string {
+	parts := []string{
+		"agreement-form",
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(orgID),
+		strings.TrimSpace(actorID),
+		strings.TrimSpace(routePath),
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
+	return "afs_" + hex.EncodeToString(sum[:16])
 }
 
 func buildESignGoogleIntegrationPageConfig(

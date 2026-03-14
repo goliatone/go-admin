@@ -11,7 +11,8 @@ import (
 
 func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	if cfg.agreementAuthoring != nil {
-		adminRoutes.Get(routes.AdminAgreementParticipants, func(c router.Context) error {
+		securedRoutes := wrapRouteRegistrar(adminRoutes.router, composeMiddleware(adminRoutes.middleware, requireAuthenticatedAgreementRequest(cfg)))
+		securedRoutes.Get(routes.AdminAgreementParticipants, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -33,7 +34,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-		adminRoutes.Post(routes.AdminAgreementParticipants, func(c router.Context) error {
+		securedRoutes.Post(routes.AdminAgreementParticipants, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -84,7 +85,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Put(routes.AdminAgreementParticipant, func(c router.Context) error {
+		securedRoutes.Put(routes.AdminAgreementParticipant, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -131,7 +132,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Delete(routes.AdminAgreementParticipant, func(c router.Context) error {
+		securedRoutes.Delete(routes.AdminAgreementParticipant, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -150,7 +151,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Get(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
+		securedRoutes.Get(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -172,7 +173,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-		adminRoutes.Post(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
+		securedRoutes.Post(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -221,7 +222,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Put(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
+		securedRoutes.Put(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -268,7 +269,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Delete(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
+		securedRoutes.Delete(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -287,7 +288,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Get(routes.AdminAgreementFieldInstances, func(c router.Context) error {
+		securedRoutes.Get(routes.AdminAgreementFieldInstances, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -309,7 +310,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-		adminRoutes.Post(routes.AdminAgreementFieldInstances, func(c router.Context) error {
+		securedRoutes.Post(routes.AdminAgreementFieldInstances, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -402,7 +403,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Put(routes.AdminAgreementFieldInstance, func(c router.Context) error {
+		securedRoutes.Put(routes.AdminAgreementFieldInstance, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -493,7 +494,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Delete(routes.AdminAgreementFieldInstance, func(c router.Context) error {
+		securedRoutes.Delete(routes.AdminAgreementFieldInstance, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -512,7 +513,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Post(routes.AdminAgreementAutoPlace, func(c router.Context) error {
+		securedRoutes.Post(routes.AdminAgreementAutoPlace, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -521,15 +522,15 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
 			}
 			var payload struct {
-				UserID         string                            `json:"user_id"`
 				PolicyOverride *services.PlacementPolicyOverride `json:"policy_override"`
 				NativeFields   []services.NativePlacementField   `json:"native_form_fields"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid auto-place payload", nil)
 			}
+			actorID := resolveAuthenticatedAdminUserID(c)
 			result, err := cfg.agreementAuthoring.RunAutoPlacement(c.Context(), cfg.resolveScope(c), agreementID, services.AutoPlacementRunInput{
-				UserID:         strings.TrimSpace(payload.UserID),
+				UserID:         actorID,
 				PolicyOverride: payload.PolicyOverride,
 				NativeFields:   payload.NativeFields,
 			})
@@ -542,7 +543,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Get(routes.AdminAgreementPlacementRuns, func(c router.Context) error {
+		securedRoutes.Get(routes.AdminAgreementPlacementRuns, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -564,7 +565,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-		adminRoutes.Get(routes.AdminAgreementPlacementRun, func(c router.Context) error {
+		securedRoutes.Get(routes.AdminAgreementPlacementRun, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -583,7 +584,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
-		adminRoutes.Post(routes.AdminAgreementPlacementApply, func(c router.Context) error {
+		securedRoutes.Post(routes.AdminAgreementPlacementApply, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -593,15 +594,15 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and placement_run_id are required", nil)
 			}
 			var payload struct {
-				UserID          string                         `json:"user_id"`
 				SuggestionIDs   []string                       `json:"suggestion_ids"`
 				ManualOverrides []services.ManuallyPlacedField `json:"manual_overrides"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid placement apply payload", nil)
 			}
+			actorID := resolveAuthenticatedAdminUserID(c)
 			applied, err := cfg.agreementAuthoring.ApplyPlacementRun(c.Context(), cfg.resolveScope(c), agreementID, placementRunID, services.ApplyPlacementRunInput{
-				UserID:          strings.TrimSpace(payload.UserID),
+				UserID:          actorID,
 				SuggestionIDs:   append([]string{}, payload.SuggestionIDs...),
 				ManualOverrides: append([]services.ManuallyPlacedField{}, payload.ManualOverrides...),
 			})
@@ -619,7 +620,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
-		adminRoutes.Get(routes.AdminAgreementSendReadiness, func(c router.Context) error {
+		securedRoutes.Get(routes.AdminAgreementSendReadiness, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}

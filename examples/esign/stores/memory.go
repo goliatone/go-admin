@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/google/uuid"
 )
 
@@ -52,6 +53,8 @@ type InMemoryStore struct {
 	documentRemediationLeases  map[string]DocumentRemediationLeaseRecord
 	remediationDispatches      map[string]RemediationDispatchRecord
 	remediationDispatchIndex   map[string]string
+	guardedEffects             map[string]guardedeffects.Record
+	guardedEffectIndex         map[string]string
 	agreementReminderStates    map[string]AgreementReminderStateRecord
 	outboxMessages             map[string]OutboxMessageRecord
 	integrationCredentials     map[string]IntegrationCredentialRecord
@@ -97,6 +100,8 @@ func NewInMemoryStore() *InMemoryStore {
 		documentRemediationLeases:  map[string]DocumentRemediationLeaseRecord{},
 		remediationDispatches:      map[string]RemediationDispatchRecord{},
 		remediationDispatchIndex:   map[string]string{},
+		guardedEffects:             map[string]guardedeffects.Record{},
+		guardedEffectIndex:         map[string]string{},
 		agreementReminderStates:    map[string]AgreementReminderStateRecord{},
 		outboxMessages:             map[string]OutboxMessageRecord{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
@@ -196,6 +201,8 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 		DocumentRemediationLeases:  s.documentRemediationLeases,
 		RemediationDispatches:      s.remediationDispatches,
 		RemediationDispatchIndex:   s.remediationDispatchIndex,
+		GuardedEffects:             s.guardedEffects,
+		GuardedEffectIndex:         s.guardedEffectIndex,
 		AgreementReminderStates:    s.agreementReminderStates,
 		OutboxMessages:             s.outboxMessages,
 		IntegrationCredentials:     s.integrationCredentials,
@@ -250,6 +257,8 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
 	s.remediationDispatches = ensureRemediationDispatchMap(snapshot.RemediationDispatches)
 	s.remediationDispatchIndex = ensureStringMap(snapshot.RemediationDispatchIndex)
+	s.guardedEffects = ensureGuardedEffectMap(snapshot.GuardedEffects)
+	s.guardedEffectIndex = ensureStringMap(snapshot.GuardedEffectIndex)
 	s.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
@@ -326,8 +335,34 @@ func cloneTimePtr(src *time.Time) *time.Time {
 }
 
 func cloneSigningTokenRecord(record SigningTokenRecord) SigningTokenRecord {
+	record.ActivatedAt = cloneTimePtr(record.ActivatedAt)
 	record.RevokedAt = cloneTimePtr(record.RevokedAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	return record
+}
+
+func cloneGuardedEffectRecord(record guardedeffects.Record) guardedeffects.Record {
+	record.EffectID = normalizeID(record.EffectID)
+	record.TenantID = strings.TrimSpace(record.TenantID)
+	record.OrgID = strings.TrimSpace(record.OrgID)
+	record.Kind = strings.TrimSpace(record.Kind)
+	record.SubjectType = strings.TrimSpace(record.SubjectType)
+	record.SubjectID = normalizeID(record.SubjectID)
+	record.IdempotencyKey = strings.TrimSpace(record.IdempotencyKey)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.Status = guardedeffects.NormalizeStatus(record.Status)
+	record.GuardPolicy = strings.TrimSpace(record.GuardPolicy)
+	record.PreparePayloadJSON = strings.TrimSpace(record.PreparePayloadJSON)
+	record.DispatchPayloadJSON = strings.TrimSpace(record.DispatchPayloadJSON)
+	record.ResultPayloadJSON = strings.TrimSpace(record.ResultPayloadJSON)
+	record.ErrorJSON = strings.TrimSpace(record.ErrorJSON)
+	record.DispatchID = strings.TrimSpace(record.DispatchID)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	record.DispatchedAt = cloneTimePtr(record.DispatchedAt)
+	record.FinalizedAt = cloneTimePtr(record.FinalizedAt)
+	record.AbortedAt = cloneTimePtr(record.AbortedAt)
+	record.RetryAt = cloneTimePtr(record.RetryAt)
 	return record
 }
 
@@ -954,6 +989,189 @@ func (s *InMemoryStore) GetRemediationDispatchByIdempotencyKey(ctx context.Conte
 	return cloneRemediationDispatchRecord(record), nil
 }
 
+func guardedEffectIndexKey(scope Scope, key string) string {
+	return scope.key() + "|" + strings.TrimSpace(key)
+}
+
+func (s *InMemoryStore) SaveGuardedEffect(ctx context.Context, scope Scope, record guardedeffects.Record) (guardedeffects.Record, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	record.EffectID = normalizeID(record.EffectID)
+	if record.EffectID == "" {
+		record.EffectID = uuid.NewString()
+	}
+	record.SubjectID = normalizeID(record.SubjectID)
+	record.Kind = strings.TrimSpace(record.Kind)
+	record.SubjectType = strings.TrimSpace(record.SubjectType)
+	if record.Kind == "" {
+		return guardedeffects.Record{}, invalidRecordError("guarded_effects", "kind", "required")
+	}
+	if record.SubjectType == "" {
+		return guardedeffects.Record{}, invalidRecordError("guarded_effects", "subject_type", "required")
+	}
+	if record.SubjectID == "" {
+		return guardedeffects.Record{}, invalidRecordError("guarded_effects", "subject_id", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record = cloneGuardedEffectRecord(record)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if existing, ok := s.guardedEffects[record.EffectID]; ok {
+		if record.IdempotencyKey == "" {
+			record.IdempotencyKey = existing.IdempotencyKey
+		}
+		if record.CorrelationID == "" {
+			record.CorrelationID = existing.CorrelationID
+		}
+		if record.DispatchID == "" {
+			record.DispatchID = existing.DispatchID
+		}
+		if record.GuardPolicy == "" {
+			record.GuardPolicy = existing.GuardPolicy
+		}
+		if record.PreparePayloadJSON == "" {
+			record.PreparePayloadJSON = existing.PreparePayloadJSON
+		}
+		if record.DispatchPayloadJSON == "" {
+			record.DispatchPayloadJSON = existing.DispatchPayloadJSON
+		}
+		if record.ResultPayloadJSON == "" {
+			record.ResultPayloadJSON = existing.ResultPayloadJSON
+		}
+		if record.ErrorJSON == "" {
+			record.ErrorJSON = existing.ErrorJSON
+		}
+		if record.AttemptCount < existing.AttemptCount {
+			record.AttemptCount = existing.AttemptCount
+		}
+		if record.MaxAttempts < existing.MaxAttempts {
+			record.MaxAttempts = existing.MaxAttempts
+		}
+		if record.DispatchedAt == nil {
+			record.DispatchedAt = cloneTimePtr(existing.DispatchedAt)
+		}
+		if record.FinalizedAt == nil {
+			record.FinalizedAt = cloneTimePtr(existing.FinalizedAt)
+		}
+		if record.AbortedAt == nil {
+			record.AbortedAt = cloneTimePtr(existing.AbortedAt)
+		}
+		if record.RetryAt == nil {
+			record.RetryAt = cloneTimePtr(existing.RetryAt)
+		}
+		if record.CreatedAt.IsZero() {
+			record.CreatedAt = existing.CreatedAt
+		}
+	}
+	s.guardedEffects[record.EffectID] = record
+	if record.IdempotencyKey != "" {
+		s.guardedEffectIndex[guardedEffectIndexKey(scope, record.IdempotencyKey)] = record.EffectID
+	}
+	return cloneGuardedEffectRecord(record), nil
+}
+
+func (s *InMemoryStore) GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error) {
+	_ = ctx
+	effectID = normalizeID(effectID)
+	if effectID == "" {
+		return guardedeffects.Record{}, invalidRecordError("guarded_effects", "effect_id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.guardedEffects[effectID]
+	if !ok {
+		return guardedeffects.Record{}, notFoundError("guarded_effects", effectID)
+	}
+	return cloneGuardedEffectRecord(record), nil
+}
+
+func (s *InMemoryStore) GetGuardedEffectByIdempotencyKey(ctx context.Context, scope Scope, key string) (guardedeffects.Record, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return guardedeffects.Record{}, invalidRecordError("guarded_effects", "idempotency_key", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	effectID, ok := s.guardedEffectIndex[guardedEffectIndexKey(scope, key)]
+	if !ok {
+		return guardedeffects.Record{}, notFoundError("guarded_effects", key)
+	}
+	record, ok := s.guardedEffects[effectID]
+	if !ok {
+		return guardedeffects.Record{}, notFoundError("guarded_effects", effectID)
+	}
+	return cloneGuardedEffectRecord(record), nil
+}
+
+func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, query GuardedEffectQuery) ([]guardedeffects.Record, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	subjectType := strings.TrimSpace(query.SubjectType)
+	subjectID := normalizeID(query.SubjectID)
+	kind := strings.TrimSpace(query.Kind)
+	status := strings.TrimSpace(query.Status)
+	out := make([]guardedeffects.Record, 0)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, record := range s.guardedEffects {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if subjectType != "" && record.SubjectType != subjectType {
+			continue
+		}
+		if subjectID != "" && record.SubjectID != subjectID {
+			continue
+		}
+		if kind != "" && record.Kind != kind {
+			continue
+		}
+		if status != "" && record.Status != status {
+			continue
+		}
+		out = append(out, cloneGuardedEffectRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if query.SortDesc {
+			if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+				return out[i].EffectID > out[j].EffectID
+			}
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].EffectID < out[j].EffectID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	start := query.Offset
+	if start < 0 {
+		start = 0
+	}
+	if start > len(out) {
+		start = len(out)
+	}
+	end := len(out)
+	if query.Limit > 0 && start+query.Limit < end {
+		end = start + query.Limit
+	}
+	return out[start:end], nil
+}
+
 func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -1401,6 +1619,42 @@ func (s *InMemoryStore) UpdateDraft(ctx context.Context, scope Scope, id string,
 		record.DocumentID = documentID
 	}
 	record.Version++
+	record.UpdatedAt = time.Now().UTC()
+	s.agreements[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) UpdateAgreementDeliveryState(ctx context.Context, scope Scope, id string, patch AgreementDeliveryStatePatch) (AgreementRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return AgreementRecord{}, invalidRecordError("agreements", "id", "required")
+	}
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.agreements[key]
+	if !ok {
+		return AgreementRecord{}, notFoundError("agreements", id)
+	}
+	if patch.DeliveryStatus != nil {
+		record.DeliveryStatus = strings.TrimSpace(*patch.DeliveryStatus)
+	}
+	if patch.DeliveryEffectID != nil {
+		record.DeliveryEffectID = normalizeID(*patch.DeliveryEffectID)
+	}
+	if patch.LastDeliveryError != nil {
+		record.LastDeliveryError = strings.TrimSpace(*patch.LastDeliveryError)
+	}
+	if patch.LastDeliveryAttemptAt != nil {
+		record.LastDeliveryAttemptAt = cloneTimePtr(patch.LastDeliveryAttemptAt)
+	}
 	record.UpdatedAt = time.Now().UTC()
 	s.agreements[key] = record
 	return record, nil
@@ -2347,6 +2601,25 @@ func (s *InMemoryStore) CreateSigningToken(ctx context.Context, scope Scope, rec
 	return record, nil
 }
 
+func (s *InMemoryStore) GetSigningToken(ctx context.Context, scope Scope, id string) (SigningTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SigningTokenRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.signingTokens[scopedKey(scope, id)]
+	if !ok {
+		return SigningTokenRecord{}, notFoundError("signing_tokens", id)
+	}
+	return cloneSigningTokenRecord(record), nil
+}
+
 func (s *InMemoryStore) GetSigningTokenByHash(ctx context.Context, scope Scope, tokenHash string) (SigningTokenRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -2373,6 +2646,81 @@ func (s *InMemoryStore) GetSigningTokenByHash(ctx context.Context, scope Scope, 
 		return SigningTokenRecord{}, scopeDeniedError()
 	}
 
+	return cloneSigningTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) ListSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string) ([]SigningTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	recipientID = normalizeID(recipientID)
+	if agreementID == "" {
+		return nil, invalidRecordError("signing_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" {
+		return nil, invalidRecordError("signing_tokens", "recipient_id", "required")
+	}
+	out := make([]SigningTokenRecord, 0)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, record := range s.signingTokens {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID || record.RecipientID != recipientID {
+			continue
+		}
+		out = append(out, cloneSigningTokenRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) SaveSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SigningTokenRecord{}, err
+	}
+	record.ID = normalizeID(record.ID)
+	if record.ID == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "id", "required")
+	}
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.RecipientID = normalizeID(record.RecipientID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.AgreementID == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "agreement_id", "required")
+	}
+	if record.RecipientID == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "recipient_id", "required")
+	}
+	if record.TokenHash == "" {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "token_hash", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record = cloneSigningTokenRecord(record)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, record.ID)
+	if _, ok := s.signingTokens[key]; !ok {
+		return SigningTokenRecord{}, notFoundError("signing_tokens", record.ID)
+	}
+	if existingKey, ok := s.tokenHashIndex[record.TokenHash]; ok && existingKey != key {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "token_hash", "already exists")
+	}
+	s.signingTokens[key] = record
+	s.tokenHashIndex[record.TokenHash] = key
 	return cloneSigningTokenRecord(record), nil
 }
 

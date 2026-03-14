@@ -369,7 +369,7 @@ func TestRegisterSyncDraftScopeIsolation(t *testing.T) {
 	}
 }
 
-func TestRegisterSyncDiscardDeletesDraftWithoutLegacyDraftRoute(t *testing.T) {
+func TestRegisterSyncDisposeDeletesDraftWithoutLegacyDraftRoute(t *testing.T) {
 	_, scope, store := newScopeStoreFixture()
 	app := setupDraftSyncAppForActor(t, store, scope, testAdminUserID)
 
@@ -380,17 +380,17 @@ func TestRegisterSyncDiscardDeletesDraftWithoutLegacyDraftRoute(t *testing.T) {
 		t.Fatalf("expected draft id in bootstrap payload")
 	}
 
-	status, body := doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/discard", testAdminUserID, map[string]any{
+	status, body := doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/dispose", testAdminUserID, map[string]any{
 		"expected_revision": 1,
-		"idempotency_key":   "discard-once",
+		"idempotency_key":   "dispose-once",
 		"payload":           map[string]any{},
 	}, nil)
 	if status != http.StatusOK {
-		t.Fatalf("expected sync discard status 200, got %d body=%s", status, string(body))
+		t.Fatalf("expected sync dispose status 200, got %d body=%s", status, string(body))
 	}
-	discardPayload := mustDecodeJSONMap(t, bytes.NewReader(body))
-	if got := strings.TrimSpace(toString(discardPayload["applied"])); got != "true" {
-		t.Fatalf("expected discard applied=true, got %+v", discardPayload["applied"])
+	disposePayload := mustDecodeJSONMap(t, bytes.NewReader(body))
+	if got := strings.TrimSpace(toString(disposePayload["applied"])); got != "true" {
+		t.Fatalf("expected dispose applied=true, got %+v", disposePayload["applied"])
 	}
 
 	status, body = doSyncRequest(t, app, http.MethodGet, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID, testAdminUserID, nil, nil)
@@ -424,11 +424,11 @@ func TestRegisterSyncBootstrapRejectsUntrustedUserHeaderWithoutAuthenticatedActo
 	status, body := doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/bootstrap/agreement-draft", "", nil, map[string]string{
 		"X-User-ID": "spoofed-user",
 	})
-	if status != http.StatusBadRequest {
-		t.Fatalf("expected bootstrap status 400 without authenticated actor, got %d body=%s", status, string(body))
+	if status != http.StatusUnauthorized {
+		t.Fatalf("expected bootstrap status 401 without authenticated actor, got %d body=%s", status, string(body))
 	}
-	if !strings.Contains(string(body), `"field":"user_id"`) {
-		t.Fatalf("expected user_id validation failure, got body=%s", string(body))
+	if !strings.Contains(string(body), `"code":"UNAUTHENTICATED"`) {
+		t.Fatalf("expected unauthenticated failure, got body=%s", string(body))
 	}
 }
 

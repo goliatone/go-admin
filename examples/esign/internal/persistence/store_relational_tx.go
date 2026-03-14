@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/google/uuid"
@@ -36,6 +37,11 @@ type relationalDocumentRemediationLeaseModel struct {
 type relationalRemediationDispatchModel struct {
 	bun.BaseModel `bun:"table:remediation_dispatches,alias:rdd"`
 	stores.RemediationDispatchRecord
+}
+
+type relationalGuardedEffectModel struct {
+	bun.BaseModel `bun:"table:guarded_effects,alias:gef"`
+	stores.GuardedEffectRecord
 }
 
 var _ stores.TxStore = (*relationalTxStore)(nil)
@@ -1496,6 +1502,18 @@ func (s *relationalTxStore) GetRemediationDispatchByIdempotencyKey(ctx context.C
 	return loadRemediationDispatchByIdempotencyKeyRecord(ctx, s.tx, scope, key)
 }
 
+func (s *relationalTxStore) GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error) {
+	return loadGuardedEffectRecord(ctx, s.tx, effectID)
+}
+
+func (s *relationalTxStore) GetGuardedEffectByIdempotencyKey(ctx context.Context, scope stores.Scope, key string) (guardedeffects.Record, error) {
+	return loadGuardedEffectByIdempotencyKeyRecord(ctx, s.tx, scope, key)
+}
+
+func (s *relationalTxStore) ListGuardedEffects(ctx context.Context, scope stores.Scope, query stores.GuardedEffectQuery) ([]guardedeffects.Record, error) {
+	return listGuardedEffectRecords(ctx, s.tx, scope, query)
+}
+
 func (s *relationalTxStore) GetAgreement(ctx context.Context, scope stores.Scope, id string) (stores.AgreementRecord, error) {
 	return loadAgreementRecord(ctx, s.tx, scope, id)
 }
@@ -1554,6 +1572,14 @@ func (s *relationalTxStore) CountSavedSignerSignatures(ctx context.Context, scop
 
 func (s *relationalTxStore) GetSigningTokenByHash(ctx context.Context, scope stores.Scope, tokenHash string) (stores.SigningTokenRecord, error) {
 	return loadSigningTokenByHashRecord(ctx, s.tx, scope, tokenHash)
+}
+
+func (s *relationalTxStore) GetSigningToken(ctx context.Context, scope stores.Scope, id string) (stores.SigningTokenRecord, error) {
+	return loadSigningTokenRecord(ctx, s.tx, scope, id)
+}
+
+func (s *relationalTxStore) ListSigningTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID string) ([]stores.SigningTokenRecord, error) {
+	return listSigningTokenRecords(ctx, s.tx, scope, agreementID, recipientID)
 }
 
 func (s *relationalTxStore) ListForAgreement(ctx context.Context, scope stores.Scope, agreementID string, query stores.AuditEventQuery) ([]stores.AuditEventRecord, error) {
@@ -2058,6 +2084,113 @@ func (s *relationalTxStore) SaveRemediationDispatch(ctx context.Context, scope s
 	return record, nil
 }
 
+func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.Scope, record guardedeffects.Record) (guardedeffects.Record, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	record.EffectID = normalizeRelationalID(record.EffectID)
+	if record.EffectID == "" {
+		record.EffectID = uuid.NewString()
+	}
+	record.Kind = strings.TrimSpace(record.Kind)
+	record.SubjectType = strings.TrimSpace(record.SubjectType)
+	record.SubjectID = normalizeRelationalID(record.SubjectID)
+	if record.Kind == "" {
+		return guardedeffects.Record{}, relationalInvalidRecordError("guarded_effects", "kind", "required")
+	}
+	if record.SubjectType == "" {
+		return guardedeffects.Record{}, relationalInvalidRecordError("guarded_effects", "subject_type", "required")
+	}
+	if record.SubjectID == "" {
+		return guardedeffects.Record{}, relationalInvalidRecordError("guarded_effects", "subject_id", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = guardedeffects.NormalizeStatus(record.Status)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
+	record.DispatchedAt = cloneRelationalTimePtr(record.DispatchedAt)
+	record.FinalizedAt = cloneRelationalTimePtr(record.FinalizedAt)
+	record.AbortedAt = cloneRelationalTimePtr(record.AbortedAt)
+	record.RetryAt = cloneRelationalTimePtr(record.RetryAt)
+
+	current, err := loadGuardedEffectRecord(ctx, s.tx, record.EffectID)
+	if err != nil && !relationalIsNotFoundError(err) {
+		return guardedeffects.Record{}, err
+	}
+	if err == nil {
+		if record.IdempotencyKey == "" {
+			record.IdempotencyKey = current.IdempotencyKey
+		}
+		if record.CorrelationID == "" {
+			record.CorrelationID = current.CorrelationID
+		}
+		if record.GuardPolicy == "" {
+			record.GuardPolicy = current.GuardPolicy
+		}
+		if record.DispatchID == "" {
+			record.DispatchID = current.DispatchID
+		}
+		if record.PreparePayloadJSON == "" {
+			record.PreparePayloadJSON = current.PreparePayloadJSON
+		}
+		if record.DispatchPayloadJSON == "" {
+			record.DispatchPayloadJSON = current.DispatchPayloadJSON
+		}
+		if record.ResultPayloadJSON == "" {
+			record.ResultPayloadJSON = current.ResultPayloadJSON
+		}
+		if record.ErrorJSON == "" {
+			record.ErrorJSON = current.ErrorJSON
+		}
+		if record.AttemptCount < current.AttemptCount {
+			record.AttemptCount = current.AttemptCount
+		}
+		if record.MaxAttempts < current.MaxAttempts {
+			record.MaxAttempts = current.MaxAttempts
+		}
+		if record.DispatchedAt == nil {
+			record.DispatchedAt = cloneRelationalTimePtr(current.DispatchedAt)
+		}
+		if record.FinalizedAt == nil {
+			record.FinalizedAt = cloneRelationalTimePtr(current.FinalizedAt)
+		}
+		if record.AbortedAt == nil {
+			record.AbortedAt = cloneRelationalTimePtr(current.AbortedAt)
+		}
+		if record.RetryAt == nil {
+			record.RetryAt = cloneRelationalTimePtr(current.RetryAt)
+		}
+		if record.CreatedAt.IsZero() {
+			record.CreatedAt = current.CreatedAt
+		}
+		if _, err := s.tx.NewUpdate().
+			Model(&relationalGuardedEffectModel{GuardedEffectRecord: stores.GuardedEffectRecord{Record: record}}).
+			Column("kind", "subject_type", "subject_id", "idempotency_key", "correlation_id", "status", "attempt_count", "max_attempts", "guard_policy", "prepare_payload_json", "dispatch_payload_json", "result_payload_json", "error_json", "dispatch_id", "created_at", "updated_at", "dispatched_at", "finalized_at", "aborted_at", "retry_at").
+			Where("tenant_id = ?", scope.TenantID).
+			Where("org_id = ?", scope.OrgID).
+			Where("effect_id = ?", record.EffectID).
+			Exec(ctx); err != nil {
+			return guardedeffects.Record{}, err
+		}
+		return record, nil
+	}
+
+	if _, err := s.tx.NewInsert().Model(&relationalGuardedEffectModel{GuardedEffectRecord: stores.GuardedEffectRecord{Record: record}}).Exec(ctx); err != nil {
+		if !relationalIsUniqueConstraintError(err) {
+			return guardedeffects.Record{}, err
+		}
+		existing, loadErr := loadGuardedEffectByIdempotencyKeyRecord(ctx, s.tx, scope, record.IdempotencyKey)
+		if loadErr != nil {
+			return guardedeffects.Record{}, loadErr
+		}
+		record.EffectID = existing.EffectID
+		return s.SaveGuardedEffect(ctx, scope, record)
+	}
+	return record, nil
+}
+
 func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope, record stores.AgreementRecord) (stores.AgreementRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -2130,6 +2263,36 @@ func (s *relationalTxStore) UpdateDraft(ctx context.Context, scope stores.Scope,
 	record.Version++
 	record.UpdatedAt = time.Now().UTC()
 	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) UpdateAgreementDeliveryState(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDeliveryStatePatch) (stores.AgreementRecord, error) {
+	record, err := loadAgreementRecord(ctx, s.tx, scope, id)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if patch.DeliveryStatus != nil {
+		record.DeliveryStatus = strings.TrimSpace(*patch.DeliveryStatus)
+	}
+	if patch.DeliveryEffectID != nil {
+		record.DeliveryEffectID = normalizeRelationalID(*patch.DeliveryEffectID)
+	}
+	if patch.LastDeliveryError != nil {
+		record.LastDeliveryError = strings.TrimSpace(*patch.LastDeliveryError)
+	}
+	if patch.LastDeliveryAttemptAt != nil {
+		record.LastDeliveryAttemptAt = cloneRelationalTimePtr(patch.LastDeliveryAttemptAt)
+	}
+	record.UpdatedAt = time.Now().UTC()
+	if _, err := s.tx.NewUpdate().
+		Model(&record).
+		Column("delivery_status", "delivery_effect_id", "last_delivery_error", "last_delivery_attempt_at", "updated_at").
+		Where("tenant_id = ?", record.TenantID).
+		Where("org_id = ?", record.OrgID).
+		Where("id = ?", record.ID).
+		Exec(ctx); err != nil {
 		return stores.AgreementRecord{}, err
 	}
 	return record, nil
@@ -3100,9 +3263,42 @@ func (s *relationalTxStore) CreateSigningToken(ctx context.Context, scope stores
 	if record.Status == "" {
 		record.Status = stores.SigningTokenStatusActive
 	}
+	record.ActivatedAt = cloneRelationalTimePtr(record.ActivatedAt)
 	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
 	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 		return stores.SigningTokenRecord{}, relationalUniqueConstraintError(err, "signing_tokens", "id|token_hash")
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) SaveSigningToken(ctx context.Context, scope stores.Scope, record stores.SigningTokenRecord) (stores.SigningTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.SigningTokenRecord{}, err
+	}
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		return stores.SigningTokenRecord{}, relationalInvalidRecordError("signing_tokens", "id", "required")
+	}
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.RecipientID = normalizeRelationalID(record.RecipientID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.AgreementID == "" {
+		return stores.SigningTokenRecord{}, relationalInvalidRecordError("signing_tokens", "agreement_id", "required")
+	}
+	if record.RecipientID == "" {
+		return stores.SigningTokenRecord{}, relationalInvalidRecordError("signing_tokens", "recipient_id", "required")
+	}
+	if record.TokenHash == "" {
+		return stores.SigningTokenRecord{}, relationalInvalidRecordError("signing_tokens", "token_hash", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.ActivatedAt = cloneRelationalTimePtr(record.ActivatedAt)
+	record.RevokedAt = cloneRelationalTimePtr(record.RevokedAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.SigningTokenRecord{}, err
 	}
 	return record, nil
 }

@@ -48,6 +48,7 @@ func (p EmailOutboxPublisher) PublishOutboxMessage(ctx context.Context, message 
 		Scope:         scope,
 		AgreementID:   strings.TrimSpace(payload.AgreementID),
 		RecipientID:   strings.TrimSpace(payload.RecipientID),
+		EffectID:      strings.TrimSpace(payload.EffectID),
 		Notification:  strings.TrimSpace(payload.Notification),
 		SignerToken:   strings.TrimSpace(payload.SignerToken),
 		CorrelationID: strings.TrimSpace(payload.CorrelationID),

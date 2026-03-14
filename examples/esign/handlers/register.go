@@ -107,6 +107,29 @@ func resolveAuthenticatedAdminUserID(c router.Context) string {
 	return stableString(identity.ActorID)
 }
 
+func requireAuthenticatedAgreementRequest(cfg registerConfig) router.MiddlewareFunc {
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			identity := coreadmin.ResolveAuthenticatedRequestIdentity(c, coreadmin.AuthenticatedRequestScopeDefaults{
+				TenantID: strings.TrimSpace(cfg.defaultScope.TenantID),
+				OrgID:    strings.TrimSpace(cfg.defaultScope.OrgID),
+				Enabled:  strings.TrimSpace(cfg.defaultScope.TenantID) != "" || strings.TrimSpace(cfg.defaultScope.OrgID) != "",
+			})
+			if stableString(identity.ActorID) == "" {
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
+			}
+
+			scope := cfg.resolveScope(c)
+			tenantID := firstNonEmpty(strings.TrimSpace(scope.TenantID), strings.TrimSpace(identity.TenantID))
+			orgID := firstNonEmpty(strings.TrimSpace(scope.OrgID), strings.TrimSpace(identity.OrgID))
+			if tenantID == "" || orgID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, "INVALID_SCOPE", "tenant and org scope are required", nil)
+			}
+			return next(c)
+		}
+	}
+}
+
 func parsePageSize(raw string) int {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

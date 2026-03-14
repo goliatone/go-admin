@@ -26,6 +26,12 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	if strings.Contains(template, "draftEndpointWithUserID") {
 		t.Fatal("expected form template to keep draft/sync implementation in TypeScript runtime only")
 	}
+	if !strings.Contains(template, `"storage_scope": "{{ agreement_form_storage_scope|default:"" }}"`) {
+		t.Fatal("expected form template to expose server-authored storage scope")
+	}
+	if strings.Contains(template, `id="active-tab-take-control-btn"`) || strings.Contains(template, `id="active-tab-reload-btn"`) {
+		t.Fatal("expected form template to remove dead take-control ownership controls")
+	}
 }
 
 func TestESignAgreementDetailTemplateUsesCanonicalPanelActionAndArtifactRoutes(t *testing.T) {

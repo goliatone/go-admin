@@ -5,9 +5,13 @@
       "CreatedAt": "2026-03-01T09:01:00Z",
       "CreatedByUserID": "",
       "DeclinedAt": null,
+      "DeliveryEffectID": "",
+      "DeliveryStatus": "",
       "DocumentID": "doc-fixture",
       "ExpiredAt": null,
       "ID": "agreement-fixture",
+      "LastDeliveryAttemptAt": null,
+      "LastDeliveryError": "",
       "Message": "baseline",
       "OrgID": "org-phase0",
       "SentAt": null,
@@ -109,6 +113,7 @@
   ],
   "signing_tokens": [
     {
+      "ActivatedAt": null,
       "AgreementID": "agreement-fixture",
       "CreatedAt": "2026-03-01T09:02:00Z",
       "ExpiresAt": "2026-03-01T09:30:00Z",
@@ -121,6 +126,7 @@
       "TokenHash": "hash-fixture-a"
     },
     {
+      "ActivatedAt": null,
       "AgreementID": "agreement-fixture",
       "CreatedAt": "2026-03-01T09:03:00Z",
       "ExpiresAt": "2026-03-01T09:40:00Z",

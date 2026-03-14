@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	repository "github.com/goliatone/go-repository-bun"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -365,6 +366,55 @@ func loadSigningTokenByHashRecord(ctx context.Context, idb bun.IDB, scope stores
 	return record, nil
 }
 
+func loadSigningTokenRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SigningTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.SigningTokenRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.SigningTokenRecord{}, relationalInvalidRecordError("signing_tokens", "id", "required")
+	}
+	record := stores.SigningTokenRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.SigningTokenRecord{}, mapSQLNotFound(err, "signing_tokens", id)
+	}
+	return record, nil
+}
+
+func listSigningTokenRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, recipientID string) ([]stores.SigningTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	recipientID = normalizeRelationalID(recipientID)
+	if agreementID == "" {
+		return nil, relationalInvalidRecordError("signing_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" {
+		return nil, relationalInvalidRecordError("signing_tokens", "recipient_id", "required")
+	}
+	records := make([]stores.SigningTokenRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("recipient_id = ?", recipientID).
+		OrderExpr("created_at ASC, id ASC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func listAuditEventRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string, query stores.AuditEventQuery) ([]stores.AuditEventRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -631,6 +681,87 @@ func loadRemediationDispatchByIdempotencyKeyRecord(ctx context.Context, idb bun.
 		return stores.RemediationDispatchRecord{}, mapSQLNotFound(err, "remediation_dispatches", key)
 	}
 	return record.RemediationDispatchRecord, nil
+}
+
+func loadGuardedEffectRecord(ctx context.Context, idb bun.IDB, effectID string) (guardedeffects.Record, error) {
+	effectID = normalizeRelationalID(effectID)
+	if effectID == "" {
+		return guardedeffects.Record{}, relationalInvalidRecordError("guarded_effects", "effect_id", "required")
+	}
+	record := stores.GuardedEffectRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("effect_id = ?", effectID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return guardedeffects.Record{}, mapSQLNotFound(err, "guarded_effects", effectID)
+	}
+	return record.Record, nil
+}
+
+func loadGuardedEffectByIdempotencyKeyRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, key string) (guardedeffects.Record, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return guardedeffects.Record{}, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return guardedeffects.Record{}, relationalInvalidRecordError("guarded_effects", "idempotency_key", "required")
+	}
+	record := stores.GuardedEffectRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("idempotency_key = ?", key).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return guardedeffects.Record{}, mapSQLNotFound(err, "guarded_effects", key)
+	}
+	return record.Record, nil
+}
+
+func listGuardedEffectRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.GuardedEffectQuery) ([]guardedeffects.Record, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	models := make([]stores.GuardedEffectRecord, 0)
+	sel := idb.NewSelect().
+		Model(&models).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if subjectType := strings.TrimSpace(query.SubjectType); subjectType != "" {
+		sel = sel.Where("subject_type = ?", subjectType)
+	}
+	if subjectID := normalizeRelationalID(query.SubjectID); subjectID != "" {
+		sel = sel.Where("subject_id = ?", subjectID)
+	}
+	if kind := strings.TrimSpace(query.Kind); kind != "" {
+		sel = sel.Where("kind = ?", kind)
+	}
+	if status := strings.TrimSpace(query.Status); status != "" {
+		sel = sel.Where("status = ?", status)
+	}
+	if query.SortDesc {
+		sel = sel.OrderExpr("created_at DESC, effect_id DESC")
+	} else {
+		sel = sel.OrderExpr("created_at ASC, effect_id ASC")
+	}
+	if query.Limit > 0 {
+		sel = sel.Limit(query.Limit)
+	}
+	if query.Offset > 0 {
+		sel = sel.Offset(query.Offset)
+	}
+	if err := sel.Scan(ctx); err != nil {
+		return nil, err
+	}
+	records := make([]guardedeffects.Record, 0, len(models))
+	for _, model := range models {
+		records = append(records, model.Record)
+	}
+	return records, nil
 }
 
 func loadSignerProfileRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, subject, key string, now time.Time) (stores.SignerProfileRecord, error) {

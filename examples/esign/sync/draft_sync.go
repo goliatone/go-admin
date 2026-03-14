@@ -24,7 +24,7 @@ const (
 	ResourceKindAgreementDraft = "agreement_draft"
 	OperationAutosave          = "autosave"
 	OperationSend              = "send"
-	OperationDiscard           = "discard"
+	OperationDispose           = "dispose"
 	replayStoredEventType      = "draft.sync.replay_stored"
 )
 
@@ -178,11 +178,11 @@ func (s *AgreementDraftResourceStore) Mutate(ctx context.Context, input gosyncco
 			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
 		}
 		return snapshotFromSendResult(input.ResourceRef, buildResourceScope(scope, actorID), result, input.ExpectedRevision+1, s.now().UTC())
-	case OperationDiscard:
+	case OperationDispose:
 		if err := s.workflow.Delete(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), actorID); err != nil {
 			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
 		}
-		return snapshotFromDiscardResult(input.ResourceRef, buildResourceScope(scope, actorID), input.ExpectedRevision+1, s.now().UTC())
+		return snapshotFromDisposeResult(input.ResourceRef, buildResourceScope(scope, actorID), input.ExpectedRevision+1, s.now().UTC())
 	default:
 		return gosynccore.Snapshot{}, gosynccore.NewError(gosynccore.CodeInvalidMutation, "unsupported agreement draft operation", map[string]any{
 			"operation": strings.TrimSpace(input.Operation),
@@ -404,7 +404,7 @@ func (s *AgreementDraftIdempotencyStore) appendReplayAudit(ctx context.Context, 
 		DraftID:      strings.TrimSpace(result.Snapshot.ResourceRef.ID),
 		EventType:    replayStoredEventType,
 		ActorType:    "system",
-		ActorID:      strings.TrimSpace(result.Snapshot.ResourceRef.Scope["user_id"]),
+		ActorID:      strings.TrimSpace(result.Snapshot.ResourceRef.Scope["actor_id"]),
 		MetadataJSON: mustJSONString(payload),
 		CreatedAt:    s.now().UTC(),
 	})
@@ -710,7 +710,7 @@ func snapshotFromSendResult(
 	}, nil
 }
 
-func snapshotFromDiscardResult(
+func snapshotFromDisposeResult(
 	ref gosynccore.ResourceRef,
 	scope map[string]string,
 	revision int64,
@@ -741,7 +741,7 @@ func snapshotFromDiscardResult(
 			"status":         "discarded",
 			"draft_disposed": true,
 			"draft_deleted":  true,
-			"operation":      OperationDiscard,
+			"operation":      OperationDispose,
 		},
 	}, nil
 }
@@ -760,7 +760,6 @@ func initialWizardState(wizardID, createdAt string) map[string]any {
 		"fieldPlacements":         []any{},
 		"fieldRules":              []any{},
 		"titleSource":             "autofill",
-		"storageMigrationVersion": 1,
 		"serverDraftId":           nil,
 		"serverRevision":          0,
 		"lastSyncedAt":            nil,
@@ -782,15 +781,10 @@ func resolveScopedActor(scope map[string]string) (stores.Scope, string, error) {
 	if err != nil {
 		return stores.Scope{}, "", err
 	}
-	actorID := firstNonEmpty(
-		scope["user_id"],
-		scope["user"],
-		scope["actor_id"],
-		scope["actor"],
-	)
+	actorID := firstNonEmpty(scope["actor_id"])
 	if actorID == "" {
-		return stores.Scope{}, "", gosynccore.NewError(gosynccore.CodeInvalidMutation, "user id is required", map[string]any{
-			"field": "resource_ref.scope.user_id",
+		return stores.Scope{}, "", gosynccore.NewError(gosynccore.CodeInvalidMutation, "actor id is required", map[string]any{
+			"field": "resource_ref.scope.actor_id",
 		})
 	}
 	return storeScope, actorID, nil
@@ -798,8 +792,8 @@ func resolveScopedActor(scope map[string]string) (stores.Scope, string, error) {
 
 func storesScopeFromResourceScope(scope map[string]string) (stores.Scope, error) {
 	storeScope := stores.Scope{
-		TenantID: firstNonEmpty(scope["tenant"], scope["tenant_id"]),
-		OrgID:    firstNonEmpty(scope["org"], scope["org_id"]),
+		TenantID: firstNonEmpty(scope["tenant_id"]),
+		OrgID:    firstNonEmpty(scope["org_id"]),
 	}
 	if strings.TrimSpace(storeScope.TenantID) == "" || strings.TrimSpace(storeScope.OrgID) == "" {
 		return stores.Scope{}, gosynccore.NewError(gosynccore.CodeInvalidMutation, "tenant and org scope are required", map[string]any{
@@ -811,11 +805,9 @@ func storesScopeFromResourceScope(scope map[string]string) (stores.Scope, error)
 
 func buildResourceScope(scope stores.Scope, actorID string) map[string]string {
 	return map[string]string{
-		"tenant":    strings.TrimSpace(scope.TenantID),
 		"tenant_id": strings.TrimSpace(scope.TenantID),
-		"org":       strings.TrimSpace(scope.OrgID),
 		"org_id":    strings.TrimSpace(scope.OrgID),
-		"user_id":   strings.TrimSpace(actorID),
+		"actor_id":  strings.TrimSpace(actorID),
 	}
 }
 

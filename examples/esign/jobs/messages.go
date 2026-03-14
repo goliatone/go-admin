@@ -6,6 +6,7 @@ type EmailSendSigningRequestMsg struct {
 	Scope         stores.Scope
 	AgreementID   string
 	RecipientID   string
+	EffectID      string
 	TemplateCode  string
 	Notification  string
 	SignerToken   string

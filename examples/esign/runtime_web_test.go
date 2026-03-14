@@ -960,9 +960,9 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		strings.NewReader(`{"idempotency_key":"runtime-web-e2e-send-1"}`),
 	)
 	defer sendResp.Body.Close()
-	if sendResp.StatusCode != http.StatusOK {
+	if sendResp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(sendResp.Body)
-		t.Fatalf("expected send action status 200, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
+		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	tokenSvc := esignModule.TokenService()
@@ -1254,9 +1254,9 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		strings.NewReader(`{"idempotency_key":"runtime-web-unified-send-1"}`),
 	)
 	defer sendResp.Body.Close()
-	if sendResp.StatusCode != http.StatusOK {
+	if sendResp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(sendResp.Body)
-		t.Fatalf("expected send action status 200, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
+		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	tokenSvc := esignModule.TokenService()

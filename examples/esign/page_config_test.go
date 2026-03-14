@@ -71,6 +71,7 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testin
 		map[string]string{
 			"index": "/admin/content/esign_agreements",
 		},
+		"afs_actor_scope_token",
 	)
 	if cfg.Page != eSignPageAgreementForm {
 		t.Fatalf("expected page %q, got %q", eSignPageAgreementForm, cfg.Page)
@@ -94,15 +95,37 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testin
 	if got := rawToString(syncCfg["resource_kind"]); got != "agreement_draft" {
 		t.Fatalf("expected sync.resource_kind agreement_draft, got %q", got)
 	}
+	if got := rawToString(syncCfg["storage_scope"]); got != "afs_actor_scope_token" {
+		t.Fatalf("expected sync.storage_scope afs_actor_scope_token, got %q", got)
+	}
 	if _, exists := cfg.Context["user_id"]; exists {
 		t.Fatalf("expected agreement form context to omit user_id, got %+v", cfg.Context["user_id"])
 	}
 	ops, ok := syncCfg["action_operations"].([]string)
-	if !ok || len(ops) != 2 || ops[0] != "send" || ops[1] != "discard" {
-		t.Fatalf("expected sync.action_operations=[send discard], got %+v", syncCfg["action_operations"])
+	if !ok || len(ops) != 2 || ops[0] != "send" || ops[1] != "dispose" {
+		t.Fatalf("expected sync.action_operations=[send dispose], got %+v", syncCfg["action_operations"])
 	}
 	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
 		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	}
+}
+
+func TestBuildESignAgreementFormStorageScopeIsOpaqueAndStable(t *testing.T) {
+	first := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")
+	second := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")
+	third := buildESignAgreementFormStorageScope("actor-2", "tenant-1", "org-1", "/admin/content/esign_agreements/new")
+
+	if first == "" {
+		t.Fatal("expected non-empty storage scope")
+	}
+	if first != second {
+		t.Fatalf("expected stable storage scope, got %q and %q", first, second)
+	}
+	if first == third {
+		t.Fatalf("expected storage scope to vary by actor, got %q", first)
+	}
+	if first == "actor-1" || first == "tenant-1" || first == "org-1" {
+		t.Fatalf("expected opaque storage scope, got %q", first)
 	}
 }
 

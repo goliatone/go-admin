@@ -20,6 +20,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -1052,6 +1054,13 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 	draftSvc := services.NewDraftService(store,
 		services.WithDraftAgreementService(services.NewAgreementService(store)),
 	)
+	syncSvc, err := syncservice.NewSyncService(
+		esignsync.NewAgreementDraftResourceStore(draftSvc),
+		esignsync.NewAgreementDraftIdempotencyStore(store),
+	)
+	if err != nil {
+		t.Fatalf("NewSyncService: %v", err)
+	}
 
 	dispatchID := "dispatch-workflow-1"
 	statusReads := 0
@@ -1116,6 +1125,8 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 			DefaultPermissions.AdminSend,
 		)),
 		WithDraftWorkflowService(draftSvc),
+		WithAgreementDraftSyncService(syncSvc),
+		WithAgreementDraftSyncBootstrap(esignsync.NewAgreementDraftBootstrapper(draftSvc)),
 		WithRemediationTrigger(remediationTrigger),
 		WithRemediationDispatchStatusLookup(remediationStatus),
 		WithDefaultScope(scope),
@@ -1188,29 +1199,42 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 	}
 
 	userID := "workflow-user-1"
-	createStatus, createBody := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts", userID, map[string]any{
-		"wizard_id":    "wiz-remediation-workflow",
-		"wizard_state": validWizardState,
-		"title":        "Needs Remediation",
-		"current_step": 6,
-		"document_id":  document.ID,
-	}, nil)
-	if createStatus != http.StatusCreated {
-		t.Fatalf("expected create status 201, got %d body=%s", createStatus, string(createBody))
+	bootstrapStatus, bootstrapBody := requestJSON(http.MethodPost, "/admin/api/v1/esign/sync/bootstrap/agreement-draft", userID, nil, nil)
+	if bootstrapStatus != http.StatusCreated {
+		t.Fatalf("expected bootstrap status 201, got %d body=%s", bootstrapStatus, string(bootstrapBody))
 	}
-	draftID := extractJSONFieldString(createBody, []string{"id"})
+	draftID := extractJSONFieldString(bootstrapBody, []string{"resource_ref", "id"})
 	if draftID == "" {
-		t.Fatalf("expected draft id in create payload, got %s", string(createBody))
+		t.Fatalf("expected draft id in bootstrap payload, got %s", string(bootstrapBody))
 	}
 
-	sendStatusBefore, sendBodyBefore := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts/"+draftID+"/send", userID, map[string]any{
+	autosaveStatus, autosaveBody := requestJSON(http.MethodPatch, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID, userID, map[string]any{
+		"operation":         "autosave",
 		"expected_revision": 1,
+		"payload": map[string]any{
+			"wizard_state": validWizardState,
+			"title":        "Needs Remediation",
+			"current_step": 6,
+			"document_id":  document.ID,
+		},
 	}, nil)
-	if sendStatusBefore != http.StatusUnprocessableEntity {
-		t.Fatalf("expected unsupported send status 422, got %d body=%s", sendStatusBefore, string(sendBodyBefore))
+	if autosaveStatus != http.StatusOK {
+		t.Fatalf("expected autosave status 200, got %d body=%s", autosaveStatus, string(autosaveBody))
 	}
-	if !strings.Contains(string(sendBodyBefore), "PDF_UNSUPPORTED") {
-		t.Fatalf("expected PDF_UNSUPPORTED in send failure payload, got %s", string(sendBodyBefore))
+
+	sendStatusBefore, sendBodyBefore := requestJSON(http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/send", userID, map[string]any{
+		"expected_revision": 2,
+		"idempotency_key":   "remediation-send-before",
+		"payload":           map[string]any{},
+	}, nil)
+	if sendStatusBefore != http.StatusBadRequest {
+		t.Fatalf("expected unsupported sync send status 400, got %d body=%s", sendStatusBefore, string(sendBodyBefore))
+	}
+	if !strings.Contains(string(sendBodyBefore), `"code":"INVALID_MUTATION"`) {
+		t.Fatalf("expected INVALID_MUTATION sync error, got %s", string(sendBodyBefore))
+	}
+	if !strings.Contains(string(sendBodyBefore), `"reason":"preview_fallback.disabled"`) {
+		t.Fatalf("expected preview_fallback.disabled in send failure payload, got %s", string(sendBodyBefore))
 	}
 
 	triggerStatus, triggerBody := requestJSON(http.MethodPost, "/admin/api/v1/esign/documents/"+document.ID+"/remediate", userID, nil, map[string]string{
@@ -1240,13 +1264,15 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 		t.Fatalf("expected second poll succeeded status, got %s", string(statusBodyTwo))
 	}
 
-	sendStatusAfter, sendBodyAfter := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts/"+draftID+"/send", userID, map[string]any{
-		"expected_revision": 1,
+	sendStatusAfter, sendBodyAfter := requestJSON(http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/send", userID, map[string]any{
+		"expected_revision": 2,
+		"idempotency_key":   "remediation-send-after",
+		"payload":           map[string]any{},
 	}, nil)
 	if sendStatusAfter != http.StatusOK {
 		t.Fatalf("expected send-after-remediation status 200, got %d body=%s", sendStatusAfter, string(sendBodyAfter))
 	}
-	if extractJSONFieldString(sendBodyAfter, []string{"agreement_id"}) == "" {
+	if extractJSONFieldString(sendBodyAfter, []string{"data", "agreement_id"}) == "" {
 		t.Fatalf("expected agreement_id after remediation, got %s", string(sendBodyAfter))
 	}
 }

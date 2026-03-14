@@ -119,9 +119,9 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("action request failed: %v", err)
 	}
 	defer actionRes.Body.Close()
-	if actionRes.StatusCode != http.StatusOK {
+	if actionRes.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(actionRes.Body)
-		t.Fatalf("expected send action 200, got %d body=%s", actionRes.StatusCode, string(payload))
+		t.Fatalf("expected send action 202, got %d body=%s", actionRes.StatusCode, string(payload))
 	}
 
 	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"})
@@ -133,9 +133,9 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("resend request failed: %v", err)
 	}
 	defer resendRes.Body.Close()
-	if resendRes.StatusCode != http.StatusOK {
+	if resendRes.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(resendRes.Body)
-		t.Fatalf("expected resend action 200, got %d body=%s", resendRes.StatusCode, string(payload))
+		t.Fatalf("expected resend action 202, got %d body=%s", resendRes.StatusCode, string(payload))
 	}
 
 	agreementDetail := getPanelDetail(t, server, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?tenant_id=tenant-bootstrap&org_id=org-bootstrap")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/admin/txoutbox"
 )
 
@@ -30,12 +31,21 @@ type RemediationDispatchStore interface {
 	GetRemediationDispatchByIdempotencyKey(ctx context.Context, scope Scope, key string) (RemediationDispatchRecord, error)
 }
 
+// GuardedEffectStore defines durable guarded external effect persistence and lookup.
+type GuardedEffectStore interface {
+	SaveGuardedEffect(ctx context.Context, scope Scope, record guardedeffects.Record) (guardedeffects.Record, error)
+	GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error)
+	GetGuardedEffectByIdempotencyKey(ctx context.Context, scope Scope, key string) (guardedeffects.Record, error)
+	ListGuardedEffects(ctx context.Context, scope Scope, query GuardedEffectQuery) ([]guardedeffects.Record, error)
+}
+
 // AgreementStore defines agreement persistence with immutable-after-send and optimistic lock guards.
 type AgreementStore interface {
 	CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error)
 	GetAgreement(ctx context.Context, scope Scope, id string) (AgreementRecord, error)
 	ListAgreements(ctx context.Context, scope Scope, query AgreementQuery) ([]AgreementRecord, error)
 	UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error)
+	UpdateAgreementDeliveryState(ctx context.Context, scope Scope, id string, patch AgreementDeliveryStatePatch) (AgreementRecord, error)
 	Transition(ctx context.Context, scope Scope, id string, input AgreementTransitionInput) (AgreementRecord, error)
 	UpsertParticipantDraft(ctx context.Context, scope Scope, agreementID string, patch ParticipantDraftPatch, expectedVersion int64) (ParticipantRecord, error)
 	DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error
@@ -97,7 +107,10 @@ type SavedSignerSignatureStore interface {
 // SigningTokenStore defines persistence for hashed signer tokens.
 type SigningTokenStore interface {
 	CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
+	GetSigningToken(ctx context.Context, scope Scope, id string) (SigningTokenRecord, error)
 	GetSigningTokenByHash(ctx context.Context, scope Scope, tokenHash string) (SigningTokenRecord, error)
+	ListSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string) ([]SigningTokenRecord, error)
+	SaveSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
 	RevokeActiveSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string, revokedAt time.Time) (int, error)
 }
 
@@ -216,6 +229,7 @@ type TxStore interface {
 	DocumentStore
 	DocumentRemediationLeaseStore
 	RemediationDispatchStore
+	GuardedEffectStore
 	AgreementStore
 	DraftStore
 	SigningStore

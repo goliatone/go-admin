@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -104,6 +105,7 @@ func (p RetryPolicy) nextRetry(attempt, maxAttempts int, now time.Time) *time.Ti
 
 type HandlerDependencies struct {
 	Agreements       stores.AgreementStore
+	Effects          stores.GuardedEffectStore
 	Artifacts        stores.AgreementArtifactStore
 	JobRuns          stores.JobRunStore
 	GoogleImportRuns stores.GoogleImportRunStore
@@ -116,12 +118,14 @@ type HandlerDependencies struct {
 	PDFService       services.PDFService
 	EmailProvider    EmailProvider
 	GoogleImporter   GoogleImporter
+	Transactions     stores.TransactionManager
 	RetryPolicy      RetryPolicy
 	Now              func() time.Time
 }
 
 type Handlers struct {
 	agreements       stores.AgreementStore
+	effects          stores.GuardedEffectStore
 	artifacts        stores.AgreementArtifactStore
 	jobRuns          stores.JobRunStore
 	googleImportRuns stores.GoogleImportRunStore
@@ -134,6 +138,7 @@ type Handlers struct {
 	pdfs             services.PDFService
 	emailProvider    EmailProvider
 	googleImporter   GoogleImporter
+	tx               stores.TransactionManager
 	retryPolicy      RetryPolicy
 	now              func() time.Time
 }
@@ -161,6 +166,7 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 	}
 	return Handlers{
 		agreements:       deps.Agreements,
+		effects:          deps.Effects,
 		artifacts:        deps.Artifacts,
 		jobRuns:          deps.JobRuns,
 		googleImportRuns: deps.GoogleImportRuns,
@@ -173,6 +179,7 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		pdfs:             deps.PDFService,
 		emailProvider:    provider,
 		googleImporter:   deps.GoogleImporter,
+		tx:               deps.Transactions,
 		retryPolicy:      retryPolicy,
 		now:              now,
 	}
@@ -184,6 +191,115 @@ func (h Handlers) ValidateGoogleImportDeps() error {
 		return fmt.Errorf("google import dependencies not configured: google importer is required")
 	}
 	return nil
+}
+
+type guardedEffectStoreAdapter struct {
+	store stores.GuardedEffectStore
+}
+
+func (a guardedEffectStoreAdapter) SaveGuardedEffect(ctx context.Context, scope guardedeffects.Scope, record guardedeffects.Record) (guardedeffects.Record, error) {
+	return a.store.SaveGuardedEffect(ctx, stores.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID}, record)
+}
+
+func (a guardedEffectStoreAdapter) GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error) {
+	return a.store.GetGuardedEffect(ctx, effectID)
+}
+
+func (a guardedEffectStoreAdapter) GetGuardedEffectByIdempotencyKey(ctx context.Context, scope guardedeffects.Scope, key string) (guardedeffects.Record, error) {
+	return a.store.GetGuardedEffectByIdempotencyKey(ctx, stores.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID}, key)
+}
+
+type agreementNotificationEffectPayload struct {
+	AgreementID       string `json:"agreement_id"`
+	RecipientID       string `json:"recipient_id"`
+	PendingTokenID    string `json:"pending_token_id"`
+	Notification      string `json:"notification"`
+	FailureAuditEvent string `json:"failure_audit_event"`
+}
+
+type agreementNotificationEffectHandler struct {
+	scope      stores.Scope
+	agreements stores.AgreementStore
+	tokens     stores.SigningTokenStore
+	audits     stores.AuditEventStore
+	now        func() time.Time
+}
+
+func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect guardedeffects.Record, _ guardedeffects.DispatchResult) error {
+	var payload agreementNotificationEffectPayload
+	if err := json.Unmarshal([]byte(effect.PreparePayloadJSON), &payload); err != nil {
+		return err
+	}
+	if h.tokens != nil && strings.TrimSpace(payload.PendingTokenID) != "" {
+		tokenSvc := stores.NewTokenService(h.tokens, stores.WithTokenClock(h.now))
+		if _, err := tokenSvc.PromotePending(ctx, h.scope, payload.PendingTokenID); err != nil {
+			return err
+		}
+	}
+	now := h.now().UTC()
+	if h.agreements != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		if _, err := h.agreements.UpdateAgreementDeliveryState(ctx, h.scope, payload.AgreementID, stores.AgreementDeliveryStatePatch{
+			DeliveryStatus:        stringPtr(guardedeffects.StatusFinalized),
+			DeliveryEffectID:      stringPtr(effect.EffectID),
+			LastDeliveryError:     stringPtr(""),
+			LastDeliveryAttemptAt: timePtr(now),
+		}); err != nil {
+			return err
+		}
+	}
+	if h.audits != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		metadata, _ := json.Marshal(map[string]any{
+			"effect_id":     strings.TrimSpace(effect.EffectID),
+			"recipient_id":  strings.TrimSpace(payload.RecipientID),
+			"notification":  strings.TrimSpace(payload.Notification),
+			"guard_policy":  strings.TrimSpace(effect.GuardPolicy),
+			"effect_status": strings.TrimSpace(effect.Status),
+		})
+		_, _ = h.audits.Append(ctx, h.scope, stores.AuditEventRecord{
+			AgreementID:  strings.TrimSpace(payload.AgreementID),
+			EventType:    "agreement.notification_delivered",
+			ActorType:    "system_job",
+			MetadataJSON: string(metadata),
+			CreatedAt:    now,
+		})
+	}
+	return nil
+}
+
+func (h agreementNotificationEffectHandler) Fail(ctx context.Context, effect guardedeffects.Record, result guardedeffects.DispatchResult, nextRetryAt *time.Time) error {
+	var payload agreementNotificationEffectPayload
+	if err := json.Unmarshal([]byte(effect.PreparePayloadJSON), &payload); err != nil {
+		return err
+	}
+	now := h.now().UTC()
+	if h.agreements != nil && strings.TrimSpace(payload.AgreementID) != "" {
+		status := guardedeffects.StatusDeadLettered
+		if nextRetryAt != nil {
+			status = guardedeffects.StatusRetrying
+		}
+		if _, err := h.agreements.UpdateAgreementDeliveryState(ctx, h.scope, payload.AgreementID, stores.AgreementDeliveryStatePatch{
+			DeliveryStatus:        stringPtr(status),
+			DeliveryEffectID:      stringPtr(effect.EffectID),
+			LastDeliveryError:     stringPtr(strings.TrimSpace(result.MetadataJSON)),
+			LastDeliveryAttemptAt: timePtr(now),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func stringPtr(value string) *string {
+	out := value
+	return &out
+}
+
+func timePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	normalized := value.UTC()
+	return &normalized
 }
 
 func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
@@ -317,7 +433,7 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			observability.ObserveCompletionDelivery(ctx, false)
 		}
 		observability.ObserveProviderResult(ctx, "email", false)
-		return h.failEmailJob(ctx, msg.Scope, run, emailLog, sendErr, msg.AgreementID, map[string]any{
+		return h.failEmailJob(ctx, msg.Scope, run, emailLog, strings.TrimSpace(msg.EffectID), sendErr, msg.AgreementID, map[string]any{
 			"template_code": templateCode,
 		})
 	}
@@ -338,6 +454,9 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		UpdatedAt:         now,
 	}); err != nil {
 		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+	}
+	if err := h.finalizeNotificationEffect(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run, providerMessageID); err != nil {
+		return err
 	}
 	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now); err != nil {
 		return err
@@ -940,11 +1059,106 @@ func (h Handlers) RunStageActivationWorkflow(ctx context.Context, scope stores.S
 	return nil
 }
 
+func (h Handlers) finalizeNotificationEffect(
+	ctx context.Context,
+	scope stores.Scope,
+	effectID string,
+	run stores.JobRunRecord,
+	providerMessageID string,
+) error {
+	effectID = strings.TrimSpace(effectID)
+	if effectID == "" || h.effects == nil {
+		return nil
+	}
+	complete := func(effectStore stores.GuardedEffectStore, agreementStore stores.AgreementStore, tokenStore stores.SigningTokenStore, audits stores.AuditEventStore) error {
+		service := guardedeffects.NewService(guardedEffectStoreAdapter{store: effectStore}, h.now)
+		_, err := service.Complete(
+			ctx,
+			guardedeffects.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID},
+			effectID,
+			guardedeffects.SMTPAcceptedPolicy{},
+			guardedeffects.DispatchResult{
+				Outcome:           guardedeffects.OutcomeCompleted,
+				DispatchID:        strings.TrimSpace(run.ID),
+				ProviderMessageID: strings.TrimSpace(providerMessageID),
+				MetadataJSON:      strings.TrimSpace(providerMessageID),
+				OccurredAt:        h.now().UTC(),
+			},
+			nil,
+			agreementNotificationEffectHandler{
+				scope:      scope,
+				agreements: agreementStore,
+				tokens:     tokenStore,
+				audits:     audits,
+				now:        h.now,
+			},
+		)
+		return err
+	}
+	if h.tx != nil {
+		return h.tx.WithTx(ctx, func(tx stores.TxStore) error {
+			return complete(tx, tx, tx, tx)
+		})
+	}
+	if tokenStore, ok := h.effects.(stores.SigningTokenStore); ok {
+		return complete(h.effects, h.agreements, tokenStore, h.audits)
+	}
+	return nil
+}
+
+func (h Handlers) failNotificationEffect(
+	ctx context.Context,
+	scope stores.Scope,
+	effectID string,
+	run stores.JobRunRecord,
+	cause error,
+) error {
+	effectID = strings.TrimSpace(effectID)
+	if effectID == "" || h.effects == nil {
+		return nil
+	}
+	nextRetry := h.retryPolicy.nextRetry(run.AttemptCount, run.MaxAttempts, h.now())
+	fail := func(effectStore stores.GuardedEffectStore, agreementStore stores.AgreementStore, tokenStore stores.SigningTokenStore, audits stores.AuditEventStore) error {
+		service := guardedeffects.NewService(guardedEffectStoreAdapter{store: effectStore}, h.now)
+		_, err := service.Complete(
+			ctx,
+			guardedeffects.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID},
+			effectID,
+			guardedeffects.SMTPAcceptedPolicy{},
+			guardedeffects.DispatchResult{
+				Outcome:    guardedeffects.OutcomeFailed,
+				DispatchID: strings.TrimSpace(run.ID),
+				MetadataJSON: strings.TrimSpace(cause.Error()),
+				OccurredAt: h.now().UTC(),
+			},
+			nextRetry,
+			agreementNotificationEffectHandler{
+				scope:      scope,
+				agreements: agreementStore,
+				tokens:     tokenStore,
+				audits:     audits,
+				now:        h.now,
+			},
+		)
+		return err
+	}
+	if h.tx != nil {
+		return h.tx.WithTx(ctx, func(tx stores.TxStore) error {
+			return fail(tx, tx, tx, tx)
+		})
+	}
+	if tokenStore, ok := h.effects.(stores.SigningTokenStore); ok {
+		return fail(h.effects, h.agreements, tokenStore, h.audits)
+	}
+	return nil
+}
+
 func (h Handlers) failEmailJob(
 	ctx context.Context,
 	scope stores.Scope,
 	run stores.JobRunRecord,
 	log stores.EmailLogRecord,
+	effectID string,
 	cause error,
 	agreementID string,
 	metadata map[string]any,
@@ -963,6 +1177,7 @@ func (h Handlers) failEmailJob(
 		NextRetryAt:   nextRetry,
 		UpdatedAt:     h.now(),
 	})
+	_ = h.failNotificationEffect(ctx, scope, effectID, run, cause)
 	return h.failJob(ctx, scope, run, cause, agreementID, metadata)
 }
 

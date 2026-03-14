@@ -21,6 +21,7 @@ const (
 type EmailSendSigningRequestOutboxPayload struct {
 	AgreementID       string `json:"agreement_id"`
 	RecipientID       string `json:"recipient_id"`
+	EffectID          string `json:"effect_id,omitempty"`
 	Notification      string `json:"notification"`
 	SignerToken       string `json:"signer_token,omitempty"`
 	CorrelationID     string `json:"correlation_id,omitempty"`
@@ -44,6 +45,7 @@ func buildEmailNotificationOutboxRecord(
 	payload := EmailSendSigningRequestOutboxPayload{
 		AgreementID:       strings.TrimSpace(notification.AgreementID),
 		RecipientID:       strings.TrimSpace(notification.RecipientID),
+		EffectID:          strings.TrimSpace(notification.EffectID),
 		Notification:      strings.TrimSpace(string(notification.Type)),
 		SignerToken:       strings.TrimSpace(notification.Token.Token),
 		CorrelationID:     strings.TrimSpace(notification.CorrelationID),

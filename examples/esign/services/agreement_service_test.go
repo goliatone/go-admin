@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
@@ -50,6 +51,14 @@ func (c *capturingAgreementTokenService) Issue(ctx context.Context, scope stores
 	return issued, err
 }
 
+func (c *capturingAgreementTokenService) IssuePending(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error) {
+	issued, err := c.inner.IssuePending(ctx, scope, agreementID, recipientID)
+	if err == nil {
+		c.issued = append(c.issued, issued)
+	}
+	return issued, err
+}
+
 func (c *capturingAgreementTokenService) Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error) {
 	issued, err := c.inner.Rotate(ctx, scope, agreementID, recipientID)
 	if err == nil {
@@ -60,6 +69,14 @@ func (c *capturingAgreementTokenService) Rotate(ctx context.Context, scope store
 
 func (c *capturingAgreementTokenService) Revoke(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error {
 	return c.inner.Revoke(ctx, scope, agreementID, recipientID)
+}
+
+func (c *capturingAgreementTokenService) PromotePending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error) {
+	return c.inner.PromotePending(ctx, scope, tokenID)
+}
+
+func (c *capturingAgreementTokenService) AbortPending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error) {
+	return c.inner.AbortPending(ctx, scope, tokenID)
 }
 
 func (c *capturingAgreementTokenService) ForTx(tx stores.TxStore) AgreementTokenService {
@@ -565,23 +582,15 @@ func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-hook"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if workflow.sentCalls != 1 {
-		t.Fatalf("expected 1 email workflow send call, got %d", workflow.sentCalls)
+	if workflow.sentCalls != 0 {
+		t.Fatalf("expected direct email workflow path removed, got %d calls", workflow.sentCalls)
 	}
-	if workflow.lastScope != scope {
-		t.Fatalf("expected scope %+v, got %+v", scope, workflow.lastScope)
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
 	}
-	if workflow.lastAgreement != agreement.ID {
-		t.Fatalf("expected agreement %q, got %q", agreement.ID, workflow.lastAgreement)
-	}
-	if workflow.lastCorrelation != "send-hook" {
-		t.Fatalf("expected correlation send-hook, got %q", workflow.lastCorrelation)
-	}
-	if workflow.lastType != NotificationSigningInvitation {
-		t.Fatalf("expected notification type %q, got %q", NotificationSigningInvitation, workflow.lastType)
-	}
-	if workflow.lastToken == "" {
-		t.Fatal("expected send workflow notification to include issued token")
+	if len(outbox) != 1 {
+		t.Fatalf("expected one queued notification, got %+v", outbox)
 	}
 }
 
@@ -682,26 +691,11 @@ func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing
 	if sent.Status != stores.AgreementStatusSent {
 		t.Fatalf("expected agreement status sent, got %q", sent.Status)
 	}
-	if workflow.sentCalls != 1 {
-		t.Fatalf("expected 1 email workflow send call, got %d", workflow.sentCalls)
+	if workflow.sentCalls != 0 {
+		t.Fatalf("expected workflow not called directly, got %d", workflow.sentCalls)
 	}
-
-	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
-	if err != nil {
-		t.Fatalf("ListForAgreement: %v", err)
-	}
-	found := false
-	for _, event := range events {
-		if event.EventType == "agreement.send_notification_failed" {
-			found = true
-			if !strings.Contains(event.MetadataJSON, "smtp unavailable") {
-				t.Fatalf("expected failure metadata to include cause, got %s", event.MetadataJSON)
-			}
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected agreement.send_notification_failed audit event in %+v", events)
+	if sent.DeliveryStatus != guardedeffects.StatusPrepared {
+		t.Fatalf("expected delivery status %q, got %q", guardedeffects.StatusPrepared, sent.DeliveryStatus)
 	}
 }
 
@@ -911,10 +905,10 @@ func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	}
 
 	if _, err := tokenService.Validate(ctx, scope, first.Token.Token); err == nil {
-		t.Fatal("expected original token to be revoked after rotation")
+		t.Fatal("expected resend token to remain pending until delivery finalizes")
 	}
-	if _, err := tokenService.Validate(ctx, scope, rotated.Token.Token); err != nil {
-		t.Fatalf("expected rotated token to validate: %v", err)
+	if _, err := tokenService.Validate(ctx, scope, rotated.Token.Token); err == nil {
+		t.Fatal("expected replacement resend token to remain pending until delivery finalizes")
 	}
 }
 
@@ -950,26 +944,15 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 		t.Fatalf("Resend: %v", err)
 	}
 
-	if workflow.resentCalls != 1 {
-		t.Fatalf("expected 1 email workflow resend call, got %d", workflow.resentCalls)
+	if workflow.resentCalls != 0 {
+		t.Fatalf("expected direct resend workflow path removed, got %d calls", workflow.resentCalls)
 	}
-	if workflow.lastScope != scope {
-		t.Fatalf("expected scope %+v, got %+v", scope, workflow.lastScope)
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
 	}
-	if workflow.lastAgreement != agreement.ID {
-		t.Fatalf("expected agreement %q, got %q", agreement.ID, workflow.lastAgreement)
-	}
-	if workflow.lastRecipient != signer.ID {
-		t.Fatalf("expected recipient %q, got %q", signer.ID, workflow.lastRecipient)
-	}
-	if workflow.lastCorrelation != "resend-hook" {
-		t.Fatalf("expected correlation resend-hook, got %q", workflow.lastCorrelation)
-	}
-	if workflow.lastType != NotificationSigningReminder {
-		t.Fatalf("expected notification type %q, got %q", NotificationSigningReminder, workflow.lastType)
-	}
-	if workflow.lastToken == "" {
-		t.Fatal("expected resend workflow notification to include issued token")
+	if len(outbox) != 2 {
+		t.Fatalf("expected send+resend notifications queued, got %+v", outbox)
 	}
 }
 
@@ -1072,31 +1055,31 @@ func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
 
 	resent, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-with-email-error"})
 	if err != nil {
-		t.Fatalf("Resend should succeed despite email workflow failure: %v", err)
+		t.Fatalf("Resend: %v", err)
 	}
 	if strings.TrimSpace(resent.Token.Token) == "" {
 		t.Fatal("expected resend result to include token")
 	}
-	if workflow.resentCalls != 1 {
-		t.Fatalf("expected 1 email workflow resend call, got %d", workflow.resentCalls)
+	if workflow.resentCalls != 0 {
+		t.Fatalf("expected resend workflow to be queued instead of called directly, got %d direct calls", workflow.resentCalls)
 	}
 
-	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	updatedAgreement, err := store.GetAgreement(ctx, scope, agreement.ID)
 	if err != nil {
-		t.Fatalf("ListForAgreement: %v", err)
+		t.Fatalf("GetAgreement: %v", err)
 	}
-	found := false
-	for _, event := range events {
-		if event.EventType == "agreement.resend_notification_failed" {
-			found = true
-			if !strings.Contains(event.MetadataJSON, "mail provider unavailable") {
-				t.Fatalf("expected failure metadata to include cause, got %s", event.MetadataJSON)
-			}
-			break
-		}
+	if updatedAgreement.DeliveryStatus != guardedeffects.StatusPrepared {
+		t.Fatalf("expected prepared delivery status after queued resend, got %q", updatedAgreement.DeliveryStatus)
 	}
-	if !found {
-		t.Fatalf("expected agreement.resend_notification_failed audit event in %+v", events)
+	if strings.TrimSpace(updatedAgreement.DeliveryEffectID) == "" {
+		t.Fatal("expected resend to record delivery effect id")
+	}
+	effect, err := store.GetGuardedEffect(ctx, updatedAgreement.DeliveryEffectID)
+	if err != nil {
+		t.Fatalf("GetGuardedEffect: %v", err)
+	}
+	if effect.Status != guardedeffects.StatusPrepared {
+		t.Fatalf("expected prepared guarded effect, got %q", effect.Status)
 	}
 }
 
@@ -1179,8 +1162,11 @@ func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
 	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-void"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if len(capturingTokens.issued) != 2 {
-		t.Fatalf("expected send to issue tokens for both mixed-stage signers, got %d", len(capturingTokens.issued))
+	if len(capturingTokens.issued) != 1 {
+		t.Fatalf("expected send to issue a pending token only for the active stage signer, got %d", len(capturingTokens.issued))
+	}
+	if capturingTokens.issued[0].Record.RecipientID != signerStageOne.ID {
+		t.Fatalf("expected pending token for stage one signer, got %q", capturingTokens.issued[0].Record.RecipientID)
 	}
 
 	voided, err := svc.Void(ctx, scope, agreement.ID, VoidInput{RevokeTokens: true, Reason: "cancelled"})
@@ -1191,10 +1177,23 @@ func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
 		t.Fatalf("expected voided status, got %q", voided.Status)
 	}
 
-	for _, issued := range capturingTokens.issued {
-		if _, err := tokenService.Validate(ctx, scope, issued.Token); err == nil {
-			t.Fatalf("expected token %q to be revoked after void", issued.Token)
-		}
+	stageOneTokens, err := store.ListSigningTokens(ctx, scope, agreement.ID, signerStageOne.ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens stage one: %v", err)
+	}
+	if len(stageOneTokens) != 1 {
+		t.Fatalf("expected one stage-one token record, got %d", len(stageOneTokens))
+	}
+	if stageOneTokens[0].Status != stores.SigningTokenStatusAborted {
+		t.Fatalf("expected stage-one pending token aborted after void, got %q", stageOneTokens[0].Status)
+	}
+
+	stageTwoTokens, err := store.ListSigningTokens(ctx, scope, agreement.ID, signerStageTwo.ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens stage two: %v", err)
+	}
+	if len(stageTwoTokens) != 0 {
+		t.Fatalf("expected no stage-two tokens before first-stage completion, got %d", len(stageTwoTokens))
 	}
 }
 
@@ -1429,8 +1428,11 @@ func TestAgreementServiceExpireRevokesMixedStageTokens(t *testing.T) {
 	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-expire"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if len(capturingTokens.issued) != 2 {
-		t.Fatalf("expected send to issue tokens for both mixed-stage signers, got %d", len(capturingTokens.issued))
+	if len(capturingTokens.issued) != 1 {
+		t.Fatalf("expected send to issue a pending token only for the active stage signer, got %d", len(capturingTokens.issued))
+	}
+	if capturingTokens.issued[0].Record.RecipientID != signerStageOne.ID {
+		t.Fatalf("expected pending token for stage one signer, got %q", capturingTokens.issued[0].Record.RecipientID)
 	}
 
 	expired, err := svc.Expire(ctx, scope, agreement.ID, ExpireInput{Reason: "time window elapsed"})
@@ -1441,10 +1443,23 @@ func TestAgreementServiceExpireRevokesMixedStageTokens(t *testing.T) {
 		t.Fatalf("expected expired status, got %q", expired.Status)
 	}
 
-	for _, issued := range capturingTokens.issued {
-		if _, err := tokenService.Validate(ctx, scope, issued.Token); err == nil {
-			t.Fatalf("expected token %q to be revoked after expiry", issued.Token)
-		}
+	stageOneTokens, err := store.ListSigningTokens(ctx, scope, agreement.ID, signerStageOne.ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens stage one: %v", err)
+	}
+	if len(stageOneTokens) != 1 {
+		t.Fatalf("expected one stage-one token record, got %d", len(stageOneTokens))
+	}
+	if stageOneTokens[0].Status != stores.SigningTokenStatusAborted {
+		t.Fatalf("expected stage-one pending token aborted after expiry, got %q", stageOneTokens[0].Status)
+	}
+
+	stageTwoTokens, err := store.ListSigningTokens(ctx, scope, agreement.ID, signerStageTwo.ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens stage two: %v", err)
+	}
+	if len(stageTwoTokens) != 0 {
+		t.Fatalf("expected no stage-two tokens before first-stage completion, got %d", len(stageTwoTokens))
 	}
 }
 

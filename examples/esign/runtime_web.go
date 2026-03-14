@@ -1174,10 +1174,20 @@ func withESignContentEntryViewContext(
 			pageCfg,
 		)
 	case "esign_agreements":
+		identity := coreadmin.ResolveAuthenticatedRequestIdentity(c, coreadmin.AuthenticatedRequestScopeDefaults{})
+		routes := viewContextRoutes(ctx)
+		storageScope := buildESignAgreementFormStorageScope(
+			identity.ActorID,
+			identity.TenantID,
+			identity.OrgID,
+			firstNonEmptyValue(routes["create"], routes["index"], viewContextString(ctx, "base_path", "/admin")),
+		)
+		ctx["agreement_form_storage_scope"] = storageScope
 		pageCfg := buildESignAgreementFormPageConfig(
 			viewContextString(ctx, "base_path", "/admin"),
 			viewContextString(ctx, "api_base_path", "/admin/api/v1"),
-			viewContextRoutes(ctx),
+			routes,
+			storageScope,
 		)
 		return withESignPageConfig(ctx, pageCfg)
 	default:

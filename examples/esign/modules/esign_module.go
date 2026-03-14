@@ -396,6 +396,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	emailProvider := jobs.EmailProviderFromEnv()
 	jobHandlerDeps := jobs.HandlerDependencies{
 		Agreements:       m.store,
+		Effects:          m.store,
 		Artifacts:        m.store,
 		JobRuns:          m.store,
 		GoogleImportRuns: m.store,
@@ -407,6 +408,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Pipeline:         m.artifacts,
 		PDFService:       pdfService,
 		EmailProvider:    emailProvider,
+		Transactions:     m.store,
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
@@ -652,6 +654,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
+		handlers.WithGuardedEffectStore(m.store),
 		handlers.WithPDFPolicyService(pdfService),
 		handlers.WithRemediationTrigger(remediationTrigger),
 		handlers.WithRemediationDispatchStatusLookup(remediationDispatchLookup),

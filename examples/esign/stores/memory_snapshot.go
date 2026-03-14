@@ -3,6 +3,8 @@ package stores
 import (
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 )
 
 type inMemoryStoreSnapshot struct {
@@ -33,6 +35,8 @@ type inMemoryStoreSnapshot struct {
 	DocumentRemediationLeases  map[string]DocumentRemediationLeaseRecord `json:"document_remediation_leases"`
 	RemediationDispatches      map[string]RemediationDispatchRecord      `json:"remediation_dispatches"`
 	RemediationDispatchIndex   map[string]string                         `json:"remediation_dispatch_index"`
+	GuardedEffects             map[string]guardedeffects.Record          `json:"guarded_effects"`
+	GuardedEffectIndex         map[string]string                         `json:"guarded_effect_index"`
 	AgreementReminderStates    map[string]AgreementReminderStateRecord   `json:"agreement_reminder_states"`
 	OutboxMessages             map[string]OutboxMessageRecord            `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord    `json:"integration_credentials"`
@@ -192,6 +196,13 @@ func ensureDocumentRemediationLeaseMap(in map[string]DocumentRemediationLeaseRec
 func ensureRemediationDispatchMap(in map[string]RemediationDispatchRecord) map[string]RemediationDispatchRecord {
 	if in == nil {
 		return map[string]RemediationDispatchRecord{}
+	}
+	return in
+}
+
+func ensureGuardedEffectMap(in map[string]guardedeffects.Record) map[string]guardedeffects.Record {
+	if in == nil {
+		return map[string]guardedeffects.Record{}
 	}
 	return in
 }

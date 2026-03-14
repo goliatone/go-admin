@@ -68,6 +68,7 @@ type registerConfig struct {
 	objectStore           SignerObjectStore
 	agreements            AgreementStatsService
 	auditEvents           stores.AuditEventStore
+	guardedEffects        stores.GuardedEffectStore
 	google                GoogleIntegrationService
 	googleImportRuns      stores.GoogleImportRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
@@ -480,6 +481,16 @@ func WithAuditEventStore(store stores.AuditEventStore) RegisterOption {
 			return
 		}
 		cfg.auditEvents = store
+	}
+}
+
+// WithGuardedEffectStore configures guarded effect status persistence for delivery status endpoints.
+func WithGuardedEffectStore(store stores.GuardedEffectStore) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.guardedEffects = store
 	}
 }
 

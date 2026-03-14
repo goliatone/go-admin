@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -184,23 +185,6 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 	sendInput := msg.SendInput()
 	sendInput.IPAddress = resolveCommandRequestIP(ctx)
 	agreement, err := c.agreements.Send(ctx, scope, agreementID, sendInput)
-	mode := "send"
-	if err != nil && shouldFallbackToResend(err) {
-		resendIP := resolveCommandRequestIP(ctx)
-		resendResult, resendErr := c.agreements.Resend(ctx, scope, agreementID, services.ResendInput{
-			InvalidateExisting: true,
-			IdempotencyKey:     strings.TrimSpace(msg.IdempotencyKey),
-			IPAddress:          resendIP,
-			Source:             services.ResendSourceManual,
-		})
-		if resendErr == nil {
-			agreement = resendResult.Agreement
-			mode = "resend"
-			err = nil
-		} else {
-			err = resendErr
-		}
-	}
 	if err != nil {
 		observability.ObserveSend(ctx, time.Since(startedAt), false)
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_send", "error", correlationID, time.Since(startedAt), err, map[string]any{
@@ -217,11 +201,12 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 		})
 		return err
 	}
+	storeAgreementQueuedResponse(ctx, agreement, correlationID)
 	observability.ObserveSend(ctx, time.Since(startedAt), true)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_send", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementSend,
 		"agreement_id": strings.TrimSpace(agreement.ID),
-		"mode":         mode,
+		"mode":         "queued",
 	})
 	return nil
 }
@@ -349,11 +334,34 @@ func (c *AgreementResendCommand) Execute(ctx context.Context, msg AgreementResen
 		})
 		return err
 	}
+	storeAgreementQueuedResponse(ctx, result.Agreement, correlationID)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_resend", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementResend,
 		"agreement_id": strings.TrimSpace(result.Agreement.ID),
 	})
 	return nil
+}
+
+func storeAgreementQueuedResponse(ctx context.Context, agreement stores.AgreementRecord, correlationID string) {
+	collector := coreadmin.ActionResponseCollectorFromContext(ctx)
+	if collector == nil {
+		return
+	}
+	data := map[string]any{
+		"accepted":       true,
+		"mode":           "queued",
+		"agreement_id":   strings.TrimSpace(agreement.ID),
+		"effect_id":      strings.TrimSpace(agreement.DeliveryEffectID),
+		"status":         strings.TrimSpace(agreement.DeliveryStatus),
+		"correlation_id": strings.TrimSpace(correlationID),
+	}
+	if effectID := strings.TrimSpace(agreement.DeliveryEffectID); effectID != "" {
+		data["status_url"] = "/admin/api/v1/esign/effects/" + effectID
+	}
+	collector.Store(coreadmin.ActionResponse{
+		StatusCode: http.StatusAccepted,
+		Data:       data,
+	})
 }
 
 // TokenRotateCommand dispatches explicit token rotation transitions.
