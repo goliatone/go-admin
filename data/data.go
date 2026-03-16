@@ -52,6 +52,8 @@ func TranslationFlowMigrations() fs.FS {
 	return migrationSubset(
 		"0007_translation_flow_foundation.up.sql",
 		"0007_translation_flow_foundation.down.sql",
+		"0009_translation_exchange_runtime.up.sql",
+		"0009_translation_exchange_runtime.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
 		"postgres/0008_translation_flow_pg_features.up.sql",
@@ -65,6 +67,8 @@ func TranslationFlowSQLiteMigrations() fs.FS {
 	return migrationSubset(
 		"0007_translation_flow_foundation.up.sql",
 		"0007_translation_flow_foundation.down.sql",
+		"0009_translation_exchange_runtime.up.sql",
+		"0009_translation_exchange_runtime.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
 	)
