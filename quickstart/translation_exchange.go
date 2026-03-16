@@ -24,10 +24,11 @@ type TranslationExchangeConfig struct {
 	// Hosts can still override specific command ids through WithCommandExecutionPolicy.
 	CommandExecutionMode gocommand.ExecutionMode `json:"command_execution_mode,omitempty"`
 
-	Store     admin.TranslationExchangeStore     `json:"-"`
-	Exporter  admin.TranslationExchangeExporter  `json:"-"`
-	Validator admin.TranslationExchangeValidator `json:"-"`
-	Applier   admin.TranslationExchangeApplier   `json:"-"`
+	Store        admin.TranslationExchangeStore        `json:"-"`
+	RuntimeStore admin.TranslationExchangeRuntimeStore `json:"-"`
+	Exporter     admin.TranslationExchangeExporter     `json:"-"`
+	Validator    admin.TranslationExchangeValidator    `json:"-"`
+	Applier      admin.TranslationExchangeApplier      `json:"-"`
 
 	AsyncApply TranslationExchangeAsyncApplyFunc `json:"-"`
 
@@ -70,7 +71,7 @@ func RegisterTranslationExchangeWiring(adm *admin.Admin, cfg TranslationExchange
 		return nil
 	}
 
-	exporter, validator, applier, err := resolveTranslationExchangeHandlers(cfg)
+	exporter, validator, applier, service, err := resolveTranslationExchangeHandlers(cfg)
 	if err != nil {
 		return err
 	}
@@ -103,17 +104,32 @@ func RegisterTranslationExchangeWiring(adm *admin.Admin, cfg TranslationExchange
 			return err
 		}
 	}
+	if cfg.RuntimeStore != nil {
+		runtime := admin.NewTranslationExchangeRuntime(cfg.RuntimeStore, exporter, service)
+		if runtime != nil {
+			runtime.Configure(exporter, applier)
+			adm.WithTranslationExchangeRuntime(runtime)
+			if err := runtime.Start(context.Background()); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
 
-func resolveTranslationExchangeHandlers(cfg TranslationExchangeConfig) (admin.TranslationExchangeExporter, admin.TranslationExchangeValidator, admin.TranslationExchangeApplier, error) {
+func resolveTranslationExchangeHandlers(cfg TranslationExchangeConfig) (admin.TranslationExchangeExporter, admin.TranslationExchangeValidator, admin.TranslationExchangeApplier, *admin.TranslationExchangeService, error) {
 	exporter := cfg.Exporter
 	validator := cfg.Validator
 	applier := cfg.Applier
+	var service *admin.TranslationExchangeService
 
 	if cfg.Store != nil {
-		service := admin.NewTranslationExchangeService(cfg.Store)
+		opts := []admin.TranslationExchangeServiceOption{}
+		if cfg.RuntimeStore != nil {
+			opts = append(opts, admin.WithTranslationExchangeApplyRecordStore(cfg.RuntimeStore))
+		}
+		service = admin.NewTranslationExchangeService(cfg.Store, opts...)
 		if exporter == nil {
 			exporter = service
 		}
@@ -140,10 +156,10 @@ func resolveTranslationExchangeHandlers(cfg TranslationExchangeConfig) (admin.Tr
 		missing = append(missing, "applier")
 	}
 	if len(missing) > 0 {
-		return nil, nil, nil, translationExchangeConfigError{Missing: missing}
+		return nil, nil, nil, nil, translationExchangeConfigError{Missing: missing}
 	}
 
-	return exporter, validator, applier, nil
+	return exporter, validator, applier, service, nil
 }
 
 type translationExchangeAsyncApplier struct {
