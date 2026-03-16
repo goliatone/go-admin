@@ -104,7 +104,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -137,7 +137,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -149,7 +149,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -160,7 +160,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         },
         "review_state": "qa_blocked"
       },
@@ -172,7 +172,7 @@
           "order": "desc",
           "reviewer_id": "__me__",
           "sort": "updated_at",
-          "status": "rejected"
+          "status": "changes_requested"
         }
       }
     ],
@@ -221,7 +221,7 @@
           "entity_type": "pages",
           "id": "asg-open-1",
           "priority": "normal",
-          "queue_state": "pending",
+          "queue_state": "open",
           "review_actions": {
             "approve": {
               "enabled": false,
@@ -252,7 +252,7 @@
           "source_path": "/launch",
           "source_record_id": "page-open-1",
           "source_title": "Launch page",
-          "status": "pending",
+          "status": "open",
           "target_locale": "fr",
           "target_record_id": "",
           "translation_group_id": "tg-open-1",
@@ -297,7 +297,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -330,7 +330,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -342,7 +342,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -353,7 +353,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             },
             "review_state": "qa_blocked"
           },
@@ -365,7 +365,7 @@
               "order": "desc",
               "reviewer_id": "__me__",
               "sort": "updated_at",
-              "status": "rejected"
+              "status": "changes_requested"
             }
           }
         ],
@@ -418,7 +418,7 @@
           "entity_type": "pages",
           "id": "asg-denied-1",
           "priority": "normal",
-          "queue_state": "pending",
+          "queue_state": "open",
           "review_actions": {
             "approve": {
               "enabled": false,
@@ -451,7 +451,7 @@
           "source_path": "/policy",
           "source_record_id": "page-denied-1",
           "source_title": "Policy page",
-          "status": "pending",
+          "status": "open",
           "target_locale": "it",
           "target_record_id": "",
           "translation_group_id": "tg-denied-1",
@@ -496,7 +496,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -529,7 +529,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -541,7 +541,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -552,7 +552,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             },
             "review_state": "qa_blocked"
           },
@@ -564,7 +564,7 @@
               "order": "desc",
               "reviewer_id": "__me__",
               "sort": "updated_at",
-              "status": "rejected"
+              "status": "changes_requested"
             }
           }
         ],
@@ -624,7 +624,7 @@
             "finding_count": 6,
             "warning_count": 3
           },
-          "queue_state": "review",
+          "queue_state": "in_review",
           "review_actions": {
             "approve": {
               "enabled": false,
@@ -661,7 +661,7 @@
           "source_path": "/page-1",
           "source_record_id": "page-1",
           "source_title": "Translation guide",
-          "status": "review",
+          "status": "in_review",
           "target_locale": "fr",
           "target_record_id": "page-1-fr",
           "translation_group_id": "tg-page-1",
@@ -706,7 +706,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -739,7 +739,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -751,7 +751,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -762,7 +762,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             },
             "review_state": "qa_blocked"
           },
@@ -774,7 +774,7 @@
               "order": "desc",
               "reviewer_id": "__me__",
               "sort": "updated_at",
-              "status": "rejected"
+              "status": "changes_requested"
             }
           }
         ],
@@ -827,7 +827,7 @@
           "entity_type": "news",
           "id": "asg-review-guarded-1",
           "priority": "urgent",
-          "queue_state": "review",
+          "queue_state": "in_review",
           "review_actions": {
             "approve": {
               "enabled": false,
@@ -860,7 +860,7 @@
           "source_path": "/news/forecast",
           "source_record_id": "news-review-1",
           "source_title": "Quarterly forecast",
-          "status": "review",
+          "status": "in_review",
           "target_locale": "de",
           "target_record_id": "news-review-de-1",
           "translation_group_id": "tg-review-guarded-1",
@@ -905,7 +905,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -938,7 +938,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -950,7 +950,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -961,7 +961,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             },
             "review_state": "qa_blocked"
           },
@@ -973,7 +973,7 @@
               "order": "desc",
               "reviewer_id": "__me__",
               "sort": "updated_at",
-              "status": "rejected"
+              "status": "changes_requested"
             }
           }
         ],
@@ -1028,7 +1028,7 @@
           "id": "asg-review-1",
           "last_rejection_reason": "Please tighten the CTA tone.",
           "priority": "high",
-          "queue_state": "review",
+          "queue_state": "in_review",
           "review_actions": {
             "approve": {
               "enabled": true,
@@ -1059,7 +1059,7 @@
           "source_path": "/blog/product-update",
           "source_record_id": "post-review-1",
           "source_title": "Product update",
-          "status": "review",
+          "status": "in_review",
           "target_locale": "fr",
           "target_record_id": "post-review-fr-1",
           "translation_group_id": "tg-review-1",
@@ -1104,7 +1104,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -1137,7 +1137,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -1149,7 +1149,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             }
           },
           {
@@ -1160,7 +1160,7 @@
               "order": "asc",
               "reviewer_id": "__me__",
               "sort": "due_date",
-              "status": "review"
+              "status": "in_review"
             },
             "review_state": "qa_blocked"
           },
@@ -1172,7 +1172,7 @@
               "order": "desc",
               "reviewer_id": "__me__",
               "sort": "updated_at",
-              "status": "rejected"
+              "status": "changes_requested"
             }
           }
         ],

@@ -149,7 +149,7 @@
         "query": {
           "order": "asc",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         },
         "resolver_key": "admin.translations.queue",
         "route": "translations.queue",
@@ -347,6 +347,129 @@
       "variant_version_fields": [
         "row_version",
         "version"
+      ]
+    }
+  },
+  "exchange_contracts": {
+    "conflict_row": {
+      "conflict_fields": [
+        "type",
+        "message",
+        "current_source_hash",
+        "provided_source_hash"
+      ],
+      "required_fields": [
+        "index",
+        "resource",
+        "entity_id",
+        "translation_group_id",
+        "target_locale",
+        "field_path",
+        "status"
+      ],
+      "types": [
+        "missing_linkage",
+        "duplicate_row",
+        "stale_source_hash"
+      ]
+    },
+    "downloads": {
+      "kinds": [
+        "artifact",
+        "input",
+        "report"
+      ],
+      "required_fields": [
+        "kind",
+        "label",
+        "filename",
+        "content_type",
+        "href"
+      ]
+    },
+    "history": {
+      "count_fields": [
+        "by_kind",
+        "by_status"
+      ],
+      "meta_fields": [
+        "job_kinds",
+        "job_statuses",
+        "download_kinds",
+        "include_examples"
+      ],
+      "required_fields": [
+        "items",
+        "page",
+        "per_page",
+        "total",
+        "has_more",
+        "counts"
+      ]
+    },
+    "job": {
+      "kinds": [
+        "export",
+        "import_validate",
+        "import_apply"
+      ],
+      "optional_fields": [
+        "actor",
+        "file",
+        "summary",
+        "downloads",
+        "fixture"
+      ],
+      "progress_fields": [
+        "total",
+        "processed",
+        "succeeded",
+        "failed",
+        "conflicts",
+        "skipped"
+      ],
+      "required_fields": [
+        "id",
+        "kind",
+        "status",
+        "poll_endpoint",
+        "progress",
+        "created_at",
+        "updated_at"
+      ],
+      "statuses": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "upload_state": {
+      "required_fields": [
+        "state",
+        "filename",
+        "format",
+        "row_count"
+      ],
+      "states": [
+        "idle",
+        "selected",
+        "uploading",
+        "validated",
+        "error"
+      ]
+    },
+    "validation_summary": {
+      "optional_fields": [
+        "conflicts",
+        "skipped",
+        "partial_success",
+        "by_status",
+        "by_conflict"
+      ],
+      "required_fields": [
+        "processed",
+        "succeeded",
+        "failed"
       ]
     }
   },
@@ -570,7 +693,7 @@
         "query": {
           "order": "desc",
           "sort": "updated_at",
-          "status": "pending,assigned,in_progress,rejected"
+          "status": "open,assigned,in_progress,changes_requested"
         }
       },
       {
@@ -581,7 +704,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -614,7 +737,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -626,7 +749,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         }
       },
       {
@@ -637,7 +760,7 @@
           "order": "asc",
           "reviewer_id": "__me__",
           "sort": "due_date",
-          "status": "review"
+          "status": "in_review"
         },
         "review_state": "qa_blocked"
       },
@@ -649,7 +772,7 @@
           "order": "desc",
           "reviewer_id": "__me__",
           "sort": "updated_at",
-          "status": "rejected"
+          "status": "changes_requested"
         }
       }
     ],
@@ -697,15 +820,15 @@
       "missing_locales",
       "missing_fields",
       "missing_locales_and_fields",
-      "pending",
+      "open",
       "assigned",
       "in_progress",
-      "review",
-      "rejected",
+      "in_review",
+      "changes_requested",
       "approved",
-      "published",
       "archived",
       "draft",
+      "review",
       "overdue",
       "due_soon",
       "on_track",
@@ -753,13 +876,12 @@
         "none"
       ],
       "queue_state": [
-        "pending",
+        "open",
         "assigned",
         "in_progress",
-        "review",
-        "rejected",
+        "in_review",
+        "changes_requested",
         "approved",
-        "published",
         "archived"
       ]
     }

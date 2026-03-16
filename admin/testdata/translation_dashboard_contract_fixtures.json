@@ -47,12 +47,12 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/translations/queue?status=review&reviewer_id=__me__&sort=due_date&order=asc",
+              "href": "/admin/translations/queue?status=in_review&reviewer_id=__me__&sort=due_date&order=asc",
               "group": "admin",
               "route": "translations.queue",
               "resolver_key": "admin.translations.queue",
               "query": {
-                "status": "review",
+                "status": "in_review",
                 "reviewer_id": "__me__",
                 "sort": "due_date",
                 "order": "asc"
@@ -186,9 +186,9 @@
             "description": "Focus reviewer-owned items waiting in review and escalate anything already overdue.",
             "route": "translations.queue",
             "resolver_key": "admin.translations.queue",
-            "href": "/admin/translations/queue?status=review&sort=due_date&order=asc",
+            "href": "/admin/translations/queue?status=in_review&sort=due_date&order=asc",
             "query": {
-              "status": "review",
+              "status": "in_review",
               "sort": "due_date",
               "order": "asc"
             }
@@ -516,7 +516,7 @@
               "route": "translations.queue",
               "resolver_key": "admin.translations.queue",
               "query": {
-                "status": "review",
+                "status": "in_review",
                 "sort": "due_date",
                 "order": "asc"
               }
@@ -583,12 +583,12 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/translations/queue?status=review&reviewer_id=__me__&sort=due_date&order=asc",
+              "href": "/admin/translations/queue?status=in_review&reviewer_id=__me__&sort=due_date&order=asc",
               "group": "admin",
               "route": "translations.queue",
               "resolver_key": "admin.translations.queue",
               "query": {
-                "status": "review",
+                "status": "in_review",
                 "reviewer_id": "__me__",
                 "sort": "due_date",
                 "order": "asc"
@@ -722,9 +722,9 @@
             "description": "Focus reviewer-owned items waiting in review and escalate anything already overdue.",
             "route": "translations.queue",
             "resolver_key": "admin.translations.queue",
-            "href": "/admin/translations/queue?status=review&sort=due_date&order=asc",
+            "href": "/admin/translations/queue?status=in_review&sort=due_date&order=asc",
             "query": {
-              "status": "review",
+              "status": "in_review",
               "sort": "due_date",
               "order": "asc"
             }
@@ -1075,12 +1075,12 @@
               "message": "Needs attention"
             },
             "drilldown": {
-              "href": "/admin/translations/queue?status=review&reviewer_id=__me__&sort=due_date&order=asc",
+              "href": "/admin/translations/queue?status=in_review&reviewer_id=__me__&sort=due_date&order=asc",
               "group": "admin",
               "route": "translations.queue",
               "resolver_key": "admin.translations.queue",
               "query": {
-                "status": "review",
+                "status": "in_review",
                 "reviewer_id": "__me__",
                 "sort": "due_date",
                 "order": "asc"
@@ -1271,9 +1271,9 @@
             "description": "Focus reviewer-owned items waiting in review and escalate anything already overdue.",
             "route": "translations.queue",
             "resolver_key": "admin.translations.queue",
-            "href": "/admin/translations/queue?status=review&sort=due_date&order=asc",
+            "href": "/admin/translations/queue?status=in_review&sort=due_date&order=asc",
             "query": {
-              "status": "review",
+              "status": "in_review",
               "sort": "due_date",
               "order": "asc"
             }
@@ -1466,12 +1466,12 @@
               "message": "Action required"
             },
             "drilldown": {
-              "href": "/admin/translations/queue?status=review&reviewer_id=__me__&sort=due_date&order=asc",
+              "href": "/admin/translations/queue?status=in_review&reviewer_id=__me__&sort=due_date&order=asc",
               "group": "admin",
               "route": "translations.queue",
               "resolver_key": "admin.translations.queue",
               "query": {
-                "status": "review",
+                "status": "in_review",
                 "reviewer_id": "__me__",
                 "sort": "due_date",
                 "order": "asc"
@@ -1636,7 +1636,7 @@
                 "assignee_id": "manager-1",
                 "reviewer_id": "reviewer-2",
                 "priority": "high",
-                "status": "review",
+                "status": "in_review",
                 "due_date": "2026-03-12T08:50:00Z",
                 "due_state": "overdue",
                 "overdue_minutes": 70,
@@ -1834,9 +1834,9 @@
             "description": "Focus reviewer-owned items waiting in review and escalate anything already overdue.",
             "route": "translations.queue",
             "resolver_key": "admin.translations.queue",
-            "href": "/admin/translations/queue?status=review&sort=due_date&order=asc",
+            "href": "/admin/translations/queue?status=in_review&sort=due_date&order=asc",
             "query": {
-              "status": "review",
+              "status": "in_review",
               "sort": "due_date",
               "order": "asc"
             }

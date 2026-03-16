@@ -1,0 +1,362 @@
+{
+  "export_completed": {
+    "row_count": 2,
+    "format": "json",
+    "rows": [
+      {
+        "resource": "pages",
+        "entity_id": "page_home",
+        "translation_group_id": "grp_home",
+        "source_locale": "en",
+        "target_locale": "fr",
+        "field_path": "title",
+        "source_text": "Home",
+        "source_hash": "hash_home_title"
+      },
+      {
+        "resource": "pages",
+        "entity_id": "page_home",
+        "translation_group_id": "grp_home",
+        "source_locale": "en",
+        "target_locale": "es",
+        "field_path": "title",
+        "source_text": "Home",
+        "source_hash": "hash_home_title"
+      }
+    ],
+    "job": {
+      "id": "txex_job_fixture_export",
+      "kind": "export",
+      "status": "completed",
+      "poll_endpoint": "/admin/api/translations/exchange/jobs/txex_job_fixture_export",
+      "actor": {
+        "id": "translator.demo",
+        "label": "translator.demo"
+      },
+      "file": {
+        "name": "translation_exchange_export.json",
+        "format": "json",
+        "row_count": 2
+      },
+      "request": {
+        "resources": ["pages"],
+        "target_locales": ["fr", "es"],
+        "source_locale": "en",
+        "include_source_hash": true
+      },
+      "progress": {
+        "total": 2,
+        "processed": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "result": {
+        "summary": {
+          "row_count": 2,
+          "format": "json"
+        },
+        "downloads": {
+          "artifact": {
+            "kind": "artifact",
+            "label": "Download export JSON",
+            "filename": "translation_exchange_export.json",
+            "content_type": "application/json",
+            "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9LHsicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9XQ=="
+          }
+        }
+      }
+    }
+  },
+  "history": {
+    "history": {
+      "items": [
+        {
+          "id": "txex_job_fixture_validate",
+          "kind": "import_validate",
+          "status": "completed",
+          "fixture": true,
+          "poll_endpoint": "/admin/api/translations/exchange/jobs/txex_job_fixture_validate",
+          "actor": {
+            "id": "translator.demo",
+            "label": "translator.demo"
+          },
+          "file": {
+            "name": "translation_exchange_validate_demo.json",
+            "format": "json",
+            "row_count": 2
+          },
+          "summary": {
+            "processed": 2,
+            "succeeded": 1,
+            "failed": 1,
+            "conflicts": 1,
+            "partial_success": true
+          },
+          "downloads": {
+            "input": {
+              "kind": "input",
+              "label": "Download sample import",
+              "filename": "translation_exchange_validate_demo.json",
+              "content_type": "application/json",
+              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJ0cmFuc2xhdGVkX3RleHQiOiJBY2N1ZWlsIiwic291cmNlX2hhc2giOiJoYXNoX2hvbWVfdGl0bGUifSx7InJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwic291cmNlX2xvY2FsZSI6ImVuIiwidGFyZ2V0X2xvY2FsZSI6ImVzIiwiZmllbGRfcGF0aCI6InRpdGxlIiwidHJhbnNsYXRlZF90ZXh0IjoiSW5pY2lvIiwic291cmNlX2hhc2giOiJoYXNoX3N0YWxlIn1d"
+            },
+            "report": {
+              "kind": "report",
+              "label": "Download validation report",
+              "filename": "translation_exchange_validation_report.json",
+              "content_type": "application/json",
+              "href": "data:application/json;base64,eyJzdW1tYXJ5Ijp7InByb2Nlc3NlZCI6Miwic3VjY2VlZGVkIjoxLCJmYWlsZWQiOjEsImNvbmZsaWN0cyI6MSwicGFydGlhbF9zdWNjZXNzIjp0cnVlfSwicmVzdWx0cyI6W3siaW5kZXgiOjAsInJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic3RhdHVzIjoic3VjY2VzcyJ9LHsiaW5kZXgiOjEsInJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwidGFyZ2V0X2xvY2FsZSI6ImVzIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic3RhdHVzIjoiY29uZmxpY3QiLCJlcnJvciI6InNvdXJjZSBoYXNoIG1pc21hdGNoIiwiY29uZmxpY3QiOnsidHlwZSI6InN0YWxlX3NvdXJjZV9oYXNoIiwibWVzc2FnZSI6InNvdXJjZSBoYXNoIG1pc21hdGNoIiwiY3VycmVudF9zb3VyY2VfaGFzaCI6Imhhc2hfY3VycmVudCIsInByb3ZpZGVkX3NvdXJjZV9oYXNoIjoiaGFzaF9zdGFsZSJ9fV0sImNvbmZsaWN0cyI6eyJ0b3RhbCI6MSwiYnlfdHlwZSI6eyJzdGFsZV9zb3VyY2VfaGFzaCI6MX19fQ=="
+            }
+          },
+          "progress": {
+            "total": 2,
+            "processed": 2,
+            "succeeded": 1,
+            "failed": 1,
+            "conflicts": 1
+          },
+          "created_at": "2026-03-15T08:00:00Z",
+          "updated_at": "2026-03-15T08:03:00Z"
+        },
+        {
+          "id": "txex_job_fixture_export",
+          "kind": "export",
+          "status": "completed",
+          "poll_endpoint": "/admin/api/translations/exchange/jobs/txex_job_fixture_export",
+          "actor": {
+            "id": "translator.demo",
+            "label": "translator.demo"
+          },
+          "file": {
+            "name": "translation_exchange_export.json",
+            "format": "json",
+            "row_count": 2
+          },
+          "downloads": {
+            "artifact": {
+              "kind": "artifact",
+              "label": "Download export JSON",
+              "filename": "translation_exchange_export.json",
+              "content_type": "application/json",
+              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9LHsicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9XQ=="
+            }
+          },
+          "progress": {
+            "total": 2,
+            "processed": 2,
+            "succeeded": 2,
+            "failed": 0
+          },
+          "created_at": "2026-03-15T07:00:00Z",
+          "updated_at": "2026-03-15T07:02:00Z"
+        }
+      ],
+      "page": 1,
+      "per_page": 10,
+      "total": 2,
+      "has_more": false,
+      "counts": {
+        "by_kind": {
+          "export": 1,
+          "import_validate": 1
+        },
+        "by_status": {
+          "completed": 2
+        }
+      }
+    },
+    "meta": {
+      "job_kinds": ["export", "import_validate", "import_apply"],
+      "job_statuses": ["running", "completed", "failed"],
+      "download_kinds": ["artifact", "input", "report"],
+      "include_examples": true
+    }
+  },
+  "validate_states": {
+    "missing_linkage": {
+      "summary": {
+        "processed": 1,
+        "succeeded": 0,
+        "failed": 1,
+        "conflicts": 1,
+        "by_status": {
+          "conflict": 1
+        },
+        "by_conflict": {
+          "missing_linkage": 1
+        }
+      },
+      "results": [
+        {
+          "index": 0,
+          "resource": "pages",
+          "entity_id": "page_missing",
+          "translation_group_id": "grp_missing",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "conflict",
+          "error": "row linkage could not be resolved",
+          "conflict": {
+            "type": "missing_linkage",
+            "message": "resource/entity linkage not found"
+          },
+          "metadata": {
+            "error_code": "TRANSLATION_EXCHANGE_MISSING_LINKAGE"
+          }
+        }
+      ],
+      "conflicts": {
+        "total": 1,
+        "by_type": {
+          "missing_linkage": 1
+        },
+        "rows": [
+          {
+            "index": 0,
+            "type": "missing_linkage",
+            "code": "TRANSLATION_EXCHANGE_MISSING_LINKAGE",
+            "message": "resource/entity linkage not found"
+          }
+        ]
+      }
+    },
+    "duplicate_row": {
+      "summary": {
+        "processed": 2,
+        "succeeded": 1,
+        "failed": 1,
+        "conflicts": 1,
+        "partial_success": true,
+        "by_status": {
+          "success": 1,
+          "conflict": 1
+        },
+        "by_conflict": {
+          "duplicate_row": 1
+        }
+      },
+      "results": [
+        {
+          "index": 0,
+          "resource": "pages",
+          "entity_id": "page_home",
+          "translation_group_id": "grp_home",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "success"
+        },
+        {
+          "index": 1,
+          "resource": "pages",
+          "entity_id": "page_home",
+          "translation_group_id": "grp_home",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "conflict",
+          "error": "duplicate row linkage in import payload",
+          "conflict": {
+            "type": "duplicate_row",
+            "message": "duplicate linkage key in import payload"
+          },
+          "metadata": {
+            "error_code": "TRANSLATION_EXCHANGE_DUPLICATE_ROW",
+            "duplicate_of_row": 0
+          }
+        }
+      ]
+    },
+    "stale_source_hash": {
+      "summary": {
+        "processed": 1,
+        "succeeded": 0,
+        "failed": 1,
+        "conflicts": 1,
+        "by_status": {
+          "conflict": 1
+        },
+        "by_conflict": {
+          "stale_source_hash": 1
+        }
+      },
+      "results": [
+        {
+          "index": 0,
+          "resource": "pages",
+          "entity_id": "page_home",
+          "translation_group_id": "grp_home",
+          "target_locale": "es",
+          "field_path": "title",
+          "status": "conflict",
+          "error": "source hash mismatch",
+          "conflict": {
+            "type": "stale_source_hash",
+            "message": "source hash mismatch",
+            "current_source_hash": "hash_current",
+            "provided_source_hash": "hash_stale"
+          },
+          "metadata": {
+            "error_code": "TRANSLATION_EXCHANGE_STALE_SOURCE_HASH",
+            "current_source_hash": "hash_current",
+            "provided_source_hash": "hash_stale"
+          }
+        }
+      ]
+    },
+    "partial_success": {
+      "summary": {
+        "processed": 3,
+        "succeeded": 1,
+        "failed": 1,
+        "conflicts": 1,
+        "skipped": 1,
+        "partial_success": true,
+        "by_status": {
+          "success": 1,
+          "conflict": 1,
+          "skipped": 1
+        },
+        "by_conflict": {
+          "missing_linkage": 1
+        }
+      },
+      "results": [
+        {
+          "index": 0,
+          "resource": "pages",
+          "entity_id": "page_home",
+          "translation_group_id": "grp_home",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "success"
+        },
+        {
+          "index": 1,
+          "resource": "pages",
+          "entity_id": "page_missing",
+          "translation_group_id": "grp_missing",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "conflict",
+          "error": "row linkage could not be resolved",
+          "conflict": {
+            "type": "missing_linkage",
+            "message": "resource/entity linkage not found"
+          },
+          "metadata": {
+            "error_code": "TRANSLATION_EXCHANGE_MISSING_LINKAGE"
+          }
+        },
+        {
+          "index": 2,
+          "resource": "pages",
+          "entity_id": "page_tail",
+          "translation_group_id": "grp_tail",
+          "target_locale": "fr",
+          "field_path": "title",
+          "status": "skipped",
+          "error": "skipped after previous failure"
+        }
+      ]
+    }
+  }
+}

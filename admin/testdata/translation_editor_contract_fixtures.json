@@ -1030,7 +1030,7 @@
         "id": "asg-editor-1",
         "last_rejection_reason": "Please align the CTA wording.",
         "priority": "high",
-        "queue_state": "rejected",
+        "queue_state": "changes_requested",
         "review_actions": {
           "approve": {
             "enabled": false,
@@ -1065,7 +1065,7 @@
         "source_path": "/page-1",
         "source_record_id": "page-1",
         "source_title": "Translation guide",
-        "status": "rejected",
+        "status": "changes_requested",
         "target_locale": "fr",
         "target_record_id": "page-1-fr",
         "translation_group_id": "tg-page-1",
@@ -1075,7 +1075,7 @@
       },
       "assignment_id": "asg-editor-1",
       "row_version": 4,
-      "status": "rejected",
+      "status": "changes_requested",
       "updated_at": "2026-03-12T22:18:30.423811Z"
     },
     "meta": {
