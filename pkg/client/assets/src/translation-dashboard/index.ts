@@ -15,6 +15,7 @@ import {
   ERROR_STATE_TEXT,
   LOADING_STATE,
   CARD,
+  getStatusColorClass,
 } from '../translation-shared/index.js';
 
 export type DashboardAlertState = 'ok' | 'warning' | 'critical' | 'degraded';
@@ -838,30 +839,25 @@ function renderRunbooks(runbooks: TranslationDashboardRunbook[]): string {
   `;
 }
 
-function alertToneClass(state: DashboardAlertState): string {
+function alertStateSeverity(state: DashboardAlertState): string {
   switch (state) {
     case 'critical':
-      return 'bg-rose-100 text-rose-700';
+      return 'error';
     case 'warning':
-      return 'bg-amber-100 text-amber-700';
+      return 'warning';
     case 'degraded':
-      return 'bg-gray-200 text-gray-700';
+      return 'neutral';
     default:
-      return 'bg-emerald-100 text-emerald-700';
+      return 'success';
   }
 }
 
+function alertToneClass(state: DashboardAlertState): string {
+  return getStatusColorClass(alertStateSeverity(state));
+}
+
 function alertToneContainerClass(state: DashboardAlertState): string {
-  switch (state) {
-    case 'critical':
-      return 'border-rose-200 bg-rose-50 text-rose-800';
-    case 'warning':
-      return 'border-amber-200 bg-amber-50 text-amber-800';
-    case 'degraded':
-      return 'border-gray-200 bg-gray-50 text-gray-800';
-    default:
-      return 'border-emerald-200 bg-emerald-50 text-emerald-800';
-  }
+  return `border ${getStatusColorClass(alertStateSeverity(state))}`;
 }
 
 function renderSummaryMeta(payload: TranslationDashboardResponse): string {

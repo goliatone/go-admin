@@ -25,6 +25,7 @@ import {
   MATRIX_STICKY_CELL,
   MATRIX_CORNER_CELL,
   MATRIX_CELL,
+  getStatusColorClass,
 } from '../translation-shared/index.js';
 
 export type TranslationMatrixCellState =
@@ -910,15 +911,27 @@ function renderActionButton(
   return `<button type="button" class="inline-flex min-h-[2.5rem] min-w-[6rem] items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${tone}" ${attrText} ${action.enabled ? '' : 'disabled'} title="${escapeAttribute(action.enabled ? action.description || label : disabledReason)}">${escapeHTML(label)}</button>`;
 }
 
+function cellStateSeverity(state: TranslationMatrixCellState): string {
+  switch (state) {
+    case 'ready':
+      return 'success';
+    case 'missing':
+      return 'error';
+    case 'in_progress':
+      return 'warning';
+    case 'in_review':
+      return 'purple';
+    case 'fallback':
+      return 'warning';
+    case 'not_required':
+      return 'neutral';
+    default:
+      return 'neutral';
+  }
+}
+
 function renderMatrixCellSummary(cell: TranslationMatrixCell): string {
-  const tone = {
-    ready: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    missing: 'border-rose-200 bg-rose-50 text-rose-800',
-    in_progress: 'border-amber-200 bg-amber-50 text-amber-800',
-    in_review: 'border-indigo-200 bg-indigo-50 text-indigo-800',
-    fallback: 'border-orange-200 bg-orange-50 text-orange-800',
-    not_required: 'border-gray-200 bg-gray-100 text-gray-600',
-  }[cell.state];
+  const tone = `border ${getStatusColorClass(cellStateSeverity(cell.state))}`;
   const detail = cell.assignment?.status || cell.variant?.status || formatLabel(cell.state);
   return `
     <div class="flex items-center justify-between gap-2">

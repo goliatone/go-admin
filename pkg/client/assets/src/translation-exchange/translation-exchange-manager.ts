@@ -19,6 +19,11 @@ import {
   type TranslationExchangeJob,
   type TranslationExchangeValidationResult,
 } from "../translation-contracts/index.js";
+import {
+  getMetaBadgeClass,
+  getStatusSeverityClass,
+  type BadgeSeverity,
+} from "../translation-shared/style-constants.js";
 
 const DEFAULT_SELECTORS: TranslationExchangeSelectors = {
   root: "#translation-exchange-app",

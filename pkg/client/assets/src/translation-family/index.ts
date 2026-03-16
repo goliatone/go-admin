@@ -17,6 +17,7 @@ import {
   MODAL_OVERLAY,
   MODAL_CONTENT,
   trapFocus,
+  getStatusColorClass,
 } from '../translation-shared/index.js';
 
 export type FamilyReadinessState = 'ready' | 'blocked';
@@ -893,47 +894,74 @@ function sentenceCase(value: string): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-function variantTone(status: string): string {
+function variantStatusSeverity(status: string): string {
   switch (asString(status)) {
     case 'published':
     case 'approved':
-      return 'bg-emerald-100 text-emerald-700';
+      return 'success';
     case 'in_review':
-      return 'bg-amber-100 text-amber-700';
+      return 'warning';
     case 'in_progress':
-      return 'bg-sky-100 text-sky-700';
+      return 'info';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'neutral';
+  }
+}
+
+function variantTone(status: string): string {
+  return getStatusColorClass(variantStatusSeverity(status));
+}
+
+function assignmentStatusSeverity(status: string): string {
+  switch (asString(status)) {
+    case 'in_review':
+      return 'warning';
+    case 'in_progress':
+    case 'assigned':
+      return 'info';
+    case 'changes_requested':
+      return 'error';
+    default:
+      return 'neutral';
   }
 }
 
 function assignmentTone(status: string): string {
-  switch (asString(status)) {
-    case 'in_review':
-      return 'bg-amber-100 text-amber-700';
-    case 'in_progress':
-    case 'assigned':
-      return 'bg-sky-100 text-sky-700';
-    case 'changes_requested':
-      return 'bg-rose-100 text-rose-700';
+  return getStatusColorClass(assignmentStatusSeverity(status));
+}
+
+function blockerCodeSeverity(code: string): string {
+  switch (asString(code)) {
+    case 'missing_locale':
+      return 'error';
+    case 'missing_field':
+      return 'warning';
+    case 'pending_review':
+      return 'info';
+    case 'outdated_source':
+      return 'purple';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'neutral';
   }
 }
 
 function blockerTone(code: string): string {
-  switch (asString(code)) {
-    case 'missing_locale':
-      return 'bg-rose-100 text-rose-700';
-    case 'missing_field':
-      return 'bg-amber-100 text-amber-700';
-    case 'pending_review':
-      return 'bg-sky-100 text-sky-700';
-    case 'outdated_source':
-      return 'bg-violet-100 text-violet-700';
+  return getStatusColorClass(blockerCodeSeverity(code));
+}
+
+function dueStateSeverity(dueState: string): string {
+  switch (dueState) {
+    case 'overdue':
+      return 'error';
+    case 'due_soon':
+      return 'warning';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'neutral';
   }
+}
+
+function dueTone(dueState: string): string {
+  return getStatusColorClass(dueStateSeverity(dueState));
 }
 
 function buildContentLink(contentBasePath: string, detail: TranslationFamilyDetail, variant: TranslationFamilyVariant): string {
@@ -1129,18 +1157,12 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
           .map((assignment) => {
             const dueState = deriveDueState(assignment.dueDate);
             const dueLabel = dueState === 'none' ? 'No due date' : sentenceCase(dueState);
-            const dueTone =
-              dueState === 'overdue'
-                ? 'bg-rose-100 text-rose-700'
-                : dueState === 'due_soon'
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-gray-100 text-gray-700';
             return `
               <li class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCase(assignment.status))}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone}">${escapeHTML(dueLabel)}</span>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
                 </div>
                 <p class="mt-2 text-sm text-gray-600">
                   ${escapeHTML(assignment.assigneeId || 'Unassigned')}
