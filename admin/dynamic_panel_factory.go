@@ -924,9 +924,13 @@ func applyEditorialPanelTrait(fields ConvertedFields) ConvertedFields {
 func editorialTranslationListFields() []Field {
 	return []Field{
 		{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+		{Name: "translation_family_url", Label: "Family", LabelKey: "fields.translation_family", Type: "text"},
+		{Name: "family_member_count", Label: "Locales", LabelKey: "fields.family_member_count", Type: "number"},
 		{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
 		{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
 		{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
+		{Name: "translation_assignment_summary", Label: "Assignment", LabelKey: "fields.translation_assignment_summary", Type: "text"},
+		{Name: "translation_exchange_summary", Label: "Exchange", LabelKey: "fields.translation_exchange_summary", Type: "text"},
 	}
 }
 
@@ -977,6 +981,12 @@ func resolveEditorialPanelActions(a *Admin, workflow WorkflowEngine, capabilitie
 			continue
 		}
 		if name == strings.ToLower(CreateTranslationKey) {
+			if translationEnabled {
+				filtered = append(filtered, action)
+			}
+			continue
+		}
+		if name == "view_family" {
 			if translationEnabled {
 				filtered = append(filtered, action)
 			}
