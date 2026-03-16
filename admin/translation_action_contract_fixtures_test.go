@@ -58,13 +58,18 @@ func TestTranslationActionContractFixtures(t *testing.T) {
 			}
 			assertCreateTranslationPayloadSchemaContract(t, createTranslation, file)
 
-			for _, actionName := range []string{"view", "edit", "create_translation", "submit_for_approval", "publish", "delete"} {
+			for _, actionName := range []string{"view", "view_family", "edit", "create_translation", "submit_for_approval", "publish", "delete"} {
 				action, exists := actionsByName[actionName]
 				if !exists {
 					continue
 				}
 				if actionOrder(action) <= 0 {
 					t.Fatalf("expected order for action %q in fixture %q", actionName, file)
+				}
+			}
+			if viewFamily, exists := actionsByName["view_family"]; exists {
+				if got := strings.TrimSpace(toString(viewFamily["href"])); got != "{translation_family_url}" {
+					t.Fatalf("expected view_family href placeholder in fixture %q, got %q", file, got)
 				}
 			}
 
@@ -79,6 +84,15 @@ func TestTranslationActionContractFixtures(t *testing.T) {
 			rawState, ok := record["_action_state"].(map[string]any)
 			if !ok {
 				t.Fatalf("expected _action_state object in fixture %q", file)
+			}
+			if _, ok := record["family_member_count"]; !ok {
+				t.Fatalf("expected family_member_count in fixture %q", file)
+			}
+			if _, ok := record["translation_assignment_summary"]; !ok {
+				t.Fatalf("expected translation_assignment_summary in fixture %q", file)
+			}
+			if _, ok := record["translation_exchange_summary"]; !ok {
+				t.Fatalf("expected translation_exchange_summary in fixture %q", file)
 			}
 
 			for actionName := range actionsByName {
@@ -106,6 +120,24 @@ func TestTranslationActionContractFixtures(t *testing.T) {
 					if _, allowed := allowedReasonCodes[reasonCode]; !allowed {
 						t.Fatalf("unexpected reason_code %q in fixture %q", reasonCode, file)
 					}
+				}
+			}
+
+			if _, exists := actionsByName["view_family"]; exists && len(rawData) > 1 {
+				foundMissingContextCoverage := false
+				for _, raw := range rawData[1:] {
+					record, ok := raw.(map[string]any)
+					if !ok {
+						continue
+					}
+					entry := extractMap(extractMap(record["_action_state"])["view_family"])
+					if strings.EqualFold(strings.TrimSpace(toString(entry["reason_code"])), ActionDisabledReasonCodeMissingContext) {
+						foundMissingContextCoverage = true
+						break
+					}
+				}
+				if !foundMissingContextCoverage {
+					t.Fatalf("expected fixture %q to include missing-context coverage for view_family", file)
 				}
 			}
 		})
