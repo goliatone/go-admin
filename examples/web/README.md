@@ -180,6 +180,28 @@ Config toggles:
 - **Session**: `GET /admin/api/session` (current authenticated user snapshot)
 - **Permission Diagnostics**: `GET /admin/api/debug/permissions` (current user granted/required/missing permissions + hints)
 
+### Action UX QA
+
+The web example is the workflow-oriented action UX reference for pages and
+posts.
+
+Relevant checks:
+
+- row and detail actions share the same `_action_state` contract
+- workflow and translation blocks keep actions visible but disabled with reasons
+- stale action retries return structured envelopes and refresh server-authored
+  state
+
+Focused verification:
+
+```bash
+/opt/homebrew/bin/go test ./examples/web -run 'TestActionPhase8|TestContentActionContractsPhase5|TestContentBulkActionsPhase7'
+```
+
+When the debug module is enabled, the Debug dashboard includes an `Actions`
+panel that lists recent disablements and structured failures captured by the
+shared action pipeline.
+
 Content channel query contract for admin/content routes:
 - Canonical scope query key is `$channel` (`admin.ContentChannelScopeQueryParam`).
 - For encoded URLs/curl, use `%24channel` (example: `/admin/api/v0/pages?page=1&per_page=10&%24channel=default`).

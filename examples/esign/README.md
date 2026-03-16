@@ -195,3 +195,24 @@ export APP_GOOGLE__CREDENTIAL_ACTIVE_KEY="<generated-value>"
 
 Framework-level `ADMIN_*`/debug switches still apply to go-admin runtime behavior.
 Canonical reference: `../../ENVS_REF.md`.
+
+## Action UX QA
+
+The e-sign example is the domain-rule action UX reference.
+
+Relevant checks:
+
+- document delete is disabled before execution when agreements reference it
+- stale delete retries return `RESOURCE_IN_USE` through the standard error
+  envelope
+- list and detail surfaces expose the same `_action_state` result
+
+Focused verification:
+
+```bash
+/opt/homebrew/bin/go test ./examples/esign/modules -run 'TestActionPhase8|TestESignActionContractsPhase6|TestESignBulkActionsPhase7'
+```
+
+When debug mode is enabled, the Debug dashboard includes an `Actions` panel with
+recent disablements, resolver failures, and structured execution failures from
+the shared action system.
