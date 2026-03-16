@@ -198,7 +198,7 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 	}
 
 	if exchangeCfg.Enabled {
-		if _, _, _, err := resolveTranslationExchangeHandlers(exchangeCfg); err != nil {
+		if _, _, _, _, err := resolveTranslationExchangeHandlers(exchangeCfg); err != nil {
 			return translationProductResolution{}, newTranslationProductConfigError(
 				"translation.productization.exchange.handlers_missing",
 				"exchange module enabled without valid handlers",
