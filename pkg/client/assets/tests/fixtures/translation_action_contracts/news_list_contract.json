@@ -8,6 +8,16 @@
         "order": 11
       },
       {
+        "name": "view_family",
+        "label": "View Family",
+        "type": "navigation",
+        "href": "{translation_family_url}",
+        "context_required": [
+          "translation_family_url"
+        ],
+        "order": 12
+      },
+      {
         "name": "edit",
         "label": "Edit",
         "order": 10
@@ -80,6 +90,17 @@
     {
       "id": "news_123",
       "status": "draft",
+      "translation_family_url": "/admin/translations/families/tg-news-123",
+      "family_member_count": 2,
+      "translation_assignment_summary": {
+        "status": "published",
+        "active_count": 0
+      },
+      "translation_exchange_summary": {
+        "status": "completed",
+        "pending_count": 0,
+        "error_count": 0
+      },
       "translation_readiness": {
         "readiness_state": "ready",
         "required_locales": [
@@ -125,6 +146,9 @@
       },
       "_action_state": {
         "view": {
+          "enabled": true
+        },
+        "view_family": {
           "enabled": true
         },
         "edit": {

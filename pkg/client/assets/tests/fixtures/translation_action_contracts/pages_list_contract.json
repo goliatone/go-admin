@@ -8,6 +8,16 @@
         "order": 11
       },
       {
+        "name": "view_family",
+        "label": "View Family",
+        "type": "navigation",
+        "href": "{translation_family_url}",
+        "context_required": [
+          "translation_family_url"
+        ],
+        "order": 12
+      },
+      {
         "name": "edit",
         "label": "Edit",
         "order": 10
@@ -94,6 +104,19 @@
     {
       "id": "page_123",
       "status": "published",
+      "translation_family_url": "/admin/translations/families/tg-page-123",
+      "family_member_count": 3,
+      "translation_assignment_summary": {
+        "status": "in_progress",
+        "active_count": 1,
+        "assignee_id": "translator-1",
+        "priority": "high"
+      },
+      "translation_exchange_summary": {
+        "status": "validated",
+        "pending_count": 1,
+        "error_count": 0
+      },
       "translation_readiness": {
         "readiness_state": "missing_locales",
         "required_locales": [
@@ -150,6 +173,9 @@
         "view": {
           "enabled": true
         },
+        "view_family": {
+          "enabled": true
+        },
         "edit": {
           "enabled": true
         },
@@ -164,6 +190,74 @@
         "publish": {
           "enabled": false,
           "reason": "transition \"publish\" is not available from state \"published\"",
+          "reason_code": "INVALID_STATUS"
+        },
+        "delete": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "page_456",
+      "status": "draft",
+      "translation_readiness": {
+        "readiness_state": "ready",
+        "required_locales": [
+          "en"
+        ],
+        "required_for_publish": [
+          "en"
+        ],
+        "available_locales": [
+          "en"
+        ],
+        "missing_required_locales": [],
+        "missing_locales": [],
+        "recommended_locale": "",
+        "default_assignment": {
+          "auto_create_assignment": false,
+          "work_scope": "localization",
+          "priority": "normal",
+          "assignee_id": "",
+          "due_date": ""
+        },
+        "quick_create": {
+          "enabled": false,
+          "missing_locales": [],
+          "recommended_locale": "",
+          "required_for_publish": [
+            "en"
+          ],
+          "default_assignment": {
+            "auto_create_assignment": false,
+            "work_scope": "localization",
+            "priority": "normal",
+            "assignee_id": "",
+            "due_date": ""
+          }
+        }
+      },
+      "_action_state": {
+        "view": {
+          "enabled": true
+        },
+        "view_family": {
+          "enabled": false,
+          "reason": "record does not include required context for this action",
+          "reason_code": "MISSING_CONTEXT_REQUIRED"
+        },
+        "edit": {
+          "enabled": true
+        },
+        "create_translation": {
+          "enabled": true
+        },
+        "submit_for_approval": {
+          "enabled": true
+        },
+        "publish": {
+          "enabled": false,
+          "reason": "transition \"publish\" is not available from state \"draft\"",
           "reason_code": "INVALID_STATUS"
         },
         "delete": {

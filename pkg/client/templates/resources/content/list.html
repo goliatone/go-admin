@@ -83,6 +83,10 @@ import {
   renderLocaleBadge,
   renderTranslationStatusCell,
   renderTranslationMatrixCell,
+  renderTranslationFamilyLink,
+  renderTranslationFamilyMemberCount,
+  renderTranslationAssignmentSummary,
+  renderTranslationExchangeSummary,
   renderVocabularyStatusBadge,
   // Phase 19 productization: translation readiness
   extractTranslationReadiness,
@@ -625,6 +629,12 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
       return renderTranslationStatusCell(record, { size: 'sm', maxLocales: 3 });
     },
+    translation_family_url: (_value, record) => {
+      return renderTranslationFamilyLink(record, { size: 'sm' });
+    },
+    family_member_count: (_value, record) => {
+      return renderTranslationFamilyMemberCount(record, { size: 'sm' });
+    },
     // Available locales column
     available_locales: (value, record) => {
       const ctx = extractTranslationContext(record);
@@ -663,6 +673,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     missing_translations: (value, record) => {
       // First-class affordance for identifying incomplete content
       return renderMissingTranslationsBadge(record, { size: 'sm' });
+    },
+    translation_assignment_summary: (value) => {
+      return renderTranslationAssignmentSummary(value, { size: 'sm' });
+    },
+    translation_exchange_summary: (value) => {
+      return renderTranslationExchangeSummary(value, { size: 'sm' });
     }
   };
 

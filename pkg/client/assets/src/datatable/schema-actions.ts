@@ -171,6 +171,7 @@ export interface TranslationBlockerContext {
  */
 const STABLE_ACTION_ORDER: Record<string, number> = {
   view: 100,
+  view_family: 150,
   edit: 200,
   duplicate: 300,
   create_translation: 400,
@@ -500,8 +501,7 @@ export class SchemaActionBuilder {
     // Determine target URL
     let targetUrl: string;
     if (schemaAction.href) {
-      // Use explicit href pattern, replacing {id} placeholder
-      targetUrl = schemaAction.href.replace('{id}', recordId);
+      targetUrl = this.interpolateHrefTemplate(schemaAction.href, record, recordId);
     } else if (schemaAction.name === 'edit') {
       targetUrl = `${basePath}/${recordId}/edit`;
     } else {
@@ -523,6 +523,32 @@ export class SchemaActionBuilder {
         window.location.href = targetUrl;
       },
     };
+  }
+
+  private interpolateHrefTemplate(
+    template: string,
+    record: Record<string, unknown>,
+    recordId: string
+  ): string {
+    const hrefTemplate = template.trim();
+    if (!hrefTemplate) {
+      return hrefTemplate;
+    }
+
+    return hrefTemplate.replace(/\{([^}]+)\}/g, (_match, rawField: string) => {
+      const field = String(rawField || '').trim();
+      if (!field) {
+        return '';
+      }
+      if (field === 'id') {
+        return recordId;
+      }
+      const value = this.resolveRecordContextValue(record, field);
+      if (value === undefined || value === null) {
+        return '';
+      }
+      return String(value);
+    });
   }
 
   /**
@@ -1526,6 +1552,7 @@ export class SchemaActionBuilder {
       restore: 'archive',
       duplicate: 'copy',
       create_translation: 'copy',
+      view_family: 'git-branch',
       approve: 'check-circle',
       reject: 'x-circle',
       submit: 'check-circle',

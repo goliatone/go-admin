@@ -113,6 +113,11 @@ export interface TranslationStatusOptions {
   size?: 'sm' | 'default';
 }
 
+export interface TranslationSummaryOptions {
+  size?: 'sm' | 'default';
+  extraClass?: string;
+}
+
 // ============================================================================
 // Translation Context Extraction
 // ============================================================================
@@ -211,6 +216,196 @@ export function isInFallbackMode(record: Record<string, unknown>): boolean {
 export function hasTranslationContext(record: Record<string, unknown>): boolean {
   const ctx = extractTranslationContext(record);
   return ctx.translationGroupId !== null || ctx.resolvedLocale !== null || ctx.availableLocales.length > 0;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value: string): string {
+  return escapeHtml(value).replace(/"/g, '&quot;');
+}
+
+function renderMetaBadge(
+  text: string,
+  options: TranslationSummaryOptions = {},
+  tone: 'neutral' | 'info' | 'warning' = 'neutral'
+): string {
+  const label = text.trim();
+  if (!label) {
+    return '';
+  }
+  const { size = 'sm', extraClass = '' } = options;
+  const sizeClass = size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-1';
+  const toneClass = tone === 'info'
+    ? 'bg-blue-50 text-blue-700 border-blue-200'
+    : tone === 'warning'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-slate-100 text-slate-700 border-slate-200';
+  return `<span class="inline-flex items-center rounded-full border font-medium ${sizeClass} ${toneClass} ${extraClass}">${escapeHtml(label)}</span>`;
+}
+
+function resolveSummaryRecord(value: unknown, fieldName: string): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const nested = record[fieldName];
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return record;
+}
+
+function summaryStringField(summary: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = summary[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function summaryNumberField(summary: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = summary[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.trunc(value);
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return Math.trunc(parsed);
+      }
+    }
+  }
+  return null;
+}
+
+function translationFamilyMemberCount(record: Record<string, unknown>): number | null {
+  const explicit = typeof record.family_member_count === 'number'
+    ? Math.trunc(record.family_member_count)
+    : Number(record.family_member_count);
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return Math.trunc(explicit);
+  }
+
+  const readiness = extractTranslationReadiness(record);
+  if (readiness.availableLocales.length > 0) {
+    return readiness.availableLocales.length;
+  }
+  const ctx = extractTranslationContext(record);
+  if (ctx.availableLocales.length > 0) {
+    return ctx.availableLocales.length;
+  }
+  return ctx.resolvedLocale ? 1 : null;
+}
+
+export function renderTranslationFamilyLink(
+  record: Record<string, unknown>,
+  options: TranslationSummaryOptions = {}
+): string {
+  const familyURL = typeof record.translation_family_url === 'string'
+    ? record.translation_family_url.trim()
+    : '';
+  if (!familyURL) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  const memberCount = translationFamilyMemberCount(record);
+  const countBadge = memberCount && memberCount > 0
+    ? renderMetaBadge(`${memberCount} ${memberCount === 1 ? 'locale' : 'locales'}`, options, 'info')
+    : '';
+  return `
+    <div class="inline-flex items-center gap-2">
+      <a href="${escapeAttr(familyURL)}" class="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline">View family</a>
+      ${countBadge}
+    </div>
+  `.trim();
+}
+
+export function renderTranslationFamilyMemberCount(
+  record: Record<string, unknown>,
+  options: TranslationSummaryOptions = {}
+): string {
+  const count = translationFamilyMemberCount(record);
+  if (!count || count <= 0) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  return renderMetaBadge(`${count} ${count === 1 ? 'locale' : 'locales'}`, options, 'info');
+}
+
+export function renderTranslationAssignmentSummary(
+  value: unknown,
+  options: TranslationSummaryOptions = {}
+): string {
+  const summary = resolveSummaryRecord(value, 'translation_assignment_summary');
+  if (!summary) {
+    return '<span class="text-gray-400">-</span>';
+  }
+
+  const status = summaryStringField(summary, ['status']);
+  const label = summaryStringField(summary, ['label']);
+  const assigneeID = summaryStringField(summary, ['assignee_id']);
+  const priority = summaryStringField(summary, ['priority']);
+  const activeCount = summaryNumberField(summary, ['active_count', 'open_count']);
+
+  const parts: string[] = [];
+  if (status) {
+    parts.push(renderVocabularyStatusBadge(status, { domain: 'queue', size: 'sm', showIcon: false }));
+  } else if (label) {
+    parts.push(renderMetaBadge(label, options, 'info'));
+  }
+  if (activeCount !== null && activeCount >= 0) {
+    parts.push(renderMetaBadge(`${activeCount} active`, options, 'neutral'));
+  }
+  if (assigneeID) {
+    parts.push(renderMetaBadge(`@${assigneeID}`, options, 'neutral'));
+  }
+  if (priority) {
+    parts.push(renderMetaBadge(priority, options, priority === 'urgent' || priority === 'high' ? 'warning' : 'neutral'));
+  }
+  if (parts.length === 0) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  return `<div class="inline-flex items-center gap-1.5 flex-wrap">${parts.join('')}</div>`;
+}
+
+export function renderTranslationExchangeSummary(
+  value: unknown,
+  options: TranslationSummaryOptions = {}
+): string {
+  const summary = resolveSummaryRecord(value, 'translation_exchange_summary');
+  if (!summary) {
+    return '<span class="text-gray-400">-</span>';
+  }
+
+  const status = summaryStringField(summary, ['status', 'last_job_status']);
+  const label = summaryStringField(summary, ['label', 'last_job_label']);
+  const pendingCount = summaryNumberField(summary, ['pending_count']);
+  const errorCount = summaryNumberField(summary, ['error_count']);
+
+  const parts: string[] = [];
+  if (status) {
+    parts.push(renderVocabularyStatusBadge(status, { domain: 'exchange', size: 'sm', showIcon: false }));
+  } else if (label) {
+    parts.push(renderMetaBadge(label, options, 'info'));
+  }
+  if (pendingCount !== null && pendingCount >= 0) {
+    parts.push(renderMetaBadge(`${pendingCount} pending`, options, 'neutral'));
+  }
+  if (errorCount !== null && errorCount > 0) {
+    parts.push(renderMetaBadge(`${errorCount} errors`, options, 'warning'));
+  }
+  if (parts.length === 0) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  return `<div class="inline-flex items-center gap-1.5 flex-wrap">${parts.join('')}</div>`;
 }
 
 /**

@@ -8,6 +8,16 @@
         "order": 11
       },
       {
+        "name": "view_family",
+        "label": "View Family",
+        "type": "navigation",
+        "href": "{translation_family_url}",
+        "context_required": [
+          "translation_family_url"
+        ],
+        "order": 12
+      },
+      {
         "name": "edit",
         "label": "Edit",
         "order": 10
@@ -85,6 +95,20 @@
     {
       "id": "post_123",
       "status": "approval",
+      "translation_family_url": "/admin/translations/families/tg-post-123",
+      "family_member_count": 2,
+      "translation_assignment_summary": {
+        "status": "review",
+        "active_count": 2,
+        "assignee_id": "translator-2",
+        "reviewer_id": "reviewer-1",
+        "priority": "urgent"
+      },
+      "translation_exchange_summary": {
+        "status": "processing",
+        "pending_count": 2,
+        "error_count": 1
+      },
       "translation_readiness": {
         "readiness_state": "missing_locales",
         "required_locales": [
@@ -133,6 +157,9 @@
       },
       "_action_state": {
         "view": {
+          "enabled": true
+        },
+        "view_family": {
           "enabled": true
         },
         "edit": {

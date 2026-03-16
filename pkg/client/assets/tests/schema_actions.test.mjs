@@ -359,6 +359,39 @@ test('detects navigation actions by href property', () => {
   assert.equal(actions[0].label, 'Go External');
 });
 
+test('interpolates href placeholders from record context for navigation actions', () => {
+  const builder = createBuilder();
+  const record = createMockRecord({
+    translation_family_url: '/admin/translations/families/tg-test-123',
+  });
+  const schemaActions = [
+    { name: 'view_family', label: 'View Family', type: 'navigation', href: '{translation_family_url}' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].id, 'view_family');
+});
+
+test('filters view_family navigation action when translation_family_url context is absent', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord();
+  const schemaActions = [
+    {
+      name: 'view_family',
+      label: 'View Family',
+      type: 'navigation',
+      href: '{translation_family_url}',
+      context_required: ['translation_family_url'],
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 0);
+});
+
 // =============================================================================
 // SchemaActionBuilder - URL Context Preservation Tests
 // Note: These tests verify action creation, not browser navigation

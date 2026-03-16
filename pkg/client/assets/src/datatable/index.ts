@@ -139,6 +139,10 @@ export {
   renderTranslationStatusCell,
   renderStatusBadge,
   renderFallbackWarning,
+  renderTranslationFamilyLink,
+  renderTranslationFamilyMemberCount,
+  renderTranslationAssignmentSummary,
+  renderTranslationExchangeSummary,
   createTranslationStatusRenderer,
   createLocaleBadgeRenderer,
   // Phase 19 productization: translation readiness
@@ -160,6 +164,7 @@ export type {
   TranslationContext,
   LocaleBadgeOptions,
   TranslationStatusOptions,
+  TranslationSummaryOptions,
   // Phase 19 productization types
   TranslationReadiness,
   ReadinessState,

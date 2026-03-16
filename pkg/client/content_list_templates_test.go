@@ -44,3 +44,24 @@ func TestContentListTemplateIncludesTranslationsQueueCellRenderers(t *testing.T)
 		t.Fatalf("expected translations queue renderer fragment not found: %q", fragment)
 	}
 }
+
+func TestContentListTemplateIncludesTranslationDatagridSummaryRenderers(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/list.html")
+
+	required := []string{
+		`renderTranslationFamilyLink`,
+		`renderTranslationFamilyMemberCount`,
+		`renderTranslationAssignmentSummary`,
+		`renderTranslationExchangeSummary`,
+		`translation_family_url: (_value, record) =>`,
+		`family_member_count: (_value, record) =>`,
+		`translation_assignment_summary: (value) =>`,
+		`translation_exchange_summary: (value) =>`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected translation datagrid renderer fragment not found: %q", fragment)
+	}
+}
