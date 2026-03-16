@@ -41,8 +41,8 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	}
 
 	items := translationQAMenuItems(adm, cfg)
-	if len(items) != 7 {
-		t.Fatalf("expected 7 QA items for full profile, got %d", len(items))
+	if len(items) != 8 {
+		t.Fatalf("expected 8 QA items for full profile, got %d", len(items))
 	}
 
 	assertMenuItemPath(t, items, "example.translation.qa.family", translationQAFamilyPath("/admin"))
@@ -50,6 +50,8 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.matrix", translationQAMatrixPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.matrix", "Translation Matrix (QA)")
+	assertMenuItemPath(t, items, "example.translation.qa.content_datagrid", translationQAContentDatagridPath("/admin"))
+	assertMenuItemLabel(t, items, "example.translation.qa.content_datagrid", "Content Datagrid (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.queue", translationQAQueuePath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.editor", translationQAEditorPath("/admin"))
@@ -79,14 +81,15 @@ func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
 	}
 
 	items := translationQAMenuItems(adm, cfg)
-	if len(items) != 4 {
-		t.Fatalf("expected 4 QA items for core profile, got %d", len(items))
+	if len(items) != 5 {
+		t.Fatalf("expected 5 QA items for core profile, got %d", len(items))
 	}
 
 	assertMenuItemPath(t, items, "example.translation.qa.family", translationQAFamilyPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.family", "Family Detail + Create Locale (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.matrix", translationQAMatrixPath("/admin"))
+	assertMenuItemPath(t, items, "example.translation.qa.content_datagrid", translationQAContentDatagridPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
 	if findMenuItemByID(items, "example.translation.qa.queue") != nil {
 		t.Fatalf("expected queue QA item to be absent when queue capability disabled")

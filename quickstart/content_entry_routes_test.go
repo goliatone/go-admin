@@ -1327,7 +1327,7 @@ func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testi
 	record := map[string]any{"translation_group_id": "tg-page-123"}
 	urls := newTranslationFamilyURLManager(t)
 
-	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true)
+	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true, "")
 	if got := strings.TrimSpace(anyToString(mapped["translation_family_id"])); got != "tg-page-123" {
 		t.Fatalf("expected translation_family_id tg-page-123, got %q", got)
 	}
@@ -1338,6 +1338,21 @@ func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testi
 	family, _ := links["translation_family"].(map[string]any)
 	if got := strings.TrimSpace(anyToString(family["href"])); got != "/admin/translations/families/tg-page-123" {
 		t.Fatalf("expected links.translation_family.href to resolve, got %q", got)
+	}
+}
+
+func TestContentEntryAttachTranslationFamilyLinkPreservesChannelScope(t *testing.T) {
+	record := map[string]any{"translation_group_id": "tg-page-123"}
+	urls := newTranslationFamilyURLManager(t)
+
+	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true, "staging")
+	if got := strings.TrimSpace(anyToString(mapped["translation_family_url"])); got != "/admin/translations/families/tg-page-123?channel=staging" {
+		t.Fatalf("expected channel-scoped translation_family_url, got %q", got)
+	}
+	links, _ := mapped["links"].(map[string]any)
+	family, _ := links["translation_family"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(family["href"])); got != "/admin/translations/families/tg-page-123?channel=staging" {
+		t.Fatalf("expected channel-scoped links.translation_family.href, got %q", got)
 	}
 }
 

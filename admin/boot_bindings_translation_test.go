@@ -1193,6 +1193,123 @@ func TestPanelBindingDetailAndUpdateNormalizeFallbackContext(t *testing.T) {
 	}
 }
 
+func TestPanelBindingPublishesTranslationDatagridEnrichmentContracts(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                   "post_123",
+				"title":                "Post",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en", "es", "fr"},
+				"metadata": map[string]any{
+					"translation_assignment_summary": map[string]any{
+						"status":       "in_progress",
+						"active_count": 2,
+						"assignee_id":  "translator-7",
+						"priority":     "high",
+					},
+					"translation_exchange_summary": map[string]any{
+						"status":        "validated",
+						"pending_count": 1,
+						"error_count":   0,
+					},
+				},
+			},
+		},
+		list: []map[string]any{
+			{
+				"id":                   "post_123",
+				"title":                "Post",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en", "es", "fr"},
+				"metadata": map[string]any{
+					"translation_assignment_summary": map[string]any{
+						"status":       "in_progress",
+						"active_count": 2,
+						"assignee_id":  "translator-7",
+						"priority":     "high",
+					},
+					"translation_exchange_summary": map[string]any{
+						"status":        "validated",
+						"pending_count": 1,
+						"error_count":   0,
+					},
+				},
+			},
+		},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		actions: []Action{
+			{
+				Name:            "view_family",
+				Label:           "View Family",
+				Type:            "navigation",
+				Href:            "{translation_family_url}",
+				Scope:           ActionScopeRow,
+				ContextRequired: []string{"translation_family_url"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: adm,
+		name:  "posts",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	records, _, schemaAny, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected one record, got %d", len(records))
+	}
+	record := records[0]
+	if got := strings.TrimSpace(toString(record["translation_family_url"])); got != "/admin/translations/families/tg_123" {
+		t.Fatalf("expected translation_family_url on list record, got %#v", record["translation_family_url"])
+	}
+	if got := toInt(record["family_member_count"]); got != 3 {
+		t.Fatalf("expected family_member_count=3, got %#v", record["family_member_count"])
+	}
+	if got := strings.TrimSpace(toString(extractMap(record["translation_assignment_summary"])["assignee_id"])); got != "translator-7" {
+		t.Fatalf("expected translation_assignment_summary.assignee_id, got %#v", record["translation_assignment_summary"])
+	}
+	if got := strings.TrimSpace(toString(extractMap(record["translation_exchange_summary"])["status"])); got != "validated" {
+		t.Fatalf("expected translation_exchange_summary.status validated, got %#v", record["translation_exchange_summary"])
+	}
+	if enabled, _ := extractActionStateEntry(record["_action_state"], "view_family")["enabled"].(bool); !enabled {
+		t.Fatalf("expected view_family enabled when translation_family_url present, got %#v", record["_action_state"])
+	}
+
+	schema, _ := schemaAny.(Schema)
+	action, found := findActionByName(schema.Actions, "view_family")
+	if !found {
+		t.Fatalf("expected view_family action in schema")
+	}
+	if got := strings.TrimSpace(action.Href); got != "{translation_family_url}" {
+		t.Fatalf("expected view_family href placeholder, got %q", got)
+	}
+
+	detail, err := binding.Detail(c, "en", "post_123")
+	if err != nil {
+		t.Fatalf("detail failed: %v", err)
+	}
+	data := extractMap(detail["data"])
+	if got := strings.TrimSpace(toString(data["translation_family_url"])); got != "/admin/translations/families/tg_123" {
+		t.Fatalf("expected translation_family_url on detail record, got %#v", data["translation_family_url"])
+	}
+	if got := toInt(data["family_member_count"]); got != 3 {
+		t.Fatalf("expected detail family_member_count=3, got %#v", data["family_member_count"])
+	}
+}
+
 func TestPanelBindingDetailIncludesSourceTargetDriftMetadata(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{

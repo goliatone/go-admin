@@ -226,7 +226,7 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 			if !hasAction(actions, "view") || !hasAction(actions, "edit") || !hasAction(actions, "delete") {
 				t.Fatalf("expected default CRUD actions on %s panel, got %+v", tt.expectedSlug, actions)
 			}
-			for _, actionName := range []string{"edit", "create_translation", "submit_for_approval", "publish", "delete"} {
+			for _, actionName := range []string{"view_family", "edit", "create_translation", "submit_for_approval", "publish", "delete"} {
 				action, exists := findActionByName(actions, actionName)
 				if !exists {
 					t.Fatalf("expected action %q in schema", actionName)
@@ -289,7 +289,7 @@ func TestDynamicPanelFactoryAppliesEditorialColumnsAndFilters(t *testing.T) {
 		t.Fatalf("create panel failed: %v", err)
 	}
 	schema := panel.Schema()
-	for _, field := range []string{"translation_status", "available_locales", "translation_readiness", "missing_translations"} {
+	for _, field := range []string{"translation_status", "translation_family_url", "family_member_count", "available_locales", "translation_readiness", "missing_translations", "translation_assignment_summary", "translation_exchange_summary"} {
 		if !hasField(schema.ListFields, field) {
 			t.Fatalf("expected editorial list field %s, got %+v", field, schema.ListFields)
 		}
