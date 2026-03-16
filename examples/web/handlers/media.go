@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"maps"
 	"path"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
@@ -214,8 +215,6 @@ func guardResource(c router.Context, resource, action string) error {
 
 func cloneRecord(rec map[string]any) map[string]any {
 	out := map[string]any{}
-	for k, v := range rec {
-		out[k] = v
-	}
+	maps.Copy(out, rec)
 	return out
 }

@@ -31,8 +31,8 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 			coreadmin.NewInMemoryTranslationAssignmentRepository(),
 			appcfg.TranslationConfig{
 				Profile:  "full",
-				Exchange: boolPtr(true),
-				Queue:    boolPtr(true),
+				Exchange: new(true),
+				Queue:    new(true),
 			},
 		)),
 	)
@@ -55,7 +55,7 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	assertMenuItemPath(t, items, "example.translation.qa.editor", translationQAEditorPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.editor", "Assignment Editor (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.exchange", "/admin/translations/exchange")
-	assertMenuItemLabel(t, items, "example.translation.qa.exchange", "Exchange Contracts (QA)")
+	assertMenuItemLabel(t, items, "example.translation.qa.exchange", "Exchange Wizard + Jobs (QA)")
 }
 
 func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {

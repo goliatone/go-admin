@@ -126,7 +126,7 @@ func TestUserProfileStore_ListBeyondLegacyPageLimit(t *testing.T) {
 
 	now := time.Now().UTC()
 	const profileCount = 40
-	for i := 0; i < profileCount; i++ {
+	for i := range profileCount {
 		userID := uuid.New()
 		username := fmt.Sprintf("bulk.profile.user.%03d", i)
 		email := fmt.Sprintf("%s@example.com", username)

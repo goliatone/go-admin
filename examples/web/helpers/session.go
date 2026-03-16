@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -194,9 +195,7 @@ func mergeAnyMaps(base map[string]any, src map[string]any) map[string]any {
 	if out == nil {
 		out = map[string]any{}
 	}
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 
@@ -208,9 +207,7 @@ func mergeStringMaps(base map[string]string, src map[string]string) map[string]s
 	if out == nil {
 		out = map[string]string{}
 	}
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 
@@ -243,7 +240,7 @@ func collectScopes(metadata map[string]any, resourceRoles map[string]string, cla
 				}
 			}
 		case string:
-			for _, v := range strings.Fields(vals) {
+			for v := range strings.FieldsSeq(vals) {
 				if strings.TrimSpace(v) != "" {
 					scopes[strings.TrimSpace(v)] = struct{}{}
 				}

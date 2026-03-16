@@ -156,7 +156,7 @@ func TestBuildUserTabActivity_RefetchesWhenOverlapUnderfillsInitialWindow(t *tes
 	actorEntries := make([]admin.ActivityEntry, 0, 20)
 
 	// First window (limit*2 for requested limit=10) has only 5 unique IDs due overlap.
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		id := fmt.Sprintf("dup-%d", (i%5)+1)
 		ts := now.Add(-time.Duration(i) * time.Second)
 		targetEntries = append(targetEntries, admin.ActivityEntry{
@@ -176,7 +176,7 @@ func TestBuildUserTabActivity_RefetchesWhenOverlapUnderfillsInitialWindow(t *tes
 	}
 
 	// Additional unique target entries are outside the initial window.
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		id := fmt.Sprintf("unique-%02d", i+1)
 		targetEntries = append(targetEntries, admin.ActivityEntry{
 			ID:        id,

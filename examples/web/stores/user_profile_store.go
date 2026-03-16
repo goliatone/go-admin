@@ -118,14 +118,8 @@ func (s *UserProfileStore) List(ctx context.Context, opts admin.ListOptions) ([]
 	if page <= 0 {
 		page = 1
 	}
-	start := (page - 1) * pageSize
-	if start > total {
-		start = total
-	}
-	end := start + pageSize
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*pageSize, total)
+	end := min(start+pageSize, total)
 
 	results := make([]map[string]any, 0, end-start)
 	for _, rec := range filtered[start:end] {
@@ -1085,15 +1079,15 @@ func extractProfileListOptionsFromCriteria(criteria []repository.SelectCriteria)
 		opts.SortDesc = desc
 	}
 
-	if idx := strings.Index(queryStr, "LIMIT "); idx >= 0 {
-		limitStr := queryStr[idx+6:]
+	if _, after, ok := strings.Cut(queryStr, "LIMIT "); ok {
+		limitStr := after
 		var limit int
 		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err == nil && limit > 0 {
 			opts.PerPage = limit
 		}
 	}
-	if idx := strings.Index(queryStr, "OFFSET "); idx >= 0 {
-		offsetStr := queryStr[idx+7:]
+	if _, after, ok := strings.Cut(queryStr, "OFFSET "); ok {
+		offsetStr := after
 		var offset int
 		if _, err := fmt.Sscanf(offsetStr, "%d", &offset); err == nil && opts.PerPage > 0 {
 			opts.Page = (offset / opts.PerPage) + 1

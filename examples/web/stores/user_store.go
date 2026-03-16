@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -246,7 +248,7 @@ func (s *UserStore) Seed() {
 			Email:     sample.Email,
 			Role:      normalizeRoleValue(sample.Role),
 			Status:    sample.Status,
-			CreatedAt: ptrTime(sample.CreatedAt),
+			CreatedAt: new(sample.CreatedAt),
 		}
 		created, err := s.repo.Create(context.Background(), user)
 		if err != nil {
@@ -682,8 +684,8 @@ func userInventoryFilterFromOptions(ctx context.Context, opts admin.ListOptions)
 	if r, ok := opts.Filters["role__in"].(string); ok {
 		r = strings.TrimSpace(r)
 		if r != "" {
-			values := strings.Split(r, ",")
-			for _, v := range values {
+			values := strings.SplitSeq(r, ",")
+			for v := range values {
 				v = strings.TrimSpace(v)
 				if v != "" {
 					roleFilters = append(roleFilters, v)
@@ -695,19 +697,13 @@ func userInventoryFilterFromOptions(ctx context.Context, opts admin.ListOptions)
 	statuses := parseStatusFilter(opts.Filters["status"])
 	// Also check for status__in
 	if s, ok := opts.Filters["status__in"].(string); ok && s != "" {
-		values := strings.Split(s, ",")
-		for _, v := range values {
+		values := strings.SplitSeq(s, ",")
+		for v := range values {
 			v = strings.TrimSpace(v)
 			if v != "" {
 				state := statusFromInput(v)
 				// Only add if not already in list
-				found := false
-				for _, existing := range statuses {
-					if existing == state {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(statuses, state)
 				if !found {
 					statuses = append(statuses, state)
 				}
@@ -807,7 +803,7 @@ func mapToAuthUser(record map[string]any) (*types.AuthUser, time.Time) {
 		}(),
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
-		user.CreatedAt = ptrTime(created)
+		user.CreatedAt = new(created)
 	}
 	if meta, ok := parseMetadataValue(record["metadata"]); ok {
 		user.Metadata = meta
@@ -853,7 +849,7 @@ func applyUserPatch(existing *types.AuthUser, record map[string]any) *types.Auth
 		clone.Status = statusFromInput(status)
 	}
 	if created := parseTimeValue(record["created_at"]); !created.IsZero() {
-		clone.CreatedAt = ptrTime(created)
+		clone.CreatedAt = new(created)
 	}
 	if meta, ok := parseMetadataValue(record["metadata"]); ok {
 		clone.Metadata = meta
@@ -1078,8 +1074,9 @@ func resolveActivityActor(ctx context.Context) string {
 	return "system"
 }
 
+//go:fix inline
 func ptrTime(t time.Time) *time.Time {
-	return &t
+	return new(t)
 }
 
 // goUsersDBRepo implements go-users repositories backed by Bun/SQLite.
@@ -1259,9 +1256,7 @@ func cloneAuthUser(user *types.AuthUser) *types.AuthUser {
 	copy := *user
 	if user.Metadata != nil {
 		copy.Metadata = map[string]any{}
-		for k, v := range user.Metadata {
-			copy.Metadata[k] = v
-		}
+		maps.Copy(copy.Metadata, user.Metadata)
 	}
 	return &copy
 }
@@ -1299,16 +1294,16 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 	fmt.Printf("[DEBUG] Generated query: %s\n", queryStr)
 
 	// Parse LIMIT and OFFSET
-	if idx := strings.Index(queryStr, "LIMIT "); idx >= 0 {
-		limitStr := queryStr[idx+6:]
+	if _, after, ok := strings.Cut(queryStr, "LIMIT "); ok {
+		limitStr := after
 		// Extract just the number part
 		var limit int
 		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err == nil && limit > 0 {
 			opts.PerPage = limit
 		}
 	}
-	if idx := strings.Index(queryStr, "OFFSET "); idx >= 0 {
-		offsetStr := queryStr[idx+7:]
+	if _, after, ok := strings.Cut(queryStr, "OFFSET "); ok {
+		offsetStr := after
 		var offset int
 		if _, err := fmt.Sscanf(offsetStr, "%d", &offset); err == nil && opts.PerPage > 0 {
 			opts.Page = (offset / opts.PerPage) + 1

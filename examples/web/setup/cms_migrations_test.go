@@ -40,7 +40,8 @@ WHERE type = 'table' AND name IN (
     'pages','page_translations','menus','menu_items','menu_item_translations',
     'templates','themes',
     'content_families','locale_variants','translation_assignments','family_blockers',
-    'translation_assignment_events','exchange_jobs'
+    'translation_assignment_events','exchange_jobs',
+    'translation_exchange_job_rows','translation_exchange_job_artifacts','translation_exchange_apply_ledger'
 )
 ORDER BY name`)
 	if err != nil {
@@ -62,6 +63,7 @@ ORDER BY name`)
 		"templates", "themes",
 		"content_families", "locale_variants", "translation_assignments", "family_blockers",
 		"translation_assignment_events", "exchange_jobs",
+		"translation_exchange_job_rows", "translation_exchange_job_artifacts", "translation_exchange_apply_ledger",
 	} {
 		if !tables[table] {
 			t.Fatalf("expected table %s to exist", table)

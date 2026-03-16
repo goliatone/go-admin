@@ -100,7 +100,7 @@ func setupInventoryAdapterFixture(t *testing.T, total int) types.UserInventoryRe
 		t.Fatalf("setup users: %v", err)
 	}
 	usersRepo := deps.RepoManager.Users()
-	for i := 0; i < total; i++ {
+	for i := range total {
 		username := fmt.Sprintf("inventory.user.%03d", i)
 		if _, err := usersRepo.Create(ctx, &auth.User{
 			ID:       uuid.New(),

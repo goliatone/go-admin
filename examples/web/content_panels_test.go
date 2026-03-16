@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -131,17 +132,13 @@ func (s *stubPageRepository) Get(_ context.Context, id string) (map[string]any, 
 
 func (s *stubPageRepository) Create(_ context.Context, record map[string]any) (map[string]any, error) {
 	out := map[string]any{}
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out, nil
 }
 
 func (s *stubPageRepository) Update(_ context.Context, id string, record map[string]any) (map[string]any, error) {
 	out := map[string]any{"id": id}
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out, nil
 }
 
@@ -175,17 +172,13 @@ func (s *stubPostRepository) Get(_ context.Context, id string) (map[string]any, 
 
 func (s *stubPostRepository) Create(_ context.Context, record map[string]any) (map[string]any, error) {
 	out := map[string]any{}
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out, nil
 }
 
 func (s *stubPostRepository) Update(_ context.Context, id string, record map[string]any) (map[string]any, error) {
 	out := map[string]any{"id": id}
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out, nil
 }
 

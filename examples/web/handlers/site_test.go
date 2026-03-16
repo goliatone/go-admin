@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 		ID:       "home",
 		Label:    "Home",
 		Target:   map[string]any{"path": "/"},
-		Position: admin.IntPtr(1),
+		Position: new(1),
 	})
 	if err != nil {
 		t.Fatalf("add menu item: %v", err)
@@ -27,7 +28,7 @@ func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
 		ID:       "about",
 		Label:    "About",
 		Target:   map[string]any{"path": "/about"},
-		Position: admin.IntPtr(2),
+		Position: new(2),
 	})
 	if err != nil {
 		t.Fatalf("add menu item: %v", err)
@@ -206,8 +207,6 @@ func cloneMap(src map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }

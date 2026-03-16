@@ -140,7 +140,7 @@ func (s *PostStore) Seed() {
 		rec := postRecordFromMap(seed)
 		ensurePostTimestamps(rec, true)
 		if strings.EqualFold(rec.Status, "published") && rec.PublishedAt == nil {
-			rec.PublishedAt = ptrTime(now)
+			rec.PublishedAt = new(now)
 		}
 		if _, err := s.repo.Upsert(ctx, rec); err != nil {
 			continue
@@ -164,8 +164,8 @@ func (s *PostStore) Create(ctx context.Context, record map[string]any) (map[stri
 	ensurePostTimestamps(rec, true)
 	if strings.EqualFold(rec.Status, "published") && rec.PublishedAt == nil {
 		now := time.Now().UTC()
-		rec.PublishedAt = ptrTime(now)
-		rec.UpdatedAt = ptrTime(now)
+		rec.PublishedAt = new(now)
+		rec.UpdatedAt = new(now)
 	}
 
 	created, err := s.repo.Create(ctx, rec)
@@ -261,20 +261,20 @@ func (s *PostStore) updateStatus(ctx context.Context, ids []string, status strin
 			}
 		}
 		rec.Status = status
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 		switch strings.ToLower(status) {
 		case "published":
 			if publishAt != nil && !publishAt.IsZero() {
-				rec.PublishedAt = ptrTime(publishAt.UTC())
+				rec.PublishedAt = new(publishAt.UTC())
 			} else if rec.PublishedAt == nil {
-				rec.PublishedAt = ptrTime(now)
+				rec.PublishedAt = new(now)
 			}
 		case "scheduled":
 			when := now
 			if publishAt != nil && !publishAt.IsZero() {
 				when = publishAt.UTC()
 			}
-			rec.PublishedAt = ptrTime(when)
+			rec.PublishedAt = new(when)
 		case "draft":
 			rec.PublishedAt = nil
 		}
@@ -316,10 +316,10 @@ func (s *PostStore) emitActivity(ctx context.Context, verb string, post map[stri
 func ensurePostTimestamps(rec *PostRecord, isCreate bool) {
 	now := time.Now().UTC()
 	if rec.CreatedAt == nil || rec.CreatedAt.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	}
 	if rec.UpdatedAt == nil || rec.UpdatedAt.IsZero() || isCreate {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	}
 }
 

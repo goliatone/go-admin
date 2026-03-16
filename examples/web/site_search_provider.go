@@ -82,14 +82,8 @@ func (p *exampleSiteSearchProvider) Search(ctx context.Context, req admin.Search
 	facets := buildSearchFacets(hits)
 	total := len(hits)
 
-	start := (page - 1) * perPage
-	if start > total {
-		start = total
-	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*perPage, total)
+	end := min(start+perPage, total)
 
 	return admin.SearchResultPage{
 		Hits:    hits[start:end],

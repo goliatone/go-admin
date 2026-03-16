@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -175,11 +176,7 @@ func parseRoleListQuery(c router.Context) roleListQuery {
 	if limit := parseOptionalInt(strings.TrimSpace(c.Query("limit", ""))); limit > 0 {
 		query.Limit = limit
 		offset := parseOptionalInt(strings.TrimSpace(c.Query("offset", "")))
-		if offset > 0 {
-			query.Offset = offset
-		} else {
-			query.Offset = 0
-		}
+		query.Offset = max(offset, 0)
 	}
 
 	if order := strings.TrimSpace(c.Query("order", "")); order != "" {
@@ -275,8 +272,8 @@ func firstFilterValue(filters map[string]string, keys ...string) string {
 }
 
 func extractSearchToken(raw string) string {
-	parts := strings.Split(raw, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(raw, ",")
+	for part := range parts {
 		token := strings.TrimSpace(strings.Trim(part, "%"))
 		if token != "" {
 			return token
@@ -363,19 +360,9 @@ func matchString(value, op, raw string) bool {
 
 	switch op {
 	case "eq", "in":
-		for _, token := range tokens {
-			if valueNorm == token {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(tokens, valueNorm)
 	case "ne":
-		for _, token := range tokens {
-			if valueNorm == token {
-				return false
-			}
-		}
-		return true
+		return !slices.Contains(tokens, valueNorm)
 	case "ilike", "contains":
 		for _, token := range tokens {
 			if strings.Contains(valueNorm, token) {
@@ -422,36 +409,16 @@ func matchStringSlice(values []string, op, raw string) bool {
 		return false
 	}
 	equalsAny := func(token string) bool {
-		for _, value := range joined {
-			if value == token {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(joined, token)
 	}
 
 	switch op {
 	case "eq", "in":
-		for _, token := range tokens {
-			if equalsAny(token) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(tokens, equalsAny)
 	case "ne":
-		for _, token := range tokens {
-			if equalsAny(token) {
-				return false
-			}
-		}
-		return true
+		return !slices.ContainsFunc(tokens, equalsAny)
 	case "ilike", "contains":
-		for _, token := range tokens {
-			if containsAny(token) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(tokens, containsAny)
 	}
 	return true
 }
@@ -474,12 +441,7 @@ func matchBool(value bool, op, raw string) bool {
 	}
 
 	contains := func(candidate bool) bool {
-		for _, item := range parsed {
-			if item == candidate {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(parsed, candidate)
 	}
 
 	switch op {
@@ -687,10 +649,7 @@ func paginateBounds(offset, limit, total int) (int, int) {
 		offset = total
 	}
 
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	end := min(offset+limit, total)
 	if end < offset {
 		end = offset
 	}

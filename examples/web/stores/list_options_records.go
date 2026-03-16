@@ -239,8 +239,8 @@ func normalizeListPredicateValues(values []string) []string {
 	}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		parts := strings.Split(value, ",")
-		for _, part := range parts {
+		parts := strings.SplitSeq(value, ",")
+		for part := range parts {
 			trimmed := strings.TrimSpace(part)
 			if trimmed != "" {
 				out = append(out, trimmed)
@@ -445,9 +445,6 @@ func paginateRecordSlice(records []map[string]any, opts admin.ListOptions) []map
 	if start >= len(records) {
 		return []map[string]any{}
 	}
-	end := start + perPage
-	if end > len(records) {
-		end = len(records)
-	}
+	end := min(start+perPage, len(records))
 	return records[start:end]
 }

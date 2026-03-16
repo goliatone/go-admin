@@ -24,7 +24,7 @@ func TestEnsureContentParentPermissionsReconcilesExistingMenuNode(t *testing.T) 
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
-		Position:      admin.IntPtr(0),
+		Position:      new(0),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {

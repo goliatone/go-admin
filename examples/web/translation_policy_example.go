@@ -13,8 +13,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 			"pages": {
 				"publish": {
 					Locales:                 []string{"en", "es", "fr"},
-					ReviewRequired:          boolValuePtr(true),
-					AllowPublishOverride:    boolValuePtr(false),
+					ReviewRequired:          new(true),
+					AllowPublishOverride:    new(false),
 					AssignmentLifecycleMode: "auto_archive",
 					DefaultWorkScope:        "__all__",
 					RequiredFields: map[string][]string{
@@ -25,8 +25,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 					Environments: map[string]quickstart.TranslationCriteria{
 						"staging": {
 							Locales:                 []string{"en", "es"},
-							ReviewRequired:          boolValuePtr(true),
-							AllowPublishOverride:    boolValuePtr(false),
+							ReviewRequired:          new(true),
+							AllowPublishOverride:    new(false),
 							AssignmentLifecycleMode: "auto_archive",
 							DefaultWorkScope:        "__all__",
 							RequiredFields: map[string][]string{
@@ -36,8 +36,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 						},
 						"production": {
 							Locales:                 []string{"en", "es", "fr"},
-							ReviewRequired:          boolValuePtr(true),
-							AllowPublishOverride:    boolValuePtr(false),
+							ReviewRequired:          new(true),
+							AllowPublishOverride:    new(false),
 							AssignmentLifecycleMode: "auto_archive",
 							DefaultWorkScope:        "__all__",
 							RequiredFields: map[string][]string{
@@ -52,8 +52,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 			"posts": {
 				"publish": {
 					Locales:                 []string{"en", "es", "fr"},
-					ReviewRequired:          boolValuePtr(true),
-					AllowPublishOverride:    boolValuePtr(false),
+					ReviewRequired:          new(true),
+					AllowPublishOverride:    new(false),
 					AssignmentLifecycleMode: "auto_archive",
 					DefaultWorkScope:        "__all__",
 					RequiredFields: map[string][]string{
@@ -64,8 +64,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 					Environments: map[string]quickstart.TranslationCriteria{
 						"staging": {
 							Locales:                 []string{"en", "es"},
-							ReviewRequired:          boolValuePtr(true),
-							AllowPublishOverride:    boolValuePtr(false),
+							ReviewRequired:          new(true),
+							AllowPublishOverride:    new(false),
 							AssignmentLifecycleMode: "auto_archive",
 							DefaultWorkScope:        "__all__",
 							RequiredFields: map[string][]string{
@@ -75,8 +75,8 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 						},
 						"production": {
 							Locales:                 []string{"en", "es", "fr"},
-							ReviewRequired:          boolValuePtr(true),
-							AllowPublishOverride:    boolValuePtr(false),
+							ReviewRequired:          new(true),
+							AllowPublishOverride:    new(false),
 							AssignmentLifecycleMode: "auto_archive",
 							DefaultWorkScope:        "__all__",
 							RequiredFields: map[string][]string{
@@ -92,8 +92,9 @@ func exampleTranslationPolicyConfig() quickstart.TranslationPolicyConfig {
 	}
 }
 
+//go:fix inline
 func boolValuePtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func exampleTranslationPolicyValidationCatalog() quickstart.TranslationPolicyValidationCatalog {

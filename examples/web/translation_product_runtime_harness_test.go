@@ -54,8 +54,8 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 				queueRepo,
 				appcfg.TranslationConfig{
 					Profile:  "full",
-					Exchange: coreadmin.BoolPtr(false),
-					Queue:    coreadmin.BoolPtr(true),
+					Exchange: new(false),
+					Queue:    new(true),
 				},
 			),
 		),

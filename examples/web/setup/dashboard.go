@@ -322,7 +322,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores, 
 			activeUsers := make([]float64, 4)
 			newSignups := make([]float64, 4)
 
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				activeUsers[i] = float64(total) * (0.7 + float64(i)*0.075)
 				newSignups[i] = float64(total) * (0.05 + float64(i)*0.015)
 			}

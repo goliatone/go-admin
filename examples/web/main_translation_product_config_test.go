@@ -49,7 +49,7 @@ func TestBuildTranslationProductConfigAllowsExplicitModuleDisableOverride(t *tes
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
 		appcfg.TranslationConfig{
 			Profile:  "core+exchange",
-			Exchange: boolPtr(false),
+			Exchange: new(false),
 		},
 	)
 
@@ -71,7 +71,7 @@ func TestBuildTranslationProductConfigAllowsExplicitModuleEnableOverride(t *test
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
 		appcfg.TranslationConfig{
 			Profile: "core",
-			Queue:   boolPtr(true),
+			Queue:   new(true),
 		},
 	)
 
@@ -163,8 +163,8 @@ func TestBuildTranslationProductConfigAttachesStoreAndRepository(t *testing.T) {
 		queueRepo,
 		appcfg.TranslationConfig{
 			Profile:  "full",
-			Exchange: boolPtr(true),
-			Queue:    boolPtr(true),
+			Exchange: new(true),
+			Queue:    new(true),
 		},
 	)
 
@@ -176,6 +176,7 @@ func TestBuildTranslationProductConfigAttachesStoreAndRepository(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func boolPtr(v bool) *bool {
-	return &v
+	return new(v)
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -1115,7 +1116,7 @@ func capabilityStringSlice(capabilities map[string]any, keys ...string) []string
 		}
 		switch typed := value.(type) {
 		case string:
-			for _, segment := range strings.Split(typed, ",") {
+			for segment := range strings.SplitSeq(typed, ",") {
 				add(segment)
 			}
 		case []string:
@@ -1983,7 +1984,6 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 		},
 	}
 	for _, profile := range profiles {
-		profile := profile
 		if _, err := db.NewInsert().
 			Model(&profile).
 			On("CONFLICT (environment_id, code) DO UPDATE").
@@ -2035,7 +2035,6 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 		},
 	}
 	for _, binding := range bindings {
-		binding := binding
 		if _, err := db.NewInsert().
 			Model(&binding).
 			On("CONFLICT (id) DO UPDATE").
@@ -2283,9 +2282,7 @@ func mergedSeedCustom(base, override map[string]any) map[string]any {
 	if overrideMap == nil {
 		return baseMap
 	}
-	for key, value := range overrideMap {
-		baseMap[key] = value
-	}
+	maps.Copy(baseMap, overrideMap)
 	return baseMap
 }
 

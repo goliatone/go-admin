@@ -168,9 +168,9 @@ func (s *PageStore) updateStatus(ctx context.Context, ids []string, status strin
 			continue
 		}
 		rec.Status = status
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 		if strings.EqualFold(status, "published") && rec.PublishedAt == nil {
-			rec.PublishedAt = ptrTime(now)
+			rec.PublishedAt = new(now)
 		}
 		saved, err := s.repo.Update(ctx, rec)
 		if err != nil {
@@ -209,10 +209,10 @@ func (s *PageStore) emitActivity(ctx context.Context, verb string, page map[stri
 func ensurePageTimestamps(rec *PageRecord, isCreate bool) {
 	now := time.Now().UTC()
 	if rec.CreatedAt == nil || rec.CreatedAt.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	}
 	if rec.UpdatedAt == nil || rec.UpdatedAt.IsZero() || isCreate {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	}
 }
 

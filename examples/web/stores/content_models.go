@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -134,17 +135,17 @@ func pageRecordFromMap(record map[string]any) *PageRecord {
 		rec.Tags = tags
 	}
 	if ts := parseTimeValue(record["published_at"]); !ts.IsZero() {
-		rec.PublishedAt = ptrTime(ts)
+		rec.PublishedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["created_at"]); ts.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	} else {
-		rec.CreatedAt = ptrTime(ts)
+		rec.CreatedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["updated_at"]); ts.IsZero() {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	} else {
-		rec.UpdatedAt = ptrTime(ts)
+		rec.UpdatedAt = new(ts)
 	}
 	return rec
 }
@@ -236,17 +237,17 @@ func postRecordFromMap(record map[string]any) *PostRecord {
 		rec.Slug = sanitizeSlug(rec.Title)
 	}
 	if ts := parseTimeValue(record["published_at"]); !ts.IsZero() {
-		rec.PublishedAt = ptrTime(ts)
+		rec.PublishedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["created_at"]); ts.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	} else {
-		rec.CreatedAt = ptrTime(ts)
+		rec.CreatedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["updated_at"]); ts.IsZero() {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	} else {
-		rec.UpdatedAt = ptrTime(ts)
+		rec.UpdatedAt = new(ts)
 	}
 	return rec
 }
@@ -321,14 +322,14 @@ func mediaRecordFromMap(record map[string]any) *MediaRecord {
 		}
 	}
 	if ts := parseTimeValue(record["created_at"]); ts.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	} else {
-		rec.CreatedAt = ptrTime(ts)
+		rec.CreatedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["updated_at"]); ts.IsZero() {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	} else {
-		rec.UpdatedAt = ptrTime(ts)
+		rec.UpdatedAt = new(ts)
 	}
 	if alt := asString(record["alt_text"], ""); alt != "" {
 		rec.Metadata["alt_text"] = alt
@@ -337,9 +338,7 @@ func mediaRecordFromMap(record map[string]any) *MediaRecord {
 		rec.Metadata["caption"] = caption
 	}
 	if meta, ok := record["metadata"].(map[string]any); ok {
-		for k, v := range meta {
-			rec.Metadata[k] = v
-		}
+		maps.Copy(rec.Metadata, meta)
 	}
 	return rec
 }
@@ -363,9 +362,7 @@ func mediaRecordToMap(record *MediaRecord) map[string]any {
 	if record.UpdatedAt != nil {
 		out["updated_at"] = record.UpdatedAt
 	}
-	for k, v := range record.Metadata {
-		out[k] = v
-	}
+	maps.Copy(out, record.Metadata)
 	return out
 }
 

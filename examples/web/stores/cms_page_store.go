@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"strings"
 	"time"
 
@@ -592,9 +593,7 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		if seo == nil {
 			seo = map[string]any{}
 		}
-		for key, value := range seoData {
-			seo[key] = value
-		}
+		maps.Copy(seo, seoData)
 	}
 
 	if embedded, ok := extractEmbeddedBlocks(data["blocks"]); ok {

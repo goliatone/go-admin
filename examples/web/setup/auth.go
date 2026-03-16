@@ -589,7 +589,7 @@ func buildRolePermissionVersion(
 		_, _ = hasher.Write([]byte("|a:"))
 		_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(assignment.RoleID.String()))))
 		_, _ = hasher.Write([]byte(":"))
-		_, _ = hasher.Write([]byte(fmt.Sprintf("%d", assignment.AssignedAt.UTC().UnixNano())))
+		_, _ = hasher.Write(fmt.Appendf(nil, "%d", assignment.AssignedAt.UTC().UnixNano()))
 	}
 
 	sortedRoles := append([]userstypes.RoleDefinition(nil), roles...)
@@ -600,7 +600,7 @@ func buildRolePermissionVersion(
 		_, _ = hasher.Write([]byte("|r:"))
 		_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(role.ID.String()))))
 		_, _ = hasher.Write([]byte(":"))
-		_, _ = hasher.Write([]byte(fmt.Sprintf("%d", role.UpdatedAt.UTC().UnixNano())))
+		_, _ = hasher.Write(fmt.Appendf(nil, "%d", role.UpdatedAt.UTC().UnixNano()))
 	}
 
 	sum := hasher.Sum(nil)

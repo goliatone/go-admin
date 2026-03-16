@@ -317,7 +317,7 @@ func TestUserStoreListAppliesSortAndExtendedFiltersBeforePagination(t *testing.T
 
 func createTestUsers(t *testing.T, store *stores.UserStore, ctx context.Context, total int) {
 	t.Helper()
-	for i := 0; i < total; i++ {
+	for i := range total {
 		role := "admin"
 		if i%2 == 0 {
 			role = "member"

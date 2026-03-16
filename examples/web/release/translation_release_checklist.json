@@ -1,0 +1,60 @@
+{
+  "release_id": "translations-2026.03.15-rc1",
+  "phase": "20",
+  "rollout_defaults": {
+    "profile": "full",
+    "exchange": true,
+    "queue": true,
+    "kill_switches": [
+      "translations.exchange",
+      "translations.queue"
+    ]
+  },
+  "signoffs": {
+    "be": {
+      "approved": false,
+      "approver": "",
+      "approved_at": "",
+      "ticket": "REL-TRANS-BE"
+    },
+    "fe": {
+      "approved": false,
+      "approver": "",
+      "approved_at": "",
+      "ticket": "REL-TRANS-FE"
+    },
+    "qa": {
+      "approved": false,
+      "approver": "",
+      "approved_at": "",
+      "ticket": "REL-TRANS-QA"
+    },
+    "ops": {
+      "approved": false,
+      "approver": "",
+      "approved_at": "",
+      "ticket": "REL-TRANS-OPS"
+    }
+  },
+  "evidence": {
+    "contracts_ref": "",
+    "migrations_ref": "",
+    "scope_ref": "",
+    "security_ref": "",
+    "observability_ref": "",
+    "performance_ref": "",
+    "extraction_dry_run_ref": "",
+    "accessibility_ref": "",
+    "e2e_ref": "",
+    "staging_soak_ref": ""
+  },
+  "rollback": {
+    "feature_flags_off": [
+      "translations.exchange",
+      "translations.queue"
+    ],
+    "restore_app_build": true,
+    "restore_db_snapshot": true,
+    "notes": "Disable both translation feature flags, redeploy the previous app build, restore the most recent pre-rollout database snapshot, then re-run translation smoke gates before reopening traffic."
+  }
+}

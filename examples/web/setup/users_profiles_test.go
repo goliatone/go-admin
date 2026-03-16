@@ -152,7 +152,7 @@ func TestEnsureSeedUserProfilesCoversUsersBeyondLegacyPageLimit(t *testing.T) {
 	usersRepo := deps.RepoManager.Users()
 	extraUserIDs := make([]uuid.UUID, 0, 35)
 	now := time.Now().UTC()
-	for i := 0; i < 35; i++ {
+	for i := range 35 {
 		id := uuid.New()
 		username := fmt.Sprintf("profile.seed.%03d", i)
 		email := fmt.Sprintf("%s@example.com", username)

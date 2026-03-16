@@ -303,13 +303,13 @@ func (s *AdminPageStoreAdapter) toAdminPageRecord(record map[string]any, include
 	}
 
 	if ts := parseTimeValue(record["published_at"]); !ts.IsZero() {
-		out.PublishedAt = ptrTime(ts)
+		out.PublishedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["created_at"]); !ts.IsZero() {
-		out.CreatedAt = ptrTime(ts)
+		out.CreatedAt = new(ts)
 	}
 	if ts := parseTimeValue(record["updated_at"]); !ts.IsZero() {
-		out.UpdatedAt = ptrTime(ts)
+		out.UpdatedAt = new(ts)
 	}
 
 	return out

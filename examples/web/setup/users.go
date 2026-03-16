@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -412,7 +413,7 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 				Email:     seed.Email,
 				Role:      seed.Role,
 				Status:    seed.Status,
-				CreatedAt: ptrTime(now.Add(-30 * 24 * time.Hour)),
+				CreatedAt: new(now.Add(-30 * 24 * time.Hour)),
 				Metadata:  map[string]any{},
 			}
 			user, err = usersRepo.Create(ctx, user)
@@ -426,7 +427,7 @@ func SeedUsers(ctx context.Context, deps stores.UserDependencies, preferenceRepo
 			}
 		}
 		if seed.LastLogin.After(time.Time{}) {
-			user.LoggedInAt = ptrTime(seed.LastLogin)
+			user.LoggedInAt = new(seed.LastLogin)
 			_, _ = usersRepo.Update(ctx, user)
 		}
 
@@ -1120,10 +1121,7 @@ func (i *inventoryRepositoryAdapter) ListUsers(ctx context.Context, filter types
 			Raw:       user,
 		})
 	}
-	nextOffset := pagination.Offset + len(out)
-	if nextOffset > total {
-		nextOffset = total
-	}
+	nextOffset := min(pagination.Offset+len(out), total)
 	return types.UserInventoryPage{
 		Users:      out,
 		Total:      total,
@@ -1144,10 +1142,7 @@ func normalizeInventoryPagination(p types.Pagination) types.Pagination {
 	if limit > maxInventoryLimit {
 		limit = maxInventoryLimit
 	}
-	offset := p.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(p.Offset, 0)
 	return types.Pagination{Limit: limit, Offset: offset}
 }
 
@@ -1269,9 +1264,7 @@ func (a *authRepositoryAdapter) UpdateStatus(ctx context.Context, actor types.Ac
 		user.Metadata["transition_reason"] = cfg.Reason
 	}
 	if len(cfg.Metadata) > 0 {
-		for k, v := range cfg.Metadata {
-			user.Metadata[k] = v
-		}
+		maps.Copy(user.Metadata, cfg.Metadata)
 	}
 	updated, err := a.users.Update(ctx, user)
 	if err != nil {
@@ -1355,8 +1348,9 @@ func (a *authRepositoryAdapter) fromAuthUser(user *types.AuthUser) *auth.User {
 	return out
 }
 
+//go:fix inline
 func ptrTime(t time.Time) *time.Time {
-	return &t
+	return new(t)
 }
 
 // GoUsersPreferencesStore bridges go-users preferences into the admin preferences contract.

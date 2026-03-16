@@ -113,17 +113,11 @@ func (s *goUsersActivityStore) ListActivity(_ context.Context, filter types.Acti
 	if limit > len(filtered) {
 		limit = len(filtered)
 	}
-	offset := filter.Pagination.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Pagination.Offset, 0)
 	if offset > len(filtered) {
 		offset = len(filtered)
 	}
-	end := offset + limit
-	if end > len(filtered) {
-		end = len(filtered)
-	}
+	end := min(offset+limit, len(filtered))
 	return types.ActivityPage{
 		Records:    cloneUsersRecords(filtered[offset:end]),
 		Total:      len(filtered),

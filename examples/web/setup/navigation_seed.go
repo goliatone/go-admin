@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"path"
 	"strings"
 
@@ -95,7 +96,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Type:          admin.MenuItemTypeGroup,
 			GroupTitle:    "Navigation",
 			GroupTitleKey: "menu.group.main",
-			Position:      admin.IntPtr(0),
+			Position:      new(0),
 			Menu:          menuCode,
 		},
 		{
@@ -104,7 +105,7 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Label:       "Content",
 			LabelKey:    "menu.content",
 			Icon:        "page",
-			Position:    admin.IntPtr(10),
+			Position:    new(10),
 			Collapsible: true,
 			Collapsed:   false,
 			Target: map[string]any{
@@ -258,9 +259,7 @@ func cloneAnyMapOrNil(src map[string]any) map[string]any {
 		return nil
 	}
 	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -269,8 +268,6 @@ func cloneStringMapOrNil(src map[string]string) map[string]string {
 		return nil
 	}
 	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }

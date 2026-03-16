@@ -309,7 +309,7 @@ func main() {
 		&cfg,
 		quickstart.DebugPanelDeps{
 			ScopeBuffer:   scopeDebugBuffer,
-			IsDevelopment: coreadmin.BoolPtr(isDev),
+			IsDevelopment: new(isDev),
 			DoctorEnabled: runtimeConfig.Admin.Debug.DoctorEnabled,
 		},
 		debugPanelCatalog,
@@ -1086,7 +1086,7 @@ func main() {
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
-		log.Printf("Translation exchange UI route enabled (/admin/translations/exchange)")
+		log.Printf("Translation exchange UI route enabled (/admin/translations/exchange) with export, validate, apply, retained history, and retry flows")
 	}
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
@@ -1286,7 +1286,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 		defaultLocale = "en"
 	}
 
-	allowLocaleFallback := coreadmin.BoolPtr(siteRuntime.AllowLocaleFallback)
+	allowLocaleFallback := new(siteRuntime.AllowLocaleFallback)
 
 	siteRuntimeEnv := strings.TrimSpace(siteRuntime.RuntimeEnv)
 	if siteRuntimeEnv == "" {
@@ -1344,7 +1344,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 				"translation_missing": "site/error/missing_translation",
 			},
 			AssetBasePath:       cfg.BasePath,
-			ReloadInDevelopment: coreadmin.BoolPtr(isDev),
+			ReloadInDevelopment: new(isDev),
 		},
 		Search: quicksite.SiteSearchConfig{
 			Route:       "/search",
@@ -1352,14 +1352,14 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			Collections: []string{"page", "post", "news"},
 		},
 		Features: quicksite.SiteFeatures{
-			EnablePreview:           coreadmin.BoolPtr(true),
-			EnableI18N:              coreadmin.BoolPtr(true),
-			EnableSearch:            coreadmin.BoolPtr(siteRuntime.EnableSearch),
-			EnableTheme:             coreadmin.BoolPtr(true),
-			EnableMenuDraftPreview:  coreadmin.BoolPtr(true),
-			EnableCanonicalRedirect: coreadmin.BoolPtr(siteRuntime.EnableCanonicalRedirect),
+			EnablePreview:           new(true),
+			EnableI18N:              new(true),
+			EnableSearch:            new(siteRuntime.EnableSearch),
+			EnableTheme:             new(true),
+			EnableMenuDraftPreview:  new(true),
+			EnableCanonicalRedirect: new(siteRuntime.EnableCanonicalRedirect),
 			CanonicalRedirectMode:   resolveSiteCanonicalRedirectMode(siteRuntime.CanonicalRedirectMode),
-			StrictLocalizedPaths:    coreadmin.BoolPtr(siteRuntime.StrictLocalizedPaths),
+			StrictLocalizedPaths:    new(siteRuntime.StrictLocalizedPaths),
 		},
 		Theme: quicksite.SiteThemeConfig{
 			Name:    themeName,
@@ -1698,7 +1698,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 		items = append(items, admin.MenuItem{
 			ID:          "example.translation.qa.exchange",
 			Type:        admin.MenuItemTypeItem,
-			Label:       "Exchange Contracts (QA)",
+			Label:       "Exchange Wizard + Jobs (QA)",
 			Icon:        "refresh-cw",
 			ParentID:    quickstart.NavigationGroupTranslationsID,
 			Menu:        menuCode,
@@ -2961,21 +2961,21 @@ type exportPipelineRecord struct {
 	Format       string              `json:"format"`
 	State        export.ExportState  `json:"state"`
 	RequestedBy  string              `json:"requested_by,omitempty"`
-	Scope        export.Scope        `json:"scope,omitempty"`
-	Counts       export.ExportCounts `json:"counts,omitempty"`
+	Scope        export.Scope        `json:"scope"`
+	Counts       export.ExportCounts `json:"counts"`
 	BytesWritten int64               `json:"bytes_written,omitempty"`
 	ArtifactKey  string              `json:"artifact_key,omitempty"`
 	CreatedAt    time.Time           `json:"created_at"`
-	StartedAt    time.Time           `json:"started_at,omitempty"`
-	CompletedAt  time.Time           `json:"completed_at,omitempty"`
-	ExpiresAt    time.Time           `json:"expires_at,omitempty"`
+	StartedAt    time.Time           `json:"started_at"`
+	CompletedAt  time.Time           `json:"completed_at"`
+	ExpiresAt    time.Time           `json:"expires_at"`
 	DurationMs   int64               `json:"duration_ms,omitempty"`
 	ProgressPct  float64             `json:"progress_pct,omitempty"`
 }
 
 type exportPipelineSnapshot struct {
 	UpdatedAt      time.Time                  `json:"updated_at"`
-	LatestExportAt time.Time                  `json:"latest_export_at,omitempty"`
+	LatestExportAt time.Time                  `json:"latest_export_at"`
 	Summary        map[string]int             `json:"summary"`
 	Definitions    []exportPipelineDefinition `json:"definitions,omitempty"`
 	Recent         []exportPipelineRecord     `json:"recent,omitempty"`
@@ -3037,10 +3037,7 @@ func buildExportPipelineSnapshot(
 	}
 	snapshot.Summary["active"] = snapshot.Summary["queued"] + snapshot.Summary["running"] + snapshot.Summary["publishing"]
 	snapshot.LatestExportAt = records[0].CreatedAt
-	limit := exportPipelineSnapshotLimit
-	if len(records) < limit {
-		limit = len(records)
-	}
+	limit := min(len(records), exportPipelineSnapshotLimit)
 	now := snapshot.UpdatedAt
 	snapshot.Recent = make([]exportPipelineRecord, 0, limit)
 	for i := 0; i < limit; i++ {
@@ -3085,10 +3082,7 @@ func exportPipelineColumnSample(columns []coreadmin.ExportColumn, max int) []str
 	if len(columns) == 0 || max <= 0 {
 		return nil
 	}
-	count := len(columns)
-	if count > max {
-		count = max
-	}
+	count := min(len(columns), max)
 	out := make([]string, 0, count)
 	for i := 0; i < count; i++ {
 		key := strings.TrimSpace(columns[i].Key)

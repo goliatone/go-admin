@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -17,6 +21,8 @@ import (
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type translationExchangeE2EFixture struct {
@@ -103,6 +109,102 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 	require.Equal(t, "ok", strings.ToLower(strings.TrimSpace(fmt.Sprint(publishPayload["status"]))))
 }
 
+func TestTranslationExchangeHistoryListsRuntimeAndFixtureJobs(t *testing.T) {
+	fx := newTranslationExchangeE2EFixture(t)
+	headers := map[string]string{"X-User-ID": "exchange-history-user"}
+
+	exportStatus, exportPayload := doAdminJSONRequestWithHeaderMap(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/export", map[string]any{
+		"filter": map[string]any{
+			"resources": []string{"pages"},
+		},
+	}, headers)
+	require.Equal(t, http.StatusOK, exportStatus, "export payload=%+v", exportPayload)
+
+	validateStatus, validatePayload := doAdminJSONRequestWithHeaderMap(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/import/validate", map[string]any{
+		"rows": []map[string]any{
+			{
+				"resource":             "pages",
+				"entity_id":            "missing-page",
+				"translation_group_id": "missing-page",
+				"target_locale":        "fr",
+				"field_path":           "title",
+				"translated_text":      "Bonjour",
+				"source_hash":          "hash-missing",
+			},
+		},
+	}, headers)
+	require.Equal(t, http.StatusOK, validateStatus, "validate payload=%+v", validatePayload)
+
+	historyStatus, historyPayload := doAdminJSONRequestWithHeaderMap(t, fx.handler, http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true", nil, headers)
+	require.Equal(t, http.StatusOK, historyStatus, "history payload=%+v", historyPayload)
+
+	history, _ := historyPayload["history"].(map[string]any)
+	require.NotNil(t, history)
+	meta, _ := historyPayload["meta"].(map[string]any)
+	require.NotNil(t, meta)
+	require.Equal(t, true, meta["include_examples"])
+
+	items, _ := history["items"].([]any)
+	require.GreaterOrEqual(t, len(items), 4, "expected runtime export/validate jobs plus fixture jobs")
+
+	var sawFixture bool
+	var sawRuntimeExport bool
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		if item == nil {
+			continue
+		}
+		if item["fixture"] == true {
+			sawFixture = true
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(fmt.Sprint(item["kind"])), "export") {
+			sawRuntimeExport = true
+			file, _ := item["file"].(map[string]any)
+			require.NotNil(t, file)
+			require.NotEmpty(t, strings.TrimSpace(fmt.Sprint(file["name"])))
+		}
+	}
+	require.True(t, sawFixture, "expected seeded fixture jobs in history")
+	require.True(t, sawRuntimeExport, "expected runtime export job in history")
+}
+
+func doAdminJSONRequestWithHeaderMap(
+	t *testing.T,
+	handler http.Handler,
+	method, path string,
+	payload map[string]any,
+	headers map[string]string,
+) (int, map[string]any) {
+	t.Helper()
+
+	var body *bytes.Reader
+	if payload != nil {
+		raw, err := json.Marshal(payload)
+		require.NoError(t, err, "marshal payload")
+		body = bytes.NewReader(raw)
+	} else {
+		body = bytes.NewReader(nil)
+	}
+
+	req := httptest.NewRequest(method, path, body)
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	decoded := map[string]any{}
+	if strings.TrimSpace(res.Body.String()) != "" {
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &decoded), "decode response")
+	}
+	return res.Code, decoded
+}
+
 func newTranslationExchangeE2EFixture(t *testing.T) translationExchangeE2EFixture {
 	t.Helper()
 	_ = commandregistry.Stop(context.Background())
@@ -163,9 +265,15 @@ func newTranslationExchangeE2EFixture(t *testing.T) translationExchangeE2EFixtur
 	require.NoError(t, err, "register posts panel")
 
 	exchangeStore := &translationExchangePageStore{content: contentSvc}
+	sqlDB, err := sql.Open("sqlite3", dsn)
+	require.NoError(t, err, "open exchange runtime sqlite")
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	runtimeStore := coreadmin.NewBunTranslationExchangeRuntimeStore(bun.NewDB(sqlDB, sqlitedialect.New()))
 	err = quickstart.RegisterTranslationExchangeWiring(adm, quickstart.TranslationExchangeConfig{
-		Enabled: true,
-		Store:   exchangeStore,
+		Enabled:      true,
+		Store:        exchangeStore,
+		RuntimeStore: runtimeStore,
 	})
 	require.NoError(t, err, "register translation exchange wiring")
 

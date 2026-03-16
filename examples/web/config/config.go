@@ -356,7 +356,7 @@ func Defaults() *Config {
 			Expiration: 72 * time.Hour,
 		},
 		Translation: TranslationConfig{
-			Profile: "core+queue",
+			Profile: "full",
 		},
 		Datagrid: DatagridConfig{},
 		ExportPDF: ExportPDFConfig{

@@ -23,7 +23,7 @@ func TestEnsureDashboardFirstWithOptionsKeepsContentParentNonClickable(t *testin
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
-		Position:      admin.IntPtr(0),
+		Position:      new(0),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {
@@ -43,7 +43,7 @@ func TestEnsureDashboardFirstWithOptionsKeepsContentParentNonClickable(t *testin
 			"type": "url",
 			"key":  "content",
 		},
-		Position: admin.IntPtr(10),
+		Position: new(10),
 	}); err != nil {
 		t.Fatalf("add content item: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestEnsureDashboardFirstWithOptionsKeepsContentParentNonClickable(t *testin
 			"key":  "dashboard",
 			"path": "/admin",
 		},
-		Position: admin.IntPtr(20),
+		Position: new(20),
 	}); err != nil {
 		t.Fatalf("add dashboard: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestRepairNavigationIntegrityRepairsSelfParentContentNode(t *testing.T) {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
-		Position:      admin.IntPtr(0),
+		Position:      new(0),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {
@@ -177,7 +177,7 @@ func TestRepairNavigationIntegrityIsIdempotent(t *testing.T) {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
-		Position:      admin.IntPtr(0),
+		Position:      new(0),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {
@@ -237,7 +237,7 @@ func TestRemoveLegacyTranslationToolsMenuItems(t *testing.T) {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Tools",
 		GroupTitleKey: "menu.group.others",
-		Position:      admin.IntPtr(90),
+		Position:      new(90),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {
@@ -319,7 +319,7 @@ func TestRemovePrimarySettingsMenuItems(t *testing.T) {
 		Type:          admin.MenuItemTypeGroup,
 		GroupTitle:    "Navigation",
 		GroupTitleKey: "menu.group.main",
-		Position:      admin.IntPtr(0),
+		Position:      new(0),
 		Menu:          menuCode,
 		Locale:        locale,
 	}); err != nil {

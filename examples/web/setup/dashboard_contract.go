@@ -3,6 +3,7 @@ package setup
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -241,12 +242,7 @@ func containsDisallowedWidgetMarkup(value any) bool {
 		}
 		return false
 	case []any:
-		for _, item := range typed {
-			if containsDisallowedWidgetMarkup(item) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(typed, containsDisallowedWidgetMarkup)
 	case string:
 		lowered := strings.ToLower(strings.TrimSpace(typed))
 		return strings.Contains(lowered, "<script") ||

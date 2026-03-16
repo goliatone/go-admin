@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -16,8 +18,8 @@ import (
 )
 
 var (
-	bridgeContextType = reflect.TypeOf((*context.Context)(nil)).Elem()
-	bridgeUUIDType    = reflect.TypeOf(uuid.UUID{})
+	bridgeContextType = reflect.TypeFor[context.Context]()
+	bridgeUUIDType    = reflect.TypeFor[uuid.UUID]()
 )
 
 // goCMSContentBridge adapts the go-cms content service (which uses internal types)
@@ -233,9 +235,7 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	}
 
 	data := primitives.CloneAnyMapEmptyOnEmpty(existing.Data)
-	for k, v := range primitives.CloneAnyMapEmptyOnEmpty(page.Data) {
-		data[k] = v
-	}
+	maps.Copy(data, primitives.CloneAnyMapEmptyOnEmpty(page.Data))
 	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
 		data["meta_title"] = mt
 	}
@@ -258,9 +258,7 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	}
 	data["path"] = path
 	metadata := primitives.CloneAnyMapEmptyOnEmpty(existing.Metadata)
-	for key, value := range primitives.CloneAnyMapEmptyOnEmpty(page.Metadata) {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, primitives.CloneAnyMapEmptyOnEmpty(page.Metadata))
 	groupID := bridgeRequestedTranslationGroupID(primitives.FirstNonEmpty(page.TranslationGroupID, existing.TranslationGroupID), data, metadata)
 	data, metadata = bridgePersistTranslationGroupMetadata(groupID, data, metadata)
 
@@ -1081,7 +1079,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		out.Title = stringField(chosen, "Title")
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["excerpt"] = summary
-		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Ptr && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
+		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
 			out.Data["excerpt"] = summaryPtr.Elem().String()
 		}
 		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
@@ -1196,9 +1194,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 				if merged == nil {
 					merged = map[string]any{}
 				}
-				for key, value := range out.Data {
-					merged[key] = value
-				}
+				maps.Copy(merged, out.Data)
 				out.Data = merged
 			}
 		}
@@ -1394,12 +1390,7 @@ func validationBridgeOptionError(method string) error {
 }
 
 func hasBridgeContentListOption(opts []admin.CMSContentListOption, token admin.CMSContentListOption) bool {
-	for _, opt := range opts {
-		if opt == token {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, token)
 }
 
 func hasBridgeProjectionOption(opts []admin.CMSContentListOption) bool {
@@ -1567,7 +1558,7 @@ func reflectError(results []reflect.Value) error {
 		return nil
 	}
 	last := results[len(results)-1]
-	if last.IsValid() && last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) && !last.IsNil() {
+	if last.IsValid() && last.Type().Implements(reflect.TypeFor[error]()) && !last.IsNil() {
 		if err, ok := last.Interface().(error); ok {
 			return err
 		}
@@ -1576,7 +1567,7 @@ func reflectError(results []reflect.Value) error {
 }
 
 func deref(val reflect.Value) reflect.Value {
-	for val.IsValid() && val.Kind() == reflect.Ptr {
+	for val.IsValid() && val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 	return val
@@ -1591,7 +1582,7 @@ func setStringField(val reflect.Value, name, value string) {
 
 func setStringPtr(val reflect.Value, name, value string) {
 	field := val.FieldByName(name)
-	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Ptr {
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Pointer {
 		ptr := reflect.New(field.Type().Elem())
 		ptr.Elem().SetString(value)
 		field.Set(ptr)
@@ -1623,14 +1614,14 @@ func setSliceField(val reflect.Value, name string, slice any) {
 
 func setUUIDField(val reflect.Value, name string, id uuid.UUID) {
 	field := val.FieldByName(name)
-	if field.IsValid() && field.CanSet() && field.Type() == reflect.TypeOf(uuid.UUID{}) {
+	if field.IsValid() && field.CanSet() && field.Type() == reflect.TypeFor[uuid.UUID]() {
 		field.Set(reflect.ValueOf(id))
 	}
 }
 
 func setUUIDPtr(val reflect.Value, name string, id uuid.UUID) {
 	field := val.FieldByName(name)
-	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Ptr && field.Type().Elem() == reflect.TypeOf(uuid.UUID{}) {
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Pointer && field.Type().Elem() == reflect.TypeFor[uuid.UUID]() {
 		ptr := reflect.New(field.Type().Elem())
 		ptr.Elem().Set(reflect.ValueOf(id))
 		field.Set(ptr)
@@ -1660,7 +1651,7 @@ func stringField(val reflect.Value, field string) string {
 		if f.Kind() == reflect.String {
 			return f.String()
 		}
-		if f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().Kind() == reflect.String {
+		if f.Kind() == reflect.Pointer && !f.IsNil() && f.Elem().Kind() == reflect.String {
 			return f.Elem().String()
 		}
 	}
@@ -1690,7 +1681,7 @@ func timeField(val reflect.Value, field string) time.Time {
 			return t
 		}
 	}
-	if f.IsValid() && f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().CanInterface() {
+	if f.IsValid() && f.Kind() == reflect.Pointer && !f.IsNil() && f.Elem().CanInterface() {
 		if t, ok := f.Elem().Interface().(time.Time); ok {
 			return t
 		}
@@ -1790,7 +1781,7 @@ func uuidStringField(val reflect.Value, name string) string {
 			}
 		}
 	}
-	if field.Kind() == reflect.Ptr && !field.IsNil() && field.Elem().CanInterface() {
+	if field.Kind() == reflect.Pointer && !field.IsNil() && field.Elem().CanInterface() {
 		if v, ok := field.Elem().Interface().(uuid.UUID); ok && v != uuid.Nil {
 			return v.String()
 		}
@@ -2005,12 +1996,8 @@ func (b *goCMSContentBridge) publishBlockDefinitionCache(defs map[string]uuid.UU
 	}
 	b.blockDefMu.Lock()
 	defer b.blockDefMu.Unlock()
-	for key, id := range defs {
-		b.blockDefs[key] = id
-	}
-	for id, name := range names {
-		b.blockDefNames[id] = name
-	}
+	maps.Copy(b.blockDefs, defs)
+	maps.Copy(b.blockDefNames, names)
 }
 
 func (b *goCMSContentBridge) lookupBlockDefinitionID(key string) uuid.UUID {
@@ -2048,7 +2035,7 @@ func (b *goCMSContentBridge) convertBlockInstance(val reflect.Value, locale stri
 	if pos, ok := intField(val, "Position"); ok {
 		block.Position = pos
 	}
-	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Ptr && !pub.IsNil() {
+	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Pointer && !pub.IsNil() {
 		block.Status = "published"
 	} else if block.Status == "" {
 		block.Status = "draft"
@@ -2231,7 +2218,7 @@ func setIntField(val reflect.Value, name string, value int) {
 
 func setIntPtr(val reflect.Value, name string, value int) {
 	field := val.FieldByName(name)
-	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Ptr {
+	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Pointer {
 		ptr := reflect.New(field.Type().Elem())
 		ptr.Elem().SetInt(int64(value))
 		field.Set(ptr)

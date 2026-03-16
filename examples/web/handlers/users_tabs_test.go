@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -542,7 +543,7 @@ func TestUserActivityTabQueryCostBounded(t *testing.T) {
 	t.Run("extreme requested limit is clamped and query count is bounded", func(t *testing.T) {
 		now := time.Now().UTC()
 		targetEntries := make([]admin.ActivityEntry, 0, 80)
-		for i := 0; i < 80; i++ {
+		for i := range 80 {
 			targetEntries = append(targetEntries, admin.ActivityEntry{
 				ID:        fmt.Sprintf("target-%03d", i),
 				Actor:     "admin-1",
@@ -574,7 +575,7 @@ func TestUserActivityTabQueryCostBounded(t *testing.T) {
 		now := time.Now().UTC()
 		targetEntries := make([]admin.ActivityEntry, 0, 50)
 		actorEntries := make([]admin.ActivityEntry, 0, 20)
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			id := fmt.Sprintf("dup-%d", (i%5)+1)
 			ts := now.Add(-time.Duration(i) * time.Second)
 			targetEntries = append(targetEntries, admin.ActivityEntry{
@@ -592,7 +593,7 @@ func TestUserActivityTabQueryCostBounded(t *testing.T) {
 				CreatedAt: ts,
 			})
 		}
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			targetEntries = append(targetEntries, admin.ActivityEntry{
 				ID:        fmt.Sprintf("unique-%02d", i+1),
 				Actor:     "admin-2",
@@ -992,9 +993,7 @@ func (c *capturingUserTabActivityMetrics) IncrementErrorCount(_ context.Context,
 
 func cloneMetricTags(tags map[string]string) map[string]string {
 	out := make(map[string]string, len(tags))
-	for key, value := range tags {
-		out[key] = value
-	}
+	maps.Copy(out, tags)
 	return out
 }
 

@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 )
 
@@ -10,9 +11,7 @@ func cloneRecord(record map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := make(map[string]any, len(record))
-	for k, v := range record {
-		out[k] = v
-	}
+	maps.Copy(out, record)
 	return out
 }
 

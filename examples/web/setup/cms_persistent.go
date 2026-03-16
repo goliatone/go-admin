@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -252,13 +253,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 
 func registerSQLiteDrivers(names ...string) {
 	for _, name := range names {
-		registered := false
-		for _, drv := range sql.Drivers() {
-			if drv == name {
-				registered = true
-				break
-			}
-		}
+		registered := slices.Contains(sql.Drivers(), name)
 		if registered {
 			continue
 		}

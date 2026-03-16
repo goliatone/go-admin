@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing/fstest"
 	"time"
@@ -658,13 +659,7 @@ CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_locale
 
 func registerSQLiteDrivers(names ...string) {
 	for _, name := range names {
-		registered := false
-		for _, drv := range sql.Drivers() {
-			if drv == name {
-				registered = true
-				break
-			}
-		}
+		registered := slices.Contains(sql.Drivers(), name)
 		if registered {
 			continue
 		}

@@ -492,11 +492,9 @@ func TestGoCMSContentBridgeBlockDefinitionCacheSupportsConcurrentReads(t *testin
 
 	ctx := context.Background()
 	var wg sync.WaitGroup
-	for i := 0; i < 24; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range 24 {
+		wg.Go(func() {
+			for range 100 {
 				defs, err := bridge.BlockDefinitions(ctx)
 				if err != nil {
 					t.Errorf("BlockDefinitions failed: %v", err)
@@ -519,7 +517,7 @@ func TestGoCMSContentBridgeBlockDefinitionCacheSupportsConcurrentReads(t *testin
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

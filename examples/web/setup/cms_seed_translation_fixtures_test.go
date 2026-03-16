@@ -84,8 +84,8 @@ func TestValidateCMSContentSeedsAcceptsCanonicalTranslationSeed(t *testing.T) {
 		{
 			Slug: "canonical-page",
 			Translations: map[string]contentSeedTranslation{
-				"es": {Title: stringPtr("Pagina")},
-				"fr": {Title: stringPtr("Page")},
+				"es": {Title: new("Pagina")},
+				"fr": {Title: new("Page")},
 			},
 		},
 	}, nil, nil)
@@ -246,6 +246,7 @@ func translationFixtureLocales(t *testing.T, ctx context.Context, db *bun.DB, ta
 	return locales
 }
 
+//go:fix inline
 func stringPtr(value string) *string {
-	return &value
+	return new(value)
 }

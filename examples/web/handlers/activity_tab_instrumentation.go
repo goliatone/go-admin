@@ -41,10 +41,7 @@ func (m *expvarUserTabActivityMetrics) ObserveQueryDuration(_ context.Context, d
 	if m == nil {
 		return
 	}
-	ms := duration.Milliseconds()
-	if ms < 0 {
-		ms = 0
-	}
+	ms := max(duration.Milliseconds(), 0)
 	m.queryDuration.Add(userTabActivityTagsKey(tags), ms)
 }
 

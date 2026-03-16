@@ -71,7 +71,7 @@ func (m *pagesModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.pages.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    admin.IntPtr(20),
+			Position:    new(20),
 		},
 	}
 }
@@ -133,7 +133,7 @@ func (m *postsModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.posts.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    admin.IntPtr(30),
+			Position:    new(30),
 			Badge: map[string]any{
 				"text": "3",
 			},
@@ -229,7 +229,7 @@ func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 			Permissions: []string{"admin.media.view"},
 			Locale:      locale,
 			Menu:        code,
-			Position:    admin.IntPtr(40),
+			Position:    new(40),
 		},
 	}
 }
@@ -300,7 +300,7 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 			ParentID: m.parentID,
 			Locale:   locale,
 			Menu:     code,
-			Position: admin.IntPtr(1),
+			Position: new(1),
 		},
 	}
 }

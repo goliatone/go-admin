@@ -248,10 +248,10 @@ func (s *MediaStore) emitActivity(ctx context.Context, verb string, media map[st
 func ensureMediaTimestamps(rec *MediaRecord, isCreate bool) {
 	now := time.Now().UTC()
 	if rec.CreatedAt == nil || rec.CreatedAt.IsZero() {
-		rec.CreatedAt = ptrTime(now)
+		rec.CreatedAt = new(now)
 	}
 	if rec.UpdatedAt == nil || rec.UpdatedAt.IsZero() || isCreate {
-		rec.UpdatedAt = ptrTime(now)
+		rec.UpdatedAt = new(now)
 	}
 }
 
