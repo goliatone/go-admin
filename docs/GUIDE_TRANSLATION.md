@@ -360,3 +360,95 @@ Core mechanics and guards:
 - `pkg/client/templates/resources/content/list.html`
 - `pkg/client/templates/resources/content/form.html`
 - `pkg/client/templates/resources/translations/exchange.html`
+
+---
+
+## 11. Datagrid Translation Integration
+
+Content panels (Pages, Posts, etc.) render translation information directly in list views. This section explains how translation columns work in content datagrids.
+
+### Translation Columns
+
+Content panel builders expose these translation-related columns:
+
+| Column | Helper | Description |
+|--------|--------|-------------|
+| `translation_status` | `renderTranslationStatusCell` / `renderTranslationMatrixCell` | Shows locale badge + available locales (switches to matrix view in matrix mode) |
+| `translation_family_url` | `renderTranslationFamilyLink` | Link to family view with member count badge |
+| `family_member_count` | `renderTranslationFamilyMemberCount` | Number of locales in the translation family |
+| `translation_readiness` | `renderReadinessIndicator` | Canonical readiness state (ready/missing_locales/missing_fields) |
+| `missing_translations` | `renderMissingTranslationsBadge` | Prominent badge showing missing required locales |
+| `locale_completeness` | `renderLocaleCompleteness` | X/Y format showing available vs required locales |
+| `translation_assignment_summary` | `renderTranslationAssignmentSummary` | Assignment status and priority |
+| `translation_exchange_summary` | `renderTranslationExchangeSummary` | Exchange job status and pending count |
+
+All renderers are imported from `datatable/index.js` and use canonical backend contracts.
+
+### Family Navigation
+
+Content rows support a server-authored "View Family" action:
+
+```go
+// In setup/panels.go
+viewFamilyAction("admin.pages.view")  // Adds to page panel actions
+viewFamilyAction("admin.posts.view")  // Adds to post panel actions
+```
+
+The action:
+- Uses `translation_family_url` metadata from the row
+- Navigates to `/admin/translations/family/{group_id}`
+- Respects `_action_state` for permission/workflow gating
+- Appears in row action menu with `git-branch` icon
+
+### Quick Filters
+
+Content lists use canonical predicates for translation filtering:
+
+| Filter Key | Predicate | Description |
+|------------|-----------|-------------|
+| `missing_locales` | `readiness_state=missing_locales` | Records missing required locales |
+| `missing_fields` | `readiness_state=missing_fields` | Records with incomplete fields |
+| `incomplete` | `incomplete=true` | General incomplete filter |
+| `fallback` | `fallback_used=true` | Records showing fallback content |
+
+Quick filters are initialized via `createTranslationQuickFilters()` when `translation_ux_enabled=true` in datagrid config.
+
+### View Modes
+
+Content lists support three view modes:
+
+- **Flat**: Standard row-per-record list
+- **Grouped**: Records grouped by `translation_group_id` with family headers
+- **Matrix**: Compact locale status indicators (●/◐/○) per required locale
+
+View mode is controlled by datagrid config (`default_view_mode`) and user preference. The `translation_status` cell renderer automatically switches between `renderTranslationStatusCell` (flat/grouped) and `renderTranslationMatrixCell` (matrix).
+
+### Backend Contract Fields
+
+Panels must publish these fields for translation UX to work:
+
+```go
+// In panel builder ListFields()
+admin.Field{Name: "translation_family_url", Label: "Family", Type: "text"},
+admin.Field{Name: "family_member_count", Label: "Locales", Type: "number"},
+admin.Field{Name: "translation_readiness", Label: "Readiness", Type: "text"},
+admin.Field{Name: "missing_translations", Label: "Missing", Type: "text"},
+admin.Field{Name: "translation_assignment_summary", Label: "Assignment", Type: "text"},
+admin.Field{Name: "translation_exchange_summary", Label: "Exchange", Type: "text"},
+```
+
+The backend must also populate `translation_readiness` as a nested object with canonical fields:
+
+```json
+{
+  "translation_readiness": {
+    "readiness_state": "missing_locales",
+    "required_locales": ["en", "es", "fr"],
+    "available_locales": ["en"],
+    "missing_required_locales": ["es", "fr"],
+    "ready_for_transition": { "publish": false }
+  }
+}
+```
+
+See `admin/translation_readiness.go` for backend implementation.
