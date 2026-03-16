@@ -161,6 +161,18 @@ export interface TranslationExchangeJob {
   status: TranslationExchangeJobStatus;
   poll_endpoint: string;
   progress: TranslationExchangeJobProgress;
+  actor?: {
+    id: string;
+    label?: string;
+  };
+  file?: {
+    name?: string;
+    format?: string;
+    row_count?: number;
+  };
+  summary?: Record<string, unknown>;
+  downloads?: Record<string, TranslationExchangeJobDownload>;
+  fixture?: boolean;
   request?: Record<string, unknown>;
   result?: Record<string, unknown>;
   request_id?: string;
@@ -168,6 +180,14 @@ export interface TranslationExchangeJob {
   error?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface TranslationExchangeJobDownload {
+  kind: string;
+  label: string;
+  filename: string;
+  content_type: string;
+  href: string;
 }
 
 export interface TranslationExchangeValidationResult {
@@ -188,6 +208,26 @@ export interface TranslationExchangeUploadDescriptor {
   format?: "csv" | "json";
   row_count?: number;
   message?: string;
+}
+
+export interface TranslationExchangeHistoryResponse {
+  history: {
+    items: TranslationExchangeJob[];
+    page: number;
+    per_page: number;
+    total: number;
+    has_more: boolean;
+    counts?: {
+      by_kind?: Record<string, number>;
+      by_status?: Record<string, number>;
+    };
+  };
+  meta: {
+    job_kinds: TranslationExchangeJobKind[];
+    job_statuses: TranslationExchangeJobStatus[];
+    download_kinds: string[];
+    include_examples?: boolean;
+  };
 }
 
 export const EMPTY_TRANSLATION_CAPABILITIES: TranslationCapabilities = {
@@ -404,6 +444,44 @@ export function normalizeTranslationExchangeJob(
     obj.progress && typeof obj.progress === "object"
       ? (obj.progress as Record<string, unknown>)
       : {};
+  const actorRaw =
+    obj.actor && typeof obj.actor === "object"
+      ? (obj.actor as Record<string, unknown>)
+      : undefined;
+  const fileRaw =
+    obj.file && typeof obj.file === "object"
+      ? (obj.file as Record<string, unknown>)
+      : undefined;
+  const downloadsRaw =
+    obj.downloads && typeof obj.downloads === "object"
+      ? (obj.downloads as Record<string, unknown>)
+      : obj.result && typeof obj.result === "object"
+        ? (((obj.result as Record<string, unknown>).downloads as Record<
+            string,
+            unknown
+          > | null) ?? undefined)
+        : undefined;
+  const downloads: Record<string, TranslationExchangeJobDownload> = {};
+  if (downloadsRaw && typeof downloadsRaw === "object") {
+    for (const [key, value] of Object.entries(downloadsRaw)) {
+      if (!value || typeof value !== "object") continue;
+      const entry = value as Record<string, unknown>;
+      const href = typeof entry.href === "string" ? entry.href : "";
+      if (!href) continue;
+      downloads[key] = {
+        kind: typeof entry.kind === "string" ? entry.kind : key,
+        label:
+          typeof entry.label === "string" ? entry.label : "Download artifact",
+        filename:
+          typeof entry.filename === "string" ? entry.filename : `${key}.dat`,
+        content_type:
+          typeof entry.content_type === "string"
+            ? entry.content_type
+            : "application/octet-stream",
+        href,
+      };
+    }
+  }
   return {
     id: typeof obj.id === "string" ? obj.id : "",
     kind,
@@ -427,6 +505,31 @@ export function normalizeTranslationExchangeJob(
           ? progressRaw.skipped
           : undefined,
     },
+    actor:
+      actorRaw && typeof actorRaw.id === "string"
+        ? {
+            id: actorRaw.id,
+            label:
+              typeof actorRaw.label === "string" ? actorRaw.label : undefined,
+          }
+        : undefined,
+    file: fileRaw
+      ? {
+          name: typeof fileRaw.name === "string" ? fileRaw.name : undefined,
+          format:
+            typeof fileRaw.format === "string" ? fileRaw.format : undefined,
+          row_count:
+            typeof fileRaw.row_count === "number"
+              ? fileRaw.row_count
+              : undefined,
+        }
+      : undefined,
+    summary:
+      typeof obj.summary === "object" && obj.summary
+        ? (obj.summary as Record<string, unknown>)
+        : undefined,
+    downloads: Object.keys(downloads).length > 0 ? downloads : undefined,
+    fixture: obj.fixture === true,
     request:
       typeof obj.request === "object" && obj.request
         ? (obj.request as Record<string, unknown>)
@@ -440,6 +543,70 @@ export function normalizeTranslationExchangeJob(
     error: typeof obj.error === "string" ? obj.error : undefined,
     created_at: typeof obj.created_at === "string" ? obj.created_at : undefined,
     updated_at: typeof obj.updated_at === "string" ? obj.updated_at : undefined,
+  };
+}
+
+export function normalizeTranslationExchangeHistoryResponse(
+  raw: unknown,
+): TranslationExchangeHistoryResponse {
+  const obj =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const historyRaw =
+    obj.history && typeof obj.history === "object"
+      ? (obj.history as Record<string, unknown>)
+      : {};
+  const metaRaw =
+    obj.meta && typeof obj.meta === "object"
+      ? (obj.meta as Record<string, unknown>)
+      : {};
+  const itemsRaw = Array.isArray(historyRaw.items) ? historyRaw.items : [];
+  return {
+    history: {
+      items: itemsRaw
+        .map((entry) => normalizeTranslationExchangeJob(entry))
+        .filter((entry): entry is TranslationExchangeJob => entry !== null),
+      page: typeof historyRaw.page === "number" ? historyRaw.page : 1,
+      per_page:
+        typeof historyRaw.per_page === "number" ? historyRaw.per_page : 20,
+      total: typeof historyRaw.total === "number" ? historyRaw.total : 0,
+      has_more: historyRaw.has_more === true,
+      counts:
+        typeof historyRaw.counts === "object" && historyRaw.counts
+          ? (historyRaw.counts as TranslationExchangeHistoryResponse["history"]["counts"])
+          : undefined,
+    },
+    meta: {
+      job_kinds: Array.isArray(metaRaw.job_kinds)
+        ? metaRaw.job_kinds
+            .map((value) =>
+              typeof value === "string" &&
+              EXCHANGE_JOB_KINDS.includes(value as TranslationExchangeJobKind)
+                ? (value as TranslationExchangeJobKind)
+                : null,
+            )
+            .filter((value): value is TranslationExchangeJobKind => value !== null)
+        : [...EXCHANGE_JOB_KINDS],
+      job_statuses: Array.isArray(metaRaw.job_statuses)
+        ? metaRaw.job_statuses
+            .map((value) =>
+              typeof value === "string" &&
+              EXCHANGE_JOB_STATUSES.includes(
+                value as TranslationExchangeJobStatus,
+              )
+                ? (value as TranslationExchangeJobStatus)
+                : null,
+            )
+            .filter(
+              (value): value is TranslationExchangeJobStatus => value !== null,
+            )
+        : [...EXCHANGE_JOB_STATUSES],
+      download_kinds: Array.isArray(metaRaw.download_kinds)
+        ? metaRaw.download_kinds.filter(
+            (value): value is string => typeof value === "string" && !!value,
+          )
+        : [],
+      include_examples: metaRaw.include_examples === true,
+    },
   };
 }
 

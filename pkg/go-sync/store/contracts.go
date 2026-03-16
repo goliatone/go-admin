@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,7 +18,7 @@ type ResourceStore interface {
 	Mutate(ctx context.Context, input core.MutationInput) (core.Snapshot, error)
 }
 
-// IdempotencyStore stores prior mutation results for retry-safe replay.
+// IdempotencyStore stores prior mutation results for retry safe replay.
 type IdempotencyStore interface {
 	Get(ctx context.Context, key string) (core.MutationResult, bool, error)
 	Put(ctx context.Context, key string, result core.MutationResult, ttl time.Duration) error
@@ -392,9 +393,7 @@ func cloneStringMap(input map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

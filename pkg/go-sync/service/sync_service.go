@@ -97,7 +97,7 @@ func (s *SyncService) Get(ctx context.Context, ref core.ResourceRef) (core.Snaps
 	return snapshot, nil
 }
 
-// Mutate applies a compare-and-swap mutation and replays previous results when possible.
+// Mutate applies a "compare and swap" mutation, replays previous results when possible.
 func (s *SyncService) Mutate(ctx context.Context, input core.MutationInput) (core.MutationResult, error) {
 	if err := validateMutationInput(input); err != nil {
 		return core.MutationResult{}, err

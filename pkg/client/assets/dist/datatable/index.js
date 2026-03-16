@@ -1,5 +1,5 @@
 import { F as z } from "../chunks/toast-manager-DQTs-tOQ.js";
-import { executeStructuredRequest as Qe, formatStructuredErrorForDisplay as te, createStructuredActionError as re, isHandledActionError as P, getStructuredActionError as j, extractErrorMessage as Ht, executeActionRequest as $e, isTranslationBlocker as Ut, extractTranslationBlocker as Vt } from "../toast/error-helpers.js";
+import { executeStructuredRequest as Qe, formatStructuredErrorForDisplay as V, createStructuredActionError as re, isHandledActionError as P, getStructuredActionError as j, extractErrorMessage as Ht, executeActionRequest as $e, isTranslationBlocker as Ut, extractTranslationBlocker as Vt } from "../toast/error-helpers.js";
 import { extractExchangeError as nl, generateExchangeReport as sl, groupRowResultsByStatus as ol, isExchangeError as al, parseImportResult as il } from "../toast/error-helpers.js";
 import { M as We, e as m, T as Fe } from "../chunks/modal-CI6l6KPp.js";
 import { b as ne, a as Kt } from "../chunks/badge-CqKzZ9y5.js";
@@ -320,7 +320,7 @@ class sr {
           })
         }));
         if (!s.success) {
-          const a = s.error, i = a ? te(a, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
+          const a = s.error, i = a ? V(a, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
           throw e.onError || this.notifier.error(i), a ? re(a, `Bulk action '${e.id}' failed`, !0) : re({
             textCode: null,
             message: i,
@@ -1221,7 +1221,7 @@ function he(r, e = {}) {
   const t = r.map((n) => typeof n == "string" ? n.trim() : "").filter((n) => n.length > 0);
   return t.length === 0 ? e.allowEmpty === !0 ? [] : void 0 : Array.from(new Set(t));
 }
-function V(r) {
+function K(r) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const e = r, t = { version: 1 };
@@ -1242,7 +1242,7 @@ function je(r) {
     s && (t.search = s);
   }
   typeof e.page == "number" && Number.isFinite(e.page) && (t.page = Math.max(1, Math.trunc(e.page))), typeof e.perPage == "number" && Number.isFinite(e.perPage) && (t.perPage = Math.max(1, Math.trunc(e.perPage))), Array.isArray(e.filters) && (t.filters = e.filters), Array.isArray(e.sort) && (t.sort = e.sort);
-  const n = V(e.persisted);
+  const n = K(e.persisted);
   return n && (t.persisted = n), typeof e.updatedAt == "number" && Number.isFinite(e.updatedAt) && (t.updatedAt = e.updatedAt), t;
 }
 function Er(r) {
@@ -1286,13 +1286,13 @@ class lt {
   loadPersistedState() {
     try {
       const e = localStorage.getItem(this.persistedStorageKey);
-      return e ? V(JSON.parse(e)) : null;
+      return e ? K(JSON.parse(e)) : null;
     } catch {
       return null;
     }
   }
   savePersistedState(e) {
-    const t = V(e);
+    const t = K(e);
     if (t) {
       t.updatedAt || (t.updatedAt = Date.now());
       try {
@@ -1355,14 +1355,14 @@ class Br extends lt {
         return;
       const n = await t.json(), s = this.extractFirstRecord(n);
       if (!s) return;
-      const o = this.extractMap(s.effective), a = this.extractMap(s.raw), i = o[this.serverStateKey] ?? a[this.serverStateKey], l = V(i);
+      const o = this.extractMap(s.effective), a = this.extractMap(s.raw), i = o[this.serverStateKey] ?? a[this.serverStateKey], l = K(i);
       l && super.savePersistedState(l);
     } catch {
     }
   }
   savePersistedState(e) {
     super.savePersistedState(e);
-    const t = V(e);
+    const t = K(e);
     t && this.scheduleServerSync(t);
   }
   clearPersistedState() {
@@ -1720,7 +1720,7 @@ function gt(r) {
       };
     if (!e || typeof e != "object" || Array.isArray(e))
       return null;
-    const t = X(e.mode, "explicit"), n = we(e.ids);
+    const t = Z(e.mode, "explicit"), n = we(e.ids);
     return { version: 2, mode: t, ids: n };
   } catch {
     return null;
@@ -1756,7 +1756,7 @@ function Fa(r, e, t = "explicit") {
   try {
     const n = ae + r, s = we(Array.from(e)), o = {
       version: 2,
-      mode: X(t, "explicit"),
+      mode: Z(t, "explicit"),
       ids: s
     };
     localStorage.setItem(n, JSON.stringify(o));
@@ -1788,7 +1788,7 @@ function za(r) {
   return e;
 }
 const bt = "datagrid-view-mode-", Ae = 200, Jr = 256;
-function X(r, e = "explicit") {
+function Z(r, e = "explicit") {
   return r === "all" || r === "none" || r === "explicit" ? r : e;
 }
 function Yr(r) {
@@ -2021,12 +2021,12 @@ function nn(r = 768) {
 function _e(r, e = 768) {
   return nn(e) && r === "grouped" ? "flat" : r;
 }
-const K = "search", J = "page", Y = "perPage", Q = "filters", W = "sort", ie = "state", Re = "hiddenColumns", le = "view_mode", se = "expanded_groups", Ie = [
-  K,
+const J = "search", Y = "page", Q = "perPage", W = "filters", X = "sort", ie = "state", Re = "hiddenColumns", le = "view_mode", se = "expanded_groups", Ie = [
   J,
   Y,
   Q,
   W,
+  X,
   ie,
   Re,
   le,
@@ -2086,7 +2086,7 @@ function ln(r, e, t = {}) {
       const i = vt(e.viewMode);
       i && (r.state.viewMode = _e(i));
     }
-    r.state.expandMode = X(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
+    r.state.expandMode = Z(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
       e.expandedGroups.map((i) => String(i || "").trim()).filter(Boolean)
     ), r.state.hasPersistedExpandState = !0) : e.expandMode !== void 0 && (r.state.hasPersistedExpandState = !0);
   }
@@ -2126,30 +2126,30 @@ function hn(r) {
     const c = r.stateStore.resolveShareState(t);
     c && r.applyShareStateSnapshot(c);
   }
-  const n = e.get(K);
+  const n = e.get(J);
   if (n) {
     r.state.search = n;
     const c = document.querySelector(r.selectors.searchInput);
     c && (c.value = n);
   }
-  const s = e.get(J);
+  const s = e.get(Y);
   if (s) {
     const c = parseInt(s, 10);
     r.state.currentPage = Number.isNaN(c) ? 1 : Math.max(1, c);
   }
-  const o = e.get(Y);
+  const o = e.get(Q);
   if (o) {
     const c = parseInt(o, 10), d = r.config.perPage || 10;
     r.state.perPage = Number.isNaN(c) ? d : Math.max(1, c);
     const u = document.querySelector(r.selectors.perPageSelect);
     u && (u.value = String(r.state.perPage));
   }
-  const a = e.get(Q);
+  const a = e.get(W);
   if (a) {
     const c = r.parseJSONArray(a, "filters");
     c && (r.state.filters = c);
   }
-  const i = e.get(W);
+  const i = e.get(X);
   if (i) {
     const c = r.parseJSONArray(i, "sort");
     c && (r.state.sort = c);
@@ -2204,17 +2204,17 @@ function fn(r) {
 function mn(r, e = {}) {
   r.persistStateSnapshot();
   const t = r.getURLStateConfig(), n = new URLSearchParams(window.location.search);
-  sn(n, Ie), r.state.search && n.set(K, r.state.search), r.state.currentPage > 1 && n.set(J, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && n.set(Y, String(r.state.perPage));
+  sn(n, Ie), r.state.search && n.set(J, r.state.search), r.state.currentPage > 1 && n.set(Y, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && n.set(Q, String(r.state.perPage));
   let s = !1;
   if (r.state.filters.length > 0) {
     const i = JSON.stringify(r.state.filters);
-    i.length <= t.maxFiltersLength ? n.set(Q, i) : s = !0;
+    i.length <= t.maxFiltersLength ? n.set(W, i) : s = !0;
   }
-  r.state.sort.length > 0 && n.set(W, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && n.set(le, r.state.viewMode);
+  r.state.sort.length > 0 && n.set(X, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && n.set(le, r.state.viewMode);
   let o = ze(window.location.pathname, n);
   const a = o.length > t.maxURLLength;
   if (t.enableStateToken && (s || a)) {
-    n.delete(K), n.delete(J), n.delete(Y), n.delete(Q), n.delete(W);
+    n.delete(J), n.delete(Y), n.delete(Q), n.delete(W), n.delete(X);
     const i = r.stateStore.createShareState(r.buildShareStateSnapshot());
     i && n.set(ie, i), o = ze(window.location.pathname, n);
   }
@@ -2426,7 +2426,7 @@ function Fn(r) {
       e.expanded = r.isGroupExpandedByState(e.groupId), r.updateGroupVisibility(e.groupId);
 }
 function qn(r, e, t = !1) {
-  const n = X(r.state.expandMode, "explicit");
+  const n = Z(r.state.expandMode, "explicit");
   return n === "all" ? !r.state.expandedGroups.has(e) : n === "none" ? r.state.expandedGroups.has(e) : r.state.expandedGroups.size === 0 ? t : r.state.expandedGroups.has(e);
 }
 function On(r, e) {
@@ -2476,7 +2476,7 @@ async function St(r) {
     return await r.onSuccess?.(t), t;
   const n = String(r.fallbackMessage || "Delete failed").trim() || "Delete failed", s = t.error || Nn(n), o = {
     ...s,
-    message: te(s, n)
+    message: V(s, n)
   };
   throw o.textCode && r.reconcileOnDomainFailure && await r.reconcileOnDomainFailure(o), await r.onError?.(o), re(o, n, !!r.onError);
 }
@@ -3442,7 +3442,7 @@ const k = class k {
       (n?.hiddenColumns || []).filter((w) => s.has(w))
     ), l = this.config.columns.map((w) => w.field), c = !!n && Array.isArray(n.columnOrder) && n.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = c;
-    const d = (n?.columnOrder || []).filter((w) => s.has(w)), u = c ? [...d, ...l.filter((w) => !d.includes(w))] : l, p = this.config.enableGroupedMode ? Kr(t) : !1, h = this.config.enableGroupedMode ? Yr(t) : null, f = this.config.enableGroupedMode ? Vr(t) : "explicit", y = this.config.enableGroupedMode ? Ur(t) : /* @__PURE__ */ new Set(), v = X(
+    const d = (n?.columnOrder || []).filter((w) => s.has(w)), u = c ? [...d, ...l.filter((w) => !d.includes(w))] : l, p = this.config.enableGroupedMode ? Kr(t) : !1, h = this.config.enableGroupedMode ? Yr(t) : null, f = this.config.enableGroupedMode ? Vr(t) : "explicit", y = this.config.enableGroupedMode ? Ur(t) : /* @__PURE__ */ new Set(), v = Z(
       n?.expandMode,
       f
     ), g = new Set(
@@ -3722,7 +3722,7 @@ const k = class k {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.bulkActionStateAbortController && (this.bulkActionStateAbortController.abort(), this.bulkActionStateAbortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.bulkActionStateDebounce && (clearTimeout(this.bulkActionStateDebounce), this.bulkActionStateDebounce = null), console.log("[DataGrid] Instance destroyed");
   }
 };
-k.URL_KEY_SEARCH = K, k.URL_KEY_PAGE = J, k.URL_KEY_PER_PAGE = Y, k.URL_KEY_FILTERS = Q, k.URL_KEY_SORT = W, k.URL_KEY_STATE = ie, k.URL_KEY_HIDDEN_COLUMNS = Re, k.URL_KEY_VIEW_MODE = le, k.URL_KEY_EXPANDED_GROUPS = se, k.MANAGED_URL_KEYS = Ie, k.DEFAULT_MAX_URL_LENGTH = wt, k.DEFAULT_MAX_FILTERS_LENGTH = xt;
+k.URL_KEY_SEARCH = J, k.URL_KEY_PAGE = Y, k.URL_KEY_PER_PAGE = Q, k.URL_KEY_FILTERS = W, k.URL_KEY_SORT = X, k.URL_KEY_STATE = ie, k.URL_KEY_HIDDEN_COLUMNS = Re, k.URL_KEY_VIEW_MODE = le, k.URL_KEY_EXPANDED_GROUPS = se, k.MANAGED_URL_KEYS = Ie, k.DEFAULT_MAX_URL_LENGTH = wt, k.DEFAULT_MAX_FILTERS_LENGTH = xt;
 let xe = k;
 typeof window < "u" && (window.DataGrid = xe);
 const Ne = {
@@ -5610,7 +5610,7 @@ class Et {
     return { value: s };
   }
   buildActionErrorMessage(e, t) {
-    return te(t, `${e} failed`);
+    return V(t, `${e} failed`);
   }
   /**
    * Build URL query context from locale/channel
@@ -5837,7 +5837,7 @@ class ao {
         await this.refresh();
       },
       onActionError: (c, d) => {
-        this.notifier.error(te(d, `${c} failed`));
+        this.notifier.error(V(d, `${c} failed`));
       },
       reconcileOnDomainFailure: async () => {
         await this.refresh();
@@ -5871,7 +5871,7 @@ class ao {
             });
           } catch (i) {
             if (!P(i)) {
-              const l = j(i), c = l ? te(l, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
+              const l = j(i), c = l ? V(l, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
               this.notifier.error(c);
             }
           }
@@ -7667,7 +7667,7 @@ function q(r) {
   const e = typeof document < "u" ? document.createElement("div") : null;
   return e ? (e.textContent = r, e.innerHTML) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-const Tt = "admin_keyboard_shortcuts_settings", Dt = "admin_keyboard_shortcuts_hint_dismissed", ee = {
+const Tt = "admin_keyboard_shortcuts_settings", Dt = "admin_keyboard_shortcuts_hint_dismissed", te = {
   enabled: !0,
   shortcuts: {},
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -7678,11 +7678,11 @@ function ue() {
 function $o() {
   const r = ue();
   if (!r)
-    return { ...ee };
+    return { ...te };
   try {
     const e = r.getItem(Tt);
     if (!e)
-      return { ...ee };
+      return { ...te };
     const t = JSON.parse(e);
     return {
       enabled: typeof t.enabled == "boolean" ? t.enabled : !0,
@@ -7690,7 +7690,7 @@ function $o() {
       updatedAt: typeof t.updatedAt == "string" ? t.updatedAt : (/* @__PURE__ */ new Date()).toISOString()
     };
   } catch {
-    return { ...ee };
+    return { ...te };
   }
 }
 function ki(r) {
@@ -7882,7 +7882,7 @@ function Ai(r) {
       s(f);
     });
   }), e.querySelector('[data-settings-action="reset"]')?.addEventListener("click", () => {
-    s({ ...ee });
+    s({ ...te });
   });
 }
 function Lo(r, e) {
@@ -10412,10 +10412,10 @@ class ra {
         <td class="field-cell">${b(e.fieldPath)}</td>
         <td class="status-cell">
           ${s}
-          ${e.error ? `<span class="error-message" title="${Z(e.error)}">${b(na(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${ee(e.error)}">${b(na(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
-          <span class="translation-text" title="${Z(e.targetLocale)}">${b(e.targetLocale)}</span>
+          <span class="translation-text" title="${ee(e.targetLocale)}">${b(e.targetLocale)}</span>
         </td>
         <td class="resolution-cell">
           ${e.status === "conflict" ? this.renderConflictResolution(e) : "-"}
@@ -10432,7 +10432,7 @@ class ra {
         <option value="accept_incoming" ${n === "accept_incoming" ? "selected" : ""}>${b(t.acceptIncoming)}</option>
         <option value="force" ${n === "force" ? "selected" : ""}>${b(t.force)}</option>
       </select>
-      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${Z(t.conflictDetails)}">?</button>` : ""}
+      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${ee(t.conflictDetails)}">?</button>` : ""}
     `;
   }
   renderApplyResult() {
@@ -10472,7 +10472,7 @@ class ra {
           <button type="button"
                   class="apply-btn"
                   ${!t || !n.enabled ? "disabled" : ""}
-                  ${n.enabled ? "" : `aria-disabled="true" title="${Z(n.reason || e.applyDisabledReason)}"`}>
+                  ${n.enabled ? "" : `aria-disabled="true" title="${ee(n.reason || e.applyDisabledReason)}"`}>
             ${b(e.applyButton)}
           </button>
         ` : ""}
@@ -10513,7 +10513,7 @@ class ra {
 function b(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Z(r) {
+function ee(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 function na(r, e) {

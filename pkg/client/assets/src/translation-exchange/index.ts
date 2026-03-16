@@ -5,6 +5,7 @@
 
 export { TranslationExchangeManager } from "./translation-exchange-manager.js";
 export {
+  normalizeTranslationExchangeHistoryResponse,
   normalizeTranslationExchangeJob,
   normalizeTranslationExchangeUploadDescriptor,
   normalizeTranslationExchangeValidationResult,
@@ -28,7 +29,9 @@ export type {
 } from "./types.js";
 export type {
   TranslationExchangeConflictRow,
+  TranslationExchangeHistoryResponse,
   TranslationExchangeJob,
+  TranslationExchangeJobDownload,
   TranslationExchangeJobKind,
   TranslationExchangeJobProgress,
   TranslationExchangeJobStatus,
