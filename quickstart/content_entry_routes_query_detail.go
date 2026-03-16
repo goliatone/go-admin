@@ -164,7 +164,7 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 	baseSlug := contentTypeSlug(contentType, panelName)
 	if record != nil {
 		record = h.hydrateDetailRelationLinks(panelName, record, adminCtx.Channel)
-		record = contentEntryAttachTranslationFamilyLink(record, h.adminURLs(), h.translationUX && contentEntryPanelSupportsTranslationUX(panel))
+		record = contentEntryAttachTranslationFamilyLink(record, h.adminURLs(), h.translationUX && contentEntryPanelSupportsTranslationUX(panel), adminCtx.Channel)
 		record = contentEntryAttachTranslationLocaleLinks(record, routes, false, h.translationUX && contentEntryPanelSupportsTranslationUX(panel))
 		record["actions"] = map[string]string{
 			"edit":   routes.edit(id),
