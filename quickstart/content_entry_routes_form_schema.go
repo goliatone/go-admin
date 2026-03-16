@@ -36,7 +36,7 @@ func (h *contentEntryHandlers) renderForm(
 	if h.formRenderer == nil {
 		return errors.New("form renderer is not configured")
 	}
-	resourceItem = contentEntryAttachTranslationFamilyLink(resourceItem, h.adminURLs(), h.translationUX && contentEntryPanelSupportsTranslationUX(panel))
+	resourceItem = contentEntryAttachTranslationFamilyLink(resourceItem, h.adminURLs(), h.translationUX && contentEntryPanelSupportsTranslationUX(panel), adminCtx.Channel)
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
 	resourceItem = contentEntryAttachTranslationLocaleLinks(resourceItem, routes, isEdit, h.translationUX && contentEntryPanelSupportsTranslationUX(panel))
