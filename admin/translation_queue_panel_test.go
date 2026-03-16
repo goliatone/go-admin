@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -70,13 +71,7 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 	}
 	required, _ := schema.FormSchema["required"].([]string)
 	for _, expected := range []string{"translation_group_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
-		found := false
-		for _, field := range required {
-			if field == expected {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(required, expected)
 		if !found {
 			t.Fatalf("expected required field %q in form schema, got %v", expected, required)
 		}

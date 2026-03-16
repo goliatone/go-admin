@@ -38,20 +38,59 @@ func (m TranslationImportValidateInput) Validate() error {
 	return validateExchangeRows(m.Rows, false)
 }
 
+const (
+	translationExchangeResolutionApply              = "apply"
+	translationExchangeResolutionSkip               = "skip"
+	translationExchangeResolutionOverrideSourceHash = "override_source_hash"
+	translationExchangeResolutionCreateMissing      = "create_missing"
+)
+
+// TranslationExchangeConflictResolution captures an explicit row-level retry decision.
+type TranslationExchangeConflictResolution struct {
+	Row          int    `json:"row"`
+	Decision     string `json:"decision"`
+	ConflictType string `json:"conflict_type,omitempty"`
+}
+
 // TranslationImportApplyInput is the typed import-apply command input.
 type TranslationImportApplyInput struct {
-	Rows                    []TranslationExchangeRow   `json:"rows"`
-	AllowCreateMissing      bool                       `json:"allow_create_missing,omitempty"`
-	AllowSourceHashOverride bool                       `json:"allow_source_hash_override,omitempty"`
-	ContinueOnError         bool                       `json:"continue_on_error,omitempty"`
-	DryRun                  bool                       `json:"dry_run,omitempty"`
-	Result                  *TranslationExchangeResult `json:"-"`
+	Rows                    []TranslationExchangeRow                `json:"rows"`
+	AllowCreateMissing      bool                                    `json:"allow_create_missing,omitempty"`
+	AllowSourceHashOverride bool                                    `json:"allow_source_hash_override,omitempty"`
+	ContinueOnError         bool                                    `json:"continue_on_error,omitempty"`
+	DryRun                  bool                                    `json:"dry_run,omitempty"`
+	RetryJobID              string                                  `json:"retry_job_id,omitempty"`
+	Resolutions             []TranslationExchangeConflictResolution `json:"resolutions,omitempty"`
+	Result                  *TranslationExchangeResult              `json:"-"`
 }
 
 func (TranslationImportApplyInput) Type() string { return translationImportApplyCommandName }
 
 func (m TranslationImportApplyInput) Validate() error {
-	return validateExchangeRows(m.Rows, true)
+	if err := validateExchangeRows(m.Rows, true); err != nil {
+		return err
+	}
+	for _, resolution := range m.Resolutions {
+		if resolution.Row < 0 {
+			return validationDomainError("row resolution row must be >= 0", map[string]any{
+				"field": "resolutions.row",
+				"row":   resolution.Row,
+			})
+		}
+		switch strings.TrimSpace(resolution.Decision) {
+		case translationExchangeResolutionApply,
+			translationExchangeResolutionSkip,
+			translationExchangeResolutionOverrideSourceHash,
+			translationExchangeResolutionCreateMissing:
+		default:
+			return validationDomainError("row resolution decision invalid", map[string]any{
+				"field":    "resolutions.decision",
+				"row":      resolution.Row,
+				"decision": strings.TrimSpace(resolution.Decision),
+			})
+		}
+	}
+	return nil
 }
 
 // TranslationImportRunInput is an optional typed wrapper that composes validate+apply.

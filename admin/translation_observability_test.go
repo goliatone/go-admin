@@ -5,6 +5,7 @@ import (
 	"errors"
 	"expvar"
 	"log/slog"
+	"maps"
 	"sync"
 	"testing"
 
@@ -281,9 +282,7 @@ func cloneTagsMap(values map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	out := make(map[string]string, len(values))
-	for key, value := range values {
-		out[key] = value
-	}
+	maps.Copy(out, values)
 	return out
 }
 

@@ -32,6 +32,8 @@ func TranslationExchangeContractPayload() map[string]any {
 				"summary",
 				"downloads",
 				"fixture",
+				"request_hash",
+				"retention",
 			},
 		},
 		"validation_summary": map[string]any{
@@ -54,11 +56,15 @@ func TranslationExchangeContractPayload() map[string]any {
 		"history": map[string]any{
 			"required_fields": []string{"items", "page", "per_page", "total", "has_more", "counts"},
 			"count_fields":    []string{"by_kind", "by_status"},
-			"meta_fields":     []string{"job_kinds", "job_statuses", "download_kinds", "include_examples"},
+			"meta_fields":     []string{"job_kinds", "job_statuses", "download_kinds", "retention_fields", "include_examples"},
 		},
 		"downloads": map[string]any{
 			"kinds":           []string{translationExchangeDownloadKindArtifact, translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
 			"required_fields": []string{"kind", "label", "filename", "content_type", "href"},
+		},
+		"retention": map[string]any{
+			"required_fields": []string{"hard_delete_supported"},
+			"optional_fields": []string{"hard_delete_path", "download_kinds", "artifact_count", "retained"},
 		},
 	}
 }

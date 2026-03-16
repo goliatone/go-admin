@@ -508,7 +508,7 @@ func translationMatrixLocalesFromValues(values ...any) []string {
 	for _, raw := range values {
 		switch typed := raw.(type) {
 		case string:
-			for _, part := range strings.Split(typed, ",") {
+			for part := range strings.SplitSeq(typed, ",") {
 				if locale := normalizeCreateTranslationLocale(part); locale != "" {
 					out = append(out, locale)
 				}
@@ -543,7 +543,7 @@ func translationMatrixFamilyIDs(raw any) []string {
 			out = append(out, toString(value))
 		}
 	case string:
-		for _, value := range strings.Split(typed, ",") {
+		for value := range strings.SplitSeq(typed, ",") {
 			out = append(out, value)
 		}
 	}
@@ -614,10 +614,7 @@ func translationMatrixVisibleLocales(locales []string, offset, limit int) ([]str
 	if offset >= len(locales) {
 		return nil, false
 	}
-	end := offset + limit
-	if end > len(locales) {
-		end = len(locales)
-	}
+	end := min(offset+limit, len(locales))
 	return append([]string{}, locales[offset:end]...), end < len(locales)
 }
 

@@ -25,23 +25,39 @@ type translationExchangeAsyncJob struct {
 	TenantID     string
 	OrgID        string
 	Fixture      bool
+	RequestHash  string
 	Request      map[string]any
 	PollEndpoint string
 	Progress     map[string]any
+	Summary      map[string]any
 	Result       map[string]any
+	Retention    map[string]any
+	Artifacts    []translationExchangeJobArtifact
 	Error        string
 	RequestID    string
 	TraceID      string
+	WorkerID     string
+	StartedAt    time.Time
+	CompletedAt  time.Time
+	HeartbeatAt  time.Time
+	LeaseUntil   time.Time
+	DeletedAt    time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
 
 type translationExchangeAsyncJobStore struct {
-	mu    sync.Mutex
-	next  int64
-	jobs  map[string]translationExchangeAsyncJob
-	nowFn func() time.Time
-	idFn  func() string
+	mu           sync.Mutex
+	next         int64
+	jobs         map[string]translationExchangeAsyncJob
+	requestIndex map[string]string
+	nowFn        func() time.Time
+	idFn         func() string
+}
+
+type translationExchangeAsyncJobCreateOptions struct {
+	RequestHash string
+	Retention   map[string]any
 }
 
 func newTranslationExchangeAsyncJobStore(nowFn func() time.Time) *translationExchangeAsyncJobStore {
@@ -49,14 +65,19 @@ func newTranslationExchangeAsyncJobStore(nowFn func() time.Time) *translationExc
 		nowFn = func() time.Time { return time.Now().UTC() }
 	}
 	return &translationExchangeAsyncJobStore{
-		next:  1,
-		jobs:  map[string]translationExchangeAsyncJob{},
-		nowFn: nowFn,
-		idFn:  defaultTranslationExchangeAsyncJobID,
+		next:         1,
+		jobs:         map[string]translationExchangeAsyncJob{},
+		requestIndex: map[string]string{},
+		nowFn:        nowFn,
+		idFn:         defaultTranslationExchangeAsyncJobID,
 	}
 }
 
 func (s *translationExchangeAsyncJobStore) Create(kind, permission, actor, tenantID, orgID string, request map[string]any) translationExchangeAsyncJob {
+	return s.CreateWithOptions(kind, permission, actor, tenantID, orgID, request, translationExchangeAsyncJobCreateOptions{})
+}
+
+func (s *translationExchangeAsyncJobStore) CreateWithOptions(kind, permission, actor, tenantID, orgID string, request map[string]any, opts translationExchangeAsyncJobCreateOptions) translationExchangeAsyncJob {
 	if s == nil {
 		return translationExchangeAsyncJob{}
 	}
@@ -65,24 +86,51 @@ func (s *translationExchangeAsyncJobStore) Create(kind, permission, actor, tenan
 	now := s.nowFn().UTC()
 	id := s.nextJobIDLocked()
 	job := translationExchangeAsyncJob{
-		ID:         id,
-		Kind:       strings.TrimSpace(kind),
-		Status:     translationExchangeAsyncJobStatusRunning,
-		Permission: strings.TrimSpace(permission),
-		CreatedBy:  strings.TrimSpace(actor),
-		TenantID:   strings.TrimSpace(tenantID),
-		OrgID:      strings.TrimSpace(orgID),
-		Request:    primitives.CloneAnyMap(request),
+		ID:          id,
+		Kind:        strings.TrimSpace(kind),
+		Status:      translationExchangeAsyncJobStatusRunning,
+		Permission:  strings.TrimSpace(permission),
+		CreatedBy:   strings.TrimSpace(actor),
+		TenantID:    strings.TrimSpace(tenantID),
+		OrgID:       strings.TrimSpace(orgID),
+		RequestHash: strings.TrimSpace(opts.RequestHash),
+		Request:     primitives.CloneAnyMap(request),
 		Progress: map[string]any{
 			"processed": 0,
 			"succeeded": 0,
 			"failed":    0,
 		},
+		Retention: primitives.CloneAnyMap(opts.Retention),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 	s.jobs[id] = job
+	if requestKey := translationExchangeAsyncJobRequestKey(job.Kind, job.CreatedBy, job.TenantID, job.OrgID, job.RequestHash); requestKey != "" {
+		s.requestIndex[requestKey] = id
+	}
 	return cloneTranslationExchangeAsyncJob(job)
+}
+
+func (s *translationExchangeAsyncJobStore) FindByRequestHash(kind, actor, tenantID, orgID, requestHash string) (translationExchangeAsyncJob, bool) {
+	if s == nil {
+		return translationExchangeAsyncJob{}, false
+	}
+	requestKey := translationExchangeAsyncJobRequestKey(kind, actor, tenantID, orgID, requestHash)
+	if requestKey == "" {
+		return translationExchangeAsyncJob{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id, ok := s.requestIndex[requestKey]
+	if !ok {
+		return translationExchangeAsyncJob{}, false
+	}
+	job, ok := s.jobs[id]
+	if !ok {
+		delete(s.requestIndex, requestKey)
+		return translationExchangeAsyncJob{}, false
+	}
+	return cloneTranslationExchangeAsyncJob(job), true
 }
 
 func (s *translationExchangeAsyncJobStore) SetTrace(id, requestID, traceID string) {
@@ -105,7 +153,7 @@ func (s *translationExchangeAsyncJobStore) nextJobIDLocked() string {
 	if s == nil {
 		return ""
 	}
-	for attempt := 0; attempt < 4; attempt++ {
+	for range 4 {
 		if s.idFn == nil {
 			break
 		}
@@ -169,6 +217,23 @@ func (s *translationExchangeAsyncJobStore) MarkRunning(id string, progress map[s
 	s.jobs[id] = job
 }
 
+func (s *translationExchangeAsyncJobStore) UpdateProgress(id string, progress map[string]any) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job, ok := s.jobs[strings.TrimSpace(id)]
+	if !ok {
+		return
+	}
+	if len(progress) > 0 {
+		job.Progress = primitives.CloneAnyMap(progress)
+	}
+	job.UpdatedAt = s.nowFn().UTC()
+	s.jobs[id] = job
+}
+
 func (s *translationExchangeAsyncJobStore) Complete(id string, progress map[string]any, result map[string]any) {
 	if s == nil {
 		return
@@ -222,6 +287,38 @@ func (s *translationExchangeAsyncJobStore) Get(id string) (translationExchangeAs
 	return cloneTranslationExchangeAsyncJob(job), true
 }
 
+func (s *translationExchangeAsyncJobStore) SetRetention(id string, retention map[string]any) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job, ok := s.jobs[strings.TrimSpace(id)]
+	if !ok {
+		return
+	}
+	job.Retention = primitives.CloneAnyMap(retention)
+	job.UpdatedAt = s.nowFn().UTC()
+	s.jobs[id] = job
+}
+
+func (s *translationExchangeAsyncJobStore) Delete(id string) (translationExchangeAsyncJob, bool) {
+	if s == nil {
+		return translationExchangeAsyncJob{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job, ok := s.jobs[strings.TrimSpace(id)]
+	if !ok {
+		return translationExchangeAsyncJob{}, false
+	}
+	delete(s.jobs, strings.TrimSpace(id))
+	if requestKey := translationExchangeAsyncJobRequestKey(job.Kind, job.CreatedBy, job.TenantID, job.OrgID, job.RequestHash); requestKey != "" {
+		delete(s.requestIndex, requestKey)
+	}
+	return cloneTranslationExchangeAsyncJob(job), true
+}
+
 func (s *translationExchangeAsyncJobStore) ListByActor(actorID string) []translationExchangeAsyncJob {
 	if s == nil {
 		return nil
@@ -244,7 +341,10 @@ func cloneTranslationExchangeAsyncJob(job translationExchangeAsyncJob) translati
 	clone := job
 	clone.Request = primitives.CloneAnyMap(job.Request)
 	clone.Progress = primitives.CloneAnyMap(job.Progress)
+	clone.Summary = primitives.CloneAnyMap(job.Summary)
 	clone.Result = primitives.CloneAnyMap(job.Result)
+	clone.Retention = primitives.CloneAnyMap(job.Retention)
+	clone.Artifacts = cloneTranslationExchangeJobArtifacts(job.Artifacts)
 	return clone
 }
 
@@ -270,6 +370,9 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 	if len(job.Request) > 0 {
 		payload["request"] = primitives.CloneAnyMap(job.Request)
 	}
+	if requestHash := strings.TrimSpace(job.RequestHash); requestHash != "" {
+		payload["request_hash"] = requestHash
+	}
 	if requestID := strings.TrimSpace(job.RequestID); requestID != "" {
 		payload["request_id"] = requestID
 	}
@@ -279,19 +382,48 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 	if strings.TrimSpace(job.Error) != "" {
 		payload["error"] = strings.TrimSpace(job.Error)
 	}
-	if len(job.Result) > 0 {
-		payload["result"] = primitives.CloneAnyMap(job.Result)
-		if summary := extractMap(job.Result["summary"]); len(summary) > 0 {
+	resultPayload := primitives.CloneAnyMap(job.Result)
+	if len(resultPayload) == 0 && len(job.Summary) > 0 {
+		resultPayload = map[string]any{
+			"summary": primitives.CloneAnyMap(job.Summary),
+		}
+	}
+	if downloads := translationExchangeArtifactDownloadsPayload(job.Artifacts); len(downloads) > 0 {
+		if len(resultPayload) == 0 {
+			resultPayload = map[string]any{}
+		}
+		if len(extractMap(resultPayload["downloads"])) == 0 {
+			resultPayload["downloads"] = downloads
+		}
+	}
+	if len(resultPayload) > 0 {
+		payload["result"] = primitives.CloneAnyMap(resultPayload)
+		if summary := extractMap(resultPayload["summary"]); len(summary) > 0 {
 			payload["summary"] = primitives.CloneAnyMap(summary)
 		}
-		if downloads := translationExchangeDownloadsPayload(job.Result); len(downloads) > 0 {
+		if downloads := translationExchangeDownloadsPayload(resultPayload); len(downloads) > 0 {
 			payload["downloads"] = downloads
 		}
 	}
-	if file := translationExchangeJobFilePayload(job.Kind, job.Request, job.Result); len(file) > 0 {
+	if len(job.Retention) > 0 {
+		payload["retention"] = primitives.CloneAnyMap(job.Retention)
+	}
+	if file := translationExchangeJobFilePayload(job.Kind, job.Request, resultPayload); len(file) > 0 {
 		payload["file"] = file
 	}
 	return payload
+}
+
+func translationExchangeAsyncJobRequestKey(kind, actor, tenantID, orgID, requestHash string) string {
+	kind = strings.TrimSpace(strings.ToLower(kind))
+	actor = strings.TrimSpace(strings.ToLower(actor))
+	tenantID = strings.TrimSpace(strings.ToLower(tenantID))
+	orgID = strings.TrimSpace(strings.ToLower(orgID))
+	requestHash = strings.TrimSpace(strings.ToLower(requestHash))
+	if kind == "" || actor == "" || requestHash == "" {
+		return ""
+	}
+	return strings.Join([]string{kind, actor, tenantID, orgID, requestHash}, "::")
 }
 
 func translationExchangeConflictSummary(results []TranslationExchangeRowResult) map[string]any {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -95,9 +96,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		PermAdminTranslationsApprove: true,
 		PermAdminTranslationsManage:  true,
 	}
-	for key, value := range options.Permissions {
-		permissions[key] = value
-	}
+	maps.Copy(permissions, options.Permissions)
 	base.admin.WithAuthorizer(translationPermissionAuthorizer{allowed: permissions})
 
 	source, err := base.content.Page(context.Background(), "page-1", "")

@@ -75,15 +75,30 @@ func TestTranslationExchangeContractFixtures(t *testing.T) {
 	historyFixture := extractMap(fixture["history"])
 	history := extractMap(historyFixture["history"])
 	meta := extractMap(historyFixture["meta"])
-	if got := toInt(history["total"]); got != 2 {
-		t.Fatalf("expected history total=2, got %d", got)
+	if got := toInt(history["total"]); got != 3 {
+		t.Fatalf("expected history total=3, got %d", got)
 	}
 	if meta["include_examples"] != true {
 		t.Fatalf("expected include_examples=true, got %+v", meta)
 	}
+	if fields := toStringSlice(meta["retention_fields"]); len(fields) == 0 {
+		t.Fatalf("expected retention_fields metadata, got %+v", meta)
+	}
 	items := extractListMaps(history["items"])
-	if len(items) != 2 {
-		t.Fatalf("expected two history items, got %+v", items)
+	if len(items) != 3 {
+		t.Fatalf("expected three history items, got %+v", items)
+	}
+	for idx, item := range items {
+		if item["fixture"] != true {
+			t.Fatalf("expected history item %d to be fixture-backed, got %+v", idx, item)
+		}
+	}
+	if got := toString(items[0]["request_hash"]); got != "fixture_apply_request_hash" {
+		t.Fatalf("expected apply fixture request hash, got %+v", items[0])
+	}
+	firstRetention := extractMap(items[0]["retention"])
+	if firstRetention["hard_delete_supported"] != true {
+		t.Fatalf("expected hard delete retention metadata, got %+v", firstRetention)
 	}
 	firstDownloads := extractMap(items[0]["downloads"])
 	if got := toString(extractMap(firstDownloads["report"])["kind"]); got != translationExchangeDownloadKindReport {

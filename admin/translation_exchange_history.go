@@ -23,6 +23,7 @@ func translationExchangeHistoryMetaPayload(includeExamples bool) map[string]any 
 		"job_kinds":        []string{translationExchangeJobKindExport, translationExchangeJobKindImportValidate, translationExchangeJobKindImportApply},
 		"job_statuses":     translationExchangeJobStates(),
 		"download_kinds":   []string{translationExchangeDownloadKindArtifact, translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
+		"retention_fields": []string{"hard_delete_supported", "hard_delete_path", "download_kinds", "artifact_count", "retained"},
 		"include_examples": includeExamples,
 	}
 }
@@ -48,14 +49,8 @@ func translationExchangeHistoryPayload(jobs []translationExchangeAsyncJob, page,
 	})
 
 	total := len(jobs)
-	start := (page - 1) * perPage
-	if start > total {
-		start = total
-	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*perPage, total)
+	end := min(start+perPage, total)
 
 	items := make([]map[string]any, 0, end-start)
 	byKind := map[string]int{}
@@ -258,12 +253,97 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 			"failed":    validateResult.Summary.Failed,
 			"conflicts": validateResult.Summary.Conflicts,
 		},
-		Result:    validatePayload,
+		Result: validatePayload,
+		Retention: map[string]any{
+			"hard_delete_supported": true,
+			"hard_delete_path":      "/admin/api/translations/exchange/jobs/txex_job_fixture_validate_history",
+			"download_kinds":        []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
+			"artifact_count":        2,
+			"retained":              true,
+		},
 		CreatedAt: now.Add(-90 * time.Minute),
 		UpdatedAt: now.Add(-87 * time.Minute),
 	}
 
-	return []translationExchangeAsyncJob{validateJob, exportJob}
+	applyRows := []TranslationExchangeRow{
+		{
+			Index:              0,
+			Resource:           "pages",
+			EntityID:           "page_translation_demo_exchange",
+			TranslationGroupID: "tg_translation_demo_exchange",
+			SourceLocale:       "en",
+			TargetLocale:       "fr",
+			FieldPath:          "title",
+			TranslatedText:     "Echange Traduction",
+			SourceHash:         "hash_demo_exchange_title",
+		},
+	}
+	applyResult := TranslationExchangeResult{
+		Summary: TranslationExchangeSummary{
+			Processed: 1,
+			Succeeded: 1,
+			Failed:    0,
+			ByStatus: map[string]int{
+				translationExchangeRowStatusSuccess: 1,
+			},
+		},
+		Results: []TranslationExchangeRowResult{
+			{
+				Index:              0,
+				Resource:           "pages",
+				EntityID:           "page_translation_demo_exchange",
+				TranslationGroupID: "tg_translation_demo_exchange",
+				TargetLocale:       "fr",
+				FieldPath:          "title",
+				Status:             translationExchangeRowStatusSuccess,
+				Metadata: map[string]any{
+					"create_translation": false,
+					"workflow_status":    translationExchangeWorkflowDraft,
+					"idempotency_hit":    false,
+					"no_auto_publish":    true,
+					"payload_hash":       "fixture_apply_payload_hash",
+				},
+			},
+		},
+		TotalRows: len(applyRows),
+	}
+	applyPayload := translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, applyResult, applyRows)
+	applyJob := translationExchangeAsyncJob{
+		ID:           "txex_job_fixture_apply_history",
+		Kind:         translationExchangeJobKindImportApply,
+		Status:       translationExchangeAsyncJobStatusCompleted,
+		Permission:   translationExchangePermissionImportApply,
+		CreatedBy:    actorID,
+		Fixture:      true,
+		RequestHash:  "fixture_apply_request_hash",
+		PollEndpoint: "/admin/api/translations/exchange/jobs/txex_job_fixture_apply_history",
+		Request: map[string]any{
+			"row_count":            len(applyRows),
+			"format":               "json",
+			"file_name":            "translation_exchange_apply_demo.json",
+			"allow_create_missing": false,
+			"continue_on_error":    false,
+			"dry_run":              false,
+		},
+		Progress: map[string]any{
+			"total":     1,
+			"processed": 1,
+			"succeeded": 1,
+			"failed":    0,
+		},
+		Result: applyPayload,
+		Retention: map[string]any{
+			"hard_delete_supported": true,
+			"hard_delete_path":      "/admin/api/translations/exchange/jobs/txex_job_fixture_apply_history",
+			"download_kinds":        []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
+			"artifact_count":        2,
+			"retained":              true,
+		},
+		CreatedAt: now.Add(-45 * time.Minute),
+		UpdatedAt: now.Add(-42 * time.Minute),
+	}
+
+	return []translationExchangeAsyncJob{applyJob, validateJob, exportJob}
 }
 
 func translationExchangeJSONDownload(kind, label, filename, contentType string, payload any) map[string]any {
@@ -290,6 +370,7 @@ func translationExchangeExportDownload(result TranslationExportResult) map[strin
 			"source_text",
 			"translated_text",
 			"source_hash",
+			"create_translation",
 			"path",
 			"title",
 			"status",
@@ -306,6 +387,7 @@ func translationExchangeExportDownload(result TranslationExportResult) map[strin
 				strings.TrimSpace(row.SourceText),
 				strings.TrimSpace(row.TranslatedText),
 				strings.TrimSpace(row.SourceHash),
+				boolString(row.CreateTranslation),
 				strings.TrimSpace(row.Path),
 				strings.TrimSpace(row.Title),
 				strings.TrimSpace(row.Status),
@@ -384,6 +466,30 @@ func translationExchangeDownloadsPayload(result map[string]any) map[string]any {
 	return primitives.CloneAnyMap(downloads)
 }
 
+func translationExchangeArtifactDownloadsPayload(artifacts []translationExchangeJobArtifact) map[string]any {
+	if len(artifacts) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for _, artifact := range artifacts {
+		kind := strings.TrimSpace(artifact.Kind)
+		if kind == "" {
+			continue
+		}
+		out[kind] = translationExchangeRawDownload(
+			kind,
+			strings.TrimSpace(artifact.Label),
+			strings.TrimSpace(artifact.Filename),
+			strings.TrimSpace(artifact.ContentType),
+			artifact.Content,
+		)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func translationExchangeJobFilePayload(kind string, request, result map[string]any) map[string]any {
 	fileName := strings.TrimSpace(toString(request["file_name"]))
 	format := strings.ToLower(strings.TrimSpace(toString(request["format"])))
@@ -436,4 +542,11 @@ func translationExchangeJobFilePayload(kind string, request, result map[string]a
 		payload["row_count"] = rowCount
 	}
 	return payload
+}
+
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }

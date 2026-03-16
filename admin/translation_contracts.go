@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const translationSharedContractSchemaVersionCurrent = 5
+const translationSharedContractSchemaVersionCurrent = 6
 
 const (
 	translationQueueContentStateDraft    = "draft"
@@ -379,10 +379,7 @@ func sourceTargetDriftPayload(record map[string]any) map[string]any {
 	)
 	summary[translationSourceTargetDriftSummaryFieldsKey] = changedFields
 	delete(summary, translationSourceTargetDriftChangedFieldsKey)
-	count := atoiDefault(toString(summary[translationSourceTargetDriftSummaryCountKey]), len(changedFields))
-	if count < len(changedFields) {
-		count = len(changedFields)
-	}
+	count := max(atoiDefault(toString(summary[translationSourceTargetDriftSummaryCountKey]), len(changedFields)), len(changedFields))
 	summary[translationSourceTargetDriftSummaryCountKey] = count
 
 	return map[string]any{

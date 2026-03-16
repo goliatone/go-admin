@@ -32,6 +32,7 @@ type TranslationExchangeRow struct {
 	SourceText         string         `json:"source_text,omitempty"`
 	TranslatedText     string         `json:"translated_text,omitempty"`
 	SourceHash         string         `json:"source_hash,omitempty"`
+	CreateTranslation  bool           `json:"create_translation,omitempty"`
 	Path               string         `json:"path,omitempty"`
 	Title              string         `json:"title,omitempty"`
 	Status             string         `json:"status,omitempty"`

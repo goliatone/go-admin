@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	router "github.com/goliatone/go-router"
@@ -177,6 +178,42 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	}
 	if !executor.applyInput.DryRun {
 		t.Fatalf("expected DryRun=true")
+	}
+	if executor.applyInput.RetryJobID != "" {
+		t.Fatalf("expected RetryJobID to remain unset, got %q", executor.applyInput.RetryJobID)
+	}
+	if len(executor.applyInput.Resolutions) != 0 {
+		t.Fatalf("expected no conflict resolutions, got %+v", executor.applyInput.Resolutions)
+	}
+}
+
+func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFields(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	binding := newTranslationExchangeBinding(adm)
+	app := newTranslationExchangeTestApp(t, binding)
+
+	raw, _ := json.Marshal(map[string]any{
+		"rows": []map[string]any{
+			{
+				"resource":             "pages",
+				"entity_id":            "page_123",
+				"translation_group_id": "tg_123",
+				"target_locale":        "es",
+				"field_path":           "title",
+				"translated_text":      "Hola mundo",
+			},
+		},
+		"retry_job_id": "txex_job_retry_source",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
 }
 
@@ -666,6 +703,9 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
+	for attempt := 0; attempt < 10 && executor.applyCalled == 0; attempt++ {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if executor.applyCalled != 1 {
 		t.Fatalf("expected async apply dispatch, got %d", executor.applyCalled)
 	}
@@ -681,37 +721,54 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if toString(job["id"]) == "" {
 		t.Fatalf("expected async job id, got %+v", job)
 	}
-	if toString(job["status"]) != translationExchangeAsyncJobStatusCompleted {
-		t.Fatalf("expected completed job status, got %+v", job)
+	if status := toString(job["status"]); status != translationExchangeAsyncJobStatusRunning && status != translationExchangeAsyncJobStatusCompleted {
+		t.Fatalf("expected running or completed job status, got %+v", job)
 	}
 	pollEndpoint := toString(job["poll_endpoint"])
 	if pollEndpoint == "" {
 		t.Fatalf("expected poll endpoint, got %+v", job)
 	}
-	result, _ := job["result"].(map[string]any)
+
+	var pollJob map[string]any
+	for range 10 {
+		pollReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
+		pollReq.Header.Set("X-User-ID", "ops-user")
+		pollResp, err := app.Test(pollReq)
+		if err != nil {
+			t.Fatalf("poll request error: %v", err)
+		}
+		if pollResp.StatusCode != http.StatusOK {
+			t.Fatalf("poll status=%d want=200", pollResp.StatusCode)
+		}
+		pollPayload := map[string]any{}
+		if err := json.NewDecoder(pollResp.Body).Decode(&pollPayload); err != nil {
+			_ = pollResp.Body.Close()
+			t.Fatalf("decode poll response: %v", err)
+		}
+		_ = pollResp.Body.Close()
+		pollJob, _ = pollPayload["job"].(map[string]any)
+		if toString(pollJob["status"]) == translationExchangeAsyncJobStatusCompleted {
+			break
+		}
+	}
+	if toString(pollJob["status"]) != translationExchangeAsyncJobStatusCompleted {
+		t.Fatalf("expected terminal completed job, got %+v", pollJob)
+	}
+	if toString(pollJob["id"]) != toString(job["id"]) {
+		t.Fatalf("expected same job id from poll, got %+v", pollJob)
+	}
+	if toString(pollJob["request_hash"]) == "" {
+		t.Fatalf("expected request_hash in polled job payload, got %+v", pollJob)
+	}
+	result, _ := pollJob["result"].(map[string]any)
 	conflicts, _ := result["conflicts"].(map[string]any)
 	byType, _ := conflicts["by_type"].(map[string]any)
 	if byType["stale_source_hash"] != float64(1) {
 		t.Fatalf("expected stale_source_hash conflict count, got %+v", byType)
 	}
-
-	pollReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
-	pollReq.Header.Set("X-User-ID", "ops-user")
-	pollResp, err := app.Test(pollReq)
-	if err != nil {
-		t.Fatalf("poll request error: %v", err)
-	}
-	if pollResp.StatusCode != http.StatusOK {
-		t.Fatalf("poll status=%d want=200", pollResp.StatusCode)
-	}
-	defer pollResp.Body.Close()
-	pollPayload := map[string]any{}
-	if err := json.NewDecoder(pollResp.Body).Decode(&pollPayload); err != nil {
-		t.Fatalf("decode poll response: %v", err)
-	}
-	pollJob, _ := pollPayload["job"].(map[string]any)
-	if toString(pollJob["id"]) != toString(job["id"]) {
-		t.Fatalf("expected same job id from poll, got %+v", pollJob)
+	retention := extractMap(pollJob["retention"])
+	if retention["hard_delete_supported"] != true {
+		t.Fatalf("expected hard_delete_supported retention metadata, got %+v", retention)
 	}
 }
 
@@ -748,9 +805,6 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	if executor.exportCalled != 1 {
-		t.Fatalf("expected async export dispatch, got %d", executor.exportCalled)
-	}
 	defer resp.Body.Close()
 	respPayload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
@@ -760,13 +814,29 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if toString(job["id"]) == "" {
 		t.Fatalf("expected job id, got %+v", job)
 	}
-	if toString(job["status"]) != translationExchangeAsyncJobStatusCompleted {
-		t.Fatalf("expected completed job, got %+v", job)
+	if toString(job["status"]) != translationExchangeAsyncJobStatusRunning {
+		t.Fatalf("expected running job, got %+v", job)
 	}
-	progress, _ := job["progress"].(map[string]any)
-	if progress["total"] != float64(2) || progress["processed"] != float64(2) {
-		t.Fatalf("expected progress totals to match export rows, got %+v", progress)
+	jobID := toString(job["id"])
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		stored, ok, getErr := binding.runtime.GetJob(context.Background(), translationTransportIdentity{ActorID: "ops-user"}, jobID)
+		if getErr != nil {
+			t.Fatalf("get job: %v", getErr)
+		}
+		if ok && stored.Status == translationExchangeAsyncJobStatusCompleted {
+			if executor.exportCalled != 1 {
+				t.Fatalf("expected async export dispatch, got %d", executor.exportCalled)
+			}
+			progress := stored.Progress
+			if progress["total"] != 2 || progress["processed"] != 2 {
+				t.Fatalf("expected progress totals to match export rows, got %+v", progress)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
+	t.Fatalf("expected async export job %q to complete", jobID)
 }
 
 func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
@@ -815,7 +885,10 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	if jobID == "" {
 		t.Fatalf("expected non-empty job id, got %+v", job)
 	}
-	stored, ok := binding.jobs.Get(jobID)
+	stored, ok, err := binding.runtime.GetJob(context.Background(), translationTransportIdentity{ActorID: "owner-user"}, jobID)
+	if err != nil {
+		t.Fatalf("get stored job: %v", err)
+	}
 	if !ok {
 		t.Fatalf("expected stored async job %q", jobID)
 	}
@@ -833,12 +906,8 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	mockCtx.On("Param", "job_id", "").Return(jobID)
 	mockCtx.On("Param", "id", "").Return("")
 	_, err = binding.JobStatus(mockCtx, jobID)
-	if err == nil {
-		t.Fatalf("expected job status ownership check to fail")
-	}
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
-		t.Fatalf("expected PermissionDeniedError, got %T", err)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected not found for non-owner job lookup, got %v", err)
 	}
 }
 
@@ -937,6 +1006,147 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	}
 }
 
+func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		applyResult: TranslationExchangeResult{
+			Summary: TranslationExchangeSummary{Processed: 1, Succeeded: 1},
+			Results: []TranslationExchangeRowResult{
+				{
+					Index:              0,
+					Resource:           "pages",
+					EntityID:           "page_1",
+					TranslationGroupID: "tg_1",
+					TargetLocale:       "es",
+					FieldPath:          "title",
+					Status:             translationExchangeRowStatusSuccess,
+				},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	body := []byte(`{"rows":[{"resource":"pages","entity_id":"page_1","translation_group_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}],"async":true}`)
+	firstReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstReq.Header.Set("X-User-ID", "ops-user")
+	firstResp, err := app.Test(firstReq)
+	if err != nil {
+		t.Fatalf("first request error: %v", err)
+	}
+	defer firstResp.Body.Close()
+	firstPayload := map[string]any{}
+	if err := json.NewDecoder(firstResp.Body).Decode(&firstPayload); err != nil {
+		t.Fatalf("decode first payload: %v", err)
+	}
+	firstJob := extractMap(firstPayload["job"])
+	if toString(firstJob["id"]) == "" {
+		t.Fatalf("expected first job id, got %+v", firstPayload)
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondReq.Header.Set("X-User-ID", "ops-user")
+	secondResp, err := app.Test(secondReq)
+	if err != nil {
+		t.Fatalf("second request error: %v", err)
+	}
+	defer secondResp.Body.Close()
+	secondPayload := map[string]any{}
+	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
+		t.Fatalf("decode second payload: %v", err)
+	}
+	for attempt := 0; attempt < 10 && executor.applyCalled == 0; attempt++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if executor.applyCalled != 1 {
+		t.Fatalf("expected one executor apply call, got %d", executor.applyCalled)
+	}
+	secondJob := extractMap(secondPayload["job"])
+	if toString(secondJob["id"]) != toString(firstJob["id"]) {
+		t.Fatalf("expected replay to return first job, got first=%+v second=%+v", firstJob, secondJob)
+	}
+	meta := extractMap(secondPayload["meta"])
+	if meta["idempotency_hit"] != true {
+		t.Fatalf("expected idempotency replay metadata, got %+v", meta)
+	}
+}
+
+func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{
+			RowCount: 1,
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("X-User-ID", "owner-user")
+	createResp, err := app.Test(createReq)
+	if err != nil {
+		t.Fatalf("create request error: %v", err)
+	}
+	defer createResp.Body.Close()
+	createPayload := map[string]any{}
+	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode create payload: %v", err)
+	}
+	job := extractMap(createPayload["job"])
+	jobID := toString(job["id"])
+	if jobID == "" {
+		t.Fatalf("expected job id, got %+v", job)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/translations/exchange/jobs/"+jobID, nil)
+	deleteReq.Header.Set("X-User-ID", "owner-user")
+	deleteResp, err := app.Test(deleteReq)
+	if err != nil {
+		t.Fatalf("delete request error: %v", err)
+	}
+	if deleteResp.StatusCode != http.StatusOK {
+		t.Fatalf("delete status=%d want=200", deleteResp.StatusCode)
+	}
+	_ = deleteResp.Body.Close()
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs/"+jobID, nil)
+	statusReq.Header.Set("X-User-ID", "owner-user")
+	statusResp, err := app.Test(statusReq)
+	if err != nil {
+		t.Fatalf("status request error: %v", err)
+	}
+	if statusResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status after delete=%d want=404", statusResp.StatusCode)
+	}
+	_ = statusResp.Body.Close()
+
+	historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs", nil)
+	historyReq.Header.Set("X-User-ID", "owner-user")
+	historyResp, err := app.Test(historyReq)
+	if err != nil {
+		t.Fatalf("history request error: %v", err)
+	}
+	defer historyResp.Body.Close()
+	historyPayload := map[string]any{}
+	if err := json.NewDecoder(historyResp.Body).Decode(&historyPayload); err != nil {
+		t.Fatalf("decode history payload: %v", err)
+	}
+	items := extractListMaps(extractMap(historyPayload["history"])["items"])
+	for _, item := range items {
+		if toString(item["id"]) == jobID {
+			t.Fatalf("expected deleted job to be absent from history, got %+v", items)
+		}
+	}
+}
+
 func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBinding) *fiber.App {
 	t.Helper()
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
@@ -981,6 +1191,13 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 	})
 	r.Get("/admin/api/translations/exchange/jobs/:job_id", func(c router.Context) error {
 		payload, err := binding.JobStatus(c, c.Param("job_id", ""))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Delete("/admin/api/translations/exchange/jobs/:job_id", func(c router.Context) error {
+		payload, err := binding.DeleteJob(c, c.Param("job_id", ""))
 		if err != nil {
 			return writeError(c, err)
 		}

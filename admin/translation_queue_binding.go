@@ -547,10 +547,7 @@ func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignm
 	if start >= total {
 		return []TranslationAssignment{}, total
 	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	end := min(start+perPage, total)
 	return matched[start:end], total
 }
 
@@ -642,7 +639,7 @@ func translationQueueListFilterMatches(filterValue, candidate string, normalize 
 	if candidate == "" {
 		return false
 	}
-	for _, item := range strings.Split(filterValue, ",") {
+	for item := range strings.SplitSeq(filterValue, ",") {
 		if normalize(item) == candidate {
 			return true
 		}

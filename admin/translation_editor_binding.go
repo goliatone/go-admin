@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -454,9 +455,7 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 
 func (b *translationQueueBinding) assignmentEditorActionStates(ctx context.Context, editorCtx translationEditorContext, assignment TranslationAssignment) map[string]any {
 	actions := map[string]any{}
-	for key, value := range b.assignmentActionStates(ctx, assignment) {
-		actions[key] = value
-	}
+	maps.Copy(actions, b.assignmentActionStates(ctx, assignment))
 	submitState := b.queueActionState(ctx, assignment.Status == AssignmentStatusInProgress, PermAdminTranslationsEdit, "assignment must be in progress")
 	submitState["auto_approve"] = !editorCtx.Policy.ReviewRequired
 	submitState["missing_required_fields"] = translationEditorMissingRequiredFields(editorCtx)
@@ -893,14 +892,8 @@ func translationEditorHistoryPayload(comments, events []map[string]any, page, pe
 	if perPage <= 0 {
 		perPage = 10
 	}
-	start := (page - 1) * perPage
-	if start > total {
-		start = total
-	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*perPage, total)
+	end := min(start+perPage, total)
 	paged := []map[string]any{}
 	if start < end {
 		paged = items[start:end]
@@ -1364,9 +1357,7 @@ func translationEditorMergeMetadata(existing, incoming map[string]any, rowVersio
 	if merged == nil {
 		merged = map[string]any{}
 	}
-	for key, value := range cloneAnyMap(incoming) {
-		merged[key] = value
-	}
+	maps.Copy(merged, cloneAnyMap(incoming))
 	editorMeta := extractMap(merged[translationEditorMetadataKey])
 	if editorMeta == nil {
 		editorMeta = map[string]any{}

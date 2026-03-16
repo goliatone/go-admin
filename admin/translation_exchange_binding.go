@@ -3,13 +3,17 @@ package admin
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
+	"maps"
 	"mime/multipart"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -106,18 +110,61 @@ func (translationExchangeDispatcherExecutor) Apply(ctx context.Context, input Tr
 type translationExchangeBinding struct {
 	admin    *Admin
 	executor translationExchangeCommandExecutor
-	jobs     *translationExchangeAsyncJobStore
+	runtime  *TranslationExchangeRuntime
+}
+
+type translationExchangeRuntimeExecutorExporter struct {
+	binding *translationExchangeBinding
+}
+
+func (w translationExchangeRuntimeExecutorExporter) Export(ctx context.Context, input TranslationExportInput) (TranslationExportResult, error) {
+	if w.binding == nil || w.binding.executor == nil {
+		return TranslationExportResult{}, serviceNotConfiguredDomainError("translation exchange exporter", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	return w.binding.executor.Export(ctx, input)
+}
+
+type translationExchangeRuntimeExecutorApplier struct {
+	binding *translationExchangeBinding
+}
+
+func (w translationExchangeRuntimeExecutorApplier) ApplyImport(ctx context.Context, input TranslationImportApplyInput) (TranslationExchangeResult, error) {
+	if w.binding == nil || w.binding.executor == nil {
+		return TranslationExchangeResult{}, serviceNotConfiguredDomainError("translation exchange apply service", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	return w.binding.executor.Apply(ctx, input)
 }
 
 func newTranslationExchangeBinding(a *Admin) *translationExchangeBinding {
 	if a == nil {
 		return nil
 	}
-	return &translationExchangeBinding{
+	runtime := a.translationExchangeRuntime
+	if runtime == nil {
+		runtime = NewTranslationExchangeRuntime(NewMemoryTranslationExchangeRuntimeStore(nil), nil, nil)
+		a.WithTranslationExchangeRuntime(runtime)
+	}
+	binding := &translationExchangeBinding{
 		admin:    a,
 		executor: translationExchangeDispatcherExecutor{},
-		jobs:     newTranslationExchangeAsyncJobStore(nil),
+		runtime:  runtime,
 	}
+	binding.configureRuntime()
+	return binding
+}
+
+func (b *translationExchangeBinding) configureRuntime() {
+	if b == nil || b.runtime == nil {
+		return
+	}
+	b.runtime.Configure(
+		translationExchangeRuntimeExecutorExporter{binding: b},
+		translationExchangeRuntimeExecutorApplier{binding: b},
+	)
 }
 
 func (b *translationExchangeBinding) Export(c router.Context) (payload any, err error) {
@@ -168,7 +215,7 @@ func (b *translationExchangeBinding) Export(c router.Context) (payload any, err 
 		"target_locales": append([]string{}, input.Filter.TargetLocales...),
 	})
 	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindExport, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), result.RowCount)
-	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindExport, translationExchangePermissionExport, translationExchangeExportRequestPayload(input.Filter), translationExchangeExportResultPayload(result))
+	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindExport, translationExchangePermissionExport, translationExchangeExportRequestPayload(input.Filter), nil, translationExchangeExportResultPayload(result), "")
 	return mergeTranslationExchangeExportPayload(result, job), nil
 }
 
@@ -200,6 +247,7 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 				"source_text":          "Hello world",
 				"translated_text":      "Hola mundo",
 				"source_hash":          "0123456789abcdef",
+				"create_translation":   false,
 				"path":                 "/example",
 				"title":                "Example",
 				"status":               "draft",
@@ -210,8 +258,8 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 		c.SetHeader("Content-Type", "text/csv")
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.csv")
 		template := strings.Join([]string{
-			"resource,entity_id,translation_group_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,path,title,status,notes",
-			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,/example,Example,draft,",
+			"resource,entity_id,translation_group_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,create_translation,path,title,status,notes",
+			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,false,/example,Example,draft,",
 		}, "\n")
 		return c.SendString(template)
 	}
@@ -264,8 +312,8 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload a
 	recordTranslationExchangeConflicts(b.admin, adminCtx, "validate", result.Results)
 	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportValidate, format, result)
 	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportValidate, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), len(rows))
-	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindImportValidate, translationExchangePermissionImportValidate, translationExchangeValidateRequestPayload(rows, parsedPayload, format), translationExchangeResultPayload(result))
-	return mergeTranslationExchangeResultPayload(result, job), nil
+	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindImportValidate, translationExchangePermissionImportValidate, translationExchangeValidateRequestPayload(rows, parsedPayload, format), rows, translationExchangeResultPayloadForKind(translationExchangeJobKindImportValidate, result, rows), "")
+	return mergeTranslationExchangeResultPayloadForKind(translationExchangeJobKindImportValidate, result, rows, job), nil
 }
 
 func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any, err error) {
@@ -307,27 +355,47 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 		AllowSourceHashOverride: toBool(parsedPayload["allow_source_hash_override"]),
 		ContinueOnError:         toBool(parsedPayload["continue_on_error"]),
 		DryRun:                  toBool(parsedPayload["dry_run"]),
+		RetryJobID:              strings.TrimSpace(toString(parsedPayload["retry_job_id"])),
+		Resolutions:             parseTranslationExchangeResolutions(parsedPayload["resolutions"]),
+	}
+	if input.AllowSourceHashOverride || translationExchangeResolutionsRequireOverride(input.Resolutions) {
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
+			return nil, err
+		}
 	}
 	if translationExchangeAsyncRequested(c, parsedPayload) {
-		return b.importApplyAsync(adminCtx, input)
+		return b.importApplyAsync(adminCtx, input, parsedPayload, format)
 	}
 	result, err := b.executor.Apply(adminCtx.Context, input)
 	if err != nil {
 		return nil, err
 	}
+	requestHash := translationExchangeApplyRequestHash(input)
 	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.import.applied", "translation_exchange", map[string]any{
-		"processed":            result.Summary.Processed,
-		"succeeded":            result.Summary.Succeeded,
-		"failed":               result.Summary.Failed,
-		"allow_create_missing": input.AllowCreateMissing,
-		"continue_on_error":    input.ContinueOnError,
-		"dry_run":              input.DryRun,
+		"processed":                  result.Summary.Processed,
+		"succeeded":                  result.Summary.Succeeded,
+		"failed":                     result.Summary.Failed,
+		"allow_create_missing":       input.AllowCreateMissing,
+		"allow_source_hash_override": input.AllowSourceHashOverride,
+		"continue_on_error":          input.ContinueOnError,
+		"dry_run":                    input.DryRun,
+		"request_hash":               requestHash,
+		"request_id":                 requestIDFromContext(adminCtx.Context),
+		"trace_id":                   traceIDFromContext(adminCtx.Context),
 	})
 	recordTranslationExchangeConflicts(b.admin, adminCtx, "apply", result.Results)
 	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportApply, format, result)
 	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportApply, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), len(rows))
-	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindImportApply, translationExchangePermissionImportApply, translationExchangeApplyRequestPayload(input, parsedPayload, format), translationExchangeResultPayload(result))
-	return mergeTranslationExchangeResultPayload(result, job), nil
+	job := b.recordCompletedExchangeJob(
+		adminCtx,
+		translationExchangeJobKindImportApply,
+		translationExchangePermissionImportApply,
+		translationExchangeApplyRequestPayload(input, parsedPayload, format),
+		input.Rows,
+		translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, result, input.Rows),
+		requestHash,
+	)
+	return mergeTranslationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, result, input.Rows, job), nil
 }
 
 func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (payload any, err error) {
@@ -358,18 +426,21 @@ func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (pay
 			"component": "translation_exchange_binding",
 		})
 	}
-	if b.jobs == nil {
-		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+	if b.runtime == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{
 			"component": "translation_exchange_binding",
 		})
-	}
-	job, ok := b.jobs.Get(id)
-	if !ok {
-		return nil, ErrNotFound
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
+	job, ok, err := b.runtime.GetJob(adminCtx.Context, translationIdentityFromAdminContext(adminCtx), id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrNotFound
+	}
 	if err := b.admin.requirePermission(adminCtx, strings.TrimSpace(job.Permission), "translations"); err != nil {
 		return nil, err
 	}
@@ -378,6 +449,75 @@ func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (pay
 	}
 	return map[string]any{
 		"job": translationExchangeAsyncJobPayload(job),
+	}, nil
+}
+
+func (b *translationExchangeBinding) DeleteJob(c router.Context, id string) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.job_delete",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	if strings.TrimSpace(id) == "" {
+		id = strings.TrimSpace(firstNonEmpty(c.Param("job_id", ""), c.Param("id", "")))
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil, requiredFieldDomainError("id", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	if b.runtime == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
+	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
+		return nil, err
+	}
+	identity := translationIdentityFromAdminContext(adminCtx)
+	job, ok, err := b.runtime.GetJob(adminCtx.Context, identity, id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if !translationExchangeJobVisibleToIdentity(job, identity) {
+		return nil, permissionDenied(PermAdminTranslationsManage, "translations")
+	}
+	deleted, ok, err := b.runtime.DeleteJob(adminCtx.Context, identity, id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrNotFound
+	}
+	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.job.deleted", "translation_exchange", map[string]any{
+		"job_id":     deleted.ID,
+		"kind":       deleted.Kind,
+		"request_id": requestIDFromContext(adminCtx.Context),
+		"trace_id":   traceIDFromContext(adminCtx.Context),
+	})
+	return map[string]any{
+		"status": "deleted",
+		"job_id": deleted.ID,
 	}, nil
 }
 
@@ -401,8 +541,8 @@ func (b *translationExchangeBinding) History(c router.Context) (payload any, err
 			"component": "translation_exchange_binding",
 		})
 	}
-	if b.jobs == nil {
-		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+	if b.runtime == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
@@ -421,7 +561,16 @@ func (b *translationExchangeBinding) History(c router.Context) (payload any, err
 	statusFilter := translationExchangeHistoryJobStatus(c.Query("status"))
 
 	identity := translationIdentityFromAdminContext(adminCtx)
-	jobs := b.jobs.ListByActor(identity.ActorID)
+	jobs, _, err := b.runtime.ListJobs(adminCtx.Context, translationExchangeJobQuery{
+		Identity: identity,
+		Page:     1,
+		PerPage:  10_000,
+		Kind:     kindFilter,
+		Status:   statusFilter,
+	})
+	if err != nil {
+		return nil, err
+	}
 	if includeExamples {
 		jobs = append(jobs, translationExchangeHistoryExampleJobs(identity.ActorID)...)
 	}
@@ -450,8 +599,8 @@ func (b *translationExchangeBinding) History(c router.Context) (payload any, err
 }
 
 func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input TranslationExportInput) (any, error) {
-	if b == nil || b.jobs == nil {
-		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+	if b == nil || b.runtime == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
@@ -460,64 +609,39 @@ func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input Tr
 		return nil, permissionDenied(translationExchangePermissionExport, "translations")
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
-	job := b.jobs.Create(
-		translationExchangeJobKindExport,
-		translationExchangePermissionExport,
-		actorID,
-		identity.TenantID,
-		identity.OrgID,
-		translationExchangeExportRequestPayload(input.Filter),
-	)
-	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
-	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
-	b.jobs.MarkRunning(job.ID, map[string]any{
-		"total":     0,
-		"processed": 0,
-		"succeeded": 0,
-		"failed":    0,
-	})
-
-	result, err := b.executor.Export(adminCtx.Context, input)
-	if err != nil {
-		b.jobs.Fail(job.ID, map[string]any{
+	jobID := defaultTranslationExchangeRuntimeJobID()
+	job, err := b.runtime.QueueExport(adminCtx.Context, translationExchangeAsyncJob{
+		ID:           jobID,
+		Kind:         translationExchangeJobKindExport,
+		Status:       translationExchangeAsyncJobStatusRunning,
+		Permission:   translationExchangePermissionExport,
+		CreatedBy:    actorID,
+		TenantID:     identity.TenantID,
+		OrgID:        identity.OrgID,
+		Request:      translationExchangeExportRequestPayload(input.Filter),
+		PollEndpoint: b.jobStatusEndpoint(jobID),
+		Progress: map[string]any{
 			"total":     0,
 			"processed": 0,
 			"succeeded": 0,
-			"failed":    1,
-		}, err)
-		failed, _ := b.jobs.Get(job.ID)
-		return map[string]any{
-			"status": "accepted",
-			"job":    translationExchangeAsyncJobPayload(failed),
-		}, nil
-	}
-
-	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.export.created", "translation_exchange", map[string]any{
-		"row_count":      result.RowCount,
-		"resource_count": len(input.Filter.Resources),
-		"source_locale":  strings.TrimSpace(input.Filter.SourceLocale),
-		"target_locales": append([]string{}, input.Filter.TargetLocales...),
+			"failed":    0,
+		},
+		RequestID: requestIDFromContext(adminCtx.Context),
+		TraceID:   traceIDFromContext(adminCtx.Context),
 	})
-	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindExport, translationExchangeAsyncJobStatusCompleted, 0, result.RowCount)
-
-	progress := map[string]any{
-		"total":     result.RowCount,
-		"processed": result.RowCount,
-		"succeeded": result.RowCount,
-		"failed":    0,
+	if err != nil {
+		return nil, err
 	}
-	resultPayload := translationExchangeExportResultPayload(result)
-	b.jobs.Complete(job.ID, progress, resultPayload)
-	complete, _ := b.jobs.Get(job.ID)
+	job.PollEndpoint = b.jobStatusEndpoint(job.ID)
 	return map[string]any{
 		"status": "accepted",
-		"job":    translationExchangeAsyncJobPayload(complete),
+		"job":    translationExchangeAsyncJobPayload(job),
 	}, nil
 }
 
-func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, input TranslationImportApplyInput) (any, error) {
-	if b == nil || b.jobs == nil {
-		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, input TranslationImportApplyInput, parsedPayload map[string]any, format string) (any, error) {
+	if b == nil || b.runtime == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
@@ -527,62 +651,41 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 		return nil, permissionDenied(translationExchangePermissionImportApply, "translations")
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
-	job := b.jobs.Create(
-		translationExchangeJobKindImportApply,
-		translationExchangePermissionImportApply,
-		actorID,
-		identity.TenantID,
-		identity.OrgID,
-		translationExchangeApplyRequestPayload(input, nil, ""),
-	)
-	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
-	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
-	b.jobs.MarkRunning(job.ID, map[string]any{
-		"total":     totalRows,
-		"processed": 0,
-		"succeeded": 0,
-		"failed":    0,
-	})
-
-	result, err := b.executor.Apply(adminCtx.Context, input)
-	if err != nil {
-		b.jobs.Fail(job.ID, map[string]any{
+	requestPayload := translationExchangeApplyRequestPayload(input, parsedPayload, format)
+	requestHash := translationExchangeApplyRequestHash(input)
+	jobID := defaultTranslationExchangeRuntimeJobID()
+	job, idempotencyHit, err := b.runtime.QueueApply(adminCtx.Context, identity, translationExchangeAsyncJob{
+		ID:           jobID,
+		Kind:         translationExchangeJobKindImportApply,
+		Status:       translationExchangeAsyncJobStatusRunning,
+		Permission:   translationExchangePermissionImportApply,
+		CreatedBy:    actorID,
+		TenantID:     identity.TenantID,
+		OrgID:        identity.OrgID,
+		RequestHash:  requestHash,
+		Request:      requestPayload,
+		PollEndpoint: b.jobStatusEndpoint(jobID),
+		Progress: map[string]any{
 			"total":     totalRows,
 			"processed": 0,
 			"succeeded": 0,
-			"failed":    1,
-		}, err)
-		failed, _ := b.jobs.Get(job.ID)
-		return map[string]any{
-			"status": "accepted",
-			"job":    translationExchangeAsyncJobPayload(failed),
-		}, nil
+			"failed":    0,
+		},
+		Retention: translationExchangeJobRetentionPayload(b.jobStatusEndpoint(""), nil),
+		RequestID: requestIDFromContext(adminCtx.Context),
+		TraceID:   traceIDFromContext(adminCtx.Context),
+	}, input.Rows)
+	if err != nil {
+		return nil, err
 	}
-
-	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.import.applied", "translation_exchange", map[string]any{
-		"processed":            result.Summary.Processed,
-		"succeeded":            result.Summary.Succeeded,
-		"failed":               result.Summary.Failed,
-		"allow_create_missing": input.AllowCreateMissing,
-		"continue_on_error":    input.ContinueOnError,
-		"dry_run":              input.DryRun,
-	})
-	recordTranslationExchangeConflicts(b.admin, adminCtx, "apply", result.Results)
-	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportApply, "", result)
-	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportApply, translationExchangeAsyncJobStatusCompleted, 0, totalRows)
-
-	progress := map[string]any{
-		"total":     totalRows,
-		"processed": result.Summary.Processed,
-		"succeeded": result.Summary.Succeeded,
-		"failed":    result.Summary.Failed,
-	}
-	resultPayload := translationExchangeResultPayload(result)
-	b.jobs.Complete(job.ID, progress, resultPayload)
-	complete, _ := b.jobs.Get(job.ID)
+	job.PollEndpoint = b.jobStatusEndpoint(job.ID)
 	return map[string]any{
 		"status": "accepted",
-		"job":    translationExchangeAsyncJobPayload(complete),
+		"job":    translationExchangeAsyncJobPayload(job),
+		"meta": map[string]any{
+			"idempotency_hit": idempotencyHit,
+			"request_hash":    requestHash,
+		},
 	}, nil
 }
 
@@ -723,8 +826,8 @@ func (b *translationExchangeBinding) jobHistoryEndpoint() string {
 	return strings.TrimSuffix(statusPath, "/__job_id__")
 }
 
-func (b *translationExchangeBinding) recordCompletedExchangeJob(adminCtx AdminContext, kind, permission string, request, result map[string]any) map[string]any {
-	if b == nil || b.jobs == nil {
+func (b *translationExchangeBinding) recordCompletedExchangeJob(adminCtx AdminContext, kind, permission string, request map[string]any, rows []TranslationExchangeRow, result map[string]any, requestHash string) map[string]any {
+	if b == nil || b.runtime == nil {
 		return nil
 	}
 	actorID := translationExchangeActorID(adminCtx)
@@ -732,16 +835,26 @@ func (b *translationExchangeBinding) recordCompletedExchangeJob(adminCtx AdminCo
 		actorID = strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, "system"))
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
-	job := b.jobs.Create(kind, permission, actorID, identity.TenantID, identity.OrgID, request)
-	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
-	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
-	progress := translationExchangeJobProgressFromResult(kind, result)
-	b.jobs.Complete(job.ID, progress, result)
-	stored, ok := b.jobs.Get(job.ID)
-	if !ok {
+	jobID := defaultTranslationExchangeRuntimeJobID()
+	job, err := b.runtime.RecordCompletedJob(adminCtx.Context, translationExchangeAsyncJob{
+		ID:           jobID,
+		Kind:         kind,
+		Status:       translationExchangeAsyncJobStatusCompleted,
+		Permission:   permission,
+		CreatedBy:    actorID,
+		TenantID:     identity.TenantID,
+		OrgID:        identity.OrgID,
+		RequestHash:  requestHash,
+		Request:      request,
+		PollEndpoint: b.jobStatusEndpoint(jobID),
+		RequestID:    requestIDFromContext(adminCtx.Context),
+		TraceID:      traceIDFromContext(adminCtx.Context),
+	}, rows, result)
+	if err != nil {
 		return nil
 	}
-	return translationExchangeAsyncJobPayload(stored)
+	job.PollEndpoint = b.jobStatusEndpoint(job.ID)
+	return translationExchangeAsyncJobPayload(job)
 }
 
 func mergeTranslationExchangeExportPayload(result TranslationExportResult, job map[string]any) map[string]any {
@@ -761,7 +874,11 @@ func mergeTranslationExchangeExportPayload(result TranslationExportResult, job m
 }
 
 func mergeTranslationExchangeResultPayload(result TranslationExchangeResult, job map[string]any) map[string]any {
-	payload := translationExchangeResultPayload(result)
+	return mergeTranslationExchangeResultPayloadForKind("", result, nil, job)
+}
+
+func mergeTranslationExchangeResultPayloadForKind(kind string, result TranslationExchangeResult, rows []TranslationExchangeRow, job map[string]any) map[string]any {
+	payload := translationExchangeResultPayloadForKind(kind, result, rows)
 	if len(job) > 0 {
 		payload["job"] = job
 	}
@@ -841,6 +958,10 @@ func translationExchangeExportResultPayload(result TranslationExportResult) map[
 }
 
 func translationExchangeResultPayload(result TranslationExchangeResult) map[string]any {
+	return translationExchangeResultPayloadForKind("", result, nil)
+}
+
+func translationExchangeResultPayloadForKind(kind string, result TranslationExchangeResult, rows []TranslationExchangeRow) map[string]any {
 	payload := map[string]any{
 		"summary": result.Summary,
 		"results": result.Results,
@@ -852,9 +973,78 @@ func translationExchangeResultPayload(result TranslationExchangeResult) map[stri
 	if translationExchangeToInt(conflicts["total"]) > 0 {
 		payload["conflicts"] = conflicts
 	}
-	if download := translationExchangeValidationReportDownload("", result); len(download) > 0 {
-		payload["downloads"] = map[string]any{
-			translationExchangeDownloadKindReport: download,
+	downloads := map[string]any{}
+	if download := translationExchangeValidationReportDownload(kind, result); len(download) > 0 {
+		downloads[translationExchangeDownloadKindReport] = download
+	}
+	if download := translationExchangeInputDownload(kind, rows); len(download) > 0 {
+		downloads[translationExchangeDownloadKindInput] = download
+	}
+	if len(downloads) > 0 {
+		payload["downloads"] = downloads
+	}
+	return payload
+}
+
+func translationExchangeInputDownload(kind string, rows []TranslationExchangeRow) map[string]any {
+	if len(rows) == 0 {
+		return nil
+	}
+	label := "Download staged import"
+	filename := "translation_exchange_validate_input.json"
+	if strings.TrimSpace(kind) == translationExchangeJobKindImportApply {
+		label = "Download apply input"
+		filename = "translation_exchange_apply_input.json"
+	}
+	return translationExchangeJSONDownload(
+		translationExchangeDownloadKindInput,
+		label,
+		filename,
+		"application/json",
+		rows,
+	)
+}
+
+func translationExchangeApplyRequestHash(input TranslationImportApplyInput) string {
+	payload := map[string]any{
+		"rows":                       input.Rows,
+		"allow_create_missing":       input.AllowCreateMissing,
+		"allow_source_hash_override": input.AllowSourceHashOverride,
+		"continue_on_error":          input.ContinueOnError,
+		"dry_run":                    input.DryRun,
+	}
+	if resolutions := translationExchangeResolutionPayloads(input.Resolutions); len(resolutions) > 0 {
+		payload["resolutions"] = resolutions
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func translationExchangeJobRetentionPayload(hardDeletePath string, result map[string]any) map[string]any {
+	downloads := translationExchangeDownloadsPayload(result)
+	payload := map[string]any{
+		"hard_delete_supported": true,
+	}
+	if hardDeletePath = strings.TrimSpace(hardDeletePath); hardDeletePath != "" {
+		payload["hard_delete_path"] = hardDeletePath
+	}
+	if len(downloads) > 0 {
+		kinds := make([]string, 0, len(downloads))
+		for key := range downloads {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			kinds = append(kinds, key)
+		}
+		if len(kinds) > 0 {
+			sort.Strings(kinds)
+			payload["download_kinds"] = kinds
+			payload["artifact_count"] = len(kinds)
+			payload["retained"] = true
 		}
 	}
 	return payload
@@ -1241,6 +1431,7 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 			SourceText:         csvCell(record, headerIndex, "source_text"),
 			TranslatedText:     csvCell(record, headerIndex, "translated_text"),
 			SourceHash:         csvCell(record, headerIndex, "source_hash"),
+			CreateTranslation:  toBool(csvCell(record, headerIndex, "create_translation")),
 			Path:               csvCell(record, headerIndex, "path"),
 			Title:              csvCell(record, headerIndex, "title"),
 			Status:             csvCell(record, headerIndex, "status"),
@@ -1426,6 +1617,67 @@ func validateTranslationExchangeJSONRows(rows []map[string]any) error {
 	return nil
 }
 
+func parseTranslationExchangeResolutions(value any) []TranslationExchangeConflictResolution {
+	rawEntries, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]TranslationExchangeConflictResolution, 0, len(rawEntries))
+	for _, entry := range rawEntries {
+		record := extractMap(entry)
+		if len(record) == 0 {
+			continue
+		}
+		resolution := TranslationExchangeConflictResolution{
+			Row:          atoiDefault(toString(record["row"]), -1),
+			Decision:     strings.TrimSpace(toString(record["decision"])),
+			ConflictType: strings.TrimSpace(toString(record["conflict_type"])),
+		}
+		if resolution.Row < 0 || resolution.Decision == "" {
+			continue
+		}
+		out = append(out, resolution)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func translationExchangeResolutionsRequireOverride(resolutions []TranslationExchangeConflictResolution) bool {
+	for _, resolution := range resolutions {
+		if strings.TrimSpace(resolution.Decision) == translationExchangeResolutionOverrideSourceHash {
+			return true
+		}
+	}
+	return false
+}
+
+func translationExchangeResolutionPayloads(resolutions []TranslationExchangeConflictResolution) []map[string]any {
+	if len(resolutions) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(resolutions))
+	for _, resolution := range resolutions {
+		decision := strings.TrimSpace(resolution.Decision)
+		if resolution.Row < 0 || decision == "" {
+			continue
+		}
+		payload := map[string]any{
+			"row":      resolution.Row,
+			"decision": decision,
+		}
+		if conflictType := strings.TrimSpace(resolution.ConflictType); conflictType != "" {
+			payload["conflict_type"] = conflictType
+		}
+		out = append(out, payload)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func enforceTranslationExchangeCSRF(c router.Context) error {
 	if c == nil {
 		return nil
@@ -1506,12 +1758,8 @@ func mergeImportOptions(base map[string]any, override map[string]any) map[string
 		return map[string]any{}
 	}
 	out := map[string]any{}
-	for key, value := range base {
-		out[key] = value
-	}
-	for key, value := range override {
-		out[key] = value
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, override)
 	return out
 }
 

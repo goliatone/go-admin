@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"slices"
 	"sort"
 	"strings"
 
@@ -329,10 +330,8 @@ func translationReadinessAvailableLocalesWithBatch(record map[string]any, cache 
 	if recordLocale == "" {
 		return locales
 	}
-	for _, locale := range locales {
-		if locale == recordLocale {
-			return locales
-		}
+	if slices.Contains(locales, recordLocale) {
+		return locales
 	}
 	locales = append(locales, recordLocale)
 	return translationReadinessLocaleList(locales)

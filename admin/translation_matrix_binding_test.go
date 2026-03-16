@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sort"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -353,7 +353,7 @@ func TestTranslationMatrixBindingMatrixViewportP95UnderTarget(t *testing.T) {
 	app := newTranslationFamilyTestApp(t, binding)
 
 	samples := make([]time.Duration, 0, 20)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		started := time.Now()
 		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&environment=production&per_page=100&locale_limit=20", nil)
 		resp, err := app.Test(req)
@@ -521,7 +521,7 @@ func newTranslationMatrixPerformanceRuntime(t *testing.T) *translationFamilyRunt
 	store := translationservices.NewInMemoryFamilyStore()
 	locales := []string{"en", "es", "fr", "de", "it", "pt", "nl", "sv", "pl", "cs", "da", "fi", "no", "ja", "ko", "zh", "ar", "he", "tr", "uk"}
 	now := time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC)
-	for index := 0; index < 100; index++ {
+	for index := range 100 {
 		familyID := "tg-perf-" + strconv.Itoa(index)
 		variants := []translationservices.FamilyVariant{
 			{
@@ -652,11 +652,8 @@ func translationMatrixPercentile95(samples []time.Duration) time.Duration {
 		return 0
 	}
 	cloned := append([]time.Duration{}, samples...)
-	sort.Slice(cloned, func(i, j int) bool { return cloned[i] < cloned[j] })
-	index := int(float64(len(cloned)-1) * 0.95)
-	if index < 0 {
-		index = 0
-	}
+	slices.Sort(cloned)
+	index := max(int(float64(len(cloned)-1)*0.95), 0)
 	if index >= len(cloned) {
 		index = len(cloned) - 1
 	}

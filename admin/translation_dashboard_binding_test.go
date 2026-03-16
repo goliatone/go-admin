@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -277,7 +277,7 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 		allowed: map[string]bool{PermAdminTranslationsView: true},
 	})
 	repo := NewInMemoryTranslationAssignmentRepository()
-	for idx := 0; idx < 120; idx++ {
+	for idx := range 120 {
 		due := now.Add(time.Duration(idx-60) * time.Minute)
 		status := AssignmentStatusAssigned
 		if idx%3 == 0 {
@@ -313,7 +313,7 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 
 	app := newTranslationQueueTestApp(t, binding)
 	samples := make([]time.Duration, 0, 25)
-	for idx := 0; idx < 25; idx++ {
+	for idx := range 25 {
 		started := time.Now()
 		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?environment=production&tenant_id=tenant-1&org_id=org-1", nil)
 		req.Header.Set("X-User-ID", "manager-1")
@@ -337,7 +337,7 @@ func translationDashboardPercentile95(samples []time.Duration) time.Duration {
 		return 0
 	}
 	cp := append([]time.Duration(nil), samples...)
-	sort.Slice(cp, func(i, j int) bool { return cp[i] < cp[j] })
+	slices.Sort(cp)
 	index := int(float64(len(cp)-1) * 0.95)
 	return cp[index]
 }
