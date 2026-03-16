@@ -2684,3 +2684,115 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestSigningServiceGetSessionIncludesReviewContext(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("review.session@example.com"),
+		Name:         stringPtr("Review Session"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "review-session-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if session.Review == nil {
+		t.Fatal("expected review context in signer session")
+	}
+	if !session.Review.IsReviewer {
+		t.Fatal("expected signer to be marked as reviewer")
+	}
+	if !session.Review.CanComment || !session.Review.CanApprove {
+		t.Fatalf("expected comment and approve capabilities, got %+v", session.Review)
+	}
+	if !session.Review.SignBlocked {
+		t.Fatalf("expected approve_before_sign review gate to block signing, got %+v", session.Review)
+	}
+	if session.Review.Gate != stores.AgreementReviewGateApproveBeforeSign {
+		t.Fatalf("expected review gate %q, got %q", stores.AgreementReviewGateApproveBeforeSign, session.Review.Gate)
+	}
+}
+
+func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("review.submit@example.com"),
+		Name:         stringPtr("Review Submit"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "review-submit-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	_, err = signingSvc.Submit(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}, SignerSubmitInput{
+		IdempotencyKey: "review-submit-key",
+	})
+	if err == nil {
+		t.Fatal("expected submit to fail while review approval is pending")
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) || coded == nil {
+		t.Fatalf("expected typed error, got %v", err)
+	}
+	if strings.TrimSpace(anyToString(coded.Metadata["field"])) != "review_status" {
+		t.Fatalf("expected review_status failure field, got %+v", coded.Metadata)
+	}
+}

@@ -2102,3 +2102,78 @@ func TestAgreementServiceCompletionDeliveryUsesNotifyFlag(t *testing.T) {
 		t.Fatalf("expected only notify=true recipient for completion delivery, got %+v", delivery)
 	}
 }
+
+func TestAgreementServiceValidateBeforeSendBlocksApproveBeforeSendReview(t *testing.T) {
+	ctx, scope, _, svc, agreement := setupDraftAgreement(t)
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("reviewer@example.com"),
+		Name:         stringPtr("Reviewer"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signer signature: %v", err)
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusInReview, summary.Status)
+	}
+
+	validation, err := svc.ValidateBeforeSend(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ValidateBeforeSend: %v", err)
+	}
+	if validation.Valid {
+		t.Fatalf("expected send validation to fail while review is pending")
+	}
+	found := false
+	for _, issue := range validation.Issues {
+		if issue.Field == "review_status" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected review_status validation issue, got %+v", validation.Issues)
+	}
+
+	summary, err = svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: signer.ID,
+		ActorType:   "recipient",
+		ActorID:     signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("ApproveReview: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusApproved {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusApproved, summary.Status)
+	}
+
+	validation, err = svc.ValidateBeforeSend(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ValidateBeforeSend after approval: %v", err)
+	}
+	if !validation.Valid {
+		t.Fatalf("expected send validation to pass after review approval, got %+v", validation.Issues)
+	}
+}

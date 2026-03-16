@@ -184,6 +184,9 @@ func agreementDraftReviewGuard(actionName string, allowedReviewStatuses []string
 			}
 		}
 		currentReviewStatus := normalizeAgreementStatus(ctx.Record["review_status"])
+		if currentReviewStatus == "" {
+			currentReviewStatus = stores.AgreementReviewStatusNone
+		}
 		if statusAllowed(currentReviewStatus, normalizedAllowedReview...) {
 			return coreadmin.ActionState{Enabled: true}
 		}

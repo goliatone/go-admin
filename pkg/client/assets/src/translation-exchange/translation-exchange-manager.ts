@@ -97,6 +97,36 @@ function escapeHTML(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+function jobStatusSeverity(status: string): BadgeSeverity {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "running":
+      return "info";
+    case "failed":
+      return "error";
+    default:
+      return "neutral";
+  }
+}
+
+function rowStatusSeverity(status: string): BadgeSeverity {
+  switch (status) {
+    case "success":
+      return "success";
+    case "conflict":
+      return "warning";
+    case "error":
+      return "error";
+    default:
+      return "neutral";
+  }
+}
+
+function statusBadgeClass(severity: BadgeSeverity): string {
+  return `rounded-full px-3 py-1 text-xs font-medium ${getStatusSeverityClass(severity)}`;
+}
+
 function formatDate(value?: string): string {
   if (!value) return "Pending";
   const date = new Date(value);
@@ -1353,7 +1383,7 @@ export class TranslationExchangeManager {
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
                     <p class="text-xs text-gray-500">${escapeHTML(job.id)}</p>
                   </div>
-                  <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800">${escapeHTML(job.status)}</span>
+                  <span class="${statusBadgeClass(jobStatusSeverity(job.status))}">${escapeHTML(job.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
                   <div class="h-full bg-sky-500" style="width: ${progressPercent(job)}%"></div>
@@ -1435,7 +1465,7 @@ export class TranslationExchangeManager {
                         <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(row.index)}</td>
                         <td class="px-4 py-3 text-gray-700">${escapeHTML(`${row.resource}.${row.field_path}`)}</td>
                         <td class="px-4 py-3 text-gray-700">${escapeHTML(row.target_locale.toUpperCase())}</td>
-                        <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(row.status)}</span></td>
+                        <td class="px-4 py-3"><span class="${statusBadgeClass(rowStatusSeverity(row.status))}">${escapeHTML(row.status)}</span></td>
                         <td class="px-4 py-3">
                           <div class="flex gap-2">
                             ${this.renderDecisionButton(row.index, "accepted", this.validateState.decisions[row.index] === "accepted")}
@@ -1506,7 +1536,7 @@ export class TranslationExchangeManager {
             </div>
             ${
               this.applyState.retryJobId
-                ? `<span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Retry source: ${escapeHTML(this.applyState.retryJobId)}</span>`
+                ? `<span class="${statusBadgeClass("warning")}">Retry source: ${escapeHTML(this.applyState.retryJobId)}</span>`
                 : ""
             }
           </div>
@@ -1643,7 +1673,7 @@ export class TranslationExchangeManager {
                         <tr>
                           <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(row.index)}</td>
                           <td class="px-4 py-3 text-gray-700">${escapeHTML(`${row.resource}.${row.field_path}`)}</td>
-                          <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(row.status)}</span></td>
+                          <td class="px-4 py-3"><span class="${statusBadgeClass(rowStatusSeverity(row.status))}">${escapeHTML(row.status)}</span></td>
                           <td class="px-4 py-3 text-gray-600">${escapeHTML(String(row.metadata?.resolution_decision ?? "apply"))}</td>
                           <td class="px-4 py-3 text-gray-600">${escapeHTML(row.conflict?.message ?? row.error ?? "Applied without conflict.")}</td>
                         </tr>
@@ -1811,7 +1841,7 @@ export class TranslationExchangeManager {
                                 <tr>
                                   <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(row.index)}</td>
                                   <td class="px-4 py-3 text-gray-700">${escapeHTML(`${row.resource}.${row.field_path}`)}</td>
-                                  <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(row.status)}</span></td>
+                                  <td class="px-4 py-3"><span class="${statusBadgeClass(rowStatusSeverity(row.status))}">${escapeHTML(row.status)}</span></td>
                                   <td class="px-4 py-3 text-gray-600">${escapeHTML(String(row.metadata?.resolution_decision ?? "apply"))}</td>
                                   <td class="px-4 py-3 text-gray-600">${escapeHTML(row.conflict?.message ?? row.error ?? "Completed without conflict.")}</td>
                                 </tr>`).join("")}
