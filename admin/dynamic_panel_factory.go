@@ -470,7 +470,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		ParentID: strings.TrimSpace(f.menuParent),
 	}
 	if navPosition != nil {
-		item.Position = primitives.Int(*navPosition)
+		item.Position = new(*navPosition)
 	}
 	perms := panelPermissionsForContentType(*contentType)
 	if strings.TrimSpace(perms.View) != "" {
@@ -522,7 +522,7 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		item.ParentCode = strings.TrimSpace(existing.ParentCode)
 	}
 	if item.Position == nil && existing.Position != nil {
-		item.Position = primitives.Int(*existing.Position)
+		item.Position = new(*existing.Position)
 	}
 	if err := f.admin.menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
 		if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
@@ -864,7 +864,7 @@ func collectPanelTraits(out map[string]struct{}, raw any) {
 	}
 	switch typed := raw.(type) {
 	case string:
-		for _, part := range strings.Split(typed, ",") {
+		for part := range strings.SplitSeq(typed, ",") {
 			trait := strings.ToLower(strings.TrimSpace(part))
 			if trait != "" {
 				out[trait] = struct{}{}
@@ -1218,7 +1218,7 @@ func normalizePanelTraitsForWorkflowLookup(raw any) []string {
 	out := []string{}
 	switch typed := raw.(type) {
 	case string:
-		for _, part := range strings.Split(typed, ",") {
+		for part := range strings.SplitSeq(typed, ",") {
 			if trait := strings.ToLower(strings.TrimSpace(part)); trait != "" {
 				out = append(out, trait)
 			}

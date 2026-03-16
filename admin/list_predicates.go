@@ -78,8 +78,8 @@ func normalizePredicateValues(values []string) []string {
 	}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		parts := strings.Split(value, ",")
-		for _, part := range parts {
+		parts := strings.SplitSeq(value, ",")
+		for part := range parts {
 			trimmed := strings.TrimSpace(part)
 			if trimmed == "" {
 				continue

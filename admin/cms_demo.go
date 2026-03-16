@@ -2,8 +2,8 @@ package admin
 
 import (
 	"context"
-	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	"github.com/goliatone/go-admin/internal/primitives"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	"net/url"
 	"path"
 	"sort"
@@ -446,7 +446,7 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 		if len(svc.definitions) == 0 {
 			_ = svc.RegisterDefinition(ctx, WidgetDefinition{Code: "stats", Name: "Stats", Schema: map[string]any{"type": "stats"}})
 			_ = svc.RegisterAreaDefinition(ctx, WidgetAreaDefinition{
-				Code:  dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
+				Code:  uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
 				Name:  "Dashboard",
 				Scope: "admin",
 			})
@@ -454,7 +454,7 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 		if len(svc.instances) == 0 {
 			_, _ = svc.SaveInstance(ctx, WidgetInstance{
 				DefinitionCode: "stats",
-				Area:           dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
+				Area:           uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
 				PageID:         "",
 				Locale:         "en",
 				Position:       1,
@@ -468,13 +468,13 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			contentTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content", nil, nil)}
 			treeTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "content_tree"}, nil)}
 			conflictsTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "block_conflicts", nil, nil)}
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: primitives.Int(1), Locale: "en", Target: dashboardTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: primitives.Int(2), Locale: "en", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content Tree", Icon: "file-text", Position: primitives.Int(3), Locale: "en", Target: treeTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: primitives.Int(4), Locale: "en", Target: conflictsTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: primitives.Int(2), Locale: "es", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Arbol de Contenido", Icon: "file-text", Position: primitives.Int(3), Locale: "es", Target: treeTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: primitives.Int(4), Locale: "es", Target: conflictsTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: new(1), Locale: "en", Target: dashboardTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: new(2), Locale: "en", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content Tree", Icon: "file-text", Position: new(3), Locale: "en", Target: treeTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: new(4), Locale: "en", Target: conflictsTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: new(2), Locale: "es", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Arbol de Contenido", Icon: "file-text", Position: new(3), Locale: "es", Target: treeTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: new(4), Locale: "es", Target: conflictsTarget})
 		}
 	}
 }

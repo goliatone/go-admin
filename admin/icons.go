@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"strings"
 )
 
@@ -356,8 +357,6 @@ func isSymbolOther(r rune) bool {
 // GetSVGFieldTypeMapping returns the svgFieldTypeKeys map for backward compatibility.
 func GetSVGFieldTypeMapping() map[string]string {
 	result := make(map[string]string, len(svgFieldTypeKeys))
-	for k, v := range svgFieldTypeKeys {
-		result[k] = v
-	}
+	maps.Copy(result, svgFieldTypeKeys)
 	return result
 }

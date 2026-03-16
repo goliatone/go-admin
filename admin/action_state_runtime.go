@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -206,20 +207,25 @@ func (p *panelBinding) evaluateBuiltInScopeAndContext(evalCtx actionStateEvaluat
 
 func (p *panelBinding) evaluateBuiltInPermission(evalCtx actionStateEvaluationContext) (ActionState, bool) {
 	action := evalCtx.action
-	if action.Permission == "" || p == nil || p.panel == nil || p.panel.authorizer == nil {
+	required := actionRequiredPermissions(action)
+	if len(required) == 0 || p == nil || p.panel == nil || p.panel.authorizer == nil {
 		return ActionState{}, false
 	}
-	if p.panel.authorizer.Can(evalCtx.adminContext.Context, action.Permission, p.name) {
+	if CanAll(p.panel.authorizer, evalCtx.adminContext.Context, p.name, required...) {
 		return ActionState{
 			Enabled:    true,
-			Permission: strings.TrimSpace(action.Permission),
+			Permission: strings.TrimSpace(required[0]),
 		}, true
 	}
+	missing := actionMissingPermission(p.panel.authorizer, evalCtx.adminContext.Context, p.name, required)
 	return ActionState{
 		Enabled:    false,
 		ReasonCode: ActionDisabledReasonCodePermissionDenied,
 		Reason:     "you do not have permission to execute this action",
-		Permission: strings.TrimSpace(action.Permission),
+		Permission: missing,
+		Metadata: map[string]any{
+			"required_permissions": append([]string{}, required...),
+		},
 	}, true
 }
 
@@ -325,18 +331,23 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 				Reason:     "action is not available for bulk execution",
 			}, true)
 		}
-		if action.Permission != "" && p != nil && p.panel != nil && p.panel.authorizer != nil {
-			if p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
+		required := actionRequiredPermissions(action)
+		if len(required) > 0 && p != nil && p.panel != nil && p.panel.authorizer != nil {
+			if CanAll(p.panel.authorizer, ctx.Context, p.name, required...) {
 				applyStage("permission", ActionState{
 					Enabled:    true,
-					Permission: strings.TrimSpace(action.Permission),
+					Permission: strings.TrimSpace(required[0]),
 				}, true)
 			} else {
+				missing := actionMissingPermission(p.panel.authorizer, ctx.Context, p.name, required)
 				applyStage("permission", ActionState{
 					Enabled:    false,
 					ReasonCode: ActionDisabledReasonCodePermissionDenied,
 					Reason:     "you do not have permission to execute this action",
-					Permission: strings.TrimSpace(action.Permission),
+					Permission: missing,
+					Metadata: map[string]any{
+						"required_permissions": append([]string{}, required...),
+					},
 				}, true)
 			}
 		}
@@ -375,6 +386,15 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 		captureActionDisablementDiagnostic(ctx.Context, p.name, action, ActionScopeBulk, "", blockerStageByAction[name], out[name])
 	}
 	return out, nil
+}
+
+func actionMissingPermission(authorizer Authorizer, ctx context.Context, resource string, required []string) string {
+	for _, permission := range compactPermissions(required...) {
+		if !authorizer.Can(ctx, permission, resource) {
+			return permission
+		}
+	}
+	return ""
 }
 
 func mergeActionState(current ActionState, next ActionState, applies bool) ActionState {

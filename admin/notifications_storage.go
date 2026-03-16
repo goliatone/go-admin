@@ -90,10 +90,7 @@ func (b *notificationMemoryBase[T]) list(opts store.ListOptions) (store.ListResu
 		return b.meta(&filtered[i]).CreatedAt.Before(b.meta(&filtered[j]).CreatedAt)
 	})
 	total := len(filtered)
-	start := opts.Offset
-	if start > total {
-		start = total
-	}
+	start := min(opts.Offset, total)
 	end := total
 	if opts.Limit > 0 && start+opts.Limit < end {
 		end = start + opts.Limit

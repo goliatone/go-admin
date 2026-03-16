@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"path"
 	"strings"
 	"unicode/utf8"
@@ -298,9 +299,7 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 	metadata := map[string]any{}
 	actor, hasActor := auth.ActorFromContext(reqCtx)
 	if hasActor && actor != nil {
-		for k, v := range actor.Metadata {
-			metadata[k] = v
-		}
+		maps.Copy(metadata, actor.Metadata)
 		if actor.Role != "" {
 			session["role"] = actor.Role
 		}

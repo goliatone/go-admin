@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -177,8 +178,6 @@ func mergeDebugUserSessionMetadata(base, next map[string]any) map[string]any {
 	if out == nil {
 		out = map[string]any{}
 	}
-	for key, value := range next {
-		out[key] = value
-	}
+	maps.Copy(out, next)
 	return out
 }

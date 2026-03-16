@@ -705,7 +705,7 @@ func extractXFormgen(prop map[string]any) map[string]any {
 	if raw, ok := prop["x_formgen"].(map[string]any); ok {
 		return raw
 	}
-	if raw, ok := prop["x-formgen"].(map[string]interface{}); ok {
+	if raw, ok := prop["x-formgen"].(map[string]any); ok {
 		return map[string]any(raw)
 	}
 	return nil
@@ -721,7 +721,7 @@ func extractXAdmin(prop map[string]any) map[string]any {
 	if raw, ok := prop["x_admin"].(map[string]any); ok {
 		return raw
 	}
-	if raw, ok := prop["x-admin"].(map[string]interface{}); ok {
+	if raw, ok := prop["x-admin"].(map[string]any); ok {
 		return map[string]any(raw)
 	}
 	return nil

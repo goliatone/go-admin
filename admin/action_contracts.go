@@ -24,9 +24,9 @@ type ActionRemediation struct {
 // BulkActionStateConfig advertises bulk action availability capabilities to
 // shared clients.
 type BulkActionStateConfig struct {
-	SelectionSensitive    bool   `json:"selection_sensitive,omitempty"`
+	SelectionSensitive     bool   `json:"selection_sensitive,omitempty"`
 	SelectionStateEndpoint string `json:"selection_state_endpoint,omitempty"`
-	DebounceMS            int    `json:"debounce_ms,omitempty"`
+	DebounceMS             int    `json:"debounce_ms,omitempty"`
 }
 
 // ActionGuardContext contains the inputs used to evaluate action availability

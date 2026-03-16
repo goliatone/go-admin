@@ -150,7 +150,7 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.permission},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    primitives.Int(60),
+			Position:    new(60),
 			ParentID:    m.menuParent,
 		},
 	}

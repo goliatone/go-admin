@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"strings"
 )
 
@@ -146,7 +147,7 @@ func normalizedLocaleList(raw any) []string {
 			}
 		}
 	case string:
-		for _, item := range strings.Split(typed, ",") {
+		for item := range strings.SplitSeq(typed, ",") {
 			if val := strings.TrimSpace(item); val != "" {
 				locales = append(locales, val)
 			}
@@ -611,12 +612,8 @@ func cmsContentDataUpdated(record map[string]any) bool {
 
 func mergeAnyMap(base map[string]any, updates map[string]any) map[string]any {
 	merged := map[string]any{}
-	for key, val := range base {
-		merged[key] = val
-	}
-	for key, val := range updates {
-		merged[key] = val
-	}
+	maps.Copy(merged, base)
+	maps.Copy(merged, updates)
 	return merged
 }
 
@@ -1053,9 +1050,9 @@ func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string)
 		item.Icon = icon
 	}
 	if pos, ok := record["position"].(int); ok {
-		item.Position = primitives.Int(pos)
+		item.Position = new(pos)
 	} else if posf, ok := record["position"].(float64); ok {
-		item.Position = primitives.Int(int(posf))
+		item.Position = new(int(posf))
 	}
 	if locale, ok := record["locale"].(string); ok {
 		item.Locale = locale
@@ -1191,10 +1188,7 @@ func extractSearch(opts ListOptions) string {
 
 func paginateCMS[T any](items []T, opts ListOptions) ([]T, int) {
 	total := len(items)
-	pageNum := opts.Page
-	if pageNum < 1 {
-		pageNum = 1
-	}
+	pageNum := max(opts.Page, 1)
 	per := opts.PerPage
 	if per <= 0 {
 		per = 10
@@ -1203,10 +1197,7 @@ func paginateCMS[T any](items []T, opts ListOptions) ([]T, int) {
 	if start > total {
 		return []T{}, total
 	}
-	end := start + per
-	if end > total {
-		end = total
-	}
+	end := min(start+per, total)
 	return items[start:end], total
 }
 

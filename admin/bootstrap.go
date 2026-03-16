@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
@@ -219,7 +218,7 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 		Permissions: []string{a.config.SettingsPermission},
 		Menu:        a.navMenuCode,
 		Locale:      a.config.DefaultLocale,
-		Position:    primitives.Int(80),
+		Position:    new(80),
 		ParentID:    "nav-group-main",
 	}
 	return a.addMenuItems(ctx, []MenuItem{item})

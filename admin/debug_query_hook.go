@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	repository "github.com/goliatone/go-repository-bun"
@@ -114,10 +115,5 @@ func debugSQLPanelEnabled(cfg DebugConfig) bool {
 }
 
 func panelIDEnabled(panels []string, panelID string) bool {
-	for _, panel := range panels {
-		if panel == panelID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(panels, panelID)
 }

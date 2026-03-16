@@ -122,8 +122,8 @@ func methodPathIndex(method, path string) string {
 
 func moduleFromOwner(owner string) string {
 	owner = strings.TrimSpace(owner)
-	if strings.HasPrefix(owner, "module:") {
-		return strings.TrimPrefix(owner, "module:")
+	if after, ok := strings.CutPrefix(owner, "module:"); ok {
+		return after
 	}
 	return owner
 }

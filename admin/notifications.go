@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -102,11 +103,8 @@ func (s *InMemoryNotificationService) Mark(ctx context.Context, ids []string, re
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, n := range s.entries {
-		for _, id := range ids {
-			if n.ID == id {
-				s.entries[i].Read = read
-				break
-			}
+		if slices.Contains(ids, n.ID) {
+			s.entries[i].Read = read
 		}
 	}
 	if len(ids) > 0 {

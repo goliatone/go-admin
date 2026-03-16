@@ -187,7 +187,7 @@ func debugSetResponseWriterField(target any, fieldName string, writer http.Respo
 		return nil, false
 	}
 	field := elem.FieldByName(fieldName)
-	if !field.IsValid() || field.Type() != reflect.TypeOf((*http.ResponseWriter)(nil)).Elem() {
+	if !field.IsValid() || field.Type() != reflect.TypeFor[http.ResponseWriter]() {
 		return nil, false
 	}
 	fieldPtr := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()

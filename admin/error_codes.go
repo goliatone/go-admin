@@ -33,6 +33,7 @@ const (
 	TextCodeTranslationExchangeUnsupportedFormat = "TRANSLATION_EXCHANGE_UNSUPPORTED_FORMAT"
 	TextCodeTranslationExchangeInvalidPayload    = "TRANSLATION_EXCHANGE_INVALID_PAYLOAD"
 	TextCodeTranslationExchangeMissingLinkage    = "TRANSLATION_EXCHANGE_MISSING_LINKAGE"
+	TextCodeTranslationExchangeDuplicateRow      = "TRANSLATION_EXCHANGE_DUPLICATE_ROW"
 	TextCodeTranslationExchangeStaleSourceHash   = "TRANSLATION_EXCHANGE_STALE_SOURCE_HASH"
 	TextCodeContentTypeSchemaBreaking            = "CONTENT_TYPE_SCHEMA_BREAKING"
 	TextCodeFeatureEnabledRequired               = "FEATURE_ENABLED_REQUIRED"
@@ -95,6 +96,7 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeTranslationExchangeUnsupportedFormat, Description: "Translation exchange format is not supported.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationExchangeInvalidPayload, Description: "Translation exchange payload is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeTranslationExchangeMissingLinkage, Description: "Translation exchange row linkage could not be resolved.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeTranslationExchangeDuplicateRow, Description: "Translation exchange payload contains duplicate linkage rows.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeTranslationExchangeStaleSourceHash, Description: "Translation exchange row source hash is stale.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeContentTypeSchemaBreaking, Description: "Content type schema changes are breaking.", Category: goerrors.CategoryBadInput, HTTPStatus: 409},
 	{Code: TextCodeFeatureEnabledRequired, Description: "Feature must be enabled to apply overrides.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},

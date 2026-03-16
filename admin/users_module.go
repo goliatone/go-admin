@@ -446,9 +446,9 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 
 func menuPosition(pos *int, fallback int) *int {
 	if pos != nil {
-		return primitives.Int(*pos)
+		return new(*pos)
 	}
-	return primitives.Int(fallback)
+	return new(fallback)
 }
 
 // WithMenuParent nests the module navigation under a parent menu item ID.

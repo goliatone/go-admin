@@ -147,7 +147,7 @@ func parseCSVParams(values []string) []string {
 	seen := map[string]struct{}{}
 	out := []string{}
 	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			part = strings.TrimSpace(part)
 			if part == "" {
 				continue

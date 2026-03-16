@@ -19,8 +19,8 @@ import (
 type Job struct {
 	Name      string    `json:"name"`
 	Schedule  string    `json:"schedule,omitempty"`
-	LastRun   time.Time `json:"last_run,omitempty"`
-	NextRun   time.Time `json:"next_run,omitempty"`
+	LastRun   time.Time `json:"last_run"`
+	NextRun   time.Time `json:"next_run"`
 	Status    string    `json:"status,omitempty"`
 	LastError string    `json:"last_error,omitempty"`
 }

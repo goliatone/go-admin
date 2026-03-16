@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -239,9 +240,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		if format := strings.TrimSpace(strings.ToLower(exchangeInvalidPayload.Format)); format != "" {
 			meta["format"] = format
 		}
-		for key, value := range exchangeInvalidPayload.Metadata {
-			meta[key] = value
-		}
+		maps.Copy(meta, exchangeInvalidPayload.Metadata)
 		mapped = NewDomainError(TextCodeTranslationExchangeInvalidPayload, exchangeInvalidPayload.Error(), meta)
 		status = mapped.Code
 	case errors.As(err, &exchangeConflict):
@@ -392,6 +391,24 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	}
 
 	if mapped == nil {
+		if recovered := recoverDomainErrorFromGenericHandler(err); recovered != nil {
+			mapped = recovered
+			if mapped.Code != 0 {
+				status = mapped.Code
+			}
+		}
+	}
+
+	if mapped == nil {
+		if preferred := preferSpecificMappedError(err); preferred != nil {
+			mapped = preferred
+			if mapped.Code != 0 {
+				status = mapped.Code
+			}
+		}
+	}
+
+	if mapped == nil {
 		if errors.As(err, &mapped) && mapped != nil {
 			if mapped.Code != 0 {
 				status = mapped.Code
@@ -412,6 +429,73 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	}
 
 	return mapped, status
+}
+
+func preferSpecificMappedError(err error) *goerrors.Error {
+	var first *goerrors.Error
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		typed, ok := current.(*goerrors.Error)
+		if !ok || typed == nil {
+			continue
+		}
+		if first == nil {
+			first = typed
+		}
+		if !isGenericHandlerErrorTextCode(typed.TextCode) {
+			return typed
+		}
+	}
+	return first
+}
+
+func recoverDomainErrorFromGenericHandler(err error) *goerrors.Error {
+	var typed *goerrors.Error
+	if !errors.As(err, &typed) || typed == nil {
+		return nil
+	}
+	if !isGenericHandlerErrorTextCode(typed.TextCode) {
+		return nil
+	}
+	code := strings.TrimSpace(toString(typed.Metadata["error_code"]))
+	if code == "" {
+		return nil
+	}
+	if _, ok := DomainErrorCodeFor(code); !ok {
+		return nil
+	}
+	return NewDomainError(code, unwrapGenericHandlerErrorMessage(typed.Message), primitives.CloneAnyMap(typed.Metadata))
+}
+
+func isGenericHandlerErrorTextCode(code string) bool {
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case "HANDLER_EXECUTION_FAILED", "HANDLER_MAX_RETRIES_EXCEEDED", "HANDLER_RETRY_ATTEMPT":
+		return true
+	default:
+		return false
+	}
+}
+
+func unwrapGenericHandlerErrorMessage(message string) string {
+	message = strings.TrimSpace(message)
+	for {
+		lower := strings.ToLower(message)
+		switch {
+		case strings.HasPrefix(lower, "handler failed for type "):
+			idx := strings.Index(message, ":")
+			if idx == -1 {
+				return message
+			}
+			message = strings.TrimSpace(message[idx+1:])
+		case strings.HasPrefix(lower, "handler failed after "):
+			idx := strings.Index(message, ":")
+			if idx == -1 {
+				return message
+			}
+			message = strings.TrimSpace(message[idx+1:])
+		default:
+			return message
+		}
+	}
 }
 
 func isContentTypeSchemaBreaking(err error) bool {

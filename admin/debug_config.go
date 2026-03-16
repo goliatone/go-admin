@@ -61,6 +61,7 @@ var defaultDebugPanels = []string{
 	DebugPanelCustom,
 	DebugPanelJSErrors,
 	DebugPanelPermissions,
+	DebugPanelActions,
 }
 
 var defaultToolbarPanels = []string{
@@ -223,7 +224,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 		cfg.SessionInactivityExpiry = debugDefaultSessionInactivity
 	}
 	if cfg.SessionIncludeGlobalPanels == nil {
-		cfg.SessionIncludeGlobalPanels = BoolPtr(true)
+		cfg.SessionIncludeGlobalPanels = new(true)
 	}
 	return cfg
 }

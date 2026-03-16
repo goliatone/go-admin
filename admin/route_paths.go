@@ -49,8 +49,8 @@ func adminAPIBasePath(a *Admin) string {
 		return ""
 	}
 	errorsPath = strings.TrimSpace(errorsPath)
-	if strings.HasSuffix(errorsPath, "/errors") {
-		return strings.TrimSuffix(errorsPath, "/errors")
+	if before, ok := strings.CutSuffix(errorsPath, "/errors"); ok {
+		return before
 	}
 	return strings.TrimSuffix(errorsPath, "/")
 }

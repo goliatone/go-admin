@@ -929,10 +929,7 @@ func collectDiffChanges(path string, base, target any, changes *[]flow.FSMAuthor
 			*changes = append(*changes, flow.FSMAuthoringDiffChange{Path: path, ChangeType: "modified"})
 			return
 		}
-		maxLen := len(b)
-		if len(t) > maxLen {
-			maxLen = len(t)
-		}
+		maxLen := max(len(t), len(b))
 		for index := 0; index < maxLen; index++ {
 			var left any
 			if index < len(b) {

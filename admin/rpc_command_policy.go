@@ -32,8 +32,8 @@ type RPCCommandPolicyInput struct {
 	CommandName    string                  `json:"command_name,omitempty"`
 	Payload        map[string]any          `json:"payload,omitempty"`
 	IDs            []string                `json:"ids,omitempty"`
-	Rule           RPCCommandRule          `json:"rule,omitempty"`
-	Dispatch       command.DispatchOptions `json:"dispatch,omitempty"`
+	Rule           RPCCommandRule          `json:"rule"`
+	Dispatch       command.DispatchOptions `json:"dispatch"`
 	ActorID        string                  `json:"actor_id,omitempty"`
 	Subject        string                  `json:"subject,omitempty"`
 	TenantID       string                  `json:"tenant_id,omitempty"`

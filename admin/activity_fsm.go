@@ -95,8 +95,8 @@ func normalizeFSMLifecyclePhase(raw, action string) string {
 
 	prefix := flow.LifecycleActivityVerbPrefix
 	normalizedAction := strings.ToLower(strings.TrimSpace(action))
-	if strings.HasPrefix(normalizedAction, prefix) {
-		suffix := strings.TrimPrefix(normalizedAction, prefix)
+	if after, ok := strings.CutPrefix(normalizedAction, prefix); ok {
+		suffix := after
 		switch suffix {
 		case string(flow.TransitionPhaseAttempted), string(flow.TransitionPhaseCommitted), string(flow.TransitionPhaseRejected):
 			return suffix

@@ -279,8 +279,8 @@ func (a *Admin) handleSiteMenuDispatch(c router.Context) error {
 			"field": "location",
 		}))
 	}
-	if strings.HasPrefix(raw, "code/") {
-		code := strings.Trim(strings.TrimPrefix(raw, "code/"), "/")
+	if after, ok := strings.CutPrefix(raw, "code/"); ok {
+		code := strings.Trim(after, "/")
 		return a.handleSiteMenuByCodePath(c, code)
 	}
 	return a.handleSiteMenuByLocationPath(c, raw)
@@ -770,8 +770,8 @@ func matchesContentType(content CMSContent, contentType string) bool {
 	if strings.EqualFold(content.ContentTypeSlug, filter) || strings.EqualFold(content.ContentType, filter) {
 		return true
 	}
-	if strings.HasSuffix(filter, "s") {
-		filter = strings.TrimSuffix(filter, "s")
+	if before, ok := strings.CutSuffix(filter, "s"); ok {
+		filter = before
 		if strings.EqualFold(content.ContentTypeSlug, filter) || strings.EqualFold(content.ContentType, filter) {
 			return true
 		}

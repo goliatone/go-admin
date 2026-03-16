@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"net/http"
 	"sort"
 	"strconv"
@@ -393,7 +394,7 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	}
 	if item.Position == nil {
 		pos := state.parentCounters[item.ParentID] + 1
-		item.Position = primitives.Int(pos)
+		item.Position = new(pos)
 	}
 	state.parentCounters[item.ParentID] = maxInt(state.parentCounters[item.ParentID], intFromPtr(item.Position))
 	if strings.TrimSpace(item.Type) == "" {
@@ -522,7 +523,7 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 		if !ok {
 			continue
 		}
-		item.Position = primitives.Int(idx + 1)
+		item.Position = new(idx + 1)
 		state.items[id] = item
 	}
 	activity := s.activity
@@ -1429,30 +1430,22 @@ func cloneCMSPage(in CMSPage) CMSPage {
 	}
 	if in.Navigation != nil {
 		out.Navigation = make(map[string]string, len(in.Navigation))
-		for k, v := range in.Navigation {
-			out.Navigation[k] = v
-		}
+		maps.Copy(out.Navigation, in.Navigation)
 	}
 	if in.EffectiveMenuLocations != nil {
 		out.EffectiveMenuLocations = append([]string{}, in.EffectiveMenuLocations...)
 	}
 	if in.SEO != nil {
 		out.SEO = make(map[string]any, len(in.SEO))
-		for k, v := range in.SEO {
-			out.SEO[k] = v
-		}
+		maps.Copy(out.SEO, in.SEO)
 	}
 	if in.Data != nil {
 		out.Data = make(map[string]any, len(in.Data))
-		for k, v := range in.Data {
-			out.Data[k] = v
-		}
+		maps.Copy(out.Data, in.Data)
 	}
 	if in.Metadata != nil {
 		out.Metadata = make(map[string]any, len(in.Metadata))
-		for k, v := range in.Metadata {
-			out.Metadata[k] = v
-		}
+		maps.Copy(out.Metadata, in.Metadata)
 	}
 	return out
 }
@@ -1470,24 +1463,18 @@ func cloneCMSContent(in CMSContent) CMSContent {
 	}
 	if in.Navigation != nil {
 		out.Navigation = make(map[string]string, len(in.Navigation))
-		for k, v := range in.Navigation {
-			out.Navigation[k] = v
-		}
+		maps.Copy(out.Navigation, in.Navigation)
 	}
 	if in.EffectiveMenuLocations != nil {
 		out.EffectiveMenuLocations = append([]string{}, in.EffectiveMenuLocations...)
 	}
 	if in.Data != nil {
 		out.Data = make(map[string]any, len(in.Data))
-		for k, v := range in.Data {
-			out.Data[k] = v
-		}
+		maps.Copy(out.Data, in.Data)
 	}
 	if in.Metadata != nil {
 		out.Metadata = make(map[string]any, len(in.Metadata))
-		for k, v := range in.Metadata {
-			out.Metadata[k] = v
-		}
+		maps.Copy(out.Metadata, in.Metadata)
 	}
 	return out
 }

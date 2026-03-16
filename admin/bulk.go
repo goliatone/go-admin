@@ -30,8 +30,8 @@ type BulkJob struct {
 	Progress          float64        `json:"progress,omitempty"`
 	Payload           map[string]any `json:"payload,omitempty"`
 	Errors            []string       `json:"errors,omitempty"`
-	StartedAt         time.Time      `json:"started_at,omitempty"`
-	CompletedAt       time.Time      `json:"completed_at,omitempty"`
+	StartedAt         time.Time      `json:"started_at"`
+	CompletedAt       time.Time      `json:"completed_at"`
 	RollbackAvailable bool           `json:"rollback_available,omitempty"`
 }
 

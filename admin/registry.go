@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -80,9 +81,7 @@ func (r *Registry) Panels() map[string]*Panel {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make(map[string]*Panel, len(r.panels))
-	for name, panel := range r.panels {
-		out[name] = panel
-	}
+	maps.Copy(out, r.panels)
 	return out
 }
 

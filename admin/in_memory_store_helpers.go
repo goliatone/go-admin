@@ -1,5 +1,7 @@
 package admin
 
+import "maps"
+
 import "strings"
 
 func inMemoryListSearchTerm(opts ListOptions) string {
@@ -29,14 +31,8 @@ func paginateInMemory[T any](items []T, opts ListOptions, defaultPerPage int) ([
 	if perPage <= 0 {
 		perPage = 10
 	}
-	start := (page - 1) * perPage
-	if start > total {
-		start = total
-	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*perPage, total)
+	end := min(start+perPage, total)
 	return items[start:end], total
 }
 
@@ -58,9 +54,7 @@ func mergeMapInto(base map[string]any, updates map[string]any) map[string]any {
 	if base == nil {
 		base = map[string]any{}
 	}
-	for key, value := range updates {
-		base[key] = value
-	}
+	maps.Copy(base, updates)
 	return base
 }
 

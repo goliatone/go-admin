@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
+	"maps"
 	"strings"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
@@ -136,9 +137,7 @@ func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[str
 			if cfg == nil {
 				cfg = map[string]any{}
 			}
-			for k, v := range meta.Instance.Configuration {
-				cfg[k] = v
-			}
+			maps.Copy(cfg, meta.Instance.Configuration)
 			adminCtx := AdminContext{
 				Context: ctx,
 				UserID:  meta.Viewer.UserID,
@@ -428,9 +427,7 @@ func cloneAny(m map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }
 

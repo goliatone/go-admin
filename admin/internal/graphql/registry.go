@@ -24,12 +24,12 @@ func DeliveryControllers() []registrar.Controller {
 func readOnlyRouteConfig() crud.RouteConfig {
 	return crud.RouteConfig{
 		Operations: map[crud.CrudOperation]crud.RouteOptions{
-			crud.OpCreate:      {Enabled: crud.BoolPtr(false)},
-			crud.OpCreateBatch: {Enabled: crud.BoolPtr(false)},
-			crud.OpUpdate:      {Enabled: crud.BoolPtr(false)},
-			crud.OpUpdateBatch: {Enabled: crud.BoolPtr(false)},
-			crud.OpDelete:      {Enabled: crud.BoolPtr(false)},
-			crud.OpDeleteBatch: {Enabled: crud.BoolPtr(false)},
+			crud.OpCreate:      {Enabled: new(false)},
+			crud.OpCreateBatch: {Enabled: new(false)},
+			crud.OpUpdate:      {Enabled: new(false)},
+			crud.OpUpdateBatch: {Enabled: new(false)},
+			crud.OpDelete:      {Enabled: new(false)},
+			crud.OpDeleteBatch: {Enabled: new(false)},
 		},
 	}
 }

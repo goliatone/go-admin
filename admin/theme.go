@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"strings"
 )
 
@@ -131,25 +132,19 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 		if result.Tokens == nil {
 			result.Tokens = map[string]string{}
 		}
-		for k, v := range override.Tokens {
-			result.Tokens[k] = v
-		}
+		maps.Copy(result.Tokens, override.Tokens)
 	}
 	if len(override.Assets) > 0 {
 		if result.Assets == nil {
 			result.Assets = map[string]string{}
 		}
-		for k, v := range override.Assets {
-			result.Assets[k] = v
-		}
+		maps.Copy(result.Assets, override.Assets)
 	}
 	if len(override.Partials) > 0 {
 		if result.Partials == nil {
 			result.Partials = map[string]string{}
 		}
-		for k, v := range override.Partials {
-			result.Partials[k] = v
-		}
+		maps.Copy(result.Partials, override.Partials)
 	}
 	if override.ChartTheme != "" {
 		result.ChartTheme = override.ChartTheme

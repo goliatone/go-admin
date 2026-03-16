@@ -141,10 +141,7 @@ func (a *BunRepositoryAdapter[T]) List(ctx context.Context, opts ListOptions) ([
 	if per <= 0 {
 		per = 10
 	}
-	page := opts.Page
-	if page < 1 {
-		page = 1
-	}
+	page := max(opts.Page, 1)
 	offset := (page - 1) * per
 	criteria = append(criteria, repository.SelectPaginate(per, offset))
 

@@ -59,7 +59,7 @@ func normalizeDebugREPLConfig(cfg DebugREPLConfig) DebugREPLConfig {
 		cfg.AppEvalTimeoutMs = debugReplDefaultAppEvalTimeoutMs
 	}
 	if cfg.ReadOnly == nil {
-		cfg.ReadOnly = BoolPtr(true)
+		cfg.ReadOnly = new(true)
 	}
 	if cfg.OverrideStrategy == nil {
 		cfg.OverrideStrategy = DenyAllStrategy{}
@@ -94,6 +94,8 @@ func normalizeDebugREPLList(values []string) []string {
 }
 
 // BoolPtr returns a pointer to the provided boolean.
+//
+//go:fix inline
 func BoolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }

@@ -3,12 +3,14 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 )
 
@@ -358,9 +360,7 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 		if cfg == nil {
 			cfg = map[string]any{}
 		}
-		for k, v := range meta.Instance.Configuration {
-			cfg[k] = v
-		}
+		maps.Copy(cfg, meta.Instance.Configuration)
 		adminCtx := AdminContext{
 			Context: ctx,
 			UserID:  meta.Viewer.UserID,
@@ -618,7 +618,7 @@ func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 }
 
 func orderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
-	preferred := dashinternal.PreferredAreaCodes()
+	preferred := uiplacement.PreferredDashboardAreaCodes()
 	seen := map[string]bool{}
 	order := []string{}
 	for _, code := range preferred {

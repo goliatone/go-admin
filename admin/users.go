@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -634,14 +635,8 @@ func (s *InMemoryUserStore) ListUsers(ctx context.Context, opts ListOptions) ([]
 	if per <= 0 {
 		per = 10
 	}
-	start := (page - 1) * per
-	if start > len(out) {
-		start = len(out)
-	}
-	end := start + per
-	if end > len(out) {
-		end = len(out)
-	}
+	start := min((page-1)*per, len(out))
+	end := min(start+per, len(out))
 	return out[start:end], total, nil
 }
 
@@ -714,9 +709,7 @@ func (s *InMemoryUserStore) UpdateUser(ctx context.Context, user UserRecord) (Us
 		if existing.Metadata == nil {
 			existing.Metadata = map[string]any{}
 		}
-		for k, v := range user.Metadata {
-			existing.Metadata[k] = v
-		}
+		maps.Copy(existing.Metadata, user.Metadata)
 	}
 	if len(user.Roles) > 0 {
 		existing.Roles = dedupeStrings(user.Roles)
@@ -776,14 +769,8 @@ func (s *InMemoryUserStore) List(ctx context.Context, opts ListOptions) ([]RoleR
 	if per <= 0 {
 		per = 10
 	}
-	start := (page - 1) * per
-	if start > len(out) {
-		start = len(out)
-	}
-	end := start + per
-	if end > len(out) {
-		end = len(out)
-	}
+	start := min((page-1)*per, len(out))
+	end := min(start+per, len(out))
 	return out[start:end], total, nil
 }
 
@@ -1223,17 +1210,11 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 		})
 
 		total := len(merged)
-		start := offset
-		if start < 0 {
-			start = 0
-		}
+		start := max(offset, 0)
 		if start > total {
 			start = total
 		}
-		end := start + limit
-		if end > total {
-			end = total
-		}
+		end := min(start+limit, total)
 		pageSlice := merged[start:end]
 		roles := make([]RoleRecord, 0, len(pageSlice))
 		for _, role := range pageSlice {
@@ -1261,10 +1242,7 @@ func (r *GoUsersRoleRepository) listAllRoles(ctx context.Context, filter users.R
 	if limit <= 0 || limit > 200 {
 		limit = 200
 	}
-	offset := filter.Pagination.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Pagination.Offset, 0)
 	filter.Pagination = users.Pagination{Limit: limit, Offset: offset}
 	out := []users.RoleDefinition{}
 	for {

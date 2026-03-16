@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -44,6 +45,7 @@ type Admin struct {
 	rpcCommandPolicyHook         RPCCommandPolicyHook
 	dashboard                    *Dashboard
 	debugCollector               *DebugCollector
+	actionDiagnostics            *ActionDiagnosticsStore
 	replSessionStore             DebugREPLSessionStore
 	replSessionManager           *DebugREPLSessionManager
 	replCommandCatalog           *DebugREPLCommandCatalog
@@ -83,6 +85,7 @@ type Admin struct {
 	translator                   Translator
 	workflow                     WorkflowEngine
 	workflowRuntime              WorkflowRuntime
+	translationExchangeRuntime   *TranslationExchangeRuntime
 	traitWorkflowDefaults        map[string]string
 	translationPolicy            TranslationPolicy
 	cmsWorkflowDefaults          bool
@@ -187,6 +190,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if debugSessionStore == nil {
 		debugSessionStore = NewInMemoryDebugUserSessionStore()
 	}
+	actionDiagnostics := NewActionDiagnosticsStore(cfg.Debug.MaxLogEntries)
 
 	commandBus := deps.CommandBus
 	if commandBus == nil {
@@ -380,6 +384,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		rpcServer:              rpcServer,
 		rpcCommandPolicyHook:   deps.RPCCommandPolicyHook,
 		dashboard:              dashboard,
+		actionDiagnostics:      actionDiagnostics,
 		replSessionStore:       replSessionStore,
 		replSessionManager:     replSessionManager,
 		replCommandCatalog:     replCommandCatalog,
@@ -614,6 +619,15 @@ func (a *Admin) WithTranslationPolicy(policy TranslationPolicy) *Admin {
 	return a
 }
 
+// WithTranslationExchangeRuntime wires the exchange job runtime used by transport bindings.
+func (a *Admin) WithTranslationExchangeRuntime(runtime *TranslationExchangeRuntime) *Admin {
+	if a == nil {
+		return a
+	}
+	a.translationExchangeRuntime = runtime
+	return a
+}
+
 // WithCMSWorkflowDefaults enables registering default CMS workflows on a custom engine
 // that can report existing definitions.
 func (a *Admin) WithCMSWorkflowDefaults() *Admin {
@@ -640,9 +654,7 @@ func (a *Admin) traitWorkflowDefaultsForLookup() map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(a.traitWorkflowDefaults))
-	for trait, workflowID := range a.traitWorkflowDefaults {
-		out[trait] = workflowID
-	}
+	maps.Copy(out, a.traitWorkflowDefaults)
 	return out
 }
 
@@ -855,6 +867,9 @@ func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminCo
 	selector := selectorFromRequest(c)
 	if selector.Name != "" || selector.Variant != "" {
 		ctx.Context = WithThemeSelection(ctx.Context, selector)
+	}
+	if sink := newAdminActionDiagnosticSink(a); sink != nil {
+		ctx.Context = ContextWithActionDiagnostics(ctx.Context, sink)
 	}
 	return a.withTheme(ctx)
 }

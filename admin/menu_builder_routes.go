@@ -679,7 +679,7 @@ func parseMenuItemMap(record map[string]any) MenuItem {
 		Collapsed:     boolFromAny(record["collapsed"]),
 	}
 	if pos := atoiDefault(toString(record["position"]), -1); pos >= 0 {
-		item.Position = primitives.Int(pos)
+		item.Position = new(pos)
 	}
 	item.Children = parseMenuItemsPayload(record["children"])
 	return item

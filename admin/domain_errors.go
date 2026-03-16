@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"net/http"
 	"strings"
 
@@ -94,11 +95,7 @@ func withDomainErrorMeta(base map[string]any, extra map[string]any) map[string]a
 		return nil
 	}
 	out := map[string]any{}
-	for key, value := range base {
-		out[key] = value
-	}
-	for key, value := range extra {
-		out[key] = value
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, extra)
 	return out
 }

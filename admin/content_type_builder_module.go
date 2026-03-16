@@ -6,6 +6,7 @@ import (
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
+	"maps"
 	"path"
 	"sort"
 	"strings"
@@ -316,7 +317,7 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		Locale:   locale,
 		Menu:     m.menuCode,
 		ParentID: m.menuParent,
-		Position: primitives.Int(4),
+		Position: new(4),
 	}
 	blocks := MenuItem{
 		Label:    "Block Library",
@@ -325,7 +326,7 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		Locale:   locale,
 		Menu:     m.menuCode,
 		ParentID: m.menuParent,
-		Position: primitives.Int(5),
+		Position: new(5),
 	}
 	return []MenuItem{contentModeling, blocks}
 }
@@ -896,9 +897,7 @@ func recordContentTypeActivity(ctx context.Context, sink ActivitySink, action st
 			metadata["status"] = ct.Status
 		}
 	}
-	for k, v := range extra {
-		metadata[k] = v
-	}
+	maps.Copy(metadata, extra)
 
 	object := "content_type"
 	if ct != nil && ct.Slug != "" {

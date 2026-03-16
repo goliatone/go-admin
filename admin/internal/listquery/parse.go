@@ -124,10 +124,10 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 			continue
 		}
 		targetKey := rawKey
-		if strings.HasPrefix(targetKey, "filter_") {
-			targetKey = strings.TrimPrefix(targetKey, "filter_")
-		} else if strings.HasPrefix(targetKey, "filter.") {
-			targetKey = strings.TrimPrefix(targetKey, "filter.")
+		if after, ok := strings.CutPrefix(targetKey, "filter_"); ok {
+			targetKey = after
+		} else if after, ok := strings.CutPrefix(targetKey, "filter."); ok {
+			targetKey = after
 		}
 		targetKey = strings.TrimSpace(targetKey)
 		if targetKey == "" {

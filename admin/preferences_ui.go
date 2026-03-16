@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
+	"maps"
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -179,9 +180,7 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 		for _, key := range clearUIKeys {
 			delete(mergedRaw, key)
 		}
-		for key, val := range rawUI {
-			mergedRaw[key] = val
-		}
+		maps.Copy(mergedRaw, rawUI)
 		prefs.Raw = mergedRaw
 	}
 	if theme == "" {

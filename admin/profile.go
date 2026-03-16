@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"sync"
 
@@ -195,9 +196,7 @@ func mergeProfiles(base, update UserProfile) UserProfile {
 	base = ensureProfileMaps(base)
 	update = ensureProfileMaps(update)
 	merged := cloneProfile(base)
-	for k, v := range update.Raw {
-		merged.Raw[k] = v
-	}
+	maps.Copy(merged.Raw, update.Raw)
 	if shouldOverride(update.Raw, profileKeyDisplayName) {
 		merged.DisplayName = update.DisplayName
 	}
@@ -266,12 +265,8 @@ func mergeAnyMaps(base, override map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := map[string]any{}
-	for k, v := range base {
-		out[k] = v
-	}
-	for k, v := range override {
-		out[k] = v
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, override)
 	return out
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"maps"
 	"sync"
 	"time"
 
@@ -261,9 +262,7 @@ type settingsSnapshot struct {
 
 func cloneSettingDefinitions(defs map[string]SettingDefinition) map[string]SettingDefinition {
 	out := make(map[string]SettingDefinition, len(defs))
-	for k, v := range defs {
-		out[k] = v
-	}
+	maps.Copy(out, defs)
 	return out
 }
 

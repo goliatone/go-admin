@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -79,7 +80,7 @@ type ResolvedSetting struct {
 	Value      any               `json:"value"`
 	Scope      SettingsScope     `json:"scope"`
 	Provenance string            `json:"provenance"`
-	Definition SettingDefinition `json:"definition,omitempty"`
+	Definition SettingDefinition `json:"definition"`
 }
 
 // SettingsBundle captures a bulk mutation request.
@@ -419,12 +420,7 @@ func valueAllowedByOptions(val any, options []SettingOption) bool {
 }
 
 func scopeAllowed(def SettingDefinition, scope SettingsScope) bool {
-	for _, allowed := range def.AllowedScopes {
-		if allowed == scope {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(def.AllowedScopes, scope)
 }
 
 func (s *SettingsService) resolveWithOptionsLocked(key, userID string) ResolvedSetting {

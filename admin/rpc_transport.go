@@ -21,7 +21,7 @@ type RPCCommandDispatchRequest struct {
 	Name    string                  `json:"name"`
 	Payload map[string]any          `json:"payload,omitempty"`
 	IDs     []string                `json:"ids,omitempty"`
-	Options command.DispatchOptions `json:"options,omitempty"`
+	Options command.DispatchOptions `json:"options"`
 }
 
 // RPCCommandDispatchResponse returns command dispatch receipt metadata.

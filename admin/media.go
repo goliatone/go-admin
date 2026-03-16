@@ -15,7 +15,7 @@ type MediaItem struct {
 	Thumbnail string         `json:"thumbnail,omitempty"`
 	Size      int64          `json:"size,omitempty"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt time.Time      `json:"created_at,omitempty"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // MediaLibrary exposes media listing/creation.

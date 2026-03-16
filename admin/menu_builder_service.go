@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"sort"
 	"strings"
@@ -66,9 +67,7 @@ func menuBindingKey(location, locale, menuCode, profile string) string {
 
 func (s *MenuBuilderService) Contracts(endpoints map[string]string) AdminMenuContracts {
 	contractsEndpoints := map[string]string{}
-	for key, value := range endpoints {
-		contractsEndpoints[key] = value
-	}
+	maps.Copy(contractsEndpoints, endpoints)
 	return AdminMenuContracts{
 		Endpoints: contractsEndpoints,
 		ErrorCode: map[string]string{
@@ -600,7 +599,7 @@ func normalizeMenuItemForUpsert(item MenuItem, parentID, menuCode, defaultLocale
 		item.Locale = defaultLocale
 	}
 	if item.Position == nil {
-		item.Position = primitives.Int(index + 1)
+		item.Position = new(index + 1)
 	}
 	if strings.TrimSpace(item.Code) == "" {
 		item.Code = item.ID
@@ -693,7 +692,7 @@ func menuBuilderIntPointer(raw any) *int {
 	if value < 0 {
 		return nil
 	}
-	return primitives.Int(value)
+	return new(value)
 }
 
 func menuBuilderStringSlice(raw any) []string {

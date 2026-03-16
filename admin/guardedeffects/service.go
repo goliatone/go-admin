@@ -49,6 +49,15 @@ func NewService(store Store, now func() time.Time) Service {
 	return Service{store: store, now: now}
 }
 
+func isTerminalStatus(status string) bool {
+	switch NormalizeStatus(status) {
+	case StatusFinalized, StatusAborted, StatusDeadLettered:
+		return true
+	default:
+		return false
+	}
+}
+
 // Prepare creates or replays a durable effect row by idempotency key.
 func (s Service) Prepare(ctx context.Context, scope Scope, record Record) (Record, bool, error) {
 	if s.store == nil {
@@ -89,7 +98,7 @@ func (s Service) MarkDispatching(
 	if err != nil {
 		return Record{}, err
 	}
-	if record.Status == StatusFinalized || record.Status == StatusAborted {
+	if isTerminalStatus(record.Status) {
 		return record, nil
 	}
 	now := s.now().UTC()
@@ -119,7 +128,7 @@ func (s Service) Complete(
 	if err != nil {
 		return Record{}, err
 	}
-	if record.Status == StatusFinalized || record.Status == StatusAborted {
+	if isTerminalStatus(record.Status) {
 		return record, nil
 	}
 	if policy == nil {
@@ -197,7 +206,7 @@ func (s Service) Abort(
 	if err != nil {
 		return Record{}, err
 	}
-	if record.Status == StatusFinalized || record.Status == StatusAborted {
+	if isTerminalStatus(record.Status) {
 		return record, nil
 	}
 	now := s.now().UTC()

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -55,10 +56,7 @@ func crudListQueryOptions(opts ListOptions) crud.ListQueryOptions {
 	if per <= 0 {
 		per = 10
 	}
-	page := opts.Page
-	if page < 1 {
-		page = 1
-	}
+	page := max(opts.Page, 1)
 
 	normalized := NormalizeListPredicates(opts)
 	predicates := make([]crud.ListQueryPredicate, 0, len(normalized))
@@ -130,10 +128,7 @@ func listQueryPagination(opts crud.ListQueryOptions) (int, int) {
 	if perPage <= 0 {
 		perPage = crud.DefaultLimit
 	}
-	page := opts.Page
-	if page < 1 {
-		page = 1
-	}
+	page := max(opts.Page, 1)
 	return perPage, (page - 1) * perPage
 }
 
@@ -270,9 +265,7 @@ func (c *crudAdapterContext) QueryInt(key string, defaultValue ...int) int {
 }
 func (c *crudAdapterContext) Queries() map[string]string {
 	out := make(map[string]string, len(c.queries))
-	for k, v := range c.queries {
-		out[k] = v
-	}
+	maps.Copy(out, c.queries)
 	return out
 }
 func (c *crudAdapterContext) Body() []byte { return c.body }

@@ -90,10 +90,7 @@ func ExtractSourceContext(filePath string, errorLine, contextLines int) *SourceC
 	}
 	defer file.Close()
 
-	startLine := errorLine - contextLines
-	if startLine < 1 {
-		startLine = 1
-	}
+	startLine := max(errorLine-contextLines, 1)
 	endLine := errorLine + contextLines
 
 	var lines []SourceLine
@@ -239,14 +236,14 @@ func extractRelativePath(filePath string) string {
 	// Try to find common project markers
 	markers := []string{"/src/github.com/", "/src/", "/go/src/"}
 	for _, marker := range markers {
-		if idx := strings.Index(filePath, marker); idx != -1 {
-			return filePath[idx+len(marker):]
+		if _, after, ok := strings.Cut(filePath, marker); ok {
+			return after
 		}
 	}
 
 	// Check for go module path pattern
-	if idx := strings.Index(filePath, "/go/pkg/mod/"); idx != -1 {
-		return filePath[idx+12:]
+	if _, after, ok := strings.Cut(filePath, "/go/pkg/mod/"); ok {
+		return after
 	}
 
 	// Return basename with parent directory
@@ -266,8 +263,8 @@ func extractPackage(fn string) string {
 	if idx := strings.LastIndex(fn, "."); idx != -1 {
 		pkg := fn[:idx]
 		// Remove receiver if present (e.g., (*Type).Method)
-		if parenIdx := strings.Index(pkg, "("); parenIdx != -1 {
-			if dotIdx := strings.LastIndex(pkg[:parenIdx], "."); dotIdx != -1 {
+		if before, _, ok := strings.Cut(pkg, "("); ok {
+			if dotIdx := strings.LastIndex(before, "."); dotIdx != -1 {
 				return pkg[:dotIdx]
 			}
 		}

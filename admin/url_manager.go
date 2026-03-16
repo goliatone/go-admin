@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"maps"
+
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
@@ -271,9 +273,7 @@ func defaultAdminRoutes() map[string]string {
 		"content.panel.preview": "/content/:panel/:id/preview",
 		"block_conflicts":       "/block_conflicts",
 	}
-	for routeKey, routePath := range translationgoadmin.AdminUIRoutes() {
-		routes[routeKey] = routePath
-	}
+	maps.Copy(routes, translationgoadmin.AdminUIRoutes())
 	return routes
 }
 
@@ -325,7 +325,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"workflows.bindings.id":               "/workflows/bindings/:id",
 		"users.import":                        "/users-import",
 		"users.import.template":               "/users-import/template",
-		"translations.dashboard":             "/translations/dashboard",
+		"translations.dashboard":              "/translations/dashboard",
 		"translations.options.entity_types":   "/translations/options/entity-types",
 		"translations.options.source_records": "/translations/options/source-records",
 		"translations.options.locales":        "/translations/options/locales",
@@ -336,6 +336,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"panel":                               "/panels/:panel",
 		"panel.id":                            "/panels/:panel/:id",
 		"panel.action":                        "/panels/:panel/actions/:action",
+		"panel.bulk.state":                    "/panels/:panel/bulk-actions/state",
 		"panel.bulk":                          "/panels/:panel/bulk/:action",
 		"panel.preview":                       "/panels/:panel/:id/preview",
 		"panel.subresource":                   "/panels/:panel/:id/:subresource/:value",
@@ -356,9 +357,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"icons.resolve":                       "/icons/resolve",
 		"icons.render":                        "/icons/render",
 	}
-	for routeKey, routePath := range translationgoadmin.AdminAPIRoutes() {
-		routes[routeKey] = routePath
-	}
+	maps.Copy(routes, translationgoadmin.AdminAPIRoutes())
 	return routes
 }
 

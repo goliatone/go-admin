@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"path"
 	"strings"
 
@@ -384,7 +385,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 		slugsParam := strings.TrimSpace(c.Query("slugs"))
 		var slugs []string
 		if slugsParam != "" {
-			for _, s := range strings.Split(slugsParam, ",") {
+			for s := range strings.SplitSeq(slugsParam, ",") {
 				if trimmed := strings.TrimSpace(s); trimmed != "" {
 					slugs = append(slugs, trimmed)
 				}
@@ -571,9 +572,7 @@ func withDefaultPickerAPIBase(data components.ComponentData, defaultAPIBase stri
 			}
 		}
 		cfg := make(map[string]any, len(data.Config)+1)
-		for key, val := range data.Config {
-			cfg[key] = val
-		}
+		maps.Copy(cfg, data.Config)
 		cfg["apiBase"] = defaultAPIBase
 		data.Config = cfg
 		return data

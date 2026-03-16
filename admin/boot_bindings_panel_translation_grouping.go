@@ -1106,6 +1106,11 @@ func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[st
 		if err := validateActionPayload(definition, body); err != nil {
 			return nil, err
 		}
+		if state, ok, err := p.targetedBulkActionExecutionState(ctx, action, ids, parseListOptions(c)); err != nil {
+			return nil, err
+		} else if ok && !state.Enabled {
+			return nil, bulkActionBlockedError(p.name, definition, state)
+		}
 	}
 	if err := p.panel.RunBulkAction(ctx, action, body, ids); err != nil {
 		return nil, err

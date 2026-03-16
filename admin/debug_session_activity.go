@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"strings"
 )
 
@@ -44,9 +45,7 @@ func recordDebugSessionAttach(admin *Admin, ctx context.Context, session DebugUs
 	if session.RequestCount > 0 {
 		meta["request_count"] = session.RequestCount
 	}
-	for key, value := range attachMeta {
-		meta[key] = value
-	}
+	maps.Copy(meta, attachMeta)
 
 	actor := actorFromContext(ctx)
 	if actor == "" {

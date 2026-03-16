@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-command"
@@ -41,9 +42,7 @@ func (p CommandExecutionPolicy) Clone() CommandExecutionPolicy {
 		DefaultMode: command.NormalizeExecutionMode(p.DefaultMode),
 		PerCommand:  map[string]command.ExecutionMode{},
 	}
-	for key, mode := range p.PerCommand {
-		cloned.PerCommand[key] = mode
-	}
+	maps.Copy(cloned.PerCommand, p.PerCommand)
 	return cloned
 }
 

@@ -216,6 +216,7 @@ type Action struct {
 	LabelKey         string         `json:"label_key,omitempty"`
 	CommandName      string         `json:"command_name"`
 	Permission       string         `json:"permission,omitempty"`
+	PermissionsAll   []string       `json:"permissions_all,omitempty"`
 	Type             string         `json:"type,omitempty"`
 	Href             string         `json:"href,omitempty"`
 	Order            int            `json:"order,omitempty"`
@@ -258,23 +259,24 @@ type WorkflowAuthorizer interface {
 
 // Schema renders list/form/detail schema descriptions.
 type Schema struct {
-	ListFields   []Field                      `json:"list_fields"`
-	FormFields   []Field                      `json:"form_fields"`
-	DetailFields []Field                      `json:"detail_fields"`
-	Filters      []Filter                     `json:"filters,omitempty"`
-	Actions      []Action                     `json:"actions,omitempty"`
-	BulkActions  []Action                     `json:"bulk_actions,omitempty"`
-	Subresources []PanelSubresource           `json:"subresources,omitempty"`
-	Tabs         []PanelTab                   `json:"tabs,omitempty"`
-	FormSchema   map[string]any               `json:"form_schema,omitempty"`
-	UseBlocks    bool                         `json:"use_blocks,omitempty"`
-	UseSEO       bool                         `json:"use_seo,omitempty"`
-	TreeView     bool                         `json:"tree_view,omitempty"`
-	Permissions  PanelPermissions             `json:"permissions,omitempty"`
-	Theme        map[string]map[string]string `json:"theme,omitempty"`
-	Export       *ExportConfig                `json:"export,omitempty"`
-	Bulk         *BulkConfig                  `json:"bulk,omitempty"`
-	Media        *MediaConfig                 `json:"media,omitempty"`
+	ListFields            []Field                      `json:"list_fields"`
+	FormFields            []Field                      `json:"form_fields"`
+	DetailFields          []Field                      `json:"detail_fields"`
+	Filters               []Filter                     `json:"filters,omitempty"`
+	Actions               []Action                     `json:"actions,omitempty"`
+	BulkActions           []Action                     `json:"bulk_actions,omitempty"`
+	BulkActionStateConfig *BulkActionStateConfig       `json:"bulk_action_state_config,omitempty"`
+	Subresources          []PanelSubresource           `json:"subresources,omitempty"`
+	Tabs                  []PanelTab                   `json:"tabs,omitempty"`
+	FormSchema            map[string]any               `json:"form_schema,omitempty"`
+	UseBlocks             bool                         `json:"use_blocks,omitempty"`
+	UseSEO                bool                         `json:"use_seo,omitempty"`
+	TreeView              bool                         `json:"tree_view,omitempty"`
+	Permissions           PanelPermissions             `json:"permissions"`
+	Theme                 map[string]map[string]string `json:"theme,omitempty"`
+	Export                *ExportConfig                `json:"export,omitempty"`
+	Bulk                  *BulkConfig                  `json:"bulk,omitempty"`
+	Media                 *MediaConfig                 `json:"media,omitempty"`
 }
 
 // ExportConfig captures export metadata for UI consumers.
@@ -668,22 +670,22 @@ func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions, de
 			Name:       "edit",
 			Label:      "Edit",
 			Type:       "navigation",
-			Scope:      ActionScopeRow,
+			Scope:      ActionScopeAny,
 			Permission: strings.TrimSpace(perms.Edit),
 			Variant:    "primary",
 			Icon:       "edit",
-		}, ActionScopeRow))
+		}, ActionScopeAny))
 	}
 	if defaultsMode == PanelActionDefaultsModeCRUD && !hasActionNamed(actions, "delete") {
 		out = append(out, normalizeActionContract(Action{
 			Name:       "delete",
 			Label:      "Delete",
-			Scope:      ActionScopeRow,
+			Scope:      ActionScopeAny,
 			Permission: strings.TrimSpace(perms.Delete),
 			Variant:    "danger",
 			Icon:       "trash",
 			Confirm:    "Are you sure you want to delete this item?",
-		}, ActionScopeRow))
+		}, ActionScopeAny))
 	}
 	for _, action := range actions {
 		out = append(out, normalizeActionContract(action, ActionScopeRow))
@@ -803,6 +805,10 @@ func normalizeActionContract(action Action, defaultScope ActionScope) Action {
 	action.LabelKey = strings.TrimSpace(action.LabelKey)
 	action.CommandName = strings.TrimSpace(action.CommandName)
 	action.Permission = strings.TrimSpace(action.Permission)
+	action.PermissionsAll = compactPermissions(action.PermissionsAll...)
+	if action.Permission != "" && !containsActionField(action.PermissionsAll, action.Permission) {
+		action.PermissionsAll = append(action.PermissionsAll, action.Permission)
+	}
 	action.Type = strings.TrimSpace(action.Type)
 	action.Href = strings.TrimSpace(action.Href)
 	action.Icon = strings.TrimSpace(action.Icon)
@@ -979,6 +985,10 @@ func actionIdempotencyField(action Action) string {
 		return field
 	}
 	return "idempotency_key"
+}
+
+func actionRequiredPermissions(action Action) []string {
+	return compactPermissions(action.PermissionsAll...)
 }
 
 func defaultActionOrder(name string) int {
@@ -1331,19 +1341,24 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 func (p *Panel) Delete(ctx AdminContext, id string) error {
 	if p.permissions.Delete != "" && p.authorizer != nil {
 		if !p.authorizer.Can(ctx.Context, p.permissions.Delete, p.name) {
-			return permissionDenied(p.permissions.Delete, p.name)
+			err := permissionDenied(p.permissions.Delete, p.name)
+			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "permission", id, []string{id}, err)
+			return err
 		}
 	}
 	if p.hooks.BeforeDelete != nil {
 		if err := p.hooks.BeforeDelete(ctx, id); err != nil {
+			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "before_delete_hook", id, []string{id}, err)
 			return err
 		}
 	}
 	if err := p.repo.Delete(ctx.Context, id); err != nil {
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "repository_delete", id, []string{id}, err)
 		return err
 	}
 	if p.hooks.AfterDelete != nil {
 		if err := p.hooks.AfterDelete(ctx, id); err != nil {
+			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "after_delete_hook", id, []string{id}, err)
 			return err
 		}
 	}
@@ -1400,8 +1415,11 @@ func (p *Panel) ServeSubresource(ctx AdminContext, c router.Context, id, subreso
 func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[string]any, ids []string) (ActionResponse, error) {
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
-			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				return ActionResponse{}, permissionDenied(action.Permission, p.name)
+			required := actionRequiredPermissions(action)
+			if len(required) > 0 && p.authorizer != nil && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
+				err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
+				captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "permission", resolvePrimaryActionID(payload, ids), ids, err)
+				return ActionResponse{}, err
 			}
 			collector := &ActionResponseCollector{}
 			actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
@@ -1413,6 +1431,7 @@ func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[str
 				})
 			}
 			if err != nil {
+				captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "dispatch", resolvePrimaryActionID(payload, ids), ids, err)
 				return ActionResponse{}, err
 			}
 			if response, ok := collector.Load(); ok {
@@ -1428,10 +1447,12 @@ func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[str
 			return normalizeActionResponse(ActionResponse{}), nil
 		}
 	}
-	return ActionResponse{}, notFoundDomainError("action not found", map[string]any{
+	err := notFoundDomainError("action not found", map[string]any{
 		"panel":  p.name,
 		"action": name,
 	})
+	captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeAny, "lookup", resolvePrimaryActionID(payload, ids), ids, err)
+	return ActionResponse{}, err
 }
 
 // RunAction dispatches a command-backed action.
@@ -1447,21 +1468,28 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any,
 func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
 	action, ok := p.findBulkActionDefinition(name)
 	if !ok {
-		return notFoundDomainError("bulk action not found", map[string]any{
+		err := notFoundDomainError("bulk action not found", map[string]any{
 			"panel":  p.name,
 			"action": name,
 		})
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "lookup", "", ids, err)
+		return err
 	}
 	selection := dedupeStrings(ids)
 	if len(selection) == 0 {
-		return invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
+		err := invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
 			"panel":  p.name,
 			"action": strings.TrimSpace(name),
 			"field":  "ids",
 		})
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "selection", "", selection, err)
+		return err
 	}
-	if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-		return permissionDenied(action.Permission, p.name)
+	required := actionRequiredPermissions(action)
+	if len(required) > 0 && p.authorizer != nil && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
+		err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "permission", "", selection, err)
+		return err
 	}
 	if action.CommandName != "" && p.commandBus != nil {
 		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, selection)
@@ -1471,10 +1499,14 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 				"action": name,
 			})
 		}
+		if err != nil {
+			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "dispatch", "", selection, err)
+		}
 		return err
 	}
 	if isBuiltInBulkDeleteAction(action.Name) {
 		if err := p.runBuiltInBulkDelete(ctx, selection); err != nil {
+			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "built_in_bulk_delete", "", selection, err)
 			return err
 		}
 		p.recordActivity(ctx, "panel.bulk_action", map[string]any{
@@ -1484,10 +1516,12 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		})
 		return nil
 	}
-	return notFoundDomainError("bulk action not found", map[string]any{
+	err := notFoundDomainError("bulk action not found", map[string]any{
 		"panel":  p.name,
 		"action": name,
 	})
+	captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "lookup", "", selection, err)
+	return err
 }
 
 func (p *Panel) findAction(name string) (Action, bool) {

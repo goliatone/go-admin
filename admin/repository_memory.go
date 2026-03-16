@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"sync"
 )
@@ -60,9 +61,7 @@ func (r *MemoryRepository) Update(_ context.Context, id string, record map[strin
 	defer r.mu.Unlock()
 	for i, rec := range r.data {
 		if rec["id"] == id {
-			for k, v := range record {
-				rec[k] = v
-			}
+			maps.Copy(rec, record)
 			rec["id"] = id
 			r.data[i] = rec
 			return cloneMap(rec), nil
@@ -86,9 +85,7 @@ func (r *MemoryRepository) Delete(_ context.Context, id string) error {
 
 func cloneMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 

@@ -103,6 +103,7 @@ type PanelBinding interface {
 	Update(router.Context, string, string, map[string]any) (map[string]any, error)
 	Delete(router.Context, string, string) error
 	Action(router.Context, string, string, map[string]any) (ActionResponse, error)
+	BulkActionState(router.Context, string, map[string]any) (map[string]any, error)
 	Bulk(router.Context, string, string, map[string]any) (map[string]any, error)
 	Preview(router.Context, string, string) (map[string]any, error)
 	Subresources() []PanelSubresourceSpec
@@ -166,7 +167,9 @@ type TranslationExchangeBinding interface {
 	Template(router.Context) error
 	ImportValidate(router.Context) (any, error)
 	ImportApply(router.Context) (any, error)
+	History(router.Context) (any, error)
 	JobStatus(router.Context, string) (any, error)
+	DeleteJob(router.Context, string) (any, error)
 }
 
 // TranslationFamiliesBinding exposes translation family read-model operations.

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
-	"github.com/goliatone/go-admin/internal/primitives"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -142,7 +141,7 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPermission},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    primitives.Int(55),
+			Position:    new(55),
 			ParentID:    m.menuParent,
 		},
 	}

@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -894,12 +896,7 @@ func (c *DebugCollector) eventTypeEnabled(eventType string) bool {
 	if len(panels) == 0 {
 		return true
 	}
-	for _, panelID := range panels {
-		if c.panelEnabled(panelID) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(panels, c.panelEnabled)
 }
 
 func (c *DebugCollector) publish(eventType string, payload any) {
@@ -1023,9 +1020,7 @@ func clonePanelPayload(value any) any {
 		return primitives.CloneAnyMap(typed)
 	case map[string]string:
 		out := make(map[string]string, len(typed))
-		for key, val := range typed {
-			out[key] = val
-		}
+		maps.Copy(out, typed)
 		return out
 	case []any:
 		out := make([]any, len(typed))

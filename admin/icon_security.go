@@ -238,16 +238,16 @@ func (v *IconSecurityValidator) validateDataURI(dataURI string, trusted bool) Ic
 	}
 
 	content := strings.TrimPrefix(dataURI, "data:")
-	commaIdx := strings.Index(content, ",")
-	if commaIdx < 0 {
+	before, after, ok := strings.Cut(content, ",")
+	if !ok {
 		return IconSecurityResult{
 			Allowed: false,
 			Reason:  "invalid data URI: missing comma",
 		}
 	}
 
-	mediaType := content[:commaIdx]
-	data := content[commaIdx+1:]
+	mediaType := before
+	data := after
 
 	// Check for base64 encoding
 	isBase64 := strings.HasSuffix(mediaType, ";base64")

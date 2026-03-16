@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -525,12 +526,7 @@ func contentTypeWantsTranslations(contentType CMSContentType) bool {
 	if hasTranslationsCapability(contentType.Capabilities) {
 		return true
 	}
-	for _, schema := range []map[string]any{contentType.Schema, contentType.UISchema} {
-		if schemaHasTranslationHints(schema) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc([]map[string]any{contentType.Schema, contentType.UISchema}, schemaHasTranslationHints)
 }
 
 func schemaHasTranslationHints(schema map[string]any) bool {
@@ -561,10 +557,8 @@ func schemaHasTranslationHints(schema map[string]any) bool {
 				}
 			}
 		case []any:
-			for _, nested := range typed {
-				if walk(nested) {
-					return true
-				}
+			if slices.ContainsFunc(typed, walk) {
+				return true
 			}
 		}
 		return false

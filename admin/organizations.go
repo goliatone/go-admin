@@ -27,8 +27,8 @@ type OrganizationRecord struct {
 	TenantID  string               `json:"tenant_id,omitempty"`
 	Members   []OrganizationMember `json:"members,omitempty"`
 	Metadata  map[string]any       `json:"metadata,omitempty"`
-	CreatedAt time.Time            `json:"created_at,omitempty"`
-	UpdatedAt time.Time            `json:"updated_at,omitempty"`
+	CreatedAt time.Time            `json:"created_at"`
+	UpdatedAt time.Time            `json:"updated_at"`
 }
 
 // OrganizationRepository exposes CRUD/search operations for organizations with membership awareness.

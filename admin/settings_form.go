@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 
 	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
 	opts "github.com/goliatone/go-options"
@@ -28,9 +29,7 @@ type SettingsForm struct {
 // NewSettingsFormAdapter constructs a form adapter for settings.
 func NewSettingsFormAdapter(service *SettingsService, theme string, tokens map[string]string) *SettingsFormAdapter {
 	tokenCopy := map[string]string{}
-	for k, v := range tokens {
-		tokenCopy[k] = v
-	}
+	maps.Copy(tokenCopy, tokens)
 	return &SettingsFormAdapter{
 		settings:   service,
 		themeName:  theme,

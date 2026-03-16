@@ -106,7 +106,7 @@ func setUUIDPtr(field reflect.Value, id *uuid.UUID) {
 		field.Set(reflect.Zero(field.Type()))
 		return
 	}
-	if field.Type().Elem() != reflect.TypeOf(uuid.UUID{}) {
+	if field.Type().Elem() != reflect.TypeFor[uuid.UUID]() {
 		return
 	}
 	ptr := reflect.New(field.Type().Elem())

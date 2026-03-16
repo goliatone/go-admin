@@ -345,7 +345,7 @@ func (a *GoCMSMenuAdapter) MenuByLocationWithOptions(ctx context.Context, locati
 		IncludeDrafts:        opts.IncludeDrafts,
 		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
 		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
-		IncludeContributions: boolPointer(opts.IncludeContributions),
+		IncludeContributions: new(opts.IncludeContributions),
 	})
 	if err != nil {
 		if errors.Is(err, cms.ErrMenuNotFound) {
@@ -366,7 +366,7 @@ func (a *GoCMSMenuAdapter) MenuByCodeWithOptions(ctx context.Context, code, loca
 		IncludeDrafts:        opts.IncludeDrafts,
 		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
 		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
-		IncludeContributions: boolPointer(opts.IncludeContributions),
+		IncludeContributions: new(opts.IncludeContributions),
 	})
 	if err != nil {
 		if errors.Is(err, cms.ErrMenuNotFound) {
@@ -532,8 +532,9 @@ func mergeMenuTarget(item MenuItem) map[string]any {
 	return primitives.CloneAnyMap(item.Target)
 }
 
+//go:fix inline
 func boolPointer(v bool) *bool {
-	return &v
+	return new(v)
 }
 
 func normalizedURLOverride(raw *string) *string {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"strings"
 
@@ -159,6 +160,7 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
+	schema.BulkActionStateConfig = p.bulkActionStateConfig(schema.BulkActions)
 	if groupedByTranslationGroup {
 		records, err = p.withGroupedRowActionState(ctx, records, schema.Actions)
 	} else {
@@ -662,9 +664,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			return boot.ActionResponse{}, dup
 		}
 		clone := map[string]any{}
-		for k, v := range record {
-			clone[k] = v
-		}
+		maps.Copy(clone, record)
 		delete(clone, "id")
 		delete(clone, "ID")
 		delete(clone, "created_at")

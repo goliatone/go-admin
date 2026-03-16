@@ -110,6 +110,7 @@ func PanelStep(ctx BootCtx) error {
 		base := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", params)
 		detail := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", params)
 		action := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.action", params)
+		bulkState := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk.state", params)
 		bulk := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk", params)
 		preview := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.preview", params)
 
@@ -270,6 +271,25 @@ func PanelStep(ctx BootCtx) error {
 			},
 			RouteSpec{
 				Method: "POST",
+				Path:   bulkState,
+				Handler: func(c router.Context) error {
+					binding, err := panelBindingByName(panelName)
+					if err != nil {
+						return responder.WriteError(c, err)
+					}
+					body, err := parseBody(c)
+					if err != nil {
+						return responder.WriteError(c, err)
+					}
+					data, err := binding.BulkActionState(c, localeFromRequest(c), body)
+					if err != nil {
+						return responder.WriteError(c, err)
+					}
+					return responder.WriteJSON(c, data)
+				},
+			},
+			RouteSpec{
+				Method: "POST",
 				Path:   bulk,
 				Handler: func(c router.Context) error {
 					binding, err := panelBindingByName(panelName)
@@ -317,7 +337,6 @@ func PanelStep(ctx BootCtx) error {
 		)
 
 		for _, spec := range subresourcesForPanel(panelName) {
-			spec := spec
 			subresourcePath := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
 				"panel":       panelName,
 				"subresource": spec.Name,

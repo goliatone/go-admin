@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -157,9 +158,7 @@ func (p *panelBinding) selectionAwareBulkActionStates(
 	}
 
 	out := map[string]ActionState{}
-	for name, state := range base {
-		out[name] = state
-	}
+	maps.Copy(out, base)
 	for _, action := range actions {
 		name := strings.TrimSpace(action.Name)
 		if name == "" {
@@ -281,10 +280,10 @@ func missingBulkSelectionState(id string) ActionState {
 		Severity:   "warning",
 		Kind:       "business_rule",
 		Metadata: map[string]any{
-			"field":        "ids",
-			"missing_id":   strings.TrimSpace(id),
-			"missing":      true,
-			"error_code":   TextCodeInvalidSelection,
+			"field":          "ids",
+			"missing_id":     strings.TrimSpace(id),
+			"missing":        true,
+			"error_code":     TextCodeInvalidSelection,
 			"blocked_action": "selection",
 		},
 	}

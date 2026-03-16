@@ -25,7 +25,7 @@ type RootsConfig struct {
 }
 
 type ModuleConfig struct {
-	Mount ModuleMountOverride `json:"mount,omitempty"`
+	Mount ModuleMountOverride `json:"mount"`
 }
 
 type ModuleMountOverride struct {

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"github.com/goliatone/go-admin/admin/routing"
-	"github.com/goliatone/go-admin/internal/primitives"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
 
@@ -59,6 +58,7 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelCustom:      {Label: "Custom", Span: debugPanelDefaultSpan},
 	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
 	DebugPanelPermissions: {Label: "Permissions", Icon: "iconoir-shield-check", Span: debugPanelDefaultSpan},
+	DebugPanelActions:     {Label: "Actions", Icon: "iconoir-flash", Span: debugPanelDefaultSpan},
 	DebugPanelDoctor:      {Label: "Doctor", Icon: "iconoir-heartbeat", Span: debugPanelDefaultSpan},
 }
 
@@ -153,6 +153,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	m.registerDebugREPLAppWebSocket(ctx.Admin)
 	RegisterPermissionsDebugPanel(ctx.Admin)
+	RegisterActionDiagnosticsDebugPanel(ctx.Admin)
 	RegisterDoctorDebugPanel(ctx.Admin)
 	return nil
 }
@@ -197,7 +198,7 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 			Permissions: permissions,
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    primitives.Int(999),
+			Position:    new(999),
 			ParentID:    m.menuParent,
 		},
 	}
@@ -249,7 +250,6 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 		return
 	}
 	for _, panelID := range m.config.Panels {
-		panelID := panelID
 		meta := debugPanelMetaFor(panelID)
 		if collectorMeta, ok := m.collector.panelMeta(panelID); ok {
 			if collectorMeta.Label != "" {

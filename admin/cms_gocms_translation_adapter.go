@@ -60,7 +60,7 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 	if len(results) == 0 {
 		return reflect.Value{}, ErrNotFound
 	}
-	if last := results[len(results)-1]; last.IsValid() && last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) && !last.IsNil() {
+	if last := results[len(results)-1]; last.IsValid() && last.Type().Implements(reflect.TypeFor[error]()) && !last.IsNil() {
 		if typedErr, ok := last.Interface().(error); ok {
 			return reflect.Value{}, normalizeGoCMSTranslationCreateError(typedErr, input)
 		}
@@ -131,7 +131,7 @@ func nonNilUUIDPtrString(value *uuid.UUID) string {
 
 func buildCreateTranslationMethodArgs(method reflect.Value, ctx context.Context, input TranslationCreateInput, sourceID uuid.UUID) ([]reflect.Value, error) {
 	signature := method.Type()
-	if signature.NumIn() < 2 || !signature.In(0).Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
+	if signature.NumIn() < 2 || !signature.In(0).Implements(reflect.TypeFor[context.Context]()) {
 		return nil, ErrTranslationCreateUnsupported
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx)}
@@ -144,7 +144,7 @@ func buildCreateTranslationMethodArgs(method reflect.Value, ctx context.Context,
 		req := reflect.New(signature.In(1).Elem())
 		applyCreateTranslationRequestFields(req.Elem(), input, sourceID)
 		args = append(args, req)
-	case signature.NumIn() >= 3 && signature.In(1) == reflect.TypeOf(uuid.UUID{}) && signature.In(2).Kind() == reflect.String:
+	case signature.NumIn() >= 3 && signature.In(1) == reflect.TypeFor[uuid.UUID]() && signature.In(2).Kind() == reflect.String:
 		args = append(args, reflect.ValueOf(sourceID), reflect.ValueOf(input.Locale))
 		if signature.NumIn() >= 4 {
 			if signature.In(3).Kind() != reflect.String {
@@ -202,13 +202,13 @@ func setUUIDFieldByName(target reflect.Value, fieldName string, value uuid.UUID)
 	if !field.IsValid() || !field.CanSet() {
 		return
 	}
-	if field.Kind() == reflect.Pointer && field.Type().Elem() == reflect.TypeOf(uuid.UUID{}) {
+	if field.Kind() == reflect.Pointer && field.Type().Elem() == reflect.TypeFor[uuid.UUID]() {
 		ptr := reflect.New(field.Type().Elem())
 		ptr.Elem().Set(reflect.ValueOf(value))
 		field.Set(ptr)
 		return
 	}
-	if field.Type() != reflect.TypeOf(uuid.UUID{}) {
+	if field.Type() != reflect.TypeFor[uuid.UUID]() {
 		return
 	}
 	field.Set(reflect.ValueOf(value))

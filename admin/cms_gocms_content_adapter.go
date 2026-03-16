@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -105,12 +107,7 @@ func ensureDerivedFieldsProjection(opts ...CMSContentListOption) []CMSContentLis
 }
 
 func hasCMSContentListOption(opts []CMSContentListOption, token CMSContentListOption) bool {
-	for _, opt := range opts {
-		if opt == token {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, token)
 }
 
 func hasCMSProjectionOption(opts []CMSContentListOption) bool {
@@ -825,12 +822,8 @@ func (a *GoCMSContentAdapter) publishBlockDefinitionCache(defs map[string]uuid.U
 	}
 	a.blockDefinitionMu.Lock()
 	defer a.blockDefinitionMu.Unlock()
-	for key, id := range defs {
-		a.blockDefinitions[key] = id
-	}
-	for id, name := range names {
-		a.blockDefinitionBy[id] = name
-	}
+	maps.Copy(a.blockDefinitions, defs)
+	maps.Copy(a.blockDefinitionBy, names)
 }
 
 func (a *GoCMSContentAdapter) lookupBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, bool) {
@@ -949,9 +942,7 @@ func mergePageContentData(page *CMSPage, content *CMSContent) {
 		merged = map[string]any{}
 	}
 	if page.Data != nil {
-		for key, value := range page.Data {
-			merged[key] = value
-		}
+		maps.Copy(merged, page.Data)
 	}
 	page.Data = merged
 	if page.SchemaVersion == "" {
@@ -1160,12 +1151,8 @@ func mergeMetadata(base map[string]any, updates map[string]any) map[string]any {
 		return nil
 	}
 	merged := map[string]any{}
-	for k, v := range base {
-		merged[k] = v
-	}
-	for k, v := range updates {
-		merged[k] = v
-	}
+	maps.Copy(merged, base)
+	maps.Copy(merged, updates)
 	return merged
 }
 
@@ -1282,9 +1269,7 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 	}
 
 	data := primitives.CloneAnyMap(existing.Data)
-	for k, v := range primitives.CloneAnyMap(page.Data) {
-		data[k] = v
-	}
+	maps.Copy(data, primitives.CloneAnyMap(page.Data))
 	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
 		data["meta_title"] = mt
 	}
@@ -1445,13 +1430,11 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 		out.Title = stringField(chosen, "Title")
 		if summary := stringField(chosen, "Summary"); summary != "" {
 			out.Data["excerpt"] = summary
-		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Ptr && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
+		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
 			out.Data["excerpt"] = summaryPtr.Elem().String()
 		}
 		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			for key, value := range out.Data {
-				contentData[key] = value
-			}
+			maps.Copy(contentData, out.Data)
 			out.Data = contentData
 		}
 		if out.Title == "" {
@@ -1590,9 +1573,7 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 			out.Data["summary"] = summary
 		}
 		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			for key, value := range out.Data {
-				contentData[key] = value
-			}
+			maps.Copy(contentData, out.Data)
 			out.Data = contentData
 		}
 		if out.Title == "" {
@@ -1707,7 +1688,7 @@ func (a *GoCMSContentAdapter) convertBlockInstance(ctx context.Context, value re
 	if pos, ok := getIntField(val, "Position"); ok {
 		block.Position = pos
 	}
-	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Ptr && !pub.IsNil() {
+	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Pointer && !pub.IsNil() {
 		block.Status = "published"
 	} else if block.Status == "" {
 		block.Status = "draft"
@@ -2045,7 +2026,7 @@ func uuidFromString(id string) uuid.UUID {
 }
 
 func uuidStringField(val reflect.Value, name string) string {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return ""
 		}
@@ -2066,7 +2047,7 @@ func uuidStringField(val reflect.Value, name string) string {
 			}
 		}
 	}
-	if field.Kind() == reflect.Ptr && !field.IsNil() && field.Elem().CanInterface() {
+	if field.Kind() == reflect.Pointer && !field.IsNil() && field.Elem().CanInterface() {
 		if v, ok := field.Elem().Interface().(uuid.UUID); ok && v != uuid.Nil {
 			return v.String()
 		}
@@ -2075,7 +2056,7 @@ func uuidStringField(val reflect.Value, name string) string {
 }
 
 func stringField(val reflect.Value, field string) string {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return ""
 		}
@@ -2089,7 +2070,7 @@ func stringField(val reflect.Value, field string) string {
 		switch f.Kind() {
 		case reflect.String:
 			return f.String()
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if !f.IsNil() && f.Elem().Kind() == reflect.String {
 				return f.Elem().String()
 			}
@@ -2108,7 +2089,7 @@ func stringFieldAny(val reflect.Value, fields ...string) string {
 }
 
 func boolField(val reflect.Value, field string) (bool, bool) {
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return false, false
 		}
@@ -2124,7 +2105,7 @@ func boolField(val reflect.Value, field string) (bool, bool) {
 	switch f.Kind() {
 	case reflect.Bool:
 		return f.Bool(), true
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if !f.IsNil() && f.Elem().Kind() == reflect.Bool {
 			return f.Elem().Bool(), true
 		}
@@ -2187,7 +2168,7 @@ func timeField(val reflect.Value, field string) time.Time {
 			return t
 		}
 	}
-	if f.IsValid() && f.Kind() == reflect.Ptr && !f.IsNil() && f.Elem().CanInterface() {
+	if f.IsValid() && f.Kind() == reflect.Pointer && !f.IsNil() && f.Elem().CanInterface() {
 		if t, ok := f.Elem().Interface().(time.Time); ok {
 			return t
 		}

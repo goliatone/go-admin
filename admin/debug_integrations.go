@@ -828,8 +828,8 @@ func debugToolbarExcluded(cfg DebugConfig, path string) bool {
 		if entry == path {
 			return true
 		}
-		if strings.HasSuffix(entry, "/*") {
-			prefix := normalizeDebugToolbarPath(strings.TrimSuffix(entry, "/*"))
+		if before, ok := strings.CutSuffix(entry, "/*"); ok {
+			prefix := normalizeDebugToolbarPath(before)
 			if prefix == "" {
 				return true
 			}
@@ -837,8 +837,8 @@ func debugToolbarExcluded(cfg DebugConfig, path string) bool {
 				return true
 			}
 		}
-		if strings.HasSuffix(entry, "*") {
-			prefix := normalizeDebugToolbarPath(strings.TrimSuffix(entry, "*"))
+		if before, ok := strings.CutSuffix(entry, "*"); ok {
+			prefix := normalizeDebugToolbarPath(before)
 			if prefix == "" || strings.HasPrefix(path, prefix) {
 				return true
 			}

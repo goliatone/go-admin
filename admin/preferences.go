@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -261,7 +262,7 @@ type UserPreferences struct {
 	Theme           string                    `json:"theme,omitempty"`
 	ThemeVariant    string                    `json:"theme_variant,omitempty"`
 	DashboardLayout []DashboardWidgetInstance `json:"dashboard_layout,omitempty"`
-	DashboardPrefs  DashboardLayoutOverrides  `json:"dashboard_overrides,omitempty"`
+	DashboardPrefs  DashboardLayoutOverrides  `json:"dashboard_overrides"`
 	Raw             map[string]any            `json:"raw,omitempty"`
 }
 
@@ -678,9 +679,7 @@ func clonePreferenceRecords(in map[string]preferenceRecord) map[string]preferenc
 		return nil
 	}
 	out := make(map[string]preferenceRecord, len(in))
-	for key, record := range in {
-		out[key] = record
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -816,9 +815,7 @@ func preferencesFromMap(userID string, raw map[string]any) UserPreferences {
 
 func preferencesToMap(prefs UserPreferences) map[string]any {
 	update := map[string]any{}
-	for k, v := range prefs.Raw {
-		update[k] = v
-	}
+	maps.Copy(update, prefs.Raw)
 	if val, ok := prefs.Raw[preferencesKeyTheme]; ok || prefs.Theme != "" {
 		if ok {
 			update[preferencesKeyTheme] = toString(val)
