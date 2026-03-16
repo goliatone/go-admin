@@ -1,7 +1,7 @@
-import { r as j } from "../chunks/translation-status-vocabulary-CGVyPGTR.js";
+import { r as j } from "../chunks/translation-status-vocabulary-huaq_68y.js";
 import { h as Q, r as G } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as V } from "../toast/error-helpers.js";
-import { r as K, H as L, a as Y, l as W, o as f, z as C, A as D, D as J, F as X, G as Z, I as ee, J as te, K as w, N as $, O as k, P as se, Q as ie } from "../chunks/breadcrumb-BXeageNv.js";
+import { H as L, a as K, j as Y, l as f, u as C, v as D, w as W, x as J, y as X, z as Z, A as ee, D as w, F as $, G as k, I as te } from "../chunks/style-constants-_M0LozTF.js";
 class x extends Error {
   constructor(e) {
     super(e.message), this.name = "AssignmentQueueRequestError", this.status = e.status, this.code = e.code ?? null, this.metadata = e.metadata ?? null, this.requestId = e.requestId, this.traceId = e.traceId;
@@ -83,7 +83,7 @@ function v(t) {
     permission: r(e.permission) || void 0
   };
 }
-function ae(t) {
+function se(t) {
   const e = u(t), s = r(e.last_rejection_reason), i = r(e.last_reviewer_id);
   if (!(!s && !i))
     return {
@@ -91,7 +91,7 @@ function ae(t) {
       last_reviewer_id: i || void 0
     };
 }
-function re(t) {
+function ie(t) {
   const e = u(t), s = e.enabled === !0, i = g(e.warning_count), a = g(e.blocker_count), n = g(e.finding_count);
   if (!(!s && i <= 0 && a <= 0 && n <= 0))
     return {
@@ -105,14 +105,14 @@ function R(t, e) {
   const s = t.headers.get(e);
   return typeof s == "string" ? s.trim() : "";
 }
-function ne(t) {
+function ae(t) {
   const e = R(t, "x-request-id"), s = R(t, "x-correlation-id"), i = R(t, "x-trace-id") || s || void 0;
   return {
     requestId: e || void 0,
     traceId: i
   };
 }
-async function oe(t, e) {
+async function re(t, e) {
   return typeof t.clone == "function" ? V(t.clone()) : {
     textCode: null,
     message: await G(t, e),
@@ -122,7 +122,7 @@ async function oe(t, e) {
   };
 }
 async function U(t, e) {
-  const s = await oe(t, e), i = ne(t);
+  const s = await re(t, e), i = ae(t);
   return new x({
     message: s.message || `${e}: ${t.status}`,
     status: t.status,
@@ -132,7 +132,7 @@ async function U(t, e) {
     traceId: i.traceId
   });
 }
-function de(t) {
+function ne(t) {
   const e = u(t), s = r(e.id), i = r(e.label);
   if (!s || !i)
     return null;
@@ -156,7 +156,7 @@ function de(t) {
   };
 }
 function T(t, e = b) {
-  const i = (Array.isArray(t) ? t : []).map((a) => de(a)).filter((a) => a !== null);
+  const i = (Array.isArray(t) ? t : []).map((a) => ne(a)).filter((a) => a !== null);
   return i.length ? i : e.map(y);
 }
 function y(t) {
@@ -168,7 +168,7 @@ function y(t) {
     query: { ...t.query }
   };
 }
-function ce(t) {
+function oe(t) {
   const e = u(t), s = {};
   for (const [i, a] of Object.entries(e)) {
     const n = g(a);
@@ -179,7 +179,7 @@ function ce(t) {
 function S(t) {
   return Array.from(new Set(t.map((e) => r(e)).filter(Boolean)));
 }
-function le(t) {
+function de(t) {
   const e = u(t), s = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((a) => r(a)).filter((a) => !!a) : [], i = u(e.default_sort);
   return {
     page: g(e.page) || 1,
@@ -205,15 +205,15 @@ function le(t) {
     saved_review_filter_presets: T(e.saved_review_filter_presets, E),
     default_review_filter_preset: r(e.default_review_filter_preset) || void 0,
     review_actor_id: r(e.review_actor_id) || void 0,
-    review_aggregate_counts: ce(e.review_aggregate_counts)
+    review_aggregate_counts: oe(e.review_aggregate_counts)
   };
 }
-function ue(t = {}) {
+function ce(t = {}) {
   const e = new URLSearchParams();
   return t.status && e.set("status", t.status), t.assigneeId && e.set("assignee_id", t.assigneeId), t.reviewerId && e.set("reviewer_id", t.reviewerId), t.dueState && e.set("due_state", t.dueState), t.locale && e.set("locale", t.locale), t.priority && e.set("priority", t.priority), t.reviewState && e.set("review_state", t.reviewState), t.translationGroupId && e.set("translation_group_id", t.translationGroupId), t.page && t.page > 0 && e.set("page", String(t.page)), t.perPage && t.perPage > 0 && e.set("per_page", String(t.perPage)), t.sort && e.set("sort", t.sort), t.order && e.set("order", t.order), e.toString();
 }
-function pe(t, e = {}) {
-  const s = ue(e);
+function le(t, e = {}) {
+  const s = ce(e);
   return s ? `${t}${t.includes("?") ? "&" : "?"}${s}` : t;
 }
 function H(t) {
@@ -253,18 +253,18 @@ function H(t) {
       archive: v(u(e.review_actions).archive)
     },
     last_rejection_reason: r(e.last_rejection_reason) || void 0,
-    review_feedback: ae(e.review_feedback),
-    qa_summary: re(e.qa_summary)
+    review_feedback: se(e.review_feedback),
+    qa_summary: ie(e.qa_summary)
   };
 }
-function ge(t) {
+function ue(t) {
   const e = u(t);
   return {
     data: (Array.isArray(e.data) ? e.data : []).map((i) => H(i)),
-    meta: le(e.meta)
+    meta: de(e.meta)
   };
 }
-function me(t) {
+function pe(t) {
   const e = u(t), s = u(e.meta), i = u(e.data);
   return {
     data: {
@@ -279,11 +279,11 @@ function me(t) {
     }
   };
 }
-async function fe(t, e = {}) {
-  const s = await Q(pe(t, e), { method: "GET" });
+async function ge(t, e = {}) {
+  const s = await Q(le(t, e), { method: "GET" });
   if (!s.ok)
     throw await U(s, "Failed to load assignments");
-  return ge(await s.json());
+  return ue(await s.json());
 }
 async function P(t, e, s, i) {
   const a = {
@@ -296,12 +296,12 @@ async function P(t, e, s, i) {
   });
   if (!n.ok)
     throw await U(n, `Failed to ${s} assignment`);
-  return me(await n.json());
+  return pe(await n.json());
 }
-function ve(t, e, s) {
+function me(t, e, s) {
   return P(t, e, "claim", s);
 }
-function he(t, e, s) {
+function fe(t, e, s) {
   return P(t, e, "release", s);
 }
 function q(t) {
@@ -319,13 +319,13 @@ function q(t) {
     page: 1
   };
 }
-function B(t, e) {
+function F(t, e) {
   return `queue-${t}-${e.id}-${e.version}-${Date.now()}`;
 }
-function _e(t, e) {
+function ve(t, e) {
   return `queue-${t}-${e.id}-${e.version}-${Date.now()}`;
 }
-function be(t) {
+function he(t) {
   const e = r(t);
   if (!e) return null;
   const s = b.find((a) => a.id === e);
@@ -359,7 +359,7 @@ function I(t, e) {
     reason_code: "INVALID_STATUS"
   };
 }
-function ye(t, e) {
+function _e(t, e) {
   const s = _(t);
   return e === "claim" ? (s.queue_state = "in_progress", s.status = "in_progress", s.actions.claim = I(t.actions.claim.permission, "assignment must be open pool before it can be claimed"), s.actions.release = {
     enabled: !0,
@@ -372,7 +372,7 @@ function ye(t, e) {
     permission: t.actions.claim.permission
   }, s.actions.release = I(t.actions.release.permission, "assignment must be assigned or in progress before it can be released"), s.review_actions.submit_review = I(t.review_actions.submit_review.permission, "assignment must be in progress"), s);
 }
-function F(t, e) {
+function B(t, e) {
   return t instanceof x ? {
     kind: t.code === "VERSION_CONFLICT" ? "conflict" : "error",
     message: t.message || e,
@@ -387,20 +387,20 @@ function F(t, e) {
     message: e
   };
 }
-function we(t) {
+function be(t) {
   return r(t.queue_state || t.status);
 }
-function $e(t) {
+function ye(t) {
   return t === "review" || t === "in_review";
 }
 function N(t) {
-  const e = we(t);
-  return $e(e) ? !0 : !!(t.review_actions.approve.enabled || t.review_actions.reject.enabled);
+  const e = be(t);
+  return ye(e) ? !0 : !!(t.review_actions.approve.enabled || t.review_actions.reject.enabled);
 }
 function O(t) {
   return !!t.review_actions.archive.enabled;
 }
-class qe {
+class we {
   constructor(e) {
     this.container = null, this.state = "loading", this.response = null, this.rows = [], this.activeReviewPresetId = "", this.activeReviewState = null, this.feedback = null, this.error = null, this.pendingActions = /* @__PURE__ */ new Set();
     const s = r(e.initialPresetId);
@@ -411,7 +411,7 @@ class qe {
       description: e.description || "Filter assignments, claim open work, and release items back to the pool without leaving the queue.",
       initialPresetId: s || "open"
     };
-    const i = be(s);
+    const i = he(s);
     if (i?.kind === "review") {
       this.activePresetId = "custom", this.activeReviewPresetId = i.preset.id, this.activeReviewState = i.preset.review_state || null, this.queryState = q(i.preset);
       return;
@@ -446,7 +446,7 @@ class qe {
   async load() {
     this.state = "loading", this.error = null, this.render();
     try {
-      const e = await fe(this.config.endpoint, this.queryState);
+      const e = await ge(this.config.endpoint, this.queryState);
       this.response = e, this.rows = e.data.map((s) => _(s)), this.state = this.rows.length ? "ready" : "empty";
     } catch (e) {
       this.error = e instanceof Error ? e : new Error(String(e)), this.state = e instanceof x && e.code === "VERSION_CONFLICT" ? "conflict" : "error";
@@ -467,21 +467,21 @@ class qe {
       return;
     }
     const c = _(a), p = `${e}:${s}`;
-    this.pendingActions.add(p), this.feedback = null, this.rows[i] = ye(a, e), this.render();
+    this.pendingActions.add(p), this.feedback = null, this.rows[i] = _e(a, e), this.render();
     try {
-      const l = e === "claim" ? await ve(this.config.endpoint, s, {
+      const l = e === "claim" ? await me(this.config.endpoint, s, {
         expected_version: c.version,
-        idempotency_key: B("claim", c)
-      }) : await he(this.config.endpoint, s, {
+        idempotency_key: F("claim", c)
+      }) : await fe(this.config.endpoint, s, {
         expected_version: c.version,
-        idempotency_key: B("release", c)
+        idempotency_key: F("release", c)
       });
       this.rows[i] = _(l.data.assignment), this.feedback = {
         kind: "success",
         message: e === "claim" ? "Assignment claimed." : "Assignment released back to the pool."
       };
     } catch (l) {
-      this.rows[i] = c, this.feedback = F(l, `Failed to ${e} assignment.`);
+      this.rows[i] = c, this.feedback = B(l, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(p), this.render();
     }
@@ -500,7 +500,7 @@ class qe {
     }
     const c = {
       expected_version: a.version,
-      idempotency_key: _e(e, a)
+      idempotency_key: ve(e, a)
     };
     if (e === "reject") {
       const l = typeof window < "u" ? window.prompt("Reject reason") : "";
@@ -523,7 +523,7 @@ class qe {
         message: e === "approve" ? "Assignment approved." : e === "reject" ? "Changes requested." : "Assignment archived."
       };
     } catch (l) {
-      this.feedback = F(l, `Failed to ${e} assignment.`);
+      this.feedback = B(l, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(p), this.render();
     }
@@ -553,17 +553,13 @@ class qe {
     return this.rows;
   }
   render() {
-    if (!this.container)
-      return;
-    const e = this.config.editorBasePath.replace(/\/translations\/assignments.*$/, "") || "/admin";
-    this.container.innerHTML = `
+    this.container && (this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
-        ${K(ie(e))}
         <section class="assignment-queue-header">
           <div>
             <p class="${L}">Assignment Queue</p>
-            <h1 class="${Y}">${o(this.config.title)}</h1>
-            <p class="${W} max-w-2xl">${o(this.config.description)}</p>
+            <h1 class="${K}">${o(this.config.title)}</h1>
+            <p class="${Y} max-w-2xl">${o(this.config.description)}</p>
           </div>
           <div class="assignment-queue-summary">
             <span class="summary-pill">Rows ${this.visibleRows.length}</span>
@@ -577,7 +573,7 @@ class qe {
         ${this.renderFilters()}
         ${this.renderBody()}
       </div>
-    `, this.attachEventListeners();
+    `, this.attachEventListeners());
   }
   renderFeedback() {
     if (!this.feedback)
@@ -826,7 +822,7 @@ class qe {
     const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, m = N(e), A = O(e);
     return `
       <article
-        class="${J}"
+        class="${W}"
         data-assignment-id="${d(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -834,14 +830,14 @@ class qe {
         role="button"
         aria-label="${d(M(e))}"
       >
-        <div class="${X}">
+        <div class="${J}">
           <div>
-            <h3 class="${Z}">${o(e.source_title || e.source_path || e.id)}</h3>
-            <p class="${ee}">${o(e.entity_type)} · ${o(e.source_path || e.translation_group_id)}</p>
+            <h3 class="${X}">${o(e.source_title || e.source_path || e.id)}</h3>
+            <p class="${Z}">${o(e.entity_type)} · ${o(e.source_path || e.translation_group_id)}</p>
           </div>
           ${j(e.queue_state, { domain: "queue", size: "sm" })}
         </div>
-        <div class="${te}">
+        <div class="${ee}">
           <div class="${w}">
             <span class="${$}">Locale</span>
             <span class="${k}">
@@ -866,7 +862,7 @@ class qe {
             <span class="priority-pill priority-${d(e.priority)}">${o(h(e.priority))}</span>
           </div>
         </div>
-        <div class="${se}">
+        <div class="${te}">
           <button
             type="button"
             class="${f} flex-1"
@@ -1038,7 +1034,7 @@ function o(t) {
 function d(t) {
   return t.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Ae() {
+function $e() {
   return `
     .assignment-queue-screen {
       display: flex;
@@ -1427,26 +1423,26 @@ function Ae() {
     }
   `;
 }
-function ke() {
+function qe() {
   if (typeof document > "u")
     return;
   const t = "assignment-queue-styles";
   if (document.getElementById(t))
     return;
   const e = document.createElement("style");
-  e.id = t, e.textContent = Ae(), document.head.appendChild(e);
+  e.id = t, e.textContent = $e(), document.head.appendChild(e);
 }
-function Re(t, e) {
-  ke();
-  const s = new qe(e);
+function Ae(t, e) {
+  qe();
+  const s = new we(e);
   return s.mount(t), s;
 }
-function Pe(t) {
+function xe(t) {
   const e = t.dataset.endpoint || t.dataset.assignmentListEndpoint || "";
   if (!e)
     return null;
   const s = typeof window < "u" && window?.location?.search ? new URLSearchParams(window.location.search) : null;
-  return Re(t, {
+  return Ae(t, {
     endpoint: e,
     editorBasePath: t.dataset.editorBasePath || "",
     title: t.dataset.title,
@@ -1456,22 +1452,22 @@ function Pe(t) {
 }
 export {
   x as AssignmentQueueRequestError,
-  qe as AssignmentQueueScreen,
+  we as AssignmentQueueScreen,
   E as DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS,
   b as DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS,
-  ye as applyOptimisticAssignmentAction,
-  ue as buildAssignmentListQuery,
-  pe as buildAssignmentListURL,
-  ve as claimAssignment,
-  Re as createAssignmentQueueScreen,
-  fe as fetchAssignmentList,
-  Ae as getAssignmentQueueStyles,
-  Pe as initAssignmentQueueScreen,
-  me as normalizeAssignmentActionResponse,
-  le as normalizeAssignmentListMeta,
-  ge as normalizeAssignmentListResponse,
+  _e as applyOptimisticAssignmentAction,
+  ce as buildAssignmentListQuery,
+  le as buildAssignmentListURL,
+  me as claimAssignment,
+  Ae as createAssignmentQueueScreen,
+  ge as fetchAssignmentList,
+  $e as getAssignmentQueueStyles,
+  xe as initAssignmentQueueScreen,
+  pe as normalizeAssignmentActionResponse,
+  de as normalizeAssignmentListMeta,
+  ue as normalizeAssignmentListResponse,
   H as normalizeAssignmentListRow,
   q as presetToQueryState,
-  he as releaseAssignment
+  fe as releaseAssignment
 };
 //# sourceMappingURL=index.js.map

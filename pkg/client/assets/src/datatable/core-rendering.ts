@@ -1,10 +1,9 @@
 // @ts-nocheck
+import { executeStructuredDelete } from './action-execution.js';
 import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
 import { renderGroupedEmptyState } from './grouped-mode.js';
 import {
-  executeStructuredRequest,
-  formatStructuredErrorForDisplay,
   getStructuredActionError,
   isHandledActionError,
 } from '../toast/error-helpers.js';
@@ -336,35 +335,29 @@ export function sanitizeActionId(grid: any, label: string): string {
    * Handle delete action
    */
 export async function handleDelete(grid: any, id: string): Promise<void> {
-    const confirmed = await grid.confirmAction('Are you sure you want to delete this item?');
-    if (!confirmed) {
-      return;
-    }
-
     try {
-      const result = await executeStructuredRequest(`${grid.config.apiEndpoint}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Accept': 'application/json',
+      await executeStructuredDelete({
+        endpoint: `${grid.config.apiEndpoint}/${id}`,
+        confirmMessage: 'Are you sure you want to delete this item?',
+        confirmTitle: 'Confirm Delete',
+        onSuccess: async () => {
+          await grid.refresh();
+        },
+        onError: (error) => {
+          grid.showError(error.textCode ? `${error.textCode}: ${error.message}` : error.message);
+        },
+        reconcileOnDomainFailure: async () => {
+          await grid.refresh();
+        },
+        notifier: {
+          confirm: async (message, options) => grid.confirmAction(message, options),
         },
       });
-
-      if (!result.success) {
-        const structured = result.error;
-        const message = structured
-          ? formatStructuredErrorForDisplay(structured, 'Delete failed')
-          : 'Delete failed';
-        if (structured?.textCode) {
-          await grid.refresh();
-        }
-        grid.showError(message);
-        return;
-      }
-
-      await grid.refresh();
     } catch (error) {
       console.error('Error deleting item:', error);
-      grid.showError('Failed to delete item');
+      if (!isHandledActionError(error)) {
+        grid.showError(error instanceof Error ? error.message : 'Failed to delete item');
+      }
     }
   }
 

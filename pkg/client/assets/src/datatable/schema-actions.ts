@@ -11,12 +11,12 @@
  * - Deterministic precedence: schema > defaults
  */
 
+import { executeStructuredDelete } from './action-execution.js';
 import type { ActionButton, ActionVariant } from './actions.js';
 import type { ActionRemediation, ActionState } from './action-contracts.js';
 import { resolveActionState } from './action-contracts.js';
 import {
   createStructuredActionError,
-  executeStructuredRequest,
   executeActionRequest,
   formatStructuredErrorForDisplay,
   type StructuredRequestResult,
@@ -543,21 +543,24 @@ export class SchemaActionBuilder {
       icon: icon || 'trash',
       variant: variant === 'secondary' ? 'danger' : variant,
       action: async () => {
-        const confirmed = window.confirm(`Are you sure you want to delete this item?`);
-        if (!confirmed) return;
-
-        const result = await executeStructuredRequest(`${endpoint}/${recordId}`, {
-          method: 'DELETE',
-          headers: { 'Accept': 'application/json' },
+        await executeStructuredDelete({
+          endpoint: `${endpoint}/${recordId}`,
+          fallbackMessage: 'Delete failed',
+          onSuccess: async (result) => {
+            this.config.onActionSuccess?.('delete', {
+              success: true,
+              data: result.data,
+            });
+          },
+          onError: async (error) => {
+            this.config.onActionError?.('delete', error);
+          },
+          reconcileOnDomainFailure: async (error) => {
+            if (error.textCode && this.config.reconcileOnDomainFailure) {
+              await this.config.reconcileOnDomainFailure('delete', error);
+            }
+          },
         });
-        if (result.success) {
-          this.config.onActionSuccess?.('delete', {
-            success: true,
-            data: result.data,
-          });
-          return;
-        }
-        await this.handleStructuredActionFailure('delete', result, 'Delete failed');
       },
     };
   }
@@ -1403,22 +1406,7 @@ export class SchemaActionBuilder {
       },
       {
         name: 'delete',
-        button: {
-          id: 'delete',
-          label: 'Delete',
-          icon: 'trash',
-          variant: 'danger',
-          action: async () => {
-            if (!window.confirm('Are you sure you want to delete this item?')) return;
-            const response = await fetch(`${apiEndpoint}/${recordId}`, {
-              method: 'DELETE',
-              headers: { 'Accept': 'application/json' },
-            });
-            if (!response.ok) {
-              throw new Error('Delete failed');
-            }
-          },
-        },
+        button: this.buildDeleteAction(record, 'Delete', 'danger', 'trash'),
       },
     ];
 
@@ -1474,22 +1462,7 @@ export class SchemaActionBuilder {
       },
       {
         name: 'delete',
-        button: {
-          id: 'delete',
-          label: 'Delete',
-          icon: 'trash',
-          variant: 'danger',
-          action: async () => {
-            if (!window.confirm('Are you sure you want to delete this item?')) return;
-            const response = await fetch(`${apiEndpoint}/${recordId}`, {
-              method: 'DELETE',
-              headers: { 'Accept': 'application/json' },
-            });
-            if (!response.ok) {
-              throw new Error('Delete failed');
-            }
-          },
-        },
+        button: this.buildDeleteAction(record, 'Delete', 'danger', 'trash'),
       },
     ];
 

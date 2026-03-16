@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -189,6 +190,58 @@ func TestBuildAgreementSendInputUsesIDsFallback(t *testing.T) {
 	}
 	if msg.IdempotencyKey != "k1" {
 		t.Fatalf("idempotency key mismatch: %q", msg.IdempotencyKey)
+	}
+}
+
+func TestStoreAgreementQueuedResponseOmitsSingularFieldsForMultiEffectDispatch(t *testing.T) {
+	collector := &coreadmin.ActionResponseCollector{}
+	ctx := coreadmin.ContextWithActionResponseCollector(context.Background(), collector)
+
+	storeAgreementQueuedResponse(ctx, stores.AgreementRecord{
+		ID:               "agreement-1",
+		DeliveryStatus:   "prepared",
+		DeliveryEffectID: "compat-only-effect",
+	}, "corr-multi", []services.AgreementNotificationEffectDetail{
+		{EffectID: "effect-a"},
+		{EffectID: "effect-b"},
+	})
+
+	response, ok := collector.Load()
+	if !ok {
+		t.Fatal("expected action response stored")
+	}
+	if _, exists := response.Data["effect_id"]; exists {
+		t.Fatalf("expected singular effect_id omitted for multi-effect response, got %+v", response.Data)
+	}
+	if _, exists := response.Data["status_url"]; exists {
+		t.Fatalf("expected singular status_url omitted for multi-effect response, got %+v", response.Data)
+	}
+	effectIDs, ok := response.Data["effect_ids"].([]string)
+	if !ok || len(effectIDs) != 2 {
+		t.Fatalf("expected effect_ids slice for multi-effect response, got %+v", response.Data["effect_ids"])
+	}
+}
+
+func TestStoreAgreementQueuedResponsePreservesSingularFieldsForSingleEffectDispatch(t *testing.T) {
+	collector := &coreadmin.ActionResponseCollector{}
+	ctx := coreadmin.ContextWithActionResponseCollector(context.Background(), collector)
+
+	storeAgreementQueuedResponse(ctx, stores.AgreementRecord{
+		ID:             "agreement-1",
+		DeliveryStatus: "prepared",
+	}, "corr-single", []services.AgreementNotificationEffectDetail{
+		{EffectID: "effect-single"},
+	})
+
+	response, ok := collector.Load()
+	if !ok {
+		t.Fatal("expected action response stored")
+	}
+	if got := strings.TrimSpace(fmt.Sprint(response.Data["effect_id"])); got != "effect-single" {
+		t.Fatalf("expected singular effect_id for single-effect response, got %+v", response.Data)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(response.Data["status_url"])); got != "/admin/api/v1/esign/effects/effect-single" {
+		t.Fatalf("expected singular status_url for single-effect response, got %+v", response.Data)
 	}
 }
 

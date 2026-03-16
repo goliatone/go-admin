@@ -28,6 +28,12 @@ export interface BulkActionStateMap {
   [actionName: string]: ActionState;
 }
 
+export interface BulkActionStateConfig {
+  selection_sensitive?: boolean;
+  selection_state_endpoint?: string;
+  debounce_ms?: number;
+}
+
 export interface ActionBlockCodeSource {
   reason_code?: unknown;
   textCode?: unknown;
@@ -94,6 +100,14 @@ function hasActionStateFields(source: Record<string, unknown>): boolean {
     'remediation',
     'available_transitions',
   ].some((key) => key in source);
+}
+
+function normalizePositiveInteger(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const normalized = Math.trunc(value);
+  return normalized > 0 ? normalized : undefined;
 }
 
 function extractCodeFromSource(source: ActionBlockCodeSource | null | undefined, depth: number = 0): string {
@@ -200,6 +214,32 @@ export function normalizeBulkActionStateMap(value: unknown): BulkActionStateMap 
   return normalizeActionStateMap(value);
 }
 
+export function normalizeBulkActionStateConfig(value: unknown): BulkActionStateConfig | null {
+  if (!isObjectRecord(value)) {
+    return null;
+  }
+
+  const selectionSensitive = value.selection_sensitive === true;
+  const endpoint = trimText(value.selection_state_endpoint);
+  const debounceMS = normalizePositiveInteger(value.debounce_ms);
+
+  if (!selectionSensitive && !endpoint && debounceMS === undefined) {
+    return null;
+  }
+
+  const config: BulkActionStateConfig = {};
+  if (selectionSensitive) {
+    config.selection_sensitive = true;
+  }
+  if (endpoint) {
+    config.selection_state_endpoint = endpoint;
+  }
+  if (debounceMS !== undefined) {
+    config.debounce_ms = debounceMS;
+  }
+  return config;
+}
+
 export function normalizeActionStateRecord<T extends Record<string, unknown>>(value: T | null | undefined): (T & ActionStateRecord) | null {
   if (!isObjectRecord(value)) {
     return null;
@@ -226,6 +266,23 @@ export function normalizeActionStateMeta<T extends Record<string, unknown>>(valu
     ...value,
     bulk_action_state: bulkActionState,
   } as T;
+}
+
+export function normalizeBulkActionStateResponse(value: unknown): { bulk_action_state: BulkActionStateMap; selection?: Record<string, unknown> } | null {
+  if (!isObjectRecord(value)) {
+    return null;
+  }
+  const bulkActionState = normalizeBulkActionStateMap(value.bulk_action_state);
+  if (Object.keys(bulkActionState).length === 0) {
+    return null;
+  }
+  const response: { bulk_action_state: BulkActionStateMap; selection?: Record<string, unknown> } = {
+    bulk_action_state: bulkActionState,
+  };
+  if (isObjectRecord(value.selection)) {
+    response.selection = value.selection;
+  }
+  return response;
 }
 
 export function normalizeListActionStatePayload<T extends Record<string, unknown>>(
@@ -255,6 +312,15 @@ export function normalizeListActionStatePayload<T extends Record<string, unknown
   }
   if (normalizedMeta) {
     out.$meta = normalizedMeta;
+  }
+  if (isObjectRecord(payload.schema)) {
+    const bulkActionStateConfig = normalizeBulkActionStateConfig(payload.schema.bulk_action_state_config);
+    if (bulkActionStateConfig) {
+      out.schema = {
+        ...payload.schema,
+        bulk_action_state_config: bulkActionStateConfig,
+      };
+    }
   }
   return out;
 }

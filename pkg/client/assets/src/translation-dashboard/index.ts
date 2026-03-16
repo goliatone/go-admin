@@ -15,8 +15,6 @@ import {
   ERROR_STATE_TEXT,
   LOADING_STATE,
   CARD,
-  renderBreadcrumb,
-  buildDashboardBreadcrumb,
 } from '../translation-shared/index.js';
 
 export type DashboardAlertState = 'ok' | 'warning' | 'critical' | 'degraded';
@@ -1091,7 +1089,6 @@ export class TranslationDashboardPage {
 
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${renderBreadcrumb(buildDashboardBreadcrumb('/admin'))}
         ${renderToolbar(payload, this.refreshing)}
         ${renderSummaryMeta(payload)}
         ${inlineError}

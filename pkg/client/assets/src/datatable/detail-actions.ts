@@ -22,6 +22,14 @@ interface DetailPayload {
   };
 }
 
+function resolveDefaultNotifier(): ToastNotifier {
+  const maybeWindow = globalThis.window as ({ toastManager?: ToastNotifier } | undefined);
+  if (maybeWindow?.toastManager) {
+    return maybeWindow.toastManager;
+  }
+  return new FallbackNotifier();
+}
+
 function escapeHtml(value: string): string {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -122,7 +130,7 @@ export class DetailActionsController {
 
   constructor(config: DetailActionsMountConfig) {
     this.mount = config.mount;
-    this.notifier = config.notifier || new FallbackNotifier();
+    this.notifier = config.notifier || resolveDefaultNotifier();
     this.fetchImpl = config.fetchImpl || fetch.bind(globalThis);
   }
 

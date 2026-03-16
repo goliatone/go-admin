@@ -627,13 +627,17 @@ func (s *InMemoryStore) Delete(ctx context.Context, scope Scope, id string) erro
 	}
 
 	scopePrefix := scope.key() + "|"
+	agreementCount := 0
 	for agreementKey, agreement := range s.agreements {
 		if !strings.HasPrefix(agreementKey, scopePrefix) {
 			continue
 		}
 		if normalizeID(agreement.DocumentID) == id {
-			return invalidRecordError("documents", "id", "in use by agreements")
+			agreementCount++
 		}
+	}
+	if agreementCount > 0 {
+		return documentInUseByAgreementsError(id, agreementCount)
 	}
 
 	delete(s.documents, key)

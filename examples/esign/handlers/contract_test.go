@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/guardedeffects"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -152,6 +153,86 @@ func TestAdminAPIStatusIncludesPDFPolicyDiagnostics(t *testing.T) {
 	}
 	if strings.TrimSpace(toString(pdfPolicy["pipeline_mode"])) != string(services.PDFPipelineModeEnforcePolicy) {
 		t.Fatalf("expected pipeline_mode=%q, got %+v", services.PDFPipelineModeEnforcePolicy, pdfPolicy["pipeline_mode"])
+	}
+}
+
+func TestAdminGuardedEffectStatusRedactsSensitivePayloadFields(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	dispatchPayload, err := json.Marshal(services.EmailSendSigningRequestOutboxPayload{
+		AgreementID:   "agreement-1",
+		RecipientID:   "recipient-1",
+		EffectID:      "effect-1",
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   "secret-signer-token",
+		CorrelationID: "corr-1",
+		DedupeKey:     "agreement-1|recipient-1|signing_invitation|corr-1",
+	})
+	if err != nil {
+		t.Fatalf("Marshal dispatch payload: %v", err)
+	}
+	preparePayload, err := json.Marshal(map[string]any{
+		"agreement_id":     "agreement-1",
+		"recipient_id":     "recipient-1",
+		"pending_token_id": "pending-token-1",
+		"notification":     string(services.NotificationSigningInvitation),
+	})
+	if err != nil {
+		t.Fatalf("Marshal prepare payload: %v", err)
+	}
+	if _, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+		EffectID:            "effect-1",
+		TenantID:            scope.TenantID,
+		OrgID:               scope.OrgID,
+		Kind:                services.GuardedEffectKindAgreementSendInvitation,
+		GroupType:           services.GuardedEffectGroupTypeAgreement,
+		GroupID:             "agreement-1",
+		SubjectType:         "agreement_recipient_notification",
+		SubjectID:           "recipient-1",
+		Status:              guardedeffects.StatusPrepared,
+		PreparePayloadJSON:  string(preparePayload),
+		DispatchPayloadJSON: string(dispatchPayload),
+		CreatedAt:           time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC),
+		UpdatedAt:           time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("SaveGuardedEffect: %v", err)
+	}
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithDefaultScope(scope),
+		WithGuardedEffectStore(store),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/effects/effect-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	effect, ok := payload["effect"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected effect map payload, got %+v", payload)
+	}
+	dispatch := strings.TrimSpace(toString(effect["dispatch_payload"]))
+	if strings.Contains(dispatch, "secret-signer-token") {
+		t.Fatalf("expected dispatch payload token redacted, got %q", dispatch)
+	}
+	if !strings.Contains(dispatch, "[redacted]") {
+		t.Fatalf("expected dispatch payload redaction marker, got %q", dispatch)
+	}
+	prepare := strings.TrimSpace(toString(effect["prepare_payload"]))
+	if strings.Contains(prepare, "pending-token-1") {
+		t.Fatalf("expected prepare payload token id redacted, got %q", prepare)
+	}
+	if !strings.Contains(prepare, "[redacted]") {
+		t.Fatalf("expected prepare payload redaction marker, got %q", prepare)
 	}
 }
 

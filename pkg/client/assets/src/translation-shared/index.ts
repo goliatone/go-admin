@@ -147,28 +147,6 @@ export {
 } from './style-constants.js';
 
 // =============================================================================
-// Breadcrumb Component
-// =============================================================================
-
-export {
-  // Types
-  type BreadcrumbItem,
-  type BreadcrumbOptions,
-
-  // Render functions
-  renderBreadcrumb,
-  mountBreadcrumb,
-
-  // Preset builders
-  buildDashboardBreadcrumb,
-  buildQueueBreadcrumb,
-  buildEditorBreadcrumb,
-  buildFamilyBreadcrumb,
-  buildMatrixBreadcrumb,
-  buildExchangeBreadcrumb,
-} from './breadcrumb.js';
-
-// =============================================================================
 // Icon Constants (Task 4.1)
 // =============================================================================
 

@@ -42,6 +42,7 @@ export async function refresh(grid: any): Promise<void> {
       }
       grid.lastSchema = data.schema || null;
       grid.lastForm = data.form || null;
+      grid.setBulkActionState(data.$meta?.bulk_action_state || null, data.schema?.bulk_action_state_config || null);
       const total = grid.getResponseTotal(data);
       if (grid.normalizePagination(total)) {
         return grid.refresh();
@@ -50,6 +51,7 @@ export async function refresh(grid: any): Promise<void> {
       grid.renderData(data);
       console.log('[DataGrid] renderData() completed');
       grid.updatePaginationUI(data);
+      grid.updateBulkActionsBar();
       console.log('[DataGrid] ===== refresh() COMPLETED =====');
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

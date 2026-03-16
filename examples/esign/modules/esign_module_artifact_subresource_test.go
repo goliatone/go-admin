@@ -302,6 +302,7 @@ func TestESignModuleDocumentSourceSubresourceDoesNotMatchDynamicPanelAlias(t *te
 
 func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Authorizer) (*ESignModule, router.Server[*fiber.App], stores.Scope) {
 	t.Helper()
+	_ = registry.Stop(context.Background())
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Artifact Test", "en")

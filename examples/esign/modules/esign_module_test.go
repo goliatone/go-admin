@@ -73,6 +73,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !containsPanelAction(documentsSchema.Actions, "delete") {
 		t.Fatalf("expected documents panel row delete action, got %+v", documentsSchema.Actions)
 	}
+	if action, ok := panelActionByName(documentsSchema.Actions, "delete"); !ok || action.Scope != coreadmin.ActionScopeAny {
+		t.Fatalf("expected documents panel delete action scope any, got %+v", action)
+	}
+	if containsPanelAction(documentsSchema.Actions, "edit") {
+		t.Fatalf("expected documents panel to avoid canonical edit action, got %+v", documentsSchema.Actions)
+	}
 	if !containsPanelAction(documentsSchema.BulkActions, "delete") {
 		t.Fatalf("expected documents panel bulk delete action, got %+v", documentsSchema.BulkActions)
 	}
@@ -80,6 +86,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	agreementsSchema := agreementsPanel.Schema()
 	if !containsPanelAction(agreementsSchema.Actions, "resend") {
 		t.Fatalf("expected agreements panel resend action, got %+v", agreementsSchema.Actions)
+	}
+	for _, name := range []string{"edit", "delete"} {
+		action, ok := panelActionByName(agreementsSchema.Actions, name)
+		if !ok || action.Scope != coreadmin.ActionScopeDetail {
+			t.Fatalf("expected agreements panel %q action scope detail, got %+v", name, action)
+		}
 	}
 
 	if !hasSettingDefinition(adm, settingEmailDefaultFromName) ||
@@ -236,6 +248,19 @@ func containsPanelAction(actions []coreadmin.Action, name string) bool {
 		}
 	}
 	return false
+}
+
+func panelActionByName(actions []coreadmin.Action, name string) (coreadmin.Action, bool) {
+	target := strings.ToLower(strings.TrimSpace(name))
+	if target == "" {
+		return coreadmin.Action{}, false
+	}
+	for _, action := range actions {
+		if strings.ToLower(strings.TrimSpace(action.Name)) == target {
+			return action, true
+		}
+	}
+	return coreadmin.Action{}, false
 }
 
 func seedAgreementAsSignable(t *testing.T, module *ESignModule, agreementID string) {

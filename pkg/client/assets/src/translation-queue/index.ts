@@ -11,8 +11,6 @@ import {
   HEADER_TITLE,
   HEADER_PRETITLE,
   HEADER_DESCRIPTION,
-  renderBreadcrumb,
-  buildQueueBreadcrumb,
   MOBILE_CARD,
   MOBILE_CARD_HEADER,
   MOBILE_CARD_TITLE,
@@ -26,13 +24,12 @@ import {
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
 export type AssignmentQueueState =
-  | 'pending'
+  | 'open'
   | 'assigned'
   | 'in_progress'
-  | 'review'
-  | 'rejected'
+  | 'in_review'
+  | 'changes_requested'
   | 'approved'
-  | 'published'
   | 'archived';
 export type AssignmentPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type AssignmentQueueReviewState = 'qa_blocked';
@@ -237,13 +234,13 @@ export const DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS: AssignmentQueueSavedFilterP
     id: 'open',
     label: 'Open',
     description: 'Claimable or active assignments that still need translator work.',
-    query: { status: 'pending,assigned,in_progress,rejected', sort: 'updated_at', order: 'desc' },
+    query: { status: 'open,assigned,in_progress,changes_requested', sort: 'updated_at', order: 'desc' },
   },
   {
     id: 'needs_review',
     label: 'Needs Review',
     description: 'Assignments awaiting review for the active actor.',
-    query: { status: 'review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
+    query: { status: 'in_review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
   },
   {
     id: 'overdue',
@@ -264,26 +261,26 @@ export const DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS: AssignmentQueueSavedFilter
     id: 'review_inbox',
     label: 'Review Inbox',
     description: 'Assignments currently waiting on the active reviewer.',
-    query: { status: 'review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
+    query: { status: 'in_review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
   },
   {
     id: 'review_overdue',
     label: 'Review Overdue',
     description: 'Reviewer-owned assignments that are already overdue.',
-    query: { status: 'review', reviewer_id: '__me__', due_state: 'overdue', sort: 'due_date', order: 'asc' },
+    query: { status: 'in_review', reviewer_id: '__me__', due_state: 'overdue', sort: 'due_date', order: 'asc' },
   },
   {
     id: 'review_blocked',
     label: 'QA Blocked',
     description: 'Reviewer inbox items with blocking QA findings.',
     review_state: 'qa_blocked',
-    query: { status: 'review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
+    query: { status: 'in_review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
   },
   {
     id: 'review_changes_requested',
     label: 'Changes Requested',
     description: 'Assignments the active reviewer already sent back for fixes.',
-    query: { status: 'rejected', reviewer_id: '__me__', sort: 'updated_at', order: 'desc' },
+    query: { status: 'changes_requested', reviewer_id: '__me__', sort: 'updated_at', order: 'desc' },
   },
 ];
 
@@ -333,6 +330,29 @@ function normalizeQASummary(value: unknown): AssignmentQASummary | undefined {
     blocker_count: blockerCount,
     finding_count: findingCount,
   };
+}
+
+function normalizeQueueState(value: unknown): AssignmentQueueState {
+  switch (asString(value)) {
+    case 'pending':
+      return 'open';
+    case 'review':
+      return 'in_review';
+    case 'rejected':
+      return 'changes_requested';
+    case 'published':
+      return 'archived';
+    case 'open':
+    case 'assigned':
+    case 'in_progress':
+    case 'in_review':
+    case 'changes_requested':
+    case 'approved':
+    case 'archived':
+      return asString(value) as AssignmentQueueState;
+    default:
+      return 'open';
+  }
 }
 
 function readResponseToken(response: Response, name: string): string {
@@ -516,8 +536,8 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
     reviewer_id: asString(raw.reviewer_id),
     assignment_type: asString(raw.assignment_type),
     content_state: asString(raw.content_state),
-    queue_state: (asString(raw.queue_state) || 'pending') as AssignmentQueueState,
-    status: (asString(raw.status) || 'pending') as AssignmentQueueState,
+    queue_state: normalizeQueueState(raw.queue_state),
+    status: normalizeQueueState(raw.status),
     priority: (asString(raw.priority) || 'normal') as AssignmentPriority,
     due_state: (asString(raw.due_state) || 'none') as AssignmentDueState,
     due_date: asString(raw.due_date) || undefined,
@@ -557,7 +577,7 @@ export function normalizeAssignmentActionResponse(value: unknown): AssignmentAct
   return {
     data: {
       assignment_id: asString(data.assignment_id),
-      status: (asString(data.status) || 'pending') as AssignmentQueueState,
+      status: normalizeQueueState(data.status),
       row_version: asNumber(data.row_version),
       updated_at: asString(data.updated_at),
       assignment: normalizeAssignmentListRow(data.assignment),
@@ -698,7 +718,7 @@ export function applyOptimisticAssignmentAction(
   if (action === 'claim') {
     next.queue_state = 'in_progress';
     next.status = 'in_progress';
-    next.actions.claim = disabledActionState(row.actions.claim.permission, 'assignment must be open pool before it can be claimed');
+    next.actions.claim = disabledActionState(row.actions.claim.permission, 'assignment must be open pool or already assigned to you before it can be claimed');
     next.actions.release = {
       enabled: true,
       permission: row.actions.release.permission,
@@ -711,8 +731,8 @@ export function applyOptimisticAssignmentAction(
   }
 
   next.assignment_type = 'open_pool';
-  next.queue_state = 'pending';
-  next.status = 'pending';
+  next.queue_state = 'open';
+  next.status = 'open';
   next.assignee_id = '';
   next.actions.claim = {
     enabled: true,
@@ -1019,10 +1039,8 @@ export class AssignmentQueueScreen {
       return;
     }
 
-    const basePath = this.config.editorBasePath.replace(/\/translations\/assignments.*$/, '') || '/admin';
     this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
-        ${renderBreadcrumb(buildQueueBreadcrumb(basePath))}
         <section class="assignment-queue-header">
           <div>
             <p class="${HEADER_PRETITLE}">Assignment Queue</p>
@@ -1120,7 +1138,7 @@ export class AssignmentQueueScreen {
 
   private renderFilters(): string {
     const rows = this.visibleRows;
-    const statuses = ['', 'pending', 'assigned', 'in_progress', 'review', 'rejected', 'approved'];
+    const statuses = ['', 'open', 'assigned', 'in_progress', 'in_review', 'changes_requested', 'approved', 'archived'];
     const dueStates: AssignmentDueState[] = ['none', 'on_track', 'due_soon', 'overdue'];
     const priorities = ['', 'low', 'normal', 'high', 'urgent'];
     const locales = ['', ...uniqueFilterOptions(rows.map((row) => row.target_locale))];

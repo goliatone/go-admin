@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "list_contract": {
+    "schema": {
+      "bulk_actions": [
+        {
+          "name": "delete",
+          "label": "Delete",
+          "scope": "bulk",
+          "permission": "documents.delete"
+        }
+      ],
+      "bulk_action_state_config": {
+        "selection_sensitive": true,
+        "selection_state_endpoint": "/admin/api/panels/documents/bulk-actions/state",
+        "debounce_ms": 150
+      }
+    },
+    "record_ids": [
+      "doc_1",
+      "doc_2"
+    ],
+    "$meta": {
+      "bulk_action_state": {
+        "delete": {
+          "enabled": true,
+          "permission": "documents.delete"
+        }
+      }
+    }
+  },
+  "selection_contracts": {
+    "single_invalid": {
+      "bulk_action_state": {
+        "delete": {
+          "enabled": false,
+          "reason_code": "RESOURCE_IN_USE",
+          "reason": "This document cannot be deleted because it is attached to 2 agreements.",
+          "severity": "warning",
+          "kind": "business_rule",
+          "permission": "documents.delete",
+          "metadata": {
+            "agreement_count": 2,
+            "document_id": "doc_1",
+            "blocked_action": "delete",
+            "field": "ids",
+            "invalid_count": 1,
+            "selected_count": 1,
+            "invalid_ids": [
+              "doc_1"
+            ],
+            "reason_codes": [
+              "RESOURCE_IN_USE"
+            ],
+            "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "remediation_label": "View agreements",
+            "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+            "remediation_kind": "link"
+          },
+          "remediation": {
+            "label": "View agreements",
+            "href": "/admin/content/esign_agreements?document_id=doc_1",
+            "kind": "link"
+          }
+        }
+      },
+      "selection": {
+        "count": 1
+      }
+    },
+    "mixed_selection": {
+      "bulk_action_state": {
+        "delete": {
+          "enabled": false,
+          "reason_code": "INVALID_SELECTION",
+          "reason": "Some selected records cannot be deleted.",
+          "severity": "warning",
+          "kind": "business_rule",
+          "permission": "documents.delete",
+          "metadata": {
+            "field": "ids",
+            "blocked_action": "delete",
+            "invalid_count": 1,
+            "selected_count": 2,
+            "invalid_ids": [
+              "doc_1"
+            ],
+            "reason_codes": [
+              "RESOURCE_IN_USE"
+            ],
+            "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "remediation_label": "View agreements",
+            "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+            "remediation_kind": "link"
+          }
+        }
+      },
+      "selection": {
+        "count": 2
+      }
+    }
+  },
+  "execution_failure": {
+    "error": {
+      "text_code": "INVALID_SELECTION",
+      "message": "Some selected records cannot be deleted.",
+      "metadata": {
+        "field": "ids",
+        "blocked_action": "delete",
+        "invalid_count": 1,
+        "selected_count": 2,
+        "invalid_ids": [
+          "doc_1"
+        ],
+        "reason_codes": [
+          "RESOURCE_IN_USE"
+        ],
+        "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+        "remediation_label": "View agreements",
+        "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+        "remediation_kind": "link",
+        "panel": "documents",
+        "action": "delete"
+      }
+    },
+    "status": 400
+  }
+}

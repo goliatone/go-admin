@@ -1072,7 +1072,13 @@ func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
 		t.Fatalf("expected prepared delivery status after queued resend, got %q", updatedAgreement.DeliveryStatus)
 	}
 	if strings.TrimSpace(updatedAgreement.DeliveryEffectID) == "" {
-		t.Fatal("expected resend to record delivery effect id")
+		t.Fatal("expected resend to keep compatibility delivery effect id for single-recipient history")
+	}
+	if len(resent.Effects) != 1 {
+		t.Fatalf("expected resend result to expose only the action effect, got %+v", resent.Effects)
+	}
+	if strings.TrimSpace(resent.Effects[0].EffectID) != strings.TrimSpace(updatedAgreement.DeliveryEffectID) {
+		t.Fatalf("expected resend action effect to match compatibility effect id, agreement=%q action=%q", updatedAgreement.DeliveryEffectID, resent.Effects[0].EffectID)
 	}
 	effect, err := store.GetGuardedEffect(ctx, updatedAgreement.DeliveryEffectID)
 	if err != nil {

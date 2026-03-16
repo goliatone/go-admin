@@ -94,6 +94,7 @@ export type {
   ActionStateMap,
   ActionStateRecord,
   BulkActionStateMap,
+  BulkActionStateConfig,
   ActionBlockCodeInput,
 } from './action-contracts.js';
 export {
@@ -101,10 +102,12 @@ export {
   normalizeActionState,
   normalizeActionStateMap,
   normalizeBulkActionStateMap,
+  normalizeBulkActionStateConfig,
   normalizeActionStateRecord,
   normalizeActionStateMeta,
   normalizeListActionStatePayload,
   normalizeDetailActionStatePayload,
+  normalizeBulkActionStateResponse,
   resolveActionState,
 } from './action-contracts.js';
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -380,8 +381,8 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"resumable":        detail.Resumable,
 				"result_payload":   stableString(record.ResultPayloadJSON),
 				"error_payload":    stableString(record.ErrorJSON),
-				"prepare_payload":  stableString(record.PreparePayloadJSON),
-				"dispatch_payload": stableString(record.DispatchPayloadJSON),
+				"prepare_payload":  stableString(sanitizeGuardedEffectPayload(record.PreparePayloadJSON)),
+				"dispatch_payload": stableString(sanitizeGuardedEffectPayload(record.DispatchPayloadJSON)),
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
@@ -449,6 +450,55 @@ func parseRemediationExecutionMode(raw string) (string, error) {
 		return normalized, nil
 	default:
 		return "", fmt.Errorf("invalid remediation execution mode %q", raw)
+	}
+}
+
+func sanitizeGuardedEffectPayload(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	var payload any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return "[redacted]"
+	}
+	payload = sanitizeGuardedEffectPayloadValue(payload)
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "[redacted]"
+	}
+	return string(encoded)
+}
+
+func sanitizeGuardedEffectPayloadValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			if isSensitiveGuardedEffectPayloadKey(key) {
+				out[key] = "[redacted]"
+				continue
+			}
+			out[key] = sanitizeGuardedEffectPayloadValue(nested)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, nested := range typed {
+			out = append(out, sanitizeGuardedEffectPayloadValue(nested))
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func isSensitiveGuardedEffectPayloadKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "token", "signer_token", "pending_token_id", "sign_url", "completion_url":
+		return true
+	default:
+		return false
 	}
 }
 

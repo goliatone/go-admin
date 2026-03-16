@@ -17,8 +17,6 @@ import {
   MODAL_OVERLAY,
   MODAL_CONTENT,
   trapFocus,
-  renderBreadcrumb,
-  buildFamilyBreadcrumb,
 } from '../translation-shared/index.js';
 
 export type FamilyReadinessState = 'ready' | 'blocked';
@@ -1353,11 +1351,8 @@ export function renderTranslationFamilyDetailState(
       </button>
     `
     : '';
-
-  const basePath = trimTrailingSlash(options.basePath || '/admin');
   return `
     <div class="translation-family-detail space-y-6" data-family-id="${escapeAttribute(detail.familyId)}" data-readiness-state="${escapeAttribute(detail.readinessState)}">
-      ${renderBreadcrumb(buildFamilyBreadcrumb(sourceTitle, basePath))}
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>

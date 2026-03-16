@@ -2,6 +2,11 @@
 import type { ColumnFilter } from './core-types.js';
 import { ColumnManager } from './column-manager.js';
 import {
+  normalizeBulkActionStateConfig,
+  normalizeBulkActionStateMap,
+  normalizeBulkActionStateResponse,
+} from './action-contracts.js';
+import {
   extractErrorMessage,
   getStructuredActionError,
   isHandledActionError,
@@ -454,6 +459,196 @@ export function updateSelectionBindings(grid: any): void {
     });
   }
 
+function bulkActionButtons(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-bulk-action]'));
+}
+
+function ensureBulkReasonContainer(overlay: HTMLElement | null): HTMLElement | null {
+  if (!overlay) {
+    return null;
+  }
+  let container = overlay.querySelector<HTMLElement>('[data-bulk-action-state-reasons]');
+  if (container) {
+    return container;
+  }
+  container = document.createElement('div');
+  container.dataset.bulkActionStateReasons = 'true';
+  container.className = 'hidden mt-3 text-sm text-gray-700';
+  overlay.appendChild(container);
+  return container;
+}
+
+function renderBulkActionReasons(reasons: Array<{ actionId: string; label: string; reason: string }>): void {
+  const overlay = document.getElementById('bulk-actions-overlay');
+  const container = ensureBulkReasonContainer(overlay);
+  if (!container) {
+    return;
+  }
+  if (!reasons.length) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+  container.classList.remove('hidden');
+  container.innerHTML = reasons.map((entry) => `
+    <div data-bulk-action-reason-item="${entry.actionId}" class="mt-1">
+      <span class="font-medium">${entry.label}:</span> ${entry.reason}
+    </div>
+  `).join('');
+}
+
+function applyButtonState(button: HTMLElement, state: Record<string, unknown> | null, fallbackLabel: string): { actionId: string; label: string; reason: string } | null {
+  const disabled = state?.enabled === false;
+  const reason = typeof state?.reason === 'string' ? state.reason.trim() : '';
+  button.dataset.disabled = disabled ? 'true' : 'false';
+  button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  button.dataset.bulkState = disabled ? 'disabled' : 'enabled';
+  button.classList.toggle('opacity-50', disabled);
+  button.classList.toggle('cursor-not-allowed', disabled);
+  if (disabled && reason) {
+    button.setAttribute('title', reason);
+    return {
+      actionId: button.dataset.bulkAction || '',
+      label: fallbackLabel,
+      reason,
+    };
+  }
+  button.removeAttribute('title');
+  return null;
+}
+
+function applyPendingBulkActionState(grid: any): void {
+  const buttons = bulkActionButtons();
+  const pendingReason = 'Checking selected records...';
+  const reasons: Array<{ actionId: string; label: string; reason: string }> = [];
+  buttons.forEach((button) => {
+    button.dataset.disabled = 'true';
+    button.dataset.bulkState = 'loading';
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('title', pendingReason);
+    button.classList.add('opacity-50', 'cursor-not-allowed');
+    reasons.push({
+      actionId: button.dataset.bulkAction || '',
+      label: button.textContent?.trim() || button.dataset.bulkAction || 'Action',
+      reason: pendingReason,
+    });
+  });
+  renderBulkActionReasons(reasons);
+}
+
+function currentBulkActionStateConfig(grid: any): Record<string, unknown> | null {
+  return normalizeBulkActionStateConfig(grid.bulkActionStateConfig);
+}
+
+export function setBulkActionState(grid: any, state: Record<string, any> | null | undefined, config: Record<string, any> | null | undefined): void {
+  grid.bulkActionState = normalizeBulkActionStateMap(state);
+  grid.bulkActionStateConfig = normalizeBulkActionStateConfig(config);
+  grid.applyBulkActionState(grid.bulkActionState);
+}
+
+export function applyBulkActionState(grid: any, state: Record<string, any> | null | undefined): void {
+  const normalized = normalizeBulkActionStateMap(state);
+  grid.bulkActionState = normalized;
+  const reasons: Array<{ actionId: string; label: string; reason: string }> = [];
+  bulkActionButtons().forEach((button) => {
+    const actionId = button.dataset.bulkAction;
+    if (!actionId) {
+      return;
+    }
+    const reason = applyButtonState(
+      button,
+      normalized[actionId] || null,
+      button.textContent?.trim() || actionId,
+    );
+    if (reason) {
+      reasons.push(reason);
+    }
+  });
+  renderBulkActionReasons(reasons);
+}
+
+async function fetchSelectionSensitiveBulkActionState(grid: any): Promise<void> {
+  const config = currentBulkActionStateConfig(grid);
+  const endpoint = typeof config?.selection_state_endpoint === 'string'
+    ? config.selection_state_endpoint.trim()
+    : '';
+  if (!endpoint) {
+    grid.applyBulkActionState(grid.bulkActionState);
+    return;
+  }
+
+  const selectedIds = Array.from(grid.state.selectedRows);
+  if (!selectedIds.length) {
+    grid.applyBulkActionState(grid.bulkActionState);
+    return;
+  }
+
+  if (grid.bulkActionStateAbortController) {
+    grid.bulkActionStateAbortController.abort();
+  }
+  grid.bulkActionStateAbortController = new AbortController();
+  grid.bulkActionStateRequestSeq += 1;
+  const requestSeq = grid.bulkActionStateRequestSeq;
+  const query = typeof grid.buildQueryString === 'function' ? grid.buildQueryString() : '';
+  const url = query ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}` : endpoint;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      signal: grid.bulkActionStateAbortController.signal,
+      body: JSON.stringify({ ids: selectedIds }),
+    });
+    if (!response.ok) {
+      throw new Error(`Bulk action state request failed: ${response.status}`);
+    }
+    const payload = normalizeBulkActionStateResponse(await response.json());
+    if (!payload || requestSeq !== grid.bulkActionStateRequestSeq) {
+      return;
+    }
+    grid.applyBulkActionState({
+      ...grid.bulkActionState,
+      ...payload.bulk_action_state,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
+    console.warn('[DataGrid] Failed to refresh selection-sensitive bulk action state:', error);
+    if (requestSeq === grid.bulkActionStateRequestSeq) {
+      grid.applyBulkActionState(grid.bulkActionState);
+    }
+  }
+}
+
+export function syncBulkActionState(grid: any): void {
+  if (grid.bulkActionStateDebounce) {
+    clearTimeout(grid.bulkActionStateDebounce);
+    grid.bulkActionStateDebounce = null;
+  }
+
+  const config = currentBulkActionStateConfig(grid);
+  const selectedCount = grid.state.selectedRows.size;
+  if (!config?.selection_sensitive || !config.selection_state_endpoint || selectedCount === 0) {
+    if (grid.bulkActionStateAbortController) {
+      grid.bulkActionStateAbortController.abort();
+      grid.bulkActionStateAbortController = null;
+    }
+    grid.applyBulkActionState(grid.bulkActionState);
+    return;
+  }
+
+  applyPendingBulkActionState(grid);
+  const debounceMS = typeof config.debounce_ms === 'number' ? config.debounce_ms : 150;
+  grid.bulkActionStateDebounce = window.setTimeout(() => {
+    grid.bulkActionStateDebounce = null;
+    void fetchSelectionSensitiveBulkActionState(grid);
+  }, debounceMS);
+}
+
   /**
    * Bind bulk action buttons
    */
@@ -467,6 +662,9 @@ export function bindBulkActions(grid: any): void {
         const el = btn as HTMLElement;
         const actionId = el.dataset.bulkAction;
         if (!actionId) return;
+        if (el.getAttribute('aria-disabled') === 'true' || el.dataset.disabled === 'true') {
+          return;
+        }
 
         const ids = Array.from(grid.state.selectedRows);
         if (ids.length === 0) {
@@ -624,6 +822,7 @@ export function updateBulkActionsBar(grid: any): void {
     } else {
       overlay.classList.add('hidden');
     }
+    grid.syncBulkActionState();
   }
 
   /**

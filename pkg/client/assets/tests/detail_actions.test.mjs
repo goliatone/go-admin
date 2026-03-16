@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
 async function loadJSDOM() {
   try {
@@ -14,7 +15,7 @@ const { JSDOM } = await loadJSDOM();
 const {
   initPanelDetailActions,
   renderDetailActions,
-} = await import('../dist/datatable/index.js');
+} = await importDatatableModule();
 
 async function loadFixture() {
   const fixtureURL = new URL('./fixtures/action_affordances_phase4/enriched_affordances.json', import.meta.url);

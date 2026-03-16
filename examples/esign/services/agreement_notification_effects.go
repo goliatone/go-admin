@@ -15,25 +15,24 @@ import (
 const GuardedEffectGroupTypeAgreement = "agreement"
 
 type AgreementNotificationEffectDetail struct {
-	EffectID       string     `json:"effect_id"`
-	GroupType      string     `json:"group_type,omitempty"`
-	GroupID        string     `json:"group_id,omitempty"`
-	Kind           string     `json:"kind"`
-	RecipientID    string     `json:"recipient_id,omitempty"`
-	Notification   string     `json:"notification,omitempty"`
-	Status         string     `json:"status"`
-	DispatchID     string     `json:"dispatch_id,omitempty"`
-	CorrelationID  string     `json:"correlation_id,omitempty"`
-	Error          string     `json:"error,omitempty"`
-	AttemptCount   int        `json:"attempt_count"`
-	MaxAttempts    int        `json:"max_attempts"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	DispatchedAt   *time.Time `json:"dispatched_at,omitempty"`
-	FinalizedAt    *time.Time `json:"finalized_at,omitempty"`
-	AbortedAt      *time.Time `json:"aborted_at,omitempty"`
-	RetryAt        *time.Time `json:"retry_at,omitempty"`
-	Resumable      bool       `json:"resumable"`
-	PendingTokenID string     `json:"pending_token_id,omitempty"`
+	EffectID      string     `json:"effect_id"`
+	GroupType     string     `json:"group_type,omitempty"`
+	GroupID       string     `json:"group_id,omitempty"`
+	Kind          string     `json:"kind"`
+	RecipientID   string     `json:"recipient_id,omitempty"`
+	Notification  string     `json:"notification,omitempty"`
+	Status        string     `json:"status"`
+	DispatchID    string     `json:"dispatch_id,omitempty"`
+	CorrelationID string     `json:"correlation_id,omitempty"`
+	Error         string     `json:"error,omitempty"`
+	AttemptCount  int        `json:"attempt_count"`
+	MaxAttempts   int        `json:"max_attempts"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DispatchedAt  *time.Time `json:"dispatched_at,omitempty"`
+	FinalizedAt   *time.Time `json:"finalized_at,omitempty"`
+	AbortedAt     *time.Time `json:"aborted_at,omitempty"`
+	RetryAt       *time.Time `json:"retry_at,omitempty"`
+	Resumable     bool       `json:"resumable"`
 }
 
 type AgreementNotificationSummary struct {
@@ -235,26 +234,57 @@ func agreementNotificationPayload(record guardedeffects.Record) agreementNotific
 func AgreementNotificationEffectDetailFromRecord(record guardedeffects.Record) AgreementNotificationEffectDetail {
 	payload := agreementNotificationPayload(record)
 	return AgreementNotificationEffectDetail{
-		EffectID:       strings.TrimSpace(record.EffectID),
-		GroupType:      strings.TrimSpace(record.GroupType),
-		GroupID:        strings.TrimSpace(record.GroupID),
-		Kind:           strings.TrimSpace(record.Kind),
-		RecipientID:    firstNonEmpty(strings.TrimSpace(payload.RecipientID), strings.TrimSpace(record.SubjectID)),
-		Notification:   strings.TrimSpace(payload.Notification),
-		Status:         guardedeffects.NormalizeStatus(record.Status),
-		DispatchID:     strings.TrimSpace(record.DispatchID),
-		CorrelationID:  strings.TrimSpace(record.CorrelationID),
-		Error:          strings.TrimSpace(record.ErrorJSON),
-		AttemptCount:   record.AttemptCount,
-		MaxAttempts:    record.MaxAttempts,
-		UpdatedAt:      record.UpdatedAt.UTC(),
-		DispatchedAt:   cloneAgreementTime(record.DispatchedAt),
-		FinalizedAt:    cloneAgreementTime(record.FinalizedAt),
-		AbortedAt:      cloneAgreementTime(record.AbortedAt),
-		RetryAt:        cloneAgreementTime(record.RetryAt),
-		Resumable:      canResumeAgreementNotificationEffect(record),
-		PendingTokenID: strings.TrimSpace(payload.PendingTokenID),
+		EffectID:      strings.TrimSpace(record.EffectID),
+		GroupType:     strings.TrimSpace(record.GroupType),
+		GroupID:       strings.TrimSpace(record.GroupID),
+		Kind:          strings.TrimSpace(record.Kind),
+		RecipientID:   firstNonEmpty(strings.TrimSpace(payload.RecipientID), strings.TrimSpace(record.SubjectID)),
+		Notification:  strings.TrimSpace(payload.Notification),
+		Status:        guardedeffects.NormalizeStatus(record.Status),
+		DispatchID:    strings.TrimSpace(record.DispatchID),
+		CorrelationID: strings.TrimSpace(record.CorrelationID),
+		Error:         strings.TrimSpace(record.ErrorJSON),
+		AttemptCount:  record.AttemptCount,
+		MaxAttempts:   record.MaxAttempts,
+		UpdatedAt:     record.UpdatedAt.UTC(),
+		DispatchedAt:  cloneAgreementTime(record.DispatchedAt),
+		FinalizedAt:   cloneAgreementTime(record.FinalizedAt),
+		AbortedAt:     cloneAgreementTime(record.AbortedAt),
+		RetryAt:       cloneAgreementTime(record.RetryAt),
+		Resumable:     canResumeAgreementNotificationEffect(record),
 	}
+}
+
+func compatibilityDeliveryEffect(records []guardedeffects.Record, summaryStatus string) string {
+	if len(records) == 0 {
+		return ""
+	}
+	summaryStatus = guardedeffects.NormalizeStatus(summaryStatus)
+	recipientIDs := make(map[string]struct{}, len(records))
+	for _, record := range records {
+		recipientID := strings.TrimSpace(firstNonEmpty(agreementNotificationPayload(record).RecipientID, record.SubjectID))
+		if recipientID == "" {
+			continue
+		}
+		recipientIDs[recipientID] = struct{}{}
+	}
+	if len(recipientIDs) <= 1 {
+		return strings.TrimSpace(records[0].EffectID)
+	}
+	if summaryStatus == "" {
+		return ""
+	}
+	match := ""
+	for _, record := range records {
+		if guardedeffects.NormalizeStatus(record.Status) != summaryStatus {
+			continue
+		}
+		if match != "" {
+			return ""
+		}
+		match = strings.TrimSpace(record.EffectID)
+	}
+	return match
 }
 
 func summarizeAgreementNotificationEffects(records []guardedeffects.Record) AgreementNotificationSummary {
@@ -269,7 +299,7 @@ func summarizeAgreementNotificationEffects(records []guardedeffects.Record) Agre
 	sort.Slice(ordered, func(i, j int) bool {
 		return notificationEffectSortLess(ordered[i], ordered[j])
 	})
-	out.DeliveryEffect = strings.TrimSpace(ordered[0].EffectID)
+	out.DeliveryEffect = compatibilityDeliveryEffect(ordered, out.Status)
 	for _, record := range ordered {
 		detail := AgreementNotificationEffectDetailFromRecord(record)
 		out.Effects = append(out.Effects, detail)

@@ -69,6 +69,7 @@ type ESignModule struct {
 	defaultLocale string
 	menuCode      string
 	routes        handlers.RouteSet
+	placements    quickstart.PlacementConfig
 
 	defaultScope  stores.Scope
 	settings      RuntimeSettings
@@ -116,6 +117,27 @@ func (m *ESignModule) WithUploadDir(dir string) *ESignModule {
 	m.uploadDir = strings.TrimSpace(dir)
 	m.uploadManager = nil
 	return m
+}
+
+// WithPlacements overrides the placement config used when registering dashboard providers.
+func (m *ESignModule) WithPlacements(placements quickstart.PlacementConfig) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.placements = placements
+	return m
+}
+
+func (m *ESignModule) dashboardPlacements() quickstart.PlacementConfig {
+	if m == nil {
+		return quickstart.PlacementConfig{}
+	}
+	if len(m.placements.Menus) > 0 || len(m.placements.Dashboards) > 0 {
+		return m.placements
+	}
+	return quickstart.DefaultPlacements(coreadmin.Config{
+		NavMenuCode: strings.TrimSpace(m.menuCode),
+	})
 }
 
 // WithServicesModule injects the shared go-admin services module runtime.
@@ -692,6 +714,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	}
 	docRepo := newDocumentPanelRepository(
 		m.store,
+		m.store,
 		m.documents,
 		m.documentUploadManager(),
 		m.defaultScope,
@@ -699,7 +722,8 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	)
 	docBuilder := adm.Panel(esignDocumentsPanelID).
 		WithRepository(docRepo).
-		WithActionDefaults(coreadmin.PanelActionDefaultsModeCRUD).
+		WithActionStateResolver(documentsActionStateResolver(m.basePath, m.store, m.defaultScope)).
+		WithActionDefaults(coreadmin.PanelActionDefaultsModeNone).
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "page_count", Label: "Pages", Type: "number"},
@@ -730,6 +754,13 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		).
 		Filters(
 			coreadmin.Filter{Name: "title", Label: "Title", Type: "text"},
+		).
+		Actions(
+			coreadmin.Action{Name: "view", Label: "View", Type: "navigation", Scope: coreadmin.ActionScopeRow, Permission: permissions.AdminESignView},
+			coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignEdit, Confirm: "Are you sure you want to delete this item?"},
+		).
+		BulkActions(
+			coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignEdit, Confirm: "Delete {count} item(s)?"},
 		).
 		Subresources(
 			coreadmin.PanelSubresource{Name: "source", Method: "GET", Permission: permissions.AdminESignView},
@@ -780,21 +811,20 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		Filters(
 			coreadmin.Filter{Name: "status", Label: "Status", Type: "select", Options: agreementStatusOptions()},
 			coreadmin.Filter{Name: "title", Label: "Title", Type: "text"},
+			coreadmin.Filter{Name: "document_id", Label: "Document ID", Type: "text"},
 			coreadmin.Filter{Name: "recipient_email", Label: "Recipient Email", Type: "text"},
 		).
 		Actions(
-			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
-			coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Permission: permissions.AdminESignSend, Idempotent: true},
-			coreadmin.Action{Name: "resume_delivery", Label: "Resume Delivery", CommandName: commands.CommandAgreementDeliveryResume, Permission: permissions.AdminESignSend, Idempotent: true},
-			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
-			coreadmin.Action{Name: "rotate_token", Label: "Rotate Token", CommandName: commands.CommandTokenRotate, Permission: permissions.AdminESignSend, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
-			coreadmin.Action{Name: "pause_reminder", Label: "Pause Reminder", CommandName: commands.CommandAgreementReminderPause, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
-			coreadmin.Action{Name: "resume_reminder", Label: "Resume Reminder", CommandName: commands.CommandAgreementReminderResume, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
-			coreadmin.Action{Name: "send_reminder_now", Label: "Send Reminder Now", CommandName: commands.CommandAgreementReminderSendNow, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
+			withAgreementActionGuard(coreadmin.Action{Name: "edit", Label: "Edit", Type: "navigation", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit}),
+			withAgreementActionGuard(coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignVoid, Confirm: "Are you sure you want to delete this item?"}),
+			withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
+			withAgreementActionGuard(coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true}),
+			withAgreementActionGuard(coreadmin.Action{Name: "resume_delivery", Label: "Resume Delivery", CommandName: commands.CommandAgreementDeliveryResume, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignSend, Idempotent: true}),
+			withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
 		).
 		BulkActions(
-			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
-			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
+			withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
+			withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
 		).
 		Subresources(
 			coreadmin.PanelSubresource{Name: "artifact", Method: "GET", Permission: permissions.AdminESignDownload},

@@ -73,6 +73,11 @@ export class DataGrid {
   private defaultColumns: ColumnDefinition[];
   private lastSchema: Record<string, any> | null = null;
   private lastForm: Record<string, any> | null = null;
+  private bulkActionState: Record<string, any> = {};
+  private bulkActionStateConfig: Record<string, any> | null = null;
+  private bulkActionStateDebounce: number | null = null;
+  private bulkActionStateAbortController: AbortController | null = null;
+  private bulkActionStateRequestSeq: number = 0;
   private stateStore: DataGridStateStore;
   private hasURLStateOverrides: boolean = false;
   private hasPersistedHiddenColumnState: boolean = false;
@@ -478,6 +483,18 @@ export class DataGrid {
     lifecycleOps.updateBulkActionsBar(this);
   }
 
+  private setBulkActionState(state: Record<string, any> | null | undefined, config: Record<string, any> | null | undefined): void {
+    lifecycleOps.setBulkActionState(this, state, config);
+  }
+
+  private applyBulkActionState(state: Record<string, any> | null | undefined): void {
+    lifecycleOps.applyBulkActionState(this, state);
+  }
+
+  private syncBulkActionState(): void {
+    lifecycleOps.syncBulkActionState(this);
+  }
+
   private bindBulkClearButton(): void {
     lifecycleOps.bindBulkClearButton(this);
   }
@@ -554,9 +571,19 @@ export class DataGrid {
       this.abortController = null;
     }
 
+    if (this.bulkActionStateAbortController) {
+      this.bulkActionStateAbortController.abort();
+      this.bulkActionStateAbortController = null;
+    }
+
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
+    }
+
+    if (this.bulkActionStateDebounce) {
+      clearTimeout(this.bulkActionStateDebounce);
+      this.bulkActionStateDebounce = null;
     }
 
     console.log('[DataGrid] Instance destroyed');

@@ -8,18 +8,6 @@
 
 {% block header_title %}{{ resource_item.title|default:"Document" }}{% endblock %}
 
-{% block header_actions %}
-  {% block header_actions_prepend %}{% endblock %}
-  {# Documents are immutable - no edit action #}
-  {% if routes.index %}
-    <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to documents list">
-      <i class="iconoir-arrow-left" aria-hidden="true"></i>
-      Back to Documents
-    </a>
-  {% endif %}
-  {% block header_actions_append %}{% endblock %}
-{% endblock %}
-
 {% block identity_avatar %}
   <div class="w-14 h-14 rounded-lg bg-red-100 flex items-center justify-center" aria-hidden="true">
     <svg class="w-8 h-8 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

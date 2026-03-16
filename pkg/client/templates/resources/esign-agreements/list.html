@@ -43,6 +43,7 @@ import {
   SchemaActionBuilder,
   extractSchemaActions
 } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { formatStructuredErrorForDisplay } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
 import {
   PanelPaginationBehavior,
   PanelSearchBehavior,
@@ -155,16 +156,12 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
       await grid.refresh();
     },
+    reconcileOnDomainFailure: async () => {
+      await grid.refresh();
+    },
     onActionError: (actionName, error) => {
       if (window.toastManager) {
-        const fieldDetails = error?.fields
-          ? Object.entries(error.fields)
-            .map(([field, detail]) => `${field}: ${detail}`)
-            .join('; ')
-          : '';
-        const prefix = error?.textCode ? `${error.textCode}: ` : '';
-        const message = error?.message || `${actionName} failed`;
-        window.toastManager.error(fieldDetails ? `${prefix}${message}: ${fieldDetails}` : `${prefix}${message}`);
+        window.toastManager.error(formatStructuredErrorForDisplay(error, `${actionName} failed`));
       }
     }
   });

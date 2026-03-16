@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
 // Import the schema actions from dist output (bundled into datatable/index.js)
 const {
@@ -8,7 +9,7 @@ const {
   buildSchemaRowActions,
   extractSchemaActions,
   PayloadInputModal,
-} = await import('../dist/datatable/index.js');
+} = await importDatatableModule();
 
 // =============================================================================
 // Test Helpers
@@ -1023,6 +1024,55 @@ test('schema-backed delete uses structured errors and success callbacks', async 
     assert.equal(requestedURL, '/admin/api/panels/pages/deletable_record_456');
     assert.equal(actionSuccess, 0);
     assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
+    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Document cannot be deleted while attached to agreements');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
+  }
+});
+
+test('fallback delete uses the shared structured delete executor', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  let actionError = null;
+  let reconcileCalls = 0;
+  let requestedURL = '';
+
+  globalThis.window = {
+    confirm: () => true,
+    location: { href: '' },
+  };
+
+  try {
+    globalThis.fetch = async (url) => {
+      requestedURL = String(url);
+      return new Response(JSON.stringify({
+        error: {
+          text_code: 'RESOURCE_IN_USE',
+          message: 'Document cannot be deleted while attached to agreements',
+          metadata: { id: 'fallback_delete_123' },
+        },
+      }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+    };
+
+    const builder = createBuilder({
+      onActionError: (_name, error) => {
+        actionError = error;
+      },
+      reconcileOnDomainFailure: async (actionName, error) => {
+        if (actionName === 'delete' && error?.textCode === 'RESOURCE_IN_USE') {
+          reconcileCalls += 1;
+        }
+      },
+    });
+    const record = createMockRecord({ id: 'fallback_delete_123' });
+    const actions = builder.buildRowActions(record, undefined);
+
+    await assert.rejects(() => actions[2].action(record), /RESOURCE_IN_USE: Document cannot be deleted while attached to agreements/);
+    assert.equal(requestedURL, '/admin/api/panels/pages/fallback_delete_123');
+    assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
+    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Document cannot be deleted while attached to agreements');
+    assert.equal(reconcileCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;

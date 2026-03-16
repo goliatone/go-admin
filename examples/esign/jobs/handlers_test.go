@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"slices"
 	"strings"
@@ -695,17 +696,35 @@ func TestHandlersTerminalNotificationFailureAbortsPendingTokenAndMarksEffectResu
 	if err != nil {
 		t.Fatalf("Marshal prepare payload: %v", err)
 	}
+	dispatchPayload, err := json.Marshal(services.EmailSendSigningRequestOutboxPayload{
+		AgreementID:   agreement.ID,
+		RecipientID:   signer.ID,
+		EffectID:      "effect-terminal-failure",
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   issued.Token,
+		CorrelationID: "corr-email-dead-letter",
+		DedupeKey: strings.Join([]string{
+			agreement.ID,
+			signer.ID,
+			string(services.NotificationSigningInvitation),
+			"corr-email-dead-letter",
+		}, "|"),
+	})
+	if err != nil {
+		t.Fatalf("Marshal dispatch payload: %v", err)
+	}
 	effect, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
-		EffectID:           "effect-terminal-failure",
-		Kind:               services.GuardedEffectKindAgreementSendInvitation,
-		GroupType:          services.GuardedEffectGroupTypeAgreement,
-		GroupID:            agreement.ID,
-		SubjectType:        "agreement_recipient_notification",
-		SubjectID:          signer.ID,
-		Status:             guardedeffects.StatusPrepared,
-		PreparePayloadJSON: string(preparePayload),
-		CreatedAt:          time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
-		UpdatedAt:          time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
+		EffectID:            "effect-terminal-failure",
+		Kind:                services.GuardedEffectKindAgreementSendInvitation,
+		GroupType:           services.GuardedEffectGroupTypeAgreement,
+		GroupID:             agreement.ID,
+		SubjectType:         "agreement_recipient_notification",
+		SubjectID:           signer.ID,
+		Status:              guardedeffects.StatusPrepared,
+		PreparePayloadJSON:  string(preparePayload),
+		DispatchPayloadJSON: string(dispatchPayload),
+		CreatedAt:           time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
+		UpdatedAt:           time.Date(2026, 2, 10, 15, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("SaveGuardedEffect: %v", err)
@@ -733,8 +752,15 @@ func TestHandlersTerminalNotificationFailureAbortsPendingTokenAndMarksEffectResu
 		AgreementID:   agreement.ID,
 		RecipientID:   signer.ID,
 		EffectID:      effect.EffectID,
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   issued.Token,
 		CorrelationID: "corr-email-dead-letter",
-		SignURL:       "https://example.test/sign/token-terminal",
+		DedupeKey: strings.Join([]string{
+			agreement.ID,
+			signer.ID,
+			string(services.NotificationSigningInvitation),
+			"corr-email-dead-letter",
+		}, "|"),
 	})
 	if err == nil {
 		t.Fatal("expected permanent notification failure")
@@ -766,6 +792,144 @@ func TestHandlersTerminalNotificationFailureAbortsPendingTokenAndMarksEffectResu
 	}
 	if !detail.NotificationRecoverable {
 		t.Fatalf("expected recoverable notification detail, got %+v", detail)
+	}
+	detailJSON, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatalf("Marshal AgreementDeliveryDetail: %v", err)
+	}
+	if strings.Contains(string(detailJSON), "pending_token_id") {
+		t.Fatalf("expected pending token ids omitted from public delivery detail, got %s", string(detailJSON))
+	}
+}
+
+func TestHandlersSkipStaleNotificationEffectDispatchPayload(t *testing.T) {
+	ctx, scope, store, agreement, signer, _ := setupCompletedAgreement(t)
+	provider := &captureTemplateProvider{}
+	tokenService := stores.NewTokenService(store)
+	current, err := tokenService.IssuePending(ctx, scope, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("IssuePending current: %v", err)
+	}
+	preparePayload, err := json.Marshal(map[string]any{
+		"agreement_id":        agreement.ID,
+		"recipient_id":        signer.ID,
+		"pending_token_id":    current.Record.ID,
+		"notification":        string(services.NotificationSigningInvitation),
+		"failure_audit_event": services.AgreementSendNotificationFailedAuditEvent,
+	})
+	if err != nil {
+		t.Fatalf("Marshal prepare payload: %v", err)
+	}
+	dispatchPayload, err := json.Marshal(services.EmailSendSigningRequestOutboxPayload{
+		AgreementID:   agreement.ID,
+		RecipientID:   signer.ID,
+		EffectID:      "effect-stale-dispatch",
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   current.Token,
+		CorrelationID: "corr-current",
+		DedupeKey: strings.Join([]string{
+			agreement.ID,
+			signer.ID,
+			string(services.NotificationSigningInvitation),
+			"corr-current",
+		}, "|"),
+	})
+	if err != nil {
+		t.Fatalf("Marshal dispatch payload: %v", err)
+	}
+	if _, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+		EffectID:            "effect-stale-dispatch",
+		Kind:                services.GuardedEffectKindAgreementSendInvitation,
+		GroupType:           services.GuardedEffectGroupTypeAgreement,
+		GroupID:             agreement.ID,
+		SubjectType:         "agreement_recipient_notification",
+		SubjectID:           signer.ID,
+		Status:              guardedeffects.StatusPrepared,
+		PreparePayloadJSON:  string(preparePayload),
+		DispatchPayloadJSON: string(dispatchPayload),
+		CreatedAt:           time.Date(2026, 2, 10, 16, 0, 0, 0, time.UTC),
+		UpdatedAt:           time.Date(2026, 2, 10, 16, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("SaveGuardedEffect: %v", err)
+	}
+
+	handlers := NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		Effects:       store,
+		Artifacts:     store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		Audits:        store,
+		Pipeline:      newTestArtifactPipeline(t, store),
+		EmailProvider: provider,
+		Now: func() time.Time {
+			return time.Date(2026, 2, 10, 16, 0, 0, 0, time.UTC)
+		},
+	})
+
+	err = handlers.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
+		Scope:         scope,
+		AgreementID:   agreement.ID,
+		RecipientID:   signer.ID,
+		EffectID:      "effect-stale-dispatch",
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   "stale-signer-token",
+		CorrelationID: "corr-stale",
+		DedupeKey: strings.Join([]string{
+			agreement.ID,
+			signer.ID,
+			string(services.NotificationSigningInvitation),
+			"corr-stale",
+		}, "|"),
+	})
+	if err != nil {
+		t.Fatalf("ExecuteEmailSendSigningRequest stale dispatch: %v", err)
+	}
+	if len(provider.Snapshot()) != 0 {
+		t.Fatalf("expected stale dispatch skipped before provider send, got %+v", provider.Snapshot())
+	}
+	effect, err := store.GetGuardedEffect(ctx, "effect-stale-dispatch")
+	if err != nil {
+		t.Fatalf("GetGuardedEffect: %v", err)
+	}
+	if effect.Status != guardedeffects.StatusPrepared || effect.AttemptCount != 0 {
+		t.Fatalf("expected stale dispatch to leave effect unchanged, got %+v", effect)
+	}
+	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobEmailSendSigningRequest, strings.Join([]string{
+		agreement.ID,
+		signer.ID,
+		string(services.NotificationSigningInvitation),
+		"corr-stale",
+	}, "|"))
+	if err != nil {
+		t.Fatalf("GetJobRunByDedupe stale dispatch: %v", err)
+	}
+	if jobRun.Status != stores.JobRunStatusSucceeded {
+		t.Fatalf("expected stale dispatch job marked succeeded, got %+v", jobRun)
+	}
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	foundSkip := false
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "job.skipped" {
+			continue
+		}
+		var metadata map[string]any
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &metadata); err != nil {
+			t.Fatalf("Unmarshal skip metadata: %v", err)
+		}
+		if strings.TrimSpace(fmt.Sprint(metadata["effect_id"])) != "effect-stale-dispatch" {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(metadata["skip_reason"])) != "stale_effect_dispatch_payload" {
+			t.Fatalf("expected stale skip reason in audit metadata, got %+v", metadata)
+		}
+		foundSkip = true
+	}
+	if !foundSkip {
+		t.Fatalf("expected durable job.skipped audit for stale dispatch, got %+v", events)
 	}
 }
 

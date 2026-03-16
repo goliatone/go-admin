@@ -1,4 +1,5 @@
 import { parseImportResult as d, groupRowResultsByStatus as u, generateExchangeReport as m } from "../toast/error-helpers.js";
+import { n as b, a as v, b as w } from "../chunks/index-BWO_nnyN.js";
 const y = {
   // Tabs
   tabExport: "#tab-export",
@@ -277,6 +278,9 @@ class g {
   }
 }
 export {
-  g as TranslationExchangeManager
+  g as TranslationExchangeManager,
+  b as normalizeTranslationExchangeJob,
+  v as normalizeTranslationExchangeUploadDescriptor,
+  w as normalizeTranslationExchangeValidationResult
 };
 //# sourceMappingURL=index.js.map

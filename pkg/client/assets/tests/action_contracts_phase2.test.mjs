@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
 const {
   normalizeActionStateRecord,
   normalizeListActionStatePayload,
   normalizeDetailActionStatePayload,
-} = await import('../dist/datatable/index.js');
+} = await importDatatableModule();
 
 async function loadFixture() {
   const fixtureURL = new URL('./fixtures/action_contracts_phase1/canonical_contracts.json', import.meta.url);

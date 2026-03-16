@@ -1440,7 +1440,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			Type:          NotificationSigningReminder,
 			Token:         issued,
 		}
-		_, _, err = txSvc.prepareAgreementNotificationEffect(
+		effect, _, err := txSvc.prepareAgreementNotificationEffect(
 			ctx,
 			scope,
 			GuardedEffectKindAgreementResendReminder,
@@ -1451,7 +1451,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err != nil {
 			return err
 		}
-		agreement, summary, err := ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, agreement.ID)
+		agreement, _, err = ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, agreement.ID)
 		if err != nil {
 			return err
 		}
@@ -1466,7 +1466,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			Recipient:       target,
 			ActiveRecipient: activeSigners[0],
 			Token:           issued,
-			Effects:         append([]AgreementNotificationEffectDetail{}, summary.Effects...),
+			Effects:         []AgreementNotificationEffectDetail{AgreementNotificationEffectDetailFromRecord(effect)},
 		}
 		return nil
 	}); err != nil {

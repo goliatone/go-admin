@@ -30,6 +30,23 @@ func invalidRecordError(entity, field, reason string) error {
 		WithMetadata(meta)
 }
 
+func documentInUseByAgreementsError(documentID string, agreementCount int) error {
+	meta := map[string]any{
+		"entity":         "documents",
+		"field":          "id",
+		"id":             documentID,
+		"document_id":    documentID,
+		"resource_state": "in_use_by_agreements",
+	}
+	if agreementCount > 0 {
+		meta["agreement_count"] = agreementCount
+	}
+	return goerrors.New("document is in use by agreements", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("RESOURCE_IN_USE").
+		WithMetadata(meta)
+}
+
 func notFoundError(entity, id string) error {
 	return goerrors.New(fmt.Sprintf("%s not found", entity), goerrors.CategoryNotFound).
 		WithCode(http.StatusNotFound).

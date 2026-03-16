@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
-const { ActionRenderer, handleDelete } = await import('../dist/datatable/index.js');
+const { ActionRenderer, handleDelete } = await importDatatableModule();
 
 test('legacy handleDelete refreshes and renders structured backend errors', async () => {
   const originalFetch = globalThis.fetch;

@@ -68,7 +68,7 @@ func TestDocumentPanelRepositoryCreateLoadsPDFBytesFromSourceObjectKey(t *testin
 
 	store := stores.NewInMemoryStore()
 	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(assetsDir)))
-	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), manager, defaultModuleScope, RuntimeSettings{})
+	repo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), manager, defaultModuleScope, RuntimeSettings{})
 
 	created, err := repo.Create(context.Background(), map[string]any{
 		"title":                "Master Service Agreement",
@@ -123,7 +123,7 @@ func TestDocumentPanelRepositoryListAppliesSearchCreatedByAndScopeFilters(t *tes
 		}
 	}
 
-	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, primaryScope, RuntimeSettings{})
+	repo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), nil, primaryScope, RuntimeSettings{})
 	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{
 		Search: "alpha",
 		Filters: map[string]any{
@@ -183,7 +183,7 @@ func TestDocumentPanelRepositoryListSupportsLegacySearchFilters(t *testing.T) {
 		}
 	}
 
-	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	repo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
 	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{
 		Filters: map[string]any{
 			"_search": "nda",
@@ -206,7 +206,7 @@ func TestDocumentPanelRepositoryDeleteRemovesUnreferencedDocument(t *testing.T) 
 	documentID := "doc-delete-1"
 	seedESignDocument(t, store, scope, documentID)
 
-	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	repo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
 	if err := repo.Delete(context.Background(), documentID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestDocumentPanelRepositoryDeleteRejectsReferencedDocument(t *testing.T) {
 		t.Fatalf("seed agreement: %v", err)
 	}
 
-	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	repo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
 	err := repo.Delete(context.Background(), documentID)
 	if err == nil {
 		t.Fatalf("expected delete to fail when document is in use")
@@ -244,11 +244,60 @@ func TestDocumentPanelRepositoryDeleteRejectsReferencedDocument(t *testing.T) {
 	if got := strings.TrimSpace(typedErr.TextCode); got != coreadmin.TextCodeResourceInUse {
 		t.Fatalf("expected text_code %q, got %q (%v)", coreadmin.TextCodeResourceInUse, got, err)
 	}
-	if got := strings.TrimSpace(typedErr.Message); got != "document cannot be deleted while attached to agreements" {
+	if got := strings.TrimSpace(typedErr.Message); got != "This document cannot be deleted because it is attached to 1 agreement." {
 		t.Fatalf("expected canonical message, got %q (%v)", got, err)
 	}
-	if got := strings.TrimSpace(toString(typedErr.Metadata["reason"])); got != "in use by agreements" {
-		t.Fatalf("expected in-use metadata reason, got %q (%v)", got, err)
+	if got := toInt64(typedErr.Metadata["agreement_count"]); got != 1 {
+		t.Fatalf("expected agreement_count=1, got %v (%v)", typedErr.Metadata["agreement_count"], err)
+	}
+}
+
+func TestDocumentPanelRepositoryDeleteMapsTypedResourceInUseWithoutReasonStringMatching(t *testing.T) {
+	scope := defaultModuleScope
+	documentID := "doc-delete-typed"
+	agreements := stores.NewInMemoryStore()
+	now := time.Now().UTC()
+	if _, err := agreements.CreateDraft(context.Background(), scope, stores.AgreementRecord{
+		ID:         "agreement-delete-typed-1",
+		DocumentID: documentID,
+		Title:      "Agreement referencing typed document",
+		Status:     stores.AgreementStatusDraft,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}); err != nil {
+		t.Fatalf("seed agreement: %v", err)
+	}
+	store := typedDeleteConflictDocumentStore{
+		deleteErr: goerrors.New("document linked elsewhere", goerrors.CategoryConflict).
+			WithCode(http.StatusConflict).
+			WithTextCode(coreadmin.TextCodeResourceInUse).
+			WithMetadata(map[string]any{
+				"entity":          "documents",
+				"field":           "id",
+				"id":              documentID,
+				"document_id":     documentID,
+				"resource_state":  "linked_to_agreements",
+				"agreement_count": 1,
+			}),
+	}
+
+	repo := newDocumentPanelRepository(store, agreements, services.NewDocumentService(agreements), nil, scope, RuntimeSettings{})
+	err := repo.Delete(context.Background(), documentID)
+	if err == nil {
+		t.Fatal("expected delete to fail when typed resource-in-use error is returned")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) || typedErr == nil {
+		t.Fatalf("expected typed validation error, got %T", err)
+	}
+	if got := strings.TrimSpace(typedErr.TextCode); got != coreadmin.TextCodeResourceInUse {
+		t.Fatalf("expected text_code %q, got %q (%v)", coreadmin.TextCodeResourceInUse, got, err)
+	}
+	if got := strings.TrimSpace(typedErr.Message); got != "This document cannot be deleted because it is attached to 1 agreement." {
+		t.Fatalf("expected canonical message, got %q (%v)", got, err)
+	}
+	if got := toInt64(typedErr.Metadata["agreement_count"]); got != 1 {
+		t.Fatalf("expected agreement_count=1, got %v (%v)", typedErr.Metadata["agreement_count"], err)
 	}
 }
 
@@ -1923,6 +1972,30 @@ func TestExpandAgreementFieldRulesClampsNegativePagesToLowerBound(t *testing.T) 
 	if len(signaturePages) != 1 || signaturePages[0] != 1 {
 		t.Fatalf("expected signature page clamped to 1, got %v", signaturePages)
 	}
+}
+
+type typedDeleteConflictDocumentStore struct {
+	deleteErr error
+}
+
+func (s typedDeleteConflictDocumentStore) Create(context.Context, stores.Scope, stores.DocumentRecord) (stores.DocumentRecord, error) {
+	return stores.DocumentRecord{}, nil
+}
+
+func (s typedDeleteConflictDocumentStore) Get(context.Context, stores.Scope, string) (stores.DocumentRecord, error) {
+	return stores.DocumentRecord{}, nil
+}
+
+func (s typedDeleteConflictDocumentStore) List(context.Context, stores.Scope, stores.DocumentQuery) ([]stores.DocumentRecord, error) {
+	return nil, nil
+}
+
+func (s typedDeleteConflictDocumentStore) SaveMetadata(context.Context, stores.Scope, string, stores.DocumentMetadataPatch) (stores.DocumentRecord, error) {
+	return stores.DocumentRecord{}, nil
+}
+
+func (s typedDeleteConflictDocumentStore) Delete(context.Context, stores.Scope, string) error {
+	return s.deleteErr
 }
 
 func seedESignDocument(t *testing.T, store *stores.InMemoryStore, scope stores.Scope, id string) {

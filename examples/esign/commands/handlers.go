@@ -411,7 +411,6 @@ func storeAgreementQueuedResponse(
 		"accepted":       true,
 		"mode":           "queued",
 		"agreement_id":   strings.TrimSpace(agreement.ID),
-		"effect_id":      strings.TrimSpace(agreement.DeliveryEffectID),
 		"status":         strings.TrimSpace(agreement.DeliveryStatus),
 		"correlation_id": strings.TrimSpace(correlationID),
 	}
@@ -429,8 +428,15 @@ func storeAgreementQueuedResponse(
 		data["effect_ids"] = effectIDs
 		data["status_urls"] = statusURLs
 	}
-	if effectID := strings.TrimSpace(agreement.DeliveryEffectID); effectID != "" {
-		data["status_url"] = "/admin/api/v1/esign/effects/" + effectID
+	switch len(effectIDs) {
+	case 1:
+		data["effect_id"] = effectIDs[0]
+		data["status_url"] = statusURLs[0]
+	case 0:
+		if effectID := strings.TrimSpace(agreement.DeliveryEffectID); effectID != "" {
+			data["effect_id"] = effectID
+			data["status_url"] = "/admin/api/v1/esign/effects/" + effectID
+		}
 	}
 	collector.Store(coreadmin.ActionResponse{
 		StatusCode: http.StatusAccepted,

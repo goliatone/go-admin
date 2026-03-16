@@ -97,6 +97,7 @@ import {
   createTranslationQuickFilters,
   createTranslationPanel
 } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { formatStructuredErrorForDisplay } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
@@ -588,6 +589,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
       });
     },
+    reconcileOnDomainFailure: async () => {
+      await grid.refresh();
+    },
     onActionSuccess: async (actionName, result) => {
       console.log('[Content List] Action success:', actionName, result);
       if (window.toastManager) {
@@ -598,7 +602,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     onActionError: (actionName, error) => {
       console.error('[Content List] Action error:', actionName, error);
       if (window.toastManager) {
-        window.toastManager.error(error.message || `${actionName} failed`);
+        window.toastManager.error(formatStructuredErrorForDisplay(error, `${actionName} failed`));
       }
     }
   });

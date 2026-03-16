@@ -1,0 +1,327 @@
+{
+  "pages": {
+    "detail_contract": {
+      "data": {
+        "_action_state": {
+          "delete": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "delete",
+              "business_rule_id": "content.home_page_protection",
+              "page_role": "home",
+              "required_path": "/",
+              "required_status": "published"
+            },
+            "reason": "The home page cannot be deleted because the site root must always resolve to a published page.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          },
+          "unpublish": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "unpublish",
+              "business_rule_id": "content.home_page_protection",
+              "page_role": "home",
+              "required_path": "/",
+              "required_status": "published"
+            },
+            "reason": "The home page must remain published so the site root always has an active landing page.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          }
+        },
+        "id": "slug:home",
+        "path": "/",
+        "published_at": "2025-09-13T10:00:00Z",
+        "slug": "home",
+        "status": "published",
+        "title": "Home"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Edit",
+            "name": "edit",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          },
+          {
+            "command_name": "pages.publish",
+            "label": "Publish",
+            "name": "publish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "pages.bulk_unpublish",
+            "label": "Unpublish",
+            "name": "unpublish",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    },
+    "execution_failures": {
+      "delete": {
+        "error": {
+          "category": "conflict",
+          "code": 409,
+          "message": "The home page cannot be deleted because the site root must always resolve to a published page.",
+          "metadata": {
+            "blocked_action": "delete",
+            "business_rule_id": "content.home_page_protection",
+            "error_code": "PRECONDITION_FAILED",
+            "page_role": "home",
+            "required_path": "/",
+            "required_status": "published"
+          },
+          "text_code": "PRECONDITION_FAILED"
+        },
+        "status": 409
+      },
+      "unpublish": {
+        "error": {
+          "category": "conflict",
+          "code": 409,
+          "message": "The home page must remain published so the site root always has an active landing page.",
+          "metadata": {
+            "blocked_action": "unpublish",
+            "business_rule_id": "content.home_page_protection",
+            "error_code": "PRECONDITION_FAILED",
+            "page_role": "home",
+            "required_path": "/",
+            "required_status": "published"
+          },
+          "text_code": "PRECONDITION_FAILED"
+        },
+        "status": 409
+      }
+    },
+    "list_contract": {
+      "record": {
+        "_action_state": {
+          "delete": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "delete",
+              "business_rule_id": "content.home_page_protection",
+              "page_role": "home",
+              "required_path": "/",
+              "required_status": "published"
+            },
+            "reason": "The home page cannot be deleted because the site root must always resolve to a published page.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          },
+          "unpublish": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "unpublish",
+              "business_rule_id": "content.home_page_protection",
+              "page_role": "home",
+              "required_path": "/",
+              "required_status": "published"
+            },
+            "reason": "The home page must remain published so the site root always has an active landing page.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          }
+        },
+        "id": "slug:home",
+        "path": "/",
+        "published_at": "2025-09-13T10:00:00Z",
+        "slug": "home",
+        "status": "published",
+        "title": "Home"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Edit",
+            "name": "edit",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          },
+          {
+            "command_name": "pages.publish",
+            "label": "Publish",
+            "name": "publish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "pages.bulk_unpublish",
+            "label": "Unpublish",
+            "name": "unpublish",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    }
+  },
+  "posts": {
+    "detail_contract": {
+      "data": {
+        "_action_state": {
+          "schedule": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "current_status": "published",
+              "published_at": "2025-11-27T10:00:00Z",
+              "required_status": "draft"
+            },
+            "reason": "Unpublish this post before scheduling a new publication window.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          }
+        },
+        "id": "slug:getting-started-go",
+        "path": "/posts/getting-started-go",
+        "published_at": "2025-11-27T10:00:00Z",
+        "slug": "getting-started-go",
+        "status": "published",
+        "title": "Getting Started with Go"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Edit",
+            "name": "edit",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          },
+          {
+            "command_name": "posts.bulk_publish",
+            "label": "Publish",
+            "name": "publish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "posts.bulk_unpublish",
+            "label": "Unpublish",
+            "name": "unpublish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "posts.bulk_schedule",
+            "label": "Schedule",
+            "name": "schedule",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    },
+    "execution_failures": {
+      "schedule": {
+        "error": {
+          "category": "conflict",
+          "code": 409,
+          "message": "Unpublish this post before scheduling a new publication window.",
+          "metadata": {
+            "current_status": "published",
+            "error_code": "PRECONDITION_FAILED",
+            "required_status": "draft"
+          },
+          "text_code": "PRECONDITION_FAILED"
+        },
+        "status": 409
+      }
+    },
+    "list_contract": {
+      "record": {
+        "_action_state": {
+          "schedule": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "current_status": "published",
+              "required_status": "draft"
+            },
+            "reason": "Unpublish this post before scheduling a new publication window.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          }
+        },
+        "id": "slug:getting-started-go",
+        "path": "/posts/getting-started-go",
+        "slug": "getting-started-go",
+        "status": "published",
+        "title": "getting-started-go"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Edit",
+            "name": "edit",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          },
+          {
+            "command_name": "posts.bulk_publish",
+            "label": "Publish",
+            "name": "publish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "posts.bulk_unpublish",
+            "label": "Unpublish",
+            "name": "unpublish",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "posts.bulk_schedule",
+            "label": "Schedule",
+            "name": "schedule",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    }
+  },
+  "schema_version": 1
+}

@@ -25,8 +25,6 @@ import {
   MODAL_CONTENT,
   trapFocus,
   setupFieldTabOrder,
-  renderBreadcrumb,
-  buildEditorBreadcrumb,
 } from '../translation-shared/index.js';
 
 export type TranslationEditorComparisonMode = 'snapshot' | 'hash_only';
@@ -1144,12 +1142,8 @@ function renderHeader(
   const submitTitle = detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
-  const assignmentId = assignment.id || detail.assignment_id || '';
   return `
     <section class="${CARD} p-6 shadow-sm">
-      <div class="mb-4">
-        ${renderBreadcrumb(buildEditorBreadcrumb(assignmentId, basePath || '/admin'))}
-      </div>
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
           <p class="${HEADER_PRETITLE}">Assignment editor</p>

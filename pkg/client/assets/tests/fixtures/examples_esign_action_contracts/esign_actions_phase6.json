@@ -1,0 +1,304 @@
+{
+  "agreements": {
+    "detail_contract": {
+      "data": {
+        "_action_state": {
+          "delete": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "delete",
+              "business_rule_id": "esign.agreements.delete_disabled",
+              "recommended_action": "void"
+            },
+            "reason": "Agreements cannot be deleted. Use Void to cancel an active agreement.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          },
+          "edit": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "allowed_statuses": [
+                "draft"
+              ],
+              "blocked_action": "edit",
+              "business_rule_id": "esign.agreements.edit_requires_draft",
+              "current_status": "sent"
+            },
+            "reason": "Draft agreements can be edited before they are sent.",
+            "reason_code": "INVALID_STATUS",
+            "severity": "warning"
+          },
+          "resend": {
+            "enabled": true
+          },
+          "resume_delivery": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "blocked_action": "resume_delivery",
+              "business_rule_id": "esign.agreements.resume_delivery_requires_recoverable_notification",
+              "recoverable": false
+            },
+            "reason": "Delivery retry is only available when notification recovery is possible.",
+            "reason_code": "PRECONDITION_FAILED",
+            "severity": "warning"
+          },
+          "send": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "allowed_statuses": [
+                "draft"
+              ],
+              "blocked_action": "send",
+              "business_rule_id": "esign.agreements.send_requires_draft",
+              "current_status": "sent"
+            },
+            "reason": "Only draft agreements can be sent for signature.",
+            "reason_code": "INVALID_STATUS",
+            "severity": "warning"
+          },
+          "void": {
+            "enabled": true
+          }
+        },
+        "document_id": "doc-phase6-001",
+        "id": "agreement-phase6-sent",
+        "status": "sent",
+        "title": "Phase 6 Sent Agreement"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Edit",
+            "name": "edit",
+            "scope": "detail",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "detail",
+            "variant": "danger"
+          },
+          {
+            "command_name": "esign.agreements.send",
+            "label": "Send",
+            "name": "send",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.resend",
+            "label": "Resend",
+            "name": "resend",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.delivery.resume",
+            "label": "Resume Delivery",
+            "name": "resume_delivery",
+            "scope": "detail",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.void",
+            "label": "Void",
+            "name": "void",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    },
+    "filtered_by_document_id": {
+      "count": 2,
+      "document_id": "doc-phase6-001",
+      "ids": [
+        "agreement-phase6-draft",
+        "agreement-phase6-sent"
+      ]
+    },
+    "list_contract": {
+      "record": {
+        "_action_state": {
+          "resend": {
+            "enabled": true
+          },
+          "send": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "allowed_statuses": [
+                "draft"
+              ],
+              "blocked_action": "send",
+              "business_rule_id": "esign.agreements.send_requires_draft",
+              "current_status": "sent"
+            },
+            "reason": "Only draft agreements can be sent for signature.",
+            "reason_code": "INVALID_STATUS",
+            "severity": "warning"
+          },
+          "void": {
+            "enabled": true
+          }
+        },
+        "document_id": "doc-phase6-001",
+        "id": "agreement-phase6-sent",
+        "status": "sent",
+        "title": "Phase 6 Sent Agreement"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "esign.agreements.send",
+            "label": "Send",
+            "name": "send",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.resend",
+            "label": "Resend",
+            "name": "resend",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.void",
+            "label": "Void",
+            "name": "void",
+            "scope": "all",
+            "variant": ""
+          }
+        ]
+      }
+    }
+  },
+  "documents": {
+    "detail_contract": {
+      "data": {
+        "_action_state": {
+          "delete": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "agreement_count": 2,
+              "agreement_statuses": [
+                "draft",
+                "sent"
+              ],
+              "blocked_action": "delete",
+              "business_rule_id": "esign.documents.delete_requires_no_agreements",
+              "document_id": "doc-phase6-001",
+              "entity": "documents",
+              "field": "id",
+              "id": "doc-phase6-001"
+            },
+            "reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "reason_code": "RESOURCE_IN_USE",
+            "remediation": {
+              "href": "/admin/content/esign_agreements?document_id=doc-phase6-001",
+              "kind": "link",
+              "label": "View agreements"
+            },
+            "severity": "warning"
+          }
+        },
+        "id": "doc-phase6-001",
+        "status": "",
+        "title": "Phase 6 Protected Document"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          }
+        ]
+      }
+    },
+    "execution_failures": {
+      "delete": {
+        "error": {
+          "message": "This document cannot be deleted because it is attached to 2 agreements.",
+          "metadata": {
+            "agreement_count": 2,
+            "agreement_statuses": [
+              "draft",
+              "sent"
+            ],
+            "business_rule_id": "esign.documents.delete_requires_no_agreements",
+            "document_id": "doc-phase6-001",
+            "remediation_href": "/admin/content/esign_agreements?document_id=doc-phase6-001",
+            "remediation_label": "View agreements"
+          },
+          "text_code": "RESOURCE_IN_USE"
+        },
+        "status": 409
+      }
+    },
+    "list_contract": {
+      "record": {
+        "_action_state": {
+          "delete": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "agreement_count": 2,
+              "agreement_statuses": [
+                "draft",
+                "sent"
+              ],
+              "blocked_action": "delete",
+              "business_rule_id": "esign.documents.delete_requires_no_agreements",
+              "document_id": "doc-phase6-001",
+              "entity": "documents",
+              "field": "id",
+              "id": "doc-phase6-001"
+            },
+            "reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "reason_code": "RESOURCE_IN_USE",
+            "remediation": {
+              "href": "/admin/content/esign_agreements?document_id=doc-phase6-001",
+              "kind": "link",
+              "label": "View agreements"
+            },
+            "severity": "warning"
+          }
+        },
+        "id": "doc-phase6-001",
+        "status": "",
+        "title": "Phase 6 Protected Document"
+      },
+      "schema": {
+        "actions": [
+          {
+            "command_name": "",
+            "label": "View",
+            "name": "view",
+            "scope": "row",
+            "variant": ""
+          },
+          {
+            "command_name": "",
+            "label": "Delete",
+            "name": "delete",
+            "scope": "all",
+            "variant": "danger"
+          }
+        ]
+      }
+    }
+  },
+  "schema_version": 1
+}

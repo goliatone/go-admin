@@ -3,7 +3,12 @@
  * UI for managing translation export/import workflows
  */
 
-export { TranslationExchangeManager } from './translation-exchange-manager.js';
+export { TranslationExchangeManager } from "./translation-exchange-manager.js";
+export {
+  normalizeTranslationExchangeJob,
+  normalizeTranslationExchangeUploadDescriptor,
+  normalizeTranslationExchangeValidationResult,
+} from "../translation-contracts/index.js";
 
 export type {
   TranslationExchangeConfig,
@@ -20,4 +25,15 @@ export type {
   RowStatus,
   ResultSummary,
   ToastNotifier,
-} from './types.js';
+} from "./types.js";
+export type {
+  TranslationExchangeConflictRow,
+  TranslationExchangeJob,
+  TranslationExchangeJobKind,
+  TranslationExchangeJobProgress,
+  TranslationExchangeJobStatus,
+  TranslationExchangeUploadDescriptor,
+  TranslationExchangeUploadState,
+  TranslationExchangeValidationResult,
+  TranslationExchangeValidationSummary,
+} from "../translation-contracts/index.js";

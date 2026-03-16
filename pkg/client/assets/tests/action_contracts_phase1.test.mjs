@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
 const {
   SchemaActionBuilder,
   getActionBlockDisplay,
   normalizeActionBlockCode,
-} = await import('../dist/datatable/index.js');
+} = await importDatatableModule();
 const {
   extractStructuredError,
 } = await import('../dist/toast/error-helpers.js');

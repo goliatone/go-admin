@@ -25,8 +25,6 @@ import {
   MATRIX_STICKY_CELL,
   MATRIX_CORNER_CELL,
   MATRIX_CELL,
-  renderBreadcrumb,
-  buildMatrixBreadcrumb,
 } from '../translation-shared/index.js';
 
 export type TranslationMatrixCellState =
@@ -1144,7 +1142,6 @@ function renderMatrixPage(
       : `${renderBulkToolbar(payload, selection, feedback, working)}<div class="grid gap-5">${renderViewportControls(payload)}${renderMatrixGrid(payload, selection)}</div>`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
-      ${renderBreadcrumb(buildMatrixBreadcrumb(basePath))}
       <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>

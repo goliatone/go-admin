@@ -8,69 +8,6 @@
 
 {% block header_title %}{{ resource_item.title|default:"Agreement" }}{% endblock %}
 
-{% block header_actions %}
-  {% block header_actions_prepend %}{% endblock %}
-  {# Status-dependent actions #}
-  {% set status = resource_item.status|lower %}
-  {% set executed_delivery_status = resource_item.delivery.executed_status|lower %}
-  {% set executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or executed_delivery_status == "ready") %}
-  {% if status == "draft" %}
-    <button type="button" class="btn btn-primary" data-action="send" data-agreement-id="{{ resource_item.id }}"
-            aria-label="Send agreement for signature" title="Send this agreement to recipients for signing">
-      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-      </svg>
-      Send for Signature
-    </button>
-    {% if resource_item.actions.edit %}
-      <a href="{{ resource_item.actions.edit }}" class="btn btn-secondary" aria-label="Edit agreement details">
-        <i class="iconoir-edit-pencil" aria-hidden="true"></i>
-        Edit
-      </a>
-    {% endif %}
-  {% elif status == "sent" or status == "in_progress" %}
-    <button type="button" class="btn btn-warning" data-action="resend" data-agreement-id="{{ resource_item.id }}"
-            aria-label="Resend signing invitation" title="Resend signing request to pending recipients">
-      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
-      Resend
-    </button>
-    <button type="button" class="btn btn-danger" data-action="void" data-agreement-id="{{ resource_item.id }}"
-            aria-label="Void this agreement" title="Cancel this agreement and prevent further signing">
-      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-      Void
-    </button>
-  {% elif status == "completed" %}
-    {% if executed_available %}
-    <button type="button" class="btn btn-primary" data-action="download-executed" data-agreement-id="{{ resource_item.id }}"
-            aria-label="Download executed PDF" title="Download signed document with appended audit trail">
-      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-      </svg>
-      Download Completion Package
-    </button>
-    {% else %}
-    <button type="button" class="btn btn-warning" data-action="download-executed" data-agreement-id="{{ resource_item.id }}" data-download-state="unavailable"
-            disabled aria-disabled="true" aria-label="Executed completion package is unavailable" title="Executed completion package is unavailable">
-      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-      </svg>
-      Unable To Download Package
-    </button>
-    {% endif %}
-  {% endif %}
-  {% if routes.index %}
-    <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
-      <i class="iconoir-arrow-left" aria-hidden="true"></i>
-      Back to Agreements
-    </a>
-  {% endif %}
-  {% block header_actions_append %}{% endblock %}
-{% endblock %}
-
 {% block identity_avatar %}
   {% set status = resource_item.status|lower %}
   {% if status == "completed" %}
@@ -1024,7 +961,12 @@
 {% endblock %}
 
 {% block detail_scripts %}
-<script>
+<script type="module">
+import {
+  executeActionRequest,
+  formatStructuredErrorForDisplay
+} from '{{ base_path }}/assets/dist/toast/error-helpers.js';
+
 document.addEventListener('DOMContentLoaded', function() {
   // Format timestamps
   function formatTimestamp(ts) {
@@ -1214,19 +1156,20 @@ document.addEventListener('DOMContentLoaded', function() {
   async function executeAction(action, payload = {}) {
     const endpoint = buildScopedURL(`${apiBase}/panels/${panelName}/actions/${action}`);
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({ id: agreementId, ...payload })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || data.message || `Action failed: ${response.status}`);
+      const result = await executeActionRequest(
+        endpoint,
+        { id: agreementId, ...payload },
+        { credentials: 'same-origin' }
+      );
+      if (!result.success || result.error) {
+        const message = formatStructuredErrorForDisplay(result.error || {
+          textCode: null,
+          message: `${action} failed`,
+          metadata: null,
+          fields: null,
+          validationErrors: null
+        }, `${action} failed`);
+        throw new Error(message);
       }
 
       if (window.toastManager) {
@@ -1241,47 +1184,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   }
-
-  // Send action
-  document.querySelectorAll('[data-action="send"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idempotencyKey = `send-${agreementId}-${Date.now()}`;
-      await executeAction('send', { idempotency_key: idempotencyKey });
-    });
-  });
-
-  // Void action
-  document.querySelectorAll('[data-action="void"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const reason = prompt('Enter reason for voiding this agreement:');
-      if (reason === null) return;
-      if (!reason.trim()) {
-        if (window.toastManager) {
-          window.toastManager.error('Void reason is required');
-        } else {
-          alert('Void reason is required');
-        }
-        return;
-      }
-      await executeAction('void', { reason: reason.trim() });
-    });
-  });
-
-  // Resend action
-  document.querySelectorAll('[data-action="resend"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (window.toastManager) {
-        const confirmed = await window.toastManager.confirm(
-          'Resend signing request to all pending recipients?',
-          { title: 'Resend Agreement', confirmText: 'Resend', cancelText: 'Cancel' }
-        );
-        if (!confirmed) return;
-      } else if (!confirm('Resend signing request to all pending recipients?')) {
-        return;
-      }
-      await executeAction('resend', {});
-    });
-  });
 
   // Per-recipient resend
   document.querySelectorAll('[data-action="resend-recipient"], [data-action="resend-participant"]').forEach(btn => {

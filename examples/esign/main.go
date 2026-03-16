@@ -112,6 +112,7 @@ func main() {
 	}
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
+		WithPlacements(quickstart.DefaultPlacements(coreadmin.Config{NavMenuCode: cfg.NavMenuCode})).
 		WithUploadDir(resolveESignDiskAssetsDir()).
 		WithServicesModule(servicesModule).
 		WithStore(store)

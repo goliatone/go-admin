@@ -11,6 +11,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 )
 
 type agreementStatsWidgetPayload struct {
@@ -90,8 +91,9 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	if dash == nil {
 		return
 	}
-	mainArea := quickstart.DefaultDashboardArea(quickstart.DashboardPlacementMain)
-	sidebarArea := quickstart.DefaultDashboardArea(quickstart.DashboardPlacementSidebar)
+	placements := m.dashboardPlacements()
+	mainArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementMain, uiplacement.DashboardAreaCodeMain)
+	sidebarArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementSidebar, uiplacement.DashboardAreaCodeSidebar)
 
 	dash.RegisterProvider(coreadmin.DashboardProviderSpec{
 		Code:        "esign.widget.agreement_stats",

@@ -37,14 +37,15 @@ var (
 
 type documentPanelRepository struct {
 	store        stores.DocumentStore
+	agreements   stores.AgreementStore
 	uploader     services.DocumentService
 	uploads      *uploader.Manager
 	defaultScope stores.Scope
 	settings     RuntimeSettings
 }
 
-func newDocumentPanelRepository(store stores.DocumentStore, uploader services.DocumentService, uploads *uploader.Manager, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
-	return &documentPanelRepository{store: store, uploader: uploader, uploads: uploads, defaultScope: defaultScope, settings: settings}
+func newDocumentPanelRepository(store stores.DocumentStore, agreements stores.AgreementStore, uploader services.DocumentService, uploads *uploader.Manager, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
+	return &documentPanelRepository{store: store, agreements: agreements, uploader: uploader, uploads: uploads, defaultScope: defaultScope, settings: settings}
 }
 
 func (r *documentPanelRepository) List(ctx context.Context, opts coreadmin.ListOptions) ([]map[string]any, int, error) {
@@ -159,25 +160,37 @@ func (r *documentPanelRepository) Delete(ctx context.Context, id string) error {
 	if err := r.store.Delete(ctx, scope, id); err != nil {
 		var typedErr *goerrors.Error
 		if goerrors.As(err, &typedErr) && typedErr != nil {
-			reason := strings.ToLower(strings.TrimSpace(toString(typedErr.Metadata["reason"])))
+			textCode := strings.TrimSpace(typedErr.TextCode)
 			entity := strings.ToLower(strings.TrimSpace(toString(typedErr.Metadata["entity"])))
 			field := strings.TrimSpace(toString(typedErr.Metadata["field"]))
-			if entity == "documents" && field == "id" && strings.Contains(reason, "in use by agreements") {
-				return coreadmin.NewDomainError(
-					coreadmin.TextCodeResourceInUse,
-					"document cannot be deleted while attached to agreements",
-					map[string]any{
-						"entity": "documents",
-						"field":  "id",
-						"id":     id,
-						"reason": strings.TrimSpace(toString(typedErr.Metadata["reason"])),
-					},
-				)
+			if textCode == coreadmin.TextCodeResourceInUse && entity == "documents" && field == "id" {
+				if summary, ok, summaryErr := r.documentAgreementReferenceSummary(ctx, scope, id); summaryErr != nil {
+					return summaryErr
+				} else if ok {
+					return documentDeleteConflictError("", id, summary)
+				}
+				count := int(toInt64(typedErr.Metadata["agreement_count"]))
+				if count <= 0 {
+					count = 1
+				}
+				return documentDeleteConflictError("", id, documentAgreementReferenceSummary{Count: count})
 			}
 		}
 		return err
 	}
 	return nil
+}
+
+func (r *documentPanelRepository) documentAgreementReferenceSummary(ctx context.Context, scope stores.Scope, documentID string) (documentAgreementReferenceSummary, bool, error) {
+	summaries, err := listDocumentAgreementReferenceSummaries(ctx, r.agreements, scope)
+	if err != nil {
+		return documentAgreementReferenceSummary{}, false, err
+	}
+	if len(summaries) == 0 {
+		return documentAgreementReferenceSummary{}, false, nil
+	}
+	summary, ok := summaries[strings.TrimSpace(documentID)]
+	return summary, ok, nil
 }
 
 // ServePanelSubresource serves the source PDF for a document.
@@ -367,10 +380,14 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	if err != nil {
 		return nil, 0, err
 	}
+	documentID := strings.TrimSpace(lookupFilter(opts.Filters, "document_id"))
 	recipientEmail := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email")))
 	titleQuery := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "title", "title_contains")))
 	filtered := make([]stores.AgreementRecord, 0, len(agreements))
 	for _, agreement := range agreements {
+		if documentID != "" && strings.TrimSpace(agreement.DocumentID) != documentID {
+			continue
+		}
 		if titleQuery != "" && !strings.Contains(strings.ToLower(strings.TrimSpace(agreement.Title)), titleQuery) {
 			continue
 		}
@@ -567,10 +584,11 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 func (r *agreementPanelRepository) Delete(context.Context, string) error {
 	return coreadmin.NewDomainError(
 		coreadmin.TextCodePreconditionFailed,
-		"agreements cannot be deleted; use void action",
+		"Agreements cannot be deleted. Use Void to cancel an active agreement.",
 		map[string]any{
-			"entity": "agreements",
-			"action": "delete",
+			"entity":             "agreements",
+			"action":             "delete",
+			"recommended_action": "void",
 		},
 	)
 }

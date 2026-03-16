@@ -294,6 +294,62 @@ func (h agreementNotificationEffectHandler) Fail(ctx context.Context, effect gua
 	return nil
 }
 
+func isNotificationEffectTerminal(status string) bool {
+	switch guardedeffects.NormalizeStatus(status) {
+	case guardedeffects.StatusFinalized, guardedeffects.StatusAborted, guardedeffects.StatusDeadLettered:
+		return true
+	default:
+		return false
+	}
+}
+
+func decodeNotificationDispatchPayload(raw string) (services.EmailSendSigningRequestOutboxPayload, error) {
+	var payload services.EmailSendSigningRequestOutboxPayload
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return payload, fmt.Errorf("missing guarded effect dispatch payload")
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return payload, err
+	}
+	return payload, nil
+}
+
+func notificationDispatchMatchesMessage(msg EmailSendSigningRequestMsg, payload services.EmailSendSigningRequestOutboxPayload) bool {
+	return strings.TrimSpace(payload.AgreementID) == strings.TrimSpace(msg.AgreementID) &&
+		strings.TrimSpace(payload.RecipientID) == strings.TrimSpace(msg.RecipientID) &&
+		strings.TrimSpace(payload.EffectID) == strings.TrimSpace(msg.EffectID) &&
+		strings.TrimSpace(payload.Notification) == strings.TrimSpace(msg.Notification) &&
+		strings.TrimSpace(payload.SignerToken) == strings.TrimSpace(msg.SignerToken) &&
+		strings.TrimSpace(payload.CorrelationID) == strings.TrimSpace(msg.CorrelationID) &&
+		strings.TrimSpace(payload.DedupeKey) == strings.TrimSpace(msg.DedupeKey)
+}
+
+func (h Handlers) shouldExecuteNotificationEffectDispatch(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+) (bool, string, error) {
+	effectID := strings.TrimSpace(msg.EffectID)
+	if effectID == "" || h.effects == nil {
+		return true, "", nil
+	}
+	record, err := h.effects.GetGuardedEffect(ctx, effectID)
+	if err != nil {
+		return false, "", err
+	}
+	if isNotificationEffectTerminal(record.Status) {
+		return false, "effect_terminal_" + guardedeffects.NormalizeStatus(record.Status), nil
+	}
+	payload, err := decodeNotificationDispatchPayload(record.DispatchPayloadJSON)
+	if err != nil {
+		return false, "", err
+	}
+	if !notificationDispatchMatchesMessage(msg, payload) {
+		return false, "stale_effect_dispatch_payload", nil
+	}
+	return true, "", nil
+}
+
 func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
 	startedAt := h.now()
 	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, msg.RecipientID, JobEmailSendSigningRequest)
@@ -329,6 +385,38 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			})
 		}
 		return err
+	}
+	shouldDispatch, skipReason, err := h.shouldExecuteNotificationEffectDispatch(ctx, msg)
+	if err != nil {
+		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{
+			"notification": strings.TrimSpace(msg.Notification),
+		})
+	}
+	if !shouldDispatch {
+		if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now); err != nil {
+			return err
+		}
+		observability.ObserveJobResult(ctx, JobEmailSendSigningRequest, true)
+		observability.LogOperation(ctx, slog.LevelInfo, "job", "email_send_signing_request", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
+			"job_name":      JobEmailSendSigningRequest,
+			"agreement_id":  strings.TrimSpace(msg.AgreementID),
+			"recipient_id":  strings.TrimSpace(msg.RecipientID),
+			"effect_id":     strings.TrimSpace(msg.EffectID),
+			"skip_reason":   strings.TrimSpace(skipReason),
+			"attempt_count": run.AttemptCount,
+		})
+		return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.skipped", map[string]any{
+			"job_name":       JobEmailSendSigningRequest,
+			"agreement_id":   strings.TrimSpace(msg.AgreementID),
+			"recipient_id":   strings.TrimSpace(msg.RecipientID),
+			"effect_id":      strings.TrimSpace(msg.EffectID),
+			"notification":   strings.TrimSpace(notification),
+			"template_code":  strings.TrimSpace(templateCode),
+			"correlation_id": strings.TrimSpace(run.CorrelationID),
+			"dedupe_key":     strings.TrimSpace(dedupeKey),
+			"skip_reason":    strings.TrimSpace(skipReason),
+			"attempt_count":  run.AttemptCount,
+		})
 	}
 	agreement, err := h.agreements.GetAgreement(ctx, msg.Scope, msg.AgreementID)
 	if err != nil {

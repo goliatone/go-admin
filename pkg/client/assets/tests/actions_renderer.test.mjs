@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
 
-const { ActionRenderer } = await import('../dist/datatable/index.js');
+const { ActionRenderer } = await importDatatableModule();
 
 test('ActionRenderer renders unique data-action-key attributes for duplicate labels', () => {
   const renderer = new ActionRenderer({ mode: 'inline' });
