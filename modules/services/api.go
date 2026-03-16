@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"net/http"
 	"reflect"
 	"sort"
@@ -1277,10 +1278,7 @@ func (m *Module) handleListProviderOperationStatus(c router.Context, _ map[strin
 
 		nextRetryAt, _ := status["next_retry_at"].(*time.Time)
 		if nextRetryAt != nil {
-			backoff := int(nextRetryAt.UTC().Sub(now).Seconds())
-			if backoff < 0 {
-				backoff = 0
-			}
+			backoff := max(int(nextRetryAt.UTC().Sub(now).Seconds()), 0)
 			status["retry_backoff_seconds"] = backoff
 		}
 		items = append(items, status)
@@ -1393,9 +1391,7 @@ func extractMetadata(body map[string]any) map[string]any {
 	}
 	metadata := map[string]any{}
 	if rawMeta, ok := body["metadata"].(map[string]any); ok {
-		for key, value := range rawMeta {
-			metadata[key] = value
-		}
+		maps.Copy(metadata, rawMeta)
 	}
 	return metadata
 }
@@ -1420,12 +1416,8 @@ func queryToMetadata(c router.Context) map[string]any {
 
 func mergeMetadata(left map[string]any, right map[string]any) map[string]any {
 	merged := map[string]any{}
-	for key, value := range left {
-		merged[key] = value
-	}
-	for key, value := range right {
-		merged[key] = value
-	}
+	maps.Copy(merged, left)
+	maps.Copy(merged, right)
 	return merged
 }
 
@@ -1514,7 +1506,7 @@ func resolveRateLimitStateStore(factory any) rateLimitStateStore {
 	if !candidate.IsValid() {
 		return nil
 	}
-	if candidate.Kind() == reflect.Ptr && candidate.IsNil() {
+	if candidate.Kind() == reflect.Pointer && candidate.IsNil() {
 		return nil
 	}
 	typed, ok := candidate.Interface().(rateLimitStateStore)
@@ -1546,10 +1538,7 @@ func paginateMaps(items []map[string]any, limit int, offset int) []map[string]an
 	if offset >= len(items) {
 		return []map[string]any{}
 	}
-	end := offset + limit
-	if end > len(items) {
-		end = len(items)
-	}
+	end := min(offset+limit, len(items))
 	out := make([]map[string]any, 0, end-offset)
 	for _, item := range items[offset:end] {
 		out = append(out, copyAnyMap(item))

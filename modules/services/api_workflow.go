@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -724,9 +725,7 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	}
 	limit := toInt(body["limit"], previous.Plan.EstimatedChanges)
 	metadata := copyAnyMap(previous.Plan.Metadata)
-	for key, value := range extractMap(body["metadata"]) {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, extractMap(body["metadata"]))
 	plan, err := runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
 		Binding:          binding,
 		Mode:             mode,

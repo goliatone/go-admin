@@ -346,10 +346,7 @@ func (m *Module) handleServiceStatus(c router.Context, _ map[string]any) (int, a
 	}
 	pendingLagSeconds := 0
 	if oldest, err := selectOldestPendingOutbox(c.Context(), db); err == nil && oldest != nil {
-		pendingLagSeconds = int(time.Since(oldest.UTC()).Seconds())
-		if pendingLagSeconds < 0 {
-			pendingLagSeconds = 0
-		}
+		pendingLagSeconds = max(int(time.Since(oldest.UTC()).Seconds()), 0)
 	}
 
 	activityStatus := activityRuntimeStatus{}
