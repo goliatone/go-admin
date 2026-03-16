@@ -8,17 +8,11 @@ import (
 
 const (
 	// SidebarPlacementPrimary is the placement key used for the main sidebar tree.
-	SidebarPlacementPrimary PlacementKey = "sidebar"
+	SidebarPlacementPrimary MenuPlacementKey = "sidebar"
 	// SidebarPlacementUtility is the placement key used for fixed utility links above the user pod.
-	SidebarPlacementUtility PlacementKey = "sidebar_utility"
+	SidebarPlacementUtility MenuPlacementKey = "sidebar_utility"
 	// FooterPlacement is the placement key used for footer navigation.
-	FooterPlacement PlacementKey = "footer"
-	// DashboardPlacementMain is the placement key used for the main dashboard area.
-	DashboardPlacementMain PlacementKey = "dashboard_main"
-	// DashboardPlacementSidebar is the placement key used for the dashboard sidebar area.
-	DashboardPlacementSidebar PlacementKey = "dashboard_sidebar"
-	// DashboardPlacementFooter is the placement key used for the dashboard footer area.
-	DashboardPlacementFooter PlacementKey = "dashboard_footer"
+	FooterPlacement MenuPlacementKey = "footer"
 
 	// NavigationGroupMainID is the canonical main navigation group parent ID.
 	NavigationGroupMainID = "nav-group-main"
