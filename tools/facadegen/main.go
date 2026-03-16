@@ -360,8 +360,8 @@ func renderResultDecl(sig *types.Signature, renderType func(types.Type) string) 
 		return ""
 	}
 	parts := make([]string, 0, results.Len())
-	for i := range results.Len() {
-		parts = append(parts, renderType(results.At(i).Type()))
+	for v := range results.Variables() {
+		parts = append(parts, renderType(v.Type()))
 	}
 	if len(parts) == 1 {
 		return " " + parts[0]
