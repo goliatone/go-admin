@@ -133,13 +133,14 @@ func (m AgreementRequestAmendmentInput) Validate() error {
 }
 
 type AgreementReviewInput struct {
-	Scope           stores.Scope
-	AgreementID     string
-	ReviewerIDs     []string
-	Gate            string
-	CommentsEnabled bool
-	ActorID         string
-	CorrelationID   string
+	Scope              stores.Scope
+	AgreementID        string
+	ReviewParticipants []services.ReviewParticipantInput
+	ReviewerIDs        []string
+	Gate               string
+	CommentsEnabled    bool
+	ActorID            string
+	CorrelationID      string
 }
 
 func (m AgreementReviewInput) validateRequired() error {
@@ -194,7 +195,9 @@ func (m AgreementCloseReviewInput) Validate() error {
 type AgreementReviewDecisionCommandInput struct {
 	Scope         stores.Scope
 	AgreementID   string
+	ParticipantID string
 	RecipientID   string
+	Comment       string
 	ActorID       string
 	CorrelationID string
 }
@@ -203,8 +206,8 @@ func (m AgreementReviewDecisionCommandInput) validateRequired() error {
 	if strings.TrimSpace(m.AgreementID) == "" {
 		return fmt.Errorf("agreement_id required")
 	}
-	if strings.TrimSpace(m.RecipientID) == "" {
-		return fmt.Errorf("recipient_id required")
+	if strings.TrimSpace(m.ParticipantID) == "" && strings.TrimSpace(m.RecipientID) == "" {
+		return fmt.Errorf("participant_id or recipient_id required")
 	}
 	return nil
 }
@@ -230,7 +233,13 @@ func (AgreementRequestReviewChangesInput) Type() string {
 }
 
 func (m AgreementRequestReviewChangesInput) Validate() error {
-	return m.validateRequired()
+	if err := m.validateRequired(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(m.Comment) == "" {
+		return fmt.Errorf("comment required")
+	}
+	return nil
 }
 
 type AgreementCommentThreadInput struct {

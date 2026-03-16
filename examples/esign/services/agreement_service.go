@@ -23,6 +23,7 @@ type AgreementService struct {
 	placementRuns         stores.PlacementRunStore
 	reminders             stores.AgreementReminderStore
 	tokens                AgreementTokenService
+	reviewTokens          AgreementReviewTokenService
 	audits                stores.AuditEventStore
 	emails                AgreementEmailWorkflow
 	outbox                stores.OutboxStore
@@ -33,6 +34,7 @@ type AgreementService struct {
 	notificationDispatch  AgreementNotificationDispatchTrigger
 	tx                    stores.TransactionManager
 	customTokens          bool
+	customReviewTokens    bool
 	customAudits          bool
 	customOutbox          bool
 	customPlacementRuns   bool
@@ -52,6 +54,12 @@ type AgreementTokenService interface {
 	Revoke(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error
 	PromotePending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error)
 	AbortPending(ctx context.Context, scope stores.Scope, tokenID string) (stores.SigningTokenRecord, error)
+}
+
+type AgreementReviewTokenService interface {
+	Issue(ctx context.Context, scope stores.Scope, agreementID, reviewID, participantID string) (stores.IssuedReviewSessionToken, error)
+	Rotate(ctx context.Context, scope stores.Scope, agreementID, reviewID, participantID string) (stores.IssuedReviewSessionToken, error)
+	Revoke(ctx context.Context, scope stores.Scope, agreementID, participantID string) error
 }
 
 // AgreementNotificationType defines notification policy kinds emitted by agreement lifecycle transitions.
@@ -114,6 +122,16 @@ func WithAgreementTokenService(tokens AgreementTokenService) AgreementServiceOpt
 		}
 		s.tokens = tokens
 		s.customTokens = true
+	}
+}
+
+func WithAgreementReviewTokenService(tokens AgreementReviewTokenService) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil || tokens == nil {
+			return
+		}
+		s.reviewTokens = tokens
+		s.customReviewTokens = true
 	}
 }
 
@@ -244,6 +262,7 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 		outbox:           store,
 		effects:          store,
 		tokens:           stores.NewTokenService(store),
+		reviewTokens:     stores.NewReviewSessionTokenService(store),
 		tx:               store,
 		pdfs:             NewPDFService(),
 		now:              func() time.Time { return time.Now().UTC() },
@@ -290,6 +309,20 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 			ForTx(tx stores.TxStore) AgreementTokenService
 		}:
 			txSvc.tokens = typed.ForTx(tx)
+		}
+	}
+	if !txSvc.customReviewTokens {
+		txSvc.reviewTokens = stores.NewReviewSessionTokenService(tx)
+	} else {
+		switch typed := txSvc.reviewTokens.(type) {
+		case stores.ReviewSessionTokenService:
+			txSvc.reviewTokens = typed.ForTx(tx)
+		case *stores.ReviewSessionTokenService:
+			txSvc.reviewTokens = typed.ForTx(tx)
+		case interface {
+			ForTx(tx stores.TxStore) AgreementReviewTokenService
+		}:
+			txSvc.reviewTokens = typed.ForTx(tx)
 		}
 	}
 	txSvc.tx = nil

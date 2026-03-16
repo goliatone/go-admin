@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -338,13 +339,14 @@ func buildAgreementReviewInput(payload map[string]any, ids []string) (AgreementR
 		return AgreementReviewInput{}, err
 	}
 	return AgreementReviewInput{
-		Scope:           scopeFromPayload(payload),
-		AgreementID:     agreementID,
-		ReviewerIDs:     toStringSlice(payloadValue(payload, "reviewer_ids")),
-		Gate:            strings.TrimSpace(toString(payloadValue(payload, "gate"))),
-		CommentsEnabled: boolWithDefault(payloadValue(payload, "comments_enabled"), false),
-		ActorID:         strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID:   strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		Scope:              scopeFromPayload(payload),
+		AgreementID:        agreementID,
+		ReviewParticipants: toReviewParticipants(payloadValue(payload, "review_participants")),
+		ReviewerIDs:        toStringSlice(payloadValue(payload, "reviewer_ids")),
+		Gate:               strings.TrimSpace(toString(payloadValue(payload, "gate"))),
+		CommentsEnabled:    boolWithDefault(payloadValue(payload, "comments_enabled"), false),
+		ActorID:            strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID:      strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}, nil
 }
 
@@ -356,7 +358,9 @@ func buildAgreementReviewDecisionInput(payload map[string]any, ids []string) (Ag
 	return AgreementReviewDecisionCommandInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
+		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
 		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		Comment:       strings.TrimSpace(toString(payloadValue(payload, "comment"))),
 		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
 		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}, nil
@@ -700,4 +704,27 @@ func toStringSlice(value any) []string {
 	default:
 		return nil
 	}
+}
+
+func toReviewParticipants(value any) []services.ReviewParticipantInput {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]services.ReviewParticipantInput, 0, len(items))
+	for _, item := range items {
+		record := toAnyMap(item)
+		if len(record) == 0 {
+			continue
+		}
+		out = append(out, services.ReviewParticipantInput{
+			ParticipantType: strings.TrimSpace(toString(record["participant_type"])),
+			RecipientID:     strings.TrimSpace(toString(record["recipient_id"])),
+			Email:           strings.TrimSpace(toString(record["email"])),
+			DisplayName:     strings.TrimSpace(toString(record["display_name"])),
+			CanComment:      boolWithDefault(record["can_comment"], false),
+			CanApprove:      boolWithDefault(record["can_approve"], false),
+		})
+	}
+	return out
 }

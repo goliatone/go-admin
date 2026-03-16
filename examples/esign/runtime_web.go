@@ -617,7 +617,9 @@ func registerESignWebRoutes(
 		}
 		signerCfg := SignerWebRouteConfig{
 			TokenValidator:       tokenSvc,
+			PublicTokenValidator: esignModule.PublicReviewTokenResolver(),
 			SigningService:       esignModule.SigningService(),
+			PublicReviewSession:  esignModule.SigningService(),
 			AssetContractService: esignModule.SignerAssetContractService(),
 			DefaultScope:         esignModule.DefaultScope(),
 			APIBasePath:          signerAPIBasePath,
@@ -1241,7 +1243,9 @@ func cloneStringBoolMap(input map[string]bool) map[string]bool {
 // SignerWebRouteConfig holds dependencies for public signer web routes.
 type SignerWebRouteConfig struct {
 	TokenValidator       handlers.SignerTokenValidator
+	PublicTokenValidator handlers.PublicReviewTokenValidator
 	SigningService       handlers.SignerSessionService
+	PublicReviewSession  handlers.PublicReviewSessionService
 	AssetContractService handlers.SignerAssetContractService
 	DefaultScope         stores.Scope
 	APIBasePath          string
@@ -1310,13 +1314,17 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
 	}
 
-	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	publicToken, err := validatePublicReviewToken(c.Context(), cfg, token)
 	if err != nil {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
 	}
 
-	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+	if cfg.PublicReviewSession == nil {
+		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
+		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
+	}
+	session, err := cfg.PublicReviewSession.GetReviewSession(c.Context(), cfg.DefaultScope, publicToken)
 	if err != nil {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		observability.ObserveSignerLinkOpen(c.Context(), false)
@@ -1345,9 +1353,6 @@ func canRenderUnifiedSession(session services.SignerSessionContext) bool {
 		return false
 	}
 	if session.PageCount <= 0 {
-		return false
-	}
-	if len(session.Fields) == 0 {
 		return false
 	}
 	for _, field := range session.Fields {
@@ -1525,6 +1530,17 @@ func validateSignerToken(ctx context.Context, cfg SignerWebRouteConfig, token st
 	return cfg.TokenValidator.Validate(ctx, cfg.DefaultScope, token)
 }
 
+func validatePublicReviewToken(ctx context.Context, cfg SignerWebRouteConfig, token string) (services.PublicReviewToken, error) {
+	if cfg.PublicTokenValidator != nil {
+		return cfg.PublicTokenValidator.Validate(ctx, cfg.DefaultScope, token)
+	}
+	signingToken, err := validateSignerToken(ctx, cfg, token)
+	if err != nil {
+		return services.PublicReviewToken{}, err
+	}
+	return services.PublicReviewTokenFromSigning(signingToken), nil
+}
+
 func handleSignerTokenError(c router.Context, cfg SignerWebRouteConfig, apiBasePath string, err error, token string) error {
 	observability.ObserveSignerLinkOpen(c.Context(), false)
 	errMsg := strings.ToLower(err.Error())
@@ -1569,9 +1585,16 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 			viewerPagesJSON = encoded
 		}
 	}
+	reviewJSON := "null"
+	if session.Review != nil {
+		if encoded, err := json.Marshal(session.Review); err == nil {
+			reviewJSON = string(encoded)
+		}
+	}
 
 	sessionCtx := sessionToViewContext(session)
 	sessionCtx["fields_json"] = fieldsJSON
+	sessionCtx["review_json"] = reviewJSON
 	sessionCtx["viewer"] = session.Viewer
 
 	// Build viewer context with pages_json for frontend
@@ -1688,6 +1711,7 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 	}
 
 	return router.ViewContext{
+		"session_kind":                   session.SessionKind,
 		"agreement_id":                   session.AgreementID,
 		"agreement_status":               session.AgreementStatus,
 		"document_name":                  firstNonEmptyValue(session.DocumentName, "Document.pdf"),
@@ -1701,6 +1725,7 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 		"recipient_stage":                session.RecipientStage,
 		"active_stage":                   session.ActiveStage,
 		"state":                          session.State,
+		"can_sign":                       session.CanSign,
 		"has_consented":                  false,
 		"fields":                         fields,
 		"active_recipient":               session.ActiveRecipientID,

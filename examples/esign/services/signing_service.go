@@ -375,23 +375,37 @@ type SignerSessionViewerContext struct {
 }
 
 type SignerSessionReviewContext struct {
-	Status              string `json:"status"`
-	Gate                string `json:"gate"`
-	CommentsEnabled     bool   `json:"comments_enabled"`
-	IsReviewer          bool   `json:"is_reviewer"`
-	CanComment          bool   `json:"can_comment"`
-	CanApprove          bool   `json:"can_approve"`
-	CanRequestChanges   bool   `json:"can_request_changes"`
-	CanSign             bool   `json:"can_sign"`
-	ParticipantStatus   string `json:"participant_status,omitempty"`
-	OpenThreadCount     int    `json:"open_thread_count"`
-	ResolvedThreadCount int    `json:"resolved_thread_count"`
-	SignBlocked         bool   `json:"sign_blocked"`
-	SignBlockReason     string `json:"sign_block_reason,omitempty"`
+	ReviewID            string                    `json:"review_id,omitempty"`
+	Status              string                    `json:"status"`
+	Gate                string                    `json:"gate"`
+	CommentsEnabled     bool                      `json:"comments_enabled"`
+	IsReviewer          bool                      `json:"is_reviewer"`
+	CanComment          bool                      `json:"can_comment"`
+	CanApprove          bool                      `json:"can_approve"`
+	CanRequestChanges   bool                      `json:"can_request_changes"`
+	CanSign             bool                      `json:"can_sign"`
+	ParticipantStatus   string                    `json:"participant_status,omitempty"`
+	OpenThreadCount     int                       `json:"open_thread_count"`
+	ResolvedThreadCount int                       `json:"resolved_thread_count"`
+	SignBlocked         bool                      `json:"sign_blocked"`
+	SignBlockReason     string                    `json:"sign_block_reason,omitempty"`
+	Blockers            []string                  `json:"blockers,omitempty"`
+	Participant         *ReviewSessionParticipant `json:"participant,omitempty"`
+	Threads             []ReviewThread            `json:"threads,omitempty"`
+}
+
+type ReviewSessionParticipant struct {
+	ID              string `json:"id"`
+	ParticipantType string `json:"participant_type,omitempty"`
+	RecipientID     string `json:"recipient_id,omitempty"`
+	Email           string `json:"email,omitempty"`
+	DisplayName     string `json:"display_name,omitempty"`
+	DecisionStatus  string `json:"decision_status,omitempty"`
 }
 
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
 type SignerSessionContext struct {
+	SessionKind            string                      `json:"session_kind,omitempty"`
 	AgreementID            string                      `json:"agreement_id"`
 	AgreementStatus        string                      `json:"agreement_status"`
 	DocumentName           string                      `json:"document_name"`
@@ -410,6 +424,7 @@ type SignerSessionContext struct {
 	WaitingForRecipient    string                      `json:"waiting_for_recipient_id,omitempty"`
 	WaitingForRecipientIDs []string                    `json:"waiting_for_recipient_ids,omitempty"`
 	Review                 *SignerSessionReviewContext `json:"review,omitempty"`
+	CanSign                bool                        `json:"can_sign"`
 	Fields                 []SignerSessionField        `json:"fields"`
 }
 
@@ -659,6 +674,7 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 	}
 
 	return SignerSessionContext{
+		SessionKind:            "signer",
 		AgreementID:            agreement.ID,
 		AgreementStatus:        agreement.Status,
 		DocumentName:           documentName,
@@ -677,6 +693,7 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		WaitingForRecipient:    waitingFor,
 		WaitingForRecipientIDs: waitingForIDs,
 		Review:                 review,
+		CanSign:                review == nil || review.CanSign,
 		Fields:                 sessionFields,
 	}, nil
 }

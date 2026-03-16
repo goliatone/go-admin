@@ -2744,6 +2744,85 @@ func TestSigningServiceGetSessionIncludesReviewContext(t *testing.T) {
 	}
 }
 
+func TestSigningServiceGetReviewSessionSupportsExternalReviewerToken(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("external.review.signer@example.com"),
+		Name:         stringPtr("External Review Signer"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.reviewer@example.com",
+				DisplayName:     "Outside Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "external-review-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	participants, err := store.ListAgreementReviewParticipants(ctx, scope, summary.Review.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementReviewParticipants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected one external participant, got %+v", participants)
+	}
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	session, err := signingSvc.GetReviewSession(ctx, scope, PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &issued.Record,
+	})
+	if err != nil {
+		t.Fatalf("GetReviewSession: %v", err)
+	}
+	if session.SessionKind != "reviewer" {
+		t.Fatalf("expected reviewer session kind, got %q", session.SessionKind)
+	}
+	if session.CanSign {
+		t.Fatalf("expected review-only session to be read-only, got %+v", session)
+	}
+	if session.Review == nil || !session.Review.IsReviewer {
+		t.Fatalf("expected reviewer context, got %+v", session.Review)
+	}
+	if session.RecipientEmail != "outside.reviewer@example.com" {
+		t.Fatalf("expected external reviewer email, got %q", session.RecipientEmail)
+	}
+}
+
 func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 

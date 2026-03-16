@@ -81,6 +81,8 @@ type ESignModule struct {
 	services           *servicesmodule.Module
 	documents          services.DocumentService
 	tokens             stores.TokenService
+	reviewTokens       stores.ReviewSessionTokenService
+	publicReviewTokens services.PublicReviewTokenResolver
 	agreements         services.AgreementService
 	reminders          services.AgreementReminderService
 	drafts             services.DraftService
@@ -243,6 +245,13 @@ func (m *ESignModule) TokenService() *stores.TokenService {
 		return nil
 	}
 	return &m.tokens
+}
+
+func (m *ESignModule) PublicReviewTokenResolver() *services.PublicReviewTokenResolver {
+	if m == nil {
+		return nil
+	}
+	return &m.publicReviewTokens
 }
 
 // SignerAssetContractService returns token-scoped asset contract resolution used by signer web/runtime paths.
@@ -412,6 +421,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithDocumentPDFService(pdfService),
 	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
+	m.reviewTokens = stores.NewReviewSessionTokenService(m.store, stores.WithReviewSessionTokenTTL(tokenTTL))
+	m.publicReviewTokens = services.NewPublicReviewTokenResolver(m.tokens, m.reviewTokens)
 	artifactRenderer := services.NewReadableArtifactRenderer(
 		m.store,
 		m.store,
@@ -458,6 +469,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	m.signingWorkflows = signingWorkflowOutbox
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
+		services.WithAgreementReviewTokenService(m.reviewTokens),
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementReminderStore(m.store),
 		services.WithAgreementNotificationOutbox(m.store),
@@ -673,6 +685,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithAdminRouteMiddleware(ctx.AuthMiddleware),
 		handlers.WithPermissions(handlers.DefaultPermissions),
 		handlers.WithSignerTokenValidator(m.tokens),
+		handlers.WithPublicReviewTokenValidator(m.publicReviewTokens),
 		handlers.WithSignerSessionService(m.signing),
 		handlers.WithSignerProfileService(m.signerProfiles),
 		handlers.WithSignerSavedSignatureService(m.savedSignatures),
@@ -841,7 +854,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				Scope:           coreadmin.ActionScopeDetail,
 				Permission:      permissions.AdminESignEdit,
 				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				PayloadRequired: []string{"gate", "reviewer_ids"},
+				PayloadRequired: []string{"gate", "review_participants"},
 				Idempotent:      true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{
@@ -862,6 +875,50 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				Permission:     permissions.AdminESignEdit,
 				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
 				Idempotent:     true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "create_comment_thread",
+				Label:           "Add Review Comment",
+				CommandName:     commands.CommandAgreementCreateCommentThread,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
+				PayloadRequired: []string{"body"},
+				Idempotent:      true,
+				Overflow:        true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "reply_comment_thread",
+				Label:           "Reply To Review Comment",
+				CommandName:     commands.CommandAgreementReplyCommentThread,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
+				PayloadRequired: []string{"thread_id", "body"},
+				Idempotent:      true,
+				Overflow:        true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "resolve_comment_thread",
+				Label:           "Resolve Review Comment",
+				CommandName:     commands.CommandAgreementResolveCommentThread,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
+				PayloadRequired: []string{"thread_id"},
+				Idempotent:      true,
+				Overflow:        true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "reopen_comment_thread",
+				Label:           "Reopen Review Comment",
+				CommandName:     commands.CommandAgreementReopenCommentThread,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
+				PayloadRequired: []string{"thread_id"},
+				Idempotent:      true,
+				Overflow:        true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true}),
 			withAgreementActionGuard(coreadmin.Action{

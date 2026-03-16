@@ -409,7 +409,10 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		t.Fatalf("Issue: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
+	signingSvc := services.NewSigningService(store,
+		services.WithSigningObjectStore(objectStore),
+		services.WithSigningPreviewFallbackEnabled(true),
+	)
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenSvc),
 		WithSignerSessionService(signingSvc),
@@ -1400,7 +1403,10 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		t.Fatalf("Issue signer two token: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
+	signingSvc := services.NewSigningService(store,
+		services.WithSigningObjectStore(objectStore),
+		services.WithSigningPreviewFallbackEnabled(true),
+	)
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenService),
 		WithSignerSessionService(signingSvc),
@@ -1471,6 +1477,120 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	for _, key := range []string{"\"recipient_id\":", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":", "\"page_width\":", "\"page_height\":", "\"page_rotation\":", "\"tab_index\":"} {
 		if !strings.Contains(bodyText, key) {
 			t.Fatalf("expected key %s in session payload, got %s", key, bodyText)
+		}
+	}
+}
+
+func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-review-public", OrgID: "org-review-public"}
+	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
+
+	docSvc := services.NewDocumentService(store, services.WithDocumentObjectStore(objectStore))
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "External Review",
+		SourceOriginalName: "external-review.pdf",
+		ObjectKey:          "tenant/tenant-review-public/org/org-review-public/docs/external-review/source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "External Review",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerRole := stores.RecipientRoleSigner
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("review-route-signer@example.com"),
+		Name:         new("Route Signer"),
+		Role:         &signerRole,
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	fieldType := stores.FieldTypeSignature
+	required := true
+	page := 1
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, services.ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []services.ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "route.reviewer@example.com",
+				DisplayName:     "Route Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "external-review-route-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	participants, err := store.ListAgreementReviewParticipants(ctx, scope, summary.Review.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementReviewParticipants: %v", err)
+	}
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingTokenService := stores.NewTokenService(store)
+	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
+	publicResolver := services.NewPublicReviewTokenResolver(signingTokenService, reviewTokenService)
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(signingTokenService),
+		WithPublicReviewTokenValidator(publicResolver),
+		WithSignerSessionService(signingSvc),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	for _, fragment := range []string{
+		`"session_kind":"reviewer"`,
+		`"recipient_email":"route.reviewer@example.com"`,
+		`"can_sign":false`,
+	} {
+		if !strings.Contains(bodyText, fragment) {
+			t.Fatalf("expected %s in session payload, got %s", fragment, bodyText)
 		}
 	}
 }

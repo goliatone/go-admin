@@ -643,7 +643,7 @@ type AgreementApproveReviewCommand struct {
 var _ gocommand.Commander[AgreementApproveReviewInput] = (*AgreementApproveReviewCommand)(nil)
 
 func (c *AgreementApproveReviewCommand) Execute(ctx context.Context, msg AgreementApproveReviewInput) error {
-	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.RecipientID, msg.ActorID, msg.CorrelationID, true)
+	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, true)
 }
 
 type AgreementRequestReviewChangesCommand struct {
@@ -655,7 +655,7 @@ type AgreementRequestReviewChangesCommand struct {
 var _ gocommand.Commander[AgreementRequestReviewChangesInput] = (*AgreementRequestReviewChangesCommand)(nil)
 
 func (c *AgreementRequestReviewChangesCommand) Execute(ctx context.Context, msg AgreementRequestReviewChangesInput) error {
-	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.RecipientID, msg.ActorID, msg.CorrelationID, false)
+	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, false)
 }
 
 type AgreementCreateCommentThreadCommand struct {
@@ -729,13 +729,14 @@ func executeAgreementReviewOpenCommand(
 		return err
 	}
 	reviewInput := services.ReviewOpenInput{
-		Gate:              strings.TrimSpace(input.Gate),
-		CommentsEnabled:   input.CommentsEnabled,
-		ReviewerIDs:       append([]string{}, input.ReviewerIDs...),
-		RequestedByUserID: strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
-		ActorType:         "user",
-		ActorID:           strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
-		IPAddress:         resolveCommandRequestIP(ctx),
+		Gate:               strings.TrimSpace(input.Gate),
+		CommentsEnabled:    input.CommentsEnabled,
+		ReviewParticipants: append([]services.ReviewParticipantInput{}, input.ReviewParticipants...),
+		ReviewerIDs:        append([]string{}, input.ReviewerIDs...),
+		RequestedByUserID:  strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		ActorType:          "user",
+		ActorID:            strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		IPAddress:          resolveCommandRequestIP(ctx),
 	}
 	if open {
 		_, err = agreements.OpenReview(ctx, scope, strings.TrimSpace(agreementID), reviewInput)
@@ -780,14 +781,14 @@ func executeAgreementReviewDecisionCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
-	agreementID, recipientID, actorID, correlationID string,
+	agreementID, participantID, recipientID, comment, actorID, correlationID string,
 	approve bool,
 ) error {
 	commandName := CommandAgreementApproveReview
 	if !approve {
 		commandName = CommandAgreementRequestReviewChanges
 	}
-	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, recipientID, commandName)
+	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, firstNonEmptyString(participantID, recipientID), commandName)
 	if agreements == nil {
 		return fmt.Errorf("%s command not configured", commandName)
 	}
@@ -796,10 +797,12 @@ func executeAgreementReviewDecisionCommand(
 		return err
 	}
 	input := services.ReviewDecisionInput{
-		RecipientID: strings.TrimSpace(recipientID),
-		ActorType:   "user",
-		ActorID:     strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
-		IPAddress:   resolveCommandRequestIP(ctx),
+		ParticipantID: strings.TrimSpace(participantID),
+		RecipientID:   strings.TrimSpace(recipientID),
+		Comment:       strings.TrimSpace(comment),
+		ActorType:     "user",
+		ActorID:       strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		IPAddress:     resolveCommandRequestIP(ctx),
 	}
 	if approve {
 		_, err = agreements.ApproveReview(ctx, scope, strings.TrimSpace(agreementID), input)

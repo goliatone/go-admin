@@ -57,7 +57,9 @@ type registerConfig struct {
 	authorizer            coreadmin.Authorizer
 	adminRouteAuth        router.MiddlewareFunc
 	tokenValidator        SignerTokenValidator
+	publicTokenValidator  PublicReviewTokenValidator
 	signerSession         SignerSessionService
+	publicReviewSession   PublicReviewSessionService
 	signerProfile         SignerProfileService
 	signerSavedSignatures SignerSavedSignatureService
 	signerAssets          SignerAssetContractService
@@ -133,6 +135,10 @@ type SignerTokenValidator interface {
 	Validate(ctx context.Context, scope stores.Scope, rawToken string) (stores.SigningTokenRecord, error)
 }
 
+type PublicReviewTokenValidator interface {
+	Validate(ctx context.Context, scope stores.Scope, rawToken string) (services.PublicReviewToken, error)
+}
+
 // SignerSessionService handles signer session and field-value lifecycle operations.
 type SignerSessionService interface {
 	GetSession(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerSessionContext, error)
@@ -142,7 +148,7 @@ type SignerSessionService interface {
 	ResolveReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentStateInput) (services.ReviewThread, error)
 	ReopenReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentStateInput) (services.ReviewThread, error)
 	ApproveReview(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.ReviewSummary, error)
-	RequestReviewChanges(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.ReviewSummary, error)
+	RequestReviewChanges(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewDecisionInput) (services.ReviewSummary, error)
 	CaptureConsent(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerConsentInput) (services.SignerConsentResult, error)
 	UpsertFieldValue(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerFieldValueInput) (stores.FieldValueRecord, error)
 	IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureUploadInput) (services.SignerSignatureUploadContract, error)
@@ -150,6 +156,17 @@ type SignerSessionService interface {
 	AttachSignatureArtifact(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureInput) (services.SignerSignatureResult, error)
 	Submit(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSubmitInput) (services.SignerSubmitResult, error)
 	Decline(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerDeclineInput) (services.SignerDeclineResult, error)
+}
+
+type PublicReviewSessionService interface {
+	GetReviewSession(ctx context.Context, scope stores.Scope, token services.PublicReviewToken) (services.SignerSessionContext, error)
+	ListPublicReviewThreads(ctx context.Context, scope stores.Scope, token services.PublicReviewToken) ([]services.ReviewThread, error)
+	CreatePublicReviewThread(ctx context.Context, scope stores.Scope, token services.PublicReviewToken, input services.ReviewCommentThreadInput) (services.ReviewThread, error)
+	ReplyPublicReviewThread(ctx context.Context, scope stores.Scope, token services.PublicReviewToken, input services.ReviewCommentReplyInput) (services.ReviewThread, error)
+	ResolvePublicReviewThread(ctx context.Context, scope stores.Scope, token services.PublicReviewToken, input services.ReviewCommentStateInput) (services.ReviewThread, error)
+	ReopenPublicReviewThread(ctx context.Context, scope stores.Scope, token services.PublicReviewToken, input services.ReviewCommentStateInput) (services.ReviewThread, error)
+	ApprovePublicReview(ctx context.Context, scope stores.Scope, token services.PublicReviewToken) (services.ReviewSummary, error)
+	RequestPublicReviewChanges(ctx context.Context, scope stores.Scope, token services.PublicReviewToken, input services.ReviewDecisionInput) (services.ReviewSummary, error)
 }
 
 // SignerProfileService handles token-scoped signer profile persistence.
@@ -376,6 +393,18 @@ func WithSignerTokenValidator(validator SignerTokenValidator) RegisterOption {
 			return
 		}
 		cfg.tokenValidator = validator
+		if publicValidator, ok := any(validator).(PublicReviewTokenValidator); ok {
+			cfg.publicTokenValidator = publicValidator
+		}
+	}
+}
+
+func WithPublicReviewTokenValidator(validator PublicReviewTokenValidator) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.publicTokenValidator = validator
 	}
 }
 
@@ -386,6 +415,18 @@ func WithSignerSessionService(service SignerSessionService) RegisterOption {
 			return
 		}
 		cfg.signerSession = service
+		if publicService, ok := any(service).(PublicReviewSessionService); ok {
+			cfg.publicReviewSession = publicService
+		}
+	}
+}
+
+func WithPublicReviewSessionService(service PublicReviewSessionService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.publicReviewSession = service
 	}
 }
 
@@ -858,6 +899,11 @@ func validateSignerToken(c router.Context, cfg registerConfig, rawToken string) 
 	return err
 }
 
+func validatePublicReviewToken(c router.Context, cfg registerConfig, rawToken string) error {
+	_, err := resolvePublicReviewToken(c, cfg, rawToken)
+	return err
+}
+
 func resolveSignerToken(c router.Context, cfg registerConfig, rawToken string) (stores.SigningTokenRecord, error) {
 	if cfg.tokenValidator == nil {
 		return stores.SigningTokenRecord{}, nil
@@ -876,6 +922,30 @@ func resolveSignerToken(c router.Context, cfg registerConfig, rawToken string) (
 		return stores.SigningTokenRecord{}, errResponseHandled
 	}
 	return token, nil
+}
+
+func resolvePublicReviewToken(c router.Context, cfg registerConfig, rawToken string) (services.PublicReviewToken, error) {
+	if cfg.publicTokenValidator != nil {
+		scope := cfg.resolveScope(c)
+		token, err := cfg.publicTokenValidator.Validate(c.Context(), scope, rawToken)
+		if err != nil {
+			observability.ObserveTokenValidationFailure(c.Context(), textCode(err))
+			cfg.logSecurityEvent("signer.token.rejected", map[string]any{
+				"path":       c.Path(),
+				"method":     c.Method(),
+				"ip":         resolveAuditRequestIP(c, cfg),
+				"token_code": textCode(err),
+			})
+			_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
+			return services.PublicReviewToken{}, errResponseHandled
+		}
+		return token, nil
+	}
+	signingToken, err := resolveSignerToken(c, cfg, rawToken)
+	if err != nil {
+		return services.PublicReviewToken{}, err
+	}
+	return services.PublicReviewTokenFromSigning(signingToken), nil
 }
 
 func enforceRateLimit(c router.Context, cfg registerConfig, operation string) error {

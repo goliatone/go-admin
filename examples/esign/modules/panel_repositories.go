@@ -938,18 +938,71 @@ func reviewSummaryToMap(summary services.ReviewSummary) map[string]any {
 		participants := make([]map[string]any, 0, len(summary.Participants))
 		for _, participant := range summary.Participants {
 			participants = append(participants, map[string]any{
-				"id":              strings.TrimSpace(participant.ID),
-				"recipient_id":    strings.TrimSpace(participant.RecipientID),
-				"role":            strings.TrimSpace(participant.Role),
-				"can_comment":     participant.CanComment,
-				"can_approve":     participant.CanApprove,
-				"decision_status": strings.TrimSpace(participant.DecisionStatus),
-				"decision_at":     formatTimePtr(participant.DecisionAt),
+				"id":               strings.TrimSpace(participant.ID),
+				"participant_type": strings.TrimSpace(participant.ParticipantType),
+				"recipient_id":     strings.TrimSpace(participant.RecipientID),
+				"email":            strings.TrimSpace(participant.Email),
+				"display_name":     strings.TrimSpace(participant.DisplayName),
+				"role":             strings.TrimSpace(participant.Role),
+				"can_comment":      participant.CanComment,
+				"can_approve":      participant.CanApprove,
+				"decision_status":  strings.TrimSpace(participant.DecisionStatus),
+				"decision_at":      formatTimePtr(participant.DecisionAt),
 			})
 		}
 		payload["participants"] = participants
 	}
+	if len(summary.Threads) > 0 {
+		threads := make([]map[string]any, 0, len(summary.Threads))
+		for _, thread := range summary.Threads {
+			threads = append(threads, map[string]any{
+				"thread": map[string]any{
+					"id":               strings.TrimSpace(thread.Thread.ID),
+					"review_id":        strings.TrimSpace(thread.Thread.ReviewID),
+					"agreement_id":     strings.TrimSpace(thread.Thread.AgreementID),
+					"visibility":       strings.TrimSpace(thread.Thread.Visibility),
+					"anchor_type":      strings.TrimSpace(thread.Thread.AnchorType),
+					"page_number":      thread.Thread.PageNumber,
+					"field_id":         strings.TrimSpace(thread.Thread.FieldID),
+					"anchor_x":         thread.Thread.AnchorX,
+					"anchor_y":         thread.Thread.AnchorY,
+					"status":           strings.TrimSpace(thread.Thread.Status),
+					"created_by_type":  strings.TrimSpace(thread.Thread.CreatedByType),
+					"created_by_id":    strings.TrimSpace(thread.Thread.CreatedByID),
+					"resolved_by_type": strings.TrimSpace(thread.Thread.ResolvedByType),
+					"resolved_by_id":   strings.TrimSpace(thread.Thread.ResolvedByID),
+					"resolved_at":      formatTimePtr(thread.Thread.ResolvedAt),
+					"last_activity_at": formatTimePtr(thread.Thread.LastActivityAt),
+				},
+				"messages": commentMessagesToMaps(thread.Messages),
+			})
+		}
+		payload["threads"] = threads
+	}
 	return payload
+}
+
+func commentMessagesToMaps(messages []stores.AgreementCommentMessageRecord) []map[string]any {
+	out := make([]map[string]any, 0, len(messages))
+	for _, message := range messages {
+		out = append(out, map[string]any{
+			"id":              strings.TrimSpace(message.ID),
+			"thread_id":       strings.TrimSpace(message.ThreadID),
+			"body":            strings.TrimSpace(message.Body),
+			"message_kind":    strings.TrimSpace(message.MessageKind),
+			"created_by_type": strings.TrimSpace(message.CreatedByType),
+			"created_by_id":   strings.TrimSpace(message.CreatedByID),
+			"created_at":      formatTimeValue(message.CreatedAt),
+		})
+	}
+	return out
+}
+
+func formatTimeValue(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 type agreementLineagePayload struct {

@@ -2177,3 +2177,171 @@ func TestAgreementServiceValidateBeforeSendBlocksApproveBeforeSendReview(t *test
 		t.Fatalf("expected send validation to pass after review approval, got %+v", validation.Issues)
 	}
 }
+
+func TestAgreementServiceRequestReviewChangesRequiresCommentAndPersistsRationale(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("reviewer@example.com"),
+		Name:         new("Reviewer"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+
+	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   false,
+		ReviewerIDs:       []string{reviewer.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	if _, err := svc.RequestReviewChanges(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: reviewer.ID,
+		ActorType:   "recipient",
+		ActorID:     reviewer.ID,
+		IPAddress:   "203.0.113.10",
+		Comment:     " ",
+	}); err == nil {
+		t.Fatalf("expected missing comment validation error")
+	}
+
+	rationale := "Please update the indemnification clause before we proceed."
+	summary, err := svc.RequestReviewChanges(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: reviewer.ID,
+		ActorType:   "recipient",
+		ActorID:     reviewer.ID,
+		IPAddress:   "203.0.113.10",
+		Comment:     rationale,
+	})
+	if err != nil {
+		t.Fatalf("RequestReviewChanges: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusChangesRequested {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusChangesRequested, summary.Status)
+	}
+	if len(summary.Threads) != 1 {
+		t.Fatalf("expected 1 persisted decision thread, got %d", len(summary.Threads))
+	}
+	thread := summary.Threads[0]
+	if thread.Thread.AnchorType != stores.AgreementCommentAnchorAgreement {
+		t.Fatalf("expected agreement-anchored rationale thread, got %q", thread.Thread.AnchorType)
+	}
+	if thread.Thread.Visibility != stores.AgreementCommentVisibilityShared {
+		t.Fatalf("expected shared rationale thread, got %q", thread.Thread.Visibility)
+	}
+	if len(thread.Messages) != 1 || strings.TrimSpace(thread.Messages[0].Body) != rationale {
+		t.Fatalf("expected rationale message %q, got %+v", rationale, thread.Messages)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	var found bool
+	for _, event := range events {
+		if event.EventType != "agreement.review_changes_requested" {
+			continue
+		}
+		metadata := map[string]any{}
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &metadata); err != nil {
+			t.Fatalf("Unmarshal metadata: %v", err)
+		}
+		if got := strings.TrimSpace(fmt.Sprint(metadata["decision_comment"])); got != rationale {
+			t.Fatalf("expected decision_comment %q, got %q", rationale, got)
+		}
+		if got := strings.TrimSpace(fmt.Sprint(metadata["thread_id"])); got != thread.Thread.ID {
+			t.Fatalf("expected thread_id %q, got %q", thread.Thread.ID, got)
+		}
+		found = true
+		break
+	}
+	if !found {
+		t.Fatalf("expected agreement.review_changes_requested audit event, got %+v", events)
+	}
+}
+
+func TestAgreementServiceApproveReviewSupportsSentApproveBeforeSignAgreement(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-review-send", OrgID: "org-review-send"}
+	store := stores.NewInMemoryStore()
+	svc := NewAgreementService(store)
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:              "Approve Before Sign",
+		SourceOriginalName: "approve-before-sign.pdf",
+		ObjectKey:          "tenant/tenant-review-send/org/org-review-send/docs/approve-before-sign/source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreement, err := svc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Approve Before Sign",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+
+	signerRole := stores.RecipientRoleSigner
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("review-signer@example.com"),
+		Name:         new("Review Signer"),
+		Role:         &signerRole,
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "approve-before-sign-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	summary, err := svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: signer.ID,
+		ActorType:   "recipient",
+		ActorID:     signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("ApproveReview after send: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusApproved {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusApproved, summary.Status)
+	}
+
+	updated, err := store.GetAgreement(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	if updated.ReviewStatus != stores.AgreementReviewStatusApproved {
+		t.Fatalf("expected agreement review_status %q, got %q", stores.AgreementReviewStatusApproved, updated.ReviewStatus)
+	}
+}

@@ -28,36 +28,13 @@ func (s SigningService) resolveSignerReviewContext(ctx context.Context, scope st
 	if summary.Status == "" || summary.Status == stores.AgreementReviewStatusNone {
 		return nil, nil
 	}
-	reviewCtx := &SignerSessionReviewContext{
-		Status:              summary.Status,
-		Gate:                summary.Gate,
-		CommentsEnabled:     summary.CommentsEnabled,
-		CanSign:             true,
-		OpenThreadCount:     summary.OpenThreadCount,
-		ResolvedThreadCount: summary.ResolvedThreadCount,
-	}
 	for _, participant := range summary.Participants {
 		if participant.RecipientID != strings.TrimSpace(recipientID) {
 			continue
 		}
-		reviewCtx.IsReviewer = true
-		reviewCtx.CanComment = summary.CommentsEnabled && participant.CanComment
-		reviewCtx.CanApprove = participant.CanApprove
-		reviewCtx.CanRequestChanges = participant.CanApprove
-		reviewCtx.ParticipantStatus = participant.DecisionStatus
-		break
+		return buildSignerReviewContext(summary, participant, true), nil
 	}
-	if reviewCtx.Gate == stores.AgreementReviewGateApproveBeforeSign && reviewCtx.IsReviewer && summary.Status != stores.AgreementReviewStatusApproved {
-		reviewCtx.SignBlocked = true
-		reviewCtx.CanSign = false
-		switch reviewCtx.ParticipantStatus {
-		case stores.AgreementReviewDecisionChangesRequested:
-			reviewCtx.SignBlockReason = "requested changes must be resolved before signing"
-		default:
-			reviewCtx.SignBlockReason = "review approval is required before signing"
-		}
-	}
-	return reviewCtx, nil
+	return buildSummaryOnlyReviewContext(summary, true), nil
 }
 
 func (s SigningService) ensureSignerReviewAccess(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (ReviewSummary, *SignerSessionReviewContext, error) {
@@ -157,7 +134,7 @@ func (s SigningService) ApproveReview(ctx context.Context, scope stores.Scope, t
 	})
 }
 
-func (s SigningService) RequestReviewChanges(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (ReviewSummary, error) {
+func (s SigningService) RequestReviewChanges(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input ReviewDecisionInput) (ReviewSummary, error) {
 	_, reviewCtx, err := s.ensureSignerReviewAccess(ctx, scope, token)
 	if err != nil {
 		return ReviewSummary{}, err
@@ -169,7 +146,320 @@ func (s SigningService) RequestReviewChanges(ctx context.Context, scope stores.S
 		RecipientID: strings.TrimSpace(token.RecipientID),
 		ActorType:   "recipient",
 		ActorID:     strings.TrimSpace(token.RecipientID),
+		IPAddress:   strings.TrimSpace(input.IPAddress),
+		Comment:     strings.TrimSpace(input.Comment),
 	})
+}
+
+func (s SigningService) GetReviewSession(ctx context.Context, scope stores.Scope, token PublicReviewToken) (SignerSessionContext, error) {
+	switch strings.TrimSpace(token.Kind) {
+	case "", PublicReviewTokenKindSigning:
+		if token.SigningToken == nil {
+			return SignerSessionContext{}, signerReviewAccessError("signer token is required")
+		}
+		return s.GetSession(ctx, scope, *token.SigningToken)
+	case PublicReviewTokenKindReview:
+		if token.ReviewToken == nil {
+			return SignerSessionContext{}, signerReviewAccessError("review token is required")
+		}
+		return s.getReviewOnlySession(ctx, scope, *token.ReviewToken)
+	default:
+		return SignerSessionContext{}, signerReviewAccessError("unsupported review token type")
+	}
+}
+
+func (s SigningService) ListPublicReviewThreads(ctx context.Context, scope stores.Scope, token PublicReviewToken) ([]ReviewThread, error) {
+	_, reviewCtx, _, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return nil, err
+	}
+	if !reviewCtx.CanComment && !reviewCtx.CanApprove {
+		return nil, signerReviewAccessError("review access is not enabled for this participant")
+	}
+	return filterSharedReviewThreads(reviewCtx.Threads), nil
+}
+
+func (s SigningService) CreatePublicReviewThread(ctx context.Context, scope stores.Scope, token PublicReviewToken, input ReviewCommentThreadInput) (ReviewThread, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewThread{}, err
+	}
+	if !reviewCtx.CanComment {
+		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this participant")
+	}
+	input.ReviewID = strings.TrimSpace(summary.Review.ID)
+	input.Visibility = stores.AgreementCommentVisibilityShared
+	input.ActorType = reviewActorTypeForParticipant(participant)
+	input.ActorID = strings.TrimSpace(participant.ID)
+	return s.reviewWorkflow().CreateCommentThread(ctx, scope, summary.AgreementID, input)
+}
+
+func (s SigningService) ReplyPublicReviewThread(ctx context.Context, scope stores.Scope, token PublicReviewToken, input ReviewCommentReplyInput) (ReviewThread, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewThread{}, err
+	}
+	if !reviewCtx.CanComment {
+		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this participant")
+	}
+	input.ActorType = reviewActorTypeForParticipant(participant)
+	input.ActorID = strings.TrimSpace(participant.ID)
+	return s.reviewWorkflow().ReplyCommentThread(ctx, scope, summary.AgreementID, input)
+}
+
+func (s SigningService) ResolvePublicReviewThread(ctx context.Context, scope stores.Scope, token PublicReviewToken, input ReviewCommentStateInput) (ReviewThread, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewThread{}, err
+	}
+	if !reviewCtx.CanComment {
+		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this participant")
+	}
+	input.ActorType = reviewActorTypeForParticipant(participant)
+	input.ActorID = strings.TrimSpace(participant.ID)
+	return s.reviewWorkflow().ResolveCommentThread(ctx, scope, summary.AgreementID, input)
+}
+
+func (s SigningService) ReopenPublicReviewThread(ctx context.Context, scope stores.Scope, token PublicReviewToken, input ReviewCommentStateInput) (ReviewThread, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewThread{}, err
+	}
+	if !reviewCtx.CanComment {
+		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this participant")
+	}
+	input.ActorType = reviewActorTypeForParticipant(participant)
+	input.ActorID = strings.TrimSpace(participant.ID)
+	return s.reviewWorkflow().ReopenCommentThread(ctx, scope, summary.AgreementID, input)
+}
+
+func (s SigningService) ApprovePublicReview(ctx context.Context, scope stores.Scope, token PublicReviewToken) (ReviewSummary, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if !reviewCtx.CanApprove {
+		return ReviewSummary{}, signerReviewAccessError("review approval is not enabled for this participant")
+	}
+	return s.reviewWorkflow().ApproveReview(ctx, scope, summary.AgreementID, ReviewDecisionInput{
+		ParticipantID: strings.TrimSpace(participant.ID),
+		RecipientID:   strings.TrimSpace(participant.RecipientID),
+		ActorType:     reviewActorTypeForParticipant(participant),
+		ActorID:       strings.TrimSpace(participant.ID),
+	})
+}
+
+func (s SigningService) RequestPublicReviewChanges(ctx context.Context, scope stores.Scope, token PublicReviewToken, input ReviewDecisionInput) (ReviewSummary, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, token)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if !reviewCtx.CanRequestChanges {
+		return ReviewSummary{}, signerReviewAccessError("review change requests are not enabled for this participant")
+	}
+	return s.reviewWorkflow().RequestReviewChanges(ctx, scope, summary.AgreementID, ReviewDecisionInput{
+		ParticipantID: strings.TrimSpace(participant.ID),
+		RecipientID:   strings.TrimSpace(participant.RecipientID),
+		ActorType:     reviewActorTypeForParticipant(participant),
+		ActorID:       strings.TrimSpace(participant.ID),
+		IPAddress:     strings.TrimSpace(input.IPAddress),
+		Comment:       strings.TrimSpace(input.Comment),
+	})
+}
+
+func (s SigningService) getReviewOnlySession(ctx context.Context, scope stores.Scope, token stores.ReviewSessionTokenRecord) (SignerSessionContext, error) {
+	summary, reviewCtx, participant, err := s.ensurePublicReviewAccess(ctx, scope, PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &token,
+	})
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, summary.AgreementID)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	fields, err := s.agreements.ListFields(ctx, scope, agreement.ID)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	document, compatibility, err := s.resolveSigningDocumentCompatibility(ctx, scope, agreement)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	documentName, pageCount, viewer, err := s.resolveSessionBootstrap(ctx, scope, document, compatibility, fields)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	pagesByNumber := map[int]SignerSessionViewerPage{}
+	for _, page := range viewer.Pages {
+		pagesByNumber[page.Page] = page
+	}
+	sessionFields := make([]SignerSessionField, 0, len(fields))
+	tabIndex := 1
+	for _, field := range fields {
+		page, posX, posY, width, height, pageMeta := normalizeFieldGeometry(field, pageCount, pagesByNumber)
+		sessionFields = append(sessionFields, SignerSessionField{
+			ID:                field.ID,
+			FieldInstanceID:   field.ID,
+			FieldDefinitionID: strings.TrimSpace(field.FieldDefinitionID),
+			RecipientID:       field.RecipientID,
+			Type:              field.Type,
+			Page:              page,
+			PosX:              posX,
+			PosY:              posY,
+			Width:             width,
+			Height:            height,
+			PageWidth:         pageMeta.Width,
+			PageHeight:        pageMeta.Height,
+			PageRotation:      pageMeta.Rotation,
+			Required:          field.Required,
+			Label:             strings.TrimSpace(field.Type),
+			TabIndex:          tabIndex,
+		})
+		tabIndex++
+	}
+	return SignerSessionContext{
+		SessionKind:     "reviewer",
+		AgreementID:     agreement.ID,
+		AgreementStatus: agreement.Status,
+		DocumentName:    documentName,
+		PageCount:       pageCount,
+		Viewer:          viewer,
+		RecipientID:     participant.ID,
+		RecipientRole:   stores.AgreementReviewParticipantRoleReviewer,
+		RecipientEmail:  participant.Email,
+		RecipientName:   firstNonEmptyString(participant.DisplayName, participant.Email),
+		State:           SignerSessionStateObserver,
+		Review:          reviewCtx,
+		CanSign:         false,
+		Fields:          sessionFields,
+	}, nil
+}
+
+func (s SigningService) ensurePublicReviewAccess(ctx context.Context, scope stores.Scope, token PublicReviewToken) (ReviewSummary, *SignerSessionReviewContext, stores.AgreementReviewParticipantRecord, error) {
+	switch strings.TrimSpace(token.Kind) {
+	case "", PublicReviewTokenKindSigning:
+		if token.SigningToken == nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("signer token is required")
+		}
+		summary, reviewCtx, err := s.ensureSignerReviewAccess(ctx, scope, *token.SigningToken)
+		if err != nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
+		}
+		participant, _, err := findReviewParticipant(summary.Participants, "", token.SigningToken.RecipientID)
+		if err != nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
+		}
+		return summary, reviewCtx, participant, nil
+	case PublicReviewTokenKindReview:
+		if token.ReviewToken == nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review token is required")
+		}
+		summary, err := s.reviewWorkflow().GetReviewSummary(ctx, scope, token.ReviewToken.AgreementID)
+		if err != nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
+		}
+		if summary.Status == "" || summary.Status == stores.AgreementReviewStatusNone || summary.Review == nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review is not enabled for this agreement")
+		}
+		if strings.TrimSpace(summary.Review.ID) != strings.TrimSpace(token.ReviewToken.ReviewID) {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review token does not match active review")
+		}
+		participant, _, err := findReviewParticipant(summary.Participants, token.ReviewToken.ParticipantID, "")
+		if err != nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
+		}
+		reviewCtx := buildSignerReviewContext(summary, participant, false)
+		if reviewCtx == nil || !reviewCtx.IsReviewer {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("participant is not selected for review")
+		}
+		return summary, reviewCtx, participant, nil
+	default:
+		return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("unsupported review token type")
+	}
+}
+
+func buildSummaryOnlyReviewContext(summary ReviewSummary, canSign bool) *SignerSessionReviewContext {
+	if summary.Review == nil {
+		return nil
+	}
+	sharedThreads := filterSharedReviewThreads(summary.Threads)
+	ctx := &SignerSessionReviewContext{
+		ReviewID:            strings.TrimSpace(summary.Review.ID),
+		Status:              summary.Status,
+		Gate:                summary.Gate,
+		CommentsEnabled:     summary.CommentsEnabled,
+		CanSign:             canSign,
+		OpenThreadCount:     countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusOpen),
+		ResolvedThreadCount: countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusResolved),
+		Threads:             sharedThreads,
+	}
+	return ctx
+}
+
+func buildSignerReviewContext(summary ReviewSummary, participant stores.AgreementReviewParticipantRecord, canSign bool) *SignerSessionReviewContext {
+	ctx := buildSummaryOnlyReviewContext(summary, canSign)
+	if ctx == nil {
+		return nil
+	}
+	ctx.IsReviewer = true
+	ctx.CanComment = summary.CommentsEnabled && participant.CanComment
+	ctx.CanApprove = participant.CanApprove
+	ctx.CanRequestChanges = participant.CanApprove
+	ctx.ParticipantStatus = participant.DecisionStatus
+	ctx.Participant = reviewSessionParticipantFromRecord(participant)
+	if ctx.Gate == stores.AgreementReviewGateApproveBeforeSign && canSign && summary.Status != stores.AgreementReviewStatusApproved {
+		ctx.SignBlocked = true
+		ctx.CanSign = false
+		switch ctx.ParticipantStatus {
+		case stores.AgreementReviewDecisionChangesRequested:
+			ctx.SignBlockReason = "requested changes must be resolved before signing"
+		default:
+			ctx.SignBlockReason = "review approval is required before signing"
+		}
+		ctx.Blockers = append(ctx.Blockers, ctx.SignBlockReason)
+	}
+	return ctx
+}
+
+func filterSharedReviewThreads(threads []ReviewThread) []ReviewThread {
+	out := make([]ReviewThread, 0, len(threads))
+	for _, thread := range threads {
+		if strings.TrimSpace(thread.Thread.Visibility) != stores.AgreementCommentVisibilityShared {
+			continue
+		}
+		out = append(out, thread)
+	}
+	return out
+}
+
+func countThreadsByStatus(threads []ReviewThread, status string) int {
+	count := 0
+	for _, thread := range threads {
+		if strings.TrimSpace(thread.Thread.Status) == strings.TrimSpace(status) {
+			count++
+		}
+	}
+	return count
+}
+
+func reviewSessionParticipantFromRecord(record stores.AgreementReviewParticipantRecord) *ReviewSessionParticipant {
+	return &ReviewSessionParticipant{
+		ID:              strings.TrimSpace(record.ID),
+		ParticipantType: strings.TrimSpace(record.ParticipantType),
+		RecipientID:     strings.TrimSpace(record.RecipientID),
+		Email:           strings.TrimSpace(record.Email),
+		DisplayName:     strings.TrimSpace(record.DisplayName),
+		DecisionStatus:  strings.TrimSpace(record.DecisionStatus),
+	}
+}
+
+func reviewActorTypeForParticipant(participant stores.AgreementReviewParticipantRecord) string {
+	if strings.TrimSpace(participant.RecipientID) != "" {
+		return "recipient"
+	}
+	return "reviewer"
 }
 
 func signerReviewAccessError(message string) error {

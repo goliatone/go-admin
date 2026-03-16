@@ -37,6 +37,7 @@ type ReviewDecisionInput struct {
 	ActorType     string
 	ActorID       string
 	IPAddress     string
+	Comment       string
 }
 
 type ReviewCommentThreadInput struct {
@@ -104,6 +105,9 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
+		if err := txSvc.syncExternalReviewSessionTokens(ctx, scope, review); err != nil {
+			return err
+		}
 		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus:    ptrString(stores.AgreementReviewStatusInReview),
 			ReviewGate:      ptrString(review.Gate),
@@ -165,6 +169,9 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
+		if err := txSvc.syncExternalReviewSessionTokens(ctx, scope, review); err != nil {
+			return err
+		}
 		commentsEnabled := input.CommentsEnabled
 		if !commentsEnabled && agreement.CommentsEnabled {
 			commentsEnabled = agreement.CommentsEnabled
@@ -177,10 +184,10 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 			return err
 		}
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
-			"review_id":            review.ID,
-			"review_gate":          review.Gate,
-			"review_status":        review.Status,
-			"review_participants":  normalizeReviewParticipantMetadata(participants),
+			"review_id":           review.ID,
+			"review_gate":         review.Gate,
+			"review_status":       review.Status,
+			"review_participants": normalizeReviewParticipantMetadata(participants),
 		}); err != nil {
 			return err
 		}
@@ -416,7 +423,7 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 	if err != nil {
 		return ReviewSummary{}, err
 	}
-		summary.Participants = participants
+	summary.Participants = participants
 	threads, err := s.agreements.ListAgreementCommentThreads(ctx, scope, agreementID, stores.AgreementCommentThreadQuery{ReviewID: review.ID})
 	if err != nil {
 		return ReviewSummary{}, err
@@ -439,6 +446,10 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.Scope, agreementID string, input ReviewDecisionInput, decisionStatus, auditEvent string) (ReviewSummary, error) {
 	var summary ReviewSummary
 	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		decisionComment := strings.TrimSpace(input.Comment)
+		if decisionStatus == stores.AgreementReviewDecisionChangesRequested && decisionComment == "" {
+			return domainValidationError("agreement_reviews", "comment", "changes requested requires a comment")
+		}
 		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -475,19 +486,73 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		}); err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		var decisionThreadID string
+		if decisionComment != "" {
+			thread, err := txSvc.appendReviewDecisionComment(ctx, scope, agreementID, review, decisionComment, input, now)
+			if err != nil {
+				return err
+			}
+			decisionThreadID = strings.TrimSpace(thread.ID)
+		}
+		metadata := map[string]any{
 			"review_id":      review.ID,
 			"participant_id": participant.ID,
 			"recipient_id":   participant.RecipientID,
 			"review_gate":    review.Gate,
 			"review_status":  review.Status,
-		}); err != nil {
+		}
+		if decisionComment != "" {
+			metadata["decision_comment"] = decisionComment
+		}
+		if decisionThreadID != "" {
+			metadata["thread_id"] = decisionThreadID
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata); err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
 		return err
 	})
 	return summary, err
+}
+
+func (s AgreementService) appendReviewDecisionComment(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	review stores.AgreementReviewRecord,
+	comment string,
+	input ReviewDecisionInput,
+	now time.Time,
+) (stores.AgreementCommentThreadRecord, error) {
+	comment = strings.TrimSpace(comment)
+	if comment == "" {
+		return stores.AgreementCommentThreadRecord{}, nil
+	}
+	thread, err := s.agreements.CreateAgreementCommentThread(ctx, scope, stores.AgreementCommentThreadRecord{
+		AgreementID:    agreementID,
+		ReviewID:       review.ID,
+		Visibility:     stores.AgreementCommentVisibilityShared,
+		AnchorType:     stores.AgreementCommentAnchorAgreement,
+		Status:         stores.AgreementCommentThreadStatusOpen,
+		CreatedByType:  normalizeReviewActorType(input.ActorType),
+		CreatedByID:    strings.TrimSpace(input.ActorID),
+		LastActivityAt: reviewPtrTime(now),
+	})
+	if err != nil {
+		return stores.AgreementCommentThreadRecord{}, err
+	}
+	if _, err := s.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
+		ThreadID:      thread.ID,
+		Body:          comment,
+		MessageKind:   stores.AgreementCommentMessageKindComment,
+		CreatedByType: normalizeReviewActorType(input.ActorType),
+		CreatedByID:   strings.TrimSpace(input.ActorID),
+		CreatedAt:     now,
+	}); err != nil {
+		return stores.AgreementCommentThreadRecord{}, err
+	}
+	return thread, nil
 }
 
 func (s AgreementService) applyCommentThreadState(ctx context.Context, scope stores.Scope, agreementID string, input ReviewCommentStateInput, nextStatus, auditEvent string) (ReviewThread, error) {
@@ -828,6 +893,25 @@ func (s AgreementService) normalizeCommentAnchor(ctx context.Context, scope stor
 		return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
 	}
 	return normalized, nil
+}
+
+func (s AgreementService) syncExternalReviewSessionTokens(ctx context.Context, scope stores.Scope, review stores.AgreementReviewRecord) error {
+	if s.reviewTokens == nil {
+		return nil
+	}
+	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		return err
+	}
+	for _, participant := range participants {
+		if stores.NormalizeAgreementReviewParticipantType(participant.ParticipantType) != stores.AgreementReviewParticipantTypeExternal {
+			continue
+		}
+		if _, err := s.reviewTokens.Rotate(ctx, scope, review.AgreementID, review.ID, participant.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s AgreementService) upsertAgreementReview(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, input ReviewOpenInput, status string, openedAt, closedAt *time.Time) (stores.AgreementReviewRecord, error) {

@@ -140,9 +140,27 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 		return notFoundError("agreement_reviews", reviewID)
 	}
 
+	removedParticipantIDs := make([]string, 0)
 	for key, participant := range s.agreementReviewParticipants {
 		if participant.TenantID == scope.TenantID && participant.OrgID == scope.OrgID && participant.ReviewID == reviewID {
+			removedParticipantIDs = append(removedParticipantIDs, participant.ID)
 			delete(s.agreementReviewParticipants, key)
+		}
+	}
+	if len(removedParticipantIDs) > 0 {
+		removedSet := make(map[string]struct{}, len(removedParticipantIDs))
+		for _, participantID := range removedParticipantIDs {
+			removedSet[participantID] = struct{}{}
+		}
+		for key, token := range s.reviewSessionTokens {
+			if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
+				continue
+			}
+			if _, ok := removedSet[token.ParticipantID]; !ok {
+				continue
+			}
+			delete(s.reviewSessionTokenHashIndex, token.TokenHash)
+			delete(s.reviewSessionTokens, key)
 		}
 	}
 

@@ -105,6 +105,34 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"Review can only be closed when a draft agreement currently has review activity.",
 			"esign.agreements.close_review_requires_active_review",
 		)
+	case "create_comment_thread":
+		action.Guard = agreementActiveReviewGuard(
+			action.Name,
+			true,
+			"Comments can only be added while a shared review is active and comments are enabled.",
+			"esign.agreements.create_comment_thread_requires_active_review",
+		)
+	case "reply_comment_thread":
+		action.Guard = agreementActiveReviewGuard(
+			action.Name,
+			true,
+			"Replies can only be added while a shared review is active and comments are enabled.",
+			"esign.agreements.reply_comment_thread_requires_active_review",
+		)
+	case "resolve_comment_thread":
+		action.Guard = agreementActiveReviewGuard(
+			action.Name,
+			false,
+			"Threads can only be resolved while a review is active.",
+			"esign.agreements.resolve_comment_thread_requires_active_review",
+		)
+	case "reopen_comment_thread":
+		action.Guard = agreementActiveReviewGuard(
+			action.Name,
+			false,
+			"Threads can only be reopened while a review is active.",
+			"esign.agreements.reopen_comment_thread_requires_active_review",
+		)
 	case "resend":
 		action.Guard = agreementAllowedStatusesGuard(
 			action.Name,
@@ -139,6 +167,50 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 		action.Guard = agreementResumeDeliveryGuard()
 	}
 	return action
+}
+
+func agreementActiveReviewGuard(actionName string, requireCommentsEnabled bool, reason string, ruleID string) coreadmin.ActionGuard {
+	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
+		currentReviewStatus := normalizeAgreementStatus(ctx.Record["review_status"])
+		if !statusAllowed(currentReviewStatus,
+			stores.AgreementReviewStatusInReview,
+			stores.AgreementReviewStatusChangesRequested,
+			stores.AgreementReviewStatusApproved,
+		) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     strings.TrimSpace(reason),
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"current_status":   normalizeAgreementStatus(ctx.Record["status"]),
+					"current_review":   currentReviewStatus,
+					"business_rule_id": strings.TrimSpace(ruleID),
+				},
+			}
+		}
+		if requireCommentsEnabled {
+			enabled, _ := ctx.Record["comments_enabled"].(bool)
+			if !enabled {
+				return coreadmin.ActionState{
+					Enabled:    false,
+					ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+					Reason:     "Comments are disabled for this review.",
+					Severity:   "warning",
+					Kind:       "business_rule",
+					Metadata: map[string]any{
+						"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+						"current_status":   normalizeAgreementStatus(ctx.Record["status"]),
+						"current_review":   currentReviewStatus,
+						"business_rule_id": "esign.agreements.comments_disabled",
+					},
+				}
+			}
+		}
+		return coreadmin.ActionState{Enabled: true}
+	}
 }
 
 func agreementAllowedStatusesGuard(actionName string, allowedStatuses []string, reason string, ruleID string) coreadmin.ActionGuard {

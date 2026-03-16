@@ -30,30 +30,30 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession != nil {
-			session, err := cfg.signerSession.GetSession(c.Context(), cfg.resolveScope(c), tokenRecord)
+		if cfg.publicReviewSession != nil {
+			session, err := cfg.publicReviewSession.GetReviewSession(c.Context(), cfg.resolveScope(c), publicToken)
 			if err != nil {
 				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer session", nil)
 			}
-			if cfg.auditEvents != nil {
+			if cfg.auditEvents != nil && publicToken.SigningToken != nil {
 				metadataJSON := "{}"
 				if encoded, merr := json.Marshal(map[string]any{
-					"recipient_id":     strings.TrimSpace(tokenRecord.RecipientID),
-					"agreement_id":     strings.TrimSpace(tokenRecord.AgreementID),
+					"recipient_id":     strings.TrimSpace(publicToken.SigningToken.RecipientID),
+					"agreement_id":     strings.TrimSpace(publicToken.SigningToken.AgreementID),
 					"session_state":    strings.TrimSpace(session.State),
 					"agreement_status": strings.TrimSpace(session.AgreementStatus),
 				}); merr == nil {
 					metadataJSON = string(encoded)
 				}
 				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
-					AgreementID:  strings.TrimSpace(tokenRecord.AgreementID),
+					AgreementID:  strings.TrimSpace(publicToken.SigningToken.AgreementID),
 					EventType:    "signer.viewed",
 					ActorType:    "signer_token",
-					ActorID:      strings.TrimSpace(tokenRecord.RecipientID),
+					ActorID:      strings.TrimSpace(publicToken.SigningToken.RecipientID),
 					IPAddress:    resolveAuditRequestIP(c, cfg),
 					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 					MetadataJSON: metadataJSON,
@@ -82,14 +82,14 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer session service not configured", nil)
+		if cfg.publicReviewSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 		}
-		threads, err := cfg.signerSession.ListReviewThreads(c.Context(), cfg.resolveScope(c), tokenRecord)
+		threads, err := cfg.publicReviewSession.ListPublicReviewThreads(c.Context(), cfg.resolveScope(c), publicToken)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusForbidden, string(services.ErrorCodeInvalidSignerState), "unable to load review threads", nil)
 		}
@@ -110,12 +110,12 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer session service not configured", nil)
+		if cfg.publicReviewSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 		}
 		var payload struct {
 			Thread services.ReviewCommentThreadInput `json:"thread"`
@@ -123,7 +123,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := c.Bind(&payload); err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review thread payload", nil)
 		}
-		thread, err := cfg.signerSession.CreateReviewThread(c.Context(), cfg.resolveScope(c), tokenRecord, payload.Thread)
+		thread, err := cfg.publicReviewSession.CreatePublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, payload.Thread)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusForbidden, string(services.ErrorCodeInvalidSignerState), "unable to create review thread", nil)
 		}
@@ -145,12 +145,12 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer session service not configured", nil)
+		if cfg.publicReviewSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 		}
 		var payload struct {
 			Reply services.ReviewCommentReplyInput `json:"reply"`
@@ -159,7 +159,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review reply payload", nil)
 		}
 		payload.Reply.ThreadID = threadID
-		thread, err := cfg.signerSession.ReplyReviewThread(c.Context(), cfg.resolveScope(c), tokenRecord, payload.Reply)
+		thread, err := cfg.publicReviewSession.ReplyPublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, payload.Reply)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusForbidden, string(services.ErrorCodeInvalidSignerState), "unable to reply to review thread", nil)
 		}
@@ -188,14 +188,14 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer session service not configured", nil)
+		if cfg.publicReviewSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 		}
-		summary, err := cfg.signerSession.ApproveReview(c.Context(), cfg.resolveScope(c), tokenRecord)
+		summary, err := cfg.publicReviewSession.ApprovePublicReview(c.Context(), cfg.resolveScope(c), publicToken)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusForbidden, string(services.ErrorCodeInvalidSignerState), "unable to approve review", nil)
 		}
@@ -216,14 +216,23 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewToken(c, cfg, token)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer session service not configured", nil)
+		if cfg.publicReviewSession == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 		}
-		summary, err := cfg.signerSession.RequestReviewChanges(c.Context(), cfg.resolveScope(c), tokenRecord)
+		var payload struct {
+			Comment string `json:"comment"`
+		}
+		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review decision payload"); err != nil {
+			return err
+		}
+		summary, err := cfg.publicReviewSession.RequestPublicReviewChanges(c.Context(), cfg.resolveScope(c), publicToken, services.ReviewDecisionInput{
+			Comment:   strings.TrimSpace(payload.Comment),
+			IPAddress: resolveAuditRequestIP(c, cfg),
+		})
 		if err != nil {
 			return writeAPIError(c, err, http.StatusForbidden, string(services.ErrorCodeInvalidSignerState), "unable to request review changes", nil)
 		}
@@ -1015,16 +1024,19 @@ func signerReviewThreadStateHandler(c router.Context, cfg registerConfig, resolv
 	if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 		return asHandlerError(err)
 	}
-	tokenRecord, err := resolveSignerToken(c, cfg, token)
+	publicToken, err := resolvePublicReviewToken(c, cfg, token)
 	if err != nil {
 		return asHandlerError(err)
+	}
+	if cfg.publicReviewSession == nil {
+		return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "public review session service not configured", nil)
 	}
 	input := services.ReviewCommentStateInput{ThreadID: threadID}
 	var thread services.ReviewThread
 	if resolve {
-		thread, err = cfg.signerSession.ResolveReviewThread(c.Context(), cfg.resolveScope(c), tokenRecord, input)
+		thread, err = cfg.publicReviewSession.ResolvePublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, input)
 	} else {
-		thread, err = cfg.signerSession.ReopenReviewThread(c.Context(), cfg.resolveScope(c), tokenRecord, input)
+		thread, err = cfg.publicReviewSession.ReopenPublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, input)
 	}
 	if err != nil {
 		message := "unable to update review thread"
