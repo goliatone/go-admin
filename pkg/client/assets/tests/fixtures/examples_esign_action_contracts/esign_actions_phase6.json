@@ -30,6 +30,24 @@
             "reason_code": "INVALID_STATUS",
             "severity": "warning"
           },
+          "request_amendment": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "allowed_statuses": [
+                "completed"
+              ],
+              "blocked_action": "request_amendment",
+              "business_rule_id": "esign.agreements.request_amendment_requires_completed",
+              "current_status": "sent"
+            },
+            "reason": "Amendments can only be requested for completed agreements.",
+            "reason_code": "INVALID_STATUS",
+            "severity": "warning"
+          },
+          "request_correction": {
+            "enabled": true
+          },
           "resend": {
             "enabled": true
           },
@@ -100,6 +118,20 @@
             "variant": ""
           },
           {
+            "command_name": "esign.agreements.request_correction",
+            "label": "Request Correction",
+            "name": "request_correction",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.request_amendment",
+            "label": "Request Amendment",
+            "name": "request_amendment",
+            "scope": "all",
+            "variant": ""
+          },
+          {
             "command_name": "esign.agreements.delivery.resume",
             "label": "Resume Delivery",
             "name": "resume_delivery",
@@ -127,6 +159,24 @@
     "list_contract": {
       "record": {
         "_action_state": {
+          "request_amendment": {
+            "enabled": false,
+            "kind": "business_rule",
+            "metadata": {
+              "allowed_statuses": [
+                "completed"
+              ],
+              "blocked_action": "request_amendment",
+              "business_rule_id": "esign.agreements.request_amendment_requires_completed",
+              "current_status": "sent"
+            },
+            "reason": "Amendments can only be requested for completed agreements.",
+            "reason_code": "INVALID_STATUS",
+            "severity": "warning"
+          },
+          "request_correction": {
+            "enabled": true
+          },
           "resend": {
             "enabled": true
           },
@@ -167,6 +217,20 @@
             "command_name": "esign.agreements.resend",
             "label": "Resend",
             "name": "resend",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.request_correction",
+            "label": "Request Correction",
+            "name": "request_correction",
+            "scope": "all",
+            "variant": ""
+          },
+          {
+            "command_name": "esign.agreements.request_amendment",
+            "label": "Request Amendment",
+            "name": "request_amendment",
             "scope": "all",
             "variant": ""
           },

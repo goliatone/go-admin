@@ -1,9 +1,17 @@
+import type {
+  TranslationExchangeConflictType,
+  TranslationExchangeJob,
+  TranslationExchangeValidationResult,
+} from "../translation-contracts/index.js";
+
 export interface TranslationExchangeConfig {
   apiPath: string;
   basePath: string;
   rootSelector?: string;
   historyPath?: string;
   includeExamples?: boolean;
+  analyticsTarget?: EventTarget;
+  telemetryEnabled?: boolean;
 }
 
 export interface TranslationExchangeSelectors {
@@ -59,6 +67,25 @@ export interface ImportOptions {
   dry_run: boolean;
 }
 
+export type ApplyResolutionDecision =
+  | "apply"
+  | "skip"
+  | "override_source_hash"
+  | "create_missing";
+
+export interface ApplyConflictResolution {
+  row: number;
+  decision: ApplyResolutionDecision;
+  conflict_type?: TranslationExchangeConflictType;
+}
+
+export interface ApplyRequest extends ImportOptions {
+  rows: ExportRow[];
+  async?: boolean;
+  retry_job_id?: string;
+  resolutions?: ApplyConflictResolution[];
+}
+
 export type RowStatus = "success" | "error" | "conflict" | "skipped";
 
 export interface RowResult {
@@ -88,11 +115,34 @@ export interface ImportResult {
   message?: string;
 }
 
+export interface ApplyResponse extends TranslationExchangeValidationResult {
+  job?: TranslationExchangeJob;
+  meta?: Record<string, unknown>;
+}
+
 export type TranslationExchangeStageDecision = "accepted" | "rejected";
+
+export interface ImportState {
+  file: File | null;
+  validated: boolean;
+  validationResult: ImportResult | null;
+}
 
 export interface ToastNotifier {
   success(message: string): void;
   error(message: string): void;
   info(message: string): void;
   warning(message: string): void;
+}
+
+export interface LongPollOptions {
+  intervalMs?: number;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  onTick?: (job: TranslationExchangeJob, attempt: number) => void;
+}
+
+export interface TranslationExchangeAnalyticsEvent {
+  name: string;
+  fields?: Record<string, unknown>;
 }

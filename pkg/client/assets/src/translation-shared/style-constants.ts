@@ -208,6 +208,67 @@ export const INPUT_TEXTAREA =
 export const INPUT_SELECT =
   'w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white';
 
+/** Readonly input (non-editable, visible value) */
+export const INPUT_READONLY =
+  'w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-not-allowed';
+
+/** Error state input (validation failed) */
+export const INPUT_ERROR =
+  'w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100';
+
+/** Disabled input (non-interactive) */
+export const INPUT_DISABLED =
+  'w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed opacity-60';
+
+// =============================================================================
+// Form Input Groups
+// =============================================================================
+
+/** Input group container */
+export const INPUT_GROUP = 'rounded-xl border border-gray-200 bg-white p-4 space-y-3';
+
+/** Input group header row */
+export const INPUT_GROUP_HEADER = 'flex items-center justify-between gap-3';
+
+/** Input group label */
+export const INPUT_GROUP_LABEL = 'text-xs font-semibold uppercase tracking-[0.18em] text-gray-500';
+
+/** Input group helper text */
+export const INPUT_GROUP_HELPER = 'text-xs text-gray-500 mt-1';
+
+/** Input group error text */
+export const INPUT_GROUP_ERROR = 'text-xs text-rose-600 mt-1';
+
+/**
+ * Returns the appropriate CSS class for an input based on its state.
+ *
+ * @param options - Input state options
+ * @param options.hasError - Whether the input has a validation error
+ * @param options.isReadonly - Whether the input is read-only
+ * @param options.isDisabled - Whether the input is disabled
+ * @param options.isTextarea - Whether the input is a textarea
+ * @returns Tailwind CSS class string for the input
+ *
+ * @example
+ * const className = getInputClass({ hasError: true });
+ * // Returns INPUT_ERROR class string
+ *
+ * @example
+ * const className = getInputClass({ isReadonly: true, isTextarea: true });
+ * // Returns INPUT_READONLY class string (state takes precedence over type)
+ */
+export function getInputClass(options: {
+  hasError?: boolean;
+  isReadonly?: boolean;
+  isDisabled?: boolean;
+  isTextarea?: boolean;
+}): string {
+  if (options.isDisabled) return INPUT_DISABLED;
+  if (options.isReadonly) return INPUT_READONLY;
+  if (options.hasError) return INPUT_ERROR;
+  return options.isTextarea ? INPUT_TEXTAREA : INPUT_TEXT;
+}
+
 // =============================================================================
 // Layout Helpers
 // =============================================================================
@@ -372,6 +433,269 @@ export function getStatusSeverityClass(status: string): string {
   const severity = STATUS_SEVERITY_MAP[normalized] ?? 'neutral';
   return getStatusColorClass(severity);
 }
+
+// =============================================================================
+// Local Summary Badge Constants (Phase 6.1.2)
+// =============================================================================
+
+/**
+ * Local summary-chip sizes for non-canonical counts and UI metadata.
+ *
+ * IMPORTANT: Do NOT use these for backend-authored translation statuses.
+ * Canonical translation statuses must continue to use renderVocabularyStatusBadge(...)
+ * from datatable/translation-status-vocabulary.ts.
+ *
+ * Use these badges for:
+ * - Count indicators (e.g., "3 warnings", "5 blockers")
+ * - Autosave state chips
+ * - QA finding severity badges
+ * - Timeline entry type badges
+ * - Glossary match chips
+ */
+
+/** Base meta badge: standard size for summary chips */
+export const META_BADGE_BASE = 'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium';
+
+/** Small meta badge: uppercase tracking for severity labels */
+export const META_BADGE_SM = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em]';
+
+/** Large meta badge: for prominent status indicators */
+export const META_BADGE_LG = 'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium';
+
+/** Count badge: with icon gap for number + label patterns */
+export const META_BADGE_COUNT = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium';
+
+/** Badge severity type */
+export type BadgeSeverity = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+
+/** Badge size type */
+export type MetaBadgeSize = 'sm' | 'md' | 'lg' | 'count';
+
+/**
+ * Returns the appropriate CSS class for a meta badge based on severity and size.
+ *
+ * Use this for non-canonical UI badges like counts, QA summaries, and autosave state.
+ * Do NOT use for backend-authored translation statuses (use renderVocabularyStatusBadge instead).
+ *
+ * @param severity - The semantic severity level of the badge
+ * @param size - The badge size variant (default: 'md')
+ * @returns Combined CSS class string including size and color classes
+ *
+ * @example
+ * // Warning badge at default size
+ * const className = getMetaBadgeClass('warning');
+ *
+ * @example
+ * // Small error badge for QA severity label
+ * const className = getMetaBadgeClass('error', 'sm');
+ *
+ * @example
+ * // Count badge with success styling
+ * const className = getMetaBadgeClass('success', 'count');
+ */
+export function getMetaBadgeClass(
+  severity: BadgeSeverity,
+  size: MetaBadgeSize = 'md'
+): string {
+  const sizeClass =
+    size === 'sm'
+      ? META_BADGE_SM
+      : size === 'lg'
+        ? META_BADGE_LG
+        : size === 'count'
+          ? META_BADGE_COUNT
+          : META_BADGE_BASE;
+  return `${sizeClass} ${getStatusColorClass(severity)}`;
+}
+
+// =============================================================================
+// Timeline Entry Constants (Phase 6.2.1)
+// =============================================================================
+
+/** Base timeline entry container */
+export const TIMELINE_ENTRY_BASE = 'rounded-xl border px-3 py-3 text-sm';
+
+/** Timeline entry title text */
+export const TIMELINE_TITLE_BASE = 'font-semibold';
+
+/** Timeline entry timestamp text */
+export const TIMELINE_TIME_BASE = 'text-xs';
+
+/**
+ * Maps timeline entry tones to severity levels for styling.
+ */
+export const TIMELINE_TONE_MAP = {
+  event: 'neutral',
+  review: 'warning',
+  qa: 'error',
+  success: 'success',
+} as const;
+
+/** Timeline entry tone type */
+export type TimelineTone = 'event' | 'review' | 'qa' | 'success';
+
+/**
+ * Returns CSS classes for timeline entry components based on tone.
+ *
+ * @param tone - The semantic tone of the timeline entry
+ * @returns Object containing CSS classes for container, title, badge, and time elements
+ *
+ * @example
+ * const classes = getTimelineEntryClasses('review');
+ * // Use: <li class="${classes.container}">
+ * //        <p class="${classes.title}">Review requested</p>
+ * //        <span class="${classes.badge}">Review</span>
+ * //        <span class="${classes.time}">2 hours ago</span>
+ * //      </li>
+ */
+export function getTimelineEntryClasses(tone: TimelineTone): {
+  container: string;
+  title: string;
+  badge: string;
+  time: string;
+} {
+  const severity = TIMELINE_TONE_MAP[tone] ?? 'neutral';
+  const colorClass = getStatusColorClass(severity);
+
+  return {
+    container: `${TIMELINE_ENTRY_BASE} ${colorClass}`,
+    title: `${TIMELINE_TITLE_BASE} text-gray-900`,
+    badge: getMetaBadgeClass(severity as BadgeSeverity, 'sm'),
+    time: `${TIMELINE_TIME_BASE} text-gray-500`,
+  };
+}
+
+// =============================================================================
+// QA Finding Constants (Phase 6.2.2)
+// =============================================================================
+
+/** Base QA finding container */
+export const QA_FINDING_BASE = 'rounded-xl border px-3 py-3 text-sm bg-white';
+
+/** Base QA panel container */
+export const QA_PANEL_BASE = 'rounded-xl border p-5';
+
+/** QA finding severity type */
+export type QASeverity = 'blocker' | 'warning';
+
+/**
+ * Returns CSS classes for QA finding components based on severity.
+ *
+ * @param severity - The QA finding severity ('blocker' or 'warning')
+ * @returns Object containing CSS classes for container and badge elements
+ *
+ * @example
+ * const classes = getQAFindingClasses('blocker');
+ * // Use: <li class="${classes.container}">
+ * //        <span class="${classes.badge}">Blocker</span>
+ * //        <p>Missing required field</p>
+ * //      </li>
+ */
+export function getQAFindingClasses(severity: QASeverity): {
+  container: string;
+  badge: string;
+} {
+  return severity === 'blocker'
+    ? {
+        container: `${QA_FINDING_BASE} ${getStatusColorClass('error')} text-gray-900`,
+        badge: getMetaBadgeClass('error', 'sm'),
+      }
+    : {
+        container: `${QA_FINDING_BASE} ${getStatusColorClass('warning')} text-gray-900`,
+        badge: getMetaBadgeClass('warning', 'sm'),
+      };
+}
+
+/**
+ * Returns the CSS class for a QA panel based on submit blocked state.
+ *
+ * @param submitBlocked - Whether the submit action is blocked due to QA issues
+ * @returns CSS class string for the QA panel container
+ *
+ * @example
+ * const panelClass = getQAPanelClass(true);
+ * // Use: <section class="${panelClass}">...</section>
+ */
+export function getQAPanelClass(submitBlocked: boolean): string {
+  return `${QA_PANEL_BASE} ${submitBlocked ? getStatusColorClass('error') : getStatusColorClass('neutral')}`;
+}
+
+// =============================================================================
+// Autosave State Constants (Phase 6.2.3)
+// =============================================================================
+
+/** Autosave state type */
+export type AutosaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'conflict';
+
+/**
+ * Returns the CSS class for an autosave state badge.
+ *
+ * @param state - The current autosave state
+ * @returns Tailwind CSS class string for the autosave state badge
+ *
+ * @example
+ * const className = getAutosaveStateClass('saving');
+ * // Use: <span class="${className}">Saving...</span>
+ */
+export function getAutosaveStateClass(state: AutosaveState): string {
+  switch (state) {
+    case 'conflict':
+      return getMetaBadgeClass('error');
+    case 'saving':
+      return getMetaBadgeClass('warning');
+    case 'saved':
+      return getMetaBadgeClass('success');
+    case 'dirty':
+      return getMetaBadgeClass('neutral');
+    case 'idle':
+    default:
+      return getMetaBadgeClass('neutral');
+  }
+}
+
+/**
+ * Returns the display label for an autosave state.
+ *
+ * @param state - The current autosave state
+ * @param lastSavedMessage - Optional custom message for the 'saved' state
+ * @returns Human-readable label for the autosave state
+ *
+ * @example
+ * const label = getAutosaveStateLabel('saving');
+ * // Returns: "Autosaving draft…"
+ *
+ * @example
+ * const label = getAutosaveStateLabel('saved', 'Saved 2 minutes ago');
+ * // Returns: "Saved 2 minutes ago"
+ */
+export function getAutosaveStateLabel(state: AutosaveState, lastSavedMessage?: string): string {
+  switch (state) {
+    case 'conflict':
+      return 'Conflict detected';
+    case 'saving':
+      return 'Autosaving draft…';
+    case 'saved':
+      return lastSavedMessage || 'Draft saved automatically';
+    case 'dirty':
+      return 'Unsaved changes';
+    case 'idle':
+    default:
+      return 'No pending changes';
+  }
+}
+
+// =============================================================================
+// Glossary Chip Constants (Phase 6.2.4)
+// =============================================================================
+
+/**
+ * CSS class for glossary match chips.
+ * Uses info severity for terminology hints in the editor.
+ */
+export const GLOSSARY_CHIP = `${META_BADGE_BASE} ${getStatusColorClass('info')}`;
+
+/** CSS class for the glossary term text (bold styling) */
+export const GLOSSARY_CHIP_TERM = 'font-semibold';
 
 // =============================================================================
 // Mobile Responsive Layout Classes

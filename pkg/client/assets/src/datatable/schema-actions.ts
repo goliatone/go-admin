@@ -617,13 +617,17 @@ export class SchemaActionBuilder {
     const result = await executeActionRequest(input.endpoint, input.payload);
 
     if (result.success) {
-      this.config.onActionSuccess?.(input.actionName, result);
-
       // Post-create handoff for create_translation action
       if (input.actionName.toLowerCase() === 'create_translation' && result.data) {
         this.handleCreateTranslationSuccess(result.data, input.payload);
+        return result;
       }
 
+      if (this.handleActionRedirectSuccess(result.data)) {
+        return result;
+      }
+
+      this.config.onActionSuccess?.(input.actionName, result);
       return result;
     }
 
@@ -652,6 +656,34 @@ export class SchemaActionBuilder {
 
     await this.handleStructuredActionFailure(input.actionName, result, `${input.actionName} failed`);
     return { success: false, error: result.error };
+  }
+
+  private handleActionRedirectSuccess(data?: Record<string, unknown>): boolean {
+    if (!data || typeof window === 'undefined') {
+      return false;
+    }
+
+    const redirectPath = typeof data.redirect_path === 'string' ? data.redirect_path.trim() : '';
+    if (redirectPath) {
+      window.location.href = redirectPath;
+      return true;
+    }
+
+    const redirectRecordID = typeof data.redirect_record_id === 'string'
+      ? data.redirect_record_id.trim()
+      : '';
+    if (!redirectRecordID) {
+      return false;
+    }
+
+    const redirectToEdit = data.redirect_to_edit === true
+      || data.mode === 'redirect';
+    const targetURL = redirectToEdit
+      ? `${this.config.actionBasePath}/${encodeURIComponent(redirectRecordID)}/edit`
+      : `${this.config.actionBasePath}/${encodeURIComponent(redirectRecordID)}`;
+
+    window.location.href = targetURL;
+    return true;
   }
 
   private async handleStructuredActionFailure(

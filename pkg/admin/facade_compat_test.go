@@ -72,7 +72,7 @@ func TestFacadeConstructorsAndManualHelper(t *testing.T) {
 	if content := NewInMemoryContentService(); content == nil {
 		t.Fatal("NewInMemoryContentService() returned nil")
 	}
-	if ptr := IntPtr(42); ptr == nil || *ptr != 42 {
+	if ptr := new(42); ptr == nil || *ptr != 42 {
 		t.Fatalf("IntPtr(42) = %v", ptr)
 	}
 }

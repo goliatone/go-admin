@@ -135,10 +135,7 @@ func (o *Orchestrator) Run(ctx context.Context, input RunInput) (models.Run, err
 		}
 		remainingTime := time.Duration(0)
 		if policy.Limits.MaxTime > 0 {
-			remainingTime = policy.Limits.MaxTime - time.Since(startedAt)
-			if remainingTime < 0 {
-				remainingTime = 0
-			}
+			remainingTime = max(policy.Limits.MaxTime-time.Since(startedAt), 0)
 		}
 		callInput := resolverInput
 		callInput.FieldDefinitions = currentUnresolved

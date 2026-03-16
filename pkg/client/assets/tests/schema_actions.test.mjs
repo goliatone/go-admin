@@ -235,6 +235,44 @@ test('schema actions use labels from schema, not defaults', () => {
   assert.equal(actions[2].label, 'Remove');
 });
 
+test('executePostAction redirects to revision edit route when action response requests edit redirect', async () => {
+  const builder = createBuilder({
+    useDefaultFallback: false,
+    onActionSuccess: () => {
+      throw new Error('onActionSuccess should not run when redirecting');
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  globalThis.window = { location: { href: 'http://localhost/current' } };
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    status: 'ok',
+    data: {
+      mode: 'redirect',
+      redirect_to_edit: true,
+      redirect_record_id: 'agreement-revision-1',
+    },
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  try {
+    const result = await builder.executePostAction({
+      actionName: 'request_correction',
+      endpoint: '/admin/api/v1/panels/esign_agreements/actions/request_correction',
+      payload: { id: 'agreement-1' },
+      recordId: 'agreement-1',
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(globalThis.window.location.href, '/admin/content/pages/agreement-revision-1/edit');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
+  }
+});
+
 // =============================================================================
 // SchemaActionBuilder - Duplicate Prevention Tests
 // =============================================================================

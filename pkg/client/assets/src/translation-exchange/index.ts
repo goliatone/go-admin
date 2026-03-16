@@ -12,8 +12,13 @@ export {
 } from "../translation-contracts/index.js";
 
 export type {
+  ApplyConflictResolution,
+  ApplyRequest,
+  ApplyResolutionDecision,
+  ApplyResponse,
   TranslationExchangeConfig,
   TranslationExchangeSelectors,
+  LongPollOptions,
   LocaleOption,
   ResourceOption,
   ExportRequest,
@@ -25,15 +30,18 @@ export type {
   RowResult,
   RowStatus,
   ResultSummary,
+  TranslationExchangeAnalyticsEvent,
   ToastNotifier,
 } from "./types.js";
 export type {
   TranslationExchangeConflictRow,
+  TranslationExchangeConflictType,
   TranslationExchangeHistoryResponse,
   TranslationExchangeJob,
   TranslationExchangeJobDownload,
   TranslationExchangeJobKind,
   TranslationExchangeJobProgress,
+  TranslationExchangeJobRetention,
   TranslationExchangeJobStatus,
   TranslationExchangeUploadDescriptor,
   TranslationExchangeUploadState,

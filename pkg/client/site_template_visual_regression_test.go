@@ -23,7 +23,6 @@ var siteTemplateVisualRegressionTargets = []string{
 func TestSiteTemplateVisualRegressionSnapshots(t *testing.T) {
 	updateSnapshots := shouldUpdateSiteSnapshots()
 	for _, templatePath := range siteTemplateVisualRegressionTargets {
-		templatePath := templatePath
 		t.Run(templatePath, func(t *testing.T) {
 			rawTemplate, err := fs.ReadFile(Templates(), templatePath)
 			if err != nil {

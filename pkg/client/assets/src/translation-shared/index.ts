@@ -91,6 +91,45 @@ export {
   INPUT_TEXT_SM,
   INPUT_TEXTAREA,
   INPUT_SELECT,
+  INPUT_READONLY,
+  INPUT_ERROR,
+  INPUT_DISABLED,
+
+  // Form Input Groups (Phase 6.1.1)
+  INPUT_GROUP,
+  INPUT_GROUP_HEADER,
+  INPUT_GROUP_LABEL,
+  INPUT_GROUP_HELPER,
+  INPUT_GROUP_ERROR,
+  getInputClass,
+
+  // Local Summary Badges (Phase 6.1.2)
+  META_BADGE_BASE,
+  META_BADGE_SM,
+  META_BADGE_LG,
+  META_BADGE_COUNT,
+  getMetaBadgeClass,
+
+  // Timeline Entry (Phase 6.2.1)
+  TIMELINE_ENTRY_BASE,
+  TIMELINE_TITLE_BASE,
+  TIMELINE_TIME_BASE,
+  TIMELINE_TONE_MAP,
+  getTimelineEntryClasses,
+
+  // QA Finding (Phase 6.2.2)
+  QA_FINDING_BASE,
+  QA_PANEL_BASE,
+  getQAFindingClasses,
+  getQAPanelClass,
+
+  // Autosave State (Phase 6.2.3)
+  getAutosaveStateClass,
+  getAutosaveStateLabel,
+
+  // Glossary Chips (Phase 6.2.4)
+  GLOSSARY_CHIP,
+  GLOSSARY_CHIP_TERM,
 
   // Layout
   CONTENT_PADDING,
@@ -144,6 +183,15 @@ export {
   // Focus Utilities
   trapFocus,
   setupFieldTabOrder,
+} from './style-constants.js';
+
+// Type exports (Phase 6.1.2, 6.2)
+export type {
+  BadgeSeverity,
+  MetaBadgeSize,
+  TimelineTone,
+  QASeverity,
+  AutosaveState,
 } from './style-constants.js';
 
 // =============================================================================

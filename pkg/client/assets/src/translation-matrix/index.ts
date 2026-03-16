@@ -1140,11 +1140,17 @@ function renderMatrixPage(
     : payload.data.rows.length === 0
       ? renderEmptyState()
       : `${renderBulkToolbar(payload, selection, feedback, working)}<div class="grid gap-5">${renderViewportControls(payload)}${renderMatrixGrid(payload, selection)}</div>`;
+  const translationsHref = `${trimTrailingSlash(basePath || '/admin')}/translations`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
       <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
+            <nav class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" aria-label="Breadcrumb">
+              <a class="hover:text-sky-700 hover:underline" href="${escapeAttribute(translationsHref)}">Translations</a>
+              <span class="px-2 text-gray-400">/</span>
+              <span class="text-gray-600">${escapeHTML(title)}</span>
+            </nav>
             <p class="${HEADER_PRETITLE}">Translation Coverage</p>
             <h1 class="${HEADER_TITLE} mt-2">${escapeHTML(title)}</h1>
             <p class="${HEADER_DESCRIPTION} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>

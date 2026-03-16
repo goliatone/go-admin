@@ -249,7 +249,7 @@ func parseRect(raw []string) ([4]float64, bool) {
 	if len(raw) != 4 {
 		return out, false
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		parsed, err := strconv.ParseFloat(strings.TrimSpace(raw[i]), 64)
 		if err != nil {
 			return out, false

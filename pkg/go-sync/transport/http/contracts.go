@@ -3,6 +3,7 @@ package httptransport
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"time"
 
 	"github.com/goliatone/go-admin/pkg/go-sync/core"
@@ -132,9 +133,7 @@ func cloneMetadata(input map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 
@@ -148,9 +147,7 @@ func envelopeMetadata(snapshot core.Snapshot) map[string]any {
 	}
 	if _, ok := metadata["scope"]; !ok && len(snapshot.ResourceRef.Scope) > 0 {
 		scope := make(map[string]string, len(snapshot.ResourceRef.Scope))
-		for key, value := range snapshot.ResourceRef.Scope {
-			scope[key] = value
-		}
+		maps.Copy(scope, snapshot.ResourceRef.Scope)
 		metadata["scope"] = scope
 	}
 	if len(metadata) == 0 {

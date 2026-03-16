@@ -8,7 +8,7 @@ import { g as Xe, r as oe, a as Yt, n as Qt, b as Ze, c as et, d as tt, e as Wt,
 import { C as cl, D as dl, t as ul, E as pl, q as hl, s as fl, Q as ml, F as gl, B as bl, y as yl, u as vl, z as wl, H as xl, x as Sl, G as Cl, w as $l, v as kl, k as Al, l as El, m as Ll, p as _l, o as Rl, A as Il } from "../chunks/translation-status-vocabulary-huaq_68y.js";
 import { h as B, r as Zt } from "../chunks/http-client-Dm229xuF.js";
 import { S as er } from "../chunks/sortable.esm-DOKudrbz.js";
-import { d as tr, E as rr } from "../chunks/index-BWO_nnyN.js";
+import { e as tr, E as rr } from "../chunks/index-D46vxB91.js";
 let nr = class ot extends We {
   constructor(e, t, n) {
     super({ size: "md", initialFocus: "[data-payload-field]", lockBodyScroll: !1 }), this.resolved = !1, this.config = e, this.onConfirm = t, this.onCancel = n;
@@ -541,7 +541,7 @@ class sr {
     return String(e).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 }
-function M(r) {
+function T(r) {
   const e = {
     requestedLocale: null,
     resolvedLocale: null,
@@ -581,11 +581,11 @@ function M(r) {
   ]), e.status = F(r, ["status"]), e.entityType = F(r, ["entity_type", "type", "_type"]), e.recordId = F(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
 }
 function Ca(r) {
-  const e = M(r);
+  const e = T(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
 function $a(r) {
-  const e = M(r);
+  const e = T(r);
   return e.translationGroupId !== null || e.resolvedLocale !== null || e.availableLocales.length > 0;
 }
 function E(r) {
@@ -637,7 +637,7 @@ function or(r) {
   return ["ready", "missing_locales", "missing_fields", "missing_locales_and_fields"].includes(r);
 }
 function at(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : M(r), { showFallbackIndicator: n = !0, size: s = "default", extraClass: o = "" } = e;
+  const t = "resolvedLocale" in r ? r : T(r), { showFallbackIndicator: n = !0, size: s = "default", extraClass: o = "" } = e;
   if (!t.resolvedLocale)
     return "";
   const a = t.resolvedLocale.toUpperCase(), i = t.fallbackUsed || t.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
@@ -655,7 +655,7 @@ function at(r, e = {}) {
   </span>`;
 }
 function ar(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : M(r), { maxLocales: n = 3, size: s = "default" } = e;
+  const t = "resolvedLocale" in r ? r : T(r), { maxLocales: n = 3, size: s = "default" } = e;
   if (t.availableLocales.length === 0)
     return "";
   const o = s === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", a = s === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", i = t.availableLocales.slice(0, n), l = t.availableLocales.length - n, c = i.map((u) => `<span class="${u === t.resolvedLocale ? `${a} rounded bg-blue-100 text-blue-700 font-medium` : `${a} rounded bg-gray-100 text-gray-600`}">${u.toUpperCase()}</span>`).join(""), d = l > 0 ? `<span class="${a} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
@@ -666,7 +666,7 @@ function ar(r, e = {}) {
   </span>`;
 }
 function ir(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : M(r), { showResolvedLocale: n = !0, size: s = "default" } = e, o = [];
+  const t = "resolvedLocale" in r ? r : T(r), { showResolvedLocale: n = !0, size: s = "default" } = e, o = [];
   return n && t.resolvedLocale && o.push(at(t, { size: s, showFallbackIndicator: !0 })), t.availableLocales.length > 1 && o.push(ar(t, { ...e, size: s })), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${o.join("")}</div>`;
 }
 function Ea(r, e = "default") {
@@ -812,8 +812,8 @@ function cr(r, e = {}) {
     return '<span class="text-gray-400">-</span>';
   const d = new Set(i), u = dr(l), p = c.slice(0, n).map((f) => {
     const y = d.has(f), v = y && u.has(f), g = y && !v;
-    let C, T, A;
-    g ? (C = "bg-green-100 text-green-700 border-green-300", T = "●", A = "Complete") : v ? (C = "bg-amber-100 text-amber-700 border-amber-300", T = "◐", A = "Incomplete") : (C = "bg-white text-gray-400 border-gray-300 border-dashed", T = "○", A = "Missing");
+    let C, M, A;
+    g ? (C = "bg-green-100 text-green-700 border-green-300", M = "●", A = "Complete") : v ? (C = "bg-amber-100 text-amber-700 border-amber-300", M = "◐", A = "Incomplete") : (C = "bg-white text-gray-400 border-gray-300 border-dashed", M = "○", A = "Missing");
     const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", N = s ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
     return `
         <span class="inline-flex items-center gap-0.5 ${w} rounded border ${C}"
@@ -822,7 +822,7 @@ function cr(r, e = {}) {
               data-locale="${f}"
               data-state="${A.toLowerCase()}">
           ${N}
-          <span aria-hidden="true">${T}</span>
+          <span aria-hidden="true">${M}</span>
         </span>
       `;
   }).join(""), h = c.length > n ? `<span class="text-[10px] text-gray-500" title="${c.length - n} more locales">+${c.length - n}</span>` : "";
@@ -835,10 +835,10 @@ function dr(r) {
       Array.isArray(n) && n.length > 0 && e.add(t);
   return e;
 }
-function Ma(r = {}) {
+function Ta(r = {}) {
   return (e, t, n) => cr(t, r);
 }
-function Ta(r, e = {}) {
+function Ma(r, e = {}) {
   if (!r.fallbackUsed && !r.missingRequestedLocale)
     return "";
   const { showCreateButton: t = !0, createTranslationUrl: n, panelName: s } = e, o = r.requestedLocale || "requested locale", a = r.resolvedLocale || "default", i = t ? `
@@ -1431,7 +1431,7 @@ class Br extends lt {
 function Pr(r) {
   return (r.mode || "local") === "preferences" ? new Br(r) : new lt(r);
 }
-function Mr(r, e = {}) {
+function Tr(r, e = {}) {
   const {
     groupByField: t = "translation_group_id",
     defaultExpanded: n = !0,
@@ -1485,7 +1485,7 @@ function ct(r) {
   }
   return e;
 }
-function Tr(r, e = {}) {
+function Mr(r, e = {}) {
   const {
     defaultExpanded: t = !0,
     expandMode: n = "explicit",
@@ -2336,12 +2336,12 @@ function An(r) {
 }
 function En(r, e, t, n) {
   const s = r.config.groupByField || "translation_group_id", o = t.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
-  let a = Tr(o, {
+  let a = Mr(o, {
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
     expandedGroups: r.state.expandedGroups
   });
-  a || (a = Mr(o, {
+  a || (a = Tr(o, {
     groupByField: s,
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
@@ -2402,10 +2402,10 @@ function Pn(r, e) {
   );
   r.state.expandMode = "explicit", r.state.expandedGroups = t, r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh();
 }
-function Mn(r) {
+function Tn(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "all", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
-function Tn(r) {
+function Mn(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "none", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
 function Dn(r, e) {
@@ -3381,7 +3381,7 @@ function Ps(r, e) {
   const t = new Set(r.config.columns.map((a) => a.field)), n = new Set(e), s = e.filter((a) => t.has(a)), o = r.config.columns.map((a) => a.field).filter((a) => !n.has(a));
   return [...s, ...o];
 }
-function Ms(r, e) {
+function Ts(r, e) {
   if (!r.tableEl) return;
   const t = r.tableEl.querySelector("thead tr:first-child");
   t && r.reorderRowCells(t, e, "th");
@@ -3390,7 +3390,7 @@ function Ms(r, e) {
     r.reorderRowCells(o, e, "td");
   });
 }
-function Ts(r, e, t, n) {
+function Ms(r, e, t, n) {
   const s = Array.from(e.querySelectorAll(`${n}[data-column]`)), o = new Map(
     s.map((d) => [d.dataset.column, d])
   ), a = Array.from(e.querySelectorAll(n)), i = e.querySelector(`${n}[data-role="selection"]`) || a.find((d) => d.querySelector('input[type="checkbox"]')), l = e.querySelector(`${n}[data-role="actions"]`) || a.find(
@@ -3572,10 +3572,10 @@ const k = class k {
     Pn(this, e);
   }
   expandAllGroups() {
-    Mn(this);
+    Tn(this);
   }
   collapseAllGroups() {
-    Tn(this);
+    Mn(this);
   }
   updateGroupVisibility(e) {
     Dn(this, e);
@@ -3713,10 +3713,10 @@ const k = class k {
     return Ps(this, e);
   }
   reorderTableColumns(e) {
-    Ms(this, e);
+    Ts(this, e);
   }
   reorderRowCells(e, t, n) {
-    Ts(this, e, t, n);
+    Ms(this, e, t, n);
   }
   destroy() {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.bulkActionStateAbortController && (this.bulkActionStateAbortController.abort(), this.bulkActionStateAbortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.bulkActionStateDebounce && (clearTimeout(this.bulkActionStateDebounce), this.bulkActionStateDebounce = null), console.log("[DataGrid] Instance destroyed");
@@ -5254,7 +5254,7 @@ class Et {
   async executePostAction(e) {
     const t = await $e(e.endpoint, e.payload);
     if (t.success)
-      return this.config.onActionSuccess?.(e.actionName, t), e.actionName.toLowerCase() === "create_translation" && t.data && this.handleCreateTranslationSuccess(t.data, e.payload), t;
+      return e.actionName.toLowerCase() === "create_translation" && t.data ? (this.handleCreateTranslationSuccess(t.data, e.payload), t) : (this.handleActionRedirectSuccess(t.data) || this.config.onActionSuccess?.(e.actionName, t), t);
     if (t.error && Ut(t.error)) {
       const n = Vt(t.error);
       if (n && this.config.onTranslationBlocker) {
@@ -5275,6 +5275,18 @@ class Et {
       }
     }
     return await this.handleStructuredActionFailure(e.actionName, t, `${e.actionName} failed`), { success: !1, error: t.error };
+  }
+  handleActionRedirectSuccess(e) {
+    if (!e || typeof window > "u")
+      return !1;
+    const t = typeof e.redirect_path == "string" ? e.redirect_path.trim() : "";
+    if (t)
+      return window.location.href = t, !0;
+    const n = typeof e.redirect_record_id == "string" ? e.redirect_record_id.trim() : "";
+    if (!n)
+      return !1;
+    const o = e.redirect_to_edit === !0 || e.mode === "redirect" ? `${this.config.actionBasePath}/${encodeURIComponent(n)}/edit` : `${this.config.actionBasePath}/${encodeURIComponent(n)}`;
+    return window.location.href = o, !0;
   }
   async handleStructuredActionFailure(e, t, n) {
     if (!t.error)
@@ -5440,8 +5452,8 @@ class Et {
       if (!g || f.has(g))
         continue;
       f.add(g);
-      const C = d?.toLowerCase() === g, T = u.includes(g), A = [];
-      T && A.push("Required for publishing"), p.length > 0 && A.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
+      const C = d?.toLowerCase() === g, M = u.includes(g), A = [];
+      M && A.push("Required for publishing"), p.length > 0 && A.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
       const w = A.length > 0 ? A.join(" • ") : void 0, N = h[g] || this.localeLabel(g);
       let De = `${g.toUpperCase()} - ${N}`;
       C && (De += " (recommended)"), y.push({
@@ -6980,7 +6992,7 @@ function Ke(r, e, t, n, s) {
   const a = String(n ?? s ?? "").trim();
   return a && o.set("channel", a), `${r}/${e}/edit?${o.toString()}`;
 }
-class Me {
+class Te {
   constructor(e) {
     this.element = null, this.localeChip = null, this.config = {
       showFormLockMessage: !0,
@@ -7182,19 +7194,19 @@ function gi(r) {
   return r.getAttribute("data-lock-reason");
 }
 function bi(r, e) {
-  const t = M(r);
-  return new Me({ ...e, context: t }).render();
+  const t = T(r);
+  return new Te({ ...e, context: t }).render();
 }
 function yi(r) {
-  const e = M(r);
+  const e = T(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
 function vi(r, e) {
-  const t = new Me(e);
+  const t = new Te(e);
   return t.mount(r), t;
 }
 function wi(r, e) {
-  const t = M(e), s = new Me({
+  const t = T(e), s = new Te({
     context: t,
     apiEndpoint: "",
     navigationBasePath: ""
@@ -7423,7 +7435,7 @@ function So(r) {
     "]": "]"
   }[r] || r.toUpperCase();
 }
-class Mt {
+class Tt {
   constructor(e = {}) {
     this.shortcuts = /* @__PURE__ */ new Map(), this.keydownHandler = null, this.boundElement = null, this.config = {
       enabled: !0,
@@ -7667,7 +7679,7 @@ function q(r) {
   const e = typeof document < "u" ? document.createElement("div") : null;
   return e ? (e.textContent = r, e.innerHTML) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-const Tt = "admin_keyboard_shortcuts_settings", Dt = "admin_keyboard_shortcuts_hint_dismissed", te = {
+const Mt = "admin_keyboard_shortcuts_settings", Dt = "admin_keyboard_shortcuts_hint_dismissed", te = {
   enabled: !0,
   shortcuts: {},
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -7680,7 +7692,7 @@ function $o() {
   if (!r)
     return { ...te };
   try {
-    const e = r.getItem(Tt);
+    const e = r.getItem(Mt);
     if (!e)
       return { ...te };
     const t = JSON.parse(e);
@@ -7701,7 +7713,7 @@ function ki(r) {
         ...r,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      e.setItem(Tt, JSON.stringify(t));
+      e.setItem(Mt, JSON.stringify(t));
     } catch {
     }
 }
@@ -7895,10 +7907,10 @@ function Lo(r, e) {
 }
 let ge = null;
 function Ei() {
-  return ge || (ge = new Mt()), ge;
+  return ge || (ge = new Tt()), ge;
 }
 function _o(r, e) {
-  const t = $o(), n = new Mt({
+  const t = $o(), n = new Tt({
     ...e,
     enabled: t.enabled
   }), s = Co(r);
@@ -7915,7 +7927,7 @@ function Li(r, e) {
     }
   }), t;
 }
-const Ro = 1500, Io = 2e3, Te = "autosave", U = {
+const Ro = 1500, Io = 2e3, Me = "autosave", U = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
@@ -7938,7 +7950,7 @@ class Ft {
       savedDurationMs: e.savedDurationMs ?? Io,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
-      classPrefix: e.classPrefix ?? Te,
+      classPrefix: e.classPrefix ?? Me,
       labels: { ...U, ...e.labels },
       // Phase 3b conflict handling (TX-074)
       enableConflictDetection: e.enableConflictDetection ?? !1,
@@ -8270,7 +8282,7 @@ function _i(r) {
   });
 }
 function Ri(r, e = {}) {
-  const t = e.classPrefix ?? Te, s = { ...U, ...e.labels }[r] || "";
+  const t = e.classPrefix ?? Me, s = { ...U, ...e.labels }[r] || "";
   let o = "";
   switch (r) {
     case "saving":
@@ -8291,7 +8303,7 @@ function Ri(r, e = {}) {
     <span class="${t}__label">${s}</span>
   </div>`;
 }
-function Ii(r = Te) {
+function Ii(r = Me) {
   return `
     .${r} {
       display: inline-flex;
@@ -8480,7 +8492,7 @@ const qt = "char-counter", Po = "interpolation-preview", Ot = "dir-toggle", jt =
   // Ruby/Python named: %(name)s, ${name}
   { pattern: /%\((\w+)\)[sdf]/g, name: "Named Printf", example: "%(name)s" },
   { pattern: /\$\{(\w+)\}/g, name: "Template Literal", example: "${name}" }
-], Mo = {
+], To = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -8490,7 +8502,7 @@ const qt = "char-counter", Po = "interpolation-preview", Ot = "dir-toggle", jt =
   item: "Product",
   total: "100"
 };
-class To {
+class Mo {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -8576,7 +8588,7 @@ class Do {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? Mo,
+      sampleValues: e.sampleValues ?? To,
       patterns: [...jt, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
       classPrefix: e.classPrefix ?? Po
@@ -8772,7 +8784,7 @@ function Pi(r, e = {}) {
   const t = [], n = [], s = [];
   for (const o of e.charCounterFields ?? []) {
     const a = r.querySelector(`[name="${o}"]`);
-    a && t.push(new To({
+    a && t.push(new Mo({
       input: a,
       ...e.charCounterConfig
     }));
@@ -8801,13 +8813,13 @@ function Pi(r, e = {}) {
     }
   };
 }
-function Mi(r, e, t, n = qt) {
+function Ti(r, e, t, n = qt) {
   const s = [n];
   t && s.push(`${n}--${t}`);
   const o = e ? `${r} / ${e}` : `${r}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${o}</span>`;
 }
-function Ti(r, e = Ot) {
+function Mi(r, e = Ot) {
   const t = r === "rtl", n = t ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${e}" aria-pressed="${t}" title="Toggle text direction (${r.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
@@ -12203,12 +12215,12 @@ export {
   cl as CORE_READINESS_DISPLAY,
   zt as CapabilityGate,
   Cr as CellRendererRegistry,
-  To as CharacterCounter,
+  Mo as CharacterCounter,
   es as ColumnManager,
   Da as CommonRenderers,
   Uo as DEFAULT_FILTER_PRESETS,
   jt as DEFAULT_INTERPOLATION_PATTERNS,
-  Mo as DEFAULT_SAMPLE_VALUES,
+  To as DEFAULT_SAMPLE_VALUES,
   be as DEFAULT_SIDE_BY_SIDE_LABELS,
   io as DEFAULT_STATUS_LEGEND_ITEMS,
   Rt as DEFAULT_TRANSLATION_QUICK_FILTERS,
@@ -12220,7 +12232,7 @@ export {
   ul as EXCHANGE_JOB_STATUS_DISPLAY,
   pl as EXCHANGE_ROW_STATUS_DISPLAY,
   ra as ExchangeImport,
-  Me as FallbackBanner,
+  Te as FallbackBanner,
   Ka as FilterBuilder,
   Za as GoCrudBulkActionBehavior,
   Xa as GoCrudExportBehavior,
@@ -12230,7 +12242,7 @@ export {
   Wa as GoCrudSortBehavior,
   Bt as InlineLocaleChips,
   Do as InterpolationPreview,
-  Mt as KeyboardShortcutRegistry,
+  Tt as KeyboardShortcutRegistry,
   lt as LocalDataGridStateStore,
   ce as LocaleActionChip,
   to as PayloadInputModal,
@@ -12266,7 +12278,7 @@ export {
   bl as createStatusCellRenderer,
   lo as createStatusLegend,
   _i as createTranslationAutosave,
-  Ma as createTranslationMatrixRenderer,
+  Ta as createTranslationMatrixRenderer,
   ci as createTranslationPanel,
   uo as createTranslationQuickFilters,
   Co as createTranslationShortcuts,
@@ -12283,7 +12295,7 @@ export {
   nl as extractExchangeError,
   ri as extractSchemaActions,
   da as extractSourceTargetDrift,
-  M as extractTranslationContext,
+  T as extractTranslationContext,
   E as extractTranslationReadiness,
   Pt as formatShortcutDisplay,
   sl as generateExchangeReport,
@@ -12358,7 +12370,7 @@ export {
   Ll as normalizeActionStateMap,
   _l as normalizeActionStateMeta,
   Rl as normalizeActionStateRecord,
-  Tr as normalizeBackendGroupedRows,
+  Mr as normalizeBackendGroupedRows,
   tt as normalizeBulkActionStateConfig,
   et as normalizeBulkActionStateMap,
   Wt as normalizeBulkActionStateResponse,
@@ -12374,13 +12386,13 @@ export {
   ar as renderAvailableLocalesIndicator,
   ui as renderBulkResultInline,
   di as renderBulkResultSummary,
-  Mi as renderCharacterCounter,
+  Ti as renderCharacterCounter,
   oo as renderDetailActions,
-  Ti as renderDirectionToggle,
+  Mi as renderDirectionToggle,
   zo as renderDisabledReasonBadge,
   Eo as renderDiscoveryHint,
   bi as renderFallbackBannerFromRecord,
-  Ta as renderFallbackWarning,
+  Ma as renderFallbackWarning,
   Ni as renderGateAriaAttributes,
   en as renderGroupHeaderRow,
   Wr as renderGroupHeaderSummary,
@@ -12412,6 +12424,6 @@ export {
   xi as shouldShowInlineLocaleChips,
   si as showTranslationBlocker,
   qa as toggleGroupExpand,
-  Mr as transformToGroups
+  Tr as transformToGroups
 };
 //# sourceMappingURL=index.js.map

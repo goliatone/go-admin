@@ -173,8 +173,10 @@ export interface TranslationExchangeJob {
   summary?: Record<string, unknown>;
   downloads?: Record<string, TranslationExchangeJobDownload>;
   fixture?: boolean;
+  request_hash?: string;
   request?: Record<string, unknown>;
   result?: Record<string, unknown>;
+  retention?: TranslationExchangeJobRetention;
   request_id?: string;
   trace_id?: string;
   error?: string;
@@ -188,6 +190,14 @@ export interface TranslationExchangeJobDownload {
   filename: string;
   content_type: string;
   href: string;
+}
+
+export interface TranslationExchangeJobRetention {
+  hard_delete_supported: boolean;
+  hard_delete_path?: string;
+  download_kinds?: string[];
+  artifact_count?: number;
+  retained?: boolean;
 }
 
 export interface TranslationExchangeValidationResult {
@@ -226,6 +236,7 @@ export interface TranslationExchangeHistoryResponse {
     job_kinds: TranslationExchangeJobKind[];
     job_statuses: TranslationExchangeJobStatus[];
     download_kinds: string[];
+    retention_fields?: string[];
     include_examples?: boolean;
   };
 }
@@ -482,6 +493,10 @@ export function normalizeTranslationExchangeJob(
       };
     }
   }
+  const retentionRaw =
+    obj.retention && typeof obj.retention === "object"
+      ? (obj.retention as Record<string, unknown>)
+      : undefined;
   return {
     id: typeof obj.id === "string" ? obj.id : "",
     kind,
@@ -530,6 +545,8 @@ export function normalizeTranslationExchangeJob(
         : undefined,
     downloads: Object.keys(downloads).length > 0 ? downloads : undefined,
     fixture: obj.fixture === true,
+    request_hash:
+      typeof obj.request_hash === "string" ? obj.request_hash : undefined,
     request:
       typeof obj.request === "object" && obj.request
         ? (obj.request as Record<string, unknown>)
@@ -538,6 +555,25 @@ export function normalizeTranslationExchangeJob(
       typeof obj.result === "object" && obj.result
         ? (obj.result as Record<string, unknown>)
         : undefined,
+    retention: retentionRaw
+      ? {
+          hard_delete_supported: retentionRaw.hard_delete_supported === true,
+          hard_delete_path:
+            typeof retentionRaw.hard_delete_path === "string"
+              ? retentionRaw.hard_delete_path
+              : undefined,
+          download_kinds: Array.isArray(retentionRaw.download_kinds)
+            ? retentionRaw.download_kinds.filter(
+                (value): value is string => typeof value === "string" && !!value,
+              )
+            : undefined,
+          artifact_count:
+            typeof retentionRaw.artifact_count === "number"
+              ? retentionRaw.artifact_count
+              : undefined,
+          retained: retentionRaw.retained === true,
+        }
+      : undefined,
     request_id: typeof obj.request_id === "string" ? obj.request_id : undefined,
     trace_id: typeof obj.trace_id === "string" ? obj.trace_id : undefined,
     error: typeof obj.error === "string" ? obj.error : undefined,
@@ -605,6 +641,11 @@ export function normalizeTranslationExchangeHistoryResponse(
             (value): value is string => typeof value === "string" && !!value,
           )
         : [],
+      retention_fields: Array.isArray(metaRaw.retention_fields)
+        ? metaRaw.retention_fields.filter(
+            (value): value is string => typeof value === "string" && !!value,
+          )
+        : undefined,
       include_examples: metaRaw.include_examples === true,
     },
   };

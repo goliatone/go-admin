@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -313,8 +314,6 @@ func cloneScope(input map[string]string) map[string]string {
 		return nil
 	}
 	output := make(map[string]string, len(input))
-	for key, value := range input {
-		output[key] = value
-	}
+	maps.Copy(output, input)
 	return output
 }

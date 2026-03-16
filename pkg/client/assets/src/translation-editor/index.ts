@@ -25,6 +25,18 @@ import {
   MODAL_CONTENT,
   trapFocus,
   setupFieldTabOrder,
+  // Phase 6.3: Shared styling helpers
+  getAutosaveStateClass,
+  getAutosaveStateLabel,
+  getMetaBadgeClass,
+  getQAPanelClass,
+  getQAFindingClasses,
+  getTimelineEntryClasses,
+  GLOSSARY_CHIP,
+  GLOSSARY_CHIP_TERM,
+  type AutosaveState,
+  type QASeverity,
+  type TimelineTone,
 } from '../translation-shared/index.js';
 
 export type TranslationEditorComparisonMode = 'snapshot' | 'hash_only';
@@ -1002,20 +1014,18 @@ function autosaveStateLabel(
   editorState: TranslationEditorState | null,
   hasDirtyFields: boolean,
   lastSavedMessage: string
-): { tone: string; text: string; state: string } {
-  if (editorState?.autosave.conflict) {
-    return { tone: 'bg-rose-100 text-rose-700', text: 'Conflict detected', state: 'conflict' };
-  }
-  if (editorState?.autosave.pending) {
-    return { tone: 'bg-amber-100 text-amber-700', text: 'Autosaving draft…', state: 'saving' };
-  }
-  if (hasDirtyFields) {
-    return { tone: 'bg-gray-100 text-gray-700', text: 'Unsaved changes', state: 'dirty' };
-  }
-  if (lastSavedMessage) {
-    return { tone: 'bg-emerald-100 text-emerald-700', text: lastSavedMessage, state: 'saved' };
-  }
-  return { tone: 'bg-gray-100 text-gray-700', text: 'No pending changes', state: 'idle' };
+): { tone: string; text: string; state: AutosaveState } {
+  let state: AutosaveState = 'idle';
+  if (editorState?.autosave.conflict) state = 'conflict';
+  else if (editorState?.autosave.pending) state = 'saving';
+  else if (hasDirtyFields) state = 'dirty';
+  else if (lastSavedMessage) state = 'saved';
+
+  return {
+    tone: getAutosaveStateClass(state),
+    text: getAutosaveStateLabel(state, lastSavedMessage),
+    state,
+  };
 }
 
 function renderDiagnostics(state: TranslationEditorLoadState): string {
@@ -1046,14 +1056,18 @@ function renderFeedback(
 
 function qaSummaryChips(detail: TranslationAssignmentEditorDetail): string {
   const qa = detail.qa_results;
-  if (!qa.enabled || qa.summary.finding_count <= 0) {
-    return '';
-  }
+  if (!qa.enabled || qa.summary.finding_count <= 0) return '';
+
+  const blockerClass = qa.summary.blocker_count > 0
+    ? getMetaBadgeClass('error')
+    : getMetaBadgeClass('success');
+  const blockerText = qa.summary.blocker_count > 0
+    ? `Blockers ${qa.summary.blocker_count}`
+    : 'No blockers';
+
   return `
-    <span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">Warnings ${qa.summary.warning_count}</span>
-    <span class="rounded-full ${qa.summary.blocker_count > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'} px-3 py-1 font-medium">
-      ${qa.summary.blocker_count > 0 ? `Blockers ${qa.summary.blocker_count}` : 'No blockers'}
-    </span>
+    <span class="${getMetaBadgeClass('warning')}">Warnings ${qa.summary.warning_count}</span>
+    <span class="${blockerClass}">${blockerText}</span>
   `;
 }
 
@@ -1201,8 +1215,9 @@ function renderGlossaryHits(entry: TranslationEditorFieldEntry): string {
   return `
     <div class="mt-3 flex flex-wrap gap-2">
       ${hits.map((hit) => `
-        <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-          ${escapeHTML(asString(hit.term))} → ${escapeHTML(asString(hit.preferred_translation))}
+        <span class="${GLOSSARY_CHIP}">
+          <span class="${GLOSSARY_CHIP_TERM}">${escapeHTML(asString(hit.term))}</span>
+          → ${escapeHTML(asString(hit.preferred_translation))}
         </span>
       `).join('')}
     </div>
@@ -1298,7 +1313,7 @@ interface TranslationEditorTimelineItem {
   body: string;
   created_at: string;
   badge: string;
-  tone: 'review' | 'qa' | 'event';
+  tone: TimelineTone;
 }
 
 function buildTimelineItems(detail: TranslationAssignmentEditorDetail): TranslationEditorTimelineItem[] {
@@ -1347,20 +1362,21 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
   }
   const blockers = qa.findings.filter((finding) => finding.severity === 'blocker');
   const warnings = qa.findings.filter((finding) => finding.severity !== 'blocker');
-  const renderFindings = (findings: TranslationEditorQAFinding[], severity: 'blocker' | 'warning'): string => {
+  const renderFindings = (findings: TranslationEditorQAFinding[], severity: QASeverity): string => {
     if (!findings.length) {
       return '';
     }
+    const classes = getQAFindingClasses(severity);
     return `
       <section data-qa-group="${escapeAttribute(severity === 'blocker' ? 'blockers' : 'warnings')}">
         <h3 class="text-sm font-semibold ${severity === 'blocker' ? 'text-rose-800' : 'text-amber-800'}">
           ${severity === 'blocker' ? `Blocking findings (${findings.length})` : `Warnings (${findings.length})`}
         </h3>
         <ol class="mt-3 space-y-3">${findings.map((finding) => `
-          <li class="rounded-xl border ${severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
+          <li class="${classes.container}">
             <div class="flex items-center justify-between gap-3">
               <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
-              <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${severity === 'blocker' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHTML(finding.severity)}</span>
+              <span class="${classes.badge}">${escapeHTML(finding.severity)}</span>
             </div>
             <p class="mt-2">${escapeHTML(finding.message)}</p>
             ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
@@ -1370,7 +1386,7 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
     `;
   };
   return `
-    <section class="rounded-xl border ${qa.submit_blocked ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-white'} p-5">
+    <section class="${getQAPanelClass(qa.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -1378,13 +1394,13 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
             ${qa.submit_blocked ? 'Submit is blocked until blockers are resolved.' : 'Warnings are advisory; blockers must be resolved before submit.'}
           </p>
         </div>
-        <span class="rounded-full ${qa.submit_blocked ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'} px-3 py-1 text-xs font-semibold">
+        <span class="${qa.submit_blocked ? getMetaBadgeClass('error') : getMetaBadgeClass('neutral')}">
           ${qa.summary.finding_count} findings
         </span>
       </div>
       <div class="mt-4 flex flex-wrap gap-2 text-xs">
-        <span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Warnings ${qa.summary.warning_count}</span>
-        <span class="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-800">Blockers ${qa.summary.blocker_count}</span>
+        <span class="${getMetaBadgeClass('warning')}">Warnings ${qa.summary.warning_count}</span>
+        <span class="${getMetaBadgeClass('error')}">Blockers ${qa.summary.blocker_count}</span>
       </div>
       ${(blockers.length || warnings.length)
         ? `<div class="mt-4 space-y-4">${renderFindings(blockers, 'blocker')}${renderFindings(warnings, 'warning')}</div>`
@@ -1537,18 +1553,21 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
         <span class="text-xs text-gray-500">Page ${history.page} of ${Math.max(1, Math.ceil(history.total / Math.max(1, history.per_page)))}</span>
       </div>
       ${items.length
-        ? `<ol class="mt-4 space-y-3">${items.map((entry) => `
-            <li class="rounded-xl border ${entry.tone === 'review' ? 'border-amber-200 bg-amber-50' : entry.tone === 'qa' ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-gray-50'} px-3 py-3 text-sm ${entry.tone === 'review' ? 'text-amber-900' : entry.tone === 'qa' ? 'text-rose-900' : 'text-gray-700'}" data-history-entry="${escapeAttribute(entry.id)}">
+        ? `<ol class="mt-4 space-y-3">${items.map((entry) => {
+            const classes = getTimelineEntryClasses(entry.tone);
+            return `
+            <li class="${classes.container}" data-history-entry="${escapeAttribute(entry.id)}">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
-                  <p class="font-semibold ${entry.tone === 'review' ? 'text-amber-950' : entry.tone === 'qa' ? 'text-rose-950' : 'text-gray-900'}">${escapeHTML(entry.title)}</p>
-                  <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${entry.tone === 'review' ? 'bg-white/80 text-amber-700' : entry.tone === 'qa' ? 'bg-white/90 text-rose-700' : 'bg-white/80 text-gray-600'}">${escapeHTML(entry.badge)}</span>
+                  <p class="${classes.title}">${escapeHTML(entry.title)}</p>
+                  <span class="${classes.badge}">${escapeHTML(entry.badge)}</span>
                 </div>
-                <span class="text-xs ${entry.tone === 'review' ? 'text-amber-700' : entry.tone === 'qa' ? 'text-rose-700' : 'text-gray-500'}">${escapeHTML(formatTimestamp(entry.created_at) || 'Current')}</span>
+                <span class="${classes.time}">${escapeHTML(formatTimestamp(entry.created_at) || 'Current')}</span>
               </div>
               ${entry.body ? `<p class="mt-2 text-sm">${escapeHTML(entry.body)}</p>` : ''}
             </li>
-          `).join('')}</ol>`
+          `;
+          }).join('')}</ol>`
         : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
       <div class="mt-4 flex items-center justify-between gap-3">
         <button type="button" class="${BTN_SECONDARY_SM}" data-history-prev="true" ${history.page <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
