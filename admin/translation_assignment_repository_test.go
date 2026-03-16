@@ -17,7 +17,7 @@ func TestInMemoryTranslationAssignmentRepositoryCreateEnforcesActiveUniqueness(t
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 		TargetLocale:       "fr",
 		SourceTitle:        "First title",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 		TargetLocale:       "fr",
 		SourceTitle:        "Updated title",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityHigh,
 	})
 	if err != nil {
@@ -115,7 +115,7 @@ func TestInMemoryTranslationAssignmentRepositoryUpdateVersionConflict(t *testing
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -166,7 +166,7 @@ func TestInMemoryTranslationAssignmentRepositoryArchiveReleasesActiveKey(t *test
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -186,7 +186,7 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 		TargetLocale:       "es",
 		WorkScope:          "__all__",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	}); err != nil {
 		t.Fatalf("create __all__ assignment: %v", err)
@@ -200,7 +200,7 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 		TargetLocale:       "es",
 		WorkScope:          "editorial.review",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected separate work_scope assignment to succeed, got %v", err)
@@ -233,7 +233,7 @@ func TestInMemoryTranslationAssignmentRepositoryApprovedAssignmentsDoNotOccupyAc
 		TargetLocale:       "es",
 		WorkScope:          "__all__",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected approved assignment not to block new active assignment, got %v", err)

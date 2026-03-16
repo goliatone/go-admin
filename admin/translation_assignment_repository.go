@@ -277,11 +277,12 @@ func normalizeAssignmentForCreate(assignment TranslationAssignment) TranslationA
 	if assignment.AssignmentType == "" {
 		assignment.AssignmentType = AssignmentTypeOpenPool
 	}
+	assignment.Status = normalizeTranslationAssignmentStatus(assignment.Status)
 	if assignment.Status == "" {
 		if assignment.AssignmentType == AssignmentTypeDirect {
 			assignment.Status = AssignmentStatusAssigned
 		} else {
-			assignment.Status = AssignmentStatusPending
+			assignment.Status = AssignmentStatusOpen
 		}
 	}
 	if assignment.Priority == "" {

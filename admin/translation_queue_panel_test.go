@@ -144,7 +144,7 @@ func TestTranslationAssignmentPanelRepositoryDeleteArchivesInsteadOfDeleting(t *
 		"source_locale":        "en",
 		"target_locale":        "es",
 		"assignment_type":      string(AssignmentTypeOpenPool),
-		"status":               string(AssignmentStatusPending),
+		"status":               string(AssignmentStatusOpen),
 		"priority":             string(PriorityNormal),
 	})
 	if err != nil {
@@ -187,8 +187,8 @@ func TestTranslationAssignmentPanelRepositoryCreateAppliesDefaultsForMinimalRequ
 	if got := strings.TrimSpace(toString(created["assignment_type"])); got != string(AssignmentTypeOpenPool) {
 		t.Fatalf("expected default assignment_type %q, got %q", AssignmentTypeOpenPool, got)
 	}
-	if got := strings.TrimSpace(toString(created["status"])); got != string(AssignmentStatusPending) {
-		t.Fatalf("expected default status %q, got %q", AssignmentStatusPending, got)
+	if got := strings.TrimSpace(toString(created["status"])); got != string(AssignmentStatusOpen) {
+		t.Fatalf("expected default status %q, got %q", AssignmentStatusOpen, got)
 	}
 	if got := strings.TrimSpace(toString(created["priority"])); got != string(PriorityNormal) {
 		t.Fatalf("expected default priority %q, got %q", PriorityNormal, got)

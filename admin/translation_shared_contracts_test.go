@@ -31,8 +31,8 @@ func TestTranslationSharedContractsStatusNormalization(t *testing.T) {
 	queueRow := translationQueueAssignmentContractRow(TranslationAssignment{
 		Status: AssignmentStatus("unknown"),
 	}, now)
-	if got := strings.TrimSpace(toString(queueRow["queue_state"])); got != string(AssignmentStatusPending) {
-		t.Fatalf("expected queue_state normalized to %q, got %q", AssignmentStatusPending, got)
+	if got := strings.TrimSpace(toString(queueRow["queue_state"])); got != string(AssignmentStatusOpen) {
+		t.Fatalf("expected queue_state normalized to %q, got %q", AssignmentStatusOpen, got)
 	}
 	if got := strings.TrimSpace(toString(queueRow["content_state"])); got != translationQueueContentStateDraft {
 		t.Fatalf("expected content_state normalized to %q, got %q", translationQueueContentStateDraft, got)
@@ -43,14 +43,21 @@ func TestTranslationSharedContractsStatusNormalization(t *testing.T) {
 
 	result := TranslationExchangeResult{}
 	result.Add(TranslationExchangeRowResult{Status: "unknown"})
-	if len(result.Results) != 1 {
-		t.Fatalf("expected one result row, got %d", len(result.Results))
+	result.Add(TranslationExchangeRowResult{
+		Status: translationExchangeRowStatusConflict,
+		Conflict: &TranslationExchangeConflictInfo{
+			Type: translationExchangeConflictTypeMissingLinkage,
+		},
+	})
+	result.Add(TranslationExchangeRowResult{Status: translationExchangeRowStatusSkipped})
+	if len(result.Results) != 3 {
+		t.Fatalf("expected three result rows, got %d", len(result.Results))
 	}
 	if got := strings.TrimSpace(result.Results[0].Status); got != translationExchangeRowStatusError {
 		t.Fatalf("expected exchange row status normalized to %q, got %q", translationExchangeRowStatusError, got)
 	}
-	if result.Summary.Failed != 1 {
-		t.Fatalf("expected summary failed=1 after normalized error status, got %+v", result.Summary)
+	if result.Summary.Failed != 2 || result.Summary.Conflicts != 1 || result.Summary.Skipped != 1 {
+		t.Fatalf("expected summary counters after normalized statuses, got %+v", result.Summary)
 	}
 
 	jobPayload := translationExchangeAsyncJobPayload(translationExchangeAsyncJob{

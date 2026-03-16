@@ -19,14 +19,20 @@ const (
 type AssignmentStatus string
 
 const (
-	AssignmentStatusPending    AssignmentStatus = "pending"
-	AssignmentStatusAssigned   AssignmentStatus = "assigned"
-	AssignmentStatusInProgress AssignmentStatus = "in_progress"
-	AssignmentStatusReview     AssignmentStatus = "review"
-	AssignmentStatusRejected   AssignmentStatus = "rejected"
-	AssignmentStatusApproved   AssignmentStatus = "approved"
-	AssignmentStatusPublished  AssignmentStatus = "published"
-	AssignmentStatusArchived   AssignmentStatus = "archived"
+	AssignmentStatusOpen             AssignmentStatus = "open"
+	AssignmentStatusAssigned         AssignmentStatus = "assigned"
+	AssignmentStatusInProgress       AssignmentStatus = "in_progress"
+	AssignmentStatusInReview         AssignmentStatus = "in_review"
+	AssignmentStatusChangesRequested AssignmentStatus = "changes_requested"
+	AssignmentStatusApproved         AssignmentStatus = "approved"
+	AssignmentStatusArchived         AssignmentStatus = "archived"
+
+	// Deprecated legacy aliases kept so older fixtures and persisted values can
+	// be normalized to the canonical translation vocabulary.
+	AssignmentStatusPending   AssignmentStatus = AssignmentStatusOpen
+	AssignmentStatusReview    AssignmentStatus = AssignmentStatusInReview
+	AssignmentStatusRejected  AssignmentStatus = AssignmentStatusChangesRequested
+	AssignmentStatusPublished AssignmentStatus = "published"
 )
 
 // Priority controls assignment urgency.
@@ -95,14 +101,13 @@ func (t AssignmentType) IsValid() bool {
 }
 
 func (s AssignmentStatus) IsValid() bool {
-	switch s {
-	case AssignmentStatusPending,
+	switch normalizeTranslationAssignmentStatus(s) {
+	case AssignmentStatusOpen,
 		AssignmentStatusAssigned,
 		AssignmentStatusInProgress,
-		AssignmentStatusReview,
-		AssignmentStatusRejected,
+		AssignmentStatusInReview,
+		AssignmentStatusChangesRequested,
 		AssignmentStatusApproved,
-		AssignmentStatusPublished,
 		AssignmentStatusArchived:
 		return true
 	default:
@@ -111,8 +116,8 @@ func (s AssignmentStatus) IsValid() bool {
 }
 
 func (s AssignmentStatus) IsTerminal() bool {
-	switch s {
-	case AssignmentStatusPublished, AssignmentStatusArchived:
+	switch normalizeTranslationAssignmentStatus(s) {
+	case AssignmentStatusArchived:
 		return true
 	default:
 		return false
@@ -120,12 +125,12 @@ func (s AssignmentStatus) IsTerminal() bool {
 }
 
 func (s AssignmentStatus) IsActive() bool {
-	switch s {
-	case AssignmentStatusPending,
+	switch normalizeTranslationAssignmentStatus(s) {
+	case AssignmentStatusOpen,
 		AssignmentStatusAssigned,
 		AssignmentStatusInProgress,
-		AssignmentStatusReview,
-		AssignmentStatusRejected:
+		AssignmentStatusInReview,
+		AssignmentStatusChangesRequested:
 		return true
 	default:
 		return false
@@ -182,6 +187,27 @@ func (a TranslationAssignment) Validate() error {
 		})
 	}
 	return nil
+}
+
+func normalizeTranslationAssignmentStatus(status AssignmentStatus) AssignmentStatus {
+	switch strings.ToLower(strings.TrimSpace(string(status))) {
+	case "", string(AssignmentStatusOpen), "pending":
+		return AssignmentStatusOpen
+	case string(AssignmentStatusAssigned):
+		return AssignmentStatusAssigned
+	case string(AssignmentStatusInProgress):
+		return AssignmentStatusInProgress
+	case string(AssignmentStatusInReview), "review":
+		return AssignmentStatusInReview
+	case string(AssignmentStatusChangesRequested), "rejected":
+		return AssignmentStatusChangesRequested
+	case string(AssignmentStatusApproved):
+		return AssignmentStatusApproved
+	case string(AssignmentStatusArchived), string(AssignmentStatusPublished):
+		return AssignmentStatusArchived
+	default:
+		return ""
+	}
 }
 
 func normalizeTranslationAssignmentWorkScope(scope string) string {

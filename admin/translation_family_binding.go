@@ -694,7 +694,7 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		assignment.AssignerID = actorFromContext(ctx)
 	} else {
 		assignment.AssignmentType = AssignmentTypeOpenPool
-		assignment.Status = AssignmentStatusPending
+		assignment.Status = AssignmentStatusOpen
 	}
 	created, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
 	if err != nil {
@@ -1665,20 +1665,20 @@ func translationFamilyAvailableLocales(family translationservices.FamilyRecord) 
 }
 
 func translationFamilyAssignmentStatus(status AssignmentStatus) string {
-	switch status {
-	case AssignmentStatusPending:
+	switch normalizeTranslationAssignmentStatus(status) {
+	case AssignmentStatusOpen:
 		return string(translationcore.AssignmentStatusOpen)
 	case AssignmentStatusAssigned:
 		return string(translationcore.AssignmentStatusAssigned)
 	case AssignmentStatusInProgress:
 		return string(translationcore.AssignmentStatusInProgress)
-	case AssignmentStatusReview:
+	case AssignmentStatusInReview:
 		return string(translationcore.AssignmentStatusInReview)
-	case AssignmentStatusRejected:
+	case AssignmentStatusChangesRequested:
 		return string(translationcore.AssignmentStatusChangesRequested)
 	case AssignmentStatusApproved:
 		return string(translationcore.AssignmentStatusApproved)
-	case AssignmentStatusArchived, AssignmentStatusPublished:
+	case AssignmentStatusArchived:
 		return string(translationcore.AssignmentStatusArchived)
 	default:
 		return string(translationcore.AssignmentStatusOpen)

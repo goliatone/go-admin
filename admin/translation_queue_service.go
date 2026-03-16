@@ -56,12 +56,21 @@ func (s *DefaultTranslationQueueService) Claim(ctx context.Context, input Transl
 	}
 
 	switch assignment.Status {
-	case AssignmentStatusPending:
+	case AssignmentStatusOpen:
 		if assignment.AssignmentType != AssignmentTypeOpenPool {
 			return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "claim", assignment)
 		}
-	case AssignmentStatusAssigned, AssignmentStatusRejected:
-		// Assigned/rejected items can resume in_progress by the assigned translator.
+	case AssignmentStatusAssigned, AssignmentStatusChangesRequested:
+		// Direct assignments and changes-requested work resume in_progress only for
+		// the currently assigned translator.
+		if assignment.AssigneeID == "" || !strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), strings.TrimSpace(input.ClaimerID)) {
+			return TranslationAssignment{}, NewDomainError(TextCodeForbidden, "assignment is assigned to a different translator", map[string]any{
+				"assignment_id":        strings.TrimSpace(assignment.ID),
+				"assignee_id":          strings.TrimSpace(input.ClaimerID),
+				"expected_assignee_id": strings.TrimSpace(assignment.AssigneeID),
+				"assignment_status":    strings.TrimSpace(string(assignment.Status)),
+			})
+		}
 	default:
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "claim", assignment)
 	}
@@ -97,7 +106,7 @@ func (s *DefaultTranslationQueueService) Assign(ctx context.Context, input Trans
 	}
 
 	switch assignment.Status {
-	case AssignmentStatusPending, AssignmentStatusAssigned, AssignmentStatusRejected:
+	case AssignmentStatusOpen, AssignmentStatusAssigned, AssignmentStatusChangesRequested:
 	default:
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "assign", assignment)
 	}
@@ -136,13 +145,13 @@ func (s *DefaultTranslationQueueService) Release(ctx context.Context, input Tran
 	}
 
 	switch assignment.Status {
-	case AssignmentStatusAssigned, AssignmentStatusInProgress, AssignmentStatusRejected:
+	case AssignmentStatusAssigned, AssignmentStatusInProgress, AssignmentStatusChangesRequested:
 	default:
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "release", assignment)
 	}
 
 	assignment.AssignmentType = AssignmentTypeOpenPool
-	assignment.Status = AssignmentStatusPending
+	assignment.Status = AssignmentStatusOpen
 	assignment.AssigneeID = ""
 	assignment.AssignerID = strings.TrimSpace(input.ActorID)
 
@@ -171,7 +180,7 @@ func (s *DefaultTranslationQueueService) SubmitReview(ctx context.Context, input
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "submit_review", assignment)
 	}
 
-	assignment.Status = AssignmentStatusReview
+	assignment.Status = AssignmentStatusInReview
 	now := time.Now().UTC()
 	assignment.SubmittedAt = &now
 	assignment.AssigneeID = strings.TrimSpace(input.TranslatorID)
@@ -197,7 +206,7 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 		return TranslationAssignment{}, err
 	}
 
-	if assignment.Status != AssignmentStatusReview {
+	if assignment.Status != AssignmentStatusInReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "approve", assignment)
 	}
 	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
@@ -232,14 +241,14 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 		return TranslationAssignment{}, err
 	}
 
-	if assignment.Status != AssignmentStatusReview {
+	if assignment.Status != AssignmentStatusInReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "reject", assignment)
 	}
 	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
 		return TranslationAssignment{}, err
 	}
 
-	assignment.Status = AssignmentStatusRejected
+	assignment.Status = AssignmentStatusChangesRequested
 	assignment.ReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastRejectionReason = strings.TrimSpace(input.Reason)
@@ -264,10 +273,6 @@ func (s *DefaultTranslationQueueService) Archive(ctx context.Context, input Tran
 	assignment, err := s.Repository.Get(ctx, input.AssignmentID)
 	if err != nil {
 		return TranslationAssignment{}, err
-	}
-
-	if assignment.Status == AssignmentStatusPublished {
-		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "archive", assignment)
 	}
 
 	now := time.Now().UTC()

@@ -131,7 +131,7 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 			},
 			translationDashboardCardAlert(len(needsReview), translationDashboardCountByDueState(needsReview, translationQueueDueStateOverdue, now) > 0, len(needsReview) > 0),
 			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, map[string]string{
-				"status":      "review",
+				"status":      string(AssignmentStatusInReview),
 				"reviewer_id": "__me__",
 				"sort":        "due_date",
 				"order":       "asc",
@@ -342,7 +342,7 @@ func translationDashboardNeedsReview(assignments []TranslationAssignment, actorI
 	out := make([]TranslationAssignment, 0, len(assignments))
 	for _, assignment := range assignments {
 		reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
-		if !strings.EqualFold(reviewerID, actorID) || assignment.Status != AssignmentStatusReview {
+		if !strings.EqualFold(reviewerID, actorID) || assignment.Status != AssignmentStatusInReview {
 			continue
 		}
 		out = append(out, assignment)

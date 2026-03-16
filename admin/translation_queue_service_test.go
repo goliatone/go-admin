@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -22,7 +21,7 @@ func TestDefaultTranslationQueueServiceLifecycleApprove(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -41,8 +40,8 @@ func TestDefaultTranslationQueueServiceLifecycleApprove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit_review: %v", err)
 	}
-	if submitted.Status != AssignmentStatusReview {
-		t.Fatalf("expected review, got %q", submitted.Status)
+	if submitted.Status != AssignmentStatusInReview {
+		t.Fatalf("expected in_review, got %q", submitted.Status)
 	}
 
 	approved, err := svc.Approve(ctx, TranslationQueueApproveInput{AssignmentID: submitted.ID, ReviewerID: "reviewer_1", ExpectedVersion: submitted.Version})
@@ -74,7 +73,7 @@ func TestDefaultTranslationQueueServiceRejectAndResume(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "fr",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -93,8 +92,8 @@ func TestDefaultTranslationQueueServiceRejectAndResume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reject: %v", err)
 	}
-	if rejected.Status != AssignmentStatusRejected {
-		t.Fatalf("expected rejected, got %q", rejected.Status)
+	if rejected.Status != AssignmentStatusChangesRequested {
+		t.Fatalf("expected changes_requested, got %q", rejected.Status)
 	}
 
 	resumed, err := svc.Claim(ctx, TranslationQueueClaimInput{AssignmentID: rejected.ID, ClaimerID: "translator_1", ExpectedVersion: rejected.Version})
@@ -118,7 +117,7 @@ func TestDefaultTranslationQueueServiceAssignRelease(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -143,8 +142,8 @@ func TestDefaultTranslationQueueServiceAssignRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("release: %v", err)
 	}
-	if released.Status != AssignmentStatusPending || released.AssignmentType != AssignmentTypeOpenPool {
-		t.Fatalf("expected pending/open_pool, got status=%q type=%q", released.Status, released.AssignmentType)
+	if released.Status != AssignmentStatusOpen || released.AssignmentType != AssignmentTypeOpenPool {
+		t.Fatalf("expected open/open_pool, got status=%q type=%q", released.Status, released.AssignmentType)
 	}
 	if released.AssigneeID != "" {
 		t.Fatalf("expected assignee cleared on release, got %q", released.AssigneeID)
@@ -163,7 +162,7 @@ func TestDefaultTranslationQueueServiceRejectRequiresReviewState(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "de",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -202,7 +201,7 @@ func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t 
 		SourceTitle:        "Home",
 		SourcePath:         "/home",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -254,7 +253,7 @@ func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t 
 	}
 }
 
-func TestDefaultTranslationQueueServiceClaimRejectResumeApprovePublishFlow(t *testing.T) {
+func TestDefaultTranslationQueueServiceClaimRejectResumeApproveArchiveFlow(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	svc := &DefaultTranslationQueueService{Repository: repo}
 	ctx := context.Background()
@@ -266,7 +265,7 @@ func TestDefaultTranslationQueueServiceClaimRejectResumeApprovePublishFlow(t *te
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {
@@ -331,17 +330,19 @@ func TestDefaultTranslationQueueServiceClaimRejectResumeApprovePublishFlow(t *te
 		t.Fatalf("expected approved status, got %q", approved.Status)
 	}
 
-	approved.PublishedAt = func() *time.Time { now := time.Now().UTC(); return &now }()
-	approved.Status = AssignmentStatusPublished
-	published, err := repo.Update(ctx, approved, approved.Version)
+	archived, err := svc.Archive(ctx, TranslationQueueArchiveInput{
+		AssignmentID:    approved.ID,
+		ActorID:         "manager_1",
+		ExpectedVersion: approved.Version,
+	})
 	if err != nil {
-		t.Fatalf("publish status update: %v", err)
+		t.Fatalf("archive: %v", err)
 	}
-	if published.Status != AssignmentStatusPublished {
-		t.Fatalf("expected published status, got %q", published.Status)
+	if archived.Status != AssignmentStatusArchived {
+		t.Fatalf("expected archived status, got %q", archived.Status)
 	}
-	if !published.Status.IsTerminal() {
-		t.Fatalf("expected published status to be terminal")
+	if !archived.Status.IsTerminal() {
+		t.Fatalf("expected archived status to be terminal")
 	}
 }
 
@@ -362,7 +363,7 @@ func TestDefaultTranslationQueueServiceReviewerGuardAndFeedbackActivity(t *testi
 		TargetLocale:       "fr",
 		TargetRecordID:     "page-review-feedback-fr",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		ReviewerID:         "reviewer-1",
 		Priority:           PriorityHigh,
 	})
@@ -402,8 +403,8 @@ func TestDefaultTranslationQueueServiceReviewerGuardAndFeedbackActivity(t *testi
 	if err != nil {
 		t.Fatalf("reject: %v", err)
 	}
-	if rejected.Status != AssignmentStatusRejected {
-		t.Fatalf("expected rejected status, got %q", rejected.Status)
+	if rejected.Status != AssignmentStatusChangesRequested {
+		t.Fatalf("expected changes_requested status, got %q", rejected.Status)
 	}
 
 	entries, err := activity.List(ctx, 10)
@@ -449,7 +450,7 @@ func TestDefaultTranslationQueueServiceClaimDetectsOptimisticLockRace(t *testing
 		SourceLocale:       "en",
 		TargetLocale:       "fr",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 	if err != nil {

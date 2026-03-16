@@ -45,7 +45,7 @@ func TestDefaultTranslationQueueAutoCreateHookCreatesAssignmentsForMissingLocale
 
 	// Verify assignments are in pending status with open pool type
 	for _, a := range result.Assignments {
-		if a.Status != AssignmentStatusPending {
+		if a.Status != AssignmentStatusOpen {
 			t.Errorf("expected pending status, got %s", a.Status)
 		}
 		if a.AssignmentType != AssignmentTypeOpenPool {

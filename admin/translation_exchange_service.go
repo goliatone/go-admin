@@ -111,11 +111,11 @@ func (s *TranslationExchangeService) ValidateImport(ctx context.Context, input T
 			rowResult.Status = translationExchangeRowStatusConflict
 			rowResult.Error = "duplicate row linkage in import payload"
 			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:    "duplicate_row",
+				Type:    translationExchangeConflictTypeDuplicateRow,
 				Message: "duplicate linkage key in import payload",
 			}
 			rowResult.Metadata = map[string]any{
-				"error_code":       TextCodeTranslationExchangeInvalidPayload,
+				"error_code":       TextCodeTranslationExchangeDuplicateRow,
 				"duplicate_of_row": firstIndex,
 			}
 			result.Add(rowResult)
@@ -128,7 +128,7 @@ func (s *TranslationExchangeService) ValidateImport(ctx context.Context, input T
 				rowResult.Status = translationExchangeRowStatusConflict
 				rowResult.Error = "row linkage could not be resolved"
 				rowResult.Conflict = &TranslationExchangeConflictInfo{
-					Type:    "missing_linkage",
+					Type:    translationExchangeConflictTypeMissingLinkage,
 					Message: "resource/entity linkage not found",
 				}
 				rowResult.Metadata = map[string]any{
@@ -146,7 +146,7 @@ func (s *TranslationExchangeService) ValidateImport(ctx context.Context, input T
 			rowResult.Status = translationExchangeRowStatusConflict
 			rowResult.Error = "source hash mismatch"
 			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:               "stale_source_hash",
+				Type:               translationExchangeConflictTypeStaleSource,
 				Message:            "source hash mismatch",
 				CurrentSourceHash:  strings.TrimSpace(linkage.SourceHash),
 				ProvidedSourceHash: normalizeProvidedSourceHash(row),
@@ -200,11 +200,11 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 			rowResult.Status = translationExchangeRowStatusConflict
 			rowResult.Error = "duplicate row linkage in import payload"
 			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:    "duplicate_row",
+				Type:    translationExchangeConflictTypeDuplicateRow,
 				Message: "duplicate linkage key in import payload",
 			}
 			rowResult.Metadata = map[string]any{
-				"error_code":       TextCodeTranslationExchangeInvalidPayload,
+				"error_code":       TextCodeTranslationExchangeDuplicateRow,
 				"duplicate_of_row": firstIndex,
 			}
 			result.Add(rowResult)
@@ -222,7 +222,7 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 				rowResult.Status = translationExchangeRowStatusConflict
 				rowResult.Error = "row linkage could not be resolved"
 				rowResult.Conflict = &TranslationExchangeConflictInfo{
-					Type:    "missing_linkage",
+					Type:    translationExchangeConflictTypeMissingLinkage,
 					Message: "resource/entity linkage not found",
 				}
 				rowResult.Metadata = map[string]any{
@@ -244,7 +244,7 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 			rowResult.Status = translationExchangeRowStatusConflict
 			rowResult.Error = "source hash mismatch"
 			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:               "stale_source_hash",
+				Type:               translationExchangeConflictTypeStaleSource,
 				Message:            "source hash mismatch",
 				CurrentSourceHash:  strings.TrimSpace(linkage.SourceHash),
 				ProvidedSourceHash: normalizeProvidedSourceHash(row),

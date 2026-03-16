@@ -49,7 +49,7 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 		TargetLocale:       "fr",
 		AssigneeID:         "translator-1",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		Priority:           PriorityHigh,
 		DueDate:            &dueSoon,
 	})
@@ -188,7 +188,7 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 		TargetLocale:       "es",
 		AssigneeID:         "translator-1",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		Priority:           PriorityHigh,
 		DueDate:            &reviewDue,
 	}); err != nil {
@@ -255,7 +255,7 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 		}
 		approve, _ := actions["approve"].(map[string]any)
 		submit, _ := actions["submit_review"].(map[string]any)
-		if strings.EqualFold(strings.TrimSpace(toString(row["queue_state"])), string(AssignmentStatusReview)) {
+		if strings.EqualFold(strings.TrimSpace(toString(row["queue_state"])), string(AssignmentStatusInReview)) {
 			if enabled, _ := approve["enabled"].(bool); !enabled {
 				t.Fatalf("expected approve enabled in review state, got %+v", approve)
 			}
@@ -292,7 +292,7 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityHigh,
 		DueDate:            &overdue,
 		ReviewerID:         "reviewer-1",
@@ -377,7 +377,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	assignment.Status = AssignmentStatusReview
+	assignment.Status = AssignmentStatusInReview
 	assignment.ReviewerID = "reviewer-1"
 	assignment.LastReviewerID = "reviewer-1"
 	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
@@ -525,7 +525,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	reviewAssignment.Status = AssignmentStatusReview
+	reviewAssignment.Status = AssignmentStatusInReview
 	reviewAssignment.ReviewerID = "reviewer-1"
 	reviewAssignment.LastReviewerID = "reviewer-1"
 	reviewAssignment.TranslationGroupID = "tg-page-1"
@@ -546,7 +546,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 		ReviewerID:         "reviewer-1",
 		LastReviewerID:     "reviewer-1",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		Priority:           PriorityNormal,
 		DueDate:            &otherDue,
 		TenantID:           "tenant-1",
@@ -608,7 +608,7 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	assignment.Status = AssignmentStatusReview
+	assignment.Status = AssignmentStatusInReview
 	assignment.ReviewerID = "reviewer-1"
 	assignment.LastReviewerID = "reviewer-1"
 	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
@@ -706,7 +706,7 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -789,7 +789,7 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -831,7 +831,7 @@ func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testin
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -904,7 +904,7 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 			TargetLocale:       "es",
 			AssigneeID:         "translator-1",
 			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusReview,
+			Status:             AssignmentStatusInReview,
 			DueDate:            &overdue,
 		},
 		{
@@ -1004,7 +1004,7 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 			TargetLocale:       "es",
 			AssigneeID:         "translator-1",
 			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusReview,
+			Status:             AssignmentStatusInReview,
 		},
 		{
 			TranslationGroupID: "tg-progress",
@@ -1062,7 +1062,7 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 		t.Fatalf("expected summary.total=3, got %+v", summary)
 	}
 	byQueueState, _ := summary["by_queue_state"].(map[string]any)
-	if int(byQueueState[string(AssignmentStatusReview)].(float64)) != 1 ||
+	if int(byQueueState[string(AssignmentStatusInReview)].(float64)) != 1 ||
 		int(byQueueState[string(AssignmentStatusInProgress)].(float64)) != 1 ||
 		int(byQueueState[string(AssignmentStatusAssigned)].(float64)) != 1 {
 		t.Fatalf("unexpected by_queue_state summary: %+v", byQueueState)

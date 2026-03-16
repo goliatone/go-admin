@@ -26,6 +26,48 @@ const (
 
 var translationExchangeSupportedFormats = []string{"csv", "json"}
 
+const (
+	translationExchangeMaxUploadBytes = 25 * 1024 * 1024
+	translationExchangeMaxRows        = 50000
+)
+
+var translationExchangeAllowedTopLevelKeys = map[string]map[string]struct{}{
+	translationExchangeJobKindExport: {
+		"filter":              {},
+		"resources":           {},
+		"resource":            {},
+		"entity_ids":          {},
+		"entity_id":           {},
+		"source_locale":       {},
+		"locale":              {},
+		"target_locales":      {},
+		"target_locale":       {},
+		"field_paths":         {},
+		"field_path":          {},
+		"include_source_hash": {},
+		"options":             {},
+		"async":               {},
+	},
+	translationExchangeJobKindImportValidate: {
+		"rows":      {},
+		"async":     {},
+		"strict":    {},
+		"file_name": {},
+	},
+	translationExchangeJobKindImportApply: {
+		"rows":                       {},
+		"async":                      {},
+		"allow_create_missing":       {},
+		"allow_source_hash_override": {},
+		"continue_on_error":          {},
+		"dry_run":                    {},
+		CreateTranslationKey:         {},
+		"create_missing_translation": {},
+		"strict":                     {},
+		"file_name":                  {},
+	},
+}
+
 type translationExchangeCommandExecutor interface {
 	Export(context.Context, TranslationExportInput) (TranslationExportResult, error)
 	Validate(context.Context, TranslationImportValidateInput) (TranslationExchangeResult, error)
@@ -101,6 +143,9 @@ func (b *translationExchangeBinding) Export(c router.Context) (payload any, err 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
+	if err := enforceTranslationExchangeCSRF(c); err != nil {
+		return nil, err
+	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
 		return nil, err
 	}
@@ -122,7 +167,9 @@ func (b *translationExchangeBinding) Export(c router.Context) (payload any, err 
 		"source_locale":  strings.TrimSpace(input.Filter.SourceLocale),
 		"target_locales": append([]string{}, input.Filter.TargetLocales...),
 	})
-	return result, nil
+	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindExport, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), result.RowCount)
+	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindExport, translationExchangePermissionExport, translationExchangeExportRequestPayload(input.Filter), translationExchangeExportResultPayload(result))
+	return mergeTranslationExchangeExportPayload(result, job), nil
 }
 
 func (b *translationExchangeBinding) Template(c router.Context) error {
@@ -193,10 +240,13 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload a
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
+	if err := enforceTranslationExchangeCSRF(c); err != nil {
+		return nil, err
+	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportValidate, "translations"); err != nil {
 		return nil, err
 	}
-	rows, _, _, err := parseTranslationImportRows(c, false)
+	rows, parsedPayload, format, err := parseTranslationImportRows(c, false)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +262,10 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload a
 		"failed":    result.Summary.Failed,
 	})
 	recordTranslationExchangeConflicts(b.admin, adminCtx, "validate", result.Results)
-	return result, nil
+	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportValidate, format, result)
+	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportValidate, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), len(rows))
+	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindImportValidate, translationExchangePermissionImportValidate, translationExchangeValidateRequestPayload(rows, parsedPayload, format), translationExchangeResultPayload(result))
+	return mergeTranslationExchangeResultPayload(result, job), nil
 }
 
 func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any, err error) {
@@ -238,10 +291,13 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
+	if err := enforceTranslationExchangeCSRF(c); err != nil {
+		return nil, err
+	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportApply, "translations"); err != nil {
 		return nil, err
 	}
-	rows, parsedPayload, _, err := parseTranslationImportRows(c, true)
+	rows, parsedPayload, format, err := parseTranslationImportRows(c, true)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +324,10 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 		"dry_run":              input.DryRun,
 	})
 	recordTranslationExchangeConflicts(b.admin, adminCtx, "apply", result.Results)
-	return result, nil
+	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportApply, format, result)
+	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportApply, translationExchangeAsyncJobStatusCompleted, time.Since(startedAt), len(rows))
+	job := b.recordCompletedExchangeJob(adminCtx, translationExchangeJobKindImportApply, translationExchangePermissionImportApply, translationExchangeApplyRequestPayload(input, parsedPayload, format), translationExchangeResultPayload(result))
+	return mergeTranslationExchangeResultPayload(result, job), nil
 }
 
 func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (payload any, err error) {
@@ -314,11 +373,79 @@ func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (pay
 	if err := b.admin.requirePermission(adminCtx, strings.TrimSpace(job.Permission), "translations"); err != nil {
 		return nil, err
 	}
-	if !translationExchangeJobOwnedByActor(job, translationExchangeActorID(adminCtx)) {
+	if !translationExchangeJobVisibleToIdentity(job, translationIdentityFromAdminContext(adminCtx)) {
 		return nil, permissionDenied(strings.TrimSpace(job.Permission), "translations")
 	}
 	return map[string]any{
 		"job": translationExchangeAsyncJobPayload(job),
+	}, nil
+}
+
+func (b *translationExchangeBinding) History(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.history",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	if b.jobs == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
+	if err := b.requireHistoryPermission(adminCtx); err != nil {
+		return nil, err
+	}
+
+	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query("per_page"), 20), 1, 100)
+	includeExamples := toBool(c.Query("include_examples"))
+	kindFilter := translationExchangeHistoryJobKind(c.Query("kind"))
+	statusFilter := translationExchangeHistoryJobStatus(c.Query("status"))
+
+	identity := translationIdentityFromAdminContext(adminCtx)
+	jobs := b.jobs.ListByActor(identity.ActorID)
+	if includeExamples {
+		jobs = append(jobs, translationExchangeHistoryExampleJobs(identity.ActorID)...)
+	}
+
+	filtered := make([]translationExchangeAsyncJob, 0, len(jobs))
+	for _, job := range jobs {
+		if !translationExchangeJobVisibleToIdentity(job, identity) {
+			continue
+		}
+		if !b.canViewHistoryJob(adminCtx, job) {
+			continue
+		}
+		if kindFilter != "" && !strings.EqualFold(strings.TrimSpace(job.Kind), kindFilter) {
+			continue
+		}
+		if statusFilter != "" && !strings.EqualFold(normalizeTranslationExchangeJobStatus(job.Status), statusFilter) {
+			continue
+		}
+		filtered = append(filtered, job)
+	}
+
+	return map[string]any{
+		"history": translationExchangeHistoryPayload(filtered, page, perPage),
+		"meta":    translationExchangeHistoryMetaPayload(includeExamples),
 	}, nil
 }
 
@@ -332,8 +459,17 @@ func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input Tr
 	if actorID == "" {
 		return nil, permissionDenied(translationExchangePermissionExport, "translations")
 	}
-	job := b.jobs.Create("export", translationExchangePermissionExport, actorID)
+	identity := translationIdentityFromAdminContext(adminCtx)
+	job := b.jobs.Create(
+		translationExchangeJobKindExport,
+		translationExchangePermissionExport,
+		actorID,
+		identity.TenantID,
+		identity.OrgID,
+		translationExchangeExportRequestPayload(input.Filter),
+	)
 	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
+	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
 	b.jobs.MarkRunning(job.ID, map[string]any{
 		"total":     0,
 		"processed": 0,
@@ -362,6 +498,7 @@ func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input Tr
 		"source_locale":  strings.TrimSpace(input.Filter.SourceLocale),
 		"target_locales": append([]string{}, input.Filter.TargetLocales...),
 	})
+	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindExport, translationExchangeAsyncJobStatusCompleted, 0, result.RowCount)
 
 	progress := map[string]any{
 		"total":     result.RowCount,
@@ -369,12 +506,7 @@ func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input Tr
 		"succeeded": result.RowCount,
 		"failed":    0,
 	}
-	resultPayload := map[string]any{
-		"summary": map[string]any{
-			"row_count": result.RowCount,
-			"format":    strings.TrimSpace(result.Format),
-		},
-	}
+	resultPayload := translationExchangeExportResultPayload(result)
 	b.jobs.Complete(job.ID, progress, resultPayload)
 	complete, _ := b.jobs.Get(job.ID)
 	return map[string]any{
@@ -394,8 +526,17 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 	if actorID == "" {
 		return nil, permissionDenied(translationExchangePermissionImportApply, "translations")
 	}
-	job := b.jobs.Create("import.apply", translationExchangePermissionImportApply, actorID)
+	identity := translationIdentityFromAdminContext(adminCtx)
+	job := b.jobs.Create(
+		translationExchangeJobKindImportApply,
+		translationExchangePermissionImportApply,
+		actorID,
+		identity.TenantID,
+		identity.OrgID,
+		translationExchangeApplyRequestPayload(input, nil, ""),
+	)
 	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
+	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
 	b.jobs.MarkRunning(job.ID, map[string]any{
 		"total":     totalRows,
 		"processed": 0,
@@ -427,6 +568,8 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 		"dry_run":              input.DryRun,
 	})
 	recordTranslationExchangeConflicts(b.admin, adminCtx, "apply", result.Results)
+	recordTranslationExchangeValidationDiagnostics(adminCtx.Context, translationExchangeJobKindImportApply, "", result)
+	recordTranslationExchangeJobMetrics(adminCtx.Context, translationExchangeJobKindImportApply, translationExchangeAsyncJobStatusCompleted, 0, totalRows)
 
 	progress := map[string]any{
 		"total":     totalRows,
@@ -434,10 +577,7 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 		"succeeded": result.Summary.Succeeded,
 		"failed":    result.Summary.Failed,
 	}
-	resultPayload := map[string]any{
-		"summary":   result.Summary,
-		"conflicts": translationExchangeConflictSummary(result.Results),
-	}
+	resultPayload := translationExchangeResultPayload(result)
 	b.jobs.Complete(job.ID, progress, resultPayload)
 	complete, _ := b.jobs.Get(job.ID)
 	return map[string]any{
@@ -450,12 +590,102 @@ func translationExchangeActorID(ctx AdminContext) string {
 	return translationIdentityFromAdminContext(ctx).ActorID
 }
 
-func translationExchangeJobOwnedByActor(job translationExchangeAsyncJob, actorID string) bool {
+func translationExchangeJobVisibleToIdentity(job translationExchangeAsyncJob, identity translationTransportIdentity) bool {
 	owner := strings.TrimSpace(job.CreatedBy)
-	if owner == "" || strings.TrimSpace(actorID) == "" {
+	actorID := strings.TrimSpace(identity.ActorID)
+	if owner == "" || actorID == "" {
 		return false
 	}
-	return strings.EqualFold(owner, strings.TrimSpace(actorID))
+	if !strings.EqualFold(owner, actorID) {
+		return false
+	}
+	jobTenantID := strings.TrimSpace(job.TenantID)
+	identityTenantID := strings.TrimSpace(identity.TenantID)
+	if jobTenantID != "" || identityTenantID != "" {
+		if jobTenantID == "" || identityTenantID == "" || !strings.EqualFold(jobTenantID, identityTenantID) {
+			return false
+		}
+	}
+	jobOrgID := strings.TrimSpace(job.OrgID)
+	identityOrgID := strings.TrimSpace(identity.OrgID)
+	if jobOrgID != "" || identityOrgID != "" {
+		if jobOrgID == "" || identityOrgID == "" || !strings.EqualFold(jobOrgID, identityOrgID) {
+			return false
+		}
+	}
+	return true
+}
+
+func translationExchangeJobOwnedByActor(job translationExchangeAsyncJob, actorID string) bool {
+	return translationExchangeJobVisibleToIdentity(job, translationTransportIdentity{ActorID: actorID})
+}
+
+func (b *translationExchangeBinding) requireHistoryPermission(adminCtx AdminContext) error {
+	if b == nil || b.admin == nil || b.admin.authorizer == nil {
+		return nil
+	}
+	if CanAny(
+		b.admin.authorizer,
+		adminCtx.Context,
+		"translations",
+		translationExchangePermissionImportView,
+		translationExchangePermissionExport,
+		translationExchangePermissionImportValidate,
+		translationExchangePermissionImportApply,
+	) {
+		return nil
+	}
+	return permissionDenied(translationExchangePermissionImportView, "translations")
+}
+
+func (b *translationExchangeBinding) canViewHistoryJob(adminCtx AdminContext, job translationExchangeAsyncJob) bool {
+	if b == nil || b.admin == nil || b.admin.authorizer == nil {
+		return true
+	}
+	permission := strings.TrimSpace(job.Permission)
+	if permission == "" {
+		return CanAny(
+			b.admin.authorizer,
+			adminCtx.Context,
+			"translations",
+			translationExchangePermissionImportView,
+			translationExchangePermissionExport,
+			translationExchangePermissionImportValidate,
+			translationExchangePermissionImportApply,
+		)
+	}
+	return b.admin.authorizer.Can(adminCtx.Context, permission, "translations")
+}
+
+func translationExchangeHistoryJobKind(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case translationExchangeJobKindExport:
+		return translationExchangeJobKindExport
+	case translationExchangeJobKindImportValidate:
+		return translationExchangeJobKindImportValidate
+	case translationExchangeJobKindImportApply:
+		return translationExchangeJobKindImportApply
+	default:
+		return ""
+	}
+}
+
+func translationExchangeHistoryJobStatus(value string) string {
+	switch normalizeTranslationExchangeJobStatus(value) {
+	case translationExchangeAsyncJobStatusRunning:
+		if strings.EqualFold(strings.TrimSpace(value), translationExchangeAsyncJobStatusRunning) {
+			return translationExchangeAsyncJobStatusRunning
+		}
+	case translationExchangeAsyncJobStatusCompleted:
+		if strings.EqualFold(strings.TrimSpace(value), translationExchangeAsyncJobStatusCompleted) {
+			return translationExchangeAsyncJobStatusCompleted
+		}
+	case translationExchangeAsyncJobStatusFailed:
+		if strings.EqualFold(strings.TrimSpace(value), translationExchangeAsyncJobStatusFailed) {
+			return translationExchangeAsyncJobStatusFailed
+		}
+	}
+	return ""
 }
 
 func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {
@@ -481,9 +711,206 @@ func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {
 	return base + "/translations/exchange/jobs/" + id
 }
 
+func (b *translationExchangeBinding) jobHistoryEndpoint() string {
+	statusPath := b.jobStatusEndpoint("__job_id__")
+	if statusPath == "" {
+		base := strings.TrimSuffix(adminAPIBasePath(b.admin), "/")
+		if base == "" {
+			return "/admin/api/translations/exchange/jobs"
+		}
+		return base + "/translations/exchange/jobs"
+	}
+	return strings.TrimSuffix(statusPath, "/__job_id__")
+}
+
+func (b *translationExchangeBinding) recordCompletedExchangeJob(adminCtx AdminContext, kind, permission string, request, result map[string]any) map[string]any {
+	if b == nil || b.jobs == nil {
+		return nil
+	}
+	actorID := translationExchangeActorID(adminCtx)
+	if actorID == "" {
+		actorID = strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, "system"))
+	}
+	identity := translationIdentityFromAdminContext(adminCtx)
+	job := b.jobs.Create(kind, permission, actorID, identity.TenantID, identity.OrgID, request)
+	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
+	b.jobs.SetTrace(job.ID, requestIDFromContext(adminCtx.Context), traceIDFromContext(adminCtx.Context))
+	progress := translationExchangeJobProgressFromResult(kind, result)
+	b.jobs.Complete(job.ID, progress, result)
+	stored, ok := b.jobs.Get(job.ID)
+	if !ok {
+		return nil
+	}
+	return translationExchangeAsyncJobPayload(stored)
+}
+
+func mergeTranslationExchangeExportPayload(result TranslationExportResult, job map[string]any) map[string]any {
+	payload := map[string]any{
+		"row_count": result.RowCount,
+	}
+	if format := strings.TrimSpace(result.Format); format != "" {
+		payload["format"] = format
+	}
+	if len(result.Rows) > 0 {
+		payload["rows"] = result.Rows
+	}
+	if len(job) > 0 {
+		payload["job"] = job
+	}
+	return payload
+}
+
+func mergeTranslationExchangeResultPayload(result TranslationExchangeResult, job map[string]any) map[string]any {
+	payload := translationExchangeResultPayload(result)
+	if len(job) > 0 {
+		payload["job"] = job
+	}
+	return payload
+}
+
+func translationExchangeExportRequestPayload(filter TranslationExportFilter) map[string]any {
+	payload := map[string]any{
+		"resource_count": len(filter.Resources),
+		"file_name":      "translation_exchange_export.json",
+	}
+	if len(filter.Resources) > 0 {
+		payload["resources"] = append([]string{}, filter.Resources...)
+	}
+	if len(filter.EntityIDs) > 0 {
+		payload["entity_ids"] = append([]string{}, filter.EntityIDs...)
+	}
+	if sourceLocale := strings.TrimSpace(filter.SourceLocale); sourceLocale != "" {
+		payload["source_locale"] = sourceLocale
+	}
+	if len(filter.TargetLocales) > 0 {
+		payload["target_locales"] = append([]string{}, filter.TargetLocales...)
+	}
+	if len(filter.FieldPaths) > 0 {
+		payload["field_paths"] = append([]string{}, filter.FieldPaths...)
+	}
+	if filter.IncludeSourceHash {
+		payload["include_source_hash"] = true
+	}
+	return payload
+}
+
+func translationExchangeValidateRequestPayload(rows []TranslationExchangeRow, parsedPayload map[string]any, format string) map[string]any {
+	payload := map[string]any{
+		"row_count": len(rows),
+		"format":    strings.TrimSpace(primitives.FirstNonEmptyRaw(format, "json")),
+	}
+	if fileName := strings.TrimSpace(toString(parsedPayload["file_name"])); fileName != "" {
+		payload["file_name"] = fileName
+	}
+	if value, ok := parsedPayload["strict"]; ok {
+		payload["strict"] = toBool(value)
+	}
+	return payload
+}
+
+func translationExchangeApplyRequestPayload(input TranslationImportApplyInput, parsedPayload map[string]any, format string) map[string]any {
+	payload := translationExchangeValidateRequestPayload(input.Rows, parsedPayload, format)
+	if input.AllowCreateMissing {
+		payload["allow_create_missing"] = true
+	}
+	if input.AllowSourceHashOverride {
+		payload["allow_source_hash_override"] = true
+	}
+	if input.ContinueOnError {
+		payload["continue_on_error"] = true
+	}
+	if input.DryRun {
+		payload["dry_run"] = true
+	}
+	return payload
+}
+
+func translationExchangeExportResultPayload(result TranslationExportResult) map[string]any {
+	payload := map[string]any{
+		"summary": map[string]any{
+			"row_count": result.RowCount,
+			"format":    strings.TrimSpace(result.Format),
+		},
+	}
+	if download := translationExchangeExportDownload(result); len(download) > 0 {
+		payload["downloads"] = map[string]any{
+			translationExchangeDownloadKindArtifact: download,
+		}
+	}
+	return payload
+}
+
+func translationExchangeResultPayload(result TranslationExchangeResult) map[string]any {
+	payload := map[string]any{
+		"summary": result.Summary,
+		"results": result.Results,
+	}
+	if result.TotalRows > 0 {
+		payload["total_rows"] = result.TotalRows
+	}
+	conflicts := translationExchangeConflictSummary(result.Results)
+	if translationExchangeToInt(conflicts["total"]) > 0 {
+		payload["conflicts"] = conflicts
+	}
+	if download := translationExchangeValidationReportDownload("", result); len(download) > 0 {
+		payload["downloads"] = map[string]any{
+			translationExchangeDownloadKindReport: download,
+		}
+	}
+	return payload
+}
+
+func translationExchangeJobProgressFromResult(kind string, result map[string]any) map[string]any {
+	progress := map[string]any{
+		"processed": 0,
+		"succeeded": 0,
+		"failed":    0,
+	}
+	if kind == translationExchangeJobKindExport {
+		summary := extractMap(result["summary"])
+		total := translationExchangeToInt(summary["row_count"])
+		progress["total"] = total
+		progress["processed"] = total
+		progress["succeeded"] = total
+		return progress
+	}
+	summary := extractMap(result["summary"])
+	progress["total"] = translationExchangeToInt(summary["processed"])
+	progress["processed"] = translationExchangeToInt(summary["processed"])
+	progress["succeeded"] = translationExchangeToInt(summary["succeeded"])
+	progress["failed"] = translationExchangeToInt(summary["failed"])
+	if conflicts := translationExchangeToInt(summary["conflicts"]); conflicts > 0 {
+		progress["conflicts"] = conflicts
+	}
+	if skipped := translationExchangeToInt(summary["skipped"]); skipped > 0 {
+		progress["skipped"] = skipped
+	}
+	return progress
+}
+
+func translationExchangeToInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int32:
+		return int(typed)
+	case int64:
+		return int(typed)
+	case float32:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
+}
+
 func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[string]any, error) {
 	body, err := parseOptionalJSONMap(c.Body())
 	if err != nil {
+		return TranslationExportInput{}, nil, err
+	}
+	if err := validateTranslationExchangeTopLevelKeys(body, translationExchangeJobKindExport); err != nil {
 		return TranslationExportInput{}, nil, err
 	}
 	if err := rejectTranslationClientIdentityFields(body); err != nil {
@@ -525,7 +952,13 @@ func parseTranslationImportRows(c router.Context, requireTranslatedText bool) ([
 		if parseErr != nil {
 			return nil, nil, "", parseErr
 		}
+		if err := validateTranslationExchangeRowLimit(len(rows)); err != nil {
+			return nil, nil, "", err
+		}
 		payload := extractTranslationImportOptions(c, nil)
+		if fileName := strings.TrimSpace(file.Filename); fileName != "" {
+			payload["file_name"] = fileName
+		}
 		return rows, payload, format, nil
 	}
 	raw := bytes.TrimSpace(c.Body())
@@ -535,8 +968,14 @@ func parseTranslationImportRows(c router.Context, requireTranslatedText bool) ([
 			Field:   "rows",
 		}
 	}
+	if err := validateTranslationExchangeJSONBodySize(len(raw)); err != nil {
+		return nil, nil, "", err
+	}
 	rows, payload, err := parseTranslationImportJSON(raw, requireTranslatedText)
 	if err != nil {
+		return nil, nil, "", err
+	}
+	if err := validateTranslationExchangeRowLimit(len(rows)); err != nil {
 		return nil, nil, "", err
 	}
 	payload = mergeImportOptions(payload, extractTranslationImportOptions(c, payload))
@@ -549,6 +988,9 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 			Message: "file required",
 			Field:   "file",
 		}
+	}
+	if err := validateTranslationExchangeUpload(file); err != nil {
+		return nil, "", err
 	}
 	format, err := detectTranslationExchangeFormat(c, file.Filename, file.Header.Get("Content-Type"))
 	if err != nil {
@@ -605,6 +1047,20 @@ func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]Trans
 	}
 	switch payload[0] {
 	case '[':
+		if err := validateTranslationExchangeJSONBodySize(len(payload)); err != nil {
+			return nil, nil, err
+		}
+		rawRows := []map[string]any{}
+		if err := json.Unmarshal(payload, &rawRows); err != nil {
+			return nil, nil, TranslationExchangeInvalidPayloadError{
+				Message: "invalid json payload",
+				Field:   "rows",
+				Format:  "json",
+			}
+		}
+		if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
+			return nil, nil, err
+		}
 		var rows []TranslationExchangeRow
 		if err := json.Unmarshal(payload, &rows); err != nil {
 			return nil, nil, TranslationExchangeInvalidPayloadError{
@@ -644,6 +1100,13 @@ func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]Trans
 				Format:  "json",
 			}
 		}
+		jobKind := translationExchangeJobKindImportValidate
+		if requireTranslatedText {
+			jobKind = translationExchangeJobKindImportApply
+		}
+		if err := validateTranslationExchangeTopLevelKeys(body, jobKind); err != nil {
+			return nil, nil, err
+		}
 		if err := rejectTranslationClientIdentityFields(body); err != nil {
 			return nil, nil, err
 		}
@@ -670,6 +1133,17 @@ func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]Trans
 				Field:   "rows",
 				Format:  "json",
 			}
+		}
+		rawRows := []map[string]any{}
+		if err := json.Unmarshal(rowsPayload, &rawRows); err != nil {
+			return nil, nil, TranslationExchangeInvalidPayloadError{
+				Message: "invalid rows payload",
+				Field:   "rows",
+				Format:  "json",
+			}
+		}
+		if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
+			return nil, nil, err
 		}
 		if len(rows) == 0 {
 			return nil, nil, TranslationExchangeInvalidPayloadError{
@@ -786,6 +1260,9 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 			}
 		}
 		rows = append(rows, row)
+		if err := validateTranslationExchangeRowLimit(len(rows)); err != nil {
+			return nil, err
+		}
 	}
 	if len(rows) == 0 {
 		return nil, TranslationExchangeInvalidPayloadError{
@@ -829,6 +1306,145 @@ func detectTranslationExchangeFormat(c router.Context, filename, contentType str
 			Supported: translationExchangeSupportedFormats,
 		}
 	}
+}
+
+func validateTranslationExchangeUpload(file *multipart.FileHeader) error {
+	if file == nil {
+		return validationDomainError("file required", map[string]any{
+			"field": "file",
+		})
+	}
+	if file.Size > translationExchangeMaxUploadBytes {
+		return validationDomainError("translation exchange upload exceeds file size limit", map[string]any{
+			"field":       "file",
+			"limit_bytes": translationExchangeMaxUploadBytes,
+			"size_bytes":  file.Size,
+		})
+	}
+	ext := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(filepath.Ext(file.Filename))), ".")
+	contentType := strings.ToLower(strings.TrimSpace(file.Header.Get("Content-Type")))
+	allowed := map[string][]string{
+		"csv":  {"text/csv", "application/csv", "application/vnd.ms-excel", "text/plain", "application/octet-stream"},
+		"json": {"application/json", "text/json", "application/octet-stream", "text/plain"},
+	}
+	mimes, ok := allowed[ext]
+	if !ok {
+		return TranslationExchangeUnsupportedFormatError{
+			Format:    ext,
+			Supported: translationExchangeSupportedFormats,
+		}
+	}
+	if contentType == "" {
+		return nil
+	}
+	for _, mime := range mimes {
+		if strings.Contains(contentType, mime) {
+			return nil
+		}
+	}
+	return validationDomainError("translation exchange upload MIME type not allowed", map[string]any{
+		"field":        "file",
+		"file_ext":     ext,
+		"content_type": contentType,
+	})
+}
+
+func validateTranslationExchangeJSONBodySize(size int) error {
+	if size <= translationExchangeMaxUploadBytes {
+		return nil
+	}
+	return validationDomainError("translation exchange payload exceeds file size limit", map[string]any{
+		"field":       "rows",
+		"limit_bytes": translationExchangeMaxUploadBytes,
+		"size_bytes":  size,
+	})
+}
+
+func validateTranslationExchangeRowLimit(count int) error {
+	if count <= translationExchangeMaxRows {
+		return nil
+	}
+	return validationDomainError("translation exchange payload exceeds row limit", map[string]any{
+		"field":      "rows",
+		"limit_rows": translationExchangeMaxRows,
+		"row_count":  count,
+	})
+}
+
+func validateTranslationExchangeTopLevelKeys(body map[string]any, jobKind string) error {
+	if len(body) == 0 {
+		return nil
+	}
+	allowed, ok := translationExchangeAllowedTopLevelKeys[jobKind]
+	if !ok || len(allowed) == 0 {
+		return nil
+	}
+	for key := range body {
+		if _, valid := allowed[key]; valid {
+			continue
+		}
+		return validationDomainError("unknown translation exchange top-level key", map[string]any{
+			"field":       key,
+			"job_kind":    jobKind,
+			"strict_mode": true,
+		})
+	}
+	return nil
+}
+
+func validateTranslationExchangeJSONRows(rows []map[string]any) error {
+	allowed := map[string]struct{}{
+		"resource":             {},
+		"entity_id":            {},
+		"translation_group_id": {},
+		"source_locale":        {},
+		"target_locale":        {},
+		"field_path":           {},
+		"source_text":          {},
+		"translated_text":      {},
+		"source_hash":          {},
+		"path":                 {},
+		"title":                {},
+		"status":               {},
+		"notes":                {},
+		"metadata":             {},
+		"create_translation":   {},
+		"index":                {},
+	}
+	for index, row := range rows {
+		for key := range row {
+			if _, ok := allowed[key]; ok {
+				continue
+			}
+			return validationDomainError("unknown translation exchange row field", map[string]any{
+				"field":       key,
+				"row":         index,
+				"strict_mode": true,
+			})
+		}
+	}
+	return nil
+}
+
+func enforceTranslationExchangeCSRF(c router.Context) error {
+	if c == nil {
+		return nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(c.Method()), "POST") {
+		return nil
+	}
+	if strings.TrimSpace(c.Header("Cookie")) == "" {
+		return nil
+	}
+	if strings.TrimSpace(c.Header("X-CSRF-Token")) != "" {
+		return nil
+	}
+	host := strings.TrimSpace(firstNonEmpty(c.Header("X-Forwarded-Host"), c.Header("Host")))
+	origin := strings.TrimSpace(firstNonEmpty(c.Header("Origin"), c.Header("Referer")))
+	if host != "" && origin != "" && strings.Contains(origin, host) {
+		return nil
+	}
+	return permissionDenied("csrf", "translations")
 }
 
 func parseOptionalJSONMap(raw []byte) (map[string]any, error) {

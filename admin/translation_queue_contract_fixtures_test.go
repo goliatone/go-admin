@@ -146,7 +146,7 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 			SourceLocale:       "en",
 			TargetLocale:       "fr",
 			AssignmentType:     AssignmentTypeOpenPool,
-			Status:             AssignmentStatusPending,
+			Status:             AssignmentStatusOpen,
 			Priority:           PriorityUrgent,
 		},
 		{
@@ -167,7 +167,7 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 			SourceLocale:       "en",
 			TargetLocale:       "de",
 			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusReview,
+			Status:             AssignmentStatusInReview,
 			Priority:           PriorityNormal,
 			ReviewerID:         "translator-1",
 		},
@@ -183,7 +183,7 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest("GET", "/admin/api/translations/assignments?assignee_id=__me__&status=pending,assigned&priority=high,urgent", nil)
+	req := httptest.NewRequest("GET", "/admin/api/translations/assignments?assignee_id=__me__&status=open,assigned&priority=high,urgent", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {

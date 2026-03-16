@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -247,6 +248,41 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	}
 	if executor.validateCalled != 0 {
 		t.Fatalf("validate should not be called on parse error")
+	}
+}
+
+func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStrictMode(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	payload := map[string]any{
+		"rows": []map[string]any{
+			{
+				"resource":             "pages",
+				"entity_id":            "page_1",
+				"translation_group_id": "tg_1",
+				"target_locale":        "es",
+				"field_path":           "title",
+			},
+		},
+		"unexpected": true,
+	}
+	raw, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+	if executor.validateCalled != 0 {
+		t.Fatalf("validate should not be called on strict top-level key error")
 	}
 }
 
@@ -516,6 +552,10 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 	rows, ok := respPayload["rows"].([]any)
 	if !ok || len(rows) != 3 {
 		t.Fatalf("expected 3 rows, got %v", respPayload["rows"])
+	}
+	job, _ := respPayload["job"].(map[string]any)
+	if toString(job["kind"]) != translationExchangeJobKindExport {
+		t.Fatalf("expected export job payload, got %+v", job)
 	}
 }
 
@@ -802,6 +842,101 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	}
 }
 
+func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{
+			RowCount: 1,
+			Format:   "json",
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("X-User-ID", "owner-user")
+	createResp, err := app.Test(createReq)
+	if err != nil {
+		t.Fatalf("create request error: %v", err)
+	}
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d want=200", createResp.StatusCode)
+	}
+	_ = createResp.Body.Close()
+
+	otherReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	otherReq.Header.Set("Content-Type", "application/json")
+	otherReq.Header.Set("X-User-ID", "other-user")
+	otherResp, err := app.Test(otherReq)
+	if err != nil {
+		t.Fatalf("other request error: %v", err)
+	}
+	if otherResp.StatusCode != http.StatusOK {
+		t.Fatalf("other create status=%d want=200", otherResp.StatusCode)
+	}
+	_ = otherResp.Body.Close()
+
+	historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
+	historyReq.Header.Set("X-User-ID", "owner-user")
+	historyResp, err := app.Test(historyReq)
+	if err != nil {
+		t.Fatalf("history request error: %v", err)
+	}
+	if historyResp.StatusCode != http.StatusOK {
+		t.Fatalf("history status=%d want=200", historyResp.StatusCode)
+	}
+	defer historyResp.Body.Close()
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(historyResp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode history response: %v", err)
+	}
+	history := extractMap(payload["history"])
+	meta := extractMap(payload["meta"])
+	if meta["include_examples"] != true {
+		t.Fatalf("expected include_examples metadata, got %+v", meta)
+	}
+	items := extractListMaps(history["items"])
+	if len(items) < 2 {
+		t.Fatalf("expected at least one runtime export job plus fixture examples, got %+v", items)
+	}
+	if got := toInt(history["total"]); got != len(items) {
+		t.Fatalf("expected total=%d to match filtered items, got %d", len(items), got)
+	}
+
+	fixtureFound := false
+	runtimeCount := 0
+	for _, item := range items {
+		if actor := extractMap(item["actor"]); toString(actor["id"]) != "owner-user" {
+			t.Fatalf("expected owner-user actor, got %+v", actor)
+		}
+		if toString(item["kind"]) != translationExchangeJobKindExport {
+			t.Fatalf("expected export job kind, got %+v", item)
+		}
+		if item["fixture"] == true {
+			fixtureFound = true
+			downloads := extractMap(item["downloads"])
+			artifact := extractMap(downloads[translationExchangeDownloadKindArtifact])
+			if !strings.HasPrefix(toString(artifact["href"]), "data:application/json;base64,") {
+				t.Fatalf("expected fixture artifact download href, got %+v", artifact)
+			}
+			continue
+		}
+		if file := extractMap(item["file"]); !strings.Contains(strings.ToLower(toString(file["name"])), "translation_exchange_export") {
+			t.Fatalf("expected export file metadata, got %+v", file)
+		}
+		runtimeCount++
+	}
+	if !fixtureFound || runtimeCount == 0 {
+		t.Fatalf("expected fixture and runtime jobs, got %+v", items)
+	}
+}
+
 func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBinding) *fiber.App {
 	t.Helper()
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
@@ -832,6 +967,13 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 	})
 	r.Post("/admin/api/translations/exchange/import/apply", func(c router.Context) error {
 		payload, err := binding.ImportApply(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/exchange/jobs", func(c router.Context) error {
+		payload, err := binding.History(c)
 		if err != nil {
 			return writeError(c, err)
 		}

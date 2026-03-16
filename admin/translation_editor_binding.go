@@ -463,7 +463,7 @@ func (b *translationQueueBinding) assignmentEditorActionStates(ctx context.Conte
 	actions["submit_review"] = submitState
 	actions["approve"] = b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review")
 	actions["reject"] = b.reviewLifecycleActionState(ctx, assignment, PermAdminTranslationsApprove, "assignment must be in review")
-	actions["archive"] = b.queueActionState(ctx, assignment.Status != AssignmentStatusPublished, PermAdminTranslationsManage, "published assignments cannot be archived")
+	actions["archive"] = b.queueActionState(ctx, assignment.Status != AssignmentStatusArchived, PermAdminTranslationsManage, "archived assignments cannot be archived again")
 	return actions
 }
 

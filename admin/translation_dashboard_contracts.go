@@ -149,7 +149,7 @@ func translationDashboardRunbookCatalog() []map[string]any {
 			"route":        "translations.queue",
 			"resolver_key": "admin.translations.queue",
 			"query": map[string]any{
-				"status": "review",
+				"status": string(AssignmentStatusInReview),
 				"sort":   "due_date",
 				"order":  "asc",
 			},

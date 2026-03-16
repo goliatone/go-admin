@@ -56,7 +56,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 		TargetLocale:       "es",
 		ReviewerID:         "manager-1",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		Priority:           PriorityHigh,
 		DueDate:            &dueSoon,
 		TenantID:           "tenant-1",
@@ -281,7 +281,7 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 		due := now.Add(time.Duration(idx-60) * time.Minute)
 		status := AssignmentStatusAssigned
 		if idx%3 == 0 {
-			status = AssignmentStatusReview
+			status = AssignmentStatusInReview
 		}
 		if _, err := repo.Create(context.Background(), TranslationAssignment{
 			TranslationGroupID: "tg-load-" + toString(idx),

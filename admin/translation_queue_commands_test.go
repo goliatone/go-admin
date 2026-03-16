@@ -120,7 +120,7 @@ func TestRegisterTranslationQueueCommandsDispatchesClaim(t *testing.T) {
 			SourceLocale:       "en",
 			TargetLocale:       "es",
 			AssignmentType:     AssignmentTypeOpenPool,
-			Status:             AssignmentStatusPending,
+			Status:             AssignmentStatusOpen,
 			Priority:           PriorityNormal,
 		})
 		if err != nil {

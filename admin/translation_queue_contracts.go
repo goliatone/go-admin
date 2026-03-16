@@ -63,7 +63,7 @@ func TranslationQueueSavedFilterPresets() []map[string]any {
 			"label":       "Open",
 			"description": "Claimable or active assignments that still need translator work.",
 			"query": map[string]any{
-				"status": "pending,assigned,in_progress,rejected",
+				"status": "open,assigned,in_progress,changes_requested",
 				"sort":   "updated_at",
 				"order":  "desc",
 			},
@@ -73,7 +73,7 @@ func TranslationQueueSavedFilterPresets() []map[string]any {
 			"label":       "Needs Review",
 			"description": "Assignments awaiting review for the active actor.",
 			"query": map[string]any{
-				"status":      "review",
+				"status":      "in_review",
 				"reviewer_id": "__me__",
 				"sort":        "due_date",
 				"order":       "asc",
@@ -109,7 +109,7 @@ func TranslationQueueSavedReviewFilterPresets() []map[string]any {
 			"label":       "Review Inbox",
 			"description": "Assignments currently waiting on the active reviewer.",
 			"query": map[string]any{
-				"status":      "review",
+				"status":      "in_review",
 				"reviewer_id": "__me__",
 				"sort":        "due_date",
 				"order":       "asc",
@@ -120,7 +120,7 @@ func TranslationQueueSavedReviewFilterPresets() []map[string]any {
 			"label":       "Review Overdue",
 			"description": "Reviewer-owned assignments that are already overdue.",
 			"query": map[string]any{
-				"status":      "review",
+				"status":      "in_review",
 				"reviewer_id": "__me__",
 				"due_state":   "overdue",
 				"sort":        "due_date",
@@ -133,7 +133,7 @@ func TranslationQueueSavedReviewFilterPresets() []map[string]any {
 			"description":  "Reviewer inbox items with blocking QA findings.",
 			"review_state": "qa_blocked",
 			"query": map[string]any{
-				"status":      "review",
+				"status":      "in_review",
 				"reviewer_id": "__me__",
 				"sort":        "due_date",
 				"order":       "asc",
@@ -144,7 +144,7 @@ func TranslationQueueSavedReviewFilterPresets() []map[string]any {
 			"label":       "Changes Requested",
 			"description": "Assignments the active reviewer already sent back for fixes.",
 			"query": map[string]any{
-				"status":      "rejected",
+				"status":      "changes_requested",
 				"reviewer_id": "__me__",
 				"sort":        "updated_at",
 				"order":       "desc",

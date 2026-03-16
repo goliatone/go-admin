@@ -15,20 +15,17 @@ func TestAssignmentTypeIsValid(t *testing.T) {
 }
 
 func TestAssignmentStatusValidationAndTerminalState(t *testing.T) {
-	if !AssignmentStatusPending.IsValid() {
-		t.Fatalf("expected pending status to be valid")
+	if !AssignmentStatusOpen.IsValid() {
+		t.Fatalf("expected open status to be valid")
 	}
 	if AssignmentStatus("invalid").IsValid() {
 		t.Fatalf("expected unknown status to be invalid")
 	}
-	if !AssignmentStatusPublished.IsTerminal() {
-		t.Fatalf("expected published status to be terminal")
-	}
 	if !AssignmentStatusArchived.IsTerminal() {
 		t.Fatalf("expected archived status to be terminal")
 	}
-	if AssignmentStatusReview.IsTerminal() {
-		t.Fatalf("expected review status to be non-terminal")
+	if AssignmentStatusInReview.IsTerminal() {
+		t.Fatalf("expected in_review status to be non-terminal")
 	}
 }
 
@@ -53,11 +50,11 @@ func TestTranslationAssignmentActiveUniquenessKeyNormalizesInput(t *testing.T) {
 }
 
 func TestAssignmentStatusActiveState(t *testing.T) {
-	if !AssignmentStatusPending.IsActive() {
-		t.Fatalf("expected pending status to be active")
+	if !AssignmentStatusOpen.IsActive() {
+		t.Fatalf("expected open status to be active")
 	}
-	if !AssignmentStatusRejected.IsActive() {
-		t.Fatalf("expected rejected status to be active")
+	if !AssignmentStatusChangesRequested.IsActive() {
+		t.Fatalf("expected changes_requested status to be active")
 	}
 	if AssignmentStatusApproved.IsActive() {
 		t.Fatalf("expected approved status to be non-active")
@@ -73,7 +70,7 @@ func TestTranslationAssignmentValidate(t *testing.T) {
 		TargetLocale:       "es",
 		WorkScope:          "__all__",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 		Version:            0,
 	}

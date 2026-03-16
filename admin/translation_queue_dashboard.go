@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -66,8 +66,9 @@ func (s *TranslationQueueStatsFromRepository) Snapshot(ctx context.Context) (Tra
 		summary["total"]++
 		status := strings.TrimSpace(string(assignment.Status))
 		if status == "" {
-			status = string(AssignmentStatusPending)
+			status = string(AssignmentStatusOpen)
 		}
+		status = normalizeTranslationQueueState(status)
 		statusCounts[status]++
 		locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
 		if locale == "" {
@@ -77,10 +78,10 @@ func (s *TranslationQueueStatsFromRepository) Snapshot(ctx context.Context) (Tra
 		if !assignment.Status.IsTerminal() {
 			summary["active"]++
 		}
-		if assignment.Status == AssignmentStatusReview {
+		if normalizeTranslationAssignmentStatus(assignment.Status) == AssignmentStatusInReview {
 			summary["review"]++
 		}
-		if assignment.Status == AssignmentStatusApproved {
+		if normalizeTranslationAssignmentStatus(assignment.Status) == AssignmentStatusApproved {
 			summary["approved"]++
 		}
 		if assignment.DueDate != nil && assignment.DueDate.Before(now) && !assignment.Status.IsTerminal() {
@@ -107,7 +108,7 @@ func RegisterTranslationProgressWidget(dash *Dashboard, stats TranslationQueueSt
 		Code:        WidgetTranslationProgress,
 		Name:        "Translation Progress",
 		Description: "Overview of translation queue and completion status",
-		DefaultArea: dashinternal.AreaCodeForPlacement(dashinternal.PlacementMain, ""),
+		DefaultArea: uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
 		DefaultSpan: 6,
 		Permission:  PermAdminTranslationsView,
 		Handler: func(ctx AdminContext, _ map[string]any) (WidgetPayload, error) {
@@ -173,8 +174,8 @@ func translationQueueDashboardLinks(urls urlkit.Resolver, userID string) []Trans
 	return []TranslationLinkWidgetPayload{
 		build("All Translations", nil),
 		build("My Queue", myQueueQuery),
-		build("Open Pool", map[string]string{"assignment_type": string(AssignmentTypeOpenPool), "status": string(AssignmentStatusPending)}),
-		build("Review Queue", map[string]string{"status": string(AssignmentStatusReview)}),
+		build("Open Pool", map[string]string{"assignment_type": string(AssignmentTypeOpenPool), "status": string(AssignmentStatusOpen)}),
+		build("Review Queue", map[string]string{"status": string(AssignmentStatusInReview)}),
 		build("Overdue", map[string]string{"overdue": "true"}),
 	}
 }

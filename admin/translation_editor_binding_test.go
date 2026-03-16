@@ -609,7 +609,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	reviewAssignment.Status = AssignmentStatusReview
+	reviewAssignment.Status = AssignmentStatusInReview
 	reviewAssignment.ReviewerID = "reviewer-1"
 	reviewAssignment.LastReviewerID = "reviewer-1"
 	reviewAssignment.Version = 2
@@ -659,7 +659,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load approve assignment: %v", err)
 	}
-	approveAssignment.Status = AssignmentStatusReview
+	approveAssignment.Status = AssignmentStatusInReview
 	approveAssignment.ReviewerID = "reviewer-1"
 	approveAssignment.LastReviewerID = "reviewer-1"
 	approveAssignment.Version = 2

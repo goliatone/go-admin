@@ -384,11 +384,14 @@ func TestTranslationExchangeServiceValidateImportDuplicateRowsReturnConflict(t *
 	if result.Results[1].Status != translationExchangeRowStatusConflict {
 		t.Fatalf("expected duplicate row conflict, got %q", result.Results[1].Status)
 	}
-	if code := toString(result.Results[1].Metadata["error_code"]); code != TextCodeTranslationExchangeInvalidPayload {
-		t.Fatalf("expected invalid payload error_code, got %q", code)
+	if code := toString(result.Results[1].Metadata["error_code"]); code != TextCodeTranslationExchangeDuplicateRow {
+		t.Fatalf("expected duplicate row error_code, got %q", code)
 	}
 	if duplicateOf := result.Results[1].Metadata["duplicate_of_row"]; duplicateOf != 0 {
 		t.Fatalf("expected duplicate_of_row=0, got %v", duplicateOf)
+	}
+	if result.Summary.Conflicts != 1 || !result.Summary.PartialSuccess {
+		t.Fatalf("expected summary conflict/partial success, got %+v", result.Summary)
 	}
 }
 

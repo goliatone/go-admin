@@ -19,7 +19,7 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 		DueDate:            &past,
 	})
@@ -30,7 +30,7 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "fr",
 		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusReview,
+		Status:             AssignmentStatusInReview,
 		Priority:           PriorityHigh,
 	})
 
@@ -48,7 +48,7 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 	if snapshot.Summary["overdue"] != 1 {
 		t.Fatalf("expected overdue=1, got %+v", snapshot.Summary)
 	}
-	if snapshot.StatusCounts[string(AssignmentStatusReview)] != 1 {
+	if snapshot.StatusCounts[string(AssignmentStatusInReview)] != 1 {
 		t.Fatalf("expected review status count=1, got %+v", snapshot.StatusCounts)
 	}
 	if snapshot.LocaleCounts["es"] != 1 || snapshot.LocaleCounts["fr"] != 1 {
@@ -66,7 +66,7 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 		SourceLocale:       "en",
 		TargetLocale:       "es",
 		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusPending,
+		Status:             AssignmentStatusOpen,
 		Priority:           PriorityNormal,
 	})
 

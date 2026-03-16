@@ -43,6 +43,7 @@ func TranslationSharedContractsPayload() map[string]any {
 		"status_enums":          TranslationStatusEnumContract(),
 		"dashboard_contracts":   TranslationDashboardContractPayload(),
 		"queue_contracts":       TranslationQueueContractPayload(),
+		"exchange_contracts":    TranslationExchangeContractPayload(),
 		"matrix_contracts":      TranslationMatrixContractPayload(),
 		"disabled_reason_codes": ActionDisabledReasonCodes(),
 		"source_target_drift":   TranslationSourceTargetDriftContract(),
@@ -189,13 +190,12 @@ func translationCoreReadinessStates() []string {
 
 func translationQueueStates() []string {
 	return []string{
-		string(AssignmentStatusPending),
+		string(AssignmentStatusOpen),
 		string(AssignmentStatusAssigned),
 		string(AssignmentStatusInProgress),
-		string(AssignmentStatusReview),
-		string(AssignmentStatusRejected),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
 		string(AssignmentStatusApproved),
-		string(AssignmentStatusPublished),
 		string(AssignmentStatusArchived),
 	}
 }
@@ -271,26 +271,11 @@ func normalizeTranslationReadinessState(state string) string {
 }
 
 func normalizeTranslationQueueState(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case string(AssignmentStatusPending):
-		return string(AssignmentStatusPending)
-	case string(AssignmentStatusAssigned):
-		return string(AssignmentStatusAssigned)
-	case string(AssignmentStatusInProgress):
-		return string(AssignmentStatusInProgress)
-	case string(AssignmentStatusReview):
-		return string(AssignmentStatusReview)
-	case string(AssignmentStatusRejected):
-		return string(AssignmentStatusRejected)
-	case string(AssignmentStatusApproved):
-		return string(AssignmentStatusApproved)
-	case string(AssignmentStatusPublished):
-		return string(AssignmentStatusPublished)
-	case string(AssignmentStatusArchived):
-		return string(AssignmentStatusArchived)
-	default:
-		return string(AssignmentStatusPending)
+	normalized := normalizeTranslationAssignmentStatus(AssignmentStatus(state))
+	if normalized == "" {
+		return string(AssignmentStatusOpen)
 	}
+	return string(normalized)
 }
 
 func normalizeTranslationQueueContentState(state string) string {

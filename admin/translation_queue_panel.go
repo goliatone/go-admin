@@ -344,13 +344,12 @@ func (r *TranslationAssignmentPanelRepository) Delete(ctx context.Context, id st
 
 func assignmentStatusOptions() []Option {
 	statuses := []AssignmentStatus{
-		AssignmentStatusPending,
+		AssignmentStatusOpen,
 		AssignmentStatusAssigned,
 		AssignmentStatusInProgress,
-		AssignmentStatusReview,
-		AssignmentStatusRejected,
+		AssignmentStatusInReview,
+		AssignmentStatusChangesRequested,
 		AssignmentStatusApproved,
-		AssignmentStatusPublished,
 		AssignmentStatusArchived,
 	}
 	options := make([]Option, 0, len(statuses))

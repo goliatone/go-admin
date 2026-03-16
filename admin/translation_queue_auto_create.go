@@ -98,7 +98,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 			SourceTitle:        strings.TrimSpace(input.SourceTitle),
 			SourcePath:         strings.TrimSpace(input.SourcePath),
 			AssignmentType:     AssignmentTypeOpenPool,
-			Status:             AssignmentStatusPending,
+			Status:             AssignmentStatusOpen,
 			Priority:           priority,
 			CreatedAt:          time.Now().UTC(),
 			UpdatedAt:          time.Now().UTC(),

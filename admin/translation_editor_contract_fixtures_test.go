@@ -84,8 +84,8 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	}
 
 	reviewReject := extractMap(extractMap(fixture["review_reject"])["data"])
-	if got := toString(reviewReject["status"]); got != string(AssignmentStatusRejected) {
-		t.Fatalf("expected review_reject status %q, got %q", AssignmentStatusRejected, got)
+	if got := toString(reviewReject["status"]); got != string(AssignmentStatusChangesRequested) {
+		t.Fatalf("expected review_reject status %q, got %q", AssignmentStatusChangesRequested, got)
 	}
 	reviewApprove := extractMap(extractMap(fixture["review_approve"])["data"])
 	if got := toString(reviewApprove["status"]); got != string(AssignmentStatusApproved) {

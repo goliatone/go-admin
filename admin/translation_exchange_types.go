@@ -1,5 +1,7 @@
 package admin
 
+import "strings"
+
 const (
 	translationExchangeRowStatusSuccess  = "success"
 	translationExchangeRowStatusError    = "error"
@@ -8,6 +10,14 @@ const (
 
 	translationExchangeWorkflowDraft  = "draft"
 	translationExchangeWorkflowReview = "review"
+
+	translationExchangeConflictTypeMissingLinkage = "missing_linkage"
+	translationExchangeConflictTypeDuplicateRow   = "duplicate_row"
+	translationExchangeConflictTypeStaleSource    = "stale_source_hash"
+
+	translationExchangeJobKindExport         = "export"
+	translationExchangeJobKindImportValidate = "import_validate"
+	translationExchangeJobKindImportApply    = "import_apply"
 )
 
 // TranslationExchangeRow defines a normalized translation row used by command handlers.
@@ -49,9 +59,14 @@ type TranslationExportResult struct {
 
 // TranslationExchangeSummary captures aggregate validate/apply outcomes.
 type TranslationExchangeSummary struct {
-	Processed int `json:"processed"`
-	Succeeded int `json:"succeeded"`
-	Failed    int `json:"failed"`
+	Processed      int            `json:"processed"`
+	Succeeded      int            `json:"succeeded"`
+	Failed         int            `json:"failed"`
+	Conflicts      int            `json:"conflicts,omitempty"`
+	Skipped        int            `json:"skipped,omitempty"`
+	PartialSuccess bool           `json:"partial_success,omitempty"`
+	ByStatus       map[string]int `json:"by_status,omitempty"`
+	ByConflict     map[string]int `json:"by_conflict,omitempty"`
 }
 
 // TranslationExchangeConflictInfo captures deterministic row conflict metadata.
@@ -91,12 +106,32 @@ func (r *TranslationExchangeResult) Add(row TranslationExchangeRowResult) {
 	row.Status = normalizeTranslationExchangeRowStatus(row.Status)
 	r.Results = append(r.Results, row)
 	r.Summary.Processed++
+	if r.Summary.ByStatus == nil {
+		r.Summary.ByStatus = map[string]int{}
+	}
+	r.Summary.ByStatus[row.Status]++
 	switch row.Status {
 	case translationExchangeRowStatusSuccess:
 		r.Summary.Succeeded++
-	case translationExchangeRowStatusError, translationExchangeRowStatusConflict:
+	case translationExchangeRowStatusConflict:
 		r.Summary.Failed++
+		r.Summary.Conflicts++
+		if row.Conflict != nil {
+			if r.Summary.ByConflict == nil {
+				r.Summary.ByConflict = map[string]int{}
+			}
+			conflictType := strings.TrimSpace(row.Conflict.Type)
+			if conflictType == "" {
+				conflictType = translationExchangeConflictTypeMissingLinkage
+			}
+			r.Summary.ByConflict[conflictType]++
+		}
+	case translationExchangeRowStatusError:
+		r.Summary.Failed++
+	case translationExchangeRowStatusSkipped:
+		r.Summary.Skipped++
 	}
+	r.Summary.PartialSuccess = r.Summary.Succeeded > 0 && (r.Summary.Failed > 0 || r.Summary.Skipped > 0)
 }
 
 // TranslationImportRunResult captures the optional run-command two-step result.
