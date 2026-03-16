@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -489,9 +490,7 @@ func (m *Module) ExtensionBundles() map[string]any {
 		return map[string]any{}
 	}
 	out := make(map[string]any, len(m.extensionBundles))
-	for key, value := range m.extensionBundles {
-		out[key] = value
-	}
+	maps.Copy(out, m.extensionBundles)
 	return out
 }
 
@@ -520,9 +519,7 @@ func (l rawConfigLoader) LoadRaw(context.Context) (map[string]any, error) {
 		return map[string]any{}, nil
 	}
 	out := make(map[string]any, len(l.values))
-	for key, value := range l.values {
-		out[key] = value
-	}
+	maps.Copy(out, l.values)
 	return out, nil
 }
 
@@ -589,8 +586,6 @@ func copyBoolMap(in map[string]bool) map[string]bool {
 		return map[string]bool{}
 	}
 	out := make(map[string]bool, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
