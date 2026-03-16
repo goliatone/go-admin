@@ -151,6 +151,15 @@ func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
 func DefaultCMSWorkflowActions() []Action {
 	return []Action{
 		{Name: "view", Label: "View", Scope: ActionScopeRow},
+		{
+			Name:            "view_family",
+			Label:           "View Family",
+			Type:            "navigation",
+			Href:            "{translation_family_url}",
+			Scope:           ActionScopeRow,
+			ContextRequired: []string{"translation_family_url"},
+			Icon:            "git-branch",
+		},
 		{Name: "edit", Label: "Edit", Scope: ActionScopeAny},
 		{Name: "delete", Label: "Delete", Variant: "danger", Scope: ActionScopeAny},
 		{
