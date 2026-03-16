@@ -98,19 +98,31 @@ func (p *panelBinding) actionStateForRecord(
 		}
 
 		state := defaultEnabledActionState()
-		candidate, applies := p.evaluateBuiltInScopeAndContext(evalCtx)
-		state = mergeActionState(state, candidate, applies)
-		candidate, applies = p.evaluateBuiltInPermission(evalCtx)
-		state = mergeActionState(state, candidate, applies)
-		candidate, applies = p.evaluateBuiltInWorkflow(evalCtx)
-		state = mergeActionState(state, candidate, applies)
-		candidate, applies = p.evaluateBuiltInTranslationReadiness(evalCtx)
-		state = mergeActionState(state, candidate, applies)
-		candidate, applies = p.evaluateGuard(evalCtx)
-		state = mergeActionState(state, candidate, applies)
-		if candidate, ok := resolverStates[name]; ok {
+		blockerStage := ""
+		applyStage := func(stage string, candidate ActionState, applies bool) {
+			if !applies {
+				return
+			}
+			if blockerStage == "" && state.Enabled && !candidate.Enabled {
+				blockerStage = stage
+			}
 			state = mergeActionState(state, candidate, true)
 		}
+		candidate, applies := p.evaluateBuiltInScopeAndContext(evalCtx)
+		applyStage("scope_context", candidate, applies)
+		candidate, applies = p.evaluateBuiltInPermission(evalCtx)
+		applyStage("permission", candidate, applies)
+		candidate, applies = p.evaluateBuiltInWorkflow(evalCtx)
+		applyStage("workflow", candidate, applies)
+		candidate, applies = p.evaluateBuiltInTranslationReadiness(evalCtx)
+		applyStage("translation_readiness", candidate, applies)
+		candidate, applies = p.evaluateGuard(evalCtx)
+		applyStage("guard", candidate, applies)
+		if candidate, ok := resolverStates[name]; ok {
+			applyStage("resolver", candidate, true)
+		}
+		recordID := strings.TrimSpace(toString(record["id"]))
+		captureActionDisablementDiagnostic(ctx.Context, p.name, action, scope, recordID, blockerStage, state)
 		out[name] = state
 	}
 	if len(out) == 0 {
@@ -128,12 +140,23 @@ func (p *panelBinding) resolveBatchActionStates(
 	if p == nil || p.panel == nil || p.panel.actionStateResolver == nil || len(records) == 0 || len(actions) == 0 {
 		return nil, nil
 	}
-	return p.panel.actionStateResolver(
+	states, err := p.panel.actionStateResolver(
 		ctx,
 		cloneActionStateRecords(records),
 		append([]Action{}, actions...),
 		scope,
 	)
+	if err != nil {
+		recordIDs := make([]string, 0, len(records))
+		for _, record := range records {
+			if recordID := strings.TrimSpace(toString(record["id"])); recordID != "" {
+				recordIDs = append(recordIDs, recordID)
+			}
+		}
+		captureActionResolverErrorDiagnostic(ctx.Context, p.name, scope, actions, recordIDs, err)
+		return nil, err
+	}
+	return states, nil
 }
 
 func (p *panelBinding) workflowTransitionsForRecords(
@@ -278,14 +301,25 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 		return nil, nil
 	}
 	out := make(map[string]ActionState, len(actions))
+	blockerStageByAction := make(map[string]string, len(actions))
 	for _, action := range actions {
 		name := strings.TrimSpace(action.Name)
 		if name == "" {
 			continue
 		}
 		state := defaultEnabledActionState()
+		blockerStage := ""
+		applyStage := func(stage string, candidate ActionState, applies bool) {
+			if !applies {
+				return
+			}
+			if blockerStage == "" && state.Enabled && !candidate.Enabled {
+				blockerStage = stage
+			}
+			state = mergeActionState(state, candidate, true)
+		}
 		if action.Scope != ActionScopeAny && action.Scope != "" && action.Scope != ActionScopeBulk {
-			state = mergeActionState(state, ActionState{
+			applyStage("scope", ActionState{
 				Enabled:    false,
 				ReasonCode: ActionDisabledReasonCodePreconditionFailed,
 				Reason:     "action is not available for bulk execution",
@@ -293,12 +327,12 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 		}
 		if action.Permission != "" && p != nil && p.panel != nil && p.panel.authorizer != nil {
 			if p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				state = mergeActionState(state, ActionState{
+				applyStage("permission", ActionState{
 					Enabled:    true,
 					Permission: strings.TrimSpace(action.Permission),
 				}, true)
 			} else {
-				state = mergeActionState(state, ActionState{
+				applyStage("permission", ActionState{
 					Enabled:    false,
 					ReasonCode: ActionDisabledReasonCodePermissionDenied,
 					Reason:     "you do not have permission to execute this action",
@@ -307,11 +341,13 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 			}
 		}
 		out[name] = state
+		blockerStageByAction[name] = blockerStage
 	}
 
 	if p != nil && p.panel != nil && p.panel.bulkActionStateResolver != nil {
 		resolved, err := p.panel.bulkActionStateResolver(ctx, append([]Action{}, actions...), cloneListOptions(listOpts))
 		if err != nil {
+			captureActionResolverErrorDiagnostic(ctx.Context, p.name, ActionScopeBulk, actions, nil, err)
 			return nil, err
 		}
 		for _, action := range actions {
@@ -320,6 +356,9 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 				continue
 			}
 			if candidate, ok := resolved[name]; ok {
+				if blockerStageByAction[name] == "" && out[name].Enabled && !candidate.Enabled {
+					blockerStageByAction[name] = "resolver"
+				}
 				out[name] = mergeActionState(out[name], candidate, true)
 			}
 		}
@@ -327,6 +366,13 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 
 	if len(out) == 0 {
 		return nil, nil
+	}
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		captureActionDisablementDiagnostic(ctx.Context, p.name, action, ActionScopeBulk, "", blockerStageByAction[name], out[name])
 	}
 	return out, nil
 }
