@@ -85,7 +85,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": m.basePath, "key": "dashboard"},
 			Locale:   locale,
 			Menu:     code,
-			Position: admin.IntPtr(5),
+			Position: new(5),
 		},
 		{
 			Label:    "Users",
@@ -94,7 +94,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "users"), "key": "users"},
 			Locale:   locale,
 			Menu:     code,
-			Position: admin.IntPtr(10),
+			Position: new(10),
 		},
 		{
 			Label:    "Products",
@@ -103,7 +103,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "products"), "key": "products"},
 			Locale:   locale,
 			Menu:     code,
-			Position: admin.IntPtr(20),
+			Position: new(20),
 		},
 		{
 			Label:    "Orders",
@@ -112,7 +112,7 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 			Target:   map[string]any{"type": "url", "path": path.Join(m.basePath, "orders"), "key": "orders"},
 			Locale:   locale,
 			Menu:     code,
-			Position: admin.IntPtr(30),
+			Position: new(30),
 		},
 	}
 	return items

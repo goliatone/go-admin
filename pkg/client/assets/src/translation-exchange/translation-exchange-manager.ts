@@ -20,7 +20,6 @@ import {
   type TranslationExchangeValidationResult,
 } from "../translation-contracts/index.js";
 import {
-  getMetaBadgeClass,
   getStatusSeverityClass,
   type BadgeSeverity,
 } from "../translation-shared/style-constants.js";
@@ -1613,7 +1612,7 @@ export class TranslationExchangeManager {
                           <tr>
                             <td class="px-4 py-3 font-medium text-gray-900">${escapeHTML(rowIndex)}</td>
                             <td class="px-4 py-3 text-gray-700">${escapeHTML(`${row.resource}.${row.field_path}`)}</td>
-                            <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(detail?.status ?? "staged")}</span></td>
+                            <td class="px-4 py-3"><span class="${statusBadgeClass(rowStatusSeverity(detail?.status ?? "staged"))}">${escapeHTML(detail?.status ?? "staged")}</span></td>
                             <td class="px-4 py-3">
                               <div class="flex flex-wrap gap-2">
                                 ${this.rowActions(rowIndex, detail).map((decision) => this.renderApplyDecisionButton(
@@ -1768,9 +1767,9 @@ export class TranslationExchangeManager {
                       <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">${escapeHTML(job.kind.replace(/_/g, " "))}</span>
-                            <span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(job.status)}</span>
-                            ${job.fixture ? '<span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Fixture</span>' : ""}
+                            <span class="${statusBadgeClass("info")}">${escapeHTML(job.kind.replace(/_/g, " "))}</span>
+                            <span class="${statusBadgeClass(jobStatusSeverity(job.status))}">${escapeHTML(job.status)}</span>
+                            ${job.fixture ? `<span class="${statusBadgeClass("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${escapeHTML(job.file?.name ?? job.id)}</h3>
                           <p class="mt-1 text-sm text-gray-600">Actor ${escapeHTML(job.actor?.label ?? "system")} • ${escapeHTML(formatDate(job.created_at))}</p>

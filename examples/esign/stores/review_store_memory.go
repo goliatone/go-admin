@@ -165,8 +165,16 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 		if record.RecipientID == "" {
 			return invalidRecordError("agreement_review_participants", "recipient_id", "required")
 		}
-		recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]
-		if !ok || recipient.AgreementID != review.AgreementID {
+		recipientAgreementID := ""
+		if recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]; ok {
+			recipientAgreementID = recipient.AgreementID
+		}
+		if recipientAgreementID == "" {
+			if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
+				recipientAgreementID = participant.AgreementID
+			}
+		}
+		if recipientAgreementID != review.AgreementID {
 			return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
 		}
 		if normalizeID(record.ID) == "" {
