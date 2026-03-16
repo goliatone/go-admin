@@ -3,6 +3,7 @@ package debug
 import (
 	"context"
 	"errors"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -363,8 +364,6 @@ func titleCase(val string) string {
 
 func cloneMetadata(input map[string]any) map[string]any {
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
