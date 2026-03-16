@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -18,28 +19,33 @@ type navRequestScope struct {
 	Channel    string
 }
 
-// PlacementKey identifies a logical UI placement.
-type PlacementKey string
+// MenuPlacementKey identifies a logical navigation placement.
+type MenuPlacementKey string
 
-// PlacementSpec describes menu/dashboard routing for a placement.
-type PlacementSpec struct {
-	MenuCode      string
-	DashboardArea string
-	Extra         map[string]any
+// MenuPlacementSpec describes menu routing for a placement.
+type MenuPlacementSpec struct {
+	MenuCode string
+	Extra    map[string]any
 }
 
-// PlacementConfig maps logical placements to typed placement specs.
+// DashboardPlacementSpec describes dashboard routing for a placement.
+type DashboardPlacementSpec struct {
+	AreaCode string
+	Extra    map[string]any
+}
+
+// PlacementConfig maps menu and dashboard placements independently.
 type PlacementConfig struct {
-	Items map[PlacementKey]PlacementSpec
+	Menus      map[MenuPlacementKey]MenuPlacementSpec
+	Dashboards map[uiplacement.DashboardPlacementKey]DashboardPlacementSpec
 }
 
 // DefaultPlacements builds a placement map seeded with defaults.
 func DefaultPlacements(cfg admin.Config) PlacementConfig {
 	return PlacementConfig{
-		Items: map[PlacementKey]PlacementSpec{
+		Menus: map[MenuPlacementKey]MenuPlacementSpec{
 			SidebarPlacementPrimary: {
-				MenuCode:      cfg.NavMenuCode,
-				DashboardArea: "admin.dashboard.sidebar",
+				MenuCode: cfg.NavMenuCode,
 			},
 			SidebarPlacementUtility: {
 				MenuCode: DefaultSidebarUtilityMenuCode,
@@ -47,31 +53,33 @@ func DefaultPlacements(cfg admin.Config) PlacementConfig {
 			FooterPlacement: {
 				MenuCode: "admin.footer",
 			},
-			DashboardPlacementMain: {
-				DashboardArea: "admin.dashboard.main",
+		},
+		Dashboards: map[uiplacement.DashboardPlacementKey]DashboardPlacementSpec{
+			uiplacement.DashboardPlacementMain: {
+				AreaCode: uiplacement.DashboardAreaCodeMain,
 			},
-			DashboardPlacementSidebar: {
-				DashboardArea: "admin.dashboard.sidebar",
+			uiplacement.DashboardPlacementSidebar: {
+				AreaCode: uiplacement.DashboardAreaCodeSidebar,
 			},
-			DashboardPlacementFooter: {
-				DashboardArea: "admin.dashboard.footer",
+			uiplacement.DashboardPlacementFooter: {
+				AreaCode: uiplacement.DashboardAreaCodeFooter,
 			},
 		},
 	}
 }
 
-// PlacementFor returns the placement spec for a logical placement, if present.
-func (p PlacementConfig) PlacementFor(placement PlacementKey) (PlacementSpec, bool) {
-	if p.Items == nil {
-		return PlacementSpec{}, false
+// MenuPlacementFor returns the menu placement spec for a logical placement, if present.
+func (p PlacementConfig) MenuPlacementFor(placement MenuPlacementKey) (MenuPlacementSpec, bool) {
+	if p.Menus == nil {
+		return MenuPlacementSpec{}, false
 	}
-	spec, ok := p.Items[placement]
+	spec, ok := p.Menus[placement]
 	return spec, ok
 }
 
 // MenuCodeFor returns the menu code for a placement, falling back to the provided default.
-func (p PlacementConfig) MenuCodeFor(placement PlacementKey, fallback string) string {
-	if spec, ok := p.PlacementFor(placement); ok {
+func (p PlacementConfig) MenuCodeFor(placement MenuPlacementKey, fallback string) string {
+	if spec, ok := p.MenuPlacementFor(placement); ok {
 		if code := strings.TrimSpace(spec.MenuCode); code != "" {
 			return admin.NormalizeMenuSlug(code)
 		}
@@ -83,17 +91,26 @@ func (p PlacementConfig) MenuCodeFor(placement PlacementKey, fallback string) st
 	return code
 }
 
+// DashboardPlacementFor returns the dashboard placement spec for a logical placement, if present.
+func (p PlacementConfig) DashboardPlacementFor(placement uiplacement.DashboardPlacementKey) (DashboardPlacementSpec, bool) {
+	if p.Dashboards == nil {
+		return DashboardPlacementSpec{}, false
+	}
+	spec, ok := p.Dashboards[placement]
+	return spec, ok
+}
+
 // DashboardAreaFor returns the dashboard area for a placement, with fallback support.
-func (p PlacementConfig) DashboardAreaFor(placement PlacementKey, fallback string) string {
-	if spec, ok := p.PlacementFor(placement); ok {
-		if area := strings.TrimSpace(spec.DashboardArea); area != "" {
+func (p PlacementConfig) DashboardAreaFor(placement uiplacement.DashboardPlacementKey, fallback string) string {
+	if spec, ok := p.DashboardPlacementFor(placement); ok {
+		if area := strings.TrimSpace(spec.AreaCode); area != "" {
 			return area
 		}
 	}
 	if strings.TrimSpace(fallback) != "" {
 		return fallback
 	}
-	return "admin.dashboard.main"
+	return uiplacement.DashboardAreaCodeMain
 }
 
 // WithNav adds session, theme, and navigation payload to the view context.
@@ -102,7 +119,7 @@ func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active 
 }
 
 // WithNavPlacements is like WithNav but allows selecting a placement-specific menu.
-func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement PlacementKey, active string, reqCtx context.Context) router.ViewContext {
+func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
@@ -154,7 +171,7 @@ func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, acti
 }
 
 // BuildNavItemsForPlacement resolves a menu for a placement and returns render-ready entries.
-func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement PlacementKey, ctx context.Context, active string) []map[string]any {
+func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, ctx context.Context, active string) []map[string]any {
 	entries := []map[string]any{}
 	if adm == nil {
 		return entries
