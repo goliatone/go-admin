@@ -1,23 +1,24 @@
 package admin
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
 )
 
-func withTranslationDatagridRecords(a *Admin, records []map[string]any) []map[string]any {
+func withTranslationDatagridRecords(a *Admin, channel string, records []map[string]any) []map[string]any {
 	if len(records) == 0 {
 		return records
 	}
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		out = append(out, withTranslationDatagridRecord(a, record))
+		out = append(out, withTranslationDatagridRecord(a, channel, record))
 	}
 	return out
 }
 
-func withTranslationDatagridRecord(a *Admin, record map[string]any) map[string]any {
+func withTranslationDatagridRecord(a *Admin, channel string, record map[string]any) map[string]any {
 	if len(record) == 0 {
 		return record
 	}
@@ -29,7 +30,7 @@ func withTranslationDatagridRecord(a *Admin, record map[string]any) map[string]a
 	groupID := strings.TrimSpace(translationGroupIDFromRecord(out))
 	if groupID != "" {
 		out["translation_family_id"] = groupID
-		if familyURL := translationFamilyURLForAdmin(a, groupID); familyURL != "" {
+		if familyURL := translationFamilyURLForAdmin(a, groupID, channel); familyURL != "" {
 			out["translation_family_url"] = familyURL
 		}
 	}
@@ -53,7 +54,7 @@ func withTranslationDatagridRecord(a *Admin, record map[string]any) map[string]a
 	return out
 }
 
-func translationFamilyURLForAdmin(a *Admin, groupID string) string {
+func translationFamilyURLForAdmin(a *Admin, groupID string, channel string) string {
 	groupID = strings.TrimSpace(groupID)
 	if groupID == "" {
 		return ""
@@ -62,7 +63,8 @@ func translationFamilyURLForAdmin(a *Admin, groupID string) string {
 	if template == "" {
 		return ""
 	}
-	return strings.TrimSpace(strings.Replace(template, ":family_id", groupID, 1))
+	resolved := strings.TrimSpace(strings.Replace(template, ":family_id", groupID, 1))
+	return translationFamilyURLWithChannel(resolved, channel)
 }
 
 func translationFamilyRouteTemplate(a *Admin) string {
@@ -76,6 +78,26 @@ func translationFamilyRouteTemplate(a *Admin) string {
 		}
 	}
 	return joinBasePath(basePath, "/translations/families/:family_id")
+}
+
+func translationFamilyURLWithChannel(rawURL string, channel string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	channel = strings.TrimSpace(channel)
+	if rawURL == "" || channel == "" {
+		return rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	query := parsed.Query()
+	if strings.TrimSpace(query.Get(ContentChannelScopeQueryParam)) == "" &&
+		strings.TrimSpace(query.Get("channel")) == "" &&
+		strings.TrimSpace(query.Get("content_channel")) == "" {
+		query.Set("channel", channel)
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 func translationFamilyMemberCount(record map[string]any) (int, bool) {
