@@ -599,7 +599,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationExchangePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			return renderView(c, options.translationExchangeTemplate, options.translationExchangeTitle, options.translationExchangeActive, router.ViewContext{
-				"translation_exchange_api_path": prefixBasePath(apiBase, "translations"),
+				"translation_exchange_api_path": prefixBasePath(apiBase, path.Join("translations", "exchange")),
 			})
 		}))
 	}
