@@ -3,9 +3,11 @@ package main
 import (
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 )
 
-func registerDashboard(adm *admin.Admin, data *stores.CommerceStores) {
+func registerDashboard(adm *admin.Admin, data *stores.CommerceStores, placements quickstart.PlacementConfig) {
 	dash := adm.Dashboard()
 	if dash == nil || data == nil {
 		return
@@ -13,7 +15,7 @@ func registerDashboard(adm *admin.Admin, data *stores.CommerceStores) {
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:          "commerce.widget.sales_overview",
 		Name:          "Sales Overview",
-		DefaultArea:   "admin.dashboard.main",
+		DefaultArea:   quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementMain, uiplacement.DashboardAreaCodeMain),
 		DefaultConfig: map[string]any{"show_revenue": true},
 		CommandName:   "commerce.dashboard.sales_overview",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-command/registry"
 	"github.com/goliatone/go-router"
 )
@@ -46,6 +47,9 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			basePath:      cfg.BasePath,
 			menuCode:      cfg.NavMenuCode,
 			defaultLocale: cfg.DefaultLocale,
+			placements: quickstart.DefaultPlacements(admin.Config{
+				NavMenuCode: cfg.NavMenuCode,
+			}),
 		}
 		if err := adm.RegisterModule(mod); err != nil {
 			t.Fatalf("register module: %v", err)

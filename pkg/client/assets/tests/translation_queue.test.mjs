@@ -241,7 +241,7 @@ test('translation queue runtime: version conflicts roll back optimistic claim st
 
   await screen.runInlineAction('claim', 'asg-open-1');
 
-  assert.equal(screen.getRows()[0].queue_state, 'pending');
+  assert.equal(screen.getRows()[0].queue_state, 'open');
   assert.equal(screen.getFeedback()?.code, 'TRANSLATION_QUEUE_VERSION_CONFLICT');
   assert.match(screen.getFeedback()?.message || '', /version/i);
 });
@@ -314,7 +314,7 @@ test('translation queue runtime: review presets can bootstrap from explicit conf
   await flushAsync();
 
   assert.equal(screen.getActiveReviewPresetId(), 'review_inbox');
-  assert.match(firstURL, /status=review/);
+  assert.match(firstURL, /status=in_review/);
   assert.match(firstURL, /reviewer_id=__me__/);
 });
 
@@ -374,7 +374,7 @@ test('translation queue runtime: init screen reads preset from location query wh
     await flushAsync();
 
     assert.equal(screen.getActiveReviewPresetId(), 'review_inbox');
-    assert.match(firstURL, /status=review/);
+    assert.match(firstURL, /status=in_review/);
     assert.match(firstURL, /reviewer_id=__me__/);
   } finally {
     globalThis.window = previousWindow;

@@ -7,6 +7,7 @@ import (
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
 
@@ -15,6 +16,7 @@ type commerceModule struct {
 	basePath      string
 	menuCode      string
 	defaultLocale string
+	placements    quickstart.PlacementConfig
 }
 
 func (m *commerceModule) Manifest() admin.ModuleManifest {
@@ -47,7 +49,7 @@ func (m *commerceModule) Register(ctx admin.ModuleContext) error {
 	if err := registerCommands(ctx.Admin, m.stores); err != nil {
 		return err
 	}
-	registerDashboard(ctx.Admin, m.stores)
+	registerDashboard(ctx.Admin, m.stores, m.dashboardPlacements())
 	registerSearch(ctx.Admin, m.stores, path.Join(m.basePath, "api"))
 
 	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, "commerce.index"); routePath != "" {
@@ -114,4 +116,16 @@ func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
 		},
 	}
 	return items
+}
+
+func (m *commerceModule) dashboardPlacements() quickstart.PlacementConfig {
+	if m == nil {
+		return quickstart.PlacementConfig{}
+	}
+	if len(m.placements.Menus) > 0 || len(m.placements.Dashboards) > 0 {
+		return m.placements
+	}
+	return quickstart.DefaultPlacements(admin.Config{
+		NavMenuCode: m.menuCode,
+	})
 }

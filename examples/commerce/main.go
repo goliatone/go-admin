@@ -11,6 +11,7 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
@@ -62,6 +63,9 @@ func main() {
 		basePath:      cfg.BasePath,
 		menuCode:      cfg.NavMenuCode,
 		defaultLocale: cfg.DefaultLocale,
+		placements: quickstart.DefaultPlacements(admin.Config{
+			NavMenuCode: cfg.NavMenuCode,
+		}),
 	}
 	if err := adm.RegisterModule(module); err != nil {
 		log.Fatalf("register module: %v", err)
