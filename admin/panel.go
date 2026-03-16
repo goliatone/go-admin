@@ -997,6 +997,8 @@ func defaultActionOrder(name string) int {
 		return 10
 	case "view":
 		return 11
+	case "view_family":
+		return 12
 	case CreateTranslationKey:
 		return 20
 	case "request_approval", "submit_for_approval", "submit_review":
