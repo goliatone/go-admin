@@ -194,11 +194,11 @@ func agreementDraftReviewGuard(actionName string, allowedReviewStatuses []string
 			Severity:   "warning",
 			Kind:       "business_rule",
 			Metadata: map[string]any{
-				"blocked_action":         strings.ToLower(strings.TrimSpace(actionName)),
-				"current_status":         currentStatus,
-				"current_review_status":  currentReviewStatus,
+				"blocked_action":          strings.ToLower(strings.TrimSpace(actionName)),
+				"current_status":          currentStatus,
+				"current_review_status":   currentReviewStatus,
 				"allowed_review_statuses": append([]string{}, normalizedAllowedReview...),
-				"business_rule_id":       strings.TrimSpace(ruleID),
+				"business_rule_id":        strings.TrimSpace(ruleID),
 			},
 		}
 	}

@@ -1733,14 +1733,14 @@ func TestBuildAgreementLineageIndexDerivesSupersededAndRelatedAgreements(t *test
 		UpdatedAt:         root.UpdatedAt.Add(1 * time.Minute),
 	}
 	amendment := stores.AgreementRecord{
-		ID:                  "agreement-amendment",
-		Title:               "Amendment Agreement",
-		Status:              stores.AgreementStatusCompleted,
-		WorkflowKind:        stores.AgreementWorkflowKindAmendment,
-		ParentAgreementID:   correction.ID,
-		RootAgreementID:     root.ID,
+		ID:                   "agreement-amendment",
+		Title:                "Amendment Agreement",
+		Status:               stores.AgreementStatusCompleted,
+		WorkflowKind:         stores.AgreementWorkflowKindAmendment,
+		ParentAgreementID:    correction.ID,
+		RootAgreementID:      root.ID,
 		ParentExecutedSHA256: strings.Repeat("f", 64),
-		UpdatedAt:           root.UpdatedAt.Add(2 * time.Minute),
+		UpdatedAt:            root.UpdatedAt.Add(2 * time.Minute),
 	}
 
 	index := buildAgreementLineageIndex([]stores.AgreementRecord{root, correction, amendment})

@@ -28,11 +28,11 @@ func (s SigningService) resolveSignerReviewContext(ctx context.Context, scope st
 		return nil, nil
 	}
 	reviewCtx := &SignerSessionReviewContext{
-		Status:             summary.Status,
-		Gate:               summary.Gate,
-		CommentsEnabled:    summary.CommentsEnabled,
-		CanSign:            true,
-		OpenThreadCount:    summary.OpenThreadCount,
+		Status:              summary.Status,
+		Gate:                summary.Gate,
+		CommentsEnabled:     summary.CommentsEnabled,
+		CanSign:             true,
+		OpenThreadCount:     summary.OpenThreadCount,
 		ResolvedThreadCount: summary.ResolvedThreadCount,
 	}
 	for _, participant := range summary.Participants {

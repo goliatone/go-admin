@@ -152,6 +152,20 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 			t.Fatalf("expected table %s to exist", table)
 		}
 	}
+	for _, table := range []string{
+		"agreement_reviews",
+		"agreement_review_participants",
+		"agreement_comment_threads",
+		"agreement_comment_messages",
+	} {
+		exists, err := tableExists(ctx, client.DB(), table)
+		if err != nil {
+			t.Fatalf("tableExists(%s): %v", table, err)
+		}
+		if !exists {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
 
 	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	if _, err := SeedCoreFixtures(ctx, client.DB(), scope); err != nil {
@@ -195,6 +209,11 @@ func TestMigrationsExposeVersionAndRecipientLifecycleColumns(t *testing.T) {
 	}
 	if !contains(agreementCols, "version") {
 		t.Fatalf("expected agreements.version column")
+	}
+	for _, col := range []string{"review_status", "review_gate", "comments_enabled"} {
+		if !contains(agreementCols, col) {
+			t.Fatalf("expected agreements.%s column", col)
+		}
 	}
 
 	recipientCols, err := tableColumnNames(ctx, client.DB(), "recipients")

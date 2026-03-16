@@ -70,44 +70,44 @@ type AgreementReviewRecord struct {
 }
 
 type AgreementReviewParticipantRecord struct {
-	bun.BaseModel `bun:"table:agreement_review_participants,alias:arp"`
-	ID            string
-	TenantID      string
-	OrgID         string
-	ReviewID      string
-	RecipientID   string
-	Role          string
-	CanComment    bool
-	CanApprove    bool
+	bun.BaseModel  `bun:"table:agreement_review_participants,alias:arp"`
+	ID             string
+	TenantID       string
+	OrgID          string
+	ReviewID       string
+	RecipientID    string
+	Role           string
+	CanComment     bool
+	CanApprove     bool
 	DecisionStatus string
-	DecisionAt    *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	DecisionAt     *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type AgreementCommentThreadRecord struct {
-	bun.BaseModel   `bun:"table:agreement_comment_threads,alias:act"`
-	ID              string
-	TenantID        string
-	OrgID           string
-	AgreementID     string
-	ReviewID        string
-	DocumentID      string
-	Visibility      string
-	AnchorType      string
-	PageNumber      int
-	FieldID         string
-	AnchorX         float64
-	AnchorY         float64
-	Status          string
-	CreatedByType   string
-	CreatedByID     string
-	ResolvedByType  string
-	ResolvedByID    string
-	ResolvedAt      *time.Time
-	LastActivityAt  *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	bun.BaseModel  `bun:"table:agreement_comment_threads,alias:act"`
+	ID             string
+	TenantID       string
+	OrgID          string
+	AgreementID    string
+	ReviewID       string
+	DocumentID     string
+	Visibility     string
+	AnchorType     string
+	PageNumber     int
+	FieldID        string
+	AnchorX        float64
+	AnchorY        float64
+	Status         string
+	CreatedByType  string
+	CreatedByID    string
+	ResolvedByType string
+	ResolvedByID   string
+	ResolvedAt     *time.Time
+	LastActivityAt *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type AgreementCommentMessageRecord struct {
@@ -124,10 +124,10 @@ type AgreementCommentMessageRecord struct {
 }
 
 type AgreementCommentThreadQuery struct {
-	ReviewID    string
-	Visibility  string
-	Status      string
-	Limit       int
-	Offset      int
-	SortDesc    bool
+	ReviewID   string
+	Visibility string
+	Status     string
+	Limit      int
+	Offset     int
+	SortDesc   bool
 }

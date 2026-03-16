@@ -132,6 +132,24 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected signer route fallback /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
 	}
+	if routes.SignerReviewThreads != "/api/v1/esign/signing/session/:token/review/threads" {
+		t.Fatalf("expected signer review threads route fallback /api/v1/esign/signing/session/:token/review/threads, got %q", routes.SignerReviewThreads)
+	}
+	if routes.SignerReviewThreadReplies != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/replies" {
+		t.Fatalf("expected signer review replies route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/replies, got %q", routes.SignerReviewThreadReplies)
+	}
+	if routes.SignerReviewThreadResolve != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve" {
+		t.Fatalf("expected signer review resolve route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve, got %q", routes.SignerReviewThreadResolve)
+	}
+	if routes.SignerReviewThreadReopen != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen" {
+		t.Fatalf("expected signer review reopen route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen, got %q", routes.SignerReviewThreadReopen)
+	}
+	if routes.SignerReviewApprove != "/api/v1/esign/signing/session/:token/review/approve" {
+		t.Fatalf("expected signer review approve route fallback /api/v1/esign/signing/session/:token/review/approve, got %q", routes.SignerReviewApprove)
+	}
+	if routes.SignerReviewRequestChanges != "/api/v1/esign/signing/session/:token/review/request-changes" {
+		t.Fatalf("expected signer review request-changes route fallback /api/v1/esign/signing/session/:token/review/request-changes, got %q", routes.SignerReviewRequestChanges)
+	}
 	if routes.SignerFieldValues != "/api/v1/esign/signing/field-values/:token" {
 		t.Fatalf("expected signer field-values route fallback /api/v1/esign/signing/field-values/:token, got %q", routes.SignerFieldValues)
 	}
@@ -262,6 +280,24 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
+	}
+	if routes.SignerReviewThreads != "/api/v1/esign/signing/session/:token/review/threads" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/threads, got %q", routes.SignerReviewThreads)
+	}
+	if routes.SignerReviewThreadReplies != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/replies" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/threads/:thread_id/replies, got %q", routes.SignerReviewThreadReplies)
+	}
+	if routes.SignerReviewThreadResolve != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve, got %q", routes.SignerReviewThreadResolve)
+	}
+	if routes.SignerReviewThreadReopen != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen, got %q", routes.SignerReviewThreadReopen)
+	}
+	if routes.SignerReviewApprove != "/api/v1/esign/signing/session/:token/review/approve" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/approve, got %q", routes.SignerReviewApprove)
+	}
+	if routes.SignerReviewRequestChanges != "/api/v1/esign/signing/session/:token/review/request-changes" {
+		t.Fatalf("expected /api/v1/esign/signing/session/:token/review/request-changes, got %q", routes.SignerReviewRequestChanges)
 	}
 	if routes.SignerFieldValues != "/api/v1/esign/signing/field-values/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/field-values/:token, got %q", routes.SignerFieldValues)

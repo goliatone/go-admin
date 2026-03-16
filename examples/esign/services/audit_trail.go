@@ -22,33 +22,33 @@ const (
 )
 
 const (
-	auditTrailSourceAgreementCreated    = "agreement.created"
-	auditTrailSourceAgreementSent       = "agreement.sent"
-	auditTrailSourceAgreementResent     = "agreement.resent"
-	auditTrailSourceSignerViewed        = "signer.viewed"
-	auditTrailSourceSignerSubmitted     = "signer.submitted"
-	auditTrailSourceSignerDeclined      = "signer.declined"
-	auditTrailSourceAgreementDeclined   = "agreement.declined"
-	auditTrailSourceAgreementVoided     = "agreement.voided"
-	auditTrailSourceAgreementExpired    = "agreement.expired"
-	auditTrailSourceAgreementIncomplete = "agreement.incomplete"
-	auditTrailSourceAgreementCompleted  = "agreement.completed"
-	auditTrailSourceCorrectionRequested = "agreement.correction_requested"
-	auditTrailSourceCorrectionDrafted   = "agreement.correction_draft_created"
-	auditTrailSourceCorrectedFrom       = "agreement.corrected_from"
-	auditTrailSourceSupersededCorrection = "agreement.superseded_by_correction"
-	auditTrailSourceAmendmentRequested  = "agreement.amendment_requested"
-	auditTrailSourceAmendmentDrafted    = "agreement.amendment_draft_created"
-	auditTrailSourceAmendedFrom         = "agreement.amended_from"
-	auditTrailSourceReviewRequested     = "agreement.review_requested"
-	auditTrailSourceReviewReopened      = "agreement.review_reopened"
-	auditTrailSourceReviewApproved      = "agreement.review_approved"
+	auditTrailSourceAgreementCreated       = "agreement.created"
+	auditTrailSourceAgreementSent          = "agreement.sent"
+	auditTrailSourceAgreementResent        = "agreement.resent"
+	auditTrailSourceSignerViewed           = "signer.viewed"
+	auditTrailSourceSignerSubmitted        = "signer.submitted"
+	auditTrailSourceSignerDeclined         = "signer.declined"
+	auditTrailSourceAgreementDeclined      = "agreement.declined"
+	auditTrailSourceAgreementVoided        = "agreement.voided"
+	auditTrailSourceAgreementExpired       = "agreement.expired"
+	auditTrailSourceAgreementIncomplete    = "agreement.incomplete"
+	auditTrailSourceAgreementCompleted     = "agreement.completed"
+	auditTrailSourceCorrectionRequested    = "agreement.correction_requested"
+	auditTrailSourceCorrectionDrafted      = "agreement.correction_draft_created"
+	auditTrailSourceCorrectedFrom          = "agreement.corrected_from"
+	auditTrailSourceSupersededCorrection   = "agreement.superseded_by_correction"
+	auditTrailSourceAmendmentRequested     = "agreement.amendment_requested"
+	auditTrailSourceAmendmentDrafted       = "agreement.amendment_draft_created"
+	auditTrailSourceAmendedFrom            = "agreement.amended_from"
+	auditTrailSourceReviewRequested        = "agreement.review_requested"
+	auditTrailSourceReviewReopened         = "agreement.review_reopened"
+	auditTrailSourceReviewApproved         = "agreement.review_approved"
 	auditTrailSourceReviewChangesRequested = "agreement.review_changes_requested"
-	auditTrailSourceReviewClosed        = "agreement.review_closed"
-	auditTrailSourceCommentThreadCreated = "agreement.comment_thread_created"
-	auditTrailSourceCommentReplied      = "agreement.comment_replied"
-	auditTrailSourceCommentResolved     = "agreement.comment_resolved"
-	auditTrailSourceCommentReopened     = "agreement.comment_reopened"
+	auditTrailSourceReviewClosed           = "agreement.review_closed"
+	auditTrailSourceCommentThreadCreated   = "agreement.comment_thread_created"
+	auditTrailSourceCommentReplied         = "agreement.comment_replied"
+	auditTrailSourceCommentResolved        = "agreement.comment_resolved"
+	auditTrailSourceCommentReopened        = "agreement.comment_reopened"
 )
 
 const (
@@ -73,29 +73,29 @@ const (
 type auditTrailDescriptionKind string
 
 const (
-	auditTrailDescriptionKindCreated    auditTrailDescriptionKind = "created"
-	auditTrailDescriptionKindSent       auditTrailDescriptionKind = "sent"
-	auditTrailDescriptionKindViewed     auditTrailDescriptionKind = "viewed"
-	auditTrailDescriptionKindSigned     auditTrailDescriptionKind = "signed"
-	auditTrailDescriptionKindDeclined   auditTrailDescriptionKind = "declined"
-	auditTrailDescriptionKindIncomplete auditTrailDescriptionKind = "incomplete"
-	auditTrailDescriptionKindCompleted  auditTrailDescriptionKind = "completed"
-	auditTrailDescriptionKindCorrectionRequested auditTrailDescriptionKind = "correction_requested"
-	auditTrailDescriptionKindCorrectionDrafted   auditTrailDescriptionKind = "correction_drafted"
-	auditTrailDescriptionKindCorrectedFrom       auditTrailDescriptionKind = "corrected_from"
-	auditTrailDescriptionKindSuperseded          auditTrailDescriptionKind = "superseded"
-	auditTrailDescriptionKindAmendmentRequested  auditTrailDescriptionKind = "amendment_requested"
-	auditTrailDescriptionKindAmendmentDrafted    auditTrailDescriptionKind = "amendment_drafted"
-	auditTrailDescriptionKindAmendedFrom         auditTrailDescriptionKind = "amended_from"
-	auditTrailDescriptionKindReviewRequested     auditTrailDescriptionKind = "review_requested"
-	auditTrailDescriptionKindReviewReopened      auditTrailDescriptionKind = "review_reopened"
-	auditTrailDescriptionKindReviewApproved      auditTrailDescriptionKind = "review_approved"
+	auditTrailDescriptionKindCreated                auditTrailDescriptionKind = "created"
+	auditTrailDescriptionKindSent                   auditTrailDescriptionKind = "sent"
+	auditTrailDescriptionKindViewed                 auditTrailDescriptionKind = "viewed"
+	auditTrailDescriptionKindSigned                 auditTrailDescriptionKind = "signed"
+	auditTrailDescriptionKindDeclined               auditTrailDescriptionKind = "declined"
+	auditTrailDescriptionKindIncomplete             auditTrailDescriptionKind = "incomplete"
+	auditTrailDescriptionKindCompleted              auditTrailDescriptionKind = "completed"
+	auditTrailDescriptionKindCorrectionRequested    auditTrailDescriptionKind = "correction_requested"
+	auditTrailDescriptionKindCorrectionDrafted      auditTrailDescriptionKind = "correction_drafted"
+	auditTrailDescriptionKindCorrectedFrom          auditTrailDescriptionKind = "corrected_from"
+	auditTrailDescriptionKindSuperseded             auditTrailDescriptionKind = "superseded"
+	auditTrailDescriptionKindAmendmentRequested     auditTrailDescriptionKind = "amendment_requested"
+	auditTrailDescriptionKindAmendmentDrafted       auditTrailDescriptionKind = "amendment_drafted"
+	auditTrailDescriptionKindAmendedFrom            auditTrailDescriptionKind = "amended_from"
+	auditTrailDescriptionKindReviewRequested        auditTrailDescriptionKind = "review_requested"
+	auditTrailDescriptionKindReviewReopened         auditTrailDescriptionKind = "review_reopened"
+	auditTrailDescriptionKindReviewApproved         auditTrailDescriptionKind = "review_approved"
 	auditTrailDescriptionKindReviewChangesRequested auditTrailDescriptionKind = "review_changes_requested"
-	auditTrailDescriptionKindReviewClosed        auditTrailDescriptionKind = "review_closed"
-	auditTrailDescriptionKindCommentCreated      auditTrailDescriptionKind = "comment_created"
-	auditTrailDescriptionKindCommentReplied      auditTrailDescriptionKind = "comment_replied"
-	auditTrailDescriptionKindCommentResolved     auditTrailDescriptionKind = "comment_resolved"
-	auditTrailDescriptionKindCommentReopened     auditTrailDescriptionKind = "comment_reopened"
+	auditTrailDescriptionKindReviewClosed           auditTrailDescriptionKind = "review_closed"
+	auditTrailDescriptionKindCommentCreated         auditTrailDescriptionKind = "comment_created"
+	auditTrailDescriptionKindCommentReplied         auditTrailDescriptionKind = "comment_replied"
+	auditTrailDescriptionKindCommentResolved        auditTrailDescriptionKind = "comment_resolved"
+	auditTrailDescriptionKindCommentReopened        auditTrailDescriptionKind = "comment_reopened"
 )
 
 type auditTrailSourceEventPolicy struct {
@@ -445,19 +445,19 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 	}
 
 	return AuditTrailDocument{
-		AgreementID:    strings.TrimSpace(input.Agreement.ID),
-		Title:          coalesce(strings.TrimSpace(input.Agreement.Title), strings.TrimSpace(input.DocumentTitle), "Agreement"),
-		FileName:       fileName,
-		DocumentID:     coalesce(strings.TrimSpace(input.DocumentID), strings.TrimSpace(input.Agreement.DocumentID), strings.TrimSpace(input.Agreement.ID)),
-		DocumentHash:   strings.TrimSpace(input.DocumentHash),
-		Status:         status,
-		GeneratedAt:    now,
-		ExecutedSHA256: strings.TrimSpace(input.ExecutedSHA256),
-		CorrelationID:  strings.TrimSpace(input.CorrelationID),
+		AgreementID:          strings.TrimSpace(input.Agreement.ID),
+		Title:                coalesce(strings.TrimSpace(input.Agreement.Title), strings.TrimSpace(input.DocumentTitle), "Agreement"),
+		FileName:             fileName,
+		DocumentID:           coalesce(strings.TrimSpace(input.DocumentID), strings.TrimSpace(input.Agreement.DocumentID), strings.TrimSpace(input.Agreement.ID)),
+		DocumentHash:         strings.TrimSpace(input.DocumentHash),
+		Status:               status,
+		GeneratedAt:          now,
+		ExecutedSHA256:       strings.TrimSpace(input.ExecutedSHA256),
+		CorrelationID:        strings.TrimSpace(input.CorrelationID),
 		RootAgreementID:      coalesce(strings.TrimSpace(input.RootAgreementID), strings.TrimSpace(input.Agreement.RootAgreementID)),
 		ParentAgreementID:    coalesce(strings.TrimSpace(input.ParentAgreementID), strings.TrimSpace(input.Agreement.ParentAgreementID)),
 		ParentExecutedSHA256: coalesce(strings.TrimSpace(input.ParentExecutedSHA256), strings.TrimSpace(input.Agreement.ParentExecutedSHA256)),
-		Entries:        entries,
+		Entries:              entries,
 	}
 }
 
