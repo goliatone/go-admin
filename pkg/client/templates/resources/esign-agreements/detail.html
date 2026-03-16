@@ -2,6 +2,62 @@
 
 {% set avatar_type = "agreement" %}
 
+{% block detail_head_extra %}
+<style>
+  .agreement-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .agreement-section-card {
+    border-top: 1px solid rgb(229 231 235);
+    padding: 1.5rem;
+  }
+
+  .agreement-lineage-rail {
+    position: relative;
+    margin-left: 0.5rem;
+    padding-left: 1.25rem;
+  }
+
+  .agreement-lineage-rail::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    width: 2px;
+    background: rgb(226 232 240);
+  }
+
+  .agreement-lineage-node {
+    position: relative;
+  }
+
+  .agreement-lineage-node::before {
+    content: "";
+    position: absolute;
+    left: -1.44rem;
+    top: 0.55rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    background: white;
+    border: 2px solid rgb(59 130 246);
+  }
+
+  .review-thread-message + .review-thread-message {
+    margin-top: 0.75rem;
+  }
+</style>
+{% endblock %}
+
 {% block header_pretitle %}
   <p class="text-sm text-gray-500 mb-1">E-Sign Agreement</p>
 {% endblock %}
@@ -111,6 +167,57 @@
   {% endif %}
 {% endblock %}
 
+{% block lineage_banner %}
+{% if resource_item.workflow_kind and resource_item.workflow_kind != "standard" %}
+<div class="mx-6 mt-4 -mb-2 rounded-lg border {% if resource_item.workflow_kind == 'correction' %}border-amber-200 bg-amber-50{% else %}border-purple-200 bg-purple-50{% endif %} p-4">
+  <div class="flex items-start gap-3">
+    {% if resource_item.workflow_kind == "correction" %}
+    <i class="iconoir-edit-pencil mt-0.5 {% if resource_item.workflow_kind == 'correction' %}text-amber-600{% else %}text-purple-600{% endif %}" aria-hidden="true"></i>
+    {% else %}
+    <i class="iconoir-plus mt-0.5 text-purple-600" aria-hidden="true"></i>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold {% if resource_item.workflow_kind == 'correction' %}text-amber-900{% else %}text-purple-900{% endif %}">
+        {% if resource_item.workflow_kind == "correction" %}
+          Correction of Previous Agreement
+        {% else %}
+          Amendment to Completed Agreement
+        {% endif %}
+      </p>
+      <p class="mt-1 text-xs {% if resource_item.workflow_kind == 'correction' %}text-amber-800{% else %}text-purple-800{% endif %}">
+        {% if resource_item.workflow_kind == "correction" %}
+          This draft supersedes an in-flight agreement. Once sent, this version will replace the original.
+        {% else %}
+          This draft is a follow-on to a completed agreement. It inherits context from the parent version.
+        {% endif %}
+        {% if resource_item.parent_agreement_id %}
+        <a href="{{ panelDetailURL('esign_agreements', resource_item.parent_agreement_id) }}" class="font-medium underline underline-offset-2 {% if resource_item.workflow_kind == 'correction' %}text-amber-700 hover:text-amber-900{% else %}text-purple-700 hover:text-purple-900{% endif %}">
+          View parent agreement
+        </a>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% if resource_item.superseded_by_agreement_id %}
+<div class="mx-6 mt-4 -mb-2 rounded-lg border border-red-200 bg-red-50 p-4">
+  <div class="flex items-start gap-3">
+    <i class="iconoir-warning-circle mt-0.5 text-red-600" aria-hidden="true"></i>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold text-red-900">This Agreement Was Superseded</p>
+      <p class="mt-1 text-xs text-red-800">
+        A newer version of this agreement exists.
+        <a href="{{ panelDetailURL('esign_agreements', resource_item.superseded_by_agreement_id) }}" class="font-medium underline underline-offset-2 text-red-700 hover:text-red-900">
+          View the replacement
+        </a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
 {% block fields_section %}
 <div class="p-6">
   <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Agreement Details</div>
@@ -202,6 +309,384 @@
 {% set page_status = resource_item.status|lower %}
 {% set page_executed_status = resource_item.delivery.executed_status|lower %}
 {% set page_executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or page_executed_status == "ready") %}
+<div class="agreement-section-card">
+  <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+    <div class="max-w-2xl">
+      <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3">Workflow & Lineage</div>
+      <h3 class="text-lg font-semibold text-gray-900">
+        {% if resource_item.workflow_kind == "correction" %}
+          Correction Draft
+        {% elif resource_item.workflow_kind == "amendment" %}
+          Amendment Draft
+        {% else %}
+          Standard Agreement
+        {% endif %}
+      </h3>
+      <p class="mt-2 text-sm text-gray-600">
+        {% if resource_item.workflow_kind == "correction" %}
+          This agreement supersedes an earlier in-flight version. Edit and resend this draft to issue the corrected revision.
+        {% elif resource_item.workflow_kind == "amendment" %}
+          This agreement is a follow-on amendment linked to a completed parent agreement.
+        {% else %}
+          This agreement is the primary version in its lineage unless it is later superseded by a correction or amendment.
+        {% endif %}
+      </p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <span class="agreement-meta-chip bg-slate-100 text-slate-700">Workflow: {{ resource_item.workflow_kind|default:"standard"|title }}</span>
+        <span class="agreement-meta-chip bg-blue-100 text-blue-700">Review: {{ resource_item.review_status|default:"none"|title }}</span>
+        <span class="agreement-meta-chip bg-indigo-100 text-indigo-700">Gate: {{ resource_item.review_gate|default:"none"|replace:"_"," "|title }}</span>
+        <span class="agreement-meta-chip {% if resource_item.comments_enabled %}bg-emerald-100 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+          Comments {% if resource_item.comments_enabled %}Enabled{% else %}Disabled{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="grid min-w-[280px] gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2 lg:grid-cols-1">
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Root Agreement</div>
+        <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.root_agreement_id|default:resource_item.id|default:"-" }}</div>
+      </div>
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Parent Agreement</div>
+        <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_agreement_id|default:"-" }}</div>
+      </div>
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Superseded By</div>
+        <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.superseded_by_agreement_id|default:"-" }}</div>
+      </div>
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Parent Hash</div>
+        <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_executed_sha256|default:"-" }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if resource_item.related_agreements and resource_item.related_agreements|length > 0 %}
+  <div class="mt-6">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3">Related Agreements</div>
+    <div class="agreement-lineage-rail space-y-4">
+      {% for agreement in resource_item.related_agreements %}
+      <div class="agreement-lineage-node rounded-xl border border-gray-200 bg-white p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-gray-900">{{ agreement.title|default:agreement.id }}</div>
+            <div class="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+              <span class="agreement-meta-chip bg-slate-100 text-slate-700">{{ agreement.workflow_kind|default:"standard"|title }}</span>
+              <span class="agreement-meta-chip bg-gray-100 text-gray-600">{{ agreement.status|default:"unknown"|title }}</span>
+            </div>
+          </div>
+          <a href="{{ panelDetailURL('esign_agreements', agreement.id) }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">Open</a>
+        </div>
+        <div class="mt-3 grid gap-2 text-xs text-gray-600 sm:grid-cols-3">
+          <div><span class="font-semibold text-gray-700">Sent:</span> {{ agreement.sent_at|default:"-" }}</div>
+          <div><span class="font-semibold text-gray-700">Completed:</span> {{ agreement.completed_at|default:"-" }}</div>
+          <div><span class="font-semibold text-gray-700">Voided:</span> {{ agreement.voided_at|default:"-" }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="agreement-section-card">
+  <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Review & Comments</div>
+          <h3 class="mt-2 text-lg font-semibold text-gray-900">Review Workspace</h3>
+          <p class="mt-1 text-sm text-gray-600">Configure reviewers, track decisions, and inspect shared comment threads for this revision.</p>
+        </div>
+        <span class="agreement-meta-chip {% if resource_item.review and resource_item.review.status == 'approved' %}bg-emerald-100 text-emerald-700{% elif resource_item.review and resource_item.review.status == 'changes_requested' %}bg-amber-100 text-amber-700{% elif resource_item.review and resource_item.review.status == 'in_review' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ resource_item.review.status|default:resource_item.review_status|default:"none"|replace:"_"," "|title }}
+        </span>
+      </div>
+
+      {% if page_status == "draft" %}
+      <div class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-gray-900">
+              {% if resource_item.review and resource_item.review.status == "in_review" %}
+                Active Review Configuration
+              {% elif resource_item.review and resource_item.review.status %}
+                Reopen Review
+              {% else %}
+                Start Review
+              {% endif %}
+            </div>
+            <p class="mt-1 text-xs text-gray-500">Recipient-backed and external reviewers share the same configuration model.</p>
+          </div>
+          {% if resource_item.review and resource_item.review.status == "in_review" %}
+          <button type="button" id="agreement-close-review-btn" class="btn btn-secondary">Close Review</button>
+          {% endif %}
+        </div>
+
+        <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="space-y-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="block text-sm">
+                <span class="mb-1 block font-medium text-gray-700">Review Gate</span>
+                <select id="agreement-review-gate" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="approve_before_send" {% if resource_item.review_gate == "approve_before_send" %}selected{% endif %}>Approve before send</option>
+                  <option value="approve_before_sign" {% if resource_item.review_gate == "approve_before_sign" %}selected{% endif %}>Approve before sign</option>
+                </select>
+              </label>
+              <label class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                <input id="agreement-review-comments-enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" {% if resource_item.review.comments_enabled or resource_item.comments_enabled %}checked{% endif %}>
+                <span>Enable shared comments</span>
+              </label>
+            </div>
+
+            <div>
+              <div class="mb-2 text-sm font-medium text-gray-700">Recipient Reviewers</div>
+              <div class="space-y-3">
+                {% for participant in resource_item.participants %}
+                  {% if participant.role != "cc" %}
+                  <div class="rounded-lg border border-gray-200 bg-white p-3" data-review-recipient-row data-recipient-id="{{ participant.id }}" data-email="{{ participant.email|default:""|escapejs }}" data-name="{{ participant.name|default:participant.email|escapejs }}">
+                    <div class="flex items-start justify-between gap-3">
+                      <label class="flex items-start gap-3">
+                        <input type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600" data-review-recipient-enabled>
+                        <span>
+                          <span class="block text-sm font-medium text-gray-900">{{ participant.name|default:participant.email }}</span>
+                          <span class="block text-xs text-gray-500">{{ participant.email }}</span>
+                        </span>
+                      </label>
+                      <div class="flex flex-wrap gap-3 text-xs text-gray-600">
+                        <label class="flex items-center gap-2"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" data-review-recipient-comment checked> Comment</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" data-review-recipient-approve checked> Approve</label>
+                      </div>
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="text-sm font-medium text-gray-700">External Reviewers</div>
+              <button type="button" id="agreement-add-external-reviewer-btn" class="text-sm font-medium text-blue-600 hover:text-blue-800">Add External Reviewer</button>
+            </div>
+            <div id="agreement-external-reviewers" class="space-y-3"></div>
+            <template id="agreement-external-reviewer-template">
+              <div class="rounded-lg border border-gray-200 bg-white p-3" data-review-external-row>
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-sm font-medium text-gray-900">External Reviewer</div>
+                  <button type="button" class="text-sm text-red-600 hover:text-red-700" data-review-external-remove>Remove</button>
+                </div>
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label class="block text-sm">
+                    <span class="mb-1 block text-xs font-medium text-gray-600">Display Name</span>
+                    <input type="text" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" data-review-external-name placeholder="Reviewer name">
+                  </label>
+                  <label class="block text-sm">
+                    <span class="mb-1 block text-xs font-medium text-gray-600">Email</span>
+                    <input type="email" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" data-review-external-email placeholder="reviewer@example.com">
+                  </label>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+                  <label class="flex items-center gap-2"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" data-review-external-comment checked> Comment</label>
+                  <label class="flex items-center gap-2"><input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" data-review-external-approve checked> Approve</label>
+                </div>
+              </div>
+            </template>
+            <div class="flex justify-end">
+              <button type="button" id="agreement-submit-review-btn" class="btn btn-primary">
+                {% if resource_item.review and resource_item.review.status and resource_item.review.status != "in_review" %}
+                  Reopen Review
+                {% else %}
+                  Request Review
+                {% endif %}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if resource_item.review and resource_item.review.participants and resource_item.review.participants|length > 0 %}
+      <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+        <div class="text-sm font-semibold text-gray-900">Review Participants</div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+          {% for participant in resource_item.review.participants %}
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-sm font-medium text-gray-900">{{ participant.display_name|default:participant.email|default:participant.recipient_id }}</div>
+                <div class="mt-1 text-xs text-gray-500">
+                  {{ participant.participant_type|default:"recipient"|title }}
+                  {% if participant.email %}• {{ participant.email }}{% endif %}
+                </div>
+              </div>
+              <span class="agreement-meta-chip {% if participant.decision_status == 'approved' %}bg-emerald-100 text-emerald-700{% elif participant.decision_status == 'changes_requested' %}bg-amber-100 text-amber-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ participant.decision_status|default:"pending"|replace:"_"," "|title }}
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+              <span class="agreement-meta-chip {% if participant.can_comment %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">Comment {% if participant.can_comment %}On{% else %}Off{% endif %}</span>
+              <span class="agreement-meta-chip {% if participant.can_approve %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-600{% endif %}">Approve {% if participant.can_approve %}On{% else %}Off{% endif %}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if resource_item.review and resource_item.review.review_id %}
+      <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-gray-900">Shared Comment Threads</div>
+            <p class="mt-1 text-xs text-gray-500">Comments are revision-scoped and anchored to the agreement, a page, or a field.</p>
+          </div>
+          {% if resource_item.comments_enabled %}
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 w-full max-w-md">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Add Sender Comment</div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <label class="block text-sm">
+                <span class="mb-1 block text-xs font-medium text-gray-600">Anchor</span>
+                <select id="agreement-thread-anchor-type" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="agreement">Agreement</option>
+                  <option value="page">Page</option>
+                  <option value="field">Field</option>
+                </select>
+              </label>
+              <label class="block text-sm" id="agreement-thread-page-wrap">
+                <span class="mb-1 block text-xs font-medium text-gray-600">Page</span>
+                <input id="agreement-thread-page-number" type="number" min="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="1">
+              </label>
+            </div>
+            <label class="mt-3 block text-sm" id="agreement-thread-field-wrap">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Field</span>
+              <select id="agreement-thread-field-id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">Select field</option>
+                {% for field in resource_item.fields %}
+                <option value="{{ field.id }}">{{ field.label|default:field.type|title }} • page {{ field.page }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="mt-3 block text-sm">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Comment</span>
+              <textarea id="agreement-thread-body" rows="3" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Add a shared review comment"></textarea>
+            </label>
+            <div class="mt-3 flex justify-end">
+              <button type="button" id="agreement-create-thread-btn" class="btn btn-secondary">Add Comment</button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="mt-5 space-y-4">
+          {% if resource_item.review.threads and resource_item.review.threads|length > 0 %}
+            {% for thread_entry in resource_item.review.threads %}
+            {% set thread = thread_entry.thread %}
+            <div class="rounded-xl border {% if thread.status == 'resolved' %}border-emerald-200 bg-emerald-50{% else %}border-gray-200 bg-gray-50{% endif %} p-4" data-thread-id="{{ thread.id }}">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div class="flex flex-wrap gap-2">
+                    <span class="agreement-meta-chip bg-slate-100 text-slate-700">{{ thread.anchor_type|default:"agreement"|title }}{% if thread.page_number %} • page {{ thread.page_number }}{% endif %}{% if thread.field_id %} • {{ thread.field_id }}{% endif %}</span>
+                    <span class="agreement-meta-chip {% if thread.status == 'resolved' %}bg-emerald-100 text-emerald-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ thread.status|default:"open"|title }}</span>
+                  </div>
+                  <div class="mt-2 text-xs text-gray-500">Last activity {{ thread.last_activity_at|default:"-" }}</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  {% if thread.status == "open" %}
+                  <button type="button" class="text-sm font-medium text-emerald-700 hover:text-emerald-800" data-review-thread-resolve data-thread-id="{{ thread.id }}">Resolve</button>
+                  {% else %}
+                  <button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-800" data-review-thread-reopen data-thread-id="{{ thread.id }}">Reopen</button>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="mt-4 space-y-3">
+                {% for message in thread_entry.messages %}
+                <div class="review-thread-message rounded-lg border border-white bg-white p-3 shadow-sm">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ message.created_by_type|default:"participant"|replace:"_"," "|title }}</div>
+                    <div class="text-xs text-gray-400">{{ message.created_at|default:"-" }}</div>
+                  </div>
+                  <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">{{ message.body }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              {% if resource_item.comments_enabled %}
+              <div class="mt-4 rounded-lg border border-gray-200 bg-white p-3">
+                <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Reply</label>
+                <textarea rows="2" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" data-review-thread-reply-input="{{ thread.id }}" placeholder="Reply to this comment thread"></textarea>
+                <div class="mt-3 flex justify-end">
+                  <button type="button" class="btn btn-secondary" data-review-thread-reply-submit data-thread-id="{{ thread.id }}">Reply</button>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">No shared review threads for this agreement revision.</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="w-full xl:max-w-sm">
+      <div class="rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Review Snapshot</div>
+        <div class="mt-4 grid gap-4 text-sm text-gray-700">
+          <div class="rounded-lg border border-white bg-white p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</div>
+            <div class="mt-2 text-lg font-semibold text-gray-900">{{ resource_item.review.status|default:resource_item.review_status|default:"none"|replace:"_"," "|title }}</div>
+          </div>
+          <div class="rounded-lg border border-white bg-white p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Gate</div>
+            <div class="mt-2 text-base font-semibold text-gray-900">{{ resource_item.review.gate|default:resource_item.review_gate|default:"none"|replace:"_"," "|title }}</div>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div class="rounded-lg border border-white bg-white p-4">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Open Threads</div>
+              <div class="mt-2 text-2xl font-semibold text-gray-900">{{ resource_item.review.open_thread_count|default:"0" }}</div>
+            </div>
+            <div class="rounded-lg border border-white bg-white p-4">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved Threads</div>
+              <div class="mt-2 text-2xl font-semibold text-gray-900">{{ resource_item.review.resolved_thread_count|default:"0" }}</div>
+            </div>
+          </div>
+          {% if resource_item.review.last_activity_at %}
+          <div class="rounded-lg border border-white bg-white p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Last Activity</div>
+            <div class="mt-2 text-sm font-medium text-gray-900">{{ resource_item.review.last_activity_at }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="agreement-review-bootstrap" type="application/json">
+{
+  "status": "{{ resource_item.review.status|default:resource_item.review_status|default:"none"|escapejs }}",
+  "gate": "{{ resource_item.review.gate|default:resource_item.review_gate|default:"none"|escapejs }}",
+  "comments_enabled": {% if resource_item.review.comments_enabled or resource_item.comments_enabled %}true{% else %}false{% endif %},
+  "review_id": "{{ resource_item.review.review_id|default:""|escapejs }}",
+  "participants": [
+    {% if resource_item.review and resource_item.review.participants and resource_item.review.participants|length > 0 %}
+      {% for participant in resource_item.review.participants %}
+      {
+        "id": "{{ participant.id|default:""|escapejs }}",
+        "participant_type": "{{ participant.participant_type|default:"recipient"|escapejs }}",
+        "recipient_id": "{{ participant.recipient_id|default:""|escapejs }}",
+        "email": "{{ participant.email|default:""|escapejs }}",
+        "display_name": "{{ participant.display_name|default:""|escapejs }}",
+        "can_comment": {% if participant.can_comment %}true{% else %}false{% endif %},
+        "can_approve": {% if participant.can_approve %}true{% else %}false{% endif %}
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    {% endif %}
+  ]
+}
+</script>
+
 {% if page_status == "completed" and not page_executed_available %}
 <div id="download-status-notice-static" class="mx-6 mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
   <div class="flex items-start gap-2">
@@ -1184,6 +1669,363 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   }
+
+  function safeParseJSONScript(id, fallback = null) {
+    const node = document.getElementById(id);
+    if (!node || !node.textContent) {
+      return fallback;
+    }
+    try {
+      return JSON.parse(node.textContent);
+    } catch (error) {
+      console.warn(`Unable to parse ${id}`, error);
+      return fallback;
+    }
+  }
+
+  const reviewBootstrap = safeParseJSONScript('agreement-review-bootstrap', {
+    status: 'none',
+    gate: 'approve_before_send',
+    comments_enabled: false,
+    review_id: '',
+    participants: [],
+  }) || {
+    status: 'none',
+    gate: 'approve_before_send',
+    comments_enabled: false,
+    review_id: '',
+    participants: [],
+  };
+
+  const reviewRecipientRows = Array.from(document.querySelectorAll('[data-review-recipient-row]'));
+  const externalReviewersContainer = document.getElementById('agreement-external-reviewers');
+  const externalReviewerTemplate = document.getElementById('agreement-external-reviewer-template');
+  const addExternalReviewerBtn = document.getElementById('agreement-add-external-reviewer-btn');
+  const submitReviewBtn = document.getElementById('agreement-submit-review-btn');
+  const closeReviewBtn = document.getElementById('agreement-close-review-btn');
+  const reviewGateSelect = document.getElementById('agreement-review-gate');
+  const reviewCommentsEnabledInput = document.getElementById('agreement-review-comments-enabled');
+  const threadAnchorType = document.getElementById('agreement-thread-anchor-type');
+  const threadPageWrap = document.getElementById('agreement-thread-page-wrap');
+  const threadPageNumber = document.getElementById('agreement-thread-page-number');
+  const threadFieldWrap = document.getElementById('agreement-thread-field-wrap');
+  const threadFieldID = document.getElementById('agreement-thread-field-id');
+  const threadBody = document.getElementById('agreement-thread-body');
+  const createThreadBtn = document.getElementById('agreement-create-thread-btn');
+
+  function normalizeParticipantType(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized === 'external' ? 'external' : 'recipient';
+  }
+
+  function normalizeRecipientParticipant(row) {
+    const recipientID = String(row.getAttribute('data-recipient-id') || '').trim();
+    const enabled = row.querySelector('[data-review-recipient-enabled]');
+    const canComment = row.querySelector('[data-review-recipient-comment]');
+    const canApprove = row.querySelector('[data-review-recipient-approve]');
+    if (!(enabled instanceof HTMLInputElement) || !enabled.checked || !recipientID) {
+      return null;
+    }
+    const allowComment = !(canComment instanceof HTMLInputElement) || canComment.checked;
+    const allowApprove = !(canApprove instanceof HTMLInputElement) || canApprove.checked;
+    if (!allowComment && !allowApprove) {
+      throw new Error('Each selected reviewer must be allowed to comment or approve.');
+    }
+    return {
+      participant_type: 'recipient',
+      recipient_id: recipientID,
+      can_comment: allowComment,
+      can_approve: allowApprove,
+    };
+  }
+
+  function collectReviewParticipants() {
+    const participants = [];
+
+    reviewRecipientRows.forEach((row) => {
+      const participant = normalizeRecipientParticipant(row);
+      if (participant) {
+        participants.push(participant);
+      }
+    });
+
+    if (externalReviewersContainer) {
+      externalReviewersContainer.querySelectorAll('[data-review-external-row]').forEach((row) => {
+        const nameInput = row.querySelector('[data-review-external-name]');
+        const emailInput = row.querySelector('[data-review-external-email]');
+        const commentInput = row.querySelector('[data-review-external-comment]');
+        const approveInput = row.querySelector('[data-review-external-approve]');
+        const displayName = String(nameInput?.value || '').trim();
+        const email = String(emailInput?.value || '').trim();
+        const canComment = !(commentInput instanceof HTMLInputElement) || commentInput.checked;
+        const canApprove = !(approveInput instanceof HTMLInputElement) || approveInput.checked;
+
+        if (!displayName && !email) {
+          return;
+        }
+        if (!email) {
+          throw new Error('External reviewers require an email address.');
+        }
+        if (!canComment && !canApprove) {
+          throw new Error(`External reviewer ${email} must be allowed to comment or approve.`);
+        }
+        participants.push({
+          participant_type: 'external',
+          email,
+          display_name: displayName,
+          can_comment: canComment,
+          can_approve: canApprove,
+        });
+      });
+    }
+
+    if (!participants.length) {
+      throw new Error('Select at least one review participant before starting review.');
+    }
+
+    return participants;
+  }
+
+  function appendExternalReviewerRow(participant = {}) {
+    if (!externalReviewersContainer || !(externalReviewerTemplate instanceof HTMLTemplateElement)) {
+      return;
+    }
+    const fragment = externalReviewerTemplate.content.cloneNode(true);
+    const row = fragment.querySelector('[data-review-external-row]');
+    if (!row) {
+      return;
+    }
+    const nameInput = row.querySelector('[data-review-external-name]');
+    const emailInput = row.querySelector('[data-review-external-email]');
+    const commentInput = row.querySelector('[data-review-external-comment]');
+    const approveInput = row.querySelector('[data-review-external-approve]');
+    if (nameInput) {
+      nameInput.value = String(participant.display_name || '').trim();
+    }
+    if (emailInput) {
+      emailInput.value = String(participant.email || '').trim();
+    }
+    if (commentInput instanceof HTMLInputElement) {
+      commentInput.checked = participant.can_comment !== false;
+    }
+    if (approveInput instanceof HTMLInputElement) {
+      approveInput.checked = participant.can_approve !== false;
+    }
+    externalReviewersContainer.appendChild(fragment);
+  }
+
+  function initializeReviewWorkspace() {
+    if (reviewGateSelect) {
+      reviewGateSelect.value = String(reviewBootstrap.gate || 'approve_before_send').trim() || 'approve_before_send';
+    }
+    if (reviewCommentsEnabledInput instanceof HTMLInputElement) {
+      reviewCommentsEnabledInput.checked = Boolean(reviewBootstrap.comments_enabled);
+    }
+
+    const existingParticipants = Array.isArray(reviewBootstrap.participants) ? reviewBootstrap.participants : [];
+    reviewRecipientRows.forEach((row) => {
+      const recipientID = String(row.getAttribute('data-recipient-id') || '').trim();
+      const enabled = row.querySelector('[data-review-recipient-enabled]');
+      const canComment = row.querySelector('[data-review-recipient-comment]');
+      const canApprove = row.querySelector('[data-review-recipient-approve]');
+      const match = existingParticipants.find((participant) => normalizeParticipantType(participant?.participant_type) === 'recipient' && String(participant?.recipient_id || '').trim() === recipientID);
+      if (enabled instanceof HTMLInputElement) {
+        enabled.checked = Boolean(match);
+      }
+      if (canComment instanceof HTMLInputElement) {
+        canComment.checked = match ? Boolean(match.can_comment) : true;
+      }
+      if (canApprove instanceof HTMLInputElement) {
+        canApprove.checked = match ? Boolean(match.can_approve) : true;
+      }
+    });
+
+    existingParticipants
+      .filter((participant) => normalizeParticipantType(participant?.participant_type) === 'external')
+      .forEach((participant) => appendExternalReviewerRow(participant));
+  }
+
+  function syncAgreementThreadAnchorFields() {
+    const anchorType = String(threadAnchorType?.value || 'agreement').trim() || 'agreement';
+    threadPageWrap?.classList.toggle('hidden', anchorType !== 'page');
+    threadFieldWrap?.classList.toggle('hidden', anchorType !== 'field');
+  }
+
+  async function submitAgreementReview() {
+    const participants = collectReviewParticipants();
+    const payload = {
+      gate: String(reviewGateSelect?.value || 'approve_before_send').trim() || 'approve_before_send',
+      comments_enabled: reviewCommentsEnabledInput instanceof HTMLInputElement ? reviewCommentsEnabledInput.checked : false,
+      review_participants: participants,
+    };
+    const normalizedStatus = String(reviewBootstrap.status || '').trim().toLowerCase();
+    const action = normalizedStatus && normalizedStatus !== 'none' && normalizedStatus !== 'in_review'
+      ? 'reopen_review'
+      : 'request_review';
+    await executeAction(action, payload);
+  }
+
+  async function closeAgreementReview() {
+    await executeAction('close_review', {});
+  }
+
+  async function createAgreementThread() {
+    if (!reviewBootstrap.review_id) {
+      throw new Error('Review must be active before comments can be created.');
+    }
+    const body = String(threadBody?.value || '').trim();
+    if (!body) {
+      throw new Error('Enter a comment before creating a thread.');
+    }
+    const anchorType = String(threadAnchorType?.value || 'agreement').trim() || 'agreement';
+    const payload = {
+      review_id: String(reviewBootstrap.review_id || '').trim(),
+      visibility: 'shared',
+      anchor_type: anchorType,
+      body,
+    };
+    if (anchorType === 'page') {
+      const pageNumber = Number(threadPageNumber?.value || 0) || 0;
+      if (!pageNumber) {
+        throw new Error('Choose a page number for page-anchored comments.');
+      }
+      payload.page_number = pageNumber;
+    }
+    if (anchorType === 'field') {
+      const fieldID = String(threadFieldID?.value || '').trim();
+      if (!fieldID) {
+        throw new Error('Select a field before adding a field-anchored comment.');
+      }
+      payload.field_id = fieldID;
+    }
+    await executeAction('create_comment_thread', payload);
+  }
+
+  async function replyAgreementThread(threadID, body) {
+    await executeAction('reply_comment_thread', {
+      thread_id: String(threadID || '').trim(),
+      body: String(body || '').trim(),
+    });
+  }
+
+  async function updateAgreementThreadState(threadID, resolve) {
+    await executeAction(resolve ? 'resolve_comment_thread' : 'reopen_comment_thread', {
+      thread_id: String(threadID || '').trim(),
+    });
+  }
+
+  initializeReviewWorkspace();
+  syncAgreementThreadAnchorFields();
+
+  threadAnchorType?.addEventListener('change', syncAgreementThreadAnchorFields);
+
+  addExternalReviewerBtn?.addEventListener('click', () => {
+    appendExternalReviewerRow();
+  });
+
+  externalReviewersContainer?.addEventListener('click', (event) => {
+    const trigger = event.target instanceof Element ? event.target.closest('[data-review-external-remove]') : null;
+    if (!trigger) {
+      return;
+    }
+    const row = trigger.closest('[data-review-external-row]');
+    row?.remove();
+  });
+
+  submitReviewBtn?.addEventListener('click', async () => {
+    try {
+      await submitAgreementReview();
+    } catch (error) {
+      const message = error?.message || 'Unable to update review configuration.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      } else {
+        alert(message);
+      }
+    }
+  });
+
+  closeReviewBtn?.addEventListener('click', async () => {
+    try {
+      await closeAgreementReview();
+    } catch (error) {
+      const message = error?.message || 'Unable to close review.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      } else {
+        alert(message);
+      }
+    }
+  });
+
+  createThreadBtn?.addEventListener('click', async () => {
+    try {
+      await createAgreementThread();
+    } catch (error) {
+      const message = error?.message || 'Unable to add comment.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      } else {
+        alert(message);
+      }
+    }
+  });
+
+  document.querySelectorAll('[data-review-thread-reply-submit]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const threadID = btn.getAttribute('data-thread-id');
+      const input = document.querySelector(`[data-review-thread-reply-input="${threadID}"]`);
+      const body = String(input?.value || '').trim();
+      if (!body) {
+        if (window.toastManager) {
+          window.toastManager.error('Enter a reply before submitting.');
+        } else {
+          alert('Enter a reply before submitting.');
+        }
+        return;
+      }
+      try {
+        await replyAgreementThread(threadID, body);
+      } catch (error) {
+        const message = error?.message || 'Unable to reply to thread.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-review-thread-resolve]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await updateAgreementThreadState(btn.getAttribute('data-thread-id'), true);
+      } catch (error) {
+        const message = error?.message || 'Unable to resolve thread.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-review-thread-reopen]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await updateAgreementThreadState(btn.getAttribute('data-thread-id'), false);
+      } catch (error) {
+        const message = error?.message || 'Unable to reopen thread.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
 
   // Per-recipient resend
   document.querySelectorAll('[data-action="resend-recipient"], [data-action="resend-participant"]').forEach(btn => {

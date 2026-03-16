@@ -18,13 +18,42 @@ export interface SignerReviewConfig {
   apiBasePath?: string;
   signerBasePath?: string;
   agreementId: string;
+  sessionKind?: 'signer' | 'reviewer' | string;
   recipientId: string;
   recipientEmail?: string;
   recipientName?: string;
   documentUrl: string;
   pageCount?: number;
   hasConsented?: boolean;
+  canSign?: boolean;
   fields?: any[];
+  review?: {
+    review_id?: string;
+    status?: string;
+    gate?: string;
+    comments_enabled?: boolean;
+    is_reviewer?: boolean;
+    can_comment?: boolean;
+    can_approve?: boolean;
+    can_request_changes?: boolean;
+    can_sign?: boolean;
+    participant_status?: string;
+    sign_blocked?: boolean;
+    sign_block_reason?: string;
+    blockers?: string[];
+    participant?: {
+      id?: string;
+      participant_type?: string;
+      recipient_id?: string;
+      email?: string;
+      display_name?: string;
+      decision_status?: string;
+    };
+    threads?: Array<{
+      thread?: any;
+      messages?: any[];
+    }>;
+  };
   flowMode?: 'unified' | 'legacy' | string;
   telemetryEnabled?: boolean;
   viewer?: {
@@ -405,13 +434,16 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
     apiBasePath: String(config.apiBasePath || '/api/v1/esign/signing').trim(),
     signerBasePath: String(config.signerBasePath || '/esign/sign').trim(),
     agreementId: String(config.agreementId || '').trim(),
+    sessionKind: String(config.sessionKind || 'signer').trim() || 'signer',
     recipientId: String(config.recipientId || '').trim(),
     recipientEmail: String(config.recipientEmail || '').trim(),
     recipientName: String(config.recipientName || '').trim(),
     documentUrl: String(config.documentUrl || '').trim(),
     pageCount: Number(config.pageCount || 1) || 1,
     hasConsented: Boolean(config.hasConsented),
+    canSign: config.canSign !== false,
     fields: Array.isArray(config.fields) ? config.fields : [],
+    review: normalizeReviewContext(config.review),
     flowMode: (config.flowMode || 'unified') as any,
     telemetryEnabled: config.telemetryEnabled !== false,
     viewer: {
@@ -438,6 +470,115 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
       endpointBasePath: String(config.profile?.endpointBasePath || String(config.apiBasePath || '/api/v1/esign/signing')).trim(),
     },
   };
+}
+
+function normalizeReviewParticipant(participant) {
+  if (!participant || typeof participant !== 'object') return null;
+  return {
+    id: String(participant.id || '').trim(),
+    participant_type: String(participant.participant_type || '').trim(),
+    recipient_id: String(participant.recipient_id || '').trim(),
+    email: String(participant.email || '').trim(),
+    display_name: String(participant.display_name || '').trim(),
+    decision_status: String(participant.decision_status || '').trim(),
+  };
+}
+
+function normalizeReviewThread(threadWrapper) {
+  if (!threadWrapper || typeof threadWrapper !== 'object') return null;
+  const thread = threadWrapper.thread && typeof threadWrapper.thread === 'object' ? threadWrapper.thread : {};
+  const messages = Array.isArray(threadWrapper.messages) ? threadWrapper.messages : [];
+  return {
+    thread: {
+      id: String(thread.id || '').trim(),
+      review_id: String(thread.review_id || '').trim(),
+      agreement_id: String(thread.agreement_id || '').trim(),
+      visibility: String(thread.visibility || 'shared').trim() || 'shared',
+      anchor_type: String(thread.anchor_type || 'agreement').trim() || 'agreement',
+      page_number: Number(thread.page_number || 0) || 0,
+      field_id: String(thread.field_id || '').trim(),
+      anchor_x: Number(thread.anchor_x || 0) || 0,
+      anchor_y: Number(thread.anchor_y || 0) || 0,
+      status: String(thread.status || 'open').trim() || 'open',
+      created_by_type: String(thread.created_by_type || '').trim(),
+      created_by_id: String(thread.created_by_id || '').trim(),
+      resolved_by_type: String(thread.resolved_by_type || '').trim(),
+      resolved_by_id: String(thread.resolved_by_id || '').trim(),
+      resolved_at: String(thread.resolved_at || '').trim(),
+      last_activity_at: String(thread.last_activity_at || '').trim(),
+    },
+    messages: messages
+      .filter((message) => message && typeof message === 'object')
+      .map((message) => ({
+        id: String(message.id || '').trim(),
+        thread_id: String(message.thread_id || '').trim(),
+        body: String(message.body || '').trim(),
+        created_by_type: String(message.created_by_type || '').trim(),
+        created_by_id: String(message.created_by_id || '').trim(),
+        created_at: String(message.created_at || '').trim(),
+      })),
+  };
+}
+
+function normalizeReviewContext(review) {
+  if (!review || typeof review !== 'object') return null;
+  const threads = Array.isArray(review.threads)
+    ? review.threads.map(normalizeReviewThread).filter(Boolean)
+    : [];
+  const blockers = Array.isArray(review.blockers)
+    ? review.blockers.map((value) => String(value || '').trim()).filter(Boolean)
+    : [];
+  return {
+    review_id: String(review.review_id || '').trim(),
+    status: String(review.status || '').trim(),
+    gate: String(review.gate || '').trim(),
+    comments_enabled: Boolean(review.comments_enabled),
+    is_reviewer: Boolean(review.is_reviewer),
+    can_comment: Boolean(review.can_comment),
+    can_approve: Boolean(review.can_approve),
+    can_request_changes: Boolean(review.can_request_changes),
+    can_sign: review.can_sign !== false,
+    participant_status: String(review.participant_status || '').trim(),
+    sign_blocked: Boolean(review.sign_blocked),
+    sign_block_reason: String(review.sign_block_reason || '').trim(),
+    blockers,
+    participant: normalizeReviewParticipant(review.participant),
+    open_thread_count: Number(review.open_thread_count || 0) || 0,
+    resolved_thread_count: Number(review.resolved_thread_count || 0) || 0,
+    threads,
+  };
+}
+
+function reviewAnchorLabel(thread) {
+  const anchorType = String(thread?.thread?.anchor_type || '').trim();
+  switch (anchorType) {
+    case 'field':
+      return thread?.thread?.field_id
+        ? `Field ${thread.thread.field_id}`
+        : 'Field';
+    case 'page':
+      return thread?.thread?.page_number
+        ? `Page ${thread.thread.page_number}`
+        : 'Page';
+    default:
+      return 'Agreement';
+  }
+}
+
+function reviewStatusLabel(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  switch (normalized) {
+    case 'approved':
+      return 'Approved';
+    case 'changes_requested':
+      return 'Changes Requested';
+    case 'in_review':
+      return 'In Review';
+    case 'closed':
+      return 'Closed';
+    default:
+      return normalized ? normalized.replace(/_/g, ' ') : 'Inactive';
+  }
 }
 
 function toSignerProfileKey(config: Required<SignerReviewConfig>): string {
@@ -770,6 +911,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     fieldState: new Map(),
     activeFieldId: null,
     hasConsented: unifiedConfig.hasConsented,
+    canSignSession: unifiedConfig.canSign,
     signatureCanvases: new Map(),
     signatureTabByField: new Map(),
     savedSignaturesByType: new Map(),
@@ -784,6 +926,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     profileKey: signerProfileKey,
     profileData: null,
     profileRemember: unifiedConfig.profile.rememberByDefault,
+    reviewContext: unifiedConfig.review ? normalizeReviewContext(unifiedConfig.review) : null,
+    reviewThreadFilter: 'all' as 'all' | 'open' | 'resolved',
+    reviewThreadPage: 1,
     guidedTargetFieldId: null,
     writeCooldownUntil: 0,
     writeCooldownTimer: null,
@@ -791,6 +936,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     submitCooldownTimer: null,
     isSubmitting: false,
     overlayRenderFrameID: 0,
+    reviewAnchorPointDraft: null,
+    pickingReviewAnchorPoint: false,
+    highlightedReviewThreadID: '',
+    highlightedReviewThreadTimer: null,
   };
 
   function requestOverlayRender() {
@@ -849,6 +998,954 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     fieldData.previewSignatureUrl = normalized;
     delete fieldData.previewValueText;
     delete fieldData.previewValueBool;
+  }
+
+  function hasReviewContext() {
+    return Boolean(state.reviewContext && typeof state.reviewContext === 'object');
+  }
+
+  function isReviewOnlySession() {
+    return String(unifiedConfig.sessionKind || '').trim().toLowerCase() === 'reviewer';
+  }
+
+  function reviewSessionPath() {
+    return `${unifiedConfig.apiBasePath}/session/${encodeURIComponent(unifiedConfig.token)}`;
+  }
+
+  function reviewBasePath() {
+    return `${reviewSessionPath()}/review`;
+  }
+
+  function countReviewThreadsByStatus(threads, status) {
+    return (Array.isArray(threads) ? threads : []).filter((entry) => String(entry?.thread?.status || '').trim() === status).length;
+  }
+
+  function actorLabelFromMessage(message) {
+    const actorType = String(message?.created_by_type || '').trim();
+    if (actorType === 'user' || actorType === 'sender') return 'Sender';
+    if (actorType === 'reviewer') return 'Reviewer';
+    if (actorType === 'recipient' || actorType === 'signer') return 'Signer';
+    return actorType ? actorType.replace(/_/g, ' ') : 'Participant';
+  }
+
+  function reviewParticipantLabel(participant) {
+    if (!participant) return '';
+    return String(participant.display_name || participant.email || participant.recipient_id || participant.id || '').trim();
+  }
+
+  function formatReviewTimestamp(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return parsed.toLocaleString();
+  }
+
+  function syncReviewContext(reviewContext) {
+    state.reviewContext = normalizeReviewContext(reviewContext);
+    if (state.reviewContext) {
+      if (!Array.isArray(state.reviewContext.threads)) {
+        state.reviewContext.threads = [];
+      }
+      state.reviewContext.open_thread_count = countReviewThreadsByStatus(state.reviewContext.threads, 'open');
+      state.reviewContext.resolved_thread_count = countReviewThreadsByStatus(state.reviewContext.threads, 'resolved');
+    }
+    renderReviewPanel();
+    updateSessionChrome();
+    updateSubmitButton();
+  }
+
+  async function reloadReviewSessionContext() {
+    const response = await fetch(reviewSessionPath(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      throw await parseAPIErrorResponse(response, 'Failed to reload review session');
+    }
+    const payload = await response.json();
+    const session = payload?.session && typeof payload.session === 'object' ? payload.session : {};
+    state.canSignSession = session.can_sign !== false;
+    syncReviewContext(session.review || null);
+    return session;
+  }
+
+  async function reviewAPIRequest(pathSuffix, options = {}, fallbackMessage = 'Review request failed') {
+    const response = await fetch(`${reviewBasePath()}${pathSuffix}`, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options?.headers || {}),
+      },
+    });
+    if (!response.ok) {
+      throw await parseAPIErrorResponse(response, fallbackMessage);
+    }
+    return response.json().catch(() => ({}));
+  }
+
+  function currentReviewAnchorType() {
+    const anchorSelect = document.getElementById('review-thread-anchor');
+    return String(anchorSelect?.value || 'agreement').trim() || 'agreement';
+  }
+
+  function clearHighlightedReviewThread() {
+    state.highlightedReviewThreadID = '';
+    if (state.highlightedReviewThreadTimer) {
+      window.clearTimeout(state.highlightedReviewThreadTimer);
+      state.highlightedReviewThreadTimer = null;
+    }
+  }
+
+  function highlightReviewThread(threadID) {
+    clearHighlightedReviewThread();
+    state.highlightedReviewThreadID = String(threadID || '').trim();
+    if (!state.highlightedReviewThreadID) return;
+    state.highlightedReviewThreadTimer = window.setTimeout(() => {
+      clearHighlightedReviewThread();
+      syncHighlightedReviewThreadUI();
+      requestOverlayRender();
+    }, 2400);
+    syncHighlightedReviewThreadUI();
+    requestOverlayRender();
+  }
+
+  function setReviewAnchorPointDraft(point) {
+    if (!point || typeof point !== 'object') {
+      state.reviewAnchorPointDraft = null;
+      updateReviewAnchorPointUI();
+      requestOverlayRender();
+      return;
+    }
+    state.reviewAnchorPointDraft = {
+      page_number: Number(point.page_number || state.currentPage || 1) || 1,
+      anchor_x: Math.round((Number(point.anchor_x || 0) || 0) * 100) / 100,
+      anchor_y: Math.round((Number(point.anchor_y || 0) || 0) * 100) / 100,
+    };
+    updateReviewAnchorPointUI();
+    requestOverlayRender();
+  }
+
+  function setReviewAnchorPicking(active) {
+    state.pickingReviewAnchorPoint = Boolean(active) && currentReviewAnchorType() === 'page';
+    const pdfContainer = document.getElementById('pdf-container');
+    pdfContainer?.classList.toggle('review-anchor-picking', state.pickingReviewAnchorPoint);
+    if (!state.pickingReviewAnchorPoint) {
+      announceToScreenReader('Comment pin placement cancelled.');
+    } else {
+      announceToScreenReader('Click on the document page to pin this comment.');
+    }
+    updateReviewAnchorPointUI();
+  }
+
+  function updateReviewAnchorPointUI() {
+    const controls = document.getElementById('review-anchor-point-controls');
+    const status = document.getElementById('review-anchor-point-status');
+    const pickBtn = document.querySelector('[data-esign-action="pick-review-anchor-point"]');
+    const clearBtn = document.querySelector('[data-esign-action="clear-review-anchor-point"]');
+    const isPageAnchor = currentReviewAnchorType() === 'page';
+    controls?.classList.toggle('hidden', !isPageAnchor);
+    if (pickBtn instanceof HTMLButtonElement) {
+      pickBtn.disabled = !hasReviewContext() || !Boolean(state.reviewContext?.comments_enabled && state.reviewContext?.can_comment);
+      pickBtn.textContent = state.pickingReviewAnchorPoint ? 'Picking...' : (state.reviewAnchorPointDraft ? 'Repin location' : 'Pick location');
+    }
+    if (clearBtn instanceof HTMLButtonElement) {
+      clearBtn.disabled = !state.reviewAnchorPointDraft;
+    }
+    if (!status) return;
+    if (!isPageAnchor) {
+      status.textContent = 'Attach this thread to a specific point on the current page.';
+      return;
+    }
+    if (state.reviewAnchorPointDraft && Number(state.reviewAnchorPointDraft.page_number || 0) === Number(state.currentPage || 0)) {
+      status.textContent = `Pinned on page ${state.reviewAnchorPointDraft.page_number} at x ${state.reviewAnchorPointDraft.anchor_x}, y ${state.reviewAnchorPointDraft.anchor_y}.`;
+      return;
+    }
+    if (state.reviewAnchorPointDraft) {
+      status.textContent = `Pinned on page ${state.reviewAnchorPointDraft.page_number}. Switch back to that page to adjust it.`;
+      return;
+    }
+    status.textContent = state.pickingReviewAnchorPoint
+      ? 'Click on the document page to pin this comment.'
+      : 'Attach this thread to a specific point on the current page.';
+  }
+
+  function updateReviewProgressIndicator() {
+    const indicator = document.getElementById('review-progress-indicator');
+    if (!indicator) return;
+
+    if (!hasReviewContext()) {
+      indicator.classList.add('hidden');
+      return;
+    }
+
+    const review = state.reviewContext;
+    const status = String(review.status || '').trim().toLowerCase();
+    indicator.classList.remove('hidden');
+
+    // Get step elements
+    const stepDraft = document.getElementById('review-step-draft');
+    const stepSent = document.getElementById('review-step-sent');
+    const stepReview = document.getElementById('review-step-review');
+    const stepDecision = document.getElementById('review-step-decision');
+    const lines = indicator.querySelectorAll('.review-progress-line');
+
+    // Reset all steps
+    [stepDraft, stepSent, stepReview, stepDecision].forEach((step) => {
+      step?.classList.remove('completed', 'active', 'changes-requested');
+    });
+    lines.forEach((line) => {
+      line.classList.remove('completed', 'active');
+    });
+
+    // Determine current step based on review status
+    // Status values: pending, in_review, approved, changes_requested
+    if (status === 'approved') {
+      // All steps completed
+      stepDraft?.classList.add('completed');
+      stepSent?.classList.add('completed');
+      stepReview?.classList.add('completed');
+      stepDecision?.classList.add('completed');
+      lines.forEach((line) => line.classList.add('completed'));
+      // Update decision icon to checkmark
+      const decisionIcon = stepDecision?.querySelector('i');
+      if (decisionIcon) {
+        decisionIcon.className = 'iconoir-check-circle text-xs';
+      }
+    } else if (status === 'changes_requested') {
+      // All steps completed but with changes requested state
+      stepDraft?.classList.add('completed');
+      stepSent?.classList.add('completed');
+      stepReview?.classList.add('completed');
+      stepDecision?.classList.add('changes-requested');
+      lines.forEach((line) => line.classList.add('completed'));
+      // Update decision icon to warning
+      const decisionIcon = stepDecision?.querySelector('i');
+      if (decisionIcon) {
+        decisionIcon.className = 'iconoir-warning-circle text-xs';
+      }
+    } else if (status === 'in_review' || status === 'pending') {
+      // Draft and sent completed, review is active
+      stepDraft?.classList.add('completed');
+      stepSent?.classList.add('completed');
+      stepReview?.classList.add('active');
+      if (lines[0]) lines[0].classList.add('completed');
+      if (lines[1]) lines[1].classList.add('completed');
+      if (lines[2]) lines[2].classList.add('active');
+      // Reset decision icon
+      const decisionIcon = stepDecision?.querySelector('i');
+      if (decisionIcon) {
+        decisionIcon.className = 'iconoir-check-circle text-xs';
+      }
+    } else {
+      // Default: draft is active (fallback for unknown states)
+      stepDraft?.classList.add('active');
+      // Reset decision icon
+      const decisionIcon = stepDecision?.querySelector('i');
+      if (decisionIcon) {
+        decisionIcon.className = 'iconoir-check-circle text-xs';
+      }
+    }
+  }
+
+  function reviewThreadAnchorPayload() {
+    const anchorType = currentReviewAnchorType();
+    if (anchorType === 'field' && state.activeFieldId) {
+      const field = state.fieldState.get(state.activeFieldId);
+      return {
+        anchor_type: 'field',
+        field_id: String(state.activeFieldId || '').trim(),
+        page_number: Number(field?.page || state.currentPage || 1) || 1,
+      };
+    }
+    if (anchorType === 'page') {
+      const pageNumber = state.reviewAnchorPointDraft
+        ? Number(state.reviewAnchorPointDraft.page_number || state.currentPage || 1) || 1
+        : Number(state.currentPage || 1) || 1;
+      const payload = {
+        anchor_type: 'page',
+        page_number: pageNumber,
+      };
+      if (state.reviewAnchorPointDraft && Number(state.reviewAnchorPointDraft.page_number || 0) === pageNumber) {
+        payload.anchor_x = Number(state.reviewAnchorPointDraft.anchor_x || 0) || 0;
+        payload.anchor_y = Number(state.reviewAnchorPointDraft.anchor_y || 0) || 0;
+      }
+      return payload;
+    }
+    return { anchor_type: 'agreement' };
+  }
+
+  function renderReviewPanel() {
+    const reviewPanel = document.getElementById('review-panel');
+    const reviewBanner = document.getElementById('review-banner');
+    const reviewStatusChip = document.getElementById('review-status-chip');
+    const reviewSubtitle = document.getElementById('review-panel-subtitle');
+    const reviewParticipantSummary = document.getElementById('review-participant-summary');
+    const reviewDecisionActions = document.getElementById('review-decision-actions');
+    const reviewThreadSummary = document.getElementById('review-thread-summary');
+    const reviewThreadComposer = document.getElementById('review-thread-composer');
+    const reviewThreadList = document.getElementById('review-thread-list');
+    const reviewThreadComposerHint = document.getElementById('review-thread-composer-hint');
+    if (!reviewPanel || !reviewThreadList) return;
+
+    if (!hasReviewContext()) {
+      reviewPanel.classList.add('hidden');
+      reviewBanner?.classList.add('hidden');
+      updateReviewAnchorPointUI();
+      updateReviewProgressIndicator();
+      return;
+    }
+
+    const review = state.reviewContext;
+    const statusLabel = reviewStatusLabel(review.status);
+    reviewPanel.classList.remove('hidden');
+    updateReviewProgressIndicator();
+    if (reviewStatusChip) {
+      reviewStatusChip.textContent = statusLabel;
+      reviewStatusChip.className = 'rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ' + (
+        review.status === 'approved'
+          ? 'bg-emerald-100 text-emerald-700'
+          : review.status === 'changes_requested'
+            ? 'bg-amber-100 text-amber-700'
+            : 'bg-slate-100 text-slate-700'
+      );
+    }
+    if (reviewSubtitle) {
+      reviewSubtitle.textContent = review.gate
+        ? `Gate: ${String(review.gate || '').replace(/_/g, ' ')}`
+        : 'Track review status, comments, and decision actions.';
+    }
+    if (reviewParticipantSummary) {
+      const participantName = reviewParticipantLabel(review.participant);
+      if (participantName || review.participant_status) {
+        reviewParticipantSummary.classList.remove('hidden');
+        reviewParticipantSummary.textContent = participantName
+          ? `${participantName} • decision ${reviewStatusLabel(review.participant_status || 'pending')}`
+          : `Decision ${reviewStatusLabel(review.participant_status || 'pending')}`;
+      } else {
+        reviewParticipantSummary.classList.add('hidden');
+      }
+    }
+    if (reviewDecisionActions) {
+      reviewDecisionActions.classList.toggle('hidden', !(review.can_approve || review.can_request_changes));
+    }
+    if (reviewThreadSummary) {
+      reviewThreadSummary.classList.remove('hidden');
+      reviewThreadSummary.textContent = `${review.open_thread_count || 0} open • ${review.resolved_thread_count || 0} resolved`;
+    }
+    if (reviewThreadComposer) {
+      const canComment = review.comments_enabled && review.can_comment;
+      reviewThreadComposer.classList.toggle('hidden', !canComment);
+      if (reviewThreadComposerHint) {
+        reviewThreadComposerHint.textContent = state.activeFieldId
+          ? 'New threads can target the agreement, current page, or active field.'
+          : 'New threads can target the agreement or current page. Activate a field to anchor to it.';
+      }
+    }
+    if (reviewBanner) {
+      const bannerMessages = [];
+      if (review.sign_blocked && review.sign_block_reason) {
+        bannerMessages.push(review.sign_block_reason);
+      }
+      (Array.isArray(review.blockers) ? review.blockers : []).forEach((entry) => {
+        const text = String(entry || '').trim();
+        if (text && !bannerMessages.includes(text)) bannerMessages.push(text);
+      });
+      if (!bannerMessages.length) {
+        reviewBanner.classList.add('hidden');
+      } else {
+        reviewBanner.classList.remove('hidden');
+        reviewBanner.className = 'mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4';
+        reviewBanner.innerHTML = `
+          <div class="flex items-start gap-3">
+            <i class="iconoir-warning-circle mt-0.5 text-amber-600" aria-hidden="true"></i>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-amber-900">Review Status</p>
+              <p class="mt-1 text-xs text-amber-800">${escapeHTML(bannerMessages.join(' '))}</p>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    updateReviewAnchorChips();
+    updateReviewAnchorPointUI();
+
+    const allThreads = Array.isArray(review.threads) ? review.threads : [];
+    if (!allThreads.length) {
+      reviewThreadList.innerHTML = '<div class="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">No review comments yet.</div>';
+      return;
+    }
+
+    // Apply thread filter
+    const filterValue = state.reviewThreadFilter || 'all';
+    const filteredThreads = allThreads.filter((entry) => {
+      const status = String(entry?.thread?.status || '').trim();
+      if (filterValue === 'open') return status === 'open';
+      if (filterValue === 'resolved') return status === 'resolved';
+      return true;
+    });
+
+    // Thread pagination
+    const threadsPerPage = 5;
+    const totalPages = Math.ceil(filteredThreads.length / threadsPerPage);
+    const currentThreadPage = Math.min(state.reviewThreadPage || 1, totalPages || 1);
+    const startIdx = (currentThreadPage - 1) * threadsPerPage;
+    const paginatedThreads = filteredThreads.slice(startIdx, startIdx + threadsPerPage);
+
+    // Render filter tabs if there are threads
+    const filterHTML = allThreads.length > 0 ? `
+      <div class="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+        <button type="button" data-esign-action="filter-review-threads" data-filter="all" class="review-thread-filter px-2 py-1 text-xs font-medium rounded transition-colors ${filterValue === 'all' ? 'bg-slate-100 text-slate-800' : 'text-gray-500 hover:text-gray-700'}">
+          All (${allThreads.length})
+        </button>
+        <button type="button" data-esign-action="filter-review-threads" data-filter="open" class="review-thread-filter px-2 py-1 text-xs font-medium rounded transition-colors ${filterValue === 'open' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}">
+          Open (${review.open_thread_count || 0})
+        </button>
+        <button type="button" data-esign-action="filter-review-threads" data-filter="resolved" class="review-thread-filter px-2 py-1 text-xs font-medium rounded transition-colors ${filterValue === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:text-gray-700'}">
+          Resolved (${review.resolved_thread_count || 0})
+        </button>
+      </div>
+    ` : '';
+
+    // Render pagination if needed
+    const paginationHTML = totalPages > 1 ? `
+      <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+        <span class="text-xs text-gray-500">Page ${currentThreadPage} of ${totalPages}</span>
+        <div class="flex gap-2">
+          <button type="button" data-esign-action="page-review-threads" data-page="${currentThreadPage - 1}" class="px-2 py-1 text-xs font-medium rounded border ${currentThreadPage <= 1 ? 'border-gray-200 text-gray-300 cursor-not-allowed' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}" ${currentThreadPage <= 1 ? 'disabled' : ''}>
+            <i class="iconoir-nav-arrow-left"></i> Prev
+          </button>
+          <button type="button" data-esign-action="page-review-threads" data-page="${currentThreadPage + 1}" class="px-2 py-1 text-xs font-medium rounded border ${currentThreadPage >= totalPages ? 'border-gray-200 text-gray-300 cursor-not-allowed' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}" ${currentThreadPage >= totalPages ? 'disabled' : ''}>
+            Next <i class="iconoir-nav-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    ` : '';
+
+    // Empty state for filtered results
+    if (filteredThreads.length === 0) {
+      reviewThreadList.innerHTML = `
+        ${filterHTML}
+        <div class="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+          No ${filterValue === 'all' ? '' : filterValue} comments${filterValue !== 'all' ? '. Try a different filter.' : '.'}
+        </div>
+      `;
+      return;
+    }
+
+    const threadsHTML = paginatedThreads.map((entry) => {
+      const thread = entry.thread || {};
+      const messages = Array.isArray(entry.messages) ? entry.messages : [];
+      const canComment = review.comments_enabled && review.can_comment;
+      const canResolve = canComment && String(thread.status || '').trim() === 'open';
+      const canReopen = canComment && String(thread.status || '').trim() === 'resolved';
+      const anchorLabel = reviewAnchorLabel(entry);
+      const lastActivity = formatReviewTimestamp(thread.last_activity_at || '');
+      const replyID = `review-reply-${escapeHTML(String(thread.id || ''))}`;
+      const composerID = `review-reply-composer-${escapeHTML(String(thread.id || ''))}`;
+      const statusClass = String(thread.status || '').trim() === 'resolved'
+        ? 'bg-emerald-50 border-emerald-200'
+        : 'bg-white border-gray-200';
+      const actorType = String(messages[0]?.created_by_type || '').trim();
+      const actorBorderClass = actorType === 'user' || actorType === 'sender'
+        ? 'border-l-blue-400'
+        : actorType === 'reviewer'
+          ? 'border-l-purple-400'
+          : 'border-l-slate-300';
+      const isHighlighted = String(thread.id || '').trim() === String(state.highlightedReviewThreadID || '').trim();
+      return `
+        <article class="rounded-xl border ${statusClass} border-l-4 ${actorBorderClass} p-4 ${isHighlighted ? 'ring-2 ring-blue-200 shadow-sm' : ''}" data-review-thread-id="${escapeHTML(String(thread.id || ''))}" tabindex="-1">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${escapeHTML(anchorLabel)}</button>
+                <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${String(thread.status || '').trim() === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${escapeHTML(reviewStatusLabel(thread.status || 'open'))}</span>
+              </div>
+              ${lastActivity ? `<p class="mt-2 text-xs text-gray-500">Last activity ${escapeHTML(lastActivity)}</p>` : ''}
+            </div>
+          </div>
+          <div class="mt-3 space-y-3">
+            ${messages.map((message) => {
+              const msgActorType = String(message.created_by_type || '').trim();
+              const msgActorClass = msgActorType === 'user' || msgActorType === 'sender'
+                ? 'bg-blue-50 border-l-2 border-l-blue-300'
+                : msgActorType === 'reviewer'
+                  ? 'bg-purple-50 border-l-2 border-l-purple-300'
+                  : 'bg-slate-50';
+              return `
+              <div class="rounded-lg ${msgActorClass} px-3 py-2">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-xs font-semibold text-slate-700">${escapeHTML(actorLabelFromMessage(message))}</p>
+                  <p class="text-[11px] text-slate-500">${escapeHTML(formatReviewTimestamp(message.created_at || ''))}</p>
+                </div>
+                <p class="mt-1 whitespace-pre-wrap text-sm text-slate-800">${escapeHTML(String(message.body || ''))}</p>
+              </div>
+            `;}).join('')}
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            ${canResolve ? `<button type="button" data-esign-action="resolve-review-thread" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="text-xs font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2">Resolve</button>` : ''}
+            ${canReopen ? `<button type="button" data-esign-action="reopen-review-thread" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="text-xs font-medium text-blue-700 hover:text-blue-800 underline underline-offset-2">Reopen</button>` : ''}
+            ${canComment ? `<button type="button" data-esign-action="toggle-reply-composer" data-thread-id="${escapeHTML(String(thread.id || ''))}" data-composer-id="${composerID}" class="text-xs font-medium text-slate-600 hover:text-slate-800 flex items-center gap-1">
+              <i class="iconoir-chat-bubble text-[10px]"></i> Reply
+            </button>` : ''}
+          </div>
+          ${canComment ? `
+            <div id="${composerID}" class="review-reply-composer mt-3 space-y-2 hidden" data-thread-id="${escapeHTML(String(thread.id || ''))}">
+              <textarea id="${replyID}" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y focus:border-blue-400 focus:ring-1 focus:ring-blue-400" rows="2" placeholder="Write your reply..."></textarea>
+              <div class="flex justify-end gap-2">
+                <button type="button" data-esign-action="cancel-reply" data-composer-id="${composerID}" class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded border border-gray-200 hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="button" data-esign-action="reply-review-thread" data-thread-id="${escapeHTML(String(thread.id || ''))}" data-reply-input-id="${replyID}" class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors">Send Reply</button>
+              </div>
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }).join('');
+
+    reviewThreadList.innerHTML = filterHTML + threadsHTML + paginationHTML;
+  }
+
+  function reviewThreadsForFilter(filter) {
+    const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
+    if (filter === 'open') {
+      return threads.filter((entry) => String(entry?.thread?.status || '').trim() === 'open');
+    }
+    if (filter === 'resolved') {
+      return threads.filter((entry) => String(entry?.thread?.status || '').trim() === 'resolved');
+    }
+    return threads;
+  }
+
+  function updateReviewAnchorChips() {
+    const pageLabel = document.getElementById('review-anchor-page-label');
+    const fieldChip = document.getElementById('review-anchor-field-chip');
+    const fieldLabel = document.getElementById('review-anchor-field-label');
+    const anchorInput = document.getElementById('review-thread-anchor');
+
+    // Update page label with current page
+    if (pageLabel) {
+      pageLabel.textContent = `Page ${state.currentPage || 1}`;
+    }
+
+    // Update field chip based on active field
+    if (fieldChip && fieldLabel) {
+      if (state.activeFieldId) {
+        const field = state.fieldState.get(state.activeFieldId);
+        const fieldType = field?.type || 'field';
+        const fieldTypeLabel = fieldType.charAt(0).toUpperCase() + fieldType.slice(1).replace(/_/g, ' ');
+        fieldLabel.textContent = fieldTypeLabel;
+        fieldChip.disabled = false;
+        fieldChip.classList.remove('hidden', 'text-gray-400', 'cursor-not-allowed');
+        fieldChip.classList.add('text-gray-600');
+      } else {
+        fieldLabel.textContent = 'Select a field';
+        fieldChip.disabled = true;
+        fieldChip.classList.add('hidden', 'text-gray-400', 'cursor-not-allowed');
+        fieldChip.classList.remove('text-gray-600');
+        // If field was selected but no longer active, reset to agreement
+        if (anchorInput && anchorInput.value === 'field') {
+          selectReviewAnchorChip('agreement');
+        }
+      }
+    }
+
+    updateReviewAnchorPointUI();
+  }
+
+  function selectReviewAnchorChip(anchorType) {
+    const anchorInput = document.getElementById('review-thread-anchor');
+    const chips = document.querySelectorAll('.review-anchor-chip');
+
+    if (anchorInput) {
+      anchorInput.value = anchorType;
+    }
+
+    chips.forEach((chip) => {
+      const chipType = chip.getAttribute('data-anchor-type');
+      if (chipType === anchorType) {
+        chip.classList.add('active', 'border-blue-300', 'bg-blue-50', 'text-blue-700');
+        chip.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+      } else {
+        chip.classList.remove('active', 'border-blue-300', 'bg-blue-50', 'text-blue-700');
+        chip.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+      }
+    });
+
+    if (anchorType !== 'page') {
+      state.pickingReviewAnchorPoint = false;
+      const pdfContainer = document.getElementById('pdf-container');
+      pdfContainer?.classList.remove('review-anchor-picking');
+    }
+    updateReviewAnchorPointUI();
+  }
+
+  function setupReviewAnchorChips() {
+    const chipsContainer = document.getElementById('review-anchor-chips');
+    if (!chipsContainer) return;
+
+    chipsContainer.addEventListener('click', (event) => {
+      const chip = (event.target as HTMLElement).closest('.review-anchor-chip');
+      if (!chip || chip.hasAttribute('disabled')) return;
+      const anchorType = chip.getAttribute('data-anchor-type');
+      if (anchorType) {
+        selectReviewAnchorChip(anchorType);
+      }
+    });
+  }
+
+  function setupReviewAnchorPointCapture() {
+    const pageContainer = document.getElementById('pdf-page-1');
+    if (!pageContainer) return;
+
+    pageContainer.addEventListener('click', (event) => {
+      if (!state.pickingReviewAnchorPoint || currentReviewAnchorType() !== 'page') return;
+      if (!(event.target instanceof Element)) return;
+      const canvas = pageContainer.querySelector('canvas');
+      const sourceElement = canvas instanceof HTMLElement ? canvas : pageContainer;
+      const point = coordinateTransform.screenToPagePoint(
+        Number(state.currentPage || 1) || 1,
+        sourceElement,
+        event.clientX,
+        event.clientY,
+      );
+      if (!point) return;
+      setReviewAnchorPointDraft(point);
+      state.pickingReviewAnchorPoint = false;
+      document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
+      announceToScreenReader(`Comment pinned on page ${point.page_number}.`);
+    });
+  }
+
+  function handleFilterReviewThreads(filter) {
+    const validFilters = ['all', 'open', 'resolved'];
+    const normalized = String(filter || 'all').trim().toLowerCase();
+    state.reviewThreadFilter = validFilters.includes(normalized) ? normalized : 'all';
+    state.reviewThreadPage = 1; // Reset to first page when filter changes
+    renderReviewPanel();
+    announceToScreenReader(`Showing ${state.reviewThreadFilter === 'all' ? 'all' : state.reviewThreadFilter} comments.`);
+  }
+
+  function handlePageReviewThreads(page) {
+    const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+    state.reviewThreadPage = pageNum;
+    renderReviewPanel();
+    // Scroll to top of thread list
+    const reviewPanel = document.getElementById('review-panel');
+    reviewPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function toggleReplyComposer(composerID, show) {
+    const composer = document.getElementById(String(composerID || '').trim());
+    if (!composer) return;
+
+    if (show) {
+      // Close any other open composers first
+      document.querySelectorAll('.review-reply-composer').forEach((el) => {
+        if (el.id !== composerID) {
+          el.classList.add('hidden');
+        }
+      });
+      composer.classList.remove('hidden');
+      // Focus the textarea
+      const textarea = composer.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    } else {
+      composer.classList.add('hidden');
+      // Clear the textarea
+      const textarea = composer.querySelector('textarea');
+      if (textarea) {
+        textarea.value = '';
+      }
+    }
+  }
+
+  function syncHighlightedReviewThreadUI() {
+    document.querySelectorAll('[data-review-thread-id]').forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      const isActive = String(element.getAttribute('data-review-thread-id') || '').trim() === String(state.highlightedReviewThreadID || '').trim();
+      element.classList.toggle('ring-2', isActive);
+      element.classList.toggle('ring-blue-200', isActive);
+      element.classList.toggle('shadow-sm', isActive);
+    });
+  }
+
+  function revealReviewThread(threadID) {
+    const normalizedThreadID = String(threadID || '').trim();
+    if (!normalizedThreadID) return;
+    const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
+    const found = threads.find((entry) => String(entry?.thread?.id || '').trim() === normalizedThreadID);
+    if (!found) return;
+
+    const threadStatus = String(found?.thread?.status || 'open').trim() || 'open';
+    const currentFilter = state.reviewThreadFilter || 'all';
+    if (currentFilter !== 'all' && currentFilter !== threadStatus) {
+      state.reviewThreadFilter = threadStatus === 'resolved' ? 'resolved' : 'open';
+    }
+
+    const filteredThreads = reviewThreadsForFilter(state.reviewThreadFilter || 'all');
+    const threadIndex = filteredThreads.findIndex((entry) => String(entry?.thread?.id || '').trim() === normalizedThreadID);
+    if (threadIndex >= 0) {
+      state.reviewThreadPage = Math.floor(threadIndex / 5) + 1;
+    } else {
+      state.reviewThreadFilter = 'all';
+      const allThreads = reviewThreadsForFilter('all');
+      const allIndex = allThreads.findIndex((entry) => String(entry?.thread?.id || '').trim() === normalizedThreadID);
+      state.reviewThreadPage = allIndex >= 0 ? Math.floor(allIndex / 5) + 1 : 1;
+    }
+
+    highlightReviewThread(normalizedThreadID);
+    renderReviewPanel();
+
+    requestAnimationFrame(() => {
+      const threadEl = document.querySelector(`[data-review-thread-id="${CSS.escape(normalizedThreadID)}"]`);
+      if (!(threadEl instanceof HTMLElement)) return;
+      threadEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      threadEl.focus({ preventScroll: true });
+    });
+  }
+
+  function updateSessionChrome() {
+    const sidePanel = document.querySelector('.side-panel');
+    const panelTitle = document.getElementById('panel-title');
+    const fieldsStatus = document.getElementById('fields-status');
+    const fieldsList = document.getElementById('fields-list');
+    const consentNotice = document.getElementById('consent-notice');
+    const submitBtn = document.getElementById('submit-btn');
+    const declineBtn = document.getElementById('decline-btn');
+    const panelFooter = document.querySelector('.panel-footer');
+    const mobileProgress = document.getElementById('panel-mobile-progress');
+    const submitWarning = document.getElementById('review-submit-warning');
+    const submitMessage = document.getElementById('review-submit-message');
+    const stageBanner = document.getElementById('stage-state-banner');
+    const headerProgressGroup = document.getElementById('header-progress-group');
+    const identityLabel = document.getElementById('session-identity-label');
+    const isReviewOnly = isReviewOnlySession();
+
+    // Toggle review-only mode class on side panel for styling
+    sidePanel?.classList.toggle('review-only-mode', isReviewOnly);
+
+    if (identityLabel) {
+      identityLabel.textContent = isReviewOnly ? 'Reviewing as' : 'Signing as';
+    }
+
+    headerProgressGroup?.classList.toggle('review-only-hidden', isReviewOnly);
+
+    if (panelTitle) {
+      panelTitle.textContent = isReviewOnly ? 'Review & Comment' : (hasReviewContext() ? 'Review, Complete & Sign' : 'Complete & Sign');
+    }
+
+    // In review-only mode, hide signing-related elements completely
+    fieldsList?.classList.toggle('hidden', isReviewOnly);
+    fieldsStatus?.classList.toggle('hidden', isReviewOnly);
+    mobileProgress?.classList.toggle('hidden', isReviewOnly);
+    consentNotice?.classList.toggle('hidden', isReviewOnly || state.hasConsented);
+    stageBanner?.classList.toggle('hidden', isReviewOnly);
+
+    // Hide the entire footer in review-only mode (no submit/decline buttons needed)
+    if (isReviewOnly) {
+      panelFooter?.classList.add('hidden');
+    } else {
+      panelFooter?.classList.remove('hidden');
+      submitBtn?.classList.remove('hidden');
+      declineBtn?.classList.remove('hidden');
+    }
+
+    if (submitWarning && submitMessage) {
+      if (isReviewOnly) {
+        submitWarning.classList.add('hidden');
+      } else if (hasReviewContext() && state.reviewContext.sign_blocked) {
+        submitWarning.classList.remove('hidden');
+        submitMessage.textContent = state.reviewContext.sign_block_reason || 'Signing is blocked until review completes.';
+      } else {
+        submitWarning.classList.add('hidden');
+      }
+    }
+  }
+
+  async function handleCreateReviewThread() {
+    if (!hasReviewContext()) return;
+    const textarea = document.getElementById('review-thread-body');
+    const body = String(textarea?.value || '').trim();
+    if (!body) {
+      announceToScreenReader('Enter a comment before creating a thread.', 'assertive');
+      return;
+    }
+    const visibilitySelect = document.getElementById('review-thread-visibility');
+    const payload = {
+      thread: {
+        review_id: state.reviewContext.review_id,
+        visibility: String(visibilitySelect?.value || 'shared').trim() || 'shared',
+        body,
+        ...reviewThreadAnchorPayload(),
+      },
+    };
+    await reviewAPIRequest('/threads', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, 'Failed to create review thread');
+    if (textarea) textarea.value = '';
+    if (currentReviewAnchorType() === 'page') {
+      state.pickingReviewAnchorPoint = false;
+      document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
+      setReviewAnchorPointDraft(null);
+    }
+    await reloadReviewSessionContext();
+    announceToScreenReader('Review comment added.');
+  }
+
+  async function handleReplyReviewThread(threadID, inputID) {
+    const replyInput = document.getElementById(String(inputID || '').trim());
+    const body = String(replyInput?.value || '').trim();
+    if (!threadID || !body) {
+      announceToScreenReader('Enter a reply before sending.', 'assertive');
+      return;
+    }
+    await reviewAPIRequest(`/threads/${encodeURIComponent(String(threadID))}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ reply: { body } }),
+    }, 'Failed to reply to review thread');
+    if (replyInput) replyInput.value = '';
+    await reloadReviewSessionContext();
+    announceToScreenReader('Reply added to review thread.');
+  }
+
+  async function handleReviewThreadState(threadID, resolve) {
+    if (!threadID) return;
+    const action = resolve ? 'resolve' : 'reopen';
+    await reviewAPIRequest(`/threads/${encodeURIComponent(String(threadID))}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }, resolve ? 'Failed to resolve review thread' : 'Failed to reopen review thread');
+    await reloadReviewSessionContext();
+    announceToScreenReader(resolve ? 'Review thread resolved.' : 'Review thread reopened.');
+  }
+
+  async function handleReviewDecision(action, comment = '') {
+    const suffix = action === 'approve' ? '/approve' : '/request-changes';
+    const fallbackMessage = action === 'approve' ? 'Failed to approve review' : 'Failed to request review changes';
+    const body = action === 'request-changes' && comment ? JSON.stringify({ comment }) : undefined;
+    await reviewAPIRequest(suffix, { method: 'POST', body }, fallbackMessage);
+    await reloadReviewSessionContext();
+    announceToScreenReader(action === 'approve' ? 'Review approved.' : 'Review changes requested.');
+  }
+
+  // Review decision confirmation modal state
+  let pendingReviewDecisionAction = '';
+
+  function showReviewDecisionModal(action) {
+    const modal = document.getElementById('review-decision-modal');
+    const iconContainer = document.getElementById('review-decision-icon-container');
+    const icon = document.getElementById('review-decision-icon');
+    const title = document.getElementById('review-decision-modal-title');
+    const description = document.getElementById('review-decision-modal-description');
+    const commentSection = document.getElementById('review-decision-comment-section');
+    const commentInput = document.getElementById('review-decision-comment');
+    const commentError = document.getElementById('review-decision-comment-error');
+    const confirmBtn = document.getElementById('review-decision-confirm-btn');
+    if (!modal) return;
+
+    pendingReviewDecisionAction = action;
+
+    if (action === 'approve') {
+      iconContainer?.classList.remove('bg-amber-100');
+      iconContainer?.classList.add('bg-emerald-100');
+      icon?.classList.remove('iconoir-warning-circle', 'text-amber-600');
+      icon?.classList.add('iconoir-check-circle', 'text-emerald-600');
+      if (title) title.textContent = 'Approve Review?';
+      if (description) description.textContent = 'This will mark the document as approved and notify the sender that the review is complete.';
+      commentSection?.classList.add('hidden');
+      confirmBtn?.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+      confirmBtn?.classList.add('btn-primary');
+      if (confirmBtn) confirmBtn.textContent = 'Approve';
+    } else {
+      iconContainer?.classList.remove('bg-emerald-100');
+      iconContainer?.classList.add('bg-amber-100');
+      icon?.classList.remove('iconoir-check-circle', 'text-emerald-600');
+      icon?.classList.add('iconoir-warning-circle', 'text-amber-600');
+      if (title) title.textContent = 'Request Changes?';
+      if (description) description.textContent = 'The sender will be notified that changes are needed before this document can proceed.';
+      commentSection?.classList.remove('hidden');
+      if (commentInput) commentInput.value = '';
+      commentError?.classList.add('hidden');
+      confirmBtn?.classList.remove('btn-primary');
+      confirmBtn?.classList.add('bg-amber-600', 'hover:bg-amber-700', 'text-white');
+      if (confirmBtn) confirmBtn.textContent = 'Request Changes';
+    }
+
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    const modalContent = modal.querySelector('.field-editor');
+    if (modalContent instanceof HTMLElement) {
+      trapFocusInModal(modalContent);
+    }
+    if (action === 'request-changes') {
+      commentInput?.focus();
+    }
+  }
+
+  function hideReviewDecisionModal() {
+    const modal = document.getElementById('review-decision-modal');
+    if (!modal) return;
+    const modalContent = modal.querySelector('.field-editor');
+    if (modalContent instanceof HTMLElement) {
+      releaseFocusTrap(modalContent);
+    }
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    pendingReviewDecisionAction = '';
+  }
+
+  async function confirmReviewDecision() {
+    if (!pendingReviewDecisionAction) return;
+
+    const action = pendingReviewDecisionAction;
+    let comment = '';
+
+    if (action === 'request-changes') {
+      const commentInput = document.getElementById('review-decision-comment');
+      const commentError = document.getElementById('review-decision-comment-error');
+      comment = String(commentInput?.value || '').trim();
+      if (!comment) {
+        commentError?.classList.remove('hidden');
+        commentInput?.focus();
+        announceToScreenReader('Please provide a reason for requesting changes.', 'assertive');
+        return;
+      }
+    }
+
+    hideReviewDecisionModal();
+    await handleReviewDecision(action, comment);
+  }
+
+  function jumpToReviewThreadAnchor(threadID) {
+    const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
+    const found = threads.find((entry) => String(entry?.thread?.id || '') === String(threadID || ''));
+    if (!found) return;
+    highlightReviewThread(threadID);
+    const anchorType = String(found?.thread?.anchor_type || '').trim();
+    if (anchorType === 'field' && found.thread.field_id) {
+      const field = state.fieldState.get(found.thread.field_id);
+      if (field?.page) {
+        goToPage(Number(field.page || 1) || 1);
+      }
+      focusField(found.thread.field_id, { openEditor: false });
+      highlightGuidedTarget(found.thread.field_id);
+      return;
+    }
+    if (anchorType === 'page' && Number(found?.thread?.page_number || 0) > 0) {
+      goToPage(Number(found.thread.page_number || 1) || 1);
+      return;
+    }
+    const viewerContent = document.getElementById('viewer-content');
+    viewerContent?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ============================================
@@ -974,6 +2071,33 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         height: `${Math.round(coords.height)}px`,
         // Use transform for sub-pixel precision on high-DPI
         transform: this.dpr > 1 ? 'translateZ(0)' : 'none'
+      };
+    },
+
+    screenToPagePoint(pageNum, containerEl, clientX, clientY) {
+      const pageMetadata = this.getPageMetadata(pageNum);
+      const rect = containerEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        return null;
+      }
+
+      const relativeX = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+      const relativeY = Math.min(Math.max(clientY - rect.top, 0), rect.height);
+      const sourceWidth = pageMetadata.width || rect.width;
+      const sourceHeight = pageMetadata.height || rect.height;
+      const scaleX = sourceWidth / rect.width;
+      const scaleY = sourceHeight / rect.height;
+
+      let anchorX = relativeX * scaleX;
+      let anchorY = relativeY * scaleY;
+      if (unifiedConfig.viewer.origin === 'bottom-left') {
+        anchorY = sourceHeight - anchorY;
+      }
+
+      return {
+        page_number: Number(pageNum || 1) || 1,
+        anchor_x: Math.round(anchorX * 100) / 100,
+        anchor_y: Math.round(anchorY * 100) / 100,
       };
     }
   };
@@ -1429,6 +2553,93 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         case 'confirm-decline':
           confirmDecline();
           break;
+        case 'approve-review':
+          showReviewDecisionModal('approve');
+          break;
+        case 'request-review-changes':
+          showReviewDecisionModal('request-changes');
+          break;
+        case 'hide-review-decision-modal':
+          hideReviewDecisionModal();
+          break;
+        case 'confirm-review-decision':
+          confirmReviewDecision().catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to complete review action');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to complete review action'}`, 'assertive');
+          });
+          break;
+        case 'create-review-thread':
+          handleCreateReviewThread().catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to add comment');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to add comment'}`, 'assertive');
+          });
+          break;
+        case 'reply-review-thread': {
+          const threadID = target.getAttribute('data-thread-id');
+          const replyInputID = target.getAttribute('data-reply-input-id');
+          handleReplyReviewThread(threadID, replyInputID).catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to reply to thread');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to reply to thread'}`, 'assertive');
+          });
+          break;
+        }
+        case 'resolve-review-thread': {
+          const threadID = target.getAttribute('data-thread-id');
+          handleReviewThreadState(threadID, true).catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to resolve thread');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to resolve thread'}`, 'assertive');
+          });
+          break;
+        }
+        case 'reopen-review-thread': {
+          const threadID = target.getAttribute('data-thread-id');
+          handleReviewThreadState(threadID, false).catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to reopen thread');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to reopen thread'}`, 'assertive');
+          });
+          break;
+        }
+        case 'go-review-thread-anchor': {
+          const threadID = target.getAttribute('data-thread-id');
+          jumpToReviewThreadAnchor(threadID);
+          break;
+        }
+        case 'go-review-thread': {
+          const threadID = target.getAttribute('data-thread-id');
+          revealReviewThread(threadID);
+          break;
+        }
+        case 'filter-review-threads': {
+          const filter = target.getAttribute('data-filter') || 'all';
+          handleFilterReviewThreads(filter);
+          break;
+        }
+        case 'page-review-threads': {
+          const page = parseInt(target.getAttribute('data-page') || '1', 10);
+          handlePageReviewThreads(page);
+          break;
+        }
+        case 'toggle-reply-composer': {
+          const composerID = target.getAttribute('data-composer-id');
+          toggleReplyComposer(composerID, true);
+          break;
+        }
+        case 'cancel-reply': {
+          const composerID = target.getAttribute('data-composer-id');
+          toggleReplyComposer(composerID, false);
+          break;
+        }
+        case 'pick-review-anchor-point':
+          if (currentReviewAnchorType() === 'page') {
+            setReviewAnchorPicking(true);
+          }
+          break;
+        case 'clear-review-anchor-point':
+          state.pickingReviewAnchorPoint = false;
+          document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
+          setReviewAnchorPointDraft(null);
+          announceToScreenReader('Pinned comment location cleared.');
+          break;
         case 'retry-load-pdf':
           loadPdfDocument();
           break;
@@ -1555,6 +2766,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     await initializeSignerProfile();
     initializeFieldState();
+    renderReviewPanel();
+    setupReviewAnchorChips();
+    setupReviewAnchorPointCapture();
+    updateSessionChrome();
     initializeConsentCheckbox();
     updateProgress();
     updateSubmitButton();
@@ -2240,6 +3455,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       state.currentPage = pageNum;
       document.getElementById('current-page').textContent = pageNum;
       updatePageNavigation();
+      updateReviewAnchorChips();
       renderFieldOverlays();
       preloadAdjacentPages(pageNum);
       return;
@@ -2303,6 +3519,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       state.currentPage = pageNum;
       document.getElementById('current-page').textContent = pageNum;
       updatePageNavigation();
+      updateReviewAnchorChips();
 
       // Re-render overlays for current page
       renderFieldOverlays();
@@ -2405,6 +3622,82 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     overlay.appendChild(labelEl);
   }
 
+  function resolveThreadMarkerPosition(entry, containerEl) {
+    if (!containerEl) return null;
+    const thread = entry?.thread || {};
+    const anchorType = String(thread.anchor_type || '').trim();
+    if (anchorType === 'page') {
+      const pageNumber = Number(thread.page_number || 0) || 0;
+      const hasPoint = (Number(thread.anchor_x || 0) || 0) > 0 || (Number(thread.anchor_y || 0) || 0) > 0;
+      if (pageNumber !== Number(state.currentPage || 0) || !hasPoint) return null;
+      const point = coordinateTransform.pageToScreen({
+        page: pageNumber,
+        posX: Number(thread.anchor_x || 0) || 0,
+        posY: Number(thread.anchor_y || 0) || 0,
+        width: 0,
+        height: 0,
+      }, containerEl);
+      return { left: point.left, top: point.top };
+    }
+    if (anchorType === 'field' && thread.field_id) {
+      const field = state.fieldState.get(String(thread.field_id || '').trim());
+      if (!field || Number(field.page || 0) !== Number(state.currentPage || 0)) return null;
+      if (field.posX == null || field.posY == null) return null;
+      const point = coordinateTransform.pageToScreen({
+        page: Number(field.page || state.currentPage || 1) || 1,
+        posX: (Number(field.posX || 0) || 0) + ((Number(field.width || 0) || 0) / 2),
+        posY: Number(field.posY || 0) || 0,
+        width: 0,
+        height: 0,
+      }, containerEl);
+      return { left: point.left, top: point.top };
+    }
+    return null;
+  }
+
+  function renderReviewThreadMarkers(overlaysContainer, containerEl) {
+    const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
+    threads.forEach((entry, index) => {
+      const thread = entry?.thread || {};
+      const position = resolveThreadMarkerPosition(entry, containerEl);
+      if (!position) return;
+      const marker = document.createElement('button');
+      marker.type = 'button';
+      marker.className = 'review-thread-marker';
+      if (String(thread.status || '').trim() === 'resolved') {
+        marker.classList.add('resolved');
+      }
+      if (String(thread.id || '').trim() === String(state.highlightedReviewThreadID || '').trim()) {
+      marker.classList.add('active');
+      }
+      marker.dataset.esignAction = 'go-review-thread';
+      marker.dataset.threadId = String(thread.id || '').trim();
+      marker.style.left = `${Math.round(position.left)}px`;
+      marker.style.top = `${Math.round(position.top)}px`;
+      marker.title = `${reviewAnchorLabel(entry)} comment`;
+      marker.setAttribute('aria-label', `${reviewAnchorLabel(entry)} comment ${index + 1}`);
+      marker.textContent = String(index + 1);
+      overlaysContainer.appendChild(marker);
+    });
+
+    if (currentReviewAnchorType() === 'page' && state.reviewAnchorPointDraft && Number(state.reviewAnchorPointDraft.page_number || 0) === Number(state.currentPage || 0)) {
+      const point = coordinateTransform.pageToScreen({
+        page: Number(state.reviewAnchorPointDraft.page_number || state.currentPage || 1) || 1,
+        posX: Number(state.reviewAnchorPointDraft.anchor_x || 0) || 0,
+        posY: Number(state.reviewAnchorPointDraft.anchor_y || 0) || 0,
+        width: 0,
+        height: 0,
+      }, containerEl);
+      const draftMarker = document.createElement('div');
+      draftMarker.className = 'review-thread-marker active';
+      draftMarker.style.left = `${Math.round(point.left)}px`;
+      draftMarker.style.top = `${Math.round(point.top)}px`;
+      draftMarker.setAttribute('aria-hidden', 'true');
+      draftMarker.textContent = '+';
+      overlaysContainer.appendChild(draftMarker);
+    }
+  }
+
   function renderFieldOverlays() {
     const overlaysContainer = document.getElementById('field-overlays');
     overlaysContainer.innerHTML = '';
@@ -2500,6 +3793,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
       overlaysContainer.appendChild(overlay);
     });
+
+    if (pdfContainer) {
+      renderReviewThreadMarkers(overlaysContainer, pdfContainer);
+    }
   }
 
   function getFieldTypeLabel(type) {
@@ -2586,6 +3883,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     if (options.openEditor) {
       state.activeFieldId = fieldId;
+      renderReviewPanel();
     }
 
     // Update UI
@@ -3247,6 +4545,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     requestOverlayRender();
 
     state.activeFieldId = null;
+    renderReviewPanel();
 
     // Clean up canvas reference
     state.signatureCanvases.clear();
@@ -3659,10 +4958,21 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     // Update status badge
     const remaining = total - completed;
-    document.getElementById('fields-status').textContent = remaining > 0 ? `${remaining} remaining` : 'All complete';
+    const statusEl = document.getElementById('fields-status');
+    if (statusEl) {
+      if (isReviewOnlySession()) {
+        statusEl.textContent = hasReviewContext() ? reviewStatusLabel(state.reviewContext.status) : 'Review';
+      } else if (hasReviewContext() && state.reviewContext.sign_blocked) {
+        statusEl.textContent = 'Review blocked';
+      } else {
+        statusEl.textContent = remaining > 0 ? `${remaining} remaining` : 'All complete';
+      }
+    }
+    updateSessionChrome();
   }
 
   function updateSubmitButton() {
+    updateSessionChrome();
     const submitBtn = document.getElementById('submit-btn');
     const incompleteWarning = document.getElementById('incomplete-warning');
     const incompleteMessage = document.getElementById('incomplete-message');
@@ -3678,9 +4988,12 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       if (field.hasError) hasErrors = true;
     });
 
-    const canSubmit = state.hasConsented &&
+    const reviewBlocked = Boolean(state.reviewContext?.sign_blocked);
+    const canSubmit = state.canSignSession &&
+      state.hasConsented &&
       incompleteRequired.length === 0 &&
       !hasErrors &&
+      !reviewBlocked &&
       state.pendingSaves.size === 0 &&
       submitCooldownSeconds === 0 &&
       !state.isSubmitting;
@@ -3698,6 +5011,12 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     } else if (submitCooldownSeconds > 0) {
       incompleteWarning.classList.remove('hidden');
       incompleteMessage.textContent = `Please wait ${submitCooldownSeconds}s before submitting again.`;
+    } else if (!state.canSignSession) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = 'This session cannot submit signatures.';
+    } else if (reviewBlocked) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = state.reviewContext?.sign_block_reason || 'Signing is blocked until review completes.';
     } else if (hasErrors) {
       incompleteWarning.classList.remove('hidden');
       incompleteMessage.textContent = 'Some fields failed to save. Please retry.';
@@ -3887,6 +5206,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // Submit and Decline
   // ============================================
   async function handleSubmit() {
+    if (!state.canSignSession || state.reviewContext?.sign_blocked) {
+      updateSubmitButton();
+      return;
+    }
     const submitBtn = document.getElementById('submit-btn');
     const cooldownSeconds = secondsUntil(state.submitCooldownUntil);
     if (cooldownSeconds > 0) {
@@ -4437,6 +5760,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       closeFieldEditor();
       hideConsentModal();
       hideDeclineModal();
+      hideReviewDecisionModal();
     }
 
     if (e.target instanceof HTMLElement && e.target.classList.contains('sig-editor-tab')) {

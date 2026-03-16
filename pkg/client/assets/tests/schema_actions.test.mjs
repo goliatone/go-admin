@@ -374,7 +374,36 @@ test('interpolates href placeholders from record context for navigation actions'
   assert.equal(actions[0].id, 'view_family');
 });
 
-test('filters view_family navigation action when translation_family_url context is absent', () => {
+test('renders view_family as disabled when context is missing but server publishes _action_state', () => {
+  const builder = createBuilder({ actionContext: 'row' });
+  const record = createMockRecord({
+    _action_state: {
+      view_family: {
+        enabled: false,
+        reason: 'record does not include required context for this action',
+        reason_code: 'MISSING_CONTEXT',
+      },
+    },
+  });
+  const schemaActions = [
+    {
+      name: 'view_family',
+      label: 'View Family',
+      type: 'navigation',
+      href: '{translation_family_url}',
+      context_required: ['translation_family_url'],
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].id, 'view_family');
+  assert.equal(actions[0].disabled, true);
+  assert.equal(actions[0].disabledReason, 'record does not include required context for this action');
+});
+
+test('filters view_family navigation action when translation_family_url context is absent and no _action_state is published', () => {
   const builder = createBuilder({ actionContext: 'row' });
   const record = createMockRecord();
   const schemaActions = [
@@ -1550,5 +1579,33 @@ test('fixture contract: disabled actions provide reason and reason_code', async 
         );
       }
     }
+  }
+});
+
+test('fixture contract: view_family missing-context rows remain visible-disabled', async () => {
+  for (const panel of ['pages']) {
+    const fixture = await loadTranslationActionFixture(panel);
+    const schemaActions = extractSchemaActions(fixture);
+    const blockedRecord = fixture?.data?.find((record) =>
+      record?._action_state?.view_family?.enabled === false &&
+      String(record?._action_state?.view_family?.reason_code || '').trim().toLowerCase() === 'missing_context'
+    );
+    assert.ok(blockedRecord, `missing blocked view_family fixture row for ${panel}`);
+
+    const builder = new SchemaActionBuilder({
+      apiEndpoint: `/admin/api/panels/${panel}`,
+      actionBasePath: `/admin/content/${panel}`,
+      useDefaultFallback: true,
+    });
+
+    const built = builder.buildRowActions(blockedRecord, schemaActions);
+    const viewFamily = built.find((action) => action.id === 'view_family');
+    assert.ok(viewFamily, `expected visible view_family action for ${panel}`);
+    assert.equal(viewFamily.disabled, true, `expected disabled view_family for ${panel}`);
+    assert.equal(
+      viewFamily.disabledReason,
+      'record does not include required context for this action',
+      `unexpected disabled reason for ${panel}`
+    );
   }
 });

@@ -1,7 +1,7 @@
 import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
-import { r as O } from "../chunks/http-client-Dm229xuF.js";
-import { extractStructuredError as N } from "../toast/error-helpers.js";
-import { E as R, b as I, c as S, L as z, C as v, d as j, e as A, f as $, H as F, a as P, j as H, B as L, k as B } from "../chunks/style-constants-_M0LozTF.js";
+import { r as z } from "../chunks/http-client-Dm229xuF.js";
+import { extractStructuredError as F } from "../toast/error-helpers.js";
+import { E as R, b as I, c as S, L as P, C as v, d as A, e as j, f as $, H, a as B, l as K, B as L, m as U, k as D } from "../chunks/style-constants-BesmSFuV.js";
 class b extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -58,7 +58,7 @@ function w(e) {
       return "ok";
   }
 }
-function D(e) {
+function M(e) {
   if (!e || typeof e != "object")
     return null;
   const t = e;
@@ -78,7 +78,7 @@ function D(e) {
     entityId: a(t.entity_id)
   };
 }
-function K(e) {
+function X(e) {
   const t = l(e), s = a(t.key);
   return s ? {
     key: s,
@@ -91,7 +91,7 @@ function K(e) {
     entityType: a(t.entity_type)
   } : null;
 }
-function U(e) {
+function G(e) {
   const t = l(e), s = a(t.id);
   if (!s)
     return null;
@@ -106,18 +106,18 @@ function U(e) {
       state: w(r.state),
       message: a(r.message)
     },
-    drilldown: D(t.drilldown),
+    drilldown: M(t.drilldown),
     metricKey: a(t.metric_key),
     runbookId: a(t.runbook_id)
   };
 }
-function X(e) {
+function Y(e) {
   const t = l(e);
   if (Object.keys(t).length === 0)
     return null;
   const s = {};
   for (const [r, n] of Object.entries(l(t.links))) {
-    const o = D(n);
+    const o = M(n);
     o && (s[r] = o);
   }
   return {
@@ -125,8 +125,8 @@ function X(e) {
     links: s
   };
 }
-function G(e, t = "") {
-  const s = l(e), r = d(s.rows, X);
+function Q(e, t = "") {
+  const s = l(e), r = d(s.rows, Y);
   return {
     id: a(s.id) || t,
     label: a(s.label) || t,
@@ -135,7 +135,7 @@ function G(e, t = "") {
     rows: r
   };
 }
-function M(e) {
+function C(e) {
   const t = l(e), s = a(t.id);
   return s ? {
     id: s,
@@ -153,7 +153,7 @@ function q(e) {
     return null;
   const r = {};
   for (const [n, o] of Object.entries(l(t.drilldown_links))) {
-    const c = K(o);
+    const c = X(o);
     c && (r[n] = c);
   }
   return {
@@ -171,7 +171,7 @@ function q(e) {
     drilldownLinks: r
   };
 }
-function Y(e) {
+function W(e) {
   const t = l(e), s = {};
   for (const [r, n] of Object.entries(l(t.query_models))) {
     const o = q(n);
@@ -183,10 +183,10 @@ function Y(e) {
     alertStates: d(t.alert_states, (r) => w(r)),
     defaultLimits: T(t.default_limits),
     queryModels: s,
-    runbooks: d(t.runbooks, M)
+    runbooks: d(t.runbooks, C)
   };
 }
-function Q(e) {
+function J(e) {
   const t = l(e), s = a(t.code);
   return s ? {
     state: w(t.state),
@@ -196,19 +196,19 @@ function Q(e) {
     runbookId: a(t.runbook_id)
   } : null;
 }
-function W(e, t) {
+function V(e, t) {
   if (t.cardIds.length === 0)
     return e;
   const s = /* @__PURE__ */ new Map();
   return t.cardIds.forEach((r, n) => s.set(r, n)), [...e].sort((r, n) => (s.get(r.id) ?? Number.MAX_SAFE_INTEGER) - (s.get(n.id) ?? Number.MAX_SAFE_INTEGER));
 }
-function J(e) {
-  const t = l(e), s = l(t.data), r = l(t.meta), n = Y(r.contracts), o = W(
-    d(s.cards, U),
+function Z(e) {
+  const t = l(e), s = l(t.data), r = l(t.meta), n = W(r.contracts), o = V(
+    d(s.cards, G),
     n
   ), c = {};
   for (const [m, f] of Object.entries(l(s.tables)))
-    c[m] = G(f, m);
+    c[m] = Q(f, m);
   const u = { ...n.queryModels };
   for (const [m, f] of Object.entries(l(r.query_models))) {
     const g = q(f);
@@ -218,8 +218,8 @@ function J(e) {
     data: {
       cards: o,
       tables: c,
-      alerts: d(s.alerts, Q),
-      runbooks: d(s.runbooks, M),
+      alerts: d(s.alerts, J),
+      runbooks: d(s.runbooks, C),
       summary: T(s.summary)
     },
     meta: {
@@ -250,7 +250,7 @@ function J(e) {
     }
   };
 }
-function V(e, t = {}) {
+function tt(e, t = {}) {
   const s = a(e);
   if (!s)
     return "";
@@ -265,7 +265,7 @@ function V(e, t = {}) {
     u && n.searchParams.set(c, u);
   return r ? `${n.pathname}${n.search}` : n.toString();
 }
-function Z(e) {
+function et(e) {
   const t = a(e.endpoint), s = e.fetch ?? globalThis.fetch?.bind(globalThis);
   return {
     async fetchDashboard(r = {}) {
@@ -275,7 +275,7 @@ function Z(e) {
           status: 0,
           code: "MISSING_CONTEXT"
         });
-      const n = V(t, r);
+      const n = tt(t, r);
       if (!s)
         throw new b({
           message: "Fetch implementation is not available",
@@ -288,9 +288,9 @@ function Z(e) {
         }
       });
       if (!o.ok) {
-        const c = await N(o.clone());
+        const c = await F(o.clone());
         throw new b({
-          message: c.message || await O(o, "Failed to load translation dashboard"),
+          message: c.message || await z(o, "Failed to load translation dashboard"),
           status: o.status,
           code: c.textCode,
           requestId: o.headers.get("x-request-id") ?? o.headers.get("X-Request-ID") ?? void 0,
@@ -298,11 +298,11 @@ function Z(e) {
           metadata: c.metadata
         });
       }
-      return J(await o.json());
+      return Z(await o.json());
     }
   };
 }
-function tt(e) {
+function st(e) {
   const t = Math.max(0, e.intervalMs ?? 3e4);
   let s = null, r = null;
   const n = async () => r || (r = (async () => {
@@ -338,19 +338,19 @@ function _(e, t, s = "") {
   const r = i(e);
   return t?.href ? `<a class="${p(s)} text-sky-700 hover:text-sky-900 hover:underline" href="${p(t.href)}">${r}</a>` : `<span class="${p(s)}">${r}</span>`;
 }
-function et(e) {
+function rt(e) {
   return [...e].sort((t, s) => {
     const r = (n) => n === "primary" ? 0 : 1;
     return r(t.relation) - r(s.relation);
   });
 }
-function C(e, t = "No drill-downs") {
-  return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : et(e).map((s) => {
+function O(e, t = "No drill-downs") {
+  return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : rt(e).map((s) => {
     const r = s.label || "Open";
     return s.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${p(s.key || r.toLowerCase())}" href="${p(s.href)}">${i(r)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(r)}</span>`;
   }).join("");
 }
-function st(e) {
+function at(e) {
   const t = Object.entries(e.breakdown).map(([s, r]) => `
       <li class="flex items-center justify-between gap-3 text-xs text-gray-600">
         <span>${i(y(s))}</span>
@@ -364,7 +364,7 @@ function st(e) {
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${i(e.label)}</p>
           <p class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${i(String(e.count))}</p>
         </div>
-        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${p(lt(e.alert.state))}">
+        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${p(ct(e.alert.state))}">
           ${i(e.alert.message || e.alert.state)}
         </span>
       </div>
@@ -377,11 +377,11 @@ function st(e) {
     </article>
   `;
 }
-function rt(e) {
+function nt(e) {
   return e.length === 0 ? "" : `
     <section class="space-y-3" data-dashboard-alerts="true">
       ${e.map((t) => `
-        <div class="rounded-xl border px-4 py-3 text-sm ${p(dt(t.state))}" role="${p(t.state === "critical" ? "alert" : "status")}">
+        <div class="rounded-xl border px-4 py-3 text-sm ${p(ut(t.state))}" role="${p(t.state === "critical" ? "alert" : "status")}">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p class="font-semibold">${i(t.code)}</p>
@@ -394,7 +394,7 @@ function rt(e) {
     </section>
   `;
 }
-function at(e) {
+function it(e) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Top overdue assignments with assignment and queue drill-down actions.</caption>
@@ -420,7 +420,7 @@ function at(e) {
             <td class="px-4 py-3 text-gray-600">${i(y(a(t.status)))}</td>
             <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${h(t.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${C(Object.values(t.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${O(Object.values(t.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -428,7 +428,7 @@ function at(e) {
     </table>
   `;
 }
-function nt(e) {
+function ot(e) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Blocked families with family detail and blocker feed drill-down actions.</caption>
@@ -452,7 +452,7 @@ function nt(e) {
             <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(h(t.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(h(t.pending_review_count)))}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${C(Object.values(t.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${O(Object.values(t.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -460,8 +460,8 @@ function nt(e) {
     </table>
   `;
 }
-function it(e) {
-  const t = e.id === "top_overdue_assignments" ? at(e) : nt(e);
+function lt(e) {
+  const t = e.id === "top_overdue_assignments" ? it(e) : ot(e);
   return `
     <section class="overflow-hidden ${v} shadow-sm" data-dashboard-table="${p(e.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
@@ -474,7 +474,7 @@ function it(e) {
     </section>
   `;
 }
-function ot(e) {
+function dt(e) {
   return e.length === 0 ? "" : `
     <section class="${v} p-4 shadow-sm" data-dashboard-runbooks="true">
       <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
@@ -489,31 +489,25 @@ function ot(e) {
     </section>
   `;
 }
-function lt(e) {
+function N(e) {
   switch (e) {
     case "critical":
-      return "bg-rose-100 text-rose-700";
+      return "error";
     case "warning":
-      return "bg-amber-100 text-amber-700";
+      return "warning";
     case "degraded":
-      return "bg-gray-200 text-gray-700";
+      return "neutral";
     default:
-      return "bg-emerald-100 text-emerald-700";
-  }
-}
-function dt(e) {
-  switch (e) {
-    case "critical":
-      return "border-rose-200 bg-rose-50 text-rose-800";
-    case "warning":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-    case "degraded":
-      return "border-gray-200 bg-gray-50 text-gray-800";
-    default:
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "success";
   }
 }
 function ct(e) {
+  return D(N(e));
+}
+function ut(e) {
+  return `border ${D(N(e))}`;
+}
+function pt(e) {
   const t = Object.entries(e.meta.scope).filter(([, s]) => s).map(([s, r]) => `${y(s)}: ${r}`);
   return `
     <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
@@ -526,15 +520,15 @@ function ct(e) {
     </section>
   `;
 }
-function ut(e, t = !1) {
+function ht(e, t = !1) {
   const s = e?.meta.generatedAt ? new Date(e.meta.generatedAt).toLocaleString() : "Unavailable";
   return `
     <section class="${v} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="${F}">Manager Monitoring</p>
-          <h2 class="${P} text-xl mt-2">Queue health and publish blockers</h2>
-          <p class="${H} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+          <p class="${H}">Manager Monitoring</p>
+          <h2 class="${B} text-xl mt-2">Queue health and publish blockers</h2>
+          <p class="${K} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
@@ -548,7 +542,7 @@ function ut(e, t = !1) {
     </section>
   `;
 }
-function pt(e) {
+function ft(e) {
   const t = e.data.runbooks[0], s = t?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${p(t.href)}">${i(t.title || "Open runbook")}</a>` : "";
   return `
     <section class="${R} p-6 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
@@ -562,31 +556,31 @@ function pt(e) {
     </section>
   `;
 }
-function ht(e) {
+function mt(e) {
   const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, r = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${j} p-4" data-dashboard-inline-error="true" role="alert">
-      <p class="${A}">Latest refresh failed</p>
+    <section class="${A} p-4" data-dashboard-inline-error="true" role="alert">
+      <p class="${j}">Latest refresh failed</p>
       <p class="${$} mt-2">${i(e instanceof Error ? e.message : "Failed to load translation dashboard")}</p>
       ${r ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(r)}</p>` : ""}
     </section>
   `;
 }
-function ft(e) {
+function gt(e) {
   const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, r = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", r ? `Trace ${r}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${j} p-4" data-dashboard-error="true" role="alert">
-      <p class="${A}">Translation dashboard unavailable</p>
+    <section class="${A} p-4" data-dashboard-error="true" role="alert">
+      <p class="${j}">Translation dashboard unavailable</p>
       <p class="${$} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
       <p class="${$} mt-2">${i(t)}</p>
       ${n ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(n)}</p>` : ""}
       <div class="mt-4">
-        <button type="button" class="${B}" data-dashboard-refresh-button="true">Retry dashboard</button>
+        <button type="button" class="${U}" data-dashboard-refresh-button="true">Retry dashboard</button>
       </div>
     </section>
   `;
 }
-function mt() {
+function bt() {
   return `
     <section class="${R} p-5" data-dashboard-empty="true">
       <p class="${I}">Dashboard contract route is not wired.</p>
@@ -596,25 +590,25 @@ function mt() {
 }
 function E() {
   return `
-    <section class="${z} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
+    <section class="${P} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
       Loading translation dashboard aggregates...
     </section>
   `;
 }
-class gt {
+class yt {
   constructor(t) {
     this.refreshController = null, this.container = null, this.state = "idle", this.payload = null, this.refreshing = !1, this.lastError = null, this.config = {
       refreshInterval: 3e4,
       title: "Translation Dashboard",
       ...t
-    }, this.client = Z(t);
+    }, this.client = et(t);
   }
   mount(t) {
     if (this.container = t, !a(this.config.endpoint)) {
-      this.state = "error", t.innerHTML = mt();
+      this.state = "error", t.innerHTML = bt();
       return;
     }
-    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = E(), this.refreshController = tt({
+    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = E(), this.refreshController = st({
       intervalMs: this.config.refreshInterval,
       load: () => this.client.fetchDashboard(),
       onData: (s) => {
@@ -625,7 +619,7 @@ class gt {
           this.state = "ready", this.render();
           return;
         }
-        this.state = "error", this.container && (this.container.innerHTML = ft(s), this.bindActions());
+        this.state = "error", this.container && (this.container.innerHTML = gt(s), this.bindActions());
       }
     }), this.refreshController.start().catch(() => {
     });
@@ -653,25 +647,25 @@ class gt {
   render() {
     if (!this.container || !this.payload)
       return;
-    const t = this.payload, s = t.data.cards.map(st).join(""), r = Object.values(t.data.tables).map(it).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
+    const t = this.payload, s = t.data.cards.map(at).join(""), r = Object.values(t.data.tables).map(lt).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
         <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
           <p class="mt-2">${i(t.meta.degradedReasons.map((u) => `${u.component}: ${u.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
         </section>
-      ` : "", c = this.lastError ? ht(this.lastError) : "";
+      ` : "", c = this.lastError ? mt(this.lastError) : "";
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${ut(t, this.refreshing)}
-        ${ct(t)}
+        ${ht(t, this.refreshing)}
+        ${pt(t)}
         ${c}
         ${o}
-        ${rt(t.data.alerts)}
-        ${n ? pt(t) : `
+        ${nt(t.data.alerts)}
+        ${n ? ft(t) : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${s}</section>
             <section class="grid gap-4 xl:grid-cols-2">${r}</section>
           `}
-        ${ot(t.data.runbooks)}
+        ${dt(t.data.runbooks)}
       </div>
     `, this.bindActions();
   }
@@ -686,10 +680,10 @@ class gt {
     });
   }
 }
-function $t(e, t = {}) {
+function wt(e, t = {}) {
   if (!e)
     return null;
-  const s = new gt({
+  const s = new yt({
     endpoint: t.endpoint ?? e.dataset.endpoint ?? "",
     queueEndpoint: t.queueEndpoint ?? e.dataset.queueEndpoint ?? "",
     familiesEndpoint: t.familiesEndpoint ?? e.dataset.familiesEndpoint ?? "",
@@ -700,18 +694,18 @@ function $t(e, t = {}) {
   return s.mount(e), s;
 }
 export {
-  gt as TranslationDashboardPage,
+  yt as TranslationDashboardPage,
   b as TranslationDashboardRequestError,
-  V as buildTranslationDashboardURL,
-  Z as createTranslationDashboardClient,
-  tt as createTranslationDashboardRefreshController,
-  $t as initTranslationDashboardPage,
-  U as normalizeTranslationDashboardCard,
-  D as normalizeTranslationDashboardLink,
+  tt as buildTranslationDashboardURL,
+  et as createTranslationDashboardClient,
+  st as createTranslationDashboardRefreshController,
+  wt as initTranslationDashboardPage,
+  G as normalizeTranslationDashboardCard,
+  M as normalizeTranslationDashboardLink,
   q as normalizeTranslationDashboardQueryModel,
-  J as normalizeTranslationDashboardResponse,
-  M as normalizeTranslationDashboardRunbook,
-  G as normalizeTranslationDashboardTable,
-  X as normalizeTranslationDashboardTableRow
+  Z as normalizeTranslationDashboardResponse,
+  C as normalizeTranslationDashboardRunbook,
+  Q as normalizeTranslationDashboardTable,
+  Y as normalizeTranslationDashboardTableRow
 };
 //# sourceMappingURL=index.js.map

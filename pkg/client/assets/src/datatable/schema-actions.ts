@@ -249,15 +249,16 @@ export class SchemaActionBuilder {
     if (Array.isArray(schemaActions) && schemaActions.length > 0) {
       for (const schemaAction of schemaActions) {
         if (!schemaAction.name) continue;
-        if (!this.shouldIncludeAction(record, schemaAction)) continue;
+        const actionState = this.resolveRecordActionState(record, schemaAction.name);
+        if (!this.shouldIncludeAction(record, schemaAction, actionState)) continue;
 
         // Skip duplicates
         const actionKey = schemaAction.name.toLowerCase();
         if (this.seenActions.has(actionKey)) continue;
         this.seenActions.add(actionKey);
 
-        const actionState = this.resolveRecordActionState(record, schemaAction.name);
-        const actionButton = this.buildActionFromSchema(record, schemaAction, queryContext, actionState);
+        const normalizedActionState = this.normalizeContextBoundActionState(record, schemaAction, actionState);
+        const actionButton = this.buildActionFromSchema(record, schemaAction, queryContext, normalizedActionState);
         if (actionButton) {
           orderedActions.push({
             action: actionButton,
@@ -362,27 +363,23 @@ export class SchemaActionBuilder {
     return navActions.includes(schemaAction.name.toLowerCase());
   }
 
-  private shouldIncludeAction(record: Record<string, unknown>, schemaAction: SchemaAction): boolean {
+  private shouldIncludeAction(
+    record: Record<string, unknown>,
+    schemaAction: SchemaAction,
+    actionState: ActionState | null
+  ): boolean {
     if (!this.matchesActionScope(schemaAction.scope)) {
       return false;
     }
 
-    const requiredContext = Array.isArray(schemaAction.context_required)
-      ? schemaAction.context_required
-      : [];
-    if (requiredContext.length === 0) {
+    const missingContext = this.missingRequiredContext(record, schemaAction);
+    if (missingContext.length === 0) {
       return true;
     }
 
-    for (const rawField of requiredContext) {
-      const field = typeof rawField === 'string' ? rawField.trim() : '';
-      if (!field) continue;
-      const value = this.resolveRecordContextValue(record, field);
-      if (this.isEmptyPayloadValue(value)) {
-        return false;
-      }
-    }
-    return true;
+    // When the server publishes _action_state for a context-bound action,
+    // keep the action visible so shared disabled-reason handling can render it.
+    return actionState !== null;
   }
 
   private resolveRecordActionState(record: Record<string, unknown>, actionName: string): ActionState | null {
@@ -462,6 +459,59 @@ export class SchemaActionBuilder {
     }
     const context = (this.config.actionContext || 'row').toLowerCase();
     return normalizedScope === context;
+  }
+
+  private missingRequiredContext(
+    record: Record<string, unknown>,
+    schemaAction: SchemaAction
+  ): string[] {
+    const requiredContext = Array.isArray(schemaAction.context_required)
+      ? schemaAction.context_required
+      : [];
+    if (requiredContext.length === 0) {
+      return [];
+    }
+
+    const missing: string[] = [];
+    for (const rawField of requiredContext) {
+      const field = typeof rawField === 'string' ? rawField.trim() : '';
+      if (!field) {
+        continue;
+      }
+      const value = this.resolveRecordContextValue(record, field);
+      if (this.isEmptyPayloadValue(value)) {
+        missing.push(field);
+      }
+    }
+    return missing;
+  }
+
+  private normalizeContextBoundActionState(
+    record: Record<string, unknown>,
+    schemaAction: SchemaAction,
+    actionState: ActionState | null
+  ): ActionState | null {
+    const missingContext = this.missingRequiredContext(record, schemaAction);
+    if (missingContext.length === 0) {
+      return actionState;
+    }
+    if (actionState && actionState.enabled === false) {
+      return actionState;
+    }
+
+    // Fail closed if a context-bound action reaches the renderer without the
+    // required fields needed to execute or interpolate it.
+    return {
+      enabled: false,
+      reason: 'record does not include required context for this action',
+      reason_code: 'missing_context_required',
+      metadata: {
+        missing_context_fields: missingContext,
+        required_context_fields: Array.isArray(schemaAction.context_required)
+          ? [...schemaAction.context_required]
+          : [],
+      },
+    };
   }
 
   private resolveRecordContextValue(record: Record<string, unknown>, path: string): unknown {

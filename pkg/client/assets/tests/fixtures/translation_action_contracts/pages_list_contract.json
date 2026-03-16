@@ -244,7 +244,7 @@
         "view_family": {
           "enabled": false,
           "reason": "record does not include required context for this action",
-          "reason_code": "MISSING_CONTEXT_REQUIRED"
+          "reason_code": "MISSING_CONTEXT"
         },
         "edit": {
           "enabled": true

@@ -415,6 +415,70 @@
     background: rgba(16, 185, 129, 0.1);
   }
 
+  .review-thread-marker {
+    position: absolute;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    border: 2px solid rgba(15, 23, 42, 0.2);
+    background: #2563eb;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    z-index: 8;
+  }
+
+  .review-thread-marker:hover {
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow: 0 10px 28px rgba(37, 99, 235, 0.45);
+  }
+
+  .review-thread-marker.resolved {
+    background: #059669;
+    box-shadow: 0 8px 24px rgba(5, 150, 105, 0.3);
+  }
+
+  .review-thread-marker.active {
+    background: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.28);
+  }
+
+  .pdf-container.review-anchor-picking {
+    cursor: crosshair;
+  }
+
+  .pdf-container.review-anchor-picking::after {
+    content: 'Click anywhere on the page to pin the comment.';
+    position: absolute;
+    left: 50%;
+    top: 0.75rem;
+    transform: translateX(-50%);
+    padding: 0.4rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .review-anchor-point-controls {
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+  }
+
+  .review-only-hidden {
+    display: none !important;
+  }
+
   /* Side panel */
   .side-panel {
     width: 360px;
@@ -614,6 +678,86 @@
   .toast-container-unified {
     z-index: 200;
   }
+
+  /* Review anchor chips */
+  .review-anchor-chip {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .review-anchor-chip.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .review-anchor-chip:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .review-anchor-chip:not(:disabled):not(.active):hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+  }
+
+  /* Review-only mode panel adjustments */
+  .side-panel.review-only-mode .panel-header {
+    background: #f0fdf4;
+    border-bottom-color: #bbf7d0;
+  }
+
+  .side-panel.review-only-mode #review-panel {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .side-panel.review-only-mode #review-panel > div:first-child {
+    background: transparent;
+    border: none;
+  }
+
+  /* Review progress indicator */
+  .review-progress-step.completed .review-progress-dot {
+    border-color: #10b981;
+    background: #10b981;
+    color: white;
+  }
+
+  .review-progress-step.completed span {
+    color: #10b981;
+  }
+
+  .review-progress-step.active .review-progress-dot {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+
+  .review-progress-step.active span {
+    color: #3b82f6;
+    font-weight: 600;
+  }
+
+  .review-progress-step.changes-requested .review-progress-dot {
+    border-color: #f59e0b;
+    background: #f59e0b;
+    color: white;
+  }
+
+  .review-progress-step.changes-requested span {
+    color: #f59e0b;
+  }
+
+  .review-progress-line.completed {
+    background: #10b981;
+  }
+
+  .review-progress-line.active {
+    background: linear-gradient(90deg, #10b981 50%, #e5e7eb 50%);
+  }
 </style>
 {% endblock %}
 
@@ -647,7 +791,7 @@
     </div>
 
     <!-- Center: Progress indicator -->
-    <div class="hidden md:flex items-center gap-3">
+    <div id="header-progress-group" class="hidden md:flex items-center gap-3">
       <div class="flex items-center gap-2">
         <svg class="progress-ring w-8 h-8" viewBox="0 0 36 36">
           <circle class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none" cx="18" cy="18" r="15.5"/>
@@ -657,7 +801,7 @@
           <span id="completed-count" class="font-semibold text-gray-900">0</span>
           <span class="text-gray-400">/</span>
           <span id="total-count" class="font-semibold text-gray-900">0</span>
-          <span class="hidden sm:inline">fields</span>
+          <span id="progress-unit-label" class="hidden sm:inline">fields</span>
         </span>
       </div>
     </div>
@@ -665,7 +809,7 @@
     <!-- Right: Signer info and actions -->
     <div class="flex items-center gap-3">
       <div class="text-right hidden sm:block">
-        <p class="text-xs text-gray-500">Signing as</p>
+        <p id="session-identity-label" class="text-xs text-gray-500">Signing as</p>
         <p class="text-sm font-medium text-gray-900 truncate max-w-[150px]" title="{{ session.recipient_email }}">
           {{ session.recipient_name|default:session.recipient_email }}
         </p>
@@ -744,14 +888,14 @@
     <!-- Panel Header -->
     <div class="panel-header">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold text-gray-900">Complete & Sign</h2>
+        <h2 id="panel-title" class="text-lg font-semibold text-gray-900">Complete & Sign</h2>
         <span id="fields-status" class="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
           0 remaining
         </span>
       </div>
 
       <!-- Quick progress bar for mobile -->
-      <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden md:hidden">
+      <div id="panel-mobile-progress" class="h-1.5 bg-gray-200 rounded-full overflow-hidden md:hidden">
         <div id="mobile-progress" class="h-full bg-blue-600 rounded-full transition-all" style="width: 0%"></div>
       </div>
     </div>
@@ -778,6 +922,115 @@
           </div>
         </div>
       </div>
+
+      <div id="review-banner" class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 hidden" role="status" aria-live="polite"></div>
+
+      <section id="review-panel" class="mb-4 hidden" aria-labelledby="review-panel-title">
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div class="border-b border-gray-100 px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p id="review-panel-title" class="text-sm font-semibold text-gray-900">Review & Comments</p>
+                <p id="review-panel-subtitle" class="mt-1 text-xs text-gray-500">Track review status, comments, and decision actions.</p>
+              </div>
+              <span id="review-status-chip" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">Inactive</span>
+            </div>
+            <!-- Review Status Progression Indicator -->
+            <div id="review-progress-indicator" class="mt-3 hidden">
+              <div class="flex items-center justify-between gap-1">
+                <div id="review-step-draft" class="review-progress-step flex-1 flex flex-col items-center">
+                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                    <i class="iconoir-edit-pencil text-xs"></i>
+                  </div>
+                  <span class="mt-1 text-[10px] font-medium text-gray-400">Draft</span>
+                </div>
+                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                <div id="review-step-sent" class="review-progress-step flex-1 flex flex-col items-center">
+                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                    <i class="iconoir-send text-xs"></i>
+                  </div>
+                  <span class="mt-1 text-[10px] font-medium text-gray-400">Sent</span>
+                </div>
+                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                <div id="review-step-review" class="review-progress-step flex-1 flex flex-col items-center">
+                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                    <i class="iconoir-eye text-xs"></i>
+                  </div>
+                  <span class="mt-1 text-[10px] font-medium text-gray-400">Review</span>
+                </div>
+                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                <div id="review-step-decision" class="review-progress-step flex-1 flex flex-col items-center">
+                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                    <i class="iconoir-check-circle text-xs"></i>
+                  </div>
+                  <span class="mt-1 text-[10px] font-medium text-gray-400">Decision</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 px-4 py-4">
+            <div id="review-participant-summary" class="hidden text-xs text-gray-600"></div>
+            <div id="review-decision-actions" class="hidden flex flex-wrap gap-2">
+              <button type="button" data-esign-action="approve-review" class="btn btn-primary">
+                <i class="iconoir-check-circle mr-2" aria-hidden="true"></i>
+                Approve Review
+              </button>
+              <button type="button" data-esign-action="request-review-changes" class="btn btn-secondary">
+                <i class="iconoir-warning-circle mr-2" aria-hidden="true"></i>
+                Request Changes
+              </button>
+            </div>
+            <div id="review-thread-summary" class="text-xs text-gray-500 hidden"></div>
+            <div id="review-thread-composer" class="space-y-3 hidden">
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">
+                  Anchor comment to
+                </label>
+                <div id="review-anchor-chips" class="flex flex-wrap gap-2">
+                  <button type="button" data-anchor-type="agreement" class="review-anchor-chip active rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100">
+                    Agreement
+                  </button>
+                  <button type="button" data-anchor-type="page" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50">
+                    <span id="review-anchor-page-label">Page 1</span>
+                  </button>
+                  <button type="button" data-anchor-type="field" id="review-anchor-field-chip" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors cursor-not-allowed hidden" disabled>
+                    <span id="review-anchor-field-label">Select a field</span>
+                  </button>
+                </div>
+                <input type="hidden" id="review-thread-anchor" value="agreement" />
+              </div>
+              <div id="review-anchor-point-controls" class="review-anchor-point-controls hidden rounded-lg px-3 py-3">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinned location</p>
+                    <p id="review-anchor-point-status" class="mt-1 text-xs text-slate-600">Attach this thread to a specific point on the current page.</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button type="button" data-esign-action="pick-review-anchor-point" class="btn btn-secondary px-3 py-2 text-xs">
+                      Pick location
+                    </button>
+                    <button type="button" data-esign-action="clear-review-anchor-point" class="text-xs font-medium text-slate-600 hover:text-slate-800 underline underline-offset-2">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p id="review-thread-composer-hint" class="text-xs text-gray-500">New threads can target the agreement or current page. Activate a field to anchor to it.</p>
+              <label class="block text-xs font-medium text-gray-700">
+                New comment
+                <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add a comment or review note"></textarea>
+              </label>
+              <div class="flex items-center justify-end">
+                <button type="button" data-esign-action="create-review-thread" class="btn btn-secondary">
+                  <i class="iconoir-chat-bubble mr-2" aria-hidden="true"></i>
+                  Add Comment
+                </button>
+              </div>
+            </div>
+            <div id="review-thread-list" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- Consent notice if not yet consented -->
       <div id="consent-notice" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg {% if session.has_consented %}hidden{% endif %}">
@@ -873,6 +1126,13 @@
         <p class="text-xs text-amber-800">
           <i class="iconoir-warning-circle mr-1"></i>
           <span id="incomplete-message">Complete all required fields to submit</span>
+        </p>
+      </div>
+
+      <div id="review-submit-warning" class="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 hidden">
+        <p class="text-xs text-slate-700">
+          <i class="iconoir-info-circle mr-1" aria-hidden="true"></i>
+          <span id="review-submit-message">Review actions are available above.</span>
         </p>
       </div>
 
@@ -996,6 +1256,39 @@
     </div>
   </div>
 </div>
+
+<!-- Review Decision Confirmation Modal -->
+<div id="review-decision-modal" class="field-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="review-decision-modal-title" aria-hidden="true">
+  <div class="field-editor">
+    <div class="p-4 border-b border-gray-100 text-center">
+      <div id="review-decision-icon-container" class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i id="review-decision-icon" class="iconoir-check-circle text-emerald-600 text-2xl"></i>
+      </div>
+      <h3 id="review-decision-modal-title" class="text-lg font-semibold text-gray-900">Approve Review?</h3>
+      <p id="review-decision-modal-description" class="text-sm text-gray-600 mt-1">This will mark the document as approved and notify the sender.</p>
+    </div>
+
+    <div id="review-decision-comment-section" class="p-4 hidden">
+      <label class="block text-sm font-medium text-gray-700 mb-2">What changes are needed? <span class="text-red-500">*</span></label>
+      <textarea
+        id="review-decision-comment"
+        rows="3"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none"
+        placeholder="Describe the changes you're requesting..."
+      ></textarea>
+      <p id="review-decision-comment-error" class="mt-1 text-xs text-red-600 hidden">Please provide a reason for requesting changes.</p>
+    </div>
+
+    <div class="p-4 border-t border-gray-100 flex gap-3">
+      <button type="button" data-esign-action="hide-review-decision-modal" class="btn btn-secondary flex-1 justify-center">
+        Cancel
+      </button>
+      <button type="button" id="review-decision-confirm-btn" data-esign-action="confirm-review-decision" class="btn btn-primary flex-1 justify-center">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1011,13 +1304,16 @@
   "apiBasePath": "{{ api_base_path|default:"/api/v1/esign/signing"|escapejs }}",
   "signerBasePath": "{{ signer_base_path|default:"/esign/sign"|escapejs }}",
   "agreementId": "{{ session.agreement_id|escapejs }}",
+  "sessionKind": "{{ session.session_kind|default:"signer"|escapejs }}",
   "recipientId": "{{ session.recipient_id|escapejs }}",
   "recipientEmail": "{{ session.recipient_email|default:""|escapejs }}",
   "recipientName": "{{ session.recipient_name|default:""|escapejs }}",
   "documentUrl": "{{ document_url|escapejs }}",
   "pageCount": {{ agreement.page_count|default:"1" }},
   "hasConsented": {{ session.has_consented|default:"false"|lower }},
+  "canSign": {{ session.can_sign|default:"true"|lower }},
   "fields": {{ session.fields_json|default:"[]"|safe }},
+  "review": {{ session.review_json|default:"null"|safe }},
   "flowMode": "{{ flow_mode|default:"unified"|escapejs }}",
   "telemetryEnabled": {{ telemetry_enabled|default:"true"|lower }},
   "viewer": {

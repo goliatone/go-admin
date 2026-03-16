@@ -1,11 +1,39 @@
-import { n as m, a as x, b, c as k } from "../chunks/index-D46vxB91.js";
-const j = {
+import { n as m, a as v, b as S, c as E } from "../chunks/index-D46vxB91.js";
+import { g as A } from "../chunks/style-constants-BesmSFuV.js";
+const C = {
   root: "#translation-exchange-app"
 };
 function o(l) {
   return String(l ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function v(l) {
+function w(l) {
+  switch (l) {
+    case "completed":
+      return "success";
+    case "running":
+      return "info";
+    case "failed":
+      return "error";
+    default:
+      return "neutral";
+  }
+}
+function f(l) {
+  switch (l) {
+    case "success":
+      return "success";
+    case "conflict":
+      return "warning";
+    case "error":
+      return "error";
+    default:
+      return "neutral";
+  }
+}
+function y(l) {
+  return `rounded-full px-3 py-1 text-xs font-medium ${A(l)}`;
+}
+function $(l) {
   if (!l) return "Pending";
   const t = new Date(l);
   return Number.isNaN(t.getTime()) ? l : new Intl.DateTimeFormat(void 0, {
@@ -15,7 +43,7 @@ function v(l) {
     minute: "2-digit"
   }).format(t);
 }
-function R(l, t) {
+function T(l, t) {
   const e = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return e ? `data:${l};base64,${e(
     encodeURIComponent(t).replace(
@@ -24,33 +52,33 @@ function R(l, t) {
     )
   )}` : `data:${l},${encodeURIComponent(t)}`;
 }
-function E(l) {
+function L(l) {
   return new Promise((t) => setTimeout(t, Math.max(0, l)));
 }
-function S(l) {
+function _(l) {
   return !l || !l.progress.total || l.progress.total <= 0 ? 0 : Math.max(
     0,
     Math.min(100, Math.round(l.progress.processed / l.progress.total * 100))
   );
 }
-function A(l, t) {
+function D(l, t) {
   return l?.downloads ? l.downloads[t]?.href ?? l.downloads.artifact?.href ?? "" : "";
 }
-function C(l, t) {
+function I(l, t) {
   return l?.downloads ? l.downloads[t]?.label ?? l.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function w(l) {
+function k(l) {
   const t = [];
   return l.resources.length === 0 && t.push("Select at least one resource."), l.targetLocales.length === 0 && t.push("Select at least one target locale."), l.targetLocales.includes(l.sourceLocale) && t.push("Target locales cannot include the source locale."), l.includeSourceHash || t.push("Conflict detection is weaker when source hashes are excluded."), t;
 }
-function T(l) {
+function J(l) {
   const t = {};
   if (!l) return t;
   for (const e of l.results)
     t[e.index] = e.status === "success" ? "accepted" : "rejected";
   return t;
 }
-function $(l, t) {
+function j(l, t) {
   const e = {};
   for (const [a, s] of l.entries())
     e[typeof s.index == "number" ? s.index : a] = "apply";
@@ -59,22 +87,22 @@ function $(l, t) {
     e[a.index] = a.status === "success" ? "apply" : "skip";
   return e;
 }
-function _(l) {
+function R(l) {
   const t = /* @__PURE__ */ new Map();
   for (const e of l?.results ?? [])
     t.set(e.index, e);
   return t;
 }
-function f(l) {
+function b(l) {
   return l?.result ? {
-    ...x({
+    ...v({
       ...l.result,
       job: l
     }),
     job: l
   } : null;
 }
-function L(l) {
+function H(l) {
   const e = String(l ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
   const [, a, s] = e;
@@ -88,13 +116,13 @@ function L(l) {
   }
   return decodeURIComponent(s);
 }
-function g(l, t) {
+function x(l, t) {
   return {
     ...l,
     index: typeof l.index == "number" ? l.index : t
   };
 }
-class I {
+class M {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -165,11 +193,11 @@ class I {
         this.historyState.selectedJobId = String(p.dataset.historyJob ?? "").trim(), this.render();
         return;
       }
-      const y = i.closest("[data-history-load-apply]");
-      if (y) {
+      const g = i.closest("[data-history-load-apply]");
+      if (g) {
         const u = this.activeHistoryJob();
         if (!u) return;
-        const h = y.dataset.historyLoadApply === "conflicts";
+        const h = g.dataset.historyLoadApply === "conflicts";
         this.loadHistoryJobIntoApply(u, h);
       }
     }, this.handleChange = (s) => {
@@ -227,7 +255,7 @@ class I {
         }
         i.matches('[data-apply-form="true"]') && (s.preventDefault(), this.submitApply());
       }
-    }, this.config = t, this.selectors = { ...j, ...e }, this.toast = a ?? window.toastManager ?? null;
+    }, this.config = t, this.selectors = { ...C, ...e }, this.toast = a ?? window.toastManager ?? null;
   }
   init() {
     this.root = document.querySelector(this.selectors.root), this.root && (this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.render(), this.loadHistory());
@@ -271,7 +299,7 @@ class I {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), a = x(e);
+    }), a = v(e);
     return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
       processed: a.summary.processed,
       succeeded: a.summary.succeeded,
@@ -297,7 +325,7 @@ class I {
         poll_endpoint: a,
         attempt: r
       });
-      const c = await this.fetchJSON(a), d = b(
+      const c = await this.fetchJSON(a), d = S(
         c.job && typeof c.job == "object" ? c.job : c
       );
       if (!d)
@@ -311,7 +339,7 @@ class I {
         }), d;
       if (Date.now() - n >= i)
         throw new Error("Polling timed out.");
-      r += 1, await E(s);
+      r += 1, await L(s);
     }
   }
   readExportDraft(t) {
@@ -326,7 +354,7 @@ class I {
   async submitExport(t) {
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = w(e);
+    const a = k(e);
     if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((s) => s.includes("cannot include"))) {
       this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
@@ -341,7 +369,7 @@ class I {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = b(i);
+      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = S(i);
       if (this.exportState.job = r, r?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const c = await this.pollJobUntilTerminal(r, {
@@ -353,7 +381,7 @@ class I {
         });
         this.exportState.job = c;
       }
-      this.exportState.downloadHref = A(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = C(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+      this.exportState.downloadHref = D(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = I(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
     } catch (s) {
       const i = s instanceof Error ? s.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = i, this.toast?.error(i);
@@ -407,18 +435,18 @@ class I {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = x(e);
-      this.validateState.result = a, this.validateState.decisions = T(a), this.validateState.upload = m({
+      const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = v(e);
+      this.validateState.result = a, this.validateState.decisions = J(a), this.validateState.upload = m({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
         row_count: a.summary.processed
       }), this.validateState.status = "validated", this.validateState.message = "Validation completed. Review conflicts, then continue to apply.", this.applyState = {
         ...this.applyState,
-        rows: this.validateState.parsedRows.map(g),
+        rows: this.validateState.parsedRows.map(x),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: $(this.validateState.parsedRows, a),
+        resolutions: j(this.validateState.parsedRows, a),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -436,7 +464,7 @@ class I {
       return;
     }
     const t = this.buildApplyRequest(
-      this.applyState.rows.map(g),
+      this.applyState.rows.map(x),
       {
         allow_create_missing: this.applyState.allowCreateMissing,
         allow_source_hash_override: this.applyState.allowSourceHashOverride,
@@ -458,7 +486,7 @@ class I {
             this.applyState.job = s, this.applyState.message = `Apply job running: ${s.progress.processed} / ${s.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.applyState.job = a, this.applyState.result = f(a);
+        this.applyState.job = a, this.applyState.result = b(a);
       }
       this.applyState.status = "completed", this.applyState.message = this.applyState.dryRun ? "Dry-run apply completed." : "Apply completed.", this.toast?.success(this.applyState.message), this.loadHistory(!0);
     } catch (e) {
@@ -486,7 +514,7 @@ class I {
         const e = new URL(this.historyEndpoint, window.location.origin);
         this.includeExamples && e.searchParams.set("include_examples", "true");
         const a = await this.fetchJSON(e.pathname + e.search);
-        this.historyState.response = k(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
+        this.historyState.response = E(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
           (s) => s.id === this.historyState.selectedJobId
         ) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
       } catch (e) {
@@ -512,10 +540,10 @@ class I {
       return;
     }
     try {
-      const s = L(a);
+      const s = H(a);
       let n = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(s) : this.parseJSONRows(s);
-      n = n.map(g);
-      const r = f(t);
+      n = n.map(x);
+      const r = b(t);
       if (e && r) {
         const c = new Set(
           r.results.filter(
@@ -531,7 +559,7 @@ class I {
         rows: n,
         sourceLabel: t.file?.name ?? t.id,
         retryJobId: t.id,
-        resolutions: $(n, r),
+        resolutions: j(n, r),
         allowCreateMissing: t.request?.allow_create_missing === !0,
         allowSourceHashOverride: t.request?.allow_source_hash_override === !0,
         continueOnError: t.request?.continue_on_error !== !1,
@@ -549,11 +577,11 @@ class I {
   }
   createRowsDownload(t) {
     const e = JSON.stringify(t, null, 2);
-    return R("application/json", e);
+    return T("application/json", e);
   }
   async parseImportFile(t) {
     const e = await this.readFileText(t);
-    return ((t.name.toLowerCase().endsWith(".csv") ? "csv" : "json") === "csv" ? this.parseCSVText(e) : this.parseJSONRows(e)).map(g);
+    return ((t.name.toLowerCase().endsWith(".csv") ? "csv" : "json") === "csv" ? this.parseCSVText(e) : this.parseJSONRows(e)).map(x);
   }
   async readFileText(t) {
     const e = t;
@@ -637,7 +665,7 @@ class I {
     return this.applyState.resolutions[t] ?? "apply";
   }
   validationRowForIndex(t) {
-    return _(this.validateState.result).get(t) ?? null;
+    return R(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
     const a = ["apply", "skip"], s = e?.metadata ?? {};
@@ -677,7 +705,7 @@ class I {
   }
   render() {
     if (!this.root) return;
-    const t = w(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
+    const t = k(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
       (n) => n === "accepted"
     ).length, a = Object.values(this.validateState.decisions).filter(
       (n) => n === "rejected"
@@ -832,10 +860,10 @@ class I {
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
                     <p class="text-xs text-gray-500">${o(a.id)}</p>
                   </div>
-                  <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800">${o(a.status)}</span>
+                  <span class="${y(w(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-sky-500" style="width: ${S(a)}%"></div>
+                  <div class="h-full bg-sky-500" style="width: ${_(a)}%"></div>
                 </div>
                 <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
                 ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-sky-700 hover:text-sky-900" href="${o(
@@ -898,7 +926,7 @@ class I {
                         <td class="px-4 py-3 font-medium text-gray-900">${o(n.index)}</td>
                         <td class="px-4 py-3 text-gray-700">${o(`${n.resource}.${n.field_path}`)}</td>
                         <td class="px-4 py-3 text-gray-700">${o(n.target_locale.toUpperCase())}</td>
-                        <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${o(n.status)}</span></td>
+                        <td class="px-4 py-3"><span class="${y(f(n.status))}">${o(n.status)}</span></td>
                         <td class="px-4 py-3">
                           <div class="flex gap-2">
                             ${this.renderDecisionButton(n.index, "accepted", this.validateState.decisions[n.index] === "accepted")}
@@ -929,7 +957,7 @@ class I {
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = _(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
+    const t = this.applyState.rows, e = R(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
       apply: 0,
       skip: 0,
       override: 0,
@@ -949,7 +977,7 @@ class I {
       this.applyState.sourceLabel || "Validate a package or load a history job to begin."
     )}</p>
             </div>
-            ${this.applyState.retryJobId ? `<span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Retry source: ${o(this.applyState.retryJobId)}</span>` : ""}
+            ${this.applyState.retryJobId ? `<span class="${y("warning")}">Retry source: ${o(this.applyState.retryJobId)}</span>` : ""}
           </div>
           <div class="grid gap-3 md:grid-cols-4">
             ${[
@@ -984,7 +1012,7 @@ class I {
                     <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">${o(i.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-sky-500" style="width: ${S(i)}%"></div>
+                    <div class="h-full bg-sky-500" style="width: ${_(i)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
                 </div>` : ""}
@@ -1015,13 +1043,13 @@ class I {
                           <tr>
                             <td class="px-4 py-3 font-medium text-gray-900">${o(d)}</td>
                             <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                            <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${o(p?.status ?? "staged")}</span></td>
+                            <td class="px-4 py-3"><span class="${y(f(p?.status ?? "staged"))}">${o(p?.status ?? "staged")}</span></td>
                             <td class="px-4 py-3">
                               <div class="flex flex-wrap gap-2">
-                                ${this.rowActions(d, p).map((y) => this.renderApplyDecisionButton(
+                                ${this.rowActions(d, p).map((g) => this.renderApplyDecisionButton(
         d,
-        y,
-        this.applyDecisionForRow(d) === y
+        g,
+        this.applyDecisionForRow(d) === g
       )).join("")}
                               </div>
                             </td>
@@ -1071,7 +1099,7 @@ class I {
                         <tr>
                           <td class="px-4 py-3 font-medium text-gray-900">${o(r.index)}</td>
                           <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                          <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${o(r.status)}</span></td>
+                          <td class="px-4 py-3"><span class="${y(f(r.status))}">${o(r.status)}</span></td>
                           <td class="px-4 py-3 text-gray-600">${o(String(r.metadata?.resolution_decision ?? "apply"))}</td>
                           <td class="px-4 py-3 text-gray-600">${o(r.conflict?.message ?? r.error ?? "Applied without conflict.")}</td>
                         </tr>
@@ -1109,7 +1137,7 @@ class I {
     `;
   }
   renderHistoryStep(t) {
-    const e = this.historyState.response?.meta, a = e?.job_kinds ?? ["export", "import_validate", "import_apply"], s = e?.job_statuses ?? ["running", "completed", "failed"], i = this.activeHistoryJob(), n = f(i);
+    const e = this.historyState.response?.meta, a = e?.job_kinds ?? ["export", "import_validate", "import_apply"], s = e?.job_statuses ?? ["running", "completed", "failed"], i = this.activeHistoryJob(), n = b(i);
     return `
       <section class="space-y-5">
         <div class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-5">
@@ -1140,12 +1168,12 @@ class I {
                       <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">${o(r.kind.replace(/_/g, " "))}</span>
-                            <span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${o(r.status)}</span>
-                            ${r.fixture ? '<span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Fixture</span>' : ""}
+                            <span class="${y("info")}">${o(r.kind.replace(/_/g, " "))}</span>
+                            <span class="${y(w(r.status))}">${o(r.status)}</span>
+                            ${r.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(r.file?.name ?? r.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o(v(r.created_at))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o($(r.created_at))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(r.progress.processed)} / ${o(r.progress.total ?? 0)} processed</div>
@@ -1160,7 +1188,7 @@ class I {
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o(v(i.updated_at))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o($(i.updated_at))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="btn btn-secondary" type="button" data-history-load-apply="all">Load in apply step</button>
@@ -1205,7 +1233,7 @@ class I {
                                 <tr>
                                   <td class="px-4 py-3 font-medium text-gray-900">${o(r.index)}</td>
                                   <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                                  <td class="px-4 py-3"><span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-gray-700">${o(r.status)}</span></td>
+                                  <td class="px-4 py-3"><span class="${y(f(r.status))}">${o(r.status)}</span></td>
                                   <td class="px-4 py-3 text-gray-600">${o(String(r.metadata?.resolution_decision ?? "apply"))}</td>
                                   <td class="px-4 py-3 text-gray-600">${o(r.conflict?.message ?? r.error ?? "Completed without conflict.")}</td>
                                 </tr>`).join("")}
@@ -1219,10 +1247,10 @@ class I {
   }
 }
 export {
-  I as TranslationExchangeManager,
-  k as normalizeTranslationExchangeHistoryResponse,
-  b as normalizeTranslationExchangeJob,
+  M as TranslationExchangeManager,
+  E as normalizeTranslationExchangeHistoryResponse,
+  S as normalizeTranslationExchangeJob,
   m as normalizeTranslationExchangeUploadDescriptor,
-  x as normalizeTranslationExchangeValidationResult
+  v as normalizeTranslationExchangeValidationResult
 };
 //# sourceMappingURL=index.js.map

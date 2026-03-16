@@ -10,6 +10,7 @@ const previewCardPath = path.resolve(testFileDir, '../src/esign/pages/agreement-
 const normalizationPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/normalization.ts');
 const templatePath = path.resolve(testFileDir, '../../templates/resources/esign-agreements/form.html');
 const signerReviewPath = path.resolve(testFileDir, '../src/esign/pages/signer-review.ts');
+const signerReviewTemplatePath = path.resolve(testFileDir, '../../templates/esign-signer/review.html');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -95,4 +96,27 @@ test('Phase 5 contract: signer review pager controls sync after current page upd
   assert.doesNotMatch(source, /function prevPage\(\)\s*{[^}]*updatePageNavigation\(\)/);
   assert.doesNotMatch(source, /function nextPage\(\)\s*{[^}]*updatePageNavigation\(\)/);
   assert.doesNotMatch(source, /function goToPage\(pageNum\)\s*{[^}]*updatePageNavigation\(\)/);
+});
+
+test('Phase 5 contract: signer review exposes unified review state and actions', () => {
+  const source = read(signerReviewPath);
+  const template = read(signerReviewTemplatePath);
+  assert.match(source, /sessionKind:\s*String\(config\.sessionKind \|\| 'signer'\)/);
+  assert.match(source, /review:\s*normalizeReviewContext\(config\.review\)/);
+  assert.match(source, /function renderReviewPanel\(\)/);
+  assert.match(source, /reviewAPIRequest\(suffix,\s*\{\s*method:\s*'POST'/);
+  assert.match(source, /state\.reviewContext\?\.sign_blocked/);
+  assert.match(template, /data-esign-action="approve-review"/);
+  assert.match(template, /data-esign-action="request-review-changes"/);
+  assert.match(template, /data-esign-action="create-review-thread"/);
+});
+
+test('Phase 5 contract: signer review request-changes persists rationale and separates marker reveal from anchor navigation', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /JSON\.stringify\(\{ comment \}\)/);
+  assert.match(source, /updateReviewAnchorChips\(\);\s*updateReviewAnchorPointUI\(\);\s*\n\s*const allThreads/);
+  assert.match(source, /function revealReviewThread\(threadID\)/);
+  assert.match(source, /marker\.dataset\.esignAction = 'go-review-thread'/);
+  assert.match(source, /trapFocusInModal\(modalContent\)/);
+  assert.match(source, /e\.key === 'Escape'[\s\S]*hideReviewDecisionModal\(\);/);
 });

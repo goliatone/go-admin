@@ -89,6 +89,13 @@ const statusConfig = {
   expired: { label: 'Expired', bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' }
 };
 
+// Workflow kind configuration for version types
+const workflowKindConfig = {
+  standard: { label: 'Standard', icon: '', bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200' },
+  correction: { label: 'Correction', icon: 'iconoir-edit-pencil', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  amendment: { label: 'Amendment', icon: 'iconoir-plus', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' }
+};
+
 // Custom cell renderers for agreement-specific fields
 const agreementCellRenderers = {
   status: (value) => {
@@ -97,6 +104,24 @@ const agreementCellRenderers = {
     return `
       <span role="status" aria-label="Status: ${config.label}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}">
         <span class="w-1.5 h-1.5 rounded-full ${config.dot}" aria-hidden="true"></span>
+        ${config.label}
+      </span>
+    `;
+  },
+  workflow_kind: (value, record) => {
+    const kind = (value || 'standard').toLowerCase().replace(/ /g, '_');
+    const config = workflowKindConfig[kind] || workflowKindConfig.standard;
+    // For standard, show minimal indicator or dash
+    if (kind === 'standard') {
+      return `<span class="text-gray-400 text-xs">—</span>`;
+    }
+    // For correction/amendment, show a badge with icon
+    const iconHtml = config.icon ? `<i class="${config.icon} text-[10px]" aria-hidden="true"></i>` : '';
+    const parentId = record?.parent_agreement_id;
+    const tooltipAttr = parentId ? `title="From: ${parentId}"` : '';
+    return `
+      <span ${tooltipAttr} class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${config.bg} ${config.text} ${config.border}">
+        ${iconHtml}
         ${config.label}
       </span>
     `;

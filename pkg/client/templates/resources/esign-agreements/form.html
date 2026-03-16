@@ -6,7 +6,20 @@
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <div>
     <p class="text-sm text-gray-500 mb-1">E-Sign Agreements</p>
-    <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} Agreement</h1>
+    <h1 class="text-3xl font-bold text-admin-dark">
+      {% if resource_item.workflow_kind == "correction" %}
+        {% if is_edit %}Edit Correction Draft{% else %}Create Correction Draft{% endif %}
+      {% elif resource_item.workflow_kind == "amendment" %}
+        {% if is_edit %}Edit Amendment Draft{% else %}Create Amendment Draft{% endif %}
+      {% else %}
+        {% if is_edit %}Edit{% else %}Create{% endif %} Agreement
+      {% endif %}
+    </h1>
+    {% if resource_item.workflow_kind == "correction" %}
+    <p class="mt-2 text-sm text-gray-500">This draft supersedes an earlier version and will be the corrected agreement in the lineage.</p>
+    {% elif resource_item.workflow_kind == "amendment" %}
+    <p class="mt-2 text-sm text-gray-500">This draft extends a completed agreement and stays linked to its executed parent.</p>
+    {% endif %}
   </div>
   <div class="flex items-center gap-4">
     <div id="sync-status-indicator" class="hidden flex items-center gap-2 text-sm" role="status" aria-live="polite">
@@ -249,6 +262,11 @@
       "create": "{{ routes.create|default:"" }}",
       "documents_upload_url": "{{ adminURL("content/esign_documents/new") }}"
     },
+    "workflow_kind": "{{ resource_item.workflow_kind|default:"standard"|escapejs }}",
+    "root_agreement_id": "{{ resource_item.root_agreement_id|default:resource_item.id|default:""|escapejs }}",
+    "parent_agreement_id": "{{ resource_item.parent_agreement_id|default:""|escapejs }}",
+    "superseded_by_agreement_id": "{{ resource_item.superseded_by_agreement_id|default:""|escapejs }}",
+    "related_agreements": {% if resource_item.related_agreements %}{{ toJSON(resource_item.related_agreements)|safe }}{% else %}[]{% endif %},
     "initial_participants": [
       {% if resource_item.participants and resource_item.participants|length > 0 %}
         {% for participant in resource_item.participants %}
@@ -297,6 +315,70 @@
   {% if create_success %}
     <div class="max-w-4xl mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="status" aria-live="polite">
       Agreement created successfully. You can continue editing before sending for signature.
+    </div>
+  {% endif %}
+  {% if resource_item.workflow_kind or resource_item.parent_agreement_id or resource_item.root_agreement_id or resource_item.superseded_by_agreement_id or resource_item.related_agreements %}
+    <div class="max-w-4xl mb-4 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow & Lineage</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+              Workflow: {{ resource_item.workflow_kind|default:"standard"|title }}
+            </span>
+            {% if resource_item.status %}
+            <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+              Status: {{ resource_item.status|title }}
+            </span>
+            {% endif %}
+          </div>
+          <p class="mt-3 text-sm text-slate-600">
+            {% if resource_item.workflow_kind == "correction" %}
+              Use this draft to replace an earlier in-flight agreement with a corrected revision.
+            {% elif resource_item.workflow_kind == "amendment" %}
+              Use this draft to extend the executed parent agreement while preserving version history.
+            {% else %}
+              This draft is the current root version unless it is later superseded by a correction or amendment.
+            {% endif %}
+          </p>
+        </div>
+        <div class="grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:min-w-[320px]">
+          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Root Agreement</div>
+            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.root_agreement_id|default:resource_item.id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Parent Agreement</div>
+            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.parent_agreement_id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Superseded By</div>
+            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.superseded_by_agreement_id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Parent Hash</div>
+            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.parent_executed_sha256|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+      {% if resource_item.related_agreements and resource_item.related_agreements|length > 0 %}
+      <div class="mt-4 border-t border-slate-200 pt-4">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Related Agreements</div>
+        <div class="mt-3 grid gap-3 md:grid-cols-2">
+          {% for agreement in resource_item.related_agreements %}
+          <div class="rounded-lg bg-white px-4 py-3 ring-1 ring-inset ring-slate-200">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-slate-900">{{ agreement.title|default:agreement.id }}</div>
+                <div class="mt-1 text-xs text-slate-500">{{ agreement.workflow_kind|default:"standard"|title }} • {{ agreement.status|default:"unknown"|title }}</div>
+              </div>
+              <span class="text-xs text-slate-400">{{ agreement.sent_at|default:agreement.completed_at|default:"-" }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </div>
   {% endif %}
 
