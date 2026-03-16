@@ -157,6 +157,7 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		records = p.withTranslationReadiness(ctx, records, requestedListOpts.Filters)
 	}
 	records = withCanonicalTranslationGroupIDs(records)
+	records = withTranslationDatagridRecords(p.admin, ctx.Channel, records)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
@@ -204,6 +205,7 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	}
 	record = p.withTranslationReadinessRecord(ctx, record, nil)
 	record = normalizeFallbackContextRecord(record, locale)
+	record = withTranslationDatagridRecord(p.admin, ctx.Channel, record)
 	applySourceTargetDriftContract(record)
 	siblings, siblingsDegraded, siblingsReason := p.translationSiblingsPayload(ctx, id, locale, record)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
