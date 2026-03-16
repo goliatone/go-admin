@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -371,9 +372,7 @@ func copyAnyMap(source map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(source))
-	for key, value := range source {
-		out[key] = value
-	}
+	maps.Copy(out, source)
 	return out
 }
 

@@ -121,6 +121,33 @@ func (s *StoreAdapter) CreateDraft(ctx context.Context, scope stores.Scope, reco
 	})
 }
 
+func (s *StoreAdapter) BeginAgreementRevisionRequest(ctx context.Context, scope stores.Scope, input stores.AgreementRevisionRequestInput) (stores.AgreementRevisionRequestRecord, bool, error) {
+	var (
+		out      stores.AgreementRevisionRequestRecord
+		replayed bool
+	)
+	err := s.WithTx(ctx, func(tx stores.TxStore) error {
+		var innerErr error
+		out, replayed, innerErr = tx.BeginAgreementRevisionRequest(ctx, scope, input)
+		return innerErr
+	})
+	return out, replayed, err
+}
+
+func (s *StoreAdapter) CompleteAgreementRevisionRequest(ctx context.Context, scope stores.Scope, requestID, createdAgreementID string, updatedAt time.Time) (stores.AgreementRevisionRequestRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRevisionRequestRecord, error) {
+		return tx.CompleteAgreementRevisionRequest(ctx, scope, requestID, createdAgreementID, updatedAt)
+	})
+}
+
+func (s *StoreAdapter) GetAgreementRevisionRequest(ctx context.Context, scope stores.Scope, id string) (stores.AgreementRevisionRequestRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	return loadAgreementRevisionRequestRecord(ctx, idb, scope, id)
+}
+
 func (s *StoreAdapter) GetAgreement(ctx context.Context, scope stores.Scope, id string) (stores.AgreementRecord, error) {
 	idb, err := requireAdapterIDB(s)
 	if err != nil {

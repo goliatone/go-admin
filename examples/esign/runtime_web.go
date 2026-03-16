@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -1008,8 +1009,6 @@ func registerESignLegacyUIAliasRoutes(
 	}
 
 	for fromPath, toPath := range aliases {
-		fromPath := fromPath
-		toPath := toPath
 		handler := wrap(func(c router.Context) error {
 			return redirectPathAlias(c, fromPath, toPath)
 		})
@@ -1235,9 +1234,7 @@ func cloneStringBoolMap(input map[string]bool) map[string]bool {
 		return map[string]bool{}
 	}
 	out := make(map[string]bool, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 
@@ -1712,6 +1709,7 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 		"waiting_recipient":              session.WaitingForRecipient,
 		"waiting_for_recipient_ids":      session.WaitingForRecipientIDs,
 		"waiting_for_recipient_ids_json": waitingForRecipientIDsJSON,
+		"review":                         session.Review,
 	}
 }
 

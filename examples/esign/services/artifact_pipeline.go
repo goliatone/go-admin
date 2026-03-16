@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -50,12 +51,15 @@ type ExecutedRenderInput struct {
 
 // CertificateRenderInput provides source data required to render a certificate artifact.
 type CertificateRenderInput struct {
-	Scope          stores.Scope
-	Agreement      stores.AgreementRecord
-	Recipients     []stores.RecipientRecord
-	Events         []stores.AuditEventRecord
-	ExecutedSHA256 string
-	CorrelationID  string
+	Scope                stores.Scope
+	Agreement            stores.AgreementRecord
+	Recipients           []stores.RecipientRecord
+	Events               []stores.AuditEventRecord
+	ExecutedSHA256       string
+	CorrelationID        string
+	RootAgreementID      string
+	ParentAgreementID    string
+	ParentExecutedSHA256 string
 }
 
 // ArtifactRenderer integrates executed/certificate rendering behind a stable interface.
@@ -157,6 +161,9 @@ func (r DeterministicArtifactRenderer) RenderCertificate(_ context.Context, inpu
 		"agreement_id="+agreementID,
 		"status="+strings.TrimSpace(input.Agreement.Status),
 		"executed_sha256="+strings.TrimSpace(input.ExecutedSHA256),
+		"root_agreement_id="+strings.TrimSpace(input.RootAgreementID),
+		"parent_agreement_id="+strings.TrimSpace(input.ParentAgreementID),
+		"parent_executed_sha256="+strings.TrimSpace(input.ParentExecutedSHA256),
 		"correlation_id="+strings.TrimSpace(input.CorrelationID),
 	)
 	recipients := append([]stores.RecipientRecord(nil), input.Recipients...)
@@ -665,12 +672,15 @@ func (s ArtifactPipelineService) prepareCertificateArtifact(ctx context.Context,
 
 func (s ArtifactPipelineService) renderCertificateArtifact(ctx context.Context, scope stores.Scope, prepared preparedCertificateArtifact, correlationID string) (RenderedArtifact, error) {
 	return s.renderer.RenderCertificate(ctx, CertificateRenderInput{
-		Scope:          scope,
-		Agreement:      prepared.Agreement,
-		Recipients:     prepared.Recipients,
-		Events:         prepared.Events,
-		ExecutedSHA256: prepared.Executed.ExecutedSHA256,
-		CorrelationID:  correlationID,
+		Scope:                scope,
+		Agreement:            prepared.Agreement,
+		Recipients:           prepared.Recipients,
+		Events:               prepared.Events,
+		ExecutedSHA256:       prepared.Executed.ExecutedSHA256,
+		CorrelationID:        correlationID,
+		RootAgreementID:      strings.TrimSpace(prepared.Agreement.RootAgreementID),
+		ParentAgreementID:    strings.TrimSpace(prepared.Agreement.ParentAgreementID),
+		ParentExecutedSHA256: strings.TrimSpace(prepared.Agreement.ParentExecutedSHA256),
 	})
 }
 
@@ -706,10 +716,13 @@ func (s ArtifactPipelineService) finalizeCertificateArtifact(ctx context.Context
 	}
 	timelineHash := hashTimeline(prepared.Events)
 	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.certificate_generated", correlationID, map[string]any{
-		"object_key":      rendered.ObjectKey,
-		"sha256":          rendered.SHA256,
-		"timeline_hash":   timelineHash,
-		"executed_sha256": existing.ExecutedSHA256,
+		"object_key":             rendered.ObjectKey,
+		"sha256":                 rendered.SHA256,
+		"timeline_hash":          timelineHash,
+		"executed_sha256":        existing.ExecutedSHA256,
+		"root_agreement_id":      strings.TrimSpace(agreement.RootAgreementID),
+		"parent_agreement_id":    strings.TrimSpace(agreement.ParentAgreementID),
+		"parent_executed_sha256": strings.TrimSpace(agreement.ParentExecutedSHA256),
 	}); err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
@@ -731,9 +744,7 @@ func artifactPipelineFields(scope stores.Scope, correlationID, agreementID, arti
 		"agreement_id":  strings.TrimSpace(agreementID),
 		"artifact_type": strings.TrimSpace(artifactType),
 	})
-	for key, value := range fields {
-		base[key] = value
-	}
+	maps.Copy(base, fields)
 	return base
 }
 
@@ -875,9 +886,7 @@ func (s ArtifactPipelineService) appendPipelineAudit(ctx context.Context, scope 
 		return nil
 	}
 	meta := map[string]any{}
-	for key, value := range metadata {
-		meta[key] = value
-	}
+	maps.Copy(meta, metadata)
 	meta["correlation_id"] = strings.TrimSpace(correlationID)
 	encoded, err := json.Marshal(meta)
 	if err != nil {

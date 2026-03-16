@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -488,10 +489,7 @@ func (s PDFRemediationService) runWithLeaseHeartbeat(
 	if ttl <= 0 {
 		ttl = defaultPDFRemediationLeaseTTL
 	}
-	renewEvery := ttl / 2
-	if renewEvery < 500*time.Millisecond {
-		renewEvery = 500 * time.Millisecond
-	}
+	renewEvery := max(ttl/2, 500*time.Millisecond)
 
 	var (
 		leaseMu sync.Mutex
@@ -636,9 +634,7 @@ func cloneRemediationMetadata(in map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 

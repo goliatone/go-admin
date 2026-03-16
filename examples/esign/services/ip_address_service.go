@@ -39,7 +39,7 @@ func (s AuditIPAddressService) Normalize(raw string) string {
 	}
 
 	// Forwarded-style value lists use first non-empty item.
-	for _, item := range strings.Split(candidate, ",") {
+	for item := range strings.SplitSeq(candidate, ",") {
 		item = strings.Trim(strings.TrimSpace(item), `"'`)
 		if item == "" {
 			continue

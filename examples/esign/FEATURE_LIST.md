@@ -1,18 +1,21 @@
 # Feature List
 
 ## Fingerprinting
+
 Can we do a file chunk fingerprinting to see which files between google drives might be related and come up with a way to get lineage
 i.e. my personal account has the original draft, moved to colabs, make copy, make copy for client, etc
 
 ## Editing
 
 Edit after sending but before signing:
+
 - update the document to correct a typo or update a date etc
-    - allow edits to the document and field placement while the envelope is in flight, invalidate any signatures already collected on the modified pages (notifying those signers they need to re-sign), and maintain the audit trail showing what changed, when, and by whom. The final signed version is still the legally binding one.
+  - allow edits to the document and field placement while the envelope is in flight, invalidate any signatures already collected on the modified pages (notifying those signers they need to re-sign), and maintain the audit trail showing what changed, when, and by whom. The final signed version is still the legally binding one.
 
 Edit after signing:
+
 - there are workflows to handle amendments and addenda
-    - request amendment: "you could allow a "request amendment" flow where the platform generates a tracked-changes diff, routes it to all original signers for approval, and produces a linked amendment document with its own signatures — while preserving the original signed document's integrity. The original and amendment would be cryptographically chained (the amendment's hash includes a reference to the original's hash), creating an auditable modification history."
+  - request amendment: "you could allow a "request amendment" flow where the platform generates a tracked-changes diff, routes it to all original signers for approval, and produces a linked amendment document with its own signatures — while preserving the original signed document's integrity. The original and amendment would be cryptographically chained (the amendment's hash includes a reference to the original's hash), creating an auditable modification history."
 
 **Add a correction/amendment worfklow**:
 Sender requests a correction to the document while it's partially signed.
@@ -24,15 +27,11 @@ The final certificate of completion shows the full history: original document, m
 
 **Support multiple email addresses per user**
 
-
 Tags/labels: user-defined, applied to received or sent envelopes. Think Gmail labels. A subcontractor receiving envelopes from multiple clients could tag them by project ("5th St Lobby Phase 1"), by client ("Acme Construction"), by status ("Needs legal review", "Waiting on insurance cert"), or by urgency. Tags would be private to the user — the sender and other recipients wouldn't see them. Implementation-wise, this is a simple many-to-many relationship between envelopes and user-scoped tag entities. You'd want color coding, search/filter by tag, and the ability to create tags on the fly during the tagging action.
-
 
 Internal notes / annotations — free-text notes attached to an envelope that only the user (or their team) can see. "This is the revised contract from Tuesday's call — Bob wanted the indemnification clause changed." Or "Don't sign until Maria confirms the insurance rider." These are not part of the legal document — they're workflow metadata. They'd appear in the envelope detail view as a separate panel or thread, distinct from the document content. You could support @mentions for team collaboration ("@maria please review clause 7 before I sign").
 
-
 Custom fields / properties — structured metadata beyond free-text. A real estate firm might want fields for "Property address," "Deal value," "Closing date." A construction company might want "Project number," "Phase," "Trade." These would be configurable per account or team, and filterable/sortable in the envelope list view.
-
 
 Folders / projects — grouping envelopes into hierarchical containers. DocuSign has basic folders, but they're flat and limited. A proper implementation would allow nested folders, smart folders (auto-populate based on tag/field criteria), and cross-folder references (an envelope can appear in multiple folders without duplication).
 
@@ -50,24 +49,24 @@ The simplest model that actually works: separate identity from contact method, a
 The Core Model
 You have three entities:
 gotype Identity struct {
-    ID          string    // internal, opaque (ULID or UUID)
-    DisplayName string
-    CreatedAt   time.Time
+ID string // internal, opaque (ULID or UUID)
+DisplayName string
+CreatedAt time.Time
 }
 
 type EmailClaim struct {
-    Email      string    // unique globally
-    IdentityID string    // FK to Identity
-    VerifiedAt time.Time
-    IsPrimary  bool      // for outbound notifications
+Email string // unique globally
+IdentityID string // FK to Identity
+VerifiedAt time.Time
+IsPrimary bool // for outbound notifications
 }
 
 type Signature struct {
-    ID         string
-    IdentityID string
-    Type       string    // "drawn", "typed", "uploaded"
-    Data       []byte
-    IsDefault  bool
+ID string
+IdentityID string
+Type string // "drawn", "typed", "uploaded"
+Data []byte
+IsDefault bool
 }
 The identity is the anchor. Email addresses are claims attached to it. When an envelope arrives addressed to any verified email on your identity, it resolves to your single inbox. Your signatures, tags, preferences, and document history all hang off the identity, not off individual email addresses.
 The lookup path when an envelope is sent to gol@company.com:
@@ -88,25 +87,25 @@ Any existing envelopes addressed to that email that were in "unclaimed" state au
 Step 4 is the important one — it retroactively unifies history. If you signed 20 documents via email links to gol@gmail.com before ever creating an account, those envelopes were stored against the raw email as an unresolved recipient. The moment you claim that email, those envelopes resolve to your identity and appear in your history.
 The data model for this:
 gotype EnvelopeRecipient struct {
-    EnvelopeID  string
-    Email       string     // always stored, this is the addressing record
-    IdentityID  *string    // nullable — resolved when email is claimed
-    Role        string     // "signer", "cc", "witness"
-    Status      string     // "pending", "viewed", "signed", "declined"
-    SignedAt    *time.Time
+EnvelopeID string
+Email string // always stored, this is the addressing record
+IdentityID *string // nullable — resolved when email is claimed
+Role string // "signer", "cc", "witness"
+Status string // "pending", "viewed", "signed", "declined"
+SignedAt *time.Time
 }
 When IdentityID is nil, the recipient is anonymous — they interact via email links only. When the email gets claimed by an identity, you backfill IdentityID on all matching EnvelopeRecipient rows. A simple background job:
-gofunc (s *Service) ClaimEmail(ctx context.Context, identityID, email string) error {
-    // 1. Create verified EmailClaim
-    // 2. Backfill: UPDATE envelope_recipients
-    //    SET identity_id = ? WHERE email = ? AND identity_id IS NULL
-    // 3. Done — inbox queries already filter by identity_id
+gofunc (s \*Service) ClaimEmail(ctx context.Context, identityID, email string) error {
+// 1. Create verified EmailClaim
+// 2. Backfill: UPDATE envelope_recipients
+// SET identity_id = ? WHERE email = ? AND identity_id IS NULL
+// 3. Done — inbox queries already filter by identity_id
 }
 No data migration, no merging of accounts, no complex state reconciliation. You're just filling in a foreign key that was previously null.
 
 Inbox Query
 The inbox query becomes:
-sqlSELECT e.* FROM envelopes e
+sqlSELECT e.\* FROM envelopes e
 JOIN envelope_recipients er ON er.envelope_id = e.id
 WHERE er.identity_id = ?
 ORDER BY e.updated_at DESC
@@ -125,22 +124,22 @@ What if someone tries to claim an email that's already claimed by another identi
 What if a user loses access to all their verified emails? This is the exact DocuSign problem from the BBB complaints. The solution: support at least one non-email recovery method. A phone number, a government ID (if you've done Cl@ve or RENAPER verification), or a recovery code generated at account creation. Any of these can authenticate the identity and allow adding a new email. The identity exists independently of any specific email.
 What about organization/team contexts? Add a simple membership layer:
 gotype OrgMembership struct {
-    IdentityID string
-    OrgID      string
-    Role       string // "admin", "member", "viewer"
-    Email      string // which of their emails is used in this org context
+IdentityID string
+OrgID string
+Role string // "admin", "member", "viewer"
+Email string // which of their emails is used in this org context
 }
 The user picks which of their verified emails represents them in each organization. Envelopes sent within the org context use that email, but they all still resolve to the same identity and inbox. If you leave the company and lose gol@company.com, your identity persists — you just remove that email claim. Your signing history stays because it's linked to the identity, not the email.
 
 What About Identity Verification Tiers?
 This is where the model gets interesting for the Spain/Argentina use case. An identity can have verification at different levels:
 gotype IdentityVerification struct {
-    IdentityID string
-    Method     string    // "email", "phone", "clave", "renaper", "fnmt"
-    Level      string    // "basic", "enhanced", "qualified"
-    VerifiedAt time.Time
-    ExpiresAt  *time.Time
-    Metadata   jsonb     // method-specific data (certificate ID, etc.)
+IdentityID string
+Method string // "email", "phone", "clave", "renaper", "fnmt"
+Level string // "basic", "enhanced", "qualified"
+VerifiedAt time.Time
+ExpiresAt \*time.Time
+Metadata jsonb // method-specific data (certificate ID, etc.)
 }
 Email verification gives you basic level — sufficient for simple e-signatures. Cl@ve or RENAPER biometric verification gives you enhanced or qualified — sufficient for AES/QES or firma digital. The platform knows what signature levels this identity is eligible for based on their highest verification, and can automatically route to the appropriate signing infrastructure.
 This replaces the "which certificate do I use?" decision with a transparent identity model. You verified yourself once via Cl@ve — now any document that requires QES in Spain can use that verification, regardless of which email address the document was sent to.

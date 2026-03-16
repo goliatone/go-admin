@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 	"time"
@@ -66,9 +65,9 @@ func TestAgreementServiceRunAutoPlacementPersistsRunAndAudit(t *testing.T) {
 	}
 
 	participant, err := svc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningStage: primitives.Int(1),
+		SigningStage: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertParticipantDraft: %v", err)
@@ -153,9 +152,9 @@ func TestAgreementServiceApplyPlacementRunCreatesInstancesAndManualOverrides(t *
 	}
 
 	participant, err := svc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningStage: primitives.Int(1),
+		SigningStage: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertParticipantDraft: %v", err)

@@ -1,0 +1,2 @@
+-- SQLite/Postgres column rollback intentionally omitted.
+-- Agreement lineage metadata is additive and safe to keep after rollback.

@@ -22,8 +22,11 @@ import (
 	"github.com/goliatone/go-uploader"
 )
 
-func strPtr(v string) *string { return &v }
-func boolPtr(v bool) *bool    { return &v }
+//go:fix inline
+func strPtr(v string) *string { return new(v) }
+
+//go:fix inline
+func boolPtr(v bool) *bool { return new(v) }
 
 type flakyEmailProvider struct {
 	failures map[string]int
@@ -147,8 +150,8 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer One"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
 		Role:         strPtr(stores.RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
@@ -156,8 +159,8 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
 	cc, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("cc@example.com"),
-		Name:         strPtr("CC One"),
+		Email:        new("cc@example.com"),
+		Name:         new("CC One"),
 		Role:         strPtr(stores.RecipientRoleCC),
 		SigningOrder: intPtr(2),
 	}, 0)
@@ -168,7 +171,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		RecipientID: &signer.ID,
 		Type:        strPtr(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -177,7 +180,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		RecipientID: &signer.ID,
 		Type:        strPtr(stores.FieldTypeText),
 		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)

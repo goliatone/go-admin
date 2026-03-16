@@ -356,6 +356,9 @@ func auditTrailMetadataRows(doc AuditTrailDocument, opts auditTrailRenderOptions
 			auditTrailMetadataRow{Label: "Agreement ID", Value: strings.TrimSpace(doc.AgreementID), Monospace: true},
 			auditTrailMetadataRow{Label: "Generated At", Value: formatAuditTrailTimestampUTC(doc.GeneratedAt)},
 			auditTrailMetadataRow{Label: "Executed SHA256", Value: strings.TrimSpace(doc.ExecutedSHA256), Monospace: true},
+			auditTrailMetadataRow{Label: "Root Agreement ID", Value: strings.TrimSpace(doc.RootAgreementID), Monospace: true},
+			auditTrailMetadataRow{Label: "Parent Agreement ID", Value: strings.TrimSpace(doc.ParentAgreementID), Monospace: true},
+			auditTrailMetadataRow{Label: "Parent Executed SHA256", Value: strings.TrimSpace(doc.ParentExecutedSHA256), Monospace: true},
 			auditTrailMetadataRow{Label: "Correlation ID", Value: strings.TrimSpace(doc.CorrelationID), Monospace: true},
 		)
 	}

@@ -1715,6 +1715,51 @@ func TestAgreementRecordToMapLeavesFutureSignerStagesPendingUntilActive(t *testi
 	}
 }
 
+func TestBuildAgreementLineageIndexDerivesSupersededAndRelatedAgreements(t *testing.T) {
+	root := stores.AgreementRecord{
+		ID:           "agreement-root",
+		Title:        "Root Agreement",
+		Status:       stores.AgreementStatusVoided,
+		WorkflowKind: stores.AgreementWorkflowKindStandard,
+		UpdatedAt:    time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC),
+	}
+	correction := stores.AgreementRecord{
+		ID:                "agreement-correction",
+		Title:             "Correction Agreement",
+		Status:            stores.AgreementStatusSent,
+		WorkflowKind:      stores.AgreementWorkflowKindCorrection,
+		ParentAgreementID: root.ID,
+		RootAgreementID:   root.ID,
+		UpdatedAt:         root.UpdatedAt.Add(1 * time.Minute),
+	}
+	amendment := stores.AgreementRecord{
+		ID:                  "agreement-amendment",
+		Title:               "Amendment Agreement",
+		Status:              stores.AgreementStatusCompleted,
+		WorkflowKind:        stores.AgreementWorkflowKindAmendment,
+		ParentAgreementID:   correction.ID,
+		RootAgreementID:     root.ID,
+		ParentExecutedSHA256: strings.Repeat("f", 64),
+		UpdatedAt:           root.UpdatedAt.Add(2 * time.Minute),
+	}
+
+	index := buildAgreementLineageIndex([]stores.AgreementRecord{root, correction, amendment})
+	rootLineage := index[root.ID]
+	if rootLineage.SupersededByAgreementID != correction.ID {
+		t.Fatalf("expected root superseded by correction, got %+v", rootLineage)
+	}
+	if len(rootLineage.RelatedAgreements) != 2 {
+		t.Fatalf("expected root related agreements summary, got %+v", rootLineage.RelatedAgreements)
+	}
+	correctionLineage := index[correction.ID]
+	if len(correctionLineage.RelatedAgreements) != 2 {
+		t.Fatalf("expected correction related agreements summary, got %+v", correctionLineage.RelatedAgreements)
+	}
+	if got := strings.TrimSpace(toString(correctionLineage.RelatedAgreements[0]["id"])); got != amendment.ID {
+		t.Fatalf("expected most recent related agreement first, got %+v", correctionLineage.RelatedAgreements)
+	}
+}
+
 type testBinaryObjectStore struct {
 	objects map[string][]byte
 }

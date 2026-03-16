@@ -16,7 +16,6 @@ func TestShouldRenderAuditTrailIP(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := shouldRenderAuditTrailIP(tc.entry); got != tc.want {
 				t.Fatalf("shouldRenderAuditTrailIP(%s)=%t want=%t", tc.entry.EventType, got, tc.want)

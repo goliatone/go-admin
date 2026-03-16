@@ -88,7 +88,7 @@ func TestSignerSavedSignatureRoutesEnforceLimit(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := httptest.NewRequest(
 			http.MethodPost,
 			"/api/v1/esign/signing/signatures/token-1",

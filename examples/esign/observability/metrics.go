@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -1065,10 +1066,7 @@ func percentile(values []float64, p int) float64 {
 	}
 	cp := append([]float64{}, values...)
 	sort.Float64s(cp)
-	index := int((float64(p)/100.0)*float64(len(cp)-1) + 0.5)
-	if index < 0 {
-		index = 0
-	}
+	index := max(int((float64(p)/100.0)*float64(len(cp)-1)+0.5), 0)
 	if index >= len(cp) {
 		index = len(cp) - 1
 	}
@@ -1085,9 +1083,7 @@ func sumMap(values map[string]int64) int64 {
 
 func cloneInt64Map(values map[string]int64) map[string]int64 {
 	out := map[string]int64{}
-	for key, value := range values {
-		out[key] = value
-	}
+	maps.Copy(out, values)
 	return out
 }
 

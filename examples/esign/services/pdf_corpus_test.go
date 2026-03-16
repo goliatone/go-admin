@@ -25,7 +25,6 @@ func TestPDFAnalysisCorpusFixtures(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.fixture, func(t *testing.T) {
 			raw := loadPDFCorpusFixture(t, tc.fixture)
 			analysis, err := svc.Analyze(context.Background(), stores.Scope{}, raw)

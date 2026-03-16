@@ -40,26 +40,26 @@ func TestUpgradeDraftAgreementToV2NormalizesSignerStagesAndRequiredPlacements(t 
 
 	signerOne, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
 		ID:           "participant-1",
-		Email:        v2StringPtr("signer1@example.com"),
-		Role:         v2StringPtr(RecipientRoleSigner),
-		SigningStage: v2IntPtr(1),
+		Email:        new("signer1@example.com"),
+		Role:         new(RecipientRoleSigner),
+		SigningStage: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertParticipantDraft signerOne: %v", err)
 	}
 	if _, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
 		ID:           "participant-2",
-		Email:        v2StringPtr("signer2@example.com"),
-		Role:         v2StringPtr(RecipientRoleSigner),
-		SigningStage: v2IntPtr(3),
+		Email:        new("signer2@example.com"),
+		Role:         new(RecipientRoleSigner),
+		SigningStage: new(3),
 	}, 0); err != nil {
 		t.Fatalf("UpsertParticipantDraft signerTwo: %v", err)
 	}
 	if _, err := store.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, FieldDefinitionDraftPatch{
 		ID:            "field-def-upgrade",
 		ParticipantID: &signerOne.ID,
-		Type:          v2StringPtr(FieldTypeSignature),
-		Required:      v2BoolPtr(true),
+		Type:          new(FieldTypeSignature),
+		Required:      new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
 	}
@@ -141,6 +141,11 @@ func TestUpgradeDraftAgreementToV2RejectsNonDraftAgreement(t *testing.T) {
 	}
 }
 
-func v2StringPtr(v string) *string { return &v }
-func v2IntPtr(v int) *int          { return &v }
-func v2BoolPtr(v bool) *bool       { return &v }
+//go:fix inline
+func v2StringPtr(v string) *string { return new(v) }
+
+//go:fix inline
+func v2IntPtr(v int) *int { return new(v) }
+
+//go:fix inline
+func v2BoolPtr(v bool) *bool { return new(v) }

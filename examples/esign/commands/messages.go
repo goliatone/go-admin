@@ -93,6 +93,251 @@ func (m AgreementResendInput) ResendInput() services.ResendInput {
 	}
 }
 
+type AgreementRevisionRequestInput struct {
+	Scope          stores.Scope
+	AgreementID    string
+	ActorID        string
+	IdempotencyKey string
+	CorrelationID  string
+}
+
+func (m AgreementRevisionRequestInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	return nil
+}
+
+type AgreementRequestCorrectionInput struct {
+	AgreementRevisionRequestInput
+}
+
+func (AgreementRequestCorrectionInput) Type() string {
+	return CommandAgreementRequestCorrection
+}
+
+func (m AgreementRequestCorrectionInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementRequestAmendmentInput struct {
+	AgreementRevisionRequestInput
+}
+
+func (AgreementRequestAmendmentInput) Type() string {
+	return CommandAgreementRequestAmendment
+}
+
+func (m AgreementRequestAmendmentInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReviewInput struct {
+	Scope           stores.Scope
+	AgreementID     string
+	ReviewerIDs     []string
+	Gate            string
+	CommentsEnabled bool
+	ActorID         string
+	CorrelationID   string
+}
+
+func (m AgreementReviewInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	return nil
+}
+
+type AgreementRequestReviewInput struct {
+	AgreementReviewInput
+}
+
+func (AgreementRequestReviewInput) Type() string {
+	return CommandAgreementRequestReview
+}
+
+func (m AgreementRequestReviewInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReopenReviewInput struct {
+	AgreementReviewInput
+}
+
+func (AgreementReopenReviewInput) Type() string {
+	return CommandAgreementReopenReview
+}
+
+func (m AgreementReopenReviewInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementCloseReviewInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ActorID       string
+	CorrelationID string
+}
+
+func (AgreementCloseReviewInput) Type() string {
+	return CommandAgreementCloseReview
+}
+
+func (m AgreementCloseReviewInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	return nil
+}
+
+type AgreementReviewDecisionCommandInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	RecipientID   string
+	ActorID       string
+	CorrelationID string
+}
+
+func (m AgreementReviewDecisionCommandInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.RecipientID) == "" {
+		return fmt.Errorf("recipient_id required")
+	}
+	return nil
+}
+
+type AgreementApproveReviewInput struct {
+	AgreementReviewDecisionCommandInput
+}
+
+func (AgreementApproveReviewInput) Type() string {
+	return CommandAgreementApproveReview
+}
+
+func (m AgreementApproveReviewInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementRequestReviewChangesInput struct {
+	AgreementReviewDecisionCommandInput
+}
+
+func (AgreementRequestReviewChangesInput) Type() string {
+	return CommandAgreementRequestReviewChanges
+}
+
+func (m AgreementRequestReviewChangesInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementCommentThreadInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ReviewID      string
+	Visibility    string
+	AnchorType    string
+	PageNumber    int
+	FieldID       string
+	AnchorX       float64
+	AnchorY       float64
+	Body          string
+	ActorID       string
+	CorrelationID string
+}
+
+func (m AgreementCommentThreadInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.Body) == "" {
+		return fmt.Errorf("body required")
+	}
+	return nil
+}
+
+type AgreementCreateCommentThreadInput struct {
+	AgreementCommentThreadInput
+}
+
+func (AgreementCreateCommentThreadInput) Type() string {
+	return CommandAgreementCreateCommentThread
+}
+
+func (m AgreementCreateCommentThreadInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReplyCommentThreadInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ThreadID      string
+	Body          string
+	ActorID       string
+	CorrelationID string
+}
+
+func (AgreementReplyCommentThreadInput) Type() string {
+	return CommandAgreementReplyCommentThread
+}
+
+func (m AgreementReplyCommentThreadInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.ThreadID) == "" {
+		return fmt.Errorf("thread_id required")
+	}
+	if strings.TrimSpace(m.Body) == "" {
+		return fmt.Errorf("body required")
+	}
+	return nil
+}
+
+type AgreementCommentThreadStateInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ThreadID      string
+	ActorID       string
+	CorrelationID string
+}
+
+func (m AgreementCommentThreadStateInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.ThreadID) == "" {
+		return fmt.Errorf("thread_id required")
+	}
+	return nil
+}
+
+type AgreementResolveCommentThreadInput struct {
+	AgreementCommentThreadStateInput
+}
+
+func (AgreementResolveCommentThreadInput) Type() string {
+	return CommandAgreementResolveCommentThread
+}
+
+func (m AgreementResolveCommentThreadInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReopenCommentThreadInput struct {
+	AgreementCommentThreadStateInput
+}
+
+func (AgreementReopenCommentThreadInput) Type() string {
+	return CommandAgreementReopenCommentThread
+}
+
+func (m AgreementReopenCommentThreadInput) Validate() error {
+	return m.validateRequired()
+}
+
 type AgreementDeliveryResumeInput struct {
 	Scope         stores.Scope
 	AgreementID   string

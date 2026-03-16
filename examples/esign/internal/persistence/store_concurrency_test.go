@@ -297,7 +297,7 @@ func TestStoreAdapterConcurrentWithTxDoesNotRaceOnEntry(t *testing.T) {
 
 	scope := stores.Scope{TenantID: "tenant-entry", OrgID: "org-entry"}
 	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()

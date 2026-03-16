@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -134,10 +133,10 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
-		Name:         stringPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -145,8 +144,8 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -154,8 +153,8 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)

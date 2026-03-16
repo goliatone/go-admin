@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	router "github.com/goliatone/go-router"
@@ -52,6 +53,7 @@ func TestESignActionContractsPhase6ExposeCanonicalListAndDetailState(t *testing.
 
 	assertActionStateCode(t, extractFixtureMap(t, extractFixtureMap(t, agreementList["record"])["_action_state"]), "send", coreadmin.ActionDisabledReasonCodeInvalidStatus)
 	assertActionStateEnabled(t, extractFixtureMap(t, extractFixtureMap(t, agreementList["record"])["_action_state"]), "resend", true)
+	assertActionStateEnabled(t, extractFixtureMap(t, extractFixtureMap(t, agreementList["record"])["_action_state"]), "request_correction", true)
 	assertActionStateEnabled(t, extractFixtureMap(t, extractFixtureMap(t, agreementList["record"])["_action_state"]), "void", true)
 
 	detailState := extractFixtureMap(t, extractFixtureMap(t, agreementDetail["data"])["_action_state"])
@@ -59,6 +61,8 @@ func TestESignActionContractsPhase6ExposeCanonicalListAndDetailState(t *testing.
 	assertActionStateCode(t, detailState, "delete", coreadmin.ActionDisabledReasonCodePreconditionFailed)
 	assertActionStateCode(t, detailState, "send", coreadmin.ActionDisabledReasonCodeInvalidStatus)
 	assertActionStateEnabled(t, detailState, "resend", true)
+	assertActionStateEnabled(t, detailState, "request_correction", true)
+	assertActionStateCode(t, detailState, "request_amendment", coreadmin.ActionDisabledReasonCodeInvalidStatus)
 	assertActionStateEnabled(t, detailState, "void", true)
 	assertActionStateCode(t, detailState, "resume_delivery", coreadmin.ActionDisabledReasonCodePreconditionFailed)
 }
@@ -80,6 +84,25 @@ func TestESignActionContractsPhase6StructuredFailuresAndFilters(t *testing.T) {
 
 	ids := extractFixtureSlice(t, filtered["ids"])
 	require.ElementsMatch(t, []string{"agreement-phase6-draft", "agreement-phase6-sent"}, toStringSlice(ids))
+}
+
+func TestESignAgreementRevisionActionsRequireEditAndSendPermissions(t *testing.T) {
+	module, server, scope := setupESignModuleArtifactSubresourceTest(t, permissionAuthorizer{
+		allowed: map[string]bool{
+			permissions.AdminESignView:   true,
+			permissions.AdminESignCreate: true,
+			permissions.AdminESignEdit:   true,
+		},
+	})
+	store, ok := module.store.(*stores.InMemoryStore)
+	require.True(t, ok, "expected in-memory store")
+
+	seedESignContractDocument(t, store, scope, "doc-phase6-perm", "Permission Contract")
+	seedESignContractAgreement(t, module, store, scope, "agreement-phase6-perm", "doc-phase6-perm", "Permission Agreement", true)
+
+	payload := doPanelJSONRequest(t, server, http.MethodGet, scopedPanelDetailPath(scope, esignAgreementsPanelID, "agreement-phase6-perm"), nil)
+	state := extractFixtureMap(t, extractFixtureMap(t, payload["data"])["_action_state"])
+	assertActionStateCode(t, state, "request_correction", coreadmin.ActionDisabledReasonCodePermissionDenied)
 }
 
 func buildESignActionContractsPhase6Fixture(t *testing.T) map[string]any {
@@ -142,15 +165,15 @@ func buildESignActionContractsPhase6Fixture(t *testing.T) map[string]any {
 		"agreements": map[string]any{
 			"list_contract": map[string]any{
 				"schema": map[string]any{
-					"actions": filterActionContracts(extractSchemaActionsPayload(agreementListPayload), "send", "resend", "void"),
+					"actions": filterActionContracts(extractSchemaActionsPayload(agreementListPayload), "send", "resend", "request_correction", "request_amendment", "void"),
 				},
-				"record": filterRecordContract(agreementRecord, "send", "resend", "void"),
+				"record": filterRecordContract(agreementRecord, "send", "resend", "request_correction", "request_amendment", "void"),
 			},
 			"detail_contract": map[string]any{
 				"schema": map[string]any{
-					"actions": filterActionContracts(extractSchemaActionsPayload(agreementDetailPayload), "edit", "delete", "send", "resend", "resume_delivery", "void"),
+					"actions": filterActionContracts(extractSchemaActionsPayload(agreementDetailPayload), "edit", "delete", "send", "resend", "request_correction", "request_amendment", "resume_delivery", "void"),
 				},
-				"data": filterRecordContract(extractTestRecordPayload(t, agreementDetailPayload), "edit", "delete", "send", "resend", "resume_delivery", "void"),
+				"data": filterRecordContract(extractTestRecordPayload(t, agreementDetailPayload), "edit", "delete", "send", "resend", "request_correction", "request_amendment", "resume_delivery", "void"),
 			},
 			"filtered_by_document_id": map[string]any{
 				"document_id": "doc-phase6-001",

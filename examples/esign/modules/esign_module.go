@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -333,6 +334,12 @@ func esignAPIRoutes() map[string]string {
 func esignPublicAPIRoutes() map[string]string {
 	return map[string]string{
 		"esign.signing.session":                 "/signing/session/:token",
+		"esign.signing.review.threads":          "/signing/session/:token/review/threads",
+		"esign.signing.review.threads.replies":  "/signing/session/:token/review/threads/:thread_id/replies",
+		"esign.signing.review.threads.resolve":  "/signing/session/:token/review/threads/:thread_id/resolve",
+		"esign.signing.review.threads.reopen":   "/signing/session/:token/review/threads/:thread_id/reopen",
+		"esign.signing.review.approve":          "/signing/session/:token/review/approve",
+		"esign.signing.review.request_changes":  "/signing/session/:token/review/request-changes",
 		"esign.signing.consent":                 "/signing/consent/:token",
 		"esign.signing.field_values":            "/signing/field-values/:token",
 		"esign.signing.field_values.signature":  "/signing/field-values/signature/:token",
@@ -782,6 +789,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "select"},
+			coreadmin.Field{Name: "workflow_kind", Label: "Workflow", Type: "text"},
 			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text"},
 			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime"},
 			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number"},
@@ -797,6 +805,14 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Field{Name: "document_id", Label: "Document", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "review_status", Label: "Review Status", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "review_gate", Label: "Review Gate", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "comments_enabled", Label: "Comments Enabled", Type: "boolean", ReadOnly: true},
+			coreadmin.Field{Name: "workflow_kind", Label: "Workflow", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "root_agreement_id", Label: "Root Agreement", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "parent_agreement_id", Label: "Parent Agreement", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "parent_executed_sha256", Label: "Parent Executed SHA256", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "superseded_by_agreement_id", Label: "Superseded By", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime", ReadOnly: true},
 			coreadmin.Field{Name: "last_sent_at", Label: "Last Reminder Sent", Type: "datetime", ReadOnly: true},
@@ -818,7 +834,54 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			withAgreementActionGuard(coreadmin.Action{Name: "edit", Label: "Edit", Type: "navigation", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit}),
 			withAgreementActionGuard(coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignVoid, Confirm: "Are you sure you want to delete this item?"}),
 			withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "request_review",
+				Label:           "Request Review",
+				CommandName:     commands.CommandAgreementRequestReview,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				PayloadRequired: []string{"gate", "reviewer_ids"},
+				Idempotent:      true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "reopen_review",
+				Label:           "Reopen Review",
+				CommandName:     commands.CommandAgreementReopenReview,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				PayloadRequired: []string{"gate"},
+				Idempotent:      true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:           "close_review",
+				Label:          "Close Review",
+				CommandName:    commands.CommandAgreementCloseReview,
+				Scope:          coreadmin.ActionScopeDetail,
+				Permission:     permissions.AdminESignEdit,
+				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				Idempotent:     true,
+			}),
 			withAgreementActionGuard(coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:           "request_correction",
+				Label:          "Request Correction",
+				CommandName:    commands.CommandAgreementRequestCorrection,
+				Scope:          coreadmin.ActionScopeAny,
+				Permission:     permissions.AdminESignEdit,
+				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				Idempotent:     true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:           "request_amendment",
+				Label:          "Request Amendment",
+				CommandName:    commands.CommandAgreementRequestAmendment,
+				Scope:          coreadmin.ActionScopeAny,
+				Permission:     permissions.AdminESignEdit,
+				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				Idempotent:     true,
+			}),
 			withAgreementActionGuard(coreadmin.Action{Name: "resume_delivery", Label: "Resume Delivery", CommandName: commands.CommandAgreementDeliveryResume, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignSend, Idempotent: true}),
 			withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
 		).
@@ -1044,9 +1107,7 @@ func cloneBoolMap(in map[string]bool) map[string]bool {
 		return map[string]bool{}
 	}
 	out := make(map[string]bool, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 

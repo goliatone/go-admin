@@ -374,6 +374,22 @@ type SignerSessionViewerContext struct {
 	Fallback            bool                      `json:"fallback,omitempty"`
 }
 
+type SignerSessionReviewContext struct {
+	Status            string `json:"status"`
+	Gate              string `json:"gate"`
+	CommentsEnabled   bool   `json:"comments_enabled"`
+	IsReviewer        bool   `json:"is_reviewer"`
+	CanComment        bool   `json:"can_comment"`
+	CanApprove        bool   `json:"can_approve"`
+	CanRequestChanges bool   `json:"can_request_changes"`
+	CanSign           bool   `json:"can_sign"`
+	ParticipantStatus string `json:"participant_status,omitempty"`
+	OpenThreadCount   int    `json:"open_thread_count"`
+	ResolvedThreadCount int  `json:"resolved_thread_count"`
+	SignBlocked       bool   `json:"sign_blocked"`
+	SignBlockReason   string `json:"sign_block_reason,omitempty"`
+}
+
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
 type SignerSessionContext struct {
 	AgreementID            string                     `json:"agreement_id"`
@@ -393,6 +409,7 @@ type SignerSessionContext struct {
 	ActiveRecipientIDs     []string                   `json:"active_recipient_ids,omitempty"`
 	WaitingForRecipient    string                     `json:"waiting_for_recipient_id,omitempty"`
 	WaitingForRecipientIDs []string                   `json:"waiting_for_recipient_ids,omitempty"`
+	Review                 *SignerSessionReviewContext `json:"review,omitempty"`
 	Fields                 []SignerSessionField       `json:"fields"`
 }
 
@@ -636,6 +653,10 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		})
 		tabIndex++
 	}
+	review, err := s.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
 
 	return SignerSessionContext{
 		AgreementID:            agreement.ID,
@@ -655,6 +676,7 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		ActiveRecipientIDs:     activeRecipientIDs,
 		WaitingForRecipient:    waitingFor,
 		WaitingForRecipientIDs: waitingForIDs,
+		Review:                 review,
 		Fields:                 sessionFields,
 	}, nil
 }
@@ -1509,6 +1531,13 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		}
 		if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 			return err
+		}
+		review, err := txSvc.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
+		if err != nil {
+			return err
+		}
+		if review != nil && review.SignBlocked {
+			return domainValidationError("agreements", "review_status", firstNonEmpty(review.SignBlockReason, "review approval is required before signing"))
 		}
 
 		if !txSvc.consentCaptured(ctx, scope, agreement.ID, recipient.ID) {

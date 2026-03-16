@@ -19,6 +19,12 @@ const (
 )
 
 const (
+	AgreementWorkflowKindStandard   = "standard"
+	AgreementWorkflowKindCorrection = "correction"
+	AgreementWorkflowKindAmendment  = "amendment"
+)
+
+const (
 	RecipientRoleSigner = "signer"
 	RecipientRoleCC     = "cc"
 )
@@ -175,6 +181,13 @@ type AgreementRecord struct {
 	TenantID               string
 	OrgID                  string
 	DocumentID             string
+	WorkflowKind           string
+	RootAgreementID        string
+	ParentAgreementID      string
+	ParentExecutedSHA256   string
+	ReviewStatus           string
+	ReviewGate             string
+	CommentsEnabled        bool
 	SourceType             string
 	SourceGoogleFileID     string
 	SourceGoogleDocURL     string
@@ -200,6 +213,32 @@ type AgreementRecord struct {
 	UpdatedByUserID        string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+}
+
+// AgreementRevisionRequestRecord stores durable idempotency and replay state for correction/amendment bootstrap.
+type AgreementRevisionRequestRecord struct {
+	bun.BaseModel      `bun:"table:agreement_revision_requests,alias:arr"`
+	ID                 string
+	TenantID           string
+	OrgID              string
+	SourceAgreementID  string
+	RevisionKind       string
+	IdempotencyKey     string
+	RequestHash        string
+	ActorID            string
+	CreatedAgreementID string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// AgreementRevisionRequestInput captures dedupe-aware revision bootstrap intent.
+type AgreementRevisionRequestInput struct {
+	SourceAgreementID string
+	RevisionKind      string
+	IdempotencyKey    string
+	RequestHash       string
+	ActorID           string
+	Now               time.Time
 }
 
 // DraftRecord stores six-step agreement wizard progress for cross-session recovery.
@@ -1021,9 +1060,12 @@ type AuditEventQuery struct {
 type OutboxQuery = txoutbox.Query
 
 type AgreementDraftPatch struct {
-	Title      *string
-	Message    *string
-	DocumentID *string
+	Title           *string
+	Message         *string
+	DocumentID      *string
+	ReviewStatus    *string
+	ReviewGate      *string
+	CommentsEnabled *bool
 }
 
 type DraftPatch struct {

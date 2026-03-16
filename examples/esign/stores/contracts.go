@@ -47,6 +47,18 @@ type AgreementStore interface {
 	UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error)
 	UpdateAgreementDeliveryState(ctx context.Context, scope Scope, id string, patch AgreementDeliveryStatePatch) (AgreementRecord, error)
 	Transition(ctx context.Context, scope Scope, id string, input AgreementTransitionInput) (AgreementRecord, error)
+	CreateAgreementReview(ctx context.Context, scope Scope, record AgreementReviewRecord) (AgreementReviewRecord, error)
+	GetAgreementReviewByAgreementID(ctx context.Context, scope Scope, agreementID string) (AgreementReviewRecord, error)
+	UpdateAgreementReview(ctx context.Context, scope Scope, record AgreementReviewRecord) (AgreementReviewRecord, error)
+	ReplaceAgreementReviewParticipants(ctx context.Context, scope Scope, reviewID string, records []AgreementReviewParticipantRecord) error
+	ListAgreementReviewParticipants(ctx context.Context, scope Scope, reviewID string) ([]AgreementReviewParticipantRecord, error)
+	UpdateAgreementReviewParticipant(ctx context.Context, scope Scope, record AgreementReviewParticipantRecord) (AgreementReviewParticipantRecord, error)
+	CreateAgreementCommentThread(ctx context.Context, scope Scope, record AgreementCommentThreadRecord) (AgreementCommentThreadRecord, error)
+	GetAgreementCommentThread(ctx context.Context, scope Scope, threadID string) (AgreementCommentThreadRecord, error)
+	UpdateAgreementCommentThread(ctx context.Context, scope Scope, record AgreementCommentThreadRecord) (AgreementCommentThreadRecord, error)
+	ListAgreementCommentThreads(ctx context.Context, scope Scope, agreementID string, query AgreementCommentThreadQuery) ([]AgreementCommentThreadRecord, error)
+	CreateAgreementCommentMessage(ctx context.Context, scope Scope, record AgreementCommentMessageRecord) (AgreementCommentMessageRecord, error)
+	ListAgreementCommentMessages(ctx context.Context, scope Scope, threadID string) ([]AgreementCommentMessageRecord, error)
 	UpsertParticipantDraft(ctx context.Context, scope Scope, agreementID string, patch ParticipantDraftPatch, expectedVersion int64) (ParticipantRecord, error)
 	DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error
 	ListParticipants(ctx context.Context, scope Scope, agreementID string) ([]ParticipantRecord, error)
@@ -65,6 +77,13 @@ type AgreementStore interface {
 	UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error)
 	DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error
 	ListFields(ctx context.Context, scope Scope, agreementID string) ([]FieldRecord, error)
+}
+
+// AgreementRevisionRequestStore defines durable idempotency/replay persistence for revision bootstrap flows.
+type AgreementRevisionRequestStore interface {
+	BeginAgreementRevisionRequest(ctx context.Context, scope Scope, input AgreementRevisionRequestInput) (AgreementRevisionRequestRecord, bool, error)
+	CompleteAgreementRevisionRequest(ctx context.Context, scope Scope, requestID, createdAgreementID string, updatedAt time.Time) (AgreementRevisionRequestRecord, error)
+	GetAgreementRevisionRequest(ctx context.Context, scope Scope, id string) (AgreementRevisionRequestRecord, error)
 }
 
 // DraftStore defines six-step agreement wizard draft persistence with revision preconditions.
@@ -231,6 +250,7 @@ type TxStore interface {
 	RemediationDispatchStore
 	GuardedEffectStore
 	AgreementStore
+	AgreementRevisionRequestStore
 	DraftStore
 	SigningStore
 	SignatureArtifactStore

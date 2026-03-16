@@ -80,7 +80,7 @@ func runValidationChunk(ctx context.Context, scope stores.Scope, chunkStart, chu
 	documentSvc := services.NewDocumentService(store)
 	agreementSvc := services.NewAgreementService(store)
 	signingSvc := services.NewSigningService(store)
-	for i := 0; i < chunkSize; i++ {
+	for i := range chunkSize {
 		if err := runAgreementLifecycle(ctx, scope, chunkStart+i, documentSvc, agreementSvc, signingSvc); err != nil {
 			return err
 		}

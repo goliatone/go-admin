@@ -18,15 +18,20 @@ import (
 )
 
 type stubAgreementLifecycleService struct {
-	sentCalls   int
-	voidCalls   int
-	resendCalls int
-	lastScope   stores.Scope
-	lastID      string
-	lastSend    services.SendInput
-	lastVoid    services.VoidInput
-	lastResend  services.ResendInput
-	sendErr     error
+	sentCalls     int
+	voidCalls     int
+	resendCalls   int
+	revisionCalls int
+	reviewCalls   int
+	commentCalls  int
+	lastScope     stores.Scope
+	lastID        string
+	lastSend      services.SendInput
+	lastVoid      services.VoidInput
+	lastResend    services.ResendInput
+	lastRevision  services.CreateRevisionInput
+	sendErr       error
+	revisionErr   error
 }
 
 func (s *stubAgreementLifecycleService) Send(_ context.Context, scope stores.Scope, agreementID string, input services.SendInput) (stores.AgreementRecord, error) {
@@ -54,6 +59,90 @@ func (s *stubAgreementLifecycleService) Resend(_ context.Context, scope stores.S
 	s.lastID = agreementID
 	s.lastResend = input
 	return services.ResendResult{Agreement: stores.AgreementRecord{ID: agreementID, Status: stores.AgreementStatusSent}}, nil
+}
+
+func (s *stubAgreementLifecycleService) CreateRevision(_ context.Context, scope stores.Scope, input services.CreateRevisionInput) (stores.AgreementRecord, error) {
+	s.revisionCalls++
+	s.lastScope = scope
+	s.lastID = input.SourceAgreementID
+	s.lastRevision = input
+	if s.revisionErr != nil {
+		return stores.AgreementRecord{}, s.revisionErr
+	}
+	workflowKind := stores.AgreementWorkflowKindCorrection
+	if input.Kind == services.AgreementRevisionKindAmendment {
+		workflowKind = stores.AgreementWorkflowKindAmendment
+	}
+	return stores.AgreementRecord{
+		ID:                "revision-" + input.SourceAgreementID,
+		Status:            stores.AgreementStatusDraft,
+		WorkflowKind:      workflowKind,
+		ParentAgreementID: input.SourceAgreementID,
+		RootAgreementID:   input.SourceAgreementID,
+	}, nil
+}
+
+func (s *stubAgreementLifecycleService) OpenReview(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewOpenInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
+}
+
+func (s *stubAgreementLifecycleService) ReopenReview(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewOpenInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
+}
+
+func (s *stubAgreementLifecycleService) CloseReview(_ context.Context, scope stores.Scope, agreementID, _, _, _ string) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusClosed}, nil
+}
+
+func (s *stubAgreementLifecycleService) ApproveReview(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewDecisionInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusApproved}, nil
+}
+
+func (s *stubAgreementLifecycleService) RequestReviewChanges(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewDecisionInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusChangesRequested}, nil
+}
+
+func (s *stubAgreementLifecycleService) CreateCommentThread(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewCommentThreadInput) (services.ReviewThread, error) {
+	s.commentCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewThread{}, nil
+}
+
+func (s *stubAgreementLifecycleService) ReplyCommentThread(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewCommentReplyInput) (services.ReviewThread, error) {
+	s.commentCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewThread{}, nil
+}
+
+func (s *stubAgreementLifecycleService) ResolveCommentThread(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewCommentStateInput) (services.ReviewThread, error) {
+	s.commentCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewThread{}, nil
+}
+
+func (s *stubAgreementLifecycleService) ReopenCommentThread(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewCommentStateInput) (services.ReviewThread, error) {
+	s.commentCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewThread{}, nil
 }
 
 type stubTokenRotator struct {
@@ -298,6 +387,60 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 	snapshot := observability.Snapshot()
 	if snapshot.SendSuccessTotal != 1 {
 		t.Fatalf("expected send success metric increment, got %+v", snapshot)
+	}
+}
+
+func TestAgreementRevisionCommandsStoreRedirectActionResponse(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	agreementSvc := &stubAgreementLifecycleService{}
+	bus := coreadmin.NewCommandBus(true)
+	t.Cleanup(bus.Reset)
+
+	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	if err := Register(bus, agreementSvc, nil, nil, nil, "", defaultScope, nil); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name    string
+		command string
+		kind    services.AgreementRevisionKind
+	}{
+		{name: "correction", command: CommandAgreementRequestCorrection, kind: services.AgreementRevisionKindCorrection},
+		{name: "amendment", command: CommandAgreementRequestAmendment, kind: services.AgreementRevisionKindAmendment},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			collector := &coreadmin.ActionResponseCollector{}
+			ctx := coreadmin.ContextWithActionResponseCollector(context.Background(), collector)
+			if err := bus.DispatchByName(ctx, tc.command, map[string]any{
+				"agreement_id":    "agreement-1",
+				"idempotency_key": "revision-key-1",
+			}, nil); err != nil {
+				t.Fatalf("DispatchByName %s: %v", tc.command, err)
+			}
+			if agreementSvc.revisionCalls == 0 {
+				t.Fatal("expected revision command to invoke lifecycle service")
+			}
+			if agreementSvc.lastRevision.Kind != tc.kind {
+				t.Fatalf("expected revision kind %q, got %+v", tc.kind, agreementSvc.lastRevision)
+			}
+			if got := strings.TrimSpace(agreementSvc.lastRevision.IdempotencyKey); got != "revision-key-1" {
+				t.Fatalf("expected idempotency key forwarded, got %+v", agreementSvc.lastRevision)
+			}
+			response, ok := collector.Load()
+			if !ok {
+				t.Fatal("expected action response stored")
+			}
+			if got := strings.TrimSpace(fmt.Sprint(response.Data["redirect_record_id"])); got != "revision-agreement-1" {
+				t.Fatalf("expected redirect record id stored, got %+v", response.Data)
+			}
+			if got := strings.TrimSpace(fmt.Sprint(response.Data["workflow_kind"])); got == "" {
+				t.Fatalf("expected workflow kind stored, got %+v", response.Data)
+			}
+			if redirect, ok := response.Data["redirect_to_edit"].(bool); !ok || !redirect {
+				t.Fatalf("expected redirect_to_edit=true, got %+v", response.Data)
+			}
+		})
 	}
 }
 

@@ -115,10 +115,7 @@ func (r *SlidingWindowRateLimiter) Check(operationKey, key string, override Rate
 	}
 	kept = append(kept, now)
 	r.requests[bucketKey] = kept
-	remaining := rule.MaxRequests - len(kept)
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(rule.MaxRequests-len(kept), 0)
 	_, resetAt := computeRetryWindow(now, kept, rule.Window)
 	return RateLimitDecision{
 		Allowed:   true,
@@ -167,9 +164,6 @@ func computeRetryWindow(now time.Time, kept []time.Time, window time.Duration) (
 		return 0, time.Time{}
 	}
 	resetAt := kept[0].Add(window)
-	retryAfter := resetAt.Sub(now)
-	if retryAfter < 0 {
-		retryAfter = 0
-	}
+	retryAfter := max(resetAt.Sub(now), 0)
 	return retryAfter, resetAt
 }

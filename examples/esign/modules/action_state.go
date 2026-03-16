@@ -76,12 +76,55 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"Only draft agreements can be sent for signature.",
 			"esign.agreements.send_requires_draft",
 		)
+	case "request_review":
+		action.Guard = agreementDraftReviewGuard(
+			action.Name,
+			[]string{stores.AgreementReviewStatusNone, ""},
+			"Review can only be requested for draft agreements that do not already have an active review.",
+			"esign.agreements.request_review_requires_draft_without_active_review",
+		)
+	case "reopen_review":
+		action.Guard = agreementDraftReviewGuard(
+			action.Name,
+			[]string{
+				stores.AgreementReviewStatusChangesRequested,
+				stores.AgreementReviewStatusApproved,
+				stores.AgreementReviewStatusClosed,
+			},
+			"Review can only be reopened for draft agreements after a prior review cycle exists.",
+			"esign.agreements.reopen_review_requires_prior_review",
+		)
+	case "close_review":
+		action.Guard = agreementDraftReviewGuard(
+			action.Name,
+			[]string{
+				stores.AgreementReviewStatusInReview,
+				stores.AgreementReviewStatusChangesRequested,
+				stores.AgreementReviewStatusApproved,
+			},
+			"Review can only be closed when a draft agreement currently has review activity.",
+			"esign.agreements.close_review_requires_active_review",
+		)
 	case "resend":
 		action.Guard = agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusSent, stores.AgreementStatusInProgress},
 			"Only sent or in-progress agreements can be resent.",
 			"esign.agreements.resend_requires_active_delivery",
+		)
+	case "request_correction":
+		action.Guard = agreementAllowedStatusesGuard(
+			action.Name,
+			[]string{stores.AgreementStatusSent, stores.AgreementStatusInProgress},
+			"Corrections can only be requested for sent or in-progress agreements.",
+			"esign.agreements.request_correction_requires_active_delivery",
+		)
+	case "request_amendment":
+		action.Guard = agreementAllowedStatusesGuard(
+			action.Name,
+			[]string{stores.AgreementStatusCompleted},
+			"Amendments can only be requested for completed agreements.",
+			"esign.agreements.request_amendment_requires_completed",
 		)
 	case "void":
 		action.Guard = agreementAllowedStatusesGuard(
@@ -116,6 +159,46 @@ func agreementAllowedStatusesGuard(actionName string, allowedStatuses []string, 
 				"current_status":   currentStatus,
 				"allowed_statuses": append([]string{}, normalizedAllowed...),
 				"business_rule_id": strings.TrimSpace(ruleID),
+			},
+		}
+	}
+}
+
+func agreementDraftReviewGuard(actionName string, allowedReviewStatuses []string, reason string, ruleID string) coreadmin.ActionGuard {
+	normalizedAllowedReview := normalizeStatuses(allowedReviewStatuses)
+	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
+		currentStatus := normalizeAgreementStatus(ctx.Record["status"])
+		if !statusAllowed(currentStatus, stores.AgreementStatusDraft) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodeInvalidStatus,
+				Reason:     "Review actions are only available for draft agreements.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"current_status":   currentStatus,
+					"allowed_statuses": []string{stores.AgreementStatusDraft},
+					"business_rule_id": "esign.agreements.review_requires_draft",
+				},
+			}
+		}
+		currentReviewStatus := normalizeAgreementStatus(ctx.Record["review_status"])
+		if statusAllowed(currentReviewStatus, normalizedAllowedReview...) {
+			return coreadmin.ActionState{Enabled: true}
+		}
+		return coreadmin.ActionState{
+			Enabled:    false,
+			ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+			Reason:     strings.TrimSpace(reason),
+			Severity:   "warning",
+			Kind:       "business_rule",
+			Metadata: map[string]any{
+				"blocked_action":         strings.ToLower(strings.TrimSpace(actionName)),
+				"current_status":         currentStatus,
+				"current_review_status":  currentReviewStatus,
+				"allowed_review_statuses": append([]string{}, normalizedAllowedReview...),
+				"business_rule_id":       strings.TrimSpace(ruleID),
 			},
 		}
 	}

@@ -127,7 +127,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 		WithRateLimitRuleResolver(NewScopedRateLimitRuleResolver(store, stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, defaultRules)),
 	)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {

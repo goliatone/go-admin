@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -12,9 +11,9 @@ import (
 func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -48,9 +47,9 @@ func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing
 func TestSignerAssetContractResolveMarksSourceUnavailableWhenBlobMissing(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)

@@ -112,7 +112,7 @@ func main() {
 	}
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
-		WithPlacements(quickstart.DefaultPlacements(coreadmin.Config{NavMenuCode: cfg.NavMenuCode})).
+		WithPlacements(quickstart.DefaultPlacements(admin.Config{NavMenuCode: cfg.NavMenuCode})).
 		WithUploadDir(resolveESignDiskAssetsDir()).
 		WithServicesModule(servicesModule).
 		WithStore(store)
@@ -166,8 +166,8 @@ func listenAddr(configured string) string {
 	if port == "" {
 		return ":8082"
 	}
-	if strings.HasPrefix(port, ":") {
-		if _, err := strconv.Atoi(strings.TrimPrefix(port, ":")); err != nil {
+	if after, ok := strings.CutPrefix(port, ":"); ok {
+		if _, err := strconv.Atoi(after); err != nil {
 			return ":8082"
 		}
 		return port

@@ -32,7 +32,7 @@ func NewGoogleDriveImportQueue(handlers Handlers) (*GoogleDriveImportQueue, erro
 		queue:    make(chan GoogleDriveImportMsg, defaultGoogleImportQueueCapacity),
 		closed:   make(chan struct{}),
 	}
-	for i := 0; i < defaultGoogleImportQueueWorkers; i++ {
+	for range defaultGoogleImportQueueWorkers {
 		q.workers.Add(1)
 		go q.worker()
 	}

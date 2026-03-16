@@ -85,7 +85,7 @@ func TestInMemoryGoogleImportRunListPaginationByUser(t *testing.T) {
 	store := NewInMemoryStore()
 	base := time.Date(2026, 2, 16, 12, 0, 0, 0, time.UTC)
 
-	for idx := 0; idx < 3; idx++ {
+	for idx := range 3 {
 		_, _, err := store.BeginGoogleImportRun(ctx, scope, GoogleImportRunInput{
 			UserID:            "ops-user",
 			GoogleFileID:      fmt.Sprintf("google-file-%d", idx+1),

@@ -62,6 +62,10 @@ const (
 	inboundSegment          = "inbound"
 	outboundSegment         = "outbound"
 	sessionSegment          = "session"
+	reviewSegment           = "review"
+	threadsSegment          = "threads"
+	repliesSegment          = "replies"
+	requestChangesSegment   = "request-changes"
 	consentSegment          = "consent"
 	fieldValuesSegment      = "field-values"
 	signatureSegment        = "signature"
@@ -110,6 +114,12 @@ type RouteSet struct {
 	AdminGuardedEffectStatus         string
 	AdminGuardedEffectResume         string
 	SignerSession                    string
+	SignerReviewThreads              string
+	SignerReviewThreadReplies        string
+	SignerReviewThreadResolve        string
+	SignerReviewThreadReopen         string
+	SignerReviewApprove              string
+	SignerReviewRequestChanges       string
 	SignerConsent                    string
 	SignerFieldValues                string
 	SignerSignature                  string
@@ -196,6 +206,12 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminGuardedEffectStatus:         joinPath(adminAPIBase, esignSegment, effectsSegment, ":effect_id"),
 		AdminGuardedEffectResume:         joinPath(adminAPIBase, esignSegment, effectsSegment, ":effect_id", "resume"),
 		SignerSession:                    joinPath(signingBase, sessionSegment, ":token"),
+		SignerReviewThreads:              joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment),
+		SignerReviewThreadReplies:        joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", repliesSegment),
+		SignerReviewThreadResolve:        joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", "resolve"),
+		SignerReviewThreadReopen:         joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", "reopen"),
+		SignerReviewApprove:              joinPath(signingBase, sessionSegment, ":token", reviewSegment, "approve"),
+		SignerReviewRequestChanges:       joinPath(signingBase, sessionSegment, ":token", reviewSegment, requestChangesSegment),
 		SignerConsent:                    joinPath(signingBase, consentSegment, ":token"),
 		SignerFieldValues:                joinPath(signingBase, fieldValuesSegment, ":token"),
 		SignerSignature:                  joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
@@ -239,8 +255,8 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 
 func deriveAdminAPIBase(urls urlkit.Resolver, adminAPIGroup, adminBase string) string {
 	if path := resolvePath(urls, strings.TrimSpace(adminAPIGroup), adminAPIErrorsRoute, nil); path != "" {
-		if strings.HasSuffix(path, "/errors") {
-			return strings.TrimSuffix(path, "/errors")
+		if before, ok := strings.CutSuffix(path, "/errors"); ok {
+			return before
 		}
 		return strings.TrimSuffix(path, "/")
 	}
@@ -258,8 +274,8 @@ func derivePublicAPIBase(urls urlkit.Resolver) string {
 	for _, group := range groups {
 		previewPath := resolvePath(urls, group, publicPreviewRoute, urlkit.Params{publicPreviewParam: publicPreviewToken})
 		suffix := "/preview/" + publicPreviewToken
-		if strings.HasSuffix(previewPath, suffix) {
-			return strings.TrimSuffix(previewPath, suffix)
+		if before, ok := strings.CutSuffix(previewPath, suffix); ok {
+			return before
 		}
 	}
 	return "/api/v1"

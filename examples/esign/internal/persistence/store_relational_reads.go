@@ -91,6 +91,28 @@ func loadAgreementRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, i
 	return record, nil
 }
 
+func loadAgreementRevisionRequestRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.AgreementRevisionRequestRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "id", "required")
+	}
+	record := stores.AgreementRevisionRequestRecord{}
+	err = idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, mapSQLNotFound(err, "agreement_revision_requests", id)
+	}
+	return record, nil
+}
+
 func listAgreementRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.AgreementQuery) ([]stores.AgreementRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

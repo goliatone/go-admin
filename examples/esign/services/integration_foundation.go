@@ -808,7 +808,7 @@ func (s IntegrationFoundationService) ApplyInbound(ctx context.Context, scope st
 				ID:             strings.TrimSpace(field.FieldDefinitionID),
 				ParticipantID:  integrationStrPtr(participantID),
 				Type:           integrationStrPtr(fieldType),
-				Required:       integrationBoolPtr(field.Required),
+				Required:       new(field.Required),
 				ValidationJSON: integrationStrPtr(strings.TrimSpace(field.ValidationJSON)),
 			})
 			if defErr != nil {
@@ -1092,8 +1092,9 @@ func integrationIntPtr(value int) *int {
 	return &value
 }
 
+//go:fix inline
 func integrationBoolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func integrationFloatPtr(value float64) *float64 {

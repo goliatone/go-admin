@@ -1,6 +1,7 @@
 {
   "agreements": [
     {
+      "CommentsEnabled": false,
       "CompletedAt": null,
       "CreatedAt": "2026-03-01T09:01:00Z",
       "CreatedByUserID": "",
@@ -14,6 +15,11 @@
       "LastDeliveryError": "",
       "Message": "baseline",
       "OrgID": "org-phase0",
+      "ParentAgreementID": "",
+      "ParentExecutedSHA256": "",
+      "ReviewGate": "none",
+      "ReviewStatus": "none",
+      "RootAgreementID": "agreement-fixture",
       "SentAt": null,
       "SourceExportedAt": null,
       "SourceExportedByUserID": "",
@@ -29,7 +35,8 @@
       "UpdatedAt": "2026-03-01T09:01:00Z",
       "UpdatedByUserID": "",
       "Version": 1,
-      "VoidedAt": null
+      "VoidedAt": null,
+      "WorkflowKind": "standard"
     }
   ],
   "audit_events": [

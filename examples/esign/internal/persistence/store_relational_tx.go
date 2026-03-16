@@ -2199,6 +2199,38 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 	return record, nil
 }
 
+func findAgreementRevisionRequestByDedupeRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, sourceAgreementID, revisionKind, idempotencyKey string) (stores.AgreementRevisionRequestRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	sourceAgreementID = normalizeRelationalID(sourceAgreementID)
+	revisionKind = strings.ToLower(strings.TrimSpace(revisionKind))
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if sourceAgreementID == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "source_agreement_id", "required")
+	}
+	if revisionKind == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "revision_kind", "required")
+	}
+	if idempotencyKey == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "idempotency_key", "required")
+	}
+	record := stores.AgreementRevisionRequestRecord{}
+	err = idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("source_agreement_id = ?", sourceAgreementID).
+		Where("revision_kind = ?", revisionKind).
+		Where("idempotency_key = ?", idempotencyKey).
+		Scan(ctx)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, mapSQLNotFound(err, "agreement_revision_requests", idempotencyKey)
+	}
+	return record, nil
+}
+
 func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope, record stores.AgreementRecord) (stores.AgreementRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -2211,6 +2243,29 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	record.DocumentID = normalizeRelationalID(record.DocumentID)
 	if record.DocumentID == "" {
 		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "document_id", "required")
+	}
+	record.WorkflowKind = strings.TrimSpace(record.WorkflowKind)
+	if record.WorkflowKind == "" {
+		record.WorkflowKind = stores.AgreementWorkflowKindStandard
+	}
+	switch record.WorkflowKind {
+	case stores.AgreementWorkflowKindStandard, stores.AgreementWorkflowKindCorrection, stores.AgreementWorkflowKindAmendment:
+	default:
+		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "workflow_kind", "unsupported workflow kind")
+	}
+	record.RootAgreementID = normalizeRelationalID(record.RootAgreementID)
+	if record.RootAgreementID == "" {
+		record.RootAgreementID = record.ID
+	}
+	record.ParentAgreementID = normalizeRelationalID(record.ParentAgreementID)
+	record.ParentExecutedSHA256 = strings.TrimSpace(record.ParentExecutedSHA256)
+	record.ReviewStatus = stores.NormalizeAgreementReviewStatus(record.ReviewStatus)
+	if record.ReviewStatus == "" {
+		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_status", "unsupported review status")
+	}
+	record.ReviewGate = stores.NormalizeAgreementReviewGate(record.ReviewGate)
+	if record.ReviewGate == "" {
+		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_gate", "unsupported review gate")
 	}
 	record.SourceType = strings.TrimSpace(record.SourceType)
 	if record.SourceType == "" {
@@ -2245,6 +2300,91 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	return record, nil
 }
 
+func (s *relationalTxStore) BeginAgreementRevisionRequest(ctx context.Context, scope stores.Scope, input stores.AgreementRevisionRequestInput) (stores.AgreementRevisionRequestRecord, bool, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, false, err
+	}
+	record := stores.AgreementRevisionRequestRecord{
+		ID:                uuid.NewString(),
+		TenantID:          scope.TenantID,
+		OrgID:             scope.OrgID,
+		SourceAgreementID: normalizeRelationalID(input.SourceAgreementID),
+		RevisionKind:      strings.ToLower(strings.TrimSpace(input.RevisionKind)),
+		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
+		RequestHash:       strings.TrimSpace(input.RequestHash),
+		ActorID:           normalizeRelationalID(input.ActorID),
+		CreatedAt:         relationalTimeOrNow(input.Now),
+		UpdatedAt:         relationalTimeOrNow(input.Now),
+	}
+	if record.SourceAgreementID == "" {
+		return stores.AgreementRevisionRequestRecord{}, false, relationalInvalidRecordError("agreement_revision_requests", "source_agreement_id", "required")
+	}
+	if record.RevisionKind == "" {
+		return stores.AgreementRevisionRequestRecord{}, false, relationalInvalidRecordError("agreement_revision_requests", "revision_kind", "required")
+	}
+	if record.IdempotencyKey == "" {
+		return stores.AgreementRevisionRequestRecord{}, false, relationalInvalidRecordError("agreement_revision_requests", "idempotency_key", "required")
+	}
+	if record.RequestHash == "" {
+		return stores.AgreementRevisionRequestRecord{}, false, relationalInvalidRecordError("agreement_revision_requests", "request_hash", "required")
+	}
+	result, err := s.tx.NewInsert().
+		Model(&record).
+		On("CONFLICT (tenant_id, org_id, source_agreement_id, revision_kind, idempotency_key) DO NOTHING").
+		Exec(ctx)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, false, err
+	}
+	if rows == 0 {
+		existing, loadErr := findAgreementRevisionRequestByDedupeRecord(ctx, s.tx, scope, record.SourceAgreementID, record.RevisionKind, record.IdempotencyKey)
+		if loadErr != nil {
+			return stores.AgreementRevisionRequestRecord{}, false, loadErr
+		}
+		if existing.RequestHash != "" && existing.RequestHash != record.RequestHash {
+			return stores.AgreementRevisionRequestRecord{}, false, relationalVersionConflictError("agreement_revision_requests", existing.ID, 0, 0)
+		}
+		return existing, false, nil
+	}
+	return record, true, nil
+}
+
+func (s *relationalTxStore) CompleteAgreementRevisionRequest(ctx context.Context, scope stores.Scope, requestID, createdAgreementID string, updatedAt time.Time) (stores.AgreementRevisionRequestRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	requestID = normalizeRelationalID(requestID)
+	createdAgreementID = normalizeRelationalID(createdAgreementID)
+	if requestID == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "id", "required")
+	}
+	if createdAgreementID == "" {
+		return stores.AgreementRevisionRequestRecord{}, relationalInvalidRecordError("agreement_revision_requests", "created_agreement_id", "required")
+	}
+	record, err := loadAgreementRevisionRequestRecord(ctx, s.tx, scope, requestID)
+	if err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	if record.CreatedAgreementID != "" && record.CreatedAgreementID != createdAgreementID {
+		return stores.AgreementRevisionRequestRecord{}, relationalVersionConflictError("agreement_revision_requests", requestID, 0, 0)
+	}
+	record.CreatedAgreementID = createdAgreementID
+	record.UpdatedAt = relationalTimeOrNow(updatedAt)
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.AgreementRevisionRequestRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) GetAgreementRevisionRequest(ctx context.Context, scope stores.Scope, id string) (stores.AgreementRevisionRequestRecord, error) {
+	return loadAgreementRevisionRequestRecord(ctx, s.tx, scope, id)
+}
+
 func (s *relationalTxStore) UpdateDraft(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDraftPatch, expectedVersion int64) (stores.AgreementRecord, error) {
 	record, err := loadAgreementRecord(ctx, s.tx, scope, id)
 	if err != nil {
@@ -2267,6 +2407,21 @@ func (s *relationalTxStore) UpdateDraft(ctx context.Context, scope stores.Scope,
 		if record.DocumentID == "" {
 			return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "document_id", "required")
 		}
+	}
+	if patch.ReviewStatus != nil {
+		record.ReviewStatus = stores.NormalizeAgreementReviewStatus(*patch.ReviewStatus)
+		if record.ReviewStatus == "" {
+			return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_status", "unsupported review status")
+		}
+	}
+	if patch.ReviewGate != nil {
+		record.ReviewGate = stores.NormalizeAgreementReviewGate(*patch.ReviewGate)
+		if record.ReviewGate == "" {
+			return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_gate", "unsupported review gate")
+		}
+	}
+	if patch.CommentsEnabled != nil {
+		record.CommentsEnabled = *patch.CommentsEnabled
 	}
 	record.Version++
 	record.UpdatedAt = time.Now().UTC()

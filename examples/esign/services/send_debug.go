@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -18,9 +19,7 @@ func SendDebugFields(scope stores.Scope, correlationID string, fields map[string
 		"org_id":         strings.TrimSpace(scope.OrgID),
 		"correlation_id": strings.TrimSpace(correlationID),
 	}
-	for key, value := range fields {
-		out[key] = value
-	}
+	maps.Copy(out, fields)
 	return out
 }
 

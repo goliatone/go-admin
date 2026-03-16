@@ -377,28 +377,28 @@ func runV2AgreementLifecycle(
 	}
 
 	stageOneSignerA, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        v2StringPtr(fmt.Sprintf("stage1-a-%03d@example.test", index+1)),
-		Name:         v2StringPtr("Stage One A"),
+		Email:        new(fmt.Sprintf("stage1-a-%03d@example.test", index+1)),
+		Name:         new("Stage One A"),
 		Role:         v2StringPtr(stores.RecipientRoleSigner),
-		SigningStage: v2IntPtr(1),
+		SigningStage: new(1),
 	}, 0)
 	if err != nil {
 		return v2AgreementMetrics{}, fmt.Errorf("create stage1 signer A: %w", err)
 	}
 	stageOneSignerB, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        v2StringPtr(fmt.Sprintf("stage1-b-%03d@example.test", index+1)),
-		Name:         v2StringPtr("Stage One B"),
+		Email:        new(fmt.Sprintf("stage1-b-%03d@example.test", index+1)),
+		Name:         new("Stage One B"),
 		Role:         v2StringPtr(stores.RecipientRoleSigner),
-		SigningStage: v2IntPtr(1),
+		SigningStage: new(1),
 	}, 0)
 	if err != nil {
 		return v2AgreementMetrics{}, fmt.Errorf("create stage1 signer B: %w", err)
 	}
 	stageTwoSigner, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        v2StringPtr(fmt.Sprintf("stage2-%03d@example.test", index+1)),
-		Name:         v2StringPtr("Stage Two"),
+		Email:        new(fmt.Sprintf("stage2-%03d@example.test", index+1)),
+		Name:         new("Stage Two"),
 		Role:         v2StringPtr(stores.RecipientRoleSigner),
-		SigningStage: v2IntPtr(2),
+		SigningStage: new(2),
 	}, 0)
 	if err != nil {
 		return v2AgreementMetrics{}, fmt.Errorf("create stage2 signer: %w", err)
@@ -407,9 +407,9 @@ func runV2AgreementLifecycle(
 	participants := []stores.ParticipantRecord{stageOneSignerA, stageOneSignerB, stageTwoSigner}
 	for _, participant := range participants {
 		_, defErr := agreementSvc.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
-			ParticipantID: v2StringPtr(participant.ID),
+			ParticipantID: new(participant.ID),
 			Type:          v2StringPtr(stores.FieldTypeSignature),
-			Required:      v2BoolPtr(true),
+			Required:      new(true),
 		})
 		if defErr != nil {
 			return v2AgreementMetrics{}, fmt.Errorf("create field definition for participant %s: %w", participant.ID, defErr)
@@ -604,7 +604,7 @@ func runV2IntegrationValidation(
 	}
 	lagMS := make([]float64, 0, runCount)
 
-	for i := 0; i < runCount; i++ {
+	for i := range runCount {
 		compiled, err := svc.ValidateAndCompileMapping(ctx, scope, services.MappingCompileInput{
 			Provider: "crm",
 			Name:     fmt.Sprintf("v2-phase28-%03d", i+1),
@@ -785,16 +785,18 @@ func percentile(values []float64, pct int) float64 {
 	if pct >= 100 {
 		return sorted[len(sorted)-1]
 	}
-	rank := int(math.Ceil((float64(pct) / 100.0) * float64(len(sorted))))
-	if rank < 1 {
-		rank = 1
-	}
+	rank := max(int(math.Ceil((float64(pct)/100.0)*float64(len(sorted)))), 1)
 	if rank > len(sorted) {
 		rank = len(sorted)
 	}
 	return sorted[rank-1]
 }
 
-func v2StringPtr(v string) *string { return &v }
-func v2IntPtr(v int) *int          { return &v }
-func v2BoolPtr(v bool) *bool       { return &v }
+//go:fix inline
+func v2StringPtr(v string) *string { return new(v) }
+
+//go:fix inline
+func v2IntPtr(v int) *int { return new(v) }
+
+//go:fix inline
+func v2BoolPtr(v bool) *bool { return new(v) }

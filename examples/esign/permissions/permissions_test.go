@@ -1,5 +1,7 @@
 package permissions
 
+import "slices"
+
 import "testing"
 
 func TestAllPermissionsIncludesRequiredESignMatrix(t *testing.T) {
@@ -57,10 +59,5 @@ func TestDefaultRoleMappingsIncludeAdminOperatorViewerProfiles(t *testing.T) {
 }
 
 func hasPermission(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }

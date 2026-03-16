@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"sort"
 	"strings"
@@ -492,7 +493,7 @@ func parseScopedReplayKey(key string) (scopedReplayKey, error) {
 		switch {
 		case strings.HasPrefix(part, "scope="):
 			raw := strings.TrimPrefix(part, "scope=")
-			for _, entry := range strings.Split(raw, ",") {
+			for entry := range strings.SplitSeq(raw, ",") {
 				entry = strings.TrimSpace(entry)
 				if entry == "" {
 					continue
@@ -748,22 +749,22 @@ func snapshotFromDisposeResult(
 
 func initialWizardState(wizardID, createdAt string) map[string]any {
 	return map[string]any{
-		"wizardId":                strings.TrimSpace(wizardID),
-		"version":                 1,
-		"createdAt":               strings.TrimSpace(createdAt),
-		"updatedAt":               strings.TrimSpace(createdAt),
-		"currentStep":             1,
-		"document":                map[string]any{"id": nil, "title": nil, "pageCount": nil},
-		"details":                 map[string]any{"title": "", "message": ""},
-		"participants":            []any{},
-		"fieldDefinitions":        []any{},
-		"fieldPlacements":         []any{},
-		"fieldRules":              []any{},
-		"titleSource":             "autofill",
-		"serverDraftId":           nil,
-		"serverRevision":          0,
-		"lastSyncedAt":            nil,
-		"syncPending":             false,
+		"wizardId":         strings.TrimSpace(wizardID),
+		"version":          1,
+		"createdAt":        strings.TrimSpace(createdAt),
+		"updatedAt":        strings.TrimSpace(createdAt),
+		"currentStep":      1,
+		"document":         map[string]any{"id": nil, "title": nil, "pageCount": nil},
+		"details":          map[string]any{"title": "", "message": ""},
+		"participants":     []any{},
+		"fieldDefinitions": []any{},
+		"fieldPlacements":  []any{},
+		"fieldRules":       []any{},
+		"titleSource":      "autofill",
+		"serverDraftId":    nil,
+		"serverRevision":   0,
+		"lastSyncedAt":     nil,
+		"syncPending":      false,
 	}
 }
 
@@ -1001,9 +1002,7 @@ func copyAnyMap(input map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

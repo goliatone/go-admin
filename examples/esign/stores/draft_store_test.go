@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+//go:fix inline
 func strPtrDraft(value string) *string {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func intPtrDraft(value int) *int {
-	return &value
+	return new(value)
 }
 
 func TestInMemoryDraftSessionLifecycleAndIdempotency(t *testing.T) {
@@ -79,9 +81,9 @@ func TestInMemoryDraftSessionLifecycleAndIdempotency(t *testing.T) {
 	}
 
 	updated, err := store.UpdateDraftSession(ctx, scope, created.ID, DraftPatch{
-		Title:           strPtrDraft("Q1 Contract Updated"),
-		CurrentStep:     intPtrDraft(4),
-		WizardStateJSON: strPtrDraft(`{"details":{"title":"Q1 Contract Updated"}}`),
+		Title:           new("Q1 Contract Updated"),
+		CurrentStep:     new(4),
+		WizardStateJSON: new(`{"details":{"title":"Q1 Contract Updated"}}`),
 	}, created.Revision)
 	if err != nil {
 		t.Fatalf("UpdateDraftSession: %v", err)
@@ -94,7 +96,7 @@ func TestInMemoryDraftSessionLifecycleAndIdempotency(t *testing.T) {
 	}
 
 	if _, err := store.UpdateDraftSession(ctx, scope, created.ID, DraftPatch{
-		Title: strPtrDraft("stale write"),
+		Title: new("stale write"),
 	}, created.Revision); err == nil {
 		t.Fatalf("expected version conflict on stale update")
 	} else if !strings.Contains(err.Error(), "VERSION_CONFLICT") {
@@ -122,7 +124,7 @@ func TestInMemoryDraftSessionPaginationAndExpiryCleanup(t *testing.T) {
 		UpdatedAt:       now.Add(-48 * time.Hour),
 		ExpiresAt:       now.Add(-24 * time.Hour),
 	})
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, _, err := store.CreateDraftSession(ctx, scope, DraftRecord{
 			WizardID:        "wiz-live-" + string(rune('a'+i)),
 			CreatedByUserID: "user-1",

@@ -128,6 +128,10 @@ func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 		"integration_change_events",
 		"integration_mutation_claims",
 		"placement_runs",
+		"agreement_reviews",
+		"agreement_review_participants",
+		"agreement_comment_threads",
+		"agreement_comment_messages",
 	}
 	for _, table := range requiredTables {
 		var count int

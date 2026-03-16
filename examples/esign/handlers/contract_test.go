@@ -474,7 +474,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 	}
 
 	var final map[string]any
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusResp, pollErr := app.Test(statusReq, -1)
 		if pollErr != nil {
@@ -576,7 +576,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 	}
 
 	var final map[string]any
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusResp, pollErr := app.Test(statusReq, -1)
 		if pollErr != nil {

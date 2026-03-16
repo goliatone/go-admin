@@ -380,6 +380,7 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	if err != nil {
 		return nil, 0, err
 	}
+	lineage := buildAgreementLineageIndex(agreements)
 	documentID := strings.TrimSpace(lookupFilter(opts.Filters, "document_id"))
 	recipientEmail := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email")))
 	titleQuery := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "title", "title_contains")))
@@ -423,7 +424,9 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 			return nil, 0, err
 		}
 		reminderStates := r.reminderStateMap(ctx, scope, agreement.ID, recipients)
-		out = append(out, agreementRecordToMap(agreement, recipients, reminderStates, nil, nil, services.AgreementDeliveryDetail{}))
+		payload := agreementRecordToMap(agreement, recipients, reminderStates, nil, nil, services.AgreementDeliveryDetail{})
+		applyAgreementLineagePayload(payload, lineage[strings.TrimSpace(agreement.ID)], false)
+		out = append(out, payload)
 	}
 	success = true
 	return out, len(filtered), nil
@@ -444,6 +447,10 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	}
 	agreementID := strings.TrimSpace(id)
 	agreement, err := r.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	agreements, err := r.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
 		return nil, err
 	}
@@ -473,6 +480,10 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	}
 	reminderStates := r.reminderStateMap(ctx, scope, agreementID, recipients)
 	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
+	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
+	if reviewSummary, err := r.service.GetReviewSummary(ctx, scope, agreementID); err == nil {
+		result["review"] = reviewSummaryToMap(reviewSummary)
+	}
 	// Fetch document title if document_id exists
 	documentID := strings.TrimSpace(agreement.DocumentID)
 	if documentID != "" && r.documents != nil {
@@ -842,6 +853,13 @@ func agreementRecordToMap(
 		"source_exported_at":         formatTimePtr(agreement.SourceExportedAt),
 		"source_exported_by_user_id": agreement.SourceExportedByUserID,
 		"status":                     agreement.Status,
+		"review_status":              agreement.ReviewStatus,
+		"review_gate":                agreement.ReviewGate,
+		"comments_enabled":           agreement.CommentsEnabled,
+		"workflow_kind":              normalizeAgreementWorkflowKind(agreement.WorkflowKind),
+		"root_agreement_id":          firstNonEmptyTrimmed(strings.TrimSpace(agreement.RootAgreementID), strings.TrimSpace(agreement.ID)),
+		"parent_agreement_id":        strings.TrimSpace(agreement.ParentAgreementID),
+		"parent_executed_sha256":     strings.TrimSpace(agreement.ParentExecutedSHA256),
 		"title":                      agreement.Title,
 		"message":                    agreement.Message,
 		"version":                    agreement.Version,
@@ -898,6 +916,142 @@ func agreementRecordToMap(
 		}
 	}
 	return payload
+}
+
+func reviewSummaryToMap(summary services.ReviewSummary) map[string]any {
+	payload := map[string]any{
+		"agreement_id":          strings.TrimSpace(summary.AgreementID),
+		"status":                strings.TrimSpace(summary.Status),
+		"gate":                  strings.TrimSpace(summary.Gate),
+		"comments_enabled":      summary.CommentsEnabled,
+		"open_thread_count":     summary.OpenThreadCount,
+		"resolved_thread_count": summary.ResolvedThreadCount,
+	}
+	if summary.Review != nil {
+		payload["review_id"] = strings.TrimSpace(summary.Review.ID)
+		payload["requested_by_user_id"] = strings.TrimSpace(summary.Review.RequestedByUserID)
+		payload["opened_at"] = formatTimePtr(summary.Review.OpenedAt)
+		payload["closed_at"] = formatTimePtr(summary.Review.ClosedAt)
+		payload["last_activity_at"] = formatTimePtr(summary.Review.LastActivityAt)
+	}
+	if len(summary.Participants) > 0 {
+		participants := make([]map[string]any, 0, len(summary.Participants))
+		for _, participant := range summary.Participants {
+			participants = append(participants, map[string]any{
+				"id":              strings.TrimSpace(participant.ID),
+				"recipient_id":    strings.TrimSpace(participant.RecipientID),
+				"role":            strings.TrimSpace(participant.Role),
+				"can_comment":     participant.CanComment,
+				"can_approve":     participant.CanApprove,
+				"decision_status": strings.TrimSpace(participant.DecisionStatus),
+				"decision_at":     formatTimePtr(participant.DecisionAt),
+			})
+		}
+		payload["participants"] = participants
+	}
+	return payload
+}
+
+type agreementLineagePayload struct {
+	SupersededByAgreementID string
+	RelatedAgreements       []map[string]any
+}
+
+func applyAgreementLineagePayload(payload map[string]any, lineage agreementLineagePayload, includeRelated bool) {
+	if len(payload) == 0 {
+		return
+	}
+	if strings.TrimSpace(lineage.SupersededByAgreementID) != "" {
+		payload["superseded_by_agreement_id"] = strings.TrimSpace(lineage.SupersededByAgreementID)
+	}
+	if includeRelated && len(lineage.RelatedAgreements) > 0 {
+		payload["related_agreements"] = lineage.RelatedAgreements
+	}
+}
+
+func buildAgreementLineageIndex(agreements []stores.AgreementRecord) map[string]agreementLineagePayload {
+	if len(agreements) == 0 {
+		return nil
+	}
+	index := map[string]agreementLineagePayload{}
+	groups := map[string][]stores.AgreementRecord{}
+	for _, agreement := range agreements {
+		agreementID := strings.TrimSpace(agreement.ID)
+		if agreementID == "" {
+			continue
+		}
+		rootID := firstNonEmptyTrimmed(strings.TrimSpace(agreement.RootAgreementID), agreementID)
+		groups[rootID] = append(groups[rootID], agreement)
+		if strings.TrimSpace(agreement.ParentAgreementID) == "" {
+			continue
+		}
+		if normalizeAgreementWorkflowKind(agreement.WorkflowKind) != stores.AgreementWorkflowKindCorrection {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(agreement.Status), stores.AgreementStatusDraft) {
+			continue
+		}
+		parentID := strings.TrimSpace(agreement.ParentAgreementID)
+		lineage := index[parentID]
+		lineage.SupersededByAgreementID = agreementID
+		index[parentID] = lineage
+	}
+	for _, records := range groups {
+		sort.SliceStable(records, func(i, j int) bool {
+			if records[i].UpdatedAt.Equal(records[j].UpdatedAt) {
+				return strings.TrimSpace(records[i].ID) < strings.TrimSpace(records[j].ID)
+			}
+			return records[i].UpdatedAt.After(records[j].UpdatedAt)
+		})
+		for _, agreement := range records {
+			agreementID := strings.TrimSpace(agreement.ID)
+			lineage := index[agreementID]
+			for _, related := range records {
+				relatedID := strings.TrimSpace(related.ID)
+				if relatedID == "" || relatedID == agreementID {
+					continue
+				}
+				lineage.RelatedAgreements = append(lineage.RelatedAgreements, agreementLineageSummaryMap(related))
+			}
+			index[agreementID] = lineage
+		}
+	}
+	return index
+}
+
+func agreementLineageSummaryMap(agreement stores.AgreementRecord) map[string]any {
+	return map[string]any{
+		"id":                     strings.TrimSpace(agreement.ID),
+		"title":                  strings.TrimSpace(agreement.Title),
+		"status":                 strings.TrimSpace(agreement.Status),
+		"workflow_kind":          normalizeAgreementWorkflowKind(agreement.WorkflowKind),
+		"root_agreement_id":      firstNonEmptyTrimmed(strings.TrimSpace(agreement.RootAgreementID), strings.TrimSpace(agreement.ID)),
+		"parent_agreement_id":    strings.TrimSpace(agreement.ParentAgreementID),
+		"completed_at":           formatTimePtr(agreement.CompletedAt),
+		"sent_at":                formatTimePtr(agreement.SentAt),
+		"voided_at":              formatTimePtr(agreement.VoidedAt),
+		"parent_executed_sha256": strings.TrimSpace(agreement.ParentExecutedSHA256),
+	}
+}
+
+func normalizeAgreementWorkflowKind(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case stores.AgreementWorkflowKindCorrection:
+		return stores.AgreementWorkflowKindCorrection
+	case stores.AgreementWorkflowKindAmendment:
+		return stores.AgreementWorkflowKindAmendment
+	default:
+		return stores.AgreementWorkflowKindStandard
+	}
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 // computeStageMetrics calculates stage count and active stage from recipients (Task 24.FE.2).
@@ -1286,7 +1440,7 @@ func (r *agreementPanelRepository) syncDraftRecipients(
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
-			Notify:       boolPtr(input.Notify),
+			Notify:       new(input.Notify),
 			SigningOrder: &signingStage,
 		}
 		expectedVersion := int64(0)
@@ -2447,8 +2601,9 @@ func stringPtr(value string) *string {
 	return &trimmed
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func lookupFilter(filters map[string]any, keys ...string) string {
@@ -2479,10 +2634,7 @@ func paginateRecords[T any](records []T, page, perPage int) []T {
 	if start >= len(records) {
 		return nil
 	}
-	end := start + perPage
-	if end > len(records) {
-		end = len(records)
-	}
+	end := min(start+perPage, len(records))
 	out := make([]T, 0, end-start)
 	out = append(out, records[start:end]...)
 	return out

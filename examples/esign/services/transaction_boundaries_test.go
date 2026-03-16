@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 	"time"
@@ -121,9 +120,9 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -131,8 +130,8 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
@@ -225,9 +224,9 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -235,8 +234,8 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)

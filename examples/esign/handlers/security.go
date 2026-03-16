@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -135,6 +136,13 @@ type SignerTokenValidator interface {
 // SignerSessionService handles signer session and field-value lifecycle operations.
 type SignerSessionService interface {
 	GetSession(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerSessionContext, error)
+	ListReviewThreads(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) ([]services.ReviewThread, error)
+	CreateReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentThreadInput) (services.ReviewThread, error)
+	ReplyReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentReplyInput) (services.ReviewThread, error)
+	ResolveReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentStateInput) (services.ReviewThread, error)
+	ReopenReviewThread(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.ReviewCommentStateInput) (services.ReviewThread, error)
+	ApproveReview(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.ReviewSummary, error)
+	RequestReviewChanges(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.ReviewSummary, error)
 	CaptureConsent(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerConsentInput) (services.SignerConsentResult, error)
 	UpsertFieldValue(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerFieldValueInput) (stores.FieldValueRecord, error)
 	IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureUploadInput) (services.SignerSignatureUploadContract, error)
@@ -976,9 +984,7 @@ func writeAPIError(c router.Context, err error, fallbackStatus int, fallbackCode
 		message = "request failed"
 	}
 	details := map[string]any{}
-	for key, value := range fallbackDetails {
-		details[key] = value
-	}
+	maps.Copy(details, fallbackDetails)
 
 	var coded *goerrors.Error
 	if errors.As(err, &coded) {
@@ -991,9 +997,7 @@ func writeAPIError(c router.Context, err error, fallbackStatus int, fallbackCode
 		if strings.TrimSpace(coded.Message) != "" {
 			message = strings.TrimSpace(coded.Message)
 		}
-		for key, value := range coded.Metadata {
-			details[key] = value
-		}
+		maps.Copy(details, coded.Metadata)
 	}
 
 	payload := map[string]any{

@@ -373,6 +373,9 @@ func (r ReadableArtifactRenderer) RenderCertificate(ctx context.Context, input C
 		DocumentHash:         strings.TrimSpace(input.ExecutedSHA256),
 		ExecutedSHA256:       strings.TrimSpace(input.ExecutedSHA256),
 		CorrelationID:        strings.TrimSpace(input.CorrelationID),
+		RootAgreementID:      strings.TrimSpace(input.RootAgreementID),
+		ParentAgreementID:    strings.TrimSpace(input.ParentAgreementID),
+		ParentExecutedSHA256: strings.TrimSpace(input.ParentExecutedSHA256),
 	})
 	if err := r.renderAuditTrailPages(pdf, trailDoc, auditTrailRenderOptions{StandaloneCertificate: true}); err != nil {
 		return RenderedArtifact{}, err

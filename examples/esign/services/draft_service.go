@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"math"
 	"sort"
 	"strconv"
@@ -528,7 +529,7 @@ func normalizeBoundedIntSlice(value any, maxPage int) []int {
 		if raw == "" {
 			return []int{}
 		}
-		for _, part := range strings.Split(raw, ",") {
+		for part := range strings.SplitSeq(raw, ",") {
 			parsed, ok := anyToInt(strings.TrimSpace(part))
 			if !ok || parsed <= 0 {
 				continue
@@ -983,8 +984,8 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
-			Notify:       draftBoolPtr(notify),
-			SigningStage: draftIntPtr(signingStage),
+			Notify:       new(notify),
+			SigningStage: new(signingStage),
 		}, 0)
 		if err != nil {
 			return stores.AgreementRecord{}, err
@@ -1023,8 +1024,8 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
 			LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
 			LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
-			IsUnlinked:        draftBoolPtr(placement.IsUnlinked),
-			TabIndex:          draftIntPtr(idx + 1),
+			IsUnlinked:        new(placement.IsUnlinked),
+			TabIndex:          new(idx + 1),
 			Label:             &label,
 		}); err != nil {
 			return stores.AgreementRecord{}, err
@@ -1197,9 +1198,7 @@ func (s DraftService) appendDraftAudit(ctx context.Context, scope stores.Scope, 
 		actorType = "user"
 	}
 	payload := map[string]any{"draft_id": strings.TrimSpace(draftID)}
-	for key, value := range metadata {
-		payload[key] = value
-	}
+	maps.Copy(payload, metadata)
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("draft audit encode %s for %s: %w", strings.TrimSpace(eventType), strings.TrimSpace(draftID), err)
@@ -1514,12 +1513,14 @@ func resolveWizardTerminalPage(state wizardStatePayload) int {
 	return maxPage
 }
 
+//go:fix inline
 func draftIntPtr(value int) *int {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func draftBoolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func draftStringPtr(value string) *string {

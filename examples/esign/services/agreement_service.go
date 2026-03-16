@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -17,6 +18,7 @@ import (
 // AgreementService manages draft agreement lifecycle and recipient/field mutations.
 type AgreementService struct {
 	agreements            stores.AgreementStore
+	revisionRequests      stores.AgreementRevisionRequestStore
 	documents             stores.DocumentStore
 	placementRuns         stores.PlacementRunStore
 	reminders             stores.AgreementReminderStore
@@ -86,6 +88,13 @@ type AgreementEmailWorkflow interface {
 type AgreementNotificationDispatchTrigger interface {
 	NotifyScope(scope stores.Scope)
 }
+
+type AgreementRevisionKind string
+
+const (
+	AgreementRevisionKindCorrection AgreementRevisionKind = "correction"
+	AgreementRevisionKindAmendment  AgreementRevisionKind = "amendment"
+)
 
 // WithAgreementClock sets the service clock.
 func WithAgreementClock(now func() time.Time) AgreementServiceOption {
@@ -226,17 +235,18 @@ type AgreementValidationResult struct {
 
 func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) AgreementService {
 	svc := AgreementService{
-		agreements:    store,
-		documents:     store,
-		placementRuns: store,
-		reminders:     store,
-		audits:        store,
-		outbox:        store,
-		effects:       store,
-		tokens:        stores.NewTokenService(store),
-		tx:            store,
-		pdfs:          NewPDFService(),
-		now:           func() time.Time { return time.Now().UTC() },
+		agreements:       store,
+		revisionRequests: store,
+		documents:        store,
+		placementRuns:    store,
+		reminders:        store,
+		audits:           store,
+		outbox:           store,
+		effects:          store,
+		tokens:           stores.NewTokenService(store),
+		tx:               store,
+		pdfs:             NewPDFService(),
+		now:              func() time.Time { return time.Now().UTC() },
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -251,6 +261,7 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 	txSvc := s
 	txSvc.agreements = tx
+	txSvc.revisionRequests = tx
 	txSvc.documents = tx
 	if !txSvc.customPlacementRuns {
 		txSvc.placementRuns = tx
@@ -307,6 +318,15 @@ func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(Agreemen
 		}
 		return fn(s.forTx(tx), hooks)
 	})
+}
+
+// CreateRevisionInput captures source-agreement bootstrap parameters for correction/amendment drafts.
+type CreateRevisionInput struct {
+	SourceAgreementID string
+	Kind              AgreementRevisionKind
+	CreatedByUserID   string
+	IdempotencyKey    string
+	IPAddress         string
 }
 
 // SendInput controls send transition behavior.
@@ -427,6 +447,141 @@ func (s AgreementService) CreateDraft(ctx context.Context, scope stores.Scope, i
 		return stores.AgreementRecord{}, err
 	}
 	return agreement, nil
+}
+
+// CreateRevision creates a new draft agreement linked to an existing in-flight or completed agreement.
+func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope, input CreateRevisionInput) (stores.AgreementRecord, error) {
+	if s.agreements == nil {
+		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
+	}
+	sourceAgreementID := strings.TrimSpace(input.SourceAgreementID)
+	if sourceAgreementID == "" {
+		return stores.AgreementRecord{}, domainValidationError("agreements", "source_agreement_id", "required")
+	}
+	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
+	if createdByUserID == "" {
+		return stores.AgreementRecord{}, domainValidationError("agreements", "created_by_user_id", "required")
+	}
+	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
+	kind := normalizeAgreementRevisionKind(input.Kind)
+	if kind == "" {
+		return stores.AgreementRecord{}, domainValidationError("agreements", "revision_kind", "unsupported revision kind")
+	}
+
+	var created stores.AgreementRecord
+	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		requestID := ""
+		if txSvc.revisionRequests != nil && idempotencyKey != "" {
+			request, reserved, err := txSvc.revisionRequests.BeginAgreementRevisionRequest(ctx, scope, stores.AgreementRevisionRequestInput{
+				SourceAgreementID: sourceAgreementID,
+				RevisionKind:      string(kind),
+				IdempotencyKey:    idempotencyKey,
+				RequestHash:       txSvc.revisionRequestHash(sourceAgreementID, kind, createdByUserID),
+				ActorID:           createdByUserID,
+				Now:               txSvc.now().UTC(),
+			})
+			if err != nil {
+				return err
+			}
+			if !reserved {
+				if strings.TrimSpace(request.CreatedAgreementID) == "" {
+					return domainValidationError("agreement_revision_requests", "created_agreement_id", "replay request incomplete")
+				}
+				created, err = txSvc.agreements.GetAgreement(ctx, scope, request.CreatedAgreementID)
+				return err
+			}
+			requestID = strings.TrimSpace(request.ID)
+		}
+		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
+		if err != nil {
+			return err
+		}
+		if err := validateSourceAgreementForRevision(source, kind); err != nil {
+			return err
+		}
+
+		parentExecutedSHA256, err := txSvc.resolveParentExecutedSHA256(ctx, scope, source, kind)
+		if err != nil {
+			return err
+		}
+		now := txSvc.now().UTC()
+		rootAgreementID := strings.TrimSpace(source.RootAgreementID)
+		if rootAgreementID == "" {
+			rootAgreementID = strings.TrimSpace(source.ID)
+		}
+		workflowKind := stores.AgreementWorkflowKindCorrection
+		sourceEventType := "agreement.correction_requested"
+		childCreatedEventType := "agreement.correction_draft_created"
+		childLinkedEventType := "agreement.corrected_from"
+		if kind == AgreementRevisionKindAmendment {
+			workflowKind = stores.AgreementWorkflowKindAmendment
+			sourceEventType = "agreement.amendment_requested"
+			childCreatedEventType = "agreement.amendment_draft_created"
+			childLinkedEventType = "agreement.amended_from"
+		}
+
+		created, err = txSvc.agreements.CreateDraft(ctx, scope, stores.AgreementRecord{
+			DocumentID:             strings.TrimSpace(source.DocumentID),
+			WorkflowKind:           workflowKind,
+			RootAgreementID:        rootAgreementID,
+			ParentAgreementID:      strings.TrimSpace(source.ID),
+			ParentExecutedSHA256:   strings.TrimSpace(parentExecutedSHA256),
+			SourceType:             strings.TrimSpace(source.SourceType),
+			SourceGoogleFileID:     strings.TrimSpace(source.SourceGoogleFileID),
+			SourceGoogleDocURL:     strings.TrimSpace(source.SourceGoogleDocURL),
+			SourceModifiedTime:     source.SourceModifiedTime,
+			SourceExportedAt:       source.SourceExportedAt,
+			SourceExportedByUserID: strings.TrimSpace(source.SourceExportedByUserID),
+			SourceMimeType:         strings.TrimSpace(source.SourceMimeType),
+			SourceIngestionMode:    strings.TrimSpace(source.SourceIngestionMode),
+			Status:                 stores.AgreementStatusDraft,
+			Title:                  strings.TrimSpace(source.Title),
+			Message:                strings.TrimSpace(source.Message),
+			CreatedByUserID:        createdByUserID,
+			UpdatedByUserID:        createdByUserID,
+			CreatedAt:              now,
+			UpdatedAt:              now,
+		})
+		if err != nil {
+			return err
+		}
+		if err := txSvc.copyRevisionAuthoringState(ctx, scope, source, created); err != nil {
+			return err
+		}
+
+		baseMetadata := map[string]any{
+			"source_agreement_id":    strings.TrimSpace(source.ID),
+			"new_agreement_id":       strings.TrimSpace(created.ID),
+			"root_agreement_id":      strings.TrimSpace(rootAgreementID),
+			"parent_agreement_id":    strings.TrimSpace(source.ID),
+			"workflow_kind":          strings.TrimSpace(workflowKind),
+			"parent_executed_sha256": strings.TrimSpace(parentExecutedSHA256),
+			"idempotency_key":        idempotencyKey,
+			"change_summary": map[string]any{
+				"document_changed": nil,
+				"title_changed":    nil,
+				"message_changed":  nil,
+			},
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, source.ID, sourceEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childCreatedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childLinkedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
+			return err
+		}
+		if requestID != "" {
+			if _, err := txSvc.revisionRequests.CompleteAgreementRevisionRequest(ctx, scope, requestID, created.ID, txSvc.now().UTC()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	return created, nil
 }
 
 // UpdateDraft updates mutable draft fields.
@@ -891,6 +1046,13 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 			})
 		}
 	}
+	if err := s.validateReviewGateBeforeSend(ctx, scope, agreement); err != nil {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "review_status",
+			Message: err.Error(),
+		})
+	}
 
 	return AgreementValidationResult{
 		Valid:          len(issues) == 0,
@@ -1047,6 +1209,30 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			}
 			return domainValidationError("agreements", "status", "send requires draft status")
 		}
+		workflowKind := strings.TrimSpace(agreement.WorkflowKind)
+		parentAgreementID := strings.TrimSpace(agreement.ParentAgreementID)
+		var parentAgreement stores.AgreementRecord
+		var changeSummary map[string]any
+		if (workflowKind == stores.AgreementWorkflowKindCorrection || workflowKind == stores.AgreementWorkflowKindAmendment) && parentAgreementID != "" {
+			parentAgreement, err = txSvc.agreements.GetAgreement(ctx, scope, parentAgreementID)
+			if err != nil {
+				return err
+			}
+			switch workflowKind {
+			case stores.AgreementWorkflowKindCorrection:
+				if parentAgreement.Status != stores.AgreementStatusSent && parentAgreement.Status != stores.AgreementStatusInProgress {
+					return domainValidationError("agreements", "parent_agreement_id", "correction parent must be sent or in_progress")
+				}
+			case stores.AgreementWorkflowKindAmendment:
+				if parentAgreement.Status != stores.AgreementStatusCompleted {
+					return domainValidationError("agreements", "parent_agreement_id", "amendment parent must be completed")
+				}
+			}
+			changeSummary, err = txSvc.buildAgreementChangeSummary(ctx, scope, parentAgreement, agreement)
+			if err != nil {
+				return err
+			}
+		}
 		compatibilityStartedAt := time.Now()
 		document, compatibility, err := txSvc.resolveAgreementDocumentCompatibility(ctx, scope, agreement)
 		if err != nil {
@@ -1153,6 +1339,11 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
 			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
 			"status":                   transitioned.Status,
+			"workflow_kind":            strings.TrimSpace(transitioned.WorkflowKind),
+			"root_agreement_id":        strings.TrimSpace(transitioned.RootAgreementID),
+			"parent_agreement_id":      strings.TrimSpace(transitioned.ParentAgreementID),
+			"parent_executed_sha256":   strings.TrimSpace(transitioned.ParentExecutedSHA256),
+			"change_summary":           cloneAnyMap(changeSummary),
 			"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
 			"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
 			"active_stage":             activeStage,
@@ -1217,6 +1408,49 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		transitioned, _, err = ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, transitioned.ID)
 		if err != nil {
 			return err
+		}
+		if workflowKind == stores.AgreementWorkflowKindCorrection && strings.TrimSpace(parentAgreement.ID) != "" {
+			parentRecipients, err := txSvc.agreements.ListRecipients(ctx, scope, parentAgreement.ID)
+			if err != nil {
+				return err
+			}
+			for _, recipient := range parentRecipients {
+				if recipient.Role != stores.RecipientRoleSigner {
+					continue
+				}
+				if err := txSvc.tokens.Revoke(ctx, scope, parentAgreement.ID, recipient.ID); err != nil {
+					return err
+				}
+			}
+			parentAgreement, err = txSvc.agreements.Transition(ctx, scope, parentAgreement.ID, stores.AgreementTransitionInput{
+				ToStatus:        stores.AgreementStatusVoided,
+				ExpectedVersion: parentAgreement.Version,
+			})
+			if err != nil {
+				return err
+			}
+			if err := txSvc.appendAuditEventWithIP(ctx, scope, parentAgreement.ID, "agreement.voided", "system", "", input.IPAddress, map[string]any{
+				"reason":           "superseded_by_correction",
+				"revoke_tokens":    true,
+				"superseded_by_id": strings.TrimSpace(transitioned.ID),
+				"workflow_kind":    strings.TrimSpace(transitioned.WorkflowKind),
+			}); err != nil {
+				return err
+			}
+			if err := txSvc.appendAuditEventWithIP(ctx, scope, parentAgreement.ID, "agreement.superseded_by_correction", "system", "", input.IPAddress, map[string]any{
+				"new_agreement_id":    strings.TrimSpace(transitioned.ID),
+				"source_agreement_id": strings.TrimSpace(parentAgreement.ID),
+				"root_agreement_id":   strings.TrimSpace(transitioned.RootAgreementID),
+				"parent_agreement_id": strings.TrimSpace(transitioned.ParentAgreementID),
+				"workflow_kind":       strings.TrimSpace(transitioned.WorkflowKind),
+				"change_summary":      cloneAnyMap(changeSummary),
+				"new_document_id":     strings.TrimSpace(transitioned.DocumentID),
+				"new_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["new_document_sha256"])),
+				"old_document_id":     strings.TrimSpace(parentAgreement.DocumentID),
+				"old_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["old_document_sha256"])),
+			}); err != nil {
+				return err
+			}
 		}
 		result = transitioned
 		LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
@@ -1807,6 +2041,770 @@ func (s AgreementService) sendIdempotencyKey(scope stores.Scope, agreementID, id
 		strings.TrimSpace(agreementID),
 		strings.TrimSpace(idempotencyKey),
 	}, "|")
+}
+
+func normalizeAgreementRevisionKind(kind AgreementRevisionKind) AgreementRevisionKind {
+	switch AgreementRevisionKind(strings.ToLower(strings.TrimSpace(string(kind)))) {
+	case AgreementRevisionKindCorrection:
+		return AgreementRevisionKindCorrection
+	case AgreementRevisionKindAmendment:
+		return AgreementRevisionKindAmendment
+	default:
+		return ""
+	}
+}
+
+func (s AgreementService) revisionRequestHash(sourceAgreementID string, kind AgreementRevisionKind, actorID string) string {
+	return strings.Join([]string{
+		strings.TrimSpace(sourceAgreementID),
+		strings.TrimSpace(string(kind)),
+		strings.TrimSpace(actorID),
+	}, "|")
+}
+
+func validateSourceAgreementForRevision(source stores.AgreementRecord, kind AgreementRevisionKind) error {
+	switch kind {
+	case AgreementRevisionKindCorrection:
+		if source.Status != stores.AgreementStatusSent && source.Status != stores.AgreementStatusInProgress {
+			return domainValidationError("agreements", "status", "correction requires sent or in_progress status")
+		}
+	case AgreementRevisionKindAmendment:
+		if source.Status != stores.AgreementStatusCompleted {
+			return domainValidationError("agreements", "status", "amendment requires completed status")
+		}
+	default:
+		return domainValidationError("agreements", "revision_kind", "unsupported revision kind")
+	}
+	return nil
+}
+
+func (s AgreementService) resolveParentExecutedSHA256(ctx context.Context, scope stores.Scope, source stores.AgreementRecord, kind AgreementRevisionKind) (string, error) {
+	if kind != AgreementRevisionKindAmendment {
+		return "", nil
+	}
+	store, ok := s.agreements.(stores.AgreementArtifactStore)
+	if !ok || store == nil {
+		return "", domainValidationError("artifacts", "store", "not configured")
+	}
+	record, err := store.GetAgreementArtifacts(ctx, scope, strings.TrimSpace(source.ID))
+	if err != nil {
+		return "", err
+	}
+	sha := strings.TrimSpace(record.ExecutedSHA256)
+	if sha == "" {
+		return "", domainValidationError("artifacts", "executed_sha256", "completed agreement executed artifact required before amendment")
+	}
+	return sha, nil
+}
+
+func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope stores.Scope, source, target stores.AgreementRecord) error {
+	participants, err := s.agreements.ListParticipants(ctx, scope, source.ID)
+	if err != nil {
+		return err
+	}
+	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, source.ID)
+	if err != nil {
+		return err
+	}
+	instances, err := s.agreements.ListFieldInstances(ctx, scope, source.ID)
+	if err != nil {
+		return err
+	}
+
+	participantIDs := map[string]string{}
+	for _, participant := range participants {
+		email := strings.TrimSpace(participant.Email)
+		name := strings.TrimSpace(participant.Name)
+		role := strings.TrimSpace(participant.Role)
+		stage := participant.SigningStage
+		notify := participant.Notify
+		cloned, err := s.agreements.UpsertParticipantDraft(ctx, scope, target.ID, stores.ParticipantDraftPatch{
+			Email:        &email,
+			Name:         &name,
+			Role:         &role,
+			Notify:       &notify,
+			SigningStage: &stage,
+		}, 0)
+		if err != nil {
+			return err
+		}
+		participantIDs[strings.TrimSpace(participant.ID)] = strings.TrimSpace(cloned.ID)
+	}
+
+	definitionIDs := map[string]string{}
+	for _, definition := range definitions {
+		participantID := strings.TrimSpace(participantIDs[strings.TrimSpace(definition.ParticipantID)])
+		fieldType := strings.TrimSpace(definition.Type)
+		required := definition.Required
+		validationJSON := strings.TrimSpace(definition.ValidationJSON)
+		cloned, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, target.ID, stores.FieldDefinitionDraftPatch{
+			ParticipantID:  &participantID,
+			Type:           &fieldType,
+			Required:       &required,
+			ValidationJSON: &validationJSON,
+		})
+		if err != nil {
+			return err
+		}
+		definitionIDs[strings.TrimSpace(definition.ID)] = strings.TrimSpace(cloned.ID)
+	}
+
+	instanceIDs := map[string]string{}
+	type linkedFieldUpdate struct {
+		instanceID        string
+		fieldDefinitionID string
+		linkedFromFieldID string
+	}
+	pendingLinkedUpdates := make([]linkedFieldUpdate, 0)
+	for _, instance := range instances {
+		fieldDefinitionID := strings.TrimSpace(definitionIDs[strings.TrimSpace(instance.FieldDefinitionID)])
+		pageNumber := instance.PageNumber
+		x := instance.X
+		y := instance.Y
+		width := instance.Width
+		height := instance.Height
+		tabIndex := instance.TabIndex
+		label := strings.TrimSpace(instance.Label)
+		appearanceJSON := strings.TrimSpace(instance.AppearanceJSON)
+		placementSource := strings.TrimSpace(instance.PlacementSource)
+		resolverID := strings.TrimSpace(instance.ResolverID)
+		confidence := instance.Confidence
+		placementRunID := strings.TrimSpace(instance.PlacementRunID)
+		manualOverride := instance.ManualOverride
+		linkGroupID := strings.TrimSpace(instance.LinkGroupID)
+		isUnlinked := instance.IsUnlinked
+		cloned, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, target.ID, stores.FieldInstanceDraftPatch{
+			FieldDefinitionID: &fieldDefinitionID,
+			PageNumber:        &pageNumber,
+			X:                 &x,
+			Y:                 &y,
+			Width:             &width,
+			Height:            &height,
+			TabIndex:          &tabIndex,
+			Label:             &label,
+			AppearanceJSON:    &appearanceJSON,
+			PlacementSource:   &placementSource,
+			ResolverID:        &resolverID,
+			Confidence:        &confidence,
+			PlacementRunID:    &placementRunID,
+			ManualOverride:    &manualOverride,
+			LinkGroupID:       &linkGroupID,
+			IsUnlinked:        &isUnlinked,
+		})
+		if err != nil {
+			return err
+		}
+		instanceIDs[strings.TrimSpace(instance.ID)] = strings.TrimSpace(cloned.ID)
+		if strings.TrimSpace(instance.LinkedFromFieldID) != "" {
+			pendingLinkedUpdates = append(pendingLinkedUpdates, linkedFieldUpdate{
+				instanceID:        strings.TrimSpace(cloned.ID),
+				fieldDefinitionID: fieldDefinitionID,
+				linkedFromFieldID: strings.TrimSpace(instance.LinkedFromFieldID),
+			})
+		}
+	}
+	for _, pending := range pendingLinkedUpdates {
+		linkedFromFieldID := strings.TrimSpace(instanceIDs[pending.linkedFromFieldID])
+		if linkedFromFieldID == "" {
+			continue
+		}
+		if _, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, target.ID, stores.FieldInstanceDraftPatch{
+			ID:                strings.TrimSpace(pending.instanceID),
+			FieldDefinitionID: &pending.fieldDefinitionID,
+			LinkedFromFieldID: &linkedFromFieldID,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	maps.Copy(out, in)
+	return out
+}
+
+type comparableParticipant struct {
+	ID           string
+	Email        string
+	Name         string
+	Role         string
+	SigningStage int
+	Notify       bool
+}
+
+type comparableField struct {
+	ID              string
+	ParticipantKey  string
+	Type            string
+	Required        bool
+	PageNumber      int
+	X               float64
+	Y               float64
+	Width           float64
+	Height          float64
+	TabIndex        int
+	Label           string
+	PlacementSource string
+	LinkGroupID     string
+	IsUnlinked      bool
+}
+
+func (s AgreementService) buildAgreementChangeSummary(ctx context.Context, scope stores.Scope, source, target stores.AgreementRecord) (map[string]any, error) {
+	oldDocumentSHA, err := s.documentSHA256(ctx, scope, strings.TrimSpace(source.DocumentID))
+	if err != nil {
+		return nil, err
+	}
+	newDocumentSHA, err := s.documentSHA256(ctx, scope, strings.TrimSpace(target.DocumentID))
+	if err != nil {
+		return nil, err
+	}
+	sourceParticipants, err := s.agreements.ListParticipants(ctx, scope, strings.TrimSpace(source.ID))
+	if err != nil {
+		return nil, err
+	}
+	targetParticipants, err := s.agreements.ListParticipants(ctx, scope, strings.TrimSpace(target.ID))
+	if err != nil {
+		return nil, err
+	}
+	sourceDefinitions, err := s.agreements.ListFieldDefinitions(ctx, scope, strings.TrimSpace(source.ID))
+	if err != nil {
+		return nil, err
+	}
+	targetDefinitions, err := s.agreements.ListFieldDefinitions(ctx, scope, strings.TrimSpace(target.ID))
+	if err != nil {
+		return nil, err
+	}
+	sourceInstances, err := s.agreements.ListFieldInstances(ctx, scope, strings.TrimSpace(source.ID))
+	if err != nil {
+		return nil, err
+	}
+	targetInstances, err := s.agreements.ListFieldInstances(ctx, scope, strings.TrimSpace(target.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	participantChanges := diffComparableParticipants(sourceParticipants, targetParticipants)
+	fieldChanges := diffComparableFields(sourceParticipants, sourceDefinitions, sourceInstances, targetParticipants, targetDefinitions, targetInstances)
+	return map[string]any{
+		"document_changed":    strings.TrimSpace(source.DocumentID) != strings.TrimSpace(target.DocumentID) || oldDocumentSHA != newDocumentSHA,
+		"title_changed":       strings.TrimSpace(source.Title) != strings.TrimSpace(target.Title),
+		"message_changed":     strings.TrimSpace(source.Message) != strings.TrimSpace(target.Message),
+		"old_document_id":     strings.TrimSpace(source.DocumentID),
+		"new_document_id":     strings.TrimSpace(target.DocumentID),
+		"old_document_sha256": oldDocumentSHA,
+		"new_document_sha256": newDocumentSHA,
+		"participants":        participantChanges,
+		"fields":              fieldChanges,
+		"document": map[string]any{
+			"old_document_id": strings.TrimSpace(source.DocumentID),
+			"new_document_id": strings.TrimSpace(target.DocumentID),
+			"old_sha256":      oldDocumentSHA,
+			"new_sha256":      newDocumentSHA,
+		},
+	}, nil
+}
+
+func (s AgreementService) documentSHA256(ctx context.Context, scope stores.Scope, documentID string) (string, error) {
+	documentID = strings.TrimSpace(documentID)
+	if documentID == "" {
+		return "", nil
+	}
+	if s.documents == nil {
+		return "", domainValidationError("documents", "store", "not configured")
+	}
+	record, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(record.SourceSHA256), nil
+}
+
+func diffComparableParticipants(source, target []stores.ParticipantRecord) map[string]any {
+	left := comparableParticipants(source)
+	right := comparableParticipants(target)
+	added := make([]map[string]any, 0)
+	removed := make([]map[string]any, 0)
+	updated := make([]map[string]any, 0)
+	matches := matchComparableParticipants(left, right)
+	matchedLeft := map[int]int{}
+	matchedRight := map[int]int{}
+	for _, match := range matches {
+		matchedLeft[match.LeftIndex] = match.RightIndex
+		matchedRight[match.RightIndex] = match.LeftIndex
+		changedFields := comparableParticipantChangedFields(left[match.LeftIndex], right[match.RightIndex])
+		if len(changedFields) == 0 {
+			continue
+		}
+		updated = append(updated, map[string]any{
+			"participant_id": right[match.RightIndex].ID,
+			"fields":         changedFields,
+		})
+	}
+	for index := range left {
+		if _, ok := matchedLeft[index]; ok {
+			continue
+		}
+		removed = append(removed, comparableParticipantMap(left[index]))
+	}
+	for index := range right {
+		if _, ok := matchedRight[index]; ok {
+			continue
+		}
+		added = append(added, comparableParticipantMap(right[index]))
+	}
+	return map[string]any{
+		"added":   added,
+		"removed": removed,
+		"updated": updated,
+	}
+}
+
+func comparableParticipants(records []stores.ParticipantRecord) []comparableParticipant {
+	out := make([]comparableParticipant, 0, len(records))
+	for _, record := range records {
+		stage := record.SigningStage
+		if stage <= 0 {
+			stage = 1
+		}
+		out = append(out, comparableParticipant{
+			ID:           strings.TrimSpace(record.ID),
+			Email:        strings.TrimSpace(record.Email),
+			Name:         strings.TrimSpace(record.Name),
+			Role:         strings.TrimSpace(record.Role),
+			SigningStage: stage,
+			Notify:       record.Notify,
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].SigningStage == out[j].SigningStage {
+			if out[i].Role == out[j].Role {
+				if out[i].Email == out[j].Email {
+					return out[i].Name < out[j].Name
+				}
+				return out[i].Email < out[j].Email
+			}
+			return out[i].Role < out[j].Role
+		}
+		return out[i].SigningStage < out[j].SigningStage
+	})
+	return out
+}
+
+func comparableParticipantMap(record comparableParticipant) map[string]any {
+	return map[string]any{
+		"participant_id": record.ID,
+		"email":          record.Email,
+		"name":           record.Name,
+		"role":           record.Role,
+		"signing_stage":  record.SigningStage,
+		"notify":         record.Notify,
+	}
+}
+
+func comparableParticipantChangedFields(left, right comparableParticipant) []string {
+	changed := make([]string, 0)
+	if left.Email != right.Email {
+		changed = append(changed, "email")
+	}
+	if left.Name != right.Name {
+		changed = append(changed, "name")
+	}
+	if left.Role != right.Role {
+		changed = append(changed, "role")
+	}
+	if left.SigningStage != right.SigningStage {
+		changed = append(changed, "signing_stage")
+	}
+	if left.Notify != right.Notify {
+		changed = append(changed, "notify")
+	}
+	return changed
+}
+
+func diffComparableFields(
+	sourceParticipants []stores.ParticipantRecord,
+	sourceDefinitions []stores.FieldDefinitionRecord,
+	sourceInstances []stores.FieldInstanceRecord,
+	targetParticipants []stores.ParticipantRecord,
+	targetDefinitions []stores.FieldDefinitionRecord,
+	targetInstances []stores.FieldInstanceRecord,
+) map[string]any {
+	left := comparableFields(sourceParticipants, sourceDefinitions, sourceInstances)
+	right := comparableFields(targetParticipants, targetDefinitions, targetInstances)
+	added := make([]string, 0)
+	removed := make([]string, 0)
+	moved := make([]map[string]any, 0)
+	updated := make([]map[string]any, 0)
+	matches := matchComparableFields(left, right)
+	matchedLeft := map[int]int{}
+	matchedRight := map[int]int{}
+	for _, match := range matches {
+		matchedLeft[match.LeftIndex] = match.RightIndex
+		matchedRight[match.RightIndex] = match.LeftIndex
+		changedFields, movedFields := comparableFieldChangedFields(left[match.LeftIndex], right[match.RightIndex])
+		if movedFields {
+			moved = append(moved, map[string]any{
+				"field_id": right[match.RightIndex].ID,
+				"from": map[string]any{
+					"page":   left[match.LeftIndex].PageNumber,
+					"x":      left[match.LeftIndex].X,
+					"y":      left[match.LeftIndex].Y,
+					"width":  left[match.LeftIndex].Width,
+					"height": left[match.LeftIndex].Height,
+				},
+				"to": map[string]any{
+					"page":   right[match.RightIndex].PageNumber,
+					"x":      right[match.RightIndex].X,
+					"y":      right[match.RightIndex].Y,
+					"width":  right[match.RightIndex].Width,
+					"height": right[match.RightIndex].Height,
+				},
+			})
+		}
+		if len(changedFields) > 0 {
+			updated = append(updated, map[string]any{
+				"field_id": right[match.RightIndex].ID,
+				"fields":   changedFields,
+			})
+		}
+	}
+	for index := range left {
+		if _, ok := matchedLeft[index]; ok {
+			continue
+		}
+		removed = append(removed, left[index].ID)
+	}
+	for index := range right {
+		if _, ok := matchedRight[index]; ok {
+			continue
+		}
+		added = append(added, right[index].ID)
+	}
+	return map[string]any{
+		"added":   added,
+		"removed": removed,
+		"moved":   moved,
+		"updated": updated,
+	}
+}
+
+func comparableFields(
+	participants []stores.ParticipantRecord,
+	definitions []stores.FieldDefinitionRecord,
+	instances []stores.FieldInstanceRecord,
+) []comparableField {
+	participantKeyByID := map[string]string{}
+	for _, participant := range comparableParticipants(participants) {
+		participantKeyByID[strings.TrimSpace(participant.ID)] = strings.Join([]string{
+			fmt.Sprintf("%d", participant.SigningStage),
+			participant.Role,
+			participant.Email,
+			participant.Name,
+		}, "|")
+	}
+	definitionByID := map[string]stores.FieldDefinitionRecord{}
+	for _, definition := range definitions {
+		definitionByID[strings.TrimSpace(definition.ID)] = definition
+	}
+	out := make([]comparableField, 0, len(instances))
+	for _, instance := range instances {
+		definition, ok := definitionByID[strings.TrimSpace(instance.FieldDefinitionID)]
+		if !ok {
+			continue
+		}
+		out = append(out, comparableField{
+			ID:              strings.TrimSpace(instance.ID),
+			ParticipantKey:  participantKeyByID[strings.TrimSpace(definition.ParticipantID)],
+			Type:            strings.TrimSpace(definition.Type),
+			Required:        definition.Required,
+			PageNumber:      instance.PageNumber,
+			X:               instance.X,
+			Y:               instance.Y,
+			Width:           instance.Width,
+			Height:          instance.Height,
+			TabIndex:        instance.TabIndex,
+			Label:           strings.TrimSpace(instance.Label),
+			PlacementSource: strings.TrimSpace(instance.PlacementSource),
+			LinkGroupID:     strings.TrimSpace(instance.LinkGroupID),
+			IsUnlinked:      instance.IsUnlinked,
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].ParticipantKey == out[j].ParticipantKey {
+			if out[i].Type == out[j].Type {
+				if out[i].PageNumber == out[j].PageNumber {
+					if out[i].Y == out[j].Y {
+						return out[i].X < out[j].X
+					}
+					return out[i].Y < out[j].Y
+				}
+				return out[i].PageNumber < out[j].PageNumber
+			}
+			return out[i].Type < out[j].Type
+		}
+		return out[i].ParticipantKey < out[j].ParticipantKey
+	})
+	return out
+}
+
+func comparableFieldChangedFields(left, right comparableField) ([]string, bool) {
+	changed := make([]string, 0)
+	moved := false
+	if left.ParticipantKey != right.ParticipantKey {
+		changed = append(changed, "participant")
+	}
+	if left.Type != right.Type {
+		changed = append(changed, "type")
+	}
+	if left.Required != right.Required {
+		changed = append(changed, "required")
+	}
+	if left.PageNumber != right.PageNumber {
+		changed = append(changed, "page_number")
+		moved = true
+	}
+	if left.X != right.X {
+		changed = append(changed, "x")
+		moved = true
+	}
+	if left.Y != right.Y {
+		changed = append(changed, "y")
+		moved = true
+	}
+	if left.Width != right.Width {
+		changed = append(changed, "width")
+		moved = true
+	}
+	if left.Height != right.Height {
+		changed = append(changed, "height")
+		moved = true
+	}
+	if left.TabIndex != right.TabIndex {
+		changed = append(changed, "tab_index")
+	}
+	if left.Label != right.Label {
+		changed = append(changed, "label")
+	}
+	if left.PlacementSource != right.PlacementSource {
+		changed = append(changed, "placement_source")
+	}
+	if left.LinkGroupID != right.LinkGroupID {
+		changed = append(changed, "link_group_id")
+	}
+	if left.IsUnlinked != right.IsUnlinked {
+		changed = append(changed, "is_unlinked")
+	}
+	return changed, moved
+}
+
+type comparableMatch struct {
+	LeftIndex  int
+	RightIndex int
+	Score      int
+}
+
+func matchComparableParticipants(left, right []comparableParticipant) []comparableMatch {
+	return matchComparableRecords(
+		len(left),
+		len(right),
+		func(index int) string { return comparableParticipantExactKey(left[index]) },
+		func(index int) string { return comparableParticipantExactKey(right[index]) },
+		func(leftIndex, rightIndex int) int {
+			return comparableParticipantMatchScore(left[leftIndex], right[rightIndex])
+		},
+		6,
+	)
+}
+
+func comparableParticipantExactKey(record comparableParticipant) string {
+	return strings.Join([]string{
+		record.Email,
+		record.Name,
+		record.Role,
+		fmt.Sprintf("%d", record.SigningStage),
+		fmt.Sprintf("%t", record.Notify),
+	}, "|")
+}
+
+func comparableParticipantMatchScore(left, right comparableParticipant) int {
+	score := 0
+	if left.Email != "" && right.Email != "" && left.Email == right.Email {
+		score += 8
+	}
+	if left.Name != "" && right.Name != "" && left.Name == right.Name {
+		score += 4
+	}
+	if left.Role == right.Role {
+		score += 2
+	}
+	if left.SigningStage == right.SigningStage {
+		score += 2
+	}
+	if left.Notify == right.Notify {
+		score++
+	}
+	return score
+}
+
+func matchComparableFields(left, right []comparableField) []comparableMatch {
+	return matchComparableRecords(
+		len(left),
+		len(right),
+		func(index int) string { return comparableFieldIdentityKey(left[index]) },
+		func(index int) string { return comparableFieldIdentityKey(right[index]) },
+		func(leftIndex, rightIndex int) int {
+			return comparableFieldMatchScore(left[leftIndex], right[rightIndex])
+		},
+		10,
+	)
+}
+
+func comparableFieldIdentityKey(record comparableField) string {
+	return strings.Join([]string{
+		record.ParticipantKey,
+		record.Type,
+		fmt.Sprintf("%t", record.Required),
+		record.Label,
+		fmt.Sprintf("%d", record.TabIndex),
+		record.PlacementSource,
+		record.LinkGroupID,
+		fmt.Sprintf("%t", record.IsUnlinked),
+	}, "|")
+}
+
+func comparableFieldMatchScore(left, right comparableField) int {
+	score := 0
+	if left.ParticipantKey != "" && left.ParticipantKey == right.ParticipantKey {
+		score += 8
+	}
+	if left.Type == right.Type {
+		score += 6
+	}
+	if left.Label != "" && right.Label != "" && left.Label == right.Label {
+		score += 4
+	}
+	if left.Required == right.Required {
+		score += 2
+	}
+	if left.LinkGroupID != "" && right.LinkGroupID != "" && left.LinkGroupID == right.LinkGroupID {
+		score += 2
+	}
+	if left.TabIndex == right.TabIndex {
+		score++
+	}
+	if left.PlacementSource == right.PlacementSource {
+		score++
+	}
+	if left.IsUnlinked == right.IsUnlinked {
+		score++
+	}
+	return score
+}
+
+func matchComparableRecords(
+	leftLen, rightLen int,
+	leftExactKey func(index int) string,
+	rightExactKey func(index int) string,
+	score func(leftIndex, rightIndex int) int,
+	threshold int,
+) []comparableMatch {
+	matches := make([]comparableMatch, 0)
+	if leftLen == 0 || rightLen == 0 {
+		return matches
+	}
+	leftMatched := make([]bool, leftLen)
+	rightMatched := make([]bool, rightLen)
+
+	type exactBucket struct {
+		leftIndexes  []int
+		rightIndexes []int
+	}
+	buckets := map[string]*exactBucket{}
+	for index := range leftLen {
+		key := strings.TrimSpace(leftExactKey(index))
+		if key == "" {
+			continue
+		}
+		bucket := buckets[key]
+		if bucket == nil {
+			bucket = &exactBucket{}
+			buckets[key] = bucket
+		}
+		bucket.leftIndexes = append(bucket.leftIndexes, index)
+	}
+	for index := range rightLen {
+		key := strings.TrimSpace(rightExactKey(index))
+		if key == "" {
+			continue
+		}
+		bucket := buckets[key]
+		if bucket == nil {
+			bucket = &exactBucket{}
+			buckets[key] = bucket
+		}
+		bucket.rightIndexes = append(bucket.rightIndexes, index)
+	}
+	for _, bucket := range buckets {
+		limit := min(len(bucket.rightIndexes), len(bucket.leftIndexes))
+		for index := 0; index < limit; index++ {
+			leftIndex := bucket.leftIndexes[index]
+			rightIndex := bucket.rightIndexes[index]
+			leftMatched[leftIndex] = true
+			rightMatched[rightIndex] = true
+			matches = append(matches, comparableMatch{
+				LeftIndex:  leftIndex,
+				RightIndex: rightIndex,
+				Score:      score(leftIndex, rightIndex),
+			})
+		}
+	}
+
+	candidates := make([]comparableMatch, 0)
+	for leftIndex := range leftLen {
+		if leftMatched[leftIndex] {
+			continue
+		}
+		for rightIndex := range rightLen {
+			if rightMatched[rightIndex] {
+				continue
+			}
+			matchScore := score(leftIndex, rightIndex)
+			if matchScore < threshold {
+				continue
+			}
+			candidates = append(candidates, comparableMatch{
+				LeftIndex:  leftIndex,
+				RightIndex: rightIndex,
+				Score:      matchScore,
+			})
+		}
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].Score == candidates[j].Score {
+			if candidates[i].LeftIndex == candidates[j].LeftIndex {
+				return candidates[i].RightIndex < candidates[j].RightIndex
+			}
+			return candidates[i].LeftIndex < candidates[j].LeftIndex
+		}
+		return candidates[i].Score > candidates[j].Score
+	})
+	for _, candidate := range candidates {
+		if leftMatched[candidate.LeftIndex] || rightMatched[candidate.RightIndex] {
+			continue
+		}
+		leftMatched[candidate.LeftIndex] = true
+		rightMatched[candidate.RightIndex] = true
+		matches = append(matches, candidate)
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		return matches[i].LeftIndex < matches[j].LeftIndex
+	})
+	return matches
 }
 
 func activeSignerStage(recipients []stores.RecipientRecord) (int, []stores.RecipientRecord, bool) {

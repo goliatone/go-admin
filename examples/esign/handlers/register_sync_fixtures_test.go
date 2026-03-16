@@ -11,8 +11,8 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 	t.Parallel()
 
 	type fixtureCheck struct {
-		name string
-		path string
+		name   string
+		path   string
 		assert func(t *testing.T, payload map[string]any)
 	}
 
@@ -77,7 +77,6 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 	}
 
 	for _, fixture := range fixtures {
-		fixture := fixture
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
 			raw, err := os.ReadFile(fixture.path)

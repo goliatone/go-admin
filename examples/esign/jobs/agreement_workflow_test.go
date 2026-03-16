@@ -58,7 +58,7 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 	}
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer-one@example.com"),
+		Email:        new("signer-one@example.com"),
 		Role:         strPtr(stores.RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
@@ -66,7 +66,7 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer-two@example.com"),
+		Email:        new("signer-two@example.com"),
 		Role:         strPtr(stores.RecipientRoleSigner),
 		SigningOrder: intPtr(2),
 	}, 0)
@@ -77,7 +77,7 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 		RecipientID: &signerOne.ID,
 		Type:        strPtr(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer one: %v", err)
 	}
@@ -85,7 +85,7 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 		RecipientID: &signerTwo.ID,
 		Type:        strPtr(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer two: %v", err)
 	}

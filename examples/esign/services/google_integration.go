@@ -11,8 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -109,9 +111,7 @@ func MapGoogleProviderError(err error) error {
 	}
 	message := providerErr.Error()
 	metadata := map[string]any{}
-	for key, value := range providerErr.Metadata {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, providerErr.Metadata)
 	switch providerErr.Code {
 	case GoogleProviderErrorPermissionDenied:
 		return goerrors.New(message, goerrors.CategoryAuthz).
@@ -1542,13 +1542,7 @@ func validateLeastPrivilegeScopes(actual, allowed []string) error {
 			WithMetadata(map[string]any{"extra_scopes": extra, "allowed_scopes": allowed})
 	}
 	required := GoogleScopeDriveReadonly
-	hasRequired := false
-	for _, scope := range actual {
-		if scope == required {
-			hasRequired = true
-			break
-		}
-	}
+	hasRequired := slices.Contains(actual, required)
 	if !hasRequired {
 		return goerrors.New("oauth scopes missing required permissions", goerrors.CategoryValidation).
 			WithCode(http.StatusBadRequest).

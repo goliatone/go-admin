@@ -120,10 +120,10 @@ func setupRuntimeAgreementForSend(t *testing.T, ctx context.Context, store *Stor
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-" + suffix + "@example.com"),
-		Name:         stringPtr("Signer " + suffix),
+		Email:        new("signer-" + suffix + "@example.com"),
+		Name:         new("Signer " + suffix),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: intPtr(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -131,8 +131,8 @@ func setupRuntimeAgreementForSend(t *testing.T, ctx context.Context, store *Stor
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
@@ -289,9 +289,9 @@ func TestRuntimeRelationalSigningSubmitFinalState(t *testing.T) {
 			t.Fatalf("CreateDraft: %v", err)
 		}
 		signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-			Email:        stringPtr("signer-" + suffix + "@example.com"),
+			Email:        new("signer-" + suffix + "@example.com"),
 			Role:         stringPtr(stores.RecipientRoleSigner),
-			SigningOrder: intPtr(1),
+			SigningOrder: new(1),
 		}, 0)
 		if err != nil {
 			t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -299,8 +299,8 @@ func TestRuntimeRelationalSigningSubmitFinalState(t *testing.T) {
 		signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeSignature),
-			PageNumber:  intPtr(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		})
 		if err != nil {
 			t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -308,8 +308,8 @@ func TestRuntimeRelationalSigningSubmitFinalState(t *testing.T) {
 		textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeText),
-			PageNumber:  intPtr(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		})
 		if err != nil {
 			t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -1002,8 +1002,11 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 	})
 }
 
-func boolPtr(v bool) *bool { return &v }
+//go:fix inline
+func boolPtr(v bool) *bool { return new(v) }
 
-func intPtr(v int) *int { return &v }
+//go:fix inline
+func intPtr(v int) *int { return new(v) }
 
-func stringPtr(v string) *string { return &v }
+//go:fix inline
+func stringPtr(v string) *string { return new(v) }

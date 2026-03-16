@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 	"time"
 
@@ -951,9 +952,7 @@ func googleImportFailureDetails(err error) (string, string, string) {
 		return "", message, ""
 	}
 	details := map[string]any{}
-	for key, value := range coded.Metadata {
-		details[key] = value
-	}
+	maps.Copy(details, coded.Metadata)
 	if len(details) == 0 {
 		return strings.TrimSpace(coded.TextCode), message, ""
 	}
@@ -1316,9 +1315,7 @@ func (h Handlers) failJob(
 		"last_error":     strings.TrimSpace(cause.Error()),
 		"correlation_id": run.CorrelationID,
 	}
-	for key, value := range metadata {
-		jobMetadata[key] = value
-	}
+	maps.Copy(jobMetadata, metadata)
 	if nextRetry != nil {
 		jobMetadata["next_retry_at"] = nextRetry.UTC().Format(time.RFC3339)
 	}

@@ -33,6 +33,22 @@ const (
 	auditTrailSourceAgreementExpired    = "agreement.expired"
 	auditTrailSourceAgreementIncomplete = "agreement.incomplete"
 	auditTrailSourceAgreementCompleted  = "agreement.completed"
+	auditTrailSourceCorrectionRequested = "agreement.correction_requested"
+	auditTrailSourceCorrectionDrafted   = "agreement.correction_draft_created"
+	auditTrailSourceCorrectedFrom       = "agreement.corrected_from"
+	auditTrailSourceSupersededCorrection = "agreement.superseded_by_correction"
+	auditTrailSourceAmendmentRequested  = "agreement.amendment_requested"
+	auditTrailSourceAmendmentDrafted    = "agreement.amendment_draft_created"
+	auditTrailSourceAmendedFrom         = "agreement.amended_from"
+	auditTrailSourceReviewRequested     = "agreement.review_requested"
+	auditTrailSourceReviewReopened      = "agreement.review_reopened"
+	auditTrailSourceReviewApproved      = "agreement.review_approved"
+	auditTrailSourceReviewChangesRequested = "agreement.review_changes_requested"
+	auditTrailSourceReviewClosed        = "agreement.review_closed"
+	auditTrailSourceCommentThreadCreated = "agreement.comment_thread_created"
+	auditTrailSourceCommentReplied      = "agreement.comment_replied"
+	auditTrailSourceCommentResolved     = "agreement.comment_resolved"
+	auditTrailSourceCommentReopened     = "agreement.comment_reopened"
 )
 
 const (
@@ -64,6 +80,22 @@ const (
 	auditTrailDescriptionKindDeclined   auditTrailDescriptionKind = "declined"
 	auditTrailDescriptionKindIncomplete auditTrailDescriptionKind = "incomplete"
 	auditTrailDescriptionKindCompleted  auditTrailDescriptionKind = "completed"
+	auditTrailDescriptionKindCorrectionRequested auditTrailDescriptionKind = "correction_requested"
+	auditTrailDescriptionKindCorrectionDrafted   auditTrailDescriptionKind = "correction_drafted"
+	auditTrailDescriptionKindCorrectedFrom       auditTrailDescriptionKind = "corrected_from"
+	auditTrailDescriptionKindSuperseded          auditTrailDescriptionKind = "superseded"
+	auditTrailDescriptionKindAmendmentRequested  auditTrailDescriptionKind = "amendment_requested"
+	auditTrailDescriptionKindAmendmentDrafted    auditTrailDescriptionKind = "amendment_drafted"
+	auditTrailDescriptionKindAmendedFrom         auditTrailDescriptionKind = "amended_from"
+	auditTrailDescriptionKindReviewRequested     auditTrailDescriptionKind = "review_requested"
+	auditTrailDescriptionKindReviewReopened      auditTrailDescriptionKind = "review_reopened"
+	auditTrailDescriptionKindReviewApproved      auditTrailDescriptionKind = "review_approved"
+	auditTrailDescriptionKindReviewChangesRequested auditTrailDescriptionKind = "review_changes_requested"
+	auditTrailDescriptionKindReviewClosed        auditTrailDescriptionKind = "review_closed"
+	auditTrailDescriptionKindCommentCreated      auditTrailDescriptionKind = "comment_created"
+	auditTrailDescriptionKindCommentReplied      auditTrailDescriptionKind = "comment_replied"
+	auditTrailDescriptionKindCommentResolved     auditTrailDescriptionKind = "comment_resolved"
+	auditTrailDescriptionKindCommentReopened     auditTrailDescriptionKind = "comment_reopened"
 )
 
 type auditTrailSourceEventPolicy struct {
@@ -150,6 +182,102 @@ var auditTrailSourceEventPolicies = map[string]auditTrailSourceEventPolicy{
 		ShowIPAddress:   false,
 		DescriptionKind: auditTrailDescriptionKindCompleted,
 	},
+	auditTrailSourceCorrectionRequested: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCorrectionRequested,
+	},
+	auditTrailSourceCorrectionDrafted: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCorrectionDrafted,
+	},
+	auditTrailSourceCorrectedFrom: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCorrectedFrom,
+	},
+	auditTrailSourceSupersededCorrection: {
+		EventType:       AuditTrailEventIncomplete,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindSuperseded,
+	},
+	auditTrailSourceAmendmentRequested: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindAmendmentRequested,
+	},
+	auditTrailSourceAmendmentDrafted: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindAmendmentDrafted,
+	},
+	auditTrailSourceAmendedFrom: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindAmendedFrom,
+	},
+	auditTrailSourceReviewRequested: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewRequested,
+	},
+	auditTrailSourceReviewReopened: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewReopened,
+	},
+	auditTrailSourceReviewApproved: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewApproved,
+	},
+	auditTrailSourceReviewChangesRequested: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewChangesRequested,
+	},
+	auditTrailSourceReviewClosed: {
+		EventType:       AuditTrailEventIncomplete,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewClosed,
+	},
+	auditTrailSourceCommentThreadCreated: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCommentCreated,
+	},
+	auditTrailSourceCommentReplied: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCommentReplied,
+	},
+	auditTrailSourceCommentResolved: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCommentResolved,
+	},
+	auditTrailSourceCommentReopened: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCommentReopened,
+	},
 }
 
 type auditTrailDerivedEventPolicy struct {
@@ -207,16 +335,19 @@ type AuditTrailEntry struct {
 
 // AuditTrailDocument provides a canonical render model for timeline-based audit artifacts.
 type AuditTrailDocument struct {
-	AgreementID    string
-	Title          string
-	FileName       string
-	DocumentID     string
-	DocumentHash   string
-	Status         string
-	GeneratedAt    time.Time
-	ExecutedSHA256 string
-	CorrelationID  string
-	Entries        []AuditTrailEntry
+	AgreementID          string
+	Title                string
+	FileName             string
+	DocumentID           string
+	DocumentHash         string
+	Status               string
+	GeneratedAt          time.Time
+	ExecutedSHA256       string
+	CorrelationID        string
+	RootAgreementID      string
+	ParentAgreementID    string
+	ParentExecutedSHA256 string
+	Entries              []AuditTrailEntry
 }
 
 // AuditTrailBuildInput carries source entities required to construct a normalized audit trail.
@@ -231,6 +362,9 @@ type AuditTrailBuildInput struct {
 	DocumentHash         string
 	ExecutedSHA256       string
 	CorrelationID        string
+	RootAgreementID      string
+	ParentAgreementID    string
+	ParentExecutedSHA256 string
 }
 
 // BuildAuditTrailDocument maps e-sign agreement/audit data into a deterministic render contract.
@@ -320,6 +454,9 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		GeneratedAt:    now,
 		ExecutedSHA256: strings.TrimSpace(input.ExecutedSHA256),
 		CorrelationID:  strings.TrimSpace(input.CorrelationID),
+		RootAgreementID:      coalesce(strings.TrimSpace(input.RootAgreementID), strings.TrimSpace(input.Agreement.RootAgreementID)),
+		ParentAgreementID:    coalesce(strings.TrimSpace(input.ParentAgreementID), strings.TrimSpace(input.Agreement.ParentAgreementID)),
+		ParentExecutedSHA256: coalesce(strings.TrimSpace(input.ParentExecutedSHA256), strings.TrimSpace(input.Agreement.ParentExecutedSHA256)),
 		Entries:        entries,
 	}
 }
@@ -459,6 +596,38 @@ func buildAuditTrailEventDescription(
 		return "This document has not been fully executed by all signers."
 	case auditTrailDescriptionKindCompleted:
 		return "This document has been fully executed by all signers."
+	case auditTrailDescriptionKindCorrectionRequested:
+		return fmt.Sprintf("Correction requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCorrectionDrafted:
+		return fmt.Sprintf("Correction draft created by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCorrectedFrom:
+		return fmt.Sprintf("Derived from agreement %s", toMetadataString(metadata, "source_agreement_id", "parent_agreement_id"))
+	case auditTrailDescriptionKindSuperseded:
+		return fmt.Sprintf("Superseded by correction %s", toMetadataString(metadata, "new_agreement_id", "superseded_by_id"))
+	case auditTrailDescriptionKindAmendmentRequested:
+		return fmt.Sprintf("Amendment requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindAmendmentDrafted:
+		return fmt.Sprintf("Amendment draft created by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindAmendedFrom:
+		return fmt.Sprintf("Amends agreement %s", toMetadataString(metadata, "source_agreement_id", "parent_agreement_id"))
+	case auditTrailDescriptionKindReviewRequested:
+		return fmt.Sprintf("Review requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewReopened:
+		return fmt.Sprintf("Review reopened by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewApproved:
+		return fmt.Sprintf("Review approved by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewChangesRequested:
+		return fmt.Sprintf("Changes requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewClosed:
+		return fmt.Sprintf("Review closed by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCommentCreated:
+		return fmt.Sprintf("Comment added by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCommentReplied:
+		return fmt.Sprintf("Comment replied to by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCommentResolved:
+		return fmt.Sprintf("Comment resolved by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindCommentReopened:
+		return fmt.Sprintf("Comment reopened by %s", formatActorIdentity(actorName, actorEmail, actorID))
 	default:
 		return ""
 	}

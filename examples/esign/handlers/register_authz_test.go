@@ -246,8 +246,9 @@ func (p *sharedDriveEdgeProvider) DownloadFilePDF(_ context.Context, _ string, f
 	return services.GoogleExportSnapshot{File: file, PDF: pdf}, nil
 }
 
+//go:fix inline
 func strPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
 func toString(value any) string {
@@ -367,8 +368,8 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 	signerRole := stores.RecipientRoleSigner
 	order := 1
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         &signerRole,
 		SigningOrder: &order,
 	}, 0)
@@ -1346,8 +1347,8 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	signerOneRole := stores.RecipientRoleSigner
 	signerOneOrder := 1
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer-one@example.com"),
-		Name:         strPtr("Signer One"),
+		Email:        new("signer-one@example.com"),
+		Name:         new("Signer One"),
 		Role:         &signerOneRole,
 		SigningOrder: &signerOneOrder,
 	}, 0)
@@ -1357,8 +1358,8 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	signerTwoRole := stores.RecipientRoleSigner
 	signerTwoOrder := 2
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer-two@example.com"),
-		Name:         strPtr("Signer Two"),
+		Email:        new("signer-two@example.com"),
+		Name:         new("Signer Two"),
 		Role:         &signerTwoRole,
 		SigningOrder: &signerTwoOrder,
 	}, 0)
@@ -1506,8 +1507,8 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	signerRole := stores.RecipientRoleSigner
 	order := 1
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx2, scope2, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         &signerRole,
 		SigningOrder: &order,
 	}, 0)
@@ -1603,8 +1604,8 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 	role := stores.RecipientRoleSigner
 	order := 1
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         &role,
 		SigningOrder: &order,
 	}, 0)
@@ -1700,8 +1701,8 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	role := stores.RecipientRoleSigner
 	order := 1
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         &role,
 		SigningOrder: &order,
 	}, 0)
@@ -2297,7 +2298,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
 		submitReq.Header.Set("Idempotency-Key", "submit-burst-idempotency-1")
 		submitResp, err := app.Test(submitReq, -1)

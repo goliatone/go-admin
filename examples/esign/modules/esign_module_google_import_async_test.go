@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/goliatone/go-auth"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	"github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
@@ -109,7 +109,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	}
 
 	var final map[string]any
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusReq.Header.Set("X-User-ID", "ops-user")
 		statusReq.Header.Set("X-Forwarded-Proto", "https")

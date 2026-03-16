@@ -26,7 +26,7 @@ func TestESignBulkActionsPhase7ExposeSelectionSensitiveDocumentDeleteState(t *te
 	schema := extractFixtureMap(t, listPayload["schema"])
 	config := extractFixtureMap(t, schema["bulk_action_state_config"])
 	require.Equal(t, true, config["selection_sensitive"])
-	require.Equal(t, scopedPanelBulkStatePath(scope, esignDocumentsPanelID), strings.TrimSpace(toString(config["selection_state_endpoint"])))
+	require.Equal(t, strings.Split(scopedPanelBulkStatePath(scope, esignDocumentsPanelID), "?")[0], strings.TrimSpace(toString(config["selection_state_endpoint"])))
 
 	stateStatus, statePayload := doPanelJSONRequestWithStatus(
 		t,

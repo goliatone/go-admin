@@ -49,10 +49,10 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 		t.Fatalf("create draft: %v", err)
 	}
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtrReadable("signer@example.com"),
-		Name:         strPtrReadable("Signer One"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
 		Role:         strPtrReadable(stores.RecipientRoleSigner),
-		SigningOrder: intPtrReadable(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("upsert recipient: %v", err)
@@ -60,12 +60,12 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        strPtrReadable(stores.FieldTypeSignature),
-		PageNumber:  intPtrReadable(1),
+		PageNumber:  new(1),
 		PosX:        floatPtrReadable(72),
 		PosY:        floatPtrReadable(180),
 		Width:       floatPtrReadable(180),
 		Height:      floatPtrReadable(48),
-		Required:    boolPtrReadable(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("upsert signature field: %v", err)
@@ -73,12 +73,12 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        strPtrReadable(stores.FieldTypeText),
-		PageNumber:  intPtrReadable(1),
+		PageNumber:  new(1),
 		PosX:        floatPtrReadable(72),
 		PosY:        floatPtrReadable(260),
 		Width:       floatPtrReadable(240),
 		Height:      floatPtrReadable(36),
-		Required:    boolPtrReadable(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("upsert text field: %v", err)
@@ -337,10 +337,10 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 		t.Fatalf("create draft: %v", err)
 	}
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtrReadable("signer@example.com"),
-		Name:         strPtrReadable("Signer One"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
 		Role:         strPtrReadable(stores.RecipientRoleSigner),
-		SigningOrder: intPtrReadable(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("upsert recipient: %v", err)
@@ -348,12 +348,12 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        strPtrReadable(stores.FieldTypeText),
-		PageNumber:  intPtrReadable(3),
+		PageNumber:  new(3),
 		PosX:        floatPtrReadable(72),
 		PosY:        floatPtrReadable(240),
 		Width:       floatPtrReadable(320),
 		Height:      floatPtrReadable(36),
-		Required:    boolPtrReadable(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("upsert text field: %v", err)
@@ -572,10 +572,10 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 		t.Fatalf("create draft: %v", err)
 	}
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        strPtrReadable("signer@example.com"),
-		Name:         strPtrReadable("Signer One"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
 		Role:         strPtrReadable(stores.RecipientRoleSigner),
-		SigningOrder: intPtrReadable(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("upsert recipient: %v", err)
@@ -583,12 +583,12 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        strPtrReadable(stores.FieldTypeText),
-		PageNumber:  intPtrReadable(1),
+		PageNumber:  new(1),
 		PosX:        floatPtrReadable(72),
 		PosY:        floatPtrReadable(260),
 		Width:       floatPtrReadable(240),
 		Height:      floatPtrReadable(36),
-		Required:    boolPtrReadable(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("upsert text field: %v", err)
@@ -798,8 +798,8 @@ func buildReadableSignaturePNG(t *testing.T) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 220, 60))
 	bg := color.RGBA{255, 255, 255, 0}
 	stroke := color.RGBA{20, 20, 20, 255}
-	for y := 0; y < 60; y++ {
-		for x := 0; x < 220; x++ {
+	for y := range 60 {
+		for x := range 220 {
 			img.Set(x, y, bg)
 		}
 	}
@@ -816,10 +816,17 @@ func buildReadableSignaturePNG(t *testing.T) []byte {
 	return out.Bytes()
 }
 
-func strPtrReadable(v string) *string     { return &v }
-func intPtrReadable(v int) *int           { return &v }
-func floatPtrReadable(v float64) *float64 { return &v }
-func boolPtrReadable(v bool) *bool        { return &v }
+//go:fix inline
+func strPtrReadable(v string) *string { return new(v) }
+
+//go:fix inline
+func intPtrReadable(v int) *int { return new(v) }
+
+//go:fix inline
+func floatPtrReadable(v float64) *float64 { return new(v) }
+
+//go:fix inline
+func boolPtrReadable(v bool) *bool { return new(v) }
 
 func almostEqualReadable(left, right float64) bool {
 	return math.Abs(left-right) <= 0.5

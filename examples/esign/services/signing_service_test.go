@@ -14,7 +14,6 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
-	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 )
@@ -115,19 +114,19 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-1@example.com"),
-		Name:         stringPtr("Signer One"),
+		Email:        new("signer-1@example.com"),
+		Name:         new("Signer One"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-2@example.com"),
-		Name:         stringPtr("Signer Two"),
+		Email:        new("signer-2@example.com"),
+		Name:         new("Signer Two"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
@@ -136,8 +135,8 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	fieldOne, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer one: %v", err)
@@ -145,8 +144,8 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	fieldTwo, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(2),
-		Required:    boolPtr(true),
+		PageNumber:  new(2),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer two: %v", err)
@@ -209,28 +208,28 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer-1@example.com"),
-		Name:         stringPtr("Stage One A"),
+		Email:        new("stage1-signer-1@example.com"),
+		Name:         new("Stage One A"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer-2@example.com"),
-		Name:         stringPtr("Stage One B"),
+		Email:        new("stage1-signer-2@example.com"),
+		Name:         new("Stage One B"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
 	}
 	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage2-signer@example.com"),
-		Name:         stringPtr("Stage Two"),
+		Email:        new("stage2-signer@example.com"),
+		Name:         new("Stage Two"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer three: %v", err)
@@ -240,8 +239,8 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeSignature),
-			PageNumber:  primitives.Int(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		}); err != nil {
 			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
 		}
@@ -309,25 +308,25 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer-1@example.com"),
+		Email:        new("stage1-signer-1@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer-2@example.com"),
+		Email:        new("stage1-signer-2@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
 	}
 	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage2-signer@example.com"),
+		Email:        new("stage2-signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer three: %v", err)
@@ -338,8 +337,8 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeSignature),
-			PageNumber:  primitives.Int(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		})
 		if upsertErr != nil {
 			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, upsertErr)
@@ -437,17 +436,17 @@ func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer@example.com"),
+		Email:        new("stage1-signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage2-signer@example.com"),
+		Email:        new("stage2-signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
@@ -457,8 +456,8 @@ func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
 		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeSignature),
-			PageNumber:  primitives.Int(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		})
 		if upsertErr != nil {
 			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, upsertErr)
@@ -515,17 +514,17 @@ func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage1-signer@example.com"),
+		Email:        new("stage1-signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("stage2-signer@example.com"),
+		Email:        new("stage2-signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
@@ -534,8 +533,8 @@ func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
 		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        stringPtr(stores.FieldTypeSignature),
-			PageNumber:  primitives.Int(1),
-			Required:    boolPtr(true),
+			PageNumber:  new(1),
+			Required:    new(true),
 		}); err != nil {
 			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
 		}
@@ -578,10 +577,10 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
-		Name:         stringPtr("Signer One"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -594,12 +593,12 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 	field, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(2),
+		PageNumber:  new(2),
 		PosX:        &posX,
 		PosY:        &posY,
 		Width:       &width,
 		Height:      &height,
-		Required:    boolPtr(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
@@ -668,9 +667,9 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -678,8 +677,8 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -736,9 +735,9 @@ func TestSigningServiceGetSessionDegradesWhenSourceUnavailableWithoutObjectStore
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -746,8 +745,8 @@ func TestSigningServiceGetSessionDegradesWhenSourceUnavailableWithoutObjectStore
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -775,9 +774,9 @@ func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceed
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -785,8 +784,8 @@ func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceed
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -865,9 +864,9 @@ func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -875,8 +874,8 @@ func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -937,9 +936,9 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -947,8 +946,8 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -984,9 +983,9 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -998,12 +997,12 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(2),
+		PageNumber:  new(2),
 		PosX:        &negativePosX,
 		PosY:        &negativePosY,
 		Width:       &oversizeWidth,
 		Height:      &oversizeHeight,
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -1038,9 +1037,9 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1048,8 +1047,8 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -1102,10 +1101,10 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
-		Name:         stringPtr("Signer"),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1113,8 +1112,8 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	requiredTextField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -1122,8 +1121,8 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -1184,17 +1183,17 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-1@example.com"),
+		Email:        new("signer-1@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-2@example.com"),
+		Email:        new("signer-2@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
@@ -1202,16 +1201,16 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer one signature: %v", err)
 	}
 	waitingField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer two text: %v", err)
@@ -1219,8 +1218,8 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer two signature: %v", err)
 	}
@@ -1254,9 +1253,9 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1264,8 +1263,8 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1322,9 +1321,9 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1332,8 +1331,8 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1387,9 +1386,9 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1397,8 +1396,8 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1437,9 +1436,9 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1447,8 +1446,8 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	initialsField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeInitials),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft initials: %v", err)
@@ -1456,8 +1455,8 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -1516,9 +1515,9 @@ func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *te
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1526,8 +1525,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *te
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1556,9 +1555,9 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1566,8 +1565,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1643,9 +1642,9 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1653,8 +1652,8 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1711,9 +1710,9 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1721,8 +1720,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1776,9 +1775,9 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1786,8 +1785,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1847,9 +1846,9 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1857,8 +1856,8 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1866,8 +1865,8 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -1936,9 +1935,9 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -1946,8 +1945,8 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -1955,8 +1954,8 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -2001,9 +2000,9 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2011,8 +2010,8 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2020,8 +2019,8 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -2075,9 +2074,9 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2085,8 +2084,8 @@ func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -2108,9 +2107,9 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2118,8 +2117,8 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2127,8 +2126,8 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
@@ -2179,9 +2178,9 @@ func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *t
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2189,8 +2188,8 @@ func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *t
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2233,9 +2232,9 @@ func TestSigningServiceSubmitEnqueuesCompletionWorkflowOutboxWhenConfigured(t *t
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2243,8 +2242,8 @@ func TestSigningServiceSubmitEnqueuesCompletionWorkflowOutboxWhenConfigured(t *t
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2320,17 +2319,17 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-1@example.com"),
+		Email:        new("signer-1@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer-2@example.com"),
+		Email:        new("signer-2@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(2),
+		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
@@ -2338,8 +2337,8 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer one: %v", err)
@@ -2347,8 +2346,8 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer two: %v", err)
 	}
@@ -2426,9 +2425,9 @@ func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2436,8 +2435,8 @@ func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2499,9 +2498,9 @@ func TestSigningServiceDeclineFlow(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2509,8 +2508,8 @@ func TestSigningServiceDeclineFlow(t *testing.T) {
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
@@ -2555,9 +2554,9 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("signer@example.com"),
+		Email:        new("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: primitives.Int(1),
+		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -2565,8 +2564,8 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
@@ -2574,8 +2573,8 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeText),
-		PageNumber:  primitives.Int(1),
-		Required:    boolPtr(true),
+		PageNumber:  new(1),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)

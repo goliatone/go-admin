@@ -7,16 +7,19 @@ import (
 	"time"
 )
 
+//go:fix inline
 func strPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func floatPtr(value float64) *float64 {
-	return &value
+	return new(value)
 }
 
 func TestInMemoryStoreRequiresScope(t *testing.T) {
@@ -85,7 +88,7 @@ func TestInMemoryAgreementWriteGuardsAfterSend(t *testing.T) {
 		t.Fatalf("Transition: %v", err)
 	}
 
-	if _, err := store.UpdateDraft(ctx, scope, agreement.ID, AgreementDraftPatch{Title: strPtr("Updated")}, agreement.Version); err == nil {
+	if _, err := store.UpdateDraft(ctx, scope, agreement.ID, AgreementDraftPatch{Title: new("Updated")}, agreement.Version); err == nil {
 		t.Fatalf("expected immutable-after-send guard")
 	} else if !strings.Contains(err.Error(), string("AGREEMENT_IMMUTABLE")) {
 		t.Fatalf("expected AGREEMENT_IMMUTABLE text code, got %v", err)
@@ -93,8 +96,8 @@ func TestInMemoryAgreementWriteGuardsAfterSend(t *testing.T) {
 
 	service := NewAgreementMutationService(store)
 	if _, err := service.UpsertRecipientDraft(ctx, scope, agreement.ID, RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Role:         strPtr(RecipientRoleSigner),
+		Email:        new("signer@example.com"),
+		Role:         new(RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0); err == nil {
 		t.Fatalf("expected service immutable-after-send guard")
@@ -233,8 +236,8 @@ func TestInMemorySignatureArtifactAndFieldValueAttachment(t *testing.T) {
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	recipient, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Role:         strPtr(RecipientRoleSigner),
+		Email:        new("signer@example.com"),
+		Role:         new(RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
 	if err != nil {
@@ -242,9 +245,9 @@ func TestInMemorySignatureArtifactAndFieldValueAttachment(t *testing.T) {
 	}
 	field, err := store.UpsertFieldDraft(ctx, scope, agreement.ID, FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtr(FieldTypeSignature),
+		Type:        new(FieldTypeSignature),
 		PageNumber:  intPtr(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	})
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
@@ -300,9 +303,9 @@ func TestInMemoryStoreUpsertFieldInstanceDraftAcceptsAutoLinkedPlacementSource(t
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	participant, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Name:         strPtr("Signer"),
-		Role:         strPtr(RecipientRoleSigner),
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
+		Role:         new(RecipientRoleSigner),
 		SigningStage: intPtr(1),
 	}, 0)
 	if err != nil {
@@ -364,8 +367,8 @@ func TestInMemoryDeclineRecipient(t *testing.T) {
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	recipient, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Role:         strPtr(RecipientRoleSigner),
+		Email:        new("signer@example.com"),
+		Role:         new(RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
 	if err != nil {
@@ -404,8 +407,8 @@ func TestInMemoryTouchRecipientViewLifecycle(t *testing.T) {
 		t.Fatalf("CreateDraft: %v", err)
 	}
 	recipient, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, RecipientDraftPatch{
-		Email:        strPtr("signer@example.com"),
-		Role:         strPtr(RecipientRoleSigner),
+		Email:        new("signer@example.com"),
+		Role:         new(RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
 	if err != nil {

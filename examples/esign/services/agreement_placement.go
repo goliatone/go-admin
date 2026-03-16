@@ -330,14 +330,14 @@ func (s AgreementService) ApplyPlacementRun(ctx context.Context, scope stores.Sc
 			}
 			patch := stores.FieldInstanceDraftPatch{
 				FieldDefinitionID: &fieldDefinitionID,
-				PageNumber:        placementIntPtr(suggestion.PageNumber),
-				X:                 placementFloatPtr(suggestion.X),
-				Y:                 placementFloatPtr(suggestion.Y),
-				Width:             placementFloatPtr(suggestion.Width),
-				Height:            placementFloatPtr(suggestion.Height),
+				PageNumber:        new(suggestion.PageNumber),
+				X:                 new(suggestion.X),
+				Y:                 new(suggestion.Y),
+				Width:             new(suggestion.Width),
+				Height:            new(suggestion.Height),
 				PlacementSource:   &autoSource,
-				ResolverID:        placementStrPtr(strings.TrimSpace(suggestion.ResolverID)),
-				Confidence:        placementFloatPtr(suggestion.Confidence),
+				ResolverID:        new(strings.TrimSpace(suggestion.ResolverID)),
+				Confidence:        new(suggestion.Confidence),
 				PlacementRunID:    &runID,
 				ManualOverride:    &noManualOverrideFlag,
 			}
@@ -363,11 +363,11 @@ func (s AgreementService) ApplyPlacementRun(ctx context.Context, scope stores.Sc
 			patch := stores.FieldInstanceDraftPatch{
 				ID:                strings.TrimSpace(manual.FieldInstanceID),
 				FieldDefinitionID: &fieldDefinitionID,
-				PageNumber:        placementIntPtr(manual.PageNumber),
-				X:                 placementFloatPtr(manual.X),
-				Y:                 placementFloatPtr(manual.Y),
-				Width:             placementFloatPtr(manual.Width),
-				Height:            placementFloatPtr(manual.Height),
+				PageNumber:        new(manual.PageNumber),
+				X:                 new(manual.X),
+				Y:                 new(manual.Y),
+				Width:             new(manual.Width),
+				Height:            new(manual.Height),
 				PlacementSource:   &manualSource,
 				PlacementRunID:    &runID,
 				ManualOverride:    &manualOverrideFlag,
@@ -597,16 +597,19 @@ func extractDefinitionLabel(validationJSON string) string {
 	return ""
 }
 
+//go:fix inline
 func placementStrPtr(value string) *string {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func placementIntPtr(value int) *int {
-	return &value
+	return new(value)
 }
 
+//go:fix inline
 func placementFloatPtr(value float64) *float64 {
-	return &value
+	return new(value)
 }
 
 func cloneTimePtr(src *time.Time) *time.Time {
