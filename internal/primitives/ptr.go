@@ -1,5 +1,6 @@
 package primitives
 
+//go:fix inline
 func Int(value int) *int {
-	return &value
+	return new(value)
 }
