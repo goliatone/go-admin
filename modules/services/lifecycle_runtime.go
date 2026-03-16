@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -185,14 +186,8 @@ func (s *memoryActivityFallbackSink) List(_ context.Context, filter gocore.Servi
 	if perPage <= 0 {
 		perPage = 25
 	}
-	offset := (page - 1) * perPage
-	if offset > len(s.entries) {
-		offset = len(s.entries)
-	}
-	end := offset + perPage
-	if end > len(s.entries) {
-		end = len(s.entries)
-	}
+	offset := min((page-1)*perPage, len(s.entries))
+	end := min(offset+perPage, len(s.entries))
 	items := append([]gocore.ServiceActivityEntry(nil), s.entries[offset:end]...)
 	return gocore.ServicesActivityPage{
 		Items:      items,
@@ -366,9 +361,7 @@ func (s adminNotificationSender) Send(ctx context.Context, req gocore.Notificati
 		if strings.EqualFold(strings.TrimSpace(recipient.Type), "user") {
 			notification.UserID = strings.TrimSpace(recipient.ID)
 		}
-		for key, value := range req.Metadata {
-			notification.Metadata[key] = value
-		}
+		maps.Copy(notification.Metadata, req.Metadata)
 		if _, err := s.service.Add(ctx, notification); err != nil {
 			return err
 		}
