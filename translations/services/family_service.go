@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -38,8 +39,8 @@ type FamilyVariant struct {
 	Fields               map[string]string `json:"fields,omitempty"`
 	Metadata             map[string]any    `json:"metadata,omitempty"`
 	SourceRecordID       string            `json:"source_record_id,omitempty"`
-	UpdatedAt            time.Time         `json:"updated_at,omitempty"`
-	CreatedAt            time.Time         `json:"created_at,omitempty"`
+	UpdatedAt            time.Time         `json:"updated_at"`
+	CreatedAt            time.Time         `json:"created_at"`
 	PublishedAt          *time.Time        `json:"published_at,omitempty"`
 }
 
@@ -57,8 +58,8 @@ type FamilyAssignment struct {
 	ReviewerID   string     `json:"reviewer_id,omitempty"`
 	Priority     string     `json:"priority,omitempty"`
 	DueDate      *time.Time `json:"due_date,omitempty"`
-	UpdatedAt    time.Time  `json:"updated_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type FamilyBlocker struct {
@@ -87,9 +88,9 @@ type FamilyRecord struct {
 	Variants                   []FamilyVariant    `json:"variants,omitempty"`
 	Assignments                []FamilyAssignment `json:"assignments,omitempty"`
 	Blockers                   []FamilyBlocker    `json:"blockers,omitempty"`
-	Policy                     FamilyPolicy       `json:"policy,omitempty"`
-	CreatedAt                  time.Time          `json:"created_at,omitempty"`
-	UpdatedAt                  time.Time          `json:"updated_at,omitempty"`
+	Policy                     FamilyPolicy       `json:"policy"`
+	CreatedAt                  time.Time          `json:"created_at"`
+	UpdatedAt                  time.Time          `json:"updated_at"`
 }
 
 type ListFamiliesInput struct {
@@ -376,10 +377,7 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 		return ListFamiliesResult{}, fmt.Errorf("family service not configured")
 	}
 	page := clampPositive(input.Page, 1)
-	perPage := clampPositive(input.PerPage, 50)
-	if perPage > 200 {
-		perPage = 200
-	}
+	perPage := min(clampPositive(input.PerPage, 50), 200)
 	families, err := s.RecomputeAll(ctx, input.Environment)
 	if err != nil {
 		return ListFamiliesResult{}, err
@@ -415,14 +413,8 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 		return left.UpdatedAt.After(right.UpdatedAt)
 	})
 	total := len(filtered)
-	start := (page - 1) * perPage
-	if start > total {
-		start = total
-	}
-	end := start + perPage
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*perPage, total)
+	end := min(start+perPage, total)
 	items := filtered[start:end]
 	return ListFamiliesResult{
 		Items:   cloneFamilies(items),
@@ -923,9 +915,7 @@ func cloneStringMap(input map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 
@@ -934,9 +924,7 @@ func cloneAnyMap(input map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

@@ -22,8 +22,8 @@ type BackfillSourceVariant struct {
 	Fields             map[string]string `json:"fields,omitempty"`
 	Metadata           map[string]any    `json:"metadata,omitempty"`
 	Status             string            `json:"status,omitempty"`
-	CreatedAt          time.Time         `json:"created_at,omitempty"`
-	UpdatedAt          time.Time         `json:"updated_at,omitempty"`
+	CreatedAt          time.Time         `json:"created_at"`
+	UpdatedAt          time.Time         `json:"updated_at"`
 }
 
 type BackfillPolicy struct {
@@ -70,8 +70,8 @@ type BackfillVariant struct {
 	Metadata             map[string]any    `json:"metadata,omitempty"`
 	SourceRecordID       string            `json:"source_record_id"`
 	TranslationGroupID   string            `json:"translation_group_id,omitempty"`
-	CreatedAt            time.Time         `json:"created_at,omitempty"`
-	UpdatedAt            time.Time         `json:"updated_at,omitempty"`
+	CreatedAt            time.Time         `json:"created_at"`
+	UpdatedAt            time.Time         `json:"updated_at"`
 }
 
 type BackfillAssignment struct {

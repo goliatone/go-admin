@@ -1,5 +1,7 @@
 package goadmin
 
+import "maps"
+
 import "github.com/goliatone/go-admin/admin/routing"
 
 const ModuleSlug = "translations"
@@ -17,24 +19,24 @@ func ModuleUIRoutes() map[string]string {
 
 func ModuleAPIRoutes() map[string]string {
 	return cloneRoutes(map[string]string{
-		"translations.dashboard":                    "/dashboard",
-		"translations.matrix":                       "/matrix",
-		"translations.matrix.actions.create_missing": "/matrix/actions/create-missing",
+		"translations.dashboard":                      "/dashboard",
+		"translations.matrix":                         "/matrix",
+		"translations.matrix.actions.create_missing":  "/matrix/actions/create-missing",
 		"translations.matrix.actions.export_selected": "/matrix/actions/export-selected",
-		"translations.families":                     "/families",
-		"translations.families.id":                  "/families/:family_id",
-		"translations.families.variants":            "/families/:family_id/variants",
-		"translations.variants.id":                  "/variants/:variant_id",
-		"translations.assignments":                  "/assignments",
-		"translations.assignments.id":               "/assignments/:assignment_id",
-		"translations.assignments.actions":          "/assignments/:assignment_id/actions/:action",
-		"translations.export":                       "/exchange/export",
-		"translations.template":                     "/exchange/template",
-		"translations.import.validate":              "/exchange/import/validate",
-		"translations.import.apply":                 "/exchange/import/apply",
-		"translations.jobs.id":                      "/exchange/jobs/:job_id",
-		"translations.my_work":                      "/my-work",
-		"translations.queue":                        "/queue",
+		"translations.families":                       "/families",
+		"translations.families.id":                    "/families/:family_id",
+		"translations.families.variants":              "/families/:family_id/variants",
+		"translations.variants.id":                    "/variants/:variant_id",
+		"translations.assignments":                    "/assignments",
+		"translations.assignments.id":                 "/assignments/:assignment_id",
+		"translations.assignments.actions":            "/assignments/:assignment_id/actions/:action",
+		"translations.export":                         "/exchange/export",
+		"translations.template":                       "/exchange/template",
+		"translations.import.validate":                "/exchange/import/validate",
+		"translations.import.apply":                   "/exchange/import/apply",
+		"translations.jobs.id":                        "/exchange/jobs/:job_id",
+		"translations.my_work":                        "/my-work",
+		"translations.queue":                          "/queue",
 	})
 }
 
@@ -78,8 +80,6 @@ func cloneRoutes(routes map[string]string) map[string]string {
 	}
 
 	out := make(map[string]string, len(routes))
-	for routeKey, routePath := range routes {
-		out[routeKey] = routePath
-	}
+	maps.Copy(out, routes)
 	return out
 }
