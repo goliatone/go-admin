@@ -71,6 +71,7 @@ func (m *Module) resolveCallbackRedirectURI(c router.Context, providerID string)
 	}
 
 	resolved = strings.TrimSpace(resolved)
+	resolved = m.normalizeCallbackResolvedPath(group, resolved)
 	if resolved == "" {
 		resolved = m.defaultCallbackPath(providerID)
 	}
@@ -134,6 +135,27 @@ func (m *Module) defaultCallbackPath(providerID string) string {
 		return ""
 	}
 	return base + "/services/connections/" + url.PathEscape(providerID) + "/callback"
+}
+
+func (m *Module) normalizeCallbackResolvedPath(group, resolved string) string {
+	resolved = strings.TrimSpace(resolved)
+	if resolved == "" || m == nil || m.admin == nil {
+		return resolved
+	}
+	if strings.TrimSpace(group) != strings.TrimSpace(m.admin.AdminAPIGroup()) {
+		return resolved
+	}
+	if parsed, err := url.Parse(resolved); err == nil && parsed != nil && parsed.IsAbs() {
+		return resolved
+	}
+	base := strings.TrimRight(strings.TrimSpace(m.admin.AdminAPIBasePath()), "/")
+	if base == "" || resolved == base || strings.HasPrefix(resolved, base+"/") {
+		return resolved
+	}
+	if strings.HasPrefix(resolved, "/") {
+		return base + resolved
+	}
+	return base + "/" + strings.TrimLeft(resolved, "/")
 }
 
 func (m *Module) absoluteCallbackURL(c router.Context, rawURL string) (string, error) {
