@@ -934,7 +934,9 @@ func main() {
 	}
 
 	// Setup admin features AFTER initialization to override default widgets
-	setup.SetupDashboard(adm, dataStores, cfg.BasePath)
+	setup.SetupDashboard(adm, dataStores, cfg.BasePath, quickstart.DefaultPlacements(coreadmin.Config{
+		NavMenuCode: adm.NavMenuCode(),
+	}))
 	if adapterResult.Flags.UseGoOptions {
 		// Settings already wired via adapter hook
 		if adapterResult.SettingsBackend == "" {
@@ -1692,6 +1694,25 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 		},
 	}
 
+	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
+		items = append(items, admin.MenuItem{
+			ID:          "example.translation.qa.exchange",
+			Type:        admin.MenuItemTypeItem,
+			Label:       "Exchange Contracts (QA)",
+			Icon:        "refresh-cw",
+			ParentID:    quickstart.NavigationGroupTranslationsID,
+			Menu:        menuCode,
+			Locale:      locale,
+			Position:    menuPosition(58),
+			Permissions: append([]string{}, permissions...),
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(basePath, "translations", "exchange"),
+				"key":  "translation_exchange_qa",
+			},
+		})
+	}
+
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
 		items = append(items,
 			admin.MenuItem{
@@ -1702,7 +1723,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 				ParentID:    quickstart.NavigationGroupTranslationsID,
 				Menu:        menuCode,
 				Locale:      locale,
-				Position:    menuPosition(56),
+				Position:    menuPosition(59),
 				Permissions: append([]string{}, permissions...),
 				Target: map[string]any{
 					"type": "url",
@@ -1718,7 +1739,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 				ParentID:    quickstart.NavigationGroupTranslationsID,
 				Menu:        menuCode,
 				Locale:      locale,
-				Position:    menuPosition(57),
+				Position:    menuPosition(60),
 				Permissions: append([]string{}, permissions...),
 				Target: map[string]any{
 					"type": "url",

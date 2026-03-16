@@ -41,8 +41,8 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	}
 
 	items := translationQAMenuItems(adm, cfg)
-	if len(items) != 6 {
-		t.Fatalf("expected 6 QA items for full profile, got %d", len(items))
+	if len(items) != 7 {
+		t.Fatalf("expected 7 QA items for full profile, got %d", len(items))
 	}
 
 	assertMenuItemPath(t, items, "example.translation.qa.family", translationQAFamilyPath("/admin"))
@@ -54,6 +54,8 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	assertMenuItemPath(t, items, "example.translation.qa.queue", translationQAQueuePath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.editor", translationQAEditorPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.editor", "Assignment Editor (QA)")
+	assertMenuItemPath(t, items, "example.translation.qa.exchange", "/admin/translations/exchange")
+	assertMenuItemLabel(t, items, "example.translation.qa.exchange", "Exchange Contracts (QA)")
 }
 
 func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
@@ -91,6 +93,9 @@ func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
 	}
 	if findMenuItemByID(items, "example.translation.qa.editor") != nil {
 		t.Fatalf("expected editor QA item to be absent when queue capability disabled")
+	}
+	if findMenuItemByID(items, "example.translation.qa.exchange") != nil {
+		t.Fatalf("expected exchange QA item to be absent when exchange capability disabled")
 	}
 }
 

@@ -174,6 +174,14 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 			if strings.TrimSpace(publish.CommandName) == "" {
 				t.Fatalf("expected publish action command_name")
 			}
+			if byName["view"].Scope != admin.ActionScopeRow {
+				t.Fatalf("expected view action to remain row-scoped, got %+v", byName["view"])
+			}
+			for _, name := range []string{"edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish"} {
+				if byName[name].Scope != admin.ActionScopeAny {
+					t.Fatalf("expected %q action scope any for detail parity, got %+v", name, byName[name])
+				}
+			}
 			unpublish := byName["unpublish"]
 			if strings.TrimSpace(unpublish.CommandName) == "" {
 				t.Fatalf("expected unpublish action command_name")
@@ -182,6 +190,9 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 				schedule := byName["schedule"]
 				if strings.TrimSpace(schedule.CommandName) == "" {
 					t.Fatalf("expected schedule action command_name")
+				}
+				if schedule.Scope != admin.ActionScopeAny {
+					t.Fatalf("expected schedule action scope any, got %+v", schedule)
 				}
 			}
 		})

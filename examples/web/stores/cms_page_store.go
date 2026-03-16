@@ -263,6 +263,11 @@ func (s *CMSPageStore) Update(ctx context.Context, id string, record map[string]
 	if err != nil {
 		return nil, err
 	}
+	if strings.EqualFold(asString(record["status"], ""), "draft") {
+		if err := protectedHomePageMutationError(existing, "unpublish"); err != nil {
+			return nil, err
+		}
+	}
 	record["id"] = id
 	payload := s.pagePayload(record, existing)
 	updated, err := s.repo.Update(ctx, id, payload)
@@ -289,6 +294,9 @@ func (s *CMSPageStore) Delete(ctx context.Context, id string) error {
 		return admin.ErrNotFound
 	}
 	existing, _ := s.Get(ctx, id)
+	if err := protectedHomePageMutationError(existing, "delete"); err != nil {
+		return err
+	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
@@ -349,6 +357,9 @@ func (s *CMSPageStore) Unpublish(ctx context.Context, ids []string) ([]map[strin
 		if !idMatches(targets, id) {
 			continue
 		}
+		if err := protectedHomePageMutationError(rec, "unpublish"); err != nil {
+			return nil, err
+		}
 		if strings.EqualFold(asString(rec["status"], ""), "draft") {
 			continue
 		}
@@ -364,6 +375,29 @@ func (s *CMSPageStore) Unpublish(ctx context.Context, ids []string) ([]map[strin
 		return nil, admin.ErrNotFound
 	}
 	return updated, nil
+}
+
+func protectedHomePageMutationError(record map[string]any, action string) error {
+	path := strings.TrimSpace(asString(record["path"], ""))
+	slug := strings.ToLower(strings.TrimSpace(asString(record["slug"], "")))
+	parentID := strings.TrimSpace(asString(record["parent_id"], ""))
+	if path != "/" && !(slug == "home" && parentID == "") {
+		return nil
+	}
+
+	reason := "The home page must remain published so the site root always has an active landing page."
+	if strings.EqualFold(strings.TrimSpace(action), "delete") {
+		reason = "The home page cannot be deleted because the site root must always resolve to a published page."
+	}
+
+	return admin.NewDomainError("PRECONDITION_FAILED", reason, map[string]any{
+		"error_code":       "PRECONDITION_FAILED",
+		"page_role":        "home",
+		"required_path":    "/",
+		"required_status":  "published",
+		"blocked_action":   strings.ToLower(strings.TrimSpace(action)),
+		"business_rule_id": "content.home_page_protection",
+	})
 }
 
 func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]any) map[string]any {

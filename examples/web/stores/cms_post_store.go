@@ -336,6 +336,11 @@ func (s *CMSPostStore) updateStatus(ctx context.Context, ids []string, status st
 			continue
 		}
 		currentStatus := strings.ToLower(asString(rec["status"], ""))
+		if strings.EqualFold(status, "scheduled") {
+			if err := postScheduleMutationError(rec); err != nil {
+				return nil, err
+			}
+		}
 		if currentStatus == strings.ToLower(status) {
 			if publishAt == nil {
 				continue
@@ -372,6 +377,36 @@ func (s *CMSPostStore) updateStatus(ctx context.Context, ids []string, status st
 		return nil, admin.ErrNotFound
 	}
 	return updated, nil
+}
+
+func postScheduleMutationError(record map[string]any) error {
+	currentStatus := strings.ToLower(strings.TrimSpace(asString(record["status"], "")))
+	if currentStatus == "" || currentStatus == "draft" {
+		return nil
+	}
+
+	reason := "Only draft posts can be scheduled for publication."
+	switch currentStatus {
+	case "scheduled":
+		reason = "This post is already scheduled. Update the publish date on the post instead of scheduling it again."
+	case "published":
+		reason = "Unpublish this post before scheduling a new publication window."
+	case "pending_approval":
+		reason = "Approve or reject this post before scheduling publication."
+	case "archived":
+		reason = "Restore this post to draft before scheduling publication."
+	}
+
+	metadata := map[string]any{
+		"error_code":      "PRECONDITION_FAILED",
+		"current_status":  currentStatus,
+		"required_status": "draft",
+	}
+	if publishedAt := parseTimeValue(record["published_at"]); !publishedAt.IsZero() {
+		metadata["published_at"] = publishedAt.UTC().Format(time.RFC3339)
+	}
+
+	return admin.NewDomainError("PRECONDITION_FAILED", reason, metadata)
 }
 
 func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]any) map[string]any {

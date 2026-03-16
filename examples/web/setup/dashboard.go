@@ -8,6 +8,8 @@ import (
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	"github.com/goliatone/go-admin/quickstart"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	"github.com/goliatone/go-dashboard/components/dashboard"
 )
 
@@ -25,12 +27,14 @@ type userProfileOverviewWidgetConfig struct {
 }
 
 // SetupDashboard configures dashboard widgets for the admin panel
-func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath string) {
+func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath string, placements quickstart.PlacementConfig) {
 	dash := adm.Dashboard()
 	basePath = "/" + strings.Trim(strings.TrimSpace(basePath), "/")
 	if basePath == "/" {
 		basePath = "/admin"
 	}
+	mainArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementMain, uiplacement.DashboardAreaCodeMain)
+	sidebarArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementSidebar, uiplacement.DashboardAreaCodeSidebar)
 
 	// Override the default chart_sample widget to prevent old chart from showing
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -69,7 +73,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetContentStats,
 		Name:        "Content Stats",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetContentStats()
 			_ = ctx
@@ -88,7 +92,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetStorageStats,
 		Name:        "Storage Stats",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetStorageStats()
 			_ = ctx
@@ -188,7 +192,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetSystemHealth,
 		Name:        "System Health",
-		DefaultArea: "admin.dashboard.sidebar",
+		DefaultArea: sidebarArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
@@ -202,7 +206,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	})
 
 	// Register ECharts chart widgets
-	registerChartWidgets(dash, dataStores)
+	registerChartWidgets(dash, dataStores, placements)
 }
 
 func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.ActivitySink) {
@@ -278,15 +282,17 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 }
 
 // registerChartWidgets sets up ECharts-based chart widgets
-func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) {
+func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores, placements quickstart.PlacementConfig) {
 	// Use go-dashboard's configured assets host for runtime chart hydration.
 	cdnHost := dashboard.DefaultEChartsAssetsHost()
+	mainArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementMain, uiplacement.DashboardAreaCodeMain)
+	sidebarArea := quickstart.ResolveDashboardArea(placements, uiplacement.DashboardPlacementSidebar, uiplacement.DashboardAreaCodeSidebar)
 
 	// Bar chart widget - Monthly content creation
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetBarChart,
 		Name:        "Monthly Content",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
@@ -306,7 +312,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetLineChart,
 		Name:        "User Growth",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetUserStats()
 			total := stats["total"].(int)
@@ -339,7 +345,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetPieChart,
 		Name:        "Content Distribution",
-		DefaultArea: "admin.dashboard.sidebar",
+		DefaultArea: sidebarArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			contentStats := dataStores.Stats.GetContentStats()
 			_ = ctx
@@ -364,7 +370,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetGaugeChart,
 		Name:        "Storage Usage",
-		DefaultArea: "admin.dashboard.sidebar",
+		DefaultArea: sidebarArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			storageStats := dataStores.Stats.GetStorageStats()
 			// Convert percentage to float64 (it comes as int)
@@ -395,7 +401,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code:        admin.WidgetScatterChart,
 		Name:        "Engagement vs Retention",
-		DefaultArea: "admin.dashboard.main",
+		DefaultArea: mainArea,
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
