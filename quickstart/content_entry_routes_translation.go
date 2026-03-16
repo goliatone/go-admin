@@ -94,22 +94,26 @@ func contentEntryTranslationGroupID(record map[string]any) string {
 	})
 }
 
-func contentEntryTranslationFamilyURL(urls urlkit.Resolver, groupID string) string {
+func contentEntryTranslationFamilyURL(urls urlkit.Resolver, groupID string, channel string) string {
 	groupID = strings.TrimSpace(groupID)
 	if groupID == "" {
 		return ""
 	}
-	return strings.TrimSpace(resolveRouteURL(urls, "admin", "translations.families.id", map[string]string{
+	rawURL := strings.TrimSpace(resolveRouteURL(urls, "admin", "translations.families.id", map[string]string{
 		"family_id": groupID,
 	}, nil))
+	if channel == "" {
+		return rawURL
+	}
+	return appendQueryParam(rawURL, "channel", channel)
 }
 
-func contentEntryAttachTranslationFamilyLink(record map[string]any, urls urlkit.Resolver, enabled bool) map[string]any {
+func contentEntryAttachTranslationFamilyLink(record map[string]any, urls urlkit.Resolver, enabled bool, channel string) map[string]any {
 	if len(record) == 0 || !enabled {
 		return record
 	}
 	groupID := contentEntryTranslationGroupID(record)
-	familyURL := contentEntryTranslationFamilyURL(urls, groupID)
+	familyURL := contentEntryTranslationFamilyURL(urls, groupID, strings.TrimSpace(channel))
 	if groupID == "" || familyURL == "" {
 		return record
 	}
