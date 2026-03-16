@@ -466,6 +466,14 @@ func TestPanelSchemaCRUDDefaultsIncludeDeleteAndBulkDelete(t *testing.T) {
 	if !containsActionName(schema.BulkActions, "delete") {
 		t.Fatalf("expected CRUD bulk default delete, got %+v", schema.BulkActions)
 	}
+	edit, ok := findPanelSchemaActionByName(schema.Actions, "edit")
+	if !ok || edit.Scope != ActionScopeAny {
+		t.Fatalf("expected implicit edit action scope any, got %+v", edit)
+	}
+	deleteAction, ok := findPanelSchemaActionByName(schema.Actions, "delete")
+	if !ok || deleteAction.Scope != ActionScopeAny {
+		t.Fatalf("expected implicit delete action scope any, got %+v", deleteAction)
+	}
 }
 
 func TestPanelSchemaNoneDefaultsDoesNotInjectImplicitActions(t *testing.T) {

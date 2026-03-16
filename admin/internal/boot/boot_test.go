@@ -231,6 +231,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"panel":                                       "/panels/:panel",
 							"panel.id":                                    "/panels/:panel/:id",
 							"panel.action":                                "/panels/:panel/actions/:action",
+							"panel.bulk.state":                            "/panels/:panel/bulk-actions/state",
 							"panel.bulk":                                  "/panels/:panel/bulk/:action",
 							"panel.preview":                               "/panels/:panel/:id/preview",
 							"panel.subresource":                           "/panels/:panel/:id/:subresource/:value",
@@ -405,6 +406,7 @@ type stubPanelBinding struct {
 	name              string
 	listCalled        int
 	actionCalled      int
+	bulkStateCalled   int
 	bulkCalled        int
 	subresourceCalled int
 	lastLocale        string
@@ -448,6 +450,12 @@ func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body 
 		return ActionResponse{}, errors.New("missing action")
 	}
 	return s.actionResult, nil
+}
+func (s *stubPanelBinding) BulkActionState(_ router.Context, locale string, body map[string]any) (map[string]any, error) {
+	s.bulkStateCalled++
+	s.lastLocale = locale
+	s.lastActionBody = body
+	return map[string]any{"bulk_action_state": map[string]any{}}, nil
 }
 func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	s.bulkCalled++
@@ -493,7 +501,7 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 
 	err := PanelStep(ctx)
 	require.NoError(t, err)
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
@@ -501,6 +509,7 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel", map[string]string{"panel": "users"})])
 	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.id", map[string]string{"panel": "users"})])
 	require.True(t, methodPaths["POST "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.action", map[string]string{"panel": "users"})])
+	require.True(t, methodPaths["POST "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.bulk.state", map[string]string{"panel": "users"})])
 	require.True(t, methodPaths["POST "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.bulk", map[string]string{"panel": "users"})])
 	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.preview", map[string]string{"panel": "users"})])
 
@@ -508,14 +517,19 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	actionCtx.ParamsM["panel"] = "users"
 	actionCtx.ParamsM["action"] = "run"
 	actionCtx.On("Body").Return([]byte{})
+	bulkStateCtx := router.NewMockContext()
+	bulkStateCtx.ParamsM["panel"] = "users"
+	bulkStateCtx.On("Body").Return([]byte{})
 	bulkCtx := router.NewMockContext()
 	bulkCtx.ParamsM["panel"] = "users"
 	bulkCtx.ParamsM["action"] = "bulk"
 	bulkCtx.On("Body").Return([]byte{})
 
 	require.NoError(t, rr.calls[6].handler(actionCtx))
-	require.NoError(t, rr.calls[7].handler(bulkCtx))
+	require.NoError(t, rr.calls[7].handler(bulkStateCtx))
+	require.NoError(t, rr.calls[8].handler(bulkCtx))
 	require.Equal(t, 1, binding.actionCalled)
+	require.Equal(t, 1, binding.bulkStateCalled)
 	require.Equal(t, 1, binding.bulkCalled)
 	require.Equal(t, "en", binding.lastLocale)
 }
@@ -536,7 +550,7 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -573,7 +587,7 @@ func TestPanelStepActionSuccessEnvelopeUsesResponderForNon200Status(t *testing.T
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -610,14 +624,14 @@ func TestPanelStepBulkSuccessEnvelopeWithData(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 
 	bulkCtx := router.NewMockContext()
 	bulkCtx.ParamsM["panel"] = "users"
 	bulkCtx.ParamsM["action"] = "create-missing-translations"
 	bulkCtx.On("Body").Return([]byte{})
 
-	require.NoError(t, rr.calls[7].handler(bulkCtx))
+	require.NoError(t, rr.calls[8].handler(bulkCtx))
 	payload, ok := resp.lastJSON.(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "ok", payload["status"])
@@ -773,7 +787,7 @@ func TestPanelStepResolvesPanelBindingAtRequestTime(t *testing.T) {
 
 	err := PanelStep(ctx)
 	require.NoError(t, err)
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 
 	replacementUsersBinding := &stubPanelBinding{name: "users"}
 	ctx.panels = []PanelBinding{replacementUsersBinding}
@@ -813,7 +827,7 @@ func TestPanelStepListPublishesResponseMeta(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 9)
+	require.Len(t, rr.calls, 10)
 
 	listCtx := router.NewMockContext()
 	require.NoError(t, rr.calls[0].handler(listCtx))
@@ -1160,6 +1174,7 @@ type stubTranslationExchangeBinding struct {
 	templateCalled int
 	validateCalled int
 	applyCalled    int
+	historyCalled  int
 	jobCalled      int
 }
 
@@ -1183,6 +1198,11 @@ func (s *stubTranslationExchangeBinding) ImportApply(_ router.Context) (any, err
 	return map[string]any{"summary": map[string]any{"processed": 1}}, nil
 }
 
+func (s *stubTranslationExchangeBinding) History(_ router.Context) (any, error) {
+	s.historyCalled++
+	return map[string]any{"history": map[string]any{"items": []any{}}}, nil
+}
+
 func (s *stubTranslationExchangeBinding) JobStatus(_ router.Context, _ string) (any, error) {
 	s.jobCalled++
 	return map[string]any{"status": "ok"}, nil
@@ -1200,7 +1220,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationExchangeRouteStep(ctx))
-	require.Len(t, rr.calls, 5)
+	require.Len(t, rr.calls, 6)
 
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
@@ -1210,6 +1230,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.template")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.validate")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.apply")])
+	require.True(t, methodPaths["GET "+translationExchangeHistoryRoutePath(ctx)])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.jobs.id")])
 
 	for _, call := range rr.calls {
@@ -1219,6 +1240,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.Equal(t, 1, binding.templateCalled)
 	require.Equal(t, 1, binding.validateCalled)
 	require.Equal(t, 1, binding.applyCalled)
+	require.Equal(t, 1, binding.historyCalled)
 	require.Equal(t, 1, binding.jobCalled)
 }
 

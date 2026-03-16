@@ -137,3 +137,43 @@ func TestServiceAbortPersistsTerminalAbort(t *testing.T) {
 		t.Fatalf("expected abort handler call, got %+v", handler)
 	}
 }
+
+func TestServiceDeadLetteredEffectsRemainTerminal(t *testing.T) {
+	now := time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)
+	store := newStubStore(Record{
+		EffectID:      "effect-4",
+		Status:        StatusDeadLettered,
+		AttemptCount:  2,
+		DispatchID:    "dispatch-dead",
+		ErrorJSON:     "provider failed permanently",
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		DispatchedAt:  &now,
+		MaxAttempts:   5,
+		CorrelationID: "corr-dead",
+	})
+	handler := &stubHandler{}
+	svc := NewService(store, func() time.Time { return now.Add(5 * time.Minute) })
+
+	dispatched, err := svc.MarkDispatching(context.Background(), Scope{TenantID: "tenant-1", OrgID: "org-1"}, "effect-4", "dispatch-late")
+	if err != nil {
+		t.Fatalf("MarkDispatching dead-lettered: %v", err)
+	}
+	if dispatched.Status != StatusDeadLettered || dispatched.AttemptCount != 2 {
+		t.Fatalf("expected dead-lettered effect unchanged, got %+v", dispatched)
+	}
+
+	completed, err := svc.Complete(context.Background(), Scope{TenantID: "tenant-1", OrgID: "org-1"}, "effect-4", SMTPAcceptedPolicy{}, DispatchResult{
+		Outcome:    OutcomeCompleted,
+		DispatchID: "dispatch-late",
+	}, nil, handler)
+	if err != nil {
+		t.Fatalf("Complete dead-lettered: %v", err)
+	}
+	if completed.Status != StatusDeadLettered || completed.AttemptCount != 2 {
+		t.Fatalf("expected dead-lettered effect unchanged after complete, got %+v", completed)
+	}
+	if handler.finalized != 0 || handler.failed != 0 || handler.pending != 0 || handler.aborted != 0 {
+		t.Fatalf("expected no handler calls for terminal dead-lettered effect, got %+v", handler)
+	}
+}

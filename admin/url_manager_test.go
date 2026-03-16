@@ -209,6 +209,7 @@ func TestDefaultAdminAPIRoutesPanelTemplatesAreNamespaced(t *testing.T) {
 		"panel":             "/panels/:panel",
 		"panel.id":          "/panels/:panel/:id",
 		"panel.action":      "/panels/:panel/actions/:action",
+		"panel.bulk.state":  "/panels/:panel/bulk-actions/state",
 		"panel.bulk":        "/panels/:panel/bulk/:action",
 		"panel.preview":     "/panels/:panel/:id/preview",
 		"panel.subresource": "/panels/:panel/:id/:subresource/:value",

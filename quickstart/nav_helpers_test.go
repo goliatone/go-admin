@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/command"
 )
@@ -188,14 +189,14 @@ func TestDefaultPlacementsIncludeSidebarUtilityMenu(t *testing.T) {
 	if code != admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode) {
 		t.Fatalf("expected sidebar utility menu code %q, got %q", admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode), code)
 	}
-	if area := placements.DashboardAreaFor(DashboardPlacementSidebar, ""); area != "admin.dashboard.sidebar" {
-		t.Fatalf("expected dashboard sidebar placement area admin.dashboard.sidebar, got %q", area)
+	if area := placements.DashboardAreaFor(uiplacement.DashboardPlacementSidebar, ""); area != uiplacement.DashboardAreaCodeSidebar {
+		t.Fatalf("expected dashboard sidebar placement area %q, got %q", uiplacement.DashboardAreaCodeSidebar, area)
 	}
-	if area := placements.DashboardAreaFor(DashboardPlacementMain, ""); area != "admin.dashboard.main" {
-		t.Fatalf("expected dashboard main area admin.dashboard.main, got %q", area)
+	if area := placements.DashboardAreaFor(uiplacement.DashboardPlacementMain, ""); area != uiplacement.DashboardAreaCodeMain {
+		t.Fatalf("expected dashboard main area %q, got %q", uiplacement.DashboardAreaCodeMain, area)
 	}
-	if area := placements.DashboardAreaFor(DashboardPlacementFooter, ""); area != "admin.dashboard.footer" {
-		t.Fatalf("expected dashboard footer area admin.dashboard.footer, got %q", area)
+	if area := placements.DashboardAreaFor(uiplacement.DashboardPlacementFooter, ""); area != uiplacement.DashboardAreaCodeFooter {
+		t.Fatalf("expected dashboard footer area %q, got %q", uiplacement.DashboardAreaCodeFooter, area)
 	}
 }
 

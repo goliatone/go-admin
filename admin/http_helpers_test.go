@@ -7,6 +7,7 @@ import (
 
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
@@ -190,6 +191,46 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 	locales, _ := meta["missing_locales"].([]any)
 	if len(locales) != 2 {
 		t.Fatalf("expected missing locales [es fr], got %v", meta["missing_locales"])
+	}
+}
+
+func TestWriteErrorPrefersSpecificDomainCodeOverGenericHandlerWrappers(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/actions/schedule", func(c router.Context) error {
+		domainErr := NewDomainError(TextCodePreconditionFailed, "Only draft posts can be scheduled for publication.", map[string]any{
+			"error_code":      TextCodePreconditionFailed,
+			"current_status":  "published",
+			"required_status": "draft",
+		})
+		retryErr := goerrors.Wrap(domainErr, goerrors.CategoryInternal, "handler failed after 1 attempts").
+			WithTextCode("HANDLER_MAX_RETRIES_EXCEEDED")
+		handlerErr := goerrors.Wrap(retryErr, goerrors.CategoryHandler, "handler failed for type posts.bulk_schedule").
+			WithTextCode("HANDLER_EXECUTION_FAILED")
+		return writeError(c, handlerErr)
+	})
+
+	req := httptest.NewRequest("POST", "/actions/schedule", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodePreconditionFailed {
+		t.Fatalf("expected %s, got %v", TextCodePreconditionFailed, errPayload["text_code"])
+	}
+	if errPayload["message"] != "Only draft posts can be scheduled for publication." {
+		t.Fatalf("expected domain error message, got %v", errPayload["message"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["current_status"] != "published" || meta["required_status"] != "draft" {
+		t.Fatalf("expected domain metadata, got %v", meta)
 	}
 }
 
