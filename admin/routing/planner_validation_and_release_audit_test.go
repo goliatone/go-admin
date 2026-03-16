@@ -163,7 +163,7 @@ func TestReleaseAuditWarnsWhenNativeCapabilityHooksAreNotAdvertised(t *testing.T
 
 func typicalPlannerContracts(count int) []ModuleContract {
 	contracts := make([]ModuleContract, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		slug := fmt.Sprintf("module_%02d", i)
 		contract := ModuleContract{
 			Slug: slug,

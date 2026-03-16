@@ -106,11 +106,9 @@ func TestGoCMSContentAdapterBlockDefinitionCacheSupportsConcurrentReads(t *testi
 
 	ctx := WithContentChannel(context.Background(), "preview")
 	var wg sync.WaitGroup
-	for i := 0; i < 24; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range 24 {
+		wg.Go(func() {
+			for range 100 {
 				defs, err := adapter.BlockDefinitions(ctx)
 				if err != nil {
 					t.Errorf("BlockDefinitions failed: %v", err)
@@ -133,7 +131,7 @@ func TestGoCMSContentAdapterBlockDefinitionCacheSupportsConcurrentReads(t *testi
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

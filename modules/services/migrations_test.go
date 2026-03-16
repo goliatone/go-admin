@@ -97,7 +97,6 @@ func TestRegisterServiceMigrations_ProfileOrderAndLabels(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			client := newTestPersistenceClient(t)
 			labels := []string{}

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,9 +53,7 @@ func (s *stubCRUDService) Update(ctx crud.Context, record map[string]any) (map[s
 	id, _ := record["id"].(string)
 	for i, rec := range s.records {
 		if rec["id"] == id {
-			for k, v := range record {
-				rec[k] = v
-			}
+			maps.Copy(rec, record)
 			s.records[i] = rec
 			return cloneMap(rec), nil
 		}
@@ -118,8 +117,8 @@ func (s *stubCRUDService) applyFilters(ctx crud.Context) []map[string]any {
 	for _, rec := range s.records {
 		match := true
 		for k, v := range queries {
-			if strings.HasSuffix(k, "__eq") {
-				field := strings.TrimSuffix(k, "__eq")
+			if before, ok := strings.CutSuffix(k, "__eq"); ok {
+				field := before
 				if fmt.Sprint(rec[field]) != v {
 					match = false
 					break
@@ -178,10 +177,7 @@ func (s *stubCRUDService) applyPagination(ctx crud.Context, records []map[string
 	if offset > len(records) {
 		return []map[string]any{}, len(records)
 	}
-	end := offset + limit
-	if end > len(records) {
-		end = len(records)
-	}
+	end := min(offset+limit, len(records))
 	out := []map[string]any{}
 	for _, rec := range records[offset:end] {
 		out = append(out, cloneMap(rec))

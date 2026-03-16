@@ -38,7 +38,7 @@ func TestDebugREPLAuthorizeRequest(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:      true,
 				ShellEnabled: true,
-				ReadOnly:     BoolPtr(false),
+				ReadOnly:     new(false),
 			},
 		}
 		mockCtx := newDebugREPLMockContext(t, context.Background(), "127.0.0.1")
@@ -56,7 +56,7 @@ func TestDebugREPLAuthorizeRequest(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:      true,
 				ShellEnabled: true,
-				ReadOnly:     BoolPtr(true),
+				ReadOnly:     new(true),
 			},
 		}
 		mockCtx := newDebugREPLMockContext(t, context.Background(), "127.0.0.1")
@@ -75,7 +75,7 @@ func TestDebugREPLAuthorizeRequest(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:          false,
 				AppEnabled:       true,
-				ReadOnly:         BoolPtr(true),
+				ReadOnly:         new(true),
 				OverrideStrategy: override,
 			},
 		}
@@ -100,7 +100,7 @@ func TestDebugREPLAuthorizeRequest(t *testing.T) {
 				Enabled:      true,
 				ShellEnabled: true,
 				AllowedRoles: []string{"admin"},
-				ReadOnly:     BoolPtr(false),
+				ReadOnly:     new(false),
 			},
 		}
 		_, err := debugREPLAuthorizeRequest(adm, cfg, DebugREPLKindShell, false, mockCtx)
@@ -118,7 +118,7 @@ func TestDebugREPLAuthorizeRequest(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:      true,
 				ShellEnabled: true,
-				ReadOnly:     BoolPtr(false),
+				ReadOnly:     new(false),
 			},
 		}
 		mockCtx := newDebugREPLMockContext(t, context.Background(), "127.0.0.1")

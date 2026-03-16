@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
@@ -184,9 +185,9 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 			"schema": map[string]any{
 				"bulk_actions": filterBulkActionContracts(schema.BulkActions),
 				"bulk_action_state_config": map[string]any{
-					"selection_sensitive":     schema.BulkActionStateConfig.SelectionSensitive,
+					"selection_sensitive":      schema.BulkActionStateConfig.SelectionSensitive,
 					"selection_state_endpoint": schema.BulkActionStateConfig.SelectionStateEndpoint,
-					"debounce_ms":             schema.BulkActionStateConfig.DebounceMS,
+					"debounce_ms":              schema.BulkActionStateConfig.DebounceMS,
 				},
 			},
 			"record_ids": extractRecordIDsAny(listRecords),
@@ -195,7 +196,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 			},
 		},
 		"selection_contracts": map[string]any{
-			"single_invalid": singleSelection,
+			"single_invalid":  singleSelection,
 			"mixed_selection": mixedSelection,
 		},
 		"execution_failure": executionFailure,
@@ -276,8 +277,6 @@ func clonePhase7Record(record map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := make(map[string]any, len(record))
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out
 }

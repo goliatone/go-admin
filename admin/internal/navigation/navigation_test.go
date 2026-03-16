@@ -2,7 +2,6 @@ package navigation
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 )
 
@@ -20,14 +19,14 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	nav := NewNavigation(nil, allowAllAuthorizer{})
 	nav.SetTranslator(translatorStub{})
 	nav.AddFallback(
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: primitives.Int(0)},
-		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en", Position: primitives.Int(1)},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: primitives.Int(2)},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: primitives.Int(2)},
-		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en", Position: primitives.Int(3)},
-		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: primitives.Int(4)},
-		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en", Position: primitives.Int(10)},
-		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en", Position: primitives.Int(11)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: new(0)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "A", Locale: "en", Position: new(1)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: new(2)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: new(2)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "B", Locale: "en", Position: new(3)},
+		NavigationItem{Type: MenuItemTypeSeparator, Label: "---", Locale: "en", Position: new(4)},
+		NavigationItem{Type: MenuItemTypeGroup, Label: "Empty Group", Locale: "en", Position: new(10)},
+		NavigationItem{Type: MenuItemTypeItem, Label: "Collapsible Empty", Collapsible: true, Locale: "en", Position: new(11)},
 	)
 
 	items := nav.Resolve(context.Background(), "en")

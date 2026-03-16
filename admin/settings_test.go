@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -328,7 +327,7 @@ func TestSettingsNavigationSkipsPrimaryMenuWhenUtilityAlreadyHasSettings(t *test
 		Label:    "Settings",
 		Icon:     "settings",
 		Locale:   cfg.DefaultLocale,
-		Position: primitives.Int(10),
+		Position: new(10),
 		Target: map[string]any{
 			"type": "url",
 			"path": "/admin/settings",
@@ -428,7 +427,7 @@ func TestBunSettingsAdapterResolveAllLoadsBeyondLegacyPageLimit(t *testing.T) {
 	svc.UseAdapter(adapter)
 
 	values := map[string]any{}
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		key := fmt.Sprintf("bulk.setting.%02d", i)
 		value := fmt.Sprintf("value-%02d", i)
 		svc.RegisterDefinition(SettingDefinition{Key: key, Default: "default", Type: "string"})
@@ -443,7 +442,7 @@ func TestBunSettingsAdapterResolveAllLoadsBeyondLegacyPageLimit(t *testing.T) {
 	}
 
 	resolved := svc.ResolveAll("")
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		key := fmt.Sprintf("bulk.setting.%02d", i)
 		expected := fmt.Sprintf("value-%02d", i)
 		entry, ok := resolved[key]

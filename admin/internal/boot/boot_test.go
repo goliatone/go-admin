@@ -1208,6 +1208,11 @@ func (s *stubTranslationExchangeBinding) JobStatus(_ router.Context, _ string) (
 	return map[string]any{"status": "ok"}, nil
 }
 
+func (s *stubTranslationExchangeBinding) DeleteJob(_ router.Context, _ string) (any, error) {
+	s.jobCalled++
+	return map[string]any{"status": "deleted"}, nil
+}
+
 func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
@@ -1220,7 +1225,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationExchangeRouteStep(ctx))
-	require.Len(t, rr.calls, 6)
+	require.Len(t, rr.calls, 7)
 
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
@@ -1232,6 +1237,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.apply")])
 	require.True(t, methodPaths["GET "+translationExchangeHistoryRoutePath(ctx)])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.jobs.id")])
+	require.True(t, methodPaths["DELETE "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.jobs.id")])
 
 	for _, call := range rr.calls {
 		require.NoError(t, call.handler(router.NewMockContext()))
@@ -1241,7 +1247,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.Equal(t, 1, binding.validateCalled)
 	require.Equal(t, 1, binding.applyCalled)
 	require.Equal(t, 1, binding.historyCalled)
-	require.Equal(t, 1, binding.jobCalled)
+	require.Equal(t, 2, binding.jobCalled)
 }
 
 type stubTranslationQueueBinding struct {

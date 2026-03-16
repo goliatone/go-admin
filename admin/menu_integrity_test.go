@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 )
@@ -21,7 +20,7 @@ func TestInMemoryMenuServiceRejectsSelfParentUpdate(t *testing.T) {
 		Locale:   "en",
 		Target:   map[string]any{"type": "url", "path": "/admin/root", "key": "root"},
 		Menu:     menuCode,
-		Position: primitives.Int(1),
+		Position: new(1),
 	}); err != nil {
 		t.Fatalf("add root: %v", err)
 	}
@@ -56,7 +55,7 @@ func TestInMemoryMenuServiceRejectsCycleUpdate(t *testing.T) {
 		Locale:   "en",
 		Target:   map[string]any{"type": "url", "path": "/admin/root", "key": "root"},
 		Menu:     menuCode,
-		Position: primitives.Int(1),
+		Position: new(1),
 	}); err != nil {
 		t.Fatalf("add root: %v", err)
 	}
@@ -67,7 +66,7 @@ func TestInMemoryMenuServiceRejectsCycleUpdate(t *testing.T) {
 		ParentID: "root",
 		Target:   map[string]any{"type": "url", "path": "/admin/child", "key": "child"},
 		Menu:     menuCode,
-		Position: primitives.Int(2),
+		Position: new(2),
 	}); err != nil {
 		t.Fatalf("add child: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -168,7 +169,7 @@ func TestCMSPageRepositoryListWithoutSortRemainsStableAcrossPages(t *testing.T) 
 	_, _ = content.CreatePage(ctx, CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"})
 	_, _ = content.CreatePage(ctx, CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})
 
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		pageOne, totalOne, err := repo.List(ctx, ListOptions{
 			Page:    1,
 			PerPage: 2,
@@ -861,13 +862,7 @@ func TestCMSContentRepositoryListRejectsMarkdownOnlyPagePayloadsWithoutCanonical
 		t.Fatalf("expected missing fields metadata, got %#v", typedErr.Metadata["missing"])
 	}
 	for _, field := range []string{"content", "summary/excerpt", "path", "meta_title", "meta_description"} {
-		found := false
-		for _, candidate := range missing {
-			if candidate == field {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(missing, field)
 		if !found {
 			t.Fatalf("expected missing field %q, got %#v", field, missing)
 		}

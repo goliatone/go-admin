@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"maps"
 	"testing"
 
 	admincontract "github.com/goliatone/go-admin/quickstart/admin"
@@ -122,9 +123,7 @@ func toAdminListOptions(opts admincontract.ListOptions) ListOptions {
 		Search:   opts.Search,
 	}
 	if len(opts.Filters) > 0 {
-		for key, value := range opts.Filters {
-			converted.Filters[key] = value
-		}
+		maps.Copy(converted.Filters, opts.Filters)
 	}
 	if len(opts.Predicates) > 0 {
 		converted.Predicates = make([]ListPredicate, 0, len(opts.Predicates))

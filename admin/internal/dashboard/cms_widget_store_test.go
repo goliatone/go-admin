@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestCMSWidgetStoreCRUD(t *testing.T) {
 		t.Fatalf("expected instance id")
 	}
 
-	if err := store.AssignInstance(ctx, godash.AssignWidgetInput{AreaCode: "admin.dashboard.main", InstanceID: created.ID, Position: primitives.Int(1)}); err != nil {
+	if err := store.AssignInstance(ctx, godash.AssignWidgetInput{AreaCode: "admin.dashboard.main", InstanceID: created.ID, Position: new(1)}); err != nil {
 		t.Fatalf("assign instance: %v", err)
 	}
 	if len(recorder.events) == 0 {

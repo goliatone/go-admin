@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 
 	cms "github.com/goliatone/go-cms"
@@ -35,7 +34,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			GroupTitle: "Main",
 			Menu:       menuCode,
 			Locale:     "en",
-			Position:   primitives.Int(0),
+			Position:   new(0),
 		},
 		{
 			ID:       "nav-group-main.content",
@@ -44,7 +43,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 			Menu:     menuCode,
 			Locale:   "en",
 			ParentID: "nav-group-main",
-			Position: primitives.Int(1),
+			Position: new(1),
 			Target: map[string]any{
 				"type": "url",
 				"path": "/admin/content/pages",
@@ -61,7 +60,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 				"type": "url",
 				"path": "/admin/content/pages",
 			},
-			Position: primitives.Int(1),
+			Position: new(1),
 		},
 		{
 			ID:       "nav-group-main.content.posts",
@@ -73,7 +72,7 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 				"type": "url",
 				"path": "/admin/content/posts",
 			},
-			Position: primitives.Int(2),
+			Position: new(2),
 		},
 	}
 

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"maps"
 	"testing"
 )
 
@@ -55,9 +56,7 @@ func TestBootstrapDefaultsInvokesHooks(t *testing.T) {
 		cfg,
 		func(def DefaultDefinition) { registered = append(registered, def) },
 		func(ctx context.Context, values map[string]any) error {
-			for k, v := range values {
-				applied[k] = v
-			}
+			maps.Copy(applied, values)
 			return nil
 		},
 	)

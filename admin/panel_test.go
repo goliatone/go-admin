@@ -92,6 +92,16 @@ func (denyAll) Can(ctx context.Context, action string, resource string) bool {
 	return false
 }
 
+type selectiveAuthorizer struct {
+	allowed map[string]bool
+}
+
+func (a selectiveAuthorizer) Can(ctx context.Context, action string, resource string) bool {
+	_ = ctx
+	_ = resource
+	return a.allowed[strings.TrimSpace(action)]
+}
+
 type panelSubresourceResponderRepo struct {
 	Repository
 	calls int
@@ -322,6 +332,48 @@ func TestPanelRunActionResponseReturnsStructuredStatusWithoutHTTPStatusField(t *
 		}
 		if _, ok := compat["http_status"]; ok {
 			t.Fatalf("expected compat payload without http_status side channel, got %#v", compat)
+		}
+	})
+}
+
+func TestPanelRunActionResponseRequiresAllActionPermissions(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		reg := NewCommandBus(true)
+		defer reg.Reset()
+		cmd := &payloadCommand{}
+		if _, err := RegisterCommand(reg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(reg, "do.payload", func(payload map[string]any, ids []string) (payloadCommandMsg, error) {
+			return payloadCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+
+		panel := &Panel{
+			name:       "actions",
+			authorizer: selectiveAuthorizer{allowed: map[string]bool{"items.edit": true}},
+			actions: []Action{{
+				Name:           "run",
+				CommandName:    "do.payload",
+				Permission:     "items.edit",
+				PermissionsAll: []string{"items.edit", "items.send"},
+			}},
+			commandBus: reg,
+		}
+		_, err := panel.RunActionResponse(AdminContext{Context: context.Background()}, "run", nil, nil)
+		if err == nil {
+			t.Fatal("expected permission denied error")
+		}
+		denied, ok := err.(PermissionDeniedError)
+		if !ok {
+			t.Fatalf("expected PermissionDeniedError, got %T", err)
+		}
+		if denied.Permission != "items.send" {
+			t.Fatalf("expected missing items.send permission, got %+v", denied)
+		}
+		if cmd.called {
+			t.Fatal("did not expect command execution when one required permission is missing")
 		}
 	})
 }

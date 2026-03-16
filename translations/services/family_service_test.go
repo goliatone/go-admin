@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -274,7 +274,7 @@ func TestWriteBackfillReportPersistsDeterministicJSON(t *testing.T) {
 func TestFamilyServicePerformanceBudgets(t *testing.T) {
 	store := NewInMemoryFamilyStore()
 	plan := BackfillPlan{Families: make([]BackfillFamily, 0, 250)}
-	for i := 0; i < 250; i++ {
+	for i := range 250 {
 		id := fmtFamilyID(i)
 		plan.Families = append(plan.Families, BackfillFamily{
 			ID:           id,
@@ -327,7 +327,7 @@ func TestFamilyServicePerformanceBudgets(t *testing.T) {
 	recomputeSamples := make([]time.Duration, 0, runs)
 	listSamples := make([]time.Duration, 0, runs)
 	detailSamples := make([]time.Duration, 0, runs)
-	for i := 0; i < runs; i++ {
+	for i := range runs {
 		start := time.Now()
 		_, err := svc.Recompute(context.Background(), fmtFamilyID(i%250), "production")
 		requireNoErr(t, err)
@@ -359,7 +359,7 @@ func percentile95(samples []time.Duration) time.Duration {
 		return 0
 	}
 	cp := append([]time.Duration{}, samples...)
-	sort.Slice(cp, func(i, j int) bool { return cp[i] < cp[j] })
+	slices.Sort(cp)
 	index := int(float64(len(cp)-1) * 0.95)
 	return cp[index]
 }

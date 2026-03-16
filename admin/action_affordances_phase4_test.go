@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,9 +181,7 @@ func cloneActionFixtureEntries(actions []map[string]any, scope string) []map[str
 	out := make([]map[string]any, 0, len(actions))
 	for _, action := range actions {
 		cloned := map[string]any{}
-		for key, value := range action {
-			cloned[key] = value
-		}
+		maps.Copy(cloned, action)
 		cloned["scope"] = scope
 		out = append(out, cloned)
 	}

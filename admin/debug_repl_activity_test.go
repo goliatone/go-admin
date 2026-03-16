@@ -53,7 +53,7 @@ func TestHandleDebugREPLShellCommandRecordsEval(t *testing.T) {
 	defer reader.Close()
 	defer writer.Close()
 
-	cfg := DebugREPLConfig{ReadOnly: BoolPtr(false)}
+	cfg := DebugREPLConfig{ReadOnly: new(false)}
 	cmd := debugREPLShellCommand{Type: debugREPLShellCommandInput, Data: "ls\n"}
 	if err := handleDebugREPLShellCommand(adm, ctx, cfg, session, writer, cmd); err != nil {
 		t.Fatalf("handle shell command: %v", err)
@@ -89,7 +89,7 @@ func TestHandleDebugREPLShellCommandSkipsReadOnly(t *testing.T) {
 	defer reader.Close()
 	defer writer.Close()
 
-	cfg := DebugREPLConfig{ReadOnly: BoolPtr(true)}
+	cfg := DebugREPLConfig{ReadOnly: new(true)}
 	cmd := debugREPLShellCommand{Type: debugREPLShellCommandInput, Data: "whoami\n"}
 	if err := handleDebugREPLShellCommand(adm, context.Background(), cfg, DebugREPLSession{}, writer, cmd); err != nil {
 		t.Fatalf("handle shell command: %v", err)

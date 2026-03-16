@@ -1,5 +1,7 @@
 package admin
 
+import "slices"
+
 import "testing"
 
 func TestPermissionMatrixDefaultsIncludeTranslationExchangePermissions(t *testing.T) {
@@ -94,10 +96,5 @@ func TestMergePermissionOptionsMergesDedupesAndSorts(t *testing.T) {
 }
 
 func containsPermissionMatrixString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }

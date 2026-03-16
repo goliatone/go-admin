@@ -63,7 +63,7 @@ func TestDebugREPLReadOnlyEnabled(t *testing.T) {
 	if !cfg.ReadOnlyEnabled() {
 		t.Fatalf("expected read-only enabled when unset")
 	}
-	cfg.ReadOnly = BoolPtr(false)
+	cfg.ReadOnly = new(false)
 	if cfg.ReadOnlyEnabled() {
 		t.Fatalf("expected read-only disabled when false")
 	}

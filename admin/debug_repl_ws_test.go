@@ -95,7 +95,7 @@ func TestDebugREPLShellWebSocketAuthRequiresExec(t *testing.T) {
 				Enabled:      true,
 				ShellEnabled: true,
 				AppEnabled:   true,
-				ReadOnly:     BoolPtr(true),
+				ReadOnly:     new(true),
 			},
 		},
 	}
@@ -133,7 +133,7 @@ func TestDebugREPLAppWebSocketAllowsReadOnly(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:    true,
 				AppEnabled: true,
-				ReadOnly:   BoolPtr(true),
+				ReadOnly:   new(true),
 			},
 		},
 	}
@@ -166,7 +166,7 @@ func TestDebugREPLShellWebSocketExecPermissionDenied(t *testing.T) {
 			Repl: DebugREPLConfig{
 				Enabled:      true,
 				ShellEnabled: true,
-				ReadOnly:     BoolPtr(false),
+				ReadOnly:     new(false),
 			},
 		},
 	}

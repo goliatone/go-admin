@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -140,30 +141,15 @@ func (s *stubGoCMSContentService) Delete(context.Context, cmscontent.DeleteConte
 }
 
 func hasTranslationListOption(opts []cmscontent.ContentListOption) bool {
-	for _, opt := range opts {
-		if opt == cmscontent.WithTranslations() {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, cmscontent.WithTranslations())
 }
 
 func hasDerivedProjectionListOption(opts []cmscontent.ContentListOption) bool {
-	for _, opt := range opts {
-		if opt == cmscontent.WithDerivedFields() {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, cmscontent.WithDerivedFields())
 }
 
 func hasDerivedProjectionGetOption(opts []cmscontent.ContentGetOption) bool {
-	for _, opt := range opts {
-		if opt == cmscontent.WithDerivedFields() {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, cmscontent.WithDerivedFields())
 }
 
 type stubContentTypeService struct {

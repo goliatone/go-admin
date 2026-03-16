@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
@@ -24,12 +25,7 @@ func adminPanelAPIPath(adm *Admin, cfg Config, panel string) string {
 }
 
 func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {

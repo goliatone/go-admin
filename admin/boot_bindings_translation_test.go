@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"reflect"
 	"runtime"
 	"runtime/debug"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -92,9 +93,7 @@ func (s *translationActionRepoStub) Update(_ context.Context, id string, update 
 		return nil, ErrNotFound
 	}
 	next := primitives.CloneAnyMap(current)
-	for key, value := range update {
-		next[key] = value
-	}
+	maps.Copy(next, update)
 	s.records[id] = primitives.CloneAnyMap(next)
 	return next, nil
 }
@@ -230,7 +229,7 @@ func percentile95(samples []time.Duration) time.Duration {
 		return 0
 	}
 	out := append([]time.Duration{}, samples...)
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	idx := (len(out)*95 + 99) / 100
 	if idx <= 0 {
 		return out[0]
@@ -2491,7 +2490,7 @@ func assertGroupedTranslationRecord(t *testing.T, record map[string]any, expecte
 
 func TestPanelBindingListTranslationReadinessMemoizesRequirementsForBatch(t *testing.T) {
 	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		repo.list = append(repo.list, map[string]any{
 			"id":                   fmt.Sprintf("post_%d", i),
 			"title":                fmt.Sprintf("Post %d", i),
@@ -2599,7 +2598,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 	})
 
 	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		repo.list = append(repo.list, map[string]any{
 			"id":                   fmt.Sprintf("post_%d", i),
 			"title":                fmt.Sprintf("Post %d", i),
@@ -2626,7 +2625,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 	}
 	measure := func(binding *panelBinding) ([]time.Duration, int) {
 		invocations := 0
-		for i := 0; i < warmupRuns; i++ {
+		for range warmupRuns {
 			c := newPanelBindingMockContext()
 			_, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 				Page:    1,
@@ -2639,7 +2638,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 			invocations++
 		}
 		out := make([]time.Duration, 0, runs)
-		for i := 0; i < runs; i++ {
+		for range runs {
 			c := newPanelBindingMockContext()
 			started := time.Now()
 			_, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
@@ -2668,10 +2667,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 		t.Fatalf("expected one requirements call per request, got %d calls for %d requests", policy.calls, readinessInvocations)
 	}
 
-	increase := readinessP95 - baselineP95
-	if increase < 0 {
-		increase = 0
-	}
+	increase := max(readinessP95-baselineP95, 0)
 	const maxAllowed = 30 * time.Millisecond
 	if increase > maxAllowed {
 		t.Fatalf("readiness p95 latency increase %v exceeds budget %v (baseline=%v readiness=%v)", increase, maxAllowed, baselineP95, readinessP95)

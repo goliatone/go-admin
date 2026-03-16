@@ -474,7 +474,7 @@ func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ u
 }
 
 func (s *stubCMSMenuService) MoveMenuItemToTop(_ context.Context, menuCode string, path string, _ uuid.UUID) error {
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: primitives.Int(1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: new(1)})
 	return err
 }
 
@@ -483,7 +483,7 @@ func (s *stubCMSMenuService) MoveMenuItemToBottom(_ context.Context, menuCode st
 	if menu == nil {
 		return cms.ErrMenuNotFound
 	}
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: primitives.Int(len(menu.items) + 1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: new(len(menu.items) + 1)})
 	return err
 }
 
@@ -710,7 +710,7 @@ func buildNode(menu *stubCMSMenu, item *stubCMSMenuItem, menuCode, locale string
 }
 
 func sortByPosition(items []*stubCMSMenuItem) {
-	for i := 0; i < len(items); i++ {
+	for i := range items {
 		for j := i + 1; j < len(items); j++ {
 			if items[j].position < items[i].position {
 				items[i], items[j] = items[j], items[i]

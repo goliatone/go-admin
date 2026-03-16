@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	auth "github.com/goliatone/go-auth"
@@ -317,13 +318,7 @@ func TestAdminRPCListEndpointReturnsRegisteredCommandNamesWhenEnabled(t *testing
 	if !ok {
 		t.Fatalf("unexpected rpc response type %T", result)
 	}
-	found := false
-	for _, name := range resp.Data.Commands {
-		if name == "rpc.list.test" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(resp.Data.Commands, "rpc.list.test")
 	if !found {
 		t.Fatalf("expected command list to include rpc.list.test, got %+v", resp.Data.Commands)
 	}
