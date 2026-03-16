@@ -2431,6 +2431,34 @@ func (s *relationalTxStore) UpdateDraft(ctx context.Context, scope stores.Scope,
 	return record, nil
 }
 
+func (s *relationalTxStore) UpdateAgreementReviewProjection(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementReviewProjectionPatch) (stores.AgreementRecord, error) {
+	record, err := loadAgreementRecord(ctx, s.tx, scope, id)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if patch.ReviewStatus != nil {
+		record.ReviewStatus = stores.NormalizeAgreementReviewStatus(*patch.ReviewStatus)
+		if record.ReviewStatus == "" {
+			return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_status", "unsupported review status")
+		}
+	}
+	if patch.ReviewGate != nil {
+		record.ReviewGate = stores.NormalizeAgreementReviewGate(*patch.ReviewGate)
+		if record.ReviewGate == "" {
+			return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_gate", "unsupported review gate")
+		}
+	}
+	if patch.CommentsEnabled != nil {
+		record.CommentsEnabled = *patch.CommentsEnabled
+	}
+	record.Version++
+	record.UpdatedAt = time.Now().UTC()
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	return record, nil
+}
+
 func (s *relationalTxStore) UpdateAgreementDeliveryState(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDeliveryStatePatch) (stores.AgreementRecord, error) {
 	record, err := loadAgreementRecord(ctx, s.tx, scope, id)
 	if err != nil {
@@ -3491,6 +3519,132 @@ func (s *relationalTxStore) RevokeActiveSigningTokens(ctx context.Context, scope
 		Where("agreement_id = ?", agreementID).
 		Where("recipient_id = ?", recipientID).
 		Where("status = ?", stores.SigningTokenStatusActive).
+		Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(rows), nil
+}
+
+func (s *relationalTxStore) CreateReviewSessionToken(ctx context.Context, scope stores.Scope, record stores.ReviewSessionTokenRecord) (stores.ReviewSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.ReviewSessionTokenRecord{}, err
+	}
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.ReviewID = normalizeRelationalID(record.ReviewID)
+	record.ParticipantID = normalizeRelationalID(record.ParticipantID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.AgreementID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "review_id", "required")
+	}
+	if record.ParticipantID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if record.TokenHash == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "token_hash", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = stores.NormalizeReviewSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "status", "unsupported review session token status")
+	}
+	record.RevokedAt = cloneRelationalTimePtr(record.RevokedAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return stores.ReviewSessionTokenRecord{}, relationalUniqueConstraintError(err, "review_session_tokens", "id|token_hash")
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) GetReviewSessionToken(ctx context.Context, scope stores.Scope, id string) (stores.ReviewSessionTokenRecord, error) {
+	return loadReviewSessionTokenRecord(ctx, s.tx, scope, id)
+}
+
+func (s *relationalTxStore) GetReviewSessionTokenByHash(ctx context.Context, scope stores.Scope, tokenHash string) (stores.ReviewSessionTokenRecord, error) {
+	return loadReviewSessionTokenByHashRecord(ctx, s.tx, scope, tokenHash)
+}
+
+func (s *relationalTxStore) ListReviewSessionTokens(ctx context.Context, scope stores.Scope, agreementID, participantID string) ([]stores.ReviewSessionTokenRecord, error) {
+	return listReviewSessionTokenRecords(ctx, s.tx, scope, agreementID, participantID)
+}
+
+func (s *relationalTxStore) SaveReviewSessionToken(ctx context.Context, scope stores.Scope, record stores.ReviewSessionTokenRecord) (stores.ReviewSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.ReviewSessionTokenRecord{}, err
+	}
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "id", "required")
+	}
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.ReviewID = normalizeRelationalID(record.ReviewID)
+	record.ParticipantID = normalizeRelationalID(record.ParticipantID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.AgreementID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "review_id", "required")
+	}
+	if record.ParticipantID == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if record.TokenHash == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "token_hash", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = stores.NormalizeReviewSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return stores.ReviewSessionTokenRecord{}, relationalInvalidRecordError("review_session_tokens", "status", "unsupported review session token status")
+	}
+	record.RevokedAt = cloneRelationalTimePtr(record.RevokedAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.ReviewSessionTokenRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) RevokeActiveReviewSessionTokens(ctx context.Context, scope stores.Scope, agreementID, participantID string, revokedAt time.Time) (int, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	participantID = normalizeRelationalID(participantID)
+	if agreementID == "" {
+		return 0, relationalInvalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if participantID == "" {
+		return 0, relationalInvalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if revokedAt.IsZero() {
+		revokedAt = time.Now().UTC()
+	}
+	result, err := s.tx.NewUpdate().
+		Model((*stores.ReviewSessionTokenRecord)(nil)).
+		Set("status = ?", stores.ReviewSessionTokenStatusRevoked).
+		Set("revoked_at = ?", revokedAt.UTC()).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("participant_id = ?", participantID).
+		Where("status = ?", stores.ReviewSessionTokenStatusActive).
 		Exec(ctx)
 	if err != nil {
 		return 0, err

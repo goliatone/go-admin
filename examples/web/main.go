@@ -1153,6 +1153,7 @@ func main() {
 		log.Printf("Translation family create-locale QA route enabled (%s)", translationQAFamilyPath(cfg.BasePath))
 		log.Printf("Translation content summary QA route enabled (%s)", translationQAContentSummaryPath(cfg.BasePath))
 		log.Printf("Translation fallback edit QA route enabled (%s)", translationQAFallbackEditPath(cfg.BasePath))
+		log.Printf("Translation content datagrid QA entry enabled (%s)", translationQAContentDatagridPath(cfg.BasePath))
 	}
 
 	secureLinkUI := setup.ResolveSecureLinkUIConfig()
@@ -1677,6 +1678,22 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 			},
 		},
 		{
+			ID:          "example.translation.qa.content_datagrid",
+			Type:        admin.MenuItemTypeItem,
+			Label:       "Content Datagrid (QA)",
+			Icon:        "table",
+			ParentID:    quickstart.NavigationGroupTranslationsID,
+			Menu:        menuCode,
+			Locale:      locale,
+			Position:    menuPosition(56),
+			Permissions: append([]string{}, permissions...),
+			Target: map[string]any{
+				"type": "url",
+				"path": translationQAContentDatagridPath(basePath),
+				"key":  "translation_content_datagrid_qa",
+			},
+		},
+		{
 			ID:          "example.translation.qa.fallback_edit",
 			Type:        admin.MenuItemTypeItem,
 			Label:       "Fallback Edit (QA)",
@@ -1788,6 +1805,10 @@ func translationQAFallbackEditPath(basePath string) string {
 
 func translationQAMatrixPath(basePath string) string {
 	return path.Join(basePath, "translations", "matrix") + "?environment=production&tenant_id=tenant-1&org_id=org-1&locale_limit=4"
+}
+
+func translationQAContentDatagridPath(basePath string) string {
+	return path.Join(basePath, "content", "pages") + "?incomplete=true"
 }
 
 func translationQAQueuePath(basePath string) string {

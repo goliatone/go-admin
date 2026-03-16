@@ -12,20 +12,31 @@ import (
 )
 
 type ReviewOpenInput struct {
-	Gate              string
-	CommentsEnabled   bool
-	ReviewerIDs       []string
-	RequestedByUserID string
-	ActorType         string
-	ActorID           string
-	IPAddress         string
+	Gate               string
+	CommentsEnabled    bool
+	ReviewParticipants []ReviewParticipantInput
+	ReviewerIDs        []string
+	RequestedByUserID  string
+	ActorType          string
+	ActorID            string
+	IPAddress          string
+}
+
+type ReviewParticipantInput struct {
+	ParticipantType string
+	RecipientID     string
+	Email           string
+	DisplayName     string
+	CanComment      bool
+	CanApprove      bool
 }
 
 type ReviewDecisionInput struct {
-	RecipientID string
-	ActorType   string
-	ActorID     string
-	IPAddress   string
+	ParticipantID string
+	RecipientID   string
+	ActorType     string
+	ActorID       string
+	IPAddress     string
 }
 
 type ReviewCommentThreadInput struct {
@@ -66,6 +77,7 @@ type ReviewSummary struct {
 	CommentsEnabled     bool                                      `json:"comments_enabled"`
 	Review              *stores.AgreementReviewRecord             `json:"review,omitempty"`
 	Participants        []stores.AgreementReviewParticipantRecord `json:"participants,omitempty"`
+	Threads             []ReviewThread                            `json:"threads,omitempty"`
 	OpenThreadCount     int                                       `json:"open_thread_count"`
 	ResolvedThreadCount int                                       `json:"resolved_thread_count"`
 }
@@ -80,7 +92,7 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if agreement.Status != stores.AgreementStatusDraft {
 			return domainValidationError("agreements", "status", "review requires draft agreement")
 		}
-		reviewerIDs, err := txSvc.validateReviewRecipients(ctx, scope, agreementID, input.ReviewerIDs)
+		participants, err := txSvc.validateReviewParticipants(ctx, scope, agreementID, input)
 		if err != nil {
 			return err
 		}
@@ -89,14 +101,14 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if err != nil {
 			return err
 		}
-		if err := txSvc.replaceReviewParticipants(ctx, scope, review, reviewerIDs, now); err != nil {
+		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateDraft(ctx, scope, agreementID, stores.AgreementDraftPatch{
+		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus:    ptrString(stores.AgreementReviewStatusInReview),
 			ReviewGate:      ptrString(review.Gate),
-			CommentsEnabled: new(input.CommentsEnabled),
-		}, agreement.Version); err != nil {
+			CommentsEnabled: reviewPtrBool(input.CommentsEnabled),
+		}); err != nil {
 			return err
 		}
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_requested", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
@@ -104,7 +116,7 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 			"review_gate":          review.Gate,
 			"review_status":        review.Status,
 			"comments_enabled":     input.CommentsEnabled,
-			"reviewer_ids":         append([]string{}, reviewerIDs...),
+			"review_participants":  normalizeReviewParticipantMetadata(participants),
 			"requested_by_user_id": strings.TrimSpace(input.RequestedByUserID),
 		}); err != nil {
 			return err
@@ -129,17 +141,16 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if err != nil {
 			return err
 		}
-		reviewerIDs := input.ReviewerIDs
-		if len(reviewerIDs) == 0 {
+		participantsInput := input.ReviewParticipants
+		if len(participantsInput) == 0 && len(input.ReviewerIDs) == 0 {
 			participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
 			if err != nil {
 				return err
 			}
-			for _, participant := range participants {
-				reviewerIDs = append(reviewerIDs, participant.RecipientID)
-			}
+			participantsInput = reviewParticipantsFromRecords(participants)
 		}
-		reviewerIDs, err = txSvc.validateReviewRecipients(ctx, scope, agreementID, reviewerIDs)
+		input.ReviewParticipants = participantsInput
+		participants, err := txSvc.validateReviewParticipants(ctx, scope, agreementID, input)
 		if err != nil {
 			return err
 		}
@@ -151,21 +162,25 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if err != nil {
 			return err
 		}
-		if err := txSvc.replaceReviewParticipants(ctx, scope, review, reviewerIDs, now); err != nil {
+		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateDraft(ctx, scope, agreementID, stores.AgreementDraftPatch{
+		commentsEnabled := input.CommentsEnabled
+		if !commentsEnabled && agreement.CommentsEnabled {
+			commentsEnabled = agreement.CommentsEnabled
+		}
+		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus:    ptrString(stores.AgreementReviewStatusInReview),
 			ReviewGate:      ptrString(review.Gate),
-			CommentsEnabled: new(input.CommentsEnabled || agreement.CommentsEnabled),
-		}, agreement.Version); err != nil {
+			CommentsEnabled: reviewPtrBool(commentsEnabled),
+		}); err != nil {
 			return err
 		}
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
-			"review_id":     review.ID,
-			"review_gate":   review.Gate,
-			"review_status": review.Status,
-			"reviewer_ids":  append([]string{}, reviewerIDs...),
+			"review_id":            review.ID,
+			"review_gate":          review.Gate,
+			"review_status":        review.Status,
+			"review_participants":  normalizeReviewParticipantMetadata(participants),
 		}); err != nil {
 			return err
 		}
@@ -178,10 +193,6 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, agreementID string, actorType, actorID, ipAddress string) (ReviewSummary, error) {
 	var summary ReviewSummary
 	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
 		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -193,10 +204,10 @@ func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, a
 		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateDraft(ctx, scope, agreementID, stores.AgreementDraftPatch{
+		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(stores.AgreementReviewStatusClosed),
 			ReviewGate:   ptrString(review.Gate),
-		}, agreement.Version); err != nil {
+		}); err != nil {
 			return err
 		}
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_closed", normalizeReviewActorType(actorType), strings.TrimSpace(actorID), ipAddress, map[string]any{
@@ -233,18 +244,22 @@ func (s AgreementService) CreateCommentThread(ctx context.Context, scope stores.
 		if strings.EqualFold(strings.TrimSpace(input.Visibility), stores.AgreementCommentVisibilityInternal) && isRecipientActor(input.ActorType) {
 			return reviewVisibilityError()
 		}
+		normalizedInput, err := txSvc.normalizeCommentAnchor(ctx, scope, agreementID, input)
+		if err != nil {
+			return err
+		}
 		thread, err := txSvc.agreements.CreateAgreementCommentThread(ctx, scope, stores.AgreementCommentThreadRecord{
 			AgreementID:    agreementID,
 			ReviewID:       review.ID,
-			Visibility:     input.Visibility,
-			AnchorType:     input.AnchorType,
-			PageNumber:     input.PageNumber,
-			FieldID:        strings.TrimSpace(input.FieldID),
-			AnchorX:        input.AnchorX,
-			AnchorY:        input.AnchorY,
+			Visibility:     normalizedInput.Visibility,
+			AnchorType:     normalizedInput.AnchorType,
+			PageNumber:     normalizedInput.PageNumber,
+			FieldID:        strings.TrimSpace(normalizedInput.FieldID),
+			AnchorX:        normalizedInput.AnchorX,
+			AnchorY:        normalizedInput.AnchorY,
 			Status:         stores.AgreementCommentThreadStatusOpen,
-			CreatedByType:  normalizeReviewActorType(input.ActorType),
-			CreatedByID:    strings.TrimSpace(input.ActorID),
+			CreatedByType:  normalizeReviewActorType(normalizedInput.ActorType),
+			CreatedByID:    strings.TrimSpace(normalizedInput.ActorID),
 			LastActivityAt: reviewPtrTime(txSvc.now()),
 		})
 		if err != nil {
@@ -252,16 +267,21 @@ func (s AgreementService) CreateCommentThread(ctx context.Context, scope stores.
 		}
 		message, err := txSvc.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
 			ThreadID:      thread.ID,
-			Body:          strings.TrimSpace(input.Body),
+			Body:          strings.TrimSpace(normalizedInput.Body),
 			MessageKind:   stores.AgreementCommentMessageKindComment,
-			CreatedByType: normalizeReviewActorType(input.ActorType),
-			CreatedByID:   strings.TrimSpace(input.ActorID),
+			CreatedByType: normalizeReviewActorType(normalizedInput.ActorType),
+			CreatedByID:   strings.TrimSpace(normalizedInput.ActorID),
 			CreatedAt:     txSvc.now(),
 		})
 		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEvent(ctx, scope, agreementID, "agreement.comment_thread_created", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), map[string]any{
+		now := txSvc.now()
+		review.LastActivityAt = reviewPtrTime(now)
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEvent(ctx, scope, agreementID, "agreement.comment_thread_created", normalizeReviewActorType(normalizedInput.ActorType), strings.TrimSpace(normalizedInput.ActorID), map[string]any{
 			"review_id":     review.ID,
 			"thread_id":     thread.ID,
 			"visibility":    thread.Visibility,
@@ -292,22 +312,32 @@ func (s AgreementService) ReplyCommentThread(ctx context.Context, scope stores.S
 		if thread.Visibility == stores.AgreementCommentVisibilityInternal && isRecipientActor(input.ActorType) {
 			return reviewVisibilityError()
 		}
-		message, err := txSvc.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
+		if _, err := txSvc.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
 			ThreadID:      thread.ID,
 			Body:          strings.TrimSpace(input.Body),
 			MessageKind:   stores.AgreementCommentMessageKindReply,
 			CreatedByType: normalizeReviewActorType(input.ActorType),
 			CreatedByID:   strings.TrimSpace(input.ActorID),
 			CreatedAt:     txSvc.now(),
-		})
+		}); err != nil {
+			return err
+		}
+		thread.LastActivityAt = reviewPtrTime(txSvc.now())
+		if _, err := txSvc.agreements.UpdateAgreementCommentThread(ctx, scope, thread); err != nil {
+			return err
+		}
+		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 		if err != nil {
+			return err
+		}
+		review.LastActivityAt = thread.LastActivityAt
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
 			return err
 		}
 		messages, err := txSvc.agreements.ListAgreementCommentMessages(ctx, scope, thread.ID)
 		if err != nil {
 			return err
 		}
-		messages = append(messages, message)
 		if err := txSvc.appendAuditEvent(ctx, scope, agreementID, "agreement.comment_replied", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), map[string]any{
 			"review_id":  thread.ReviewID,
 			"thread_id":  thread.ID,
@@ -386,7 +416,7 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 	if err != nil {
 		return ReviewSummary{}, err
 	}
-	summary.Participants = participants
+		summary.Participants = participants
 	threads, err := s.agreements.ListAgreementCommentThreads(ctx, scope, agreementID, stores.AgreementCommentThreadQuery{ReviewID: review.ID})
 	if err != nil {
 		return ReviewSummary{}, err
@@ -397,6 +427,11 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 		} else {
 			summary.OpenThreadCount++
 		}
+		messages, err := s.agreements.ListAgreementCommentMessages(ctx, scope, thread.ID)
+		if err != nil {
+			return ReviewSummary{}, err
+		}
+		summary.Threads = append(summary.Threads, ReviewThread{Thread: thread, Messages: messages})
 	}
 	return summary, nil
 }
@@ -412,7 +447,7 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if err != nil {
 			return err
 		}
-		participant, participants, err := findReviewParticipant(participants, input.RecipientID)
+		participant, participants, err := findReviewParticipant(participants, input.ParticipantID, input.RecipientID)
 		if err != nil {
 			return err
 		}
@@ -434,14 +469,10 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
 			return err
 		}
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		if _, err := txSvc.agreements.UpdateDraft(ctx, scope, agreementID, stores.AgreementDraftPatch{
+		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(review.Status),
 			ReviewGate:   ptrString(review.Gate),
-		}, agreement.Version); err != nil {
+		}); err != nil {
 			return err
 		}
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
@@ -483,6 +514,14 @@ func (s AgreementService) applyCommentThreadState(ctx context.Context, scope sto
 		}
 		thread, err = txSvc.agreements.UpdateAgreementCommentThread(ctx, scope, thread)
 		if err != nil {
+			return err
+		}
+		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		review.LastActivityAt = thread.LastActivityAt
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
 			return err
 		}
 		messages, err := txSvc.agreements.ListAgreementCommentMessages(ctx, scope, thread.ID)
@@ -559,14 +598,22 @@ func deriveReviewStatus(participants []stores.AgreementReviewParticipantRecord, 
 	return stores.AgreementReviewStatusInReview
 }
 
-func findReviewParticipant(participants []stores.AgreementReviewParticipantRecord, recipientID string) (stores.AgreementReviewParticipantRecord, []stores.AgreementReviewParticipantRecord, error) {
+func findReviewParticipant(participants []stores.AgreementReviewParticipantRecord, participantID, recipientID string) (stores.AgreementReviewParticipantRecord, []stores.AgreementReviewParticipantRecord, error) {
+	participantID = strings.TrimSpace(participantID)
 	recipientID = strings.TrimSpace(recipientID)
 	for _, participant := range participants {
-		if participant.RecipientID == recipientID {
+		if participantID != "" && participant.ID == participantID {
+			return participant, participants, nil
+		}
+		if recipientID != "" && participant.RecipientID == recipientID {
 			return participant, participants, nil
 		}
 	}
-	return stores.AgreementReviewParticipantRecord{}, participants, domainValidationError("agreement_review_participants", "recipient_id", "participant is not selected for review")
+	field := "participant_id"
+	if recipientID != "" {
+		field = "recipient_id"
+	}
+	return stores.AgreementReviewParticipantRecord{}, participants, domainValidationError("agreement_review_participants", field, "participant is not selected for review")
 }
 
 func replaceParticipantSnapshot(participants []stores.AgreementReviewParticipantRecord, updated stores.AgreementReviewParticipantRecord) []stores.AgreementReviewParticipantRecord {
@@ -581,55 +628,206 @@ func replaceParticipantSnapshot(participants []stores.AgreementReviewParticipant
 	return out
 }
 
-func (s AgreementService) replaceReviewParticipants(ctx context.Context, scope stores.Scope, review stores.AgreementReviewRecord, reviewerIDs []string, now time.Time) error {
-	records := make([]stores.AgreementReviewParticipantRecord, 0, len(reviewerIDs))
-	for _, reviewerID := range reviewerIDs {
-		records = append(records, stores.AgreementReviewParticipantRecord{
-			ReviewID:       review.ID,
-			RecipientID:    reviewerID,
-			Role:           stores.AgreementReviewParticipantRoleReviewer,
-			CanComment:     true,
-			CanApprove:     true,
-			DecisionStatus: stores.AgreementReviewDecisionPending,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		})
+func (s AgreementService) replaceReviewParticipants(ctx context.Context, scope stores.Scope, review stores.AgreementReviewRecord, participants []stores.AgreementReviewParticipantRecord, now time.Time) error {
+	records := make([]stores.AgreementReviewParticipantRecord, 0, len(participants))
+	for _, participant := range participants {
+		record := participant
+		record.ReviewID = review.ID
+		record.Role = stores.AgreementReviewParticipantRoleReviewer
+		record.DecisionStatus = stores.AgreementReviewDecisionPending
+		record.DecisionAt = nil
+		record.CreatedAt = now
+		record.UpdatedAt = now
+		records = append(records, record)
 	}
 	return s.agreements.ReplaceAgreementReviewParticipants(ctx, scope, review.ID, records)
 }
 
-func (s AgreementService) validateReviewRecipients(ctx context.Context, scope stores.Scope, agreementID string, reviewerIDs []string) ([]string, error) {
-	if len(reviewerIDs) == 0 {
-		return nil, domainValidationError("agreement_reviews", "reviewer_ids", "at least one reviewer is required")
+func (s AgreementService) validateReviewParticipants(ctx context.Context, scope stores.Scope, agreementID string, input ReviewOpenInput) ([]stores.AgreementReviewParticipantRecord, error) {
+	participantInputs := append([]ReviewParticipantInput(nil), input.ReviewParticipants...)
+	if len(participantInputs) == 0 && len(input.ReviewerIDs) > 0 {
+		for _, reviewerID := range input.ReviewerIDs {
+			participantInputs = append(participantInputs, ReviewParticipantInput{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     reviewerID,
+				CanComment:      true,
+				CanApprove:      true,
+			})
+		}
+	}
+	if len(participantInputs) == 0 {
+		return nil, domainValidationError("agreement_reviews", "review_participants", "at least one reviewer is required")
 	}
 	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
 	if err != nil {
 		return nil, err
 	}
-	validRecipients := make(map[string]struct{}, len(recipients))
+	validRecipients := make(map[string]stores.RecipientRecord, len(recipients))
 	for _, recipient := range recipients {
-		validRecipients[recipient.ID] = struct{}{}
+		validRecipients[recipient.ID] = recipient
 	}
-	seen := make(map[string]struct{}, len(reviewerIDs))
-	out := make([]string, 0, len(reviewerIDs))
-	for _, reviewerID := range reviewerIDs {
-		reviewerID = strings.TrimSpace(reviewerID)
-		if reviewerID == "" {
+	seen := make(map[string]struct{}, len(participantInputs))
+	out := make([]stores.AgreementReviewParticipantRecord, 0, len(participantInputs))
+	for _, participant := range participantInputs {
+		participantType := stores.NormalizeAgreementReviewParticipantType(participant.ParticipantType)
+		if participantType == "" {
+			if strings.TrimSpace(participant.RecipientID) != "" {
+				participantType = stores.AgreementReviewParticipantTypeRecipient
+			} else if strings.TrimSpace(participant.Email) != "" {
+				participantType = stores.AgreementReviewParticipantTypeExternal
+			}
+		}
+		if participantType == "" {
+			return nil, domainValidationError("agreement_reviews", "review_participants", "participant type is required")
+		}
+		record := stores.AgreementReviewParticipantRecord{
+			ParticipantType: participantType,
+			Role:            stores.AgreementReviewParticipantRoleReviewer,
+			CanComment:      participant.CanComment,
+			CanApprove:      participant.CanApprove,
+			DecisionStatus:  stores.AgreementReviewDecisionPending,
+		}
+		if !record.CanComment && !record.CanApprove {
+			record.CanComment = true
+			record.CanApprove = true
+		}
+		switch participantType {
+		case stores.AgreementReviewParticipantTypeRecipient:
+			recipientID := strings.TrimSpace(participant.RecipientID)
+			if recipientID == "" {
+				return nil, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers require recipient_id")
+			}
+			recipient, ok := validRecipients[recipientID]
+			if !ok {
+				return nil, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers must be existing recipients")
+			}
+			record.RecipientID = recipientID
+			record.Email = strings.TrimSpace(firstNonEmptyString(participant.Email, recipient.Email))
+			record.DisplayName = strings.TrimSpace(firstNonEmptyString(participant.DisplayName, recipient.Name))
+		case stores.AgreementReviewParticipantTypeExternal:
+			email := strings.TrimSpace(strings.ToLower(participant.Email))
+			if email == "" {
+				return nil, domainValidationError("agreement_reviews", "review_participants", "external reviewers require email")
+			}
+			record.Email = email
+			record.DisplayName = strings.TrimSpace(participant.DisplayName)
+		default:
+			return nil, domainValidationError("agreement_reviews", "review_participants", "unsupported participant type")
+		}
+		identityKey := reviewParticipantIdentityKey(record)
+		if identityKey == "" {
 			continue
 		}
-		if _, ok := validRecipients[reviewerID]; !ok {
-			return nil, domainValidationError("agreement_reviews", "reviewer_ids", "reviewers must be existing recipients")
-		}
-		if _, ok := seen[reviewerID]; ok {
+		if _, ok := seen[identityKey]; ok {
 			continue
 		}
-		seen[reviewerID] = struct{}{}
-		out = append(out, reviewerID)
+		seen[identityKey] = struct{}{}
+		out = append(out, record)
 	}
 	if len(out) == 0 {
-		return nil, domainValidationError("agreement_reviews", "reviewer_ids", "at least one reviewer is required")
+		return nil, domainValidationError("agreement_reviews", "review_participants", "at least one reviewer is required")
 	}
 	return out, nil
+}
+
+func reviewParticipantsFromRecords(records []stores.AgreementReviewParticipantRecord) []ReviewParticipantInput {
+	out := make([]ReviewParticipantInput, 0, len(records))
+	for _, record := range records {
+		out = append(out, ReviewParticipantInput{
+			ParticipantType: record.ParticipantType,
+			RecipientID:     record.RecipientID,
+			Email:           record.Email,
+			DisplayName:     record.DisplayName,
+			CanComment:      record.CanComment,
+			CanApprove:      record.CanApprove,
+		})
+	}
+	return out
+}
+
+func normalizeReviewParticipantMetadata(records []stores.AgreementReviewParticipantRecord) []map[string]any {
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, map[string]any{
+			"participant_type": strings.TrimSpace(record.ParticipantType),
+			"participant_id":   strings.TrimSpace(record.ID),
+			"recipient_id":     strings.TrimSpace(record.RecipientID),
+			"email":            strings.TrimSpace(record.Email),
+			"display_name":     strings.TrimSpace(record.DisplayName),
+			"can_comment":      record.CanComment,
+			"can_approve":      record.CanApprove,
+		})
+	}
+	return out
+}
+
+func reviewParticipantIdentityKey(record stores.AgreementReviewParticipantRecord) string {
+	switch stores.NormalizeAgreementReviewParticipantType(record.ParticipantType) {
+	case stores.AgreementReviewParticipantTypeRecipient:
+		if id := strings.TrimSpace(record.RecipientID); id != "" {
+			return stores.AgreementReviewParticipantTypeRecipient + ":" + id
+		}
+	case stores.AgreementReviewParticipantTypeExternal:
+		if email := strings.TrimSpace(strings.ToLower(record.Email)); email != "" {
+			return stores.AgreementReviewParticipantTypeExternal + ":" + email
+		}
+	}
+	return ""
+}
+
+func (s AgreementService) normalizeCommentAnchor(ctx context.Context, scope stores.Scope, agreementID string, input ReviewCommentThreadInput) (ReviewCommentThreadInput, error) {
+	normalized := input
+	normalized.Visibility = stores.NormalizeAgreementCommentVisibility(input.Visibility)
+	if normalized.Visibility == "" {
+		return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "visibility", "unsupported visibility")
+	}
+	normalized.AnchorType = stores.NormalizeAgreementCommentAnchorType(input.AnchorType)
+	if normalized.AnchorType == "" {
+		return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return ReviewCommentThreadInput{}, err
+	}
+	document, err := s.documents.Get(ctx, scope, agreement.DocumentID)
+	if err != nil {
+		return ReviewCommentThreadInput{}, err
+	}
+	switch normalized.AnchorType {
+	case stores.AgreementCommentAnchorAgreement:
+		normalized.PageNumber = 0
+		normalized.FieldID = ""
+		normalized.AnchorX = 0
+		normalized.AnchorY = 0
+	case stores.AgreementCommentAnchorPage:
+		if normalized.PageNumber <= 0 {
+			return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "page_number", "page anchors require a valid page number")
+		}
+		if document.PageCount > 0 && normalized.PageNumber > document.PageCount {
+			return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "page_number", "page number exceeds document page count")
+		}
+		normalized.FieldID = ""
+	case stores.AgreementCommentAnchorField:
+		fieldID := strings.TrimSpace(normalized.FieldID)
+		if fieldID == "" {
+			return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "field_id", "field anchors require a valid field reference")
+		}
+		fields, err := s.agreements.ListFields(ctx, scope, agreementID)
+		if err != nil {
+			return ReviewCommentThreadInput{}, err
+		}
+		field, ok := findFieldByID(fields, fieldID)
+		if !ok {
+			return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "field_id", "field anchors require a valid field reference")
+		}
+		normalized.FieldID = field.ID
+		normalized.PageNumber = field.PageNumber
+		normalized.AnchorX = 0
+		normalized.AnchorY = 0
+	default:
+		return ReviewCommentThreadInput{}, domainValidationError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
+	}
+	return normalized, nil
 }
 
 func (s AgreementService) upsertAgreementReview(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, input ReviewOpenInput, status string, openedAt, closedAt *time.Time) (stores.AgreementReviewRecord, error) {
@@ -676,9 +874,19 @@ func reviewVisibilityError() error {
 		WithTextCode(string(ErrorCodeScopeDenied))
 }
 
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 //go:fix inline
 func reviewPtrBool(value bool) *bool {
-	return new(value)
+	out := value
+	return &out
 }
 
 func reviewPtrTime(value time.Time) *time.Time {

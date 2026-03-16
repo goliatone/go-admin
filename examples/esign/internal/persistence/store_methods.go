@@ -170,6 +170,12 @@ func (s *StoreAdapter) UpdateDraft(ctx context.Context, scope stores.Scope, id s
 	})
 }
 
+func (s *StoreAdapter) UpdateAgreementReviewProjection(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementReviewProjectionPatch) (stores.AgreementRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRecord, error) {
+		return tx.UpdateAgreementReviewProjection(ctx, scope, id, patch)
+	})
+}
+
 func (s *StoreAdapter) UpdateAgreementDeliveryState(ctx context.Context, scope stores.Scope, id string, patch stores.AgreementDeliveryStatePatch) (stores.AgreementRecord, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AgreementRecord, error) {
 		return tx.UpdateAgreementDeliveryState(ctx, scope, id, patch)
@@ -327,6 +333,28 @@ func (s *StoreAdapter) SaveSigningToken(ctx context.Context, scope stores.Scope,
 	})
 }
 
+func (s *StoreAdapter) GetReviewSessionToken(ctx context.Context, scope stores.Scope, id string) (stores.ReviewSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.ReviewSessionTokenRecord{}, err
+	}
+	return loadReviewSessionTokenRecord(ctx, idb, scope, id)
+}
+
+func (s *StoreAdapter) ListReviewSessionTokens(ctx context.Context, scope stores.Scope, agreementID, participantID string) ([]stores.ReviewSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listReviewSessionTokenRecords(ctx, idb, scope, agreementID, participantID)
+}
+
+func (s *StoreAdapter) SaveReviewSessionToken(ctx context.Context, scope stores.Scope, record stores.ReviewSessionTokenRecord) (stores.ReviewSessionTokenRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.ReviewSessionTokenRecord, error) {
+		return tx.SaveReviewSessionToken(ctx, scope, record)
+	})
+}
+
 func (s *StoreAdapter) CreateDraftSession(ctx context.Context, scope stores.Scope, record stores.DraftRecord) (stores.DraftRecord, bool, error) {
 	var (
 		out    stores.DraftRecord
@@ -467,9 +495,29 @@ func (s *StoreAdapter) GetSigningTokenByHash(ctx context.Context, scope stores.S
 	return loadSigningTokenByHashRecord(ctx, idb, scope, tokenHash)
 }
 
+func (s *StoreAdapter) CreateReviewSessionToken(ctx context.Context, scope stores.Scope, record stores.ReviewSessionTokenRecord) (stores.ReviewSessionTokenRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.ReviewSessionTokenRecord, error) {
+		return tx.CreateReviewSessionToken(ctx, scope, record)
+	})
+}
+
+func (s *StoreAdapter) GetReviewSessionTokenByHash(ctx context.Context, scope stores.Scope, tokenHash string) (stores.ReviewSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.ReviewSessionTokenRecord{}, err
+	}
+	return loadReviewSessionTokenByHashRecord(ctx, idb, scope, tokenHash)
+}
+
 func (s *StoreAdapter) RevokeActiveSigningTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID string, revokedAt time.Time) (int, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (int, error) {
 		return tx.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, revokedAt)
+	})
+}
+
+func (s *StoreAdapter) RevokeActiveReviewSessionTokens(ctx context.Context, scope stores.Scope, agreementID, participantID string, revokedAt time.Time) (int, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (int, error) {
+		return tx.RevokeActiveReviewSessionTokens(ctx, scope, agreementID, participantID, revokedAt)
 	})
 }
 

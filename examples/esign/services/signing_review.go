@@ -12,6 +12,7 @@ import (
 func (s SigningService) reviewWorkflow() AgreementService {
 	return AgreementService{
 		agreements:   s.agreements,
+		documents:    s.documents,
 		audits:       s.audits,
 		tx:           s.tx,
 		now:          s.now,

@@ -137,12 +137,12 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 		{
 			name:            "pages",
 			builder:         NewPagesPanelBuilder(repo),
-			requiredActions: []string{"view", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish"},
+			requiredActions: []string{"view", "view_family", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish"},
 		},
 		{
 			name:            "posts",
 			builder:         NewPostsPanelBuilder(repo),
-			requiredActions: []string{"view", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish", "schedule"},
+			requiredActions: []string{"view", "view_family", "edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish", "schedule"},
 		},
 	}
 
@@ -176,6 +176,12 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 			}
 			if byName["view"].Scope != admin.ActionScopeRow {
 				t.Fatalf("expected view action to remain row-scoped, got %+v", byName["view"])
+			}
+			if byName["view_family"].Scope != admin.ActionScopeRow {
+				t.Fatalf("expected view_family action to remain row-scoped, got %+v", byName["view_family"])
+			}
+			if got := strings.TrimSpace(byName["view_family"].Href); got != "{translation_family_url}" {
+				t.Fatalf("expected view_family href placeholder, got %q", got)
 			}
 			for _, name := range []string{"edit", "delete", "create_translation", "request_approval", "approve", "reject", "publish", "unpublish"} {
 				if byName[name].Scope != admin.ActionScopeAny {
@@ -212,9 +218,13 @@ func TestPagesAndPostsPanelsExposeTranslationAwareListFields(t *testing.T) {
 			requiredFields: []string{
 				"locale",
 				"translation_status",
+				"translation_family_url",
+				"family_member_count",
 				"available_locales",
 				"translation_readiness",
 				"missing_translations",
+				"translation_assignment_summary",
+				"translation_exchange_summary",
 			},
 		},
 		{
@@ -223,9 +233,13 @@ func TestPagesAndPostsPanelsExposeTranslationAwareListFields(t *testing.T) {
 			requiredFields: []string{
 				"locale",
 				"translation_status",
+				"translation_family_url",
+				"family_member_count",
 				"available_locales",
 				"translation_readiness",
 				"missing_translations",
+				"translation_assignment_summary",
+				"translation_exchange_summary",
 			},
 		},
 	}

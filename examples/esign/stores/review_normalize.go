@@ -90,6 +90,28 @@ func NormalizeAgreementCommentThreadStatus(status string) string {
 	}
 }
 
+func NormalizeAgreementReviewParticipantType(participantType string) string {
+	switch strings.ToLower(strings.TrimSpace(participantType)) {
+	case "", AgreementReviewParticipantTypeRecipient:
+		return AgreementReviewParticipantTypeRecipient
+	case AgreementReviewParticipantTypeExternal:
+		return AgreementReviewParticipantTypeExternal
+	default:
+		return ""
+	}
+}
+
+func NormalizeReviewSessionTokenStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", ReviewSessionTokenStatusActive:
+		return ReviewSessionTokenStatusActive
+	case ReviewSessionTokenStatusRevoked:
+		return ReviewSessionTokenStatusRevoked
+	default:
+		return ""
+	}
+}
+
 func NormalizeAgreementCommentMessageKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "", AgreementCommentMessageKindComment:

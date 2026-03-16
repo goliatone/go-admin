@@ -117,16 +117,36 @@ func (s *relationalTxStore) ReplaceAgreementReviewParticipants(ctx context.Conte
 		record.TenantID = scope.TenantID
 		record.OrgID = scope.OrgID
 		record.ReviewID = reviewID
+		record.ParticipantType = stores.NormalizeAgreementReviewParticipantType(record.ParticipantType)
+		if record.ParticipantType == "" {
+			return relationalInvalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
+		}
 		record.RecipientID = normalizeRelationalID(record.RecipientID)
-		if record.RecipientID == "" {
-			return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "required")
-		}
-		recipient, err := loadParticipantRecord(ctx, s.tx, scope, review.AgreementID, record.RecipientID)
-		if err != nil {
-			return err
-		}
-		if recipient.AgreementID != review.AgreementID {
-			return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
+		record.Email = strings.TrimSpace(strings.ToLower(record.Email))
+		record.DisplayName = strings.TrimSpace(record.DisplayName)
+		switch record.ParticipantType {
+		case stores.AgreementReviewParticipantTypeRecipient:
+			if record.RecipientID == "" {
+				return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "required")
+			}
+			recipient, err := loadParticipantRecord(ctx, s.tx, scope, review.AgreementID, record.RecipientID)
+			if err != nil {
+				return err
+			}
+			if recipient.AgreementID != review.AgreementID {
+				return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
+			}
+			if record.Email == "" {
+				record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
+			}
+			if record.DisplayName == "" {
+				record.DisplayName = strings.TrimSpace(recipient.Name)
+			}
+		case stores.AgreementReviewParticipantTypeExternal:
+			record.RecipientID = ""
+			if record.Email == "" {
+				return relationalInvalidRecordError("agreement_review_participants", "email", "required")
+			}
 		}
 		record.Role = strings.TrimSpace(record.Role)
 		if record.Role == "" {
@@ -171,8 +191,17 @@ func (s *relationalTxStore) UpdateAgreementReviewParticipant(ctx context.Context
 	if normalized := stores.NormalizeAgreementReviewDecision(record.DecisionStatus); normalized != "" {
 		existing.DecisionStatus = normalized
 	}
+	if normalized := stores.NormalizeAgreementReviewParticipantType(record.ParticipantType); normalized != "" {
+		existing.ParticipantType = normalized
+	}
 	existing.CanComment = record.CanComment
 	existing.CanApprove = record.CanApprove
+	if email := strings.TrimSpace(strings.ToLower(record.Email)); email != "" {
+		existing.Email = email
+	}
+	if displayName := strings.TrimSpace(record.DisplayName); displayName != "" {
+		existing.DisplayName = displayName
+	}
 	existing.DecisionAt = cloneRelationalTimePtr(record.DecisionAt)
 	existing.UpdatedAt = time.Now().UTC()
 	if err := updateScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); err != nil {

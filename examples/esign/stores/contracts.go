@@ -45,6 +45,7 @@ type AgreementStore interface {
 	GetAgreement(ctx context.Context, scope Scope, id string) (AgreementRecord, error)
 	ListAgreements(ctx context.Context, scope Scope, query AgreementQuery) ([]AgreementRecord, error)
 	UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error)
+	UpdateAgreementReviewProjection(ctx context.Context, scope Scope, id string, patch AgreementReviewProjectionPatch) (AgreementRecord, error)
 	UpdateAgreementDeliveryState(ctx context.Context, scope Scope, id string, patch AgreementDeliveryStatePatch) (AgreementRecord, error)
 	Transition(ctx context.Context, scope Scope, id string, input AgreementTransitionInput) (AgreementRecord, error)
 	CreateAgreementReview(ctx context.Context, scope Scope, record AgreementReviewRecord) (AgreementReviewRecord, error)
@@ -131,6 +132,15 @@ type SigningTokenStore interface {
 	ListSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string) ([]SigningTokenRecord, error)
 	SaveSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
 	RevokeActiveSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string, revokedAt time.Time) (int, error)
+}
+
+type ReviewSessionTokenStore interface {
+	CreateReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error)
+	GetReviewSessionToken(ctx context.Context, scope Scope, id string) (ReviewSessionTokenRecord, error)
+	GetReviewSessionTokenByHash(ctx context.Context, scope Scope, tokenHash string) (ReviewSessionTokenRecord, error)
+	ListReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string) ([]ReviewSessionTokenRecord, error)
+	SaveReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error)
+	RevokeActiveReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string, revokedAt time.Time) (int, error)
 }
 
 // AuditEventStore defines append-only audit event persistence.
@@ -258,6 +268,7 @@ type TxStore interface {
 	SavedSignerSignatureStore
 	DraftAuditEventStore
 	SigningTokenStore
+	ReviewSessionTokenStore
 	AuditEventStore
 	AgreementArtifactStore
 	EmailLogStore

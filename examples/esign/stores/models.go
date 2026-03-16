@@ -1068,6 +1068,12 @@ type AgreementDraftPatch struct {
 	CommentsEnabled *bool
 }
 
+type AgreementReviewProjectionPatch struct {
+	ReviewStatus    *string
+	ReviewGate      *string
+	CommentsEnabled *bool
+}
+
 type DraftPatch struct {
 	WizardStateJSON *string
 	Title           *string

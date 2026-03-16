@@ -26,6 +26,8 @@ type inMemoryStoreSnapshot struct {
 	Fields                      map[string]FieldRecord                      `json:"fields"`
 	SigningTokens               map[string]SigningTokenRecord               `json:"signing_tokens"`
 	TokenHashIndex              map[string]string                           `json:"token_hash_index"`
+	ReviewSessionTokens         map[string]ReviewSessionTokenRecord         `json:"review_session_tokens"`
+	ReviewSessionTokenHashIndex map[string]string                           `json:"review_session_token_hash_index"`
 	SignatureArtifacts          map[string]SignatureArtifactRecord          `json:"signature_artifacts"`
 	SignerProfiles              map[string]SignerProfileRecord              `json:"signer_profiles"`
 	SignerProfileIndex          map[string]string                           `json:"signer_profile_index"`
@@ -154,6 +156,13 @@ func ensureFieldMap(in map[string]FieldRecord) map[string]FieldRecord {
 func ensureSigningTokenMap(in map[string]SigningTokenRecord) map[string]SigningTokenRecord {
 	if in == nil {
 		return map[string]SigningTokenRecord{}
+	}
+	return in
+}
+
+func ensureReviewSessionTokenMap(in map[string]ReviewSessionTokenRecord) map[string]ReviewSessionTokenRecord {
+	if in == nil {
+		return map[string]ReviewSessionTokenRecord{}
 	}
 	return in
 }

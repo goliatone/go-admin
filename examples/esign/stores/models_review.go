@@ -25,6 +25,11 @@ const (
 )
 
 const (
+	AgreementReviewParticipantTypeRecipient = "recipient"
+	AgreementReviewParticipantTypeExternal  = "external"
+)
+
+const (
 	AgreementReviewDecisionPending          = "pending"
 	AgreementReviewDecisionApproved         = "approved"
 	AgreementReviewDecisionChangesRequested = "changes_requested"
@@ -70,19 +75,22 @@ type AgreementReviewRecord struct {
 }
 
 type AgreementReviewParticipantRecord struct {
-	bun.BaseModel  `bun:"table:agreement_review_participants,alias:arp"`
-	ID             string
-	TenantID       string
-	OrgID          string
-	ReviewID       string
-	RecipientID    string
-	Role           string
-	CanComment     bool
-	CanApprove     bool
-	DecisionStatus string
-	DecisionAt     *time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	bun.BaseModel   `bun:"table:agreement_review_participants,alias:arp"`
+	ID              string
+	TenantID        string
+	OrgID           string
+	ReviewID        string
+	ParticipantType string
+	RecipientID     string
+	Email           string
+	DisplayName     string
+	Role            string
+	CanComment      bool
+	CanApprove      bool
+	DecisionStatus  string
+	DecisionAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type AgreementCommentThreadRecord struct {
@@ -130,4 +138,24 @@ type AgreementCommentThreadQuery struct {
 	Limit      int
 	Offset     int
 	SortDesc   bool
+}
+
+const (
+	ReviewSessionTokenStatusActive  = "active"
+	ReviewSessionTokenStatusRevoked = "revoked"
+)
+
+type ReviewSessionTokenRecord struct {
+	bun.BaseModel `bun:"table:review_session_tokens,alias:rst"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	ReviewID      string
+	ParticipantID string
+	TokenHash     string
+	Status        string
+	ExpiresAt     time.Time
+	RevokedAt     *time.Time
+	CreatedAt     time.Time
 }

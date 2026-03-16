@@ -29,6 +29,20 @@ func createTranslationAction(permission string) admin.Action {
 	}
 }
 
+func viewFamilyAction(permission string) admin.Action {
+	return admin.Action{
+		Name:            "view_family",
+		Label:           "View Family",
+		LabelKey:        "actions.view_family",
+		Permission:      permission,
+		Type:            "navigation",
+		Href:            "{translation_family_url}",
+		Scope:           admin.ActionScopeRow,
+		ContextRequired: []string{"translation_family_url"},
+		Icon:            "git-branch",
+	}
+}
+
 func translationLocalePayloadOptions() []map[string]any {
 	return []map[string]any{
 		{"value": "en", "label": "English"},
@@ -190,9 +204,13 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Field{Name: "template_id", Label: "Template", LabelKey: "fields.template", Type: "text"},
 			admin.Field{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
 			admin.Field{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+			admin.Field{Name: "translation_family_url", Label: "Family", LabelKey: "fields.translation_family", Type: "text"},
+			admin.Field{Name: "family_member_count", Label: "Locales", LabelKey: "fields.family_member_count", Type: "number"},
 			admin.Field{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
 			admin.Field{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
 			admin.Field{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
+			admin.Field{Name: "translation_assignment_summary", Label: "Assignment", LabelKey: "fields.translation_assignment_summary", Type: "text"},
+			admin.Field{Name: "translation_exchange_summary", Label: "Exchange", LabelKey: "fields.translation_exchange_summary", Type: "text"},
 			admin.Field{Name: "updated_at", Label: "Updated", LabelKey: "fields.updated_at", Type: "datetime"},
 		).
 		FormFields(
@@ -239,6 +257,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 		).
 		Actions(
 			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.pages.view", Scope: admin.ActionScopeRow},
+			viewFamilyAction("admin.pages.view"),
 			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.pages.edit", Scope: admin.ActionScopeAny},
 			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.pages.delete", Scope: admin.ActionScopeAny},
 			createTranslationAction("admin.pages.edit"),
@@ -290,9 +309,13 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			}},
 			admin.Field{Name: "locale", Label: "Locale", LabelKey: "fields.locale", Type: "text"},
 			admin.Field{Name: "translation_status", Label: "Translation", LabelKey: "fields.translation_status", Type: "text"},
+			admin.Field{Name: "translation_family_url", Label: "Family", LabelKey: "fields.translation_family", Type: "text"},
+			admin.Field{Name: "family_member_count", Label: "Locales", LabelKey: "fields.family_member_count", Type: "number"},
 			admin.Field{Name: "available_locales", Label: "Available Locales", LabelKey: "fields.available_locales", Type: "array"},
 			admin.Field{Name: "translation_readiness", Label: "Readiness", LabelKey: "fields.translation_readiness", Type: "text"},
 			admin.Field{Name: "missing_translations", Label: "Missing", LabelKey: "fields.missing_translations", Type: "text"},
+			admin.Field{Name: "translation_assignment_summary", Label: "Assignment", LabelKey: "fields.translation_assignment_summary", Type: "text"},
+			admin.Field{Name: "translation_exchange_summary", Label: "Exchange", LabelKey: "fields.translation_exchange_summary", Type: "text"},
 			admin.Field{Name: "path", Label: "Path", LabelKey: "fields.path", Type: "text"},
 			admin.Field{Name: "published_at", Label: "Published", LabelKey: "fields.published_at", Type: "datetime"},
 		).
@@ -347,6 +370,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 		).
 		Actions(
 			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.posts.view", Scope: admin.ActionScopeRow},
+			viewFamilyAction("admin.posts.view"),
 			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.posts.edit", Scope: admin.ActionScopeAny},
 			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.posts.delete", Scope: admin.ActionScopeAny},
 			createTranslationAction("admin.posts.edit"),

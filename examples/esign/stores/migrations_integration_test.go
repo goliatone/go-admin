@@ -157,6 +157,7 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 		"agreement_review_participants",
 		"agreement_comment_threads",
 		"agreement_comment_messages",
+		"review_session_tokens",
 	} {
 		exists, err := tableExists(ctx, client.DB(), table)
 		if err != nil {
@@ -253,6 +254,16 @@ func TestMigrationsExposeVersionAndRecipientLifecycleColumns(t *testing.T) {
 	for _, col := range []string{"field_definition_id", "page_number", "x", "y", "width", "height", "tab_index", "label", "appearance_json"} {
 		if !contains(fieldInstanceCols, col) {
 			t.Fatalf("expected field_instances.%s column", col)
+		}
+	}
+
+	reviewParticipantCols, err := tableColumnNames(ctx, client.DB(), "agreement_review_participants")
+	if err != nil {
+		t.Fatalf("tableColumnNames(agreement_review_participants): %v", err)
+	}
+	for _, col := range []string{"participant_type", "email", "display_name"} {
+		if !contains(reviewParticipantCols, col) {
+			t.Fatalf("expected agreement_review_participants.%s column", col)
 		}
 	}
 }

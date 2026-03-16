@@ -44,6 +44,8 @@ type InMemoryStore struct {
 	fields                      map[string]FieldRecord
 	signingTokens               map[string]SigningTokenRecord
 	tokenHashIndex              map[string]string
+	reviewSessionTokens         map[string]ReviewSessionTokenRecord
+	reviewSessionTokenHashIndex map[string]string
 	signatureArtifacts          map[string]SignatureArtifactRecord
 	signerProfiles              map[string]SignerProfileRecord
 	signerProfileIndex          map[string]string
@@ -98,6 +100,8 @@ func NewInMemoryStore() *InMemoryStore {
 		fields:                      map[string]FieldRecord{},
 		signingTokens:               map[string]SigningTokenRecord{},
 		tokenHashIndex:              map[string]string{},
+		reviewSessionTokens:         map[string]ReviewSessionTokenRecord{},
+		reviewSessionTokenHashIndex: map[string]string{},
 		signatureArtifacts:          map[string]SignatureArtifactRecord{},
 		signerProfiles:              map[string]SignerProfileRecord{},
 		signerProfileIndex:          map[string]string{},
@@ -206,6 +210,8 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 		Fields:                      s.fields,
 		SigningTokens:               s.signingTokens,
 		TokenHashIndex:              s.tokenHashIndex,
+		ReviewSessionTokens:         s.reviewSessionTokens,
+		ReviewSessionTokenHashIndex: s.reviewSessionTokenHashIndex,
 		SignatureArtifacts:          s.signatureArtifacts,
 		SignerProfiles:              s.signerProfiles,
 		SignerProfileIndex:          s.signerProfileIndex,
@@ -269,6 +275,8 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.fields = ensureFieldMap(snapshot.Fields)
 	s.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
 	s.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
+	s.reviewSessionTokens = ensureReviewSessionTokenMap(snapshot.ReviewSessionTokens)
+	s.reviewSessionTokenHashIndex = ensureStringMap(snapshot.ReviewSessionTokenHashIndex)
 	s.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
 	s.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
 	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
@@ -374,6 +382,13 @@ func cloneTimePtr(src *time.Time) *time.Time {
 func cloneSigningTokenRecord(record SigningTokenRecord) SigningTokenRecord {
 	record.ActivatedAt = cloneTimePtr(record.ActivatedAt)
 	record.RevokedAt = cloneTimePtr(record.RevokedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	return record
+}
+
+func cloneReviewSessionTokenRecord(record ReviewSessionTokenRecord) ReviewSessionTokenRecord {
+	record.RevokedAt = cloneTimePtr(record.RevokedAt)
+	record.ExpiresAt = normalizeRecordTime(record.ExpiresAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	return record
 }
@@ -1835,6 +1850,46 @@ func (s *InMemoryStore) UpdateDraft(ctx context.Context, scope Scope, id string,
 	return record, nil
 }
 
+func (s *InMemoryStore) UpdateAgreementReviewProjection(ctx context.Context, scope Scope, id string, patch AgreementReviewProjectionPatch) (AgreementRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return AgreementRecord{}, invalidRecordError("agreements", "id", "required")
+	}
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.agreements[key]
+	if !ok {
+		return AgreementRecord{}, notFoundError("agreements", id)
+	}
+	if patch.ReviewStatus != nil {
+		record.ReviewStatus = normalizeAgreementReviewStatus(*patch.ReviewStatus)
+		if record.ReviewStatus == "" {
+			return AgreementRecord{}, invalidRecordError("agreements", "review_status", "unsupported review status")
+		}
+	}
+	if patch.ReviewGate != nil {
+		record.ReviewGate = normalizeAgreementReviewGate(*patch.ReviewGate)
+		if record.ReviewGate == "" {
+			return AgreementRecord{}, invalidRecordError("agreements", "review_gate", "unsupported review gate")
+		}
+	}
+	if patch.CommentsEnabled != nil {
+		record.CommentsEnabled = *patch.CommentsEnabled
+	}
+	record.Version++
+	record.UpdatedAt = time.Now().UTC()
+	s.agreements[key] = record
+	return record, nil
+}
+
 func (s *InMemoryStore) UpdateAgreementDeliveryState(ctx context.Context, scope Scope, id string, patch AgreementDeliveryStatePatch) (AgreementRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -2974,6 +3029,223 @@ func (s *InMemoryStore) RevokeActiveSigningTokens(ctx context.Context, scope Sco
 		revoked++
 	}
 
+	return revoked, nil
+}
+
+func (s *InMemoryStore) CreateReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return ReviewSessionTokenRecord{}, err
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.ReviewID = normalizeID(record.ReviewID)
+	record.ParticipantID = normalizeID(record.ParticipantID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.AgreementID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "review_id", "required")
+	}
+	if record.ParticipantID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if record.TokenHash == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "token_hash", "required")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = NormalizeReviewSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "status", "unsupported review session token status")
+	}
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.reviewSessionTokens[key]; exists {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "id", "already exists")
+	}
+	if _, exists := s.reviewSessionTokenHashIndex[record.TokenHash]; exists {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "token_hash", "already exists")
+	}
+	record = cloneReviewSessionTokenRecord(record)
+	s.reviewSessionTokens[key] = record
+	s.reviewSessionTokenHashIndex[record.TokenHash] = key
+	return record, nil
+}
+
+func (s *InMemoryStore) GetReviewSessionToken(ctx context.Context, scope Scope, id string) (ReviewSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return ReviewSessionTokenRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.reviewSessionTokens[scopedKey(scope, id)]
+	if !ok {
+		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", id)
+	}
+	return cloneReviewSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) GetReviewSessionTokenByHash(ctx context.Context, scope Scope, tokenHash string) (ReviewSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return ReviewSessionTokenRecord{}, err
+	}
+	tokenHash = strings.TrimSpace(tokenHash)
+	if tokenHash == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "token_hash", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	key, ok := s.reviewSessionTokenHashIndex[tokenHash]
+	if !ok {
+		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", tokenHash)
+	}
+	record, ok := s.reviewSessionTokens[key]
+	if !ok {
+		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", tokenHash)
+	}
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return ReviewSessionTokenRecord{}, scopeDeniedError()
+	}
+	return cloneReviewSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) ListReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string) ([]ReviewSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	participantID = normalizeID(participantID)
+	if agreementID == "" {
+		return nil, invalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if participantID == "" {
+		return nil, invalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	out := make([]ReviewSessionTokenRecord, 0)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, record := range s.reviewSessionTokens {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID || record.ParticipantID != participantID {
+			continue
+		}
+		out = append(out, cloneReviewSessionTokenRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) SaveReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return ReviewSessionTokenRecord{}, err
+	}
+	record.ID = normalizeID(record.ID)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.ReviewID = normalizeID(record.ReviewID)
+	record.ParticipantID = normalizeID(record.ParticipantID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.ID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "id", "required")
+	}
+	if record.AgreementID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "review_id", "required")
+	}
+	if record.ParticipantID == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if record.TokenHash == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "token_hash", "required")
+	}
+	record.Status = NormalizeReviewSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "status", "unsupported review session token status")
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record = cloneReviewSessionTokenRecord(record)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, record.ID)
+	if _, ok := s.reviewSessionTokens[key]; !ok {
+		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", record.ID)
+	}
+	if existingKey, ok := s.reviewSessionTokenHashIndex[record.TokenHash]; ok && existingKey != key {
+		return ReviewSessionTokenRecord{}, invalidRecordError("review_session_tokens", "token_hash", "already exists")
+	}
+	s.reviewSessionTokens[key] = record
+	s.reviewSessionTokenHashIndex[record.TokenHash] = key
+	return cloneReviewSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) RevokeActiveReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string, revokedAt time.Time) (int, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	agreementID = normalizeID(agreementID)
+	participantID = normalizeID(participantID)
+	if agreementID == "" {
+		return 0, invalidRecordError("review_session_tokens", "agreement_id", "required")
+	}
+	if participantID == "" {
+		return 0, invalidRecordError("review_session_tokens", "participant_id", "required")
+	}
+	if revokedAt.IsZero() {
+		revokedAt = time.Now().UTC()
+	}
+	revokedAt = revokedAt.UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	revoked := 0
+	for key, token := range s.reviewSessionTokens {
+		if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
+			continue
+		}
+		if token.AgreementID != agreementID || token.ParticipantID != participantID {
+			continue
+		}
+		if token.Status != ReviewSessionTokenStatusActive {
+			continue
+		}
+		token.Status = ReviewSessionTokenStatusRevoked
+		token.RevokedAt = cloneTimePtr(&revokedAt)
+		s.reviewSessionTokens[key] = token
+		revoked++
+	}
 	return revoked, nil
 }
 

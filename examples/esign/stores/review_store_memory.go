@@ -23,8 +23,7 @@ func (s *InMemoryStore) CreateAgreementReview(ctx context.Context, scope Scope, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	agreement, ok := s.agreements[scopedKey(scope, record.AgreementID)]
-	if !ok {
+	if _, ok := s.agreements[scopedKey(scope, record.AgreementID)]; !ok {
 		return AgreementReviewRecord{}, notFoundError("agreements", record.AgreementID)
 	}
 
@@ -59,10 +58,6 @@ func (s *InMemoryStore) CreateAgreementReview(ctx context.Context, scope Scope, 
 
 	s.agreementReviews[scopedKey(scope, record.ID)] = record
 	s.agreementReviewIndex[indexKey] = record.ID
-	agreement.ReviewStatus = record.Status
-	agreement.ReviewGate = record.Gate
-	agreement.UpdatedAt = time.Now().UTC()
-	s.agreements[scopedKey(scope, agreement.ID)] = agreement
 	return record, nil
 }
 
@@ -123,14 +118,6 @@ func (s *InMemoryStore) UpdateAgreementReview(ctx context.Context, scope Scope, 
 		existing.LastActivityAt = cloneTimePtr(&existing.UpdatedAt)
 	}
 	s.agreementReviews[key] = existing
-
-	agreementKey := scopedKey(scope, existing.AgreementID)
-	if agreement, exists := s.agreements[agreementKey]; exists {
-		agreement.ReviewStatus = existing.Status
-		agreement.ReviewGate = existing.Gate
-		agreement.UpdatedAt = existing.UpdatedAt
-		s.agreements[agreementKey] = agreement
-	}
 	return existing, nil
 }
 
@@ -161,21 +148,47 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 
 	for _, record := range records {
 		record.ReviewID = reviewID
+		record.ParticipantType = NormalizeAgreementReviewParticipantType(record.ParticipantType)
+		if record.ParticipantType == "" {
+			return invalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
+		}
 		record.RecipientID = normalizeID(record.RecipientID)
-		if record.RecipientID == "" {
-			return invalidRecordError("agreement_review_participants", "recipient_id", "required")
-		}
-		recipientAgreementID := ""
-		if recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]; ok {
-			recipientAgreementID = recipient.AgreementID
-		}
-		if recipientAgreementID == "" {
-			if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
-				recipientAgreementID = participant.AgreementID
+		record.Email = strings.TrimSpace(strings.ToLower(record.Email))
+		record.DisplayName = strings.TrimSpace(record.DisplayName)
+		switch record.ParticipantType {
+		case AgreementReviewParticipantTypeRecipient:
+			if record.RecipientID == "" {
+				return invalidRecordError("agreement_review_participants", "recipient_id", "required")
 			}
-		}
-		if recipientAgreementID != review.AgreementID {
-			return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
+			recipientAgreementID := ""
+			if recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]; ok {
+				recipientAgreementID = recipient.AgreementID
+				if record.Email == "" {
+					record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
+				}
+				if record.DisplayName == "" {
+					record.DisplayName = strings.TrimSpace(recipient.Name)
+				}
+			}
+			if recipientAgreementID == "" {
+				if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
+					recipientAgreementID = participant.AgreementID
+					if record.Email == "" {
+						record.Email = strings.TrimSpace(strings.ToLower(participant.Email))
+					}
+					if record.DisplayName == "" {
+						record.DisplayName = strings.TrimSpace(participant.Name)
+					}
+				}
+			}
+			if recipientAgreementID != review.AgreementID {
+				return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
+			}
+		case AgreementReviewParticipantTypeExternal:
+			record.RecipientID = ""
+			if record.Email == "" {
+				return invalidRecordError("agreement_review_participants", "email", "required")
+			}
 		}
 		if normalizeID(record.ID) == "" {
 			record.ID = uuid.NewString()
@@ -254,8 +267,17 @@ func (s *InMemoryStore) UpdateAgreementReviewParticipant(ctx context.Context, sc
 	if normalized := NormalizeAgreementReviewDecision(record.DecisionStatus); normalized != "" {
 		existing.DecisionStatus = normalized
 	}
+	if normalized := NormalizeAgreementReviewParticipantType(record.ParticipantType); normalized != "" {
+		existing.ParticipantType = normalized
+	}
 	existing.CanApprove = record.CanApprove
 	existing.CanComment = record.CanComment
+	if email := strings.TrimSpace(strings.ToLower(record.Email)); email != "" {
+		existing.Email = email
+	}
+	if displayName := strings.TrimSpace(record.DisplayName); displayName != "" {
+		existing.DisplayName = displayName
+	}
 	existing.DecisionAt = cloneTimePtr(record.DecisionAt)
 	existing.UpdatedAt = time.Now().UTC()
 	s.agreementReviewParticipants[key] = existing
