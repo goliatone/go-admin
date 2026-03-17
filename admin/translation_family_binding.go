@@ -53,7 +53,6 @@ type translationFamilyIdempotencyRecord struct {
 
 type translationFamilyBinding struct {
 	admin          *Admin
-	catalog        translationFamilyCatalog
 	loadRuntime    func(context.Context, string) (*translationFamilyRuntime, error)
 	now            func() time.Time
 	idempotencyMu  sync.Mutex
@@ -66,7 +65,6 @@ func newTranslationFamilyBinding(a *Admin) *translationFamilyBinding {
 	}
 	return &translationFamilyBinding{
 		admin:          a,
-		catalog:        newTranslationFamilyCatalog(a),
 		now:            func() time.Time { return time.Now().UTC() },
 		idempotencyMap: map[string]translationFamilyIdempotencyRecord{},
 	}
@@ -349,6 +347,9 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 			return nil, err
 		}
 	}
+	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); err != nil {
+		return nil, err
+	}
 
 	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
 	if err != nil {
@@ -404,13 +405,55 @@ func (b *translationFamilyBinding) runtime(ctx context.Context, channel string) 
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
 	}
-	if b.catalog == nil {
-		b.catalog = newTranslationFamilyCatalog(b.admin)
+	if b.admin.translationFamilyStore == nil {
+		return nil, serviceNotConfiguredDomainError("translation family store", map[string]any{"component": "translation_family_binding"})
 	}
-	if b.catalog == nil {
-		return nil, serviceNotConfiguredDomainError("translation family catalog", map[string]any{"component": "translation_catalog"})
+	return &translationFamilyRuntime{
+		service: &translationservices.FamilyService{
+			Store: b.admin.translationFamilyStore,
+			Policies: translationservices.PolicyService{
+				Resolver: translationFamilyPolicyResolver{admin: b.admin},
+			},
+		},
+	}, nil
+}
+
+type translationFamilyPolicyResolver struct {
+	admin *Admin
+}
+
+func (r translationFamilyPolicyResolver) ResolvePolicy(ctx context.Context, contentType, environment string) (translationservices.FamilyPolicy, bool, error) {
+	if r.admin == nil || r.admin.translationPolicy == nil {
+		return translationservices.FamilyPolicy{}, false, nil
 	}
-	return b.catalog.Load(ctx, channel)
+	provider, ok := r.admin.translationPolicy.(translationRequirementsProvider)
+	if !ok || provider == nil {
+		return translationservices.FamilyPolicy{}, false, nil
+	}
+	req, found, err := provider.Requirements(ctx, TranslationPolicyInput{
+		EntityType:   strings.TrimSpace(strings.ToLower(contentType)),
+		Transition:   translationReadinessTransitionPublish,
+		Environment:  strings.TrimSpace(environment),
+		PolicyEntity: strings.TrimSpace(strings.ToLower(contentType)),
+	})
+	if err != nil || !found {
+		return translationservices.FamilyPolicy{}, found, err
+	}
+	sourceLocale := strings.TrimSpace(strings.ToLower(r.admin.config.DefaultLocale))
+	if sourceLocale == "" {
+		sourceLocale = "en"
+	}
+	return translationservices.FamilyPolicy{
+		ContentType:             strings.TrimSpace(strings.ToLower(contentType)),
+		Environment:             strings.TrimSpace(environment),
+		SourceLocale:            sourceLocale,
+		RequiredLocales:         append([]string{}, req.Locales...),
+		RequiredFields:          cloneRequiredFieldsString(req.RequiredFields),
+		ReviewRequired:          req.ReviewRequired,
+		AllowPublishOverride:    req.AllowPublishOverride,
+		AssignmentLifecycleMode: req.AssignmentLifecycleMode,
+		DefaultWorkScope:        normalizeTranslationAssignmentWorkScope(req.DefaultWorkScope),
+	}, true, nil
 }
 
 const (

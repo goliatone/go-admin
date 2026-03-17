@@ -405,6 +405,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if _, err := fixture.content.UpdatePage(context.Background(), updatedTarget); err != nil {
 		t.Fatalf("update target page: %v", err)
 	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
 	req.Header.Set("X-User-ID", "reviewer-2")
@@ -554,6 +555,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	}); err != nil {
 		t.Fatalf("create clean review assignment: %v", err)
 	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "reviewer-1")

@@ -34,7 +34,7 @@ func contentEntryTranslationDefaultViewMode(enabled bool) string {
 	return ""
 }
 
-func contentEntryTranslationGroupByField(enabled bool) string {
+func contentEntryFamilyGroupByField(enabled bool) string {
 	if enabled {
 		return "family_id"
 	}

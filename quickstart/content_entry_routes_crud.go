@@ -89,6 +89,15 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 	if err != nil {
 		return err
 	}
+	if h != nil && h.editGuard != nil {
+		handled, guardErr := h.editGuard(c, panelName, record)
+		if guardErr != nil {
+			return guardErr
+		}
+		if handled {
+			return nil
+		}
+	}
 	values := contentEntryValues(record)
 	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record)
 	if err != nil {

@@ -164,30 +164,6 @@ func translationReadinessApplicable(record map[string]any, requirementsResolved 
 	if len(translationReadinessLocaleMetadata(record)) > 0 {
 		return true
 	}
-	for _, path := range [][]string{
-		{"translation", "meta", "family_id"},
-		{"content_translation", "meta", "family_id"},
-		{"translation", "meta", "requested_locale"},
-		{"translation", "meta", "resolved_locale"},
-		{"translation", "meta", "missing_requested_locale"},
-		{"translation", "meta", "fallback_used"},
-		{"content_translation", "meta", "requested_locale"},
-		{"content_translation", "meta", "resolved_locale"},
-		{"content_translation", "meta", "missing_requested_locale"},
-		{"content_translation", "meta", "fallback_used"},
-	} {
-		value := translationReadinessNestedValue(record, path...)
-		last := path[len(path)-1]
-		if last == "missing_requested_locale" || last == "fallback_used" {
-			if toBool(value) {
-				return true
-			}
-			continue
-		}
-		if strings.TrimSpace(toString(value)) != "" {
-			return true
-		}
-	}
 	return false
 }
 
@@ -345,20 +321,7 @@ func translationFamilyIDFromRecord(record map[string]any) string {
 	if len(record) == 0 {
 		return ""
 	}
-	if groupID := strings.TrimSpace(toString(record["family_id"])); groupID != "" {
-		return groupID
-	}
-	for _, path := range [][]string{
-		{"translation", "meta", "family_id"},
-		{"content_translation", "meta", "family_id"},
-		{"translation_context", "family_id"},
-		{"translation_readiness", "family_id"},
-	} {
-		if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(record, path...))); groupID != "" {
-			return groupID
-		}
-	}
-	return ""
+	return strings.TrimSpace(toString(record["family_id"]))
 }
 
 func translationReadinessNestedValue(record map[string]any, path ...string) any {
@@ -676,15 +639,11 @@ func translationReadinessQuickCreateLocales(record map[string]any, missingLocale
 	out := translationReadinessLocaleList(missingLocales)
 	if !translationReadinessBoolField(record, []string{
 		"missing_requested_locale",
-		"translation.meta.missing_requested_locale",
-		"content_translation.meta.missing_requested_locale",
 	}) {
 		return out
 	}
 	requestedLocale := translationReadinessStringField(record, []string{
 		"requested_locale",
-		"translation.meta.requested_locale",
-		"content_translation.meta.requested_locale",
 	})
 	if requestedLocale == "" {
 		return out
@@ -696,13 +655,9 @@ func translationReadinessQuickCreateLocales(record map[string]any, missingLocale
 func translationReadinessQuickCreateRecommendedLocale(record map[string]any, quickCreateLocales, requiredLocales []string) string {
 	if translationReadinessBoolField(record, []string{
 		"missing_requested_locale",
-		"translation.meta.missing_requested_locale",
-		"content_translation.meta.missing_requested_locale",
 	}) {
 		if requestedLocale := translationReadinessStringField(record, []string{
 			"requested_locale",
-			"translation.meta.requested_locale",
-			"content_translation.meta.requested_locale",
 		}); requestedLocale != "" {
 			return strings.ToLower(strings.TrimSpace(requestedLocale))
 		}

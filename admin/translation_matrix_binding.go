@@ -1216,6 +1216,9 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 			return nil, err
 		}
 	}
+	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); err != nil {
+		return nil, err
+	}
 
 	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
 	if err != nil {

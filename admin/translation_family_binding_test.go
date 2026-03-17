@@ -818,6 +818,16 @@ type translationFamilyMutationFixture struct {
 	repo     TranslationAssignmentRepository
 }
 
+func syncTranslationFamilyFixtureStore(t *testing.T, adm *Admin, environment string) {
+	t.Helper()
+	if adm == nil {
+		t.Fatalf("admin required for translation family sync")
+	}
+	if err := SyncTranslationFamilyStore(context.Background(), adm, environment); err != nil {
+		t.Fatalf("sync translation family store: %v", err)
+	}
+}
+
 func newTranslationFamilyMutationFixture(t *testing.T, options translationFamilyMutationFixtureOptions) translationFamilyMutationFixture {
 	t.Helper()
 	if len(options.RequiredLocales) == 0 {
@@ -879,9 +889,11 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 	adm.WithTranslationPolicy(readinessPolicyByEntityStub{
 		requirements: fixtureTranslationRequirementsByEntity(options),
 	})
+	adm.WithTranslationFamilyStore(translationservices.NewInMemoryFamilyStore())
 	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
 		t.Fatalf("register translation queue panel: %v", err)
 	}
+	syncTranslationFamilyFixtureStore(t, adm, "production")
 
 	binding := newTranslationFamilyBinding(adm)
 	binding.now = func() time.Time { return time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC) }

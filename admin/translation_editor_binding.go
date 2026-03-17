@@ -191,6 +191,9 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	if err != nil {
 		return nil, err
 	}
+	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, channel); err != nil {
+		return nil, err
+	}
 	if b.admin.activity != nil {
 		_ = b.admin.activity.Record(adminCtx.Context, ActivityEntry{
 			Actor:  actorID,
@@ -255,7 +258,7 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 }
 
 func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Context, assignment TranslationAssignment, environment string) (translationEditorContext, error) {
-	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
+	familyBinding := &translationFamilyBinding{admin: b.admin}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil {
 		return translationEditorContext{}, err
@@ -302,7 +305,7 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 }
 
 func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, variantID, environment string) (translationEditorContext, error) {
-	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
+	familyBinding := &translationFamilyBinding{admin: b.admin}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil {
 		return translationEditorContext{}, err
@@ -1336,8 +1339,10 @@ func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context
 		updated := cloneCMSPage(*record)
 		updated.Status = strings.TrimSpace(status)
 		updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now)
-		_, err = b.admin.contentSvc.UpdatePage(ctx, updated)
-		return err
+		if _, err = b.admin.contentSvc.UpdatePage(ctx, updated); err != nil {
+			return err
+		}
+		return SyncTranslationFamilyStore(ctx, b.admin, editorCtx.Environment)
 	}
 	record, err := b.admin.contentSvc.Content(ctx, strings.TrimSpace(editorCtx.TargetRecordID), "")
 	if err != nil || record == nil {
@@ -1346,8 +1351,10 @@ func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context
 	updated := cloneCMSContent(*record)
 	updated.Status = strings.TrimSpace(status)
 	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now)
-	_, err = b.admin.contentSvc.UpdateContent(ctx, updated)
-	return err
+	if _, err = b.admin.contentSvc.UpdateContent(ctx, updated); err != nil {
+		return err
+	}
+	return SyncTranslationFamilyStore(ctx, b.admin, editorCtx.Environment)
 }
 
 func translationEditorMergeMetadata(existing, incoming map[string]any, rowVersion int64, sourceHash string, sourceFields map[string]string, actorID string, now time.Time) map[string]any {

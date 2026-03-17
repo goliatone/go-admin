@@ -12,6 +12,8 @@ func TestGetTranslationFlowMigrationsFSIncludesExpectedFiles(t *testing.T) {
 		"0007_translation_flow_foundation.down.sql",
 		"0009_translation_exchange_runtime.up.sql",
 		"0009_translation_exchange_runtime.down.sql",
+		"0010_translation_flow_admin_fields.up.sql",
+		"0010_translation_flow_admin_fields.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
 		"postgres/0008_translation_flow_pg_features.up.sql",
@@ -31,6 +33,8 @@ func TestGetTranslationFlowSQLiteMigrationsFSExcludesPostgresFiles(t *testing.T)
 		"0007_translation_flow_foundation.down.sql",
 		"0009_translation_exchange_runtime.up.sql",
 		"0009_translation_exchange_runtime.down.sql",
+		"0010_translation_flow_admin_fields.up.sql",
+		"0010_translation_flow_admin_fields.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
 	}

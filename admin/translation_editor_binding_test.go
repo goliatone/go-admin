@@ -163,6 +163,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	if err != nil {
 		t.Fatalf("seed target page: %v", err)
 	}
+	syncTranslationFamilyFixtureStore(t, base.admin, "production")
 
 	if err := base.activity.Record(context.Background(), ActivityEntry{
 		ID:     "evt-editor-1",
@@ -824,4 +825,5 @@ func enableTranslationEditorQAWithBlockers(t *testing.T, fixture translationEdit
 	if _, err := fixture.content.UpdatePage(context.Background(), updatedTarget); err != nil {
 		t.Fatalf("update target page: %v", err)
 	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 }

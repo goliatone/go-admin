@@ -66,7 +66,7 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 		return nil, err
 	}
 
-	familyBinding := &translationFamilyBinding{admin: b.admin, loadRuntime: b.dashboardLoadRuntime, catalog: newTranslationFamilyCatalog(b.admin)}
+	familyBinding := &translationFamilyBinding{admin: b.admin, loadRuntime: b.dashboardLoadRuntime}
 	runtime, runtimeErr := familyBinding.runtime(adminCtx.Context, channel)
 	families := []translationservices.FamilyRecord{}
 	degradedReasons := []map[string]any{}

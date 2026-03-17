@@ -15,6 +15,7 @@ import (
 type ContentEntryUIOption func(*contentEntryUIOptions)
 
 type templateExistsFunc func(string) bool
+type ContentEntryEditGuard func(c router.Context, panelName string, record map[string]any) (bool, error)
 
 type contentEntryUIOptions struct {
 	basePath           string
@@ -30,6 +31,7 @@ type contentEntryUIOptions struct {
 	translationUX      bool
 	dataGridStateStore PanelDataGridStateStoreOptions
 	dataGridURLState   PanelDataGridURLStateOptions
+	editGuard          ContentEntryEditGuard
 }
 
 const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
@@ -95,6 +97,16 @@ func WithContentEntryUIAuthResource(resource string) ContentEntryUIOption {
 	return func(opts *contentEntryUIOptions) {
 		if opts != nil {
 			opts.authResource = strings.TrimSpace(resource)
+		}
+	}
+}
+
+// WithContentEntryUIEditGuard configures a pre-render guard for edit routes.
+// Returning handled=true stops normal edit rendering.
+func WithContentEntryUIEditGuard(guard ContentEntryEditGuard) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts != nil && guard != nil {
+			opts.editGuard = guard
 		}
 	}
 }
@@ -266,6 +278,7 @@ type contentEntryHandlers struct {
 	translationUX      bool
 	dataGridStateStore PanelDataGridStateStoreOptions
 	dataGridURLState   PanelDataGridURLStateOptions
+	editGuard          ContentEntryEditGuard
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -289,6 +302,7 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		translationUX:      opts.translationUX,
 		dataGridStateStore: opts.dataGridStateStore,
 		dataGridURLState:   opts.dataGridURLState,
+		editGuard:          opts.editGuard,
 	}
 }
 

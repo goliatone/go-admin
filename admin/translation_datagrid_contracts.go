@@ -128,10 +128,6 @@ func translationAssignmentSummaryValue(record map[string]any) map[string]any {
 		[]string{"translation_assignment_summary"},
 		[]string{"metadata", "translation_assignment_summary"},
 		[]string{"data", "translation_assignment_summary"},
-		[]string{"translation", "assignment_summary"},
-		[]string{"translation", "meta", "assignment_summary"},
-		[]string{"content_translation", "assignment_summary"},
-		[]string{"content_translation", "meta", "assignment_summary"},
 	)
 }
 
@@ -140,10 +136,6 @@ func translationExchangeSummaryValue(record map[string]any) map[string]any {
 		[]string{"translation_exchange_summary"},
 		[]string{"metadata", "translation_exchange_summary"},
 		[]string{"data", "translation_exchange_summary"},
-		[]string{"translation", "exchange_summary"},
-		[]string{"translation", "meta", "exchange_summary"},
-		[]string{"content_translation", "exchange_summary"},
-		[]string{"content_translation", "meta", "exchange_summary"},
 	)
 }
 

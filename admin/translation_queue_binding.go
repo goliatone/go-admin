@@ -1431,7 +1431,7 @@ func (b *translationQueueBinding) reviewBlockedAssignments(ctx context.Context, 
 	if !b.translationQAEnabled() || len(assignments) == 0 {
 		return blocked
 	}
-	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
+	familyBinding := &translationFamilyBinding{admin: b.admin}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil || runtime == nil || runtime.service == nil {
 		return blocked
