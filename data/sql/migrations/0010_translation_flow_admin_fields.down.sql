@@ -1,0 +1,1 @@
+-- SQLite-compatible no-op down migration for additive translation-flow admin fields.
