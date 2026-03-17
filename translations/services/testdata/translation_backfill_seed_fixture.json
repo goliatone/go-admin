@@ -4,7 +4,7 @@
       "scope": {},
       "content_type": "pages",
       "source_record_id": "translation-demo-exchange",
-      "translation_group_id": "11111111-1111-1111-1111-111111111202",
+      "family_id": "11111111-1111-1111-1111-111111111202",
       "locale": "en",
       "fields": {
         "title": "Translation Demo - Exchange Ready",
@@ -18,7 +18,7 @@
       "scope": {},
       "content_type": "pages",
       "source_record_id": "translation-demo-exchange",
-      "translation_group_id": "11111111-1111-1111-1111-111111111202",
+      "family_id": "11111111-1111-1111-1111-111111111202",
       "locale": "es",
       "fields": {
         "title": "Demostracion de Traduccion - Intercambio",
@@ -35,7 +35,7 @@
       },
       "content_type": "posts",
       "source_record_id": "translation-demo-review-pending",
-      "translation_group_id": "11111111-1111-1111-1111-111111111203",
+      "family_id": "11111111-1111-1111-1111-111111111203",
       "locale": "en",
       "fields": {
         "title": "Translation Demo - Review Pending",
@@ -52,7 +52,7 @@
       },
       "content_type": "posts",
       "source_record_id": "translation-demo-review-pending",
-      "translation_group_id": "11111111-1111-1111-1111-111111111203",
+      "family_id": "11111111-1111-1111-1111-111111111203",
       "locale": "es",
       "fields": {
         "title": "Demostracion de Traduccion - Revision Pendiente",

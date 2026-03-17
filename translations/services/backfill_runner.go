@@ -14,16 +14,16 @@ import (
 )
 
 type BackfillSourceVariant struct {
-	Scope              Scope             `json:"scope"`
-	ContentType        string            `json:"content_type"`
-	SourceRecordID     string            `json:"source_record_id"`
-	TranslationGroupID string            `json:"translation_group_id,omitempty"`
-	Locale             string            `json:"locale"`
-	Fields             map[string]string `json:"fields,omitempty"`
-	Metadata           map[string]any    `json:"metadata,omitempty"`
-	Status             string            `json:"status,omitempty"`
-	CreatedAt          time.Time         `json:"created_at"`
-	UpdatedAt          time.Time         `json:"updated_at"`
+	Scope          Scope             `json:"scope"`
+	ContentType    string            `json:"content_type"`
+	SourceRecordID string            `json:"source_record_id"`
+	FamilyID       string            `json:"family_id,omitempty"`
+	Locale         string            `json:"locale"`
+	Fields         map[string]string `json:"fields,omitempty"`
+	Metadata       map[string]any    `json:"metadata,omitempty"`
+	Status         string            `json:"status,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
 type BackfillPolicy struct {
@@ -69,7 +69,6 @@ type BackfillVariant struct {
 	Fields               map[string]string `json:"fields,omitempty"`
 	Metadata             map[string]any    `json:"metadata,omitempty"`
 	SourceRecordID       string            `json:"source_record_id"`
-	TranslationGroupID   string            `json:"translation_group_id,omitempty"`
 	CreatedAt            time.Time         `json:"created_at"`
 	UpdatedAt            time.Time         `json:"updated_at"`
 }
@@ -124,14 +123,14 @@ func (r *BackfillRunner) BuildPlan(_ context.Context, input BackfillInput) (Back
 		if record.ContentType == "" || record.SourceRecordID == "" || record.Locale == "" {
 			return BackfillPlan{}, fmt.Errorf("backfill variant requires content_type, source_record_id, and locale")
 		}
-		familyID := strings.TrimSpace(record.TranslationGroupID)
+		familyID := strings.TrimSpace(record.FamilyID)
 		if familyID == "" {
 			familyID = DeterministicFamilyID(record.Scope, record.ContentType, record.SourceRecordID)
 		}
 		if _, ok := groups[familyID]; !ok {
 			order = append(order, familyID)
 		}
-		record.TranslationGroupID = familyID
+		record.FamilyID = familyID
 		groups[familyID] = append(groups[familyID], record)
 	}
 	sort.Strings(order)
@@ -160,7 +159,7 @@ func (r *BackfillRunner) BuildPlan(_ context.Context, input BackfillInput) (Back
 func normalizeSourceVariant(record BackfillSourceVariant) BackfillSourceVariant {
 	record.ContentType = strings.TrimSpace(strings.ToLower(record.ContentType))
 	record.SourceRecordID = strings.TrimSpace(record.SourceRecordID)
-	record.TranslationGroupID = strings.TrimSpace(record.TranslationGroupID)
+	record.FamilyID = strings.TrimSpace(record.FamilyID)
 	record.Locale = strings.TrimSpace(strings.ToLower(record.Locale))
 	record.Status = normalizeVariantStatus(record.Status)
 	if record.Fields == nil {
@@ -282,19 +281,18 @@ func buildFamilyPlan(familyID string, records []BackfillSourceVariant, policy Ba
 		record := mergedByLocale[locale]
 		variantID := DeterministicVariantID(record.Scope, familyID, locale)
 		variant := BackfillVariant{
-			ID:                 variantID,
-			FamilyID:           familyID,
-			TenantID:           tenantID,
-			OrgID:              orgID,
-			Locale:             locale,
-			Status:             record.Status,
-			IsSource:           locale == sourceLocale,
-			Fields:             record.Fields,
-			Metadata:           cloneAnyMap(record.Metadata),
-			SourceRecordID:     record.SourceRecordID,
-			TranslationGroupID: record.TranslationGroupID,
-			CreatedAt:          record.CreatedAt,
-			UpdatedAt:          record.UpdatedAt,
+			ID:             variantID,
+			FamilyID:       familyID,
+			TenantID:       tenantID,
+			OrgID:          orgID,
+			Locale:         locale,
+			Status:         record.Status,
+			IsSource:       locale == sourceLocale,
+			Fields:         record.Fields,
+			Metadata:       cloneAnyMap(record.Metadata),
+			SourceRecordID: record.SourceRecordID,
+			CreatedAt:      record.CreatedAt,
+			UpdatedAt:      record.UpdatedAt,
 		}
 		if variant.IsSource {
 			family.SourceVariantID = variantID
