@@ -83,11 +83,25 @@ const statusConfig = {
   draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' },
   sent: { label: 'Sent', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
   in_progress: { label: 'In Progress', bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
+  in_review: { label: 'In Review', bg: 'bg-sky-100', text: 'text-sky-700', dot: 'bg-sky-500' },
+  changes_requested: { label: 'Changes Requested', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  review_approved: { label: 'Review Approved', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   completed: { label: 'Completed', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
   voided: { label: 'Voided', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   declined: { label: 'Declined', bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500' },
   expired: { label: 'Expired', bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' }
 };
+
+function resolveAgreementPresentationStatus(value, record) {
+  const status = (value || '').toLowerCase().replace(/ /g, '_');
+  const reviewStatus = (record?.review_status || '').toLowerCase().replace(/ /g, '_');
+  if (status === 'draft') {
+    if (reviewStatus === 'in_review') return 'in_review';
+    if (reviewStatus === 'changes_requested') return 'changes_requested';
+    if (reviewStatus === 'approved') return 'review_approved';
+  }
+  return status;
+}
 
 // Workflow kind configuration for version types
 const workflowKindConfig = {
@@ -98,8 +112,8 @@ const workflowKindConfig = {
 
 // Custom cell renderers for agreement-specific fields
 const agreementCellRenderers = {
-  status: (value) => {
-    const status = (value || '').toLowerCase().replace(/ /g, '_');
+  status: (value, record) => {
+    const status = resolveAgreementPresentationStatus(value, record);
     const config = statusConfig[status] || statusConfig.draft;
     return `
       <span role="status" aria-label="Status: ${config.label}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}">
