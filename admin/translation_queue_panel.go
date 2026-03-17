@@ -25,7 +25,7 @@ func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 			Field{Name: "due_date", Label: "Due", Type: "datetime"},
 		).
 		FormFields(
-			Field{Name: "translation_group_id", Label: "Translation Group", Type: "select", Required: true},
+			Field{Name: "family_id", Label: "Translation Group", Type: "select", Required: true},
 			Field{Name: "entity_type", Label: "Entity Type", Type: "select", Required: true},
 			Field{Name: "source_record_id", Label: "Source Record ID", Type: "select", Required: true},
 			Field{Name: "source_locale", Label: "Source Locale", Type: "text", Required: true, ReadOnly: true},
@@ -39,7 +39,7 @@ func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
-			Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", ReadOnly: true},
+			Field{Name: "family_id", Label: "Translation Group", Type: "text", ReadOnly: true},
 			Field{Name: "source_record_id", Label: "Source Record", Type: "text", ReadOnly: true},
 			Field{Name: "source_title", Label: "Source Title", Type: "text", ReadOnly: true},
 			Field{Name: "source_path", Label: "Source Path", Type: "text", ReadOnly: true},
@@ -85,23 +85,23 @@ func translationQueueFormSchema() map[string]any {
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"type":    "object",
 		"required": []string{
-			"translation_group_id",
+			"family_id",
 			"entity_type",
 			"source_record_id",
 			"source_locale",
 			"target_locale",
 		},
 		"properties": map[string]any{
-			"translation_group_id": map[string]any{
+			"family_id": map[string]any{
 				"type":  "string",
 				"title": "Translation Group",
 				"x-relationships": map[string]any{
 					"type":       "belongsTo",
 					"target":     "#/components/schemas/TranslationGroup",
-					"foreignKey": "translation_group_id",
+					"foreignKey": "family_id",
 				},
 				"x-endpoint": map[string]any{
-					"url":         "/api/translations/options/groups",
+					"url":         "/api/translations/options/families",
 					"method":      "GET",
 					"mode":        "search",
 					"searchParam": "search",
@@ -381,7 +381,7 @@ func translationAssignmentFromMap(record map[string]any) TranslationAssignment {
 	}
 	return TranslationAssignment{
 		ID:                  strings.TrimSpace(toString(record["id"])),
-		TranslationGroupID:  strings.TrimSpace(toString(record["translation_group_id"])),
+		FamilyID:            strings.TrimSpace(toString(record["family_id"])),
 		EntityType:          strings.TrimSpace(toString(record["entity_type"])),
 		TenantID:            strings.TrimSpace(toString(record["tenant_id"])),
 		OrgID:               strings.TrimSpace(toString(record["org_id"])),
@@ -415,7 +415,7 @@ func translationAssignmentFromMap(record map[string]any) TranslationAssignment {
 func translationAssignmentToMap(assignment TranslationAssignment) map[string]any {
 	out := map[string]any{
 		"id":                    assignment.ID,
-		"translation_group_id":  assignment.TranslationGroupID,
+		"family_id":             assignment.FamilyID,
 		"entity_type":           assignment.EntityType,
 		"tenant_id":             assignment.TenantID,
 		"org_id":                assignment.OrgID,

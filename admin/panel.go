@@ -1477,8 +1477,12 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "lookup", "", ids, err)
 		return err
 	}
-	selection := dedupeStrings(ids)
+	selection := dedupeStrings(append([]string{}, ids...))
 	if len(selection) == 0 {
+		selection = parseCommandIDs(payload, "", "")
+	}
+	requiresSelection := isBuiltInBulkDeleteAction(action.Name) || action.CommandName == "" || p.commandBus == nil
+	if len(selection) == 0 && requiresSelection {
 		err := invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
 			"panel":  p.name,
 			"action": strings.TrimSpace(name),

@@ -843,7 +843,7 @@
         "status": "in_progress",
         "target_locale": "fr",
         "target_record_id": "page-1-fr",
-        "translation_group_id": "tg-page-1",
+        "family_id": "tg-page-1",
         "updated_at": "2026-03-12T22:18:30.419211Z",
         "version": 2,
         "work_scope": "__all__"
@@ -917,7 +917,7 @@
         "status": "approved",
         "target_locale": "fr",
         "target_record_id": "page-1-fr",
-        "translation_group_id": "tg-page-1",
+        "family_id": "tg-page-1",
         "updated_at": "2026-03-12T22:18:30.42634Z",
         "version": 4,
         "work_scope": "__all__"
@@ -991,7 +991,7 @@
         "status": "approved",
         "target_locale": "fr",
         "target_record_id": "page-1-fr",
-        "translation_group_id": "tg-page-1",
+        "family_id": "tg-page-1",
         "updated_at": "2026-03-12T22:18:30.425055Z",
         "version": 4,
         "work_scope": "__all__"
@@ -1068,7 +1068,7 @@
         "status": "changes_requested",
         "target_locale": "fr",
         "target_record_id": "page-1-fr",
-        "translation_group_id": "tg-page-1",
+        "family_id": "tg-page-1",
         "updated_at": "2026-03-12T22:18:30.423811Z",
         "version": 4,
         "work_scope": "__all__"

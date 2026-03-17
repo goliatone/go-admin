@@ -382,10 +382,10 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	server := router.NewHTTPServer()
 	server.Router().Post("/translate", func(c router.Context) error {
 		return writeError(c, TranslationAlreadyExistsError{
-			Panel:              "pages",
-			EntityID:           "page_123",
-			Locale:             "es",
-			TranslationGroupID: "tg_123",
+			Panel:    "pages",
+			EntityID: "page_123",
+			Locale:   "es",
+			FamilyID: "tg_123",
 		})
 	})
 
@@ -405,7 +405,7 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationExists, errPayload["text_code"])
 	}
 	meta, _ := errPayload["metadata"].(map[string]any)
-	if meta["locale"] != "es" || meta["translation_group_id"] != "tg_123" {
+	if meta["locale"] != "es" || meta["family_id"] != "tg_123" {
 		t.Fatalf("expected locale/group metadata, got %v", meta)
 	}
 }
@@ -451,10 +451,10 @@ func TestWriteErrorMapsGoCMSTranslationAlreadyExists(t *testing.T) {
 	server.Router().Post("/translate", func(c router.Context) error {
 		groupID := uuid.New()
 		return writeError(c, &cmscontent.TranslationAlreadyExistsError{
-			EntityID:           uuid.New(),
-			SourceLocale:       "en",
-			TargetLocale:       "fr",
-			TranslationGroupID: &groupID,
+			EntityID:     uuid.New(),
+			SourceLocale: "en",
+			TargetLocale: "fr",
+			FamilyID:     &groupID,
 		})
 	})
 
@@ -521,7 +521,7 @@ func TestWriteErrorMapsTranslationQueueConflict(t *testing.T) {
 		return writeError(c, TranslationAssignmentConflictError{
 			AssignmentID:         "tqa_2",
 			ExistingAssignmentID: "tqa_1",
-			TranslationGroupID:   "tg_123",
+			FamilyID:             "tg_123",
 			EntityType:           "pages",
 			SourceLocale:         "en",
 			TargetLocale:         "es",
@@ -614,7 +614,7 @@ func TestWriteErrorMapsTranslationExchangeConflict(t *testing.T) {
 			Index:              2,
 			Resource:           "pages",
 			EntityID:           "page_123",
-			TranslationGroupID: "tg_123",
+			FamilyID:           "tg_123",
 			TargetLocale:       "es",
 			FieldPath:          "title",
 			CurrentSourceHash:  "aaaa",

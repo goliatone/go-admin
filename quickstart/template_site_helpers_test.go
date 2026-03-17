@@ -49,8 +49,8 @@ func TestSiteMenuHelpers(t *testing.T) {
 	menu := map[string]any{
 		"items": []map[string]any{
 			{
-				"label":         "Docs",
-				"active":        false,
+				"label":           "Docs",
+				"active":          false,
 				"active_ancestor": true,
 				"children": []map[string]any{
 					{"label": "API", "active": true},

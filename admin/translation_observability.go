@@ -80,15 +80,15 @@ func (m *expvarTranslationMetrics) IncrementQAOutcome(_ context.Context, tags ma
 }
 
 type translationCreateActionEvent struct {
-	Entity             string
-	EntityID           string
-	SourceLocale       string
-	Locale             string
-	Transition         string
-	Environment        string
-	Outcome            string
-	TranslationGroupID string
-	Err                error
+	Entity       string
+	EntityID     string
+	SourceLocale string
+	Locale       string
+	Transition   string
+	Environment  string
+	Outcome      string
+	FamilyID     string
+	Err          error
 }
 
 type translationCreateLocaleEvent struct {
@@ -270,7 +270,7 @@ func logTranslationCreateAction(ctx context.Context, event translationCreateActi
 		"source_locale", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.SourceLocale), "unknown"),
 		"target_locale", tags["locale"],
 		"environment", tags["environment"],
-		"translation_group_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.TranslationGroupID), "unknown"),
+		"family_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.FamilyID), "unknown"),
 	}
 	if event.Err != nil {
 		attrs = append(attrs, "error", event.Err.Error())

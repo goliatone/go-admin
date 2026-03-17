@@ -112,7 +112,7 @@ func TestBuildPanelDataGridConfigIncludesTranslationUXOptions(t *testing.T) {
 		TranslationUX:     true,
 		EnableGroupedMode: true,
 		DefaultViewMode:   "grouped",
-		GroupByField:      "translation_group_id",
+		GroupByField:      "family_id",
 	})
 	if cfg == nil {
 		t.Fatalf("expected datagrid config")
@@ -126,8 +126,8 @@ func TestBuildPanelDataGridConfigIncludesTranslationUXOptions(t *testing.T) {
 	if mode := cfg["default_view_mode"]; mode != "grouped" {
 		t.Fatalf("expected default_view_mode grouped, got %v", mode)
 	}
-	if field := cfg["group_by_field"]; field != "translation_group_id" {
-		t.Fatalf("expected group_by_field translation_group_id, got %v", field)
+	if field := cfg["group_by_field"]; field != "family_id" {
+		t.Fatalf("expected group_by_field family_id, got %v", field)
 	}
 }
 

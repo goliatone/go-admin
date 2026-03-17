@@ -47,11 +47,11 @@ const (
 
 // TranslationAssignment coordinates translation work for one target locale.
 type TranslationAssignment struct {
-	ID                 string `json:"id"`
-	TranslationGroupID string `json:"translation_group_id"`
-	EntityType         string `json:"entity_type"`
-	TenantID           string `json:"tenant_id,omitempty"`
-	OrgID              string `json:"org_id,omitempty"`
+	ID         string `json:"id"`
+	FamilyID   string `json:"family_id"`
+	EntityType string `json:"entity_type"`
+	TenantID   string `json:"tenant_id,omitempty"`
+	OrgID      string `json:"org_id,omitempty"`
 
 	SourceRecordID string `json:"source_record_id"`
 	SourceLocale   string `json:"source_locale"`
@@ -85,7 +85,7 @@ type TranslationAssignment struct {
 
 // ActiveUniquenessKey returns the canonical idempotency key for active assignments.
 func (a TranslationAssignment) ActiveUniquenessKey() string {
-	group := strings.TrimSpace(strings.ToLower(a.TranslationGroupID))
+	group := strings.TrimSpace(strings.ToLower(a.FamilyID))
 	target := strings.TrimSpace(strings.ToLower(a.TargetLocale))
 	workScope := normalizeTranslationAssignmentWorkScope(a.WorkScope)
 	return strings.Join([]string{group, target, workScope}, ":")
@@ -148,8 +148,8 @@ func (p Priority) IsValid() bool {
 
 // Validate ensures required model fields and enum values are present.
 func (a TranslationAssignment) Validate() error {
-	if strings.TrimSpace(a.TranslationGroupID) == "" {
-		return requiredFieldDomainError("translation_group_id", nil)
+	if strings.TrimSpace(a.FamilyID) == "" {
+		return requiredFieldDomainError("family_id", nil)
 	}
 	if strings.TrimSpace(a.EntityType) == "" {
 		return requiredFieldDomainError("entity_type", nil)

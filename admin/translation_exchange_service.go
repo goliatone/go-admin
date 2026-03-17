@@ -17,18 +17,18 @@ var (
 )
 
 type TranslationExchangeLinkageKey struct {
-	Resource           string
-	EntityID           string
-	TranslationGroupID string
-	TargetLocale       string
-	FieldPath          string
+	Resource     string
+	EntityID     string
+	FamilyID     string
+	TargetLocale string
+	FieldPath    string
 }
 
 func (k TranslationExchangeLinkageKey) String() string {
 	return strings.Join([]string{
 		strings.TrimSpace(k.Resource),
 		strings.TrimSpace(k.EntityID),
-		strings.TrimSpace(k.TranslationGroupID),
+		strings.TrimSpace(k.FamilyID),
 		strings.TrimSpace(k.TargetLocale),
 		strings.TrimSpace(k.FieldPath),
 	}, "::")
@@ -638,11 +638,11 @@ func (s *TranslationExchangeService) applyImportRow(
 // ResolveTranslationExchangeLinkageKey canonicalizes deterministic row linkage identifiers.
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
 	key := TranslationExchangeLinkageKey{
-		Resource:           strings.ToLower(strings.TrimSpace(row.Resource)),
-		EntityID:           strings.TrimSpace(row.EntityID),
-		TranslationGroupID: strings.TrimSpace(row.TranslationGroupID),
-		TargetLocale:       strings.ToLower(strings.TrimSpace(row.TargetLocale)),
-		FieldPath:          strings.TrimSpace(row.FieldPath),
+		Resource:     strings.ToLower(strings.TrimSpace(row.Resource)),
+		EntityID:     strings.TrimSpace(row.EntityID),
+		FamilyID:     strings.TrimSpace(row.FamilyID),
+		TargetLocale: strings.ToLower(strings.TrimSpace(row.TargetLocale)),
+		FieldPath:    strings.TrimSpace(row.FieldPath),
 	}
 	if key.Resource == "" {
 		return TranslationExchangeLinkageKey{}, requiredFieldDomainError("resource", map[string]any{"component": "translation_exchange"})
@@ -650,8 +650,8 @@ func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (Translati
 	if key.EntityID == "" {
 		return TranslationExchangeLinkageKey{}, requiredFieldDomainError("entity_id", map[string]any{"component": "translation_exchange"})
 	}
-	if key.TranslationGroupID == "" {
-		return TranslationExchangeLinkageKey{}, requiredFieldDomainError("translation_group_id", map[string]any{"component": "translation_exchange"})
+	if key.FamilyID == "" {
+		return TranslationExchangeLinkageKey{}, requiredFieldDomainError("family_id", map[string]any{"component": "translation_exchange"})
 	}
 	if key.TargetLocale == "" {
 		return TranslationExchangeLinkageKey{}, requiredFieldDomainError("target_locale", map[string]any{"component": "translation_exchange"})
@@ -814,12 +814,12 @@ func normalizeProvidedSourceHash(row TranslationExchangeRow) string {
 
 func translationExchangeRowResult(index int, row TranslationExchangeRow) TranslationExchangeRowResult {
 	out := TranslationExchangeRowResult{
-		Index:              row.Index,
-		Resource:           strings.TrimSpace(row.Resource),
-		EntityID:           strings.TrimSpace(row.EntityID),
-		TranslationGroupID: strings.TrimSpace(row.TranslationGroupID),
-		TargetLocale:       strings.TrimSpace(row.TargetLocale),
-		FieldPath:          strings.TrimSpace(row.FieldPath),
+		Index:        row.Index,
+		Resource:     strings.TrimSpace(row.Resource),
+		EntityID:     strings.TrimSpace(row.EntityID),
+		FamilyID:     strings.TrimSpace(row.FamilyID),
+		TargetLocale: strings.TrimSpace(row.TargetLocale),
+		FieldPath:    strings.TrimSpace(row.FieldPath),
 	}
 	if out.Index <= 0 {
 		out.Index = index

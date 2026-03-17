@@ -11,27 +11,27 @@ func TestTranslationFamilyContractFallbackContextConsistency(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_en": {
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_en",
+				"title":     "Post EN",
+				"status":    "published",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_en",
+				"title":     "Post EN",
+				"status":    "published",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 			{
-				"id":                   "post_es",
-				"title":                "Post ES",
-				"status":               "draft",
-				"locale":               "es",
-				"translation_group_id": "tg_123",
+				"id":        "post_es",
+				"title":     "Post ES",
+				"status":    "draft",
+				"locale":    "es",
+				"family_id": "tg_123",
 			},
 		},
 	}

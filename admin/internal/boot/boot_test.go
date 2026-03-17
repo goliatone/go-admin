@@ -221,7 +221,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.options.entity_types":           "/translations/options/entity-types",
 							"translations.options.source_records":         "/translations/options/source-records",
 							"translations.options.locales":                "/translations/options/locales",
-							"translations.options.groups":                 "/translations/options/groups",
+							"translations.options.families":               "/translations/options/families",
 							"translations.options.assignees":              "/translations/options/assignees",
 							"translations.jobs.id":                        "/translations/exchange/jobs/:job_id",
 							"translations.import.validate":                "/translations/exchange/import/validate",
@@ -1444,7 +1444,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.entity_types")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.source_records")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.locales")])
-	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.groups")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.families")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
 
 	detailPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")

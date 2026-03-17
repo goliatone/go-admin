@@ -21,7 +21,7 @@ func TranslationQueueSupportedFilterKeys() []string {
 		"due_state",
 		"locale",
 		"priority",
-		"translation_group_id",
+		"family_id",
 		"review_state",
 	}
 }

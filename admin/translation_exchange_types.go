@@ -22,22 +22,22 @@ const (
 
 // TranslationExchangeRow defines a normalized translation row used by command handlers.
 type TranslationExchangeRow struct {
-	Index              int            `json:"index,omitempty"`
-	Resource           string         `json:"resource"`
-	EntityID           string         `json:"entity_id"`
-	TranslationGroupID string         `json:"translation_group_id"`
-	SourceLocale       string         `json:"source_locale,omitempty"`
-	TargetLocale       string         `json:"target_locale"`
-	FieldPath          string         `json:"field_path"`
-	SourceText         string         `json:"source_text,omitempty"`
-	TranslatedText     string         `json:"translated_text,omitempty"`
-	SourceHash         string         `json:"source_hash,omitempty"`
-	CreateTranslation  bool           `json:"create_translation,omitempty"`
-	Path               string         `json:"path,omitempty"`
-	Title              string         `json:"title,omitempty"`
-	Status             string         `json:"status,omitempty"`
-	Notes              string         `json:"notes,omitempty"`
-	Metadata           map[string]any `json:"metadata,omitempty"`
+	Index             int            `json:"index,omitempty"`
+	Resource          string         `json:"resource"`
+	EntityID          string         `json:"entity_id"`
+	FamilyID          string         `json:"family_id"`
+	SourceLocale      string         `json:"source_locale,omitempty"`
+	TargetLocale      string         `json:"target_locale"`
+	FieldPath         string         `json:"field_path"`
+	SourceText        string         `json:"source_text,omitempty"`
+	TranslatedText    string         `json:"translated_text,omitempty"`
+	SourceHash        string         `json:"source_hash,omitempty"`
+	CreateTranslation bool           `json:"create_translation,omitempty"`
+	Path              string         `json:"path,omitempty"`
+	Title             string         `json:"title,omitempty"`
+	Status            string         `json:"status,omitempty"`
+	Notes             string         `json:"notes,omitempty"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
 }
 
 // TranslationExportFilter captures normalized export criteria.
@@ -80,16 +80,16 @@ type TranslationExchangeConflictInfo struct {
 
 // TranslationExchangeRowResult captures per-row validate/apply status.
 type TranslationExchangeRowResult struct {
-	Index              int                              `json:"index"`
-	Resource           string                           `json:"resource"`
-	EntityID           string                           `json:"entity_id"`
-	TranslationGroupID string                           `json:"translation_group_id"`
-	TargetLocale       string                           `json:"target_locale"`
-	FieldPath          string                           `json:"field_path"`
-	Status             string                           `json:"status"`
-	Error              string                           `json:"error,omitempty"`
-	Conflict           *TranslationExchangeConflictInfo `json:"conflict,omitempty"`
-	Metadata           map[string]any                   `json:"metadata,omitempty"`
+	Index        int                              `json:"index"`
+	Resource     string                           `json:"resource"`
+	EntityID     string                           `json:"entity_id"`
+	FamilyID     string                           `json:"family_id"`
+	TargetLocale string                           `json:"target_locale"`
+	FieldPath    string                           `json:"field_path"`
+	Status       string                           `json:"status"`
+	Error        string                           `json:"error,omitempty"`
+	Conflict     *TranslationExchangeConflictInfo `json:"conflict,omitempty"`
+	Metadata     map[string]any                   `json:"metadata,omitempty"`
 }
 
 // TranslationExchangeResult captures structured validate/apply responses.

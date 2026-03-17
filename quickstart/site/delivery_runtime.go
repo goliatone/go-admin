@@ -115,7 +115,7 @@ type deliveryResolution struct {
 	ResolvedLocale     string
 	AvailableLocales   []string
 	MissingRequested   bool
-	TranslationGroupID string
+	FamilyID           string
 	PathsByLocale      map[string]string
 	TemplateCandidates []string
 }
@@ -747,7 +747,7 @@ func resolutionFromDetailRecord(
 		ResolvedLocale:     resolvedLocale,
 		AvailableLocales:   availableLocales,
 		MissingRequested:   fallbackUsed,
-		TranslationGroupID: strings.TrimSpace(firstNonEmpty(record.TranslationGroupID, anyString(recordData["translation_group_id"]))),
+		FamilyID:           strings.TrimSpace(firstNonEmpty(record.FamilyID, anyString(recordData["family_id"]))),
 		PathsByLocale:      localizedPathsFromGroup(group, capability),
 		TemplateCandidates: capability.detailTemplateCandidates(),
 	}
@@ -858,9 +858,9 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 			recordMap = mapDeliveryRecord(*resolution.Record, resolution.Capability)
 			viewCtx["record"] = recordMap
 			viewCtx[singularTypeSlug(resolution.Capability.TypeSlug)] = recordMap
-			viewCtx["translation_group_id"] = strings.TrimSpace(firstNonEmpty(
-				anyString(recordMap["translation_group_id"]),
-				resolution.TranslationGroupID,
+			viewCtx["family_id"] = strings.TrimSpace(firstNonEmpty(
+				anyString(recordMap["family_id"]),
+				resolution.FamilyID,
 			))
 		}
 	}
@@ -892,7 +892,7 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		requestPath,
 		resolution.RequestedLocale,
 		resolution.ResolvedLocale,
-		resolution.TranslationGroupID,
+		resolution.FamilyID,
 		resolution.AvailableLocales,
 		pathsByLocale,
 		switcherQuery,
@@ -1243,7 +1243,7 @@ func withResolvedLocaleMetadata(
 func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) map[string]any {
 	data := cloneAnyMap(record.Data)
 	path := recordDeliveryPath(record, capability)
-	translationGroupID := strings.TrimSpace(firstNonEmpty(record.TranslationGroupID, anyString(data["translation_group_id"])))
+	translationGroupID := strings.TrimSpace(firstNonEmpty(record.FamilyID, anyString(data["family_id"])))
 	out := map[string]any{
 		"id":                       strings.TrimSpace(record.ID),
 		"title":                    strings.TrimSpace(record.Title),
@@ -1254,7 +1254,7 @@ func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) m
 		"requested_locale":         strings.TrimSpace(record.RequestedLocale),
 		"resolved_locale":          strings.TrimSpace(record.ResolvedLocale),
 		"available_locales":        cloneStrings(record.AvailableLocales),
-		"translation_group_id":     translationGroupID,
+		"family_id":                translationGroupID,
 		"missing_requested_locale": record.MissingRequestedLocale,
 		"content_type":             strings.TrimSpace(firstNonEmpty(record.ContentType, capability.TypeSlug)),
 		"content_type_slug":        strings.TrimSpace(firstNonEmpty(record.ContentTypeSlug, capability.TypeSlug)),
@@ -1331,7 +1331,7 @@ func contentIdentityKey(record admin.CMSContent, capability deliveryCapability) 
 	if recordData == nil {
 		recordData = map[string]any{}
 	}
-	if groupID := strings.TrimSpace(firstNonEmpty(record.TranslationGroupID, anyString(recordData["translation_group_id"]))); groupID != "" {
+	if groupID := strings.TrimSpace(firstNonEmpty(record.FamilyID, anyString(recordData["family_id"]))); groupID != "" {
 		return strings.ToLower(groupID)
 	}
 	if slug := strings.TrimSpace(record.Slug); slug != "" {

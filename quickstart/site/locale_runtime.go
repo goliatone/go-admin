@@ -130,10 +130,10 @@ func BuildLocaleSwitcherContract(
 	}
 
 	out := map[string]any{
-		"requested_locale":     requestedLocale,
-		"resolved_locale":      resolvedLocale,
-		"translation_group_id": strings.TrimSpace(translationGroupID),
-		"items":                items,
+		"requested_locale": requestedLocale,
+		"resolved_locale":  resolvedLocale,
+		"family_id":        strings.TrimSpace(translationGroupID),
+		"items":            items,
 	}
 	if len(availableSet) > 0 {
 		out["available_locales"] = mapKeysSorted(availableSet)

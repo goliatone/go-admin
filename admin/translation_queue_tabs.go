@@ -93,7 +93,7 @@ func translationQueuePanelTab() PanelTab {
 			Panel: translationQueuePanelID,
 		},
 		Filters: map[string]string{
-			"translation_group_id": "{{record.translation_group_id}}",
+			"family_id": "{{record.family_id}}",
 		},
 		Query: map[string]string{
 			"entity_type": "{{panel.name}}",

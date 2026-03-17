@@ -16,16 +16,16 @@ func TestDefaultTranslationQueueAutoCreateHookCreatesAssignmentsForMissingLocale
 	}
 
 	input := TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
-		SourceLocale:       "en",
-		MissingLocales:     []string{"es", "fr"},
-		Transition:         "publish",
-		Environment:        "production",
-		SourceTitle:        "Test Page",
-		SourcePath:         "/test",
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		EntityID:       "page_123",
+		SourceLocale:   "en",
+		MissingLocales: []string{"es", "fr"},
+		Transition:     "publish",
+		Environment:    "production",
+		SourceTitle:    "Test Page",
+		SourcePath:     "/test",
+		Priority:       PriorityNormal,
 	}
 
 	result := hook.OnTranslationBlocker(context.Background(), input)
@@ -51,8 +51,8 @@ func TestDefaultTranslationQueueAutoCreateHookCreatesAssignmentsForMissingLocale
 		if a.AssignmentType != AssignmentTypeOpenPool {
 			t.Errorf("expected open_pool type, got %s", a.AssignmentType)
 		}
-		if a.TranslationGroupID != "tg_123" {
-			t.Errorf("expected translation_group_id tg_123, got %s", a.TranslationGroupID)
+		if a.FamilyID != "tg_123" {
+			t.Errorf("expected family_id tg_123, got %s", a.FamilyID)
 		}
 	}
 }
@@ -65,13 +65,13 @@ func TestDefaultTranslationQueueAutoCreateHookReusesExistingActiveAssignment(t *
 	}
 
 	input := TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
-		SourceLocale:       "en",
-		MissingLocales:     []string{"es"},
-		Transition:         "publish",
-		SourceTitle:        "Test Page",
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		EntityID:       "page_123",
+		SourceLocale:   "en",
+		MissingLocales: []string{"es"},
+		Transition:     "publish",
+		SourceTitle:    "Test Page",
 	}
 
 	// First call creates
@@ -103,7 +103,7 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsEmptyInput(t *testing.T) {
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
-	// Missing translation_group_id
+	// Missing family_id
 	result := hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
 		EntityType:     "pages",
 		EntityID:       "page_123",
@@ -116,9 +116,9 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsEmptyInput(t *testing.T) {
 
 	// Missing entity_id
 	result = hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		MissingLocales:     []string{"es"},
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		MissingLocales: []string{"es"},
 	})
 	if result.Created != 0 || result.Reused != 0 {
 		t.Fatalf("expected no operations for empty entity ID, got created=%d reused=%d",
@@ -127,9 +127,9 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsEmptyInput(t *testing.T) {
 
 	// Missing locales
 	result = hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
+		FamilyID:   "tg_123",
+		EntityType: "pages",
+		EntityID:   "page_123",
 	})
 	if result.Created != 0 || result.Reused != 0 {
 		t.Fatalf("expected no operations for empty missing locales, got created=%d reused=%d",
@@ -146,11 +146,11 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsSourceLocale(t *testing.T) {
 
 	// Source locale "en" should be skipped when it appears in missing locales
 	result := hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
-		SourceLocale:       "en",
-		MissingLocales:     []string{"en", "es"},
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		EntityID:       "page_123",
+		SourceLocale:   "en",
+		MissingLocales: []string{"en", "es"},
 	})
 
 	if result.Created != 1 {
@@ -168,10 +168,10 @@ func TestDefaultTranslationQueueAutoCreateHookNilRepositoryNoOp(t *testing.T) {
 	}
 
 	result := hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
-		MissingLocales:     []string{"es"},
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		EntityID:       "page_123",
+		MissingLocales: []string{"es"},
 	})
 
 	if result.Created != 0 || result.Reused != 0 || result.Failed != 0 {
@@ -190,9 +190,9 @@ func TestTranslationQueueAutoCreateHookFromErrorExtractsInput(t *testing.T) {
 	}
 
 	record := map[string]any{
-		"translation_group_id": "tg_123",
-		"title":                "Test Page",
-		"path":                 "/test",
+		"family_id": "tg_123",
+		"title":     "Test Page",
+		"path":      "/test",
 	}
 
 	policyInput := TranslationPolicyInput{
@@ -207,8 +207,8 @@ func TestTranslationQueueAutoCreateHookFromErrorExtractsInput(t *testing.T) {
 	if !ok {
 		t.Fatal("expected extraction to succeed")
 	}
-	if input.TranslationGroupID != "tg_123" {
-		t.Errorf("expected group ID tg_123, got %s", input.TranslationGroupID)
+	if input.FamilyID != "tg_123" {
+		t.Errorf("expected group ID tg_123, got %s", input.FamilyID)
 	}
 	if input.EntityType != "pages" {
 		t.Errorf("expected entity type pages, got %s", input.EntityType)
@@ -223,7 +223,7 @@ func TestTranslationQueueAutoCreateHookFromErrorExtractsInput(t *testing.T) {
 
 func TestTranslationQueueAutoCreateHookFromErrorRejectsNonTranslationError(t *testing.T) {
 	err := errors.New("generic error")
-	record := map[string]any{"translation_group_id": "tg_123"}
+	record := map[string]any{"family_id": "tg_123"}
 	policyInput := TranslationPolicyInput{}
 
 	_, ok := translationQueueAutoCreateHookFromError(err, policyInput, record)
@@ -237,7 +237,7 @@ func TestTranslationQueueAutoCreateHookFromErrorRejectsEmptyMissingLocales(t *te
 		EntityType:     "pages",
 		MissingLocales: []string{},
 	}
-	record := map[string]any{"translation_group_id": "tg_123"}
+	record := map[string]any{"family_id": "tg_123"}
 	policyInput := TranslationPolicyInput{}
 
 	_, ok := translationQueueAutoCreateHookFromError(err, policyInput, record)
@@ -251,7 +251,7 @@ func TestTranslationQueueAutoCreateHookFromErrorRejectsMissingGroupID(t *testing
 		EntityType:     "pages",
 		MissingLocales: []string{"es"},
 	}
-	record := map[string]any{} // no translation_group_id
+	record := map[string]any{} // no family_id
 	policyInput := TranslationPolicyInput{}
 
 	_, ok := translationQueueAutoCreateHookFromError(err, policyInput, record)
@@ -278,9 +278,9 @@ func TestApplyTranslationPolicyWithQueueHookTriggersHookOnBlocker(t *testing.T) 
 	})
 
 	record := map[string]any{
-		"id":                   "page_123",
-		"translation_group_id": "tg_123",
-		"title":                "Test",
+		"id":        "page_123",
+		"family_id": "tg_123",
+		"title":     "Test",
 	}
 
 	input := TranslationPolicyInput{
@@ -323,7 +323,7 @@ func TestApplyTranslationPolicyWithQueueHookNoHookPassesThrough(t *testing.T) {
 		}
 	})
 
-	record := map[string]any{"translation_group_id": "tg_123"}
+	record := map[string]any{"family_id": "tg_123"}
 	input := TranslationPolicyInput{EntityType: "pages", EntityID: "page_123"}
 
 	// nil hook should not panic
@@ -345,7 +345,7 @@ func TestApplyTranslationPolicyWithQueueHookSuccessNoHookTrigger(t *testing.T) {
 		return nil // success
 	})
 
-	record := map[string]any{"translation_group_id": "tg_123"}
+	record := map[string]any{"family_id": "tg_123"}
 	input := TranslationPolicyInput{EntityType: "pages", EntityID: "page_123"}
 
 	err := applyTranslationPolicyWithQueueHook(context.Background(), policy, input, record, hook)

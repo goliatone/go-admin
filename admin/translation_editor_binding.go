@@ -86,8 +86,8 @@ func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentI
 		return nil, err
 	}
 
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Channel))
-	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,10 @@ func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentI
 
 	return map[string]any{
 		"data": b.assignmentDetailPayload(adminCtx.Context, assignment, editorCtx, now, historyPage, historyPerPage),
-		"meta": map[string]any{
-			"environment":      environment,
+		"meta": mergeTranslationChannelContract(map[string]any{
 			"history_page":     historyPage,
 			"history_per_page": historyPerPage,
-		},
+		}, channel),
 	}, nil
 }
 
@@ -136,8 +135,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		return nil, err
 	}
 
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Channel))
-	editorCtx, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), environment)
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	editorCtx, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), channel)
 	if err != nil {
 		return nil, err
 	}
@@ -175,11 +174,11 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 			}
 		}
 		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), "translation variant version conflict", map[string]any{
-			"variant_id":        strings.TrimSpace(editorCtx.TargetVariant.ID),
-			"record_id":         strings.TrimSpace(editorCtx.TargetRecordID),
-			"expected_version":  expectedVersion,
-			"actual_version":    editorCtx.TargetRowVersion,
-			"translation_group": strings.TrimSpace(editorCtx.Family.ID),
+			"variant_id":       strings.TrimSpace(editorCtx.TargetVariant.ID),
+			"record_id":        strings.TrimSpace(editorCtx.TargetRecordID),
+			"expected_version": expectedVersion,
+			"actual_version":   editorCtx.TargetRowVersion,
+			"family_id":        strings.TrimSpace(editorCtx.Family.ID),
 		})
 	}
 
@@ -209,7 +208,7 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		})
 	}
 
-	reloaded, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), environment)
+	reloaded, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), channel)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +222,7 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		AssignmentID: strings.TrimSpace(currentAssignment.ID),
 		EntityType:   strings.TrimSpace(reloaded.Family.ContentType),
 		Locale:       strings.TrimSpace(reloaded.TargetVariant.Locale),
-		Environment:  environment,
+		Environment:  channel,
 		Outcome:      translationQAOutcomeLabel(qaResults),
 		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
 		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
@@ -249,15 +248,14 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 			"qa_results":               qaResults,
 			"assist":                   translationEditorAssistPayload(reloaded),
 		},
-		"meta": map[string]any{
-			"environment": environment,
-			"autosave":    translationEditorAutosaveRequested(body),
-		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"autosave": translationEditorAutosaveRequested(body),
+		}, channel),
 	}, nil
 }
 
 func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Context, assignment TranslationAssignment, environment string) (translationEditorContext, error) {
-	familyBinding := &translationFamilyBinding{admin: b.admin}
+	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil {
 		return translationEditorContext{}, err
@@ -275,14 +273,14 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 	family, ok, err := runtime.service.Detail(ctx, translationservices.GetFamilyInput{
 		Scope:       scope,
 		Environment: environment,
-		FamilyID:    strings.TrimSpace(assignment.TranslationGroupID),
+		FamilyID:    strings.TrimSpace(assignment.FamilyID),
 	})
 	if err != nil {
 		return translationEditorContext{}, err
 	}
 	if !ok {
 		return translationEditorContext{}, notFoundDomainError("translation family not found", map[string]any{
-			"family_id": strings.TrimSpace(assignment.TranslationGroupID),
+			"family_id": strings.TrimSpace(assignment.FamilyID),
 		})
 	}
 	editorCtx, _ := translationEditorContextFromFamily(family, assignment, environment)
@@ -304,7 +302,7 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 }
 
 func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, variantID, environment string) (translationEditorContext, error) {
-	familyBinding := &translationFamilyBinding{admin: b.admin}
+	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil {
 		return translationEditorContext{}, err
@@ -330,11 +328,11 @@ func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, 
 					continue
 				}
 				assignment := TranslationAssignment{
-					TranslationGroupID: strings.TrimSpace(family.ID),
-					TargetLocale:       strings.TrimSpace(variant.Locale),
-					TargetRecordID:     strings.TrimSpace(variant.SourceRecordID),
-					TenantID:           strings.TrimSpace(family.TenantID),
-					OrgID:              strings.TrimSpace(family.OrgID),
+					FamilyID:       strings.TrimSpace(family.ID),
+					TargetLocale:   strings.TrimSpace(variant.Locale),
+					TargetRecordID: strings.TrimSpace(variant.SourceRecordID),
+					TenantID:       strings.TrimSpace(family.TenantID),
+					OrgID:          strings.TrimSpace(family.OrgID),
 				}
 				return b.loadAssignmentEditorContext(ctx, assignment, environment)
 			}
@@ -988,10 +986,10 @@ func parseTranslationEditorFields(raw any) (map[string]string, error) {
 
 func (b *translationQueueBinding) ensureEditorScope(identity translationTransportIdentity, editorCtx translationEditorContext) error {
 	assignment := TranslationAssignment{
-		ID:                 "",
-		TranslationGroupID: strings.TrimSpace(editorCtx.Family.ID),
-		TenantID:           strings.TrimSpace(editorCtx.Family.TenantID),
-		OrgID:              strings.TrimSpace(editorCtx.Family.OrgID),
+		ID:       "",
+		FamilyID: strings.TrimSpace(editorCtx.Family.ID),
+		TenantID: strings.TrimSpace(editorCtx.Family.TenantID),
+		OrgID:    strings.TrimSpace(editorCtx.Family.OrgID),
 	}
 	return b.ensureAssignmentScope(identity, assignment)
 }
@@ -1023,16 +1021,16 @@ func translationEditorAssignmentByLocale(family translationservices.FamilyRecord
 			continue
 		}
 		return TranslationAssignment{
-			ID:                 strings.TrimSpace(item.ID),
-			TranslationGroupID: strings.TrimSpace(family.ID),
-			TargetLocale:       targetLocale,
-			Status:             AssignmentStatus(strings.TrimSpace(item.Status)),
-			AssigneeID:         strings.TrimSpace(item.AssigneeID),
-			ReviewerID:         strings.TrimSpace(item.ReviewerID),
-			Priority:           Priority(strings.TrimSpace(item.Priority)),
-			DueDate:            cloneTimePtr(item.DueDate),
-			UpdatedAt:          item.UpdatedAt,
-			CreatedAt:          item.CreatedAt,
+			ID:           strings.TrimSpace(item.ID),
+			FamilyID:     strings.TrimSpace(family.ID),
+			TargetLocale: targetLocale,
+			Status:       AssignmentStatus(strings.TrimSpace(item.Status)),
+			AssigneeID:   strings.TrimSpace(item.AssigneeID),
+			ReviewerID:   strings.TrimSpace(item.ReviewerID),
+			Priority:     Priority(strings.TrimSpace(item.Priority)),
+			DueDate:      cloneTimePtr(item.DueDate),
+			UpdatedAt:    item.UpdatedAt,
+			CreatedAt:    item.CreatedAt,
 		}
 	}
 	return TranslationAssignment{}
@@ -1137,8 +1135,8 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 			"component": "translation_editor_binding",
 		})
 	}
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), adminCtx.Channel))
-	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	channel := translationChannel(toString(body["channel"]), adminCtx.Channel)
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, channel)
 	if err != nil {
 		return TranslationAssignment{}, err
 	}
@@ -1158,7 +1156,7 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 		AssignmentID: strings.TrimSpace(assignment.ID),
 		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
 		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
-		Environment:  environment,
+		Environment:  channel,
 		Outcome:      translationQAOutcomeLabel(qaResults),
 		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
 		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
@@ -1192,7 +1190,7 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 			AssignmentID: strings.TrimSpace(submitted.ID),
 			EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
 			Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
-			Environment:  environment,
+			Environment:  channel,
 			Outcome:      "success",
 		}
 		final, err = service.Approve(adminCtx.Context, TranslationQueueApproveInput{
@@ -1225,8 +1223,8 @@ func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, s
 }
 
 func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, service *DefaultTranslationQueueService, assignment TranslationAssignment, expectedVersion int64, body map[string]any) (TranslationAssignment, error) {
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), adminCtx.Channel))
-	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	channel := translationChannel(toString(body["channel"]), adminCtx.Channel)
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, channel)
 	if err != nil {
 		return TranslationAssignment{}, err
 	}
@@ -1237,7 +1235,7 @@ func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, servic
 		AssignmentID: strings.TrimSpace(assignment.ID),
 		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
 		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
-		Environment:  environment,
+		Environment:  channel,
 		Outcome:      "success",
 	}
 	updated, err := service.Approve(adminCtx.Context, TranslationQueueApproveInput{
@@ -1265,8 +1263,8 @@ func (b *translationQueueBinding) runApproveAction(adminCtx AdminContext, servic
 }
 
 func (b *translationQueueBinding) runRejectAction(adminCtx AdminContext, service *DefaultTranslationQueueService, assignment TranslationAssignment, expectedVersion int64, body map[string]any) (TranslationAssignment, error) {
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), adminCtx.Channel))
-	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, environment)
+	channel := translationChannel(toString(body["channel"]), adminCtx.Channel)
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, channel)
 	if err != nil {
 		return TranslationAssignment{}, err
 	}
@@ -1277,7 +1275,7 @@ func (b *translationQueueBinding) runRejectAction(adminCtx AdminContext, service
 		AssignmentID: strings.TrimSpace(assignment.ID),
 		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
 		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
-		Environment:  environment,
+		Environment:  channel,
 		Outcome:      "success",
 	}
 	updated, err := service.Reject(adminCtx.Context, TranslationQueueRejectInput{

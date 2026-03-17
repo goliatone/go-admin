@@ -37,11 +37,11 @@ func (s *stubTranslationExchangeStore) ApplyTranslation(_ context.Context, req T
 
 func TestResolveTranslationExchangeLinkageKeyCanonicalizesDeterministically(t *testing.T) {
 	row := TranslationExchangeRow{
-		Resource:           "  Pages ",
-		EntityID:           " 123 ",
-		TranslationGroupID: " tg_1 ",
-		TargetLocale:       " ES ",
-		FieldPath:          " title ",
+		Resource:     "  Pages ",
+		EntityID:     " 123 ",
+		FamilyID:     " tg_1 ",
+		TargetLocale: " ES ",
+		FieldPath:    " title ",
 	}
 
 	key, err := ResolveTranslationExchangeLinkageKey(row)
@@ -64,11 +64,11 @@ func TestTranslationExchangeServiceValidateImportDetectsSourceHashConflict(t *te
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				SourceHash: "current_hash",
 			},
@@ -78,12 +78,12 @@ func TestTranslationExchangeServiceValidateImportDetectsSourceHashConflict(t *te
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				SourceHash:         "stale_hash",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "es",
+				FieldPath:    "title",
+				SourceHash:   "stale_hash",
 			},
 		},
 	})
@@ -110,11 +110,11 @@ func TestTranslationExchangeServiceApplyImportRequiresCreateIntentForMissingTarg
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: false,
 			},
@@ -124,12 +124,12 @@ func TestTranslationExchangeServiceApplyImportRequiresCreateIntentForMissingTarg
 	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 		},
 		ContinueOnError: true,
@@ -156,11 +156,11 @@ func TestTranslationExchangeServiceValidateImportIncludesCreateHintForMissingTar
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: false,
 			},
@@ -170,12 +170,12 @@ func TestTranslationExchangeServiceValidateImportIncludesCreateHintForMissingTar
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 		},
 	})
@@ -195,32 +195,32 @@ func TestTranslationExchangeServiceApplyImportSupportsExplicitRowResolutions(t *
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				SourceHash:   "current_hash",
 				TargetExists: true,
 			},
 			"pages::2::tg_2::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "2",
-					TranslationGroupID: "tg_2",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "2",
+					FamilyID:     "tg_2",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: false,
 			},
 			"pages::3::tg_3::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "3",
-					TranslationGroupID: "tg_3",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "3",
+					FamilyID:     "tg_3",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: true,
 			},
@@ -230,32 +230,32 @@ func TestTranslationExchangeServiceApplyImportSupportsExplicitRowResolutions(t *
 	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Index:              0,
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
-				SourceHash:         "stale_hash",
+				Index:          0,
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
+				SourceHash:     "stale_hash",
 			},
 			{
-				Index:              1,
-				Resource:           "pages",
-				EntityID:           "2",
-				TranslationGroupID: "tg_2",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Bonjour",
+				Index:          1,
+				Resource:       "pages",
+				EntityID:       "2",
+				FamilyID:       "tg_2",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Bonjour",
 			},
 			{
-				Index:              2,
-				Resource:           "pages",
-				EntityID:           "3",
-				TranslationGroupID: "tg_3",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Ciao",
+				Index:          2,
+				Resource:       "pages",
+				EntityID:       "3",
+				FamilyID:       "tg_3",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Ciao",
 			},
 		},
 		ContinueOnError: true,
@@ -299,21 +299,21 @@ func TestTranslationExchangeServiceApplyImportContinueOnErrorFalseSkipsRemaining
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: false,
 			},
 			"pages::2::tg_2::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "2",
-					TranslationGroupID: "tg_2",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "2",
+					FamilyID:     "tg_2",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: true,
 			},
@@ -324,20 +324,20 @@ func TestTranslationExchangeServiceApplyImportContinueOnErrorFalseSkipsRemaining
 	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 			{
-				Resource:           "pages",
-				EntityID:           "2",
-				TranslationGroupID: "tg_2",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Bonjour",
+				Resource:       "pages",
+				EntityID:       "2",
+				FamilyID:       "tg_2",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Bonjour",
 			},
 		},
 		ContinueOnError: false,
@@ -364,11 +364,11 @@ func TestTranslationExchangeServiceApplyImportForcesDraftWorkflowStatus(t *testi
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: true,
 			},
@@ -378,13 +378,13 @@ func TestTranslationExchangeServiceApplyImportForcesDraftWorkflowStatus(t *testi
 	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
-				Status:             "published",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
+				Status:         "published",
 			},
 		},
 		ContinueOnError: true,
@@ -408,11 +408,11 @@ func TestTranslationExchangeServiceApplyImportDedupesRepeatedWritesByLinkageAndP
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: true,
 			},
@@ -422,12 +422,12 @@ func TestTranslationExchangeServiceApplyImportDedupesRepeatedWritesByLinkageAndP
 	input := TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 		},
 		ContinueOnError: true,
@@ -459,20 +459,20 @@ func TestTranslationExchangeServiceApplyImportStressRemainsDeterministicForLarge
 		entityID := "page_" + itoa(i)
 		groupID := "tg_" + itoa(i)
 		key := TranslationExchangeLinkageKey{
-			Resource:           "pages",
-			EntityID:           entityID,
-			TranslationGroupID: groupID,
-			TargetLocale:       "es",
-			FieldPath:          "title",
+			Resource:     "pages",
+			EntityID:     entityID,
+			FamilyID:     groupID,
+			TargetLocale: "es",
+			FieldPath:    "title",
 		}
 		resolve[key.String()] = TranslationExchangeLinkage{Key: key, TargetExists: true}
 		rows = append(rows, TranslationExchangeRow{
-			Resource:           "pages",
-			EntityID:           entityID,
-			TranslationGroupID: groupID,
-			TargetLocale:       "es",
-			FieldPath:          "title",
-			TranslatedText:     "Hola " + itoa(i),
+			Resource:       "pages",
+			EntityID:       entityID,
+			FamilyID:       groupID,
+			TargetLocale:   "es",
+			FieldPath:      "title",
+			TranslatedText: "Hola " + itoa(i),
 		})
 	}
 	store := &stubTranslationExchangeStore{resolve: resolve}
@@ -514,11 +514,11 @@ func TestTranslationExchangeServiceValidateImportHandlesUnexpectedResolveErrors(
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "es",
+				FieldPath:    "title",
 			},
 		},
 	})
@@ -530,7 +530,7 @@ func TestTranslationExchangeServiceValidateImportHandlesUnexpectedResolveErrors(
 	}
 }
 
-func TestTranslationExchangeServiceValidateImportMissingTranslationGroupIDReturnsInvalidPayload(t *testing.T) {
+func TestTranslationExchangeServiceValidateImportMissingFamilyIDReturnsInvalidPayload(t *testing.T) {
 	service := NewTranslationExchangeService(&stubTranslationExchangeStore{})
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
@@ -561,11 +561,11 @@ func TestTranslationExchangeServiceValidateImportInvalidLocaleFieldPathReturnsMi
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "zz-invalid",
-				FieldPath:          "unsupported.field",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "zz-invalid",
+				FieldPath:    "unsupported.field",
 			},
 		},
 	})
@@ -588,11 +588,11 @@ func TestTranslationExchangeServiceValidateImportDuplicateRowsReturnConflict(t *
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				SourceHash: "current_hash",
 			},
@@ -602,20 +602,20 @@ func TestTranslationExchangeServiceValidateImportDuplicateRowsReturnConflict(t *
 	result, err := service.ValidateImport(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				SourceHash:         "current_hash",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "es",
+				FieldPath:    "title",
+				SourceHash:   "current_hash",
 			},
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				SourceHash:         "current_hash",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "es",
+				FieldPath:    "title",
+				SourceHash:   "current_hash",
 			},
 		},
 	})
@@ -647,11 +647,11 @@ func TestTranslationExchangeServiceApplyImportDuplicateRowsSkipSecondWrite(t *te
 		resolve: map[string]TranslationExchangeLinkage{
 			"pages::1::tg_1::es::title": {
 				Key: TranslationExchangeLinkageKey{
-					Resource:           "pages",
-					EntityID:           "1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
+					Resource:     "pages",
+					EntityID:     "1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
 				},
 				TargetExists: true,
 			},
@@ -661,20 +661,20 @@ func TestTranslationExchangeServiceApplyImportDuplicateRowsSkipSecondWrite(t *te
 	result, err := service.ApplyImport(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola 2",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola 2",
 			},
 		},
 		ContinueOnError: true,

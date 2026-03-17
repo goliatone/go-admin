@@ -20,7 +20,7 @@ func contentEntryPanelSupportsTranslationUX(panel *admin.Panel) bool {
 		}
 	}
 	for _, field := range schema.ListFields {
-		if strings.EqualFold(strings.TrimSpace(field.Name), "translation_group_id") {
+		if strings.EqualFold(strings.TrimSpace(field.Name), "family_id") {
 			return true
 		}
 	}
@@ -36,7 +36,7 @@ func contentEntryTranslationDefaultViewMode(enabled bool) string {
 
 func contentEntryTranslationGroupByField(enabled bool) string {
 	if enabled {
-		return "translation_group_id"
+		return "family_id"
 	}
 	return ""
 }
@@ -86,11 +86,11 @@ func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryT
 	return state
 }
 
-func contentEntryTranslationGroupID(record map[string]any) string {
+func contentEntryFamilyID(record map[string]any) string {
 	return contentEntryStringField(record, []string{
-		"translation_group_id",
-		"translation.meta.translation_group_id",
-		"content_translation.meta.translation_group_id",
+		"family_id",
+		"translation.meta.family_id",
+		"content_translation.meta.family_id",
 	})
 }
 
@@ -112,7 +112,7 @@ func contentEntryAttachTranslationFamilyLink(record map[string]any, urls urlkit.
 	if len(record) == 0 || !enabled {
 		return record
 	}
-	groupID := contentEntryTranslationGroupID(record)
+	groupID := contentEntryFamilyID(record)
 	familyURL := contentEntryTranslationFamilyURL(urls, groupID, strings.TrimSpace(channel))
 	if groupID == "" || familyURL == "" {
 		return record

@@ -43,4 +43,3 @@ func TestNewContentTypeBuilderModuleAllowsMenuParentOverride(t *testing.T) {
 		}
 	}
 }
-

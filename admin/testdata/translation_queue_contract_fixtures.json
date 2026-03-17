@@ -255,7 +255,7 @@
           "status": "open",
           "target_locale": "fr",
           "target_record_id": "",
-          "translation_group_id": "tg-open-1",
+          "family_id": "tg-open-1",
           "updated_at": "2026-03-12T22:18:30.405411Z",
           "version": 1,
           "work_scope": "__all__"
@@ -454,7 +454,7 @@
           "status": "open",
           "target_locale": "it",
           "target_record_id": "",
-          "translation_group_id": "tg-denied-1",
+          "family_id": "tg-denied-1",
           "updated_at": "2026-03-12T22:18:30.412731Z",
           "version": 1,
           "work_scope": "__all__"
@@ -664,7 +664,7 @@
           "status": "in_review",
           "target_locale": "fr",
           "target_record_id": "page-1-fr",
-          "translation_group_id": "tg-page-1",
+          "family_id": "tg-page-1",
           "updated_at": "2026-03-12T22:18:30.411346Z",
           "version": 3,
           "work_scope": "__all__"
@@ -863,7 +863,7 @@
           "status": "in_review",
           "target_locale": "de",
           "target_record_id": "news-review-de-1",
-          "translation_group_id": "tg-review-guarded-1",
+          "family_id": "tg-review-guarded-1",
           "updated_at": "2026-03-12T22:18:30.409505Z",
           "version": 1,
           "work_scope": "__all__"
@@ -1062,7 +1062,7 @@
           "status": "in_review",
           "target_locale": "fr",
           "target_record_id": "post-review-fr-1",
-          "translation_group_id": "tg-review-1",
+          "family_id": "tg-review-1",
           "updated_at": "2026-03-12T22:18:30.407426Z",
           "version": 1,
           "work_scope": "__all__"

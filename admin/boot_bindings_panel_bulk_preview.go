@@ -69,7 +69,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 			missingLocales = normalizedLocaleList(readiness["missing_locales"])
 		}
 		recordResult["missing_locales"] = append([]string{}, missingLocales...)
-		recordResult["translation_group_id"] = strings.TrimSpace(translationGroupIDFromRecord(sourceWithReadiness))
+		recordResult["family_id"] = strings.TrimSpace(translationGroupIDFromRecord(sourceWithReadiness))
 		recordResult["source_locale"] = strings.TrimSpace(toString(sourceWithReadiness["locale"]))
 
 		if len(missingLocales) == 0 {
@@ -107,8 +107,8 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 			if createdID := strings.TrimSpace(toString(createdData["id"])); createdID != "" {
 				entry["id"] = createdID
 			}
-			if groupID := strings.TrimSpace(toString(createdData["translation_group_id"])); groupID != "" {
-				entry["translation_group_id"] = groupID
+			if groupID := strings.TrimSpace(toString(createdData["family_id"])); groupID != "" {
+				entry["family_id"] = groupID
 			}
 			created = append(created, entry)
 		}

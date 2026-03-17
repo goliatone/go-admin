@@ -6,7 +6,7 @@
       {
         "resource": "pages",
         "entity_id": "page_home",
-        "translation_group_id": "grp_home",
+        "family_id": "grp_home",
         "source_locale": "en",
         "target_locale": "fr",
         "field_path": "title",
@@ -16,7 +16,7 @@
       {
         "resource": "pages",
         "entity_id": "page_home",
-        "translation_group_id": "grp_home",
+        "family_id": "grp_home",
         "source_locale": "en",
         "target_locale": "es",
         "field_path": "title",
@@ -39,8 +39,13 @@
         "row_count": 2
       },
       "request": {
-        "resources": ["pages"],
-        "target_locales": ["fr", "es"],
+        "resources": [
+          "pages"
+        ],
+        "target_locales": [
+          "fr",
+          "es"
+        ],
         "source_locale": "en",
         "include_source_hash": true
       },
@@ -61,7 +66,7 @@
             "label": "Download export JSON",
             "filename": "translation_exchange_export.json",
             "content_type": "application/json",
-            "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9LHsicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9XQ=="
+            "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsImZhbWlseV9pZCI6ImdycF9ob21lIiwic291cmNlX2xvY2FsZSI6ImVuIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic291cmNlX3RleHQiOiJIb21lIiwic291cmNlX2hhc2giOiJoYXNoX2hvbWVfdGl0bGUifSx7InJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJmYW1pbHlfaWQiOiJncnBfaG9tZSIsInNvdXJjZV9sb2NhbGUiOiJlbiIsInRhcmdldF9sb2NhbGUiOiJlcyIsImZpZWxkX3BhdGgiOiJ0aXRsZSIsInNvdXJjZV90ZXh0IjoiSG9tZSIsInNvdXJjZV9oYXNoIjoiaGFzaF9ob21lX3RpdGxlIn1d"
           }
         }
       }
@@ -110,7 +115,7 @@
                 "index": 0,
                 "resource": "pages",
                 "entity_id": "page_home",
-                "translation_group_id": "grp_home",
+                "family_id": "grp_home",
                 "target_locale": "fr",
                 "field_path": "title",
                 "status": "success",
@@ -128,7 +133,7 @@
               "label": "Download apply input",
               "filename": "translation_exchange_apply_input.json",
               "content_type": "application/json",
-              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJ0cmFuc2xhdGVkX3RleHQiOiJBY2N1ZWlsIn1d"
+              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsImZhbWlseV9pZCI6ImdycF9ob21lIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwidHJhbnNsYXRlZF90ZXh0IjoiQWNjdWVpbCJ9XQ=="
             },
             "report": {
               "kind": "report",
@@ -141,7 +146,10 @@
           "retention": {
             "hard_delete_supported": true,
             "hard_delete_path": "/admin/api/translations/exchange/jobs/txex_job_fixture_apply",
-            "download_kinds": ["input", "report"],
+            "download_kinds": [
+              "input",
+              "report"
+            ],
             "artifact_count": 2,
             "retained": true
           },
@@ -194,7 +202,7 @@
                 "index": 0,
                 "resource": "pages",
                 "entity_id": "page_home",
-                "translation_group_id": "grp_home",
+                "family_id": "grp_home",
                 "target_locale": "fr",
                 "field_path": "title",
                 "status": "success"
@@ -203,7 +211,7 @@
                 "index": 1,
                 "resource": "pages",
                 "entity_id": "page_home",
-                "translation_group_id": "grp_home",
+                "family_id": "grp_home",
                 "target_locale": "es",
                 "field_path": "title",
                 "status": "conflict",
@@ -234,14 +242,14 @@
               "label": "Download sample import",
               "filename": "translation_exchange_validate_demo.json",
               "content_type": "application/json",
-              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJ0cmFuc2xhdGVkX3RleHQiOiJBY2N1ZWlsIiwic291cmNlX2hhc2giOiJoYXNoX2hvbWVfdGl0bGUifSx7InJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwic291cmNlX2xvY2FsZSI6ImVuIiwidGFyZ2V0X2xvY2FsZSI6ImVzIiwiZmllbGRfcGF0aCI6InRpdGxlIiwidHJhbnNsYXRlZF90ZXh0IjoiSW5pY2lvIiwic291cmNlX2hhc2giOiJoYXNoX3N0YWxlIn1d"
+              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsImZhbWlseV9pZCI6ImdycF9ob21lIiwic291cmNlX2xvY2FsZSI6ImVuIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwidHJhbnNsYXRlZF90ZXh0IjoiQWNjdWVpbCIsInNvdXJjZV9oYXNoIjoiaGFzaF9ob21lX3RpdGxlIn0seyJyZXNvdXJjZSI6InBhZ2VzIiwiZW50aXR5X2lkIjoicGFnZV9ob21lIiwiZmFtaWx5X2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJ0cmFuc2xhdGVkX3RleHQiOiJJbmljaW8iLCJzb3VyY2VfaGFzaCI6Imhhc2hfc3RhbGUifV0="
             },
             "report": {
               "kind": "report",
               "label": "Download validation report",
               "filename": "translation_exchange_validation_report.json",
               "content_type": "application/json",
-              "href": "data:application/json;base64,eyJzdW1tYXJ5Ijp7InByb2Nlc3NlZCI6Miwic3VjY2VlZGVkIjoxLCJmYWlsZWQiOjEsImNvbmZsaWN0cyI6MSwicGFydGlhbF9zdWNjZXNzIjp0cnVlfSwicmVzdWx0cyI6W3siaW5kZXgiOjAsInJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic3RhdHVzIjoic3VjY2VzcyJ9LHsiaW5kZXgiOjEsInJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJ0cmFuc2xhdGlvbl9ncm91cF9pZCI6ImdycF9ob21lIiwidGFyZ2V0X2xvY2FsZSI6ImVzIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic3RhdHVzIjoiY29uZmxpY3QiLCJlcnJvciI6InNvdXJjZSBoYXNoIG1pc21hdGNoIiwiY29uZmxpY3QiOnsidHlwZSI6InN0YWxlX3NvdXJjZV9oYXNoIiwibWVzc2FnZSI6InNvdXJjZSBoYXNoIG1pc21hdGNoIiwiY3VycmVudF9zb3VyY2VfaGFzaCI6Imhhc2hfY3VycmVudCIsInByb3ZpZGVkX3NvdXJjZV9oYXNoIjoiaGFzaF9zdGFsZSJ9fV0sImNvbmZsaWN0cyI6eyJ0b3RhbCI6MSwiYnlfdHlwZSI6eyJzdGFsZV9zb3VyY2VfaGFzaCI6MX19fQ=="
+              "href": "data:application/json;base64,eyJzdW1tYXJ5Ijp7InByb2Nlc3NlZCI6Miwic3VjY2VlZGVkIjoxLCJmYWlsZWQiOjEsImNvbmZsaWN0cyI6MSwicGFydGlhbF9zdWNjZXNzIjp0cnVlfSwicmVzdWx0cyI6W3siaW5kZXgiOjAsInJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJmYW1pbHlfaWQiOiJncnBfaG9tZSIsInRhcmdldF9sb2NhbGUiOiJmciIsImZpZWxkX3BhdGgiOiJ0aXRsZSIsInN0YXR1cyI6InN1Y2Nlc3MifSx7ImluZGV4IjoxLCJyZXNvdXJjZSI6InBhZ2VzIiwiZW50aXR5X2lkIjoicGFnZV9ob21lIiwiZmFtaWx5X2lkIjoiZ3JwX2hvbWUiLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzdGF0dXMiOiJjb25mbGljdCIsImVycm9yIjoic291cmNlIGhhc2ggbWlzbWF0Y2giLCJjb25mbGljdCI6eyJ0eXBlIjoic3RhbGVfc291cmNlX2hhc2giLCJtZXNzYWdlIjoic291cmNlIGhhc2ggbWlzbWF0Y2giLCJjdXJyZW50X3NvdXJjZV9oYXNoIjoiaGFzaF9jdXJyZW50IiwicHJvdmlkZWRfc291cmNlX2hhc2giOiJoYXNoX3N0YWxlIn19XSwiY29uZmxpY3RzIjp7InRvdGFsIjoxLCJieV90eXBlIjp7InN0YWxlX3NvdXJjZV9oYXNoIjoxfX19"
             }
           },
           "progress": {
@@ -275,7 +283,7 @@
               "label": "Download export JSON",
               "filename": "translation_exchange_export.json",
               "content_type": "application/json",
-              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZnIiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9LHsicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsInRyYW5zbGF0aW9uX2dyb3VwX2lkIjoiZ3JwX2hvbWUiLCJzb3VyY2VfbG9jYWxlIjoiZW4iLCJ0YXJnZXRfbG9jYWxlIjoiZXMiLCJmaWVsZF9wYXRoIjoidGl0bGUiLCJzb3VyY2VfdGV4dCI6IkhvbWUiLCJzb3VyY2VfaGFzaCI6Imhhc2hfaG9tZV90aXRsZSJ9XQ=="
+              "href": "data:application/json;base64,W3sicmVzb3VyY2UiOiJwYWdlcyIsImVudGl0eV9pZCI6InBhZ2VfaG9tZSIsImZhbWlseV9pZCI6ImdycF9ob21lIiwic291cmNlX2xvY2FsZSI6ImVuIiwidGFyZ2V0X2xvY2FsZSI6ImZyIiwiZmllbGRfcGF0aCI6InRpdGxlIiwic291cmNlX3RleHQiOiJIb21lIiwic291cmNlX2hhc2giOiJoYXNoX2hvbWVfdGl0bGUifSx7InJlc291cmNlIjoicGFnZXMiLCJlbnRpdHlfaWQiOiJwYWdlX2hvbWUiLCJmYW1pbHlfaWQiOiJncnBfaG9tZSIsInNvdXJjZV9sb2NhbGUiOiJlbiIsInRhcmdldF9sb2NhbGUiOiJlcyIsImZpZWxkX3BhdGgiOiJ0aXRsZSIsInNvdXJjZV90ZXh0IjoiSG9tZSIsInNvdXJjZV9oYXNoIjoiaGFzaF9ob21lX3RpdGxlIn1d"
             }
           },
           "progress": {
@@ -304,10 +312,28 @@
       }
     },
     "meta": {
-      "job_kinds": ["export", "import_validate", "import_apply"],
-      "job_statuses": ["running", "completed", "failed"],
-      "download_kinds": ["artifact", "input", "report"],
-      "retention_fields": ["hard_delete_supported", "hard_delete_path", "download_kinds", "artifact_count", "retained"],
+      "job_kinds": [
+        "export",
+        "import_validate",
+        "import_apply"
+      ],
+      "job_statuses": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "download_kinds": [
+        "artifact",
+        "input",
+        "report"
+      ],
+      "retention_fields": [
+        "hard_delete_supported",
+        "hard_delete_path",
+        "download_kinds",
+        "artifact_count",
+        "retained"
+      ],
       "include_examples": true
     }
   },
@@ -330,7 +356,7 @@
           "index": 0,
           "resource": "pages",
           "entity_id": "page_missing",
-          "translation_group_id": "grp_missing",
+          "family_id": "grp_missing",
           "target_locale": "fr",
           "field_path": "title",
           "status": "conflict",
@@ -379,7 +405,7 @@
           "index": 0,
           "resource": "pages",
           "entity_id": "page_home",
-          "translation_group_id": "grp_home",
+          "family_id": "grp_home",
           "target_locale": "fr",
           "field_path": "title",
           "status": "success"
@@ -388,7 +414,7 @@
           "index": 1,
           "resource": "pages",
           "entity_id": "page_home",
-          "translation_group_id": "grp_home",
+          "family_id": "grp_home",
           "target_locale": "fr",
           "field_path": "title",
           "status": "conflict",
@@ -422,7 +448,7 @@
           "index": 0,
           "resource": "pages",
           "entity_id": "page_home",
-          "translation_group_id": "grp_home",
+          "family_id": "grp_home",
           "target_locale": "es",
           "field_path": "title",
           "status": "conflict",
@@ -463,7 +489,7 @@
           "index": 0,
           "resource": "pages",
           "entity_id": "page_home",
-          "translation_group_id": "grp_home",
+          "family_id": "grp_home",
           "target_locale": "fr",
           "field_path": "title",
           "status": "success"
@@ -472,7 +498,7 @@
           "index": 1,
           "resource": "pages",
           "entity_id": "page_missing",
-          "translation_group_id": "grp_missing",
+          "family_id": "grp_missing",
           "target_locale": "fr",
           "field_path": "title",
           "status": "conflict",
@@ -489,7 +515,7 @@
           "index": 2,
           "resource": "pages",
           "entity_id": "page_tail",
-          "translation_group_id": "grp_tail",
+          "family_id": "grp_tail",
           "target_locale": "fr",
           "field_path": "title",
           "status": "skipped",

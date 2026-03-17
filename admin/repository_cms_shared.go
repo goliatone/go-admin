@@ -57,12 +57,12 @@ func widgetInstanceRecord(instance WidgetInstance) map[string]any {
 }
 
 type cmsCommonRecordFields struct {
-	ID                 string
-	TranslationGroupID string
-	Title              string
-	Slug               string
-	Locale             string
-	Status             string
+	ID       string
+	FamilyID string
+	Title    string
+	Slug     string
+	Locale   string
+	Status   string
 }
 
 type cmsMappedDataFields struct {
@@ -84,7 +84,7 @@ func assignStringIfPresent(record map[string]any, key string, target *string) {
 func extractCMSCommonRecordFields(record map[string]any) cmsCommonRecordFields {
 	fields := cmsCommonRecordFields{}
 	assignStringIfPresent(record, "id", &fields.ID)
-	assignStringIfPresent(record, "translation_group_id", &fields.TranslationGroupID)
+	assignStringIfPresent(record, "family_id", &fields.FamilyID)
 	assignStringIfPresent(record, "title", &fields.Title)
 	assignStringIfPresent(record, "slug", &fields.Slug)
 	assignStringIfPresent(record, "locale", &fields.Locale)
@@ -301,7 +301,7 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	}
 	common := extractCMSCommonRecordFields(record)
 	page.ID = common.ID
-	page.TranslationGroupID = common.TranslationGroupID
+	page.FamilyID = common.FamilyID
 	page.Title = common.Title
 	page.Slug = common.Slug
 	page.Locale = common.Locale
@@ -362,7 +362,7 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	preserveStringField(record, "title", &page.Title, existing.Title)
 	preserveStringField(record, "slug", &page.Slug, existing.Slug)
 	preserveStringField(record, "locale", &page.Locale, existing.Locale)
-	preserveStringField(record, "translation_group_id", &page.TranslationGroupID, existing.TranslationGroupID)
+	preserveStringField(record, "family_id", &page.FamilyID, existing.FamilyID)
 	preserveStringField(record, "status", &page.Status, existing.Status)
 	preserveStringField(record, "parent_id", &page.ParentID, existing.ParentID)
 	if !recordHasKey(record, "preview_url") {
@@ -428,7 +428,7 @@ var cmsContentReservedKeys = map[string]struct{}{
 	"content_type":                    {},
 	"content_type_slug":               {},
 	"content_type_id":                 {},
-	"translation_group_id":            {},
+	"family_id":                       {},
 	"requested_locale":                {},
 	"resolved_locale":                 {},
 	"available_locales":               {},
@@ -452,7 +452,7 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	}
 	common := extractCMSCommonRecordFields(record)
 	content.ID = common.ID
-	content.TranslationGroupID = common.TranslationGroupID
+	content.FamilyID = common.FamilyID
 	content.Title = common.Title
 	content.Slug = common.Slug
 	content.Locale = common.Locale
@@ -531,7 +531,7 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	preserveStringField(record, "title", &content.Title, existing.Title)
 	preserveStringField(record, "slug", &content.Slug, existing.Slug)
 	preserveStringField(record, "locale", &content.Locale, existing.Locale)
-	preserveStringField(record, "translation_group_id", &content.TranslationGroupID, existing.TranslationGroupID)
+	preserveStringField(record, "family_id", &content.FamilyID, existing.FamilyID)
 	preserveStringField(record, "status", &content.Status, existing.Status)
 	mergeCMSBlocksUpdate(record, &content.Blocks, &content.EmbeddedBlocks, existing.Blocks, existing.EmbeddedBlocks)
 	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {

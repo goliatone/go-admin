@@ -930,7 +930,7 @@ func collectDiffChanges(path string, base, target any, changes *[]flow.FSMAuthor
 			return
 		}
 		maxLen := max(len(t), len(b))
-		for index := 0; index < maxLen; index++ {
+		for index := range maxLen {
 			var left any
 			if index < len(b) {
 				left = b[index]

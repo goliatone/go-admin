@@ -37,4 +37,3 @@ func toJSONTemplateFilter(in *pongo2.Value, _ *pongo2.Value) (*pongo2.Value, *po
 	}
 	return pongo2.AsValue(string(raw)), nil
 }
-

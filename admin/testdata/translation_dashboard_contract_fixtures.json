@@ -273,7 +273,7 @@
               "overdue",
               "assignee_id",
               "reviewer_id",
-              "translation_group_id"
+              "family_id"
             ],
             "default_limit": 5,
             "drilldown_route": "translations.assignments.edit",
@@ -408,7 +408,7 @@
                 "overdue",
                 "assignee_id",
                 "reviewer_id",
-                "translation_group_id"
+                "family_id"
               ],
               "default_limit": 5,
               "drilldown_route": "translations.assignments.edit",
@@ -801,7 +801,7 @@
               "overdue",
               "assignee_id",
               "reviewer_id",
-              "translation_group_id"
+              "family_id"
             ],
             "default_limit": 5,
             "drilldown_route": "translations.assignments.edit",
@@ -936,7 +936,7 @@
                 "overdue",
                 "assignee_id",
                 "reviewer_id",
-                "translation_group_id"
+                "family_id"
               ],
               "default_limit": 5,
               "drilldown_route": "translations.assignments.edit",
@@ -1577,7 +1577,7 @@
             "rows": [
               {
                 "assignment_id": "asg-alert-1",
-                "translation_group_id": "tg-page-1",
+                "family_id": "tg-page-1",
                 "entity_type": "pages",
                 "source_record_id": "page-1",
                 "source_title": "Homepage",
@@ -1608,12 +1608,12 @@
                     "entity_id": "asg-alert-1"
                   },
                   "queue": {
-                    "href": "/admin/translations/queue?translation_group_id=tg-page-1",
+                    "href": "/admin/translations/queue?family_id=tg-page-1",
                     "group": "admin",
                     "route": "translations.queue",
                     "resolver_key": "admin.translations.queue",
                     "query": {
-                      "translation_group_id": "tg-page-1"
+                      "family_id": "tg-page-1"
                     },
                     "key": "queue",
                     "label": "Open queue context",
@@ -1627,7 +1627,7 @@
               },
               {
                 "assignment_id": "asg-alert-2",
-                "translation_group_id": "tg-post-2",
+                "family_id": "tg-post-2",
                 "entity_type": "posts",
                 "source_record_id": "post-2",
                 "source_title": "Pricing Update",
@@ -1658,12 +1658,12 @@
                     "entity_id": "asg-alert-2"
                   },
                   "queue": {
-                    "href": "/admin/translations/queue?translation_group_id=tg-post-2",
+                    "href": "/admin/translations/queue?family_id=tg-post-2",
                     "group": "admin",
                     "route": "translations.queue",
                     "resolver_key": "admin.translations.queue",
                     "query": {
-                      "translation_group_id": "tg-post-2"
+                      "family_id": "tg-post-2"
                     },
                     "key": "queue",
                     "label": "Open queue context",

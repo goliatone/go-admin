@@ -134,11 +134,11 @@ func (s *translationActionBenchmarkRepo) Delete(context.Context, string) error {
 func BenchmarkPanelActionCreateTranslation(b *testing.B) {
 	repo := &translationActionBenchmarkRepo{
 		source: map[string]any{
-			"id":                   "page_123",
-			"locale":               "en",
-			"status":               "approval",
-			"translation_group_id": "tg_123",
-			"available_locales":    []string{"en"},
+			"id":                "page_123",
+			"locale":            "en",
+			"status":            "approval",
+			"family_id":         "tg_123",
+			"available_locales": []string{"en"},
 		},
 	}
 	panel := &Panel{name: "pages", repo: repo}
@@ -173,11 +173,11 @@ func BenchmarkPanelActionCreateTranslation(b *testing.B) {
 func BenchmarkPanelActionBlockedTransition(b *testing.B) {
 	repo := &translationActionBenchmarkRepo{
 		source: map[string]any{
-			"id":                   "page_123",
-			"locale":               "en",
-			"status":               "approval",
-			"translation_group_id": "tg_123",
-			"available_locales":    []string{"en"},
+			"id":                "page_123",
+			"locale":            "en",
+			"status":            "approval",
+			"family_id":         "tg_123",
+			"available_locales": []string{"en"},
 		},
 	}
 	panel := &Panel{

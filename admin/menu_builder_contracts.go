@@ -9,18 +9,18 @@ const (
 
 // AdminMenuRecord is the normalized menu contract used by admin menu builder APIs.
 type AdminMenuRecord struct {
-	ID                 string     `json:"id"`
-	Code               string     `json:"code"`
-	Name               string     `json:"name,omitempty"`
-	Description        string     `json:"description,omitempty"`
-	Status             string     `json:"status"`
-	Locale             string     `json:"locale,omitempty"`
-	TranslationGroupID string     `json:"translation_group_id,omitempty"`
-	Archived           bool       `json:"archived,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	PublishedAt        *time.Time `json:"published_at,omitempty"`
-	ArchivedAt         *time.Time `json:"archived_at,omitempty"`
+	ID          string     `json:"id"`
+	Code        string     `json:"code"`
+	Name        string     `json:"name,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Status      string     `json:"status"`
+	Locale      string     `json:"locale,omitempty"`
+	FamilyID    string     `json:"family_id,omitempty"`
+	Archived    bool       `json:"archived,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	ArchivedAt  *time.Time `json:"archived_at,omitempty"`
 }
 
 // AdminMenuBindingRecord describes a menu location binding record.

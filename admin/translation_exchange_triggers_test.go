@@ -36,12 +36,12 @@ func TestTranslationImportRunTriggerCommandDispatchesTypedRunMessage(t *testing.
 			BuildInput: func(context.Context, TranslationImportRunTriggerInput) (TranslationImportRunInput, error) {
 				rows := []TranslationExchangeRow{
 					{
-						Resource:           "pages",
-						EntityID:           "page-1",
-						TranslationGroupID: "tg-1",
-						TargetLocale:       "es",
-						FieldPath:          "title",
-						TranslatedText:     "Hola",
+						Resource:       "pages",
+						EntityID:       "page-1",
+						FamilyID:       "tg-1",
+						TargetLocale:   "es",
+						FieldPath:      "title",
+						TranslatedText: "Hola",
 					},
 				}
 				return TranslationImportRunInput{
@@ -139,7 +139,7 @@ func TestTranslationImportRunTriggerCommandUsesDirectRunInputWhenProvided(t *tes
 		}
 
 		rows := []TranslationExchangeRow{
-			{Resource: "posts", EntityID: "post-1", TranslationGroupID: "tg-1", TargetLocale: "fr", FieldPath: "title", TranslatedText: "Bonjour"},
+			{Resource: "posts", EntityID: "post-1", FamilyID: "tg-1", TargetLocale: "fr", FieldPath: "title", TranslatedText: "Bonjour"},
 		}
 		input := TranslationImportRunTriggerInput{
 			RunInput: &TranslationImportRunInput{

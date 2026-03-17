@@ -471,14 +471,14 @@ func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
 	created, err := repo.Create(ctx, admin.TranslationAssignment{
-		TranslationGroupID: "tg_data_retention",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     admin.AssignmentTypeOpenPool,
-		Status:             admin.AssignmentStatusPending,
-		Priority:           admin.PriorityNormal,
+		FamilyID:       "tg_data_retention",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: admin.AssignmentTypeOpenPool,
+		Status:         admin.AssignmentStatusPending,
+		Priority:       admin.PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("seed assignment: %v", err)
@@ -509,8 +509,8 @@ func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get assignment: %v", err)
 	}
-	if found.TranslationGroupID != "tg_data_retention" {
-		t.Fatalf("expected assignment group ID, got %s", found.TranslationGroupID)
+	if found.FamilyID != "tg_data_retention" {
+		t.Fatalf("expected assignment group ID, got %s", found.FamilyID)
 	}
 
 	// Second: Disable queue module (simulating config change)
@@ -534,7 +534,7 @@ func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get assignment after disable: %v", err)
 	}
-	if found2.TranslationGroupID != "tg_data_retention" {
+	if found2.FamilyID != "tg_data_retention" {
 		t.Fatalf("data retention: expected assignment to persist after module disable")
 	}
 
@@ -561,7 +561,7 @@ func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get assignment after re-enable: %v", err)
 	}
-	if found3.TranslationGroupID != "tg_data_retention" {
+	if found3.FamilyID != "tg_data_retention" {
 		t.Fatalf("data access: expected assignment accessible after re-enable")
 	}
 }
@@ -621,14 +621,14 @@ func TestTranslationProductQueueProfileDisableRetainsDataAndReEnableRestoresAcce
 	ctx := context.Background()
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	created, err := repo.Create(ctx, admin.TranslationAssignment{
-		TranslationGroupID: "tg_profile_retention",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     admin.AssignmentTypeOpenPool,
-		Status:             admin.AssignmentStatusPending,
-		Priority:           admin.PriorityNormal,
+		FamilyID:       "tg_profile_retention",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: admin.AssignmentTypeOpenPool,
+		Status:         admin.AssignmentStatusPending,
+		Priority:       admin.PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("seed assignment: %v", err)
@@ -701,11 +701,11 @@ func TestTranslationProductExchangeProfileDisableRetainsDataAndReEnableRestoresA
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "page_1",
-				TranslationGroupID: "tg_exchange_retention",
-				TargetLocale:       "es",
-				FieldPath:          "title",
+				Resource:     "pages",
+				EntityID:     "page_1",
+				FamilyID:     "tg_exchange_retention",
+				TargetLocale: "es",
+				FieldPath:    "title",
 			},
 		},
 	}

@@ -160,7 +160,7 @@ type CMSPage struct {
 	Slug                   string
 	TemplateID             string
 	Locale                 string
-	TranslationGroupID     string
+	FamilyID               string
 	RequestedLocale        string
 	ResolvedLocale         string
 	AvailableLocales       []string
@@ -184,7 +184,7 @@ type CMSContent struct {
 	Title                  string
 	Slug                   string
 	Locale                 string
-	TranslationGroupID     string
+	FamilyID               string
 	RequestedLocale        string
 	ResolvedLocale         string
 	AvailableLocales       []string

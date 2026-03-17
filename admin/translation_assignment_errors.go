@@ -17,7 +17,7 @@ var (
 type TranslationAssignmentConflictError struct {
 	AssignmentID         string
 	ExistingAssignmentID string
-	TranslationGroupID   string
+	FamilyID             string
 	EntityType           string
 	SourceLocale         string
 	TargetLocale         string

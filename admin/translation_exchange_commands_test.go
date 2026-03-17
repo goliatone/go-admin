@@ -57,11 +57,11 @@ func TestTranslationImportValidateCommandPopulatesResult(t *testing.T) {
 	err := cmd.Execute(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
+				Resource:     "pages",
+				EntityID:     "1",
+				FamilyID:     "tg_1",
+				TargetLocale: "es",
+				FieldPath:    "title",
 			},
 		},
 		Result: &out,
@@ -85,12 +85,12 @@ func TestTranslationImportApplyCommandPopulatesResult(t *testing.T) {
 	err := cmd.Execute(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "1",
-				TranslationGroupID: "tg_1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "1",
+				FamilyID:       "tg_1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 		},
 		Result: &out,
@@ -122,7 +122,7 @@ func TestTranslationImportValidateCommandNilServiceReturnsError(t *testing.T) {
 	cmd := &TranslationImportValidateCommand{Service: nil}
 	err := cmd.Execute(context.Background(), TranslationImportValidateInput{
 		Rows: []TranslationExchangeRow{
-			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 		},
 	})
 	if err == nil {
@@ -138,7 +138,7 @@ func TestTranslationImportApplyCommandNilServiceReturnsError(t *testing.T) {
 	cmd := &TranslationImportApplyCommand{Service: nil}
 	err := cmd.Execute(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
-			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+			{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
 		},
 	})
 	if err == nil {
@@ -155,12 +155,12 @@ func TestTranslationImportRunCommandNilValidatorReturnsError(t *testing.T) {
 	err := cmd.Execute(context.Background(), TranslationImportRunInput{
 		ValidateInput: TranslationImportValidateInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 		ApplyInput: TranslationImportApplyInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
 			},
 		},
 	})
@@ -178,12 +178,12 @@ func TestTranslationImportRunCommandNilApplierReturnsError(t *testing.T) {
 	err := cmd.Execute(context.Background(), TranslationImportRunInput{
 		ValidateInput: TranslationImportValidateInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 		ApplyInput: TranslationImportApplyInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
 			},
 		},
 	})
@@ -232,7 +232,7 @@ func TestTranslationImportApplyCommandValidationError(t *testing.T) {
 	cmd := &TranslationImportApplyCommand{Service: service}
 	err := cmd.Execute(context.Background(), TranslationImportApplyInput{
 		Rows: []TranslationExchangeRow{
-			{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"}, // missing translated_text
+			{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"}, // missing translated_text
 		},
 	})
 	if err == nil {
@@ -275,12 +275,12 @@ func TestTranslationImportRunCommandPopulatesCombinedResult(t *testing.T) {
 	err := cmd.Execute(context.Background(), TranslationImportRunInput{
 		ValidateInput: TranslationImportValidateInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 		ApplyInput: TranslationImportApplyInput{
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola"},
 			},
 		},
 		Result: &out,

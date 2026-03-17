@@ -115,7 +115,7 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 		},
 		{
 			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.groups"),
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.families"),
 			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
 				payload, err := binding.TranslationGroupsOptions(c)
 				return writeJSONOrError(responder, c, payload, err)

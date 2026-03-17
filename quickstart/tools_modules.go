@@ -43,4 +43,3 @@ func NewDebugModule(cfg admin.DebugConfig, opts ...DebugModuleOption) *admin.Deb
 	}
 	return mod
 }
-

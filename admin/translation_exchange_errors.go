@@ -61,7 +61,7 @@ type TranslationExchangeConflictError struct {
 	Index              int
 	Resource           string
 	EntityID           string
-	TranslationGroupID string
+	FamilyID           string
 	TargetLocale       string
 	FieldPath          string
 	CurrentSourceHash  string

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -93,6 +94,7 @@ func TestGoCMSContentAdapterContentsWithOptionsLoadsTranslations(t *testing.T) {
 
 func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	ctx := context.Background()
+	familyID := uuid.New()
 	pageType := CMSContentType{
 		Slug:         "page",
 		Capabilities: map[string]any{"translations": true},
@@ -112,7 +114,7 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 				Slug: "home",
 				Type: &cmscontent.ContentType{Slug: "page"},
 				Translations: []*cmscontent.ContentTranslation{
-					{Locale: &cmscontent.Locale{Code: "en"}, Title: "Home", Content: map[string]any{"body": "hello"}},
+					{Locale: &cmscontent.Locale{Code: "en"}, FamilyID: &familyID, Title: "Home", Content: map[string]any{"body": "hello"}},
 				},
 			},
 		},
@@ -129,6 +131,9 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	}
 	if pages[0]["title"] != "Home" {
 		t.Fatalf("expected translated title, got %v", pages[0]["title"])
+	}
+	if strings.TrimSpace(toString(pages[0]["family_id"])) != familyID.String() {
+		t.Fatalf("expected canonical family_id %q, got %v", familyID.String(), pages[0]["family_id"])
 	}
 	if !hasTranslationListOption(contentSvc.listOptions) {
 		t.Fatalf("expected translations option for pages list, got %v", contentSvc.listOptions)

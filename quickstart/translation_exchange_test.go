@@ -61,7 +61,7 @@ func TestNewAdminTranslationExchangeEnabledRegistersCommandsAndPermissions(t *te
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
-			{Resource: "pages", EntityID: "page-1", TranslationGroupID: "tg-1", TargetLocale: "es", FieldPath: "title"},
+			{Resource: "pages", EntityID: "page-1", FamilyID: "tg-1", TargetLocale: "es", FieldPath: "title"},
 		},
 	}
 	registered := []PermissionDefinition{}
@@ -107,7 +107,7 @@ func TestNewAdminTranslationExchangeAsyncApplyHook(t *testing.T) {
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
-			{Resource: "pages", EntityID: "page-1", TranslationGroupID: "tg-1", TargetLocale: "es", FieldPath: "title"},
+			{Resource: "pages", EntityID: "page-1", FamilyID: "tg-1", TargetLocale: "es", FieldPath: "title"},
 		},
 	}
 	asyncCalled := false
@@ -137,12 +137,12 @@ func TestNewAdminTranslationExchangeAsyncApplyHook(t *testing.T) {
 	err = dispatcher.Dispatch(context.Background(), admin.TranslationImportApplyInput{
 		Rows: []admin.TranslationExchangeRow{
 			{
-				Resource:           "pages",
-				EntityID:           "page-1",
-				TranslationGroupID: "tg-1",
-				TargetLocale:       "es",
-				FieldPath:          "title",
-				TranslatedText:     "Hola",
+				Resource:       "pages",
+				EntityID:       "page-1",
+				FamilyID:       "tg-1",
+				TargetLocale:   "es",
+				FieldPath:      "title",
+				TranslatedText: "Hola",
 			},
 		},
 		Result: &result,
@@ -177,12 +177,12 @@ func TestNewAdminTranslationExchangeRegistersByNameFactories(t *testing.T) {
 	err = adm.Commands().DispatchByName(context.Background(), (admin.TranslationImportApplyInput{}).Type(), map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page-1",
-				"translation_group_id": "tg-1",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"translated_text":      "Hola",
+				"resource":        "pages",
+				"entity_id":       "page-1",
+				"family_id":       "tg-1",
+				"target_locale":   "es",
+				"field_path":      "title",
+				"translated_text": "Hola",
 			},
 		},
 	}, nil)

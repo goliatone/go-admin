@@ -206,7 +206,7 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 		"slug":                            page.Slug,
 		"path":                            path,
 		"locale":                          page.Locale,
-		"translation_group_id":            page.TranslationGroupID,
+		"family_id":                       page.FamilyID,
 		"requested_locale":                page.RequestedLocale,
 		"resolved_locale":                 page.ResolvedLocale,
 		"available_locales":               append([]string{}, page.AvailableLocales...),

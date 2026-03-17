@@ -145,15 +145,15 @@ func (s *MenuBuilderService) CreateMenu(ctx context.Context, svc CMSMenuService,
 	}
 	now := time.Now().UTC()
 	record := AdminMenuRecord{
-		ID:                 code,
-		Code:               code,
-		Name:               strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(input["name"]), code)),
-		Description:        strings.TrimSpace(toString(input["description"])),
-		Status:             normalizeMenuStatus(toString(input["status"])),
-		Locale:             strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(input["locale"]), defaultLocale)),
-		TranslationGroupID: strings.TrimSpace(toString(input["translation_group_id"])),
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		ID:          code,
+		Code:        code,
+		Name:        strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(input["name"]), code)),
+		Description: strings.TrimSpace(toString(input["description"])),
+		Status:      normalizeMenuStatus(toString(input["status"])),
+		Locale:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(input["locale"]), defaultLocale)),
+		FamilyID:    strings.TrimSpace(toString(input["family_id"])),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	if record.Status == MenuRecordStatusPublished {
 		record.PublishedAt = &now
@@ -181,8 +181,8 @@ func (s *MenuBuilderService) UpdateMenu(id string, input map[string]any) (AdminM
 	if locale := strings.TrimSpace(toString(input["locale"])); locale != "" {
 		record.Locale = locale
 	}
-	if groupID := strings.TrimSpace(toString(input["translation_group_id"])); groupID != "" {
-		record.TranslationGroupID = groupID
+	if groupID := strings.TrimSpace(toString(input["family_id"])); groupID != "" {
+		record.FamilyID = groupID
 	}
 	if archivedRaw, exists := input["archived"]; exists {
 		archived := false

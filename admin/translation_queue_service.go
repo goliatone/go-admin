@@ -398,13 +398,13 @@ func (s *DefaultTranslationQueueService) BulkArchive(ctx context.Context, input 
 
 func invalidQueueTransitionError(from AssignmentStatus, transition string, assignment TranslationAssignment) error {
 	return conflictDomainError("invalid translation queue transition", map[string]any{
-		"from_status":          string(from),
-		"transition":           strings.TrimSpace(transition),
-		"assignment_id":        strings.TrimSpace(assignment.ID),
-		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
-		"entity_type":          strings.TrimSpace(assignment.EntityType),
-		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
-		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
+		"from_status":   string(from),
+		"transition":    strings.TrimSpace(transition),
+		"assignment_id": strings.TrimSpace(assignment.ID),
+		"family_id":     strings.TrimSpace(assignment.FamilyID),
+		"entity_type":   strings.TrimSpace(assignment.EntityType),
+		"source_locale": strings.TrimSpace(assignment.SourceLocale),
+		"target_locale": strings.TrimSpace(assignment.TargetLocale),
 	})
 }
 
@@ -467,13 +467,13 @@ func (s *DefaultTranslationQueueService) recordReviewFeedback(ctx context.Contex
 		body = reason
 	}
 	metadata := map[string]any{
-		"assignment_id":        strings.TrimSpace(assignment.ID),
-		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
-		"variant_id":           strings.TrimSpace(assignment.TargetRecordID),
-		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
-		"kind":                 "review_feedback",
-		"translator_visible":   true,
-		"comment":              body,
+		"assignment_id":      strings.TrimSpace(assignment.ID),
+		"family_id":          strings.TrimSpace(assignment.FamilyID),
+		"variant_id":         strings.TrimSpace(assignment.TargetRecordID),
+		"target_locale":      strings.TrimSpace(assignment.TargetLocale),
+		"kind":               "review_feedback",
+		"translator_visible": true,
+		"comment":            body,
 	}
 	if reason != "" {
 		metadata["reason"] = reason
@@ -500,20 +500,20 @@ func (s *DefaultTranslationQueueService) transitionMetadata(action string, assig
 	}
 	url := resolveURLWith(s.URLs, "admin", "translations.queue", nil, query)
 	meta := map[string]any{
-		"event":                "translation.queue." + action,
-		"assignment_id":        strings.TrimSpace(assignment.ID),
-		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
-		"entity_type":          strings.TrimSpace(assignment.EntityType),
-		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
-		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
-		"status":               strings.TrimSpace(string(assignment.Status)),
-		"assignee_id":          strings.TrimSpace(assignment.AssigneeID),
-		"source_title":         strings.TrimSpace(assignment.SourceTitle),
-		"source_path":          strings.TrimSpace(assignment.SourcePath),
-		"resolver_key":         translationQueueResolverKey,
-		"group":                "admin",
-		"route":                "translations.queue",
-		"query":                query,
+		"event":         "translation.queue." + action,
+		"assignment_id": strings.TrimSpace(assignment.ID),
+		"family_id":     strings.TrimSpace(assignment.FamilyID),
+		"entity_type":   strings.TrimSpace(assignment.EntityType),
+		"source_locale": strings.TrimSpace(assignment.SourceLocale),
+		"target_locale": strings.TrimSpace(assignment.TargetLocale),
+		"status":        strings.TrimSpace(string(assignment.Status)),
+		"assignee_id":   strings.TrimSpace(assignment.AssigneeID),
+		"source_title":  strings.TrimSpace(assignment.SourceTitle),
+		"source_path":   strings.TrimSpace(assignment.SourcePath),
+		"resolver_key":  translationQueueResolverKey,
+		"group":         "admin",
+		"route":         "translations.queue",
+		"query":         query,
 	}
 	if url != "" {
 		meta["url"] = url
@@ -545,7 +545,7 @@ func queueNotificationMessage(action string, assignment TranslationAssignment) (
 	case "approved":
 		title = "Translation Approved"
 	}
-	subject := strings.TrimSpace(primitives.FirstNonEmptyRaw(assignment.SourceTitle, assignment.TranslationGroupID, assignment.ID))
+	subject := strings.TrimSpace(primitives.FirstNonEmptyRaw(assignment.SourceTitle, assignment.FamilyID, assignment.ID))
 	source := strings.TrimSpace(assignment.SourceLocale)
 	target := strings.TrimSpace(assignment.TargetLocale)
 	if source == "" || target == "" {

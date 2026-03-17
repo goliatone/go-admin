@@ -329,7 +329,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"translations.options.entity_types":   "/translations/options/entity-types",
 		"translations.options.source_records": "/translations/options/source-records",
 		"translations.options.locales":        "/translations/options/locales",
-		"translations.options.groups":         "/translations/options/groups",
+		"translations.options.families":       "/translations/options/families",
 		"translations.options.assignees":      "/translations/options/assignees",
 		"users.bulk.assign_role":              "/users/bulk/assign-role",
 		"users.bulk.unassign_role":            "/users/bulk/unassign-role",

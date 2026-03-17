@@ -6,8 +6,8 @@ func TestWithTranslationDatagridRecordPreservesFamilyChannelScope(t *testing.T) 
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 
 	record := map[string]any{
-		"id":                   "page_123",
-		"translation_group_id": "tg-page-123",
+		"id":        "page_123",
+		"family_id": "tg-page-123",
 	}
 	mapped := withTranslationDatagridRecord(adm, "staging", record)
 
@@ -20,8 +20,8 @@ func TestWithTranslationDatagridRecordOmitsChannelWhenUnset(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 
 	record := map[string]any{
-		"id":                   "page_123",
-		"translation_group_id": "tg-page-123",
+		"id":        "page_123",
+		"family_id": "tg-page-123",
 	}
 	mapped := withTranslationDatagridRecord(adm, "", record)
 

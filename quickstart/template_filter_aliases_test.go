@@ -24,4 +24,3 @@ func TestRegisterTemplateFilterAliasesToJSON(t *testing.T) {
 		t.Fatalf("unexpected tojson output: %s", got)
 	}
 }
-

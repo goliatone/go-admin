@@ -501,7 +501,7 @@ HTTP routes:
 Row linkage fields (`rows[*]`):
 - `resource`
 - `entity_id`
-- `translation_group_id`
+- `family_id`
 - `target_locale`
 - `field_path`
 

@@ -20,11 +20,11 @@ func TestTranslationExchangeMessageTypesAreStable(t *testing.T) {
 func TestTranslationImportApplyInputValidateRequiresNormalizedRows(t *testing.T) {
 	err := (TranslationImportApplyInput{Rows: []TranslationExchangeRow{
 		{
-			Resource:           "pages",
-			EntityID:           "1",
-			TranslationGroupID: "tg_1",
-			TargetLocale:       "es",
-			FieldPath:          "title",
+			Resource:     "pages",
+			EntityID:     "1",
+			FamilyID:     "tg_1",
+			TargetLocale: "es",
+			FieldPath:    "title",
 		},
 	}}).Validate()
 	if err == nil {
@@ -35,11 +35,11 @@ func TestTranslationImportApplyInputValidateRequiresNormalizedRows(t *testing.T)
 func TestTranslationImportValidateInputValidateAcceptsLinkageOnlyRows(t *testing.T) {
 	err := (TranslationImportValidateInput{Rows: []TranslationExchangeRow{
 		{
-			Resource:           "pages",
-			EntityID:           "1",
-			TranslationGroupID: "tg_1",
-			TargetLocale:       "es",
-			FieldPath:          "title",
+			Resource:     "pages",
+			EntityID:     "1",
+			FamilyID:     "tg_1",
+			TargetLocale: "es",
+			FieldPath:    "title",
 		},
 	}}).Validate()
 	if err != nil {

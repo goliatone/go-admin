@@ -257,7 +257,7 @@ func (r *InMemoryTranslationAssignmentRepository) nextAssignmentIDLocked() strin
 
 func normalizeAssignmentForCreate(assignment TranslationAssignment) TranslationAssignment {
 	assignment.ID = strings.TrimSpace(assignment.ID)
-	assignment.TranslationGroupID = strings.TrimSpace(assignment.TranslationGroupID)
+	assignment.FamilyID = strings.TrimSpace(assignment.FamilyID)
 	assignment.EntityType = strings.TrimSpace(assignment.EntityType)
 	assignment.TenantID = strings.TrimSpace(assignment.TenantID)
 	assignment.OrgID = strings.TrimSpace(assignment.OrgID)
@@ -330,7 +330,7 @@ func newTranslationAssignmentConflict(assignment TranslationAssignment, existing
 	return TranslationAssignmentConflictError{
 		AssignmentID:         strings.TrimSpace(assignment.ID),
 		ExistingAssignmentID: strings.TrimSpace(existingID),
-		TranslationGroupID:   strings.TrimSpace(assignment.TranslationGroupID),
+		FamilyID:             strings.TrimSpace(assignment.FamilyID),
 		EntityType:           strings.TrimSpace(assignment.EntityType),
 		SourceLocale:         strings.TrimSpace(strings.ToLower(assignment.SourceLocale)),
 		TargetLocale:         strings.TrimSpace(strings.ToLower(assignment.TargetLocale)),
@@ -414,8 +414,8 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 			if value != "" && normalizeTranslationQueueDueState(value) != translationQueueDueState(assignment.DueDate, time.Now().UTC()) {
 				return false
 			}
-		case "translation_group_id":
-			if value != "" && strings.ToLower(assignment.TranslationGroupID) != value {
+		case "family_id":
+			if value != "" && strings.ToLower(assignment.FamilyID) != value {
 				return false
 			}
 		case "tenant_id":
@@ -447,7 +447,7 @@ func translationAssignmentMatchesSearch(assignment TranslationAssignment, search
 		strings.ToLower(strings.TrimSpace(assignment.ID)),
 		strings.ToLower(strings.TrimSpace(assignment.SourceTitle)),
 		strings.ToLower(strings.TrimSpace(assignment.SourcePath)),
-		strings.ToLower(strings.TrimSpace(assignment.TranslationGroupID)),
+		strings.ToLower(strings.TrimSpace(assignment.FamilyID)),
 		strings.ToLower(strings.TrimSpace(assignment.EntityType)),
 		strings.ToLower(strings.TrimSpace(assignment.SourceLocale)),
 		strings.ToLower(strings.TrimSpace(assignment.TargetLocale)),

@@ -397,10 +397,10 @@ func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
 			Type:   &cmscontent.ContentType{Slug: "posts"},
 			Translations: []*cmscontent.ContentTranslation{
 				{
-					Locale:             &cmscontent.Locale{Code: "fr"},
-					Title:              "Bonjour",
-					TranslationGroupID: &groupID,
-					Content:            map[string]any{"body": "bonjour"},
+					Locale:   &cmscontent.Locale{Code: "fr"},
+					Title:    "Bonjour",
+					FamilyID: &groupID,
+					Content:  map[string]any{"body": "bonjour"},
 				},
 			},
 		},
@@ -439,8 +439,8 @@ func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
 	if created.Locale != "fr" {
 		t.Fatalf("expected created locale fr, got %q", created.Locale)
 	}
-	if created.TranslationGroupID != groupID.String() {
-		t.Fatalf("expected group id %s, got %s", groupID.String(), created.TranslationGroupID)
+	if created.FamilyID != groupID.String() {
+		t.Fatalf("expected group id %s, got %s", groupID.String(), created.FamilyID)
 	}
 }
 
@@ -464,10 +464,10 @@ func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(
 			Type:   &cmscontent.ContentType{Slug: "posts"},
 			Translations: []*cmscontent.ContentTranslation{
 				{
-					Locale:             &cmscontent.Locale{Code: "fr"},
-					Title:              "Bonjour",
-					TranslationGroupID: &groupID,
-					Content:            map[string]any{"body": "bonjour"},
+					Locale:   &cmscontent.Locale{Code: "fr"},
+					Title:    "Bonjour",
+					FamilyID: &groupID,
+					Content:  map[string]any{"body": "bonjour"},
 				},
 			},
 		},
@@ -503,8 +503,8 @@ func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(
 	if created.Locale != "fr" {
 		t.Fatalf("expected created locale fr, got %q", created.Locale)
 	}
-	if created.TranslationGroupID != groupID.String() {
-		t.Fatalf("expected group id %s, got %s", groupID.String(), created.TranslationGroupID)
+	if created.FamilyID != groupID.String() {
+		t.Fatalf("expected group id %s, got %s", groupID.String(), created.FamilyID)
 	}
 }
 

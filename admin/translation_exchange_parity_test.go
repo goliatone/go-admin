@@ -13,12 +13,12 @@ func TestTranslationImportValidateInputFactoryMatchesHTTPJSONParsing(t *testing.
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"source_hash":          "hash_1",
+				"resource":      "pages",
+				"entity_id":     "page_1",
+				"family_id":     "tg_1",
+				"target_locale": "es",
+				"field_path":    "title",
+				"source_hash":   "hash_1",
 			},
 		},
 	}
@@ -43,13 +43,13 @@ func TestTranslationImportApplyInputFactoryMatchesHTTPJSONParsing(t *testing.T) 
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"translated_text":      "Hola",
-				"source_hash":          "hash_1",
+				"resource":        "pages",
+				"entity_id":       "page_1",
+				"family_id":       "tg_1",
+				"target_locale":   "es",
+				"field_path":      "title",
+				"translated_text": "Hola",
+				"source_hash":     "hash_1",
 			},
 		},
 		"create_translation":         true,
@@ -122,7 +122,7 @@ func TestParseTranslationExportInputRejectsClientIdentityFields(t *testing.T) {
 func TestParseTranslationImportJSONRejectsClientIdentityFields(t *testing.T) {
 	_, _, err := parseTranslationImportJSON([]byte(`{
 		"tenant_id":"tenant-1",
-		"rows":[{"resource":"pages","entity_id":"page_1","translation_group_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}]
+		"rows":[{"resource":"pages","entity_id":"page_1","family_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}]
 	}`), true)
 	if err == nil {
 		t.Fatalf("expected tenant_id to be rejected")

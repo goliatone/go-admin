@@ -389,9 +389,9 @@ func generatedFallbackEligible(record admin.CMSContent, pageKinds map[string]boo
 }
 
 func generatedContentIdentity(record admin.CMSContent) string {
-	group := strings.TrimSpace(record.TranslationGroupID)
+	group := strings.TrimSpace(record.FamilyID)
 	if group == "" && record.Data != nil {
-		group = strings.TrimSpace(anyString(record.Data["translation_group_id"]))
+		group = strings.TrimSpace(anyString(record.Data["family_id"]))
 	}
 	if group != "" {
 		return strings.ToLower(group)

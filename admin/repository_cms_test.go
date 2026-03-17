@@ -372,11 +372,11 @@ func TestCMSContentRepositoryCreateTranslationDelegatesToContentCommand(t *testi
 	service := &translationCreatorContentServiceStub{
 		CMSContentService: NewInMemoryContentService(),
 		result: &CMSContent{
-			ID:                 "post_456",
-			Locale:             "fr",
-			Status:             "draft",
-			TranslationGroupID: "tg_123",
-			ContentTypeSlug:    "posts",
+			ID:              "post_456",
+			Locale:          "fr",
+			Status:          "draft",
+			FamilyID:        "tg_123",
+			ContentTypeSlug: "posts",
 		},
 	}
 	repo := NewCMSContentRepository(service)
@@ -406,11 +406,11 @@ func TestCMSContentTypeEntryRepositoryCreateTranslationDelegatesToContentCommand
 	service := &translationCreatorContentServiceStub{
 		CMSContentService: NewInMemoryContentService(),
 		result: &CMSContent{
-			ID:                 "post_456",
-			Locale:             "fr",
-			Status:             "draft",
-			TranslationGroupID: "tg_123",
-			ContentTypeSlug:    "posts",
+			ID:              "post_456",
+			Locale:          "fr",
+			Status:          "draft",
+			FamilyID:        "tg_123",
+			ContentTypeSlug: "posts",
 		},
 	}
 	repo := NewCMSContentTypeEntryRepository(service, CMSContentType{Slug: "posts"})
@@ -731,7 +731,7 @@ func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing
 	}
 }
 
-func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslationMetadataPresent(t *testing.T) {
+func TestCMSContentRepositoryListEmitsCanonicalFamilyIDWhenTranslationMetadataPresent(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
 	repo := NewCMSContentRepository(content)
@@ -744,7 +744,7 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslation
 		ContentTypeSlug: "page",
 		Data: map[string]any{
 			"translation_context": map[string]any{
-				"translation_group_id": "tg-page-1",
+				"family_id": "tg-page-1",
 			},
 		},
 	})
@@ -756,7 +756,7 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslation
 		ContentTypeSlug: "post",
 		Data: map[string]any{
 			"translation_context": map[string]any{
-				"translation_group_id": "tg-post-1",
+				"family_id": "tg-post-1",
 			},
 		},
 	})
@@ -768,7 +768,7 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslation
 		ContentTypeSlug: "news",
 		Data: map[string]any{
 			"translation_context": map[string]any{
-				"translation_group_id": "tg-news-1",
+				"family_id": "tg-news-1",
 			},
 		},
 	})
@@ -781,20 +781,22 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslation
 		t.Fatalf("expected 3 editorial records, got total=%d len=%d", total, len(list))
 	}
 	for _, record := range list {
-		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+		groupID := strings.TrimSpace(toString(record["family_id"]))
 		if groupID == "" {
-			t.Fatalf("expected translation_group_id on list record, got %#v", record)
+			t.Fatalf("expected family_id on list record, got %#v", record)
 		}
 	}
 }
 
-func TestCMSContentTypeEntryRepositoryListEmitsCanonicalTranslationGroupIDForTranslationCapabilityTypes(t *testing.T) {
+func TestCMSContentTypeEntryRepositoryListEmitsCanonicalFamilyIDForTranslationCapabilityTypes(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
+	familyID := "family-announcement"
 	created, _ := content.CreateContent(ctx, CMSContent{
 		Title:           "Announcement",
 		Slug:            "announcement",
 		Locale:          "en",
+		FamilyID:        familyID,
 		Status:          "draft",
 		ContentTypeSlug: "announcements",
 	})
@@ -812,12 +814,15 @@ func TestCMSContentTypeEntryRepositoryListEmitsCanonicalTranslationGroupIDForTra
 	if total != 1 || len(list) != 1 {
 		t.Fatalf("expected one translation-enabled record, got total=%d len=%d", total, len(list))
 	}
-	groupID := strings.TrimSpace(toString(list[0]["translation_group_id"]))
+	groupID := strings.TrimSpace(toString(list[0]["family_id"]))
 	if groupID == "" {
-		t.Fatalf("expected translation_group_id in list payload, got %#v", list[0])
+		t.Fatalf("expected family_id in list payload, got %#v", list[0])
 	}
-	if created != nil && strings.TrimSpace(created.ID) != "" && groupID != strings.TrimSpace(created.ID) {
-		t.Fatalf("expected translation_group_id fallback to record id %q, got %q", created.ID, groupID)
+	if groupID != familyID {
+		t.Fatalf("expected canonical family_id %q, got %q", familyID, groupID)
+	}
+	if created != nil && strings.TrimSpace(created.FamilyID) != familyID {
+		t.Fatalf("expected created content to preserve family_id %q, got %q", familyID, created.FamilyID)
 	}
 }
 

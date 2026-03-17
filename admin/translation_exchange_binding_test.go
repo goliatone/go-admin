@@ -57,14 +57,14 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 			Summary: TranslationExchangeSummary{Processed: 1, Failed: 1},
 			Results: []TranslationExchangeRowResult{
 				{
-					Index:              0,
-					Resource:           "pages",
-					EntityID:           "page_123",
-					TranslationGroupID: "tg_123",
-					TargetLocale:       "es",
-					FieldPath:          "title",
-					Status:             translationExchangeRowStatusConflict,
-					Error:              "row linkage could not be resolved",
+					Index:        0,
+					Resource:     "pages",
+					EntityID:     "page_123",
+					FamilyID:     "tg_123",
+					TargetLocale: "es",
+					FieldPath:    "title",
+					Status:       translationExchangeRowStatusConflict,
+					Error:        "row linkage could not be resolved",
 					Conflict: &TranslationExchangeConflictInfo{
 						Type: "missing_linkage",
 					},
@@ -77,7 +77,7 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
+	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
@@ -96,7 +96,7 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 		t.Fatalf("rows=%d, want 1", len(executor.validateInput.Rows))
 	}
 	row := executor.validateInput.Rows[0]
-	if row.Resource != "pages" || row.EntityID != "page_123" || row.TranslationGroupID != "tg_123" {
+	if row.Resource != "pages" || row.EntityID != "page_123" || row.FamilyID != "tg_123" {
 		t.Fatalf("unexpected parsed row: %+v", row)
 	}
 	entries, err := feed.List(context.Background(), 10)
@@ -121,13 +121,13 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 			Summary: TranslationExchangeSummary{Processed: 1, Succeeded: 1},
 			Results: []TranslationExchangeRowResult{
 				{
-					Index:              0,
-					Resource:           "pages",
-					EntityID:           "page_123",
-					TranslationGroupID: "tg_123",
-					TargetLocale:       "es",
-					FieldPath:          "title",
-					Status:             translationExchangeRowStatusSuccess,
+					Index:        0,
+					Resource:     "pages",
+					EntityID:     "page_123",
+					FamilyID:     "tg_123",
+					TargetLocale: "es",
+					FieldPath:    "title",
+					Status:       translationExchangeRowStatusSuccess,
 				},
 			},
 		},
@@ -139,12 +139,12 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_123",
-				"translation_group_id": "tg_123",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"translated_text":      "Hola mundo",
+				"resource":        "pages",
+				"entity_id":       "page_123",
+				"family_id":       "tg_123",
+				"target_locale":   "es",
+				"field_path":      "title",
+				"translated_text": "Hola mundo",
 			},
 		},
 		"create_translation":         true,
@@ -195,12 +195,12 @@ func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFi
 	raw, _ := json.Marshal(map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_123",
-				"translation_group_id": "tg_123",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"translated_text":      "Hola mundo",
+				"resource":        "pages",
+				"entity_id":       "page_123",
+				"family_id":       "tg_123",
+				"target_locale":   "es",
+				"field_path":      "title",
+				"translated_text": "Hola mundo",
 			},
 		},
 		"retry_job_id": "txex_job_retry_source",
@@ -228,7 +228,7 @@ func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
+	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
@@ -298,11 +298,11 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "title",
+				"resource":      "pages",
+				"entity_id":     "page_1",
+				"family_id":     "tg_1",
+				"target_locale": "es",
+				"field_path":    "title",
 			},
 		},
 		"unexpected": true,
@@ -386,20 +386,20 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"source_hash":          "hash_1",
+				"resource":      "pages",
+				"entity_id":     "page_1",
+				"family_id":     "tg_1",
+				"target_locale": "es",
+				"field_path":    "title",
+				"source_hash":   "hash_1",
 			},
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "body",
-				"source_hash":          "hash_2",
+				"resource":      "pages",
+				"entity_id":     "page_1",
+				"family_id":     "tg_1",
+				"target_locale": "es",
+				"field_path":    "body",
+				"source_hash":   "hash_2",
 			},
 		},
 	}
@@ -433,7 +433,7 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	app := newTranslationExchangeTestApp(t, binding)
 
 	// CSV with mismatched column count in data row
-	malformedCSV := "resource,entity_id,translation_group_id,target_locale,field_path\npages,page_1,tg_1"
+	malformedCSV := "resource,entity_id,family_id,target_locale,field_path\npages,page_1,tg_1"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(malformedCSV))
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
@@ -473,10 +473,10 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
+				"resource":      "pages",
+				"entity_id":     "page_1",
+				"family_id":     "tg_1",
+				"target_locale": "es",
 				// missing field_path
 			},
 		},
@@ -519,7 +519,7 @@ func TestTranslationExchangeBindingImportApplyParsesCSVWithTranslatedText(t *tes
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,translated_text,source_hash\npages,page_123,tg_123,es,title,\"Hola mundo\",abc123"
+	csvPayload := "resource,entity_id,family_id,target_locale,field_path,translated_text,source_hash\npages,page_123,tg_123,es,title,\"Hola mundo\",abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", body)
 	req.Header.Set("Content-Type", contentType)
@@ -552,9 +552,9 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 		exportResult: TranslationExportResult{
 			RowCount: 3,
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
-				{Resource: "pages", EntityID: "1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "body"},
-				{Resource: "pages", EntityID: "2", TranslationGroupID: "tg_2", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "body"},
+				{Resource: "pages", EntityID: "2", FamilyID: "tg_2", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 	}
@@ -642,26 +642,26 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 			Summary: TranslationExchangeSummary{Processed: 2, Succeeded: 1, Failed: 1},
 			Results: []TranslationExchangeRowResult{
 				{
-					Index:              0,
-					Resource:           "pages",
-					EntityID:           "page_1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
-					Status:             translationExchangeRowStatusConflict,
+					Index:        0,
+					Resource:     "pages",
+					EntityID:     "page_1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
+					Status:       translationExchangeRowStatusConflict,
 					Conflict: &TranslationExchangeConflictInfo{
 						Type:    "stale_source_hash",
 						Message: "source hash mismatch",
 					},
 				},
 				{
-					Index:              1,
-					Resource:           "pages",
-					EntityID:           "page_1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "body",
-					Status:             translationExchangeRowStatusSuccess,
+					Index:        1,
+					Resource:     "pages",
+					EntityID:     "page_1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "body",
+					Status:       translationExchangeRowStatusSuccess,
 				},
 			},
 		},
@@ -673,20 +673,20 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	payload := map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"translated_text":      "Hola",
+				"resource":        "pages",
+				"entity_id":       "page_1",
+				"family_id":       "tg_1",
+				"target_locale":   "es",
+				"field_path":      "title",
+				"translated_text": "Hola",
 			},
 			{
-				"resource":             "pages",
-				"entity_id":            "page_1",
-				"translation_group_id": "tg_1",
-				"target_locale":        "es",
-				"field_path":           "body",
-				"translated_text":      "Mundo",
+				"resource":        "pages",
+				"entity_id":       "page_1",
+				"family_id":       "tg_1",
+				"target_locale":   "es",
+				"field_path":      "body",
+				"translated_text": "Mundo",
 			},
 		},
 		"async": true,
@@ -778,8 +778,8 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 		exportResult: TranslationExportResult{
 			RowCount: 2,
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
-				{Resource: "posts", EntityID: "post_1", TranslationGroupID: "tg_2", TargetLocale: "fr", FieldPath: "title"},
+				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "posts", EntityID: "post_1", FamilyID: "tg_2", TargetLocale: "fr", FieldPath: "title"},
 			},
 		},
 	}
@@ -845,7 +845,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 		exportResult: TranslationExportResult{
 			RowCount: 1,
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 	}
@@ -918,7 +918,7 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 			RowCount: 1,
 			Format:   "json",
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 	}
@@ -1013,13 +1013,13 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 			Summary: TranslationExchangeSummary{Processed: 1, Succeeded: 1},
 			Results: []TranslationExchangeRowResult{
 				{
-					Index:              0,
-					Resource:           "pages",
-					EntityID:           "page_1",
-					TranslationGroupID: "tg_1",
-					TargetLocale:       "es",
-					FieldPath:          "title",
-					Status:             translationExchangeRowStatusSuccess,
+					Index:        0,
+					Resource:     "pages",
+					EntityID:     "page_1",
+					FamilyID:     "tg_1",
+					TargetLocale: "es",
+					FieldPath:    "title",
+					Status:       translationExchangeRowStatusSuccess,
 				},
 			},
 		},
@@ -1028,7 +1028,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	body := []byte(`{"rows":[{"resource":"pages","entity_id":"page_1","translation_group_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}],"async":true}`)
+	body := []byte(`{"rows":[{"resource":"pages","entity_id":"page_1","family_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}],"async":true}`)
 	firstReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
 	firstReq.Header.Set("Content-Type", "application/json")
 	firstReq.Header.Set("X-User-ID", "ops-user")
@@ -1080,7 +1080,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 		exportResult: TranslationExportResult{
 			RowCount: 1,
 			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
 			},
 		},
 	}

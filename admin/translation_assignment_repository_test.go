@@ -11,28 +11,28 @@ func TestInMemoryTranslationAssignmentRepositoryCreateEnforcesActiveUniqueness(t
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create first assignment: %v", err)
 	}
 
 	_, err = repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_2",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
-		Priority:           PriorityHigh,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_2",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityHigh,
 	})
 	if err == nil {
 		t.Fatalf("expected uniqueness conflict")
@@ -56,15 +56,15 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 	ctx := context.Background()
 
 	first, created, err := repo.CreateOrReuseActive(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		SourceTitle:        "First title",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		SourceTitle:    "First title",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create/reuse first assignment: %v", err)
@@ -74,15 +74,15 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 	}
 
 	second, created, err := repo.CreateOrReuseActive(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		SourceTitle:        "Updated title",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityHigh,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		SourceTitle:    "Updated title",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityHigh,
 	})
 	if err != nil {
 		t.Fatalf("create/reuse duplicate assignment: %v", err)
@@ -109,14 +109,14 @@ func TestInMemoryTranslationAssignmentRepositoryUpdateVersionConflict(t *testing
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -137,14 +137,14 @@ func TestInMemoryTranslationAssignmentRepositoryArchiveReleasesActiveKey(t *test
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "posts",
-		SourceRecordID:     "post_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "posts",
+		SourceRecordID: "post_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -160,14 +160,14 @@ func TestInMemoryTranslationAssignmentRepositoryArchiveReleasesActiveKey(t *test
 	}
 
 	_, err = repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "posts",
-		SourceRecordID:     "post_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "posts",
+		SourceRecordID: "post_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("expected new active assignment after archive, got %v", err)
@@ -179,29 +179,29 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 	ctx := context.Background()
 
 	if _, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		WorkScope:          "__all__",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("create __all__ assignment: %v", err)
 	}
 
 	if _, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		WorkScope:          "editorial.review",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "editorial.review",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected separate work_scope assignment to succeed, got %v", err)
 	}
@@ -212,29 +212,29 @@ func TestInMemoryTranslationAssignmentRepositoryApprovedAssignmentsDoNotOccupyAc
 	ctx := context.Background()
 
 	if _, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		WorkScope:          "__all__",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusApproved,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusApproved,
+		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("create approved assignment: %v", err)
 	}
 
 	if _, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		WorkScope:          "__all__",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected approved assignment not to block new active assignment, got %v", err)
 	}

@@ -13,25 +13,25 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 	ctx := context.Background()
 
 	_, _ = repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_1",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
-		DueDate:            &past,
+		FamilyID:       "tg_1",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		DueDate:        &past,
 	})
 	_, _ = repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_2",
-		EntityType:         "posts",
-		SourceRecordID:     "post_1",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInReview,
-		Priority:           PriorityHigh,
+		FamilyID:       "tg_2",
+		EntityType:     "posts",
+		SourceRecordID: "post_1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
 	})
 
 	svc := &TranslationQueueStatsFromRepository{Repository: repo}
@@ -60,14 +60,14 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
 	_, _ = repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_1",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_1",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 
 	dash := NewDashboard()

@@ -21,7 +21,7 @@ type PageApplicationService struct {
 type AdminPageRecord struct {
 	ID                 string
 	ContentID          string
-	TranslationGroupID string
+	FamilyID           string
 	TemplateID         string
 	Title              string
 	Slug               string
@@ -372,7 +372,7 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	setValue(values, "content_id", strings.TrimSpace(record.ContentID))
 	setValue(values, "template_id", strings.TrimSpace(record.TemplateID))
 	setValue(values, "parent_id", strings.TrimSpace(record.ParentID))
-	setValue(values, "translation_group_id", strings.TrimSpace(record.TranslationGroupID))
+	setValue(values, "family_id", strings.TrimSpace(record.FamilyID))
 	setValue(values, "preview_url", strings.TrimSpace(record.PreviewURL))
 	if record.PublishedAt != nil {
 		values["published_at"] = record.PublishedAt
@@ -627,7 +627,7 @@ func applyRecordDefaults(payload map[string]any, record AdminPageRecord) {
 	setIfBlank(payload, "meta_description", strings.TrimSpace(record.MetaDescription))
 	setIfBlank(payload, "template_id", strings.TrimSpace(record.TemplateID))
 	setIfBlank(payload, "parent_id", strings.TrimSpace(record.ParentID))
-	setIfBlank(payload, "translation_group_id", strings.TrimSpace(record.TranslationGroupID))
+	setIfBlank(payload, "family_id", strings.TrimSpace(record.FamilyID))
 	setIfBlank(payload, "content_id", strings.TrimSpace(record.ContentID))
 
 	if _, ok := payload["summary"]; !ok && record.Summary != nil {

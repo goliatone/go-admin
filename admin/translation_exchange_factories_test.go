@@ -65,23 +65,23 @@ func TestRegisterTranslationExchangeCommandFactoriesDispatchesRunByName(t *testi
 			"validate": map[string]any{
 				"rows": []map[string]any{
 					{
-						"resource":             "pages",
-						"entity_id":            "page-1",
-						"translation_group_id": "tg-1",
-						"target_locale":        "es",
-						"field_path":           "title",
+						"resource":      "pages",
+						"entity_id":     "page-1",
+						"family_id":     "tg-1",
+						"target_locale": "es",
+						"field_path":    "title",
 					},
 				},
 			},
 			"apply": map[string]any{
 				"rows": []map[string]any{
 					{
-						"resource":             "pages",
-						"entity_id":            "page-1",
-						"translation_group_id": "tg-1",
-						"target_locale":        "es",
-						"field_path":           "title",
-						"translated_text":      "Hola",
+						"resource":        "pages",
+						"entity_id":       "page-1",
+						"family_id":       "tg-1",
+						"target_locale":   "es",
+						"field_path":      "title",
+						"translated_text": "Hola",
 					},
 				},
 				"continue_on_error": true,

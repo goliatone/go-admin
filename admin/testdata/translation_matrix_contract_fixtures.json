@@ -966,7 +966,7 @@
           {
             "resource": "pages",
             "entity_id": "page-1",
-            "translation_group_id": "tg-page-matrix-1",
+            "family_id": "tg-page-matrix-1",
             "source_locale": "en",
             "target_locale": "es",
             "field_path": "title",
@@ -975,7 +975,7 @@
           {
             "resource": "pages",
             "entity_id": "page-1",
-            "translation_group_id": "tg-page-matrix-1",
+            "family_id": "tg-page-matrix-1",
             "source_locale": "en",
             "target_locale": "es",
             "field_path": "body",
@@ -984,7 +984,7 @@
           {
             "resource": "news",
             "entity_id": "news-1",
-            "translation_group_id": "tg-news-matrix-1",
+            "family_id": "tg-news-matrix-1",
             "source_locale": "en",
             "target_locale": "fr",
             "field_path": "title",

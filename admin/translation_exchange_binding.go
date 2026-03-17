@@ -238,27 +238,27 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.json")
 		return c.JSON(200, []map[string]any{
 			{
-				"resource":             "content_items",
-				"entity_id":            "item_123",
-				"translation_group_id": "tg_123",
-				"source_locale":        "en",
-				"target_locale":        "es",
-				"field_path":           "title",
-				"source_text":          "Hello world",
-				"translated_text":      "Hola mundo",
-				"source_hash":          "0123456789abcdef",
-				"create_translation":   false,
-				"path":                 "/example",
-				"title":                "Example",
-				"status":               "draft",
-				"notes":                "",
+				"resource":           "content_items",
+				"entity_id":          "item_123",
+				"family_id":          "tg_123",
+				"source_locale":      "en",
+				"target_locale":      "es",
+				"field_path":         "title",
+				"source_text":        "Hello world",
+				"translated_text":    "Hola mundo",
+				"source_hash":        "0123456789abcdef",
+				"create_translation": false,
+				"path":               "/example",
+				"title":              "Example",
+				"status":             "draft",
+				"notes":              "",
 			},
 		})
 	default:
 		c.SetHeader("Content-Type", "text/csv")
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.csv")
 		template := strings.Join([]string{
-			"resource,entity_id,translation_group_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,create_translation,path,title,status,notes",
+			"resource,entity_id,family_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,create_translation,path,title,status,notes",
 			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,false,/example,Example,draft,",
 		}, "\n")
 		return c.SendString(template)
@@ -1100,10 +1100,10 @@ func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[
 	if err != nil {
 		return TranslationExportInput{}, nil, err
 	}
-	if err := validateTranslationExchangeTopLevelKeys(body, translationExchangeJobKindExport); err != nil {
+	if err := rejectTranslationClientIdentityFields(body); err != nil {
 		return TranslationExportInput{}, nil, err
 	}
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
+	if err := validateTranslationExchangeTopLevelKeys(body, translationExchangeJobKindExport); err != nil {
 		return TranslationExportInput{}, nil, err
 	}
 	filterPayload := extractMap(body["filter"])
@@ -1294,10 +1294,10 @@ func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]Trans
 		if requireTranslatedText {
 			jobKind = translationExchangeJobKindImportApply
 		}
-		if err := validateTranslationExchangeTopLevelKeys(body, jobKind); err != nil {
+		if err := rejectTranslationClientIdentityFields(body); err != nil {
 			return nil, nil, err
 		}
-		if err := rejectTranslationClientIdentityFields(body); err != nil {
+		if err := validateTranslationExchangeTopLevelKeys(body, jobKind); err != nil {
 			return nil, nil, err
 		}
 		rowsValue, ok := body["rows"]
@@ -1391,7 +1391,7 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 		}
 		headerIndex[normalized] = idx
 	}
-	required := []string{"resource", "entity_id", "translation_group_id", "target_locale", "field_path"}
+	required := []string{"resource", "entity_id", "family_id", "target_locale", "field_path"}
 	if requireTranslatedText {
 		required = append(required, "translated_text")
 	}
@@ -1421,21 +1421,21 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 			}
 		}
 		row := TranslationExchangeRow{
-			Index:              index,
-			Resource:           csvCell(record, headerIndex, "resource"),
-			EntityID:           csvCell(record, headerIndex, "entity_id"),
-			TranslationGroupID: csvCell(record, headerIndex, "translation_group_id"),
-			SourceLocale:       csvCell(record, headerIndex, "source_locale"),
-			TargetLocale:       csvCell(record, headerIndex, "target_locale"),
-			FieldPath:          csvCell(record, headerIndex, "field_path"),
-			SourceText:         csvCell(record, headerIndex, "source_text"),
-			TranslatedText:     csvCell(record, headerIndex, "translated_text"),
-			SourceHash:         csvCell(record, headerIndex, "source_hash"),
-			CreateTranslation:  toBool(csvCell(record, headerIndex, "create_translation")),
-			Path:               csvCell(record, headerIndex, "path"),
-			Title:              csvCell(record, headerIndex, "title"),
-			Status:             csvCell(record, headerIndex, "status"),
-			Notes:              csvCell(record, headerIndex, "notes"),
+			Index:             index,
+			Resource:          csvCell(record, headerIndex, "resource"),
+			EntityID:          csvCell(record, headerIndex, "entity_id"),
+			FamilyID:          csvCell(record, headerIndex, "family_id"),
+			SourceLocale:      csvCell(record, headerIndex, "source_locale"),
+			TargetLocale:      csvCell(record, headerIndex, "target_locale"),
+			FieldPath:         csvCell(record, headerIndex, "field_path"),
+			SourceText:        csvCell(record, headerIndex, "source_text"),
+			TranslatedText:    csvCell(record, headerIndex, "translated_text"),
+			SourceHash:        csvCell(record, headerIndex, "source_hash"),
+			CreateTranslation: toBool(csvCell(record, headerIndex, "create_translation")),
+			Path:              csvCell(record, headerIndex, "path"),
+			Title:             csvCell(record, headerIndex, "title"),
+			Status:            csvCell(record, headerIndex, "status"),
+			Notes:             csvCell(record, headerIndex, "notes"),
 		}
 		if isTranslationCSVRowEmpty(row) {
 			continue
@@ -1585,22 +1585,22 @@ func validateTranslationExchangeTopLevelKeys(body map[string]any, jobKind string
 
 func validateTranslationExchangeJSONRows(rows []map[string]any) error {
 	allowed := map[string]struct{}{
-		"resource":             {},
-		"entity_id":            {},
-		"translation_group_id": {},
-		"source_locale":        {},
-		"target_locale":        {},
-		"field_path":           {},
-		"source_text":          {},
-		"translated_text":      {},
-		"source_hash":          {},
-		"path":                 {},
-		"title":                {},
-		"status":               {},
-		"notes":                {},
-		"metadata":             {},
-		"create_translation":   {},
-		"index":                {},
+		"resource":           {},
+		"entity_id":          {},
+		"family_id":          {},
+		"source_locale":      {},
+		"target_locale":      {},
+		"field_path":         {},
+		"source_text":        {},
+		"translated_text":    {},
+		"source_hash":        {},
+		"path":               {},
+		"title":              {},
+		"status":             {},
+		"notes":              {},
+		"metadata":           {},
+		"create_translation": {},
+		"index":              {},
 	}
 	for index, row := range rows {
 		for key := range row {
@@ -1725,7 +1725,7 @@ func csvCell(record []string, headerIndex map[string]int, key string) string {
 func isTranslationCSVRowEmpty(row TranslationExchangeRow) bool {
 	return strings.TrimSpace(row.Resource) == "" &&
 		strings.TrimSpace(row.EntityID) == "" &&
-		strings.TrimSpace(row.TranslationGroupID) == "" &&
+		strings.TrimSpace(row.FamilyID) == "" &&
 		strings.TrimSpace(row.TargetLocale) == "" &&
 		strings.TrimSpace(row.FieldPath) == "" &&
 		strings.TrimSpace(row.TranslatedText) == ""
@@ -1790,15 +1790,15 @@ func recordTranslationExchangeConflicts(admin *Admin, ctx AdminContext, mode str
 			conflictType = strings.TrimSpace(row.Conflict.Type)
 		}
 		metadata := map[string]any{
-			"mode":                 strings.TrimSpace(mode),
-			"index":                row.Index,
-			"type":                 primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
-			"resource":             strings.TrimSpace(row.Resource),
-			"entity_id":            strings.TrimSpace(row.EntityID),
-			"translation_group_id": strings.TrimSpace(row.TranslationGroupID),
-			"target_locale":        strings.TrimSpace(row.TargetLocale),
-			"field_path":           strings.TrimSpace(row.FieldPath),
-			"error":                strings.TrimSpace(row.Error),
+			"mode":          strings.TrimSpace(mode),
+			"index":         row.Index,
+			"type":          primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
+			"resource":      strings.TrimSpace(row.Resource),
+			"entity_id":     strings.TrimSpace(row.EntityID),
+			"family_id":     strings.TrimSpace(row.FamilyID),
+			"target_locale": strings.TrimSpace(row.TargetLocale),
+			"field_path":    strings.TrimSpace(row.FieldPath),
+			"error":         strings.TrimSpace(row.Error),
 		}
 		if len(row.Metadata) > 0 {
 			if code := strings.TrimSpace(toString(row.Metadata["error_code"])); code != "" {

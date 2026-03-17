@@ -21,17 +21,17 @@ type TranslationQueueAutoCreateHook interface {
 
 // TranslationQueueAutoCreateInput captures the context needed to create queue items.
 type TranslationQueueAutoCreateInput struct {
-	TranslationGroupID string
-	EntityType         string
-	EntityID           string
-	SourceLocale       string
-	MissingLocales     []string
-	Transition         string
-	Environment        string
-	SourceTitle        string
-	SourcePath         string
-	ActorID            string
-	Priority           Priority
+	FamilyID       string
+	EntityType     string
+	EntityID       string
+	SourceLocale   string
+	MissingLocales []string
+	Transition     string
+	Environment    string
+	SourceTitle    string
+	SourcePath     string
+	ActorID        string
+	Priority       Priority
 }
 
 // TranslationQueueAutoCreateResult captures the outcome of auto-create operations.
@@ -58,7 +58,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 		return result
 	}
 
-	if strings.TrimSpace(input.TranslationGroupID) == "" {
+	if strings.TrimSpace(input.FamilyID) == "" {
 		return result
 	}
 	if strings.TrimSpace(input.EntityID) == "" {
@@ -90,18 +90,18 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 		}
 
 		assignment := TranslationAssignment{
-			TranslationGroupID: strings.TrimSpace(input.TranslationGroupID),
-			EntityType:         strings.TrimSpace(strings.ToLower(input.EntityType)),
-			SourceRecordID:     strings.TrimSpace(input.EntityID),
-			SourceLocale:       sourceLocale,
-			TargetLocale:       targetLocale,
-			SourceTitle:        strings.TrimSpace(input.SourceTitle),
-			SourcePath:         strings.TrimSpace(input.SourcePath),
-			AssignmentType:     AssignmentTypeOpenPool,
-			Status:             AssignmentStatusOpen,
-			Priority:           priority,
-			CreatedAt:          time.Now().UTC(),
-			UpdatedAt:          time.Now().UTC(),
+			FamilyID:       strings.TrimSpace(input.FamilyID),
+			EntityType:     strings.TrimSpace(strings.ToLower(input.EntityType)),
+			SourceRecordID: strings.TrimSpace(input.EntityID),
+			SourceLocale:   sourceLocale,
+			TargetLocale:   targetLocale,
+			SourceTitle:    strings.TrimSpace(input.SourceTitle),
+			SourcePath:     strings.TrimSpace(input.SourcePath),
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusOpen,
+			Priority:       priority,
+			CreatedAt:      time.Now().UTC(),
+			UpdatedAt:      time.Now().UTC(),
 		}
 
 		created, isNew, err := h.Repository.CreateOrReuseActive(ctx, assignment)
@@ -110,7 +110,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 			result.Errors = append(result.Errors, err)
 			logger.Warn("translation queue auto-create failed",
 				slog.String("event", "translation.queue.auto_create.error"),
-				slog.String("translation_group_id", assignment.TranslationGroupID),
+				slog.String("family_id", assignment.FamilyID),
 				slog.String("entity_type", assignment.EntityType),
 				slog.String("source_locale", assignment.SourceLocale),
 				slog.String("target_locale", assignment.TargetLocale),
@@ -125,7 +125,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 			logger.Info("translation queue auto-create success",
 				slog.String("event", "translation.queue.auto_create.created"),
 				slog.String("assignment_id", created.ID),
-				slog.String("translation_group_id", created.TranslationGroupID),
+				slog.String("family_id", created.FamilyID),
 				slog.String("entity_type", created.EntityType),
 				slog.String("source_locale", created.SourceLocale),
 				slog.String("target_locale", created.TargetLocale),
@@ -135,7 +135,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 			logger.Info("translation queue auto-create reused existing",
 				slog.String("event", "translation.queue.auto_create.reused"),
 				slog.String("assignment_id", created.ID),
-				slog.String("translation_group_id", created.TranslationGroupID),
+				slog.String("family_id", created.FamilyID),
 				slog.String("entity_type", created.EntityType),
 				slog.String("source_locale", created.SourceLocale),
 				slog.String("target_locale", created.TargetLocale),
@@ -157,22 +157,22 @@ func translationQueueAutoCreateHookFromError(err error, policyInput TranslationP
 		return TranslationQueueAutoCreateInput{}, false
 	}
 
-	groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+	groupID := strings.TrimSpace(toString(record["family_id"]))
 	if groupID == "" {
 		return TranslationQueueAutoCreateInput{}, false
 	}
 
 	return TranslationQueueAutoCreateInput{
-		TranslationGroupID: groupID,
-		EntityType:         primitives.FirstNonEmptyRaw(missing.PolicyEntity, missing.EntityType, policyInput.PolicyEntity, policyInput.EntityType),
-		EntityID:           primitives.FirstNonEmptyRaw(missing.EntityID, policyInput.EntityID),
-		SourceLocale:       primitives.FirstNonEmptyRaw(missing.RequestedLocale, policyInput.RequestedLocale),
-		MissingLocales:     missing.MissingLocales,
-		Transition:         primitives.FirstNonEmptyRaw(missing.Transition, policyInput.Transition),
-		Environment:        primitives.FirstNonEmptyRaw(missing.Environment, policyInput.Environment),
-		SourceTitle:        strings.TrimSpace(toString(record["title"])),
-		SourcePath:         strings.TrimSpace(toString(record["path"])),
-		Priority:           PriorityNormal,
+		FamilyID:       groupID,
+		EntityType:     primitives.FirstNonEmptyRaw(missing.PolicyEntity, missing.EntityType, policyInput.PolicyEntity, policyInput.EntityType),
+		EntityID:       primitives.FirstNonEmptyRaw(missing.EntityID, policyInput.EntityID),
+		SourceLocale:   primitives.FirstNonEmptyRaw(missing.RequestedLocale, policyInput.RequestedLocale),
+		MissingLocales: missing.MissingLocales,
+		Transition:     primitives.FirstNonEmptyRaw(missing.Transition, policyInput.Transition),
+		Environment:    primitives.FirstNonEmptyRaw(missing.Environment, policyInput.Environment),
+		SourceTitle:    strings.TrimSpace(toString(record["title"])),
+		SourcePath:     strings.TrimSpace(toString(record["path"])),
+		Priority:       PriorityNormal,
 	}, true
 }
 

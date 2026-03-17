@@ -79,7 +79,7 @@ func (p *panelBinding) listAllWithTranslationReadinessPredicates(ctx AdminContex
 			break
 		}
 		batch = p.withTranslationReadiness(ctx, batch, baseOpts.Filters)
-		batch = withCanonicalTranslationGroupIDs(batch)
+		batch = withCanonicalFamilyIDs(batch)
 		for _, record := range batch {
 			if len(predicates) > 0 && !recordMatchesAllListPredicates(record, predicates) {
 				continue
@@ -127,10 +127,10 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 	groupOrder := make([]string, 0, len(records))
 	ungrouped := make([]map[string]any, 0)
 	for _, record := range records {
-		groupID := translationGroupIDForRecord(record)
+		groupID := translationFamilyIDForRecord(record)
 		recordClone := primitives.CloneAnyMap(record)
 		if groupID != "" {
-			recordClone["translation_group_id"] = groupID
+			recordClone["family_id"] = groupID
 		}
 		if groupID == "" {
 			ungrouped = append(ungrouped, recordClone)
@@ -170,10 +170,10 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 			summary["group_label"] = groupLabel
 		}
 		row := map[string]any{
-			"id":                      "group:" + groupID,
-			"translation_group_id":    groupID,
-			"translation_group_label": groupLabel,
-			"group_by":                listGroupByTranslationGroupID,
+			"id":           "group:" + groupID,
+			"family_id":    groupID,
+			"family_label": groupLabel,
+			"group_by":     listGroupByFamilyID,
 			"_group": map[string]any{
 				"id":          groupID,
 				"label":       groupLabel,
@@ -184,7 +184,7 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 			"parent":                    parent,
 			"children":                  annotatedChildren,
 			"records":                   annotatedChildren,
-			"translation_group_summary": summary,
+			"family_summary":            summary,
 			"available_count":           summary["available_count"],
 			"required_count":            summary["required_count"],
 			"missing_locales":           summary["missing_locales"],
@@ -209,8 +209,12 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 	return out
 }
 
+func translationFamilyIDForRecord(record map[string]any) string {
+	return strings.TrimSpace(translationFamilyIDFromRecord(record))
+}
+
 func translationGroupIDForRecord(record map[string]any) string {
-	return strings.TrimSpace(translationGroupIDFromRecord(record))
+	return translationFamilyIDForRecord(record)
 }
 
 func orderTranslationGroupChildren(records []map[string]any, defaultLocale string) []map[string]any {
@@ -531,32 +535,32 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 	return out, nil
 }
 
-func withCanonicalTranslationGroupIDs(records []map[string]any) []map[string]any {
+func withCanonicalFamilyIDs(records []map[string]any) []map[string]any {
 	if len(records) == 0 {
 		return records
 	}
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		out = append(out, withCanonicalTranslationGroupIDRecord(record))
+		out = append(out, withCanonicalFamilyIDRecord(record))
 	}
 	return out
 }
 
-func withCanonicalTranslationGroupIDRecord(record map[string]any) map[string]any {
+func withCanonicalFamilyIDRecord(record map[string]any) map[string]any {
 	cloned := primitives.CloneAnyMap(record)
 	if len(cloned) == 0 {
 		return cloned
 	}
 	if groupID := strings.TrimSpace(translationGroupIDFromRecord(cloned)); groupID != "" {
-		cloned["translation_group_id"] = groupID
+		cloned["family_id"] = groupID
 	}
 	if parent := extractMap(cloned["parent"]); len(parent) > 0 {
-		cloned["parent"] = withCanonicalTranslationGroupIDRecord(parent)
+		cloned["parent"] = withCanonicalFamilyIDRecord(parent)
 	}
 	if children := toMapSlice(cloned["children"]); len(children) > 0 {
 		canonicalChildren := make([]map[string]any, 0, len(children))
 		for _, child := range children {
-			canonicalChildren = append(canonicalChildren, withCanonicalTranslationGroupIDRecord(child))
+			canonicalChildren = append(canonicalChildren, withCanonicalFamilyIDRecord(child))
 		}
 		cloned["children"] = canonicalChildren
 		cloned["records"] = canonicalChildren
@@ -729,16 +733,16 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 		body = map[string]any{}
 	}
 	queryLocale := ""
-	queryEnvironment := ""
+	queryChannel := ""
 	queryPolicyEntity := ""
 	if len(values) > 0 {
 		queryLocale = strings.TrimSpace(values[0])
 	}
 	if len(values) > 1 {
-		queryEnvironment = strings.TrimSpace(values[1])
+		queryChannel = strings.TrimSpace(values[1])
 	}
-	if len(values) > 2 && queryEnvironment == "" {
-		queryEnvironment = strings.TrimSpace(values[2])
+	if len(values) > 2 && queryChannel == "" {
+		queryChannel = strings.TrimSpace(values[2])
 	}
 	if len(values) > 3 {
 		queryPolicyEntity = strings.TrimSpace(values[3])
@@ -751,12 +755,12 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 		switch {
 		case queryLocale != "":
 			body["locale"] = queryLocale
-		case strings.TrimSpace(locale) != "":
-			body["locale"] = strings.TrimSpace(locale)
-		}
+	case strings.TrimSpace(locale) != "":
+		body["locale"] = strings.TrimSpace(locale)
 	}
-	if strings.TrimSpace(toString(body["environment"])) == "" && strings.TrimSpace(toString(body["env"])) == "" && queryEnvironment != "" {
-		body["environment"] = queryEnvironment
+	}
+	if strings.TrimSpace(toString(body["channel"])) == "" && queryChannel != "" {
+		body["channel"] = queryChannel
 	}
 	if strings.TrimSpace(toString(body["policy_entity"])) == "" && strings.TrimSpace(toString(body["policyEntity"])) == "" && queryPolicyEntity != "" {
 		body["policy_entity"] = queryPolicyEntity
@@ -905,11 +909,11 @@ func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLoca
 	}
 	if errors.Is(err, ErrPathConflict) {
 		return TranslationAlreadyExistsError{
-			Panel:              strings.TrimSpace(panel),
-			EntityID:           strings.TrimSpace(entityID),
-			SourceLocale:       strings.TrimSpace(sourceLocale),
-			Locale:             strings.TrimSpace(locale),
-			TranslationGroupID: strings.TrimSpace(groupID),
+			Panel:        strings.TrimSpace(panel),
+			EntityID:     strings.TrimSpace(entityID),
+			SourceLocale: strings.TrimSpace(sourceLocale),
+			Locale:       strings.TrimSpace(locale),
+			FamilyID:     strings.TrimSpace(groupID),
 		}
 	}
 	message := strings.ToLower(strings.TrimSpace(err.Error()))
@@ -918,11 +922,11 @@ func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLoca
 		strings.Contains(message, "duplicate key") ||
 		strings.Contains(message, "unique constraint failed") {
 		return TranslationAlreadyExistsError{
-			Panel:              strings.TrimSpace(panel),
-			EntityID:           strings.TrimSpace(entityID),
-			SourceLocale:       strings.TrimSpace(sourceLocale),
-			Locale:             strings.TrimSpace(locale),
-			TranslationGroupID: strings.TrimSpace(groupID),
+			Panel:        strings.TrimSpace(panel),
+			EntityID:     strings.TrimSpace(entityID),
+			SourceLocale: strings.TrimSpace(sourceLocale),
+			Locale:       strings.TrimSpace(locale),
+			FamilyID:     strings.TrimSpace(groupID),
 		}
 	}
 	return err
@@ -1041,8 +1045,8 @@ func stripCreateTranslationLocaleSuffix(value, locale string) string {
 
 func buildCreateTranslationResponse(created map[string]any, locale, groupID string) map[string]any {
 	response := map[string]any{
-		"locale":               strings.TrimSpace(locale),
-		"translation_group_id": strings.TrimSpace(groupID),
+		"locale":    strings.TrimSpace(locale),
+		"family_id": strings.TrimSpace(groupID),
 	}
 	if createdID := strings.TrimSpace(toString(created["id"])); createdID != "" {
 		response["id"] = createdID
@@ -1055,8 +1059,8 @@ func buildCreateTranslationResponse(created map[string]any, locale, groupID stri
 		status = "draft"
 	}
 	response["status"] = status
-	if createdGroupID := strings.TrimSpace(toString(created["translation_group_id"])); createdGroupID != "" {
-		response["translation_group_id"] = createdGroupID
+	if createdGroupID := strings.TrimSpace(toString(created["family_id"])); createdGroupID != "" {
+		response["family_id"] = createdGroupID
 	}
 	if availableLocales := normalizedLocaleList(created["available_locales"]); len(availableLocales) > 0 {
 		response["available_locales"] = append([]string{}, availableLocales...)
@@ -1095,7 +1099,7 @@ func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, trans
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"), c.Query("policyEntity"))
 	body = mergePanelActionActorContext(body, ctx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	if isBulkCreateMissingTranslationsAction(action) {

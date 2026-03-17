@@ -38,14 +38,14 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
 	created, err := repo.Create(ctx, admin.TranslationAssignment{
-		TranslationGroupID: "tg_1",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     admin.AssignmentTypeOpenPool,
-		Status:             admin.AssignmentStatusPending,
-		Priority:           admin.PriorityNormal,
+		FamilyID:       "tg_1",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: admin.AssignmentTypeOpenPool,
+		Status:         admin.AssignmentStatusPending,
+		Priority:       admin.PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("seed assignment: %v", err)
@@ -196,11 +196,11 @@ func TestNewTranslationQueueAutoCreateHookCreatesHookWhenEnabled(t *testing.T) {
 
 	// Test that hook creates assignments
 	result := hook.OnTranslationBlocker(context.Background(), admin.TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		EntityID:           "page_123",
-		SourceLocale:       "en",
-		MissingLocales:     []string{"es"},
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		EntityID:       "page_123",
+		SourceLocale:   "en",
+		MissingLocales: []string{"es"},
 	})
 	if result.Created != 1 {
 		t.Fatalf("expected 1 created, got %d", result.Created)
@@ -218,11 +218,11 @@ func TestNewTranslationQueueAutoCreateHookUsesDefaultRepoWhenNil(t *testing.T) {
 	}
 
 	result := hook.OnTranslationBlocker(context.Background(), admin.TranslationQueueAutoCreateInput{
-		TranslationGroupID: "tg_456",
-		EntityType:         "posts",
-		EntityID:           "post_456",
-		SourceLocale:       "en",
-		MissingLocales:     []string{"fr"},
+		FamilyID:       "tg_456",
+		EntityType:     "posts",
+		EntityID:       "post_456",
+		SourceLocale:   "en",
+		MissingLocales: []string{"fr"},
 	})
 	if result.Created != 1 {
 		t.Fatalf("expected 1 created with default repo, got %d", result.Created)

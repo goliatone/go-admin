@@ -85,22 +85,22 @@ func normalizeGoCMSTranslationCreateError(err error, input TranslationCreateInpu
 	var contentDup *cmscontent.TranslationAlreadyExistsError
 	if errors.As(err, &contentDup) && contentDup != nil {
 		return TranslationAlreadyExistsError{
-			Panel:              panel,
-			EntityID:           primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(contentDup.EntityID)),
-			SourceLocale:       normalizeCreateTranslationLocale(contentDup.SourceLocale),
-			Locale:             normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(contentDup.TargetLocale, locale)),
-			TranslationGroupID: nonNilUUIDPtrString(contentDup.TranslationGroupID),
+			Panel:        panel,
+			EntityID:     primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(contentDup.EntityID)),
+			SourceLocale: normalizeCreateTranslationLocale(contentDup.SourceLocale),
+			Locale:       normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(contentDup.TargetLocale, locale)),
+			FamilyID:     nonNilUUIDPtrString(contentDup.FamilyID),
 		}
 	}
 
 	var pageDup *cmspages.TranslationAlreadyExistsError
 	if errors.As(err, &pageDup) && pageDup != nil {
 		return TranslationAlreadyExistsError{
-			Panel:              panel,
-			EntityID:           primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(pageDup.EntityID)),
-			SourceLocale:       normalizeCreateTranslationLocale(pageDup.SourceLocale),
-			Locale:             normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(pageDup.TargetLocale, locale)),
-			TranslationGroupID: nonNilUUIDPtrString(pageDup.TranslationGroupID),
+			Panel:        panel,
+			EntityID:     primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(pageDup.EntityID)),
+			SourceLocale: normalizeCreateTranslationLocale(pageDup.SourceLocale),
+			Locale:       normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(pageDup.TargetLocale, locale)),
+			FamilyID:     nonNilUUIDPtrString(pageDup.FamilyID),
 		}
 	}
 

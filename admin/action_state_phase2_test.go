@@ -161,8 +161,9 @@ func TestPanelBindingDetailPublishesDetailScopedActionState(t *testing.T) {
 		},
 	}
 	panel := &Panel{
-		name: "documents",
-		repo: repo,
+		name:               "documents",
+		repo:               repo,
+		actionDefaultsMode: PanelActionDefaultsModeNone,
 		actions: []Action{
 			{Name: "view", Scope: ActionScopeRow},
 			{

@@ -11,11 +11,11 @@ var ErrTranslationAlreadyExists = errors.New("translation already exists")
 
 // TranslationAlreadyExistsError reports locale-level duplicate translation attempts.
 type TranslationAlreadyExistsError struct {
-	Panel              string
-	EntityID           string
-	SourceLocale       string
-	Locale             string
-	TranslationGroupID string
+	Panel        string
+	EntityID     string
+	SourceLocale string
+	Locale       string
+	FamilyID     string
 }
 
 func (e TranslationAlreadyExistsError) Error() string {

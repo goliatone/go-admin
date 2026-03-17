@@ -132,9 +132,9 @@ func validateExchangeRows(rows []TranslationExchangeRow, requireTranslatedText b
 				"row":   index,
 			})
 		}
-		if strings.TrimSpace(row.TranslationGroupID) == "" {
-			return validationDomainError("row translation_group_id required", map[string]any{
-				"field": "translation_group_id",
+		if strings.TrimSpace(row.FamilyID) == "" {
+			return validationDomainError("row family_id required", map[string]any{
+				"field": "family_id",
 				"row":   index,
 			})
 		}

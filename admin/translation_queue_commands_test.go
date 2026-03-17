@@ -114,14 +114,14 @@ func TestRegisterTranslationQueueCommandsDispatchesClaim(t *testing.T) {
 		svc := &DefaultTranslationQueueService{Repository: repo}
 		ctx := context.Background()
 		created, err := repo.Create(ctx, TranslationAssignment{
-			TranslationGroupID: "tg_cmd_1",
-			EntityType:         "pages",
-			SourceRecordID:     "page_1",
-			SourceLocale:       "en",
-			TargetLocale:       "es",
-			AssignmentType:     AssignmentTypeOpenPool,
-			Status:             AssignmentStatusOpen,
-			Priority:           PriorityNormal,
+			FamilyID:       "tg_cmd_1",
+			EntityType:     "pages",
+			SourceRecordID: "page_1",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusOpen,
+			Priority:       PriorityNormal,
 		})
 		if err != nil {
 			t.Fatalf("create assignment: %v", err)

@@ -100,11 +100,11 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		mapped.WithCode(status)
 	case errors.As(err, &translationExists):
 		meta := map[string]any{
-			"panel":                strings.TrimSpace(translationExists.Panel),
-			"entity_id":            strings.TrimSpace(translationExists.EntityID),
-			"locale":               strings.TrimSpace(translationExists.Locale),
-			"source_locale":        strings.TrimSpace(translationExists.SourceLocale),
-			"translation_group_id": strings.TrimSpace(translationExists.TranslationGroupID),
+			"panel":         strings.TrimSpace(translationExists.Panel),
+			"entity_id":     strings.TrimSpace(translationExists.EntityID),
+			"locale":        strings.TrimSpace(translationExists.Locale),
+			"source_locale": strings.TrimSpace(translationExists.SourceLocale),
+			"family_id":     strings.TrimSpace(translationExists.FamilyID),
 		}
 		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
 		status = mapped.Code
@@ -132,8 +132,8 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			meta["locale"] = strings.TrimSpace(strings.ToLower(contentDup.TargetLocale))
 			meta["source_locale"] = strings.TrimSpace(strings.ToLower(contentDup.SourceLocale))
 			meta["entity_id"] = strings.TrimSpace(contentDup.EntityID.String())
-			if contentDup.TranslationGroupID != nil {
-				meta["translation_group_id"] = strings.TrimSpace(contentDup.TranslationGroupID.String())
+			if contentDup.FamilyID != nil {
+				meta["family_id"] = strings.TrimSpace(contentDup.FamilyID.String())
 			}
 		}
 		var pageDup *cmspages.TranslationAlreadyExistsError
@@ -141,8 +141,8 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			meta["locale"] = strings.TrimSpace(strings.ToLower(pageDup.TargetLocale))
 			meta["source_locale"] = strings.TrimSpace(strings.ToLower(pageDup.SourceLocale))
 			meta["entity_id"] = strings.TrimSpace(pageDup.EntityID.String())
-			if pageDup.TranslationGroupID != nil {
-				meta["translation_group_id"] = strings.TrimSpace(pageDup.TranslationGroupID.String())
+			if pageDup.FamilyID != nil {
+				meta["family_id"] = strings.TrimSpace(pageDup.FamilyID.String())
 			}
 		}
 		if len(meta) == 0 {
@@ -175,7 +175,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		meta := map[string]any{
 			"assignment_id":          strings.TrimSpace(queueConflict.AssignmentID),
 			"existing_assignment_id": strings.TrimSpace(queueConflict.ExistingAssignmentID),
-			"translation_group_id":   strings.TrimSpace(queueConflict.TranslationGroupID),
+			"family_id":              strings.TrimSpace(queueConflict.FamilyID),
 			"entity_type":            normalizePolicyEntityKey(queueConflict.EntityType),
 			"source_locale":          strings.TrimSpace(strings.ToLower(queueConflict.SourceLocale)),
 			"target_locale":          strings.TrimSpace(strings.ToLower(queueConflict.TargetLocale)),
@@ -250,13 +250,13 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			code = TextCodeTranslationExchangeStaleSourceHash
 		}
 		meta := map[string]any{
-			"type":                 primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
-			"index":                exchangeConflict.Index,
-			"resource":             strings.TrimSpace(exchangeConflict.Resource),
-			"entity_id":            strings.TrimSpace(exchangeConflict.EntityID),
-			"translation_group_id": strings.TrimSpace(exchangeConflict.TranslationGroupID),
-			"target_locale":        strings.TrimSpace(exchangeConflict.TargetLocale),
-			"field_path":           strings.TrimSpace(exchangeConflict.FieldPath),
+			"type":          primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
+			"index":         exchangeConflict.Index,
+			"resource":      strings.TrimSpace(exchangeConflict.Resource),
+			"entity_id":     strings.TrimSpace(exchangeConflict.EntityID),
+			"family_id":     strings.TrimSpace(exchangeConflict.FamilyID),
+			"target_locale": strings.TrimSpace(exchangeConflict.TargetLocale),
+			"field_path":    strings.TrimSpace(exchangeConflict.FieldPath),
 		}
 		if current := strings.TrimSpace(exchangeConflict.CurrentSourceHash); current != "" {
 			meta["current_source_hash"] = current

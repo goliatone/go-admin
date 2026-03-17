@@ -40,9 +40,9 @@ func TestAssignmentPriorityIsValid(t *testing.T) {
 
 func TestTranslationAssignmentActiveUniquenessKeyNormalizesInput(t *testing.T) {
 	assignment := TranslationAssignment{
-		TranslationGroupID: " TG_123 ",
-		TargetLocale:       " ES ",
-		WorkScope:          " editorial.review ",
+		FamilyID:     " TG_123 ",
+		TargetLocale: " ES ",
+		WorkScope:    " editorial.review ",
 	}
 	if got := assignment.ActiveUniquenessKey(); got != "tg_123:es:editorial.review" {
 		t.Fatalf("expected normalized active key, got %q", got)
@@ -63,16 +63,16 @@ func TestAssignmentStatusActiveState(t *testing.T) {
 
 func TestTranslationAssignmentValidate(t *testing.T) {
 	valid := TranslationAssignment{
-		TranslationGroupID: "tg_123",
-		EntityType:         "pages",
-		SourceRecordID:     "page_123",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		WorkScope:          "__all__",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
-		Version:            0,
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_123",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		Version:        0,
 	}
 
 	if err := valid.Validate(); err != nil {
@@ -87,7 +87,7 @@ func TestTranslationAssignmentValidate(t *testing.T) {
 			name: "missing translation group id",
 			assignment: func() TranslationAssignment {
 				a := valid
-				a.TranslationGroupID = ""
+				a.FamilyID = ""
 				return a
 			}(),
 		},

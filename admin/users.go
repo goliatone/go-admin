@@ -1210,10 +1210,7 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 		})
 
 		total := len(merged)
-		start := max(offset, 0)
-		if start > total {
-			start = total
-		}
+		start := min(max(offset, 0), total)
 		end := min(start+limit, total)
 		pageSlice := merged[start:end]
 		roles := make([]RoleRecord, 0, len(pageSlice))

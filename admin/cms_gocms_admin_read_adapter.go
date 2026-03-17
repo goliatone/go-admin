@@ -123,8 +123,8 @@ func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {
 		UpdatedAt:          record.UpdatedAt,
 	}
 
-	if record.TranslationGroupID != nil {
-		out.TranslationGroupID = record.TranslationGroupID.String()
+	if record.FamilyID != nil {
+		out.FamilyID = record.FamilyID.String()
 	}
 	if record.ParentID != nil {
 		out.ParentID = record.ParentID.String()

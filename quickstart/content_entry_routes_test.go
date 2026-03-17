@@ -858,7 +858,7 @@ func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 	if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
 		ListFields(
 			admin.Field{Name: "title", Label: "Title", Type: "text"},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Hidden: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", Type: "text", Hidden: true},
 		).
 		Actions(admin.Action{Name: admin.CreateTranslationKey, Label: "Add Translation"})); err != nil {
 		t.Fatalf("register panel: %v", err)
@@ -884,7 +884,7 @@ func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 		return dataGridCfg["translation_ux_enabled"] == true &&
 			dataGridCfg["enable_grouped_mode"] == true &&
 			strings.TrimSpace(anyToString(dataGridCfg["default_view_mode"])) == "grouped" &&
-			strings.TrimSpace(anyToString(dataGridCfg["group_by_field"])) == "translation_group_id"
+			strings.TrimSpace(anyToString(dataGridCfg["group_by_field"])) == "family_id"
 	})).Return(nil).Once()
 
 	if err := handler.listForPanel(ctx, "pages"); err != nil {
@@ -1203,7 +1203,7 @@ func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
 
 	resourceItem := map[string]any{
 		"id":                       "page-123",
-		"translation_group_id":     "tg-page-123",
+		"family_id":                "tg-page-123",
 		"requested_locale":         "fr",
 		"resolved_locale":          "en",
 		"missing_requested_locale": true,
@@ -1228,7 +1228,7 @@ func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
 		if !ok {
 			return false
 		}
-		return strings.TrimSpace(anyToString(item["translation_group_id"])) == "tg-page-123" &&
+		return strings.TrimSpace(anyToString(item["family_id"])) == "tg-page-123" &&
 			strings.TrimSpace(anyToString(item["requested_locale"])) == "fr" &&
 			strings.TrimSpace(anyToString(item["resolved_locale"])) == "en" &&
 			item["missing_requested_locale"] == true &&
@@ -1277,10 +1277,10 @@ func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
 	}
 
 	resourceItem := map[string]any{
-		"id":                   "page-123",
-		"translation_group_id": "tg-page-123",
-		"requested_locale":     "fr",
-		"resolved_locale":      "en",
+		"id":               "page-123",
+		"family_id":        "tg-page-123",
+		"requested_locale": "fr",
+		"resolved_locale":  "en",
 	}
 
 	ctx := router.NewMockContext()
@@ -1324,7 +1324,7 @@ func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
 }
 
 func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testing.T) {
-	record := map[string]any{"translation_group_id": "tg-page-123"}
+	record := map[string]any{"family_id": "tg-page-123"}
 	urls := newTranslationFamilyURLManager(t)
 
 	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true, "")
@@ -1342,7 +1342,7 @@ func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testi
 }
 
 func TestContentEntryAttachTranslationFamilyLinkPreservesChannelScope(t *testing.T) {
-	record := map[string]any{"translation_group_id": "tg-page-123"}
+	record := map[string]any{"family_id": "tg-page-123"}
 	urls := newTranslationFamilyURLManager(t)
 
 	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true, "staging")
@@ -1387,11 +1387,11 @@ func TestDetailForPanelIncludesTranslationFamilyLinkWhenTranslationUXEnabled(t *
 	}
 	repo := admin.NewMemoryRepository()
 	created, err := repo.Create(context.Background(), map[string]any{
-		"id":                   "page-123",
-		"title":                "Page EN",
-		"locale":               "en",
-		"available_locales":    []any{"en"},
-		"translation_group_id": "tg-page-123",
+		"id":                "page-123",
+		"title":             "Page EN",
+		"locale":            "en",
+		"available_locales": []any{"en"},
+		"family_id":         "tg-page-123",
 	})
 	if err != nil {
 		t.Fatalf("seed record: %v", err)
@@ -1472,7 +1472,7 @@ func TestUpdateForPanelBlocksFallbackLocaleEdits(t *testing.T) {
 		"path":                     "/fallback-page",
 		"status":                   "draft",
 		"locale":                   "en",
-		"translation_group_id":     "tg-fallback-page",
+		"family_id":                "tg-fallback-page",
 		"requested_locale":         "fr",
 		"resolved_locale":          "en",
 		"missing_requested_locale": true,

@@ -46,7 +46,7 @@ func TranslationExchangeContractPayload() map[string]any {
 				translationExchangeConflictTypeDuplicateRow,
 				translationExchangeConflictTypeStaleSource,
 			},
-			"required_fields": []string{"index", "resource", "entity_id", "translation_group_id", "target_locale", "field_path", "status"},
+			"required_fields": []string{"index", "resource", "entity_id", "family_id", "target_locale", "field_path", "status"},
 			"conflict_fields": []string{"type", "message", "current_source_hash", "provided_source_hash"},
 		},
 		"upload_state": map[string]any{

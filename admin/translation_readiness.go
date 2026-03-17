@@ -109,11 +109,11 @@ func buildRecordTranslationReadinessWithCache(
 	missingFields := translationReadinessMissingFields(record, requiredFields, availableLocales)
 	readinessState := translationReadinessState(missingLocales, missingFields)
 
-	groupID := translationGroupIDFromRecord(record)
+	groupID := translationFamilyIDFromRecord(record)
 	readyForPublish := readinessState == translationReadinessStateReady
 
 	readiness := map[string]any{
-		"translation_group_id":              groupID,
+		"family_id":                         groupID,
 		"required_locales":                  requiredLocales,
 		"available_locales":                 availableLocales,
 		"missing_required_locales":          missingLocales,
@@ -143,7 +143,7 @@ func translationReadinessApplicable(record map[string]any, requirementsResolved 
 	if len(record) == 0 {
 		return false
 	}
-	if translationGroupIDFromRecord(record) != "" {
+	if translationFamilyIDFromRecord(record) != "" {
 		return true
 	}
 	if len(normalizedLocaleList(record["available_locales"])) > 0 {
@@ -165,8 +165,8 @@ func translationReadinessApplicable(record map[string]any, requirementsResolved 
 		return true
 	}
 	for _, path := range [][]string{
-		{"translation", "meta", "translation_group_id"},
-		{"content_translation", "meta", "translation_group_id"},
+		{"translation", "meta", "family_id"},
+		{"content_translation", "meta", "family_id"},
 		{"translation", "meta", "requested_locale"},
 		{"translation", "meta", "resolved_locale"},
 		{"translation", "meta", "missing_requested_locale"},
@@ -338,27 +338,31 @@ func translationReadinessAvailableLocalesWithBatch(record map[string]any, cache 
 }
 
 func translationReadinessGroupKey(record map[string]any) string {
-	return strings.ToLower(strings.TrimSpace(translationGroupIDFromRecord(record)))
+	return strings.ToLower(strings.TrimSpace(translationFamilyIDFromRecord(record)))
 }
 
-func translationGroupIDFromRecord(record map[string]any) string {
+func translationFamilyIDFromRecord(record map[string]any) string {
 	if len(record) == 0 {
 		return ""
 	}
-	if groupID := strings.TrimSpace(toString(record["translation_group_id"])); groupID != "" {
+	if groupID := strings.TrimSpace(toString(record["family_id"])); groupID != "" {
 		return groupID
 	}
 	for _, path := range [][]string{
-		{"translation", "meta", "translation_group_id"},
-		{"content_translation", "meta", "translation_group_id"},
-		{"translation_context", "translation_group_id"},
-		{"translation_readiness", "translation_group_id"},
+		{"translation", "meta", "family_id"},
+		{"content_translation", "meta", "family_id"},
+		{"translation_context", "family_id"},
+		{"translation_readiness", "family_id"},
 	} {
 		if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(record, path...))); groupID != "" {
 			return groupID
 		}
 	}
 	return ""
+}
+
+func translationGroupIDFromRecord(record map[string]any) string {
+	return translationFamilyIDFromRecord(record)
 }
 
 func translationReadinessNestedValue(record map[string]any, path ...string) any {

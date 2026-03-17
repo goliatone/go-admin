@@ -49,8 +49,8 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 		return nil, err
 	}
 
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
-	runtime, err := b.runtime(adminCtx.Context, environment)
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	runtime, err := b.runtime(adminCtx.Context, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 
 	result, err := runtime.service.List(adminCtx.Context, translationservices.ListFamiliesInput{
 		Scope:          scope,
-		Environment:    environment,
+		Environment:    channel,
 		FamilyID:       strings.TrimSpace(c.Query("family_id")),
 		ContentType:    strings.TrimSpace(strings.ToLower(c.Query("content_type"))),
 		ReadinessState: strings.TrimSpace(strings.ToLower(c.Query("readiness_state"))),
@@ -86,7 +86,7 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 	createActionState := translationMatrixActionState(b.admin, adminCtx.Context, PermAdminTranslationsEdit)
 	rows := make([]map[string]any, 0, len(result.Items))
 	for _, family := range result.Items {
-		rows = append(rows, translationMatrixRowPayload(family, visibleLocales, b.admin, environment, createActionState))
+		rows = append(rows, translationMatrixRowPayload(family, visibleLocales, b.admin, channel, createActionState))
 	}
 
 	return map[string]any{
@@ -100,8 +100,7 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 				},
 			},
 		},
-		"meta": map[string]any{
-			"environment":       environment,
+		"meta": mergeTranslationChannelContract(map[string]any{
 			"page":              result.Page,
 			"per_page":          result.PerPage,
 			"total":             result.Total,
@@ -126,7 +125,7 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 					"blockers": runtime.report.Summary.Blockers,
 				},
 			},
-		},
+		}, channel),
 	}, nil
 }
 
@@ -158,8 +157,8 @@ func (b *translationFamilyBinding) CreateMissingBulk(c router.Context, body map[
 		return nil, err
 	}
 
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
-	input, err := parseTranslationMatrixCreateMissingInput(c, body, environment)
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	input, err := parseTranslationMatrixCreateMissingInput(c, body, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -295,10 +294,9 @@ func (b *translationFamilyBinding) CreateMissingBulk(c router.Context, body map[
 			"summary": summary,
 			"results": results,
 		},
-		"meta": map[string]any{
-			"environment": input.Plan.Environment,
-			"contracts":   TranslationMatrixContractPayload(),
-		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"contracts": TranslationMatrixContractPayload(),
+		}, input.Plan.Environment),
 	}, nil
 }
 
@@ -407,13 +405,13 @@ func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map
 					break
 				}
 				previewRows = append(previewRows, map[string]any{
-					"resource":             family.ContentType,
-					"entity_id":            source.SourceRecordID,
-					"translation_group_id": family.ID,
-					"source_locale":        family.SourceLocale,
-					"target_locale":        locale,
-					"field_path":           fieldPath,
-					"source_text":          sourceText,
+					"resource":      family.ContentType,
+					"entity_id":     source.SourceRecordID,
+					"family_id":     family.ID,
+					"source_locale": family.SourceLocale,
+					"target_locale": locale,
+					"field_path":    fieldPath,
+					"source_text":   sourceText,
 				})
 			}
 		}
@@ -449,10 +447,9 @@ func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map
 			},
 			"preview_rows": previewRows,
 		},
-		"meta": map[string]any{
-			"environment": input.Environment,
-			"contracts":   TranslationMatrixContractPayload(),
-		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"contracts": TranslationMatrixContractPayload(),
+		}, input.Environment),
 	}, nil
 }
 
@@ -499,7 +496,7 @@ func parseTranslationMatrixExportSelectedInput(c router.Context, body map[string
 		Locales:           translationMatrixLocalesFromValues(body["locale"], body["locales"]),
 		Format:            format,
 		IncludeSourceHash: toBool(body["include_source_hash"]),
-		Environment:       strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Environment, adminCtx.Channel)),
+		Environment:       translationChannelFromRequest(c, adminCtx, body),
 	}
 }
 
@@ -714,13 +711,13 @@ func translationMatrixQuickActionTargets(adm *Admin) map[string]any {
 	}
 }
 
-func translationMatrixRowPayload(family translationservices.FamilyRecord, locales []string, adm *Admin, environment string, createActionState map[string]any) map[string]any {
+func translationMatrixRowPayload(family translationservices.FamilyRecord, locales []string, adm *Admin, channel string, createActionState map[string]any) map[string]any {
 	source := translationFamilySourceVariant(family)
 	cells := map[string]any{}
 	for _, locale := range locales {
-		cells[locale] = translationMatrixCellPayload(family, locale, adm, environment, createActionState)
+		cells[locale] = translationMatrixCellPayload(family, locale, adm, channel, createActionState)
 	}
-	rowLinks := translationMatrixRowLinks(adm, family, source)
+	rowLinks := translationMatrixRowLinks(adm, family, source, channel)
 	return map[string]any{
 		"family_id":        family.ID,
 		"content_type":     family.ContentType,
@@ -734,14 +731,14 @@ func translationMatrixRowPayload(family translationservices.FamilyRecord, locale
 	}
 }
 
-func translationMatrixRowLinks(adm *Admin, family translationservices.FamilyRecord, source translationservices.FamilyVariant) map[string]any {
+func translationMatrixRowLinks(adm *Admin, family translationservices.FamilyRecord, source translationservices.FamilyVariant, channel string) map[string]any {
 	if adm == nil {
 		return map[string]any{}
 	}
 	links := map[string]any{
 		"family": translationDashboardLink(adm.URLs(), "admin", "translations.families.id", "admin.translations.families.id", map[string]string{
 			"family_id": family.ID,
-		}, nil, map[string]any{
+		}, translationDashboardQuery(nil, channel, nil), map[string]any{
 			"key":         "family",
 			"label":       "Open family",
 			"description": "Open the family detail surface for this row.",
@@ -770,7 +767,7 @@ func translationMatrixRowLinks(adm *Admin, family translationservices.FamilyReco
 	return links
 }
 
-func translationMatrixCellPayload(family translationservices.FamilyRecord, locale string, adm *Admin, environment string, createActionState map[string]any) map[string]any {
+func translationMatrixCellPayload(family translationservices.FamilyRecord, locale string, adm *Admin, channel string, createActionState map[string]any) map[string]any {
 	required := translationMatrixLocaleRequired(family, locale)
 	variant, hasVariant := translationMatrixVariantForLocale(family, locale)
 	assignment, hasAssignment := translationMatrixLatestAssignment(family, locale)
@@ -800,7 +797,7 @@ func translationMatrixCellPayload(family translationservices.FamilyRecord, local
 	}
 	payload["quick_actions"] = map[string]any{
 		"open":   translationMatrixOpenQuickAction(adm, family, locale, variant, hasVariant, assignment, hasAssignment, state),
-		"create": translationMatrixCreateQuickAction(adm, family, locale, required, hasVariant, hasAssignment, state, environment, createActionState),
+		"create": translationMatrixCreateQuickAction(adm, family, locale, required, hasVariant, hasAssignment, state, channel, createActionState),
 	}
 	return payload
 }
@@ -1046,7 +1043,7 @@ func translationMatrixCreateQuickAction(
 	hasVariant bool,
 	hasAssignment bool,
 	state string,
-	environment string,
+	channel string,
 	createActionState map[string]any,
 ) map[string]any {
 	action := map[string]any{
@@ -1068,9 +1065,9 @@ func translationMatrixCreateQuickAction(
 	action["route"] = "translations.matrix.actions.create_missing"
 	action["resolver_key"] = adminAPIGroup + ".translations.matrix.actions.create_missing"
 	action["payload"] = map[string]any{
-		"family_ids":  []string{family.ID},
-		"locales":     []string{locale},
-		"environment": strings.TrimSpace(environment),
+		"family_ids": []string{family.ID},
+		"locales":    []string{locale},
+		"channel":    strings.TrimSpace(channel),
 	}
 	if enabled, _ := createActionState["enabled"].(bool); !enabled {
 		action["reason"] = toString(createActionState["reason"])
@@ -1180,21 +1177,20 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 		return nil, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(familyID)})
 	}
 	if translationFamilyPolicyDenied(familyBefore) {
-		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", map[string]any{
+		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
 			"family_id":        familyBefore.ID,
 			"content_type":     familyBefore.ContentType,
-			"environment":      input.Environment,
 			"requested_locale": input.Locale,
-		})
+		}, input.Environment))
 	}
 	if translationFamilyHasLocale(familyBefore, input.Locale) {
 		source := translationFamilySourceVariant(familyBefore)
 		return nil, TranslationAlreadyExistsError{
-			Panel:              familyBefore.ContentType,
-			EntityID:           strings.TrimSpace(source.SourceRecordID),
-			SourceLocale:       familyBefore.SourceLocale,
-			Locale:             input.Locale,
-			TranslationGroupID: familyBefore.ID,
+			Panel:        familyBefore.ContentType,
+			EntityID:     strings.TrimSpace(source.SourceRecordID),
+			SourceLocale: familyBefore.SourceLocale,
+			Locale:       input.Locale,
+			FamilyID:     familyBefore.ID,
 		}
 	}
 

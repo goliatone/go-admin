@@ -33,7 +33,7 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 			t.Fatalf("expected filter %q", filter)
 		}
 	}
-	for _, requiredField := range []string{"translation_group_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
+	for _, requiredField := range []string{"family_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
 		field, ok := findFormField(schema.FormFields, requiredField)
 		if !ok {
 			t.Fatalf("expected form field %q", requiredField)
@@ -50,13 +50,13 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 		t.Fatalf("expected source_locale form field to be read only")
 	}
 	for expected, expectedType := range map[string]string{
-		"translation_group_id": "select",
-		"entity_type":          "select",
-		"source_record_id":     "select",
-		"target_locale":        "select",
-		"assignee_id":          "select",
-		"priority":             "select",
-		"due_date":             "date",
+		"family_id":        "select",
+		"entity_type":      "select",
+		"source_record_id": "select",
+		"target_locale":    "select",
+		"assignee_id":      "select",
+		"priority":         "select",
+		"due_date":         "date",
 	} {
 		field, ok := findFormField(schema.FormFields, expected)
 		if !ok {
@@ -70,7 +70,7 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 		t.Fatalf("expected form schema")
 	}
 	required, _ := schema.FormSchema["required"].([]string)
-	for _, expected := range []string{"translation_group_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
+	for _, expected := range []string{"family_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
 		found := slices.Contains(required, expected)
 		if !found {
 			t.Fatalf("expected required field %q in form schema, got %v", expected, required)
@@ -133,14 +133,14 @@ func TestTranslationAssignmentPanelRepositoryDeleteArchivesInsteadOfDeleting(t *
 	repo := NewTranslationAssignmentPanelRepository(store)
 
 	created, err := repo.Create(ctx, map[string]any{
-		"translation_group_id": "tg_123",
-		"entity_type":          "pages",
-		"source_record_id":     "page_1",
-		"source_locale":        "en",
-		"target_locale":        "es",
-		"assignment_type":      string(AssignmentTypeOpenPool),
-		"status":               string(AssignmentStatusOpen),
-		"priority":             string(PriorityNormal),
+		"family_id":        "tg_123",
+		"entity_type":      "pages",
+		"source_record_id": "page_1",
+		"source_locale":    "en",
+		"target_locale":    "es",
+		"assignment_type":  string(AssignmentTypeOpenPool),
+		"status":           string(AssignmentStatusOpen),
+		"priority":         string(PriorityNormal),
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -169,11 +169,11 @@ func TestTranslationAssignmentPanelRepositoryCreateAppliesDefaultsForMinimalRequ
 	repo := NewTranslationAssignmentPanelRepository(store)
 
 	created, err := repo.Create(ctx, map[string]any{
-		"translation_group_id": "tg_required",
-		"entity_type":          "pages",
-		"source_record_id":     "page_required",
-		"source_locale":        "en",
-		"target_locale":        "fr",
+		"family_id":        "tg_required",
+		"entity_type":      "pages",
+		"source_record_id": "page_required",
+		"source_locale":    "en",
+		"target_locale":    "fr",
 	})
 	if err != nil {
 		t.Fatalf("create assignment with minimal required fields: %v", err)

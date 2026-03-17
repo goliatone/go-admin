@@ -53,6 +53,7 @@ type translationFamilyIdempotencyRecord struct {
 
 type translationFamilyBinding struct {
 	admin          *Admin
+	catalog        translationFamilyCatalog
 	loadRuntime    func(context.Context, string) (*translationFamilyRuntime, error)
 	now            func() time.Time
 	idempotencyMu  sync.Mutex
@@ -65,6 +66,7 @@ func newTranslationFamilyBinding(a *Admin) *translationFamilyBinding {
 	}
 	return &translationFamilyBinding{
 		admin:          a,
+		catalog:        newTranslationFamilyCatalog(a),
 		now:            func() time.Time { return time.Now().UTC() },
 		idempotencyMap: map[string]translationFamilyIdempotencyRecord{},
 	}
@@ -94,8 +96,8 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
 		return nil, err
 	}
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Channel))
-	runtime, err := b.runtime(adminCtx.Context, environment)
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	runtime, err := b.runtime(adminCtx.Context, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,7 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 			TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
 			OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
 		},
-		Environment:    environment,
+		Environment:    channel,
 		FamilyID:       strings.TrimSpace(c.Query("family_id")),
 		ContentType:    strings.TrimSpace(strings.ToLower(c.Query("content_type"))),
 		ReadinessState: strings.TrimSpace(strings.ToLower(c.Query("readiness_state"))),
@@ -127,11 +129,10 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 			"items":    items,
 			"families": items,
 		},
-		"meta": map[string]any{
-			"total":       result.Total,
-			"page":        result.Page,
-			"per_page":    result.PerPage,
-			"environment": environment,
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"total":    result.Total,
+			"page":     result.Page,
+			"per_page": result.PerPage,
 			"report": map[string]any{
 				"checksum": runtime.report.Checksum,
 				"summary": map[string]any{
@@ -142,7 +143,7 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 					"warnings":    runtime.report.Summary.Warnings,
 				},
 			},
-		},
+		}, channel),
 	}, nil
 }
 
@@ -170,8 +171,8 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
 		return nil, err
 	}
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Channel))
-	runtime, err := b.runtime(adminCtx.Context, environment)
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	runtime, err := b.runtime(adminCtx.Context, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +182,7 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 	}
 	family, ok, err := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
 		Scope:       scope,
-		Environment: environment,
+		Environment: channel,
 		FamilyID:    strings.TrimSpace(id),
 	})
 	if err != nil {
@@ -191,10 +192,8 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 		return nil, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(id)})
 	}
 	return map[string]any{
-		"data": translationFamilyDetailPayload(family, environment),
-		"meta": map[string]any{
-			"environment": environment,
-		},
+		"data": translationFamilyDetailPayload(family, channel),
+		"meta": mergeTranslationChannelContract(nil, channel),
 	}, nil
 }
 
@@ -231,8 +230,8 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 		return nil, err
 	}
 
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Channel))
-	input, err := parseTranslationFamilyCreateVariantInput(c, body, environment)
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	input, err := parseTranslationFamilyCreateVariantInput(c, body, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -276,12 +275,11 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 			Environment: input.Environment,
 			Outcome:     "policy_denied",
 		})
-		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", map[string]any{
+		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
 			"family_id":        familyBefore.ID,
 			"content_type":     familyBefore.ContentType,
-			"environment":      input.Environment,
 			"requested_locale": input.Locale,
-		})
+		}, input.Environment))
 	}
 	if translationFamilyHasLocale(familyBefore, input.Locale) {
 		if replayed, replayedOK, replayErr := b.lookupCreateVariantReplay(adminCtx, scope, familyBefore, input); replayErr != nil {
@@ -301,11 +299,11 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 			Outcome:     "duplicate",
 		})
 		return nil, TranslationAlreadyExistsError{
-			Panel:              familyBefore.ContentType,
-			EntityID:           strings.TrimSpace(source.SourceRecordID),
-			SourceLocale:       familyBefore.SourceLocale,
-			Locale:             input.Locale,
-			TranslationGroupID: familyBefore.ID,
+			Panel:        familyBefore.ContentType,
+			EntityID:     strings.TrimSpace(source.SourceRecordID),
+			SourceLocale: familyBefore.SourceLocale,
+			Locale:       input.Locale,
+			FamilyID:     familyBefore.ID,
 		}
 	}
 
@@ -399,43 +397,20 @@ func familyContentTypeHint(body map[string]any) string {
 	))
 }
 
-func (b *translationFamilyBinding) runtime(ctx context.Context, environment string) (*translationFamilyRuntime, error) {
+func (b *translationFamilyBinding) runtime(ctx context.Context, channel string) (*translationFamilyRuntime, error) {
 	if b != nil && b.loadRuntime != nil {
-		return b.loadRuntime(ctx, environment)
+		return b.loadRuntime(ctx, channel)
 	}
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
 	}
-	input, familyPolicies, err := b.collectBackfillInput(ctx, environment)
-	if err != nil {
-		return nil, err
+	if b.catalog == nil {
+		b.catalog = newTranslationFamilyCatalog(b.admin)
 	}
-	plan, err := translationservices.NewBackfillRunner().BuildPlan(ctx, input)
-	if err != nil {
-		return nil, err
+	if b.catalog == nil {
+		return nil, serviceNotConfiguredDomainError("translation family catalog", map[string]any{"component": "translation_catalog"})
 	}
-	store := translationservices.NewInMemoryFamilyStore()
-	if err := store.LoadBackfillPlan(plan); err != nil {
-		return nil, err
-	}
-	if assignments := b.collectAssignments(ctx); len(assignments) > 0 {
-		if err := store.ReplaceAssignments(assignments); err != nil {
-			return nil, err
-		}
-	}
-	service := &translationservices.FamilyService{
-		Store: store,
-		Policies: translationservices.PolicyService{
-			Resolver: translationservices.StaticPolicyResolver{Policies: familyPolicies},
-		},
-	}
-	if _, err := service.RecomputeAll(ctx, environment); err != nil {
-		return nil, err
-	}
-	return &translationFamilyRuntime{
-		service: service,
-		report:  translationservices.BuildBackfillReport(plan),
-	}, nil
+	return b.catalog.Load(ctx, channel)
 }
 
 const (
@@ -447,13 +422,13 @@ const (
 	translationFamilyCreateVariantMetadataCreatedAtKey   = "created_at"
 )
 
-func parseTranslationFamilyCreateVariantInput(c router.Context, body map[string]any, environment string) (translationFamilyCreateVariantInput, error) {
+func parseTranslationFamilyCreateVariantInput(c router.Context, body map[string]any, channel string) (translationFamilyCreateVariantInput, error) {
 	input := translationFamilyCreateVariantInput{
 		Locale:               normalizeCreateTranslationLocale(toString(body["locale"])),
 		AutoCreateAssignment: toBool(body["auto_create_assignment"]),
 		AssigneeID:           strings.TrimSpace(toString(body["assignee_id"])),
 		Priority:             Priority(strings.TrimSpace(strings.ToLower(toString(body["priority"])))),
-		Environment:          strings.TrimSpace(environment),
+		Environment:          strings.TrimSpace(channel),
 		IdempotencyKey: strings.TrimSpace(firstNonEmpty(
 			toString(body["idempotency_key"]),
 			c.Header("X-Idempotency-Key"),
@@ -544,9 +519,9 @@ func (b *translationFamilyBinding) planCreateVariantAssignment(ctx context.Conte
 		PerPage: 200,
 		SortBy:  "updated_at",
 		Filters: map[string]any{
-			"translation_group_id": family.ID,
-			"target_locale":        input.Locale,
-			"work_scope":           translationFamilyDefaultWorkScope(family),
+			"family_id":     family.ID,
+			"target_locale": input.Locale,
+			"work_scope":    translationFamilyDefaultWorkScope(family),
 		},
 	})
 	if err != nil {
@@ -676,16 +651,16 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 
 	source := translationFamilySourceVariant(family)
 	assignment := TranslationAssignment{
-		TranslationGroupID: family.ID,
-		EntityType:         family.ContentType,
-		SourceRecordID:     strings.TrimSpace(source.SourceRecordID),
-		SourceLocale:       strings.TrimSpace(strings.ToLower(family.SourceLocale)),
-		TargetLocale:       input.Locale,
-		SourceTitle:        strings.TrimSpace(source.Fields["title"]),
-		SourcePath:         strings.TrimSpace(source.Fields["path"]),
-		Priority:           Priority(firstNonEmpty(string(input.Priority), string(PriorityNormal))),
-		WorkScope:          plan.WorkScope,
-		DueDate:            cloneTimePtr(input.DueDate),
+		FamilyID:       family.ID,
+		EntityType:     family.ContentType,
+		SourceRecordID: strings.TrimSpace(source.SourceRecordID),
+		SourceLocale:   strings.TrimSpace(strings.ToLower(family.SourceLocale)),
+		TargetLocale:   input.Locale,
+		SourceTitle:    strings.TrimSpace(source.Fields["title"]),
+		SourcePath:     strings.TrimSpace(source.Fields["path"]),
+		Priority:       Priority(firstNonEmpty(string(input.Priority), string(PriorityNormal))),
+		WorkScope:      plan.WorkScope,
+		DueDate:        cloneTimePtr(input.DueDate),
 	}
 	if input.AssigneeID != "" {
 		assignment.AssignmentType = AssignmentTypeDirect
@@ -916,11 +891,11 @@ func (b *translationFamilyBinding) createVariantIdempotencyStoreKey(actorID, fam
 func translationFamilyCreateVariantRequestHash(familyID string, input translationFamilyCreateVariantInput) (string, error) {
 	payload := map[string]any{
 		"family_id":              strings.TrimSpace(familyID),
+		"channel":                strings.TrimSpace(input.Environment),
 		"locale":                 strings.TrimSpace(strings.ToLower(input.Locale)),
 		"auto_create_assignment": input.AutoCreateAssignment,
 		"assignee_id":            strings.TrimSpace(input.AssigneeID),
 		"priority":               strings.TrimSpace(strings.ToLower(string(input.Priority))),
-		"environment":            strings.TrimSpace(input.Environment),
 	}
 	if input.DueDate != nil {
 		payload["due_date"] = input.DueDate.UTC().Format(time.RFC3339)
@@ -1086,17 +1061,17 @@ func translationFamilyReplayAssignment(family translationservices.FamilyRecord, 
 		candidates = append(candidates, candidate{
 			rank: rank,
 			assignment: TranslationAssignment{
-				ID:                 strings.TrimSpace(item.ID),
-				TranslationGroupID: strings.TrimSpace(item.FamilyID),
-				SourceLocale:       strings.TrimSpace(strings.ToLower(item.SourceLocale)),
-				TargetLocale:       strings.TrimSpace(strings.ToLower(item.TargetLocale)),
-				WorkScope:          normalizeTranslationAssignmentWorkScope(item.WorkScope),
-				Status:             AssignmentStatus(strings.TrimSpace(strings.ToLower(item.Status))),
-				AssigneeID:         strings.TrimSpace(item.AssigneeID),
-				Priority:           Priority(strings.TrimSpace(strings.ToLower(item.Priority))),
-				DueDate:            cloneTimePtr(item.DueDate),
-				CreatedAt:          item.CreatedAt,
-				UpdatedAt:          item.UpdatedAt,
+				ID:           strings.TrimSpace(item.ID),
+				FamilyID:     strings.TrimSpace(item.FamilyID),
+				SourceLocale: strings.TrimSpace(strings.ToLower(item.SourceLocale)),
+				TargetLocale: strings.TrimSpace(strings.ToLower(item.TargetLocale)),
+				WorkScope:    normalizeTranslationAssignmentWorkScope(item.WorkScope),
+				Status:       AssignmentStatus(strings.TrimSpace(strings.ToLower(item.Status))),
+				AssigneeID:   strings.TrimSpace(item.AssigneeID),
+				Priority:     Priority(strings.TrimSpace(strings.ToLower(item.Priority))),
+				DueDate:      cloneTimePtr(item.DueDate),
+				CreatedAt:    item.CreatedAt,
+				UpdatedAt:    item.UpdatedAt,
 			},
 		})
 	}
@@ -1251,14 +1226,14 @@ func (b *translationFamilyBinding) collectBackfillInput(ctx context.Context, env
 		}
 		for _, page := range pages {
 			input.Variants = append(input.Variants, translationservices.BackfillSourceVariant{
-				Scope:              translationScopeFromMaps(page.Metadata, page.Data),
-				ContentType:        "pages",
-				SourceRecordID:     strings.TrimSpace(page.ID),
-				TranslationGroupID: strings.TrimSpace(page.TranslationGroupID),
-				Locale:             translationFamilyLocale(page.Locale, locale),
-				Fields:             translationFamilyFields(page.Title, page.Slug, page.Data),
-				Metadata:           cloneAnyMap(page.Metadata),
-				Status:             translationFamilyVariantStatus(page.Status),
+				Scope:          translationScopeFromMaps(page.Metadata, page.Data),
+				ContentType:    "pages",
+				SourceRecordID: strings.TrimSpace(page.ID),
+				FamilyID:       strings.TrimSpace(page.FamilyID),
+				Locale:         translationFamilyLocale(page.Locale, locale),
+				Fields:         translationFamilyFields(page.Title, page.Slug, page.Data),
+				Metadata:       cloneAnyMap(page.Metadata),
+				Status:         translationFamilyVariantStatus(page.Status),
 			})
 			contentTypes["pages"] = "pages"
 		}
@@ -1274,14 +1249,14 @@ func (b *translationFamilyBinding) collectBackfillInput(ctx context.Context, env
 			}
 			contentType = strings.ToLower(contentType)
 			input.Variants = append(input.Variants, translationservices.BackfillSourceVariant{
-				Scope:              translationScopeFromMaps(content.Metadata, content.Data),
-				ContentType:        contentType,
-				SourceRecordID:     strings.TrimSpace(content.ID),
-				TranslationGroupID: strings.TrimSpace(content.TranslationGroupID),
-				Locale:             translationFamilyLocale(content.Locale, locale),
-				Fields:             translationFamilyFields(content.Title, content.Slug, content.Data),
-				Metadata:           cloneAnyMap(content.Metadata),
-				Status:             translationFamilyVariantStatus(content.Status),
+				Scope:          translationScopeFromMaps(content.Metadata, content.Data),
+				ContentType:    contentType,
+				SourceRecordID: strings.TrimSpace(content.ID),
+				FamilyID:       strings.TrimSpace(content.FamilyID),
+				Locale:         translationFamilyLocale(content.Locale, locale),
+				Fields:         translationFamilyFields(content.Title, content.Slug, content.Data),
+				Metadata:       cloneAnyMap(content.Metadata),
+				Status:         translationFamilyVariantStatus(content.Status),
 			})
 			contentTypes[contentType] = contentType
 		}
@@ -1386,7 +1361,7 @@ func (b *translationFamilyBinding) collectAssignments(ctx context.Context) []tra
 	}
 	out := make([]translationservices.FamilyAssignment, 0, len(assignments))
 	for _, assignment := range assignments {
-		familyID := strings.TrimSpace(assignment.TranslationGroupID)
+		familyID := strings.TrimSpace(assignment.FamilyID)
 		if familyID == "" {
 			continue
 		}
@@ -1437,7 +1412,7 @@ func translationFamilyListRow(family translationservices.FamilyRecord) map[strin
 	}
 }
 
-func translationFamilyDetailPayload(family translationservices.FamilyRecord, environment string) map[string]any {
+func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string) map[string]any {
 	source := translationFamilySourceVariant(family)
 	variants := cloneFamilyVariantPayloads(family.Variants)
 	blockers := cloneFamilyBlockerPayloads(family.Blockers)
@@ -1475,7 +1450,7 @@ func translationFamilyDetailPayload(family translationservices.FamilyRecord, env
 		},
 		"policy": map[string]any{
 			"content_type":              family.Policy.ContentType,
-			"environment":               environment,
+			"channel":                   channel,
 			"source_locale":             family.Policy.SourceLocale,
 			"required_locales":          append([]string{}, family.Policy.RequiredLocales...),
 			"required_fields":           cloneRequiredFieldsString(family.Policy.RequiredFields),

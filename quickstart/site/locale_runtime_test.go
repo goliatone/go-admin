@@ -48,8 +48,8 @@ func TestBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
 		map[string]string{"preview_token": "preview-123"},
 	)
 
-	if got := contract["translation_group_id"]; got != "tg-news-1" {
-		t.Fatalf("expected translation_group_id preserved, got %v", got)
+	if got := contract["family_id"]; got != "tg-news-1" {
+		t.Fatalf("expected family_id preserved, got %v", got)
 	}
 	items, ok := contract["items"].([]map[string]any)
 	if !ok || len(items) != 3 {

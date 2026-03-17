@@ -251,13 +251,13 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"title":                "Home",
-				"slug":                 "home",
-				"locale":               "en",
-				"status":               "approval",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en"},
+				"id":                "page_123",
+				"title":             "Home",
+				"slug":              "home",
+				"locale":            "en",
+				"status":            "approval",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -285,8 +285,8 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	if data["locale"] != "es" {
 		t.Fatalf("expected locale es, got %v", data["locale"])
 	}
-	if data["translation_group_id"] != "tg_123" {
-		t.Fatalf("expected translation_group_id tg_123, got %v", data["translation_group_id"])
+	if data["family_id"] != "tg_123" {
+		t.Fatalf("expected family_id tg_123, got %v", data["family_id"])
 	}
 	if data["status"] != "draft" {
 		t.Fatalf("expected status draft, got %v", data["status"])
@@ -297,8 +297,8 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 	if len(repo.created) != 1 {
 		t.Fatalf("expected one created record, got %d", len(repo.created))
 	}
-	if got := repo.created[0]["translation_group_id"]; got != "tg_123" {
-		t.Fatalf("expected created translation_group_id tg_123, got %v", got)
+	if got := repo.created[0]["family_id"]; got != "tg_123" {
+		t.Fatalf("expected created family_id tg_123, got %v", got)
 	}
 	entries, err := feed.List(context.Background(), 10)
 	if err != nil {
@@ -313,22 +313,22 @@ func TestPanelBindingCreateTranslationUsesRepositoryCommandWhenAvailable(t *test
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Post",
-				"slug":                 "post",
-				"locale":               "en",
-				"status":               "draft",
-				"translation_group_id": "tg_123",
+				"id":        "post_123",
+				"title":     "Post",
+				"slug":      "post",
+				"locale":    "en",
+				"status":    "draft",
+				"family_id": "tg_123",
 			},
 		},
 		createTranslationResult: map[string]any{
-			"id":                   "post_456",
-			"locale":               "es",
-			"status":               "draft",
-			"translation_group_id": "tg_123",
-			"available_locales":    []string{"en", "es"},
-			"requested_locale":     "es",
-			"resolved_locale":      "es",
+			"id":                "post_456",
+			"locale":            "es",
+			"status":            "draft",
+			"family_id":         "tg_123",
+			"available_locales": []string{"en", "es"},
+			"requested_locale":  "es",
+			"resolved_locale":   "es",
 		},
 	}
 	panel := &Panel{name: "posts", repo: repo}
@@ -377,13 +377,13 @@ func TestPanelBindingCreateTranslationFallsBackToCloneWhenRepositoryCommandUnsup
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Post",
-				"slug":                 "post",
-				"locale":               "en",
-				"status":               "draft",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en"},
+				"id":                "post_123",
+				"title":             "Post",
+				"slug":              "post",
+				"locale":            "en",
+				"status":            "draft",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -418,13 +418,13 @@ func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *te
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"title":                "Home",
-				"slug":                 "home",
-				"locale":               "en",
-				"status":               "approval",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en"},
+				"id":                "page_123",
+				"title":             "Home",
+				"slug":              "home",
+				"locale":            "en",
+				"status":            "approval",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -473,10 +473,10 @@ func TestPanelBindingCreateTranslationDuplicateReturnsTypedError(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en", "es"},
+				"id":                "page_123",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en", "es"},
 			},
 		},
 	}
@@ -511,17 +511,17 @@ func TestPanelBindingCreateTranslationRepositoryCommandDuplicateReturnsTypedErro
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_123",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 		createTranslationErr: TranslationAlreadyExistsError{
-			Panel:              "posts",
-			EntityID:           "post_123",
-			Locale:             "fr",
-			SourceLocale:       "en",
-			TranslationGroupID: "tg_123",
+			Panel:        "posts",
+			EntityID:     "post_123",
+			Locale:       "fr",
+			SourceLocale: "en",
+			FamilyID:     "tg_123",
 		},
 	}
 	panel := &Panel{name: "posts", repo: repo}
@@ -558,10 +558,10 @@ func TestPanelBindingLogsBlockedWorkflowTransition(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"status":               "approval",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "page_123",
+				"status":    "approval",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 	}
@@ -618,10 +618,10 @@ func TestPanelBindingWorkflowActionAliasesSupportLegacyTransitions(t *testing.T)
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "page_123",
+				"status":    "draft",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 	}
@@ -664,10 +664,10 @@ func TestPanelBindingWorkflowActionsUsePrimaryIDWhenSelectionContainsMultipleIDs
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_123": {
-				"id":                   "page_123",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "page_123",
+				"status":    "draft",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 	}
@@ -988,12 +988,12 @@ func TestPanelBindingListSetsTranslationMissingReasonCodeForBlockedPublish(t *te
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "post_123",
-				"title":                "Published Post",
-				"status":               "approval",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en"},
+				"id":                "post_123",
+				"title":             "Published Post",
+				"status":            "approval",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -1054,22 +1054,22 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Published Post",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en", "es"},
+				"id":                "post_123",
+				"title":             "Published Post",
+				"status":            "published",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en", "es"},
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":                   "post_123",
-				"title":                "Published Post",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en", "es"},
+				"id":                "post_123",
+				"title":             "Published Post",
+				"status":            "published",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en", "es"},
 			},
 		},
 	}
@@ -1139,11 +1139,11 @@ func TestPanelBindingDetailAndUpdateNormalizeFallbackContext(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_123",
+				"title":     "Post",
+				"status":    "draft",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 	}
@@ -1197,12 +1197,12 @@ func TestPanelBindingPublishesTranslationDatagridEnrichmentContracts(t *testing.
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en", "es", "fr"},
+				"id":                "post_123",
+				"title":             "Post",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en", "es", "fr"},
 				"metadata": map[string]any{
 					"translation_assignment_summary": map[string]any{
 						"status":       "in_progress",
@@ -1220,12 +1220,12 @@ func TestPanelBindingPublishesTranslationDatagridEnrichmentContracts(t *testing.
 		},
 		list: []map[string]any{
 			{
-				"id":                   "post_123",
-				"title":                "Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"available_locales":    []string{"en", "es", "fr"},
+				"id":                "post_123",
+				"title":             "Post",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_123",
+				"available_locales": []string{"en", "es", "fr"},
 				"metadata": map[string]any{
 					"translation_assignment_summary": map[string]any{
 						"status":       "in_progress",
@@ -1314,33 +1314,33 @@ func TestPanelBindingDetailIncludesSourceTargetDriftMetadata(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_en": {
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"source_hash":          "abc123",
-				"source_version":       "42",
-				"changed_fields":       []string{"title", "seo.description"},
+				"id":             "post_en",
+				"title":          "Post EN",
+				"status":         "published",
+				"locale":         "en",
+				"family_id":      "tg_123",
+				"source_hash":    "abc123",
+				"source_version": "42",
+				"changed_fields": []string{"title", "seo.description"},
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"source_hash":          "abc123",
-				"source_version":       "42",
-				"changed_fields":       []string{"title", "seo.description"},
+				"id":             "post_en",
+				"title":          "Post EN",
+				"status":         "published",
+				"locale":         "en",
+				"family_id":      "tg_123",
+				"source_hash":    "abc123",
+				"source_version": "42",
+				"changed_fields": []string{"title", "seo.description"},
 			},
 			{
-				"id":                   "post_es",
-				"title":                "Post ES",
-				"status":               "draft",
-				"locale":               "es",
-				"translation_group_id": "tg_123",
+				"id":        "post_es",
+				"title":     "Post ES",
+				"status":    "draft",
+				"locale":    "es",
+				"family_id": "tg_123",
 			},
 		},
 	}
@@ -1402,41 +1402,41 @@ func TestPanelBindingDetailIncludesTranslationSiblingsPayload(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_en": {
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_en",
+				"title":     "Post EN",
+				"status":    "published",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":                   "post_fr",
-				"title":                "Post FR",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_123",
+				"id":        "post_fr",
+				"title":     "Post FR",
+				"status":    "draft",
+				"locale":    "fr",
+				"family_id": "tg_123",
 			},
 			{
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_en",
+				"title":     "Post EN",
+				"status":    "published",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 			{
-				"id":                   "post_es",
-				"title":                "Post ES",
-				"status":               "approval",
-				"locale":               "es",
-				"translation_group_id": "tg_123",
+				"id":        "post_es",
+				"title":     "Post ES",
+				"status":    "approval",
+				"locale":    "es",
+				"family_id": "tg_123",
 			},
 			{
-				"id":                   "post_other",
-				"title":                "Other",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_other",
+				"id":        "post_other",
+				"title":     "Other",
+				"status":    "draft",
+				"locale":    "en",
+				"family_id": "tg_other",
 			},
 		},
 	}
@@ -1490,11 +1490,11 @@ func TestPanelBindingDetailFlagsSiblingsDegradedWhenListFails(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_en": {
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "published",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
+				"id":        "post_en",
+				"title":     "Post EN",
+				"status":    "published",
+				"locale":    "en",
+				"family_id": "tg_123",
 			},
 		},
 		listErr: errors.New("list unavailable"),
@@ -1530,12 +1530,12 @@ func TestPanelBindingUpdateReturnsAutosaveConflictWhenVersionIsStale(t *testing.
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
-				"id":                   "post_123",
-				"title":                "Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_123",
-				"version":              2,
+				"id":        "post_123",
+				"title":     "Post",
+				"status":    "draft",
+				"locale":    "en",
+				"family_id": "tg_123",
+				"version":   2,
 			},
 		},
 	}
@@ -1577,28 +1577,28 @@ func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "post_ready",
-				"title":                "Ready Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_ready",
-				"available_locales":    []string{"en", "es", "fr"},
+				"id":                "post_ready",
+				"title":             "Ready Post",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_ready",
+				"available_locales": []string{"en", "es", "fr"},
 			},
 			{
-				"id":                   "post_incomplete_1",
-				"title":                "Incomplete One",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_incomplete_1",
-				"available_locales":    []string{"en"},
+				"id":                "post_incomplete_1",
+				"title":             "Incomplete One",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_incomplete_1",
+				"available_locales": []string{"en"},
 			},
 			{
-				"id":                   "post_incomplete_2",
-				"title":                "Incomplete Two",
-				"status":               "draft",
-				"locale":               "es",
-				"translation_group_id": "tg_incomplete_2",
-				"available_locales":    []string{"es"},
+				"id":                "post_incomplete_2",
+				"title":             "Incomplete Two",
+				"status":            "draft",
+				"locale":            "es",
+				"family_id":         "tg_incomplete_2",
+				"available_locales": []string{"es"},
 			},
 		},
 	}
@@ -1684,20 +1684,20 @@ func TestPanelBindingListSupportsReadinessStatePredicateAlias(t *testing.T) {
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "post_ready",
-				"title":                "Ready Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_ready",
-				"available_locales":    []string{"en", "es", "fr"},
+				"id":                "post_ready",
+				"title":             "Ready Post",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_ready",
+				"available_locales": []string{"en", "es", "fr"},
 			},
 			{
-				"id":                   "post_incomplete",
-				"title":                "Incomplete Post",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_incomplete",
-				"available_locales":    []string{"en"},
+				"id":                "post_incomplete",
+				"title":             "Incomplete Post",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_incomplete",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -1751,38 +1751,38 @@ func TestPanelBindingListSupportsReadinessStateFilterValues(t *testing.T) {
 			repo := &translationActionRepoStub{
 				list: []map[string]any{
 					{
-						"id":                   "ready",
-						"title":                "Ready",
-						"path":                 "/ready",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_ready",
-						"available_locales":    []string{"en", "fr"},
+						"id":                "ready",
+						"title":             "Ready",
+						"path":              "/ready",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_ready",
+						"available_locales": []string{"en", "fr"},
 					},
 					{
-						"id":                   "missing_locales",
-						"title":                "Missing Locales",
-						"path":                 "/missing-locales",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_missing_locales",
-						"available_locales":    []string{"en"},
+						"id":                "missing_locales",
+						"title":             "Missing Locales",
+						"path":              "/missing-locales",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_missing_locales",
+						"available_locales": []string{"en"},
 					},
 					{
-						"id":                   "missing_fields",
-						"title":                "Missing Fields",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_missing_fields",
-						"available_locales":    []string{"en", "fr"},
+						"id":                "missing_fields",
+						"title":             "Missing Fields",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_missing_fields",
+						"available_locales": []string{"en", "fr"},
 					},
 					{
-						"id":                   "missing_locales_and_fields",
-						"title":                "Missing Both",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_missing_both",
-						"available_locales":    []string{"en"},
+						"id":                "missing_locales_and_fields",
+						"title":             "Missing Both",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_missing_both",
+						"available_locales": []string{"en"},
 					},
 				},
 			}
@@ -1858,44 +1858,44 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 			repo := &translationActionRepoStub{
 				list: []map[string]any{
 					{
-						"id":                   "alpha_en",
-						"title":                "Alpha EN",
-						"path":                 "/alpha",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_alpha",
-						"available_locales":    []string{"en"},
-						"updated_at":           "2026-02-15T10:00:00Z",
+						"id":                "alpha_en",
+						"title":             "Alpha EN",
+						"path":              "/alpha",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_alpha",
+						"available_locales": []string{"en"},
+						"updated_at":        "2026-02-15T10:00:00Z",
 					},
 					{
-						"id":                   "alpha_fr",
-						"title":                "Alpha FR",
-						"path":                 "/alpha-fr",
-						"status":               "draft",
-						"locale":               "fr",
-						"translation_group_id": "tg_alpha",
-						"available_locales":    []string{"fr"},
-						"updated_at":           "2026-02-15T12:00:00Z",
+						"id":                "alpha_fr",
+						"title":             "Alpha FR",
+						"path":              "/alpha-fr",
+						"status":            "draft",
+						"locale":            "fr",
+						"family_id":         "tg_alpha",
+						"available_locales": []string{"fr"},
+						"updated_at":        "2026-02-15T12:00:00Z",
 					},
 					{
-						"id":                   "beta_en",
-						"title":                "Beta EN",
-						"path":                 "/beta",
-						"status":               "draft",
-						"locale":               "en",
-						"translation_group_id": "tg_beta",
-						"available_locales":    []string{"en"},
-						"updated_at":           "2026-02-16T08:00:00Z",
+						"id":                "beta_en",
+						"title":             "Beta EN",
+						"path":              "/beta",
+						"status":            "draft",
+						"locale":            "en",
+						"family_id":         "tg_beta",
+						"available_locales": []string{"en"},
+						"updated_at":        "2026-02-16T08:00:00Z",
 					},
 					{
-						"id":                   "beta_es",
-						"title":                "Beta ES",
-						"path":                 "/beta-es",
-						"status":               "draft",
-						"locale":               "es",
-						"translation_group_id": "tg_beta",
-						"available_locales":    []string{"es"},
-						"updated_at":           "2026-02-16T09:00:00Z",
+						"id":                "beta_es",
+						"title":             "Beta ES",
+						"path":              "/beta-es",
+						"status":            "draft",
+						"locale":            "es",
+						"family_id":         "tg_beta",
+						"available_locales": []string{"es"},
+						"updated_at":        "2026-02-16T09:00:00Z",
 					},
 				},
 			}
@@ -1929,11 +1929,11 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 				Page:    1,
 				PerPage: 1,
 				Filters: map[string]any{
-					"group_by":    "translation_group_id",
+					"group_by":    "family_id",
 					"environment": "production",
 				},
 				Predicates: []boot.ListPredicate{
-					{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+					{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 					{Field: "environment", Operator: "eq", Values: []string{"production"}},
 				},
 			})
@@ -1952,11 +1952,11 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 				Page:    2,
 				PerPage: 1,
 				Filters: map[string]any{
-					"group_by":    "translation_group_id",
+					"group_by":    "family_id",
 					"environment": "production",
 				},
 				Predicates: []boot.ListPredicate{
-					{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+					{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 					{Field: "environment", Operator: "eq", Values: []string{"production"}},
 				},
 			})
@@ -1978,24 +1978,24 @@ func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *te
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "alpha_en",
-				"title":                "Alpha EN",
-				"path":                 "/alpha",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"en"},
-				"updated_at":           "2026-02-16T10:00:00Z",
+				"id":                "alpha_en",
+				"title":             "Alpha EN",
+				"path":              "/alpha",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"en"},
+				"updated_at":        "2026-02-16T10:00:00Z",
 			},
 			{
-				"id":                   "alpha_fr",
-				"title":                "Alpha FR",
-				"path":                 "/alpha-fr",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"fr"},
-				"updated_at":           "2026-02-16T09:00:00Z",
+				"id":                "alpha_fr",
+				"title":             "Alpha FR",
+				"path":              "/alpha-fr",
+				"status":            "draft",
+				"locale":            "fr",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"fr"},
+				"updated_at":        "2026-02-16T09:00:00Z",
 			},
 		},
 	}
@@ -2021,10 +2021,10 @@ func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *te
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
-			"group_by": "translation_group_id",
+			"group_by": "family_id",
 		},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 		},
 	})
 	if err != nil {
@@ -2051,22 +2051,22 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "alpha_en",
-				"title":                "Alpha EN",
-				"path":                 "/alpha",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"en"},
+				"id":                "alpha_en",
+				"title":             "Alpha EN",
+				"path":              "/alpha",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"en"},
 			},
 			{
-				"id":                   "alpha_fr",
-				"title":                "Alpha FR",
-				"path":                 "/alpha-fr",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"fr"},
+				"id":                "alpha_fr",
+				"title":             "Alpha FR",
+				"path":              "/alpha-fr",
+				"status":            "draft",
+				"locale":            "fr",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"fr"},
 			},
 			{
 				"id":                "orphan_en",
@@ -2102,10 +2102,10 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
-			"group_by": "translation_group_id",
+			"group_by": "family_id",
 		},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 		},
 	})
 	if err != nil {
@@ -2119,8 +2119,8 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	}
 
 	groupedRow := rows[0]
-	if got := strings.TrimSpace(toString(groupedRow["translation_group_id"])); got != "tg_alpha" {
-		t.Fatalf("expected grouped row translation_group_id tg_alpha, got %q", got)
+	if got := strings.TrimSpace(toString(groupedRow["family_id"])); got != "tg_alpha" {
+		t.Fatalf("expected grouped row family_id tg_alpha, got %q", got)
 	}
 	groupedState := actionStateEnvelope(groupedRow["_action_state"])
 	if len(groupedState) == 0 {
@@ -2132,8 +2132,8 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	}
 
 	ungroupedRow := rows[1]
-	if got := strings.TrimSpace(toString(ungroupedRow["translation_group_id"])); got != "" {
-		t.Fatalf("expected ungrouped row to keep empty translation_group_id, got %q", got)
+	if got := strings.TrimSpace(toString(ungroupedRow["family_id"])); got != "" {
+		t.Fatalf("expected ungrouped row to keep empty family_id, got %q", got)
 	}
 	if got := strings.TrimSpace(toString(ungroupedRow["id"])); got != "orphan_en" {
 		t.Fatalf("expected ungrouped row id orphan_en, got %q", got)
@@ -2156,31 +2156,31 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "multi_en",
-				"title":                "Multi EN",
-				"status":               "draft",
-				"locale":               "en",
-				"policy_entity":        "posts",
-				"translation_group_id": "tg_multi",
-				"available_locales":    []string{"en"},
+				"id":                "multi_en",
+				"title":             "Multi EN",
+				"status":            "draft",
+				"locale":            "en",
+				"policy_entity":     "posts",
+				"family_id":         "tg_multi",
+				"available_locales": []string{"en"},
 			},
 			{
-				"id":                   "multi_fr",
-				"title":                "Multi FR",
-				"status":               "draft",
-				"locale":               "fr",
-				"policy_entity":        "posts",
-				"translation_group_id": "tg_multi",
-				"available_locales":    []string{"fr"},
+				"id":                "multi_fr",
+				"title":             "Multi FR",
+				"status":            "draft",
+				"locale":            "fr",
+				"policy_entity":     "posts",
+				"family_id":         "tg_multi",
+				"available_locales": []string{"fr"},
 			},
 			{
-				"id":                   "mono_en",
-				"title":                "Mono EN",
-				"status":               "draft",
-				"locale":               "en",
-				"policy_entity":        "widgets",
-				"translation_group_id": "tg_mono",
-				"available_locales":    []string{"en"},
+				"id":                "mono_en",
+				"title":             "Mono EN",
+				"status":            "draft",
+				"locale":            "en",
+				"policy_entity":     "widgets",
+				"family_id":         "tg_mono",
+				"available_locales": []string{"en"},
 			},
 		},
 	}
@@ -2204,11 +2204,11 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
-			"group_by":    "translation_group_id",
+			"group_by":    "family_id",
 			"environment": "production",
 		},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 			{Field: "environment", Operator: "eq", Values: []string{"production"}},
 		},
 	})
@@ -2221,7 +2221,7 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 
 	var monoSummary map[string]any
 	for _, row := range rows {
-		if strings.TrimSpace(toString(row["translation_group_id"])) != "tg_mono" {
+		if strings.TrimSpace(toString(row["family_id"])) != "tg_mono" {
 			continue
 		}
 		monoSummary = extractMap(row["translation_group_summary"])
@@ -2245,7 +2245,7 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 	}
 }
 
-func TestPanelBindingListEmitsCanonicalTranslationGroupIDFromNestedMetadata(t *testing.T) {
+func TestPanelBindingListEmitsCanonicalFamilyIDFromNestedMetadata(t *testing.T) {
 	panelNames := []string{"pages", "posts", "news", "announcements"}
 	for _, panelName := range panelNames {
 		t.Run(panelName, func(t *testing.T) {
@@ -2258,7 +2258,7 @@ func TestPanelBindingListEmitsCanonicalTranslationGroupIDFromNestedMetadata(t *t
 						"locale":            "en",
 						"available_locales": []string{"en"},
 						"translation_context": map[string]any{
-							"translation_group_id": "tg_" + panelName,
+							"family_id": "tg_" + panelName,
 						},
 					},
 				},
@@ -2285,8 +2285,8 @@ func TestPanelBindingListEmitsCanonicalTranslationGroupIDFromNestedMetadata(t *t
 				t.Fatalf("expected one record, got total=%d len=%d", total, len(records))
 			}
 			expected := "tg_" + panelName
-			if got := strings.TrimSpace(toString(records[0]["translation_group_id"])); got != expected {
-				t.Fatalf("expected top-level translation_group_id %q, got %q", expected, got)
+			if got := strings.TrimSpace(toString(records[0]["family_id"])); got != expected {
+				t.Fatalf("expected top-level family_id %q, got %q", expected, got)
 			}
 		})
 	}
@@ -2296,49 +2296,49 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "alpha_en",
-				"title":                "Alpha EN",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"en"},
-				"updated_at":           "2026-02-16T10:00:00Z",
+				"id":                "alpha_en",
+				"title":             "Alpha EN",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"en"},
+				"updated_at":        "2026-02-16T10:00:00Z",
 			},
 			{
-				"id":                   "alpha_es",
-				"title":                "Alpha ES",
-				"status":               "draft",
-				"locale":               "es",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"es"},
-				"updated_at":           "2026-02-16T11:00:00Z",
+				"id":                "alpha_es",
+				"title":             "Alpha ES",
+				"status":            "draft",
+				"locale":            "es",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"es"},
+				"updated_at":        "2026-02-16T11:00:00Z",
 			},
 			{
-				"id":                   "alpha_fr",
-				"title":                "Alpha FR",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_alpha",
-				"available_locales":    []string{"fr"},
-				"updated_at":           "2026-02-16T12:00:00Z",
+				"id":                "alpha_fr",
+				"title":             "Alpha FR",
+				"status":            "draft",
+				"locale":            "fr",
+				"family_id":         "tg_alpha",
+				"available_locales": []string{"fr"},
+				"updated_at":        "2026-02-16T12:00:00Z",
 			},
 			{
-				"id":                   "beta_en",
-				"title":                "Beta EN",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_beta",
-				"available_locales":    []string{"en"},
-				"updated_at":           "2026-02-16T13:00:00Z",
+				"id":                "beta_en",
+				"title":             "Beta EN",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_beta",
+				"available_locales": []string{"en"},
+				"updated_at":        "2026-02-16T13:00:00Z",
 			},
 			{
-				"id":                   "beta_fr",
-				"title":                "Beta FR",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_beta",
-				"available_locales":    []string{"fr"},
-				"updated_at":           "2026-02-16T14:00:00Z",
+				"id":                "beta_fr",
+				"title":             "Beta FR",
+				"status":            "draft",
+				"locale":            "fr",
+				"family_id":         "tg_beta",
+				"available_locales": []string{"fr"},
+				"updated_at":        "2026-02-16T14:00:00Z",
 			},
 			{
 				"id":                "orphan_en",
@@ -2368,9 +2368,9 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	page1, total1, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 1,
-		Filters: map[string]any{"group_by": "translation_group_id"},
+		Filters: map[string]any{"group_by": "family_id"},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 		},
 	})
 	if err != nil {
@@ -2389,9 +2389,9 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	page2, total2, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    2,
 		PerPage: 1,
-		Filters: map[string]any{"group_by": "translation_group_id"},
+		Filters: map[string]any{"group_by": "family_id"},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 		},
 	})
 	if err != nil {
@@ -2405,9 +2405,9 @@ func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *test
 	page3, total3, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    3,
 		PerPage: 1,
-		Filters: map[string]any{"group_by": "translation_group_id"},
+		Filters: map[string]any{"group_by": "family_id"},
 		Predicates: []boot.ListPredicate{
-			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
 		},
 	})
 	if err != nil {
@@ -2429,20 +2429,20 @@ func TestPanelBindingBulkCreateMissingTranslationsReturnsTypedResults(t *testing
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_1": {
-				"id":                   "page_1",
-				"title":                "Source",
-				"path":                 "/source",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_1",
-				"available_locales":    []string{"en"},
+				"id":                "page_1",
+				"title":             "Source",
+				"path":              "/source",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_1",
+				"available_locales": []string{"en"},
 			},
 		},
 		createTranslationResult: map[string]any{
-			"id":                   "page_es",
-			"locale":               "es",
-			"status":               "draft",
-			"translation_group_id": "tg_1",
+			"id":        "page_es",
+			"locale":    "es",
+			"status":    "draft",
+			"family_id": "tg_1",
 		},
 	}
 	panel := &Panel{
@@ -2501,21 +2501,21 @@ func TestPanelBindingBulkCreateMissingTranslationsIncludesPerLocaleFailures(t *t
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"page_1": {
-				"id":                   "page_1",
-				"title":                "Source",
-				"path":                 "/source",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_1",
-				"available_locales":    []string{"en"},
+				"id":                "page_1",
+				"title":             "Source",
+				"path":              "/source",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_1",
+				"available_locales": []string{"en"},
 			},
 		},
 		createTranslationErr: TranslationAlreadyExistsError{
-			Panel:              "pages",
-			EntityID:           "page_1",
-			Locale:             "es",
-			SourceLocale:       "en",
-			TranslationGroupID: "tg_1",
+			Panel:        "pages",
+			EntityID:     "page_1",
+			Locale:       "es",
+			SourceLocale: "en",
+			FamilyID:     "tg_1",
 		},
 	}
 	panel := &Panel{
@@ -2569,11 +2569,11 @@ func TestPanelBindingBulkCreateMissingTranslationsIncludesPerLocaleFailures(t *t
 
 func assertGroupedTranslationRecord(t *testing.T, record map[string]any, expectedGroupID string, expectedChildren int) {
 	t.Helper()
-	if got := strings.TrimSpace(toString(record["translation_group_id"])); got != expectedGroupID {
+	if got := strings.TrimSpace(toString(record["family_id"])); got != expectedGroupID {
 		t.Fatalf("expected group id %q, got %q", expectedGroupID, got)
 	}
-	if got := strings.TrimSpace(toString(record["group_by"])); got != listGroupByTranslationGroupID {
-		t.Fatalf("expected group_by %q, got %q", listGroupByTranslationGroupID, got)
+	if got := strings.TrimSpace(toString(record["group_by"])); got != listGroupByFamilyID {
+		t.Fatalf("expected group_by %q, got %q", listGroupByFamilyID, got)
 	}
 	children, ok := record["children"].([]map[string]any)
 	if !ok {
@@ -2583,7 +2583,7 @@ func assertGroupedTranslationRecord(t *testing.T, record map[string]any, expecte
 		t.Fatalf("expected %d children, got %d", expectedChildren, len(children))
 	}
 	for _, child := range children {
-		if childGroup := strings.TrimSpace(toString(child["translation_group_id"])); childGroup != expectedGroupID {
+		if childGroup := strings.TrimSpace(toString(child["family_id"])); childGroup != expectedGroupID {
 			t.Fatalf("expected child group id %q, got %q", expectedGroupID, childGroup)
 		}
 	}
@@ -2609,12 +2609,12 @@ func TestPanelBindingListTranslationReadinessMemoizesRequirementsForBatch(t *tes
 	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
 	for i := range 50 {
 		repo.list = append(repo.list, map[string]any{
-			"id":                   fmt.Sprintf("post_%d", i),
-			"title":                fmt.Sprintf("Post %d", i),
-			"status":               "draft",
-			"locale":               "en",
-			"translation_group_id": fmt.Sprintf("tg_%d", i),
-			"available_locales":    []string{"en"},
+			"id":                fmt.Sprintf("post_%d", i),
+			"title":             fmt.Sprintf("Post %d", i),
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         fmt.Sprintf("tg_%d", i),
+			"available_locales": []string{"en"},
 		})
 	}
 	policy := &readinessRequirementsPolicyRecorder{
@@ -2652,20 +2652,20 @@ func TestPanelBindingListTranslationReadinessAggregatesLocalesByGroup(t *testing
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
 			{
-				"id":                   "post_en",
-				"title":                "Post EN",
-				"status":               "draft",
-				"locale":               "en",
-				"translation_group_id": "tg_shared",
-				"available_locales":    []string{"en"},
+				"id":                "post_en",
+				"title":             "Post EN",
+				"status":            "draft",
+				"locale":            "en",
+				"family_id":         "tg_shared",
+				"available_locales": []string{"en"},
 			},
 			{
-				"id":                   "post_fr",
-				"title":                "Post FR",
-				"status":               "draft",
-				"locale":               "fr",
-				"translation_group_id": "tg_shared",
-				"available_locales":    []string{"fr"},
+				"id":                "post_fr",
+				"title":             "Post FR",
+				"status":            "draft",
+				"locale":            "fr",
+				"family_id":         "tg_shared",
+				"available_locales": []string{"fr"},
 			},
 		},
 	}
@@ -2717,12 +2717,12 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
 	for i := range 50 {
 		repo.list = append(repo.list, map[string]any{
-			"id":                   fmt.Sprintf("post_%d", i),
-			"title":                fmt.Sprintf("Post %d", i),
-			"status":               "draft",
-			"locale":               "en",
-			"translation_group_id": fmt.Sprintf("tg_%d", i),
-			"available_locales":    []string{"en"},
+			"id":                fmt.Sprintf("post_%d", i),
+			"title":             fmt.Sprintf("Post %d", i),
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         fmt.Sprintf("tg_%d", i),
+			"available_locales": []string{"en"},
 		})
 	}
 	const warmupRuns = 5
@@ -2806,10 +2806,10 @@ func TestPanelBindingPublishEnforcesTranslationPolicyForPagesAndPosts(t *testing
 			repo := &translationActionRepoStub{
 				records: map[string]map[string]any{
 					tt.entityID: {
-						"id":                   tt.entityID,
-						"status":               "approval",
-						"locale":               "en",
-						"translation_group_id": "tg_123",
+						"id":        tt.entityID,
+						"status":    "approval",
+						"locale":    "en",
+						"family_id": "tg_123",
 					},
 				},
 			}

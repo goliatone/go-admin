@@ -23,8 +23,7 @@ func TestActionContractsPhase7ListPublishesStaticBulkStateAndSelectionConfig(t *
 	fixture := canonicalBulkActionContractsPhase7Fixture(t)
 	listContract := extractMap(fixture["list_contract"])
 	meta := extractMap(listContract["$meta"])
-	bulkState := extractMap(meta["bulk_action_state"])
-	deleteState := extractMap(bulkState["delete"])
+	deleteState := extractActionStateEntry(meta["bulk_action_state"], "delete")
 	if got := deleteState["enabled"]; got != true {
 		t.Fatalf("expected static delete bulk state enabled, got %#v", deleteState)
 	}
@@ -44,13 +43,13 @@ func TestActionContractsPhase7SelectionEndpointPublishesSelectionSensitiveStates
 	selection := extractMap(fixture["selection_contracts"])
 
 	single := extractMap(selection["single_invalid"])
-	singleState := extractMap(extractMap(single["bulk_action_state"])["delete"])
+	singleState := extractActionStateEntry(single["bulk_action_state"], "delete")
 	if got := strings.TrimSpace(toString(singleState["reason_code"])); got != TextCodeResourceInUse {
 		t.Fatalf("expected single selection resource-in-use state, got %#v", singleState)
 	}
 
 	mixed := extractMap(selection["mixed_selection"])
-	mixedState := extractMap(extractMap(mixed["bulk_action_state"])["delete"])
+	mixedState := extractActionStateEntry(mixed["bulk_action_state"], "delete")
 	if got := strings.TrimSpace(toString(mixedState["reason_code"])); got != TextCodeInvalidSelection {
 		t.Fatalf("expected mixed selection invalid-selection state, got %#v", mixedState)
 	}
@@ -178,6 +177,16 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 		t.Fatalf("decode execution failure: %v", err)
 	}
 	executionFailure["status"] = rr.Code
+	if errPayload := extractMap(executionFailure["error"]); len(errPayload) > 0 {
+		metadata := extractMap(errPayload["metadata"])
+		delete(metadata, "method")
+		delete(metadata, "path")
+		executionFailure["error"] = map[string]any{
+			"text_code": strings.TrimSpace(toString(errPayload["text_code"])),
+			"message":   strings.TrimSpace(toString(errPayload["message"])),
+			"metadata":  metadata,
+		}
+	}
 
 	return map[string]any{
 		"schema_version": 1,

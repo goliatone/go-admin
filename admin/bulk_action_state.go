@@ -63,7 +63,7 @@ func (p *panelBinding) panelBulkActionStatePath() string {
 
 func (p *panelBinding) BulkActionState(c router.Context, locale string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"), c.Query("policyEntity"))
 	body = mergePanelActionActorContext(body, ctx)
 	actions := filterActionsForScope(p.panel.Schema().BulkActions, ActionScopeBulk)
 	states, err := p.selectionAwareBulkActionStates(ctx, actions, parseCommandIDs(body, c.Query("id"), c.Query("ids")), parseListOptions(c))

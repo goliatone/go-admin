@@ -15,14 +15,14 @@ func TestDefaultTranslationQueueServiceLifecycleApprove(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_1",
-		EntityType:         "pages",
-		SourceRecordID:     "page_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_1",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -67,14 +67,14 @@ func TestDefaultTranslationQueueServiceRejectAndResume(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_2",
-		EntityType:         "pages",
-		SourceRecordID:     "page_2",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_2",
+		EntityType:     "pages",
+		SourceRecordID: "page_2",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -111,14 +111,14 @@ func TestDefaultTranslationQueueServiceAssignRelease(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_3",
-		EntityType:         "posts",
-		SourceRecordID:     "post_1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_3",
+		EntityType:     "posts",
+		SourceRecordID: "post_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -156,14 +156,14 @@ func TestDefaultTranslationQueueServiceRejectRequiresReviewState(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_4",
-		EntityType:         "pages",
-		SourceRecordID:     "page_4",
-		SourceLocale:       "en",
-		TargetLocale:       "de",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_4",
+		EntityType:     "pages",
+		SourceRecordID: "page_4",
+		SourceLocale:   "en",
+		TargetLocale:   "de",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -193,16 +193,16 @@ func TestDefaultTranslationQueueServiceEmitsQueueActivityAndNotificationHooks(t 
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_5",
-		EntityType:         "pages",
-		SourceRecordID:     "page_5",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		SourceTitle:        "Home",
-		SourcePath:         "/home",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_5",
+		EntityType:     "pages",
+		SourceRecordID: "page_5",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		SourceTitle:    "Home",
+		SourcePath:     "/home",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -259,14 +259,14 @@ func TestDefaultTranslationQueueServiceClaimRejectResumeApproveArchiveFlow(t *te
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_flow",
-		EntityType:         "pages",
-		SourceRecordID:     "page_flow",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_flow",
+		EntityType:     "pages",
+		SourceRecordID: "page_flow",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -356,16 +356,16 @@ func TestDefaultTranslationQueueServiceReviewerGuardAndFeedbackActivity(t *testi
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg-review-feedback",
-		EntityType:         "pages",
-		SourceRecordID:     "page-review-feedback",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		TargetRecordID:     "page-review-feedback-fr",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInReview,
-		ReviewerID:         "reviewer-1",
-		Priority:           PriorityHigh,
+		FamilyID:       "tg-review-feedback",
+		EntityType:     "pages",
+		SourceRecordID: "page-review-feedback",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		TargetRecordID: "page-review-feedback-fr",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		ReviewerID:     "reviewer-1",
+		Priority:       PriorityHigh,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -444,14 +444,14 @@ func TestDefaultTranslationQueueServiceClaimDetectsOptimisticLockRace(t *testing
 	ctx := context.Background()
 
 	created, err := repo.Create(ctx, TranslationAssignment{
-		TranslationGroupID: "tg_race",
-		EntityType:         "pages",
-		SourceRecordID:     "page_race",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg_race",
+		EntityType:     "pages",
+		SourceRecordID: "page_race",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)

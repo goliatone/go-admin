@@ -38,7 +38,7 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	record := map[string]any{
 		"id":                       "page_1",
 		"locale":                   "en",
-		"translation_group_id":     "tg_1",
+		"family_id":                "tg_1",
 		"available_locales":        []string{"en", "es"},
 		"requested_locale":         "fr",
 		"missing_requested_locale": true,
@@ -94,11 +94,11 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 
 func TestBuildRecordTranslationReadinessMissingFields(t *testing.T) {
 	record := map[string]any{
-		"id":                   "page_1",
-		"locale":               "en",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en"},
-		"title":                "Home",
+		"id":                "page_1",
+		"locale":            "en",
+		"family_id":         "tg_1",
+		"available_locales": []string{"en"},
+		"title":             "Home",
 	}
 	policy := readinessPolicyStub{
 		ok: true,
@@ -126,10 +126,10 @@ func TestBuildRecordTranslationReadinessMissingFields(t *testing.T) {
 
 func TestBuildRecordTranslationReadinessDefaultsWorkScopeWhenPolicyOmitsIt(t *testing.T) {
 	record := map[string]any{
-		"id":                   "page_1",
-		"locale":               "en",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en"},
+		"id":                "page_1",
+		"locale":            "en",
+		"family_id":         "tg_1",
+		"available_locales": []string{"en"},
 	}
 	policy := readinessPolicyStub{
 		ok: true,
@@ -150,7 +150,7 @@ func TestBuildRecordTranslationReadinessDisablesQuickCreateWhenPolicyIsUnresolve
 	record := map[string]any{
 		"id":                       "page_1",
 		"locale":                   "en",
-		"translation_group_id":     "tg_1",
+		"family_id":                "tg_1",
 		"available_locales":        []string{"en"},
 		"requested_locale":         "fr",
 		"missing_requested_locale": true,
@@ -178,33 +178,33 @@ func TestBuildRecordTranslationReadinessDisablesQuickCreateWhenPolicyIsUnresolve
 
 func TestBuildRecordTranslationReadinessCacheMemoizesByEntityAndEnvironment(t *testing.T) {
 	record := map[string]any{
-		"id":                   "post_1",
-		"locale":               "en",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en"},
+		"id":                "post_1",
+		"locale":            "en",
+		"family_id":         "tg_1",
+		"available_locales": []string{"en"},
 	}
 	cache := &translationReadinessRequirementsCache{}
 	policy := &readinessPolicyCounterStub{}
 
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", record, map[string]any{"environment": "production"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
-		"id":                   "post_2",
-		"locale":               "en",
-		"translation_group_id": "tg_2",
-		"available_locales":    []string{"en"},
+		"id":                "post_2",
+		"locale":            "en",
+		"family_id":         "tg_2",
+		"available_locales": []string{"en"},
 	}, map[string]any{"environment": "production"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
-		"id":                   "post_3",
-		"locale":               "en",
-		"translation_group_id": "tg_3",
-		"available_locales":    []string{"en"},
+		"id":                "post_3",
+		"locale":            "en",
+		"family_id":         "tg_3",
+		"available_locales": []string{"en"},
 	}, map[string]any{"environment": "staging"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
-		"id":                   "post_4",
-		"locale":               "en",
-		"policy_entity":        "news",
-		"translation_group_id": "tg_4",
-		"available_locales":    []string{"en"},
+		"id":                "post_4",
+		"locale":            "en",
+		"policy_entity":     "news",
+		"family_id":         "tg_4",
+		"available_locales": []string{"en"},
 	}, map[string]any{"environment": "production"}, cache)
 
 	if got := len(policy.calls); got != 3 {
@@ -217,19 +217,19 @@ func TestBuildRecordTranslationReadinessCacheNormalizesPolicyEntityAliases(t *te
 	policy := &readinessPolicyCounterStub{}
 
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
-		"id":                   "post_1",
-		"locale":               "en",
-		"policy_entity":        "post",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en"},
+		"id":                "post_1",
+		"locale":            "en",
+		"policy_entity":     "post",
+		"family_id":         "tg_1",
+		"available_locales": []string{"en"},
 	}, map[string]any{"environment": "production"}, cache)
 
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
-		"id":                   "post_2",
-		"locale":               "fr",
-		"policy_entity":        "posts",
-		"translation_group_id": "tg_2",
-		"available_locales":    []string{"fr"},
+		"id":                "post_2",
+		"locale":            "fr",
+		"policy_entity":     "posts",
+		"family_id":         "tg_2",
+		"available_locales": []string{"fr"},
 	}, map[string]any{"environment": "production"}, cache)
 
 	if got := len(policy.calls); got != 1 {
@@ -240,16 +240,16 @@ func TestBuildRecordTranslationReadinessCacheNormalizesPolicyEntityAliases(t *te
 func TestTranslationReadinessBatchAvailableLocalesAggregatesByGroup(t *testing.T) {
 	grouped := translationReadinessBatchAvailableLocales([]map[string]any{
 		{
-			"id":                   "post_1",
-			"locale":               "en",
-			"translation_group_id": "tg_shared",
-			"available_locales":    []string{"en"},
+			"id":                "post_1",
+			"locale":            "en",
+			"family_id":         "tg_shared",
+			"available_locales": []string{"en"},
 		},
 		{
-			"id":                   "post_2",
-			"locale":               "fr",
-			"translation_group_id": "tg_shared",
-			"available_locales":    []string{"fr"},
+			"id":                "post_2",
+			"locale":            "fr",
+			"family_id":         "tg_shared",
+			"available_locales": []string{"fr"},
 		},
 		{
 			"id":                "post_3",
@@ -269,14 +269,14 @@ func TestTranslationReadinessBatchAvailableLocalesAggregatesByGroup(t *testing.T
 
 func TestBuildRecordTranslationReadinessIncludesLocaleMetadata(t *testing.T) {
 	record := map[string]any{
-		"id":                   "page_1",
-		"locale":               "en",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en", "fr"},
-		"title":                "Home",
-		"path":                 "/home",
-		"updated_by":           "alice",
-		"updated_at":           "2026-02-17T10:00:00Z",
+		"id":                "page_1",
+		"locale":            "en",
+		"family_id":         "tg_1",
+		"available_locales": []string{"en", "fr"},
+		"title":             "Home",
+		"path":              "/home",
+		"updated_by":        "alice",
+		"updated_at":        "2026-02-17T10:00:00Z",
 		"locale_metadata": map[string]any{
 			"fr": map[string]any{
 				"updated_by": "jean",

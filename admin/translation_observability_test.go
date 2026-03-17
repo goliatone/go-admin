@@ -118,10 +118,10 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		repo := &translationActionRepoStub{
 			records: map[string]map[string]any{
 				"page_123": {
-					"id":                   "page_123",
-					"locale":               "en",
-					"translation_group_id": "tg_123",
-					"available_locales":    []string{"en"},
+					"id":                "page_123",
+					"locale":            "en",
+					"family_id":         "tg_123",
+					"available_locales": []string{"en"},
 				},
 			},
 		}
@@ -175,10 +175,10 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		repo := &translationActionRepoStub{
 			records: map[string]map[string]any{
 				"page_123": {
-					"id":                   "page_123",
-					"locale":               "en",
-					"translation_group_id": "tg_123",
-					"available_locales":    []string{"en", "es"},
+					"id":                "page_123",
+					"locale":            "en",
+					"family_id":         "tg_123",
+					"available_locales": []string{"en", "es"},
 				},
 			},
 		}

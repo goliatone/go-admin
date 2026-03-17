@@ -47,4 +47,3 @@ func TestParseMultiValueArrayRemainsArray(t *testing.T) {
 		t.Fatalf("expected second value 2, got %#v", values[1])
 	}
 }
-

@@ -333,17 +333,17 @@ func TestTranslationFamilyBindingCreateVariantManualArchiveModeBlocksReplacement
 		LifecycleMode:   string(translationcore.AssignmentLifecycleManualArchive),
 		Assignments: []TranslationAssignment{
 			{
-				ID:                 "asg-approved-fr",
-				TranslationGroupID: "tg-page-1",
-				EntityType:         "pages",
-				SourceRecordID:     "page-1",
-				SourceLocale:       "en",
-				TargetLocale:       "fr",
-				WorkScope:          "localization",
-				Status:             AssignmentStatusApproved,
-				Priority:           PriorityNormal,
-				CreatedAt:          time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
-				UpdatedAt:          time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+				ID:             "asg-approved-fr",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				WorkScope:      "localization",
+				Status:         AssignmentStatusApproved,
+				Priority:       PriorityNormal,
+				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
 			},
 		},
 	})
@@ -467,17 +467,17 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 		RequiredLocales: []string{"fr"},
 		Assignments: []TranslationAssignment{
 			{
-				ID:                 "asg-approved-fr",
-				TranslationGroupID: "tg-page-1",
-				EntityType:         "pages",
-				SourceRecordID:     "page-1",
-				SourceLocale:       "en",
-				TargetLocale:       "fr",
-				WorkScope:          "localization",
-				Status:             AssignmentStatusApproved,
-				Priority:           PriorityNormal,
-				CreatedAt:          time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
-				UpdatedAt:          time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+				ID:             "asg-approved-fr",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				WorkScope:      "localization",
+				Status:         AssignmentStatusApproved,
+				Priority:       PriorityNormal,
+				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
 			},
 		},
 		Repo: &translationAssignmentFailingRepository{
@@ -509,8 +509,8 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 		Page:    1,
 		PerPage: 20,
 		Filters: map[string]any{
-			"translation_group_id": "tg-page-1",
-			"target_locale":        "fr",
+			"family_id":     "tg-page-1",
+			"target_locale": "fr",
 		},
 	})
 	if err != nil {
@@ -528,17 +528,17 @@ func TestTranslationFamilyBindingCreateVariantScopesLifecycleByWorkScope(t *test
 		LifecycleMode:        string(translationcore.AssignmentLifecycleManualArchive),
 		Assignments: []TranslationAssignment{
 			{
-				ID:                 "asg-approved-editorial-fr",
-				TranslationGroupID: "tg-page-1",
-				EntityType:         "pages",
-				SourceRecordID:     "page-1",
-				SourceLocale:       "en",
-				TargetLocale:       "fr",
-				WorkScope:          "editorial.review",
-				Status:             AssignmentStatusApproved,
-				Priority:           PriorityNormal,
-				CreatedAt:          time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
-				UpdatedAt:          time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+				ID:             "asg-approved-editorial-fr",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				WorkScope:      "editorial.review",
+				Status:         AssignmentStatusApproved,
+				Priority:       PriorityNormal,
+				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
 			},
 		},
 	})
@@ -558,8 +558,8 @@ func TestTranslationFamilyBindingCreateVariantScopesLifecycleByWorkScope(t *test
 		Page:    1,
 		PerPage: 20,
 		Filters: map[string]any{
-			"translation_group_id": "tg-page-1",
-			"target_locale":        "fr",
+			"family_id":     "tg-page-1",
+			"target_locale": "fr",
 		},
 	})
 	if err != nil {
@@ -642,59 +642,59 @@ func newTranslationFamilyBindingTestRuntime(t *testing.T) *translationFamilyRunt
 	input := translationservices.BackfillInput{
 		Variants: []translationservices.BackfillSourceVariant{
 			{
-				Scope:              translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:        "pages",
-				SourceRecordID:     "page-1",
-				TranslationGroupID: "tg-page-1",
-				Locale:             "en",
-				Fields:             map[string]string{"title": "Page 1", "body": "Hello"},
-				Status:             string(translationcore.VariantStatusPublished),
-				CreatedAt:          now.Add(-6 * time.Hour),
-				UpdatedAt:          now.Add(-6 * time.Hour),
+				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+				ContentType:    "pages",
+				SourceRecordID: "page-1",
+				FamilyID:       "tg-page-1",
+				Locale:         "en",
+				Fields:         map[string]string{"title": "Page 1", "body": "Hello"},
+				Status:         string(translationcore.VariantStatusPublished),
+				CreatedAt:      now.Add(-6 * time.Hour),
+				UpdatedAt:      now.Add(-6 * time.Hour),
 			},
 			{
-				Scope:              translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:        "pages",
-				SourceRecordID:     "page-1-es",
-				TranslationGroupID: "tg-page-1",
-				Locale:             "es",
-				Fields:             map[string]string{"title": "Pagina 1", "body": "Hola"},
-				Status:             string(translationcore.VariantStatusInReview),
-				CreatedAt:          now.Add(-5 * time.Hour),
-				UpdatedAt:          now.Add(-5 * time.Hour),
+				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+				ContentType:    "pages",
+				SourceRecordID: "page-1-es",
+				FamilyID:       "tg-page-1",
+				Locale:         "es",
+				Fields:         map[string]string{"title": "Pagina 1", "body": "Hola"},
+				Status:         string(translationcore.VariantStatusInReview),
+				CreatedAt:      now.Add(-5 * time.Hour),
+				UpdatedAt:      now.Add(-5 * time.Hour),
 			},
 			{
-				Scope:              translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:        "posts",
-				SourceRecordID:     "post-1",
-				TranslationGroupID: "tg-post-1",
-				Locale:             "en",
-				Fields:             map[string]string{"title": "Post 1", "body": "Hello"},
-				Status:             string(translationcore.VariantStatusPublished),
-				CreatedAt:          now.Add(-4 * time.Hour),
-				UpdatedAt:          now.Add(-4 * time.Hour),
+				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+				ContentType:    "posts",
+				SourceRecordID: "post-1",
+				FamilyID:       "tg-post-1",
+				Locale:         "en",
+				Fields:         map[string]string{"title": "Post 1", "body": "Hello"},
+				Status:         string(translationcore.VariantStatusPublished),
+				CreatedAt:      now.Add(-4 * time.Hour),
+				UpdatedAt:      now.Add(-4 * time.Hour),
 			},
 			{
-				Scope:              translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:        "posts",
-				SourceRecordID:     "post-1-es",
-				TranslationGroupID: "tg-post-1",
-				Locale:             "es",
-				Fields:             map[string]string{"title": "Post 1 ES", "body": "Hola"},
-				Status:             string(translationcore.VariantStatusApproved),
-				CreatedAt:          now.Add(-3 * time.Hour),
-				UpdatedAt:          now.Add(-3 * time.Hour),
+				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+				ContentType:    "posts",
+				SourceRecordID: "post-1-es",
+				FamilyID:       "tg-post-1",
+				Locale:         "es",
+				Fields:         map[string]string{"title": "Post 1 ES", "body": "Hola"},
+				Status:         string(translationcore.VariantStatusApproved),
+				CreatedAt:      now.Add(-3 * time.Hour),
+				UpdatedAt:      now.Add(-3 * time.Hour),
 			},
 			{
-				Scope:              translationservices.Scope{TenantID: "tenant-2", OrgID: "org-9"},
-				ContentType:        "pages",
-				SourceRecordID:     "page-tenant-2",
-				TranslationGroupID: "tg-page-tenant-2",
-				Locale:             "en",
-				Fields:             map[string]string{"title": "Tenant 2", "body": "Hello"},
-				Status:             string(translationcore.VariantStatusPublished),
-				CreatedAt:          now.Add(-2 * time.Hour),
-				UpdatedAt:          now.Add(-2 * time.Hour),
+				Scope:          translationservices.Scope{TenantID: "tenant-2", OrgID: "org-9"},
+				ContentType:    "pages",
+				SourceRecordID: "page-tenant-2",
+				FamilyID:       "tg-page-tenant-2",
+				Locale:         "en",
+				Fields:         map[string]string{"title": "Tenant 2", "body": "Hello"},
+				Status:         string(translationcore.VariantStatusPublished),
+				CreatedAt:      now.Add(-2 * time.Hour),
+				UpdatedAt:      now.Add(-2 * time.Hour),
 			},
 		},
 		Policies: map[string]translationservices.BackfillPolicy{
@@ -829,12 +829,12 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 
 	contentSvc := newTranslationFamilyMutationContentService()
 	_, err := contentSvc.CreatePage(context.Background(), CMSPage{
-		ID:                 "page-1",
-		Title:              "Page 1",
-		Slug:               "page-1",
-		Locale:             "en",
-		TranslationGroupID: "tg-page-1",
-		Status:             "published",
+		ID:       "page-1",
+		Title:    "Page 1",
+		Slug:     "page-1",
+		Locale:   "en",
+		FamilyID: "tg-page-1",
+		Status:   "published",
 		Data: map[string]any{
 			"path": "/page-1",
 			"body": "Hello world",
@@ -936,18 +936,18 @@ func (s *translationFamilyMutationContentService) CreateTranslation(ctx context.
 	if err != nil {
 		return nil, err
 	}
-	groupID := strings.TrimSpace(firstNonEmpty(source.TranslationGroupID, source.ID))
+	groupID := strings.TrimSpace(firstNonEmpty(source.FamilyID, source.ID))
 	for _, page := range pages {
-		if !strings.EqualFold(strings.TrimSpace(firstNonEmpty(page.TranslationGroupID, page.ID)), groupID) {
+		if !strings.EqualFold(strings.TrimSpace(firstNonEmpty(page.FamilyID, page.ID)), groupID) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(page.Locale), input.Locale) {
 			return nil, TranslationAlreadyExistsError{
-				Panel:              "pages",
-				EntityID:           source.ID,
-				SourceLocale:       source.Locale,
-				Locale:             input.Locale,
-				TranslationGroupID: groupID,
+				Panel:        "pages",
+				EntityID:     source.ID,
+				SourceLocale: source.Locale,
+				Locale:       input.Locale,
+				FamilyID:     groupID,
 			}
 		}
 	}
@@ -956,7 +956,7 @@ func (s *translationFamilyMutationContentService) CreateTranslation(ctx context.
 	createdPage.ID = ""
 	createdPage.Locale = input.Locale
 	createdPage.Status = string(translationcore.VariantStatusDraft)
-	createdPage.TranslationGroupID = groupID
+	createdPage.FamilyID = groupID
 	createdPage.Slug = strings.TrimSpace(firstNonEmpty(source.Slug+"-"+input.Locale, input.Locale))
 	createdPage.Metadata = cloneAnyMap(source.Metadata)
 	for key, value := range cloneAnyMap(input.Metadata) {
@@ -977,16 +977,16 @@ func (s *translationFamilyMutationContentService) CreateTranslation(ctx context.
 		return nil, err
 	}
 	return &CMSContent{
-		ID:                 created.ID,
-		Title:              created.Title,
-		Slug:               created.Slug,
-		Locale:             created.Locale,
-		TranslationGroupID: created.TranslationGroupID,
-		ContentType:        "pages",
-		ContentTypeSlug:    "pages",
-		Status:             created.Status,
-		Data:               cloneAnyMap(created.Data),
-		Metadata:           cloneAnyMap(created.Metadata),
+		ID:              created.ID,
+		Title:           created.Title,
+		Slug:            created.Slug,
+		Locale:          created.Locale,
+		FamilyID:        created.FamilyID,
+		ContentType:     "pages",
+		ContentTypeSlug: "pages",
+		Status:          created.Status,
+		Data:            cloneAnyMap(created.Data),
+		Metadata:        cloneAnyMap(created.Metadata),
 	}, nil
 }
 

@@ -30,62 +30,62 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 	dueSoon := now.Add(6 * time.Hour)
 	onTrack := now.Add(96 * time.Hour)
 	seedTranslationAssignment(TranslationAssignment{
-		TranslationGroupID: "tg-overdue",
-		EntityType:         "pages",
-		SourceRecordID:     "page-1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssigneeID:         "translator-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInProgress,
-		Priority:           PriorityNormal,
-		DueDate:            &overdue,
+		FamilyID:       "tg-overdue",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssigneeID:     "translator-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInProgress,
+		Priority:       PriorityNormal,
+		DueDate:        &overdue,
 	})
 	seedTranslationAssignment(TranslationAssignment{
-		TranslationGroupID: "tg-soon",
-		EntityType:         "posts",
-		SourceRecordID:     "post-1",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		AssigneeID:         "translator-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInReview,
-		Priority:           PriorityHigh,
-		DueDate:            &dueSoon,
+		FamilyID:       "tg-soon",
+		EntityType:     "posts",
+		SourceRecordID: "post-1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssigneeID:     "translator-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
+		DueDate:        &dueSoon,
 	})
 	seedTranslationAssignment(TranslationAssignment{
-		TranslationGroupID: "tg-track",
-		EntityType:         "news",
-		SourceRecordID:     "news-1",
-		SourceLocale:       "en",
-		TargetLocale:       "de",
-		AssigneeID:         "translator-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
-		Priority:           PriorityNormal,
-		DueDate:            &onTrack,
+		FamilyID:       "tg-track",
+		EntityType:     "news",
+		SourceRecordID: "news-1",
+		SourceLocale:   "en",
+		TargetLocale:   "de",
+		AssigneeID:     "translator-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityNormal,
+		DueDate:        &onTrack,
 	})
 	seedTranslationAssignment(TranslationAssignment{
-		TranslationGroupID: "tg-none",
-		EntityType:         "news",
-		SourceRecordID:     "news-2",
-		SourceLocale:       "en",
-		TargetLocale:       "it",
-		AssigneeID:         "translator-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
-		Priority:           PriorityLow,
+		FamilyID:       "tg-none",
+		EntityType:     "news",
+		SourceRecordID: "news-2",
+		SourceLocale:   "en",
+		TargetLocale:   "it",
+		AssigneeID:     "translator-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityLow,
 	})
 	seedTranslationAssignment(TranslationAssignment{
-		TranslationGroupID: "tg-other",
-		EntityType:         "pages",
-		SourceRecordID:     "page-2",
-		SourceLocale:       "en",
-		TargetLocale:       "pt",
-		AssigneeID:         "translator-2",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
-		Priority:           PriorityLow,
+		FamilyID:       "tg-other",
+		EntityType:     "pages",
+		SourceRecordID: "page-2",
+		SourceLocale:   "en",
+		TargetLocale:   "pt",
+		AssigneeID:     "translator-2",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityLow,
 	})
 
 	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
@@ -181,29 +181,29 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	reviewDue := now.Add(6 * time.Hour)
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-review",
-		EntityType:         "pages",
-		SourceRecordID:     "page-review",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssigneeID:         "translator-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInReview,
-		Priority:           PriorityHigh,
-		DueDate:            &reviewDue,
+		FamilyID:       "tg-review",
+		EntityType:     "pages",
+		SourceRecordID: "page-review",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssigneeID:     "translator-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
+		DueDate:        &reviewDue,
 	}); err != nil {
 		t.Fatalf("create review assignment: %v", err)
 	}
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-progress",
-		EntityType:         "news",
-		SourceRecordID:     "news-progress",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		AssigneeID:         "translator-2",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInProgress,
-		Priority:           PriorityNormal,
+		FamilyID:       "tg-progress",
+		EntityType:     "news",
+		SourceRecordID: "news-progress",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssigneeID:     "translator-2",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInProgress,
+		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("create in_progress assignment: %v", err)
 	}
@@ -286,16 +286,16 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	repo := NewInMemoryTranslationAssignmentRepository()
 	overdue := now.Add(-2 * time.Hour)
 	created, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-assignments",
-		EntityType:         "pages",
-		SourceRecordID:     "page-1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
-		Priority:           PriorityHigh,
-		DueDate:            &overdue,
-		ReviewerID:         "reviewer-1",
+		FamilyID:       "tg-assignments",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityHigh,
+		DueDate:        &overdue,
+		ReviewerID:     "reviewer-1",
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -528,7 +528,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	reviewAssignment.Status = AssignmentStatusInReview
 	reviewAssignment.ReviewerID = "reviewer-1"
 	reviewAssignment.LastReviewerID = "reviewer-1"
-	reviewAssignment.TranslationGroupID = "tg-page-1"
+	reviewAssignment.FamilyID = "tg-page-1"
 	reviewAssignment.TargetRecordID = fixture.targetRecordID
 	if _, err := fixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); err != nil {
 		t.Fatalf("update review assignment: %v", err)
@@ -536,26 +536,26 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 
 	otherDue := time.Date(2026, 3, 12, 14, 0, 0, 0, time.UTC)
 	if _, err := fixture.repo.Create(context.Background(), TranslationAssignment{
-		ID:                 "asg-clean-1",
-		TranslationGroupID: "tg-post-2",
-		EntityType:         "posts",
-		SourceRecordID:     "post-2",
-		TargetRecordID:     "post-2-fr",
-		SourceLocale:       "en",
-		TargetLocale:       "fr",
-		ReviewerID:         "reviewer-1",
-		LastReviewerID:     "reviewer-1",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusInReview,
-		Priority:           PriorityNormal,
-		DueDate:            &otherDue,
-		TenantID:           "tenant-1",
-		OrgID:              "org-1",
+		ID:             "asg-clean-1",
+		FamilyID:       "tg-post-2",
+		EntityType:     "posts",
+		SourceRecordID: "post-2",
+		TargetRecordID: "post-2-fr",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		ReviewerID:     "reviewer-1",
+		LastReviewerID: "reviewer-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityNormal,
+		DueDate:        &otherDue,
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
 	}); err != nil {
 		t.Fatalf("create clean review assignment: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&translation_group_id=tg-page-1&environment=production&tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&environment=production&tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "reviewer-1")
 	resp, err := fixture.app.Test(req)
 	if err != nil {
@@ -572,8 +572,8 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	}
 	meta := extractMap(payload["meta"])
 	supportedFilters := toStringSlice(meta["supported_filter_keys"])
-	if !containsString(supportedFilters, "review_state") || !containsString(supportedFilters, "translation_group_id") {
-		t.Fatalf("expected supported_filter_keys to advertise review_state and translation_group_id, got %+v", supportedFilters)
+	if !containsString(supportedFilters, "review_state") || !containsString(supportedFilters, "family_id") {
+		t.Fatalf("expected supported_filter_keys to advertise review_state and family_id, got %+v", supportedFilters)
 	}
 	supportedReviewStates := toStringSlice(meta["supported_review_states"])
 	if len(supportedReviewStates) != 1 || supportedReviewStates[0] != translationQueueReviewStateQABlocked {
@@ -587,8 +587,8 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	if got := strings.TrimSpace(toString(row["id"])); got != fixture.assignmentID {
 		t.Fatalf("expected blocked assignment %q, got %q", fixture.assignmentID, got)
 	}
-	if got := strings.TrimSpace(toString(row["translation_group_id"])); got != "tg-page-1" {
-		t.Fatalf("expected translation_group_id tg-page-1, got %q", got)
+	if got := strings.TrimSpace(toString(row["family_id"])); got != "tg-page-1" {
+		t.Fatalf("expected family_id tg-page-1, got %q", got)
 	}
 	qaSummary := extractMap(row["qa_summary"])
 	if got := intValue(qaSummary["blocker_count"]); got <= 0 {
@@ -700,13 +700,13 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	})
 	repo := NewInMemoryTranslationAssignmentRepository()
 	created, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-claim",
-		EntityType:         "pages",
-		SourceRecordID:     "page-1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
+		FamilyID:       "tg-claim",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -783,13 +783,13 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 	})
 	repo := NewInMemoryTranslationAssignmentRepository()
 	created, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-claim",
-		EntityType:         "pages",
-		SourceRecordID:     "page-1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
+		FamilyID:       "tg-claim",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -823,15 +823,15 @@ func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testin
 	})
 	repo := NewInMemoryTranslationAssignmentRepository()
 	created, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-scope",
-		EntityType:         "pages",
-		TenantID:           "tenant-a",
-		OrgID:              "org-a",
-		SourceRecordID:     "page-1",
-		SourceLocale:       "en",
-		TargetLocale:       "es",
-		AssignmentType:     AssignmentTypeOpenPool,
-		Status:             AssignmentStatusOpen,
+		FamilyID:       "tg-scope",
+		EntityType:     "pages",
+		TenantID:       "tenant-a",
+		OrgID:          "org-a",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
 	})
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
@@ -897,37 +897,37 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 	onTrack := now.Add(96 * time.Hour)
 	for _, assignment := range []TranslationAssignment{
 		{
-			TranslationGroupID: "tg-overdue",
-			EntityType:         "pages",
-			SourceRecordID:     "page-1",
-			SourceLocale:       "en",
-			TargetLocale:       "es",
-			AssigneeID:         "translator-1",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusInReview,
-			DueDate:            &overdue,
+			FamilyID:       "tg-overdue",
+			EntityType:     "pages",
+			SourceRecordID: "page-1",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssigneeID:     "translator-1",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusInReview,
+			DueDate:        &overdue,
 		},
 		{
-			TranslationGroupID: "tg-due-soon",
-			EntityType:         "posts",
-			SourceRecordID:     "post-1",
-			SourceLocale:       "en",
-			TargetLocale:       "fr",
-			AssigneeID:         "translator-1",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusInProgress,
-			DueDate:            &dueSoon,
+			FamilyID:       "tg-due-soon",
+			EntityType:     "posts",
+			SourceRecordID: "post-1",
+			SourceLocale:   "en",
+			TargetLocale:   "fr",
+			AssigneeID:     "translator-1",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusInProgress,
+			DueDate:        &dueSoon,
 		},
 		{
-			TranslationGroupID: "tg-on-track",
-			EntityType:         "news",
-			SourceRecordID:     "news-1",
-			SourceLocale:       "en",
-			TargetLocale:       "de",
-			AssigneeID:         "translator-1",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusAssigned,
-			DueDate:            &onTrack,
+			FamilyID:       "tg-on-track",
+			EntityType:     "news",
+			SourceRecordID: "news-1",
+			SourceLocale:   "en",
+			TargetLocale:   "de",
+			AssigneeID:     "translator-1",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusAssigned,
+			DueDate:        &onTrack,
 		},
 	} {
 		if _, err := repo.Create(context.Background(), assignment); err != nil {
@@ -935,14 +935,14 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 		}
 	}
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
-		TranslationGroupID: "tg-other",
-		EntityType:         "pages",
-		SourceRecordID:     "page-2",
-		SourceLocale:       "en",
-		TargetLocale:       "pt",
-		AssigneeID:         "translator-2",
-		AssignmentType:     AssignmentTypeDirect,
-		Status:             AssignmentStatusAssigned,
+		FamilyID:       "tg-other",
+		EntityType:     "pages",
+		SourceRecordID: "page-2",
+		SourceLocale:   "en",
+		TargetLocale:   "pt",
+		AssigneeID:     "translator-2",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
 	}); err != nil {
 		t.Fatalf("create other assignment: %v", err)
 	}
@@ -997,34 +997,34 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 	repo := NewInMemoryTranslationAssignmentRepository()
 	for _, assignment := range []TranslationAssignment{
 		{
-			TranslationGroupID: "tg-review",
-			EntityType:         "pages",
-			SourceRecordID:     "page-review",
-			SourceLocale:       "en",
-			TargetLocale:       "es",
-			AssigneeID:         "translator-1",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusInReview,
+			FamilyID:       "tg-review",
+			EntityType:     "pages",
+			SourceRecordID: "page-review",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssigneeID:     "translator-1",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusInReview,
 		},
 		{
-			TranslationGroupID: "tg-progress",
-			EntityType:         "news",
-			SourceRecordID:     "news-progress",
-			SourceLocale:       "en",
-			TargetLocale:       "fr",
-			AssigneeID:         "translator-2",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusInProgress,
+			FamilyID:       "tg-progress",
+			EntityType:     "news",
+			SourceRecordID: "news-progress",
+			SourceLocale:   "en",
+			TargetLocale:   "fr",
+			AssigneeID:     "translator-2",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusInProgress,
 		},
 		{
-			TranslationGroupID: "tg-assigned",
-			EntityType:         "posts",
-			SourceRecordID:     "post-assigned",
-			SourceLocale:       "en",
-			TargetLocale:       "de",
-			AssigneeID:         "translator-3",
-			AssignmentType:     AssignmentTypeDirect,
-			Status:             AssignmentStatusAssigned,
+			FamilyID:       "tg-assigned",
+			EntityType:     "posts",
+			SourceRecordID: "post-assigned",
+			SourceLocale:   "en",
+			TargetLocale:   "de",
+			AssigneeID:     "translator-3",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusAssigned,
 		},
 	} {
 		if _, err := repo.Create(context.Background(), assignment); err != nil {

@@ -56,7 +56,7 @@ func TranslationDashboardQueryModels() map[string]any {
 			"queue_route":       "translations.queue",
 			"index_hints":       []string{"translation_assignments_scope_due_date_idx", "translation_assignments_scope_status_due_idx"},
 			"resolver_keys":     []string{"admin.translations.assignments.edit", "admin.translations.queue"},
-			"supported_filters": []string{"tenant_id", "org_id", "status", "overdue", "assignee_id", "reviewer_id", "translation_group_id"},
+			"supported_filters": []string{"tenant_id", "org_id", "status", "overdue", "assignee_id", "reviewer_id", "family_id"},
 			"drilldown_links":   translationDashboardQueryModelLinks(translationDashboardTableTopOverdueAssignments),
 		},
 		translationDashboardTableBlockedFamilies: map[string]any{
@@ -97,7 +97,7 @@ func translationDashboardQueryModelLinks(tableID string) map[string]any {
 				"group":        "admin",
 				"route":        "translations.queue",
 				"resolver_key": "admin.translations.queue",
-				"entity_type":  "translation_group",
+				"entity_type":  "family",
 			},
 		}
 	case translationDashboardTableBlockedFamilies:

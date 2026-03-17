@@ -68,7 +68,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		Assignments: []TranslationAssignment{
 			{
 				ID:                  "asg-editor-1",
-				TranslationGroupID:  "tg-page-1",
+				FamilyID:            "tg-page-1",
 				EntityType:          "pages",
 				TenantID:            "tenant-1",
 				OrgID:               "org-1",
@@ -148,12 +148,12 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		"source_hash_at_last_sync": lastSyncedHash,
 	}
 	_, err = base.content.CreatePage(context.Background(), CMSPage{
-		ID:                 "page-1-fr",
-		Title:              options.TargetFields["title"],
-		Slug:               "page-1-fr",
-		Locale:             "fr",
-		TranslationGroupID: "tg-page-1",
-		Status:             string(translationcore.VariantStatusInProgress),
+		ID:       "page-1-fr",
+		Title:    options.TargetFields["title"],
+		Slug:     "page-1-fr",
+		Locale:   "fr",
+		FamilyID: "tg-page-1",
+		Status:   string(translationcore.VariantStatusInProgress),
 		Data: map[string]any{
 			"path": options.TargetFields["path"],
 			"body": options.TargetFields["body"],
@@ -193,12 +193,12 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	binding := newTranslationQueueBinding(base.admin)
 	binding.now = func() time.Time { return time.Date(2026, 3, 12, 12, 0, 0, 0, time.UTC) }
 	editorCtx, err := binding.loadAssignmentEditorContext(context.Background(), TranslationAssignment{
-		ID:                 "asg-editor-1",
-		TranslationGroupID: "tg-page-1",
-		TenantID:           "tenant-1",
-		OrgID:              "org-1",
-		TargetLocale:       "fr",
-		TargetRecordID:     "page-1-fr",
+		ID:             "asg-editor-1",
+		FamilyID:       "tg-page-1",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		TargetLocale:   "fr",
+		TargetRecordID: "page-1-fr",
 	}, "production")
 	if err != nil {
 		t.Fatalf("load editor context: %v", err)

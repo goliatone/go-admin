@@ -84,23 +84,23 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
+	channel := translationChannelFromRequest(c, adminCtx, nil)
 	allAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, filter.SortBy, nil)
 	if err != nil {
 		return nil, err
 	}
-	assignments, total := b.filterAssignments(adminCtx.Context, allAssignments, filter, page, perPage, environment, now)
+	assignments, total := b.filterAssignments(adminCtx.Context, allAssignments, filter, page, perPage, channel, now)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now, environment))
+		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now, channel))
 	}
-	reviewAggregateCounts, err := b.reviewerAggregateCounts(adminCtx.Context, allAssignments, filter, actorID, environment, now)
+	reviewAggregateCounts, err := b.reviewerAggregateCounts(adminCtx.Context, allAssignments, filter, actorID, channel, now)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
 		"data": rows,
-		"meta": map[string]any{
+		"meta": mergeTranslationChannelContract(map[string]any{
 			"page":                         page,
 			"per_page":                     perPage,
 			"total":                        total,
@@ -114,7 +114,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 			"default_review_filter_preset": "review_inbox",
 			"review_actor_id":              actorID,
 			"review_aggregate_counts":      reviewAggregateCounts,
-		},
+		}, channel),
 	}, nil
 }
 
@@ -142,7 +142,7 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	}
 	obsCtx = adminCtx.Context
 	identity := translationIdentityFromAdminContext(adminCtx)
-	environment := strings.TrimSpace(firstNonEmpty(toString(body["environment"]), c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
+	channel := translationChannelFromRequest(c, adminCtx, body)
 	if identity.ActorID == "" {
 		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment actions require an authenticated actor", map[string]any{
 			"component": "translation_queue_binding",
@@ -253,11 +253,11 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 			"status":        normalizeTranslationQueueState(string(updated.Status)),
 			"row_version":   updated.Version,
 			"updated_at":    updated.UpdatedAt,
-			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now, environment),
+			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now, channel),
 		},
-		"meta": map[string]any{
+		"meta": mergeTranslationChannelContract(map[string]any{
 			"idempotency_hit": false,
-		},
+		}, channel),
 	}
 	b.storeActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body, response)
 	return response, nil
@@ -295,7 +295,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	}
 
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
+	channel := translationChannelFromRequest(c, adminCtx, nil)
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	now := b.now().UTC()
@@ -344,7 +344,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now, environment)
+		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel)
 		rows = append(rows, row)
 	}
 	for _, assignment := range summaryAssignments {
@@ -366,6 +366,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 		"page":        page,
 		"per_page":    perPage,
 		"updated_at":  now,
+		"channel":     channel,
 	}, nil
 }
 
@@ -401,7 +402,7 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	}
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
-	environment := strings.TrimSpace(firstNonEmpty(c.Query("environment"), adminCtx.Environment, adminCtx.Channel))
+	channel := translationChannelFromRequest(c, adminCtx, nil)
 	now := b.now().UTC()
 
 	filters := map[string]any{}
@@ -433,7 +434,7 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	byQueueState := map[string]int{}
 	byDueState := map[string]int{}
 	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now, environment)
+		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel)
 		rows = append(rows, row)
 	}
 	for _, assignment := range summaryAssignments {
@@ -456,6 +457,7 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 		"page":        page,
 		"per_page":    perPage,
 		"updated_at":  now,
+		"channel":     channel,
 	}, nil
 }
 
@@ -480,18 +482,18 @@ func (b *translationQueueBinding) prepareAssignmentRequest(c router.Context) (Ad
 func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminContext, c router.Context) translationAssignmentListFilter {
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 	filter := translationAssignmentListFilter{
-		Status:             strings.TrimSpace(strings.ToLower(c.Query("status"))),
-		AssigneeID:         translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
-		ReviewerID:         translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
-		DueState:           strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
-		Locale:             strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
-		Priority:           strings.TrimSpace(strings.ToLower(c.Query("priority"))),
-		ReviewState:        normalizeTranslationQueueReviewState(c.Query("review_state")),
-		TranslationGroupID: strings.TrimSpace(c.Query("translation_group_id")),
-		SortBy:             strings.TrimSpace(strings.ToLower(c.Query("sort"))),
-		SortDesc:           strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
-		TenantID:           strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
-		OrgID:              strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
+		Status:      strings.TrimSpace(strings.ToLower(c.Query("status"))),
+		AssigneeID:  translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
+		ReviewerID:  translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
+		DueState:    strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
+		Locale:      strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
+		Priority:    strings.TrimSpace(strings.ToLower(c.Query("priority"))),
+		ReviewState: normalizeTranslationQueueReviewState(c.Query("review_state")),
+		FamilyID:    strings.TrimSpace(c.Query("family_id")),
+		SortBy:      strings.TrimSpace(strings.ToLower(c.Query("sort"))),
+		SortDesc:    strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
+		TenantID:    strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
+		OrgID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
 	}
 	if !filter.SortDesc && strings.EqualFold(strings.TrimSpace(c.Query("direction")), "desc") {
 		filter.SortDesc = true
@@ -513,18 +515,18 @@ func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminCont
 }
 
 type translationAssignmentListFilter struct {
-	Status             string
-	AssigneeID         string
-	ReviewerID         string
-	DueState           string
-	Locale             string
-	Priority           string
-	ReviewState        string
-	TranslationGroupID string
-	SortBy             string
-	SortDesc           bool
-	TenantID           string
-	OrgID              string
+	Status      string
+	AssigneeID  string
+	ReviewerID  string
+	DueState    string
+	Locale      string
+	Priority    string
+	ReviewState string
+	FamilyID    string
+	SortBy      string
+	SortDesc    bool
+	TenantID    string
+	OrgID       string
 }
 
 func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string) ([]TranslationAssignment, int, error) {
@@ -607,7 +609,7 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 	if !translationQueueListFilterMatches(filter.Priority, string(assignment.Priority), normalizeTranslationQueuePriorityFilterValue) {
 		return false
 	}
-	if filter.TranslationGroupID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TranslationGroupID), strings.TrimSpace(filter.TranslationGroupID)) {
+	if filter.FamilyID != "" && !strings.EqualFold(strings.TrimSpace(assignment.FamilyID), strings.TrimSpace(filter.FamilyID)) {
 		return false
 	}
 	if filter.TenantID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TenantID), filter.TenantID) {
@@ -1195,7 +1197,7 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 			if record, err := panel.Get(adminCtx, sourceRecordID); err == nil && len(record) > 0 {
 				groupID := strings.TrimSpace(translationGroupIDFromRecord(record))
 				if groupID == "" {
-					groupID = strings.TrimSpace(toString(record["translation_group_id"]))
+					groupID = strings.TrimSpace(toString(record["family_id"]))
 				}
 				label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 					toString(record["source_title"]),
@@ -1237,9 +1239,9 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 				))
 				label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 					assignment.SourceTitle,
-					assignment.TranslationGroupID,
+					assignment.FamilyID,
 				))
-				appendOption(assignment.TranslationGroupID, label, description)
+				appendOption(assignment.FamilyID, label, description)
 			}
 		}
 	}
@@ -1429,14 +1431,14 @@ func (b *translationQueueBinding) reviewBlockedAssignments(ctx context.Context, 
 	if !b.translationQAEnabled() || len(assignments) == 0 {
 		return blocked
 	}
-	familyBinding := &translationFamilyBinding{admin: b.admin}
+	familyBinding := &translationFamilyBinding{admin: b.admin, catalog: newTranslationFamilyCatalog(b.admin)}
 	runtime, err := familyBinding.runtime(ctx, environment)
 	if err != nil || runtime == nil || runtime.service == nil {
 		return blocked
 	}
 	assignmentsByFamily := map[string][]TranslationAssignment{}
 	for _, assignment := range assignments {
-		familyID := strings.TrimSpace(assignment.TranslationGroupID)
+		familyID := strings.TrimSpace(assignment.FamilyID)
 		if familyID == "" {
 			continue
 		}
@@ -1506,28 +1508,28 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 	queueState := normalizeTranslationQueueState(string(assignment.Status))
 	contentState := translationQueueContentState(assignment.Status)
 	row := map[string]any{
-		"id":                   strings.TrimSpace(assignment.ID),
-		"translation_group_id": strings.TrimSpace(assignment.TranslationGroupID),
-		"entity_type":          strings.TrimSpace(assignment.EntityType),
-		"source_record_id":     strings.TrimSpace(assignment.SourceRecordID),
-		"target_record_id":     strings.TrimSpace(assignment.TargetRecordID),
-		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
-		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
-		"work_scope":           normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
-		"source_title":         strings.TrimSpace(assignment.SourceTitle),
-		"source_path":          strings.TrimSpace(assignment.SourcePath),
-		"assignee_id":          strings.TrimSpace(assignment.AssigneeID),
-		"reviewer_id":          strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
-		"assignment_type":      strings.TrimSpace(string(assignment.AssignmentType)),
-		"content_state":        contentState,
-		"queue_state":          queueState,
-		"status":               queueState,
-		"priority":             strings.TrimSpace(string(assignment.Priority)),
-		"due_state":            translationQueueDueState(assignment.DueDate, now),
-		"row_version":          assignment.Version,
-		"version":              assignment.Version,
-		"updated_at":           assignment.UpdatedAt,
-		"created_at":           assignment.CreatedAt,
+		"id":               strings.TrimSpace(assignment.ID),
+		"family_id":        strings.TrimSpace(assignment.FamilyID),
+		"entity_type":      strings.TrimSpace(assignment.EntityType),
+		"source_record_id": strings.TrimSpace(assignment.SourceRecordID),
+		"target_record_id": strings.TrimSpace(assignment.TargetRecordID),
+		"source_locale":    strings.TrimSpace(assignment.SourceLocale),
+		"target_locale":    strings.TrimSpace(assignment.TargetLocale),
+		"work_scope":       normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
+		"source_title":     strings.TrimSpace(assignment.SourceTitle),
+		"source_path":      strings.TrimSpace(assignment.SourcePath),
+		"assignee_id":      strings.TrimSpace(assignment.AssigneeID),
+		"reviewer_id":      strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
+		"assignment_type":  strings.TrimSpace(string(assignment.AssignmentType)),
+		"content_state":    contentState,
+		"queue_state":      queueState,
+		"status":           queueState,
+		"priority":         strings.TrimSpace(string(assignment.Priority)),
+		"due_state":        translationQueueDueState(assignment.DueDate, now),
+		"row_version":      assignment.Version,
+		"version":          assignment.Version,
+		"updated_at":       assignment.UpdatedAt,
+		"created_at":       assignment.CreatedAt,
 	}
 	if assignment.DueDate != nil {
 		row["due_date"] = assignment.DueDate
@@ -1771,7 +1773,7 @@ func translationQueueSourceRecordOption(record map[string]any, panelName string)
 		option["description"] = description
 	}
 	if groupID := strings.TrimSpace(translationGroupIDFromRecord(record)); groupID != "" {
-		option["translation_group_id"] = groupID
+		option["family_id"] = groupID
 	}
 	if panelName != "" {
 		option["entity_type"] = normalizeTranslationQueueEntityType(panelName)

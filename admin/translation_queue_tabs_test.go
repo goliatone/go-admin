@@ -34,8 +34,8 @@ func TestRegisterTranslationQueueTabsRegistersTranslationCapablePanelTabs(t *tes
 	if tab.Permission != PermAdminTranslationsView {
 		t.Fatalf("expected translation view permission for articles tab, got %q", tab.Permission)
 	}
-	if tab.Filters["translation_group_id"] != "{{record.translation_group_id}}" {
-		t.Fatalf("expected translation_group_id filter placeholder for articles, got %+v", tab.Filters)
+	if tab.Filters["family_id"] != "{{record.family_id}}" {
+		t.Fatalf("expected family_id filter placeholder for articles, got %+v", tab.Filters)
 	}
 	if tab.Query["entity_type"] != "{{panel.name}}" {
 		t.Fatalf("expected entity_type query placeholder for articles, got %+v", tab.Query)

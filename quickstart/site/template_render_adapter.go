@@ -21,17 +21,17 @@ func renderSiteTemplate(c router.Context, templateName string, viewCtx router.Vi
 func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	ctx := MergeViewContext(cloneViewContext(viewCtx), c)
 	ctx["site_runtime"] = map[string]any{
-		"theme_name":           strings.TrimSpace(anyString(ctx["theme_name"])),
-		"theme_variant":        strings.TrimSpace(anyString(ctx["theme_variant"])),
-		"base_path":            strings.TrimSpace(anyString(ctx["base_path"])),
-		"asset_base_path":      strings.TrimSpace(anyString(ctx["asset_base_path"])),
-		"active_path":          strings.TrimSpace(anyString(ctx["active_path"])),
-		"locale":               strings.TrimSpace(anyString(ctx["locale"])),
-		"default_locale":       strings.TrimSpace(anyString(ctx["default_locale"])),
-		"supported_locales":    cloneStrings(anyStringSlice(ctx["supported_locales"])),
-		"is_preview":           anyBool(ctx["is_preview"]),
+		"theme_name":            strings.TrimSpace(anyString(ctx["theme_name"])),
+		"theme_variant":         strings.TrimSpace(anyString(ctx["theme_variant"])),
+		"base_path":             strings.TrimSpace(anyString(ctx["base_path"])),
+		"asset_base_path":       strings.TrimSpace(anyString(ctx["asset_base_path"])),
+		"active_path":           strings.TrimSpace(anyString(ctx["active_path"])),
+		"locale":                strings.TrimSpace(anyString(ctx["locale"])),
+		"default_locale":        strings.TrimSpace(anyString(ctx["default_locale"])),
+		"supported_locales":     cloneStrings(anyStringSlice(ctx["supported_locales"])),
+		"is_preview":            anyBool(ctx["is_preview"]),
 		"preview_token_present": anyBool(ctx["preview_token_present"]),
-		"preview_token_valid":  anyBool(ctx["preview_token_valid"]),
+		"preview_token_valid":   anyBool(ctx["preview_token_valid"]),
 	}
 	return ctx
 }

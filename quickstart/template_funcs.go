@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/goliatone/go-admin/admin"
 	"github.com/gobuffalo/flect"
+	"github.com/goliatone/go-admin/admin"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -117,7 +117,7 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"sitePreviewActive": func(preview any) bool {
 			return sitePreviewActive(preview)
 		},
-		"siteMenuItems":   siteMenuItems,
+		"siteMenuItems": siteMenuItems,
 		"siteMenuChildren": func(item any) []map[string]any {
 			return siteMenuChildren(item)
 		},
