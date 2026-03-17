@@ -126,14 +126,14 @@ SELECT
     pt.title               AS title,
     COALESCE(l.code, '')   AS locale,
     pt.locale_id           AS locale_id,
-    pt.translation_group_id AS translation_group_id,
+    pt.family_id AS family_id,
     COALESCE(
         (
             SELECT l2.code
             FROM page_translations AS pt2
                      JOIN locales AS l2 ON l2.id = pt2.locale_id
-            WHERE pt.translation_group_id IS NOT NULL
-              AND pt2.translation_group_id = pt.translation_group_id
+            WHERE pt.family_id IS NOT NULL
+              AND pt2.family_id = pt.family_id
             ORDER BY CASE WHEN LOWER(l2.code) = 'en' THEN 0 ELSE 1 END, LOWER(l2.code)
             LIMIT 1
         ),
@@ -146,8 +146,8 @@ SELECT
                 SELECT DISTINCT l2.code AS code
                 FROM page_translations AS pt2
                          JOIN locales AS l2 ON l2.id = pt2.locale_id
-                WHERE pt.translation_group_id IS NOT NULL
-                  AND pt2.translation_group_id = pt.translation_group_id
+                WHERE pt.family_id IS NOT NULL
+                  AND pt2.family_id = pt.family_id
                 ORDER BY LOWER(l2.code)
             )
         ),
@@ -216,14 +216,14 @@ SELECT
     c.status                                            AS status,
     ct.title                                            AS title,
     l.code                                              AS locale,
-    ct.translation_group_id                             AS translation_group_id,
+    ct.family_id                             AS family_id,
     COALESCE(
         (
             SELECT l2.code
             FROM content_translations AS ct2
                      JOIN locales AS l2 ON l2.id = ct2.locale_id
-            WHERE ct.translation_group_id IS NOT NULL
-              AND ct2.translation_group_id = ct.translation_group_id
+            WHERE ct.family_id IS NOT NULL
+              AND ct2.family_id = ct.family_id
             ORDER BY CASE WHEN LOWER(l2.code) = 'en' THEN 0 ELSE 1 END, LOWER(l2.code)
             LIMIT 1
         ),
@@ -236,8 +236,8 @@ SELECT
                 SELECT DISTINCT l2.code AS code
                 FROM content_translations AS ct2
                          JOIN locales AS l2 ON l2.id = ct2.locale_id
-                WHERE ct.translation_group_id IS NOT NULL
-                  AND ct2.translation_group_id = ct.translation_group_id
+                WHERE ct.family_id IS NOT NULL
+                  AND ct2.family_id = ct.family_id
                 ORDER BY LOWER(l2.code)
             )
         ),
@@ -581,7 +581,7 @@ END;
 			content = `
 ALTER TABLE menus ADD COLUMN status TEXT NOT NULL DEFAULT 'published';
 ALTER TABLE menus ADD COLUMN locale TEXT;
-ALTER TABLE menus ADD COLUMN translation_group_id TEXT;
+ALTER TABLE menus ADD COLUMN family_id TEXT;
 ALTER TABLE menus ADD COLUMN published_at TIMESTAMP;
 
 UPDATE menus
@@ -589,7 +589,7 @@ SET status = 'published'
 WHERE status IS NULL OR trim(status) = '';
 
 CREATE INDEX IF NOT EXISTS idx_menus_status ON menus(status);
-CREATE INDEX IF NOT EXISTS idx_menus_translation_group_id ON menus(translation_group_id);
+CREATE INDEX IF NOT EXISTS idx_menus_family_id ON menus(family_id);
 
 CREATE TABLE IF NOT EXISTS menu_view_profiles (
     id TEXT PRIMARY KEY,

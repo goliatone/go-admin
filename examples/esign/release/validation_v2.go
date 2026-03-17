@@ -379,7 +379,7 @@ func runV2AgreementLifecycle(
 	stageOneSignerA, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 		Email:        new(fmt.Sprintf("stage1-a-%03d@example.test", index+1)),
 		Name:         new("Stage One A"),
-		Role:         v2StringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningStage: new(1),
 	}, 0)
 	if err != nil {
@@ -388,7 +388,7 @@ func runV2AgreementLifecycle(
 	stageOneSignerB, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 		Email:        new(fmt.Sprintf("stage1-b-%03d@example.test", index+1)),
 		Name:         new("Stage One B"),
-		Role:         v2StringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningStage: new(1),
 	}, 0)
 	if err != nil {
@@ -397,7 +397,7 @@ func runV2AgreementLifecycle(
 	stageTwoSigner, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 		Email:        new(fmt.Sprintf("stage2-%03d@example.test", index+1)),
 		Name:         new("Stage Two"),
-		Role:         v2StringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningStage: new(2),
 	}, 0)
 	if err != nil {
@@ -408,7 +408,7 @@ func runV2AgreementLifecycle(
 	for _, participant := range participants {
 		_, defErr := agreementSvc.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
 			ParticipantID: new(participant.ID),
-			Type:          v2StringPtr(stores.FieldTypeSignature),
+			Type:          new(stores.FieldTypeSignature),
 			Required:      new(true),
 		})
 		if defErr != nil {
@@ -785,10 +785,7 @@ func percentile(values []float64, pct int) float64 {
 	if pct >= 100 {
 		return sorted[len(sorted)-1]
 	}
-	rank := max(int(math.Ceil((float64(pct)/100.0)*float64(len(sorted)))), 1)
-	if rank > len(sorted) {
-		rank = len(sorted)
-	}
+	rank := min(max(int(math.Ceil((float64(pct)/100.0)*float64(len(sorted)))), 1), len(sorted))
 	return sorted[rank-1]
 }
 

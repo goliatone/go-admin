@@ -152,7 +152,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer One"),
-		Role:         strPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: intPtr(1),
 	}, 0)
 	if err != nil {
@@ -161,7 +161,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	cc, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("cc@example.com"),
 		Name:         new("CC One"),
-		Role:         strPtr(stores.RecipientRoleCC),
+		Role:         new(stores.RecipientRoleCC),
 		SigningOrder: intPtr(2),
 	}, 0)
 	if err != nil {
@@ -169,7 +169,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        strPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
 		Required:    new(true),
 	})
@@ -178,7 +178,7 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        strPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  intPtr(1),
 		Required:    new(true),
 	})

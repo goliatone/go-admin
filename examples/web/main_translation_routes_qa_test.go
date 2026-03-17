@@ -128,7 +128,7 @@ func TestRegisterTranslationQARoutesRedirectToSeededContentSummaryAndFallbackEdi
 		{
 			name:     "family detail",
 			path:     translationQAFamilyPath(cfg.BasePath),
-			expected: fmt.Sprintf("/admin/translations/families/%s", normalizeTranslationGroupID(page.TranslationGroupID, page.ID)),
+			expected: fmt.Sprintf("/admin/translations/families/%s", normalizeFamilyID(page.FamilyID, page.ID)),
 		},
 		{
 			name:     "content summary",

@@ -14,7 +14,7 @@ func TestCMSPageStorePageToRecordIncludesTranslationMetadata(t *testing.T) {
 		Slug:                   "home",
 		Locale:                 "en",
 		Status:                 "draft",
-		TranslationGroupID:     "tg_pages_1",
+		FamilyID:               "tg_pages_1",
 		RequestedLocale:        "fr",
 		ResolvedLocale:         "en",
 		AvailableLocales:       []string{"en", "es"},
@@ -24,8 +24,8 @@ func TestCMSPageStorePageToRecordIncludesTranslationMetadata(t *testing.T) {
 		},
 	})
 
-	if got := record["translation_group_id"]; got != "tg_pages_1" {
-		t.Fatalf("expected translation_group_id tg_pages_1, got %#v", got)
+	if got := record["family_id"]; got != "tg_pages_1" {
+		t.Fatalf("expected family_id tg_pages_1, got %#v", got)
 	}
 	if got := record["requested_locale"]; got != "fr" {
 		t.Fatalf("expected requested_locale fr, got %#v", got)
@@ -58,7 +58,7 @@ func TestCMSPostStorePostToRecordIncludesTranslationMetadata(t *testing.T) {
 		Locale:                 "en",
 		Status:                 "draft",
 		ContentType:            "post",
-		TranslationGroupID:     "tg_posts_1",
+		FamilyID:               "tg_posts_1",
 		RequestedLocale:        "fr",
 		ResolvedLocale:         "en",
 		AvailableLocales:       []string{"en", "fr"},
@@ -68,8 +68,8 @@ func TestCMSPostStorePostToRecordIncludesTranslationMetadata(t *testing.T) {
 		},
 	})
 
-	if got := record["translation_group_id"]; got != "tg_posts_1" {
-		t.Fatalf("expected translation_group_id tg_posts_1, got %#v", got)
+	if got := record["family_id"]; got != "tg_posts_1" {
+		t.Fatalf("expected family_id tg_posts_1, got %#v", got)
 	}
 	if got := record["requested_locale"]; got != "fr" {
 		t.Fatalf("expected requested_locale fr, got %#v", got)

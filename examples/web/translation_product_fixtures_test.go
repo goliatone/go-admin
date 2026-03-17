@@ -28,12 +28,12 @@ func TestSeedExampleTranslationQueueFixtureCreatesInProgressAssignment(t *testin
 	source, err := findPageBySlug(ctx, cmsOpts.Container.ContentService(), exampleTranslationQueueSourceSlug)
 	require.NoError(t, err)
 	require.NotNil(t, source)
-	expectedGroupID := normalizeTranslationGroupID(source.TranslationGroupID, source.ID)
+	expectedGroupID := normalizeFamilyID(source.FamilyID, source.ID)
 	require.NotEmpty(t, strings.TrimSpace(expectedGroupID))
 
 	assignments, total, err := repo.List(ctx, coreadmin.ListOptions{Filters: map[string]any{
-		"translation_group_id": expectedGroupID,
-		"target_locale":        "fr",
+		"family_id":     expectedGroupID,
+		"target_locale": "fr",
 	}})
 	require.NoError(t, err)
 	require.Equal(t, 1, total)
@@ -44,7 +44,7 @@ func TestSeedExampleTranslationQueueFixtureCreatesInProgressAssignment(t *testin
 	require.Equal(t, coreadmin.AssignmentTypeDirect, fixture.AssignmentType)
 	require.Equal(t, exampleTranslationQueueFallbackUser, fixture.AssigneeID)
 	require.Equal(t, exampleTranslationQueueTargetLocale, strings.ToLower(fixture.TargetLocale))
-	require.Equal(t, strings.ToLower(strings.TrimSpace(expectedGroupID)), strings.ToLower(fixture.TranslationGroupID))
+	require.Equal(t, strings.ToLower(strings.TrimSpace(expectedGroupID)), strings.ToLower(fixture.FamilyID))
 }
 
 func TestSeedExampleTranslationQueueFixtureSeedsMyWorkAndQueueCoverageForProvidedAssignees(t *testing.T) {
@@ -178,15 +178,15 @@ func TestSeedExampleTranslationQueueFixtureRepairsLegacyQATargetFamily(t *testin
 	source, err := findPageBySlug(ctx, contentSvc, "home")
 	require.NoError(t, err)
 	require.NotNil(t, source)
-	sourceGroupID := normalizeTranslationGroupID(source.TranslationGroupID, source.ID)
+	sourceGroupID := normalizeFamilyID(source.FamilyID, source.ID)
 	require.NotEmpty(t, strings.TrimSpace(sourceGroupID))
 
 	_, err = contentSvc.CreatePage(ctx, coreadmin.CMSPage{
-		Title:              "Guide d'accueil",
-		Slug:               "home-fr",
-		Locale:             "fr",
-		TranslationGroupID: "legacy-home-fr",
-		Status:             "draft",
+		Title:    "Guide d'accueil",
+		Slug:     "home-fr",
+		Locale:   "fr",
+		FamilyID: "legacy-home-fr",
+		Status:   "draft",
 		Data: map[string]any{
 			"path": "/home-fr",
 			"body": "Legacy orphan target page.",
@@ -201,12 +201,12 @@ func TestSeedExampleTranslationQueueFixtureRepairsLegacyQATargetFamily(t *testin
 	repairedTarget, err := findPageLocaleVariantForSource(ctx, contentSvc, source, sourceGroupID, "fr")
 	require.NoError(t, err)
 	require.NotNil(t, repairedTarget)
-	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(repairedTarget.TranslationGroupID)))
+	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(repairedTarget.FamilyID)))
 
 	assignment, err := repo.Get(ctx, exampleTranslationQAAssignmentID)
 	require.NoError(t, err)
 	require.Equal(t, strings.TrimSpace(repairedTarget.ID), strings.TrimSpace(assignment.TargetRecordID))
-	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(assignment.TranslationGroupID)))
+	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(assignment.FamilyID)))
 	require.Equal(t, coreadmin.AssignmentStatusReview, assignment.Status)
 	require.Equal(t, exampleTranslationQueueFallbackUser, strings.TrimSpace(assignment.ReviewerID))
 	require.NotNil(t, assignment.SubmittedAt)
@@ -269,7 +269,7 @@ func TestTranslationQAFamilyTargetResolvesCurrentFixtureFamily(t *testing.T) {
 
 	target, err := translationQAFamilyTarget(ctx, "/admin", contentSvc)
 	require.NoError(t, err)
-	require.Equal(t, "/admin/translations/families/"+normalizeTranslationGroupID(page.TranslationGroupID, page.ID), target)
+	require.Equal(t, "/admin/translations/families/"+normalizeFamilyID(page.FamilyID, page.ID), target)
 }
 
 func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t *testing.T) {
@@ -314,17 +314,17 @@ func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t
 	require.Equal(t, strings.TrimSpace(source.ID), strings.TrimSpace(row.EntityID))
 	require.Equal(
 		t,
-		strings.ToLower(strings.TrimSpace(normalizeTranslationGroupID(source.TranslationGroupID, source.ID))),
-		strings.ToLower(strings.TrimSpace(row.TranslationGroupID)),
+		strings.ToLower(strings.TrimSpace(normalizeFamilyID(source.FamilyID, source.ID))),
+		strings.ToLower(strings.TrimSpace(row.FamilyID)),
 	)
 	require.Equal(t, "fr", strings.ToLower(strings.TrimSpace(row.TargetLocale)))
 
 	linkage, err := store.ResolveLinkage(ctx, coreadmin.TranslationExchangeLinkageKey{
-		Resource:           row.Resource,
-		EntityID:           row.EntityID,
-		TranslationGroupID: row.TranslationGroupID,
-		TargetLocale:       row.TargetLocale,
-		FieldPath:          row.FieldPath,
+		Resource:     row.Resource,
+		EntityID:     row.EntityID,
+		FamilyID:     row.FamilyID,
+		TargetLocale: row.TargetLocale,
+		FieldPath:    row.FieldPath,
 	})
 	require.NoError(t, err)
 	require.False(t, linkage.TargetExists)

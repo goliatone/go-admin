@@ -36,11 +36,11 @@ type optionCapableBridgeContentTypeStub struct {
 }
 
 type optionCapableBridgeTranslationStub struct {
-	LocaleCode         string
-	Title              string
-	Path               string
-	Content            map[string]any
-	TranslationGroupID *uuid.UUID
+	LocaleCode string
+	Title      string
+	Path       string
+	Content    map[string]any
+	FamilyID   *uuid.UUID
 }
 
 type bridgeOptionToken string
@@ -207,16 +207,16 @@ func TestGoCMSContentBridgePagePreservesTranslationMetadata(t *testing.T) {
 			},
 			Translations: []optionCapableBridgeTranslationStub{
 				{
-					LocaleCode:         "en",
-					Title:              "Fallback EN",
-					Content:            map[string]any{"path": "/translations/missing-fr"},
-					TranslationGroupID: &groupID,
+					LocaleCode: "en",
+					Title:      "Fallback EN",
+					Content:    map[string]any{"path": "/translations/missing-fr"},
+					FamilyID:   &groupID,
 				},
 				{
-					LocaleCode:         "es",
-					Title:              "Spanish",
-					Content:            map[string]any{"path": "/translations/missing-fr-es"},
-					TranslationGroupID: &groupID,
+					LocaleCode: "es",
+					Title:      "Spanish",
+					Content:    map[string]any{"path": "/translations/missing-fr-es"},
+					FamilyID:   &groupID,
 				},
 			},
 		},
@@ -388,16 +388,16 @@ func TestGoCMSContentBridgeCreateTranslationUsesOptionalCommand(t *testing.T) {
 			Status: "draft",
 			Translations: []optionCapableBridgeTranslationStub{
 				{
-					LocaleCode:         "en",
-					Title:              "Hello",
-					Content:            map[string]any{"body": "hello"},
-					TranslationGroupID: &groupID,
+					LocaleCode: "en",
+					Title:      "Hello",
+					Content:    map[string]any{"body": "hello"},
+					FamilyID:   &groupID,
 				},
 				{
-					LocaleCode:         "fr",
-					Title:              "Bonjour",
-					Content:            map[string]any{"body": "bonjour"},
-					TranslationGroupID: &groupID,
+					LocaleCode: "fr",
+					Title:      "Bonjour",
+					Content:    map[string]any{"body": "bonjour"},
+					FamilyID:   &groupID,
 				},
 			},
 		},

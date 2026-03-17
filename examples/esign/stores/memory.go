@@ -610,10 +610,7 @@ func (s *InMemoryStore) List(ctx context.Context, scope Scope, query DocumentQue
 		return less
 	})
 
-	start := max(query.Offset, 0)
-	if start > len(out) {
-		start = len(out)
-	}
+	start := min(max(query.Offset, 0), len(out))
 	end := len(out)
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit
@@ -1244,10 +1241,7 @@ func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, que
 		}
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
-	start := max(query.Offset, 0)
-	if start > len(out) {
-		start = len(out)
-	}
+	start := min(max(query.Offset, 0), len(out))
 	end := len(out)
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit
@@ -1495,10 +1489,7 @@ func (s *InMemoryStore) ListAgreements(ctx context.Context, scope Scope, query A
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
 
-	start := max(query.Offset, 0)
-	if start > len(out) {
-		start = len(out)
-	}
+	start := min(max(query.Offset, 0), len(out))
 	end := len(out)
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit
@@ -3833,10 +3824,7 @@ func (s *InMemoryStore) ListForAgreement(ctx context.Context, scope Scope, agree
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
 
-	start := max(query.Offset, 0)
-	if start > len(out) {
-		start = len(out)
-	}
+	start := min(max(query.Offset, 0), len(out))
 	end := len(out)
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit

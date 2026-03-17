@@ -351,7 +351,7 @@ pages:
       es:
         title: "Translation Readiness Missing FR (ES)"
         summary: "Variante ES para fixture con locale faltante FR."
-        body: "Esta variante en español comparte el mismo translation_group_id que la versión en inglés."
+        body: "Esta variante en español comparte el mismo family_id que la versión en inglés."
         status: "draft"
         path: "/translations/missing-fr-es"
         tags: ["translation", "fixtures", "readiness"]
@@ -361,7 +361,7 @@ pages:
             title: "Fixture Traduccion Falta FR"
             description: "Grupo de ejemplo con locale FR faltante."
     custom:
-      translation_group_id: "11111111-1111-1111-1111-111111111201"
+      family_id: "11111111-1111-1111-1111-111111111201"
       featured_image: "/static/media/banner.jpg"
       seo:
         title: "Translation Missing FR Fixture"
@@ -370,12 +370,12 @@ pages:
   - slug: "translation-exchange-ready"
     title: "Translation Exchange Ready Source"
     summary: "Deterministic exchange fixture source record."
-    body: "This seed record is used as a stable source for export/import apply flows with deterministic translation_group_id linkage."
+    body: "This seed record is used as a stable source for export/import apply flows with deterministic family_id linkage."
     status: "draft"
     path: "/translations/exchange-ready"
     tags: ["translation", "fixtures", "exchange"]
     custom:
-      translation_group_id: "11111111-1111-1111-1111-111111111202"
+      family_id: "11111111-1111-1111-1111-111111111202"
       featured_image: "/static/media/logo.png"
       seo:
         title: "Translation Exchange Ready Fixture"
@@ -410,12 +410,12 @@ pages:
           tags: ["translation", "demo", "fixture"]
         body: "This page exists in en and es but intentionally lacks an fr translation to demonstrate readiness indicators and remediation flows."
 
-  # Translation Scenario: Exchange-ready page with deterministic translation_group_id
+  # Translation Scenario: Exchange-ready page with deterministic family_id
   # Use case: Test export/import round-trip with stable group identifiers
   - slug: "translation-demo-exchange"
     title: "Translation Demo - Exchange Ready"
     summary: "Page designed for translation exchange import/export testing."
-    body: "This page has complete translations across all required locales and stable translation_group_id linkage for exchange operations."
+    body: "This page has complete translations across all required locales and stable family_id linkage for exchange operations."
     status: "published"
     path: "/translation-demo-exchange"
     tags: ["translation", "exchange", "demo", "fixture"]
@@ -436,7 +436,7 @@ pages:
           status: "published"
           featured_image: "/static/media/logo.png"
           tags: ["translation", "exchange", "demo", "fixture"]
-        body: "This page has complete translations across all required locales and stable translation_group_id linkage for exchange operations."
+        body: "This page has complete translations across all required locales and stable family_id linkage for exchange operations."
 
 posts:
   - slug: "getting-started-go"
@@ -621,7 +621,7 @@ posts:
       author: "editorial.team"
       category: "guides"
       featured_image: "/static/media/banner.jpg"
-      translation_group_id: "11111111-1111-1111-1111-111111111203"
+      family_id: "11111111-1111-1111-1111-111111111203"
       seo:
         title: "Translation Review Fixture EN"
         description: "English source for translation review fixture group."

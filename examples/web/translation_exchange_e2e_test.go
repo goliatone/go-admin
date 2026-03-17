@@ -123,13 +123,13 @@ func TestTranslationExchangeHistoryListsRuntimeAndFixtureJobs(t *testing.T) {
 	validateStatus, validatePayload := doAdminJSONRequestWithHeaderMap(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/import/validate", map[string]any{
 		"rows": []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "missing-page",
-				"translation_group_id": "missing-page",
-				"target_locale":        "fr",
-				"field_path":           "title",
-				"translated_text":      "Bonjour",
-				"source_hash":          "hash-missing",
+				"resource":        "pages",
+				"entity_id":       "missing-page",
+				"family_id":       "missing-page",
+				"target_locale":   "fr",
+				"field_path":      "title",
+				"translated_text": "Bonjour",
+				"source_hash":     "hash-missing",
 			},
 		},
 	}, headers)
@@ -307,7 +307,7 @@ func (s *translationExchangePageStore) ExportRows(ctx context.Context, filter co
 		if err != nil || page == nil {
 			continue
 		}
-		groupID := strings.TrimSpace(page.TranslationGroupID)
+		groupID := strings.TrimSpace(page.FamilyID)
 		if groupID == "" {
 			groupID = strings.TrimSpace(page.ID)
 		}
@@ -323,14 +323,14 @@ func (s *translationExchangePageStore) ExportRows(ctx context.Context, filter co
 				}
 				sourceText := pageFieldText(page, path)
 				rows = append(rows, coreadmin.TranslationExchangeRow{
-					Resource:           "pages",
-					EntityID:           strings.TrimSpace(page.ID),
-					TranslationGroupID: groupID,
-					SourceLocale:       strings.ToLower(strings.TrimSpace(page.Locale)),
-					TargetLocale:       targetLocale,
-					FieldPath:          path,
-					SourceText:         sourceText,
-					SourceHash:         hashTranslationSourceText(sourceText),
+					Resource:     "pages",
+					EntityID:     strings.TrimSpace(page.ID),
+					FamilyID:     groupID,
+					SourceLocale: strings.ToLower(strings.TrimSpace(page.Locale)),
+					TargetLocale: targetLocale,
+					FieldPath:    path,
+					SourceText:   sourceText,
+					SourceHash:   hashTranslationSourceText(sourceText),
 				})
 			}
 		}
@@ -352,11 +352,11 @@ func (s *translationExchangePageStore) ResolveLinkage(ctx context.Context, key c
 	if err != nil || page == nil {
 		return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 	}
-	groupID := strings.TrimSpace(page.TranslationGroupID)
+	groupID := strings.TrimSpace(page.FamilyID)
 	if groupID == "" {
 		groupID = strings.TrimSpace(page.ID)
 	}
-	if !strings.EqualFold(groupID, strings.TrimSpace(key.TranslationGroupID)) {
+	if !strings.EqualFold(groupID, strings.TrimSpace(key.FamilyID)) {
 		return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 	}
 	targetSlug := strings.TrimSpace(page.Slug) + "-" + strings.ToLower(strings.TrimSpace(key.TargetLocale))
@@ -385,7 +385,7 @@ func (s *translationExchangePageStore) ApplyTranslation(ctx context.Context, req
 	if err != nil || page == nil {
 		return coreadmin.ErrTranslationExchangeLinkageNotFound
 	}
-	groupID := strings.TrimSpace(page.TranslationGroupID)
+	groupID := strings.TrimSpace(page.FamilyID)
 	if groupID == "" {
 		groupID = strings.TrimSpace(page.ID)
 	}
@@ -405,8 +405,8 @@ func (s *translationExchangePageStore) ApplyTranslation(ctx context.Context, req
 		if item.Status == "" {
 			item.Status = "draft"
 		}
-		if strings.TrimSpace(item.TranslationGroupID) == "" {
-			item.TranslationGroupID = groupID
+		if strings.TrimSpace(item.FamilyID) == "" {
+			item.FamilyID = groupID
 		}
 		_, err := s.content.UpdatePage(ctx, item)
 		return err
@@ -417,11 +417,11 @@ func (s *translationExchangePageStore) ApplyTranslation(ctx context.Context, req
 	}
 
 	_, err = s.content.CreatePage(ctx, coreadmin.CMSPage{
-		Title:              strings.TrimSpace(req.TranslatedText),
-		Slug:               targetSlug,
-		Locale:             targetLocale,
-		Status:             strings.TrimSpace(req.WorkflowStatus),
-		TranslationGroupID: groupID,
+		Title:    strings.TrimSpace(req.TranslatedText),
+		Slug:     targetSlug,
+		Locale:   targetLocale,
+		Status:   strings.TrimSpace(req.WorkflowStatus),
+		FamilyID: groupID,
 	})
 	return err
 }

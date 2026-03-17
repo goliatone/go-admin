@@ -208,7 +208,7 @@ func (s *CMSPageStore) resolvePageLocaleVariant(ctx context.Context, page *admin
 	if strings.EqualFold(strings.TrimSpace(page.Locale), requestedLocale) {
 		return page
 	}
-	groupID := strings.TrimSpace(page.TranslationGroupID)
+	groupID := strings.TrimSpace(page.FamilyID)
 	if groupID == "" {
 		return page
 	}
@@ -218,7 +218,7 @@ func (s *CMSPageStore) resolvePageLocaleVariant(ctx context.Context, page *admin
 			continue
 		}
 		for _, candidate := range pages {
-			if !strings.EqualFold(strings.TrimSpace(candidate.TranslationGroupID), groupID) {
+			if !strings.EqualFold(strings.TrimSpace(candidate.FamilyID), groupID) {
 				continue
 			}
 			if !strings.EqualFold(strings.TrimSpace(candidate.Locale), requestedLocale) {
@@ -468,12 +468,12 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	}
 
 	payload := map[string]any{
-		"title":                title,
-		"slug":                 slug,
-		"status":               storageStatus,
-		"locale":               locale,
-		"translation_group_id": asString(record["translation_group_id"], asString(existing["translation_group_id"], "")),
-		"parent_id":            asString(record["parent_id"], asString(existing["parent_id"], "")),
+		"title":     title,
+		"slug":      slug,
+		"status":    storageStatus,
+		"locale":    locale,
+		"family_id": asString(record["family_id"], asString(existing["family_id"], "")),
+		"parent_id": asString(record["parent_id"], asString(existing["parent_id"], "")),
 		"seo": map[string]any{
 			"title":       metaTitle,
 			"description": metaDescription,
@@ -579,7 +579,7 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		"parent_id":                page.ParentID,
 		"locale":                   page.Locale,
 		"preview_url":              page.PreviewURL,
-		"translation_group_id":     strings.TrimSpace(page.TranslationGroupID),
+		"family_id":                strings.TrimSpace(page.FamilyID),
 		"requested_locale":         requestedLocale,
 		"resolved_locale":          resolvedLocale,
 		"available_locales":        append([]string{}, page.AvailableLocales...),

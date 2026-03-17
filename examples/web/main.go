@@ -1868,7 +1868,7 @@ func translationQAFamilyTarget(
 	if page == nil {
 		return "", nil
 	}
-	familyID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
+	familyID := normalizeFamilyID(page.FamilyID, page.ID)
 	if strings.TrimSpace(familyID) == "" {
 		return "", nil
 	}
@@ -3061,7 +3061,7 @@ func buildExportPipelineSnapshot(
 	limit := min(len(records), exportPipelineSnapshotLimit)
 	now := snapshot.UpdatedAt
 	snapshot.Recent = make([]exportPipelineRecord, 0, limit)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		snapshot.Recent = append(snapshot.Recent, buildExportPipelineRecord(records[i], now))
 	}
 	return snapshot
@@ -3105,7 +3105,7 @@ func exportPipelineColumnSample(columns []coreadmin.ExportColumn, max int) []str
 	}
 	count := min(len(columns), max)
 	out := make([]string, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		key := strings.TrimSpace(columns[i].Key)
 		if key == "" {
 			continue

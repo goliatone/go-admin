@@ -135,7 +135,7 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -143,7 +143,7 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -152,7 +152,7 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})

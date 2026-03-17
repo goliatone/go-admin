@@ -649,10 +649,7 @@ func paginateBounds(offset, limit, total int) (int, int) {
 		offset = total
 	}
 
-	end := min(offset+limit, total)
-	if end < offset {
-		end = offset
-	}
+	end := max(min(offset+limit, total), offset)
 	return offset, end
 }
 

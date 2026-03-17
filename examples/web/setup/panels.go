@@ -190,7 +190,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 		WithRepository(store).
 		ListFields(
 			admin.Field{Name: "id", Label: "ID", LabelKey: "fields.id", Type: "text"},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "title", Label: "Title", LabelKey: "fields.title", Type: "text"},
 			admin.Field{Name: "slug", Label: "Slug", LabelKey: "fields.slug", Type: "text"},
 			admin.Field{Name: "path", Label: "Path", LabelKey: "fields.path", Type: "text"},
@@ -218,7 +218,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			admin.Field{Name: "slug", Label: "Slug", LabelKey: "fields.slug", Type: "text", Required: true},
 			admin.Field{Name: "path", Label: "Path", LabelKey: "fields.path", Type: "text", Required: true},
 			admin.Field{Name: "content", Label: "Content", LabelKey: "fields.content", Type: "textarea"},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "status", Label: "Status", LabelKey: "fields.status", Type: "select", Required: true, Options: []admin.Option{
 				{Value: "published", Label: "Published", LabelKey: "status.published"},
 				{Value: "draft", Label: "Draft", LabelKey: "status.draft"},
@@ -234,7 +234,7 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 		).
 		DetailFields(
 			admin.Field{Name: "id", Label: "ID", LabelKey: "fields.id", Type: "text", ReadOnly: true},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "title", Label: "Title", LabelKey: "fields.title", Type: "text"},
 			admin.Field{Name: "slug", Label: "Slug", LabelKey: "fields.slug", Type: "text"},
 			admin.Field{Name: "content", Label: "Content", LabelKey: "fields.content", Type: "textarea"},
@@ -291,7 +291,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 		WithRepository(store).
 		ListFields(
 			admin.Field{Name: "id", Label: "ID", LabelKey: "fields.id", Type: "text"},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "title", Label: "Title", LabelKey: "fields.title", Type: "text"},
 			admin.Field{Name: "slug", Label: "Slug", LabelKey: "fields.slug", Type: "text"},
 			admin.Field{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text"},
@@ -324,7 +324,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			admin.Field{Name: "slug", Label: "Slug", LabelKey: "fields.slug", Type: "text", Required: true},
 			admin.Field{Name: "content", Label: "Content", LabelKey: "fields.content", Type: "textarea", Required: true},
 			admin.Field{Name: "excerpt", Label: "Excerpt", LabelKey: "fields.excerpt", Type: "textarea"},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "category", Label: "Category", LabelKey: "fields.category", Type: "select", Required: true, Options: []admin.Option{
 				{Value: "news", Label: "News", LabelKey: "category.news"},
 				{Value: "blog", Label: "Blog", LabelKey: "category.blog"},
@@ -346,7 +346,7 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 		).
 		DetailFields(
 			admin.Field{Name: "id", Label: "ID", LabelKey: "fields.id", Type: "text", ReadOnly: true},
-			admin.Field{Name: "translation_group_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
+			admin.Field{Name: "family_id", Label: "Translation Group", LabelKey: "fields.translation_group", Type: "text", Hidden: true, ReadOnly: true},
 			admin.Field{Name: "title", Label: "Title", LabelKey: "fields.title", Type: "text"},
 			admin.Field{Name: "content", Label: "Content", LabelKey: "fields.content", Type: "textarea"},
 			admin.Field{Name: "author", Label: "Author", LabelKey: "fields.author", Type: "text", ReadOnly: true},

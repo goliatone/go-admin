@@ -51,7 +51,7 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer One"),
-		Role:         strPtrReadable(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -59,12 +59,12 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtrReadable(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
-		PosX:        floatPtrReadable(72),
-		PosY:        floatPtrReadable(180),
-		Width:       floatPtrReadable(180),
-		Height:      floatPtrReadable(48),
+		PosX:        new(float64(72)),
+		PosY:        new(float64(180)),
+		Width:       new(float64(180)),
+		Height:      new(float64(48)),
 		Required:    new(true),
 	})
 	if err != nil {
@@ -72,12 +72,12 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtrReadable(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
-		PosX:        floatPtrReadable(72),
-		PosY:        floatPtrReadable(260),
-		Width:       floatPtrReadable(240),
-		Height:      floatPtrReadable(36),
+		PosX:        new(float64(72)),
+		PosY:        new(float64(260)),
+		Width:       new(float64(240)),
+		Height:      new(float64(36)),
 		Required:    new(true),
 	})
 	if err != nil {
@@ -339,7 +339,7 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer One"),
-		Role:         strPtrReadable(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -347,12 +347,12 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtrReadable(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(3),
-		PosX:        floatPtrReadable(72),
-		PosY:        floatPtrReadable(240),
-		Width:       floatPtrReadable(320),
-		Height:      floatPtrReadable(36),
+		PosX:        new(float64(72)),
+		PosY:        new(float64(240)),
+		Width:       new(float64(320)),
+		Height:      new(float64(36)),
 		Required:    new(true),
 	})
 	if err != nil {
@@ -574,7 +574,7 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer One"),
-		Role:         strPtrReadable(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -582,12 +582,12 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtrReadable(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
-		PosX:        floatPtrReadable(72),
-		PosY:        floatPtrReadable(260),
-		Width:       floatPtrReadable(240),
-		Height:      floatPtrReadable(36),
+		PosX:        new(float64(72)),
+		PosY:        new(float64(260)),
+		Width:       new(float64(240)),
+		Height:      new(float64(36)),
 		Required:    new(true),
 	})
 	if err != nil {

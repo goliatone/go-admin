@@ -224,7 +224,7 @@ func (s *CMSPostStore) resolvePostLocaleVariant(ctx context.Context, content *ad
 	if strings.EqualFold(strings.TrimSpace(content.Locale), requestedLocale) {
 		return content
 	}
-	groupID := strings.TrimSpace(content.TranslationGroupID)
+	groupID := strings.TrimSpace(content.FamilyID)
 	if groupID == "" {
 		return content
 	}
@@ -237,7 +237,7 @@ func (s *CMSPostStore) resolvePostLocaleVariant(ctx context.Context, content *ad
 			if !strings.EqualFold(strings.TrimSpace(candidate.ContentType), "post") {
 				continue
 			}
-			if !strings.EqualFold(strings.TrimSpace(candidate.TranslationGroupID), groupID) {
+			if !strings.EqualFold(strings.TrimSpace(candidate.FamilyID), groupID) {
 				continue
 			}
 			if !strings.EqualFold(strings.TrimSpace(candidate.Locale), requestedLocale) {
@@ -477,13 +477,13 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 
 	payload := map[string]any{
-		"id":                   asString(record["id"], asString(existing["id"], "")),
-		"title":                asString(record["title"], asString(existing["title"], "")),
-		"slug":                 asString(record["slug"], asString(existing["slug"], "")),
-		"status":               status,
-		"locale":               locale,
-		"translation_group_id": asString(record["translation_group_id"], asString(existing["translation_group_id"], "")),
-		"content_type":         "post",
+		"id":           asString(record["id"], asString(existing["id"], "")),
+		"title":        asString(record["title"], asString(existing["title"], "")),
+		"slug":         asString(record["slug"], asString(existing["slug"], "")),
+		"status":       status,
+		"locale":       locale,
+		"family_id":    asString(record["family_id"], asString(existing["family_id"], "")),
+		"content_type": "post",
 	}
 	payloadData := map[string]any{
 		"content":        content,
@@ -582,7 +582,7 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 		"featured_image":           "",
 		"tags":                     "",
 		"author":                   "",
-		"translation_group_id":     strings.TrimSpace(content.TranslationGroupID),
+		"family_id":                strings.TrimSpace(content.FamilyID),
 		"requested_locale":         requestedLocale,
 		"resolved_locale":          resolvedLocale,
 		"available_locales":        append([]string{}, content.AvailableLocales...),

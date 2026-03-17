@@ -121,7 +121,7 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -129,7 +129,7 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -225,7 +225,7 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -233,7 +233,7 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})

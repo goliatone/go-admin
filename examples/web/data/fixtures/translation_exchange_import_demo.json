@@ -2,7 +2,7 @@
   {
     "resource": "pages",
     "entity_id": "248e4d5b-3876-4378-93f4-6298963716a2",
-    "translation_group_id": "248e4d5b-3876-4378-93f4-6298963716a2",
+    "family_id": "248e4d5b-3876-4378-93f4-6298963716a2",
     "source_locale": "en",
     "target_locale": "es",
     "field_path": "title",

@@ -198,7 +198,7 @@ func newTranslationUITestPagesPanel(store stores.PageRepository) *coreadmin.Pane
 			coreadmin.Field{Name: "id", Label: "ID", Type: "text"},
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "locale", Label: "Locale", Type: "text"},
-			coreadmin.Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
+			coreadmin.Field{Name: "family_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
 		).
 		FormFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", Required: true},
@@ -207,7 +207,7 @@ func newTranslationUITestPagesPanel(store stores.PageRepository) *coreadmin.Pane
 			coreadmin.Field{Name: "content", Label: "Content", Type: "textarea"},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "text"},
 			coreadmin.Field{Name: "locale", Label: "Locale", Type: "text"},
-			coreadmin.Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
+			coreadmin.Field{Name: "family_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
 		).
 		DetailFields(
 			coreadmin.Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
@@ -216,7 +216,7 @@ func newTranslationUITestPagesPanel(store stores.PageRepository) *coreadmin.Pane
 			coreadmin.Field{Name: "path", Label: "Path", Type: "text"},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "text"},
 			coreadmin.Field{Name: "locale", Label: "Locale", Type: "text"},
-			coreadmin.Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
+			coreadmin.Field{Name: "family_id", Label: "Translation Group", Type: "text", Hidden: true, ReadOnly: true},
 		)
 }
 

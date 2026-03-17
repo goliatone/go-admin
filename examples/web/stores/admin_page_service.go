@@ -280,7 +280,7 @@ func (s *AdminPageStoreAdapter) toAdminPageRecord(record map[string]any, include
 	out := admin.AdminPageRecord{
 		ID:                 strings.TrimSpace(stringID(record["id"])),
 		ContentID:          strings.TrimSpace(stringID(record["content_id"])),
-		TranslationGroupID: strings.TrimSpace(stringID(record["translation_group_id"])),
+		FamilyID:           strings.TrimSpace(stringID(record["family_id"])),
 		TemplateID:         strings.TrimSpace(stringID(record["template_id"])),
 		Title:              title,
 		Slug:               slug,

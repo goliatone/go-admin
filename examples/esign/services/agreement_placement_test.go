@@ -66,7 +66,7 @@ func TestAgreementServiceRunAutoPlacementPersistsRunAndAudit(t *testing.T) {
 
 	participant, err := svc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningStage: new(1),
 	}, 0)
 	if err != nil {
@@ -153,7 +153,7 @@ func TestAgreementServiceApplyPlacementRunCreatesInstancesAndManualOverrides(t *
 
 	participant, err := svc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningStage: new(1),
 	}, 0)
 	if err != nil {

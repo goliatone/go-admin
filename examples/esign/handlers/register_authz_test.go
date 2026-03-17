@@ -1374,7 +1374,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	pageOne := 1
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
-		Type:        strPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &pageOne,
 		Required:    &required,
 	}); err != nil {
@@ -1383,7 +1383,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	pageTwo := 1
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
-		Type:        strPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &pageTwo,
 		Required:    &required,
 	}); err != nil {
@@ -1833,7 +1833,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	page := 1
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  &page,
 		Required:    &required,
 	}); err != nil {
@@ -1841,7 +1841,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
-		Type:        strPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &page,
 		Required:    &required,
 	}); err != nil {

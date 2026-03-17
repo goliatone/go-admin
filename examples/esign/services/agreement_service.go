@@ -2784,7 +2784,7 @@ func matchComparableRecords(
 	}
 	for _, bucket := range buckets {
 		limit := min(len(bucket.rightIndexes), len(bucket.leftIndexes))
-		for index := 0; index < limit; index++ {
+		for index := range limit {
 			leftIndex := bucket.leftIndexes[index]
 			rightIndex := bucket.rightIndexes[index]
 			leftMatched[leftIndex] = true

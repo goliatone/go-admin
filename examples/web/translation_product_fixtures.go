@@ -69,7 +69,7 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 			if source == "" {
 				source = sourceLocale
 			}
-			groupID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
+			groupID := normalizeFamilyID(page.FamilyID, page.ID)
 			if groupID == "" {
 				continue
 			}
@@ -83,14 +83,14 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 						continue
 					}
 					rows = append(rows, coreadmin.TranslationExchangeRow{
-						Resource:           "pages",
-						EntityID:           strings.TrimSpace(page.ID),
-						TranslationGroupID: groupID,
-						SourceLocale:       source,
-						TargetLocale:       target,
-						FieldPath:          fieldPath,
-						SourceText:         sourceText,
-						SourceHash:         exchangeRowSourceHash(sourceText),
+						Resource:     "pages",
+						EntityID:     strings.TrimSpace(page.ID),
+						FamilyID:     groupID,
+						SourceLocale: source,
+						TargetLocale: target,
+						FieldPath:    fieldPath,
+						SourceText:   sourceText,
+						SourceHash:   exchangeRowSourceHash(sourceText),
 					})
 				}
 			}
@@ -116,7 +116,7 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 			if source == "" {
 				source = sourceLocale
 			}
-			groupID := normalizeTranslationGroupID(content.TranslationGroupID, content.ID)
+			groupID := normalizeFamilyID(content.FamilyID, content.ID)
 			if groupID == "" {
 				continue
 			}
@@ -130,14 +130,14 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 						continue
 					}
 					rows = append(rows, coreadmin.TranslationExchangeRow{
-						Resource:           "posts",
-						EntityID:           strings.TrimSpace(content.ID),
-						TranslationGroupID: groupID,
-						SourceLocale:       source,
-						TargetLocale:       target,
-						FieldPath:          fieldPath,
-						SourceText:         sourceText,
-						SourceHash:         exchangeRowSourceHash(sourceText),
+						Resource:     "posts",
+						EntityID:     strings.TrimSpace(content.ID),
+						FamilyID:     groupID,
+						SourceLocale: source,
+						TargetLocale: target,
+						FieldPath:    fieldPath,
+						SourceText:   sourceText,
+						SourceHash:   exchangeRowSourceHash(sourceText),
 					})
 				}
 			}
@@ -170,8 +170,8 @@ func (s *exampleTranslationExchangeStore) ResolveLinkage(ctx context.Context, ke
 		if !ok {
 			return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
-		groupID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
-		if groupID == "" || !matchesTranslationGroup(groupID, key.TranslationGroupID) {
+		groupID := normalizeFamilyID(page.FamilyID, page.ID)
+		if groupID == "" || !matchesTranslationGroup(groupID, key.FamilyID) {
 			return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
 		targetExists, err := pageLocaleVariantExistsForSource(ctx, contentSvc, page, groupID, targetLocale)
@@ -180,11 +180,11 @@ func (s *exampleTranslationExchangeStore) ResolveLinkage(ctx context.Context, ke
 		}
 		return coreadmin.TranslationExchangeLinkage{
 			Key: coreadmin.TranslationExchangeLinkageKey{
-				Resource:           resource,
-				EntityID:           strings.TrimSpace(page.ID),
-				TranslationGroupID: groupID,
-				TargetLocale:       targetLocale,
-				FieldPath:          fieldPath,
+				Resource:     resource,
+				EntityID:     strings.TrimSpace(page.ID),
+				FamilyID:     groupID,
+				TargetLocale: targetLocale,
+				FieldPath:    fieldPath,
 			},
 			SourceHash:   exchangeRowSourceHash(sourceText),
 			TargetExists: targetExists,
@@ -202,8 +202,8 @@ func (s *exampleTranslationExchangeStore) ResolveLinkage(ctx context.Context, ke
 		if !ok {
 			return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
-		groupID := normalizeTranslationGroupID(content.TranslationGroupID, content.ID)
-		if groupID == "" || !matchesTranslationGroup(groupID, key.TranslationGroupID) {
+		groupID := normalizeFamilyID(content.FamilyID, content.ID)
+		if groupID == "" || !matchesTranslationGroup(groupID, key.FamilyID) {
 			return coreadmin.TranslationExchangeLinkage{}, coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
 		targetExists, err := postLocaleVariantExists(ctx, contentSvc, groupID, targetLocale)
@@ -212,11 +212,11 @@ func (s *exampleTranslationExchangeStore) ResolveLinkage(ctx context.Context, ke
 		}
 		return coreadmin.TranslationExchangeLinkage{
 			Key: coreadmin.TranslationExchangeLinkageKey{
-				Resource:           resource,
-				EntityID:           strings.TrimSpace(content.ID),
-				TranslationGroupID: groupID,
-				TargetLocale:       targetLocale,
-				FieldPath:          fieldPath,
+				Resource:     resource,
+				EntityID:     strings.TrimSpace(content.ID),
+				FamilyID:     groupID,
+				TargetLocale: targetLocale,
+				FieldPath:    fieldPath,
 			},
 			SourceHash:   exchangeRowSourceHash(sourceText),
 			TargetExists: targetExists,
@@ -251,8 +251,8 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 		if err != nil || source == nil {
 			return coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
-		groupID := normalizeTranslationGroupID(source.TranslationGroupID, source.ID)
-		if groupID == "" || !matchesTranslationGroup(groupID, req.Key.TranslationGroupID) {
+		groupID := normalizeFamilyID(source.FamilyID, source.ID)
+		if groupID == "" || !matchesTranslationGroup(groupID, req.Key.FamilyID) {
 			return coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
 
@@ -268,7 +268,7 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 			created.ID = ""
 			created.Locale = targetLocale
 			created.Status = workflowStatus
-			created.TranslationGroupID = groupID
+			created.FamilyID = groupID
 			created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
 			applyPagePathFallback(&created, targetLocale)
 			setPageFieldValue(&created, fieldPath, translatedText)
@@ -278,7 +278,7 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 
 		updated := cloneCMSPage(*variant)
 		updated.Status = workflowStatus
-		updated.TranslationGroupID = groupID
+		updated.FamilyID = groupID
 		setPageFieldValue(&updated, fieldPath, translatedText)
 		_, err = contentSvc.UpdatePage(ctx, updated)
 		return err
@@ -291,8 +291,8 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 			!strings.EqualFold(strings.TrimSpace(source.ContentType), "posts") {
 			return coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
-		groupID := normalizeTranslationGroupID(source.TranslationGroupID, source.ID)
-		if groupID == "" || !matchesTranslationGroup(groupID, req.Key.TranslationGroupID) {
+		groupID := normalizeFamilyID(source.FamilyID, source.ID)
+		if groupID == "" || !matchesTranslationGroup(groupID, req.Key.FamilyID) {
 			return coreadmin.ErrTranslationExchangeLinkageNotFound
 		}
 
@@ -308,7 +308,7 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 			created.ID = ""
 			created.Locale = targetLocale
 			created.Status = workflowStatus
-			created.TranslationGroupID = groupID
+			created.FamilyID = groupID
 			created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
 			setContentFieldValue(&created, fieldPath, translatedText)
 			_, err = contentSvc.CreateContent(ctx, created)
@@ -317,7 +317,7 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 
 		updated := cloneCMSContent(*variant)
 		updated.Status = workflowStatus
-		updated.TranslationGroupID = groupID
+		updated.FamilyID = groupID
 		setContentFieldValue(&updated, fieldPath, translatedText)
 		_, err = contentSvc.UpdateContent(ctx, updated)
 		return err
@@ -369,9 +369,9 @@ func seedExampleTranslationQueueFixture(
 	}
 
 	now := time.Now().UTC()
-	primaryGroupID := normalizeTranslationGroupID(sourcePage.TranslationGroupID, sourcePage.ID)
+	primaryGroupID := normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID)
 	if strings.TrimSpace(primaryGroupID) == "" {
-		return fmt.Errorf("translation queue fixture source page %q missing translation_group_id", exampleTranslationQueueSourceSlug)
+		return fmt.Errorf("translation queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
 	}
 	primarySourceLocale := strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(sourcePage.Locale, "en")))
 	primarySourcePath := strings.TrimSpace(exchangePagePath(*sourcePage))
@@ -386,14 +386,14 @@ func seedExampleTranslationQueueFixture(
 		if err != nil {
 			return fmt.Errorf("translation editor qa source page scope update failed: %w", err)
 		}
-		editorGroupID := normalizeTranslationGroupID(editorSource.TranslationGroupID, editorSource.ID)
+		editorGroupID := normalizeFamilyID(editorSource.FamilyID, editorSource.ID)
 		editorTarget, targetErr := findPageLocaleVariantForSource(ctx, contentSvc, editorSource, editorGroupID, "fr")
 		if targetErr != nil {
 			return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
 		}
-		if editorTarget != nil && !matchesTranslationGroup(editorGroupID, editorTarget.TranslationGroupID) {
+		if editorTarget != nil && !matchesTranslationGroup(editorGroupID, editorTarget.FamilyID) {
 			repairedTarget := cloneCMSPage(*editorTarget)
-			repairedTarget.TranslationGroupID = editorGroupID
+			repairedTarget.FamilyID = editorGroupID
 			editorTarget, err = contentSvc.UpdatePage(ctx, repairedTarget)
 			if err != nil {
 				return fmt.Errorf("translation editor qa target page family repair failed: %w", err)
@@ -401,12 +401,12 @@ func seedExampleTranslationQueueFixture(
 		}
 		if editorTarget == nil && strings.TrimSpace(editorGroupID) != "" {
 			createdTarget, createErr := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
-				ID:                 ensureLocaleSlug(strings.TrimSpace(editorSource.ID), "fr"),
-				Title:              "Guide d'accueil",
-				Slug:               ensureLocaleSlug(strings.TrimSpace(editorSource.Slug), "fr"),
-				Locale:             "fr",
-				TranslationGroupID: editorGroupID,
-				Status:             "draft",
+				ID:       ensureLocaleSlug(strings.TrimSpace(editorSource.ID), "fr"),
+				Title:    "Guide d'accueil",
+				Slug:     ensureLocaleSlug(strings.TrimSpace(editorSource.Slug), "fr"),
+				Locale:   "fr",
+				FamilyID: editorGroupID,
+				Status:   "draft",
 				Data: map[string]any{
 					"path": ensureLocaleSlug(strings.TrimSpace(exchangePagePath(*editorSource)), "fr"),
 					"body": "Publier la traduction depuis l'accueil.",
@@ -480,7 +480,7 @@ func seedExampleTranslationQueueFixture(
 			}
 			editorAssignment := coreadmin.TranslationAssignment{
 				ID:                  exampleTranslationQAAssignmentID,
-				TranslationGroupID:  editorGroupID,
+				FamilyID:            editorGroupID,
 				EntityType:          "pages",
 				TenantID:            strings.TrimSpace(tenantID),
 				OrgID:               strings.TrimSpace(orgID),
@@ -508,20 +508,20 @@ func seedExampleTranslationQueueFixture(
 	for index, assigneeID := range assignees {
 		targetLocale := exampleTranslationQueueTargetLocales[index%len(exampleTranslationQueueTargetLocales)]
 		inProgress := coreadmin.TranslationAssignment{
-			TranslationGroupID: primaryGroupID,
-			EntityType:         "pages",
-			TenantID:           strings.TrimSpace(tenantID),
-			OrgID:              strings.TrimSpace(orgID),
-			SourceRecordID:     strings.TrimSpace(sourcePage.ID),
-			SourceLocale:       primarySourceLocale,
-			TargetLocale:       targetLocale,
-			SourceTitle:        primaryTitle,
-			SourcePath:         primarySourcePath,
-			AssignmentType:     coreadmin.AssignmentTypeDirect,
-			Status:             coreadmin.AssignmentStatusInProgress,
-			Priority:           coreadmin.PriorityHigh,
-			AssigneeID:         assigneeID,
-			ClaimedAt:          fixtureTimePtr(now),
+			FamilyID:       primaryGroupID,
+			EntityType:     "pages",
+			TenantID:       strings.TrimSpace(tenantID),
+			OrgID:          strings.TrimSpace(orgID),
+			SourceRecordID: strings.TrimSpace(sourcePage.ID),
+			SourceLocale:   primarySourceLocale,
+			TargetLocale:   targetLocale,
+			SourceTitle:    primaryTitle,
+			SourcePath:     primarySourcePath,
+			AssignmentType: coreadmin.AssignmentTypeDirect,
+			Status:         coreadmin.AssignmentStatusInProgress,
+			Priority:       coreadmin.PriorityHigh,
+			AssigneeID:     assigneeID,
+			ClaimedAt:      fixtureTimePtr(now),
 		}
 		if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
 			return err
@@ -537,29 +537,29 @@ func seedExampleTranslationQueueFixture(
 	}
 	reviewDueDate := now.Add(36 * time.Hour)
 	postAssignment := coreadmin.TranslationAssignment{
-		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
-		EntityType:         "posts",
-		TenantID:           strings.TrimSpace(tenantID),
-		OrgID:              strings.TrimSpace(orgID),
-		SourceRecordID:     strings.TrimSpace(postSource.ID),
-		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
-		TargetLocale:       "fr",
-		SourceTitle:        strings.TrimSpace(postSource.Title),
-		SourcePath:         strings.TrimSpace(fmt.Sprint(postSource.Data["path"])),
-		AssignmentType:     coreadmin.AssignmentTypeDirect,
-		Status:             coreadmin.AssignmentStatusReview,
-		Priority:           coreadmin.PriorityHigh,
-		AssigneeID:         assignees[0],
-		ReviewerID:         assignees[0],
-		DueDate:            &reviewDueDate,
-		ClaimedAt:          fixtureTimePtr(now),
-		SubmittedAt:        fixtureTimePtr(now.Add(-2 * time.Hour)),
+		FamilyID:       normalizeFamilyID(postSource.FamilyID, postSource.ID),
+		EntityType:     "posts",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(postSource.ID),
+		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
+		TargetLocale:   "fr",
+		SourceTitle:    strings.TrimSpace(postSource.Title),
+		SourcePath:     strings.TrimSpace(fmt.Sprint(postSource.Data["path"])),
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusReview,
+		Priority:       coreadmin.PriorityHigh,
+		AssigneeID:     assignees[0],
+		ReviewerID:     assignees[0],
+		DueDate:        &reviewDueDate,
+		ClaimedAt:      fixtureTimePtr(now),
+		SubmittedAt:    fixtureTimePtr(now.Add(-2 * time.Hour)),
 	}
 	if strings.TrimSpace(postAssignment.SourcePath) == "" || postAssignment.SourcePath == "<nil>" {
 		postAssignment.SourcePath = strings.TrimSpace("/posts/" + strings.Trim(strings.TrimSpace(postSource.Slug), "/"))
 	}
-	if strings.TrimSpace(postAssignment.TranslationGroupID) == "" {
-		return fmt.Errorf("translation queue fixture review post %q missing translation_group_id", exampleTranslationQueuePostSource)
+	if strings.TrimSpace(postAssignment.FamilyID) == "" {
+		return fmt.Errorf("translation queue fixture review post %q missing family_id", exampleTranslationQueuePostSource)
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, postAssignment); err != nil {
 		return err
@@ -571,21 +571,21 @@ func seedExampleTranslationQueueFixture(
 	}
 	assignedDueDate := now.Add(72 * time.Hour)
 	assignedQueueItem := coreadmin.TranslationAssignment{
-		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
-		EntityType:         "posts",
-		TenantID:           strings.TrimSpace(tenantID),
-		OrgID:              strings.TrimSpace(orgID),
-		SourceRecordID:     strings.TrimSpace(postSource.ID),
-		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
-		TargetLocale:       "nl",
-		SourceTitle:        strings.TrimSpace(postSource.Title),
-		SourcePath:         strings.TrimSpace(postAssignment.SourcePath),
-		AssignmentType:     coreadmin.AssignmentTypeDirect,
-		Status:             coreadmin.AssignmentStatusAssigned,
-		Priority:           coreadmin.PriorityNormal,
-		AssigneeID:         assignedAssignee,
-		ReviewerID:         assignees[0],
-		DueDate:            &assignedDueDate,
+		FamilyID:       normalizeFamilyID(postSource.FamilyID, postSource.ID),
+		EntityType:     "posts",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(postSource.ID),
+		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
+		TargetLocale:   "nl",
+		SourceTitle:    strings.TrimSpace(postSource.Title),
+		SourcePath:     strings.TrimSpace(postAssignment.SourcePath),
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusAssigned,
+		Priority:       coreadmin.PriorityNormal,
+		AssigneeID:     assignedAssignee,
+		ReviewerID:     assignees[0],
+		DueDate:        &assignedDueDate,
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, assignedQueueItem); err != nil {
 		return err
@@ -593,21 +593,21 @@ func seedExampleTranslationQueueFixture(
 
 	overdueDueDate := now.Add(-6 * time.Hour)
 	overdueQueueItem := coreadmin.TranslationAssignment{
-		TranslationGroupID: primaryGroupID,
-		EntityType:         "pages",
-		TenantID:           strings.TrimSpace(tenantID),
-		OrgID:              strings.TrimSpace(orgID),
-		SourceRecordID:     strings.TrimSpace(sourcePage.ID),
-		SourceLocale:       primarySourceLocale,
-		TargetLocale:       "sv",
-		SourceTitle:        primaryTitle,
-		SourcePath:         primarySourcePath,
-		AssignmentType:     coreadmin.AssignmentTypeDirect,
-		Status:             coreadmin.AssignmentStatusInProgress,
-		Priority:           coreadmin.PriorityUrgent,
-		AssigneeID:         assignees[0],
-		DueDate:            &overdueDueDate,
-		ClaimedAt:          fixtureTimePtr(now.Add(-24 * time.Hour)),
+		FamilyID:       primaryGroupID,
+		EntityType:     "pages",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(sourcePage.ID),
+		SourceLocale:   primarySourceLocale,
+		TargetLocale:   "sv",
+		SourceTitle:    primaryTitle,
+		SourcePath:     primarySourcePath,
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInProgress,
+		Priority:       coreadmin.PriorityUrgent,
+		AssigneeID:     assignees[0],
+		DueDate:        &overdueDueDate,
+		ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, overdueQueueItem); err != nil {
 		return err
@@ -624,21 +624,21 @@ func seedExampleTranslationQueueFixture(
 		}
 	}
 	openPool := coreadmin.TranslationAssignment{
-		TranslationGroupID: normalizeTranslationGroupID(openPoolSource.TranslationGroupID, openPoolSource.ID),
-		EntityType:         "pages",
-		TenantID:           strings.TrimSpace(tenantID),
-		OrgID:              strings.TrimSpace(orgID),
-		SourceRecordID:     strings.TrimSpace(openPoolSource.ID),
-		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolSource.Locale, "en"))),
-		TargetLocale:       "ja",
-		SourceTitle:        strings.TrimSpace(openPoolSource.Title),
-		SourcePath:         strings.TrimSpace(exchangePagePath(*openPoolSource)),
-		AssignmentType:     coreadmin.AssignmentTypeOpenPool,
-		Status:             coreadmin.AssignmentStatusPending,
-		Priority:           coreadmin.PriorityNormal,
-		AssigneeID:         "",
+		FamilyID:       normalizeFamilyID(openPoolSource.FamilyID, openPoolSource.ID),
+		EntityType:     "pages",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(openPoolSource.ID),
+		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolSource.Locale, "en"))),
+		TargetLocale:   "ja",
+		SourceTitle:    strings.TrimSpace(openPoolSource.Title),
+		SourcePath:     strings.TrimSpace(exchangePagePath(*openPoolSource)),
+		AssignmentType: coreadmin.AssignmentTypeOpenPool,
+		Status:         coreadmin.AssignmentStatusPending,
+		Priority:       coreadmin.PriorityNormal,
+		AssigneeID:     "",
 	}
-	if strings.TrimSpace(openPool.TranslationGroupID) != "" {
+	if strings.TrimSpace(openPool.FamilyID) != "" {
 		if err := seedOrRefreshQueueAssignment(ctx, repo, openPool); err != nil {
 			return err
 		}
@@ -724,7 +724,7 @@ func ensureScopedPageFamily(
 	if page == nil {
 		return nil, nil
 	}
-	groupID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
+	groupID := normalizeFamilyID(page.FamilyID, page.ID)
 	if strings.TrimSpace(groupID) == "" {
 		return ensureScopedPage(ctx, contentSvc, page, tenantID, orgID)
 	}
@@ -733,7 +733,7 @@ func ensureScopedPageFamily(
 		return nil, err
 	}
 	for _, candidate := range pages {
-		if !matchesTranslationGroup(groupID, candidate.TranslationGroupID) && !matchesTranslationGroup(groupID, candidate.ID) {
+		if !matchesTranslationGroup(groupID, candidate.FamilyID) && !matchesTranslationGroup(groupID, candidate.ID) {
 			continue
 		}
 		candidateCopy := cloneCMSPage(candidate)
@@ -889,20 +889,20 @@ func findPostBySlug(ctx context.Context, contentSvc coreadmin.CMSContentService,
 
 func seedLegacyTranslationQueueFixture(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, sourcePage *coreadmin.CMSPage, now time.Time) error {
 	assignment := coreadmin.TranslationAssignment{
-		TranslationGroupID: normalizeTranslationGroupID(sourcePage.TranslationGroupID, sourcePage.ID),
-		EntityType:         "pages",
-		SourceRecordID:     strings.TrimSpace(sourcePage.ID),
-		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(sourcePage.Locale, "en"))),
-		TargetLocale:       exampleTranslationQueueTargetLocale,
-		SourceTitle:        strings.TrimSpace(sourcePage.Title),
-		SourcePath:         strings.TrimSpace(exchangePagePath(*sourcePage)),
-		AssignmentType:     coreadmin.AssignmentTypeDirect,
-		Status:             coreadmin.AssignmentStatusInProgress,
-		Priority:           coreadmin.PriorityHigh,
-		AssigneeID:         "translator.demo",
-		ClaimedAt:          &now,
+		FamilyID:       normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID),
+		EntityType:     "pages",
+		SourceRecordID: strings.TrimSpace(sourcePage.ID),
+		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(sourcePage.Locale, "en"))),
+		TargetLocale:   exampleTranslationQueueTargetLocale,
+		SourceTitle:    strings.TrimSpace(sourcePage.Title),
+		SourcePath:     strings.TrimSpace(exchangePagePath(*sourcePage)),
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInProgress,
+		Priority:       coreadmin.PriorityHigh,
+		AssigneeID:     "translator.demo",
+		ClaimedAt:      &now,
 	}
-	if strings.TrimSpace(assignment.TranslationGroupID) == "" {
+	if strings.TrimSpace(assignment.FamilyID) == "" {
 		return nil
 	}
 
@@ -979,7 +979,7 @@ func findPageLocaleVariantForSource(
 		sourceID = strings.ToLower(strings.TrimSpace(source.ID))
 	}
 	for _, page := range pages {
-		if !matchesTranslationGroup(groupID, page.TranslationGroupID) && !matchesTranslationGroup(groupID, page.ID) {
+		if !matchesTranslationGroup(groupID, page.FamilyID) && !matchesTranslationGroup(groupID, page.ID) {
 			continue
 		}
 		if sourceID != "" && strings.EqualFold(strings.TrimSpace(page.ID), sourceID) {
@@ -1028,7 +1028,7 @@ func findPostLocaleVariant(ctx context.Context, contentSvc coreadmin.CMSContentS
 			!strings.EqualFold(strings.TrimSpace(item.ContentType), "posts") {
 			continue
 		}
-		if !matchesTranslationGroup(groupID, item.TranslationGroupID) && !matchesTranslationGroup(groupID, item.ID) {
+		if !matchesTranslationGroup(groupID, item.FamilyID) && !matchesTranslationGroup(groupID, item.ID) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(item.Locale), targetLocale) {
@@ -1137,7 +1137,7 @@ func stringSet(values []string) map[string]struct{} {
 	return out
 }
 
-func normalizeTranslationGroupID(groupID, fallback string) string {
+func normalizeFamilyID(groupID, fallback string) string {
 	groupID = strings.TrimSpace(groupID)
 	if groupID != "" {
 		return groupID

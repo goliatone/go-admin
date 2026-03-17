@@ -267,12 +267,12 @@ func TestCMSSeedsIncludeMonolingualAndMultilingualTranslationScenarios(t *testin
 
 	missingFRPageEN := seededPageFixtureBySlugAndLocale(t, ctx, db, "translation-missing-fr", "en")
 	require.Equal(t, "en", strings.ToLower(missingFRPageEN.Locale))
-	missingFRGroupID := strings.ToLower(strings.TrimSpace(missingFRPageEN.TranslationGroupID))
+	missingFRGroupID := strings.ToLower(strings.TrimSpace(missingFRPageEN.FamilyID))
 	require.NotEmpty(t, missingFRGroupID)
 
 	missingFRPageES := seededPageFixtureBySlugAndLocale(t, ctx, db, "translation-missing-fr", "es")
 	require.Equal(t, "es", strings.ToLower(missingFRPageES.Locale))
-	require.Equal(t, missingFRGroupID, strings.ToLower(strings.TrimSpace(missingFRPageES.TranslationGroupID)))
+	require.Equal(t, missingFRGroupID, strings.ToLower(strings.TrimSpace(missingFRPageES.FamilyID)))
 
 	missingFRCount, err := db.NewSelect().
 		Table("admin_page_records").
@@ -284,17 +284,17 @@ func TestCMSSeedsIncludeMonolingualAndMultilingualTranslationScenarios(t *testin
 
 	reviewPostEN := seededPostFixtureBySlugAndLocale(t, ctx, db, "translation-review-post", "en")
 	require.Equal(t, "en", strings.ToLower(reviewPostEN.Locale))
-	reviewPostGroupID := strings.ToLower(strings.TrimSpace(reviewPostEN.TranslationGroupID))
+	reviewPostGroupID := strings.ToLower(strings.TrimSpace(reviewPostEN.FamilyID))
 	require.NotEmpty(t, reviewPostGroupID)
 
 	reviewPostES := seededPostFixtureBySlugAndLocale(t, ctx, db, "translation-review-post", "es")
 	require.Equal(t, "es", strings.ToLower(reviewPostES.Locale))
 	require.Contains(t, []string{"pending_approval", "draft"}, strings.ToLower(reviewPostES.Status))
-	require.Equal(t, reviewPostGroupID, strings.ToLower(strings.TrimSpace(reviewPostES.TranslationGroupID)))
+	require.Equal(t, reviewPostGroupID, strings.ToLower(strings.TrimSpace(reviewPostES.FamilyID)))
 	require.Empty(t, strings.TrimSpace(reviewPostES.Excerpt), "review fixture should keep excerpt empty for required-field readiness coverage")
 
 	exchangeReadyPage := seededPageFixtureBySlug(t, ctx, db, "translation-exchange-ready")
-	exchangeReadyGroupID := strings.ToLower(strings.TrimSpace(exchangeReadyPage.TranslationGroupID))
+	exchangeReadyGroupID := strings.ToLower(strings.TrimSpace(exchangeReadyPage.FamilyID))
 	require.NotEmpty(t, exchangeReadyGroupID)
 	require.NotEqual(t, missingFRGroupID, exchangeReadyGroupID, "exchange-ready fixture should use a distinct translation group")
 }
@@ -356,7 +356,7 @@ func TestAdminPageResponsesExposeTranslationMetadataForListAndDetail(t *testing.
 	require.NotNil(t, fallbackPage)
 	require.Equal(t, "fr", strings.ToLower(fallbackPage.RequestedLocale))
 	require.Equal(t, "en", strings.ToLower(fallbackPage.ResolvedLocale))
-	require.NotEmpty(t, fallbackPage.TranslationGroupID)
+	require.NotEmpty(t, fallbackPage.FamilyID)
 	require.True(t, fallbackPage.Translation.Meta.MissingRequestedLocale)
 	require.True(t, fallbackPage.Translation.Meta.FallbackUsed)
 	require.Contains(t, fallbackPage.Translation.Meta.AvailableLocales, "en")
@@ -398,10 +398,10 @@ func contentTranslationLocalesBySlug(t *testing.T, ctx context.Context, db *bun.
 }
 
 type seededPageFixture struct {
-	Slug               string `bun:"slug"`
-	Locale             string `bun:"locale"`
-	Status             string `bun:"status"`
-	TranslationGroupID string `bun:"translation_group_id"`
+	Slug     string `bun:"slug"`
+	Locale   string `bun:"locale"`
+	Status   string `bun:"status"`
+	FamilyID string `bun:"family_id"`
 }
 
 func seededPageFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug string) seededPageFixture {
@@ -409,7 +409,7 @@ func seededPageFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug
 	row := seededPageFixture{}
 	err := db.NewSelect().
 		Table("admin_page_records").
-		Column("slug", "locale", "status", "translation_group_id").
+		Column("slug", "locale", "status", "family_id").
 		Where("slug = ?", slug).
 		Limit(1).
 		Scan(ctx, &row)
@@ -423,7 +423,7 @@ func seededPageFixtureBySlugAndLocale(t *testing.T, ctx context.Context, db *bun
 	row := seededPageFixture{}
 	err := db.NewSelect().
 		Table("admin_page_records").
-		Column("slug", "locale", "status", "translation_group_id").
+		Column("slug", "locale", "status", "family_id").
 		Where("slug = ?", slug).
 		Where("LOWER(locale) = LOWER(?)", locale).
 		Limit(1).
@@ -434,11 +434,11 @@ func seededPageFixtureBySlugAndLocale(t *testing.T, ctx context.Context, db *bun
 }
 
 type seededPostFixture struct {
-	Slug               string `bun:"slug"`
-	Locale             string `bun:"locale"`
-	Status             string `bun:"status"`
-	Excerpt            string `bun:"excerpt"`
-	TranslationGroupID string `bun:"translation_group_id"`
+	Slug     string `bun:"slug"`
+	Locale   string `bun:"locale"`
+	Status   string `bun:"status"`
+	Excerpt  string `bun:"excerpt"`
+	FamilyID string `bun:"family_id"`
 }
 
 func seededPostFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug string) seededPostFixture {
@@ -446,7 +446,7 @@ func seededPostFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug
 	row := seededPostFixture{}
 	err := db.NewSelect().
 		Table("admin_post_records").
-		Column("slug", "locale", "status", "excerpt", "translation_group_id").
+		Column("slug", "locale", "status", "excerpt", "family_id").
 		Where("slug = ?", slug).
 		Limit(1).
 		Scan(ctx, &row)
@@ -460,7 +460,7 @@ func seededPostFixtureBySlugAndLocale(t *testing.T, ctx context.Context, db *bun
 	row := seededPostFixture{}
 	err := db.NewSelect().
 		Table("admin_post_records").
-		Column("slug", "locale", "status", "excerpt", "translation_group_id").
+		Column("slug", "locale", "status", "excerpt", "family_id").
 		Where("slug = ?", slug).
 		Where("LOWER(locale) = LOWER(?)", locale).
 		Limit(1).

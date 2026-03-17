@@ -144,7 +144,7 @@ func TestPublishBlockedThenCreateTranslationsThenPublishSucceedsForPagesAndPosts
 			require.Equal(t, coreadmin.TextCodeTranslationMissing, extractErrorTextCode(blockedPayload))
 			require.ElementsMatch(t, []string{"es", "fr"}, extractMissingLocales(blockedPayload))
 
-			translationGroupID := strings.TrimSpace(fmt.Sprint(createdRecord["translation_group_id"]))
+			translationGroupID := strings.TrimSpace(fmt.Sprint(createdRecord["family_id"]))
 			if translationGroupID == "" || strings.EqualFold(translationGroupID, "<nil>") {
 				translationGroupID = entityID
 			}
@@ -300,7 +300,7 @@ func TestListCanonicalIncompleteFilterReturnsOnlyIncompleteRecords(t *testing.T)
 			completeID := strings.TrimSpace(fmt.Sprint(completeRecord["id"]))
 			require.NotEmpty(t, completeID)
 
-			translationGroupID := strings.TrimSpace(fmt.Sprint(completeRecord["translation_group_id"]))
+			translationGroupID := strings.TrimSpace(fmt.Sprint(completeRecord["family_id"]))
 			if translationGroupID == "" || strings.EqualFold(translationGroupID, "<nil>") {
 				translationGroupID = completeID
 			}
@@ -569,12 +569,12 @@ func buildTranslationVariantPayload(panel string, source map[string]any, transla
 	path := strings.TrimSpace(fmt.Sprint(source["path"]))
 	title := strings.TrimSpace(fmt.Sprint(source["title"]))
 	payload := map[string]any{
-		"title":                title + " (" + strings.ToUpper(locale) + ")",
-		"slug":                 slug + "-" + strings.ToLower(locale),
-		"path":                 path + "-" + strings.ToLower(locale),
-		"status":               "draft",
-		"locale":               strings.ToLower(locale),
-		"translation_group_id": translationGroupID,
+		"title":     title + " (" + strings.ToUpper(locale) + ")",
+		"slug":      slug + "-" + strings.ToLower(locale),
+		"path":      path + "-" + strings.ToLower(locale),
+		"status":    "draft",
+		"locale":    strings.ToLower(locale),
+		"family_id": translationGroupID,
 	}
 	if strings.EqualFold(panel, "posts") {
 		payload["content"] = strings.TrimSpace(fmt.Sprint(source["content"]))
@@ -764,7 +764,7 @@ func TestTranslationExchangeFlowPublishSucceedsAfterVariantCreation(t *testing.T
 	entityID := strings.TrimSpace(fmt.Sprint(createdRecord["id"]))
 	require.NotEmpty(t, entityID)
 
-	translationGroupID := strings.TrimSpace(fmt.Sprint(createdRecord["translation_group_id"]))
+	translationGroupID := strings.TrimSpace(fmt.Sprint(createdRecord["family_id"]))
 	if translationGroupID == "" || strings.EqualFold(translationGroupID, "<nil>") {
 		translationGroupID = entityID
 	}
@@ -782,23 +782,23 @@ func TestTranslationExchangeFlowPublishSucceedsAfterVariantCreation(t *testing.T
 	require.ElementsMatch(t, []string{"es", "fr"}, missingLocales, "expected missing es and fr")
 
 	// Step 3: Simulate exchange export - export would produce rows like:
-	// {resource: "pages", entity_id: entityID, translation_group_id: tgID, target_locale: "es", field_path: "title", source_text: "Exchange Flow Page"}
+	// {resource: "pages", entity_id: entityID, family_id: tgID, target_locale: "es", field_path: "title", source_text: "Exchange Flow Page"}
 	// This simulates what the exchange export command would return
 
 	// Step 4: Simulate external translation - translated rows would look like:
-	// {resource: "pages", entity_id: entityID, translation_group_id: tgID, target_locale: "es", field_path: "title", translated_text: "Página de Flujo"}
+	// {resource: "pages", entity_id: entityID, family_id: tgID, target_locale: "es", field_path: "title", translated_text: "Página de Flujo"}
 	// The exchange apply command would then update the target locale variant
 
 	// Step 5: Create locale variants (simulates exchange apply with create_translation=true)
 	// This is the expected outcome after exchange validate+apply flow
 	for _, locale := range missingLocales {
 		variantBody := map[string]any{
-			"title":                fmt.Sprintf("Exchange Flow Page (%s)", strings.ToUpper(locale)),
-			"slug":                 fmt.Sprintf("exchange-flow-page-%s", locale),
-			"path":                 fmt.Sprintf("/exchange-flow-page-%s", locale),
-			"status":               "draft",
-			"locale":               locale,
-			"translation_group_id": translationGroupID,
+			"title":     fmt.Sprintf("Exchange Flow Page (%s)", strings.ToUpper(locale)),
+			"slug":      fmt.Sprintf("exchange-flow-page-%s", locale),
+			"path":      fmt.Sprintf("/exchange-flow-page-%s", locale),
+			"status":    "draft",
+			"locale":    locale,
+			"family_id": translationGroupID,
 		}
 		variantStatus, variantPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelCollectionPath("pages"), variantBody)
 		require.Equal(t, http.StatusOK, variantStatus, "create locale=%s payload=%+v", locale, variantPayload)

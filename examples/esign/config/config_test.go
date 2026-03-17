@@ -324,6 +324,29 @@ func TestLoadSupportsSignerPDFRemediationOverrides(t *testing.T) {
 	}
 }
 
+func TestLoadBundledConfigEnablesPDFRemediationForPreviewFallback(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.Signer.PDF.Remediation.Enabled {
+		t.Fatalf("expected bundled config to enable remediation")
+	}
+	if cfg.Signer.PDF.Remediation.ExecutionMode != "inline" {
+		t.Fatalf("expected bundled remediation.execution_mode inline, got %q", cfg.Signer.PDF.Remediation.ExecutionMode)
+	}
+	found := false
+	for _, candidate := range cfg.Signer.PDF.Remediation.CandidateReasons {
+		if strings.TrimSpace(candidate) == "preview_fallback.disabled" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected bundled config to include preview_fallback.disabled candidate reason, got %#v", cfg.Signer.PDF.Remediation.CandidateReasons)
+	}
+}
+
 func TestLoadSanitizesInvalidSignerPDFRemediationValues(t *testing.T) {
 	t.Setenv("APP_SIGNER__PDF__REMEDIATION__EXECUTION_MODE", "invalid")
 	t.Setenv("APP_SIGNER__PDF__REMEDIATION__LEASE_TTL_MS", "0")

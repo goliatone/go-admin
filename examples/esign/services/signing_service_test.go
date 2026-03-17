@@ -116,7 +116,7 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-1@example.com"),
 		Name:         new("Signer One"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-2@example.com"),
 		Name:         new("Signer Two"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -134,7 +134,7 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 
 	fieldOne, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -143,7 +143,7 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	}
 	fieldTwo, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(2),
 		Required:    new(true),
 	})
@@ -210,7 +210,7 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer-1@example.com"),
 		Name:         new("Stage One A"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer-2@example.com"),
 		Name:         new("Stage One B"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -228,7 +228,7 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage2-signer@example.com"),
 		Name:         new("Stage Two"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -238,7 +238,7 @@ func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
 	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo, signerThree} {
 		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
-			Type:        stringPtr(stores.FieldTypeSignature),
+			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
 			Required:    new(true),
 		}); err != nil {
@@ -309,7 +309,7 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer-1@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer-2@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -325,7 +325,7 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 	}
 	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage2-signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -336,7 +336,7 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo, signerThree} {
 		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
-			Type:        stringPtr(stores.FieldTypeSignature),
+			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
 			Required:    new(true),
 		})
@@ -437,7 +437,7 @@ func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -445,7 +445,7 @@ func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage2-signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -455,7 +455,7 @@ func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
 	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo} {
 		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
-			Type:        stringPtr(stores.FieldTypeSignature),
+			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
 			Required:    new(true),
 		})
@@ -515,7 +515,7 @@ func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage1-signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -523,7 +523,7 @@ func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("stage2-signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -532,7 +532,7 @@ func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
 	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo} {
 		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
-			Type:        stringPtr(stores.FieldTypeSignature),
+			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
 			Required:    new(true),
 		}); err != nil {
@@ -579,7 +579,7 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer One"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -592,7 +592,7 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 	height := 42.0
 	field, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(2),
 		PosX:        &posX,
 		PosY:        &posY,
@@ -668,7 +668,7 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -676,7 +676,7 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -736,7 +736,7 @@ func TestSigningServiceGetSessionDegradesWhenSourceUnavailableWithoutObjectStore
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -744,7 +744,7 @@ func TestSigningServiceGetSessionDegradesWhenSourceUnavailableWithoutObjectStore
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -775,7 +775,7 @@ func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceed
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -783,7 +783,7 @@ func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceed
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -865,7 +865,7 @@ func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -873,7 +873,7 @@ func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -937,7 +937,7 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 	}
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -945,7 +945,7 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -984,7 +984,7 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -996,7 +996,7 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 	oversizeHeight := 1600.0
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(2),
 		PosX:        &negativePosX,
 		PosY:        &negativePosY,
@@ -1038,7 +1038,7 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1046,7 +1046,7 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -1103,7 +1103,7 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
 		Name:         new("Signer"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1111,7 +1111,7 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	}
 	requiredTextField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1120,7 +1120,7 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -1184,7 +1184,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-1@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1192,7 +1192,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-2@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -1200,7 +1200,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -1208,7 +1208,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	}
 	waitingField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1217,7 +1217,7 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -1254,7 +1254,7 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1262,7 +1262,7 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1322,7 +1322,7 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1330,7 +1330,7 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1387,7 +1387,7 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1395,7 +1395,7 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1437,7 +1437,7 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1445,7 +1445,7 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	}
 	initialsField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeInitials),
+		Type:        new(stores.FieldTypeInitials),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1454,7 +1454,7 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -1516,7 +1516,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *te
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1524,7 +1524,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRequiresUploadBootstrap(t *te
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1556,7 +1556,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1564,7 +1564,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1643,7 +1643,7 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1651,7 +1651,7 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1711,7 +1711,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1719,7 +1719,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1776,7 +1776,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1784,7 +1784,7 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1847,7 +1847,7 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1855,7 +1855,7 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1864,7 +1864,7 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1936,7 +1936,7 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -1944,7 +1944,7 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -1953,7 +1953,7 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2001,7 +2001,7 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2009,7 +2009,7 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2018,7 +2018,7 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2075,7 +2075,7 @@ func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2083,7 +2083,7 @@ func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -2108,7 +2108,7 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2116,7 +2116,7 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2125,7 +2125,7 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2179,7 +2179,7 @@ func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *t
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2187,7 +2187,7 @@ func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *t
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2233,7 +2233,7 @@ func TestSigningServiceSubmitEnqueuesCompletionWorkflowOutboxWhenConfigured(t *t
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2241,7 +2241,7 @@ func TestSigningServiceSubmitEnqueuesCompletionWorkflowOutboxWhenConfigured(t *t
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2320,7 +2320,7 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 
 	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-1@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2328,7 +2328,7 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	}
 	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer-2@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(2),
 	}, 0)
 	if err != nil {
@@ -2336,7 +2336,7 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2345,7 +2345,7 @@ func TestSigningServiceSubmitEnqueuesStageActivationWorkflowOutboxWhenConfigured
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -2426,7 +2426,7 @@ func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2434,7 +2434,7 @@ func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2499,7 +2499,7 @@ func TestSigningServiceDeclineFlow(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2507,7 +2507,7 @@ func TestSigningServiceDeclineFlow(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	}); err != nil {
@@ -2555,7 +2555,7 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2563,7 +2563,7 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 	}
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2572,7 +2572,7 @@ func TestSigningServiceSignerAuditEventsIncludeActorMetadata(t *testing.T) {
 	}
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeText),
+		Type:        new(stores.FieldTypeText),
 		PageNumber:  new(1),
 		Required:    new(true),
 	})
@@ -2689,9 +2689,9 @@ func TestSigningServiceGetSessionIncludesReviewContext(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("review.session@example.com"),
-		Name:         stringPtr("Review Session"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Email:        new("review.session@example.com"),
+		Name:         new("Review Session"),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2699,9 +2699,9 @@ func TestSigningServiceGetSessionIncludesReviewContext(t *testing.T) {
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
@@ -2748,9 +2748,9 @@ func TestSigningServiceGetReviewSessionSupportsExternalReviewerToken(t *testing.
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("external.review.signer@example.com"),
-		Name:         stringPtr("External Review Signer"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Email:        new("external.review.signer@example.com"),
+		Name:         new("External Review Signer"),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2758,9 +2758,9 @@ func TestSigningServiceGetReviewSessionSupportsExternalReviewerToken(t *testing.
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
@@ -2827,9 +2827,9 @@ func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *tes
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("review.submit@example.com"),
-		Name:         stringPtr("Review Submit"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Email:        new("review.submit@example.com"),
+		Name:         new("Review Submit"),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -2837,9 +2837,9 @@ func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *tes
 	}
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
-		Type:        stringPtr(stores.FieldTypeSignature),
+		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
-		Required:    boolPtr(true),
+		Required:    new(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}

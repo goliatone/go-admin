@@ -44,7 +44,7 @@ func (s *localeAwareContentServiceStub) Page(_ context.Context, id, locale strin
 		Slug:                   "locale-aware-page",
 		Locale:                 resolvedLocale,
 		Status:                 "draft",
-		TranslationGroupID:     "tg-page-locale-aware",
+		FamilyID:               "tg-page-locale-aware",
 		RequestedLocale:        locale,
 		ResolvedLocale:         resolvedLocale,
 		AvailableLocales:       []string{"en"},
@@ -87,7 +87,7 @@ func (s *localeAwareContentServiceStub) Content(_ context.Context, id, locale st
 		Locale:                 resolvedLocale,
 		ContentType:            "post",
 		Status:                 "draft",
-		TranslationGroupID:     "tg-post-locale-aware",
+		FamilyID:               "tg-post-locale-aware",
 		RequestedLocale:        locale,
 		ResolvedLocale:         resolvedLocale,
 		AvailableLocales:       []string{"en"},
@@ -146,12 +146,12 @@ func (s *missingLocaleFallbackContentServiceStub) Page(_ context.Context, id, lo
 		return nil, errors.New("missing locale")
 	}
 	return &admin.CMSPage{
-		ID:                 id,
-		Title:              "Fallback Page",
-		Slug:               "fallback-page",
-		Locale:             "en",
-		Status:             "draft",
-		TranslationGroupID: "tg-fallback-page",
+		ID:       id,
+		Title:    "Fallback Page",
+		Slug:     "fallback-page",
+		Locale:   "en",
+		Status:   "draft",
+		FamilyID: "tg-fallback-page",
 	}, nil
 }
 
@@ -162,13 +162,13 @@ func (s *missingLocaleFallbackContentServiceStub) Content(_ context.Context, id,
 		return nil, errors.New("missing locale")
 	}
 	return &admin.CMSContent{
-		ID:                 id,
-		Title:              "Fallback Post",
-		Slug:               "fallback-post",
-		Locale:             "en",
-		ContentType:        "post",
-		Status:             "draft",
-		TranslationGroupID: "tg-fallback-post",
+		ID:          id,
+		Title:       "Fallback Post",
+		Slug:        "fallback-post",
+		Locale:      "en",
+		ContentType: "post",
+		Status:      "draft",
+		FamilyID:    "tg-fallback-post",
 	}, nil
 }
 
@@ -177,13 +177,13 @@ func (s *localeVariantLookupContentServiceStub) Pages(_ context.Context, locale 
 	case "es":
 		return []admin.CMSPage{
 			{
-				ID:                 "page-es",
-				Title:              "Locale Variant Page ES",
-				Slug:               "locale-variant-page-es",
-				Locale:             "es",
-				Status:             "draft",
-				TranslationGroupID: "tg-locale-variant-page",
-				AvailableLocales:   []string{"en", "es"},
+				ID:               "page-es",
+				Title:            "Locale Variant Page ES",
+				Slug:             "locale-variant-page-es",
+				Locale:           "es",
+				Status:           "draft",
+				FamilyID:         "tg-locale-variant-page",
+				AvailableLocales: []string{"en", "es"},
 			},
 		}, nil
 	default:
@@ -200,13 +200,13 @@ func (s *localeVariantLookupContentServiceStub) Page(_ context.Context, id, loca
 		return nil, errors.New("missing locale variant by source id")
 	case "":
 		return &admin.CMSPage{
-			ID:                 id,
-			Title:              "Locale Variant Page EN",
-			Slug:               "locale-variant-page",
-			Locale:             "en",
-			Status:             "draft",
-			TranslationGroupID: "tg-locale-variant-page",
-			AvailableLocales:   []string{"en", "es"},
+			ID:               id,
+			Title:            "Locale Variant Page EN",
+			Slug:             "locale-variant-page",
+			Locale:           "en",
+			Status:           "draft",
+			FamilyID:         "tg-locale-variant-page",
+			AvailableLocales: []string{"en", "es"},
 		}, nil
 	default:
 		return nil, errors.New("unsupported locale")
@@ -218,14 +218,14 @@ func (s *localeVariantLookupContentServiceStub) Contents(_ context.Context, loca
 	case "es":
 		return []admin.CMSContent{
 			{
-				ID:                 "post-es",
-				Title:              "Locale Variant Post ES",
-				Slug:               "locale-variant-post-es",
-				Locale:             "es",
-				ContentType:        "post",
-				Status:             "draft",
-				TranslationGroupID: "tg-locale-variant-post",
-				AvailableLocales:   []string{"en", "es"},
+				ID:               "post-es",
+				Title:            "Locale Variant Post ES",
+				Slug:             "locale-variant-post-es",
+				Locale:           "es",
+				ContentType:      "post",
+				Status:           "draft",
+				FamilyID:         "tg-locale-variant-post",
+				AvailableLocales: []string{"en", "es"},
 			},
 		}, nil
 	default:
@@ -242,14 +242,14 @@ func (s *localeVariantLookupContentServiceStub) Content(_ context.Context, id, l
 		return nil, errors.New("missing locale variant by source id")
 	case "":
 		return &admin.CMSContent{
-			ID:                 id,
-			Title:              "Locale Variant Post EN",
-			Slug:               "locale-variant-post",
-			Locale:             "en",
-			ContentType:        "post",
-			Status:             "draft",
-			TranslationGroupID: "tg-locale-variant-post",
-			AvailableLocales:   []string{"en", "es"},
+			ID:               id,
+			Title:            "Locale Variant Post EN",
+			Slug:             "locale-variant-post",
+			Locale:           "en",
+			ContentType:      "post",
+			Status:           "draft",
+			FamilyID:         "tg-locale-variant-post",
+			AvailableLocales: []string{"en", "es"},
 		}, nil
 	default:
 		return nil, errors.New("unsupported locale")

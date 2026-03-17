@@ -12,7 +12,7 @@ func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestSignerAssetContractResolveMarksSourceUnavailableWhenBlobMissing(t *test
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
-		Role:         stringPtr(stores.RecipientRoleSigner),
+		Role:         new(stores.RecipientRoleSigner),
 		SigningOrder: new(1),
 	}, 0)
 	if err != nil {

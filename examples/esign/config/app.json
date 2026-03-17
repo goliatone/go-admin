@@ -88,10 +88,10 @@
       "preview_fallback_enabled": false,
       "pipeline_mode": "prefer_normalized",
       "remediation": {
-        "enabled": false,
+        "enabled": true,
         "execution_mode": "inline",
         "auto_on_upload": false,
-        "candidate_reasons": ["import.failed", "parse.failed"],
+        "candidate_reasons": ["import.failed", "parse.failed", "preview_fallback.disabled"],
         "lease_ttl_ms": 60000,
         "command": {
           "bin": "gs",

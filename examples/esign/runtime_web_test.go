@@ -518,6 +518,100 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	}
 }
 
+func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime fixture: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	documentID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_documents?"+query, map[string]any{
+		"title":                fmt.Sprintf("Edit Page Config Doc %d", time.Now().UnixNano()),
+		"source_original_name": "edit-page-config.pdf",
+		"pdf_base64":           base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(2)),
+	})
+
+	agreementID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_agreements?"+query, map[string]any{
+		"document_id": documentID,
+		"title":       fmt.Sprintf("Edit Page Config Agreement %d", time.Now().UnixNano()),
+		"message":     "Please review and sign.",
+		"participants": []map[string]any{
+			{
+				"name":          "Config Tester",
+				"email":         "config.tester@example.com",
+				"role":          "signer",
+				"notify":        true,
+				"signing_stage": 1,
+			},
+		},
+		"field_instances": []map[string]any{
+			{
+				"type":            "initials",
+				"recipient_index": 0,
+				"page":            1,
+				"required":        true,
+				"x":               144,
+				"y":               96,
+				"width":           80,
+				"height":          40,
+			},
+			{
+				"type":            "signature",
+				"recipient_index": 0,
+				"page":            2,
+				"required":        true,
+				"x":               220,
+				"y":               420,
+				"width":           180,
+				"height":          48,
+			},
+		},
+	})
+
+	editResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/"+agreementID+"/edit?"+query, authCookie)
+	defer editResp.Body.Close()
+	if editResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(editResp.Body)
+		t.Fatalf("expected agreement edit status 200, got %d body=%s", editResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	editBody, err := io.ReadAll(editResp.Body)
+	if err != nil {
+		t.Fatalf("read agreement edit body: %v", err)
+	}
+	markup := string(editBody)
+	if !strings.Contains(markup, `data-esign-page="agreement-form"`) {
+		t.Fatalf("expected agreement edit page marker in response")
+	}
+
+	config := extractESignPageConfigFromHTML(t, markup)
+	initialParticipants, ok := config["initial_participants"].([]any)
+	if !ok {
+		t.Fatalf("expected initial_participants array in config, got %#v", config["initial_participants"])
+	}
+	if len(initialParticipants) != 1 {
+		t.Fatalf("expected 1 initial participant in config, got %d (%#v)", len(initialParticipants), config["initial_participants"])
+	}
+	initialFieldInstances, ok := config["initial_field_instances"].([]any)
+	if !ok {
+		t.Fatalf("expected initial_field_instances array in config, got %#v", config["initial_field_instances"])
+	}
+	if len(initialFieldInstances) != 2 {
+		t.Fatalf("expected 2 initial field instances in config, got %d (%#v)", len(initialFieldInstances), config["initial_field_instances"])
+	}
+}
+
 func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {
 	app := setupESignRuntimeWebApp(t)
 

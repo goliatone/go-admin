@@ -470,10 +470,7 @@ func (s *InMemoryStore) ListAgreementCommentThreads(ctx context.Context, scope S
 		}
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
-	start := max(query.Offset, 0)
-	if start > len(out) {
-		start = len(out)
-	}
+	start := min(max(query.Offset, 0), len(out))
 	end := len(out)
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit

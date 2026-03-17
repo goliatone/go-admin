@@ -203,32 +203,32 @@ type pageRow struct {
 type contentTranslationRow struct {
 	bun.BaseModel `bun:"table:content_translations,alias:ct"`
 
-	ID                 uuid.UUID      `bun:",pk,type:uuid"`
-	ContentID          uuid.UUID      `bun:"content_id,notnull,type:uuid"`
-	LocaleID           uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	TranslationGroupID *uuid.UUID     `bun:"translation_group_id,type:uuid"`
-	Title              string         `bun:"title,notnull"`
-	Summary            *string        `bun:"summary"`
-	Content            map[string]any `bun:"content,type:jsonb,notnull"`
-	CreatedAt          time.Time      `bun:"created_at"`
-	UpdatedAt          time.Time      `bun:"updated_at"`
+	ID        uuid.UUID      `bun:",pk,type:uuid"`
+	ContentID uuid.UUID      `bun:"content_id,notnull,type:uuid"`
+	LocaleID  uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
+	FamilyID  *uuid.UUID     `bun:"family_id,type:uuid"`
+	Title     string         `bun:"title,notnull"`
+	Summary   *string        `bun:"summary"`
+	Content   map[string]any `bun:"content,type:jsonb,notnull"`
+	CreatedAt time.Time      `bun:"created_at"`
+	UpdatedAt time.Time      `bun:"updated_at"`
 }
 
 type pageTranslationRow struct {
 	bun.BaseModel `bun:"table:page_translations,alias:pt"`
 
-	ID                 uuid.UUID      `bun:",pk,type:uuid"`
-	PageID             uuid.UUID      `bun:"page_id,notnull,type:uuid"`
-	LocaleID           uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	TranslationGroupID *uuid.UUID     `bun:"translation_group_id,type:uuid"`
-	Title              string         `bun:"title,notnull"`
-	Path               string         `bun:"path,notnull"`
-	SEOTitle           *string        `bun:"seo_title"`
-	SEODescription     *string        `bun:"seo_description"`
-	Summary            *string        `bun:"summary"`
-	MediaBindings      map[string]any `bun:"media_bindings,type:jsonb"`
-	CreatedAt          time.Time      `bun:"created_at"`
-	UpdatedAt          time.Time      `bun:"updated_at"`
+	ID             uuid.UUID      `bun:",pk,type:uuid"`
+	PageID         uuid.UUID      `bun:"page_id,notnull,type:uuid"`
+	LocaleID       uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
+	FamilyID       *uuid.UUID     `bun:"family_id,type:uuid"`
+	Title          string         `bun:"title,notnull"`
+	Path           string         `bun:"path,notnull"`
+	SEOTitle       *string        `bun:"seo_title"`
+	SEODescription *string        `bun:"seo_description"`
+	Summary        *string        `bun:"summary"`
+	MediaBindings  map[string]any `bun:"media_bindings,type:jsonb"`
+	CreatedAt      time.Time      `bun:"created_at"`
+	UpdatedAt      time.Time      `bun:"updated_at"`
 }
 
 type menuViewProfileRow struct {
@@ -1401,18 +1401,18 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 		seoTitle, seoDescription := seedSEO(seed)
 		record := map[string]any{
-			"title":                seed.Title,
-			"slug":                 seed.Slug,
-			"content":              seed.Body,
-			"summary":              seed.Summary,
-			"status":               seed.Status,
-			"locale":               locale,
-			"translation_group_id": seedTranslationGroupIDValue(seed),
-			"path":                 normalizePath(seed.Path, seed.Slug),
-			"meta_title":           seoTitle,
-			"meta_description":     seoDescription,
-			"template_id":          refs.TemplateID.String(),
-			"tags":                 append([]string{}, seed.Tags...),
+			"title":            seed.Title,
+			"slug":             seed.Slug,
+			"content":          seed.Body,
+			"summary":          seed.Summary,
+			"status":           seed.Status,
+			"locale":           locale,
+			"family_id":        seedFamilyIDValue(seed),
+			"path":             normalizePath(seed.Path, seed.Slug),
+			"meta_title":       seoTitle,
+			"meta_description": seoDescription,
+			"template_id":      refs.TemplateID.String(),
+			"tags":             append([]string{}, seed.Tags...),
 		}
 		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
@@ -1435,18 +1435,18 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 		seoTitle, seoDescription := seedSEO(seed)
 		record := map[string]any{
-			"title":                seed.Title,
-			"slug":                 seed.Slug,
-			"content":              seed.Body,
-			"excerpt":              seed.Summary,
-			"summary":              seed.Summary,
-			"status":               seed.Status,
-			"locale":               locale,
-			"translation_group_id": seedTranslationGroupIDValue(seed),
-			"path":                 normalizePath(seed.Path, seed.Slug),
-			"meta_title":           seoTitle,
-			"meta_description":     seoDescription,
-			"tags":                 append([]string{}, seed.Tags...),
+			"title":            seed.Title,
+			"slug":             seed.Slug,
+			"content":          seed.Body,
+			"excerpt":          seed.Summary,
+			"summary":          seed.Summary,
+			"status":           seed.Status,
+			"locale":           locale,
+			"family_id":        seedFamilyIDValue(seed),
+			"path":             normalizePath(seed.Path, seed.Slug),
+			"meta_title":       seoTitle,
+			"meta_description": seoDescription,
+			"tags":             append([]string{}, seed.Tags...),
 		}
 		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
@@ -1506,9 +1506,9 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			Data:        record,
 		}
 		if seed.Custom != nil {
-			groupID := strings.TrimSpace(fmt.Sprint(seed.Custom["translation_group_id"]))
+			groupID := strings.TrimSpace(fmt.Sprint(seed.Custom["family_id"]))
 			if groupID != "" && groupID != "<nil>" {
-				content.TranslationGroupID = groupID
+				content.FamilyID = groupID
 			}
 		}
 		if _, err := contentSvc.CreateContent(ctx, content); err != nil {
@@ -2106,14 +2106,14 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				return err
 			}
 			contentTranslation := &contentTranslationRow{
-				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+targetLocale)),
-				ContentID:          contentID,
-				LocaleID:           loc.ID,
-				TranslationGroupID: groupID,
-				Title:              strings.TrimSpace(localizedSeed.Title),
-				Content:            payload,
-				CreatedAt:          now,
-				UpdatedAt:          now,
+				ID:        uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+targetLocale)),
+				ContentID: contentID,
+				LocaleID:  loc.ID,
+				FamilyID:  groupID,
+				Title:     strings.TrimSpace(localizedSeed.Title),
+				Content:   payload,
+				CreatedAt: now,
+				UpdatedAt: now,
 			}
 			if summary != "" {
 				contentTranslation.Summary = &summary
@@ -2125,7 +2125,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				Set("title = EXCLUDED.title").
 				Set("summary = EXCLUDED.summary").
 				Set("content = EXCLUDED.content").
-				Set("translation_group_id = EXCLUDED.translation_group_id").
+				Set("family_id = EXCLUDED.family_id").
 				Set("updated_at = EXCLUDED.updated_at").
 				Exec(ctx); err != nil {
 				return fmt.Errorf("seed content translation %s (%s): %w", seed.Slug, targetLocale, err)
@@ -2155,15 +2155,15 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				return err
 			}
 			pageTranslation := &pageTranslationRow{
-				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+targetLocale)),
-				PageID:             pageID,
-				LocaleID:           loc.ID,
-				TranslationGroupID: pageGroupID,
-				Title:              strings.TrimSpace(localizedSeed.Title),
-				Path:               path,
-				MediaBindings:      map[string]any{},
-				CreatedAt:          now,
-				UpdatedAt:          now,
+				ID:            uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+targetLocale)),
+				PageID:        pageID,
+				LocaleID:      loc.ID,
+				FamilyID:      pageGroupID,
+				Title:         strings.TrimSpace(localizedSeed.Title),
+				Path:          path,
+				MediaBindings: map[string]any{},
+				CreatedAt:     now,
+				UpdatedAt:     now,
 			}
 			if summary != "" {
 				pageTranslation.Summary = &summary
@@ -2184,7 +2184,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				Set("seo_title = EXCLUDED.seo_title").
 				Set("seo_description = EXCLUDED.seo_description").
 				Set("media_bindings = EXCLUDED.media_bindings").
-				Set("translation_group_id = EXCLUDED.translation_group_id").
+				Set("family_id = EXCLUDED.family_id").
 				Set("updated_at = EXCLUDED.updated_at").
 				Exec(ctx); err != nil {
 				return fmt.Errorf("seed page translation %s (%s): %w", seed.Slug, targetLocale, err)
@@ -2203,11 +2203,11 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 	return nil
 }
 
-func seedTranslationGroupIDValue(seed contentSeed) string {
+func seedFamilyIDValue(seed contentSeed) string {
 	if seed.Custom == nil {
 		return ""
 	}
-	value := strings.TrimSpace(fmt.Sprint(seed.Custom["translation_group_id"]))
+	value := strings.TrimSpace(fmt.Sprint(seed.Custom["family_id"]))
 	if value == "<nil>" {
 		return ""
 	}
@@ -2215,10 +2215,10 @@ func seedTranslationGroupIDValue(seed contentSeed) string {
 }
 
 func seedTranslationGroupUUID(seed contentSeed, fallback uuid.UUID) (*uuid.UUID, error) {
-	if groupID := seedTranslationGroupIDValue(seed); groupID != "" {
+	if groupID := seedFamilyIDValue(seed); groupID != "" {
 		parsed, err := uuid.Parse(groupID)
 		if err != nil {
-			return nil, fmt.Errorf("seed %s translation_group_id %q: %w", seed.Slug, groupID, err)
+			return nil, fmt.Errorf("seed %s family_id %q: %w", seed.Slug, groupID, err)
 		}
 		return &parsed, nil
 	}
@@ -2477,8 +2477,8 @@ func translationSeedPanelGroupCoverage(ctx context.Context, db *bun.DB, table st
 	if err := db.NewSelect().
 		Table(normalizedTable).
 		ColumnExpr("COUNT(DISTINCT LOWER(locale)) AS locale_count").
-		Where("COALESCE(translation_group_id, '') <> ''").
-		Group("translation_group_id").
+		Where("COALESCE(family_id, '') <> ''").
+		Group("family_id").
 		Scan(ctx, &grouped); err != nil {
 		return translationSeedPanelCoverage{}, err
 	}
@@ -2509,7 +2509,7 @@ func translationFixtureLocalesBySlugGroup(ctx context.Context, db *bun.DB, table
 	if err := db.NewSelect().
 		Table(normalizedTable).
 		ColumnExpr("LOWER(locale) AS locale").
-		Where("LOWER(translation_group_id) = LOWER(?)", groupID).
+		Where("LOWER(family_id) = LOWER(?)", groupID).
 		Scan(ctx, &locales); err != nil {
 		return nil, err
 	}
@@ -2522,11 +2522,11 @@ func translationFixtureGroupIDBySlug(ctx context.Context, db *bun.DB, table, slu
 		return "", err
 	}
 	row := struct {
-		TranslationGroupID string `bun:"translation_group_id"`
+		FamilyID string `bun:"family_id"`
 	}{}
 	err = db.NewSelect().
 		Table(normalizedTable).
-		Column("translation_group_id").
+		Column("family_id").
 		Where("LOWER(slug) = LOWER(?)", strings.TrimSpace(slug)).
 		OrderExpr("CASE WHEN LOWER(locale) = 'en' THEN 0 ELSE 1 END").
 		OrderExpr("LOWER(locale) ASC").
@@ -2538,9 +2538,9 @@ func translationFixtureGroupIDBySlug(ctx context.Context, db *bun.DB, table, slu
 		}
 		return "", err
 	}
-	groupID := strings.TrimSpace(row.TranslationGroupID)
+	groupID := strings.TrimSpace(row.FamilyID)
 	if groupID == "" {
-		return "", fmt.Errorf("translation seed fixture %s missing translation_group_id in %s", slug, normalizedTable)
+		return "", fmt.Errorf("translation seed fixture %s missing family_id in %s", slug, normalizedTable)
 	}
 	return groupID, nil
 }

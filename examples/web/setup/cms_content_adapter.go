@@ -149,7 +149,7 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 		Slug:                   content.Slug,
 		TemplateID:             templateID,
 		Locale:                 content.Locale,
-		TranslationGroupID:     bridgeResolvedTranslationGroupID(content.TranslationGroupID, data, content.Metadata),
+		FamilyID:               bridgeResolvedFamilyID(content.FamilyID, data, content.Metadata),
 		RequestedLocale:        requestedLocale,
 		ResolvedLocale:         resolvedLocale,
 		AvailableLocales:       append([]string{}, content.AvailableLocales...),
@@ -197,19 +197,19 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
 	}
 	data["path"] = path
-	groupID := bridgeRequestedTranslationGroupID(page.TranslationGroupID, data, page.Metadata)
+	groupID := bridgeRequestedFamilyID(page.FamilyID, data, page.Metadata)
 	data, metadata := bridgePersistTranslationGroupMetadata(groupID, data, page.Metadata)
 
 	created, err := b.CreateContent(ctx, admin.CMSContent{
-		Title:              page.Title,
-		Slug:               page.Slug,
-		Status:             page.Status,
-		Locale:             locale,
-		TranslationGroupID: groupID,
-		ContentType:        "page",
-		Blocks:             append([]string{}, page.Blocks...),
-		Data:               data,
-		Metadata:           metadata,
+		Title:       page.Title,
+		Slug:        page.Slug,
+		Status:      page.Status,
+		Locale:      locale,
+		FamilyID:    groupID,
+		ContentType: "page",
+		Blocks:      append([]string{}, page.Blocks...),
+		Data:        data,
+		Metadata:    metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	data["path"] = path
 	metadata := primitives.CloneAnyMapEmptyOnEmpty(existing.Metadata)
 	maps.Copy(metadata, primitives.CloneAnyMapEmptyOnEmpty(page.Metadata))
-	groupID := bridgeRequestedTranslationGroupID(primitives.FirstNonEmpty(page.TranslationGroupID, existing.TranslationGroupID), data, metadata)
+	groupID := bridgeRequestedFamilyID(primitives.FirstNonEmpty(page.FamilyID, existing.FamilyID), data, metadata)
 	data, metadata = bridgePersistTranslationGroupMetadata(groupID, data, metadata)
 
 	title := strings.TrimSpace(page.Title)
@@ -280,16 +280,16 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 	}
 
 	updated, err := b.UpdateContent(ctx, admin.CMSContent{
-		ID:                 existing.ID,
-		Title:              title,
-		Slug:               slug,
-		Status:             status,
-		Locale:             locale,
-		TranslationGroupID: groupID,
-		ContentType:        "page",
-		Blocks:             blocks,
-		Data:               data,
-		Metadata:           metadata,
+		ID:          existing.ID,
+		Title:       title,
+		Slug:        slug,
+		Status:      status,
+		Locale:      locale,
+		FamilyID:    groupID,
+		ContentType: "page",
+		Blocks:      blocks,
+		Data:        data,
+		Metadata:    metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -513,8 +513,8 @@ func (b *goCMSContentBridge) CreateContent(ctx context.Context, content admin.CM
 	}
 	reqType := method.Type().In(1)
 	req := reflect.New(reqType).Elem()
-	groupID := bridgeRequestedTranslationGroupID(content.TranslationGroupID, content.Data, content.Metadata)
-	content.TranslationGroupID = groupID
+	groupID := bridgeRequestedFamilyID(content.FamilyID, content.Data, content.Metadata)
+	content.FamilyID = groupID
 	content.Data, content.Metadata = bridgePersistTranslationGroupMetadata(groupID, content.Data, content.Metadata)
 
 	contentTypeKey := strings.TrimSpace(content.ContentType)
@@ -598,8 +598,8 @@ func (b *goCMSContentBridge) UpdateContent(ctx context.Context, content admin.CM
 	}
 	reqType := method.Type().In(1)
 	req := reflect.New(reqType).Elem()
-	groupID := bridgeRequestedTranslationGroupID(content.TranslationGroupID, content.Data, content.Metadata)
-	content.TranslationGroupID = groupID
+	groupID := bridgeRequestedFamilyID(content.FamilyID, content.Data, content.Metadata)
+	content.FamilyID = groupID
 	content.Data, content.Metadata = bridgePersistTranslationGroupMetadata(groupID, content.Data, content.Metadata)
 
 	setUUIDField(req, "ID", uuidOrNil(content.ID))
@@ -929,8 +929,8 @@ func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin
 	tr := reflect.New(elemType).Elem()
 	setStringField(tr, "Locale", content.Locale)
 	setStringField(tr, "Title", content.Title)
-	if groupID := uuidOrNil(content.TranslationGroupID); groupID != uuid.Nil {
-		setUUIDPtr(tr, "TranslationGroupID", groupID)
+	if groupID := uuidOrNil(content.FamilyID); groupID != uuid.Nil {
+		setUUIDPtr(tr, "FamilyID", groupID)
 	}
 	if summary := strings.TrimSpace(asString(content.Data["excerpt"], "")); summary != "" {
 		setStringPtr(tr, "Summary", summary)
@@ -945,24 +945,24 @@ func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin
 	return reflect.Append(slice, tr)
 }
 
-func bridgeResolvedTranslationGroupID(groupID string, maps ...map[string]any) string {
+func bridgeResolvedFamilyID(groupID string, maps ...map[string]any) string {
 	for _, source := range maps {
 		if source == nil {
 			continue
 		}
-		if resolved := strings.TrimSpace(asString(source["translation_group_id"], "")); resolved != "" {
+		if resolved := strings.TrimSpace(asString(source["family_id"], "")); resolved != "" {
 			return resolved
 		}
 	}
 	return strings.TrimSpace(groupID)
 }
 
-func bridgeRequestedTranslationGroupID(groupID string, maps ...map[string]any) string {
+func bridgeRequestedFamilyID(groupID string, maps ...map[string]any) string {
 	groupID = strings.TrimSpace(groupID)
 	if groupID != "" {
 		return groupID
 	}
-	return bridgeResolvedTranslationGroupID("", maps...)
+	return bridgeResolvedFamilyID("", maps...)
 }
 
 func bridgePersistTranslationGroupMetadata(groupID string, data, metadata map[string]any) (map[string]any, map[string]any) {
@@ -972,8 +972,8 @@ func bridgePersistTranslationGroupMetadata(groupID string, data, metadata map[st
 	if groupID == "" {
 		return data, metadata
 	}
-	data["translation_group_id"] = groupID
-	metadata["translation_group_id"] = groupID
+	data["family_id"] = groupID
+	metadata["family_id"] = groupID
 	return data, metadata
 }
 
@@ -998,8 +998,8 @@ func (b *goCMSContentBridge) buildPageTranslation(field reflect.Value, page admi
 	setStringField(tr, "Locale", locale)
 	setStringField(tr, "Title", page.Title)
 	setStringField(tr, "Path", path)
-	if groupID := uuidOrNil(page.TranslationGroupID); groupID != uuid.Nil {
-		setUUIDPtr(tr, "TranslationGroupID", groupID)
+	if groupID := uuidOrNil(page.FamilyID); groupID != uuid.Nil {
+		setUUIDPtr(tr, "FamilyID", groupID)
 	}
 	if summary := asString(page.Data["summary"], ""); summary != "" {
 		setStringPtr(tr, "Summary", summary)
@@ -1072,8 +1072,8 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 	}
 	if chosen.IsValid() {
 		translationPath := strings.TrimSpace(stringField(chosen, "Path"))
-		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
-			out.TranslationGroupID = groupID
+		if groupID := uuidStringField(chosen, "FamilyID"); groupID != "" {
+			out.FamilyID = groupID
 		}
 		out.Locale = localeCodeFromTranslation(chosen)
 		out.Title = stringField(chosen, "Title")
@@ -1122,7 +1122,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		}
 		out.MissingRequestedLocale = missing
 	}
-	out.TranslationGroupID = bridgeResolvedTranslationGroupID(out.TranslationGroupID, out.Data, out.Metadata)
+	out.FamilyID = bridgeResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
 	return out
 }
 
@@ -1168,8 +1168,8 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 	}
 	if chosen.IsValid() {
-		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
-			out.TranslationGroupID = groupID
+		if groupID := uuidStringField(chosen, "FamilyID"); groupID != "" {
+			out.FamilyID = groupID
 		}
 		out.Locale = localeCodeFromTranslation(chosen)
 		out.Title = stringField(chosen, "Title")
@@ -1227,7 +1227,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 		out.MissingRequestedLocale = missing
 	}
-	out.TranslationGroupID = bridgeResolvedTranslationGroupID(out.TranslationGroupID, out.Data, out.Metadata)
+	out.FamilyID = bridgeResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
 	return out
 }
 
