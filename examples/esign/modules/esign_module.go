@@ -838,6 +838,11 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Field{Name: "updated_at", Label: "Updated", Type: "datetime", ReadOnly: true},
 		).
 		Filters(
+			coreadmin.Filter{Name: "version_visibility", Label: "Versions", Type: "select", Options: []coreadmin.Option{
+				{Value: "current", Label: "Current"},
+				{Value: "all", Label: "All"},
+				{Value: "previous", Label: "Previous"},
+			}},
 			coreadmin.Filter{Name: "status", Label: "Status", Type: "select", Options: agreementStatusOptions()},
 			coreadmin.Filter{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Filter{Name: "document_id", Label: "Document ID", Type: "text"},

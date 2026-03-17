@@ -95,6 +95,147 @@ func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 	}
 }
 
+func TestDraftServiceStartReviewMaterializesAgreementAndOpensReview(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:              "Review Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-review/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	draftSvc := NewDraftService(store, WithDraftAgreementService(agreementSvc))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 1,
+		},
+		"details": map[string]any{
+			"title": "Draft Review Flow",
+		},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "Alice Reviewer",
+				"email":  "alice@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldDefinitions": []map[string]any{
+			{
+				"tempId":            "field-1",
+				"type":              "signature",
+				"participantTempId": "participant-1",
+				"required":          true,
+				"page":              1,
+				"label":             "Signer Signature",
+			},
+		},
+		"fieldPlacements": []map[string]any{
+			{
+				"fieldTempId": "field-1",
+				"page":        1,
+				"x":           72,
+				"y":           128,
+				"width":       180,
+				"height":      32,
+			},
+		},
+		"review": map[string]any{
+			"enabled":         true,
+			"gate":            stores.AgreementReviewGateApproveBeforeSend,
+			"commentsEnabled": true,
+			"participants": []map[string]any{
+				{
+					"participantType":   "recipient",
+					"participantTempId": "participant-1",
+					"canComment":        true,
+					"canApprove":        true,
+				},
+				{
+					"participantType": "external",
+					"email":           "legal@example.com",
+					"displayName":     "Client Legal",
+					"canComment":      true,
+					"canApprove":      true,
+				},
+			},
+		},
+	}
+
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-start-review-1",
+		WizardState:     state,
+		Title:           "Draft Review Flow",
+		CurrentStep:     6,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected first create replay=false")
+	}
+
+	result, err := draftSvc.StartReview(ctx, scope, draft.ID, DraftStartReviewInput{
+		ExpectedRevision: draft.Revision,
+		CreatedByUserID:  "author-1",
+		IPAddress:        "203.0.113.10",
+		IdempotencyKey:   "start-review-once",
+	})
+	if err != nil {
+		t.Fatalf("StartReview: %v", err)
+	}
+	if result.AgreementID == "" {
+		t.Fatalf("expected agreement id in start review result")
+	}
+	if result.ReviewStatus != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusInReview, result.ReviewStatus)
+	}
+	if !result.DraftDeleted {
+		t.Fatalf("expected wizard draft to be deleted after start review")
+	}
+
+	if _, err := draftSvc.Get(ctx, scope, draft.ID, "author-1"); err == nil {
+		t.Fatalf("expected wizard draft to be removed after start review")
+	}
+
+	agreement, err := store.GetAgreement(ctx, scope, result.AgreementID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		t.Fatalf("expected agreement status %q, got %q", stores.AgreementStatusDraft, agreement.Status)
+	}
+	if agreement.ReviewStatus != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected agreement review status %q, got %q", stores.AgreementReviewStatusInReview, agreement.ReviewStatus)
+	}
+	if agreement.ReviewGate != stores.AgreementReviewGateApproveBeforeSend {
+		t.Fatalf("expected agreement review gate %q, got %q", stores.AgreementReviewGateApproveBeforeSend, agreement.ReviewGate)
+	}
+	if !agreement.CommentsEnabled {
+		t.Fatalf("expected comments_enabled=true on materialized agreement")
+	}
+
+	summary, err := agreementSvc.GetReviewSummary(ctx, scope, result.AgreementID)
+	if err != nil {
+		t.Fatalf("GetReviewSummary: %v", err)
+	}
+	if len(summary.Participants) != 2 {
+		t.Fatalf("expected 2 review participants, got %d", len(summary.Participants))
+	}
+}
+
 func TestDraftServiceCreateStoresDraftAuditEventsSeparately(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}

@@ -102,8 +102,8 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testin
 		t.Fatalf("expected agreement form context to omit user_id, got %+v", cfg.Context["user_id"])
 	}
 	ops, ok := syncCfg["action_operations"].([]string)
-	if !ok || len(ops) != 2 || ops[0] != "send" || ops[1] != "dispose" {
-		t.Fatalf("expected sync.action_operations=[send dispose], got %+v", syncCfg["action_operations"])
+	if !ok || len(ops) != 3 || ops[0] != "send" || ops[1] != "start_review" || ops[2] != "dispose" {
+		t.Fatalf("expected sync.action_operations=[send start_review dispose], got %+v", syncCfg["action_operations"])
 	}
 	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
 		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)

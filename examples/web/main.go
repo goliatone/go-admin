@@ -340,7 +340,15 @@ func main() {
 	exchangeStore := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService {
 		return exchangeContentService
 	})
-	queueRepository := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	var queueRepository coreadmin.TranslationAssignmentRepository = coreadmin.NewInMemoryTranslationAssignmentRepository()
+	if adapterFlags.UsePersistentCMS {
+		translationDB, err := stores.SetupContentDatabase(context.Background(), "")
+		if err != nil {
+			log.Panicf("failed to setup translation persistence: %v", err)
+		}
+		queueRepository = coreadmin.NewBunTranslationAssignmentRepository(translationDB)
+		adminDeps.TranslationFamilyStore = coreadmin.NewBunTranslationFamilyStore(translationDB)
+	}
 	translationProductCfg := buildTranslationProductConfig(
 		resolveTranslationProfile(runtimeConfig.Translation.Profile),
 		exchangeStore,
@@ -396,6 +404,11 @@ func main() {
 	)
 	if err != nil {
 		log.Panicf("failed to construct admin: %v", err)
+	}
+	if adminDeps.TranslationFamilyStore != nil {
+		if err := coreadmin.SyncTranslationFamilyStore(context.Background(), adm, defaultSiteContentChannel); err != nil {
+			log.Panicf("failed to sync translation family store: %v", err)
+		}
 	}
 	if caps := quickstart.TranslationCapabilities(adm); len(caps) > 0 {
 		log.Printf(

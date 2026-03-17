@@ -113,7 +113,7 @@ func buildESignAgreementFormPageConfig(
 				"client_base_path":  path.Join(resolvedBasePath, "sync-client", "sync-core"),
 				"resource_kind":     "agreement_draft",
 				"storage_scope":     strings.TrimSpace(storageScope),
-				"action_operations": []string{"send", "dispose"},
+				"action_operations": []string{"send", "start_review", "dispose"},
 			},
 		},
 	}

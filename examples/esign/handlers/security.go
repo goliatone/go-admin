@@ -135,6 +135,11 @@ type SignerTokenValidator interface {
 	Validate(ctx context.Context, scope stores.Scope, rawToken string) (stores.SigningTokenRecord, error)
 }
 
+type supersededSignerLinkTokenService interface {
+	ResolveRawToken(ctx context.Context, scope stores.Scope, rawToken string) (stores.SigningTokenRecord, error)
+	Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
+}
+
 type PublicReviewTokenValidator interface {
 	Validate(ctx context.Context, scope stores.Scope, rawToken string) (services.PublicReviewToken, error)
 }
@@ -911,17 +916,36 @@ func resolveSignerToken(c router.Context, cfg registerConfig, rawToken string) (
 	scope := cfg.resolveScope(c)
 	token, err := cfg.tokenValidator.Validate(c.Context(), scope, rawToken)
 	if err != nil {
-		observability.ObserveTokenValidationFailure(c.Context(), textCode(err))
-		cfg.logSecurityEvent("signer.token.rejected", map[string]any{
-			"path":       c.Path(),
-			"method":     c.Method(),
-			"ip":         resolveAuditRequestIP(c, cfg),
-			"token_code": textCode(err),
-		})
-		_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
-		return stores.SigningTokenRecord{}, errResponseHandled
+		return stores.SigningTokenRecord{}, rejectSignerToken(c, cfg, err)
 	}
 	return token, nil
+}
+
+func resolveSignerTokenWithRedirect(c router.Context, cfg registerConfig, rawToken, routePattern string) (stores.SigningTokenRecord, error) {
+	if cfg.tokenValidator == nil {
+		return stores.SigningTokenRecord{}, nil
+	}
+	scope := cfg.resolveScope(c)
+	token, err := cfg.tokenValidator.Validate(c.Context(), scope, rawToken)
+	if err == nil {
+		return token, nil
+	}
+	redirected, redirectErr := redirectSupersededSignerLink(c, cfg, routePattern, rawToken)
+	if redirectErr != nil {
+		_ = writeAPIError(
+			c,
+			redirectErr,
+			http.StatusConflict,
+			string(services.ErrorCodeInvalidSignerState),
+			"unable to resolve superseded signer link",
+			nil,
+		)
+		return stores.SigningTokenRecord{}, errResponseHandled
+	}
+	if redirected {
+		return stores.SigningTokenRecord{}, errResponseHandled
+	}
+	return stores.SigningTokenRecord{}, rejectSignerToken(c, cfg, err)
 }
 
 func resolvePublicReviewToken(c router.Context, cfg registerConfig, rawToken string) (services.PublicReviewToken, error) {
@@ -929,15 +953,7 @@ func resolvePublicReviewToken(c router.Context, cfg registerConfig, rawToken str
 		scope := cfg.resolveScope(c)
 		token, err := cfg.publicTokenValidator.Validate(c.Context(), scope, rawToken)
 		if err != nil {
-			observability.ObserveTokenValidationFailure(c.Context(), textCode(err))
-			cfg.logSecurityEvent("signer.token.rejected", map[string]any{
-				"path":       c.Path(),
-				"method":     c.Method(),
-				"ip":         resolveAuditRequestIP(c, cfg),
-				"token_code": textCode(err),
-			})
-			_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
-			return services.PublicReviewToken{}, errResponseHandled
+			return services.PublicReviewToken{}, rejectSignerToken(c, cfg, err)
 		}
 		return token, nil
 	}
@@ -946,6 +962,49 @@ func resolvePublicReviewToken(c router.Context, cfg registerConfig, rawToken str
 		return services.PublicReviewToken{}, err
 	}
 	return services.PublicReviewTokenFromSigning(signingToken), nil
+}
+
+func resolvePublicReviewTokenWithRedirect(c router.Context, cfg registerConfig, rawToken, routePattern string) (services.PublicReviewToken, error) {
+	if cfg.publicTokenValidator != nil {
+		scope := cfg.resolveScope(c)
+		token, err := cfg.publicTokenValidator.Validate(c.Context(), scope, rawToken)
+		if err == nil {
+			return token, nil
+		}
+		redirected, redirectErr := redirectSupersededSignerLink(c, cfg, routePattern, rawToken)
+		if redirectErr != nil {
+			_ = writeAPIError(
+				c,
+				redirectErr,
+				http.StatusConflict,
+				string(services.ErrorCodeInvalidSignerState),
+				"unable to resolve superseded signer link",
+				nil,
+			)
+			return services.PublicReviewToken{}, errResponseHandled
+		}
+		if redirected {
+			return services.PublicReviewToken{}, errResponseHandled
+		}
+		return services.PublicReviewToken{}, rejectSignerToken(c, cfg, err)
+	}
+	signingToken, err := resolveSignerTokenWithRedirect(c, cfg, rawToken, routePattern)
+	if err != nil {
+		return services.PublicReviewToken{}, err
+	}
+	return services.PublicReviewTokenFromSigning(signingToken), nil
+}
+
+func rejectSignerToken(c router.Context, cfg registerConfig, err error) error {
+	observability.ObserveTokenValidationFailure(c.Context(), textCode(err))
+	cfg.logSecurityEvent("signer.token.rejected", map[string]any{
+		"path":       c.Path(),
+		"method":     c.Method(),
+		"ip":         resolveAuditRequestIP(c, cfg),
+		"token_code": textCode(err),
+	})
+	_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
+	return errResponseHandled
 }
 
 func enforceRateLimit(c router.Context, cfg registerConfig, operation string) error {

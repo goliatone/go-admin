@@ -111,12 +111,32 @@ type DraftSendInput struct {
 	IdempotencyKey   string
 }
 
+// DraftStartReviewInput captures draft-to-review start preconditions.
+type DraftStartReviewInput struct {
+	ExpectedRevision int64
+	CreatedByUserID  string
+	IPAddress        string
+	CorrelationID    string
+	IdempotencyKey   string
+}
+
 // DraftSendResult captures send conversion output contract.
 type DraftSendResult struct {
 	AgreementID  string
 	Status       string
 	DraftID      string
 	DraftDeleted bool
+}
+
+// DraftStartReviewResult captures draft-to-review conversion output contract.
+type DraftStartReviewResult struct {
+	AgreementID     string
+	Status          string
+	ReviewStatus    string
+	ReviewGate      string
+	CommentsEnabled bool
+	DraftID         string
+	DraftDeleted    bool
 }
 
 // NewDraftService builds a draft lifecycle service over the shared e-sign store.
@@ -707,7 +727,7 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 			return staleRevisionError(draft.Revision)
 		}
 		materializeStartedAt := time.Now()
-		agreement, err := txSvc.materializeDraftAgreement(txCtx, scope, draft, input.IPAddress)
+		materialized, err := txSvc.materializeDraftAgreement(txCtx, scope, draft, input.IPAddress)
 		if err != nil {
 			LogSendPhaseDuration("draft_service", "materialize_agreement_failed", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"draft_id":  strings.TrimSpace(draft.ID),
@@ -719,10 +739,10 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		LogSendPhaseDuration("draft_service", "materialize_agreement_complete", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 			"draft_id":     strings.TrimSpace(draft.ID),
 			"wizard_id":    strings.TrimSpace(draft.WizardID),
-			"agreement_id": strings.TrimSpace(agreement.ID),
+			"agreement_id": strings.TrimSpace(materialized.Agreement.ID),
 		}))
 		agreementSendStartedAt := time.Now()
-		sent, err := txSvc.agreements.Send(txCtx, scope, agreement.ID, SendInput{
+		sent, err := txSvc.agreements.Send(txCtx, scope, materialized.Agreement.ID, SendInput{
 			IdempotencyKey: fmt.Sprintf("draft_send_%s_rev_%d", strings.TrimSpace(draft.ID), draft.Revision),
 			IPAddress:      input.IPAddress,
 			CorrelationID:  correlationID,
@@ -731,7 +751,7 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 			LogSendPhaseDuration("draft_service", "agreement_send_failed", agreementSendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"draft_id":     strings.TrimSpace(draft.ID),
 				"wizard_id":    strings.TrimSpace(draft.WizardID),
-				"agreement_id": strings.TrimSpace(agreement.ID),
+				"agreement_id": strings.TrimSpace(materialized.Agreement.ID),
 				"error":        strings.TrimSpace(err.Error()),
 			}))
 			return err
@@ -815,6 +835,92 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		"expected_revision":  input.ExpectedRevision,
 		"created_by_user_id": strings.TrimSpace(input.CreatedByUserID),
 	}))
+	return result, nil
+}
+
+// StartReview materializes a wizard draft into an agreement draft and immediately opens review.
+func (s DraftService) StartReview(ctx context.Context, scope stores.Scope, id string, input DraftStartReviewInput) (DraftStartReviewResult, error) {
+	if input.ExpectedRevision <= 0 {
+		return DraftStartReviewResult{}, domainValidationError("drafts", "expected_revision", "required")
+	}
+	if strings.TrimSpace(input.CreatedByUserID) == "" {
+		return DraftStartReviewResult{}, domainValidationError("drafts", "created_by_user_id", "required")
+	}
+
+	result := DraftStartReviewResult{}
+	correlationID := strings.TrimSpace(input.CorrelationID)
+	if correlationID == "" {
+		correlationID = strings.TrimSpace(input.IdempotencyKey)
+	}
+	err := stores.WithTxHooksContext(ctx, s.tx, func(txCtx context.Context, tx stores.TxStore, hooks *stores.TxHooks) error {
+		txSvc := s
+		if tx != nil {
+			txSvc = s.forTx(tx)
+		}
+		draft, err := txSvc.Get(txCtx, scope, id, input.CreatedByUserID)
+		if err != nil {
+			return err
+		}
+		if draft.Revision != input.ExpectedRevision {
+			return staleRevisionError(draft.Revision)
+		}
+
+		materialized, err := txSvc.materializeDraftAgreement(txCtx, scope, draft, input.IPAddress)
+		if err != nil {
+			return err
+		}
+		reviewInput, err := buildDraftReviewOpenInput(draft, materialized.ParticipantsByTempID)
+		if err != nil {
+			return err
+		}
+		reviewInput.RequestedByUserID = strings.TrimSpace(input.CreatedByUserID)
+		reviewInput.ActorType = "user"
+		reviewInput.ActorID = strings.TrimSpace(input.CreatedByUserID)
+		reviewInput.IPAddress = strings.TrimSpace(input.IPAddress)
+
+		summary, err := txSvc.agreements.OpenReview(txCtx, scope, materialized.Agreement.ID, reviewInput)
+		if err != nil {
+			return err
+		}
+		if err := txSvc.drafts.DeleteDraftSession(txCtx, scope, draft.ID); err != nil {
+			return err
+		}
+		if err := txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.review_started", strings.TrimSpace(input.CreatedByUserID), map[string]any{
+			"agreement_id":     strings.TrimSpace(materialized.Agreement.ID),
+			"wizard_id":        draft.WizardID,
+			"idempotency_key":  strings.TrimSpace(input.IdempotencyKey),
+			"revision":         draft.Revision + 1,
+			"status":           stores.AgreementStatusDraft,
+			"review_status":    strings.TrimSpace(summary.Status),
+			"review_gate":      strings.TrimSpace(summary.Gate),
+			"comments_enabled": summary.CommentsEnabled,
+			"draft_deleted":    true,
+		}); err != nil {
+			return err
+		}
+		if hooks != nil {
+			agreementID := strings.TrimSpace(materialized.Agreement.ID)
+			draftID := strings.TrimSpace(draft.ID)
+			createdByUserID := strings.TrimSpace(input.CreatedByUserID)
+			wizardID := strings.TrimSpace(draft.WizardID)
+			hooks.AfterCommit(func() error {
+				return s.verifySendPersistenceInvariants(ctx, scope, draftID, createdByUserID, agreementID, correlationID, wizardID)
+			})
+		}
+		result = DraftStartReviewResult{
+			AgreementID:     strings.TrimSpace(materialized.Agreement.ID),
+			Status:          stores.AgreementStatusDraft,
+			ReviewStatus:    strings.TrimSpace(summary.Status),
+			ReviewGate:      strings.TrimSpace(summary.Gate),
+			CommentsEnabled: summary.CommentsEnabled,
+			DraftID:         strings.TrimSpace(draft.ID),
+			DraftDeleted:    true,
+		}
+		return nil
+	})
+	if err != nil {
+		return DraftStartReviewResult{}, err
+	}
 	return result, nil
 }
 
@@ -936,17 +1042,22 @@ func (s DraftService) verifySendPersistenceInvariants(
 	return fmt.Errorf("draft send invariant violation: verify draft %s deletion: %w", strings.TrimSpace(draftID), err)
 }
 
-func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress string) (stores.AgreementRecord, error) {
+type draftMaterializationResult struct {
+	Agreement            stores.AgreementRecord
+	ParticipantsByTempID map[string]stores.ParticipantRecord
+}
+
+func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress string) (draftMaterializationResult, error) {
 	if s.agreements.agreements == nil {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
+		return draftMaterializationResult{}, domainValidationError("agreements", "store", "not configured")
 	}
 	state, err := decodeWizardState(draft.WizardStateJSON)
 	if err != nil {
-		return stores.AgreementRecord{}, domainValidationError("drafts", "wizard_state", "invalid json payload")
+		return draftMaterializationResult{}, domainValidationError("drafts", "wizard_state", "invalid json payload")
 	}
 	documentID := primitives.FirstNonEmpty(strings.TrimSpace(draft.DocumentID), strings.TrimSpace(state.Document.ID))
 	if documentID == "" {
-		return stores.AgreementRecord{}, domainValidationError("drafts", "document_id", "required")
+		return draftMaterializationResult{}, domainValidationError("drafts", "document_id", "required")
 	}
 
 	agreement, err := s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
@@ -959,9 +1070,9 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 	if err != nil {
 		var coded *goerrors.Error
 		if errors.As(err, &coded) && strings.EqualFold(strings.TrimSpace(coded.TextCode), "NOT_FOUND") {
-			return stores.AgreementRecord{}, domainValidationError("drafts", "document_id", "document not found")
+			return draftMaterializationResult{}, domainValidationError("drafts", "document_id", "document not found")
 		}
-		return stores.AgreementRecord{}, err
+		return draftMaterializationResult{}, err
 	}
 
 	participantMap := map[string]stores.ParticipantRecord{}
@@ -984,11 +1095,11 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
-			Notify:       new(notify),
-			SigningStage: new(signingStage),
+			Notify:       draftBoolPtr(notify),
+			SigningStage: draftIntPtr(signingStage),
 		}, 0)
 		if err != nil {
-			return stores.AgreementRecord{}, err
+			return draftMaterializationResult{}, err
 		}
 		if key := strings.TrimSpace(participant.TempID); key != "" {
 			participantMap[key] = created
@@ -999,7 +1110,7 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 	for idx, definition := range definitions {
 		participantID := resolveFieldParticipantID(definition, participantMap)
 		if participantID == "" {
-			return stores.AgreementRecord{}, domainValidationError("field_definitions", "participant_id", "field definition participant is not resolvable")
+			return draftMaterializationResult{}, domainValidationError("field_definitions", "participant_id", "field definition participant is not resolvable")
 		}
 		fieldType := normalizeDraftFieldType(definition.Type)
 		required := definition.Required
@@ -1009,7 +1120,7 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			Required:      &required,
 		})
 		if err != nil {
-			return stores.AgreementRecord{}, err
+			return draftMaterializationResult{}, err
 		}
 
 		placement := resolveFieldPlacementGeometry(state, definition, idx)
@@ -1024,15 +1135,18 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
 			LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
 			LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
-			IsUnlinked:        new(placement.IsUnlinked),
-			TabIndex:          new(idx + 1),
+			IsUnlinked:        draftBoolPtr(placement.IsUnlinked),
+			TabIndex:          draftIntPtr(idx + 1),
 			Label:             &label,
 		}); err != nil {
-			return stores.AgreementRecord{}, err
+			return draftMaterializationResult{}, err
 		}
 	}
 
-	return agreement, nil
+	return draftMaterializationResult{
+		Agreement:            agreement,
+		ParticipantsByTempID: participantMap,
+	}, nil
 }
 
 func resolveFieldParticipantID(definition wizardFieldDefinitionState, participants map[string]stores.ParticipantRecord) string {
@@ -1224,6 +1338,7 @@ type wizardStatePayload struct {
 	FieldPlacements  []wizardFieldPlacementState  `json:"fieldPlacements"`
 	FieldRules       []wizardFieldRuleState       `json:"fieldRules"`
 	FieldRulesSnake  []wizardFieldRuleState       `json:"field_rules"`
+	Review           wizardReviewState            `json:"review"`
 }
 
 type wizardDocumentState struct {
@@ -1292,6 +1407,30 @@ type wizardFieldRuleState struct {
 	Required          *bool  `json:"required,omitempty"`
 }
 
+type wizardReviewState struct {
+	Enabled         bool                           `json:"enabled"`
+	Gate            string                         `json:"gate"`
+	CommentsEnabled bool                           `json:"commentsEnabled"`
+	CommentsLegacy  bool                           `json:"comments_enabled"`
+	Participants    []wizardReviewParticipantState `json:"participants"`
+}
+
+type wizardReviewParticipantState struct {
+	ParticipantType string `json:"participantType"`
+	ParticipantKind string `json:"participant_type"`
+	ParticipantTemp string `json:"participantTempId"`
+	RecipientTemp   string `json:"recipientTempId"`
+	RecipientID     string `json:"recipientId"`
+	RecipientLegacy string `json:"recipient_id"`
+	Email           string `json:"email"`
+	DisplayName     string `json:"displayName"`
+	DisplayLegacy   string `json:"display_name"`
+	CanComment      bool   `json:"canComment"`
+	CanCommentV1    bool   `json:"can_comment"`
+	CanApprove      bool   `json:"canApprove"`
+	CanApproveV1    bool   `json:"can_approve"`
+}
+
 func decodeWizardState(raw string) (wizardStatePayload, error) {
 	state := wizardStatePayload{}
 	raw = strings.TrimSpace(raw)
@@ -1315,6 +1454,12 @@ func decodeWizardState(raw string) (wizardStatePayload, error) {
 	}
 	if len(state.FieldRules) == 0 && len(state.FieldRulesSnake) > 0 {
 		state.FieldRules = append([]wizardFieldRuleState{}, state.FieldRulesSnake...)
+	}
+	if state.Review.Participants == nil {
+		state.Review.Participants = []wizardReviewParticipantState{}
+	}
+	if state.Review.CommentsLegacy {
+		state.Review.CommentsEnabled = true
 	}
 	return state, nil
 }
@@ -1511,6 +1656,62 @@ func resolveWizardTerminalPage(state wizardStatePayload) int {
 		}
 	}
 	return maxPage
+}
+
+func buildDraftReviewOpenInput(draft stores.DraftRecord, participantsByTempID map[string]stores.ParticipantRecord) (ReviewOpenInput, error) {
+	state, err := decodeWizardState(draft.WizardStateJSON)
+	if err != nil {
+		return ReviewOpenInput{}, domainValidationError("drafts", "wizard_state", "invalid json payload")
+	}
+	if !state.Review.Enabled {
+		return ReviewOpenInput{}, domainValidationError("drafts", "review", "review is not enabled")
+	}
+	gate := stores.NormalizeAgreementReviewGate(state.Review.Gate)
+	if gate == "" || gate == stores.AgreementReviewGateNone {
+		gate = stores.AgreementReviewGateApproveBeforeSend
+	}
+	input := ReviewOpenInput{
+		Gate:               gate,
+		CommentsEnabled:    state.Review.CommentsEnabled,
+		ReviewParticipants: make([]ReviewParticipantInput, 0, len(state.Review.Participants)),
+	}
+	for _, participant := range state.Review.Participants {
+		participantType := stores.NormalizeAgreementReviewParticipantType(firstNonEmptyString(participant.ParticipantType, participant.ParticipantKind))
+		if participantType == "" {
+			continue
+		}
+		entry := ReviewParticipantInput{
+			ParticipantType: participantType,
+			Email:           strings.TrimSpace(participant.Email),
+			DisplayName:     strings.TrimSpace(firstNonEmptyString(participant.DisplayName, participant.DisplayLegacy)),
+			CanComment:      participant.CanComment || participant.CanCommentV1,
+			CanApprove:      participant.CanApprove || participant.CanApproveV1,
+		}
+		if !entry.CanComment && !entry.CanApprove {
+			entry.CanComment = true
+			entry.CanApprove = true
+		}
+		if participantType == stores.AgreementReviewParticipantTypeRecipient {
+			lookupID := strings.TrimSpace(firstNonEmptyString(
+				participant.RecipientID,
+				participant.RecipientLegacy,
+				participant.RecipientTemp,
+				participant.ParticipantTemp,
+			))
+			if mapped, ok := participantsByTempID[lookupID]; ok {
+				entry.RecipientID = strings.TrimSpace(mapped.ID)
+				entry.Email = strings.TrimSpace(firstNonEmptyString(entry.Email, mapped.Email))
+				entry.DisplayName = strings.TrimSpace(firstNonEmptyString(entry.DisplayName, mapped.Name))
+			} else {
+				entry.RecipientID = lookupID
+			}
+		}
+		input.ReviewParticipants = append(input.ReviewParticipants, entry)
+	}
+	if len(input.ReviewParticipants) == 0 {
+		return ReviewOpenInput{}, domainValidationError("drafts", "review.participants", "at least one reviewer is required")
+	}
+	return input, nil
 }
 
 //go:fix inline

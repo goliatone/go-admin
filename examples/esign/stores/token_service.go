@@ -277,6 +277,32 @@ func (s TokenService) Validate(ctx context.Context, scope Scope, rawToken string
 	return record, nil
 }
 
+// ResolveRawToken loads the persisted token record for a raw token without enforcing token status.
+func (s TokenService) ResolveRawToken(ctx context.Context, scope Scope, rawToken string) (SigningTokenRecord, error) {
+	if s.store == nil {
+		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "store", "not configured")
+	}
+	rawToken = strings.TrimSpace(rawToken)
+	if rawToken == "" {
+		return SigningTokenRecord{}, invalidTokenError()
+	}
+	hash := s.hashToken(rawToken)
+	record, err := s.store.GetSigningTokenByHash(ctx, scope, hash)
+	if err != nil {
+		var coded *goerrors.Error
+		if errors.As(err, &coded) {
+			switch coded.TextCode {
+			case "NOT_FOUND":
+				return SigningTokenRecord{}, invalidTokenError()
+			case "SCOPE_DENIED":
+				return SigningTokenRecord{}, scopeDeniedError()
+			}
+		}
+		return SigningTokenRecord{}, err
+	}
+	return record, nil
+}
+
 func (s TokenService) PromotePending(ctx context.Context, scope Scope, tokenID string) (SigningTokenRecord, error) {
 	if s.store == nil {
 		return SigningTokenRecord{}, invalidRecordError("signing_tokens", "store", "not configured")

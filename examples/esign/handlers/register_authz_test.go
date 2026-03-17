@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 	"testing"
@@ -626,6 +627,213 @@ func TestRegisterSignerSessionReturns410ForRevokedToken(t *testing.T) {
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusGone {
+		t.Fatalf("expected status 410, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), "TOKEN_REVOKED") {
+		t.Fatalf("expected TOKEN_REVOKED response, got %s", string(body))
+	}
+}
+
+func setupSupersededCorrectionSignerLink(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, stores.TokenService, string, string) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
+	tokenService := stores.NewTokenService(store)
+	documentService := services.NewDocumentService(
+		store,
+		services.WithDocumentObjectStore(objectStore),
+	)
+	document, err := documentService.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "Correction Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-redirect/original.pdf",
+		SourceOriginalName: "redirect.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementService := services.NewAgreementService(store, services.WithAgreementTokenService(tokenService))
+	agreement, err := agreementService.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Original Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerRole := stores.RecipientRoleSigner
+	order := 1
+	signer, err := agreementService.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("signer@example.com"),
+		Name:         new("Signer One"),
+		Role:         &signerRole,
+		SigningOrder: &order,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	fieldType := stores.FieldTypeSignature
+	page := 1
+	required := true
+	if _, err := agreementService.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	sourceSent, err := agreementService.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "redirect-source-send"})
+	if err != nil {
+		t.Fatalf("Send source: %v", err)
+	}
+	legacyIssued, err := tokenService.Issue(ctx, scope, sourceSent.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("Issue legacy token: %v", err)
+	}
+
+	revision, err := agreementService.CreateRevision(ctx, scope, services.CreateRevisionInput{
+		SourceAgreementID: sourceSent.ID,
+		Kind:              services.AgreementRevisionKindCorrection,
+		CreatedByUserID:   "user-2",
+		IPAddress:         "198.51.100.44",
+	})
+	if err != nil {
+		t.Fatalf("CreateRevision: %v", err)
+	}
+	corrected, err := agreementService.Send(ctx, scope, revision.ID, services.SendInput{IdempotencyKey: "redirect-revision-send"})
+	if err != nil {
+		t.Fatalf("Send correction: %v", err)
+	}
+
+	if _, err := tokenService.Validate(ctx, scope, legacyIssued.Token); err == nil {
+		t.Fatal("expected legacy token to be revoked after correction supersedes source")
+	}
+	return ctx, scope, store, tokenService, legacyIssued.Token, corrected.ID
+}
+
+func TestRegisterSignerAssetsRedirectsSupersededCorrectionToken(t *testing.T) {
+	ctx, scope, store, tokenService, legacyToken, correctedID := setupSupersededCorrectionSignerLink(t)
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(tokenService),
+		WithAgreementStatsService(store),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+legacyToken+"?asset=source", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("expected redirect status 302, got %d", resp.StatusCode)
+	}
+	location := strings.TrimSpace(resp.Header.Get("Location"))
+	if location == "" {
+		t.Fatal("expected redirect location header")
+	}
+	if strings.Contains(location, legacyToken) {
+		t.Fatalf("expected redirect to a fresh token, got %q", location)
+	}
+	if !strings.Contains(location, "?asset=source") {
+		t.Fatalf("expected redirect to preserve asset query, got %q", location)
+	}
+
+	redirectURL, err := url.Parse(location)
+	if err != nil {
+		t.Fatalf("parse redirect location: %v", err)
+	}
+	redirectToken := path.Base(strings.TrimSpace(redirectURL.Path))
+	if redirectToken == "" {
+		t.Fatalf("expected token in redirect location, got %q", location)
+	}
+	redirectedRecord, err := tokenService.Validate(ctx, scope, redirectToken)
+	if err != nil {
+		t.Fatalf("Validate redirected token: %v", err)
+	}
+	if redirectedRecord.AgreementID != correctedID {
+		t.Fatalf("expected redirected token agreement %q, got %+v", correctedID, redirectedRecord)
+	}
+}
+
+func TestRegisterSignerSessionRedirectsSupersededCorrectionToken(t *testing.T) {
+	ctx, scope, store, tokenService, legacyToken, correctedID := setupSupersededCorrectionSignerLink(t)
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(tokenService),
+		WithAgreementStatsService(store),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+legacyToken, nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("expected redirect status 302, got %d", resp.StatusCode)
+	}
+	location := strings.TrimSpace(resp.Header.Get("Location"))
+	if location == "" {
+		t.Fatal("expected redirect location header")
+	}
+	if strings.Contains(location, legacyToken) {
+		t.Fatalf("expected redirect to a fresh token, got %q", location)
+	}
+
+	redirectURL, err := url.Parse(location)
+	if err != nil {
+		t.Fatalf("parse redirect location: %v", err)
+	}
+	redirectToken := path.Base(strings.TrimSpace(redirectURL.Path))
+	if redirectToken == "" {
+		t.Fatalf("expected token in redirect location, got %q", location)
+	}
+	redirectedRecord, err := tokenService.Validate(ctx, scope, redirectToken)
+	if err != nil {
+		t.Fatalf("Validate redirected token: %v", err)
+	}
+	if redirectedRecord.AgreementID != correctedID {
+		t.Fatalf("expected redirected token agreement %q, got %+v", correctedID, redirectedRecord)
+	}
+}
+
+func TestRegisterSignerAssetsReturns410ForRevokedTokenWithoutSupersedingVersion(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	tokenStore := stores.NewInMemoryStore()
+	validator := stores.NewTokenService(tokenStore)
+	issued, err := validator.Issue(ctx, scope, "agreement-1", "recipient-1")
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	if err := validator.Revoke(ctx, scope, "agreement-1", "recipient-1"); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(validator),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+issued.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

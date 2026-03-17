@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,7 +32,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		publicToken, err := resolvePublicReviewToken(c, cfg, token)
+		publicToken, err := resolvePublicReviewTokenWithRedirect(c, cfg, token, routes.SignerSession)
 		if err != nil {
 			return asHandlerError(err)
 		}
@@ -462,7 +464,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		tokenRecord, err := resolveSignerTokenWithRedirect(c, cfg, token, routes.SignerAssets)
 		if err != nil {
 			return asHandlerError(err)
 		}
@@ -1007,6 +1009,186 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			"decline": result,
 		})
 	})
+}
+
+func redirectSupersededSignerLink(c router.Context, cfg registerConfig, routePattern, rawToken string) (bool, error) {
+	redirector, ok := cfg.tokenValidator.(supersededSignerLinkTokenService)
+	if !ok {
+		return false, nil
+	}
+	agreementStore, ok := cfg.agreements.(stores.AgreementStore)
+	if !ok {
+		return false, nil
+	}
+	scope := cfg.resolveScope(c)
+	legacyToken, err := redirector.ResolveRawToken(c.Context(), scope, rawToken)
+	if err != nil {
+		return false, nil
+	}
+	if !isSupersededLegacyToken(legacyToken) {
+		return false, nil
+	}
+
+	sourceAgreement, err := agreementStore.GetAgreement(c.Context(), scope, legacyToken.AgreementID)
+	if err != nil {
+		return false, err
+	}
+	targetAgreement, ok := resolveLatestCorrectionAgreement(c.Context(), cfg, scope, sourceAgreement)
+	if !ok {
+		return false, nil
+	}
+
+	sourceRecipients, err := agreementStore.ListRecipients(c.Context(), scope, sourceAgreement.ID)
+	if err != nil {
+		return false, err
+	}
+	sourceRecipient, ok := findAgreementRecipient(sourceRecipients, legacyToken.RecipientID)
+	if !ok {
+		return false, nil
+	}
+
+	targetRecipients, err := agreementStore.ListRecipients(c.Context(), scope, targetAgreement.ID)
+	if err != nil {
+		return false, err
+	}
+	targetRecipient, ok := matchRedirectRecipient(sourceRecipient, targetRecipients)
+	if !ok {
+		return false, nil
+	}
+
+	issued, err := redirector.Issue(c.Context(), scope, targetAgreement.ID, targetRecipient.ID)
+	if err != nil {
+		return false, err
+	}
+	target := strings.Replace(routePattern, ":token", url.PathEscape(strings.TrimSpace(issued.Token)), 1)
+	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
+		target += "?" + rawQuery
+	}
+	return true, c.Redirect(target, http.StatusFound)
+}
+
+func isSupersededLegacyToken(token stores.SigningTokenRecord) bool {
+	if strings.TrimSpace(token.AgreementID) == "" || strings.TrimSpace(token.RecipientID) == "" {
+		return false
+	}
+	if token.RevokedAt == nil {
+		return false
+	}
+	switch strings.TrimSpace(token.Status) {
+	case stores.SigningTokenStatusRevoked, stores.SigningTokenStatusSuperseded, stores.SigningTokenStatusAborted:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveLatestCorrectionAgreement(ctx context.Context, cfg registerConfig, scope stores.Scope, source stores.AgreementRecord) (stores.AgreementRecord, bool) {
+	if strings.TrimSpace(source.ID) == "" || cfg.agreements == nil {
+		return stores.AgreementRecord{}, false
+	}
+	if strings.TrimSpace(source.Status) != stores.AgreementStatusVoided {
+		return stores.AgreementRecord{}, false
+	}
+	records, err := cfg.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		return stores.AgreementRecord{}, false
+	}
+	childrenByParent := map[string][]stores.AgreementRecord{}
+	for _, record := range records {
+		if strings.TrimSpace(record.WorkflowKind) != stores.AgreementWorkflowKindCorrection {
+			continue
+		}
+		parentID := strings.TrimSpace(record.ParentAgreementID)
+		if parentID == "" {
+			continue
+		}
+		childrenByParent[parentID] = append(childrenByParent[parentID], record)
+	}
+	current := source
+	found := false
+	for {
+		children := eligibleCorrectionChildren(childrenByParent[strings.TrimSpace(current.ID)])
+		if len(children) == 0 {
+			break
+		}
+		sort.SliceStable(children, func(i, j int) bool {
+			if children[i].UpdatedAt.Equal(children[j].UpdatedAt) {
+				return strings.TrimSpace(children[i].ID) > strings.TrimSpace(children[j].ID)
+			}
+			return children[i].UpdatedAt.After(children[j].UpdatedAt)
+		})
+		current = children[0]
+		found = true
+	}
+	if !found {
+		return stores.AgreementRecord{}, false
+	}
+	return current, true
+}
+
+func eligibleCorrectionChildren(records []stores.AgreementRecord) []stores.AgreementRecord {
+	if len(records) == 0 {
+		return nil
+	}
+	out := make([]stores.AgreementRecord, 0, len(records))
+	for _, record := range records {
+		switch strings.TrimSpace(record.Status) {
+		case stores.AgreementStatusSent, stores.AgreementStatusInProgress, stores.AgreementStatusCompleted:
+			out = append(out, record)
+		}
+	}
+	return out
+}
+
+func findAgreementRecipient(recipients []stores.RecipientRecord, recipientID string) (stores.RecipientRecord, bool) {
+	recipientID = strings.TrimSpace(recipientID)
+	if recipientID == "" {
+		return stores.RecipientRecord{}, false
+	}
+	for _, recipient := range recipients {
+		if strings.TrimSpace(recipient.ID) == recipientID {
+			return recipient, true
+		}
+	}
+	return stores.RecipientRecord{}, false
+}
+
+func matchRedirectRecipient(source stores.RecipientRecord, targets []stores.RecipientRecord) (stores.RecipientRecord, bool) {
+	sourceEmail := strings.ToLower(strings.TrimSpace(source.Email))
+	sourceName := strings.ToLower(strings.TrimSpace(source.Name))
+	sourceRole := strings.TrimSpace(source.Role)
+	sourceOrder := source.SigningOrder
+
+	for _, target := range targets {
+		if sourceEmail == "" {
+			break
+		}
+		if strings.ToLower(strings.TrimSpace(target.Email)) == sourceEmail &&
+			strings.TrimSpace(target.Role) == sourceRole &&
+			target.SigningOrder == sourceOrder {
+			return target, true
+		}
+	}
+	for _, target := range targets {
+		if strings.ToLower(strings.TrimSpace(target.Name)) == sourceName &&
+			strings.TrimSpace(target.Role) == sourceRole &&
+			target.SigningOrder == sourceOrder {
+			return target, true
+		}
+	}
+	for _, target := range targets {
+		if strings.TrimSpace(target.Role) == sourceRole && target.SigningOrder == sourceOrder {
+			return target, true
+		}
+	}
+	return stores.RecipientRecord{}, false
+}
+
+func rawQueryFromURL(raw string) string {
+	if idx := strings.Index(strings.TrimSpace(raw), "?"); idx >= 0 && idx+1 < len(raw) {
+		return raw[idx+1:]
+	}
+	return ""
 }
 
 func signerReviewThreadStateHandler(c router.Context, cfg registerConfig, resolve bool) error {

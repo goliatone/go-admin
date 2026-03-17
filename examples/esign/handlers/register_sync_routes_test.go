@@ -351,6 +351,153 @@ func TestRegisterSyncDraftLifecycleEndpoints(t *testing.T) {
 	}
 }
 
+func TestRegisterSyncDraftStartReviewAction(t *testing.T) {
+	ctx, scope, store := newScopeStoreFixture()
+	app := setupDraftSyncApp(t, store, scope)
+
+	docSvc := services.NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "Draft Review Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-review/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	bootstrapped := bootstrapAgreementDraft(t, app, testAdminUserID, nil)
+	resourceRef := mustMapField(t, bootstrapped, "resource_ref")
+	draftID := strings.TrimSpace(toString(resourceRef["id"]))
+	if draftID == "" {
+		t.Fatalf("expected draft id in bootstrap payload: %s", mustJSONStringForTest(bootstrapped))
+	}
+
+	reviewState := map[string]any{
+		"document": map[string]any{"id": doc.ID},
+		"details": map[string]any{
+			"title":   "Review Draft",
+			"message": "Start in review",
+		},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "Signer One",
+				"email":  "signer@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldDefinitions": []map[string]any{
+			{
+				"tempId":            "field-1",
+				"type":              "signature",
+				"participantTempId": "participant-1",
+				"label":             "Signature",
+				"required":          true,
+			},
+		},
+		"fieldPlacements": []map[string]any{
+			{
+				"fieldTempId": "field-1",
+				"page":        1,
+				"x":           96,
+				"y":           128,
+				"width":       180,
+				"height":      32,
+			},
+		},
+		"review": map[string]any{
+			"enabled":         true,
+			"gate":            stores.AgreementReviewGateApproveBeforeSend,
+			"commentsEnabled": true,
+			"participants": []map[string]any{
+				{
+					"participantType":   "recipient",
+					"participantTempId": "participant-1",
+					"canComment":        true,
+					"canApprove":        true,
+				},
+				{
+					"participantType": "external",
+					"email":           "legal@example.com",
+					"displayName":     "Client Legal",
+					"canComment":      true,
+					"canApprove":      true,
+				},
+			},
+		},
+	}
+
+	status, body := doSyncRequest(t, app, http.MethodPatch, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID, testAdminUserID, map[string]any{
+		"operation":         "autosave",
+		"expected_revision": 1,
+		"payload": map[string]any{
+			"wizard_state": reviewState,
+			"title":        "Review Draft",
+			"current_step": 6,
+			"document_id":  doc.ID,
+		},
+	}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("expected sync autosave status 200, got %d body=%s", status, string(body))
+	}
+
+	status, body = doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/start_review", testAdminUserID, map[string]any{
+		"expected_revision": 2,
+		"idempotency_key":   "start-review-once",
+		"payload":           map[string]any{},
+	}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("expected sync start_review status 200, got %d body=%s", status, string(body))
+	}
+	startPayload := mustDecodeJSONMap(t, bytes.NewReader(body))
+	if toString(startPayload["replay"]) != "false" {
+		t.Fatalf("expected first start_review replay=false, got %+v", startPayload["replay"])
+	}
+	startData := mustMapField(t, startPayload, "data")
+	agreementID := strings.TrimSpace(toString(startData["agreement_id"]))
+	if agreementID == "" {
+		t.Fatalf("expected agreement_id in start_review response, got %s", string(body))
+	}
+	if got := strings.TrimSpace(toString(startData["review_status"])); got != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected review_status=%q, got %q", stores.AgreementReviewStatusInReview, got)
+	}
+
+	agreement, err := store.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		t.Fatalf("expected agreement status %q, got %q", stores.AgreementStatusDraft, agreement.Status)
+	}
+	if agreement.ReviewStatus != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected agreement review status %q, got %q", stores.AgreementReviewStatusInReview, agreement.ReviewStatus)
+	}
+
+	status, body = doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/start_review", testAdminUserID, map[string]any{
+		"expected_revision": 2,
+		"idempotency_key":   "start-review-once",
+		"payload":           map[string]any{},
+	}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("expected replayed start_review status 200, got %d body=%s", status, string(body))
+	}
+	replayPayload := mustDecodeJSONMap(t, bytes.NewReader(body))
+	if toString(replayPayload["replay"]) != "true" {
+		t.Fatalf("expected replayed start_review replay=true, got %+v", replayPayload["replay"])
+	}
+	replayData := mustMapField(t, replayPayload, "data")
+	if got := strings.TrimSpace(toString(replayData["agreement_id"])); got != agreementID {
+		t.Fatalf("expected replay agreement_id %q, got %q", agreementID, got)
+	}
+
+	status, body = doSyncRequest(t, app, http.MethodGet, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID, testAdminUserID, nil, nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("expected reviewed draft load status 404, got %d body=%s", status, string(body))
+	}
+}
+
 func TestRegisterSyncDraftScopeIsolation(t *testing.T) {
 	_, scope, store := newScopeStoreFixture()
 	app := setupDraftSyncAppForActor(t, store, scope, testAdminUserID)

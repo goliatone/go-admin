@@ -24,8 +24,11 @@ import (
 )
 
 const (
-	esignDocumentsPanelID  = "esign_documents"
-	esignAgreementsPanelID = "esign_agreements"
+	esignDocumentsPanelID     = "esign_documents"
+	esignAgreementsPanelID    = "esign_agreements"
+	agreementVersionsCurrent  = "current"
+	agreementVersionsAll      = "all"
+	agreementVersionsPrevious = "previous"
 )
 
 var (
@@ -375,17 +378,26 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	if r.agreements == nil {
 		return nil, 0, fmt.Errorf("agreement store not configured")
 	}
-	query := stores.AgreementQuery{Status: strings.TrimSpace(lookupFilter(opts.Filters, "status"))}
-	agreements, err := r.agreements.ListAgreements(ctx, scope, query)
+	agreements, err := r.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
 		return nil, 0, err
 	}
 	lineage := buildAgreementLineageIndex(agreements)
+	currentVersionIDs := buildCurrentAgreementVersionIDSet(agreements)
+	statusFilter := strings.TrimSpace(lookupFilter(opts.Filters, "status"))
+	versionVisibility := normalizeAgreementVersionVisibility(lookupFilter(opts.Filters, "version_visibility"))
 	documentID := strings.TrimSpace(lookupFilter(opts.Filters, "document_id"))
 	recipientEmail := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email")))
 	titleQuery := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "title", "title_contains")))
 	filtered := make([]stores.AgreementRecord, 0, len(agreements))
 	for _, agreement := range agreements {
+		agreementID := strings.TrimSpace(agreement.ID)
+		if statusFilter != "" && strings.TrimSpace(agreement.Status) != statusFilter {
+			continue
+		}
+		if !includeAgreementForVersionVisibility(agreementID, currentVersionIDs, versionVisibility) {
+			continue
+		}
 		if documentID != "" && strings.TrimSpace(agreement.DocumentID) != documentID {
 			continue
 		}
@@ -1067,6 +1079,64 @@ func buildAgreementLineageIndex(agreements []stores.AgreementRecord) map[string]
 		}
 	}
 	return index
+}
+
+func buildCurrentAgreementVersionIDSet(agreements []stores.AgreementRecord) map[string]struct{} {
+	if len(agreements) == 0 {
+		return nil
+	}
+	agreementIDs := make(map[string]struct{}, len(agreements))
+	for _, agreement := range agreements {
+		agreementID := strings.TrimSpace(agreement.ID)
+		if agreementID == "" {
+			continue
+		}
+		agreementIDs[agreementID] = struct{}{}
+	}
+	if len(agreementIDs) == 0 {
+		return nil
+	}
+	hasChild := make(map[string]struct{}, len(agreements))
+	for _, agreement := range agreements {
+		parentID := strings.TrimSpace(agreement.ParentAgreementID)
+		if parentID == "" {
+			continue
+		}
+		if _, ok := agreementIDs[parentID]; ok {
+			hasChild[parentID] = struct{}{}
+		}
+	}
+	current := make(map[string]struct{}, len(agreementIDs))
+	for agreementID := range agreementIDs {
+		if _, ok := hasChild[agreementID]; ok {
+			continue
+		}
+		current[agreementID] = struct{}{}
+	}
+	return current
+}
+
+func normalizeAgreementVersionVisibility(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case agreementVersionsAll:
+		return agreementVersionsAll
+	case agreementVersionsPrevious:
+		return agreementVersionsPrevious
+	default:
+		return agreementVersionsCurrent
+	}
+}
+
+func includeAgreementForVersionVisibility(agreementID string, currentVersionIDs map[string]struct{}, visibility string) bool {
+	_, isCurrent := currentVersionIDs[strings.TrimSpace(agreementID)]
+	switch normalizeAgreementVersionVisibility(visibility) {
+	case agreementVersionsAll:
+		return true
+	case agreementVersionsPrevious:
+		return !isCurrent
+	default:
+		return isCurrent
+	}
 }
 
 func agreementLineageSummaryMap(agreement stores.AgreementRecord) map[string]any {

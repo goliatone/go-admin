@@ -1760,6 +1760,113 @@ func TestBuildAgreementLineageIndexDerivesSupersededAndRelatedAgreements(t *test
 	}
 }
 
+func TestAgreementPanelRepositoryListDefaultsToCurrentAgreementVersions(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-version-filter-1")
+	now := time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC)
+
+	for _, record := range []stores.AgreementRecord{
+		{
+			ID:           "agreement-root",
+			DocumentID:   "doc-version-filter-1",
+			Title:        "Root Agreement",
+			WorkflowKind: stores.AgreementWorkflowKindStandard,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		},
+		{
+			ID:                "agreement-correction",
+			DocumentID:        "doc-version-filter-1",
+			Title:             "Correction Agreement",
+			WorkflowKind:      stores.AgreementWorkflowKindCorrection,
+			RootAgreementID:   "agreement-root",
+			ParentAgreementID: "agreement-root",
+			CreatedAt:         now.Add(1 * time.Minute),
+			UpdatedAt:         now.Add(1 * time.Minute),
+		},
+		{
+			ID:                "agreement-amendment",
+			DocumentID:        "doc-version-filter-1",
+			Title:             "Amendment Agreement",
+			WorkflowKind:      stores.AgreementWorkflowKindAmendment,
+			RootAgreementID:   "agreement-root",
+			ParentAgreementID: "agreement-correction",
+			CreatedAt:         now.Add(2 * time.Minute),
+			UpdatedAt:         now.Add(2 * time.Minute),
+		},
+		{
+			ID:           "agreement-standalone",
+			DocumentID:   "doc-version-filter-1",
+			Title:        "Standalone Agreement",
+			WorkflowKind: stores.AgreementWorkflowKindStandard,
+			CreatedAt:    now.Add(3 * time.Minute),
+			UpdatedAt:    now.Add(3 * time.Minute),
+		},
+	} {
+		if _, err := store.CreateDraft(context.Background(), scope, record); err != nil {
+			t.Fatalf("seed agreement %s: %v", record.ID, err)
+		}
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{})
+	if err != nil {
+		t.Fatalf("List default current versions: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 current agreements by default, got %d", total)
+	}
+	currentIDs := extractRecordIDs(toAnySlice(records))
+	sort.Strings(currentIDs)
+	if got := strings.Join(currentIDs, ","); got != "agreement-amendment,agreement-standalone" {
+		t.Fatalf("expected current agreements amendment and standalone, got %q", got)
+	}
+
+	records, total, err = repo.List(context.Background(), coreadmin.ListOptions{
+		Filters: map[string]any{"version_visibility": "all"},
+	})
+	if err != nil {
+		t.Fatalf("List all versions: %v", err)
+	}
+	if total != 4 {
+		t.Fatalf("expected 4 agreements with all versions, got %d", total)
+	}
+
+	records, total, err = repo.List(context.Background(), coreadmin.ListOptions{
+		Filters: map[string]any{"version_visibility": "previous"},
+	})
+	if err != nil {
+		t.Fatalf("List previous versions: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 previous agreements, got %d", total)
+	}
+	previousIDs := extractRecordIDs(toAnySlice(records))
+	sort.Strings(previousIDs)
+	if got := strings.Join(previousIDs, ","); got != "agreement-correction,agreement-root" {
+		t.Fatalf("expected previous agreements root and correction, got %q", got)
+	}
+}
+
+func toAnySlice(records []map[string]any) []any {
+	out := make([]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, record)
+	}
+	return out
+}
+
 type testBinaryObjectStore struct {
 	objects map[string][]byte
 }

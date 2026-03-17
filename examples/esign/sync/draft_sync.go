@@ -25,6 +25,7 @@ const (
 	ResourceKindAgreementDraft = "agreement_draft"
 	OperationAutosave          = "autosave"
 	OperationSend              = "send"
+	OperationStartReview       = "start_review"
 	OperationDispose           = "dispose"
 	replayStoredEventType      = "draft.sync.replay_stored"
 )
@@ -35,6 +36,7 @@ type AgreementDraftWorkflow interface {
 	Update(ctx context.Context, scope stores.Scope, id string, input services.DraftUpdateInput) (stores.DraftRecord, error)
 	Delete(ctx context.Context, scope stores.Scope, id, createdByUserID string) error
 	Send(ctx context.Context, scope stores.Scope, id string, input services.DraftSendInput) (services.DraftSendResult, error)
+	StartReview(ctx context.Context, scope stores.Scope, id string, input services.DraftStartReviewInput) (services.DraftStartReviewResult, error)
 }
 
 type AgreementDraftBootstrapPayload struct {
@@ -179,6 +181,19 @@ func (s *AgreementDraftResourceStore) Mutate(ctx context.Context, input gosyncco
 			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
 		}
 		return snapshotFromSendResult(input.ResourceRef, buildResourceScope(scope, actorID), result, input.ExpectedRevision+1, s.now().UTC())
+	case OperationStartReview:
+		ipAddress := strings.TrimSpace(fmt.Sprint(copyAnyMap(input.Metadata)["ip_address"]))
+		result, err := s.workflow.StartReview(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), services.DraftStartReviewInput{
+			ExpectedRevision: input.ExpectedRevision,
+			CreatedByUserID:  actorID,
+			IPAddress:        ipAddress,
+			CorrelationID:    strings.TrimSpace(input.CorrelationID),
+			IdempotencyKey:   strings.TrimSpace(input.IdempotencyKey),
+		})
+		if err != nil {
+			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
+		}
+		return snapshotFromStartReviewResult(input.ResourceRef, buildResourceScope(scope, actorID), result, input.ExpectedRevision+1, s.now().UTC())
 	case OperationDispose:
 		if err := s.workflow.Delete(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), actorID); err != nil {
 			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
@@ -413,7 +428,8 @@ func (s *AgreementDraftIdempotencyStore) appendReplayAudit(ctx context.Context, 
 }
 
 func (s *AgreementDraftIdempotencyStore) shouldPersistReplayAudit(result gosynccore.MutationResult) bool {
-	return !strings.EqualFold(strings.TrimSpace(fmt.Sprint(copyAnyMap(result.Snapshot.Metadata)["operation"])), OperationSend)
+	operation := strings.TrimSpace(fmt.Sprint(copyAnyMap(result.Snapshot.Metadata)["operation"]))
+	return !strings.EqualFold(operation, OperationSend) && !strings.EqualFold(operation, OperationStartReview)
 }
 
 func (s *AgreementDraftIdempotencyStore) lookupPersistentReplay(ctx context.Context, key string, ttl time.Duration) (gosynccore.MutationResult, bool, error) {
@@ -442,6 +458,11 @@ func (s *AgreementDraftIdempotencyStore) lookupPersistentReplay(ctx context.Cont
 			return result, true, nil
 		}
 		result, ok = mutationResultFromSendEvent(event, parsed)
+		if ok {
+			s.storeReplayResult(key, result, ttl)
+			return result, true, nil
+		}
+		result, ok = mutationResultFromStartReviewEvent(event, parsed)
 		if ok {
 			s.storeReplayResult(key, result, ttl)
 			return result, true, nil
@@ -583,6 +604,62 @@ func mutationResultFromSendEvent(event stores.DraftAuditEventRecord, key scopedR
 	}, true
 }
 
+func mutationResultFromStartReviewEvent(event stores.DraftAuditEventRecord, key scopedReplayKey) (gosynccore.MutationResult, bool) {
+	if !strings.EqualFold(strings.TrimSpace(event.EventType), "draft.review_started") {
+		return gosynccore.MutationResult{}, false
+	}
+	if !strings.EqualFold(strings.TrimSpace(key.Operation), OperationStartReview) {
+		return gosynccore.MutationResult{}, false
+	}
+	payload := decodeMetadata(event.MetadataJSON)
+	if strings.TrimSpace(fmt.Sprint(payload["idempotency_key"])) != strings.TrimSpace(key.RawIdempotency) {
+		return gosynccore.MutationResult{}, false
+	}
+	revision := int64Metadata(payload, "revision")
+	if revision <= 0 {
+		revision = 1
+	}
+	updatedAt := parseTimestamp(fmt.Sprint(payload["updated_at"]), event.CreatedAt)
+	scope := copyStringMap(key.Scope)
+	data := map[string]any{
+		"id":               strings.TrimSpace(event.DraftID),
+		"agreement_id":     strings.TrimSpace(fmt.Sprint(payload["agreement_id"])),
+		"status":           strings.TrimSpace(fmt.Sprint(payload["status"])),
+		"review_status":    strings.TrimSpace(fmt.Sprint(payload["review_status"])),
+		"review_gate":      strings.TrimSpace(fmt.Sprint(payload["review_gate"])),
+		"comments_enabled": payloadBool(payload, "comments_enabled", false),
+		"draft_deleted":    payloadBool(payload, "draft_deleted", true),
+		"wizard_id":        strings.TrimSpace(fmt.Sprint(payload["wizard_id"])),
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return gosynccore.MutationResult{}, false
+	}
+	return gosynccore.MutationResult{
+		Snapshot: gosynccore.Snapshot{
+			ResourceRef: gosynccore.ResourceRef{
+				Kind:  ResourceKindAgreementDraft,
+				ID:    strings.TrimSpace(event.DraftID),
+				Scope: scope,
+			},
+			Data:      raw,
+			Revision:  revision,
+			UpdatedAt: updatedAt,
+			Metadata: map[string]any{
+				"agreement_id":     strings.TrimSpace(fmt.Sprint(payload["agreement_id"])),
+				"status":           strings.TrimSpace(fmt.Sprint(payload["status"])),
+				"review_status":    strings.TrimSpace(fmt.Sprint(payload["review_status"])),
+				"review_gate":      strings.TrimSpace(fmt.Sprint(payload["review_gate"])),
+				"comments_enabled": payloadBool(payload, "comments_enabled", false),
+				"draft_deleted":    payloadBool(payload, "draft_deleted", true),
+				"operation":        OperationStartReview,
+			},
+		},
+		Applied: true,
+		Replay:  false,
+	}, true
+}
+
 type autosavePayload struct {
 	WizardState map[string]any `json:"wizard_state"`
 	Title       string         `json:"title"`
@@ -711,6 +788,49 @@ func snapshotFromSendResult(
 	}, nil
 }
 
+func snapshotFromStartReviewResult(
+	ref gosynccore.ResourceRef,
+	scope map[string]string,
+	result services.DraftStartReviewResult,
+	revision int64,
+	updatedAt time.Time,
+) (gosynccore.Snapshot, error) {
+	if revision <= 0 {
+		revision = 1
+	}
+	data, err := json.Marshal(map[string]any{
+		"id":               strings.TrimSpace(ref.ID),
+		"agreement_id":     strings.TrimSpace(result.AgreementID),
+		"status":           strings.TrimSpace(result.Status),
+		"review_status":    strings.TrimSpace(result.ReviewStatus),
+		"review_gate":      strings.TrimSpace(result.ReviewGate),
+		"comments_enabled": result.CommentsEnabled,
+		"draft_deleted":    result.DraftDeleted,
+	})
+	if err != nil {
+		return gosynccore.Snapshot{}, err
+	}
+	return gosynccore.Snapshot{
+		ResourceRef: gosynccore.ResourceRef{
+			Kind:  ResourceKindAgreementDraft,
+			ID:    strings.TrimSpace(ref.ID),
+			Scope: copyStringMap(scope),
+		},
+		Data:      data,
+		Revision:  revision,
+		UpdatedAt: updatedAt.UTC(),
+		Metadata: map[string]any{
+			"agreement_id":     strings.TrimSpace(result.AgreementID),
+			"status":           strings.TrimSpace(result.Status),
+			"review_status":    strings.TrimSpace(result.ReviewStatus),
+			"review_gate":      strings.TrimSpace(result.ReviewGate),
+			"comments_enabled": result.CommentsEnabled,
+			"draft_deleted":    result.DraftDeleted,
+			"operation":        OperationStartReview,
+		},
+	}, nil
+}
+
 func snapshotFromDisposeResult(
 	ref gosynccore.ResourceRef,
 	scope map[string]string,
@@ -760,11 +880,17 @@ func initialWizardState(wizardID, createdAt string) map[string]any {
 		"fieldDefinitions": []any{},
 		"fieldPlacements":  []any{},
 		"fieldRules":       []any{},
-		"titleSource":      "autofill",
-		"serverDraftId":    nil,
-		"serverRevision":   0,
-		"lastSyncedAt":     nil,
-		"syncPending":      false,
+		"review": map[string]any{
+			"enabled":         false,
+			"gate":            stores.AgreementReviewGateApproveBeforeSend,
+			"commentsEnabled": false,
+			"participants":    []any{},
+		},
+		"titleSource":    "autofill",
+		"serverDraftId":  nil,
+		"serverRevision": 0,
+		"lastSyncedAt":   nil,
+		"syncPending":    false,
 	}
 }
 
