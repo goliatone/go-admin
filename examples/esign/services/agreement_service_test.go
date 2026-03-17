@@ -1451,6 +1451,22 @@ func TestAgreementServiceCreateCorrectionRevisionCopiesAuthoringStateAndSendSupe
 		t.Fatalf("expected root agreement id %q, got %+v", sent.ID, revision)
 	}
 
+	parentReloaded, err := store.GetAgreement(ctx, scope, sent.ID)
+	if err != nil {
+		t.Fatalf("GetAgreement parent after correction request: %v", err)
+	}
+	if parentReloaded.Status != stores.AgreementStatusVoided {
+		t.Fatalf("expected parent voided immediately after correction request, got %+v", parentReloaded)
+	}
+
+	parentTokens, err = store.ListSigningTokens(ctx, scope, sent.ID, parentRecipients[0].ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens parent after correction request: %v", err)
+	}
+	if len(parentTokens) != 1 || parentTokens[0].RevokedAt == nil {
+		t.Fatalf("expected parent token revoked immediately after correction request, got %+v", parentTokens)
+	}
+
 	revisionRecipients, err := store.ListRecipients(ctx, scope, revision.ID)
 	if err != nil {
 		t.Fatalf("ListRecipients revision: %v", err)
@@ -1500,7 +1516,7 @@ func TestAgreementServiceCreateCorrectionRevisionCopiesAuthoringStateAndSendSupe
 		t.Fatalf("expected correction revision sent, got %+v", corrected)
 	}
 
-	parentReloaded, err := store.GetAgreement(ctx, scope, sent.ID)
+	parentReloaded, err = store.GetAgreement(ctx, scope, sent.ID)
 	if err != nil {
 		t.Fatalf("GetAgreement parent: %v", err)
 	}
@@ -1621,71 +1637,6 @@ func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *te
 		if !seen[eventType] {
 			t.Fatalf("expected amendment audit event %q in %+v", eventType, seen)
 		}
-	}
-}
-
-func TestAgreementServiceCreateRevisionReusesExistingOpenDraftWithoutForkingVersion(t *testing.T) {
-	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
-	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
-
-	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        new("signer@example.com"),
-		Role:         new(stores.RecipientRoleSigner),
-		SigningOrder: new(1),
-	}, 0)
-	if err != nil {
-		t.Fatalf("UpsertRecipientDraft signer: %v", err)
-	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
-		RecipientID: &signer.ID,
-		Type:        new(stores.FieldTypeSignature),
-		PageNumber:  new(1),
-		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft: %v", err)
-	}
-	sent, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "revision-open-draft-source"})
-	if err != nil {
-		t.Fatalf("Send source agreement: %v", err)
-	}
-
-	first, err := svc.CreateRevision(ctx, scope, CreateRevisionInput{
-		SourceAgreementID: sent.ID,
-		Kind:              AgreementRevisionKindCorrection,
-		CreatedByUserID:   "editor-1",
-		IdempotencyKey:    "revision-open-draft-1",
-		IPAddress:         "198.51.100.91",
-	})
-	if err != nil {
-		t.Fatalf("CreateRevision first: %v", err)
-	}
-	second, err := svc.CreateRevision(ctx, scope, CreateRevisionInput{
-		SourceAgreementID: sent.ID,
-		Kind:              AgreementRevisionKindCorrection,
-		CreatedByUserID:   "editor-1",
-		IdempotencyKey:    "revision-open-draft-2",
-		IPAddress:         "198.51.100.92",
-	})
-	if err != nil {
-		t.Fatalf("CreateRevision second: %v", err)
-	}
-	if first.ID != second.ID {
-		t.Fatalf("expected existing open draft %q reused, got %q", first.ID, second.ID)
-	}
-
-	agreements, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
-	if err != nil {
-		t.Fatalf("ListAgreements: %v", err)
-	}
-	revisionCount := 0
-	for _, candidate := range agreements {
-		if candidate.ParentAgreementID == sent.ID && candidate.WorkflowKind == stores.AgreementWorkflowKindCorrection {
-			revisionCount++
-		}
-	}
-	if revisionCount != 1 {
-		t.Fatalf("expected one persisted correction draft, got %d", revisionCount)
 	}
 }
 

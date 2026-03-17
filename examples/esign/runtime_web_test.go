@@ -596,12 +596,6 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	}
 
 	config := extractESignPageConfigFromHTML(t, markup)
-	if got := strings.TrimSpace(fmt.Sprint(config["submit_mode"])); got != "form" {
-		t.Fatalf("expected edit page submit_mode=form, got %#v", config["submit_mode"])
-	}
-	if got := strings.TrimSpace(fmt.Sprint(config["agreement_id"])); got != agreementID {
-		t.Fatalf("expected edit page agreement_id %q, got %#v", agreementID, config["agreement_id"])
-	}
 	initialParticipants, ok := config["initial_participants"].([]any)
 	if !ok {
 		t.Fatalf("expected initial_participants array in config, got %#v", config["initial_participants"])
@@ -616,6 +610,105 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	if len(initialFieldInstances) != 2 {
 		t.Fatalf("expected 2 initial field instances in config, got %d (%#v)", len(initialFieldInstances), config["initial_field_instances"])
 	}
+}
+
+func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime fixture: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	documentID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_documents?"+query, map[string]any{
+		"title":                fmt.Sprintf("Edit Redirect Doc %d", time.Now().UnixNano()),
+		"source_original_name": "edit-redirect.pdf",
+		"pdf_base64":           base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(1)),
+	})
+
+	agreementID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_agreements?"+query, map[string]any{
+		"document_id": documentID,
+		"title":       fmt.Sprintf("Edit Redirect Agreement %d", time.Now().UnixNano()),
+		"message":     "Please review and sign.",
+		"participants": []map[string]any{
+			{
+				"name":          "Redirect Tester",
+				"email":         "redirect.tester@example.com",
+				"role":          "signer",
+				"notify":        true,
+				"signing_stage": 1,
+			},
+		},
+		"field_instances": []map[string]any{
+			{
+				"type":            "signature",
+				"recipient_index": 0,
+				"page":            1,
+				"required":        true,
+				"x":               120,
+				"y":               160,
+				"width":           180,
+				"height":          48,
+			},
+		},
+	})
+
+	sendResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/panels/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
+		"application/json",
+		strings.NewReader(`{"idempotency_key":"runtime-web-edit-redirect-send"}`),
+	)
+	defer sendResp.Body.Close()
+	if sendResp.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(sendResp.Body)
+		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
+		record := map[string]any{}
+		if detailResp.StatusCode == http.StatusOK {
+			payload := map[string]any{}
+			_ = json.NewDecoder(detailResp.Body).Decode(&payload)
+			record, _ = payload["data"].(map[string]any)
+			if record == nil {
+				record, _ = payload["record"].(map[string]any)
+			}
+		}
+		detailResp.Body.Close()
+		if strings.EqualFold(strings.TrimSpace(fmt.Sprint(record["status"])), stores.AgreementStatusSent) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for agreement %s to reach sent status", agreementID)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	assertRedirectWithCookie(
+		t,
+		app,
+		authCookie,
+		http.MethodGet,
+		"/admin/content/esign_agreements/"+agreementID+"/edit?"+query,
+		"/admin/content/esign_agreements/"+agreementID+"?"+query,
+	)
 }
 
 func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {

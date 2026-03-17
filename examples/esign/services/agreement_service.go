@@ -503,22 +503,6 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 
 	var created stores.AgreementRecord
 	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
-		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
-		if err != nil {
-			return err
-		}
-		if err := validateSourceAgreementForRevision(source, kind); err != nil {
-			return err
-		}
-		existingOpenDraft, err := txSvc.findOpenRevisionDraft(ctx, scope, source.ID, kind)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(existingOpenDraft.ID) != "" {
-			created = existingOpenDraft
-			return nil
-		}
-
 		requestID := ""
 		if txSvc.revisionRequests != nil && idempotencyKey != "" {
 			request, reserved, err := txSvc.revisionRequests.BeginAgreementRevisionRequest(ctx, scope, stores.AgreementRevisionRequestInput{
@@ -540,6 +524,13 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 				return err
 			}
 			requestID = strings.TrimSpace(request.ID)
+		}
+		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
+		if err != nil {
+			return err
+		}
+		if err := validateSourceAgreementForRevision(source, kind); err != nil {
+			return err
 		}
 
 		parentExecutedSHA256, err := txSvc.resolveParentExecutedSHA256(ctx, scope, source, kind)
@@ -614,6 +605,12 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childLinkedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
 			return err
 		}
+		if workflowKind == stores.AgreementWorkflowKindCorrection {
+			source, err = txSvc.supersedeCorrectionParentAgreement(ctx, scope, source, created, input.IPAddress, cloneAnyMap(baseMetadata))
+			if err != nil {
+				return err
+			}
+		}
 		if requestID != "" {
 			if _, err := txSvc.revisionRequests.CompleteAgreementRevisionRequest(ctx, scope, requestID, created.ID, txSvc.now().UTC()); err != nil {
 				return err
@@ -626,39 +623,73 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 	return created, nil
 }
 
-func (s AgreementService) findOpenRevisionDraft(
+func (s AgreementService) supersedeCorrectionParentAgreement(
 	ctx context.Context,
 	scope stores.Scope,
-	sourceAgreementID string,
-	kind AgreementRevisionKind,
+	parentAgreement stores.AgreementRecord,
+	childAgreement stores.AgreementRecord,
+	ipAddress string,
+	metadata map[string]any,
 ) (stores.AgreementRecord, error) {
-	if s.agreements == nil {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
+	parentID := strings.TrimSpace(parentAgreement.ID)
+	if parentID == "" {
+		return parentAgreement, nil
 	}
-	workflowKind := stores.AgreementWorkflowKindCorrection
-	if kind == AgreementRevisionKindAmendment {
-		workflowKind = stores.AgreementWorkflowKindAmendment
+	if parentAgreement.Status == stores.AgreementStatusVoided {
+		return parentAgreement, nil
 	}
-	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+	if parentAgreement.Status != stores.AgreementStatusSent && parentAgreement.Status != stores.AgreementStatusInProgress {
+		return parentAgreement, domainValidationError("agreements", "status", "correction source must be sent, in_progress, or already voided")
+	}
+	parentRecipients, err := s.agreements.ListRecipients(ctx, scope, parentID)
 	if err != nil {
-		return stores.AgreementRecord{}, err
+		return parentAgreement, err
 	}
-	var latest stores.AgreementRecord
-	for _, candidate := range agreements {
-		if strings.TrimSpace(candidate.ParentAgreementID) != strings.TrimSpace(sourceAgreementID) {
+	for _, recipient := range parentRecipients {
+		if recipient.Role != stores.RecipientRoleSigner {
 			continue
 		}
-		if normalizeAgreementWorkflowKind(candidate.WorkflowKind) != workflowKind {
-			continue
-		}
-		if !strings.EqualFold(strings.TrimSpace(candidate.Status), stores.AgreementStatusDraft) {
-			continue
-		}
-		if strings.TrimSpace(latest.ID) == "" || candidate.UpdatedAt.After(latest.UpdatedAt) {
-			latest = candidate
+		if err := s.tokens.Revoke(ctx, scope, parentID, recipient.ID); err != nil {
+			return parentAgreement, err
 		}
 	}
-	return latest, nil
+	voided, err := s.agreements.Transition(ctx, scope, parentID, stores.AgreementTransitionInput{
+		ToStatus:        stores.AgreementStatusVoided,
+		ExpectedVersion: parentAgreement.Version,
+	})
+	if err != nil {
+		return parentAgreement, err
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["new_agreement_id"] = strings.TrimSpace(childAgreement.ID)
+	metadata["source_agreement_id"] = parentID
+	metadata["root_agreement_id"] = firstNonEmptyString(strings.TrimSpace(childAgreement.RootAgreementID), strings.TrimSpace(childAgreement.ID))
+	metadata["parent_agreement_id"] = strings.TrimSpace(childAgreement.ParentAgreementID)
+	metadata["workflow_kind"] = strings.TrimSpace(childAgreement.WorkflowKind)
+	metadata["revoke_tokens"] = true
+	metadata["old_document_id"] = strings.TrimSpace(parentAgreement.DocumentID)
+	metadata["new_document_id"] = strings.TrimSpace(childAgreement.DocumentID)
+	if _, ok := metadata["change_summary"]; !ok {
+		metadata["change_summary"] = map[string]any{
+			"document_changed": nil,
+			"title_changed":    nil,
+			"message_changed":  nil,
+		}
+	}
+	if err := s.appendAuditEventWithIP(ctx, scope, parentID, "agreement.voided", "system", "", ipAddress, map[string]any{
+		"reason":           "superseded_by_correction",
+		"revoke_tokens":    true,
+		"superseded_by_id": strings.TrimSpace(childAgreement.ID),
+		"workflow_kind":    strings.TrimSpace(childAgreement.WorkflowKind),
+	}); err != nil {
+		return parentAgreement, err
+	}
+	if err := s.appendAuditEventWithIP(ctx, scope, parentID, "agreement.superseded_by_correction", "system", "", ipAddress, metadata); err != nil {
+		return parentAgreement, err
+	}
+	return voided, nil
 }
 
 // UpdateDraft updates mutable draft fields.
@@ -1297,8 +1328,10 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			}
 			switch workflowKind {
 			case stores.AgreementWorkflowKindCorrection:
-				if parentAgreement.Status != stores.AgreementStatusSent && parentAgreement.Status != stores.AgreementStatusInProgress {
-					return domainValidationError("agreements", "parent_agreement_id", "correction parent must be sent or in_progress")
+				if parentAgreement.Status != stores.AgreementStatusSent &&
+					parentAgreement.Status != stores.AgreementStatusInProgress &&
+					parentAgreement.Status != stores.AgreementStatusVoided {
+					return domainValidationError("agreements", "parent_agreement_id", "correction parent must be sent, in_progress, or already voided")
 				}
 			case stores.AgreementWorkflowKindAmendment:
 				if parentAgreement.Status != stores.AgreementStatusCompleted {
@@ -1486,35 +1519,10 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if err != nil {
 			return err
 		}
-		if workflowKind == stores.AgreementWorkflowKindCorrection && strings.TrimSpace(parentAgreement.ID) != "" {
-			parentRecipients, err := txSvc.agreements.ListRecipients(ctx, scope, parentAgreement.ID)
-			if err != nil {
-				return err
-			}
-			for _, recipient := range parentRecipients {
-				if recipient.Role != stores.RecipientRoleSigner {
-					continue
-				}
-				if err := txSvc.tokens.Revoke(ctx, scope, parentAgreement.ID, recipient.ID); err != nil {
-					return err
-				}
-			}
-			parentAgreement, err = txSvc.agreements.Transition(ctx, scope, parentAgreement.ID, stores.AgreementTransitionInput{
-				ToStatus:        stores.AgreementStatusVoided,
-				ExpectedVersion: parentAgreement.Version,
-			})
-			if err != nil {
-				return err
-			}
-			if err := txSvc.appendAuditEventWithIP(ctx, scope, parentAgreement.ID, "agreement.voided", "system", "", input.IPAddress, map[string]any{
-				"reason":           "superseded_by_correction",
-				"revoke_tokens":    true,
-				"superseded_by_id": strings.TrimSpace(transitioned.ID),
-				"workflow_kind":    strings.TrimSpace(transitioned.WorkflowKind),
-			}); err != nil {
-				return err
-			}
-			if err := txSvc.appendAuditEventWithIP(ctx, scope, parentAgreement.ID, "agreement.superseded_by_correction", "system", "", input.IPAddress, map[string]any{
+		if workflowKind == stores.AgreementWorkflowKindCorrection &&
+			strings.TrimSpace(parentAgreement.ID) != "" &&
+			parentAgreement.Status != stores.AgreementStatusVoided {
+			parentAgreement, err = txSvc.supersedeCorrectionParentAgreement(ctx, scope, parentAgreement, transitioned, input.IPAddress, map[string]any{
 				"new_agreement_id":    strings.TrimSpace(transitioned.ID),
 				"source_agreement_id": strings.TrimSpace(parentAgreement.ID),
 				"root_agreement_id":   strings.TrimSpace(transitioned.RootAgreementID),
@@ -1525,7 +1533,8 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				"new_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["new_document_sha256"])),
 				"old_document_id":     strings.TrimSpace(parentAgreement.DocumentID),
 				"old_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["old_document_sha256"])),
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
 		}
@@ -2153,17 +2162,6 @@ func validateSourceAgreementForRevision(source stores.AgreementRecord, kind Agre
 		return domainValidationError("agreements", "revision_kind", "unsupported revision kind")
 	}
 	return nil
-}
-
-func normalizeAgreementWorkflowKind(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case stores.AgreementWorkflowKindCorrection:
-		return stores.AgreementWorkflowKindCorrection
-	case stores.AgreementWorkflowKindAmendment:
-		return stores.AgreementWorkflowKindAmendment
-	default:
-		return stores.AgreementWorkflowKindStandard
-	}
 }
 
 func (s AgreementService) resolveParentExecutedSHA256(ctx context.Context, scope stores.Scope, source stores.AgreementRecord, kind AgreementRevisionKind) (string, error) {

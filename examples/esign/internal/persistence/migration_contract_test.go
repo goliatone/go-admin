@@ -102,6 +102,27 @@ func TestPhase8AppLocalPostgresReviewSessionMigrationOverridesConstraintDrop(t *
 	}
 }
 
+func TestPhase8AppLocalPostgresReviewSessionRepairMigrationDropsConstraintBeforeRebuild(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := path.Join("postgres", "0024_esign_review_sessions_repair.up.sql")
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+	if !strings.Contains(upText, "DROP CONSTRAINT IF EXISTS uq_agreement_review_participants_recipient") {
+		t.Fatalf("expected postgres review-session repair migration to drop the unique constraint before recreating the partial index")
+	}
+	if !strings.Contains(upText, "ADD COLUMN IF NOT EXISTS participant_type") {
+		t.Fatalf("expected postgres review-session repair migration to backfill participant_type")
+	}
+}
+
 func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

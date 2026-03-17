@@ -534,6 +534,9 @@ func registerESignWebRoutes(
 			}
 			return withESignContentEntryViewContext(ctx, panelName, c, esignModule, googleEnabled)
 		}),
+		quickstart.WithContentEntryUIEditGuard(func(c router.Context, panelName string, record map[string]any) (bool, error) {
+			return guardESignAgreementEditRoute(c, panelName, record, basePath)
+		}),
 		quickstart.WithContentEntryUITemplateFS(client.FS(), eSignTemplatesFS),
 	); err != nil {
 		return err
@@ -1194,6 +1197,25 @@ func withESignContentEntryViewContext(
 	default:
 		return ctx
 	}
+}
+
+func guardESignAgreementEditRoute(c router.Context, panelName string, record map[string]any, basePath string) (bool, error) {
+	if c == nil || !strings.EqualFold(strings.TrimSpace(panelName), "esign_agreements") {
+		return false, nil
+	}
+	status := strings.ToLower(strings.TrimSpace(rawToString(record["status"])))
+	if status == "" || status == stores.AgreementStatusDraft {
+		return false, nil
+	}
+	agreementID := strings.TrimSpace(rawToString(record["id"]))
+	if agreementID == "" {
+		return false, nil
+	}
+	target := path.Join(normalizeESignBasePath(basePath), "content", "esign_agreements", agreementID)
+	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
+		target += "?" + rawQuery
+	}
+	return true, c.Redirect(target, http.StatusFound)
 }
 
 func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string {
