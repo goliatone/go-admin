@@ -124,7 +124,7 @@ export interface TranslationSummaryOptions {
 
 /**
  * Extract and normalize translation context from a record payload.
- * Handles both flat fields and nested `translation.meta.*` / `content_translation.meta.*` structures.
+ * The canonical contract is top-level translation fields only.
  *
  * @param record - The record object from API response
  * @returns Normalized TranslationContext
@@ -146,42 +146,29 @@ export function extractTranslationContext(record: Record<string, unknown>): Tran
     return context;
   }
 
-  // Try flat fields first, then nested structures
   context.requestedLocale = extractStringField(record, [
     'requested_locale',
-    'translation.meta.requested_locale',
-    'content_translation.meta.requested_locale',
   ]);
 
   context.resolvedLocale = extractStringField(record, [
     'resolved_locale',
     'locale',
-    'translation.meta.resolved_locale',
-    'content_translation.meta.resolved_locale',
   ]);
 
   context.availableLocales = extractStringArrayField(record, [
     'available_locales',
-    'translation.meta.available_locales',
-    'content_translation.meta.available_locales',
   ]);
 
   context.missingRequestedLocale = extractBooleanField(record, [
     'missing_requested_locale',
-    'translation.meta.missing_requested_locale',
-    'content_translation.meta.missing_requested_locale',
   ]);
 
   context.fallbackUsed = extractBooleanField(record, [
     'fallback_used',
-    'translation.meta.fallback_used',
-    'content_translation.meta.fallback_used',
   ]);
 
   context.familyId = extractStringField(record, [
     'family_id',
-    'translation.meta.family_id',
-    'content_translation.meta.family_id',
   ]);
 
   context.status = extractStringField(record, ['status']);
@@ -441,9 +428,6 @@ export function extractTranslationReadiness(record: Record<string, unknown>): Tr
     readiness.familyId = extractStringField(record, [
       'translation_readiness.family_id',
       'family_id',
-      'translation.meta.family_id',
-      'content_translation.meta.family_id',
-      'translation_context.family_id',
     ]);
 
     readiness.requiredLocales = Array.isArray(readinessObj.required_locales)

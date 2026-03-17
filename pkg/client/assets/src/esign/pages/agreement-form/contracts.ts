@@ -194,3 +194,21 @@ export interface DocumentPreviewConfig {
   thumbnailMaxWidth: number;
   thumbnailMaxHeight: number;
 }
+
+export interface ReviewParticipantState {
+  participantType: 'recipient' | 'external' | string;
+  participantTempId?: string;
+  recipientTempId?: string;
+  recipientId?: string;
+  email?: string;
+  displayName?: string;
+  canComment: boolean;
+  canApprove: boolean;
+}
+
+export interface ReviewConfigState {
+  enabled: boolean;
+  gate: string;
+  commentsEnabled: boolean;
+  participants: ReviewParticipantState[];
+}

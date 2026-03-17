@@ -32,6 +32,13 @@ export interface DraftSendResult {
   data: Record<string, any>;
 }
 
+export interface DraftStartReviewResult {
+  replay: boolean;
+  applied: boolean;
+  snapshot: SyncCoreResourceSnapshot<Record<string, any>>;
+  data: Record<string, any>;
+}
+
 export class DraftSyncService {
   readonly stateManager: WizardStateManager;
   pendingSync: Promise<any> | null = null;
@@ -163,6 +170,23 @@ export class DraftSyncService {
     const resource = await this.ensureBoundResource();
     const response = await resource.mutate({
       operation: 'send',
+      payload: {},
+      expectedRevision,
+      idempotencyKey,
+      metadata,
+    });
+    return {
+      replay: response.replay,
+      applied: response.applied,
+      snapshot: response.snapshot,
+      data: this.snapshotData(response.snapshot),
+    };
+  }
+
+  async startReview(expectedRevision: number, idempotencyKey: string, metadata: Record<string, any> = {}): Promise<DraftStartReviewResult> {
+    const resource = await this.ensureBoundResource();
+    const response = await resource.mutate({
+      operation: 'start_review',
       payload: {},
       expectedRevision,
       idempotencyKey,

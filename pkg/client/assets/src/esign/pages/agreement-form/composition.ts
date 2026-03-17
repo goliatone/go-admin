@@ -25,6 +25,7 @@ import { createDocumentSelectionController } from './document-selection';
 import { createParticipantsController } from './participants';
 import { createFieldDefinitionsController } from './field-definitions';
 import { createPlacementEditorController } from './placement-editor';
+import { createReviewConfigController } from './review-config';
 import { createAgreementFormPayloadBuilder } from './form-payload';
 import { createAgreementStateBindingController } from './state-binding';
 import { createAgreementWizardValidationController } from './wizard-validation';
@@ -42,7 +43,7 @@ import {
   normalizeAgreementTitleSource,
 } from './bootstrap-config';
 import { createLinkGroupState } from './linked-placement';
-import type { LinkGroupState, ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance } from './contracts';
+import type { LinkGroupState, ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance, ReviewConfigState } from './contracts';
 import { parsePositiveInt } from './normalization';
 import { escapeHtml, showToast } from './ui-utils';
 import type { ParticipantStateRecord, ParticipantsController, SignerParticipantSummary } from './participants';
@@ -90,6 +91,7 @@ interface CoordinatorWizardState extends AgreementProgressState {
   lastSyncedAt?: string | null;
   fieldPlacements?: NormalizedPlacementInstance[];
   fieldRules?: FieldRuleState[];
+  review?: ReviewConfigState | null;
 }
 
 function requireElement<T>(value: T | null | undefined, label: string): T {
@@ -160,6 +162,7 @@ export function createAgreementFormRuntimeCoordinator(
   let resumeController: AgreementResumeController | null = null;
   let feedbackController: AgreementFeedbackController | null = null;
   let runtimeActionsController: ReturnType<typeof createAgreementRuntimeActionsController> | null = null;
+  let reviewConfigController: ReturnType<typeof createReviewConfigController> | null = null;
   let placementLinkGroupState: LinkGroupState = createLinkGroupState();
   const applyRehydratedState = (
     nextState: CoordinatorWizardState | null | undefined,
@@ -251,6 +254,12 @@ export function createAgreementFormRuntimeCoordinator(
         fieldDefinitions: fieldDefinitionsController?.collectFieldDefinitionsForState?.() || [],
         fieldPlacements: placementController?.getState?.()?.fieldInstances || [],
         fieldRules: fieldDefinitionsController?.collectFieldRulesForState?.() || [],
+        review: reviewConfigController?.collectReviewConfigForState?.() || {
+          enabled: false,
+          gate: 'approve_before_send',
+          commentsEnabled: false,
+          participants: [],
+        },
       };
     },
     emitTelemetry: emitWizardTelemetry,
@@ -452,6 +461,25 @@ export function createAgreementFormRuntimeCoordinator(
     goToStep: (stepNum) => wizardNavigationController.goToStep(stepNum),
   });
 
+  const setPrimaryActionLabel = (label: string): void => {
+    if (submitBtn.getAttribute('aria-busy') === 'true') {
+      return;
+    }
+    submitBtn.innerHTML = `
+      <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+      </svg>
+      ${label}
+    `;
+  };
+
+  reviewConfigController = createReviewConfigController({
+    getSignerParticipants,
+    setPrimaryActionLabel,
+    onChanged: () => trackWizardStateChanges(),
+  });
+  reviewConfigController.bindEvents();
+
   placementController = createPlacementEditorController({
     apiBase,
     apiVersionBase,
@@ -482,6 +510,7 @@ export function createAgreementFormRuntimeCoordinator(
       void placementController.initPlacementEditor();
     },
     onReviewStep() {
+      reviewConfigController?.refreshRecipientReviewers();
       sendReadinessController.initSendReadinessCheck();
     },
     onStepChanged(stepNum: number) {
@@ -534,6 +563,7 @@ export function createAgreementFormRuntimeCoordinator(
     participantsController,
     fieldDefinitionsController,
     placementController,
+    reviewConfigController,
     updateFieldParticipantOptions,
     previewCard,
     wizardNavigationController,
@@ -606,6 +636,14 @@ export function createAgreementFormRuntimeCoordinator(
     findSignersMissingRequiredSignatureField,
     missingSignatureFieldMessage,
     getSignerParticipants,
+    getReviewConfigForState: () => reviewConfigController?.collectReviewConfigForState?.() || {
+      enabled: false,
+      gate: 'approve_before_send',
+      commentsEnabled: false,
+      participants: [],
+    },
+    isStartReviewEnabled: () => reviewConfigController?.isStartReviewEnabled?.() === true,
+    setPrimaryActionLabel,
     buildCanonicalAgreementPayload,
     announceError,
     emitWizardTelemetry,

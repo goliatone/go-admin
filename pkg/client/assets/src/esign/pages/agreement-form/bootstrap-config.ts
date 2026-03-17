@@ -1,4 +1,5 @@
 import type { NormalizedAgreementFormConfig } from './context';
+import type { ReviewConfigState } from './contracts';
 
 export interface AgreementFormRuntimeInputConfig {
   sync?: {
@@ -41,6 +42,7 @@ export interface AgreementProgressState {
   fieldDefinitions?: unknown[];
   fieldPlacements?: unknown[];
   fieldRules?: unknown[];
+  review?: Partial<ReviewConfigState> | null;
 }
 
 interface ParticipantProgressShape {
@@ -158,6 +160,7 @@ export function hasMeaningfulWizardProgress(
   if (Array.isArray(state.fieldDefinitions) && state.fieldDefinitions.length > 0) return true;
   if (Array.isArray(state.fieldPlacements) && state.fieldPlacements.length > 0) return true;
   if (Array.isArray(state.fieldRules) && state.fieldRules.length > 0) return true;
+  if (Boolean(state.review?.enabled)) return true;
 
   return false;
 }
@@ -189,7 +192,7 @@ export function normalizeAgreementFormConfig(
     client_base_path: String(syncConfig.client_base_path || '').trim() || `${basePath}/sync-client/sync-core`,
     resource_kind: String(syncConfig.resource_kind || '').trim() || 'agreement_draft',
     storage_scope: String(syncConfig.storage_scope || '').trim(),
-    action_operations: actionOperations.length > 0 ? actionOperations : ['send', 'dispose'],
+    action_operations: actionOperations.length > 0 ? actionOperations : ['send', 'start_review', 'dispose'],
   };
 
   const normalizedConfig: NormalizedAgreementFormConfig = {

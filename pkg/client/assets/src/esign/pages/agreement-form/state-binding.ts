@@ -5,7 +5,7 @@ import type { FieldDefinitionsController } from './field-definitions';
 import type { PlacementEditorController } from './placement-editor';
 import type { DocumentPreviewCard } from './preview-card';
 import type { WizardNavigationController } from './wizard-navigation';
-import type { FieldRuleState, NormalizedPlacementInstance } from './contracts';
+import type { FieldRuleState, NormalizedPlacementInstance, ReviewConfigState } from './contracts';
 
 interface FieldDefinitionStateRecord {
   tempId: string;
@@ -31,6 +31,7 @@ interface AgreementStateShape extends AgreementProgressState {
   fieldDefinitions?: FieldDefinitionStateRecord[];
   fieldRules?: FieldRuleState[];
   fieldPlacements?: NormalizedPlacementInstance[];
+  review?: Partial<ReviewConfigState> | null;
 }
 
 interface StateBindingStateManager {
@@ -45,6 +46,9 @@ interface StateBindingControllerOptions {
   participantsController: ParticipantsController;
   fieldDefinitionsController: FieldDefinitionsController;
   placementController: PlacementEditorController;
+  reviewConfigController: {
+    restoreFromState(state: { review?: Partial<ReviewConfigState> | null } | null | undefined): void;
+  };
   updateFieldParticipantOptions(): void;
   previewCard: DocumentPreviewCard;
   wizardNavigationController: WizardNavigationController;
@@ -80,6 +84,7 @@ export function createAgreementStateBindingController(
     participantsController,
     fieldDefinitionsController,
     placementController,
+    reviewConfigController,
     updateFieldParticipantOptions,
     previewCard,
     wizardNavigationController,
@@ -161,6 +166,10 @@ export function createAgreementStateBindingController(
     placementController.restoreFieldPlacementsFromState(state);
   }
 
+  function restoreReviewState(state: AgreementStateShape | null | undefined): void {
+    reviewConfigController.restoreFromState(state);
+  }
+
   function bindChangeTracking(): void {
     if (documentIdInput) {
       const observer = new MutationObserver(() => {
@@ -212,6 +221,7 @@ export function createAgreementStateBindingController(
       restoreFieldRulesFromState(state);
       updateFieldParticipantOptions();
       restoreFieldPlacementsFromState(state);
+      restoreReviewState(state);
 
       if (options.updatePreview !== false) {
         const documentState = state?.document;

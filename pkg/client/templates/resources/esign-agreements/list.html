@@ -244,6 +244,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     notifier: window.toastManager
   });
 
+  grid.state.filters = [
+    { column: 'version_visibility', operator: 'eq', value: 'current' }
+  ];
+
   const originalRefresh = grid.refresh.bind(grid);
   grid.refresh = async function() {
     await originalRefresh();
@@ -292,7 +296,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       },
       onClear: () => {
         grid.state.search = '';
-        grid.state.filters = [];
+        grid.state.filters = [
+          { column: 'version_visibility', operator: 'eq', value: 'current' }
+        ];
         grid.syncURL();
         grid.refresh();
       }

@@ -1,6 +1,6 @@
 import type { AgreementFormRuntimeInputConfig } from './bootstrap-config';
 import type { CanonicalAgreementPayload } from './form-payload';
-import type { ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance } from './contracts';
+import type { ExpandedRuleField, FieldRuleFormPayload, FieldRuleState, NormalizedPlacementInstance, ReviewConfigState } from './contracts';
 import type { SignerParticipantSummary } from './participants';
 import type { AgreementFeedbackAPIError } from './feedback';
 import {
@@ -60,6 +60,7 @@ interface SubmitSyncService {
   create(state: Record<string, unknown>): Promise<SubmitDraftRecord>;
   load(draftId: string): Promise<SubmitDraftRecord>;
   send(expectedRevision: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<SubmitSendPayload>;
+  startReview(expectedRevision: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<SubmitSendPayload>;
 }
 
 interface SubmitSyncOrchestrator {
@@ -103,6 +104,9 @@ interface SubmitControllerOptions {
   findSignersMissingRequiredSignatureField(): SignerParticipantSummary[];
   missingSignatureFieldMessage(missingSigners: SignerParticipantSummary[]): string;
   getSignerParticipants?(): SignerParticipantSummary[];
+  getReviewConfigForState(): ReviewConfigState;
+  isStartReviewEnabled(): boolean;
+  setPrimaryActionLabel(label: string): void;
   buildCanonicalAgreementPayload(): CanonicalAgreementPayload;
   announceError(message: string, code?: string, status?: number): void;
   emitWizardTelemetry(eventName: string, fields?: Record<string, unknown>): void;
@@ -214,6 +218,9 @@ export function createAgreementFormSubmitController(
     findSignersMissingRequiredSignatureField,
     missingSignatureFieldMessage,
     getSignerParticipants,
+    getReviewConfigForState,
+    isStartReviewEnabled,
+    setPrimaryActionLabel,
     buildCanonicalAgreementPayload,
     announceError,
     emitWizardTelemetry,
@@ -489,7 +496,8 @@ export function createAgreementFormSubmitController(
       }
 
       const hasSaveAsDraftIntent = Boolean(form.querySelector('input[name="save_as_draft"]'));
-      const shouldSendForSignature = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent;
+      const shouldStartReview = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && isStartReviewEnabled();
+      const shouldSendForSignature = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && !shouldStartReview;
 
       if (shouldSendForSignature) {
         let sendIntentInput = form.querySelector<HTMLInputElement>('input[name="send_for_signature"]');
@@ -507,13 +515,13 @@ export function createAgreementFormSubmitController(
       if (submitMode === 'json') {
         e.preventDefault();
         submitBtn.disabled = true;
-        setSubmitButtonState(shouldSendForSignature ? 'Sending...' : 'Saving...', true);
+        setSubmitButtonState(shouldSendForSignature ? 'Sending...' : (shouldStartReview ? 'Starting Review...' : 'Saving...'), true);
         void (async () => {
           try {
             buildCanonicalAgreementPayload();
 
             const indexRoute = String(config.routes?.index || '').trim();
-            if (!shouldSendForSignature) {
+            if (!shouldSendForSignature && !shouldStartReview) {
               await persistLatestWizardState();
               if (indexRoute) {
                 window.location.href = indexRoute;
@@ -521,6 +529,16 @@ export function createAgreementFormSubmitController(
               }
               window.location.reload();
               return;
+            }
+
+            if (shouldStartReview) {
+              const reviewConfig = getReviewConfigForState();
+              if (!reviewConfig.enabled) {
+                throw new Error('Review mode is not enabled.');
+              }
+              if ((reviewConfig.participants || []).length === 0) {
+                throw new Error('Add at least one reviewer before starting review.');
+              }
             }
 
             activeSendAttemptID = createSendAttemptId();
@@ -545,9 +563,12 @@ export function createAgreementFormSubmitController(
               extra: {
                 targetDraftId: draftID,
                 expectedRevision,
+                operation: shouldStartReview ? 'start_review' : 'send',
               },
             }));
-            const payload = await syncService.send(expectedRevision, activeSendAttemptID || draftID);
+            const payload = shouldStartReview
+              ? await syncService.startReview(expectedRevision, activeSendAttemptID || draftID)
+              : await syncService.send(expectedRevision, activeSendAttemptID || draftID);
             const agreementID = String(
               payload?.agreement_id
               || payload?.id
@@ -564,6 +585,7 @@ export function createAgreementFormSubmitController(
                 targetDraftId: draftID,
                 expectedRevision,
                 agreementId: agreementID,
+                operation: shouldStartReview ? 'start_review' : 'send',
               },
             }));
 
@@ -596,7 +618,7 @@ export function createAgreementFormSubmitController(
                 status: status || 409,
               });
               submitBtn.disabled = false;
-              setSubmitButtonState('Send for Signature', false);
+              setPrimaryActionLabel(isStartReviewEnabled() ? 'Start Review' : 'Send for Signature');
               activeSendAttemptID = null;
               return;
             }
@@ -621,7 +643,7 @@ export function createAgreementFormSubmitController(
             }));
             announceError(message, code, status);
             submitBtn.disabled = false;
-            setSubmitButtonState('Send for Signature', false);
+            setPrimaryActionLabel(isStartReviewEnabled() ? 'Start Review' : 'Send for Signature');
             activeSendAttemptID = null;
           }
         })();
@@ -629,7 +651,7 @@ export function createAgreementFormSubmitController(
       }
 
       submitBtn.disabled = true;
-      setSubmitButtonState(shouldSendForSignature ? 'Sending...' : 'Saving...', true);
+      setSubmitButtonState(shouldSendForSignature ? 'Sending...' : (shouldStartReview ? 'Starting Review...' : 'Saving...'), true);
     });
   }
 

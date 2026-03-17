@@ -436,20 +436,6 @@ function getGroupId(record: Record<string, unknown>, field: string): string | nu
   if (typeof value === 'string' && value.trim()) {
     return value;
   }
-
-  // Try nested paths (e.g., translation.meta.family_id)
-  const nestedPaths = [
-    `translation.meta.${field}`,
-    `content_translation.meta.${field}`,
-  ];
-
-  for (const path of nestedPaths) {
-    const nested = getNestedValue(record, path);
-    if (typeof nested === 'string' && nested.trim()) {
-      return nested;
-    }
-  }
-
   return null;
 }
 

@@ -61,6 +61,12 @@ export class WizardStateManager {
       fieldDefinitions: [],
       fieldPlacements: [],
       fieldRules: [],
+      review: {
+        enabled: false,
+        gate: 'approve_before_send',
+        commentsEnabled: false,
+        participants: [],
+      },
       titleSource: this.options.titleSource.AUTOFILL,
       resourceRef: null,
       serverDraftId: null,
@@ -128,6 +134,13 @@ export class WizardStateManager {
     normalized.fieldDefinitions = Array.isArray(state.fieldDefinitions) ? state.fieldDefinitions : [];
     normalized.fieldPlacements = Array.isArray(state.fieldPlacements) ? state.fieldPlacements : [];
     normalized.fieldRules = Array.isArray(state.fieldRules) ? state.fieldRules : [];
+    const reviewState = state.review && typeof state.review === 'object' ? state.review : {};
+    normalized.review = {
+      enabled: Boolean(reviewState.enabled),
+      gate: String(reviewState.gate ?? initial.review.gate).trim() || initial.review.gate,
+      commentsEnabled: Boolean(reviewState.commentsEnabled),
+      participants: Array.isArray(reviewState.participants) ? reviewState.participants : [],
+    };
 
     const wizardID = String(state.wizardId ?? '').trim();
     normalized.wizardId = wizardID || initial.wizardId;

@@ -14198,7 +14198,7 @@ test('Phase 0.FE.8: agreement form template emits server-authored storage scope 
   const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
 
   assert.match(template, /"storage_scope": "{{ agreement_form_storage_scope\|default:"" }}"/);
-  assert.match(template, /"action_operations": \["send", "dispose"\]/);
+  assert.match(template, /"action_operations": \["send", "start_review", "dispose"\]/);
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
