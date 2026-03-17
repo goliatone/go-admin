@@ -10,7 +10,7 @@ function createGrid(defaultViewMode = 'flat') {
     columns: [],
     enableGroupedMode: true,
     defaultViewMode,
-    groupByField: 'translation_group_id',
+    groupByField: 'family_id',
   });
 }
 
@@ -18,12 +18,12 @@ test('datatable grouped pagination contract: grouped mode requests group_by', ()
   const grid = createGrid('grouped');
   const url = grid.buildApiUrl();
 
-  assert.ok(url.includes('group_by=translation_group_id'));
+  assert.ok(url.includes('group_by=family_id'));
 });
 
 test('datatable grouped pagination contract: flat mode does not request group_by', () => {
   const grid = createGrid('flat');
   const url = grid.buildApiUrl();
 
-  assert.equal(url.includes('group_by=translation_group_id'), false);
+  assert.equal(url.includes('group_by=family_id'), false);
 });

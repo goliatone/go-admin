@@ -133,7 +133,7 @@ export interface TranslationDashboardPayload {
 }
 
 export interface TranslationDashboardMeta {
-  environment: string;
+  channel: string;
   generatedAt: string;
   refreshIntervalMs: number;
   latencyTargetMs: number;
@@ -152,7 +152,7 @@ export interface TranslationDashboardResponse {
 }
 
 export interface TranslationDashboardQuery {
-  environment?: string;
+  channel?: string;
   tenantId?: string;
   orgId?: string;
   overdueLimit?: number;
@@ -499,7 +499,7 @@ export function normalizeTranslationDashboardResponse(value: unknown): Translati
       summary: asNumberRecord(data.summary),
     },
     meta: {
-      environment: asString(meta.environment),
+      channel: asString(meta.channel),
       generatedAt: asString(meta.generated_at),
       refreshIntervalMs: asNumber(meta.refresh_interval_ms, 30000),
       latencyTargetMs: asNumber(meta.latency_target_ms, 0),
@@ -546,7 +546,7 @@ export function buildTranslationDashboardURL(endpoint: string, query: Translatio
     : 'http://localhost';
   const url = new URL(normalizedEndpoint, base);
   const pairs: Array<[string, string]> = [
-    ['environment', asString(query.environment)],
+    ['channel', asString(query.channel)],
     ['tenant_id', asString(query.tenantId)],
     ['org_id', asString(query.orgId)],
     ['overdue_limit', query.overdueLimit != null ? String(query.overdueLimit) : ''],
@@ -867,7 +867,7 @@ function renderSummaryMeta(payload: TranslationDashboardResponse): string {
   return `
     <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
       <div class="flex flex-wrap items-center gap-4">
-        <span><strong class="font-semibold text-white">Environment:</strong> ${escapeHTML(payload.meta.environment || 'default')}</span>
+        <span><strong class="font-semibold text-white">Channel:</strong> ${escapeHTML(payload.meta.channel || 'default')}</span>
         <span><strong class="font-semibold text-white">Refresh:</strong> ${escapeHTML(String(payload.meta.refreshIntervalMs))}ms</span>
         <span><strong class="font-semibold text-white">Latency target:</strong> ${escapeHTML(String(payload.meta.latencyTargetMs))}ms p95</span>
       </div>

@@ -1,4 +1,4 @@
-import { n as m, a as v, b as S, c as E } from "../chunks/index-D46vxB91.js";
+import { n as m, a as v, b as S, c as E } from "../chunks/index-YiVxcMWC.js";
 import { g as A } from "../chunks/style-constants-BesmSFuV.js";
 const C = {
   root: "#translation-exchange-app"
@@ -625,7 +625,7 @@ class M {
       }), s.push({
         resource: r.resource ?? "",
         entity_id: r.entity_id ?? "",
-        translation_group_id: r.translation_group_id ?? "",
+        family_id: r.family_id ?? "",
         source_locale: r.source_locale ?? "",
         target_locale: r.target_locale ?? "",
         field_path: r.field_path ?? "",

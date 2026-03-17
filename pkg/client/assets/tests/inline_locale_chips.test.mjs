@@ -17,7 +17,7 @@ function createMockRecord(overrides = {}) {
   return {
     id: 'page_123',
     translation_readiness: {
-      translation_group_id: 'group_abc',
+      family_id: 'group_abc',
       required_locales: ['en', 'es', 'fr', 'de'],
       available_locales: ['en'],
       missing_required_locales: ['es', 'fr', 'de'],
@@ -49,7 +49,7 @@ test('shouldShowInlineLocaleChips returns true when missing locales exist', () =
 test('shouldShowInlineLocaleChips returns false when no missing locales', () => {
   const record = createMockRecord({
     translation_readiness: {
-      translation_group_id: 'group_abc',
+      family_id: 'group_abc',
       required_locales: ['en'],
       available_locales: ['en'],
       missing_required_locales: [],
@@ -185,7 +185,7 @@ test('InlineLocaleChips.getDisabledReason maps reason_code to message', () => {
 test('InlineLocaleChips.render returns empty string when no missing locales', () => {
   const record = createMockRecord({
     translation_readiness: {
-      translation_group_id: 'group_abc',
+      family_id: 'group_abc',
       required_locales: ['en'],
       available_locales: ['en'],
       missing_required_locales: [],

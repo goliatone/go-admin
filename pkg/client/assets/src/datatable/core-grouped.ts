@@ -12,7 +12,7 @@ import {
 } from './grouped-mode.js';
 
 export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tbody: HTMLElement): void {
-    const groupByField = grid.config.groupByField || 'translation_group_id';
+    const groupByField = grid.config.groupByField || 'family_id';
     const records = items.filter((item): item is Record<string, unknown> => {
       return !!item && typeof item === 'object' && !Array.isArray(item);
     });

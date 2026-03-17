@@ -120,6 +120,13 @@ const DEFAULT_CONFIG: Required<Omit<ServicesAPIClientConfig, 'onError'>> = {
   headers: {},
 };
 
+function getRuntimeOrigin(): string {
+  const location = typeof globalThis !== 'undefined'
+    ? (globalThis as { location?: Location }).location
+    : undefined;
+  return location?.origin || 'http://localhost';
+}
+
 // =============================================================================
 // API Client
 // =============================================================================
@@ -367,7 +374,7 @@ export class ServicesAPIClient {
     idempotencyKey?: string
   ): Promise<RunSyncResponse> {
     return this.post<RunSyncResponse>(
-      `/sync/connections/${encodeURIComponent(connectionId)}/run`,
+      `/sync/${encodeURIComponent(connectionId)}/run`,
       request,
       idempotencyKey
     );
@@ -381,7 +388,7 @@ export class ServicesAPIClient {
     signal?: AbortSignal
   ): Promise<GetSyncStatusResponse> {
     return this.get<GetSyncStatusResponse>(
-      `/sync/connections/${encodeURIComponent(connectionId)}/status`,
+      `/sync/${encodeURIComponent(connectionId)}/status`,
       {},
       signal
     );
@@ -931,7 +938,7 @@ export class ServicesAPIClient {
     params: Record<string, string | number | boolean | undefined> = {}
   ): string {
     const base = this.config.basePath.replace(/\/$/, '');
-    const url = new URL(`${base}${path}`, window.location.origin);
+    const url = new URL(`${base}${path}`, getRuntimeOrigin());
 
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== '') {

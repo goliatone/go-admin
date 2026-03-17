@@ -4,6 +4,7 @@ import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
 import { renderGroupedEmptyState } from './grouped-mode.js';
 import {
+  formatStructuredErrorForDisplay,
   getStructuredActionError,
   isHandledActionError,
 } from '../toast/error-helpers.js';
@@ -344,7 +345,7 @@ export async function handleDelete(grid: any, id: string): Promise<void> {
           await grid.refresh();
         },
         onError: (error) => {
-          grid.showError(error.textCode ? `${error.textCode}: ${error.message}` : error.message);
+          grid.showError(formatStructuredErrorForDisplay(error, 'Delete failed'));
         },
         reconcileOnDomainFailure: async () => {
           await grid.refresh();

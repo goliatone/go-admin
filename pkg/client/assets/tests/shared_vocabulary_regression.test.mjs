@@ -97,7 +97,7 @@ describe('Phase 1 Regression: Core UX Status Rendering', () => {
 
   it('should extract readiness from records using consistent field mapping', () => {
     const record = {
-      translation_group_id: 'tg_123',
+      family_id: 'tg_123',
       translation_readiness: {
         required_locales: ['en', 'es', 'fr'],
         available_locales: ['en'],

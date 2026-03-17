@@ -344,7 +344,7 @@ test('parseActionResponse handles success with data', () => {
       id: 'page_789',
       locale: 'es',
       status: 'draft',
-      translation_group_id: 'tg_123',
+      family_id: 'tg_123',
     },
   });
 
@@ -352,7 +352,7 @@ test('parseActionResponse handles success with data', () => {
   assert.ok(result.data);
   assert.equal(result.data.id, 'page_789');
   assert.equal(result.data.locale, 'es');
-  assert.equal(result.data.translation_group_id, 'tg_123');
+  assert.equal(result.data.family_id, 'tg_123');
 });
 
 test('parseActionResponse handles error envelope', () => {
@@ -569,7 +569,7 @@ test('handles create_translation success response format', () => {
       id: 'page_789',
       locale: 'es',
       status: 'draft',
-      translation_group_id: 'tg_123',
+      family_id: 'tg_123',
     },
   });
 
@@ -578,7 +578,7 @@ test('handles create_translation success response format', () => {
   assert.equal(result.data.id, 'page_789');
   assert.equal(result.data.locale, 'es');
   assert.equal(result.data.status, 'draft');
-  assert.equal(result.data.translation_group_id, 'tg_123');
+  assert.equal(result.data.family_id, 'tg_123');
 });
 
 // =============================================================================
@@ -764,7 +764,7 @@ test('parseActionResponse correctly parses status+data success envelope', () => 
       id: 'new_record_456',
       locale: 'fr',
       status: 'draft',
-      translation_group_id: 'tg_789',
+      family_id: 'tg_789',
     },
   });
 
@@ -772,7 +772,7 @@ test('parseActionResponse correctly parses status+data success envelope', () => 
   assert.ok(result.data);
   assert.equal(result.data.id, 'new_record_456');
   assert.equal(result.data.locale, 'fr');
-  assert.equal(result.data.translation_group_id, 'tg_789');
+  assert.equal(result.data.family_id, 'tg_789');
 });
 
 test('parseActionResponse preserves all data fields from server', () => {
@@ -780,7 +780,7 @@ test('parseActionResponse preserves all data fields from server', () => {
     id: 'record_123',
     locale: 'es',
     status: 'draft',
-    translation_group_id: 'tg_abc',
+    family_id: 'tg_abc',
     created_at: '2024-01-15T10:30:00Z',
     custom_field: 'custom_value',
   };
@@ -921,7 +921,7 @@ test('create_translation success response contract', () => {
       id: 'page_789',
       locale: 'es',
       status: 'draft',
-      translation_group_id: 'tg_123',
+      family_id: 'tg_123',
     },
   });
 
@@ -935,7 +935,7 @@ test('create_translation success response contract', () => {
   assert.equal(result.data.id, 'page_789');
   assert.equal(result.data.locale, 'es');
   assert.equal(result.data.status, 'draft');
-  assert.equal(result.data.translation_group_id, 'tg_123');
+  assert.equal(result.data.family_id, 'tg_123');
 });
 
 // =============================================================================
@@ -1112,7 +1112,7 @@ test('parseImportResult parses full import result', () => {
         index: 0,
         resource: 'pages',
         entity_id: 'page_123',
-        translation_group_id: 'tg_456',
+        family_id: 'tg_456',
         target_locale: 'es',
         field_path: 'title',
         status: 'success',
@@ -1121,7 +1121,7 @@ test('parseImportResult parses full import result', () => {
         index: 1,
         resource: 'pages',
         entity_id: 'page_124',
-        translation_group_id: 'tg_457',
+        family_id: 'tg_457',
         target_locale: 'fr',
         field_path: 'summary',
         status: 'error',
@@ -1131,7 +1131,7 @@ test('parseImportResult parses full import result', () => {
         index: 2,
         resource: 'posts',
         entity_id: 'post_789',
-        translation_group_id: 'tg_890',
+        family_id: 'tg_890',
         target_locale: 'de',
         field_path: 'body',
         status: 'conflict',
@@ -1201,11 +1201,11 @@ test('parseImportResult handles empty/missing fields gracefully', () => {
 
 test('groupRowResultsByStatus groups results correctly', () => {
   const results = [
-    { index: 0, resource: 'pages', entityId: 'p1', translationGroupId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
-    { index: 1, resource: 'pages', entityId: 'p2', translationGroupId: 'tg2', targetLocale: 'fr', fieldPath: 'title', status: 'error', error: 'Failed' },
-    { index: 2, resource: 'pages', entityId: 'p3', translationGroupId: 'tg3', targetLocale: 'de', fieldPath: 'title', status: 'success' },
-    { index: 3, resource: 'posts', entityId: 'po1', translationGroupId: 'tg4', targetLocale: 'es', fieldPath: 'body', status: 'conflict' },
-    { index: 4, resource: 'posts', entityId: 'po2', translationGroupId: 'tg5', targetLocale: 'fr', fieldPath: 'body', status: 'skipped' },
+    { index: 0, resource: 'pages', entityId: 'p1', familyId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
+    { index: 1, resource: 'pages', entityId: 'p2', familyId: 'tg2', targetLocale: 'fr', fieldPath: 'title', status: 'error', error: 'Failed' },
+    { index: 2, resource: 'pages', entityId: 'p3', familyId: 'tg3', targetLocale: 'de', fieldPath: 'title', status: 'success' },
+    { index: 3, resource: 'posts', entityId: 'po1', familyId: 'tg4', targetLocale: 'es', fieldPath: 'body', status: 'conflict' },
+    { index: 4, resource: 'posts', entityId: 'po2', familyId: 'tg5', targetLocale: 'fr', fieldPath: 'body', status: 'skipped' },
   ];
 
   const grouped = groupRowResultsByStatus(results);
@@ -1226,7 +1226,7 @@ test('generateExchangeReport creates JSON blob', () => {
   const result = {
     summary: { processed: 10, succeeded: 8, failed: 2, conflicts: 0, skipped: 0 },
     results: [
-      { index: 0, resource: 'pages', entityId: 'p1', translationGroupId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
+      { index: 0, resource: 'pages', entityId: 'p1', familyId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
     ],
     truncated: false,
   };
@@ -1241,8 +1241,8 @@ test('generateExchangeReport creates CSV blob', () => {
   const result = {
     summary: { processed: 2, succeeded: 1, failed: 1, conflicts: 0, skipped: 0 },
     results: [
-      { index: 0, resource: 'pages', entityId: 'p1', translationGroupId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
-      { index: 1, resource: 'pages', entityId: 'p2', translationGroupId: 'tg2', targetLocale: 'fr', fieldPath: 'title', status: 'error', error: 'Field not found' },
+      { index: 0, resource: 'pages', entityId: 'p1', familyId: 'tg1', targetLocale: 'es', fieldPath: 'title', status: 'success' },
+      { index: 1, resource: 'pages', entityId: 'p2', familyId: 'tg2', targetLocale: 'fr', fieldPath: 'title', status: 'error', error: 'Field not found' },
     ],
     truncated: false,
   };
@@ -1260,7 +1260,7 @@ test('exchange error extraction preserves metadata', () => {
     metadata: {
       resource: 'posts',
       entity_id: 'post_123',
-      translation_group_id: 'tg_456',
+      family_id: 'tg_456',
       custom_field: 'custom_value',
     },
     fields: null,

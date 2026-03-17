@@ -33,8 +33,6 @@ export interface LocaleActionConfig {
   panelName?: string;
   /** Current content channel context */
   channel?: string;
-  /** @deprecated Use `channel` */
-  environment?: string;
   /** Whether the locale exists (for existing locales, only show open action) */
   localeExists?: boolean;
   /** Display size variant */
@@ -56,7 +54,7 @@ export interface CreateActionResult {
   id: string;
   locale: string;
   status: string;
-  translationGroupId?: string;
+  familyId?: string;
 }
 
 /**
@@ -129,7 +127,7 @@ export class LocaleActionChip {
   }
 
   private getContentChannel(): string | undefined {
-    const value = String(this.config.channel ?? this.config.environment ?? '').trim();
+    const value = String(this.config.channel ?? '').trim();
     return value || undefined;
   }
 
@@ -285,7 +283,6 @@ export class LocaleActionChip {
       const channel = this.getContentChannel();
       if (channel) {
         payload.channel = channel;
-        payload.environment = channel;
       }
       if (this.config.panelName) {
         payload.policy_entity = this.config.panelName;
@@ -306,8 +303,8 @@ export class LocaleActionChip {
           id: newId || this.config.recordId,
           locale: this.config.locale,
           status: String(result.data?.status || 'draft'),
-          translationGroupId: result.data?.translation_group_id
-            ? String(result.data.translation_group_id)
+          familyId: result.data?.family_id
+            ? String(result.data.family_id)
             : undefined,
         };
 
@@ -476,12 +473,11 @@ export function buildLocaleEditUrl(
   basePath: string,
   recordId: string,
   locale: string,
-  channel?: string,
-  environment?: string
+  channel?: string
 ): string {
   const params = new URLSearchParams();
   params.set('locale', locale);
-  const effectiveChannel = String(channel ?? environment ?? '').trim();
+  const effectiveChannel = String(channel ?? '').trim();
   if (effectiveChannel) {
     params.set('channel', effectiveChannel);
   }

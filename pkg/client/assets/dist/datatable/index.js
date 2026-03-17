@@ -1,14 +1,14 @@
-import { F as G } from "../chunks/toast-manager-DQTs-tOQ.js";
-import { executeStructuredRequest as Ze, formatStructuredErrorForDisplay as Y, createStructuredActionError as oe, isHandledActionError as P, getStructuredActionError as N, extractErrorMessage as Qt, executeActionRequest as Ee, isTranslationBlocker as Wt, extractTranslationBlocker as Xt } from "../toast/error-helpers.js";
+import { F as H } from "../chunks/toast-manager-DQTs-tOQ.js";
+import { executeStructuredRequest as Ze, formatStructuredErrorForDisplay as G, createStructuredActionError as oe, isHandledActionError as P, getStructuredActionError as N, extractErrorMessage as Qt, executeActionRequest as Ee, isTranslationBlocker as Wt, extractTranslationBlocker as Xt } from "../toast/error-helpers.js";
 import { extractExchangeError as fl, generateExchangeReport as ml, groupRowResultsByStatus as gl, isExchangeError as bl, parseImportResult as yl } from "../toast/error-helpers.js";
 import { M as et, e as m, T as je } from "../chunks/modal-CI6l6KPp.js";
 import { b as ae, a as Zt } from "../chunks/badge-CqKzZ9y5.js";
 import { r as er } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { g as tt, r as H, a as tr, n as rr, b as rt, c as nt, d as st, e as nr, f as ot, h as at, i as sr, j as it } from "../chunks/translation-status-vocabulary-huaq_68y.js";
+import { g as tt, r as U, a as tr, n as rr, b as rt, c as nt, d as st, e as nr, f as ot, h as at, i as sr, j as it } from "../chunks/translation-status-vocabulary-huaq_68y.js";
 import { C as wl, D as xl, t as Sl, E as Cl, q as $l, s as kl, Q as Al, F as El, B as Ll, y as _l, u as Rl, z as Il, H as Bl, x as Tl, G as Ml, w as Pl, v as Dl, k as Fl, l as ql, m as Ol, p as jl, o as zl, A as Nl } from "../chunks/translation-status-vocabulary-huaq_68y.js";
 import { h as T, r as or } from "../chunks/http-client-Dm229xuF.js";
 import { S as ar } from "../chunks/sortable.esm-DOKudrbz.js";
-import { e as ir, E as lr } from "../chunks/index-D46vxB91.js";
+import { e as ir, E as lr } from "../chunks/index-YiVxcMWC.js";
 let cr = class lt extends et {
   constructor(e, t, n) {
     super({ size: "md", initialFocus: "[data-payload-field]", lockBodyScroll: !1 }), this.resolved = !1, this.config = e, this.onConfirm = t, this.onCancel = n;
@@ -135,7 +135,7 @@ let cr = class lt extends et {
 };
 class dr {
   constructor(e = {}) {
-    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new G(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
+    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new H(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
   }
   /**
    * Render row actions as HTML
@@ -320,7 +320,7 @@ class dr {
           })
         }));
         if (!s.success) {
-          const a = s.error, i = a ? Y(a, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
+          const a = s.error, i = a ? G(a, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
           throw e.onError || this.notifier.error(i), a ? oe(a, `Bulk action '${e.id}' failed`, !0) : oe({
             textCode: null,
             message: i,
@@ -548,7 +548,7 @@ function M(r) {
     availableLocales: [],
     missingRequestedLocale: !1,
     fallbackUsed: !1,
-    translationGroupId: null,
+    familyId: null,
     status: null,
     entityType: null,
     recordId: null
@@ -574,10 +574,10 @@ function M(r) {
     "fallback_used",
     "translation.meta.fallback_used",
     "content_translation.meta.fallback_used"
-  ]), e.translationGroupId = q(r, [
-    "translation_group_id",
-    "translation.meta.translation_group_id",
-    "content_translation.meta.translation_group_id"
+  ]), e.familyId = q(r, [
+    "family_id",
+    "translation.meta.family_id",
+    "content_translation.meta.family_id"
   ]), e.status = q(r, ["status"]), e.entityType = q(r, ["entity_type", "type", "_type"]), e.recordId = q(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
 }
 function Ra(r) {
@@ -586,7 +586,7 @@ function Ra(r) {
 }
 function Ia(r) {
   const e = M(r);
-  return e.translationGroupId !== null || e.resolvedLocale !== null || e.availableLocales.length > 0;
+  return e.familyId !== null || e.resolvedLocale !== null || e.availableLocales.length > 0;
 }
 function ct(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -659,18 +659,18 @@ function Ma(r, e = {}) {
   if (!t)
     return '<span class="text-gray-400">-</span>';
   const n = z(t, ["status"]), s = z(t, ["label"]), o = z(t, ["assignee_id"]), a = z(t, ["priority"]), i = we(t, ["active_count", "open_count"]), l = [];
-  return n ? l.push(H(n, { domain: "queue", size: "sm", showIcon: !1 })) : s && l.push(B(s, e, "info")), i !== null && i >= 0 && l.push(B(`${i} active`, e, "neutral")), o && l.push(B(`@${o}`, e, "neutral")), a && l.push(B(a, e, a === "urgent" || a === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
+  return n ? l.push(U(n, { domain: "queue", size: "sm", showIcon: !1 })) : s && l.push(B(s, e, "info")), i !== null && i >= 0 && l.push(B(`${i} active`, e, "neutral")), o && l.push(B(`@${o}`, e, "neutral")), a && l.push(B(a, e, a === "urgent" || a === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
 function Pa(r, e = {}) {
   const t = dt(r, "translation_exchange_summary");
   if (!t)
     return '<span class="text-gray-400">-</span>';
   const n = z(t, ["status", "last_job_status"]), s = z(t, ["label", "last_job_label"]), o = we(t, ["pending_count"]), a = we(t, ["error_count"]), i = [];
-  return n ? i.push(H(n, { domain: "exchange", size: "sm", showIcon: !1 })) : s && i.push(B(s, e, "info")), o !== null && o >= 0 && i.push(B(`${o} pending`, e, "neutral")), a !== null && a > 0 && i.push(B(`${a} errors`, e, "warning")), i.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${i.join("")}</div>`;
+  return n ? i.push(U(n, { domain: "exchange", size: "sm", showIcon: !1 })) : s && i.push(B(s, e, "info")), o !== null && o >= 0 && i.push(B(`${o} pending`, e, "neutral")), a !== null && a > 0 && i.push(B(`${a} errors`, e, "warning")), i.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${i.join("")}</div>`;
 }
 function E(r) {
   const e = {
-    translationGroupId: null,
+    familyId: null,
     requiredLocales: [],
     availableLocales: [],
     missingRequiredLocales: [],
@@ -684,12 +684,12 @@ function E(r) {
     return e;
   const t = r.translation_readiness;
   if (t && typeof t == "object") {
-    e.hasReadinessMetadata = !0, e.translationGroupId = q(r, [
-      "translation_readiness.translation_group_id",
-      "translation_group_id",
-      "translation.meta.translation_group_id",
-      "content_translation.meta.translation_group_id",
-      "translation_context.translation_group_id"
+    e.hasReadinessMetadata = !0, e.familyId = q(r, [
+      "translation_readiness.family_id",
+      "family_id",
+      "translation.meta.family_id",
+      "content_translation.meta.family_id",
+      "translation_context.family_id"
     ]), e.requiredLocales = Array.isArray(t.required_locales) ? t.required_locales.filter((a) => typeof a == "string") : [], e.availableLocales = Array.isArray(t.available_locales) ? t.available_locales.filter((a) => typeof a == "string") : [], e.missingRequiredLocales = Array.isArray(t.missing_required_locales) ? t.missing_required_locales.filter((a) => typeof a == "string") : [];
     const n = t.missing_required_fields_by_locale;
     if (n && typeof n == "object" && !Array.isArray(n))
@@ -754,7 +754,7 @@ function qa(r, e = "default") {
     return "";
   const t = r.trim();
   if (tt(t) !== null)
-    return H(t, { size: e === "sm" ? "sm" : "default" });
+    return U(t, { size: e === "sm" ? "sm" : "default" });
   const n = t.toLowerCase();
   return ae(r, "status", n, { size: e === "sm" ? "sm" : void 0 });
 }
@@ -894,14 +894,14 @@ function gr(r, e = {}) {
     const y = d.has(f), v = y && u.has(f), g = y && !v;
     let C, D, A;
     g ? (C = "bg-green-100 text-green-700 border-green-300", D = "●", A = "Complete") : v ? (C = "bg-amber-100 text-amber-700 border-amber-300", D = "◐", A = "Incomplete") : (C = "bg-white text-gray-400 border-gray-300 border-dashed", D = "○", A = "Missing");
-    const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", U = s ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
+    const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", V = s ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
     return `
         <span class="inline-flex items-center gap-0.5 ${w} rounded border ${C}"
               title="${f.toUpperCase()}: ${A}"
               aria-label="${f.toUpperCase()}: ${A}"
               data-locale="${f}"
               data-state="${A.toLowerCase()}">
-          ${U}
+          ${V}
           <span aria-hidden="true">${D}</span>
         </span>
       `;
@@ -1018,7 +1018,7 @@ const I = '<span class="text-gray-400">-</span>', wr = [
   "blockType",
   "block_type"
 ];
-function V(r) {
+function K(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function xr(r) {
@@ -1141,11 +1141,11 @@ class Rr {
         return e ? "Yes" : "No";
       if (Array.isArray(e)) {
         const t = Se(e, {});
-        return t ? V(t) : I;
+        return t ? K(t) : I;
       }
       if (typeof e == "object") {
         const t = xe(e, {});
-        return t ? V(t) : I;
+        return t ? K(t) : I;
       }
       return String(e);
     }, this.registerDefaultRenderers();
@@ -1211,12 +1211,12 @@ class Rr {
       if (!Array.isArray(e) || e.length === 0)
         return I;
       const o = s?.options || {}, a = Se(e, o);
-      return a ? V(a) : I;
+      return a ? K(a) : I;
     }), this.renderers.set("_object", (e, t, n, s) => {
       if (e == null)
         return I;
       const o = s?.options || {}, a = xe(e, o);
-      return a ? V(a) : I;
+      return a ? K(a) : I;
     }), this.renderers.set("_tags", (e) => !Array.isArray(e) || e.length === 0 ? '<span class="text-gray-400">-</span>' : e.map(
       (t) => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${t}</span>`
     ).join("")), this.renderers.set("blocks_chips", (e, t, n, s) => {
@@ -1228,7 +1228,7 @@ class Rr {
         if (!y) continue;
         const v = c[y] || "view-grid", g = er(v, { size: "14px", extraClass: "flex-shrink-0" }), C = _r(l);
         d.push(
-          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${C}">${g}<span>${V(y)}</span></span>`
+          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${C}">${g}<span>${K(y)}</span></span>`
         );
       }
       if (d.length === 0)
@@ -1513,7 +1513,7 @@ function jr(r) {
 }
 function zr(r, e = {}) {
   const {
-    groupByField: t = "translation_group_id",
+    groupByField: t = "family_id",
     defaultExpanded: n = !0,
     expandMode: s = "explicit",
     expandedGroups: o = /* @__PURE__ */ new Set()
@@ -1605,7 +1605,7 @@ function gt(r, e, t, n) {
 }
 function Gr(r) {
   const e = r, t = typeof e.group_by == "string" ? e.group_by.trim().toLowerCase() : "", n = yt(r);
-  if (!(t === "translation_group_id" || n === "group"))
+  if (!(t === "family_id" || n === "group"))
     return !1;
   const o = vt(r);
   return Array.isArray(o);
@@ -1621,7 +1621,7 @@ function yt(r) {
   return typeof t == "string" ? t.trim().toLowerCase() : "";
 }
 function Hr(r) {
-  const e = r.translation_group_id;
+  const e = r.family_id;
   if (typeof e == "string" && e.trim())
     return e.trim();
   const t = r._group;
@@ -1641,11 +1641,11 @@ function vt(r) {
   return n && typeof n == "object" && !Array.isArray(n) ? [{ ...n }] : [];
 }
 function Ur(r) {
-  const e = r.translation_group_summary;
+  const e = r.family_summary ?? r.translation_group_summary;
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function Vr(r, e) {
-  const t = r.translation_group_summary;
+  const t = r.family_summary ?? r.translation_group_summary;
   if (!t || typeof t != "object" || Array.isArray(t))
     return wt(e);
   const n = t, s = Array.isArray(n.available_locales) ? n.available_locales.filter(j) : [], o = Array.isArray(n.missing_locales) ? n.missing_locales.filter(j) : [], a = xt(n.readiness_state) ? n.readiness_state : null, i = Math.max(e.length, typeof n.child_count == "number" ? Math.max(n.child_count, 0) : 0);
@@ -1658,10 +1658,10 @@ function Vr(r, e) {
   };
 }
 function Kr(r, e) {
-  const t = r.translation_group_label;
+  const t = r.family_label ?? r.translation_group_label;
   if (typeof t == "string" && t.trim())
     return t.trim();
-  const n = r.translation_group_summary;
+  const n = r.family_summary ?? r.translation_group_summary;
   if (n && typeof n == "object" && !Array.isArray(n)) {
     const i = n.group_label;
     if (typeof i == "string" && i.trim())
@@ -2366,7 +2366,7 @@ function An(r) {
     const t = r.config.behaviors.sort.buildQuery(r.state.sort);
     Object.assign(e, t);
   }
-  return r.isGroupedViewActive() && (e.group_by = r.config.groupByField || "translation_group_id"), e;
+  return r.isGroupedViewActive() && (e.group_by = r.config.groupByField || "family_id"), e;
 }
 function En(r, e) {
   return e.total !== void 0 && e.total !== null ? e.total : e.$meta?.count !== void 0 && e.$meta?.count !== null ? e.$meta.count : e.count !== void 0 && e.count !== null ? e.count : null;
@@ -2415,7 +2415,7 @@ function Tn(r) {
   return r.lastSchema?.tabs || [];
 }
 function Mn(r, e, t, n) {
-  const s = r.config.groupByField || "translation_group_id", o = t.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
+  const s = r.config.groupByField || "family_id", o = t.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
   let a = Nr(o, {
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
@@ -2556,7 +2556,7 @@ async function Lt(r) {
     return await r.onSuccess?.(t), t;
   const n = String(r.fallbackMessage || "Delete failed").trim() || "Delete failed", s = t.error || Yn(n), o = {
     ...s,
-    message: Y(s, n)
+    message: G(s, n)
   };
   throw o.textCode && r.reconcileOnDomainFailure && await r.reconcileOnDomainFailure(o), await r.onError?.(o), oe(o, n, !!r.onError);
 }
@@ -2725,7 +2725,7 @@ async function ss(r, e) {
         await r.refresh();
       },
       onError: (t) => {
-        r.showError(t.textCode ? `${t.textCode}: ${t.message}` : t.message);
+        r.showError(G(t, "Delete failed"));
       },
       reconcileOnDomainFailure: async () => {
         await r.refresh();
@@ -3490,7 +3490,7 @@ const k = class k {
       searchDelay: 300,
       behaviors: {},
       ...e
-    }, this.notifier = e.notifier || new G(), this.selectors = {
+    }, this.notifier = e.notifier || new H(), this.selectors = {
       table: `#${e.tableId}`,
       searchInput: "#table-search",
       perPageSelect: "#table-per-page",
@@ -3547,8 +3547,8 @@ const k = class k {
       mode: this.config.actionRenderMode || "dropdown",
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier
-    }), this.cellRendererRegistry = new Rr(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([w, U]) => {
-      this.cellRendererRegistry.register(w, U);
+    }), this.cellRendererRegistry = new Rr(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([w, V]) => {
+      this.cellRendererRegistry.register(w, V);
     }), this.defaultColumns = this.config.columns.map((w) => ({ ...w }));
   }
   init() {
@@ -3833,7 +3833,7 @@ const Ue = {
 };
 class ni {
   constructor(e) {
-    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new G();
+    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new H();
   }
   init() {
     if (this.modal = document.getElementById("advanced-search-modal"), this.container = document.getElementById("search-criteria-container"), this.searchInput = document.getElementById("table-search"), this.clearBtn = document.getElementById("search-clear-btn"), !this.modal || !this.container) {
@@ -4125,7 +4125,7 @@ const Ve = {
 };
 class si {
   constructor(e) {
-    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new G(), this.structure = { groups: [], groupLogic: [] }, this.init();
+    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new H(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
   init() {
     if (this.panel = document.getElementById("filter-panel"), this.overlay = document.getElementById("filter-overlay"), this.previewElement = document.getElementById("filter-preview-text"), !this.panel) {
@@ -5563,8 +5563,8 @@ class Tt {
       f.add(g);
       const C = d?.toLowerCase() === g, D = u.includes(g), A = [];
       D && A.push("Required for publishing"), p.length > 0 && A.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
-      const w = A.length > 0 ? A.join(" • ") : void 0, U = h[g] || this.localeLabel(g);
-      let Oe = `${g.toUpperCase()} - ${U}`;
+      const w = A.length > 0 ? A.join(" • ") : void 0, V = h[g] || this.localeLabel(g);
+      let Oe = `${g.toUpperCase()} - ${V}`;
       C && (Oe += " (recommended)"), y.push({
         value: g,
         label: Oe,
@@ -5731,7 +5731,7 @@ class Tt {
     return { value: s };
   }
   buildActionErrorMessage(e, t) {
-    return Y(t, `${e} failed`);
+    return G(t, `${e} failed`);
   }
   /**
    * Build URL query context from locale/channel
@@ -5859,7 +5859,7 @@ function hi(r) {
 }
 function uo() {
   const r = globalThis.window;
-  return r?.toastManager ? r.toastManager : new G();
+  return r?.toastManager ? r.toastManager : new H();
 }
 function L(r) {
   return String(r).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -5959,7 +5959,7 @@ class fo {
         await this.refresh();
       },
       onActionError: (c, d) => {
-        this.notifier.error(Y(d, `${c} failed`));
+        this.notifier.error(G(d, `${c} failed`));
       },
       reconcileOnDomainFailure: async () => {
         await this.refresh();
@@ -5993,7 +5993,7 @@ class fo {
             });
           } catch (i) {
             if (!P(i)) {
-              const l = N(i), c = l ? Y(l, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
+              const l = N(i), c = l ? G(l, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
               this.notifier.error(c);
             }
           }
@@ -6268,7 +6268,7 @@ class Pe extends et {
             id: t.newRecordId || this.config.recordId,
             locale: e,
             status: String(a.data?.status || "draft"),
-            translation_group_id: a.data?.translation_group_id ? String(a.data.translation_group_id) : void 0
+            family_id: a.data?.family_id ? String(a.data.family_id) : void 0
           };
           this.config.onCreateSuccess?.(e, i);
         } else {
@@ -6738,7 +6738,7 @@ function wi(r) {
   return new vo(r);
 }
 async function wo(r, e, t = {}) {
-  const { apiEndpoint: n, notifier: s = new G(), maxFailuresToShow: o = 5 } = r, a = `${n}/bulk/create-missing-translations`;
+  const { apiEndpoint: n, notifier: s = new H(), maxFailuresToShow: o = 5 } = r, a = `${n}/bulk/create-missing-translations`;
   try {
     const i = await fetch(a, {
       method: "POST",
@@ -7003,7 +7003,7 @@ class ue {
             id: o || this.config.recordId,
             locale: this.config.locale,
             status: String(s.data?.status || "draft"),
-            translationGroupId: s.data?.translation_group_id ? String(s.data.translation_group_id) : void 0
+            familyId: s.data?.family_id ? String(s.data.family_id) : void 0
           };
           this.config.onCreateSuccess?.(this.config.locale, a);
         } else {
@@ -8037,7 +8037,7 @@ function Oi(r, e) {
     }
   }), t;
 }
-const Fo = 1500, qo = 2e3, qe = "autosave", J = {
+const Fo = 1500, qo = 2e3, qe = "autosave", Y = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
@@ -8061,7 +8061,7 @@ class Gt {
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
       classPrefix: e.classPrefix ?? qe,
-      labels: { ...J, ...e.labels },
+      labels: { ...Y, ...e.labels },
       // Phase 3b conflict handling (TX-074)
       enableConflictDetection: e.enableConflictDetection ?? !1,
       onConflictResolve: e.onConflictResolve,
@@ -8316,13 +8316,13 @@ class Gt {
     if (t)
       switch (e) {
         case "saved":
-          t.success(this.config.labels.saved ?? J.saved, 2e3);
+          t.success(this.config.labels.saved ?? Y.saved, 2e3);
           break;
         case "error":
-          t.error(this.lastError?.message ?? this.config.labels.error ?? J.error);
+          t.error(this.lastError?.message ?? this.config.labels.error ?? Y.error);
           break;
         case "conflict":
-          t.warning?.(this.config.labels.conflict ?? J.conflict);
+          t.warning?.(this.config.labels.conflict ?? Y.conflict);
           break;
       }
   }
@@ -8392,7 +8392,7 @@ function ji(r) {
   });
 }
 function zi(r, e = {}) {
-  const t = e.classPrefix ?? qe, s = { ...J, ...e.labels }[r] || "";
+  const t = e.classPrefix ?? qe, s = { ...Y, ...e.labels }[r] || "";
   let o = "";
   switch (r) {
     case "saving":
@@ -9581,12 +9581,12 @@ class Zo {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = ea(e.due_state), n = ta(e.priority), s = H(e.queue_state, {
+    const t = ea(e.due_state), n = ta(e.priority), s = U(e.queue_state, {
       domain: "queue",
       size: "sm"
     }), o = e.due_date ? na(new Date(e.due_date)) : "-";
     return `
-      <tr class="assignment-row" data-assignment-id="${K(e.id)}">
+      <tr class="assignment-row" data-assignment-id="${J(e.id)}">
         <td class="title-cell">
           <div class="title-content">
             <span class="source-title">${x(e.source_title || e.source_path || e.id)}</span>
@@ -9616,7 +9616,7 @@ class Zo {
   renderAssignmentActions(e) {
     const t = this.config.labels, n = [], s = typeof this.config.onActionClick == "function";
     n.push(`
-      <button type="button" class="action-btn open-btn" data-action="open" title="${K(t.openAssignment)}">
+      <button type="button" class="action-btn open-btn" data-action="open" title="${J(t.openAssignment)}">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
           <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
           <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
@@ -9625,19 +9625,19 @@ class Zo {
     `);
     const o = e.review_actions;
     return s && e.queue_state === "in_progress" && o.submit_review.enabled && n.push(`
-        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${K(t.submitForReview)}">
+        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${J(t.submitForReview)}">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
           </svg>
         </button>
       `), s && e.queue_state === "review" && (o.approve.enabled && n.push(`
-          <button type="button" class="action-btn approve-btn" data-action="approve" title="${K(t.approve)}">
+          <button type="button" class="action-btn approve-btn" data-action="approve" title="${J(t.approve)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
           </button>
         `), o.reject.enabled && n.push(`
-          <button type="button" class="action-btn reject-btn" data-action="reject" title="${K(t.reject)}">
+          <button type="button" class="action-btn reject-btn" data-action="reject" title="${J(t.reject)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -9691,7 +9691,7 @@ class Zo {
 function x(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function K(r) {
+function J(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 function ea(r) {
@@ -10518,7 +10518,7 @@ class ca {
   }
   renderPreviewRow(e) {
     this.config.labels;
-    const t = it(e.status, "exchange"), n = e.status === "error", s = H(e.status, {
+    const t = it(e.status, "exchange"), n = e.status === "error", s = U(e.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -11223,7 +11223,7 @@ class Yt {
           <span class="progress-status">${S(e.noActiveJob)}</span>
         </div>
       `;
-    const t = it(this.job.status, "exchange"), n = this.getStatusLabel(), s = this.pollingState === "paused" ? `<span class="progress-status ${t}">${S(n)}</span>` : H(this.job.status, { domain: "exchange", size: "sm" });
+    const t = it(this.job.status, "exchange"), n = this.getStatusLabel(), s = this.pollingState === "paused" ? `<span class="progress-status ${t}">${S(n)}</span>` : U(this.job.status, { domain: "exchange", size: "sm" });
     return `
       <div class="progress-header ${t}">
         <h4 class="progress-title">${S(e.title)}</h4>
@@ -12530,7 +12530,7 @@ export {
   Ta as renderTranslationFamilyMemberCount,
   gr as renderTranslationMatrixCell,
   fr as renderTranslationStatusCell,
-  H as renderVocabularyStatusBadge,
+  U as renderVocabularyStatusBadge,
   tr as renderVocabularyStatusIcon,
   ot as resolveActionState,
   Di as saveShortcutSettings,

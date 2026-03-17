@@ -284,15 +284,15 @@ test('CreateTranslationResult contract matches expected fields', () => {
     id: 'page_789',
     locale: 'es',
     status: 'draft',
-    translation_group_id: 'tg_123',
+    family_id: 'tg_123',
   };
 
   // All required fields are present
   assert.equal(typeof expectedResult.id, 'string');
   assert.equal(typeof expectedResult.locale, 'string');
   assert.equal(typeof expectedResult.status, 'string');
-  // translation_group_id is optional
-  assert.equal(typeof expectedResult.translation_group_id, 'string');
+  // family_id is optional
+  assert.equal(typeof expectedResult.family_id, 'string');
 });
 
 // =============================================================================

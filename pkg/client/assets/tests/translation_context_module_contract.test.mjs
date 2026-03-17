@@ -9,7 +9,7 @@ const {
 
 test('translation-context module contract: extracts canonical readiness fields', () => {
   const readiness = extractTranslationReadiness({
-    translation_group_id: 'tg_1',
+    family_id: 'tg_1',
     translation_readiness: {
       required_locales: ['en', 'es', 'fr'],
       available_locales: ['en'],
@@ -19,7 +19,7 @@ test('translation-context module contract: extracts canonical readiness fields',
     },
   });
 
-  assert.equal(readiness.translationGroupId, 'tg_1');
+  assert.equal(readiness.familyId, 'tg_1');
   assert.deepEqual(readiness.requiredLocales, ['en', 'es', 'fr']);
   assert.deepEqual(readiness.availableLocales, ['en']);
   assert.deepEqual(readiness.missingRequiredLocales, ['es', 'fr']);

@@ -684,7 +684,7 @@ export interface ExchangeRowResult {
   /** Entity ID in the source system */
   entityId: string;
   /** Translation group ID */
-  translationGroupId: string;
+  familyId: string;
   /** Target locale for this row */
   targetLocale: string;
   /** Field path being translated */
@@ -889,7 +889,7 @@ function parseRowResult(row: Record<string, unknown>): ExchangeRowResult {
     index: typeof row.index === 'number' ? row.index : 0,
     resource: typeof row.resource === 'string' ? row.resource : '',
     entityId: typeof row.entity_id === 'string' ? row.entity_id : '',
-    translationGroupId: typeof row.translation_group_id === 'string' ? row.translation_group_id : '',
+    familyId: typeof row.family_id === 'string' ? row.family_id : '',
     targetLocale: typeof row.target_locale === 'string' ? row.target_locale : '',
     fieldPath: typeof row.field_path === 'string' ? row.field_path : '',
     status: parseRowStatus(row.status),
@@ -963,12 +963,12 @@ export function generateExchangeReport(
   }
 
   // CSV format
-  const headers = ['index', 'resource', 'entity_id', 'translation_group_id', 'target_locale', 'field_path', 'status', 'error', 'conflict_type'];
+  const headers = ['index', 'resource', 'entity_id', 'family_id', 'target_locale', 'field_path', 'status', 'error', 'conflict_type'];
   const rows = result.results.map((row) => [
     String(row.index),
     row.resource,
     row.entityId,
-    row.translationGroupId,
+    row.familyId,
     row.targetLocale,
     row.fieldPath,
     row.status,

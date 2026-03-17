@@ -39,8 +39,6 @@ export interface FallbackBannerConfig {
   panelName?: string;
   /** Current content channel context */
   channel?: string;
-  /** @deprecated Use `channel` */
-  environment?: string;
   /** Callback after successful create action */
   onCreateSuccess?: (locale: string, result: CreateActionResult) => void;
   /** Callback after action error */
@@ -183,9 +181,9 @@ export class FallbackBanner {
    * Render the primary CTA (Create missing locale).
    */
   private renderPrimaryCta(): string {
-    const { context, apiEndpoint, navigationBasePath, panelName, channel, environment } = this.config;
+    const { context, apiEndpoint, navigationBasePath, panelName, channel } = this.config;
     const requestedLocale = context.requestedLocale;
-    const activeChannel = String(channel ?? environment ?? '').trim();
+    const activeChannel = String(channel ?? '').trim();
 
     if (!requestedLocale || !context.recordId) {
       return '';
@@ -213,14 +211,14 @@ export class FallbackBanner {
    * Render the secondary CTA (Open source locale).
    */
   private renderSecondaryCta(): string {
-    const { context, navigationBasePath, channel, environment } = this.config;
+    const { context, navigationBasePath, channel } = this.config;
     const resolvedLocale = context.resolvedLocale;
 
     if (!resolvedLocale || !context.recordId) {
       return '';
     }
 
-    const url = buildLocaleEditUrl(navigationBasePath, context.recordId, resolvedLocale, channel, environment);
+    const url = buildLocaleEditUrl(navigationBasePath, context.recordId, resolvedLocale, channel);
 
     return `
       <a href="${escapeHtml(url)}"
@@ -287,10 +285,10 @@ export class FallbackBanner {
    * Handle create translation action.
    */
   private async handleCreate(): Promise<void> {
-    const { context, apiEndpoint, panelName, channel, environment, navigationBasePath } = this.config;
+    const { context, apiEndpoint, panelName, channel, navigationBasePath } = this.config;
     const locale = context.requestedLocale;
     const recordId = context.recordId;
-    const activeChannel = String(channel ?? environment ?? '').trim() || undefined;
+    const activeChannel = String(channel ?? '').trim() || undefined;
 
     if (!locale || !recordId) return;
 

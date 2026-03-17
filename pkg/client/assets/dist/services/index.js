@@ -1,12 +1,12 @@
 import { r as u } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { C as at } from "../chunks/modal-CI6l6KPp.js";
-class R extends Error {
+import { C as ut } from "../chunks/modal-CI6l6KPp.js";
+class A extends Error {
   constructor(t, e, s, i) {
     super(t), this.name = "ServicesAPIError", this.code = e, this.statusCode = s, this.details = i;
   }
   static fromResponse(t, e) {
     const s = e.message || e.error || "Unknown error", i = e.text_code || "UNKNOWN_ERROR";
-    return new R(s, i, t, e.details);
+    return new A(s, i, t, e.details);
   }
   get isForbidden() {
     return this.statusCode === 403 || this.code === "FORBIDDEN";
@@ -29,15 +29,18 @@ const $ = {
   RECONSENT: "admin.services.reconsent",
   ACTIVITY_VIEW: "admin.services.activity.view",
   WEBHOOKS: "admin.services.webhooks"
-}, bt = {
+}, St = {
   basePath: "/admin/api/services",
   timeout: 3e4,
   headers: {}
 };
-class ot {
+function wt() {
+  return (typeof globalThis < "u" ? globalThis.location : void 0)?.origin || "http://localhost";
+}
+class ht {
   constructor(t = {}) {
     this.abortControllers = /* @__PURE__ */ new Map(), this.config = {
-      ...bt,
+      ...St,
       ...t
     };
   }
@@ -198,7 +201,7 @@ class ot {
    */
   async runSync(t, e, s) {
     return this.post(
-      `/sync/connections/${encodeURIComponent(t)}/run`,
+      `/sync/${encodeURIComponent(t)}/run`,
       e,
       s
     );
@@ -208,7 +211,7 @@ class ot {
    */
   async getSyncStatus(t, e) {
     return this.get(
-      `/sync/connections/${encodeURIComponent(t)}/status`,
+      `/sync/${encodeURIComponent(t)}/status`,
       {},
       e
     );
@@ -576,7 +579,7 @@ class ot {
     }
   }
   buildUrl(t, e = {}) {
-    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, window.location.origin);
+    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, wt());
     for (const [r, a] of Object.entries(e))
       a != null && a !== "" && i.searchParams.set(r, String(a));
     return i.toString();
@@ -603,7 +606,7 @@ class ot {
       } catch {
         e = { error: t.statusText };
       }
-      const s = R.fromResponse(t.status, e);
+      const s = A.fromResponse(t.status, e);
       throw this.config.onError?.(s), s;
     }
     return t.json();
@@ -619,26 +622,33 @@ class ot {
     return t.page !== void 0 && t.per_page !== void 0 ? (e.offset = (t.page - 1) * t.per_page, e.limit = t.per_page, delete e.page, delete e.per_page) : t.per_page !== void 0 && (e.limit = t.per_page, delete e.per_page), e;
   }
 }
-let F = null;
-function T() {
-  return F || (F = new ot()), F;
+let H = null;
+function E() {
+  return H || (H = new ht()), H;
 }
-function Yt(n) {
-  F = n;
+function re(n) {
+  H = n;
 }
-function Zt(n = {}) {
-  return new ot(n);
+function ne(n = {}) {
+  return new ht(n);
 }
-const yt = {
+const $t = {
   defaultPage: 1,
   defaultPerPage: 25,
   searchDelay: 300,
   useReplaceState: !1
 };
-class N {
+function G() {
+  if (typeof window < "u")
+    return window;
+}
+function et() {
+  return typeof globalThis > "u" ? void 0 : globalThis.localStorage;
+}
+class j {
   constructor(t = {}) {
     this.searchTimeout = null, this.initialized = !1, this.config = {
-      ...yt,
+      ...$t,
       ...t.config
     }, this.filterFields = new Set(t.filterFields || []), this.dateFields = new Set(t.dateFields || []), this.storageKey = t.storageKey || null, this.state = {
       page: this.config.defaultPage,
@@ -693,15 +703,15 @@ class N {
    * Set search term with debouncing
    */
   setSearch(t) {
-    this.searchTimeout && clearTimeout(this.searchTimeout), this.searchTimeout = setTimeout(() => {
-      this.state.search !== t && (this.state.search = t, this.state.page = 1, this.syncToURL(), this.notifyChange());
+    this.searchTimeout && clearTimeout(this.searchTimeout), this.state.search !== t && (this.state.search = t, this.state.page = 1), this.searchTimeout = setTimeout(() => {
+      this.searchTimeout = null, this.syncToURL(), this.notifyChange();
     }, this.config.searchDelay);
   }
   /**
    * Set search term immediately (no debouncing)
    */
   setSearchImmediate(t) {
-    this.searchTimeout && clearTimeout(this.searchTimeout), this.state.search !== t && (this.state.search = t, this.state.page = 1, this.syncToURL(), this.notifyChange());
+    this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.state.search !== t && (this.state.search = t, this.state.page = 1, this.syncToURL(), this.notifyChange());
   }
   /**
    * Set a single filter value
@@ -787,60 +797,70 @@ class N {
   // Private Methods
   // ---------------------------------------------------------------------------
   restoreFromURL() {
-    const t = new URLSearchParams(window.location.search), e = t.get("page");
-    if (e) {
-      const o = parseInt(e, 10);
-      !Number.isNaN(o) && o > 0 && (this.state.page = o);
-    }
-    const s = t.get("per_page");
+    const t = G();
+    if (!t?.location)
+      return;
+    const e = new URLSearchParams(t.location.search), s = e.get("page");
     if (s) {
-      const o = parseInt(s, 10);
-      !Number.isNaN(o) && o > 0 && (this.state.per_page = o);
+      const c = parseInt(s, 10);
+      !Number.isNaN(c) && c > 0 && (this.state.page = c);
     }
-    const i = t.get("q") || t.get("search");
-    i && (this.state.search = i);
-    const r = t.get("sort_field"), a = t.get("sort_order");
-    r && (this.state.sort_field = r, this.state.sort_order = a === "desc" ? "desc" : "asc");
-    for (const o of this.filterFields) {
-      const c = t.get(String(o));
-      c !== null && (this.dateFields.has(o) ? this.state.filters[o] = this.toLocalInput(c) : this.state.filters[o] = c);
+    const i = e.get("per_page");
+    if (i) {
+      const c = parseInt(i, 10);
+      !Number.isNaN(c) && c > 0 && (this.state.per_page = c);
+    }
+    const r = e.get("q") || e.get("search");
+    r && (this.state.search = r);
+    const a = e.get("sort_field"), o = e.get("sort_order");
+    a && (this.state.sort_field = a, this.state.sort_order = o === "desc" ? "desc" : "asc");
+    for (const c of this.filterFields) {
+      const l = e.get(String(c));
+      l !== null && (this.dateFields.has(c) ? this.state.filters[c] = this.toLocalInput(l) : this.state.filters[c] = l);
     }
   }
   restoreFromStorage() {
-    if (this.storageKey)
+    if (!this.storageKey) return;
+    const t = et(), e = G();
+    if (t)
       try {
-        const t = localStorage.getItem(this.storageKey);
-        if (t) {
-          const e = JSON.parse(t);
-          typeof e.per_page == "number" && e.per_page > 0 && (new URLSearchParams(window.location.search).has("per_page") || (this.state.per_page = e.per_page));
+        const s = t.getItem(this.storageKey);
+        if (s) {
+          const i = JSON.parse(s);
+          typeof i.per_page == "number" && i.per_page > 0 && (new URLSearchParams(e?.location?.search || "").has("per_page") || (this.state.per_page = i.per_page));
         }
-      } catch (t) {
-        console.warn("[QueryStateManager] Failed to restore from localStorage:", t);
+      } catch (s) {
+        console.warn("[QueryStateManager] Failed to restore from localStorage:", s);
       }
   }
   saveToStorage() {
-    if (this.storageKey)
+    if (!this.storageKey) return;
+    const t = et();
+    if (t)
       try {
-        localStorage.setItem(
+        t.setItem(
           this.storageKey,
           JSON.stringify({ per_page: this.state.per_page })
         );
-      } catch (t) {
-        console.warn("[QueryStateManager] Failed to save to localStorage:", t);
+      } catch (e) {
+        console.warn("[QueryStateManager] Failed to save to localStorage:", e);
       }
   }
   syncToURL() {
-    const t = new URLSearchParams();
-    this.state.page > 1 && t.set("page", String(this.state.page)), this.state.per_page !== this.config.defaultPerPage && t.set("per_page", String(this.state.per_page)), this.state.search && t.set("q", this.state.search), this.state.sort_field && (t.set("sort_field", this.state.sort_field), this.state.sort_order && t.set("sort_order", this.state.sort_order));
-    for (const [s, i] of Object.entries(this.state.filters))
-      if (i != null && i !== "")
-        if (this.dateFields.has(s)) {
-          const r = this.toRFC3339(i);
-          r && t.set(s, r);
+    const t = G();
+    if (!t?.location || !t.history)
+      return;
+    const e = new URLSearchParams();
+    this.state.page > 1 && e.set("page", String(this.state.page)), this.state.per_page !== this.config.defaultPerPage && e.set("per_page", String(this.state.per_page)), this.state.search && e.set("q", this.state.search), this.state.sort_field && (e.set("sort_field", this.state.sort_field), this.state.sort_order && e.set("sort_order", this.state.sort_order));
+    for (const [i, r] of Object.entries(this.state.filters))
+      if (r != null && r !== "")
+        if (this.dateFields.has(i)) {
+          const a = this.toRFC3339(r);
+          a && e.set(i, a);
         } else
-          t.set(s, i);
-    const e = t.toString() ? `${window.location.pathname}?${t.toString()}` : window.location.pathname;
-    this.config.useReplaceState ? window.history.replaceState({}, "", e) : window.history.pushState({}, "", e);
+          e.set(i, r);
+    const s = e.toString() ? `${t.location.pathname}?${e.toString()}` : t.location.pathname;
+    this.config.useReplaceState ? t.history.replaceState({}, "", s) : t.history.pushState({}, "", s);
   }
   notifyChange() {
     this.config.onChange?.(this.getState());
@@ -858,24 +878,42 @@ class N {
     return new Date(e.getTime() - s).toISOString().slice(0, 16);
   }
 }
-function Xt(n, t) {
+function ae(n, t) {
   let e = null;
-  return { call: (...r) => {
+  return Object.assign((...r) => {
     e && clearTimeout(e), e = setTimeout(() => {
       n(...r), e = null;
     }, t);
-  }, cancel: () => {
+  }, { cancel: () => {
     e && (clearTimeout(e), e = null);
-  } };
+  } });
 }
-function te(n, t) {
-  const e = new URLSearchParams(), { includePage: s = !0, includeDefaults: i = !1 } = t || {};
-  s && (n.page > 1 || i) && e.set("page", String(n.page)), (n.per_page !== 25 || i) && e.set("per_page", String(n.per_page)), n.search && e.set("q", n.search), n.sort_field && (e.set("sort_field", n.sort_field), n.sort_order && e.set("sort_order", n.sort_order));
-  for (const [r, a] of Object.entries(n.filters))
-    a != null && a !== "" && e.set(r, a);
-  return e;
+function oe(n, t) {
+  if (!("filters" in n)) {
+    const a = n, o = new URLSearchParams();
+    for (const [c, l] of Object.entries(a))
+      l != null && l !== "" && o.set(c, String(l));
+    return o;
+  }
+  const e = n, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
+  i && (e.page > 1 || r) && s.set("page", String(e.page)), (e.per_page !== 25 || r) && s.set("per_page", String(e.per_page)), e.search && s.set("q", e.search), e.sort_field && (s.set("sort_field", e.sort_field), e.sort_order && s.set("sort_order", e.sort_order));
+  for (const [a, o] of Object.entries(e.filters))
+    o != null && o !== "" && s.set(a, o);
+  return s;
 }
-function ee(n, t, e) {
+function ce(n, t, e) {
+  if (!e) {
+    const c = {};
+    for (const l of t) {
+      const h = n.get(String(l));
+      h !== null && (c[String(l)] = h);
+    }
+    for (const l of ["page", "per_page", "q", "search", "sort_field", "sort_order"]) {
+      const h = n.get(l);
+      h !== null && (c[l] = h);
+    }
+    return c;
+  }
   const s = {
     page: e?.page ?? 1,
     per_page: e?.per_page ?? 25,
@@ -902,7 +940,7 @@ function ee(n, t, e) {
   }
   return s;
 }
-class mt {
+class D {
   constructor() {
     this.state = {
       granted: /* @__PURE__ */ new Set(),
@@ -917,6 +955,12 @@ class mt {
       granted: new Set(t),
       loaded: !0
     }, this.notifyListeners();
+  }
+  /**
+   * Back-compat alias used by the test and page surface.
+   */
+  setPermissions(t) {
+    this.init(t);
   }
   /**
    * Load permissions from the server
@@ -948,16 +992,34 @@ class mt {
     return this.state.granted.has(t);
   }
   /**
+   * Back-compat alias used by the older services API shape.
+   */
+  can(t) {
+    return this.has(t);
+  }
+  /**
    * Check if user has all specified permissions
    */
   hasAll(t) {
     return t.every((e) => this.state.granted.has(e));
   }
   /**
+   * Back-compat alias used by the older services API shape.
+   */
+  canAll(t) {
+    return this.hasAll(t);
+  }
+  /**
    * Check if user has any of the specified permissions
    */
   hasAny(t) {
     return t.some((e) => this.state.granted.has(e));
+  }
+  /**
+   * Back-compat alias used by the older services API shape.
+   */
+  canAny(t) {
+    return this.hasAny(t);
   }
   /**
    * Check a single permission and return detailed result
@@ -1008,53 +1070,65 @@ class mt {
     this.listeners.forEach((e) => e(t));
   }
 }
-let J = null;
+let Q = null;
 function C() {
-  return J || (J = new mt()), J;
+  return Q || (Q = new D()), Q;
 }
-function se(n) {
+function le(n) {
   C().init(n);
 }
-function E(n, t) {
-  const e = t || C();
-  return () => e.has(n);
+function P(n, t) {
+  return (e) => {
+    const s = e instanceof D ? e : t || C(), i = Array.isArray(n) ? n : [n];
+    return () => s.hasAll(i);
+  };
 }
-function ie(n, t) {
-  const e = t || C();
-  return () => e.hasAll(n);
+function de(n, t) {
+  return (e) => {
+    const s = e instanceof D ? e : t || C();
+    return () => s.hasAll(n);
+  };
 }
-function re(n, t) {
-  const e = t || C();
-  return () => e.hasAny(n);
+function ue(n, t) {
+  return (e) => {
+    const s = e instanceof D ? e : t || C();
+    return () => s.hasAny(n);
+  };
 }
-function ne(...n) {
-  return (t) => n.every((e) => e(t));
+function he(...n) {
+  const t = n.flatMap((e) => Array.isArray(e) ? e : [e]);
+  return (e) => () => t.every((s) => s(e)());
 }
-function A(n) {
-  return E($.VIEW, n);
+function M(n) {
+  return P($.VIEW, n)();
 }
-function L(n) {
-  return E($.CONNECT, n);
+function k(n) {
+  return P($.CONNECT, n)();
 }
-function P(n) {
-  return E($.EDIT, n);
+function q(n) {
+  return P($.EDIT, n)();
 }
-function Y(n) {
-  return E($.REVOKE, n);
+function tt(n) {
+  return P($.REVOKE, n)();
 }
-function ct(n) {
-  return E($.RECONSENT, n);
+function pt(n) {
+  return P($.RECONSENT, n)();
 }
-function vt(n) {
-  return E($.ACTIVITY_VIEW, n);
+function Ct(n) {
+  return P($.ACTIVITY_VIEW, n)();
 }
-function xt(n) {
-  return n instanceof R && n.isForbidden;
+function _t(n) {
+  if (n instanceof A)
+    return n.isForbidden;
+  if (!n || typeof n != "object")
+    return !1;
+  const t = n;
+  return t.isForbidden === !0 || t.statusCode === 403 || t.code === "FORBIDDEN";
 }
-function ae(n, t) {
-  return xt(n) ? (t(n), !0) : !1;
+function pe(n, t) {
+  return _t(n) ? (t(n), !0) : !1;
 }
-function oe(n, t, e, s) {
+function ge(n, t, e, s) {
   const i = s || C();
   return async () => {
     if (!i.has(n)) {
@@ -1064,24 +1138,26 @@ function oe(n, t, e, s) {
     return t();
   };
 }
-function G(n, t, e) {
+function K(n, t, e) {
   const s = e || C(), { requires: i = [], requiresAny: r = [], onDenied: a, disableOnDenied: o } = t;
   let c = !0, l = [];
   i.length > 0 ? (l = s.getMissing(i), c = l.length === 0) : r.length > 0 && (c = s.hasAny(r), c || (l = r)), c || (o ? ((n instanceof HTMLButtonElement || n instanceof HTMLInputElement) && (n.disabled = !0), n.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), n.setAttribute("title", `Permission required: ${l.join(", ")}`)) : (n.style.display = "none", n.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? n.outerHTML = t.deniedContent : n.replaceWith(t.deniedContent)), a?.(l));
 }
-function ce(n = document.body, t) {
+function fe(n = document.body, t) {
   n.querySelectorAll("[data-permission-requires]").forEach((r) => {
     const a = r.dataset.permissionRequires?.split(",").map((o) => o.trim());
-    a && a.length > 0 && G(r, { requires: a }, t);
+    a && a.length > 0 && K(r, { requires: a }, t);
   }), n.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
     const a = r.dataset.permissionRequiresAny?.split(",").map((o) => o.trim());
-    a && a.length > 0 && G(r, { requiresAny: a }, t);
+    a && a.length > 0 && K(r, { requiresAny: a }, t);
   }), n.querySelectorAll("[data-permission-disable]").forEach((r) => {
     const a = r.dataset.permissionDisable?.split(",").map((o) => o.trim());
-    a && a.length > 0 && G(r, { requires: a, disableOnDenied: !0 }, t);
+    a && a.length > 0 && K(r, { requires: a, disableOnDenied: !0 }, t);
   });
 }
-function St() {
+function Lt() {
+  if (typeof window > "u" || typeof document > "u")
+    return [];
   const n = window.__permissions;
   if (Array.isArray(n))
     return n.filter(
@@ -1099,11 +1175,11 @@ function St() {
     }
   return [];
 }
-function le() {
-  const n = St(), t = C();
+function be() {
+  const n = Lt(), t = C();
   return t.init(n), t;
 }
-const lt = {
+const gt = {
   providers: {
     icon: "iconoir:plug",
     title: "No providers available",
@@ -1140,7 +1216,7 @@ const lt = {
     message: "Nothing to display."
   }
 };
-function j(n = {}) {
+function U(n = {}) {
   const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = n, r = {
     sm: { spinner: "h-4 w-4", text: "text-xs", py: "py-4" },
     md: { spinner: "h-5 w-5", text: "text-sm", py: "py-8" },
@@ -1158,8 +1234,8 @@ function j(n = {}) {
     </div>
   `;
 }
-function dt(n = {}) {
-  const t = lt[n.type || "generic"], {
+function ft(n = {}) {
+  const t = gt[n.type || "generic"], {
     icon: e = t.icon,
     iconClass: s = "text-gray-400",
     title: i = t.title,
@@ -1177,12 +1253,12 @@ function dt(n = {}) {
           <h3 class="text-lg font-medium text-gray-900">${b(i)}</h3>
           <p class="text-sm text-gray-500 mt-1">${b(r)}</p>
         </div>
-        ${o ? ht(o) : ""}
+        ${o ? yt(o) : ""}
       </div>
     </div>
   `;
 }
-function ut(n = {}) {
+function bt(n = {}) {
   const {
     icon: t = "iconoir:search",
     iconClass: e = "text-gray-400",
@@ -1212,7 +1288,7 @@ function ut(n = {}) {
     </div>
   `;
 }
-function D(n = {}) {
+function O(n = {}) {
   const {
     icon: t = "iconoir:warning-triangle",
     iconClass: e = "text-red-500",
@@ -1280,12 +1356,12 @@ function _(n = {}) {
           <h3 class="text-lg font-medium text-gray-900">${b(s)}</h3>
           <p class="text-sm text-gray-500 mt-1">${b(c)}</p>
         </div>
-        ${o ? ht(o) : ""}
+        ${o ? yt(o) : ""}
       </div>
     </div>
   `;
 }
-function U(n, t = {}) {
+function B(n, t = {}) {
   const { text: e = "Loading...", containerClass: s = "" } = t;
   return `
     <tr class="ui-state ui-state-table-loading ${s}">
@@ -1301,7 +1377,7 @@ function U(n, t = {}) {
     </tr>
   `;
 }
-function O(n, t = {}) {
+function z(n, t = {}) {
   const {
     icon: e = "iconoir:warning-triangle",
     iconClass: s = "text-red-500",
@@ -1328,8 +1404,8 @@ function O(n, t = {}) {
     </tr>
   `;
 }
-function de(n, t = {}) {
-  const e = lt[t.type || "generic"], {
+function ye(n, t = {}) {
+  const e = gt[t.type || "generic"], {
     icon: s = e.icon,
     iconClass: i = "text-gray-400",
     title: r = e.title,
@@ -1348,7 +1424,7 @@ function de(n, t = {}) {
     </tr>
   `;
 }
-function q(n, t = {}) {
+function R(n, t = {}) {
   const {
     icon: e = "iconoir:search",
     iconClass: s = "text-gray-400",
@@ -1376,7 +1452,7 @@ function q(n, t = {}) {
     </tr>
   `;
 }
-class ue {
+class me {
   constructor(t) {
     this.currentState = "loading", this.container = t.container, this.config = t;
   }
@@ -1384,13 +1460,13 @@ class ue {
    * Show loading state
    */
   showLoading(t) {
-    this.currentState = "loading", this.container.innerHTML = j(t);
+    this.currentState = "loading", this.container.innerHTML = U(t);
   }
   /**
    * Show empty state (no data)
    */
   showEmpty(t) {
-    this.currentState = "empty", this.container.innerHTML = dt(t);
+    this.currentState = "empty", this.container.innerHTML = ft(t);
   }
   /**
    * Show no-results state (filters returned nothing)
@@ -1398,7 +1474,7 @@ class ue {
   showNoResults(t) {
     this.currentState = "no-results";
     const e = { ...t, onReset: t?.onReset || this.config.onReset };
-    this.container.innerHTML = ut(e), this.bindResetHandler();
+    this.container.innerHTML = bt(e), this.bindResetHandler();
   }
   /**
    * Show error state
@@ -1406,7 +1482,7 @@ class ue {
   showError(t) {
     this.currentState = "error";
     const e = { ...t, onRetry: t?.onRetry || this.config.onRetry };
-    this.container.innerHTML = D(e), this.bindRetryHandler();
+    this.container.innerHTML = O(e), this.bindRetryHandler();
   }
   /**
    * Show forbidden state
@@ -1449,7 +1525,7 @@ class ue {
     });
   }
 }
-function ht(n) {
+function yt(n) {
   return `
     <button type="button" class="ui-state-action-btn px-4 py-2 text-sm font-medium rounded-lg focus:ring-2 focus:ring-offset-2 transition-colors ${{
     primary: "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
@@ -1464,7 +1540,7 @@ function b(n) {
   const t = document.createElement("div");
   return t.textContent = n, t.innerHTML;
 }
-class wt {
+class kt {
   constructor(t) {
     this.state = "idle", this.feedbackTimeout = null, this.button = t.button, this.originalHTML = this.button.innerHTML, this.originalDisabled = this.button.disabled, this.config = {
       loadingText: t.loadingText ?? "Processing...",
@@ -1486,7 +1562,7 @@ class wt {
            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
          </svg>` : "";
-    this.button.innerHTML = `${t}<span>${k(this.config.loadingText)}</span>`;
+    this.button.innerHTML = `${t}<span>${T(this.config.loadingText)}</span>`;
   }
   /** Set button to success state (briefly shows success, then returns to idle) */
   setSuccess() {
@@ -1494,7 +1570,7 @@ class wt {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
       </svg>
-      <span>${k(this.config.successText)}</span>
+      <span>${T(this.config.successText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1505,7 +1581,7 @@ class wt {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
       </svg>
-      <span>${k(this.config.errorText)}</span>
+      <span>${T(this.config.errorText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1533,7 +1609,7 @@ async function x(n) {
     onError: o,
     showInlineRetry: c = !1,
     retryContainer: l
-  } = n, h = r ? new wt(r) : null;
+  } = n, h = r ? new kt(r) : null;
   try {
     h?.setLoading();
     const d = await t();
@@ -1541,28 +1617,28 @@ async function x(n) {
       const p = typeof s == "function" ? s(d) : s;
       e.success(p);
     }
-    return l && K(l), await a?.(d), { success: !0, result: d };
+    return l && X(l), await a?.(d), { success: !0, result: d };
   } catch (d) {
     const p = d instanceof Error ? d : new Error(String(d));
-    return h?.setError(), e && e.error(`${i}: ${p.message}`), c && l && $t({
+    return h?.setError(), e && e.error(`${i}: ${p.message}`), c && l && Tt({
       container: l,
       action: () => x(n).then(() => {
       }),
       errorMessage: `${i}: ${p.message}`,
-      onDismiss: () => K(l)
+      onDismiss: () => X(l)
     }), o?.(p), { success: !1, error: p };
   }
 }
-async function he(n) {
+async function ve(n) {
   const { confirmMessage: t, confirmOptions: e, ...s } = n;
-  return await at.confirm(t, {
+  return await ut.confirm(t, {
     title: e?.title ?? "Confirm Action",
     confirmText: e?.confirmText ?? "Confirm",
     cancelText: e?.cancelText ?? "Cancel",
     confirmVariant: e?.variant ?? "primary"
   }) ? { ...await x(s), cancelled: !1 } : { success: !1, cancelled: !0 };
 }
-function $t(n) {
+function Tt(n) {
   const {
     container: t,
     action: e,
@@ -1577,15 +1653,15 @@ function $t(n) {
         ${u("iconoir:warning-triangle", { size: "20px" })}
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-red-700">${k(s)}</p>
+        <p class="text-sm text-red-700">${T(s)}</p>
         <div class="flex items-center gap-2 mt-2">
           <button type="button"
                   class="mutation-retry-btn px-3 py-1 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded transition-colors">
-            ${k(i)}
+            ${T(i)}
           </button>
           <button type="button"
                   class="mutation-dismiss-btn px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors">
-            ${k(r)}
+            ${T(r)}
           </button>
         </div>
       </div>
@@ -1607,13 +1683,13 @@ function $t(n) {
       l.disabled = !1, l.textContent = h;
     }
   }), c?.addEventListener("click", () => {
-    K(t), a?.();
+    X(t), a?.();
   });
 }
-function K(n) {
+function X(n) {
   n.querySelector(".mutation-retry-ui")?.remove();
 }
-function Ct(n) {
+function Et(n) {
   const { action: t, resourceType: e, resourceName: s, additionalContext: i } = n, r = {
     revoke: { verb: "revoke", noun: "Revoke", variant: "danger" },
     disconnect: { verb: "disconnect", noun: "Disconnect", variant: "danger" },
@@ -1638,11 +1714,11 @@ function Ct(n) {
     }
   };
 }
-async function B(n) {
-  const { message: t, options: e } = Ct(n);
-  return at.confirm(t, e);
+async function V(n) {
+  const { message: t, options: e } = Et(n);
+  return ut.confirm(t, e);
 }
-class z {
+class W {
   constructor() {
     this.inFlight = /* @__PURE__ */ new Set();
   }
@@ -1673,11 +1749,11 @@ class z {
     this.inFlight.clear();
   }
 }
-function k(n) {
+function T(n) {
   const t = document.createElement("div");
   return t.textContent = n, t.innerHTML;
 }
-const M = {
+const I = {
   // Connection lifecycle
   connected: {
     action: "connected",
@@ -1874,9 +1950,9 @@ const M = {
     category: "errors"
   }
 };
-class _t {
+class Pt {
   constructor() {
-    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = Z;
+    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = st;
   }
   /**
    * Initialize the registry with backend-provided labels.
@@ -1897,14 +1973,14 @@ class _t {
   getLabel(t) {
     if (this.backendLabels[t])
       return this.backendLabels[t];
-    const e = M[t];
+    const e = I[t];
     return e ? e.label : this.fallbackFormatter(t);
   }
   /**
    * Get full entry information for an action (includes description, category).
    */
   getEntry(t) {
-    const e = M[t];
+    const e = I[t];
     return e ? {
       ...e,
       label: this.backendLabels[t] || e.label
@@ -1915,7 +1991,7 @@ class _t {
    */
   getAllLabels() {
     const t = {};
-    for (const [e, s] of Object.entries(M))
+    for (const [e, s] of Object.entries(I))
       t[e] = s.label;
     for (const [e, s] of Object.entries(this.backendLabels))
       t[e] = s;
@@ -1926,7 +2002,7 @@ class _t {
    */
   getActionsByCategory() {
     const t = {};
-    for (const e of Object.values(M)) {
+    for (const e of Object.values(I)) {
       const s = e.category || "other";
       t[s] || (t[s] = []), t[s].push({
         ...e,
@@ -1951,41 +2027,41 @@ class _t {
    * Reset to initial state.
    */
   reset() {
-    this.backendLabels = {}, this.fallbackFormatter = Z, this.initialized = !1;
+    this.backendLabels = {}, this.fallbackFormatter = st, this.initialized = !1;
   }
 }
-const S = new _t();
-function pe(n = {}) {
+const S = new Pt();
+function xe(n = {}) {
   S.init(n);
 }
-function Lt(n) {
+function qt(n) {
   return S.getLabel(n);
 }
-function ge(n) {
+function Se(n) {
   return S.getEntry(n);
 }
-function fe() {
+function we() {
   return S.getAllLabels();
 }
-function kt() {
+function Rt() {
   return S.getActionsByCategory();
 }
-function be(n) {
+function $e(n) {
   S.setLabels(n);
 }
-function ye() {
+function Ce() {
   return S.isInitialized();
 }
-function me() {
+function _e() {
   S.reset();
 }
-function ve(n = {}) {
+function Le(n = {}) {
   return (t) => n[t] ? n[t] : S.getLabel(t);
 }
-function Z(n) {
+function st(n) {
   return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
-const Tt = "/admin/services", Et = {
+const At = "/admin/services", Mt = {
   connection: "connections",
   installation: "installations",
   subscription: "subscriptions",
@@ -1993,9 +2069,35 @@ const Tt = "/admin/services", Et = {
   provider: "providers",
   activity: "activity"
 };
-class Pt {
+function L() {
+  if (typeof window < "u")
+    return window;
+}
+function it() {
+  if (!(typeof globalThis > "u"))
+    return globalThis.sessionStorage;
+}
+function It(n) {
+  const t = L();
+  if (t && typeof t.btoa == "function")
+    return t.btoa(n);
+  const e = globalThis.Buffer;
+  if (e)
+    return e.from(n, "utf8").toString("base64");
+  throw new Error("base64 encoding is unavailable");
+}
+function Ft(n) {
+  const t = L();
+  if (t && typeof t.atob == "function")
+    return t.atob(n);
+  const e = globalThis.Buffer;
+  if (e)
+    return e.from(n, "base64").toString("utf8");
+  throw new Error("base64 decoding is unavailable");
+}
+class Ht {
   constructor(t = {}) {
-    this.contextStorageKey = "services-nav-context", this.basePath = t.basePath || Tt, this.pathMap = { ...Et, ...t.pathMap };
+    this.contextStorageKey = "services-nav-context", this.basePath = t.basePath || At, this.pathMap = { ...Mt, ...t.pathMap };
   }
   /**
    * Configure the manager.
@@ -2033,11 +2135,14 @@ class Pt {
    * Navigate to an entity, preserving context for back navigation.
    */
   navigateTo(t, e, s, i = {}) {
+    const r = L();
+    if (!r?.history)
+      return;
     s && this.saveContext(s);
-    const r = this.generateLink(t, e, s);
-    i.replace ? window.history.replaceState({ entityType: t, entityId: e, context: s }, "", r) : window.history.pushState({ entityType: t, entityId: e, context: s }, "", r), window.dispatchEvent(
+    const a = this.generateLink(t, e, s);
+    i.replace ? r.history.replaceState({ entityType: t, entityId: e, context: s }, "", a) : r.history.pushState({ entityType: t, entityId: e, context: s }, "", a), r.dispatchEvent(
       new CustomEvent("services:navigate", {
-        detail: { entityType: t, entityId: e, context: s, url: r }
+        detail: { entityType: t, entityId: e, context: s, url: a }
       })
     );
   }
@@ -2045,27 +2150,31 @@ class Pt {
    * Navigate back with context restoration.
    */
   navigateBack() {
-    const t = this.restoreContext();
-    if (t?.fromPage) {
-      const e = new URLSearchParams();
-      if (t.filters)
-        for (const [r, a] of Object.entries(t.filters))
-          a && e.set(r, a);
-      t.search && e.set("q", t.search), t.page && t.page > 1 && e.set("page", String(t.page)), t.viewMode && e.set("view", t.viewMode);
-      const s = e.toString(), i = s ? `${t.fromPage}?${s}` : t.fromPage;
-      return window.history.pushState({ restored: !0 }, "", i), window.dispatchEvent(
+    const t = L();
+    if (!t?.history)
+      return this.restoreContext();
+    const e = this.restoreContext();
+    if (e?.fromPage) {
+      const s = new URLSearchParams();
+      if (e.filters)
+        for (const [a, o] of Object.entries(e.filters))
+          o && s.set(a, o);
+      e.search && s.set("q", e.search), e.page && e.page > 1 && s.set("page", String(e.page)), e.viewMode && s.set("view", e.viewMode);
+      const i = s.toString(), r = i ? `${e.fromPage}?${i}` : e.fromPage;
+      return t.history.pushState({ restored: !0 }, "", r), t.dispatchEvent(
         new CustomEvent("services:navigate-back", {
-          detail: { context: t, url: i }
+          detail: { context: e, url: r }
         })
-      ), t;
+      ), e;
     }
-    return window.history.back(), null;
+    return t.history.back(), null;
   }
   /**
    * Parse entity info from current URL.
    */
   parseCurrentUrl() {
-    return this.parseUrl(window.location.pathname + window.location.search);
+    const t = L();
+    return t?.location ? this.parseUrl(t.location.pathname + t.location.search) : null;
   }
   /**
    * Parse entity info from a URL.
@@ -2116,7 +2225,7 @@ class Pt {
     for (const [i, r] of Object.entries(t.filters))
       r && (s[i] = r);
     return {
-      fromPage: window.location.pathname,
+      fromPage: L()?.location?.pathname,
       filters: Object.keys(s).length > 0 ? s : void 0,
       search: t.search || void 0,
       page: t.page > 1 ? t.page : void 0,
@@ -2127,78 +2236,83 @@ class Pt {
   // Context Storage
   // ---------------------------------------------------------------------------
   saveContext(t) {
-    try {
-      sessionStorage.setItem(this.contextStorageKey, JSON.stringify(t));
-    } catch {
-    }
+    const e = it();
+    if (e)
+      try {
+        e.setItem(this.contextStorageKey, JSON.stringify(t));
+      } catch {
+      }
   }
   restoreContext() {
+    const t = it();
+    if (!t)
+      return null;
     try {
-      const t = sessionStorage.getItem(this.contextStorageKey);
-      if (t)
-        return sessionStorage.removeItem(this.contextStorageKey), JSON.parse(t);
+      const e = t.getItem(this.contextStorageKey);
+      if (e)
+        return t.removeItem(this.contextStorageKey), JSON.parse(e);
     } catch {
     }
     return null;
   }
   encodeContext(t) {
     try {
-      return btoa(JSON.stringify(t));
+      return It(JSON.stringify(t));
     } catch {
       return "";
     }
   }
   decodeContext(t) {
     try {
-      return JSON.parse(atob(t));
+      return JSON.parse(Ft(t));
     } catch {
       return;
     }
   }
 }
-const w = new Pt();
-function xe(n) {
+const w = new Ht();
+function ke(n) {
   w.configure(n);
 }
-function qt(n, t, e) {
+function Nt(n, t, e) {
   return w.generateLink(n, t, e);
 }
-function Se(n, t) {
+function Te(n, t) {
   return w.generateListLink(n, t);
 }
-function Rt(n, t, e, s) {
+function jt(n, t, e, s) {
   w.navigateTo(n, t, e, s);
 }
-function we() {
+function Ee() {
   return w.navigateBack();
 }
-function $e() {
+function Pe() {
   return w.parseCurrentUrl();
 }
-function Ce(n) {
+function qe(n) {
   return w.parseUrl(n);
 }
-function pt(n) {
+function mt(n) {
   return w.mapObjectTypeToEntity(n);
 }
-function At(n, t) {
+function Dt(n, t) {
   return w.createContextFromQueryState(n, t);
 }
-function Mt(n, t) {
+function Ut(n, t) {
   return (e, s) => {
-    const i = pt(e);
+    const i = mt(e);
     if (!i) {
       console.warn(`[DeepLinks] Unknown object type: ${e}`);
       return;
     }
-    const r = At(
+    const r = Dt(
       n(),
       t?.()
     );
-    Rt(i, s, r);
+    jt(i, s, r);
   };
 }
-function It(n) {
+function Ot(n) {
   const {
     container: t,
     selector: e,
@@ -2216,8 +2330,8 @@ function It(n) {
     const y = l();
     if (y.length === 0) return;
     let f = g;
-    a ? f = (g % y.length + y.length) % y.length : f = Math.max(0, Math.min(g, y.length - 1)), y.forEach((gt, ft) => {
-      gt.setAttribute("tabindex", ft === f ? "0" : "-1");
+    a ? f = (g % y.length + y.length) % y.length : f = Math.max(0, Math.min(g, y.length - 1)), y.forEach((vt, xt) => {
+      vt.setAttribute("tabindex", xt === f ? "0" : "-1");
     });
     const v = y[f];
     v.focus(), i?.(v, f);
@@ -2263,8 +2377,8 @@ function It(n) {
     t.removeEventListener("keydown", d);
   };
 }
-function _e(n, t) {
-  return It({
+function Re(n, t) {
+  return Ot({
     container: n,
     selector: t,
     wrap: !0,
@@ -2273,7 +2387,7 @@ function _e(n, t) {
     }
   });
 }
-const Ft = [
+const Bt = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -2281,10 +2395,10 @@ const Ft = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
-function Ht(n) {
+function zt(n) {
   const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = n, r = document.activeElement;
   function a() {
-    return Array.from(t.querySelectorAll(Ft));
+    return Array.from(t.querySelectorAll(Bt));
   }
   function o(c) {
     if (c.key === "Escape") {
@@ -2303,7 +2417,7 @@ function Ht(n) {
     t.removeEventListener("keydown", o), t.removeAttribute("aria-modal"), (s || r)?.focus?.();
   };
 }
-function Nt(n) {
+function Vt(n) {
   const t = `services-live-region-${n}`;
   let e = document.getElementById(t);
   return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", n), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
@@ -2318,53 +2432,53 @@ function Nt(n) {
     border: "0"
   }), document.body.appendChild(e)), e;
 }
-function V(n, t = {}) {
-  const { priority: e = "polite", clear: s = !0 } = t, i = Nt(e);
+function J(n, t = {}) {
+  const { priority: e = "polite", clear: s = !0 } = t, i = Vt(e);
   s && (i.textContent = ""), setTimeout(() => {
     i.textContent = n;
   }, 100);
 }
-function Le(n) {
-  V(`Loading ${n}...`, { priority: "polite" });
+function Ae(n) {
+  J(`Loading ${n}...`, { priority: "polite" });
 }
-function ke(n) {
-  V(n, { priority: "polite" });
+function Me(n) {
+  J(n, { priority: "polite" });
 }
-function Te(n) {
-  V(`Error: ${n}`, { priority: "assertive" });
+function Ie(n) {
+  J(`Error: ${n}`, { priority: "assertive" });
 }
-function Ee(n) {
-  V(`Navigating to ${n}`, { priority: "polite" });
+function Fe(n) {
+  J(`Navigating to ${n}`, { priority: "polite" });
 }
-function Pe(n, t, e) {
+function He(n, t, e) {
   n.setAttribute("aria-expanded", String(e));
   const s = typeof t == "string" ? t : t.id;
   s && n.setAttribute("aria-controls", s);
 }
-function qe(n, t) {
+function Ne(n, t) {
   n.setAttribute("aria-busy", String(t)), t ? n.setAttribute("aria-describedby", "loading-indicator") : n.removeAttribute("aria-describedby");
 }
-function Re(n, t, e) {
+function je(n, t, e) {
   n.setAttribute("role", "status"), n.setAttribute("aria-label", `Status: ${e}`);
 }
-function Ae(n, t) {
+function De(n, t) {
   n.setAttribute("aria-sort", t), n.setAttribute("role", "columnheader");
 }
-function Me(n, t, e = 100, s) {
+function Ue(n, t, e = 100, s) {
   n.setAttribute("role", "progressbar"), n.setAttribute("aria-valuenow", String(t)), n.setAttribute("aria-valuemin", "0"), n.setAttribute("aria-valuemax", String(e)), s && n.setAttribute("aria-label", s);
 }
-function Ie(n, t = "Skip to main content") {
+function Oe(n, t = "Skip to main content") {
   const e = document.createElement("a");
   return e.href = `#${n}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
 }
-function Fe(n, t = {}) {
+function Be(n, t = {}) {
   const { title: e, describedBy: s, onClose: i } = t;
   if (n.setAttribute("role", "dialog"), n.setAttribute("aria-modal", "true"), e) {
     const a = `dialog-title-${Date.now()}`, o = n.querySelector('h1, h2, h3, [role="heading"]');
     o && (o.id = a, n.setAttribute("aria-labelledby", a));
   }
   s && n.setAttribute("aria-describedby", s);
-  const r = Ht({
+  const r = zt({
     container: n,
     onEscape: i
   });
@@ -2372,23 +2486,23 @@ function Fe(n, t = {}) {
     r(), n.removeAttribute("aria-modal"), n.removeAttribute("aria-labelledby"), n.removeAttribute("aria-describedby");
   };
 }
-function jt() {
+function Wt() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function He(n) {
-  return jt() ? 0 : n;
+function ze(n) {
+  return Wt() ? 0 : n;
 }
-const X = {
+const rt = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   degraded: { label: "Degraded", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   disabled: { label: "Disabled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" }
-}, Dt = {
+}, Jt = {
   healthy: { label: "Healthy", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   warning: { label: "Warnings", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   error: { label: "Errors", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
 };
-class Ne {
+class Ve {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -2517,7 +2631,7 @@ class Ne {
         </div>
         <div class="flex items-center gap-2 mt-2">
           ${Object.entries(s).map(([a, o]) => {
-      const c = X[a];
+      const c = rt[a];
       return o > 0 ? `
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${c.bg} ${c.text}">
                 ${o} ${c.label.toLowerCase()}
@@ -2530,7 +2644,7 @@ class Ne {
   }
   renderConfigHealthCard() {
     if (!this.state) return "";
-    const t = this.state.configHealth, e = Dt[t.status];
+    const t = this.state.configHealth, e = Jt[t.status];
     return `
       <div class="bg-white rounded-lg border ${t.status === "healthy" ? "border-gray-200" : "border-amber-200"} p-4">
         <div class="flex items-center justify-between">
@@ -2570,7 +2684,7 @@ class Ne {
     `;
   }
   renderPackRow(t) {
-    const e = X[t.status];
+    const e = rt[t.status];
     return `
       <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${m(t.id)}">
         <div class="flex items-center justify-between">
@@ -2700,7 +2814,7 @@ class Ne {
     return r < 1 ? "just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : e.toLocaleDateString();
   }
 }
-function H(n) {
+function N(n) {
   const { source: t, packName: e, mode: s = "badge", context: i } = n, a = {
     "go-services": {
       label: "Core",
@@ -2740,25 +2854,25 @@ function H(n) {
     </span>
   `;
 }
-function je(n, t) {
+function We(n, t) {
   const e = document.createElement("span");
-  e.innerHTML = H(t), n.appendChild(e.firstElementChild);
+  e.innerHTML = N(t), n.appendChild(e.firstElementChild);
 }
-function De() {
+function Je() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
       <div class="space-y-2">
         <div class="flex items-center gap-3">
-          ${H({ source: "go-services" })}
+          ${N({ source: "go-services" })}
           <span class="text-sm text-gray-600">Data managed by go-services core runtime</span>
         </div>
         <div class="flex items-center gap-3">
-          ${H({ source: "downstream", packName: "Extension" })}
+          ${N({ source: "downstream", packName: "Extension" })}
           <span class="text-sm text-gray-600">Data managed by an installed extension package</span>
         </div>
         <div class="flex items-center gap-3">
-          ${H({ source: "mixed" })}
+          ${N({ source: "mixed" })}
           <span class="text-sm text-gray-600">Combination of core and extension-managed data</span>
         </div>
       </div>
@@ -2769,7 +2883,7 @@ function m(n) {
   const t = document.createElement("div");
   return t.textContent = n, t.innerHTML;
 }
-const tt = {
+const nt = {
   github: "iconoir:github",
   google: "iconoir:google",
   gmail: "iconoir:mail",
@@ -2783,7 +2897,7 @@ const tt = {
   teams: "iconoir:group",
   onedrive: "iconoir:cloud",
   default: "iconoir:plugin"
-}, Ut = {
+}, Gt = {
   github: "GitHub",
   google: "Google",
   gmail: "Gmail",
@@ -2797,7 +2911,7 @@ const tt = {
   teams: "Microsoft Teams",
   onedrive: "OneDrive"
 };
-class Ot {
+class Qt {
   constructor(t) {
     this.container = null, this.providers = [], this.loading = !1, this.error = null, this.config = t;
   }
@@ -2809,7 +2923,7 @@ class Ot {
       console.error("[ProvidersCatalog] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!M()()) {
       this.renderForbidden();
       return;
     }
@@ -2840,7 +2954,7 @@ class Ot {
     if (this.container) {
       this.loading = !0, this.error = null, this.renderLoading();
       try {
-        const e = await T().listProviders();
+        const e = await E().listProviders();
         this.providers = e.providers || [], this.renderProviders();
       } catch (t) {
         this.error = t instanceof Error ? t : new Error(String(t)), this.renderError(), this.config.notifier && this.config.notifier.error(`Failed to load providers: ${this.error.message}`);
@@ -2850,14 +2964,14 @@ class Ot {
     }
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = j({
+    this.container && (this.container.innerHTML = U({
       text: "Loading providers...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = D({
+    this.container.innerHTML = O({
       title: "Failed to load providers",
       error: this.error,
       showRetry: !0
@@ -2882,12 +2996,12 @@ class Ot {
     `, this.bindCardEvents();
   }
   renderEmpty() {
-    this.container && (this.container.innerHTML = dt({
+    this.container && (this.container.innerHTML = ft({
       type: "providers"
     }));
   }
   buildProviderCard(t) {
-    const e = this.getProviderCardData(t), s = L()() && t.supported_scope_types.includes("user"), i = L()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
+    const e = this.getProviderCardData(t), s = k()() && t.supported_scope_types.includes("user"), i = k()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
     return `
       <div class="provider-card bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
            data-provider-id="${this.escapeHtml(t.id)}">
@@ -2968,14 +3082,14 @@ class Ot {
     `;
   }
   getProviderCardData(t) {
-    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Ut[t.id.toLowerCase()] || this.formatProviderId(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : tt[t.id.toLowerCase()] || tt.default;
+    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Gt[t.id.toLowerCase()] || this.formatProviderId(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : nt[t.id.toLowerCase()] || nt.default;
     return {
       provider: t,
       displayName: e,
       icon: s,
       description: `${t.auth_kind} authentication`,
       capabilityCount: t.capabilities.length,
-      canConnect: L()()
+      canConnect: k()()
     };
   }
   formatProviderId(t) {
@@ -3008,18 +3122,18 @@ class Ot {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function Ue(n) {
-  const t = new Ot(n);
+async function Ge(n) {
+  const t = new Qt(n);
   return await t.init(), t;
 }
-const et = {
+const at = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
 };
-class Bt {
+class Kt {
   constructor(t) {
     this.container = null, this.state = {
       connections: [],
@@ -3027,11 +3141,11 @@ class Bt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new W(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || T(), this.queryState = new N({
+    }, this.client = t.apiClient || E(), this.queryState = new j({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadConnections()
@@ -3048,7 +3162,7 @@ class Bt {
       console.error("[ConnectionsList] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!M()()) {
       this.renderForbidden();
       return;
     }
@@ -3145,7 +3259,7 @@ class Bt {
                   title="Reset filters">
             ${u("iconoir:refresh", { size: "16px" })}
           </button>
-          ${L()() && this.config.onConnect ? `
+          ${k()() && this.config.onConnect ? `
             <button type="button"
                     class="connections-connect-user px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
               Connect User
@@ -3234,7 +3348,7 @@ class Bt {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-empty"), s = this.container?.querySelector(".connections-table-wrapper");
     if (t) {
       if (this.state.connections.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(6, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(6, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
           onReset: () => {
@@ -3264,7 +3378,7 @@ class Bt {
     t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
   }
   handleConnect(t) {
-    if (!this.config.onConnect || !L()()) return;
+    if (!this.config.onConnect || !k()()) return;
     const s = this.container?.querySelector('[data-filter="provider_id"]')?.value || "";
     if (!s) {
       this.config.notifier?.error("Select a provider before starting a connection.");
@@ -3287,7 +3401,7 @@ class Bt {
     });
   }
   renderConnectionRow(t) {
-    const e = et[t.status] || et.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.formatDate(t.updated_at), r = this.buildRowActions(t);
+    const e = at[t.status] || at.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.formatDate(t.updated_at), r = this.buildRowActions(t);
     return `
       <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${this.escapeHtml(t.id)}">
         <td class="px-4 py-3">
@@ -3328,21 +3442,21 @@ class Bt {
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && P()() && e.push(`
+    return t.status === "active" && q()() && e.push(`
         <button type="button"
                 class="connection-action-refresh p-1 text-gray-400 hover:text-blue-600"
                 data-action="refresh"
                 title="Refresh credentials">
           ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status === "needs_reconsent" && ct()() && e.push(`
+      `), t.status === "needs_reconsent" && pt()() && e.push(`
         <button type="button"
                 class="connection-action-reconsent p-1 text-gray-400 hover:text-orange-600"
                 data-action="reconsent"
                 title="Re-consent">
           ${u("iconoir:redo", { size: "16px" })}
         </button>
-      `), t.status !== "disconnected" && Y()() && e.push(`
+      `), t.status !== "disconnected" && tt()() && e.push(`
         <button type="button"
                 class="connection-action-revoke p-1 text-gray-400 hover:text-red-600"
                 data-action="revoke"
@@ -3414,7 +3528,7 @@ class Bt {
   }
   async handleRevoke(t, e) {
     const s = this.getConnection(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await B({
+    await V({
       action: "revoke",
       resourceType: "connection",
       resourceName: i
@@ -3437,7 +3551,7 @@ class Bt {
   renderError() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = O(6, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = z(6, {
       title: "Failed to load connections",
       error: this.state.error,
       showRetry: !0
@@ -3450,7 +3564,7 @@ class Bt {
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
-    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(6, { text: "Loading connections..." }));
+    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = B(6, { text: "Loading connections..." }));
   }
   updatePagination() {
     const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), o = a < i, c = e > 1, l = this.container?.querySelector(".connections-info"), h = this.container?.querySelector(".connections-prev"), d = this.container?.querySelector(".connections-next");
@@ -3476,23 +3590,23 @@ class Bt {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function Oe(n) {
-  const t = new Bt(n);
+async function Qe(n) {
+  const t = new Kt(n);
   return await t.init(), t;
 }
-const st = {
+const ot = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   suspended: { label: "Suspended", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:pause" },
   uninstalled: { label: "Uninstalled", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, it = {
+}, ct = {
   user: { label: "User", bg: "bg-blue-50", text: "text-blue-600" },
   workspace: { label: "Workspace", bg: "bg-indigo-50", text: "text-indigo-600" },
   org: { label: "Organization", bg: "bg-purple-50", text: "text-purple-600" },
   marketplace_app: { label: "Marketplace", bg: "bg-pink-50", text: "text-pink-600" },
   standard: { label: "Standard", bg: "bg-gray-50", text: "text-gray-600" }
 };
-class zt {
+class Yt {
   constructor(t) {
     this.container = null, this.state = {
       installations: [],
@@ -3500,11 +3614,11 @@ class zt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new W(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || T(), this.queryState = new N({
+    }, this.client = t.apiClient || E(), this.queryState = new j({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadInstallations()
@@ -3521,7 +3635,7 @@ class zt {
       console.error("[InstallationsList] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!M()()) {
       this.renderForbidden();
       return;
     }
@@ -3703,7 +3817,7 @@ class zt {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-empty"), s = this.container?.querySelector(".installations-table-wrapper");
     if (t) {
       if (this.state.installations.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
@@ -3718,7 +3832,7 @@ class zt {
     });
   }
   renderInstallationRow(t) {
-    const e = st[t.status] || st.uninstalled, s = it[t.install_type] || it.standard, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.granted_at ? this.formatDate(t.granted_at) : "—", a = t.revoked_at ? this.formatDate(t.revoked_at) : "—", o = this.buildRowActions(t);
+    const e = ot[t.status] || ot.uninstalled, s = ct[t.install_type] || ct.standard, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.granted_at ? this.formatDate(t.granted_at) : "—", a = t.revoked_at ? this.formatDate(t.revoked_at) : "—", o = this.buildRowActions(t);
     return `
       <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${this.escapeHtml(t.id)}">
         <td class="px-4 py-3">
@@ -3757,14 +3871,14 @@ class zt {
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && Y()() && e.push(`
+    return t.status === "active" && tt()() && e.push(`
         <button type="button"
                 class="installation-action-uninstall p-1 text-gray-400 hover:text-red-600"
                 data-action="uninstall"
                 title="Uninstall">
           ${u("iconoir:trash", { size: "16px" })}
         </button>
-      `), t.status === "uninstalled" && L()() && e.push(`
+      `), t.status === "uninstalled" && k()() && e.push(`
         <button type="button"
                 class="installation-action-reinstall p-1 text-gray-400 hover:text-green-600"
                 data-action="reinstall"
@@ -3796,7 +3910,7 @@ class zt {
   }
   async handleUninstall(t, e) {
     const s = this.getInstallation(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await B({
+    await V({
       action: "uninstall",
       resourceType: "installation",
       resourceName: i
@@ -3823,7 +3937,7 @@ class zt {
   renderError() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = O(7, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = z(7, {
       title: "Failed to load installations",
       error: this.state.error,
       showRetry: !0
@@ -3836,7 +3950,7 @@ class zt {
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
-    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(7, { text: "Loading installations..." }));
+    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = B(7, { text: "Loading installations..." }));
   }
   async loadProviders() {
     try {
@@ -3879,16 +3993,16 @@ class zt {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function Be(n) {
-  const t = new zt(n);
+async function Ke(n) {
+  const t = new Yt(n);
   return await t.init(), t;
 }
-const I = {
+const F = {
   success: { label: "Success", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failure: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending: { label: "Pending", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" }
 };
-class Vt {
+class Zt {
   constructor(t) {
     this.container = null, this.state = {
       entries: [],
@@ -3902,7 +4016,7 @@ class Vt {
       viewMode: "timeline",
       useDeepLinks: !0,
       ...t
-    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || T(), this.queryState = new N({
+    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || E(), this.queryState = new j({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadActivity()
@@ -3931,7 +4045,7 @@ class Vt {
       console.error("[ActivityPage] Container not found:", this.config.container);
       return;
     }
-    if (!vt()()) {
+    if (!Ct()()) {
       this.renderForbidden();
       return;
     }
@@ -4215,7 +4329,7 @@ class Vt {
         const r = this.resolveActionLabel(i);
         return `<option value="${this.escapeHtml(i)}">${this.escapeHtml(r)}</option>`;
       }).join("");
-    const t = kt(), e = {
+    const t = Rt(), e = {
       connections: "Connections",
       credentials: "Credentials",
       sync: "Sync",
@@ -4239,7 +4353,7 @@ class Vt {
    * Resolve action label using config override or centralized registry.
    */
   resolveActionLabel(t) {
-    return this.config.getActionLabel ? this.config.getActionLabel(t) : Lt(t);
+    return this.config.getActionLabel ? this.config.getActionLabel(t) : qt(t);
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4279,11 +4393,11 @@ class Vt {
   renderEntries() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-empty"), i = this.container?.querySelector(".activity-timeline-container"), r = this.container?.querySelector(".activity-table-container");
     if (this.state.entries.length === 0) {
-      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = ut({
+      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = bt({
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount(),
         containerClass: "bg-white rounded-lg border border-gray-200"
-      }), this.bindNoResultsActions(t))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = q(7, {
+      }), this.bindNoResultsActions(t))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = R(7, {
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount()
       }), this.bindNoResultsActions(e)))) : (i?.classList.add("hidden"), r?.classList.add("hidden"), s?.classList.remove("hidden")), this.updateFilterSummary();
@@ -4297,7 +4411,7 @@ class Vt {
     });
   }
   renderTimelineEntry(t) {
-    const e = I[t.status] || I.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
+    const e = F[t.status] || F.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
            data-entry-id="${this.escapeHtml(t.id)}">
@@ -4362,7 +4476,7 @@ class Vt {
     `;
   }
   renderTableRow(t) {
-    const e = I[t.status] || I.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
+    const e = F[t.status] || F.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
     return `
       <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${this.escapeHtml(t.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
@@ -4427,7 +4541,7 @@ class Vt {
    * Create a navigate handler that uses deep links with context preservation.
    */
   createDeepLinkNavigateHandler() {
-    return Mt(
+    return Ut(
       () => {
         const t = this.queryState.getState();
         return {
@@ -4446,7 +4560,7 @@ class Vt {
   buildObjectLinkUrl(t, e) {
     if (!this.config.useDeepLinks)
       return "#";
-    const s = pt(t);
+    const s = mt(t);
     if (!s)
       return "#";
     const i = this.queryState.getState(), r = {
@@ -4458,7 +4572,7 @@ class Vt {
       page: i.page > 1 ? i.page : void 0,
       viewMode: this.state.viewMode
     };
-    return qt(s, e, r);
+    return Nt(s, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -4477,12 +4591,12 @@ class Vt {
   }
   renderError() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container");
-    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = D({
+    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = O({
       title: "Failed to load activity",
       error: this.state.error,
       containerClass: "bg-white rounded-lg border border-gray-200",
       showRetry: !0
-    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = O(7, {
+    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = z(7, {
       title: "Failed to load activity",
       error: this.state.error,
       showRetry: !0
@@ -4495,7 +4609,7 @@ class Vt {
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container"), r = this.container?.querySelector(".activity-empty");
-    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = j({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = U(7, { text: "Loading activity..." })))));
+    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = U({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = B(7, { text: "Loading activity..." })))));
   }
   updatePagination() {
     const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), o = a < i, c = e > 1, l = this.container?.querySelector(".activity-info"), h = this.container?.querySelector(".activity-prev"), d = this.container?.querySelector(".activity-next");
@@ -4552,26 +4666,26 @@ class Vt {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function ze(n) {
-  const t = new Vt(n);
+async function Ye(n) {
+  const t = new Zt(n);
   return await t.init(), t;
 }
-const W = {
+const Y = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   expired: { label: "Expired", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   cancelled: { label: "Cancelled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, Q = {
+}, Z = {
   queued: { label: "Queued", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   running: { label: "Running", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:play" },
   succeeded: { label: "Succeeded", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failed: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, rt = {
+}, lt = {
   bootstrap: { label: "Bootstrap", description: "Full initial sync" },
   incremental: { label: "Incremental", description: "Delta changes only" },
   backfill: { label: "Backfill", description: "Historical data recovery" }
 };
-class Jt {
+class Xt {
   constructor(t) {
     this.container = null, this.state = {
       providers: [],
@@ -4582,12 +4696,12 @@ class Jt {
       loading: !1,
       error: null,
       activeTab: "subscriptions"
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new W(), this.config = {
       perPage: 25,
       syncUrl: !0,
       activeTab: "subscriptions",
       ...t
-    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || T(), this.queryState = new N({
+    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || E(), this.queryState = new j({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadData()
@@ -4604,7 +4718,7 @@ class Jt {
       console.error("[SubscriptionsSyncPage] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!M()()) {
       this.renderForbidden();
       return;
     }
@@ -4817,10 +4931,10 @@ class Jt {
     `, this.restoreFilterValues());
   }
   renderSubscriptionStatusOptions() {
-    return Object.entries(W).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(Y).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   renderSyncStatusOptions() {
-    return Object.entries(Q).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(Z).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   async loadProviders() {
     try {
@@ -4866,7 +4980,7 @@ class Jt {
     const t = this.container?.querySelector(".subscriptions-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".subscriptions-content");
     if (t) {
       if (this.state.subscriptions.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("subscriptions"));
@@ -4881,7 +4995,7 @@ class Jt {
     });
   }
   renderSubscriptionRow(t) {
-    const e = W[t.status] || W.errored, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = t.expires_at ? this.formatRelativeTime(t.expires_at) : "—", r = t.expires_at ? this.formatTime(t.expires_at) : "", a = this.formatRelativeTime(t.updated_at), o = t.expires_at && this.isExpiringSoon(t.expires_at);
+    const e = Y[t.status] || Y.errored, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = t.expires_at ? this.formatRelativeTime(t.expires_at) : "—", r = t.expires_at ? this.formatTime(t.expires_at) : "", a = this.formatRelativeTime(t.updated_at), o = t.expires_at && this.isExpiringSoon(t.expires_at);
     return `
       <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${this.escapeHtml(t.id)}">
         <td class="px-4 py-3">
@@ -4919,14 +5033,14 @@ class Jt {
   }
   buildSubscriptionActions(t) {
     const e = [];
-    return t.status === "active" && P()() && e.push(`
+    return t.status === "active" && q()() && e.push(`
         <button type="button"
                 class="action-renew p-1 text-gray-400 hover:text-blue-600"
                 data-action="renew"
                 title="Renew subscription">
           ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status !== "cancelled" && P()() && e.push(`
+      `), t.status !== "cancelled" && q()() && e.push(`
         <button type="button"
                 class="action-cancel p-1 text-gray-400 hover:text-red-600"
                 data-action="cancel"
@@ -4960,7 +5074,7 @@ class Jt {
     const t = this.container?.querySelector(".sync-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".sync-content");
     if (t) {
       if (this.state.syncJobs.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("sync"));
@@ -4970,7 +5084,7 @@ class Jt {
     }
   }
   renderSyncJobRow(t) {
-    const e = Q[t.status] || Q.failed, s = rt[t.mode] || rt.incremental, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", o = a ? this.formatRelativeTime(a) : this.formatRelativeTime(t.updated_at), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", l = t.checkpoint || "";
+    const e = Z[t.status] || Z.failed, s = lt[t.mode] || lt.incremental, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", o = a ? this.formatRelativeTime(a) : this.formatRelativeTime(t.updated_at), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", l = t.checkpoint || "";
     return `
       <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${this.escapeHtml(t.id)}">
         <td class="px-4 py-3">
@@ -5008,7 +5122,7 @@ class Jt {
   }
   buildSyncJobActions(t) {
     const e = [];
-    return t.status !== "running" && P()() && e.push(`
+    return t.status !== "running" && q()() && e.push(`
         <button type="button"
                 class="action-run p-1 text-gray-400 hover:text-green-600"
                 data-action="run"
@@ -5049,7 +5163,7 @@ class Jt {
     });
   }
   async handleCancel(t, e) {
-    await B({
+    await V({
       action: "cancel",
       resourceType: "subscription"
     }) && (this.actionQueue.isInFlight(`cancel-${t}`) || await this.actionQueue.execute(`cancel-${t}`, async () => {
@@ -5104,7 +5218,7 @@ class Jt {
     const t = this.state.activeTab === "subscriptions" ? ".subscriptions-content" : ".sync-content", e = this.container?.querySelector(t), s = this.container?.querySelector(".empty-state"), i = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody");
     if (!i) return;
     const r = 7;
-    i.innerHTML = O(r, {
+    i.innerHTML = z(r, {
       title: `Failed to load ${this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs"}`,
       error: this.state.error,
       showRetry: !0
@@ -5120,7 +5234,7 @@ class Jt {
     if (!this.state.loading || !e) return;
     if ((this.state.activeTab === "subscriptions" ? this.state.subscriptions : this.state.syncJobs).length === 0) {
       const a = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
-      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = U(7, { text: a });
+      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = B(7, { text: a });
     }
   }
   async loadSyncConnections(t) {
@@ -5132,7 +5246,7 @@ class Jt {
       } catch (a) {
         if (a.name === "AbortError")
           throw a;
-        if (a instanceof R && a.isNotFound)
+        if (a instanceof A && a.isNotFound)
           return [];
         throw a;
       }
@@ -5226,23 +5340,23 @@ class Jt {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function Ve(n) {
-  const t = new Jt(n);
+async function Ze(n) {
+  const t = new Xt(n);
   return await t.init(), t;
 }
-const nt = {
+const dt = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, Gt = {
+}, te = {
   granted: { label: "Granted", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check" },
   requested: { label: "Requested", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:clock" },
   missing: { label: "Missing", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:minus" },
   capability_required: { label: "Required", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" }
 };
-class Wt {
+class ee {
   constructor(t) {
     this.container = null, this.state = {
       connection: null,
@@ -5253,7 +5367,7 @@ class Wt {
       loading: !1,
       error: null,
       reconsentInProgress: !1
-    }, this.abortController = null, this.actionQueue = new z(), this.config = t, this.client = t.apiClient || T();
+    }, this.abortController = null, this.actionQueue = new W(), this.config = t, this.client = t.apiClient || E();
   }
   /**
    * Initialize the detail panel
@@ -5263,7 +5377,7 @@ class Wt {
       console.error("[ConnectionDetail] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!M()()) {
       this.renderForbidden();
       return;
     }
@@ -5325,7 +5439,7 @@ class Wt {
   // ---------------------------------------------------------------------------
   render() {
     if (!this.container || !this.state.connection) return;
-    const t = this.state.connection, e = nt[t.status] || nt.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.buildGrantInfoList(), r = i.some((o) => o.status === "capability_required"), a = t.status === "needs_reconsent" || r;
+    const t = this.state.connection, e = dt[t.status] || dt.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.buildGrantInfoList(), r = i.some((o) => o.status === "capability_required"), a = t.status === "needs_reconsent" || r;
     this.container.innerHTML = `
       <div class="connection-detail">
         <!-- Header -->
@@ -5410,7 +5524,7 @@ class Wt {
                 </p>
               </div>
             </div>
-            ${ct()() ? `
+            ${pt()() ? `
               <button type="button"
                       class="reconsent-btn flex-shrink-0 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
                 Re-consent Now
@@ -5468,14 +5582,14 @@ class Wt {
 
         <!-- Actions -->
         <div class="actions flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-          ${P()() && t.status === "active" ? `
+          ${q()() && t.status === "active" ? `
             <button type="button"
                     class="refresh-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
               ${u("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
               Refresh Credentials
             </button>
           ` : ""}
-          ${Y()() && t.status !== "disconnected" ? `
+          ${tt()() && t.status !== "disconnected" ? `
             <button type="button"
                     class="revoke-btn px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
               ${u("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
@@ -5488,7 +5602,7 @@ class Wt {
   }
   renderGrantMatrix(t) {
     return t.length === 0 ? "" : t.map((e) => {
-      const s = Gt[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => this.formatLabel(r)).join(", ") : null;
+      const s = te[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => this.formatLabel(r)).join(", ") : null;
       return `
           <div class="grant-row flex items-center justify-between px-4 py-3 hover:bg-gray-50">
             <div class="flex-1 min-w-0">
@@ -5744,7 +5858,7 @@ class Wt {
   async handleRevoke() {
     if (!this.state.connection) return;
     const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : this.formatProviderId(this.state.connection.provider_id);
-    if (!await B({
+    if (!await V({
       action: "revoke",
       resourceType: "connection",
       resourceName: t
@@ -5777,14 +5891,14 @@ class Wt {
       `) : (t.disabled = !1, t.textContent = "Re-consent Now"));
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = j({
+    this.container && (this.container.innerHTML = U({
       text: "Loading connection details...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = D({
+    this.container.innerHTML = O({
       title: "Failed to Load Connection",
       error: this.state.error,
       showRetry: !0
@@ -5857,113 +5971,113 @@ class Wt {
     return e.textContent = t, e.innerHTML;
   }
 }
-async function Je(n) {
-  const t = new Wt(n);
+async function Xe(n) {
+  const t = new ee(n);
   return await t.init(), t;
 }
 export {
-  z as ActionQueue,
-  Vt as ActivityPageManager,
-  Wt as ConnectionDetailManager,
-  Bt as ConnectionsListManager,
-  M as DEFAULT_ACTION_LABELS,
-  Ne as ExtensionDiagnosticsPanel,
-  Ft as FOCUSABLE_SELECTOR,
-  zt as InstallationsListManager,
-  wt as MutationButtonManager,
-  Ot as ProvidersCatalogManager,
-  N as QueryStateManager,
-  ot as ServicesAPIClient,
-  R as ServicesAPIError,
-  mt as ServicesPermissionManager,
+  W as ActionQueue,
+  Zt as ActivityPageManager,
+  ee as ConnectionDetailManager,
+  Kt as ConnectionsListManager,
+  I as DEFAULT_ACTION_LABELS,
+  Ve as ExtensionDiagnosticsPanel,
+  Bt as FOCUSABLE_SELECTOR,
+  Yt as InstallationsListManager,
+  kt as MutationButtonManager,
+  Qt as ProvidersCatalogManager,
+  j as QueryStateManager,
+  ht as ServicesAPIClient,
+  A as ServicesAPIError,
+  D as ServicesPermissionManager,
   $ as ServicesPermissions,
-  Jt as SubscriptionsSyncPageManager,
-  ue as UIStateManager,
-  je as addStateSourceIndicator,
-  Te as announceError,
-  Le as announceLoading,
-  Ee as announceNavigation,
-  ke as announceSuccess,
-  V as announceToScreenReader,
-  te as buildSearchParams,
-  L as canConnect,
-  P as canEdit,
-  ct as canReconsent,
-  Y as canRevoke,
-  vt as canViewActivity,
-  A as canViewServices,
-  K as clearRetryUI,
-  ne as combineGuards,
-  xe as configureDeepLinks,
-  B as confirmServiceAction,
-  ve as createActionLabelResolver,
-  Mt as createActivityNavigateHandler,
-  ze as createActivityPage,
-  Je as createConnectionDetail,
-  Oe as createConnectionsList,
-  Ht as createFocusTrap,
-  Be as createInstallationsList,
-  At as createNavigationContext,
-  E as createPermissionGuard,
-  Ue as createProvidersCatalog,
-  Zt as createServicesClient,
-  Ie as createSkipLink,
-  Ve as createSubscriptionsSyncPage,
-  Xt as debounce,
+  Xt as SubscriptionsSyncPageManager,
+  me as UIStateManager,
+  We as addStateSourceIndicator,
+  Ie as announceError,
+  Ae as announceLoading,
+  Fe as announceNavigation,
+  Me as announceSuccess,
+  J as announceToScreenReader,
+  oe as buildSearchParams,
+  k as canConnect,
+  q as canEdit,
+  pt as canReconsent,
+  tt as canRevoke,
+  Ct as canViewActivity,
+  M as canViewServices,
+  X as clearRetryUI,
+  he as combineGuards,
+  ke as configureDeepLinks,
+  V as confirmServiceAction,
+  Le as createActionLabelResolver,
+  Ut as createActivityNavigateHandler,
+  Ye as createActivityPage,
+  Xe as createConnectionDetail,
+  Qe as createConnectionsList,
+  zt as createFocusTrap,
+  Ke as createInstallationsList,
+  Dt as createNavigationContext,
+  P as createPermissionGuard,
+  Ge as createProvidersCatalog,
+  ne as createServicesClient,
+  Oe as createSkipLink,
+  Ze as createSubscriptionsSyncPage,
+  ae as debounce,
   w as deepLinkManager,
-  G as gateElement,
-  qt as generateDeepLink,
-  Se as generateListLink,
-  ge as getActionEntry,
-  Lt as getActionLabel,
-  kt as getActionsByCategory,
-  fe as getAllActionLabels,
-  He as getAnimationDuration,
+  K as gateElement,
+  Nt as generateDeepLink,
+  Te as generateListLink,
+  Se as getActionEntry,
+  qt as getActionLabel,
+  Rt as getActionsByCategory,
+  we as getAllActionLabels,
+  ze as getAnimationDuration,
   C as getPermissionManager,
-  Ct as getServiceConfirmConfig,
-  T as getServicesClient,
-  ae as handleForbidden,
-  pe as initActivityLabels,
-  ce as initPermissionGates,
-  se as initPermissions,
-  le as initPermissionsFromContext,
-  ye as isActivityLabelsInitialized,
-  xt as isForbiddenError,
-  St as loadPermissionsFromContext,
-  pt as mapObjectTypeToEntity,
-  we as navigateBack,
-  Rt as navigateToEntity,
-  $e as parseCurrentDeepLink,
-  Ce as parseDeepLink,
-  ee as parseSearchParams,
-  jt as prefersReducedMotion,
-  dt as renderEmptyState,
-  D as renderErrorState,
+  Et as getServiceConfirmConfig,
+  E as getServicesClient,
+  pe as handleForbidden,
+  xe as initActivityLabels,
+  fe as initPermissionGates,
+  le as initPermissions,
+  be as initPermissionsFromContext,
+  Ce as isActivityLabelsInitialized,
+  _t as isForbiddenError,
+  Lt as loadPermissionsFromContext,
+  mt as mapObjectTypeToEntity,
+  Ee as navigateBack,
+  jt as navigateToEntity,
+  Pe as parseCurrentDeepLink,
+  qe as parseDeepLink,
+  ce as parseSearchParams,
+  Wt as prefersReducedMotion,
+  ft as renderEmptyState,
+  O as renderErrorState,
   _ as renderForbiddenState,
-  j as renderLoadingState,
-  ut as renderNoResultsState,
-  $t as renderRetryUI,
-  H as renderStateSourceIndicator,
-  De as renderStateSourceLegend,
-  de as renderTableEmptyState,
-  O as renderTableErrorState,
-  U as renderTableLoadingState,
-  q as renderTableNoResultsState,
-  ie as requireAll,
-  re as requireAny,
-  me as resetActivityLabels,
-  be as setActionLabels,
-  Pe as setExpandedState,
-  qe as setLoadingState,
-  Me as setProgress,
-  Yt as setServicesClient,
-  Ae as setSortableHeader,
-  Re as setStatusLabel,
-  Fe as setupDialogFocus,
-  It as setupKeyboardNavigation,
-  _e as setupRovingTabindex,
-  he as withConfirmation,
+  U as renderLoadingState,
+  bt as renderNoResultsState,
+  Tt as renderRetryUI,
+  N as renderStateSourceIndicator,
+  Je as renderStateSourceLegend,
+  ye as renderTableEmptyState,
+  z as renderTableErrorState,
+  B as renderTableLoadingState,
+  R as renderTableNoResultsState,
+  de as requireAll,
+  ue as requireAny,
+  _e as resetActivityLabels,
+  $e as setActionLabels,
+  He as setExpandedState,
+  Ne as setLoadingState,
+  Ue as setProgress,
+  re as setServicesClient,
+  De as setSortableHeader,
+  je as setStatusLabel,
+  Be as setupDialogFocus,
+  Ot as setupKeyboardNavigation,
+  Re as setupRovingTabindex,
+  ve as withConfirmation,
   x as withMutationFeedback,
-  oe as withPermission
+  ge as withPermission
 };
 //# sourceMappingURL=index.js.map

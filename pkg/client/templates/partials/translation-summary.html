@@ -2,7 +2,7 @@
 {# Shows translation context for multilingual content. #}
 {# Supports both legacy `translation_context` and productized `translation_readiness` inputs. #}
 
-{% set summary_translation_group_id = translation_group_id %}
+{% set summary_family_id = family_id %}
 {% set summary_requested_locale = requested_locale %}
 {% set summary_resolved_locale = resolved_locale %}
 {% set summary_available_locales = available_locales %}
@@ -17,7 +17,7 @@
 
 {# Extract from legacy translation_context if provided #}
 {% if translation_context %}
-  {% set summary_translation_group_id = translation_context.translation_group_id|default:summary_translation_group_id %}
+  {% set summary_family_id = translation_context.family_id|default:summary_family_id %}
   {% set summary_requested_locale = translation_context.requested_locale|default:summary_requested_locale %}
   {% set summary_resolved_locale = translation_context.resolved_locale|default:summary_resolved_locale %}
   {% set summary_available_locales = translation_context.available_locales|default:summary_available_locales %}
@@ -27,7 +27,7 @@
 
 {# Phase 19.3: Extract from canonical translation_readiness if provided (productized mode) #}
 {% if translation_readiness %}
-  {% set summary_translation_group_id = translation_readiness.translation_group_id|default:summary_translation_group_id %}
+  {% set summary_family_id = translation_readiness.family_id|default:summary_family_id %}
   {% set summary_required_locales = translation_readiness.required_locales|default:summary_required_locales %}
   {% set summary_available_locales = translation_readiness.available_locales|default:summary_available_locales %}
   {% set summary_missing_required_locales = translation_readiness.missing_required_locales|default:summary_missing_required_locales %}
@@ -44,10 +44,10 @@
   {% set summary_resolved_locale = summary_requested_locale %}
 {% endif %}
 
-{% if summary_translation_group_id %}
+{% if summary_family_id %}
 <div class="translation-summary bg-white border border-gray-200 rounded-lg overflow-hidden mb-4"
      data-translation-summary-card="true"
-     data-translation-group-id="{{ summary_translation_group_id }}"
+     data-translation-group-id="{{ summary_family_id }}"
      data-requested-locale="{{ summary_requested_locale }}"
      data-resolved-locale="{{ summary_resolved_locale }}"
      data-api-base-path="{{ base_path|default:"/admin" }}/api"
@@ -260,7 +260,7 @@
   </div>
 </div>
 {% endif %}
-{% if summary_translation_group_id %}
+{% if summary_family_id %}
 <script type="module">
   import { initTranslationSummaryCards } from '{{ base_path|default:"/admin" }}/assets/dist/translation-family/index.js';
 

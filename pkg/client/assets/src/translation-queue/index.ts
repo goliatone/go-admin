@@ -52,7 +52,7 @@ export interface AssignmentListFilters {
   locale?: string;
   priority?: string;
   reviewState?: AssignmentQueueReviewState;
-  translationGroupId?: string;
+  familyId?: string;
 }
 
 export interface AssignmentQueueSavedFilterQuery {
@@ -62,7 +62,7 @@ export interface AssignmentQueueSavedFilterQuery {
   due_state?: string;
   locale?: string;
   priority?: string;
-  translation_group_id?: string;
+  family_id?: string;
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
 }
@@ -108,7 +108,7 @@ export interface AssignmentQASummary {
 
 export interface AssignmentListRow {
   id: string;
-  translation_group_id: string;
+  family_id: string;
   entity_type: string;
   source_record_id: string;
   target_record_id: string;
@@ -417,7 +417,7 @@ function normalizeSavedFilterPreset(value: unknown): AssignmentQueueSavedFilterP
       due_state: asString(queryRaw.due_state) || undefined,
       locale: asString(queryRaw.locale) || undefined,
       priority: asString(queryRaw.priority) || undefined,
-      translation_group_id: asString(queryRaw.translation_group_id) || undefined,
+      family_id: asString(queryRaw.family_id) || undefined,
       sort: (asString(queryRaw.sort) || undefined) as AssignmentSortKey | undefined,
       order: (asString(queryRaw.order) || undefined) as 'asc' | 'desc' | undefined,
     },
@@ -505,7 +505,7 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   if (state.locale) params.set('locale', state.locale);
   if (state.priority) params.set('priority', state.priority);
   if (state.reviewState) params.set('review_state', state.reviewState);
-  if (state.translationGroupId) params.set('translation_group_id', state.translationGroupId);
+  if (state.familyId) params.set('family_id', state.familyId);
   if (state.page && state.page > 0) params.set('page', String(state.page));
   if (state.perPage && state.perPage > 0) params.set('per_page', String(state.perPage));
   if (state.sort) params.set('sort', state.sort);
@@ -523,7 +523,7 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
   const raw = asRecord(value);
   return {
     id: asString(raw.id),
-    translation_group_id: asString(raw.translation_group_id),
+    family_id: asString(raw.family_id),
     entity_type: asString(raw.entity_type),
     source_record_id: asString(raw.source_record_id),
     target_record_id: asString(raw.target_record_id),
@@ -649,7 +649,7 @@ export function presetToQueryState(preset: AssignmentQueueSavedFilterPreset): As
     locale: preset.query.locale,
     priority: preset.query.priority,
     reviewState: preset.review_state,
-    translationGroupId: preset.query.translation_group_id,
+    familyId: preset.query.family_id,
     sort: preset.query.sort,
     order: preset.query.order,
     page: 1,
@@ -1246,7 +1246,7 @@ export class AssignmentQueueScreen {
         <td>
           <div class="queue-content-cell">
             <strong>${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
-            <span>${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.translation_group_id)}</span>
+            <span>${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.family_id)}</span>
           </div>
         </td>
         <td>
@@ -1379,7 +1379,7 @@ export class AssignmentQueueScreen {
         <div class="${MOBILE_CARD_HEADER}">
           <div>
             <h3 class="${MOBILE_CARD_TITLE}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
-            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.translation_group_id)}</p>
+            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.family_id)}</p>
           </div>
           ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
         </div>

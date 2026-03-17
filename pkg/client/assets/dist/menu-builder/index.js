@@ -98,7 +98,7 @@ function y(i) {
     description: d(e.description),
     status: T(e.status),
     locale: d(e.locale),
-    translation_group_id: d(e.translation_group_id),
+    family_id: d(e.family_id),
     archived: P(e.archived),
     created_at: d(e.created_at),
     updated_at: d(e.updated_at),

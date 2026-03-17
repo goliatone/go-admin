@@ -190,7 +190,7 @@ export function parseMenuRecord(raw: unknown): MenuRecord {
     description: asString(source.description, 'menu.description'),
     status: normalizeStatus(source.status),
     locale: asString(source.locale, 'menu.locale'),
-    translation_group_id: asString(source.translation_group_id, 'menu.translation_group_id'),
+    family_id: asString(source.family_id, 'menu.family_id'),
     archived: asBool(source.archived),
     created_at: asString(source.created_at, 'menu.created_at'),
     updated_at: asString(source.updated_at, 'menu.updated_at'),

@@ -40,7 +40,7 @@ export interface ExportRequest {
 export interface ExportRow {
   resource: string;
   entity_id: string;
-  translation_group_id: string;
+  family_id: string;
   source_locale?: string;
   target_locale: string;
   field_path: string;
@@ -92,7 +92,7 @@ export interface RowResult {
   index: number;
   resource: string;
   entity_id: string;
-  translation_group_id: string;
+  family_id: string;
   target_locale: string;
   field_path: string;
   status: RowStatus;

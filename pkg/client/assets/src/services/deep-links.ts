@@ -65,6 +65,48 @@ const DEFAULT_PATH_MAP: Record<ServiceEntityType, string> = {
   activity: 'activity',
 };
 
+function getRuntimeWindow(): Window | undefined {
+  if (typeof window !== 'undefined') {
+    return window;
+  }
+  return undefined;
+}
+
+function getSessionStorage(): Storage | undefined {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  return (globalThis as { sessionStorage?: Storage }).sessionStorage;
+}
+
+function encodeBase64(value: string): string {
+  const runtimeWindow = getRuntimeWindow();
+  if (runtimeWindow && typeof runtimeWindow.btoa === 'function') {
+    return runtimeWindow.btoa(value);
+  }
+  const runtimeBuffer = (globalThis as {
+    Buffer?: { from(input: string, encoding?: string): { toString(encoding?: string): string } };
+  }).Buffer;
+  if (runtimeBuffer) {
+    return runtimeBuffer.from(value, 'utf8').toString('base64');
+  }
+  throw new Error('base64 encoding is unavailable');
+}
+
+function decodeBase64(value: string): string {
+  const runtimeWindow = getRuntimeWindow();
+  if (runtimeWindow && typeof runtimeWindow.atob === 'function') {
+    return runtimeWindow.atob(value);
+  }
+  const runtimeBuffer = (globalThis as {
+    Buffer?: { from(input: string, encoding?: string): { toString(encoding?: string): string } };
+  }).Buffer;
+  if (runtimeBuffer) {
+    return runtimeBuffer.from(value, 'base64').toString('utf8');
+  }
+  throw new Error('base64 decoding is unavailable');
+}
+
 // =============================================================================
 // Deep Link Manager
 // =============================================================================
@@ -148,6 +190,11 @@ class DeepLinkManager {
     context?: NavigationContext,
     options: { replace?: boolean } = {}
   ): void {
+    const runtimeWindow = getRuntimeWindow();
+    if (!runtimeWindow?.history) {
+      return;
+    }
+
     // Save context for back navigation
     if (context) {
       this.saveContext(context);
@@ -156,13 +203,13 @@ class DeepLinkManager {
     const url = this.generateLink(entityType, entityId, context);
 
     if (options.replace) {
-      window.history.replaceState({ entityType, entityId, context }, '', url);
+      runtimeWindow.history.replaceState({ entityType, entityId, context }, '', url);
     } else {
-      window.history.pushState({ entityType, entityId, context }, '', url);
+      runtimeWindow.history.pushState({ entityType, entityId, context }, '', url);
     }
 
     // Dispatch navigation event for app-level routing
-    window.dispatchEvent(
+    runtimeWindow.dispatchEvent(
       new CustomEvent('services:navigate', {
         detail: { entityType, entityId, context, url },
       })
@@ -173,6 +220,11 @@ class DeepLinkManager {
    * Navigate back with context restoration.
    */
   navigateBack(): NavigationContext | null {
+    const runtimeWindow = getRuntimeWindow();
+    if (!runtimeWindow?.history) {
+      return this.restoreContext();
+    }
+
     const context = this.restoreContext();
 
     if (context?.fromPage) {
@@ -197,10 +249,10 @@ class DeepLinkManager {
       const queryString = params.toString();
       const url = queryString ? `${context.fromPage}?${queryString}` : context.fromPage;
 
-      window.history.pushState({ restored: true }, '', url);
+      runtimeWindow.history.pushState({ restored: true }, '', url);
 
       // Dispatch back navigation event
-      window.dispatchEvent(
+      runtimeWindow.dispatchEvent(
         new CustomEvent('services:navigate-back', {
           detail: { context, url },
         })
@@ -210,7 +262,7 @@ class DeepLinkManager {
     }
 
     // Fallback to browser back
-    window.history.back();
+    runtimeWindow.history.back();
     return null;
   }
 
@@ -218,7 +270,11 @@ class DeepLinkManager {
    * Parse entity info from current URL.
    */
   parseCurrentUrl(): ParsedDeepLink | null {
-    return this.parseUrl(window.location.pathname + window.location.search);
+    const runtimeWindow = getRuntimeWindow();
+    if (!runtimeWindow?.location) {
+      return null;
+    }
+    return this.parseUrl(runtimeWindow.location.pathname + runtimeWindow.location.search);
   }
 
   /**
@@ -306,7 +362,7 @@ class DeepLinkManager {
     }
 
     return {
-      fromPage: window.location.pathname,
+      fromPage: getRuntimeWindow()?.location?.pathname,
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       search: queryState.search || undefined,
       page: queryState.page > 1 ? queryState.page : undefined,
@@ -319,18 +375,26 @@ class DeepLinkManager {
   // ---------------------------------------------------------------------------
 
   private saveContext(context: NavigationContext): void {
+    const storage = getSessionStorage();
+    if (!storage) {
+      return;
+    }
     try {
-      sessionStorage.setItem(this.contextStorageKey, JSON.stringify(context));
+      storage.setItem(this.contextStorageKey, JSON.stringify(context));
     } catch (e) {
       // Ignore storage errors
     }
   }
 
   private restoreContext(): NavigationContext | null {
+    const storage = getSessionStorage();
+    if (!storage) {
+      return null;
+    }
     try {
-      const stored = sessionStorage.getItem(this.contextStorageKey);
+      const stored = storage.getItem(this.contextStorageKey);
       if (stored) {
-        sessionStorage.removeItem(this.contextStorageKey);
+        storage.removeItem(this.contextStorageKey);
         return JSON.parse(stored);
       }
     } catch (e) {
@@ -341,7 +405,7 @@ class DeepLinkManager {
 
   private encodeContext(context: NavigationContext): string {
     try {
-      return btoa(JSON.stringify(context));
+      return encodeBase64(JSON.stringify(context));
     } catch (e) {
       return '';
     }
@@ -349,7 +413,7 @@ class DeepLinkManager {
 
   private decodeContext(encoded: string): NavigationContext | undefined {
     try {
-      return JSON.parse(atob(encoded));
+      return JSON.parse(decodeBase64(encoded));
     } catch (e) {
       return undefined;
     }

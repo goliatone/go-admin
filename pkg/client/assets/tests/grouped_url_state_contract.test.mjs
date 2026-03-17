@@ -15,7 +15,7 @@ function createGrid() {
     columns: [],
     enableGroupedMode: true,
     defaultViewMode: 'flat',
-    groupByField: 'translation_group_id',
+    groupByField: 'family_id',
   });
 }
 

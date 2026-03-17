@@ -1,6 +1,6 @@
 import { r as L } from "../chunks/translation-status-vocabulary-huaq_68y.js";
-import { h as U, r as V } from "../chunks/http-client-Dm229xuF.js";
-import { extractStructuredError as K } from "../toast/error-helpers.js";
+import { h as U, r as K } from "../chunks/http-client-Dm229xuF.js";
+import { extractStructuredError as G } from "../toast/error-helpers.js";
 import { H as C, a as Y, l as W, r as f, I as D, J as T, K as J, N as X, O as Z, P as ee, Q as te, R as w, S as $, T as k, U as se } from "../chunks/style-constants-BesmSFuV.js";
 class E extends Error {
   constructor(e) {
@@ -71,7 +71,7 @@ function u(t) {
 function r(t) {
   return typeof t == "string" ? t.trim() : "";
 }
-function g(t) {
+function m(t) {
   return typeof t == "number" && Number.isFinite(t) ? t : 0;
 }
 function v(t) {
@@ -92,7 +92,7 @@ function ie(t) {
     };
 }
 function ae(t) {
-  const e = u(t), s = e.enabled === !0, i = g(e.warning_count), a = g(e.blocker_count), n = g(e.finding_count);
+  const e = u(t), s = e.enabled === !0, i = m(e.warning_count), a = m(e.blocker_count), n = m(e.finding_count);
   if (!(!s && i <= 0 && a <= 0 && n <= 0))
     return {
       enabled: s,
@@ -135,9 +135,9 @@ function re(t) {
   };
 }
 async function ne(t, e) {
-  return typeof t.clone == "function" ? K(t.clone()) : {
+  return typeof t.clone == "function" ? G(t.clone()) : {
     textCode: null,
-    message: await V(t, e),
+    message: await K(t, e),
     metadata: null,
     fields: null,
     validationErrors: null
@@ -171,7 +171,7 @@ function oe(t) {
       due_state: r(a.due_state) || void 0,
       locale: r(a.locale) || void 0,
       priority: r(a.priority) || void 0,
-      translation_group_id: r(a.translation_group_id) || void 0,
+      family_id: r(a.family_id) || void 0,
       sort: r(a.sort) || void 0,
       order: r(a.order) || void 0
     }
@@ -193,7 +193,7 @@ function y(t) {
 function de(t) {
   const e = u(t), s = {};
   for (const [i, a] of Object.entries(e)) {
-    const n = g(a);
+    const n = m(a);
     i.trim() && (s[i.trim()] = n);
   }
   return s;
@@ -204,9 +204,9 @@ function S(t) {
 function ce(t) {
   const e = u(t), s = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((a) => r(a)).filter((a) => !!a) : [], i = u(e.default_sort);
   return {
-    page: g(e.page) || 1,
-    per_page: g(e.per_page) || 25,
-    total: g(e.total),
+    page: m(e.page) || 1,
+    per_page: m(e.per_page) || 25,
+    total: m(e.total),
     updated_at: r(e.updated_at) || void 0,
     supported_sort_keys: s.length ? s : [
       "updated_at",
@@ -232,17 +232,17 @@ function ce(t) {
 }
 function le(t = {}) {
   const e = new URLSearchParams();
-  return t.status && e.set("status", t.status), t.assigneeId && e.set("assignee_id", t.assigneeId), t.reviewerId && e.set("reviewer_id", t.reviewerId), t.dueState && e.set("due_state", t.dueState), t.locale && e.set("locale", t.locale), t.priority && e.set("priority", t.priority), t.reviewState && e.set("review_state", t.reviewState), t.translationGroupId && e.set("translation_group_id", t.translationGroupId), t.page && t.page > 0 && e.set("page", String(t.page)), t.perPage && t.perPage > 0 && e.set("per_page", String(t.perPage)), t.sort && e.set("sort", t.sort), t.order && e.set("order", t.order), e.toString();
+  return t.status && e.set("status", t.status), t.assigneeId && e.set("assignee_id", t.assigneeId), t.reviewerId && e.set("reviewer_id", t.reviewerId), t.dueState && e.set("due_state", t.dueState), t.locale && e.set("locale", t.locale), t.priority && e.set("priority", t.priority), t.reviewState && e.set("review_state", t.reviewState), t.familyId && e.set("family_id", t.familyId), t.page && t.page > 0 && e.set("page", String(t.page)), t.perPage && t.perPage > 0 && e.set("per_page", String(t.perPage)), t.sort && e.set("sort", t.sort), t.order && e.set("order", t.order), e.toString();
 }
 function ue(t, e = {}) {
   const s = le(e);
   return s ? `${t}${t.includes("?") ? "&" : "?"}${s}` : t;
 }
-function G(t) {
+function V(t) {
   const e = u(t);
   return {
     id: r(e.id),
-    translation_group_id: r(e.translation_group_id),
+    family_id: r(e.family_id),
     entity_type: r(e.entity_type),
     source_record_id: r(e.source_record_id),
     target_record_id: r(e.target_record_id),
@@ -260,8 +260,8 @@ function G(t) {
     priority: r(e.priority) || "normal",
     due_state: r(e.due_state) || "none",
     due_date: r(e.due_date) || void 0,
-    row_version: g(e.row_version || e.version),
-    version: g(e.version || e.row_version),
+    row_version: m(e.row_version || e.version),
+    version: m(e.version || e.row_version),
     updated_at: r(e.updated_at),
     created_at: r(e.created_at),
     actions: {
@@ -282,26 +282,26 @@ function G(t) {
 function pe(t) {
   const e = u(t);
   return {
-    data: (Array.isArray(e.data) ? e.data : []).map((i) => G(i)),
+    data: (Array.isArray(e.data) ? e.data : []).map((i) => V(i)),
     meta: ce(e.meta)
   };
 }
-function ge(t) {
+function me(t) {
   const e = u(t), s = u(e.meta), i = u(e.data);
   return {
     data: {
       assignment_id: r(i.assignment_id),
       status: x(i.status),
-      row_version: g(i.row_version),
+      row_version: m(i.row_version),
       updated_at: r(i.updated_at),
-      assignment: G(i.assignment)
+      assignment: V(i.assignment)
     },
     meta: {
       idempotency_hit: s.idempotency_hit === !0
     }
   };
 }
-async function me(t, e = {}) {
+async function ge(t, e = {}) {
   const s = await U(ue(t, e), { method: "GET" });
   if (!s.ok)
     throw await H(s, "Failed to load assignments");
@@ -318,7 +318,7 @@ async function j(t, e, s, i) {
   });
   if (!n.ok)
     throw await H(n, `Failed to ${s} assignment`);
-  return ge(await n.json());
+  return me(await n.json());
 }
 function fe(t, e, s) {
   return j(t, e, "claim", s);
@@ -335,7 +335,7 @@ function q(t) {
     locale: t.query.locale,
     priority: t.query.priority,
     reviewState: t.review_state,
-    translationGroupId: t.query.translation_group_id,
+    familyId: t.query.family_id,
     sort: t.query.sort,
     order: t.query.order,
     page: 1
@@ -468,7 +468,7 @@ class $e {
   async load() {
     this.state = "loading", this.error = null, this.render();
     try {
-      const e = await me(this.config.endpoint, this.queryState);
+      const e = await ge(this.config.endpoint, this.queryState);
       this.response = e, this.rows = e.data.map((s) => _(s)), this.state = this.rows.length ? "ready" : "empty";
     } catch (e) {
       this.error = e instanceof Error ? e : new Error(String(e)), this.state = e instanceof E && e.code === "VERSION_CONFLICT" ? "conflict" : "error";
@@ -658,7 +658,7 @@ class $e {
     `;
   }
   renderFilters() {
-    const e = this.visibleRows, s = ["", "open", "assigned", "in_progress", "in_review", "changes_requested", "approved", "archived"], i = ["none", "on_track", "due_soon", "overdue"], a = ["", "low", "normal", "high", "urgent"], n = ["", ...S(e.map((m) => m.target_locale))], c = ["", ...S(e.map((m) => m.assignee_id))], p = ["", ...S(e.map((m) => m.reviewer_id))], l = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : ["updated_at", "due_date", "priority", "status", "locale"];
+    const e = this.visibleRows, s = ["", "open", "assigned", "in_progress", "in_review", "changes_requested", "approved", "archived"], i = ["none", "on_track", "due_soon", "overdue"], a = ["", "low", "normal", "high", "urgent"], n = ["", ...S(e.map((g) => g.target_locale))], c = ["", ...S(e.map((g) => g.assignee_id))], p = ["", ...S(e.map((g) => g.reviewer_id))], l = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : ["updated_at", "due_date", "priority", "status", "locale"];
     return `
       <form class="assignment-queue-filters" data-queue-filters="true">
         ${this.renderSelect("status", "Status", s, this.queryState.status || "")}
@@ -725,13 +725,13 @@ class $e {
     `;
   }
   renderRow(e) {
-    const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, m = O(e), A = M(e);
+    const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, g = O(e), A = M(e);
     return `
       <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${d(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${d(z(e))}">
         <td>
           <div class="queue-content-cell">
             <strong>${o(e.source_title || e.source_path || e.id)}</strong>
-            <span>${o(e.entity_type)} · ${o(e.source_path || e.translation_group_id)}</span>
+            <span>${o(e.entity_type)} · ${o(e.source_path || e.family_id)}</span>
           </div>
         </td>
         <td>
@@ -794,7 +794,7 @@ class $e {
                 ${i ? "Releasing…" : "Release"}
               </button>
             </div>
-            ${m ? `
+            ${g ? `
               <div class="queue-action-group" data-action-group="review">
                 <button
                   type="button"
@@ -841,7 +841,7 @@ class $e {
     `;
   }
   renderMobileCard(e) {
-    const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, m = O(e), A = M(e);
+    const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, g = O(e), A = M(e);
     return `
       <article
         class="${J}"
@@ -855,7 +855,7 @@ class $e {
         <div class="${X}">
           <div>
             <h3 class="${Z}">${o(e.source_title || e.source_path || e.id)}</h3>
-            <p class="${ee}">${o(e.entity_type)} · ${o(e.source_path || e.translation_group_id)}</p>
+            <p class="${ee}">${o(e.entity_type)} · ${o(e.source_path || e.family_id)}</p>
           </div>
           ${L(e.queue_state, { domain: "queue", size: "sm" })}
         </div>
@@ -903,7 +903,7 @@ class $e {
           >
             ${i ? "Releasing…" : "Release"}
           </button>
-          ${m ? `
+          ${g ? `
             <button
               type="button"
               class="${D} flex-1"
@@ -1482,13 +1482,13 @@ export {
   ue as buildAssignmentListURL,
   fe as claimAssignment,
   ke as createAssignmentQueueScreen,
-  me as fetchAssignmentList,
+  ge as fetchAssignmentList,
   qe as getAssignmentQueueStyles,
   Ee as initAssignmentQueueScreen,
-  ge as normalizeAssignmentActionResponse,
+  me as normalizeAssignmentActionResponse,
   ce as normalizeAssignmentListMeta,
   pe as normalizeAssignmentListResponse,
-  G as normalizeAssignmentListRow,
+  V as normalizeAssignmentListRow,
   q as presetToQueryState,
   ve as releaseAssignment
 };

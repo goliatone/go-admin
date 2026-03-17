@@ -267,39 +267,8 @@
     "parent_agreement_id": "{{ resource_item.parent_agreement_id|default:""|escapejs }}",
     "superseded_by_agreement_id": "{{ resource_item.superseded_by_agreement_id|default:""|escapejs }}",
     "related_agreements": {% if resource_item.related_agreements %}{{ toJSON(resource_item.related_agreements)|safe }}{% else %}[]{% endif %},
-    "initial_participants": [
-      {% if resource_item.participants and resource_item.participants|length > 0 %}
-        {% for participant in resource_item.participants %}
-        {
-          "id": "{{ participant.id|default:""|escapejs }}",
-          "name": "{{ participant.name|default:""|escapejs }}",
-          "email": "{{ participant.email|default:""|escapejs }}",
-          "role": "{{ participant.role|default:"signer"|escapejs }}",
-          "notify": {% if participant.notify|default:true %}true{% else %}false{% endif %},
-          "signing_stage": {{ participant.signing_stage|default:1 }}
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      {% endif %}
-    ],
-    "initial_field_instances": [
-      {% if resource_item.field_instances and resource_item.field_instances|length > 0 %}
-        {% for field_def in resource_item.field_instances %}
-        {
-          "id": "{{ field_def.id|default:""|escapejs }}",
-          "type": "{{ field_def.type|default:"signature"|escapejs }}",
-          "participant_id": "{{ field_def.participant_id|default:""|escapejs }}",
-          "participant_name": "{{ field_def.participant_name|default:""|escapejs }}",
-          "page": {{ field_def.page|default:1 }},
-          "required": {% if field_def.required %}true{% else %}false{% endif %},
-          "x": {{ field_def.x|default:0 }},
-          "y": {{ field_def.y|default:0 }},
-          "width": {{ field_def.width|default:150 }},
-          "height": {{ field_def.height|default:32 }},
-          "placement_source": "{{ field_def.placement_source|default:"manual"|escapejs }}"
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      {% endif %}
-    ]
+    "initial_participants": {% if resource_item.participants %}{{ toJSON(resource_item.participants)|safe }}{% else %}[]{% endif %},
+    "initial_field_instances": {% if resource_item.field_instances %}{{ toJSON(resource_item.field_instances)|safe }}{% else %}[]{% endif %}
   }
   </script>
 

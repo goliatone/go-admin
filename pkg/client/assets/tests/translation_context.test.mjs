@@ -27,7 +27,7 @@ describe('extractTranslationContext', () => {
       availableLocales: [],
       missingRequestedLocale: false,
       fallbackUsed: false,
-      translationGroupId: null,
+      familyId: null,
       status: null,
       entityType: null,
       recordId: null,
@@ -114,10 +114,10 @@ describe('extractTranslationContext', () => {
       'content_translation.meta.fallback_used',
     ]);
 
-    context.translationGroupId = extractString([
-      'translation_group_id',
-      'translation.meta.translation_group_id',
-      'content_translation.meta.translation_group_id',
+    context.familyId = extractString([
+      'family_id',
+      'translation.meta.family_id',
+      'content_translation.meta.family_id',
     ]);
 
     context.status = extractString(['status']);
@@ -154,7 +154,7 @@ describe('extractTranslationContext', () => {
       available_locales: ['en', 'fr'],
       missing_requested_locale: true,
       fallback_used: true,
-      translation_group_id: 'tg_abc',
+      family_id: 'tg_abc',
       status: 'draft',
     };
 
@@ -165,7 +165,7 @@ describe('extractTranslationContext', () => {
     assert.deepEqual(ctx.availableLocales, ['en', 'fr']);
     assert.equal(ctx.missingRequestedLocale, true);
     assert.equal(ctx.fallbackUsed, true);
-    assert.equal(ctx.translationGroupId, 'tg_abc');
+    assert.equal(ctx.familyId, 'tg_abc');
     assert.equal(ctx.status, 'draft');
   });
 
@@ -179,7 +179,7 @@ describe('extractTranslationContext', () => {
           available_locales: ['en', 'es', 'fr'],
           missing_requested_locale: true,
           fallback_used: true,
-          translation_group_id: 'tg_xyz',
+          family_id: 'tg_xyz',
         }
       },
       status: 'published',
@@ -191,7 +191,7 @@ describe('extractTranslationContext', () => {
     assert.deepEqual(ctx.availableLocales, ['en', 'es', 'fr']);
     assert.equal(ctx.missingRequestedLocale, true);
     assert.equal(ctx.fallbackUsed, true);
-    assert.equal(ctx.translationGroupId, 'tg_xyz');
+    assert.equal(ctx.familyId, 'tg_xyz');
   });
 
   it('should extract nested content_translation.meta fields', () => {
@@ -204,7 +204,7 @@ describe('extractTranslationContext', () => {
           available_locales: ['en'],
           missing_requested_locale: true,
           fallback_used: true,
-          translation_group_id: 'tg_def',
+          family_id: 'tg_def',
         }
       },
     };
@@ -213,7 +213,7 @@ describe('extractTranslationContext', () => {
     assert.equal(ctx.requestedLocale, 'de');
     assert.equal(ctx.resolvedLocale, 'en');
     assert.deepEqual(ctx.availableLocales, ['en']);
-    assert.equal(ctx.translationGroupId, 'tg_def');
+    assert.equal(ctx.familyId, 'tg_def');
   });
 
   it('should prefer flat fields over nested fields', () => {
@@ -357,21 +357,21 @@ describe('hasTranslationContext', () => {
     if (!record || typeof record !== 'object') return false;
 
     // Check for any translation-related field
-    if (record.translation_group_id) return true;
+    if (record.family_id) return true;
     if (record.locale || record.resolved_locale) return true;
     if (Array.isArray(record.available_locales) && record.available_locales.length > 0) return true;
 
     // Check nested
     const translation = record.translation?.meta || record.content_translation?.meta || {};
-    if (translation.translation_group_id) return true;
+    if (translation.family_id) return true;
     if (translation.resolved_locale) return true;
     if (Array.isArray(translation.available_locales) && translation.available_locales.length > 0) return true;
 
     return false;
   }
 
-  it('should return true when translation_group_id exists', () => {
-    assert.equal(hasTranslationContext({ translation_group_id: 'tg_123' }), true);
+  it('should return true when family_id exists', () => {
+    assert.equal(hasTranslationContext({ family_id: 'tg_123' }), true);
   });
 
   it('should return true when locale exists', () => {
@@ -388,7 +388,7 @@ describe('hasTranslationContext', () => {
 
   it('should check nested fields', () => {
     assert.equal(hasTranslationContext({
-      translation: { meta: { translation_group_id: 'tg_456' } }
+      translation: { meta: { family_id: 'tg_456' } }
     }), true);
   });
 });
@@ -681,7 +681,7 @@ describe('Create translation intent flow', () => {
       success: true,
       newRecordId: data.id || null,
       newLocale: data.locale || null,
-      translationGroupId: data.translation_group_id || null,
+      familyId: data.family_id || null,
       status: data.status || 'draft',
     };
   }
@@ -689,7 +689,7 @@ describe('Create translation intent flow', () => {
   it('should build correct payload for create translation', () => {
     const record = {
       id: 'page_123',
-      translation_group_id: 'tg_abc',
+      family_id: 'tg_abc',
     };
     const payload = buildCreateTranslationPayload(record, 'es');
     assert.equal(payload.id, 'page_123');
@@ -709,14 +709,14 @@ describe('Create translation intent flow', () => {
         id: 'page_456',
         locale: 'es',
         status: 'draft',
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
       }
     };
     const handled = handleCreateTranslationResult(result);
     assert.equal(handled.success, true);
     assert.equal(handled.newRecordId, 'page_456');
     assert.equal(handled.newLocale, 'es');
-    assert.equal(handled.translationGroupId, 'tg_abc');
+    assert.equal(handled.familyId, 'tg_abc');
   });
 
   it('should handle failed create translation response', () => {
@@ -864,7 +864,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
       availableLocales: [],
       missingRequestedLocale: false,
       fallbackUsed: false,
-      translationGroupId: null,
+      familyId: null,
     };
 
     if (!record || typeof record !== 'object') {
@@ -949,10 +949,10 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
       'content_translation.meta.fallback_used',
     ]);
 
-    context.translationGroupId = extractString([
-      'translation_group_id',
-      'translation.meta.translation_group_id',
-      'content_translation.meta.translation_group_id',
+    context.familyId = extractString([
+      'family_id',
+      'translation.meta.family_id',
+      'content_translation.meta.family_id',
     ]);
 
     // Infer fallback state
@@ -975,7 +975,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
       available_locales: ['en', 'fr'],
       missing_requested_locale: true,
       fallback_used: true,
-      translation_group_id: 'tg_abc',
+      family_id: 'tg_abc',
     };
 
     const nestedRecord = {
@@ -987,7 +987,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
           available_locales: ['en', 'fr'],
           missing_requested_locale: true,
           fallback_used: true,
-          translation_group_id: 'tg_abc',
+          family_id: 'tg_abc',
         }
       }
     };
@@ -1001,7 +1001,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
     assert.deepEqual(flatContext.availableLocales, nestedContext.availableLocales);
     assert.equal(flatContext.missingRequestedLocale, nestedContext.missingRequestedLocale);
     assert.equal(flatContext.fallbackUsed, nestedContext.fallbackUsed);
-    assert.equal(flatContext.translationGroupId, nestedContext.translationGroupId);
+    assert.equal(flatContext.familyId, nestedContext.familyId);
   });
 
   it('contract: flat fields produce same output as nested content_translation.meta fields', () => {
@@ -1012,7 +1012,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
       available_locales: ['en', 'es', 'de'],
       missing_requested_locale: false,
       fallback_used: false,
-      translation_group_id: 'tg_xyz',
+      family_id: 'tg_xyz',
     };
 
     const nestedRecord = {
@@ -1024,7 +1024,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
           available_locales: ['en', 'es', 'de'],
           missing_requested_locale: false,
           fallback_used: false,
-          translation_group_id: 'tg_xyz',
+          family_id: 'tg_xyz',
         }
       }
     };
@@ -1035,7 +1035,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
     assert.equal(flatContext.requestedLocale, nestedContext.requestedLocale);
     assert.equal(flatContext.resolvedLocale, nestedContext.resolvedLocale);
     assert.deepEqual(flatContext.availableLocales, nestedContext.availableLocales);
-    assert.equal(flatContext.translationGroupId, nestedContext.translationGroupId);
+    assert.equal(flatContext.familyId, nestedContext.familyId);
   });
 
   it('contract: flat fields take precedence over nested fields', () => {
@@ -1044,13 +1044,13 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
       // Flat fields (should take precedence)
       requested_locale: 'flat_requested',
       resolved_locale: 'flat_resolved',
-      translation_group_id: 'flat_tg',
+      family_id: 'flat_tg',
       // Nested fields (should be ignored when flat exists)
       translation: {
         meta: {
           requested_locale: 'nested_requested',
           resolved_locale: 'nested_resolved',
-          translation_group_id: 'nested_tg',
+          family_id: 'nested_tg',
         }
       }
     };
@@ -1060,7 +1060,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
     // Flat fields should win
     assert.equal(context.requestedLocale, 'flat_requested');
     assert.equal(context.resolvedLocale, 'flat_resolved');
-    assert.equal(context.translationGroupId, 'flat_tg');
+    assert.equal(context.familyId, 'flat_tg');
   });
 
   it('contract: nested fields are used when flat fields are absent', () => {
@@ -1071,7 +1071,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
           requested_locale: 'nested_only_requested',
           resolved_locale: 'nested_only_resolved',
           available_locales: ['en', 'es'],
-          translation_group_id: 'nested_only_tg',
+          family_id: 'nested_only_tg',
         }
       }
     };
@@ -1081,7 +1081,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
     assert.equal(context.requestedLocale, 'nested_only_requested');
     assert.equal(context.resolvedLocale, 'nested_only_resolved');
     assert.deepEqual(context.availableLocales, ['en', 'es']);
-    assert.equal(context.translationGroupId, 'nested_only_tg');
+    assert.equal(context.familyId, 'nested_only_tg');
   });
 
   it('contract: fallback is inferred from locale mismatch in both shapes', () => {
@@ -1155,7 +1155,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
 
     assert.equal(context.requestedLocale, null);
     assert.equal(context.resolvedLocale, null);
-    assert.equal(context.translationGroupId, null);
+    assert.equal(context.familyId, null);
   });
 
   it('contract: available_locales is always an array', () => {
@@ -1276,7 +1276,7 @@ describe('extractTranslationReadiness', () => {
   // Simulate the extraction logic for translation_readiness
   function extractTranslationReadiness(record) {
     const readiness = {
-      translationGroupId: null,
+      familyId: null,
       requiredLocales: [],
       availableLocales: [],
       missingRequiredLocales: [],
@@ -1295,8 +1295,8 @@ describe('extractTranslationReadiness', () => {
     if (readinessObj && typeof readinessObj === 'object') {
       readiness.hasReadinessMetadata = true;
 
-      readiness.translationGroupId = typeof readinessObj.translation_group_id === 'string'
-        ? readinessObj.translation_group_id
+      readiness.familyId = typeof readinessObj.family_id === 'string'
+        ? readinessObj.family_id
         : null;
 
       readiness.requiredLocales = Array.isArray(readinessObj.required_locales)
@@ -1356,7 +1356,7 @@ describe('extractTranslationReadiness', () => {
     const record = {
       id: 'page_123',
       translation_readiness: {
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         required_locales: ['en', 'es', 'fr'],
         available_locales: ['en', 'es'],
         missing_required_locales: ['fr'],
@@ -1370,7 +1370,7 @@ describe('extractTranslationReadiness', () => {
     const readiness = extractTranslationReadiness(record);
 
     assert.equal(readiness.hasReadinessMetadata, true);
-    assert.equal(readiness.translationGroupId, 'tg_abc');
+    assert.equal(readiness.familyId, 'tg_abc');
     assert.deepEqual(readiness.requiredLocales, ['en', 'es', 'fr']);
     assert.deepEqual(readiness.availableLocales, ['en', 'es']);
     assert.deepEqual(readiness.missingRequiredLocales, ['fr']);
@@ -1382,7 +1382,7 @@ describe('extractTranslationReadiness', () => {
   it('should parse missing_required_fields_by_locale correctly', () => {
     const record = {
       translation_readiness: {
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         required_locales: ['en', 'es'],
         available_locales: ['en', 'es'],
         missing_required_locales: [],
@@ -1406,7 +1406,7 @@ describe('extractTranslationReadiness', () => {
   it('should handle ready state correctly', () => {
     const record = {
       translation_readiness: {
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         required_locales: ['en', 'es'],
         available_locales: ['en', 'es'],
         missing_required_locales: [],
@@ -1427,7 +1427,7 @@ describe('extractTranslationReadiness', () => {
   it('should handle missing_locales_and_fields state', () => {
     const record = {
       translation_readiness: {
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         required_locales: ['en', 'es', 'fr'],
         available_locales: ['en'],
         missing_required_locales: ['es', 'fr'],
@@ -1450,7 +1450,7 @@ describe('extractTranslationReadiness', () => {
   it('should filter invalid values from arrays', () => {
     const record = {
       translation_readiness: {
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         required_locales: ['en', null, 'es', undefined, 123],
         available_locales: ['en', {}, 'es'],
         missing_required_locales: ['fr', null],
@@ -1899,7 +1899,7 @@ describe('Dual-mode compatibility: readiness extraction', () => {
       available_locales: ['en', 'es'],
       translation: {
         meta: {
-          translation_group_id: 'tg_123',
+          family_id: 'tg_123',
         },
       },
     });
@@ -2265,7 +2265,7 @@ describe('Schema Action Authority', () => {
   // Helper function implementations for testing
   function extractTranslationReadiness(record) {
     const readiness = {
-      translationGroupId: null,
+      familyId: null,
       requiredLocales: [],
       availableLocales: [],
       missingRequiredLocales: [],
@@ -2283,8 +2283,8 @@ describe('Schema Action Authority', () => {
     const readinessObj = record.translation_readiness;
     if (readinessObj && typeof readinessObj === 'object') {
       readiness.hasReadinessMetadata = true;
-      readiness.translationGroupId = typeof readinessObj.translation_group_id === 'string'
-        ? readinessObj.translation_group_id : null;
+      readiness.familyId = typeof readinessObj.family_id === 'string'
+        ? readinessObj.family_id : null;
       readiness.requiredLocales = Array.isArray(readinessObj.required_locales)
         ? readinessObj.required_locales.filter(v => typeof v === 'string') : [];
       readiness.availableLocales = Array.isArray(readinessObj.available_locales)

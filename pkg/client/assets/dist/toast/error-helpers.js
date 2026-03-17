@@ -1,5 +1,5 @@
 async function p(t) {
-  const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), n = {
+  const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), i = {
     textCode: null,
     message: `Request failed (${t.status})`,
     metadata: null,
@@ -7,46 +7,46 @@ async function p(t) {
     validationErrors: null
   };
   if (!s)
-    return n;
+    return i;
   if (r || s.trim().startsWith("{"))
     try {
       const o = JSON.parse(s);
       if (o.error && typeof o.error == "object") {
         const a = o.error;
-        if (typeof a.text_code == "string" && (n.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (n.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (n.metadata = a.metadata), Array.isArray(a.validation_errors)) {
+        if (typeof a.text_code == "string" && (i.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (i.metadata = a.metadata), Array.isArray(a.validation_errors)) {
           const c = [], l = {};
           for (const f of a.validation_errors) {
             if (!f || typeof f != "object") continue;
             const u = f.field, d = f.message;
             typeof u == "string" && typeof d == "string" && (c.push({ field: u, message: d }), l[u] = d);
           }
-          c.length > 0 && (n.validationErrors = c, n.fields = l);
+          c.length > 0 && (i.validationErrors = c, i.fields = l);
         }
-        if (n.metadata?.fields && typeof n.metadata.fields == "object" && !Array.isArray(n.metadata.fields)) {
-          const c = n.metadata.fields;
-          n.fields || (n.fields = {});
+        if (i.metadata?.fields && typeof i.metadata.fields == "object" && !Array.isArray(i.metadata.fields)) {
+          const c = i.metadata.fields;
+          i.fields || (i.fields = {});
           for (const [l, f] of Object.entries(c))
-            typeof f == "string" && (n.fields[l] = f);
+            typeof f == "string" && (i.fields[l] = f);
         }
-        return n;
+        return i;
       }
       if (typeof o.error == "string" && o.error.trim())
-        return n.message = o.error.trim(), n;
+        return i.message = o.error.trim(), i;
       if (typeof o.detail == "string" && o.detail.trim())
-        return n.message = o.detail.trim(), n;
+        return i.message = o.detail.trim(), i;
       if (typeof o.title == "string" && o.title.trim())
-        return n.message = o.title.trim(), n;
+        return i.message = o.title.trim(), i;
       if (typeof o.message == "string" && o.message.trim())
-        return n.message = o.message.trim(), n;
+        return i.message = o.message.trim(), i;
     } catch {
     }
   if (s.includes("go-users:")) {
     const o = s.match(/go-users:\s*([^|]+)/);
     if (o)
-      return n.message = o[1].trim(), n;
+      return i.message = o[1].trim(), i;
   }
-  const i = s.match(/\|\s*([^|]+)$/);
-  return i ? (n.message = i[1].trim(), n) : (s.trim().length > 0 && s.length < 200 && (n.message = s.trim()), n);
+  const n = s.match(/\|\s*([^|]+)$/);
+  return n ? (i.message = n[1].trim(), i) : (s.trim().length > 0 && s.length < 200 && (i.message = s.trim()), i);
 }
 function R(t) {
   if (t.textCode !== "TRANSLATION_MISSING")
@@ -62,12 +62,12 @@ function R(t) {
       Array.isArray(f) && (s[l] = f.filter((u) => typeof u == "string"));
     Object.keys(s).length === 0 && (s = null);
   }
-  const n = typeof e.transition == "string" ? e.transition : null, i = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.environment == "string" ? e.environment : null;
+  const i = typeof e.transition == "string" ? e.transition : null, n = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.environment == "string" ? e.environment : null;
   return {
     missingLocales: r,
     missingFieldsByLocale: s,
-    transition: n,
-    entityType: i,
+    transition: i,
+    entityType: n,
     requestedLocale: o,
     environment: a
   };
@@ -93,7 +93,7 @@ function m(t) {
     return e.data && typeof e.data == "object" && (s.data = e.data), s;
   }
   if (e.error && typeof e.error == "object") {
-    const s = e.error, n = {
+    const s = e.error, i = {
       textCode: typeof s.text_code == "string" ? s.text_code : null,
       message: typeof s.message == "string" ? s.message : "Unknown error",
       metadata: s.metadata && typeof s.metadata == "object" ? s.metadata : null,
@@ -101,15 +101,15 @@ function m(t) {
       validationErrors: null
     };
     if (Array.isArray(s.validation_errors)) {
-      const i = [], o = {};
+      const n = [], o = {};
       for (const a of s.validation_errors) {
         if (!a || typeof a != "object") continue;
         const c = a.field, l = a.message;
-        typeof c == "string" && typeof l == "string" && (i.push({ field: c, message: l }), o[c] = l);
+        typeof c == "string" && typeof l == "string" && (n.push({ field: c, message: l }), o[c] = l);
       }
-      i.length > 0 && (n.validationErrors = i, n.fields = o);
+      n.length > 0 && (i.validationErrors = n, i.fields = o);
     }
-    return { success: !1, error: n };
+    return { success: !1, error: i };
   }
   let r = "Unknown response format";
   return typeof e.message == "string" ? r = e.message : typeof e.error == "string" && (r = e.error), {
@@ -176,7 +176,7 @@ async function C(t, e, r) {
     },
     ...r,
     body: JSON.stringify(e)
-  }, async (n) => m(await n.json()));
+  }, async (i) => m(await i.json()));
   return s.success ? { success: !0, data: s.data } : { success: !1, error: s.error };
 }
 async function v(t) {
@@ -184,10 +184,10 @@ async function v(t) {
   if (s) {
     if (r || s.trim().startsWith("{"))
       try {
-        const i = JSON.parse(s);
-        if (typeof i.error == "string" && i.error.trim()) return i.error.trim();
-        if (i.error && typeof i.error == "object") {
-          const o = i.error, a = typeof o.message == "string" ? o.message.trim() : "", c = [];
+        const n = JSON.parse(s);
+        if (typeof n.error == "string" && n.error.trim()) return n.error.trim();
+        if (n.error && typeof n.error == "object") {
+          const o = n.error, a = typeof o.message == "string" ? o.message.trim() : "", c = [];
           if (Array.isArray(o.validation_errors))
             for (const f of o.validation_errors) {
               if (!f || typeof f != "object") continue;
@@ -205,17 +205,17 @@ async function v(t) {
             return `${a && a.toLowerCase() !== "validation failed" ? `${a}: ` : "Validation failed: "}${c.join("; ")}`;
           if (a) return a;
         }
-        if (typeof i.detail == "string" && i.detail.trim()) return i.detail.trim();
-        if (typeof i.title == "string" && i.title.trim()) return i.title.trim();
-        if (typeof i.message == "string" && i.message.trim()) return i.message.trim();
+        if (typeof n.detail == "string" && n.detail.trim()) return n.detail.trim();
+        if (typeof n.title == "string" && n.title.trim()) return n.title.trim();
+        if (typeof n.message == "string" && n.message.trim()) return n.message.trim();
       } catch {
       }
     if (s.includes("go-users:")) {
-      const i = s.match(/go-users:\s*([^|]+)/);
-      if (i) return i[1].trim();
+      const n = s.match(/go-users:\s*([^|]+)/);
+      if (n) return n[1].trim();
     }
-    const n = s.match(/\|\s*([^|]+)$/);
-    if (n) return n[1].trim();
+    const i = s.match(/\|\s*([^|]+)$/);
+    if (i) return i[1].trim();
     if (s.trim().length > 0 && s.length < 200) return s.trim();
   }
   return `Request failed (${t.status})`;
@@ -224,18 +224,18 @@ function N(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
 function h(t, e = "Request failed") {
-  const r = (t.message || "").trim() || e, s = [], n = /* @__PURE__ */ new Set(), i = (a, c) => {
+  const r = (t.message || "").trim() || e, s = [], i = /* @__PURE__ */ new Set(), n = (a, c) => {
     const l = a.trim(), f = c.trim();
     if (!l || !f) return;
     const u = `${l}: ${f}`;
-    n.has(u) || (n.add(u), s.push(u));
+    i.has(u) || (i.add(u), s.push(u));
   };
   if (t.fields)
     for (const [a, c] of Object.entries(t.fields))
-      typeof c == "string" && i(a, c);
+      typeof c == "string" && n(a, c);
   if (t.metadata?.fields && typeof t.metadata.fields == "object" && !Array.isArray(t.metadata.fields))
     for (const [a, c] of Object.entries(t.metadata.fields))
-      typeof c == "string" && i(a, c);
+      typeof c == "string" && n(a, c);
   const o = s.length > 0 ? `: ${s.join("; ")}` : "";
   return t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${o}` : `${r}${o}`;
 }
@@ -295,7 +295,7 @@ function x(t) {
     index: typeof t.index == "number" ? t.index : 0,
     resource: typeof t.resource == "string" ? t.resource : "",
     entityId: typeof t.entity_id == "string" ? t.entity_id : "",
-    translationGroupId: typeof t.translation_group_id == "string" ? t.translation_group_id : "",
+    familyId: typeof t.family_id == "string" ? t.family_id : "",
     targetLocale: typeof t.target_locale == "string" ? t.target_locale : "",
     fieldPath: typeof t.field_path == "string" ? t.field_path : "",
     status: E(t.status)
@@ -327,25 +327,25 @@ function k(t) {
 }
 function M(t, e = "json") {
   if (e === "json") {
-    const i = JSON.stringify(t, null, 2);
-    return new Blob([i], { type: "application/json" });
+    const n = JSON.stringify(t, null, 2);
+    return new Blob([n], { type: "application/json" });
   }
-  const r = ["index", "resource", "entity_id", "translation_group_id", "target_locale", "field_path", "status", "error", "conflict_type"], s = t.results.map((i) => [
-    String(i.index),
-    i.resource,
-    i.entityId,
-    i.translationGroupId,
-    i.targetLocale,
-    i.fieldPath,
-    i.status,
-    i.error || "",
-    i.conflict?.type || ""
-  ]), n = [
+  const r = ["index", "resource", "entity_id", "family_id", "target_locale", "field_path", "status", "error", "conflict_type"], s = t.results.map((n) => [
+    String(n.index),
+    n.resource,
+    n.entityId,
+    n.familyId,
+    n.targetLocale,
+    n.fieldPath,
+    n.status,
+    n.error || "",
+    n.conflict?.type || ""
+  ]), i = [
     r.join(","),
-    ...s.map((i) => i.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))
+    ...s.map((n) => n.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))
   ].join(`
 `);
-  return new Blob([n], { type: "text/csv" });
+  return new Blob([i], { type: "text/csv" });
 }
 export {
   S as createStructuredActionError,

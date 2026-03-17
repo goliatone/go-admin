@@ -40,7 +40,8 @@ export interface PermissionGateOptions {
   disableOnDenied?: boolean;
 }
 
-export type PermissionGuard = (record?: unknown) => boolean;
+export type PermissionGuard = (manager?: ServicesPermissionManager | unknown) => () => boolean;
+type PermissionInput = ServicesPermission | ServicesPermission[];
 
 // =============================================================================
 // Permission Manager
@@ -67,6 +68,13 @@ export class ServicesPermissionManager {
       loaded: true,
     };
     this.notifyListeners();
+  }
+
+  /**
+   * Back-compat alias used by the test and page surface.
+   */
+  setPermissions(permissions: ServicesPermission[]): void {
+    this.init(permissions);
   }
 
   /**
@@ -108,6 +116,13 @@ export class ServicesPermissionManager {
   }
 
   /**
+   * Back-compat alias used by the older services API shape.
+   */
+  can(permission: ServicesPermission): boolean {
+    return this.has(permission);
+  }
+
+  /**
    * Check if user has all specified permissions
    */
   hasAll(permissions: ServicesPermission[]): boolean {
@@ -115,10 +130,24 @@ export class ServicesPermissionManager {
   }
 
   /**
+   * Back-compat alias used by the older services API shape.
+   */
+  canAll(permissions: ServicesPermission[]): boolean {
+    return this.hasAll(permissions);
+  }
+
+  /**
    * Check if user has any of the specified permissions
    */
   hasAny(permissions: ServicesPermission[]): boolean {
     return permissions.some((p) => this.state.granted.has(p));
+  }
+
+  /**
+   * Back-compat alias used by the older services API shape.
+   */
+  canAny(permissions: ServicesPermission[]): boolean {
+    return this.hasAny(permissions);
   }
 
   /**
@@ -211,11 +240,16 @@ export function initPermissions(permissions: ServicesPermission[]): void {
  * Create a permission guard for action buttons
  */
 export function createPermissionGuard(
-  permission: ServicesPermission,
+  permission: PermissionInput,
   manager?: ServicesPermissionManager
 ): PermissionGuard {
-  const mgr = manager || getPermissionManager();
-  return () => mgr.has(permission);
+  return (overrideManager?: ServicesPermissionManager | unknown) => {
+    const mgr = overrideManager instanceof ServicesPermissionManager
+      ? overrideManager
+      : (manager || getPermissionManager());
+    const permissions = Array.isArray(permission) ? permission : [permission];
+    return () => mgr.hasAll(permissions);
+  };
 }
 
 /**
@@ -225,8 +259,12 @@ export function requireAll(
   permissions: ServicesPermission[],
   manager?: ServicesPermissionManager
 ): PermissionGuard {
-  const mgr = manager || getPermissionManager();
-  return () => mgr.hasAll(permissions);
+  return (overrideManager?: ServicesPermissionManager | unknown) => {
+    const mgr = overrideManager instanceof ServicesPermissionManager
+      ? overrideManager
+      : (manager || getPermissionManager());
+    return () => mgr.hasAll(permissions);
+  };
 }
 
 /**
@@ -236,15 +274,21 @@ export function requireAny(
   permissions: ServicesPermission[],
   manager?: ServicesPermissionManager
 ): PermissionGuard {
-  const mgr = manager || getPermissionManager();
-  return () => mgr.hasAny(permissions);
+  return (overrideManager?: ServicesPermissionManager | unknown) => {
+    const mgr = overrideManager instanceof ServicesPermissionManager
+      ? overrideManager
+      : (manager || getPermissionManager());
+    return () => mgr.hasAny(permissions);
+  };
 }
 
 /**
  * Combine multiple guards with AND logic
  */
-export function combineGuards(...guards: PermissionGuard[]): PermissionGuard {
-  return (record?: unknown) => guards.every((guard) => guard(record));
+export function combineGuards(...guards: Array<PermissionGuard | PermissionGuard[]>): PermissionGuard {
+  const normalized = guards.flatMap((guard) => Array.isArray(guard) ? guard : [guard]);
+  return (overrideManager?: ServicesPermissionManager | unknown) => () =>
+    normalized.every((guard) => guard(overrideManager)());
 }
 
 // =============================================================================
@@ -254,43 +298,43 @@ export function combineGuards(...guards: PermissionGuard[]): PermissionGuard {
 /**
  * Guard: Can view services (providers, connections, etc.)
  */
-export function canViewServices(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.VIEW, manager);
+export function canViewServices(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.VIEW, manager)();
 }
 
 /**
  * Guard: Can connect new services
  */
-export function canConnect(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.CONNECT, manager);
+export function canConnect(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.CONNECT, manager)();
 }
 
 /**
  * Guard: Can edit services (refresh, sync, etc.)
  */
-export function canEdit(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.EDIT, manager);
+export function canEdit(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.EDIT, manager)();
 }
 
 /**
  * Guard: Can revoke connections
  */
-export function canRevoke(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.REVOKE, manager);
+export function canRevoke(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.REVOKE, manager)();
 }
 
 /**
  * Guard: Can re-consent connections
  */
-export function canReconsent(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.RECONSENT, manager);
+export function canReconsent(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.RECONSENT, manager)();
 }
 
 /**
  * Guard: Can view activity
  */
-export function canViewActivity(manager?: ServicesPermissionManager): PermissionGuard {
-  return createPermissionGuard(ServicesPermissions.ACTIVITY_VIEW, manager);
+export function canViewActivity(manager?: ServicesPermissionManager): () => boolean {
+  return createPermissionGuard(ServicesPermissions.ACTIVITY_VIEW, manager)();
 }
 
 // =============================================================================
@@ -301,7 +345,16 @@ export function canViewActivity(manager?: ServicesPermissionManager): Permission
  * Check if an error is a forbidden error
  */
 export function isForbiddenError(error: unknown): error is ServicesAPIError {
-  return error instanceof ServicesAPIError && error.isForbidden;
+  if (error instanceof ServicesAPIError) {
+    return error.isForbidden;
+  }
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const candidate = error as { statusCode?: unknown; code?: unknown; isForbidden?: unknown };
+  return candidate.isForbidden === true
+    || candidate.statusCode === 403
+    || candidate.code === 'FORBIDDEN';
 }
 
 /**
@@ -447,6 +500,10 @@ export function initPermissionGates(
  * Looks for window.__permissions or data-permissions attribute on body
  */
 export function loadPermissionsFromContext(): ServicesPermission[] {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return [];
+  }
+
   // Try window global
   const windowPerms = (window as unknown as { __permissions?: string[] }).__permissions;
   if (Array.isArray(windowPerms)) {

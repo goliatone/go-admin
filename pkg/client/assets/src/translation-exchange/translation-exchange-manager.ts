@@ -1075,7 +1075,7 @@ export class TranslationExchangeManager {
       rows.push({
         resource: row.resource ?? "",
         entity_id: row.entity_id ?? "",
-        translation_group_id: row.translation_group_id ?? "",
+        family_id: row.family_id ?? "",
         source_locale: row.source_locale ?? "",
         target_locale: row.target_locale ?? "",
         field_path: row.field_path ?? "",

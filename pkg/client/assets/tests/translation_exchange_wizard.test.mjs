@@ -238,7 +238,7 @@ test("translation exchange wizard: apply step submits explicit retry resolutions
         {
           resource: "pages",
           entity_id: "page_home",
-          translation_group_id: "grp_home",
+          family_id: "grp_home",
           target_locale: "es",
           field_path: "title",
           translated_text: "Inicio",
@@ -385,7 +385,7 @@ test("translation exchange wizard: shared apply helpers emit analytics and poll 
       {
         resource: "pages",
         entity_id: "page_home",
-        translation_group_id: "grp_home",
+        family_id: "grp_home",
         target_locale: "fr",
         field_path: "title",
         translated_text: "Accueil",

@@ -241,7 +241,7 @@ function T(s) {
         index: typeof t.index == "number" ? t.index : 0,
         resource: typeof t.resource == "string" ? t.resource : "",
         entity_id: typeof t.entity_id == "string" ? t.entity_id : "",
-        translation_group_id: typeof t.translation_group_id == "string" ? t.translation_group_id : "",
+        family_id: typeof t.family_id == "string" ? t.family_id : "",
         target_locale: typeof t.target_locale == "string" ? t.target_locale : "",
         field_path: typeof t.field_path == "string" ? t.field_path : "",
         status: t.status === "success" || t.status === "error" || t.status === "conflict" || t.status === "skipped" ? t.status : "error",
@@ -279,4 +279,4 @@ export {
   k as e,
   E as n
 };
-//# sourceMappingURL=index-D46vxB91.js.map
+//# sourceMappingURL=index-YiVxcMWC.js.map

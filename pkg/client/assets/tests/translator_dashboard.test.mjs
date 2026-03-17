@@ -109,7 +109,7 @@ describe('TranslatorDashboard runtime contract', () => {
     globalThis.fetch = mock.fn(async () => createJsonResponse(makeMyWorkPayload([
       {
         id: 'assignment-1',
-        translation_group_id: 'tg-1',
+        family_id: 'tg-1',
         entity_type: 'pages',
         source_record_id: 'src-1',
         target_record_id: 'target-1',

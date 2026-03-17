@@ -108,8 +108,6 @@ export interface SchemaActionBuilderConfig {
   locale?: string;
   /** Current content channel context (passed to action payloads) */
   channel?: string;
-  /** @deprecated Use `channel` */
-  environment?: string;
   /** Panel/entity name (e.g., 'pages') */
   panelName?: string;
   /** Callback for handling translation blockers */
@@ -226,7 +224,7 @@ export class SchemaActionBuilder {
   }
 
   private getContentChannel(): string | null {
-    const channel = String(this.config.channel ?? this.config.environment ?? '').trim();
+    const channel = String(this.config.channel ?? '').trim();
     return channel || null;
   }
 
@@ -872,7 +870,6 @@ export class SchemaActionBuilder {
     const channel = this.getContentChannel();
     if (channel) {
       payload.channel = channel;
-      payload.environment = channel;
     }
     if (this.config.panelName) {
       payload.policy_entity = this.config.panelName;

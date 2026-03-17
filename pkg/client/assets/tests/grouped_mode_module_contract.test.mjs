@@ -10,8 +10,8 @@ test('grouped-mode module contract: detects backend grouped rows', () => {
   const rows = [
     {
       id: 'group:tg_alpha',
-      group_by: 'translation_group_id',
-      translation_group_id: 'tg_alpha',
+      group_by: 'family_id',
+      family_id: 'tg_alpha',
       records: [
         { id: 'alpha_en', locale: 'en', title: 'Alpha EN' },
         { id: 'alpha_fr', locale: 'fr', title: 'Alpha FR' },
@@ -34,8 +34,8 @@ test('grouped-mode module contract: normalizes backend grouped payload to groupe
   const rows = [
     {
       id: 'group:tg_alpha',
-      group_by: 'translation_group_id',
-      translation_group_id: 'tg_alpha',
+      group_by: 'family_id',
+      family_id: 'tg_alpha',
       records: [
         { id: 'alpha_en', locale: 'en', title: 'Alpha EN' },
         { id: 'alpha_fr', locale: 'fr', title: 'Alpha FR' },
@@ -63,8 +63,8 @@ test('grouped-mode module contract: normalizes backend grouped payload to groupe
 
 test('grouped-mode module contract: rejects flat payload as unsupported grouped contract', () => {
   const flatRows = [
-    { id: 'alpha_en', translation_group_id: 'tg_alpha', locale: 'en' },
-    { id: 'alpha_fr', translation_group_id: 'tg_alpha', locale: 'fr' },
+    { id: 'alpha_en', family_id: 'tg_alpha', locale: 'en' },
+    { id: 'alpha_fr', family_id: 'tg_alpha', locale: 'fr' },
   ];
 
   assert.equal(hasBackendGroupedRows(flatRows), false);

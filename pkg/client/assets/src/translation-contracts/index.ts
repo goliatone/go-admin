@@ -141,7 +141,7 @@ export interface TranslationExchangeConflictRow {
   index: number;
   resource: string;
   entity_id: string;
-  translation_group_id: string;
+  family_id: string;
   target_locale: string;
   field_path: string;
   status: "success" | "error" | "conflict" | "skipped";
@@ -705,9 +705,9 @@ export function normalizeTranslationExchangeValidationResult(
         index: typeof row.index === "number" ? row.index : 0,
         resource: typeof row.resource === "string" ? row.resource : "",
         entity_id: typeof row.entity_id === "string" ? row.entity_id : "",
-        translation_group_id:
-          typeof row.translation_group_id === "string"
-            ? row.translation_group_id
+        family_id:
+          typeof row.family_id === "string"
+            ? row.family_id
             : "",
         target_locale:
           typeof row.target_locale === "string" ? row.target_locale : "",

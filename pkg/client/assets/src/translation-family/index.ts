@@ -146,7 +146,7 @@ export interface TranslationFamilyListResponse {
   total: number;
   page: number;
   perPage: number;
-  environment: string;
+  channel: string;
 }
 
 export interface TranslationFamilyFilters {
@@ -156,7 +156,7 @@ export interface TranslationFamilyFilters {
   missingLocale: string;
   page: number;
   perPage: number;
-  environment: string;
+  channel: string;
 }
 
 export interface ReadinessChip {
@@ -167,7 +167,7 @@ export interface ReadinessChip {
 
 export interface TranslationFamilyClient {
   list(filters?: Partial<TranslationFamilyFilters>): Promise<TranslationFamilyListResponse>;
-  detail(familyId: string, environment?: string): Promise<TranslationFamilyDetail>;
+  detail(familyId: string, channel?: string): Promise<TranslationFamilyDetail>;
   createLocale(familyId: string, input?: Partial<TranslationCreateLocaleRequest>): Promise<TranslationCreateLocaleResult>;
 }
 
@@ -209,7 +209,7 @@ export interface TranslationCreateLocaleRequest {
   assigneeId: string;
   priority: string;
   dueDate: string;
-  environment: string;
+  channel: string;
   idempotencyKey: string;
 }
 
@@ -334,6 +334,7 @@ function normalizeStringMap(value: unknown): Record<string, string> {
 }
 
 export function createFamilyFilters(input: Partial<TranslationFamilyFilters> = {}): TranslationFamilyFilters {
+  const channel = asString(input.channel);
   return {
     contentType: asString(input.contentType),
     readinessState: asString(input.readinessState),
@@ -341,7 +342,7 @@ export function createFamilyFilters(input: Partial<TranslationFamilyFilters> = {
     missingLocale: asString(input.missingLocale),
     page: Math.max(1, asNumber(input.page, 1)),
     perPage: Math.max(1, asNumber(input.perPage, 50)),
-    environment: asString(input.environment),
+    channel,
   };
 }
 
@@ -352,7 +353,7 @@ export function buildFamilyListQuery(input: Partial<TranslationFamilyFilters> = 
   if (filters.readinessState) params.set('readiness_state', filters.readinessState);
   if (filters.blockerCode) params.set('blocker_code', filters.blockerCode);
   if (filters.missingLocale) params.set('missing_locale', filters.missingLocale);
-  if (filters.environment) params.set('environment', filters.environment);
+  if (filters.channel) params.set('channel', filters.channel);
   params.set('page', String(filters.page));
   params.set('per_page', String(filters.perPage));
   return params;
@@ -364,11 +365,11 @@ export function buildFamilyListURL(basePath: string, filters: Partial<Translatio
   return query ? `${path}?${query}` : path;
 }
 
-export function buildFamilyDetailURL(basePath: string, familyId: string, environment = ''): string {
+export function buildFamilyDetailURL(basePath: string, familyId: string, channel = ''): string {
   const id = encodeURIComponent(asString(familyId));
   const path = `${trimTrailingSlash(basePath)}/translations/families/${id}`;
   const query = new URLSearchParams();
-  if (asString(environment)) query.set('environment', asString(environment));
+  if (asString(channel)) query.set('channel', asString(channel));
   const encoded = query.toString();
   return encoded ? `${path}?${encoded}` : path;
 }
@@ -376,22 +377,23 @@ export function buildFamilyDetailURL(basePath: string, familyId: string, environ
 export function createTranslationCreateLocaleRequest(
   input: Partial<TranslationCreateLocaleRequest> = {}
 ): TranslationCreateLocaleRequest {
+  const channel = asString(input.channel);
   return {
     locale: asString(input.locale).toLowerCase(),
     autoCreateAssignment: asBoolean(input.autoCreateAssignment),
     assigneeId: asString(input.assigneeId),
     priority: asString(input.priority).toLowerCase(),
     dueDate: asString(input.dueDate),
-    environment: asString(input.environment),
+    channel,
     idempotencyKey: asString(input.idempotencyKey),
   };
 }
 
-export function buildCreateLocaleURL(basePath: string, familyId: string, environment = ''): string {
+export function buildCreateLocaleURL(basePath: string, familyId: string, channel = ''): string {
   const id = encodeURIComponent(asString(familyId));
   const path = `${trimTrailingSlash(basePath)}/translations/families/${id}/variants`;
   const query = new URLSearchParams();
-  if (asString(environment)) query.set('environment', asString(environment));
+  if (asString(channel)) query.set('channel', asString(channel));
   const encoded = query.toString();
   return encoded ? `${path}?${encoded}` : path;
 }
@@ -408,7 +410,7 @@ export function serializeCreateLocaleRequest(
   if (request.assigneeId) payload.assignee_id = request.assigneeId;
   if (request.priority) payload.priority = request.priority;
   if (request.dueDate) payload.due_date = request.dueDate;
-  if (request.environment) payload.environment = request.environment;
+  if (request.channel) payload.channel = request.channel;
 
   return payload;
 }
@@ -522,7 +524,7 @@ export function createTranslationCreateLocaleActionModel(
   }
   return {
     familyId,
-    endpoint: buildCreateLocaleURL(asString(input.basePath) || '/admin/api', familyId, request.environment),
+    endpoint: buildCreateLocaleURL(asString(input.basePath) || '/admin/api', familyId, request.channel),
     headers,
     request,
   };
@@ -560,7 +562,7 @@ export function normalizeFamilyListResponse(input: Record<string, unknown>): Tra
     total: asNumber(summary.total),
     page: asNumber(summary.page, 1),
     perPage: asNumber(summary.per_page, 50),
-    environment: asString(summary.environment),
+    channel: asString(summary.channel),
   };
 }
 
@@ -785,9 +787,9 @@ export function applyCreateLocaleToSummaryState(
 
   const summaryFamilyID = asString(
     next.translation_family_id ||
-    next.translation_group_id ||
+    next.family_id ||
     readiness.family_id ||
-    readiness.translation_group_id
+    readiness.family_id
   );
   if (summaryFamilyID && summaryFamilyID !== result.familyId) {
     return next;
@@ -1708,7 +1710,7 @@ interface TranslationSummaryCardConfig {
 
 function translationSummaryCardConfig(element: HTMLElement): TranslationSummaryCardConfig {
   return {
-    familyId: asString(element.dataset.translationGroupId),
+    familyId: asString(element.dataset.familyId),
     requestedLocale: asString(element.dataset.requestedLocale).toLowerCase(),
     resolvedLocale: asString(element.dataset.resolvedLocale).toLowerCase(),
     apiBasePath: asString(element.dataset.apiBasePath || '/admin/api'),
@@ -1834,8 +1836,8 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       return normalizeFamilyListResponse(payload);
     },
 
-    async detail(familyId, environment = '') {
-      const response = await fetchImpl(buildFamilyDetailURL(basePath, familyId, environment), {
+    async detail(familyId, channel = '') {
+      const response = await fetchImpl(buildFamilyDetailURL(basePath, familyId, channel), {
         headers: { Accept: 'application/json' },
       });
       const payload = await response.json() as Record<string, unknown>;

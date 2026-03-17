@@ -14,7 +14,7 @@ describe('transformToGroups', () => {
   // Simulate the transformation logic
   function transformToGroups(records, options = {}) {
     const {
-      groupByField = 'translation_group_id',
+      groupByField = 'family_id',
       defaultExpanded = true,
       expandedGroups = new Set(),
     } = options;
@@ -117,11 +117,11 @@ describe('transformToGroups', () => {
     };
   }
 
-  it('should group records by translation_group_id', () => {
+  it('should group records by family_id', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc', locale: 'en' },
-      { id: '2', translation_group_id: 'tg_abc', locale: 'es' },
-      { id: '3', translation_group_id: 'tg_xyz', locale: 'en' },
+      { id: '1', family_id: 'tg_abc', locale: 'en' },
+      { id: '2', family_id: 'tg_abc', locale: 'es' },
+      { id: '3', family_id: 'tg_xyz', locale: 'en' },
     ];
 
     const result = transformToGroups(records);
@@ -136,9 +136,9 @@ describe('transformToGroups', () => {
 
   it('should put records without group ID in ungrouped', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc', locale: 'en' },
+      { id: '1', family_id: 'tg_abc', locale: 'en' },
       { id: '2', locale: 'es' }, // No group ID
-      { id: '3', translation_group_id: '', locale: 'fr' }, // Empty group ID
+      { id: '3', family_id: '', locale: 'fr' }, // Empty group ID
     ];
 
     const result = transformToGroups(records);
@@ -151,9 +151,9 @@ describe('transformToGroups', () => {
 
   it('should preserve original record order within groups', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc', locale: 'en' },
-      { id: '2', translation_group_id: 'tg_abc', locale: 'es' },
-      { id: '3', translation_group_id: 'tg_abc', locale: 'fr' },
+      { id: '1', family_id: 'tg_abc', locale: 'en' },
+      { id: '2', family_id: 'tg_abc', locale: 'es' },
+      { id: '3', family_id: 'tg_abc', locale: 'fr' },
     ];
 
     const result = transformToGroups(records);
@@ -165,7 +165,7 @@ describe('transformToGroups', () => {
 
   it('should default groups to expanded', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc' },
+      { id: '1', family_id: 'tg_abc' },
     ];
 
     const result = transformToGroups(records);
@@ -175,7 +175,7 @@ describe('transformToGroups', () => {
 
   it('should respect defaultExpanded option', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc' },
+      { id: '1', family_id: 'tg_abc' },
     ];
 
     const result = transformToGroups(records, { defaultExpanded: false });
@@ -185,8 +185,8 @@ describe('transformToGroups', () => {
 
   it('should restore expanded state from expandedGroups', () => {
     const records = [
-      { id: '1', translation_group_id: 'tg_abc' },
-      { id: '2', translation_group_id: 'tg_xyz' },
+      { id: '1', family_id: 'tg_abc' },
+      { id: '2', family_id: 'tg_xyz' },
     ];
 
     const expandedGroups = new Set(['tg_abc']);
@@ -200,7 +200,7 @@ describe('transformToGroups', () => {
     const records = [
       {
         id: '1',
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         translation_readiness: {
           available_locales: ['en', 'es'],
           missing_required_locales: ['fr'],
@@ -209,7 +209,7 @@ describe('transformToGroups', () => {
       },
       {
         id: '2',
-        translation_group_id: 'tg_abc',
+        family_id: 'tg_abc',
         translation_readiness: {
           available_locales: ['en'],
           missing_required_locales: [],

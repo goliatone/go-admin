@@ -55,7 +55,7 @@ export interface ReviewActionState {
  */
 export interface TranslationAssignment {
   id: string;
-  translation_group_id: string;
+  family_id: string;
   entity_type: string;
   source_record_id: string;
   target_record_id: string;

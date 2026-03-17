@@ -132,7 +132,7 @@ const filterFields = (filters || []).map(filter => ({
 }));
 const translationUXEnabled = dataGridConfig.translation_ux_enabled === true;
 const groupedModeEnabled = dataGridConfig.enable_grouped_mode === true;
-const groupByField = String(dataGridConfig.group_by_field || 'translation_group_id').trim() || 'translation_group_id';
+const groupByField = String(dataGridConfig.group_by_field || 'family_id').trim() || 'family_id';
 const defaultViewMode = normalizeViewMode(dataGridConfig.default_view_mode, groupedModeEnabled ? 'grouped' : 'flat');
 const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelName}${channel ? `:${channel}` : ''}`;
 

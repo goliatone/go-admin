@@ -288,6 +288,98 @@ function dev:docker:postgres {
     return 1
 }
 
+function _resolve:esign:repository_dialect {
+    local dialect="${APP_RUNTIME__REPOSITORY_DIALECT:-postgres}"
+    dialect="$(echo "${dialect}" | tr '[:upper:]' '[:lower:]' | xargs)"
+    if [ -z "${dialect}" ]; then
+        dialect="postgres"
+    fi
+    echo "${dialect}"
+}
+
+function _resolve:esign:postgres_dsn {
+    echo "${APP_PERSISTENCE__POSTGRES__DSN:-postgres://esign:esign@127.0.0.1:5439/esign?sslmode=disable}"
+}
+
+function _resolve:esign:sqlite_path {
+    local dsn="${APP_PERSISTENCE__SQLITE__DSN:-file:data/db/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on}"
+    dsn="${dsn#file:}"
+    dsn="${dsn%%\?*}"
+    echo "${dsn}"
+}
+
+function _resolve:esign:disk_assets_dir {
+    local root_dir
+    root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    local candidates=(
+        "${root_dir}/pkg/client/assets"
+        "${SCRIPT_DIR}/assets"
+    )
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [ -f "${candidate}/output.css" ]; then
+            echo "${candidate}"
+            return 0
+        fi
+    done
+    echo "${root_dir}/pkg/client/assets"
+}
+
+##
+## -----
+##
+## dev:db:reset
+##
+## Reset the local e-sign persistence target and purge persisted uploaded artifacts.
+## For postgres it drops/recreates the public schema. For sqlite it deletes the DB file.
+## Also removes the local object-store tree under the e-sign assets directory.
+function dev:db:reset {
+    local dialect
+    dialect="$(_resolve:esign:repository_dialect)"
+
+    case "${dialect}" in
+        postgres)
+            if ! command -v psql >/dev/null 2>&1; then
+                lgr ERR "psql is required for postgres resets"
+                return 1
+            fi
+            local dsn
+            dsn="$(_resolve:esign:postgres_dsn)"
+            lgr W "resetting postgres schema for configured e-sign database"
+            if ! psql "${dsn}" -v ON_ERROR_STOP=1 <<'SQL'
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO CURRENT_USER;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+SQL
+            then
+                lgr ERR "failed to reset postgres schema"
+                return 1
+            fi
+            ;;
+        sqlite)
+            local sqlite_path
+            sqlite_path="$(_resolve:esign:sqlite_path)"
+            lgr W "removing sqlite database ${sqlite_path}"
+            rm -f "${sqlite_path}" "${sqlite_path}-shm" "${sqlite_path}-wal"
+            ;;
+        *)
+            lgr ERR "unsupported repository dialect: ${dialect}"
+            return 1
+            ;;
+    esac
+
+    local assets_dir
+    assets_dir="$(_resolve:esign:disk_assets_dir)"
+    if [ -d "${assets_dir}/tenant" ]; then
+        lgr W "removing persisted uploaded artifacts from ${assets_dir}/tenant"
+        rm -rf "${assets_dir}/tenant"
+    fi
+
+    lgr OK "e-sign persistence reset complete"
+    lgr OK "restart with ./taskfile dev:serve to rerun migrations on an empty database"
+}
+
 function release:verify {
     "${GO_BIN}" test ./release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals|TestChecklistValidateRejectsAPIOnlyFallback|TestChecklistValidateRejectsMissingProductizationAssertions|TestRunValidationProfilePassesSLOGates|TestRunSyncValidationProfileCapturesConflictRetryAndReplay|TestSmokeE2EUsesRuntimeIssuedRecipientLinks|TestRunV2ValidationProfilePassesGates|TestEvaluateV2SLODetectsFailures|TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot|TestValidateV2ContractFreezeGuardBlocksPostFreezeMismatchWithoutApproval|TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException'
 }

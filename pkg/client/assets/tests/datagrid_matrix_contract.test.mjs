@@ -119,7 +119,7 @@ test('matrix contract: view remains selectable without breaking grouped-mode rou
       columns: [],
       enableGroupedMode: true,
       defaultViewMode: 'flat',
-      groupByField: 'translation_group_id',
+      groupByField: 'family_id',
     });
 
     grid.refresh = async () => {};
@@ -144,7 +144,7 @@ test('matrix contract: datagrid query preserves filters/search/sort/grouping', (
       ],
       enableGroupedMode: true,
       defaultViewMode: 'grouped',
-      groupByField: 'translation_group_id',
+      groupByField: 'family_id',
       behaviors: {
         pagination: new GoCrudPaginationBehavior(),
         search: new GoCrudSearchBehavior(['title']),
@@ -166,7 +166,7 @@ test('matrix contract: datagrid query preserves filters/search/sort/grouping', (
     assert.equal(query.get('title__ilike'), '%hello%');
     assert.equal(query.get('status'), 'draft');
     assert.equal(query.get('order'), 'title asc');
-    assert.equal(query.get('group_by'), 'translation_group_id');
+    assert.equal(query.get('group_by'), 'family_id');
   } finally {
     cleanup();
   }

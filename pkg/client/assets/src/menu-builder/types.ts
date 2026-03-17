@@ -37,7 +37,7 @@ export interface MenuRecord {
   description?: string;
   status: MenuStatus;
   locale?: string;
-  translation_group_id?: string;
+  family_id?: string;
   archived?: boolean;
   created_at?: string;
   updated_at?: string;

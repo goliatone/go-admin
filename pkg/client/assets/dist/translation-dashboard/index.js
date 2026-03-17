@@ -1,13 +1,13 @@
 import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
 import { r as z } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as F } from "../toast/error-helpers.js";
-import { E as R, b as I, c as S, L as P, C as v, d as A, e as j, f as $, H, a as B, l as K, B as L, m as U, k as D } from "../chunks/style-constants-BesmSFuV.js";
+import { E as R, b as I, c as S, L as P, C as $, d as A, e as j, f as v, H, a as B, l as K, B as L, m as U, k as D } from "../chunks/style-constants-BesmSFuV.js";
 class b extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
   }
 }
-function a(e) {
+function r(e) {
   return typeof e == "string" ? e.trim() : "";
 }
 function h(e, t = 0) {
@@ -25,30 +25,30 @@ function l(e) {
 }
 function x(e) {
   const t = {};
-  for (const [s, r] of Object.entries(l(e))) {
-    const n = a(r);
+  for (const [s, a] of Object.entries(l(e))) {
+    const n = r(a);
     n && (t[s] = n);
   }
   return t;
 }
 function T(e) {
   const t = {};
-  for (const [s, r] of Object.entries(l(e)))
-    t[s] = h(r);
+  for (const [s, a] of Object.entries(l(e)))
+    t[s] = h(a);
   return t;
 }
 function d(e, t) {
   if (!Array.isArray(e))
     return [];
   const s = [];
-  for (const r of e) {
-    const n = t(r);
+  for (const a of e) {
+    const n = t(a);
     n && s.push(n);
   }
   return s;
 }
 function w(e) {
-  const t = a(e).toLowerCase();
+  const t = r(e).toLowerCase();
   switch (t) {
     case "warning":
     case "critical":
@@ -63,52 +63,52 @@ function M(e) {
     return null;
   const t = e;
   return {
-    href: a(t.href),
-    group: a(t.group),
-    route: a(t.route),
-    resolverKey: a(t.resolver_key),
+    href: r(t.href),
+    group: r(t.group),
+    route: r(t.route),
+    resolverKey: r(t.resolver_key),
     params: x(t.params),
     query: x(t.query),
-    key: a(t.key),
-    label: a(t.label),
-    description: a(t.description),
-    relation: a(t.relation),
-    tableId: a(t.table_id),
-    entityType: a(t.entity_type),
-    entityId: a(t.entity_id)
+    key: r(t.key),
+    label: r(t.label),
+    description: r(t.description),
+    relation: r(t.relation),
+    tableId: r(t.table_id),
+    entityType: r(t.entity_type),
+    entityId: r(t.entity_id)
   };
 }
 function X(e) {
-  const t = l(e), s = a(t.key);
+  const t = l(e), s = r(t.key);
   return s ? {
     key: s,
-    label: a(t.label),
-    description: a(t.description),
-    relation: a(t.relation),
-    group: a(t.group),
-    route: a(t.route),
-    resolverKey: a(t.resolver_key),
-    entityType: a(t.entity_type)
+    label: r(t.label),
+    description: r(t.description),
+    relation: r(t.relation),
+    group: r(t.group),
+    route: r(t.route),
+    resolverKey: r(t.resolver_key),
+    entityType: r(t.entity_type)
   } : null;
 }
 function G(e) {
-  const t = l(e), s = a(t.id);
+  const t = l(e), s = r(t.id);
   if (!s)
     return null;
-  const r = l(t.alert);
+  const a = l(t.alert);
   return {
     id: s,
-    label: a(t.label),
-    description: a(t.description),
+    label: r(t.label),
+    description: r(t.description),
     count: h(t.count),
     breakdown: T(t.breakdown),
     alert: {
-      state: w(r.state),
-      message: a(r.message)
+      state: w(a.state),
+      message: r(a.message)
     },
     drilldown: M(t.drilldown),
-    metricKey: a(t.metric_key),
-    runbookId: a(t.runbook_id)
+    metricKey: r(t.metric_key),
+    runbookId: r(t.runbook_id)
   };
 }
 function Y(e) {
@@ -116,9 +116,9 @@ function Y(e) {
   if (Object.keys(t).length === 0)
     return null;
   const s = {};
-  for (const [r, n] of Object.entries(l(t.links))) {
+  for (const [a, n] of Object.entries(l(t.links))) {
     const o = M(n);
-    o && (s[r] = o);
+    o && (s[a] = o);
   }
   return {
     ...t,
@@ -126,91 +126,91 @@ function Y(e) {
   };
 }
 function Q(e, t = "") {
-  const s = l(e), r = d(s.rows, Y);
+  const s = l(e), a = d(s.rows, Y);
   return {
-    id: a(s.id) || t,
-    label: a(s.label) || t,
-    total: h(s.total, r.length),
-    limit: h(s.limit, r.length),
-    rows: r
+    id: r(s.id) || t,
+    label: r(s.label) || t,
+    total: h(s.total, a.length),
+    limit: h(s.limit, a.length),
+    rows: a
   };
 }
 function C(e) {
-  const t = l(e), s = a(t.id);
+  const t = l(e), s = r(t.id);
   return s ? {
     id: s,
-    title: a(t.title),
-    description: a(t.description),
-    route: a(t.route),
-    resolverKey: a(t.resolver_key),
-    href: a(t.href),
+    title: r(t.title),
+    description: r(t.description),
+    route: r(t.route),
+    resolverKey: r(t.resolver_key),
+    href: r(t.href),
     query: x(t.query)
   } : null;
 }
 function q(e) {
-  const t = l(e), s = a(t.id);
+  const t = l(e), s = r(t.id);
   if (!s)
     return null;
-  const r = {};
+  const a = {};
   for (const [n, o] of Object.entries(l(t.drilldown_links))) {
     const c = X(o);
-    c && (r[n] = c);
+    c && (a[n] = c);
   }
   return {
     id: s,
-    description: a(t.description),
-    scopeFields: d(t.scope_fields, (n) => a(n) || null),
-    stableSortKeys: d(t.stable_sort_keys, (n) => a(n) || null),
-    indexHints: d(t.index_hints, (n) => a(n) || null),
-    supportedFilters: d(t.supported_filters, (n) => a(n) || null),
+    description: r(t.description),
+    scopeFields: d(t.scope_fields, (n) => r(n) || null),
+    stableSortKeys: d(t.stable_sort_keys, (n) => r(n) || null),
+    indexHints: d(t.index_hints, (n) => r(n) || null),
+    supportedFilters: d(t.supported_filters, (n) => r(n) || null),
     defaultLimit: h(t.default_limit),
-    drilldownRoute: a(t.drilldown_route),
-    queueRoute: a(t.queue_route),
-    apiRoute: a(t.api_route),
-    resolverKeys: d(t.resolver_keys, (n) => a(n) || null),
-    drilldownLinks: r
+    drilldownRoute: r(t.drilldown_route),
+    queueRoute: r(t.queue_route),
+    apiRoute: r(t.api_route),
+    resolverKeys: d(t.resolver_keys, (n) => r(n) || null),
+    drilldownLinks: a
   };
 }
 function W(e) {
   const t = l(e), s = {};
-  for (const [r, n] of Object.entries(l(t.query_models))) {
+  for (const [a, n] of Object.entries(l(t.query_models))) {
     const o = q(n);
-    o && (s[r] = o);
+    o && (s[a] = o);
   }
   return {
-    cardIds: d(t.card_ids, (r) => a(r) || null),
-    tableIds: d(t.table_ids, (r) => a(r) || null),
-    alertStates: d(t.alert_states, (r) => w(r)),
+    cardIds: d(t.card_ids, (a) => r(a) || null),
+    tableIds: d(t.table_ids, (a) => r(a) || null),
+    alertStates: d(t.alert_states, (a) => w(a)),
     defaultLimits: T(t.default_limits),
     queryModels: s,
     runbooks: d(t.runbooks, C)
   };
 }
 function J(e) {
-  const t = l(e), s = a(t.code);
+  const t = l(e), s = r(t.code);
   return s ? {
     state: w(t.state),
     code: s,
-    message: a(t.message),
-    cardId: a(t.card_id),
-    runbookId: a(t.runbook_id)
+    message: r(t.message),
+    cardId: r(t.card_id),
+    runbookId: r(t.runbook_id)
   } : null;
 }
 function V(e, t) {
   if (t.cardIds.length === 0)
     return e;
   const s = /* @__PURE__ */ new Map();
-  return t.cardIds.forEach((r, n) => s.set(r, n)), [...e].sort((r, n) => (s.get(r.id) ?? Number.MAX_SAFE_INTEGER) - (s.get(n.id) ?? Number.MAX_SAFE_INTEGER));
+  return t.cardIds.forEach((a, n) => s.set(a, n)), [...e].sort((a, n) => (s.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (s.get(n.id) ?? Number.MAX_SAFE_INTEGER));
 }
 function Z(e) {
-  const t = l(e), s = l(t.data), r = l(t.meta), n = W(r.contracts), o = V(
+  const t = l(e), s = l(t.data), a = l(t.meta), n = W(a.contracts), o = V(
     d(s.cards, G),
     n
   ), c = {};
   for (const [m, f] of Object.entries(l(s.tables)))
     c[m] = Q(f, m);
   const u = { ...n.queryModels };
-  for (const [m, f] of Object.entries(l(r.query_models))) {
+  for (const [m, f] of Object.entries(l(a.query_models))) {
     const g = q(f);
     g && (u[m] = g);
   }
@@ -223,22 +223,22 @@ function Z(e) {
       summary: T(s.summary)
     },
     meta: {
-      environment: a(r.environment),
-      generatedAt: a(r.generated_at),
-      refreshIntervalMs: h(r.refresh_interval_ms, 3e4),
-      latencyTargetMs: h(r.latency_target_ms, 0),
-      degraded: r.degraded === !0,
-      degradedReasons: d(r.degraded_reasons, (m) => {
-        const f = l(m), g = a(f.component), k = a(f.message);
+      channel: r(a.channel || a.environment),
+      generatedAt: r(a.generated_at),
+      refreshIntervalMs: h(a.refresh_interval_ms, 3e4),
+      latencyTargetMs: h(a.latency_target_ms, 0),
+      degraded: a.degraded === !0,
+      degradedReasons: d(a.degraded_reasons, (m) => {
+        const f = l(m), g = r(f.component), k = r(f.message);
         return !g && !k ? null : { component: g, message: k };
       }),
-      familyReport: l(r.family_report),
-      scope: x(r.scope),
-      metrics: d(r.metrics, (m) => {
-        const f = l(m), g = a(f.key);
+      familyReport: l(a.family_report),
+      scope: x(a.scope),
+      metrics: d(a.metrics, (m) => {
+        const f = l(m), g = r(f.key);
         return g ? {
           key: g,
-          unit: a(f.unit),
+          unit: r(f.unit),
           sloP95Ms: f.slo_p95_ms === void 0 ? null : h(f.slo_p95_ms)
         } : null;
       }),
@@ -251,31 +251,31 @@ function Z(e) {
   };
 }
 function tt(e, t = {}) {
-  const s = a(e);
+  const s = r(e);
   if (!s)
     return "";
-  const r = s.startsWith("http://") || s.startsWith("https://") ? void 0 : "http://localhost", n = new URL(s, r), o = [
-    ["environment", a(t.environment)],
-    ["tenant_id", a(t.tenantId)],
-    ["org_id", a(t.orgId)],
+  const a = s.startsWith("http://") || s.startsWith("https://") ? void 0 : "http://localhost", n = new URL(s, a), o = [
+    ["channel", r(t.channel ?? t.environment)],
+    ["tenant_id", r(t.tenantId)],
+    ["org_id", r(t.orgId)],
     ["overdue_limit", t.overdueLimit != null ? String(t.overdueLimit) : ""],
     ["blocked_limit", t.blockedLimit != null ? String(t.blockedLimit) : ""]
   ];
   for (const [c, u] of o)
     u && n.searchParams.set(c, u);
-  return r ? `${n.pathname}${n.search}` : n.toString();
+  return a ? `${n.pathname}${n.search}` : n.toString();
 }
 function et(e) {
-  const t = a(e.endpoint), s = e.fetch ?? globalThis.fetch?.bind(globalThis);
+  const t = r(e.endpoint), s = e.fetch ?? globalThis.fetch?.bind(globalThis);
   return {
-    async fetchDashboard(r = {}) {
+    async fetchDashboard(a = {}) {
       if (!t)
         throw new b({
           message: "Translation dashboard endpoint is not configured",
           status: 0,
           code: "MISSING_CONTEXT"
         });
-      const n = tt(t, r);
+      const n = tt(t, a);
       if (!s)
         throw new b({
           message: "Fetch implementation is not available",
@@ -304,17 +304,17 @@ function et(e) {
 }
 function st(e) {
   const t = Math.max(0, e.intervalMs ?? 3e4);
-  let s = null, r = null;
-  const n = async () => r || (r = (async () => {
+  let s = null, a = null;
+  const n = async () => a || (a = (async () => {
     try {
       const o = await e.load();
       return e.onData?.(o), o;
     } catch (o) {
       throw e.onError?.(o), o;
     } finally {
-      r = null;
+      a = null;
     }
-  })(), r);
+  })(), a);
   return {
     async start() {
       await n(), t > 0 && s == null && (s = globalThis.setInterval(() => {
@@ -335,30 +335,30 @@ function y(e) {
   return e.replace(/[_-]+/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
 function _(e, t, s = "") {
-  const r = i(e);
-  return t?.href ? `<a class="${p(s)} text-sky-700 hover:text-sky-900 hover:underline" href="${p(t.href)}">${r}</a>` : `<span class="${p(s)}">${r}</span>`;
+  const a = i(e);
+  return t?.href ? `<a class="${p(s)} text-sky-700 hover:text-sky-900 hover:underline" href="${p(t.href)}">${a}</a>` : `<span class="${p(s)}">${a}</span>`;
 }
-function rt(e) {
+function at(e) {
   return [...e].sort((t, s) => {
-    const r = (n) => n === "primary" ? 0 : 1;
-    return r(t.relation) - r(s.relation);
+    const a = (n) => n === "primary" ? 0 : 1;
+    return a(t.relation) - a(s.relation);
   });
 }
 function O(e, t = "No drill-downs") {
-  return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : rt(e).map((s) => {
-    const r = s.label || "Open";
-    return s.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${p(s.key || r.toLowerCase())}" href="${p(s.href)}">${i(r)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(r)}</span>`;
+  return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : at(e).map((s) => {
+    const a = s.label || "Open";
+    return s.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${p(s.key || a.toLowerCase())}" href="${p(s.href)}">${i(a)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(a)}</span>`;
   }).join("");
 }
-function at(e) {
-  const t = Object.entries(e.breakdown).map(([s, r]) => `
+function rt(e) {
+  const t = Object.entries(e.breakdown).map(([s, a]) => `
       <li class="flex items-center justify-between gap-3 text-xs text-gray-600">
         <span>${i(y(s))}</span>
-        <span class="font-semibold text-gray-900">${i(String(r))}</span>
+        <span class="font-semibold text-gray-900">${i(String(a))}</span>
       </li>
     `).join("");
   return `
-    <article class="${v} p-4 shadow-sm" data-dashboard-card="${p(e.id)}">
+    <article class="${$} p-4 shadow-sm" data-dashboard-card="${p(e.id)}">
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${i(e.label)}</p>
@@ -412,12 +412,12 @@ function it(e) {
         ${e.rows.map((t) => `
           <tr>
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${_(a(t.source_title) || a(t.assignment_id), t.links.assignment)}</div>
-              <div class="mt-1 text-xs text-gray-500">${i(a(t.assignment_id))}</div>
+              <div class="font-medium text-gray-900">${_(r(t.source_title) || r(t.assignment_id), t.links.assignment)}</div>
+              <div class="mt-1 text-xs text-gray-500">${i(r(t.assignment_id))}</div>
             </td>
-            <td class="px-4 py-3 text-gray-600">${i(`${a(t.source_locale).toUpperCase()} -> ${a(t.target_locale).toUpperCase()}`)}</td>
-            <td class="px-4 py-3 text-gray-600">${i(y(a(t.priority)))}</td>
-            <td class="px-4 py-3 text-gray-600">${i(y(a(t.status)))}</td>
+            <td class="px-4 py-3 text-gray-600">${i(`${r(t.source_locale).toUpperCase()} -> ${r(t.target_locale).toUpperCase()}`)}</td>
+            <td class="px-4 py-3 text-gray-600">${i(y(r(t.priority)))}</td>
+            <td class="px-4 py-3 text-gray-600">${i(y(r(t.status)))}</td>
             <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${h(t.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${O(Object.values(t.links || {}))}</div>
@@ -445,10 +445,10 @@ function ot(e) {
         ${e.rows.map((t) => `
           <tr>
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${_(a(t.family_id), t.links.family)}</div>
-              <div class="mt-1 text-xs text-gray-500">${i(a(t.content_type))}</div>
+              <div class="font-medium text-gray-900">${_(r(t.family_id), t.links.family)}</div>
+              <div class="mt-1 text-xs text-gray-500">${i(r(t.content_type))}</div>
             </td>
-            <td class="px-4 py-3 text-gray-600">${i(y(a(t.readiness_state)))}</td>
+            <td class="px-4 py-3 text-gray-600">${i(y(r(t.readiness_state)))}</td>
             <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(h(t.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(h(t.pending_review_count)))}</td>
             <td class="px-4 py-3">
@@ -463,7 +463,7 @@ function ot(e) {
 function lt(e) {
   const t = e.id === "top_overdue_assignments" ? it(e) : ot(e);
   return `
-    <section class="overflow-hidden ${v} shadow-sm" data-dashboard-table="${p(e.id)}">
+    <section class="overflow-hidden ${$} shadow-sm" data-dashboard-table="${p(e.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${i(e.label)}</h2>
@@ -476,7 +476,7 @@ function lt(e) {
 }
 function dt(e) {
   return e.length === 0 ? "" : `
-    <section class="${v} p-4 shadow-sm" data-dashboard-runbooks="true">
+    <section class="${$} p-4 shadow-sm" data-dashboard-runbooks="true">
       <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         ${e.map((t) => `
@@ -508,11 +508,11 @@ function ut(e) {
   return `border ${D(N(e))}`;
 }
 function pt(e) {
-  const t = Object.entries(e.meta.scope).filter(([, s]) => s).map(([s, r]) => `${y(s)}: ${r}`);
+  const t = Object.entries(e.meta.scope).filter(([, s]) => s).map(([s, a]) => `${y(s)}: ${a}`);
   return `
     <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
       <div class="flex flex-wrap items-center gap-4">
-        <span><strong class="font-semibold text-white">Environment:</strong> ${i(e.meta.environment || "default")}</span>
+        <span><strong class="font-semibold text-white">Channel:</strong> ${i(e.meta.channel || "default")}</span>
         <span><strong class="font-semibold text-white">Refresh:</strong> ${i(String(e.meta.refreshIntervalMs))}ms</span>
         <span><strong class="font-semibold text-white">Latency target:</strong> ${i(String(e.meta.latencyTargetMs))}ms p95</span>
       </div>
@@ -523,7 +523,7 @@ function pt(e) {
 function ht(e, t = !1) {
   const s = e?.meta.generatedAt ? new Date(e.meta.generatedAt).toLocaleString() : "Unavailable";
   return `
-    <section class="${v} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
+    <section class="${$} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p class="${H}">Manager Monitoring</p>
@@ -557,22 +557,22 @@ function ft(e) {
   `;
 }
 function mt(e) {
-  const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, r = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
+  const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, a = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return `
     <section class="${A} p-4" data-dashboard-inline-error="true" role="alert">
       <p class="${j}">Latest refresh failed</p>
-      <p class="${$} mt-2">${i(e instanceof Error ? e.message : "Failed to load translation dashboard")}</p>
-      ${r ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(r)}</p>` : ""}
+      <p class="${v} mt-2">${i(e instanceof Error ? e.message : "Failed to load translation dashboard")}</p>
+      ${a ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(a)}</p>` : ""}
     </section>
   `;
 }
 function gt(e) {
-  const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, r = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", r ? `Trace ${r}` : ""].filter(Boolean).join(" • ");
+  const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, a = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return `
     <section class="${A} p-4" data-dashboard-error="true" role="alert">
       <p class="${j}">Translation dashboard unavailable</p>
-      <p class="${$} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
-      <p class="${$} mt-2">${i(t)}</p>
+      <p class="${v} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
+      <p class="${v} mt-2">${i(t)}</p>
       ${n ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(n)}</p>` : ""}
       <div class="mt-4">
         <button type="button" class="${U}" data-dashboard-refresh-button="true">Retry dashboard</button>
@@ -604,7 +604,7 @@ class yt {
     }, this.client = et(t);
   }
   mount(t) {
-    if (this.container = t, !a(this.config.endpoint)) {
+    if (this.container = t, !r(this.config.endpoint)) {
       this.state = "error", t.innerHTML = bt();
       return;
     }
@@ -647,7 +647,7 @@ class yt {
   render() {
     if (!this.container || !this.payload)
       return;
-    const t = this.payload, s = t.data.cards.map(at).join(""), r = Object.values(t.data.tables).map(lt).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
+    const t = this.payload, s = t.data.cards.map(rt).join(""), a = Object.values(t.data.tables).map(lt).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
         <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
@@ -663,7 +663,7 @@ class yt {
         ${nt(t.data.alerts)}
         ${n ? ft(t) : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${s}</section>
-            <section class="grid gap-4 xl:grid-cols-2">${r}</section>
+            <section class="grid gap-4 xl:grid-cols-2">${a}</section>
           `}
         ${dt(t.data.runbooks)}
       </div>

@@ -10,7 +10,7 @@
  * - available_locales: Array of locales that exist for this translation group
  * - missing_requested_locale: Boolean indicating requested locale doesn't exist
  * - fallback_used: Boolean indicating content is from a fallback locale
- * - translation_group_id: The group ID linking all locale variants
+ * - family_id: The group ID linking all locale variants
  */
 
 import { badge } from '../shared/badge.js';
@@ -40,7 +40,7 @@ export interface TranslationContext {
   /** True if content is from a fallback locale (not the requested one) */
   fallbackUsed: boolean;
   /** Translation group ID linking all locale variants */
-  translationGroupId: string | null;
+  familyId: string | null;
   /** Workflow status of the current locale variant */
   status: string | null;
   /** Entity type (pages, posts, etc.) */
@@ -55,7 +55,7 @@ export interface TranslationContext {
  */
 export interface TranslationReadiness {
   /** Translation group ID linking all locale variants */
-  translationGroupId: string | null;
+  familyId: string | null;
   /** Required locales per policy for this entity/transition/environment */
   requiredLocales: string[];
   /** Available locales that exist for this translation group */
@@ -136,7 +136,7 @@ export function extractTranslationContext(record: Record<string, unknown>): Tran
     availableLocales: [],
     missingRequestedLocale: false,
     fallbackUsed: false,
-    translationGroupId: null,
+    familyId: null,
     status: null,
     entityType: null,
     recordId: null,
@@ -178,10 +178,10 @@ export function extractTranslationContext(record: Record<string, unknown>): Tran
     'content_translation.meta.fallback_used',
   ]);
 
-  context.translationGroupId = extractStringField(record, [
-    'translation_group_id',
-    'translation.meta.translation_group_id',
-    'content_translation.meta.translation_group_id',
+  context.familyId = extractStringField(record, [
+    'family_id',
+    'translation.meta.family_id',
+    'content_translation.meta.family_id',
   ]);
 
   context.status = extractStringField(record, ['status']);
@@ -215,7 +215,7 @@ export function isInFallbackMode(record: Record<string, unknown>): boolean {
  */
 export function hasTranslationContext(record: Record<string, unknown>): boolean {
   const ctx = extractTranslationContext(record);
-  return ctx.translationGroupId !== null || ctx.resolvedLocale !== null || ctx.availableLocales.length > 0;
+  return ctx.familyId !== null || ctx.resolvedLocale !== null || ctx.availableLocales.length > 0;
 }
 
 function escapeHtml(value: string): string {
@@ -417,7 +417,7 @@ export function renderTranslationExchangeSummary(
  */
 export function extractTranslationReadiness(record: Record<string, unknown>): TranslationReadiness {
   const readiness: TranslationReadiness = {
-    translationGroupId: null,
+    familyId: null,
     requiredLocales: [],
     availableLocales: [],
     missingRequiredLocales: [],
@@ -438,12 +438,12 @@ export function extractTranslationReadiness(record: Record<string, unknown>): Tr
   if (readinessObj && typeof readinessObj === 'object') {
     readiness.hasReadinessMetadata = true;
 
-    readiness.translationGroupId = extractStringField(record, [
-      'translation_readiness.translation_group_id',
-      'translation_group_id',
-      'translation.meta.translation_group_id',
-      'content_translation.meta.translation_group_id',
-      'translation_context.translation_group_id',
+    readiness.familyId = extractStringField(record, [
+      'translation_readiness.family_id',
+      'family_id',
+      'translation.meta.family_id',
+      'content_translation.meta.family_id',
+      'translation_context.family_id',
     ]);
 
     readiness.requiredLocales = Array.isArray(readinessObj.required_locales)

@@ -183,7 +183,7 @@ test('translation-family create-locale: optimistic detail update removes missing
 test('translation-family create-locale: optimistic summary update clears fallback flags for the created locale', () => {
   const summary = {
     id: 'page-1',
-    translation_group_id: 'tg-page-1',
+    family_id: 'tg-page-1',
     requested_locale: 'fr',
     resolved_locale: 'en',
     missing_requested_locale: true,

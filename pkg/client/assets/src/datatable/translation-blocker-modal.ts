@@ -36,8 +36,6 @@ export interface TranslationBlockerModalConfig {
   requestedLocale: string | null;
   /** The content channel context (e.g., 'default', 'staging') */
   channel?: string | null;
-  /** @deprecated Use `channel` */
-  environment?: string | null;
   /** API endpoint for panel actions (e.g., /admin/api/panels/pages) */
   apiEndpoint: string;
   /** Base path for navigation (e.g., /admin/content/pages) */
@@ -61,7 +59,7 @@ export interface CreateTranslationResult {
   id: string;
   locale: string;
   status: string;
-  translation_group_id?: string;
+  family_id?: string;
 }
 
 /**
@@ -99,7 +97,7 @@ export class TranslationBlockerModal extends Modal {
   }
 
   private getContentChannel(): string | null {
-    const channel = String(this.config.channel ?? this.config.environment ?? '').trim();
+    const channel = String(this.config.channel ?? '').trim();
     return channel || null;
   }
 
@@ -377,7 +375,6 @@ export class TranslationBlockerModal extends Modal {
       const channel = this.getContentChannel();
       if (channel) {
         payload.channel = channel;
-        payload.environment = channel;
       }
       if (this.config.panelName) {
         payload.policy_entity = this.config.panelName;
@@ -404,8 +401,8 @@ export class TranslationBlockerModal extends Modal {
           id: state.newRecordId || this.config.recordId,
           locale: locale,
           status: String(result.data?.status || 'draft'),
-          translation_group_id: result.data?.translation_group_id
-            ? String(result.data.translation_group_id)
+          family_id: result.data?.family_id
+            ? String(result.data.family_id)
             : undefined,
         };
         this.config.onCreateSuccess?.(locale, createResult);

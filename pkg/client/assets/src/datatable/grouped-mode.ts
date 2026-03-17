@@ -5,7 +5,7 @@
  * for translation-grouped content views.
  *
  * Contract:
- * - Groups records by `translation_group_id`
+ * - Groups records by `family_id`
  * - Preserves backend-provided group summaries when available
  * - Falls back to client-computed summaries when backend omits them
  * - Maintains expand/collapse state with persistence
@@ -23,7 +23,7 @@
  * - **flat**: Standard list view. Each record is a separate row.
  *   Cell renderers show basic translation status badges.
  *
- * - **grouped**: Records are grouped by `translation_group_id`.
+ * - **grouped**: Records are grouped by `family_id`.
  *   Expandable group headers show aggregate translation state.
  *   Child rows are collapsible under each group.
  *
@@ -60,10 +60,10 @@ export interface GroupSummary {
 }
 
 /**
- * A group of records sharing the same translation_group_id
+ * A group of records sharing the same family_id
  */
 export interface RecordGroup {
-  /** The translation_group_id */
+  /** The family_id */
   groupId: string;
   /** Optional display label for group headers */
   displayLabel?: string;
@@ -83,7 +83,7 @@ export interface RecordGroup {
 export interface GroupedData {
   /** Groups of records */
   groups: RecordGroup[];
-  /** Ungrouped records (no translation_group_id) */
+  /** Ungrouped records (no family_id) */
   ungrouped: Record<string, unknown>[];
   /** Total group count */
   totalGroups: number;
@@ -95,7 +95,7 @@ export interface GroupedData {
  * Options for group transformation
  */
 export interface GroupTransformOptions {
-  /** Field to group by (default: translation_group_id) */
+  /** Field to group by (default: family_id) */
   groupByField?: string;
   /** Default expanded state for groups */
   defaultExpanded?: boolean;
@@ -106,15 +106,16 @@ export interface GroupTransformOptions {
 }
 
 /**
- * Backend grouped row shape for `group_by=translation_group_id`.
+ * Backend grouped row shape for `group_by=family_id`.
  */
 interface BackendGroupedRow {
-  translation_group_id?: string;
+  family_id?: string;
   group_by?: string;
   records?: unknown;
   children?: unknown;
   parent?: unknown;
-  translation_group_summary?: unknown;
+  family_summary?: unknown;
+  family_label?: unknown;
   _group?: unknown;
 }
 
@@ -123,7 +124,7 @@ interface BackendGroupedRow {
 // ============================================================================
 
 /**
- * Transform flat records into grouped structure by translation_group_id.
+ * Transform flat records into grouped structure by family_id.
  *
  * @param records - Array of records from API
  * @param options - Grouping options
@@ -134,7 +135,7 @@ export function transformToGroups(
   options: GroupTransformOptions = {}
 ): GroupedData {
   const {
-    groupByField = 'translation_group_id',
+    groupByField = 'family_id',
     defaultExpanded = true,
     expandMode = 'explicit',
     expandedGroups = new Set<string>(),
@@ -216,7 +217,7 @@ export function hasBackendGroupedRows(records: Record<string, unknown>[]): boole
 }
 
 /**
- * Normalize backend grouped payload (`group_by=translation_group_id`) into GroupedData.
+ * Normalize backend grouped payload (`group_by=family_id`) into GroupedData.
  * Returns `null` when payload does not match grouped-row contract.
  */
 export function normalizeBackendGroupedRows(
@@ -296,7 +297,7 @@ function isBackendGroupedRow(record: Record<string, unknown>): record is Record<
     ? row.group_by.trim().toLowerCase()
     : '';
   const rowType = getBackendGroupRowType(record);
-  const hasGroupedMarker = groupBy === 'translation_group_id' || rowType === 'group';
+  const hasGroupedMarker = groupBy === 'family_id' || rowType === 'group';
   if (!hasGroupedMarker) {
     return false;
   }
@@ -319,7 +320,7 @@ function getBackendGroupRowType(record: Record<string, unknown>): string {
 }
 
 function getBackendGroupID(record: Record<string, unknown>): string | null {
-  const direct = record.translation_group_id;
+  const direct = record.family_id;
   if (typeof direct === 'string' && direct.trim()) {
     return direct.trim();
   }
@@ -354,12 +355,12 @@ function getBackendGroupChildren(record: Record<string, unknown>): Record<string
 }
 
 function hasBackendGroupSummary(record: Record<string, unknown>): boolean {
-  const summary = record.translation_group_summary;
+  const summary = record.family_summary;
   return !!summary && typeof summary === 'object' && !Array.isArray(summary);
 }
 
 function getBackendGroupSummary(record: Record<string, unknown>, children: Record<string, unknown>[]): GroupSummary {
-  const summary = record.translation_group_summary;
+  const summary = record.family_summary;
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
     return computeGroupSummary(children);
   }
@@ -388,12 +389,12 @@ function getBackendGroupSummary(record: Record<string, unknown>, children: Recor
 }
 
 function getBackendGroupLabel(record: Record<string, unknown>, children: Record<string, unknown>[]): string | undefined {
-  const directLabel = record.translation_group_label;
+  const directLabel = record.family_label;
   if (typeof directLabel === 'string' && directLabel.trim()) {
     return directLabel.trim();
   }
 
-  const summary = record.translation_group_summary;
+  const summary = record.family_summary;
   if (summary && typeof summary === 'object' && !Array.isArray(summary)) {
     const summaryLabel = (summary as Record<string, unknown>).group_label;
     if (typeof summaryLabel === 'string' && summaryLabel.trim()) {
@@ -436,7 +437,7 @@ function getGroupId(record: Record<string, unknown>, field: string): string | nu
     return value;
   }
 
-  // Try nested paths (e.g., translation.meta.translation_group_id)
+  // Try nested paths (e.g., translation.meta.family_id)
   const nestedPaths = [
     `translation.meta.${field}`,
     `content_translation.meta.${field}`,
@@ -754,7 +755,7 @@ export function toggleGroupExpand(
 /**
  * Expand all groups.
  *
- * Note: This only affects grouped records (those with translation_group_id).
+ * Note: This only affects grouped records (those with family_id).
  * Ungrouped records (in groupedData.ungrouped) are always visible and
  * are not affected by expand/collapse operations.
  */
@@ -769,7 +770,7 @@ export function expandAllGroups(groupedData: GroupedData): GroupedData {
 /**
  * Collapse all groups.
  *
- * Note: This only affects grouped records (those with translation_group_id).
+ * Note: This only affects grouped records (those with family_id).
  * Ungrouped records (in groupedData.ungrouped) are always visible and
  * are not affected by expand/collapse operations. This is the expected
  * behavior for mixed datasets where some records have translation groups
@@ -1078,7 +1079,7 @@ function deriveGroupLabel(group: RecordGroup): string {
  * Group header semantics:
  * - Groups show an expandable/collapsible header with a derived label
  * - Label is derived from: displayLabel > first record's title > fallback
- * - Ungrouped records (those without translation_group_id) are rendered
+ * - Ungrouped records (those without family_id) are rendered
  *   as regular rows without a header, after all grouped content
  * - Collapse All only affects grouped records, not ungrouped rows
  */

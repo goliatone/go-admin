@@ -259,7 +259,7 @@ export class DetailActionsController {
     }
     const query = new URLSearchParams(window.location.search);
     const locale = query.get('locale');
-    const channel = query.get('channel') || query.get('environment');
+    const channel = query.get('channel');
     const endpoint = `${this.apiBasePath()}/panels/${encodeURIComponent(panelName)}/${encodeURIComponent(recordID)}`;
     if (!locale && !channel) {
       return endpoint;

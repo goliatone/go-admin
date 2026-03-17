@@ -136,7 +136,7 @@ export interface TranslationMatrixResponse {
     selection: TranslationMatrixSelection;
   };
   meta: {
-    environment: string;
+    channel: string;
     page: number;
     per_page: number;
     total: number;
@@ -175,13 +175,13 @@ export interface TranslationMatrixBulkActionResponse {
     preview_rows?: Record<string, unknown>[];
   };
   meta: {
-    environment: string;
+    channel: string;
     contracts: TranslationMatrixContracts | Record<string, unknown>;
   };
 }
 
 export interface TranslationMatrixQuery {
-  environment?: string;
+  channel?: string;
   tenantId?: string;
   orgId?: string;
   familyId?: string;
@@ -565,7 +565,7 @@ export function normalizeTranslationMatrixResponse(value: unknown): TranslationM
       selection: normalizeTranslationMatrixSelection(data.selection),
     },
     meta: {
-      environment: asString(meta.environment),
+      channel: asString(meta.channel),
       page: asNumber(meta.page, 1),
       per_page: asNumber(meta.per_page, 25),
       total: asNumber(meta.total),
@@ -631,7 +631,7 @@ export function normalizeTranslationMatrixBulkActionResponse(value: unknown): Tr
       preview_rows: asObjectArray(data.preview_rows),
     },
     meta: {
-      environment: asString(asRecord(raw.meta).environment),
+      channel: asString(asRecord(raw.meta).channel),
       contracts: normalizeTranslationMatrixContracts(asRecord(raw.meta).contracts),
     },
   };
@@ -639,7 +639,8 @@ export function normalizeTranslationMatrixBulkActionResponse(value: unknown): Tr
 
 export function buildTranslationMatrixURL(endpoint: string, query: TranslationMatrixQuery = {}): string {
   const url = new URL(endpoint, 'http://localhost');
-  if (query.environment) url.searchParams.set('environment', query.environment);
+  const channel = asString(query.channel);
+  if (channel) url.searchParams.set('channel', channel);
   if (query.tenantId) url.searchParams.set('tenant_id', query.tenantId);
   if (query.orgId) url.searchParams.set('org_id', query.orgId);
   if (query.familyId) url.searchParams.set('family_id', query.familyId);
@@ -872,7 +873,7 @@ function readQueryFromLocation(): TranslationMatrixQuery {
   const params = new URLSearchParams(globalThis.location.search);
   const locales = parseLocaleInput(params.get('locales') ?? params.get('locale') ?? '');
   return {
-    environment: asString(params.get('environment')),
+    channel: asString(params.get('channel')),
     tenantId: asString(params.get('tenant_id')),
     orgId: asString(params.get('org_id')),
     contentType: asString(params.get('content_type')),
@@ -888,7 +889,7 @@ function readQueryFromLocation(): TranslationMatrixQuery {
 
 function summarizeScope(query: TranslationMatrixQuery): string {
   const parts = [
-    query.environment ? `Env ${query.environment}` : '',
+    query.channel ? `Channel ${query.channel}` : '',
     query.tenantId ? `Tenant ${query.tenantId}` : '',
     query.orgId ? `Org ${query.orgId}` : '',
   ].filter(Boolean);
@@ -1409,7 +1410,7 @@ export class TranslationMatrixPage {
     this.render();
     try {
       const response = await this.client.runBulkAction(target, buildTranslationMatrixBulkActionPayload(this.selection, {
-        environment: this.query.environment,
+        channel: this.query.channel,
       }));
       const summary = response.data.summary[action === 'create_missing' ? 'created' : 'export_ready'] ?? 0;
       this.feedback = action === 'create_missing'

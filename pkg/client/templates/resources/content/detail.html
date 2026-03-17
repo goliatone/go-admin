@@ -8,14 +8,14 @@
 
 {% block detail_content_pre %}
   {# Translation Summary for multilingual content #}
-  {% set has_translation_context = resource_item.translation_group_id %}
-  {% if not has_translation_context and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.translation_group_id %}
-    {% set has_translation_context = resource_item.translation.meta.translation_group_id %}
+  {% set has_translation_context = resource_item.family_id %}
+  {% if not has_translation_context and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.family_id %}
+    {% set has_translation_context = resource_item.translation.meta.family_id %}
   {% endif %}
   {% if has_translation_context %}
-    {% set translation_group_id = resource_item.translation_group_id %}
-    {% if not translation_group_id and resource_item.translation and resource_item.translation.meta %}
-      {% set translation_group_id = resource_item.translation.meta.translation_group_id %}
+    {% set family_id = resource_item.family_id %}
+    {% if not family_id and resource_item.translation and resource_item.translation.meta %}
+      {% set family_id = resource_item.translation.meta.family_id %}
     {% endif %}
     {% set requested_locale = resource_item.requested_locale %}
     {% if not requested_locale and resource_item.translation and resource_item.translation.meta %}
@@ -42,7 +42,7 @@
     {% endif %}
     {# Phase 19.3: Pass translation_readiness for productized mode #}
     {% set translation_readiness = resource_item.translation_readiness %}
-    {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false translation_readiness=translation_readiness translation_family_url=resource_item.translation_family_url translation_locale_urls=resource_item.translation_locale_urls %}
+    {% include "partials/translation-summary.html" with family_id=family_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false translation_readiness=translation_readiness translation_family_url=resource_item.translation_family_url translation_locale_urls=resource_item.translation_locale_urls %}
   {% endif %}
 {% endblock %}
 

@@ -47,6 +47,21 @@ const DEFAULT_CONFIG: Required<Omit<QueryStateConfig, 'onChange'>> = {
   useReplaceState: false,
 };
 
+function getRuntimeWindow(): Window | undefined {
+  if (typeof window !== 'undefined') {
+    return window;
+  }
+  return undefined;
+}
+
+function getRuntimeStorage(): Storage | undefined {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  const candidate = (globalThis as { localStorage?: Storage }).localStorage;
+  return candidate;
+}
+
 // =============================================================================
 // Query State Manager
 // =============================================================================
@@ -179,13 +194,15 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
       clearTimeout(this.searchTimeout);
     }
 
+    if (this.state.search !== search) {
+      this.state.search = search;
+      this.state.page = 1; // Reset to first page
+    }
+
     this.searchTimeout = setTimeout(() => {
-      if (this.state.search !== search) {
-        this.state.search = search;
-        this.state.page = 1; // Reset to first page
-        this.syncToURL();
-        this.notifyChange();
-      }
+      this.searchTimeout = null;
+      this.syncToURL();
+      this.notifyChange();
     }, this.config.searchDelay);
   }
 
@@ -195,13 +212,14 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
   setSearchImmediate(search: string): void {
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
     }
 
     if (this.state.search !== search) {
       this.state.search = search;
-      this.state.page = 1;
-      this.syncToURL();
-      this.notifyChange();
+        this.state.page = 1; // Reset to first page
+        this.syncToURL();
+        this.notifyChange();
     }
   }
 
@@ -343,7 +361,12 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
   // ---------------------------------------------------------------------------
 
   private restoreFromURL(): void {
-    const params = new URLSearchParams(window.location.search);
+    const runtimeWindow = getRuntimeWindow();
+    if (!runtimeWindow?.location) {
+      return;
+    }
+
+    const params = new URLSearchParams(runtimeWindow.location.search);
 
     // Restore page
     const page = params.get('page');
@@ -393,15 +416,18 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
 
   private restoreFromStorage(): void {
     if (!this.storageKey) return;
+    const storage = getRuntimeStorage();
+    const runtimeWindow = getRuntimeWindow();
+    if (!storage) return;
 
     try {
-      const stored = localStorage.getItem(this.storageKey);
+      const stored = storage.getItem(this.storageKey);
       if (stored) {
         const data = JSON.parse(stored);
         // Only restore per_page preference from storage
         if (typeof data.per_page === 'number' && data.per_page > 0) {
           // URL takes precedence
-          const params = new URLSearchParams(window.location.search);
+          const params = new URLSearchParams(runtimeWindow?.location?.search || '');
           if (!params.has('per_page')) {
             this.state.per_page = data.per_page;
           }
@@ -414,9 +440,11 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
 
   private saveToStorage(): void {
     if (!this.storageKey) return;
+    const storage = getRuntimeStorage();
+    if (!storage) return;
 
     try {
-      localStorage.setItem(
+      storage.setItem(
         this.storageKey,
         JSON.stringify({ per_page: this.state.per_page })
       );
@@ -426,6 +454,11 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
   }
 
   private syncToURL(): void {
+    const runtimeWindow = getRuntimeWindow();
+    if (!runtimeWindow?.location || !runtimeWindow.history) {
+      return;
+    }
+
     const params = new URLSearchParams();
 
     // Add page (only if not page 1)
@@ -468,13 +501,13 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
 
     // Update URL
     const newURL = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
-      : window.location.pathname;
+      ? `${runtimeWindow.location.pathname}?${params.toString()}`
+      : runtimeWindow.location.pathname;
 
     if (this.config.useReplaceState) {
-      window.history.replaceState({}, '', newURL);
+      runtimeWindow.history.replaceState({}, '', newURL);
     } else {
-      window.history.pushState({}, '', newURL);
+      runtimeWindow.history.pushState({}, '', newURL);
     }
   }
 
@@ -508,7 +541,7 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
 export function debounce<T extends (...args: unknown[]) => void>(
   fn: T,
   delay: number
-): { call: T; cancel: () => void } {
+): T & { cancel: () => void } {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const debouncedFn = ((...args: unknown[]) => {
@@ -528,39 +561,51 @@ export function debounce<T extends (...args: unknown[]) => void>(
     }
   };
 
-  return { call: debouncedFn, cancel };
+  return Object.assign(debouncedFn, { cancel });
 }
 
 /**
  * Build URLSearchParams from query state
  */
 export function buildSearchParams<F extends Record<string, string>>(
-  state: QueryState<F>,
+  state: QueryState<F> | Record<string, string | number | null | undefined>,
   options?: { includePage?: boolean; includeDefaults?: boolean }
 ): URLSearchParams {
+  if (!('filters' in state)) {
+    const flatState = state as Record<string, string | number | null | undefined>;
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(flatState)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return params;
+  }
+
+  const queryState = state as QueryState<F>;
   const params = new URLSearchParams();
   const { includePage = true, includeDefaults = false } = options || {};
 
-  if (includePage && (state.page > 1 || includeDefaults)) {
-    params.set('page', String(state.page));
+  if (includePage && (queryState.page > 1 || includeDefaults)) {
+    params.set('page', String(queryState.page));
   }
 
-  if (state.per_page !== 25 || includeDefaults) {
-    params.set('per_page', String(state.per_page));
+  if (queryState.per_page !== 25 || includeDefaults) {
+    params.set('per_page', String(queryState.per_page));
   }
 
-  if (state.search) {
-    params.set('q', state.search);
+  if (queryState.search) {
+    params.set('q', queryState.search);
   }
 
-  if (state.sort_field) {
-    params.set('sort_field', state.sort_field);
-    if (state.sort_order) {
-      params.set('sort_order', state.sort_order);
+  if (queryState.sort_field) {
+    params.set('sort_field', queryState.sort_field);
+    if (queryState.sort_order) {
+      params.set('sort_order', queryState.sort_order);
     }
   }
 
-  for (const [key, value] of Object.entries(state.filters)) {
+  for (const [key, value] of Object.entries(queryState.filters)) {
     if (value !== undefined && value !== null && value !== '') {
       params.set(key, value);
     }
@@ -576,7 +621,24 @@ export function parseSearchParams<F extends Record<string, string>>(
   params: URLSearchParams,
   filterFields: (keyof F)[],
   defaults?: Partial<QueryState<F>>
-): QueryState<F> {
+): QueryState<F> | (Record<string, string> & { page?: string; per_page?: string; q?: string; search?: string; sort_field?: string; sort_order?: string }) {
+  if (!defaults) {
+    const parsed: Record<string, string> = {};
+    for (const key of filterFields) {
+      const value = params.get(String(key));
+      if (value !== null) {
+        parsed[String(key)] = value;
+      }
+    }
+    for (const key of ['page', 'per_page', 'q', 'search', 'sort_field', 'sort_order']) {
+      const value = params.get(key);
+      if (value !== null) {
+        parsed[key] = value;
+      }
+    }
+    return parsed;
+  }
+
   const state: QueryState<F> = {
     page: defaults?.page ?? 1,
     per_page: defaults?.per_page ?? 25,

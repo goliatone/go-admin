@@ -132,7 +132,7 @@ export function buildQueryParams(grid: any): Record<string, any> {
 
     // Grouping (Phase 2 / TX-058)
     if (grid.isGroupedViewActive()) {
-      params.group_by = grid.config.groupByField || 'translation_group_id';
+      params.group_by = grid.config.groupByField || 'family_id';
     }
 
     return params;

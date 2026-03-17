@@ -126,14 +126,14 @@ test('translation queue contracts: canonical list urls preserve review state and
   const url = buildAssignmentListURL('/admin/api/translations/assignments', {
     reviewerId: '__me__',
     reviewState: 'qa_blocked',
-    translationGroupId: 'tg-page-1',
+    familyId: 'tg-page-1',
     sort: 'due_date',
     order: 'asc',
   });
 
   assert.equal(
     url,
-    '/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&translation_group_id=tg-page-1&sort=due_date&order=asc'
+    '/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&sort=due_date&order=asc'
   );
 });
 
