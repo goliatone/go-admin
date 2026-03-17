@@ -64,7 +64,7 @@ test('translation dashboard contracts: normalize payloads, table links, and dril
 
 test('translation dashboard contracts: build canonical dashboard aggregate urls', () => {
   const url = buildTranslationDashboardURL('/admin/api/translations/dashboard', {
-    environment: 'production',
+    channel: 'production',
     tenantId: 'tenant-1',
     orgId: 'org-1',
     overdueLimit: 3,
@@ -73,7 +73,7 @@ test('translation dashboard contracts: build canonical dashboard aggregate urls'
 
   assert.equal(
     url,
-    '/admin/api/translations/dashboard?environment=production&tenant_id=tenant-1&org_id=org-1&overdue_limit=3&blocked_limit=2'
+    '/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1&overdue_limit=3&blocked_limit=2'
   );
 });
 
@@ -90,14 +90,14 @@ test('translation dashboard contracts: client requests canonical endpoint and no
   });
 
   const payload = await client.fetchDashboard({
-    environment: 'production',
+    channel: 'production',
     tenantId: 'tenant-1',
     orgId: 'org-1',
   });
 
   assert.equal(
     requests[0],
-    '/admin/api/translations/dashboard?environment=production&tenant_id=tenant-1&org_id=org-1'
+    '/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1'
   );
   assert.equal(payload.data.cards[0].label, 'My Tasks');
   assert.equal(payload.data.alerts[0].state, 'critical');

@@ -911,7 +911,7 @@ func (p *panelBinding) withTranslationReadiness(ctx AdminContext, records []map[
 	}
 	// Use memoized requirements resolution for all records in the batch.
 	// Requirements are memoized per (entity_type, policy_entity, transition,
-	// environment), and locale availability is aggregated by translation group.
+	// channel), and locale availability is aggregated by translation family.
 	cache := translationReadinessRequirementsCache{
 		availableLocalesByGroup: translationReadinessBatchAvailableLocales(records),
 	}

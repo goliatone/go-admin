@@ -494,6 +494,7 @@ export function createAgreementFormRuntimeCoordinator(
 
   runtimeActionsController = createAgreementRuntimeActionsController({
     createSuccess,
+    enableServerSync: !isEditMode && submitMode === 'json',
     stateManager,
     syncOrchestrator,
     syncService,

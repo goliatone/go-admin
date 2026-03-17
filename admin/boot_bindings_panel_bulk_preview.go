@@ -31,7 +31,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 		})
 	}
 
-	environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
+	channel := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
 	policyEntity := resolvePolicyEntity(body, p.name)
 	results := make([]map[string]any, 0, len(ids))
 	summary := map[string]int{
@@ -61,7 +61,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 		}
 
 		sourceWithReadiness := p.withTranslationReadinessRecord(ctx, source, map[string]any{
-			"environment": environment,
+			"channel": channel,
 		})
 		readiness := extractMap(sourceWithReadiness["translation_readiness"])
 		missingLocales := normalizedLocaleList(readiness["missing_required_locales"])
@@ -69,7 +69,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 			missingLocales = normalizedLocaleList(readiness["missing_locales"])
 		}
 		recordResult["missing_locales"] = append([]string{}, missingLocales...)
-		recordResult["family_id"] = strings.TrimSpace(translationGroupIDFromRecord(sourceWithReadiness))
+		recordResult["family_id"] = strings.TrimSpace(translationFamilyIDFromRecord(sourceWithReadiness))
 		recordResult["source_locale"] = strings.TrimSpace(toString(sourceWithReadiness["locale"]))
 
 		if len(missingLocales) == 0 {
@@ -91,7 +91,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 			payload := map[string]any{
 				"id":            strings.TrimSpace(id),
 				"locale":        targetLocale,
-				"environment":   environment,
+				"channel":       channel,
 				"policy_entity": primitives.FirstNonEmptyRaw(policyEntity, resolvePolicyEntity(sourceWithReadiness, p.name)),
 			}
 			createdResponse, createErr := p.Action(c, locale, CreateTranslationKey, payload)

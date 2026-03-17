@@ -677,7 +677,7 @@ function E(r) {
     missingRequiredFieldsByLocale: {},
     readinessState: null,
     readyForTransition: {},
-    evaluatedEnvironment: null,
+    evaluatedChannel: null,
     hasReadinessMetadata: !1
   };
   if (!r || typeof r != "object")
@@ -703,7 +703,7 @@ function E(r) {
     if (o && typeof o == "object" && !Array.isArray(o))
       for (const [a, i] of Object.entries(o))
         typeof i == "boolean" && (e.readyForTransition[a] = i);
-    e.evaluatedEnvironment = typeof t.evaluated_environment == "string" ? t.evaluated_environment : null;
+    e.evaluatedChannel = typeof t.evaluated_channel == "string" ? t.evaluated_channel : null;
   }
   return e;
 }
@@ -1641,11 +1641,11 @@ function vt(r) {
   return n && typeof n == "object" && !Array.isArray(n) ? [{ ...n }] : [];
 }
 function Ur(r) {
-  const e = r.family_summary ?? r.translation_group_summary;
+  const e = r.family_summary;
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function Vr(r, e) {
-  const t = r.family_summary ?? r.translation_group_summary;
+  const t = r.family_summary;
   if (!t || typeof t != "object" || Array.isArray(t))
     return wt(e);
   const n = t, s = Array.isArray(n.available_locales) ? n.available_locales.filter(j) : [], o = Array.isArray(n.missing_locales) ? n.missing_locales.filter(j) : [], a = xt(n.readiness_state) ? n.readiness_state : null, i = Math.max(e.length, typeof n.child_count == "number" ? Math.max(n.child_count, 0) : 0);
@@ -1658,10 +1658,10 @@ function Vr(r, e) {
   };
 }
 function Kr(r, e) {
-  const t = r.family_label ?? r.translation_group_label;
+  const t = r.family_label;
   if (typeof t == "string" && t.trim())
     return t.trim();
-  const n = r.family_summary ?? r.translation_group_summary;
+  const n = r.family_summary;
   if (n && typeof n == "object" && !Array.isArray(n)) {
     const i = n.group_label;
     if (typeof i == "string" && i.trim())
@@ -5111,7 +5111,7 @@ class Tt {
     };
   }
   getContentChannel() {
-    return String(this.config.channel ?? this.config.environment ?? "").trim() || null;
+    return String(this.config.channel ?? "").trim() || null;
   }
   /**
    * Build row actions for a record from schema.actions
@@ -5367,13 +5367,12 @@ class Tt {
     if (t.error && Wt(t.error)) {
       const n = Xt(t.error);
       if (n && this.config.onTranslationBlocker) {
-        const s = { ...e.payload }, o = this.getContentChannel() || n.environment || null;
+        const s = { ...e.payload }, o = this.getContentChannel() || n.channel || null;
         return this.config.onTranslationBlocker({
           actionName: e.actionName,
           recordId: e.recordId,
           ...n,
           channel: o,
-          environment: n.environment ?? o,
           retry: async () => this.executePostAction({
             actionName: e.actionName,
             endpoint: e.endpoint,
@@ -5443,7 +5442,7 @@ class Tt {
     };
     this.config.locale && n !== "create_translation" && (s.locale = this.config.locale);
     const o = this.getContentChannel();
-    if (o && (s.channel = o, s.environment = o), this.config.panelName && (s.policy_entity = this.config.panelName), s.expected_version === void 0) {
+    if (o && (s.channel = o), this.config.panelName && (s.policy_entity = this.config.panelName), s.expected_version === void 0) {
       const d = this.resolveExpectedVersion(e);
       d !== null && (s.expected_version = d);
     }
@@ -6004,7 +6003,7 @@ class fo {
     const e = this.panelName(), t = this.recordID();
     if (!e || !t)
       return "";
-    const n = new URLSearchParams(window.location.search), s = n.get("locale"), o = n.get("channel") || n.get("environment"), a = `${this.apiBasePath()}/panels/${encodeURIComponent(e)}/${encodeURIComponent(t)}`;
+    const n = new URLSearchParams(window.location.search), s = n.get("locale"), o = n.get("channel"), a = `${this.apiBasePath()}/panels/${encodeURIComponent(e)}/${encodeURIComponent(t)}`;
     if (!s && !o)
       return a;
     const i = new URLSearchParams();
@@ -6051,7 +6050,7 @@ class Pe extends et {
       this.localeStates.set(t, { loading: !1, created: !1 });
   }
   getContentChannel() {
-    return String(this.config.channel ?? this.config.environment ?? "").trim() || null;
+    return String(this.config.channel ?? "").trim() || null;
   }
   /**
    * Show the translation blocker modal.
@@ -6260,7 +6259,7 @@ class Pe extends et {
           id: this.config.recordId,
           locale: e
         }, s = this.getContentChannel();
-        s && (n.channel = s, n.environment = s), this.config.panelName && (n.policy_entity = this.config.panelName);
+        s && (n.channel = s), this.config.panelName && (n.policy_entity = this.config.panelName);
         const o = `${this.config.apiEndpoint}/actions/create_translation`, a = await Ee(o, n);
         if (a.success) {
           t.loading = !1, t.created = !0, a.data?.id && (t.newRecordId = String(a.data.id)), this.updateLocaleItemUI(e);
@@ -6902,7 +6901,7 @@ class ue {
     };
   }
   getContentChannel() {
-    return String(this.config.channel ?? this.config.environment ?? "").trim() || void 0;
+    return String(this.config.channel ?? "").trim() || void 0;
   }
   /**
    * Render the locale action chip as HTML string.
@@ -6990,7 +6989,7 @@ class ue {
           id: this.config.recordId,
           locale: this.config.locale
         }, t = this.getContentChannel();
-        t && (e.channel = t, e.environment = t), this.config.panelName && (e.policy_entity = this.config.panelName);
+        t && (e.channel = t), this.config.panelName && (e.policy_entity = this.config.panelName);
         const n = `${this.config.apiEndpoint}/actions/create_translation`, s = await Ee(n, e);
         if (s.success) {
           const o = s.data?.id ? String(s.data.id) : void 0;
@@ -7096,11 +7095,11 @@ function ki(r, e) {
     c && (l.mount(c), t.set(o, l));
   }), t;
 }
-function Qe(r, e, t, n, s) {
-  const o = new URLSearchParams();
-  o.set("locale", t);
-  const a = String(n ?? s ?? "").trim();
-  return a && o.set("channel", a), `${r}/${e}/edit?${o.toString()}`;
+function Qe(r, e, t, n) {
+  const s = new URLSearchParams();
+  s.set("locale", t);
+  const o = String(n ?? "").trim();
+  return o && s.set("channel", o), `${r}/${e}/edit?${s.toString()}`;
 }
 class Fe {
   constructor(e) {
@@ -7184,21 +7183,21 @@ class Fe {
    * Render the primary CTA (Create missing locale).
    */
   renderPrimaryCta() {
-    const { context: e, apiEndpoint: t, navigationBasePath: n, panelName: s, channel: o, environment: a } = this.config, i = e.requestedLocale, l = String(o ?? a ?? "").trim();
-    return !i || !e.recordId ? "" : `
+    const { context: e, apiEndpoint: t, navigationBasePath: n, panelName: s, channel: o } = this.config, a = e.requestedLocale, i = String(o ?? "").trim();
+    return !a || !e.recordId ? "" : `
       <button type="button"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
               data-action="create-translation"
-              data-locale="${m(i)}"
+              data-locale="${m(a)}"
               data-record-id="${m(e.recordId)}"
               data-api-endpoint="${m(t)}"
               data-panel="${m(s || "")}"
-              data-channel="${m(l)}"
-              aria-label="Create ${R(i)} translation">
+              data-channel="${m(i)}"
+              aria-label="Create ${R(a)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
-        Create ${m(i.toUpperCase())} translation
+        Create ${m(a.toUpperCase())} translation
       </button>
     `;
   }
@@ -7206,20 +7205,20 @@ class Fe {
    * Render the secondary CTA (Open source locale).
    */
   renderSecondaryCta() {
-    const { context: e, navigationBasePath: t, channel: n, environment: s } = this.config, o = e.resolvedLocale;
-    if (!o || !e.recordId)
+    const { context: e, navigationBasePath: t, channel: n } = this.config, s = e.resolvedLocale;
+    if (!s || !e.recordId)
       return "";
-    const a = Qe(t, e.recordId, o, n, s);
+    const o = Qe(t, e.recordId, s, n);
     return `
-      <a href="${m(a)}"
+      <a href="${m(o)}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
-         data-locale="${m(o)}"
-         aria-label="Open ${R(o)} translation">
+         data-locale="${m(s)}"
+         aria-label="Open ${R(s)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>
-        Open ${m(o.toUpperCase())} (source)
+        Open ${m(s.toUpperCase())} (source)
       </a>
     `;
   }
@@ -7259,23 +7258,23 @@ class Fe {
    * Handle create translation action.
    */
   async handleCreate() {
-    const { context: e, apiEndpoint: t, panelName: n, channel: s, environment: o, navigationBasePath: a } = this.config, i = e.requestedLocale, l = e.recordId, c = String(s ?? o ?? "").trim() || void 0;
-    if (!i || !l) return;
+    const { context: e, apiEndpoint: t, panelName: n, channel: s, navigationBasePath: o } = this.config, a = e.requestedLocale, i = e.recordId, l = String(s ?? "").trim() || void 0;
+    if (!a || !i) return;
     await new ue({
-      locale: i,
-      recordId: l,
+      locale: a,
+      recordId: i,
       apiEndpoint: t,
-      navigationBasePath: a,
+      navigationBasePath: o,
       panelName: n,
-      channel: c,
+      channel: l,
       localeExists: !1,
-      onCreateSuccess: (u, p) => {
-        this.config.onCreateSuccess?.(u, p);
-        const h = Qe(a, p.id, u, c);
-        window.location.href = h;
+      onCreateSuccess: (d, u) => {
+        this.config.onCreateSuccess?.(d, u);
+        const p = Qe(o, u.id, d, l);
+        window.location.href = p;
       },
-      onError: (u, p) => {
-        this.config.onError?.(p);
+      onError: (d, u) => {
+        this.config.onError?.(u);
       }
     }).handleCreate();
   }
@@ -7397,20 +7396,20 @@ class qt {
    * Render a single locale chip.
    */
   renderChip(e, t, n) {
-    const { recordId: s, apiEndpoint: o, navigationBasePath: a, panelName: i, channel: l, environment: c, size: d } = this.config, u = String(l ?? c ?? "").trim() || void 0;
+    const { recordId: s, apiEndpoint: o, navigationBasePath: a, panelName: i, channel: l, size: c } = this.config, d = String(l ?? "").trim() || void 0;
     return t ? Ft({
       locale: e,
       recordId: s,
       apiEndpoint: o,
       navigationBasePath: a,
       panelName: i,
-      channel: u,
+      channel: d,
       localeExists: !1,
-      size: d,
+      size: c,
       mode: "chip",
       onCreateSuccess: this.config.onCreateSuccess,
       onError: this.config.onError
-    }) : this.renderDisabledChip(e, n, d);
+    }) : this.renderDisabledChip(e, n, c);
   }
   /**
    * Render a disabled locale chip (no action buttons).
@@ -7464,7 +7463,7 @@ class qt {
         apiEndpoint: this.config.apiEndpoint,
         navigationBasePath: this.config.navigationBasePath,
         panelName: this.config.panelName,
-        channel: String(this.config.channel ?? this.config.environment ?? "").trim() || void 0,
+        channel: String(this.config.channel ?? "").trim() || void 0,
         localeExists: !1,
         size: this.config.size,
         onCreateSuccess: this.config.onCreateSuccess,

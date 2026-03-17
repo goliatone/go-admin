@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const runtimePath = path.resolve(testFileDir, '../src/esign/pages/agreement-form-runtime.ts');
+const documentSelectionPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/document-selection.ts');
+const placementEditorPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/placement-editor.ts');
+const formPayloadPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/form-payload.ts');
 const previewCardPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/preview-card.ts');
 const normalizationPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/normalization.ts');
 const templatePath = path.resolve(testFileDir, '../../templates/resources/esign-agreements/form.html');
@@ -26,7 +29,7 @@ test('Phase 5 contract: normalization preserves linked placement metadata in pay
 });
 
 test('Phase 5 contract: agreement runtime typeahead search uses q and stale request guards', () => {
-  const source = read(runtimePath);
+  const source = read(documentSelectionPath);
   assert.match(source, /typeaheadSearchRequestID/);
   assert.match(source, /typeaheadSearchAbortController/);
   assert.match(source, /q: trimmedQuery/);
@@ -35,7 +38,7 @@ test('Phase 5 contract: agreement runtime typeahead search uses q and stale requ
 });
 
 test('Phase 5 contract: agreement runtime uses canonical PDF route and no object-key asset fallback', () => {
-  const source = read(runtimePath);
+  const source = read(placementEditorPath);
   assert.match(source, /\/panels\/esign_documents\/\$\{encodedDocumentID\}\/source\/pdf/);
   assert.match(source, /disableWorker: true/);
   assert.doesNotMatch(source, /source_object_key/);
@@ -53,9 +56,10 @@ test('Phase 5 contract: document preview card uses canonical PDF route with stal
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
-test('Phase 5 contract: agreement form template defaults to JSON submit mode and pins PDF.js script', () => {
+test('Phase 5 contract: agreement form template uses conditional submit modes and pins PDF.js script', () => {
   const source = read(templatePath);
-  assert.match(source, /"submit_mode": "json"/);
+  assert.match(source, /"submit_mode": "\{% if is_edit %\}form\{% else %\}json\{% endif %\}"/);
+  assert.match(source, /"agreement_id": "\{\{ resource_item\.id\|default:""\|escapejs \}\}"/);
   assert.match(source, /"sync": \{/);
   assert.match(source, /"client_base_path": "\{\{ base_path\|default:"\/admin" \}\}\/sync-client\/sync-core"/);
   assert.match(source, /"bootstrap_path": "\{\{ api_base_path\|default:"\/admin\/api\/v1" \}\}\/esign\/sync\/bootstrap\/agreement-draft"/);
@@ -64,7 +68,7 @@ test('Phase 5 contract: agreement form template defaults to JSON submit mode and
 });
 
 test('Phase 5 contract: runtime removes indexed placement fallback writes', () => {
-  const source = read(runtimePath);
+  const source = `${read(placementEditorPath)}\n${read(formPayloadPath)}`;
   assert.doesNotMatch(source, /field_placements\[\$\{index\}\]\./);
   assert.match(source, /fieldPlacementsJSONInput\.value = JSON\.stringify\(placementEntries\)/);
 });

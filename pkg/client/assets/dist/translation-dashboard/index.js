@@ -207,12 +207,12 @@ function Z(e) {
     d(s.cards, G),
     n
   ), c = {};
-  for (const [m, f] of Object.entries(l(s.tables)))
-    c[m] = Q(f, m);
+  for (const [g, f] of Object.entries(l(s.tables)))
+    c[g] = Q(f, g);
   const u = { ...n.queryModels };
-  for (const [m, f] of Object.entries(l(a.query_models))) {
-    const g = q(f);
-    g && (u[m] = g);
+  for (const [g, f] of Object.entries(l(a.query_models))) {
+    const m = q(f);
+    m && (u[g] = m);
   }
   return {
     data: {
@@ -223,21 +223,21 @@ function Z(e) {
       summary: T(s.summary)
     },
     meta: {
-      channel: r(a.channel || a.environment),
+      channel: r(a.channel),
       generatedAt: r(a.generated_at),
       refreshIntervalMs: h(a.refresh_interval_ms, 3e4),
       latencyTargetMs: h(a.latency_target_ms, 0),
       degraded: a.degraded === !0,
-      degradedReasons: d(a.degraded_reasons, (m) => {
-        const f = l(m), g = r(f.component), k = r(f.message);
-        return !g && !k ? null : { component: g, message: k };
+      degradedReasons: d(a.degraded_reasons, (g) => {
+        const f = l(g), m = r(f.component), k = r(f.message);
+        return !m && !k ? null : { component: m, message: k };
       }),
       familyReport: l(a.family_report),
       scope: x(a.scope),
-      metrics: d(a.metrics, (m) => {
-        const f = l(m), g = r(f.key);
-        return g ? {
-          key: g,
+      metrics: d(a.metrics, (g) => {
+        const f = l(g), m = r(f.key);
+        return m ? {
+          key: m,
           unit: r(f.unit),
           sloP95Ms: f.slo_p95_ms === void 0 ? null : h(f.slo_p95_ms)
         } : null;
@@ -255,7 +255,7 @@ function tt(e, t = {}) {
   if (!s)
     return "";
   const a = s.startsWith("http://") || s.startsWith("https://") ? void 0 : "http://localhost", n = new URL(s, a), o = [
-    ["channel", r(t.channel ?? t.environment)],
+    ["channel", r(t.channel)],
     ["tenant_id", r(t.tenantId)],
     ["org_id", r(t.orgId)],
     ["overdue_limit", t.overdueLimit != null ? String(t.overdueLimit) : ""],
@@ -556,7 +556,7 @@ function ft(e) {
     </section>
   `;
 }
-function mt(e) {
+function gt(e) {
   const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, a = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return `
     <section class="${A} p-4" data-dashboard-inline-error="true" role="alert">
@@ -566,7 +566,7 @@ function mt(e) {
     </section>
   `;
 }
-function gt(e) {
+function mt(e) {
   const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, a = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return `
     <section class="${A} p-4" data-dashboard-error="true" role="alert">
@@ -619,7 +619,7 @@ class yt {
           this.state = "ready", this.render();
           return;
         }
-        this.state = "error", this.container && (this.container.innerHTML = gt(s), this.bindActions());
+        this.state = "error", this.container && (this.container.innerHTML = mt(s), this.bindActions());
       }
     }), this.refreshController.start().catch(() => {
     });
@@ -653,7 +653,7 @@ class yt {
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
           <p class="mt-2">${i(t.meta.degradedReasons.map((u) => `${u.component}: ${u.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
         </section>
-      ` : "", c = this.lastError ? mt(this.lastError) : "";
+      ` : "", c = this.lastError ? gt(this.lastError) : "";
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
         ${ht(t, this.refreshing)}

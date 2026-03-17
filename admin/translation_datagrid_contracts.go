@@ -27,7 +27,7 @@ func withTranslationDatagridRecord(a *Admin, channel string, record map[string]a
 		out = map[string]any{}
 	}
 
-	groupID := strings.TrimSpace(translationGroupIDFromRecord(out))
+	groupID := strings.TrimSpace(translationFamilyIDFromRecord(out))
 	if groupID != "" {
 		out["translation_family_id"] = groupID
 		if familyURL := translationFamilyURLForAdmin(a, groupID, channel); familyURL != "" {
@@ -111,7 +111,7 @@ func translationFamilyMemberCount(record map[string]any) (int, bool) {
 	if len(locales) > 0 {
 		return len(locales), true
 	}
-	if strings.TrimSpace(translationGroupIDFromRecord(record)) == "" {
+	if strings.TrimSpace(translationFamilyIDFromRecord(record)) == "" {
 		return 0, false
 	}
 	if locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(

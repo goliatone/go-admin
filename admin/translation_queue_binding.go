@@ -1090,7 +1090,7 @@ func (b *translationQueueBinding) LocalesOptions(c router.Context) (any, error) 
 						policy,
 						panelName,
 						record,
-						map[string]any{"environment": adminCtx.Environment},
+						map[string]any{"channel": adminCtx.Environment},
 					)
 					if resolved {
 						for _, locale := range requiredLocales {
@@ -1195,7 +1195,7 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 	if entityType != "" && sourceRecordID != "" {
 		if panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment); ok && panel != nil {
 			if record, err := panel.Get(adminCtx, sourceRecordID); err == nil && len(record) > 0 {
-				groupID := strings.TrimSpace(translationGroupIDFromRecord(record))
+				groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
 				if groupID == "" {
 					groupID = strings.TrimSpace(toString(record["family_id"]))
 				}
@@ -1772,7 +1772,7 @@ func translationQueueSourceRecordOption(record map[string]any, panelName string)
 	if description != "" {
 		option["description"] = description
 	}
-	if groupID := strings.TrimSpace(translationGroupIDFromRecord(record)); groupID != "" {
+	if groupID := strings.TrimSpace(translationFamilyIDFromRecord(record)); groupID != "" {
 		option["family_id"] = groupID
 	}
 	if panelName != "" {

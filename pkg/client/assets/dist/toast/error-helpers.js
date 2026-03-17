@@ -62,20 +62,20 @@ function R(t) {
       Array.isArray(f) && (s[l] = f.filter((u) => typeof u == "string"));
     Object.keys(s).length === 0 && (s = null);
   }
-  const i = typeof e.transition == "string" ? e.transition : null, n = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.environment == "string" ? e.environment : null;
+  const i = typeof e.transition == "string" ? e.transition : null, n = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.channel == "string" ? e.channel : null;
   return {
     missingLocales: r,
     missingFieldsByLocale: s,
     transition: i,
     entityType: n,
     requestedLocale: o,
-    environment: a
+    channel: a
   };
 }
 function O(t) {
   return t.textCode === "TRANSLATION_MISSING";
 }
-function m(t) {
+function y(t) {
   if (!t || typeof t != "object")
     return {
       success: !1,
@@ -123,7 +123,7 @@ function m(t) {
     }
   };
 }
-function y(t) {
+function m(t) {
   return {
     textCode: null,
     message: t instanceof Error ? t.message : "Network error",
@@ -149,7 +149,7 @@ async function _(t, e, r) {
   } catch (s) {
     return {
       success: !1,
-      error: y(s),
+      error: m(s),
       status: 0
     };
   }
@@ -176,10 +176,10 @@ async function C(t, e, r) {
     },
     ...r,
     body: JSON.stringify(e)
-  }, async (i) => m(await i.json()));
+  }, async (i) => y(await i.json()));
   return s.success ? { success: !0, data: s.data } : { success: !1, error: s.error };
 }
-async function v(t) {
+async function N(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
     if (r || s.trim().startsWith("{"))
@@ -220,7 +220,7 @@ async function v(t) {
   }
   return `Request failed (${t.status})`;
 }
-function N(t) {
+function $(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
 function h(t, e = "Request failed") {
@@ -251,7 +251,7 @@ function b(t) {
   ];
   return t.textCode !== null && e.includes(t.textCode);
 }
-function $(t) {
+function k(t) {
   if (!b(t))
     return null;
   const e = t.metadata || {}, r = {
@@ -317,7 +317,7 @@ function E(t) {
 function A(t) {
   return t === "stale_source" || t === "missing_linkage" || t === "duplicate" || t === "invalid_locale" ? t : "missing_linkage";
 }
-function k(t) {
+function v(t) {
   return {
     success: t.filter((e) => e.status === "success"),
     error: t.filter((e) => e.status === "error"),
@@ -351,19 +351,19 @@ export {
   S as createStructuredActionError,
   C as executeActionRequest,
   _ as executeStructuredRequest,
-  v as extractErrorMessage,
-  $ as extractExchangeError,
+  N as extractErrorMessage,
+  k as extractExchangeError,
   p as extractStructuredError,
   R as extractTranslationBlocker,
   h as formatStructuredErrorForDisplay,
   M as generateExchangeReport,
-  N as getErrorMessage,
+  $ as getErrorMessage,
   I as getStructuredActionError,
-  k as groupRowResultsByStatus,
+  v as groupRowResultsByStatus,
   b as isExchangeError,
   T as isHandledActionError,
   O as isTranslationBlocker,
-  m as parseActionResponse,
+  y as parseActionResponse,
   j as parseImportResult
 };
 //# sourceMappingURL=error-helpers.js.map

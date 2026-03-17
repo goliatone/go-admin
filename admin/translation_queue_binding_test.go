@@ -555,7 +555,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 		t.Fatalf("create clean review assignment: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&environment=production&tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "reviewer-1")
 	resp, err := fixture.app.Test(req)
 	if err != nil {

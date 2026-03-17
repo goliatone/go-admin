@@ -121,7 +121,7 @@ func buildRecordTranslationReadinessWithCache(
 		"missing_required_fields_by_locale": missingFields,
 		"readiness_state":                   readinessState,
 		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: readyForPublish},
-		"evaluated_environment":             environment,
+		"evaluated_channel":                 environment,
 		"requirements_resolved":             requirementsResolved,
 	}
 	quickCreate := translationReadinessQuickCreatePayload(record, requiredLocales, missingLocales, requirements, requirementsResolved)
@@ -359,10 +359,6 @@ func translationFamilyIDFromRecord(record map[string]any) string {
 		}
 	}
 	return ""
-}
-
-func translationGroupIDFromRecord(record map[string]any) string {
-	return translationFamilyIDFromRecord(record)
 }
 
 func translationReadinessNestedValue(record map[string]any, path ...string) any {

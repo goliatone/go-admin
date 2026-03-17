@@ -80,7 +80,7 @@ test('translation-family create-locale: action model serializes canonical reques
     familyId: 'tg-page-1',
     basePath: '/admin/api',
     locale: 'FR',
-    environment: 'production',
+    channel: 'production',
     autoCreateAssignment: true,
     assigneeId: 'translator-1',
     priority: 'HIGH',
@@ -88,8 +88,8 @@ test('translation-family create-locale: action model serializes canonical reques
     idempotencyKey: 'idem-family-fr',
   });
 
-  assert.equal(buildCreateLocaleURL('/admin/api', 'tg-page-1', 'production'), '/admin/api/translations/families/tg-page-1/variants?environment=production');
-  assert.equal(action.endpoint, '/admin/api/translations/families/tg-page-1/variants?environment=production');
+  assert.equal(buildCreateLocaleURL('/admin/api', 'tg-page-1', 'production'), '/admin/api/translations/families/tg-page-1/variants?channel=production');
+  assert.equal(action.endpoint, '/admin/api/translations/families/tg-page-1/variants?channel=production');
   assert.equal(action.headers['X-Idempotency-Key'], 'idem-family-fr');
   assert.deepEqual(serializeCreateLocaleRequest(action.request), {
     locale: 'fr',
@@ -97,7 +97,7 @@ test('translation-family create-locale: action model serializes canonical reques
     assignee_id: 'translator-1',
     priority: 'high',
     due_date: '2026-03-20T00:00:00Z',
-    environment: 'production',
+    channel: 'production',
   });
 
   const result = normalizeCreateLocaleResult(createLocaleEnvelope());
@@ -293,14 +293,14 @@ test('translation-family create-locale: client createLocale posts canonical payl
 
   const result = await client.createLocale('tg-page-1', {
     locale: 'fr',
-    environment: 'production',
+    channel: 'production',
     autoCreateAssignment: true,
     assigneeId: 'translator-1',
     priority: 'high',
     idempotencyKey: 'idem-fr',
   });
 
-  assert.equal(requests[0].url, '/admin/api/translations/families/tg-page-1/variants?environment=production');
+  assert.equal(requests[0].url, '/admin/api/translations/families/tg-page-1/variants?channel=production');
   assert.equal(requests[0].method, 'POST');
   assert.equal(requests[0].headers['X-Idempotency-Key'], 'idem-fr');
   assert.equal(requests[0].headers['Content-Type'], 'application/json');
@@ -309,7 +309,7 @@ test('translation-family create-locale: client createLocale posts canonical payl
     auto_create_assignment: true,
     assignee_id: 'translator-1',
     priority: 'high',
-    environment: 'production',
+    channel: 'production',
   });
   assert.equal(result.idempotencyHit, true);
   assert.equal(result.assignmentReused, true);

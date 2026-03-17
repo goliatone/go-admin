@@ -169,6 +169,10 @@ export function createWizardNavigationController(
       draftInput.name = 'save_as_draft';
       draftInput.value = '1';
       form.appendChild(draftInput);
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+        return;
+      }
       form.submit();
     });
   }

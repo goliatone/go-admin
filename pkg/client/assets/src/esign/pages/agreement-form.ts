@@ -37,6 +37,8 @@ function normalizeAgreementFormConfig(config: AgreementFormConfig): AgreementFor
     is_edit: Boolean(config.is_edit ?? config.isEditMode),
     create_success: Boolean(config.create_success ?? config.createSuccess),
     submit_mode: String(config.submit_mode || 'json').trim().toLowerCase(),
+    agreement_id: String(config.agreement_id || '').trim(),
+    active_agreement_id: String(config.active_agreement_id || '').trim(),
     routes: {
       index: String(config.routes?.index || '').trim(),
       documents: String(config.routes?.documents || '').trim(),
@@ -92,6 +94,8 @@ export function bootstrapAgreementForm(config: {
   createSuccess?: boolean;
   create_success?: boolean;
   submit_mode?: 'form' | 'json' | string;
+  agreement_id?: string;
+  active_agreement_id?: string;
   initial_participants?: Array<Record<string, any>>;
   initial_field_instances?: Array<Record<string, any>>;
   routes: {
@@ -112,6 +116,8 @@ export function bootstrapAgreementForm(config: {
     createSuccess: config.createSuccess,
     create_success: config.create_success,
     submit_mode: config.submit_mode || 'json',
+    agreement_id: config.agreement_id,
+    active_agreement_id: config.active_agreement_id,
     initial_participants: config.initial_participants || [],
     initial_field_instances: config.initial_field_instances || [],
     routes: config.routes,
@@ -140,6 +146,8 @@ if (typeof document !== 'undefined') {
         is_edit: config.is_edit || config.isEditMode || false,
         create_success: config.create_success || config.createSuccess || false,
         submit_mode: config.submit_mode || 'json',
+        agreement_id: config.agreement_id || '',
+        active_agreement_id: config.active_agreement_id || '',
         initial_participants: Array.isArray(config.initial_participants) ? config.initial_participants : [],
         initial_field_instances: Array.isArray(config.initial_field_instances) ? config.initial_field_instances : [],
         routes: config.routes || { index: '' },

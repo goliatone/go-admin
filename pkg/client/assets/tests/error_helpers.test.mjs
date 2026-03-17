@@ -260,14 +260,14 @@ test('extractTranslationBlocker uses policy_entity fallback for entity_type', ()
   assert.equal(result.entityType, 'posts');
 });
 
-test('extractTranslationBlocker extracts environment and requested_locale', () => {
+test('extractTranslationBlocker extracts channel and requested_locale', () => {
   const error = {
     textCode: 'TRANSLATION_MISSING',
     message: 'Missing translations',
     metadata: {
       missing_locales: ['fr'],
       requested_locale: 'en',
-      environment: 'production',
+      channel: 'production',
     },
     fields: null,
     validationErrors: null,
@@ -277,7 +277,7 @@ test('extractTranslationBlocker extracts environment and requested_locale', () =
 
   assert.ok(result);
   assert.equal(result.requestedLocale, 'en');
-  assert.equal(result.environment, 'production');
+  assert.equal(result.channel, 'production');
 });
 
 test('extractTranslationBlocker handles empty metadata gracefully', () => {
@@ -541,7 +541,7 @@ test('handles TRANSLATION_MISSING with full metadata contract', async () => {
         transition: 'publish',
         entity_type: 'pages',
         requested_locale: 'en',
-        environment: 'production',
+        channel: 'production',
       },
       validation_errors: null,
     },
@@ -558,7 +558,7 @@ test('handles TRANSLATION_MISSING with full metadata contract', async () => {
   assert.equal(blocker.transition, 'publish');
   assert.equal(blocker.entityType, 'pages');
   assert.equal(blocker.requestedLocale, 'en');
-  assert.equal(blocker.environment, 'production');
+  assert.equal(blocker.channel, 'production');
 });
 
 test('handles create_translation success response format', () => {
@@ -807,7 +807,7 @@ test('parseActionResponse correctly parses typed error envelope', () => {
         missing_locales: ['es', 'fr'],
         transition: 'publish',
         entity_type: 'pages',
-        environment: 'production',
+        channel: 'production',
       },
     },
   });
@@ -820,7 +820,7 @@ test('parseActionResponse correctly parses typed error envelope', () => {
   assert.deepEqual(result.error.metadata.missing_locales, ['es', 'fr']);
   assert.equal(result.error.metadata.transition, 'publish');
   assert.equal(result.error.metadata.entity_type, 'pages');
-  assert.equal(result.error.metadata.environment, 'production');
+  assert.equal(result.error.metadata.channel, 'production');
 });
 
 test('parseActionResponse error includes validation_errors when present', () => {
@@ -863,7 +863,7 @@ test('TRANSLATION_MISSING error contract: all required metadata keys present', a
         transition: 'publish',
         entity_type: 'pages',
         requested_locale: 'en',
-        environment: 'production',
+        channel: 'production',
       },
       validation_errors: null,
     },
@@ -888,7 +888,7 @@ test('TRANSLATION_MISSING error contract: all required metadata keys present', a
   assert.equal(blocker.transition, 'publish');
   assert.equal(blocker.entityType, 'pages');
   assert.equal(blocker.requestedLocale, 'en');
-  assert.equal(blocker.environment, 'production');
+  assert.equal(blocker.channel, 'production');
 });
 
 test('TRANSLATION_MISSING error contract: minimal metadata (locale blockers only)', async () => {

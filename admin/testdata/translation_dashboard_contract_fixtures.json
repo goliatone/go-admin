@@ -214,7 +214,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "generated_at": "2026-03-12T10:00:00Z",
         "refresh_interval_ms": 30000,
         "latency_target_ms": 300,
@@ -301,7 +301,7 @@
                 "group": "admin",
                 "route": "translations.queue",
                 "resolver_key": "admin.translations.queue",
-                "entity_type": "translation_group"
+                "entity_type": "family"
               }
             }
           },
@@ -436,7 +436,7 @@
                   "group": "admin",
                   "route": "translations.queue",
                   "resolver_key": "admin.translations.queue",
-                  "entity_type": "translation_group"
+                  "entity_type": "family"
                 }
               }
             },
@@ -750,7 +750,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "generated_at": "2026-03-12T10:15:00Z",
         "refresh_interval_ms": 30000,
         "latency_target_ms": 300,
@@ -829,7 +829,7 @@
                 "group": "admin",
                 "route": "translations.queue",
                 "resolver_key": "admin.translations.queue",
-                "entity_type": "translation_group"
+                "entity_type": "family"
               }
             }
           },
@@ -964,7 +964,7 @@
                   "group": "admin",
                   "route": "translations.queue",
                   "resolver_key": "admin.translations.queue",
-                  "entity_type": "translation_group"
+                  "entity_type": "family"
                 }
               }
             },
@@ -1312,7 +1312,7 @@
         }
       },
       "meta": {
-        "environment": "staging",
+        "channel": "staging",
         "generated_at": "2026-03-12T10:30:00Z",
         "refresh_interval_ms": 30000,
         "latency_target_ms": 300,
@@ -1357,7 +1357,7 @@
                 "key": "queue",
                 "label": "Open queue context",
                 "resolver_key": "admin.translations.queue",
-                "entity_type": "translation_group"
+                "entity_type": "family"
               }
             }
           },
@@ -1394,7 +1394,7 @@
                   "key": "queue",
                   "label": "Open queue context",
                   "resolver_key": "admin.translations.queue",
-                  "entity_type": "translation_group"
+                  "entity_type": "family"
                 }
               }
             },
@@ -1620,7 +1620,7 @@
                     "description": "Open the queue filtered to the related family.",
                     "relation": "secondary",
                     "table_id": "top_overdue_assignments",
-                    "entity_type": "translation_group",
+                    "entity_type": "family",
                     "entity_id": "tg-page-1"
                   }
                 }
@@ -1670,7 +1670,7 @@
                     "description": "Open the queue filtered to the related family.",
                     "relation": "secondary",
                     "table_id": "top_overdue_assignments",
-                    "entity_type": "translation_group",
+                    "entity_type": "family",
                     "entity_id": "tg-post-2"
                   }
                 }
@@ -1862,7 +1862,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "generated_at": "2026-03-12T11:00:00Z",
         "refresh_interval_ms": 30000,
         "latency_target_ms": 300,
@@ -1902,7 +1902,7 @@
                 "key": "queue",
                 "label": "Open queue context",
                 "resolver_key": "admin.translations.queue",
-                "entity_type": "translation_group"
+                "entity_type": "family"
               }
             }
           },
@@ -1939,7 +1939,7 @@
                   "key": "queue",
                   "label": "Open queue context",
                   "resolver_key": "admin.translations.queue",
-                  "entity_type": "translation_group"
+                  "entity_type": "family"
                 }
               }
             },

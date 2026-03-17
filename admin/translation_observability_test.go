@@ -86,8 +86,8 @@ func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
 	if tags["transition"] != "publish" {
 		t.Fatalf("expected transition=publish, got %q", tags["transition"])
 	}
-	if tags["environment"] != "production" {
-		t.Fatalf("expected environment=production, got %q", tags["environment"])
+	if tags["channel"] != "production" {
+		t.Fatalf("expected channel=production, got %q", tags["channel"])
 	}
 	records := logCapture.Records()
 	if len(records) != 1 {
@@ -97,7 +97,7 @@ func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
 	if attrs["event"] != "translation.transition.blocked" {
 		t.Fatalf("expected blocker event tag, got %+v", attrs)
 	}
-	if attrs["entity"] != "pages" || attrs["transition"] != "publish" || attrs["locale"] != "en" || attrs["environment"] != "production" {
+	if attrs["entity"] != "pages" || attrs["transition"] != "publish" || attrs["locale"] != "en" || attrs["channel"] != "production" {
 		t.Fatalf("unexpected blocker log attrs: %+v", attrs)
 	}
 }
@@ -136,9 +136,9 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		c.On("IP").Return("").Maybe()
 
 		_, err := binding.Action(c, "en", "create_translation", map[string]any{
-			"id":          "page_123",
-			"locale":      "es",
-			"environment": "production",
+			"id":      "page_123",
+			"locale":  "es",
+			"channel": "production",
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -147,7 +147,7 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 			t.Fatalf("expected one create metric, got %d", len(metrics.createTags))
 		}
 		tags := metrics.createTags[0]
-		if tags["entity"] != "pages" || tags["locale"] != "es" || tags["transition"] != "create_translation" || tags["environment"] != "production" || tags["outcome"] != "created" {
+		if tags["entity"] != "pages" || tags["locale"] != "es" || tags["transition"] != "create_translation" || tags["channel"] != "production" || tags["outcome"] != "created" {
 			t.Fatalf("unexpected create metric tags: %+v", tags)
 		}
 		records := logCapture.Records()
@@ -193,9 +193,9 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		c.On("IP").Return("").Maybe()
 
 		_, err := binding.Action(c, "en", "create_translation", map[string]any{
-			"id":          "page_123",
-			"locale":      "es",
-			"environment": "staging",
+			"id":      "page_123",
+			"locale":  "es",
+			"channel": "staging",
 		})
 		if err == nil {
 			t.Fatalf("expected duplicate error")
@@ -204,7 +204,7 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 			t.Fatalf("expected one create metric, got %d", len(metrics.createTags))
 		}
 		tags := metrics.createTags[0]
-		if tags["entity"] != "pages" || tags["locale"] != "es" || tags["transition"] != "create_translation" || tags["environment"] != "staging" || tags["outcome"] != "duplicate" {
+		if tags["entity"] != "pages" || tags["locale"] != "es" || tags["transition"] != "create_translation" || tags["channel"] != "staging" || tags["outcome"] != "duplicate" {
 			t.Fatalf("unexpected duplicate metric tags: %+v", tags)
 		}
 		records := logCapture.Records()

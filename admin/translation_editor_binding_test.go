@@ -220,7 +220,7 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 		LastRejectionReason: "Please tighten the CTA tone.",
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?environment=production&tenant_id=tenant-1&org_id=org-1", nil)
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
 	}
@@ -309,7 +309,7 @@ func TestTranslationEditorAssignmentDetailPaginatesHistory(t *testing.T) {
 		LastRejectionReason: "Please tighten the CTA tone.",
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?environment=production&tenant_id=tenant-1&org_id=org-1&history_page=2&history_per_page=1", nil)
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1&history_page=2&history_per_page=1", nil)
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
 	}
@@ -346,8 +346,8 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	}
 	originalSourceHash := toString(originalTarget.Metadata["source_hash_at_last_sync"])
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":      "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
 		"expected_version": 3,
 		"autosave":         true,
 		"fields": map[string]any{
@@ -407,8 +407,8 @@ func TestTranslationEditorUpdateVariantAcknowledgesCurrentSourceHashWhenRequeste
 	}
 	currentSourceHash := translationEditorHashFields(translationFamilyFields(source.Title, source.Slug, source.Data))
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":              "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":                  "production",
 		"expected_version":         3,
 		"acknowledged_source_hash": currentSourceHash,
 		"fields": map[string]any{
@@ -435,8 +435,8 @@ func TestTranslationEditorUpdateVariantRejectsStaleSourceAcknowledgement(t *test
 		ReviewRequired: true,
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":              "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":                  "production",
 		"expected_version":         3,
 		"acknowledged_source_hash": "stale-source-hash",
 		"fields": map[string]any{
@@ -460,8 +460,8 @@ func TestTranslationEditorUpdateVariantRejectsStaleSourceAcknowledgement(t *test
 func TestTranslationEditorUpdateVariantReturnsAutosaveConflictPayload(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":      "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
 		"expected_version": 2,
 		"autosave":         true,
 		"fields": map[string]any{
@@ -496,8 +496,8 @@ func TestTranslationEditorSubmitReviewBlocksWhenRequiredFieldsMissing(t *testing
 		},
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":      "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
 		"expected_version": 2,
 	})
 	if status != http.StatusConflict {
@@ -526,7 +526,7 @@ func TestTranslationEditorDetailIncludesReviewFeedbackAndQAResults(t *testing.T)
 		t,
 		fixture.app,
 		http.MethodGet,
-		"/admin/api/translations/assignments/"+fixture.assignmentID+"?environment=production&tenant_id=tenant-1&org_id=org-1",
+		"/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1",
 		nil,
 	)
 	if status != http.StatusOK {
@@ -570,8 +570,8 @@ func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
 		defaultTranslationMetrics = originalMetrics
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":      "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
 		"expected_version": 2,
 	})
 	if status != http.StatusConflict {
@@ -618,14 +618,14 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 
 	var rejectBody bytes.Buffer
 	if err := json.NewEncoder(&rejectBody).Encode(map[string]any{
-		"environment":      "production",
+		"channel":          "production",
 		"expected_version": 3,
 		"reason":           "Please align the CTA wording.",
 		"comment":          "Keep the glossary term consistent.",
 	}); err != nil {
 		t.Fatalf("encode reject body: %v", err)
 	}
-	rejectReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?environment=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
+	rejectReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?channel=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
 	rejectReq.Header.Set("Content-Type", "application/json")
 	rejectReq.Header.Set("X-User-ID", "reviewer-1")
 	rejectResp, err := rejectFixture.app.Test(rejectReq)
@@ -668,13 +668,13 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 
 	var approveBody bytes.Buffer
 	if err := json.NewEncoder(&approveBody).Encode(map[string]any{
-		"environment":      "production",
+		"channel":          "production",
 		"expected_version": 3,
 		"comment":          "Looks good for publish.",
 	}); err != nil {
 		t.Fatalf("encode approve body: %v", err)
 	}
-	approveReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?environment=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
+	approveReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?channel=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
 	approveReq.Header.Set("Content-Type", "application/json")
 	approveReq.Header.Set("X-User-ID", "reviewer-1")
 	approveResp, err := approveFixture.app.Test(approveReq)
@@ -712,8 +712,8 @@ func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testin
 		defaultTranslationMetrics = originalMetrics
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"environment":      "production",
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
 		"expected_version": 2,
 	})
 	if status != http.StatusOK {

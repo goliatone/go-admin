@@ -53,7 +53,7 @@ test('translation matrix contracts: normalize viewport rows, columns, and bulk a
 
 test('translation matrix contracts: build canonical query urls with locale windows', () => {
   const url = buildTranslationMatrixURL('/admin/api/translations/matrix', {
-    environment: 'production',
+    channel: 'production',
     tenantId: 'tenant-1',
     orgId: 'org-1',
     contentType: 'pages',
@@ -65,7 +65,7 @@ test('translation matrix contracts: build canonical query urls with locale windo
 
   assert.equal(
     url,
-    '/admin/api/translations/matrix?environment=production&tenant_id=tenant-1&org_id=org-1&content_type=pages&blocker_code=missing_locale&locales=fr%2Cde&locale_offset=0&locale_limit=2'
+    '/admin/api/translations/matrix?channel=production&tenant_id=tenant-1&org_id=org-1&content_type=pages&blocker_code=missing_locale&locales=fr%2Cde&locale_offset=0&locale_limit=2'
   );
 });
 
@@ -136,7 +136,7 @@ function setGlobals(win) {
   Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
 }
 
-function setupDom(url = 'http://localhost/admin/translations/matrix?environment=production&tenant_id=tenant-1&org_id=org-1') {
+function setupDom(url = 'http://localhost/admin/translations/matrix?channel=production&tenant_id=tenant-1&org_id=org-1') {
   const dom = new JSDOM('<!doctype html><html><body><div id="root" data-endpoint="/admin/api/translations/matrix" data-title="Translation Matrix"></div></body></html>', { url });
   setGlobals(dom.window);
   return {

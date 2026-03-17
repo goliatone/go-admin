@@ -29,7 +29,7 @@ test('translation-family contracts: normalize list payloads and filter query sta
     missingLocale: 'fr',
     page: 1,
     perPage: 25,
-    environment: '',
+    channel: '',
   });
 
   const query = buildFamilyListQuery(filters);
@@ -58,12 +58,12 @@ test('translation-family contracts: normalize list payloads and filter query sta
       total: 1,
       page: 1,
       per_page: 25,
-      environment: 'production',
+      channel: 'production',
     },
   });
 
   assert.equal(payload.total, 1);
-  assert.equal(payload.environment, 'production');
+  assert.equal(payload.channel, 'production');
   assert.equal(payload.items[0].familyId, 'tg-page-1');
   assert.deepEqual(payload.items[0].blockerCodes, ['missing_locale', 'pending_review']);
 });
@@ -156,7 +156,7 @@ test('translation-family contracts: client builds canonical endpoints for list a
               total: 1,
               page: 1,
               per_page: 10,
-              environment: 'production',
+              channel: 'production',
             },
           };
         },
@@ -164,10 +164,10 @@ test('translation-family contracts: client builds canonical endpoints for list a
     },
   });
 
-  const list = await client.list({ contentType: 'pages', perPage: 10, environment: 'production' });
+  const list = await client.list({ contentType: 'pages', perPage: 10, channel: 'production' });
   const detail = await client.detail('tg-page-1', 'production');
 
-  assert.equal(requests[0], '/admin/api/translations/families?content_type=pages&environment=production&page=1&per_page=10');
+  assert.equal(requests[0], '/admin/api/translations/families?content_type=pages&channel=production&page=1&per_page=10');
   assert.equal(requests[1], buildFamilyDetailURL('/admin/api', 'tg-page-1', 'production'));
   assert.equal(list.items[0].familyId, 'tg-page-1');
   assert.equal(detail.familyId, 'tg-page-1');

@@ -431,7 +431,7 @@ class M {
       this.validateState.status = "error", this.validateState.message = "Choose a file before validating.", this.render();
       return;
     }
-    this.validateState.parsedRows.length === 0 && await this.stageImportFile(this.validateState.file), this.validateState.status = "validating", this.validateState.message = "Validating translation package...", this.render();
+    this.validateState.status === "loading_file" && await this.stageImportFile(this.validateState.file), this.validateState.status = "validating", this.validateState.message = "Validating translation package...", this.render();
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);

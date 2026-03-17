@@ -17,6 +17,8 @@ export interface AgreementFormRuntimeConfig {
   is_edit?: boolean;
   create_success?: boolean;
   submit_mode?: 'form' | 'json' | string;
+  agreement_id?: string;
+  active_agreement_id?: string;
   routes?: { index?: string; documents?: string; create?: string; documents_upload_url?: string };
   initial_participants?: Array<Record<string, any>>;
   initial_field_instances?: Array<Record<string, any>>;

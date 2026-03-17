@@ -56,7 +56,7 @@ export interface TranslationContext {
 export interface TranslationReadiness {
   /** Translation group ID linking all locale variants */
   familyId: string | null;
-  /** Required locales per policy for this entity/transition/environment */
+  /** Required locales per policy for this entity/transition/channel */
   requiredLocales: string[];
   /** Available locales that exist for this translation group */
   availableLocales: string[];
@@ -68,8 +68,8 @@ export interface TranslationReadiness {
   readinessState: ReadinessState | null;
   /** Transition readiness map (e.g., { publish: true }) */
   readyForTransition: Record<string, boolean>;
-  /** Environment used for policy evaluation */
-  evaluatedEnvironment: string | null;
+  /** Channel used for policy evaluation */
+  evaluatedChannel: string | null;
   /** Whether readiness metadata is present (for legacy compat) */
   hasReadinessMetadata: boolean;
 }
@@ -424,7 +424,7 @@ export function extractTranslationReadiness(record: Record<string, unknown>): Tr
     missingRequiredFieldsByLocale: {},
     readinessState: null,
     readyForTransition: {},
-    evaluatedEnvironment: null,
+    evaluatedChannel: null,
     hasReadinessMetadata: false,
   };
 
@@ -486,8 +486,8 @@ export function extractTranslationReadiness(record: Record<string, unknown>): Tr
       }
     }
 
-    readiness.evaluatedEnvironment = typeof readinessObj.evaluated_environment === 'string'
-      ? readinessObj.evaluated_environment
+    readiness.evaluatedChannel = typeof readinessObj.evaluated_channel === 'string'
+      ? readinessObj.evaluated_channel
       : null;
   }
 

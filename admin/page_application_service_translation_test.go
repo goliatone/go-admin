@@ -303,7 +303,7 @@ func TestWorkflowUpdateHookPropagatesPolicyContextForPosts(t *testing.T) {
 		"status":        "published",
 		"transition":    "publish",
 		"locale":        "en",
-		"environment":   "production",
+		"channel":       "production",
 		"policy_entity": "posts",
 	}
 	err := hook(ctx, id, record)
@@ -320,7 +320,7 @@ func TestWorkflowUpdateHookPropagatesPolicyContextForPosts(t *testing.T) {
 		t.Fatalf("expected policy entity posts, got %q", received.PolicyEntity)
 	}
 	if received.Environment != "production" {
-		t.Fatalf("expected environment production, got %q", received.Environment)
+		t.Fatalf("expected channel production, got %q", received.Environment)
 	}
 	if workflow.transitionCalls != 0 {
 		t.Fatalf("expected workflow transition blocked, got %d calls", workflow.transitionCalls)

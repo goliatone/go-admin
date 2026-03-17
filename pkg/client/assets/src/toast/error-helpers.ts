@@ -46,8 +46,8 @@ export interface TranslationBlockerInfo {
   entityType: string | null;
   /** The locale that was requested */
   requestedLocale: string | null;
-  /** The environment context (e.g., 'production', 'staging') */
-  environment: string | null;
+  /** The content channel context (e.g., 'production', 'staging') */
+  channel: string | null;
 }
 
 /**
@@ -266,7 +266,7 @@ export function extractTranslationBlocker(error: StructuredError): TranslationBl
     ? metadata.entity_type
     : (typeof metadata.policy_entity === 'string' ? metadata.policy_entity : null);
   const requestedLocale = typeof metadata.requested_locale === 'string' ? metadata.requested_locale : null;
-  const environment = typeof metadata.environment === 'string' ? metadata.environment : null;
+  const channel = typeof metadata.channel === 'string' ? metadata.channel : null;
 
   return {
     missingLocales,
@@ -274,7 +274,7 @@ export function extractTranslationBlocker(error: StructuredError): TranslationBl
     transition,
     entityType,
     requestedLocale,
-    environment,
+    channel,
   };
 }
 

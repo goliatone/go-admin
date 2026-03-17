@@ -86,7 +86,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"entity_type":      normalizePolicyEntityKey(missingTranslations.EntityType),
 			"policy_entity":    normalizePolicyEntityKey(missingTranslations.PolicyEntity),
 			"entity_id":        strings.TrimSpace(missingTranslations.EntityID),
-			"environment":      strings.TrimSpace(missingTranslations.Environment),
+			"channel":          strings.TrimSpace(missingTranslations.Environment),
 			"requested_locale": strings.TrimSpace(missingTranslations.RequestedLocale),
 		}
 		if missingTranslations.RequiredFieldsEvaluated || len(missingFields) > 0 {

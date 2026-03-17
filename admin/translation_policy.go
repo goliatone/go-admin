@@ -262,17 +262,8 @@ func buildTranslationPolicyInput(ctx context.Context, entityType, entityID, curr
 
 func resolvePolicyEnvironment(payload map[string]any, fallback string) string {
 	if payload != nil {
-		if env := strings.TrimSpace(toString(payload["environment"])); env != "" {
-			return env
-		}
-		if env := strings.TrimSpace(toString(payload["env"])); env != "" {
-			return env
-		}
-		if env := strings.TrimSpace(toString(payload["environment_key"])); env != "" {
-			return env
-		}
-		if env := strings.TrimSpace(toString(payload["environmentKey"])); env != "" {
-			return env
+		if channel := strings.TrimSpace(toString(payload["channel"])); channel != "" {
+			return channel
 		}
 	}
 	return strings.TrimSpace(fallback)

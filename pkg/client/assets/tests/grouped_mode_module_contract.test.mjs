@@ -16,7 +16,7 @@ test('grouped-mode module contract: detects backend grouped rows', () => {
         { id: 'alpha_en', locale: 'en', title: 'Alpha EN' },
         { id: 'alpha_fr', locale: 'fr', title: 'Alpha FR' },
       ],
-      translation_group_summary: {
+      family_summary: {
         available_locales: ['en', 'fr'],
         missing_locales: ['es'],
         readiness_state: 'missing_locales',
@@ -40,7 +40,7 @@ test('grouped-mode module contract: normalizes backend grouped payload to groupe
         { id: 'alpha_en', locale: 'en', title: 'Alpha EN' },
         { id: 'alpha_fr', locale: 'fr', title: 'Alpha FR' },
       ],
-      translation_group_summary: {
+      family_summary: {
         available_locales: ['en', 'fr'],
         missing_locales: ['es'],
         readiness_state: 'missing_locales',

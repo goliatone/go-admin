@@ -757,7 +757,7 @@ export class TranslationExchangeManager {
       this.render();
       return;
     }
-    if (this.validateState.parsedRows.length === 0) {
+    if (this.validateState.status === "loading_file") {
       await this.stageImportFile(this.validateState.file);
     }
 

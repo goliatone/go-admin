@@ -24,7 +24,7 @@
         "blocker_code",
         "locale",
         "locales",
-        "environment"
+        "channel"
       ],
       "stable_sort_keys": [
         "updated_at",
@@ -70,7 +70,7 @@
           "assignee_id",
           "priority",
           "due_date",
-          "environment"
+          "channel"
         ],
         "result_statuses": [
           "created",
@@ -91,7 +91,7 @@
           "locales",
           "include_source_hash",
           "format",
-          "environment"
+          "channel"
         ],
         "result_statuses": [
           "export_ready",
@@ -225,7 +225,7 @@
                       "locales": [
                         "en"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -268,7 +268,7 @@
                       "locales": [
                         "de"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -311,7 +311,7 @@
                       "locales": [
                         "es"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -364,7 +364,7 @@
                       "locales": [
                         "fr"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -444,7 +444,7 @@
                       "locales": [
                         "en"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -480,7 +480,7 @@
                       "locales": [
                         "de"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "This locale is optional for the current family policy.",
                     "reason_code": "INVALID_STATUS"
@@ -533,7 +533,7 @@
                       "locales": [
                         "es"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "reason": "Locale work already exists for this cell.",
                     "reason_code": "INVALID_STATUS"
@@ -571,7 +571,7 @@
                       "locales": [
                         "fr"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "description": "Create the missing locale variant and refresh matrix readiness."
                   }
@@ -594,7 +594,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "page": 1,
         "per_page": 25,
         "total": 2,
@@ -733,7 +733,7 @@
                       "locales": [
                         "it"
                       ],
-                      "environment": "production"
+                      "channel": "production"
                     },
                     "description": "Create the missing locale variant and refresh matrix readiness."
                   }
@@ -756,7 +756,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "page": 1,
         "per_page": 25,
         "total": 1,
@@ -838,7 +838,7 @@
         }
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "page": 1,
         "per_page": 25,
         "total": 1,
@@ -889,7 +889,7 @@
         ]
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "contracts": {
           "schema_version": 1
         }
@@ -993,7 +993,7 @@
         ]
       },
       "meta": {
-        "environment": "production",
+        "channel": "production",
         "contracts": {
           "schema_version": 1
         }

@@ -29,6 +29,7 @@ interface RuntimeActionsSyncOrchestrator {
 
 interface RuntimeActionsControllerOptions {
   createSuccess?: boolean;
+  enableServerSync?: boolean;
   stateManager: RuntimeActionsStateManager;
   syncOrchestrator: RuntimeActionsSyncOrchestrator;
   syncService: RuntimeActionsSyncService;
@@ -46,6 +47,7 @@ interface RuntimeActionsControllerOptions {
 export function createAgreementRuntimeActionsController(options: RuntimeActionsControllerOptions) {
   const {
     createSuccess,
+    enableServerSync = true,
     stateManager,
     syncOrchestrator,
     syncService,
@@ -59,6 +61,14 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
 
   function trackWizardStateChanges() {
     const formState = stateManager.collectFormState();
+    if (!enableServerSync) {
+      stateManager.setState({
+        ...stateManager.getState(),
+        ...formState,
+        syncPending: false,
+      }, { syncPending: false });
+      return;
+    }
     stateManager.updateState(formState);
     syncOrchestrator.scheduleSync();
     syncOrchestrator.broadcastStateUpdate();

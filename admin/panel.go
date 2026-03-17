@@ -1626,7 +1626,7 @@ func (p *Panel) recordBlockedTranslation(ctx AdminContext, id string, record map
 		"entity_id":        strings.TrimSpace(id),
 		"transition":       strings.TrimSpace(toString(record["transition"])),
 		"locale":           strings.TrimSpace(requestedLocaleFromPayload(record, localeFromContext(ctx.Context))),
-		"environment":      strings.TrimSpace(resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))),
+		"channel":          strings.TrimSpace(resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))),
 		"policy_entity":    strings.TrimSpace(resolvePolicyEntity(record, p.name)),
 		"translation_code": TextCodeTranslationMissing,
 		"missing_locales":  normalizeLocaleList(missing.MissingLocales),

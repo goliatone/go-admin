@@ -19,6 +19,8 @@ export interface NormalizedAgreementFormConfig {
   is_edit: boolean;
   create_success: boolean;
   submit_mode: string;
+  agreement_id?: string;
+  active_agreement_id?: string;
   routes: {
     index: string;
     documents: string;

@@ -23,6 +23,7 @@ var actionPayloadSystemFields = map[string]struct{}{
 	"data":          {},
 	"policy_entity": {},
 	"policyEntity":  {},
+	"channel":       {},
 	"environment":   {},
 	"env":           {},
 }

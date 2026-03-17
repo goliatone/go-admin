@@ -149,8 +149,6 @@ export interface TranslationBlockerContext {
   entityType: string | null;
   requestedLocale: string | null;
   channel: string | null;
-  /** @deprecated Use `channel` */
-  environment?: string | null;
   retry?: () => Promise<ActionResult>;
 }
 
@@ -710,13 +708,12 @@ export class SchemaActionBuilder {
       const blockerInfo = extractTranslationBlocker(result.error);
       if (blockerInfo && this.config.onTranslationBlocker) {
         const retryPayload = { ...input.payload };
-        const channel = this.getContentChannel() || blockerInfo.environment || null;
+        const channel = this.getContentChannel() || blockerInfo.channel || null;
         this.config.onTranslationBlocker({
           actionName: input.actionName,
           recordId: input.recordId,
           ...blockerInfo,
           channel,
-          environment: blockerInfo.environment ?? channel,
           retry: async () => this.executePostAction({
             actionName: input.actionName,
             endpoint: input.endpoint,

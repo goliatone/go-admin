@@ -185,8 +185,8 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 	if meta["entity_type"] != "pages" || meta["policy_entity"] != "pages" {
 		t.Fatalf("expected entity metadata, got %v", meta)
 	}
-	if meta["requested_locale"] != "en" || meta["environment"] != "production" {
-		t.Fatalf("expected locale/environment metadata, got %v", meta)
+	if meta["requested_locale"] != "en" || meta["channel"] != "production" {
+		t.Fatalf("expected locale/channel metadata, got %v", meta)
 	}
 	locales, _ := meta["missing_locales"].([]any)
 	if len(locales) != 2 {

@@ -35,7 +35,7 @@ func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *tes
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&environment=production&locale_limit=4", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locale_limit=4", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -158,7 +158,7 @@ func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&environment=production&content_type=pages&blocker_code=missing_locale&locales=fr,de", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&content_type=pages&blocker_code=missing_locale&locales=fr,de", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -199,7 +199,7 @@ func TestTranslationMatrixBindingIncludesMissingCellFixtureState(t *testing.T) {
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&environment=production&locales=it", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locales=it", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -237,7 +237,7 @@ func TestTranslationMatrixBindingCreateMissingBulkReturnsTypedSummary(t *testing
 		ReviewRequired:  true,
 	})
 
-	status, payload := doTranslationMatrixJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/matrix/actions/create-missing?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationMatrixJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/matrix/actions/create-missing?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"family_ids":             []string{"tg-page-1"},
 		"locales":                []string{"fr"},
 		"auto_create_assignment": true,
@@ -272,7 +272,7 @@ func TestTranslationMatrixBindingCreateMissingBulkReturnsTypedSummary(t *testing
 		t.Fatalf("expected seeded assignment id, got empty")
 	}
 
-	status, payload = doTranslationMatrixJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/matrix/actions/create-missing?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload = doTranslationMatrixJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/matrix/actions/create-missing?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"family_ids": []string{"tg-page-1"},
 		"locales":    []string{"fr"},
 	}, nil)
@@ -301,7 +301,7 @@ func TestTranslationMatrixBindingExportSelectedReturnsPreviewAndPermissionChecks
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	status, payload := doTranslationMatrixJSONRequest(t, app, http.MethodPost, "/admin/api/translations/matrix/actions/export-selected?tenant_id=tenant-1&org_id=org-1&environment=production", map[string]any{
+	status, payload := doTranslationMatrixJSONRequest(t, app, http.MethodPost, "/admin/api/translations/matrix/actions/export-selected?tenant_id=tenant-1&org_id=org-1&channel=production", map[string]any{
 		"family_ids":          []string{"tg-page-matrix-1", "tg-news-matrix-1"},
 		"locales":             []string{"es", "fr"},
 		"include_source_hash": true,
@@ -331,7 +331,7 @@ func TestTranslationMatrixBindingExportSelectedReturnsPreviewAndPermissionChecks
 	adm.WithAuthorizer(translationPermissionAuthorizer{
 		allowed: map[string]bool{PermAdminTranslationsView: true},
 	})
-	status, payload = doTranslationMatrixJSONRequest(t, app, http.MethodPost, "/admin/api/translations/matrix/actions/export-selected?tenant_id=tenant-1&org_id=org-1&environment=production", map[string]any{
+	status, payload = doTranslationMatrixJSONRequest(t, app, http.MethodPost, "/admin/api/translations/matrix/actions/export-selected?tenant_id=tenant-1&org_id=org-1&channel=production", map[string]any{
 		"family_ids": []string{"tg-page-matrix-1"},
 	}, nil)
 	if status != http.StatusForbidden {
@@ -355,7 +355,7 @@ func TestTranslationMatrixBindingMatrixViewportP95UnderTarget(t *testing.T) {
 	samples := make([]time.Duration, 0, 20)
 	for range 20 {
 		started := time.Now()
-		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&environment=production&per_page=100&locale_limit=20", nil)
+		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&per_page=100&locale_limit=20", nil)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request error: %v", err)

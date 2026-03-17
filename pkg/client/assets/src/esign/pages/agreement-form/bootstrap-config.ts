@@ -14,6 +14,8 @@ export interface AgreementFormRuntimeInputConfig {
   is_edit?: boolean;
   create_success?: boolean;
   submit_mode?: string;
+  agreement_id?: string;
+  active_agreement_id?: string;
   routes?: {
     index?: string;
     documents?: string;
@@ -65,6 +67,8 @@ export interface AgreementFormConfigNormalizationResult {
   isEditMode: boolean;
   createSuccess: boolean;
   submitMode: string;
+  agreementID: string;
+  activeAgreementID: string;
   documentsUploadURL: string;
   initialParticipants: Array<Record<string, unknown>>;
   initialFieldInstances: Array<Record<string, unknown>>;
@@ -169,6 +173,8 @@ export function normalizeAgreementFormConfig(
   const isEditMode = Boolean(config.is_edit);
   const createSuccess = Boolean(config.create_success);
   const submitMode = String(config.submit_mode || 'json').trim().toLowerCase();
+  const agreementID = String(config.agreement_id || '').trim();
+  const activeAgreementID = String(config.active_agreement_id || '').trim();
   const documentsUploadURL = String(config.routes?.documents_upload_url || '').trim() || `${basePath}/content/esign_documents/new`;
   const initialParticipants = Array.isArray(config.initial_participants) ? config.initial_participants : [];
   const initialFieldInstances = Array.isArray(config.initial_field_instances) ? config.initial_field_instances : [];
@@ -193,6 +199,8 @@ export function normalizeAgreementFormConfig(
     is_edit: isEditMode,
     create_success: createSuccess,
     submit_mode: submitMode,
+    agreement_id: agreementID,
+    active_agreement_id: activeAgreementID,
     routes: {
       index: String(config.routes?.index || '').trim(),
       documents: String(config.routes?.documents || '').trim(),
@@ -213,6 +221,8 @@ export function normalizeAgreementFormConfig(
     isEditMode,
     createSuccess,
     submitMode,
+    agreementID,
+    activeAgreementID,
     documentsUploadURL,
     initialParticipants,
     initialFieldInstances,
@@ -235,6 +245,7 @@ export function createAgreementWizardPersistenceSettings(options: {
   } = options;
 
   const wizardModeToken = isEditMode ? 'edit' : 'create';
+  const agreementIDToken = String(config.agreement_id || '').trim().toLowerCase();
   const wizardRouteToken = String(
     config.routes?.create
       || config.routes?.index
@@ -245,7 +256,7 @@ export function createAgreementWizardPersistenceSettings(options: {
   const wizardScopeToken = [
     storageScopeToken,
     wizardModeToken,
-    wizardRouteToken || 'agreement-form',
+    isEditMode && agreementIDToken !== '' ? agreementIDToken : (wizardRouteToken || 'agreement-form'),
   ].join('|');
 
   return {

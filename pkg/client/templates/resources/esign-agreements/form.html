@@ -2,6 +2,28 @@
 
 {% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Agreement - {{ title }}{% endblock %}
 
+{% block head_extra %}
+<style>
+  /* Collapsible section styles */
+  .collapsible-trigger {
+    cursor: pointer;
+    user-select: none;
+  }
+  .collapsible-content {
+    display: none;
+  }
+  .collapsible-content.expanded {
+    display: block;
+  }
+  .collapsible-icon {
+    transition: transform 0.2s ease;
+  }
+  .collapsible-trigger[aria-expanded="true"] .collapsible-icon {
+    transform: rotate(180deg);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <div>
@@ -255,7 +277,9 @@
     },
     "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
     "create_success": {{ create_success|default:false|yesno:"true,false" }},
-    "submit_mode": "json",
+    "submit_mode": "{% if is_edit %}form{% else %}json{% endif %}",
+    "agreement_id": "{{ resource_item.id|default:""|escapejs }}",
+    "active_agreement_id": "{{ resource_item.active_agreement_id|default:""|escapejs }}",
     "routes": {
       "index": "{{ routes.index|default:"" }}",
       "documents": "{{ routes.documents|default:"" }}",
@@ -286,65 +310,101 @@
       Agreement created successfully. You can continue editing before sending for signature.
     </div>
   {% endif %}
+  {# Workflow & Lineage - Collapsible Card #}
   {% if resource_item.workflow_kind or resource_item.parent_agreement_id or resource_item.root_agreement_id or resource_item.superseded_by_agreement_id or resource_item.related_agreements %}
-    <div class="max-w-4xl mb-4 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div class="min-w-0">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow & Lineage</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
-              Workflow: {{ resource_item.workflow_kind|default:"standard"|title }}
+    <div class="max-w-4xl mb-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
+      {# Header - Always visible #}
+      <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+              <svg class="w-4 h-4 text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-gray-900">Workflow & Lineage</h3>
+              <p class="text-xs text-gray-500 mt-0.5">
+                {% if resource_item.workflow_kind == "correction" %}
+                  Correction draft superseding earlier version
+                {% elif resource_item.workflow_kind == "amendment" %}
+                  Amendment extending executed parent
+                {% else %}
+                  Standard agreement workflow
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+              {{ resource_item.workflow_kind|default:"standard"|title }}
             </span>
             {% if resource_item.status %}
-            <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
-              Status: {{ resource_item.status|title }}
+            <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+              {{ resource_item.status|title }}
             </span>
             {% endif %}
-          </div>
-          <p class="mt-3 text-sm text-slate-600">
-            {% if resource_item.workflow_kind == "correction" %}
-              Use this draft to replace an earlier in-flight agreement with a corrected revision.
-            {% elif resource_item.workflow_kind == "amendment" %}
-              Use this draft to extend the executed parent agreement while preserving version history.
-            {% else %}
-              This draft is the current root version unless it is later superseded by a correction or amendment.
-            {% endif %}
-          </p>
-        </div>
-        <div class="grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:min-w-[320px]">
-          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Root Agreement</div>
-            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.root_agreement_id|default:resource_item.id|default:"-" }}</div>
-          </div>
-          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Parent Agreement</div>
-            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.parent_agreement_id|default:"-" }}</div>
-          </div>
-          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Superseded By</div>
-            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.superseded_by_agreement_id|default:"-" }}</div>
-          </div>
-          <div class="rounded-lg bg-white px-3 py-3 ring-1 ring-inset ring-slate-200">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Parent Hash</div>
-            <div class="mt-1 break-all font-mono text-xs text-slate-900">{{ resource_item.parent_executed_sha256|default:"-" }}</div>
           </div>
         </div>
       </div>
-      {% if resource_item.related_agreements and resource_item.related_agreements|length > 0 %}
-      <div class="mt-4 border-t border-slate-200 pt-4">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Related Agreements</div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-          {% for agreement in resource_item.related_agreements %}
-          <div class="rounded-lg bg-white px-4 py-3 ring-1 ring-inset ring-slate-200">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="text-sm font-medium text-slate-900">{{ agreement.title|default:agreement.id }}</div>
-                <div class="mt-1 text-xs text-slate-500">{{ agreement.workflow_kind|default:"standard"|title }} • {{ agreement.status|default:"unknown"|title }}</div>
-              </div>
-              <span class="text-xs text-slate-400">{{ agreement.sent_at|default:agreement.completed_at|default:"-" }}</span>
+
+      {# Technical Details - Collapsible #}
+      <div class="border-b border-gray-200">
+        <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="workflow-technical-details">
+          <span class="text-xs font-medium text-gray-600">Technical Details</span>
+          <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div id="workflow-technical-details" class="collapsible-content px-5 pb-4">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+              <div class="text-xs font-medium text-gray-500">Root Agreement</div>
+              <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.root_agreement_id|default:resource_item.id|default:"-" }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+              <div class="text-xs font-medium text-gray-500">Parent Agreement</div>
+              <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_agreement_id|default:"-" }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+              <div class="text-xs font-medium text-gray-500">Superseded By</div>
+              <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.superseded_by_agreement_id|default:"-" }}</div>
+            </div>
+            <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+              <div class="text-xs font-medium text-gray-500">Parent Hash</div>
+              <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_executed_sha256|default:"-" }}</div>
             </div>
           </div>
-          {% endfor %}
+        </div>
+      </div>
+
+      {# Related Agreements - Collapsible (if present) #}
+      {% if resource_item.related_agreements and resource_item.related_agreements|length > 0 %}
+      <div>
+        <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="workflow-related-agreements">
+          <span class="text-xs font-medium text-gray-600">Related Agreements ({{ resource_item.related_agreements|length }})</span>
+          <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div id="workflow-related-agreements" class="collapsible-content px-5 pb-4">
+          <div class="grid gap-2 md:grid-cols-2">
+            {% for agreement in resource_item.related_agreements %}
+            <div class="rounded-lg bg-gray-50 px-4 py-3 border border-gray-100">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-gray-900 truncate">{{ agreement.title|default:agreement.id }}</div>
+                  <div class="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                    <span class="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{{ agreement.workflow_kind|default:"standard"|title }}</span>
+                    <span>·</span>
+                    <span>{{ agreement.status|default:"unknown"|title }}</span>
+                  </div>
+                </div>
+                <a href="{{ panelDetailURL('esign_agreements', agreement.id) }}" class="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">View</a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
         </div>
       </div>
       {% endif %}
@@ -352,6 +412,9 @@
   {% endif %}
 
   <form id="agreement-form" method="POST" action="{{ form_action|default:routes.create }}" class="max-w-4xl space-y-8" aria-describedby="form-announcements">
+    {% if resource_item.version %}
+    <input type="hidden" name="expected_version" value="{{ resource_item.version }}">
+    {% endif %}
     <input type="hidden" name="recipients_present" value="1">
     <input type="hidden" name="fields_present" value="1">
     <input type="hidden" name="field_instances_present" value="1">
@@ -641,82 +704,89 @@
 
       <p class="text-sm text-gray-600 mb-4">Define the fields signers need to complete. Each signer must have at least one signature field.</p>
 
-      {# Field Type Descriptions #}
-      <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">Available Field Types</h3>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Signature</span>
-              <p class="text-gray-500">Drawn or typed signature</p>
+      {# Field Type Descriptions - Collapsible Reference #}
+      <div class="mb-6 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+        <button type="button" class="collapsible-trigger w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-100 transition-colors" aria-expanded="false" aria-controls="field-types-reference">
+          <span class="text-sm font-medium text-gray-700">Available Field Types</span>
+          <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div id="field-types-reference" class="collapsible-content px-4 pb-4">
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Signature</span>
+                <p class="text-gray-500">Drawn or typed signature</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Name</span>
-              <p class="text-gray-500">Full name text input</p>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Name</span>
+                <p class="text-gray-500">Full name text input</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Date Signed</span>
-              <p class="text-gray-500">Auto-filled by system</p>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Date Signed</span>
+                <p class="text-gray-500">Auto-filled by system</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Text</span>
-              <p class="text-gray-500">Free-form text input</p>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Text</span>
+                <p class="text-gray-500">Free-form text input</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Checkbox</span>
-              <p class="text-gray-500">Yes/no selection</p>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Checkbox</span>
+                <p class="text-gray-500">Yes/no selection</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <svg class="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
-            </svg>
-            <div>
-              <span class="font-medium text-gray-900">Initials</span>
-              <p class="text-gray-500">Abbreviated signature</p>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+              </svg>
+              <div>
+                <span class="font-medium text-gray-900">Initials</span>
+                <p class="text-gray-500">Abbreviated signature</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {# Field Automation Rules #}
-      <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+      <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <div class="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h3 class="text-sm font-semibold text-blue-900">Automation Rules</h3>
-            <p class="text-xs text-blue-800 mt-1">Define repeated initials/signature patterns by page range.</p>
+            <h3 class="text-sm font-semibold text-gray-900">Automation Rules</h3>
+            <p class="text-xs text-gray-600 mt-1">Define repeated initials/signature patterns by page range.</p>
           </div>
-          <button type="button" id="add-field-rule-btn" class="text-sm text-blue-700 hover:text-blue-900 font-medium">
+          <button type="button" id="add-field-rule-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
             + Add Rule
           </button>
         </div>
 
         <div id="field-rules-container" class="space-y-3">
           <template id="field-rule-template">
-            <div class="field-rule-entry p-3 bg-white border border-blue-100 rounded-lg" data-field-rule-id="">
+            <div class="field-rule-entry p-3 bg-white border border-gray-200 rounded-lg" data-field-rule-id="">
               <input type="hidden" class="field-rule-id-input" name="field_rules[].id" value="">
               <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                 <div>
@@ -774,11 +844,11 @@
           </template>
         </div>
 
-        <div id="field-rules-empty-state" class="text-xs text-blue-800">
+        <div id="field-rules-empty-state" class="text-xs text-gray-600">
           No automation rules yet. Add one to generate repeated initials/signature fields.
         </div>
 
-        <div class="mt-3 p-3 bg-white border border-blue-100 rounded-lg">
+        <div class="mt-3 p-3 bg-white border border-gray-200 rounded-lg">
           <p class="text-xs font-medium text-gray-700 mb-2">Generated preview</p>
           <div id="field-rules-preview" class="space-y-1 text-xs text-gray-600">
             <p>No rules configured.</p>
@@ -1258,6 +1328,22 @@
 {% endblock %}
 
 {% block scripts %}
+{# Collapsible section handlers #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.collapsible-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const targetId = trigger.getAttribute('aria-controls');
+      const content = document.getElementById(targetId);
+      const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+
+      trigger.setAttribute('aria-expanded', !isExpanded);
+      content.classList.toggle('expanded', !isExpanded);
+    });
+  });
+});
+</script>
+
 {# E-Sign agreement form module bootstrap #}
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>

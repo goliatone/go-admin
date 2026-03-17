@@ -149,7 +149,7 @@ func (s PageApplicationService) List(ctx context.Context, opts PageListOptions) 
 		Locale:                   resolveLocale(opts.Locale, localeFromContext(ctx)),
 		FallbackLocale:           opts.FallbackLocale,
 		AllowMissingTranslations: allowMissing,
-		EnvironmentKey:           resolveEnvironment(opts.EnvironmentKey, environmentFromContext(ctx)),
+		EnvironmentKey:           resolveChannel(opts.EnvironmentKey, environmentFromContext(ctx)),
 		Page:                     opts.Page,
 		PerPage:                  opts.PerPage,
 		SortBy:                   opts.SortBy,
@@ -174,7 +174,7 @@ func (s PageApplicationService) Get(ctx context.Context, id string, opts PageGet
 		Locale:                   resolveLocale(opts.Locale, localeFromContext(ctx)),
 		FallbackLocale:           opts.FallbackLocale,
 		AllowMissingTranslations: allowMissing,
-		EnvironmentKey:           resolveEnvironment(opts.EnvironmentKey, environmentFromContext(ctx)),
+		EnvironmentKey:           resolveChannel(opts.EnvironmentKey, environmentFromContext(ctx)),
 	}
 	includes := s.applyIncludeDefaults(false, opts.PageReadOptions)
 	readOpts.IncludeContent = includes.IncludeContent
@@ -480,7 +480,7 @@ func (s PageApplicationService) currentPageStatus(ctx context.Context, id string
 		return "", ErrNotFound
 	}
 	locale := strings.TrimSpace(toString(payload["locale"]))
-	env := strings.TrimSpace(toString(payload["environment"]))
+	channel := strings.TrimSpace(toString(payload["channel"]))
 	opts := AdminPageGetOptions{
 		Locale:                   resolveLocale(locale, localeFromContext(ctx)),
 		FallbackLocale:           "",
@@ -488,7 +488,7 @@ func (s PageApplicationService) currentPageStatus(ctx context.Context, id string
 		IncludeContent:           false,
 		IncludeBlocks:            false,
 		IncludeData:              true,
-		EnvironmentKey:           resolveEnvironment(env, environmentFromContext(ctx)),
+		EnvironmentKey:           resolveChannel(channel, environmentFromContext(ctx)),
 	}
 	record, err := s.Read.Get(ctx, id, opts)
 	if err != nil {
@@ -512,9 +512,9 @@ func resolveLocale(preferred, fallback string) string {
 	return strings.TrimSpace(fallback)
 }
 
-func resolveEnvironment(preferred, fallback string) string {
-	if env := strings.TrimSpace(preferred); env != "" {
-		return env
+func resolveChannel(preferred, fallback string) string {
+	if channel := strings.TrimSpace(preferred); channel != "" {
+		return channel
 	}
 	return strings.TrimSpace(fallback)
 }
@@ -553,10 +553,7 @@ func (s PageApplicationService) hydrateUpdatePayload(ctx context.Context, id str
 	if locale == "" {
 		locale = strings.TrimSpace(payloadString(payload, "requested_locale"))
 	}
-	env := resolveEnvironment(payloadString(payload, "environment"), environmentFromContext(ctx))
-	if env == "" {
-		env = strings.TrimSpace(payloadString(payload, "env"))
-	}
+	channel := resolveChannel(payloadString(payload, "channel"), environmentFromContext(ctx))
 	record, err := s.Read.Get(ctx, id, AdminPageGetOptions{
 		Locale:                   locale,
 		FallbackLocale:           strings.TrimSpace(payloadString(payload, "fallback_locale")),
@@ -564,7 +561,7 @@ func (s PageApplicationService) hydrateUpdatePayload(ctx context.Context, id str
 		IncludeContent:           false,
 		IncludeBlocks:            false,
 		IncludeData:              true,
-		EnvironmentKey:           env,
+		EnvironmentKey:           channel,
 	})
 	if err != nil || record == nil {
 		return err

@@ -440,8 +440,8 @@ test('buildQueryContext includes locale when configured', () => {
   // The builder stores locale internally - we verify it was configured
 });
 
-test('buildQueryContext includes environment when configured', () => {
-  const builder = createBuilder({ environment: 'staging' });
+test('buildQueryContext includes channel when configured', () => {
+  const builder = createBuilder({ channel: 'staging' });
   const record = createMockRecord();
   const schemaActions = [{ name: 'view', label: 'View' }];
 
@@ -452,8 +452,8 @@ test('buildQueryContext includes environment when configured', () => {
   assert.equal(typeof actions[0].action, 'function');
 });
 
-test('buildQueryContext includes both locale and environment when configured', () => {
-  const builder = createBuilder({ locale: 'fr', environment: 'production' });
+test('buildQueryContext includes both locale and channel when configured', () => {
+  const builder = createBuilder({ locale: 'fr', channel: 'production' });
   const record = createMockRecord();
   const schemaActions = [{ name: 'edit', label: 'Edit' }];
 
@@ -721,11 +721,11 @@ test('SchemaActionBuilder includes locale in query context', () => {
   assert.equal(typeof actions[0].action, 'function');
 });
 
-test('SchemaActionBuilder includes environment in query context', () => {
+test('SchemaActionBuilder includes channel in query context', () => {
   const builder = new SchemaActionBuilder({
     apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
-    environment: 'staging',
+    channel: 'staging',
   });
 
   assert.ok(builder);
@@ -742,7 +742,7 @@ test('SchemaActionBuilder includes panelName for policy_entity', () => {
     actionBasePath: '/admin/content/pages',
     panelName: 'pages',
     locale: 'en',
-    environment: 'production',
+    channel: 'production',
   });
 
   assert.ok(builder);
@@ -953,7 +953,7 @@ test('translation blocker retry re-executes the original action payload', async 
     apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'en',
-    environment: 'production',
+    channel: 'production',
     panelName: 'pages',
     onTranslationBlocker: (info) => {
       blockerInfo = info;
@@ -993,7 +993,7 @@ test('translation blocker retry re-executes the original action payload', async 
             transition: 'publish',
             entity_type: 'pages',
             requested_locale: 'en',
-            environment: 'production',
+            channel: 'production',
           },
         },
       });
@@ -1019,7 +1019,7 @@ test('translation blocker retry re-executes the original action payload', async 
     assert.deepEqual(secondPayload, firstPayload);
     assert.equal(firstPayload.id, 'page_123');
     assert.equal(firstPayload.locale, 'en');
-    assert.equal(firstPayload.environment, 'production');
+    assert.equal(firstPayload.channel, 'production');
     assert.equal(firstPayload.policy_entity, 'pages');
   } finally {
     globalThis.fetch = originalFetch;
@@ -1230,12 +1230,12 @@ test('confirm message from schema is used', () => {
 // Task 9.8: Query Context Propagation Tests
 // =============================================================================
 
-test('locale and environment are propagated to navigation URLs', () => {
+test('locale and channel are propagated to navigation URLs', () => {
   const builder = new SchemaActionBuilder({
     apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'fr',
-    environment: 'production',
+    channel: 'production',
   });
 
   const record = createMockRecord({ id: 'page_789' });
@@ -1258,7 +1258,7 @@ test('POST actions include locale/env/policy_entity in payload', () => {
     apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'es',
-    environment: 'staging',
+    channel: 'staging',
     panelName: 'pages',
   });
 

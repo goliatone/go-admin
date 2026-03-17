@@ -32,7 +32,7 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?family_id=tg-page-1&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&environment=production", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?family_id=tg-page-1&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -51,8 +51,8 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	if got := toInt(meta["total"]); got != 1 {
 		t.Fatalf("expected total=1, got %d", got)
 	}
-	if got := toString(meta["environment"]); got != "production" {
-		t.Fatalf("expected environment production, got %q", got)
+	if got := toString(meta["channel"]); got != "production" {
+		t.Fatalf("expected channel production, got %q", got)
 	}
 	report, _ := meta["report"].(map[string]any)
 	summary, _ := report["summary"].(map[string]any)
@@ -101,7 +101,7 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/tg-page-1?tenant_id=tenant-1&org_id=org-1&environment=production", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/tg-page-1?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -193,7 +193,7 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 		LifecycleMode:   string(translationcore.AssignmentLifecycleSingleActivePerLang),
 	})
 
-	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale":                 "fr",
 		"auto_create_assignment": true,
 		"assignee_id":            "translator-9",
@@ -257,7 +257,7 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 		t.Fatalf("expected quick_create disabled after creation, got %+v", quickCreate)
 	}
 
-	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
@@ -293,14 +293,14 @@ func TestTranslationFamilyBindingCreateVariantRejectsDuplicateLocaleWithoutIdemp
 		RequiredLocales: []string{"fr"},
 	})
 
-	firstStatus, firstPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	firstStatus, firstPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale": "fr",
 	}, nil)
 	if firstStatus != http.StatusOK {
 		t.Fatalf("first create status=%d payload=%+v", firstStatus, firstPayload)
 	}
 
-	secondStatus, secondPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	secondStatus, secondPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale": "fr",
 	}, nil)
 	if secondStatus != http.StatusConflict {
@@ -316,7 +316,7 @@ func TestTranslationFamilyBindingCreateVariantBlocksWhenPolicyIsUnavailable(t *t
 		DisablePolicy: true,
 	})
 
-	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale": "fr",
 	}, nil)
 	if status != http.StatusConflict {
@@ -348,7 +348,7 @@ func TestTranslationFamilyBindingCreateVariantManualArchiveModeBlocksReplacement
 		},
 	})
 
-	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale":                 "fr",
 		"auto_create_assignment": true,
 	}, nil)
@@ -359,7 +359,7 @@ func TestTranslationFamilyBindingCreateVariantManualArchiveModeBlocksReplacement
 		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
 	}
 
-	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
@@ -374,7 +374,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayl
 		RequiredLocales: []string{"fr"},
 	})
 
-	path := "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1"
+	path := "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1"
 	headers := map[string]string{"X-Idempotency-Key": "tx-idempotent-fr"}
 	body := map[string]any{
 		"locale": "fr",
@@ -394,7 +394,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayl
 		}
 	}
 
-	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
@@ -416,7 +416,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRe
 		OmitDefaultWorkScope: true,
 	})
 
-	path := "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1"
+	path := "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1"
 	headers := map[string]string{"X-Idempotency-Key": "tx-idempotent-fr-restart"}
 	body := map[string]any{
 		"locale": "fr",
@@ -445,7 +445,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRe
 		t.Fatalf("expected replayed quick-create default work_scope %q, got %q", translationcore.DefaultWorkScope, got)
 	}
 
-	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, restartedApp, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, restartedApp, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
@@ -486,7 +486,7 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 		},
 	})
 
-	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale":                 "fr",
 		"auto_create_assignment": true,
 	}, nil)
@@ -494,7 +494,7 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 		t.Fatalf("expected create-locale failure, got status=%d payload=%+v", status, payload)
 	}
 
-	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
@@ -543,7 +543,7 @@ func TestTranslationFamilyBindingCreateVariantScopesLifecycleByWorkScope(t *test
 		},
 	})
 
-	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale":                 "fr",
 		"auto_create_assignment": true,
 	}, nil)

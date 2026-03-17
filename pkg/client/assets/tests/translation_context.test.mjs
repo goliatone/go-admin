@@ -660,8 +660,8 @@ describe('Create translation intent flow', () => {
     };
 
     // Add optional context
-    if (options.environment) {
-      payload.environment = options.environment;
+    if (options.channel) {
+      payload.channel = options.channel;
     }
     if (options.policyEntity) {
       payload.policy_entity = options.policyEntity;
@@ -696,10 +696,10 @@ describe('Create translation intent flow', () => {
     assert.equal(payload.locale, 'es');
   });
 
-  it('should include environment in payload when provided', () => {
+  it('should include channel in payload when provided', () => {
     const record = { id: 'page_123' };
-    const payload = buildCreateTranslationPayload(record, 'fr', { environment: 'staging' });
-    assert.equal(payload.environment, 'staging');
+    const payload = buildCreateTranslationPayload(record, 'fr', { channel: 'staging' });
+    assert.equal(payload.channel, 'staging');
   });
 
   it('should handle successful create translation response', () => {
@@ -1283,7 +1283,7 @@ describe('extractTranslationReadiness', () => {
       missingRequiredFieldsByLocale: {},
       readinessState: null,
       readyForTransition: {},
-      evaluatedEnvironment: null,
+      evaluatedChannel: null,
       hasReadinessMetadata: false,
     };
 
@@ -1334,8 +1334,8 @@ describe('extractTranslationReadiness', () => {
         }
       }
 
-      readiness.evaluatedEnvironment = typeof readinessObj.evaluated_environment === 'string'
-        ? readinessObj.evaluated_environment
+      readiness.evaluatedChannel = typeof readinessObj.evaluated_channel === 'string'
+        ? readinessObj.evaluated_channel
         : null;
     }
 
@@ -1363,7 +1363,7 @@ describe('extractTranslationReadiness', () => {
         missing_required_fields_by_locale: {},
         readiness_state: 'missing_locales',
         ready_for_transition: { publish: false },
-        evaluated_environment: 'production',
+        evaluated_channel: 'production',
       },
     };
 
@@ -1376,7 +1376,7 @@ describe('extractTranslationReadiness', () => {
     assert.deepEqual(readiness.missingRequiredLocales, ['fr']);
     assert.equal(readiness.readinessState, 'missing_locales');
     assert.equal(readiness.readyForTransition.publish, false);
-    assert.equal(readiness.evaluatedEnvironment, 'production');
+    assert.equal(readiness.evaluatedChannel, 'production');
   });
 
   it('should parse missing_required_fields_by_locale correctly', () => {
@@ -1392,7 +1392,7 @@ describe('extractTranslationReadiness', () => {
         },
         readiness_state: 'missing_fields',
         ready_for_transition: { publish: false },
-        evaluated_environment: 'staging',
+        evaluated_channel: 'staging',
       },
     };
 
@@ -1413,7 +1413,7 @@ describe('extractTranslationReadiness', () => {
         missing_required_fields_by_locale: {},
         readiness_state: 'ready',
         ready_for_transition: { publish: true },
-        evaluated_environment: 'production',
+        evaluated_channel: 'production',
       },
     };
 
@@ -1436,7 +1436,7 @@ describe('extractTranslationReadiness', () => {
         },
         readiness_state: 'missing_locales_and_fields',
         ready_for_transition: { publish: false },
-        evaluated_environment: 'production',
+        evaluated_channel: 'production',
       },
     };
 
@@ -2272,7 +2272,7 @@ describe('Schema Action Authority', () => {
       missingRequiredFieldsByLocale: {},
       readinessState: null,
       readyForTransition: {},
-      evaluatedEnvironment: null,
+      evaluatedChannel: null,
       hasReadinessMetadata: false,
     };
 

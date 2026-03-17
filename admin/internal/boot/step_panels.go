@@ -382,11 +382,9 @@ func mergeActionContextFromRequest(c router.Context, body map[string]any, routeL
 			body["locale"] = locale
 		}
 	}
-	if strings.TrimSpace(toStringAny(body["environment"])) == "" && strings.TrimSpace(toStringAny(body["env"])) == "" {
-		if env := strings.TrimSpace(c.Query("environment")); env != "" {
-			body["environment"] = env
-		} else if env := strings.TrimSpace(c.Query("env")); env != "" {
-			body["environment"] = env
+	if strings.TrimSpace(toStringAny(body["channel"])) == "" {
+		if channel := strings.TrimSpace(c.Query("channel")); channel != "" {
+			body["channel"] = channel
 		}
 	}
 	if strings.TrimSpace(toStringAny(body["policy_entity"])) == "" && strings.TrimSpace(toStringAny(body["policyEntity"])) == "" {

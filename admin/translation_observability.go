@@ -128,13 +128,13 @@ func recordTranslationBlockedTransitionMetric(ctx context.Context, input Transla
 		return
 	}
 	tags := map[string]string{
-		"entity":      primitives.FirstNonEmptyRaw(normalizePolicyEntityKey(input.PolicyEntity), normalizePolicyEntityKey(input.EntityType), normalizePolicyEntityKey(missing.PolicyEntity), normalizePolicyEntityKey(missing.EntityType), "unknown"),
-		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(input.RequestedLocale), strings.TrimSpace(missing.RequestedLocale), "unknown"),
-		"transition":  primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Transition), strings.TrimSpace(missing.Transition), "unknown"),
-		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Environment), strings.TrimSpace(missing.Environment), "unknown"),
+		"entity":     primitives.FirstNonEmptyRaw(normalizePolicyEntityKey(input.PolicyEntity), normalizePolicyEntityKey(input.EntityType), normalizePolicyEntityKey(missing.PolicyEntity), normalizePolicyEntityKey(missing.EntityType), "unknown"),
+		"locale":     primitives.FirstNonEmptyRaw(strings.TrimSpace(input.RequestedLocale), strings.TrimSpace(missing.RequestedLocale), "unknown"),
+		"transition": primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Transition), strings.TrimSpace(missing.Transition), "unknown"),
+		"channel":    primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Environment), strings.TrimSpace(missing.Environment), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementBlockedTransition(ctx, tags)
-	logTranslationBlockedTransition(ctx, input, missing, tags["entity"], tags["locale"], tags["transition"], tags["environment"])
+	logTranslationBlockedTransition(ctx, input, missing, tags["entity"], tags["locale"], tags["transition"], tags["channel"])
 }
 
 func recordTranslationCreateActionMetric(ctx context.Context, event translationCreateActionEvent) {
@@ -142,11 +142,11 @@ func recordTranslationCreateActionMetric(ctx context.Context, event translationC
 		return
 	}
 	tags := map[string]string{
-		"entity":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Entity), "unknown"),
-		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
-		"transition":  primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Transition), "create_translation"),
-		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
-		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
+		"entity":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Entity), "unknown"),
+		"locale":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
+		"transition": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Transition), "create_translation"),
+		"channel":    primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"outcome":    primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementCreateAction(ctx, tags)
 	logTranslationCreateAction(ctx, event, tags)
@@ -159,7 +159,7 @@ func recordTranslationCreateLocaleMetric(ctx context.Context, event translationC
 	tags := map[string]string{
 		"content_type": strings.TrimSpace(event.ContentType),
 		"locale":       primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
-		"environment":  primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"channel":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
 		"outcome":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementCreateLocaleAction(ctx, tags)
@@ -175,7 +175,7 @@ func recordTranslationReviewActionMetric(ctx context.Context, event translationR
 		"flow":        primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Flow), strings.TrimSpace(event.Action), "unknown"),
 		"entity_type": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityType), "unknown"),
 		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
-		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"channel":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
 		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
 	}
 	if strings.TrimSpace(event.ReasonCode) != "" {
@@ -193,7 +193,7 @@ func recordTranslationQAOutcomeMetric(ctx context.Context, event translationQAOu
 		"trigger":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Trigger), "unknown"),
 		"entity_type": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityType), "unknown"),
 		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
-		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"channel":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
 		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementQAOutcome(ctx, tags)
@@ -236,7 +236,7 @@ func sanitizeMetricTag(value string) string {
 	return value
 }
 
-func logTranslationBlockedTransition(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError, entity, locale, transition, environment string) {
+func logTranslationBlockedTransition(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError, entity, locale, transition, channel string) {
 	logger := translationObservabilityLogger
 	if logger == nil {
 		return
@@ -247,7 +247,7 @@ func logTranslationBlockedTransition(ctx context.Context, input TranslationPolic
 		"entity_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(input.EntityID), strings.TrimSpace(missing.EntityID), "unknown"),
 		"transition", transition,
 		"locale", locale,
-		"environment", environment,
+		"channel", channel,
 		"missing_locales", normalizeLocaleList(missing.MissingLocales),
 	}
 	if fields := normalizeMissingFieldsByLocale(missing.MissingFieldsByLocale); len(fields) > 0 {
@@ -269,7 +269,7 @@ func logTranslationCreateAction(ctx context.Context, event translationCreateActi
 		"entity_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityID), "unknown"),
 		"source_locale", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.SourceLocale), "unknown"),
 		"target_locale", tags["locale"],
-		"environment", tags["environment"],
+		"channel", tags["channel"],
 		"family_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.FamilyID), "unknown"),
 	}
 	if event.Err != nil {
@@ -291,7 +291,7 @@ func logTranslationCreateLocale(ctx context.Context, event translationCreateLoca
 		"content_type", primitives.FirstNonEmptyRaw(tags["content_type"], "unknown"),
 		"family_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.FamilyID), "unknown"),
 		"target_locale", tags["locale"],
-		"environment", tags["environment"],
+		"channel", tags["channel"],
 		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
 		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
 	}
@@ -316,7 +316,7 @@ func logTranslationReviewAction(ctx context.Context, event translationReviewActi
 		"assignment_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.AssignmentID), "unknown"),
 		"entity_type", tags["entity_type"],
 		"target_locale", tags["locale"],
-		"environment", tags["environment"],
+		"channel", tags["channel"],
 		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
 		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
 	}
@@ -343,7 +343,7 @@ func logTranslationQAOutcome(ctx context.Context, event translationQAOutcomeEven
 		"assignment_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.AssignmentID), "unknown"),
 		"entity_type", tags["entity_type"],
 		"target_locale", tags["locale"],
-		"environment", tags["environment"],
+		"channel", tags["channel"],
 		"warning_count", event.WarningCount,
 		"blocker_count", event.BlockerCount,
 		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),

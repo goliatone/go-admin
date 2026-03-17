@@ -633,6 +633,106 @@ test('submit controller routes send-time stale revisions through the shared conf
   assert.equal(telemetry.some((entry) => entry.eventName === 'wizard_send_conflict'), true);
 });
 
+test('bootstrap config scopes edit wizard persistence by agreement id', async () => {
+  const { createAgreementWizardPersistenceSettings } = await importSourceModule('bootstrap-config.ts');
+
+  const first = createAgreementWizardPersistenceSettings({
+    isEditMode: true,
+    config: {
+      agreement_id: 'agreement-1',
+      sync: { storage_scope: 'tenant|org|user' },
+      routes: { create: '/admin/content/esign_agreements/new' },
+    },
+  });
+  const second = createAgreementWizardPersistenceSettings({
+    isEditMode: true,
+    config: {
+      agreement_id: 'agreement-2',
+      sync: { storage_scope: 'tenant|org|user' },
+      routes: { create: '/admin/content/esign_agreements/new' },
+    },
+  });
+
+  assert.notEqual(first.WIZARD_STORAGE_KEY, second.WIZARD_STORAGE_KEY);
+  assert.match(first.WIZARD_STORAGE_KEY, /agreement-1/i);
+  assert.match(second.WIZARD_STORAGE_KEY, /agreement-2/i);
+});
+
+test('runtime actions keep edit-mode wizard state local when server sync is disabled', async () => {
+  const { createAgreementRuntimeActionsController } = await importSourceModule('runtime-actions.ts');
+  const scheduled = [];
+  const broadcasts = [];
+
+  const stateManager = {
+    state: {
+      currentStep: 2,
+      syncPending: false,
+      details: { title: 'Before' },
+    },
+    collectFormState() {
+      return {
+        currentStep: 3,
+        syncPending: true,
+        details: { title: 'Edited Locally' },
+      };
+    },
+    updateState(nextState) {
+      this.state = { ...this.state, ...nextState };
+    },
+    getState() {
+      return this.state;
+    },
+    clear() {
+      this.state = {};
+    },
+    setState(nextState) {
+      this.state = nextState;
+    },
+  };
+
+  const controller = createAgreementRuntimeActionsController({
+    enableServerSync: false,
+    stateManager,
+    syncOrchestrator: {
+      scheduleSync() {
+        scheduled.push('schedule');
+      },
+      broadcastStateUpdate() {
+        broadcasts.push('broadcast');
+      },
+      manualRetry() {
+        return { skipped: true };
+      },
+      performSync() {
+        return Promise.resolve({ skipped: true });
+      },
+    },
+    syncService: {
+      async dispose() {},
+      async load() {
+        return { id: 'unused', revision: 1 };
+      },
+    },
+    applyStateToUI() {},
+    surfaceSyncOutcome(result) {
+      return result;
+    },
+    announceError() {},
+    getCurrentStep() {
+      return 3;
+    },
+    reviewStep: 6,
+    onReviewStepRequested() {},
+  });
+
+  controller.trackWizardStateChanges();
+
+  assert.deepEqual(scheduled, []);
+  assert.deepEqual(broadcasts, []);
+  assert.equal(stateManager.state.syncPending, false);
+  assert.equal(stateManager.state.details.title, 'Edited Locally');
+});
+
 test('state binding applyStateToUI rehydrates document, participants, rules, placements, preview, and step', async () => {
   setupDom();
   const { createAgreementStateBindingController } = await importSourceModule('state-binding.ts');

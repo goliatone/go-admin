@@ -105,7 +105,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	}
 
 	app := newTranslationQueueTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?environment=production&tenant_id=tenant-1&org_id=org-1&blocked_limit=1&overdue_limit=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1&blocked_limit=1&overdue_limit=1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
@@ -315,7 +315,7 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 	samples := make([]time.Duration, 0, 25)
 	for idx := range 25 {
 		started := time.Now()
-		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?environment=production&tenant_id=tenant-1&org_id=org-1", nil)
+		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 		req.Header.Set("X-User-ID", "manager-1")
 		resp, err := app.Test(req)
 		if err != nil {

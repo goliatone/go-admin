@@ -46,7 +46,7 @@ test('buildLocaleEditUrl includes channel when provided', () => {
   assert.equal(url, '/admin/content/pages/page_123/edit?locale=fr&channel=production');
 });
 
-test('buildLocaleEditUrl handles missing environment', () => {
+test('buildLocaleEditUrl handles missing channel', () => {
   const url = buildLocaleEditUrl('/admin/content/posts', 'post_456', 'de');
   assert.equal(url, '/admin/content/posts/post_456/edit?locale=de');
 });
@@ -433,13 +433,13 @@ test('LocaleActionChip handles optional panelName', () => {
   assert.ok(chip);
 });
 
-test('LocaleActionChip handles optional environment', () => {
+test('LocaleActionChip handles optional channel', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
     apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
-    environment: 'production',
+    channel: 'production',
   };
 
   const chip = new LocaleActionChip(config);
@@ -540,7 +540,7 @@ const STANDARD_CONFIG = {
   apiEndpoint: '/admin/api/panels/pages',
   navigationBasePath: '/admin/content/pages',
   panelName: 'pages',
-  environment: 'production',
+  channel: 'production',
 };
 
 // =============================================================================
@@ -569,7 +569,7 @@ test('E2E: Locale labels in FallbackBanner match LocaleActionChip labels', () =>
     missingRequestedLocale: true,
     recordId: 'page_123',
     locale: 'en',
-    environment: 'production',
+    channel: 'production',
     availableLocales: ['en'],
     status: 'draft'
   };
@@ -596,7 +596,7 @@ test('E2E: buildLocaleEditUrl produces consistent URLs across contexts', () => {
     STANDARD_CONFIG.navigationBasePath,
     STANDARD_CONFIG.recordId,
     STANDARD_CONFIG.locale,
-    STANDARD_CONFIG.environment
+    STANDARD_CONFIG.channel
   );
 
   const url2 = buildLocaleEditUrl(
@@ -818,7 +818,7 @@ test('E2E: FallbackBanner shows correct locale info', () => {
     missingRequestedLocale: true,
     recordId: 'page_123',
     locale: 'en',
-    environment: 'production',
+    channel: 'production',
     availableLocales: ['en'],
     status: 'draft'
   };
@@ -845,7 +845,7 @@ test('E2E: FallbackBanner create button uses correct locale', () => {
     missingRequestedLocale: true,
     recordId: 'page_456',
     locale: 'en',
-    environment: 'staging',
+    channel: 'staging',
     availableLocales: ['en'],
     status: 'draft'
   };
@@ -854,7 +854,7 @@ test('E2E: FallbackBanner create button uses correct locale', () => {
     context,
     apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
-    environment: 'staging',
+    channel: 'staging',
   });
 
   const html = banner.render();

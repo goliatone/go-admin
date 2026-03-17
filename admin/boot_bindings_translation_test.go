@@ -1623,12 +1623,12 @@ func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
-			"incomplete":  "true",
-			"environment": "production",
+			"incomplete": "true",
+			"channel":    "production",
 		},
 		Predicates: []boot.ListPredicate{
 			{Field: "incomplete", Operator: "eq", Values: []string{"true"}},
-			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
 		},
 	})
 	if err != nil {
@@ -1658,12 +1658,12 @@ func TestPanelBindingListSupportsCanonicalIncompleteFilter(t *testing.T) {
 		Page:    2,
 		PerPage: 1,
 		Filters: map[string]any{
-			"incomplete":  "true",
-			"environment": "production",
+			"incomplete": "true",
+			"channel":    "production",
 		},
 		Predicates: []boot.ListPredicate{
 			{Field: "incomplete", Operator: "eq", Values: []string{"true"}},
-			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
 		},
 	})
 	if err != nil {
@@ -1723,11 +1723,11 @@ func TestPanelBindingListSupportsReadinessStatePredicateAlias(t *testing.T) {
 		PerPage: 10,
 		Filters: map[string]any{
 			"translation_readiness.readiness_state__ne": "ready",
-			"environment": "production",
+			"channel": "production",
 		},
 		Predicates: []boot.ListPredicate{
 			{Field: "translation_readiness.readiness_state", Operator: "ne", Values: []string{"ready"}},
-			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
 		},
 	})
 	if err != nil {
@@ -1823,11 +1823,11 @@ func TestPanelBindingListSupportsReadinessStateFilterValues(t *testing.T) {
 						PerPage: 10,
 						Filters: map[string]any{
 							"readiness_state": tc.state,
-							"environment":     "production",
+							"channel":         "production",
 						},
 						Predicates: []boot.ListPredicate{
 							{Field: "readiness_state", Operator: "eq", Values: []string{tc.state}},
-							{Field: "environment", Operator: "eq", Values: []string{"production"}},
+							{Field: "channel", Operator: "eq", Values: []string{"production"}},
 						},
 					})
 					if err != nil {
@@ -1929,12 +1929,12 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 				Page:    1,
 				PerPage: 1,
 				Filters: map[string]any{
-					"group_by":    "family_id",
-					"environment": "production",
+					"group_by": "family_id",
+					"channel":  "production",
 				},
 				Predicates: []boot.ListPredicate{
 					{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
-					{Field: "environment", Operator: "eq", Values: []string{"production"}},
+					{Field: "channel", Operator: "eq", Values: []string{"production"}},
 				},
 			})
 			if err != nil {
@@ -1952,12 +1952,12 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 				Page:    2,
 				PerPage: 1,
 				Filters: map[string]any{
-					"group_by":    "family_id",
-					"environment": "production",
+					"group_by": "family_id",
+					"channel":  "production",
 				},
 				Predicates: []boot.ListPredicate{
 					{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
-					{Field: "environment", Operator: "eq", Values: []string{"production"}},
+					{Field: "channel", Operator: "eq", Values: []string{"production"}},
 				},
 			})
 			if err != nil {
@@ -2204,12 +2204,12 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 		Page:    1,
 		PerPage: 10,
 		Filters: map[string]any{
-			"group_by":    "family_id",
-			"environment": "production",
+			"group_by": "family_id",
+			"channel":  "production",
 		},
 		Predicates: []boot.ListPredicate{
 			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
-			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
 		},
 	})
 	if err != nil {
@@ -2224,7 +2224,7 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 		if strings.TrimSpace(toString(row["family_id"])) != "tg_mono" {
 			continue
 		}
-		monoSummary = extractMap(row["translation_group_summary"])
+		monoSummary = extractMap(row["family_summary"])
 		break
 	}
 	if len(monoSummary) == 0 {
@@ -2591,9 +2591,9 @@ func assertGroupedTranslationRecord(t *testing.T, record map[string]any, expecte
 		t.Fatalf("expected default locale parent first, got %q", locale)
 	}
 
-	summary, ok := record["translation_group_summary"].(map[string]any)
+	summary, ok := record["family_summary"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected translation_group_summary, got %#v", record["translation_group_summary"])
+		t.Fatalf("expected family_summary, got %#v", record["family_summary"])
 	}
 	for _, key := range []string{"available_count", "required_count", "missing_locales", "last_updated_at"} {
 		if _, exists := summary[key]; !exists {
@@ -2635,7 +2635,7 @@ func TestPanelBindingListTranslationReadinessMemoizesRequirementsForBatch(t *tes
 	records, _, _, _, _, err := binding.List(c, "en", boot.ListOptions{
 		Page:    1,
 		PerPage: 50,
-		Filters: map[string]any{"environment": "production"},
+		Filters: map[string]any{"channel": "production"},
 	})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
@@ -2727,7 +2727,7 @@ func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T
 	}
 	const warmupRuns = 5
 	const runs = 40
-	filters := map[string]any{"environment": "production"}
+	filters := map[string]any{"channel": "production"}
 
 	makeBinding := func(policy TranslationPolicy) *panelBinding {
 		return &panelBinding{
@@ -2838,7 +2838,7 @@ func TestPanelBindingPublishEnforcesTranslationPolicyForPagesAndPosts(t *testing
 				panel: panel,
 			}
 			c := newPanelBindingMockContext()
-			c.QueriesM["environment"] = "production"
+			c.QueriesM["channel"] = "production"
 
 			_, err := binding.Action(c, "en", "publish", map[string]any{
 				"id":     tt.entityID,

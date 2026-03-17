@@ -58,7 +58,7 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 		},
 	}
 
-	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, map[string]any{"environment": "production"})
+	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, map[string]any{"channel": "production"})
 	if readiness == nil {
 		t.Fatalf("expected readiness payload")
 	}
@@ -73,8 +73,8 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	if readyFor[translationReadinessTransitionPublish] {
 		t.Fatalf("expected publish readiness false when locales missing")
 	}
-	if env := toString(readiness["evaluated_environment"]); env != "production" {
-		t.Fatalf("expected evaluated_environment production, got %q", env)
+	if env := toString(readiness["evaluated_channel"]); env != "production" {
+		t.Fatalf("expected evaluated_channel production, got %q", env)
 	}
 	quickCreate, _ := readiness["quick_create"].(map[string]any)
 	if quickCreate == nil {
@@ -186,26 +186,26 @@ func TestBuildRecordTranslationReadinessCacheMemoizesByEntityAndEnvironment(t *t
 	cache := &translationReadinessRequirementsCache{}
 	policy := &readinessPolicyCounterStub{}
 
-	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", record, map[string]any{"environment": "production"}, cache)
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", record, map[string]any{"channel": "production"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
 		"id":                "post_2",
 		"locale":            "en",
 		"family_id":         "tg_2",
 		"available_locales": []string{"en"},
-	}, map[string]any{"environment": "production"}, cache)
+	}, map[string]any{"channel": "production"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
 		"id":                "post_3",
 		"locale":            "en",
 		"family_id":         "tg_3",
 		"available_locales": []string{"en"},
-	}, map[string]any{"environment": "staging"}, cache)
+	}, map[string]any{"channel": "staging"}, cache)
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
 		"id":                "post_4",
 		"locale":            "en",
 		"policy_entity":     "news",
 		"family_id":         "tg_4",
 		"available_locales": []string{"en"},
-	}, map[string]any{"environment": "production"}, cache)
+	}, map[string]any{"channel": "production"}, cache)
 
 	if got := len(policy.calls); got != 3 {
 		t.Fatalf("expected 3 requirements resolutions, got %d (%v)", got, policy.calls)
@@ -222,7 +222,7 @@ func TestBuildRecordTranslationReadinessCacheNormalizesPolicyEntityAliases(t *te
 		"policy_entity":     "post",
 		"family_id":         "tg_1",
 		"available_locales": []string{"en"},
-	}, map[string]any{"environment": "production"}, cache)
+	}, map[string]any{"channel": "production"}, cache)
 
 	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
 		"id":                "post_2",
@@ -230,7 +230,7 @@ func TestBuildRecordTranslationReadinessCacheNormalizesPolicyEntityAliases(t *te
 		"policy_entity":     "posts",
 		"family_id":         "tg_2",
 		"available_locales": []string{"fr"},
-	}, map[string]any{"environment": "production"}, cache)
+	}, map[string]any{"channel": "production"}, cache)
 
 	if got := len(policy.calls); got != 1 {
 		t.Fatalf("expected one requirements resolution for post/posts aliases, got %d (%v)", got, policy.calls)
