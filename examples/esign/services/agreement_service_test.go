@@ -1624,6 +1624,71 @@ func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *te
 	}
 }
 
+func TestAgreementServiceCreateRevisionReusesExistingOpenDraftWithoutForkingVersion(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("signer@example.com"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	sent, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "revision-open-draft-source"})
+	if err != nil {
+		t.Fatalf("Send source agreement: %v", err)
+	}
+
+	first, err := svc.CreateRevision(ctx, scope, CreateRevisionInput{
+		SourceAgreementID: sent.ID,
+		Kind:              AgreementRevisionKindCorrection,
+		CreatedByUserID:   "editor-1",
+		IdempotencyKey:    "revision-open-draft-1",
+		IPAddress:         "198.51.100.91",
+	})
+	if err != nil {
+		t.Fatalf("CreateRevision first: %v", err)
+	}
+	second, err := svc.CreateRevision(ctx, scope, CreateRevisionInput{
+		SourceAgreementID: sent.ID,
+		Kind:              AgreementRevisionKindCorrection,
+		CreatedByUserID:   "editor-1",
+		IdempotencyKey:    "revision-open-draft-2",
+		IPAddress:         "198.51.100.92",
+	})
+	if err != nil {
+		t.Fatalf("CreateRevision second: %v", err)
+	}
+	if first.ID != second.ID {
+		t.Fatalf("expected existing open draft %q reused, got %q", first.ID, second.ID)
+	}
+
+	agreements, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		t.Fatalf("ListAgreements: %v", err)
+	}
+	revisionCount := 0
+	for _, candidate := range agreements {
+		if candidate.ParentAgreementID == sent.ID && candidate.WorkflowKind == stores.AgreementWorkflowKindCorrection {
+			revisionCount++
+		}
+	}
+	if revisionCount != 1 {
+		t.Fatalf("expected one persisted correction draft, got %d", revisionCount)
+	}
+}
+
 func TestAgreementServiceCreateRevisionIdempotencyPersistsAcrossServiceRestart(t *testing.T) {
 	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)

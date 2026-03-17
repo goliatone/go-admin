@@ -596,6 +596,12 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	}
 
 	config := extractESignPageConfigFromHTML(t, markup)
+	if got := strings.TrimSpace(fmt.Sprint(config["submit_mode"])); got != "form" {
+		t.Fatalf("expected edit page submit_mode=form, got %#v", config["submit_mode"])
+	}
+	if got := strings.TrimSpace(fmt.Sprint(config["agreement_id"])); got != agreementID {
+		t.Fatalf("expected edit page agreement_id %q, got %#v", agreementID, config["agreement_id"])
+	}
 	initialParticipants, ok := config["initial_participants"].([]any)
 	if !ok {
 		t.Fatalf("expected initial_participants array in config, got %#v", config["initial_participants"])

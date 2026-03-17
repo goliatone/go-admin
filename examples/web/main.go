@@ -1804,7 +1804,7 @@ func translationQAFallbackEditPath(basePath string) string {
 }
 
 func translationQAMatrixPath(basePath string) string {
-	return path.Join(basePath, "translations", "matrix") + "?environment=production&tenant_id=tenant-1&org_id=org-1&locale_limit=4"
+	return path.Join(basePath, "translations", "matrix") + "?channel=production&tenant_id=tenant-1&org_id=org-1&locale_limit=4"
 }
 
 func translationQAContentDatagridPath(basePath string) string {

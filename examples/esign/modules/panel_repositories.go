@@ -1007,6 +1007,8 @@ func formatTimeValue(value time.Time) string {
 
 type agreementLineagePayload struct {
 	SupersededByAgreementID string
+	ActiveAgreementID       string
+	IsActiveVersion         bool
 	RelatedAgreements       []map[string]any
 }
 
@@ -1016,6 +1018,12 @@ func applyAgreementLineagePayload(payload map[string]any, lineage agreementLinea
 	}
 	if strings.TrimSpace(lineage.SupersededByAgreementID) != "" {
 		payload["superseded_by_agreement_id"] = strings.TrimSpace(lineage.SupersededByAgreementID)
+	}
+	if strings.TrimSpace(lineage.ActiveAgreementID) != "" {
+		payload["active_agreement_id"] = strings.TrimSpace(lineage.ActiveAgreementID)
+	}
+	if lineage.IsActiveVersion {
+		payload["is_active_version"] = true
 	}
 	if includeRelated && len(lineage.RelatedAgreements) > 0 {
 		payload["related_agreements"] = lineage.RelatedAgreements
@@ -1056,9 +1064,12 @@ func buildAgreementLineageIndex(agreements []stores.AgreementRecord) map[string]
 			}
 			return records[i].UpdatedAt.After(records[j].UpdatedAt)
 		})
+		activeAgreementID := selectActiveLineageAgreement(records)
 		for _, agreement := range records {
 			agreementID := strings.TrimSpace(agreement.ID)
 			lineage := index[agreementID]
+			lineage.ActiveAgreementID = activeAgreementID
+			lineage.IsActiveVersion = agreementID != "" && agreementID == activeAgreementID
 			for _, related := range records {
 				relatedID := strings.TrimSpace(related.ID)
 				if relatedID == "" || relatedID == agreementID {
@@ -1070,6 +1081,24 @@ func buildAgreementLineageIndex(agreements []stores.AgreementRecord) map[string]
 		}
 	}
 	return index
+}
+
+func selectActiveLineageAgreement(records []stores.AgreementRecord) string {
+	for _, agreement := range records {
+		switch strings.TrimSpace(agreement.Status) {
+		case stores.AgreementStatusInProgress, stores.AgreementStatusSent, stores.AgreementStatusCompleted, stores.AgreementStatusDeclined, stores.AgreementStatusExpired:
+			return strings.TrimSpace(agreement.ID)
+		}
+	}
+	for _, agreement := range records {
+		if !strings.EqualFold(strings.TrimSpace(agreement.Status), stores.AgreementStatusVoided) {
+			return strings.TrimSpace(agreement.ID)
+		}
+	}
+	if len(records) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(records[0].ID)
 }
 
 func agreementLineageSummaryMap(agreement stores.AgreementRecord) map[string]any {

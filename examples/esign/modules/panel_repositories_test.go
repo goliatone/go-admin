@@ -1748,15 +1748,28 @@ func TestBuildAgreementLineageIndexDerivesSupersededAndRelatedAgreements(t *test
 	if rootLineage.SupersededByAgreementID != correction.ID {
 		t.Fatalf("expected root superseded by correction, got %+v", rootLineage)
 	}
+	if rootLineage.ActiveAgreementID != amendment.ID {
+		t.Fatalf("expected amendment to be the active lineage agreement, got %+v", rootLineage)
+	}
 	if len(rootLineage.RelatedAgreements) != 2 {
 		t.Fatalf("expected root related agreements summary, got %+v", rootLineage.RelatedAgreements)
 	}
 	correctionLineage := index[correction.ID]
+	if correctionLineage.ActiveAgreementID != amendment.ID {
+		t.Fatalf("expected correction lineage active agreement %q, got %+v", amendment.ID, correctionLineage)
+	}
+	if correctionLineage.IsActiveVersion {
+		t.Fatalf("expected correction not to be marked active once amended, got %+v", correctionLineage)
+	}
 	if len(correctionLineage.RelatedAgreements) != 2 {
 		t.Fatalf("expected correction related agreements summary, got %+v", correctionLineage.RelatedAgreements)
 	}
 	if got := strings.TrimSpace(toString(correctionLineage.RelatedAgreements[0]["id"])); got != amendment.ID {
 		t.Fatalf("expected most recent related agreement first, got %+v", correctionLineage.RelatedAgreements)
+	}
+	amendmentLineage := index[amendment.ID]
+	if !amendmentLineage.IsActiveVersion {
+		t.Fatalf("expected amendment to be marked active, got %+v", amendmentLineage)
 	}
 }
 

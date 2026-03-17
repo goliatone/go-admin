@@ -503,6 +503,22 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 
 	var created stores.AgreementRecord
 	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
+		if err != nil {
+			return err
+		}
+		if err := validateSourceAgreementForRevision(source, kind); err != nil {
+			return err
+		}
+		existingOpenDraft, err := txSvc.findOpenRevisionDraft(ctx, scope, source.ID, kind)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(existingOpenDraft.ID) != "" {
+			created = existingOpenDraft
+			return nil
+		}
+
 		requestID := ""
 		if txSvc.revisionRequests != nil && idempotencyKey != "" {
 			request, reserved, err := txSvc.revisionRequests.BeginAgreementRevisionRequest(ctx, scope, stores.AgreementRevisionRequestInput{
@@ -524,13 +540,6 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 				return err
 			}
 			requestID = strings.TrimSpace(request.ID)
-		}
-		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
-		if err != nil {
-			return err
-		}
-		if err := validateSourceAgreementForRevision(source, kind); err != nil {
-			return err
 		}
 
 		parentExecutedSHA256, err := txSvc.resolveParentExecutedSHA256(ctx, scope, source, kind)
@@ -615,6 +624,41 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 		return stores.AgreementRecord{}, err
 	}
 	return created, nil
+}
+
+func (s AgreementService) findOpenRevisionDraft(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceAgreementID string,
+	kind AgreementRevisionKind,
+) (stores.AgreementRecord, error) {
+	if s.agreements == nil {
+		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
+	}
+	workflowKind := stores.AgreementWorkflowKindCorrection
+	if kind == AgreementRevisionKindAmendment {
+		workflowKind = stores.AgreementWorkflowKindAmendment
+	}
+	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	var latest stores.AgreementRecord
+	for _, candidate := range agreements {
+		if strings.TrimSpace(candidate.ParentAgreementID) != strings.TrimSpace(sourceAgreementID) {
+			continue
+		}
+		if normalizeAgreementWorkflowKind(candidate.WorkflowKind) != workflowKind {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(candidate.Status), stores.AgreementStatusDraft) {
+			continue
+		}
+		if strings.TrimSpace(latest.ID) == "" || candidate.UpdatedAt.After(latest.UpdatedAt) {
+			latest = candidate
+		}
+	}
+	return latest, nil
 }
 
 // UpdateDraft updates mutable draft fields.
@@ -2109,6 +2153,17 @@ func validateSourceAgreementForRevision(source stores.AgreementRecord, kind Agre
 		return domainValidationError("agreements", "revision_kind", "unsupported revision kind")
 	}
 	return nil
+}
+
+func normalizeAgreementWorkflowKind(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case stores.AgreementWorkflowKindCorrection:
+		return stores.AgreementWorkflowKindCorrection
+	case stores.AgreementWorkflowKindAmendment:
+		return stores.AgreementWorkflowKindAmendment
+	default:
+		return stores.AgreementWorkflowKindStandard
+	}
 }
 
 func (s AgreementService) resolveParentExecutedSHA256(ctx context.Context, scope stores.Scope, source stores.AgreementRecord, kind AgreementRevisionKind) (string, error) {
