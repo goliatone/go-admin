@@ -464,10 +464,10 @@ Permission ownership:
 - Quickstart does not create roles or assign permissions to users.
 - The host application must seed/assign permissions for every role that should access exchange/queue routes.
 - Exchange endpoints require:
-  - `admin.translations.export` -> `POST /admin/api/translations/export`
-  - `admin.translations.import.view` -> `GET /admin/api/translations/template`
-  - `admin.translations.import.validate` -> `POST /admin/api/translations/import/validate`
-  - `admin.translations.import.apply` -> `POST /admin/api/translations/import/apply`
+  - `admin.translations.export` -> `POST /admin/api/translations/exchange/export`
+  - `admin.translations.import.view` -> `GET /admin/api/translations/exchange/template`
+  - `admin.translations.import.validate` -> `POST /admin/api/translations/exchange/import/validate`
+  - `admin.translations.import.apply` -> `POST /admin/api/translations/exchange/import/apply`
 
 Optional async apply integration for production workers:
 
@@ -493,10 +493,10 @@ Exchange adapters should preserve one command contract across HTTP, CLI, and
 jobs.
 
 HTTP routes:
-- `POST /admin/api/translations/export`
-- `GET /admin/api/translations/template`
-- `POST /admin/api/translations/import/validate`
-- `POST /admin/api/translations/import/apply`
+- `POST /admin/api/translations/exchange/export`
+- `GET /admin/api/translations/exchange/template`
+- `POST /admin/api/translations/exchange/import/validate`
+- `POST /admin/api/translations/exchange/import/apply`
 
 Row linkage fields (`rows[*]`):
 - `resource`
@@ -1470,8 +1470,10 @@ Check startup logs for `translation.capabilities.startup` and verify:
 
 Expected runtime routes when modules are enabled:
 - Exchange UI route: `/admin/translations/exchange`
-- Queue UI route: `/admin/content/translations`
-- Exchange API routes: `/admin/api/translations/export`, `/admin/api/translations/import/validate`, `/admin/api/translations/import/apply`
+- Queue UI route: `/admin/translations/queue`
+- Queue compatibility alias: `/admin/content/translations`
+- Exchange API routes: `/admin/api/translations/exchange/export`, `/admin/api/translations/exchange/import/validate`, `/admin/api/translations/exchange/import/apply`
+- Queue API routes: `/admin/api/translations/queue`, `/admin/api/translations/my-work`
 - Queue panel API route: `/admin/api/panels/translations`
 
 When a module is disabled:
