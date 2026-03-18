@@ -27,8 +27,8 @@ func TestExamplesWebSeedsCanonicalTranslationMenuForCapabilityProfiles(t *testin
 			profile: quickstart.TranslationProfileFull,
 			translationCfg: appcfg.TranslationConfig{
 				Profile:  "full",
-				Exchange: boolPtr(true),
-				Queue:    boolPtr(true),
+				Exchange: new(true),
+				Queue:    new(true),
 			},
 			expectDashboard: true,
 			expectQueue:     true,
@@ -120,8 +120,8 @@ func TestExamplesWebRegistersProductionTranslationRoutesWithoutQAShortcuts(t *te
 			profile: quickstart.TranslationProfileFull,
 			translationCfg: appcfg.TranslationConfig{
 				Profile:  "full",
-				Exchange: boolPtr(true),
-				Queue:    boolPtr(true),
+				Exchange: new(true),
+				Queue:    new(true),
 			},
 			expectCore:      true,
 			expectDashboard: true,

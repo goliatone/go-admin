@@ -65,17 +65,17 @@ func TestPhase1LineageContractFixtureCoversCanonicalStates(t *testing.T) {
 }
 
 func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
-	identity := reflect.TypeOf((*SourceIdentityService)(nil)).Elem()
+	identity := reflect.TypeFor[SourceIdentityService]()
 	if _, ok := identity.MethodByName("ResolveSourceIdentity"); !ok {
 		t.Fatalf("expected SourceIdentityService.ResolveSourceIdentity")
 	}
 
-	fingerprint := reflect.TypeOf((*SourceFingerprintService)(nil)).Elem()
+	fingerprint := reflect.TypeFor[SourceFingerprintService]()
 	if _, ok := fingerprint.MethodByName("BuildFingerprint"); !ok {
 		t.Fatalf("expected SourceFingerprintService.BuildFingerprint")
 	}
 
-	reconciliation := reflect.TypeOf((*SourceReconciliationService)(nil)).Elem()
+	reconciliation := reflect.TypeFor[SourceReconciliationService]()
 	if _, ok := reconciliation.MethodByName("EvaluateCandidates"); !ok {
 		t.Fatalf("expected SourceReconciliationService.EvaluateCandidates")
 	}
@@ -83,7 +83,7 @@ func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
 		t.Fatalf("expected SourceReconciliationService.ApplyReviewAction")
 	}
 
-	readModels := reflect.TypeOf((*SourceReadModelService)(nil)).Elem()
+	readModels := reflect.TypeFor[SourceReadModelService]()
 	for _, method := range []string{
 		"GetDocumentLineageDetail",
 		"GetAgreementLineageDetail",

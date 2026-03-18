@@ -27,14 +27,14 @@ func TestLineageVocabularyConstantsRemainCanonical(t *testing.T) {
 }
 
 func TestLineageLinkageFieldsExistOnDocumentAndAgreementRecords(t *testing.T) {
-	documentType := reflect.TypeOf(DocumentRecord{})
+	documentType := reflect.TypeFor[DocumentRecord]()
 	for _, field := range []string{"SourceDocumentID", "SourceRevisionID", "SourceArtifactID"} {
 		if _, ok := documentType.FieldByName(field); !ok {
 			t.Fatalf("document record missing linkage field %s", field)
 		}
 	}
 
-	agreementType := reflect.TypeOf(AgreementRecord{})
+	agreementType := reflect.TypeFor[AgreementRecord]()
 	if _, ok := agreementType.FieldByName("SourceRevisionID"); !ok {
 		t.Fatalf("agreement record missing SourceRevisionID linkage field")
 	}
