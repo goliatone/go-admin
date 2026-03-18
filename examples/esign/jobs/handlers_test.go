@@ -800,6 +800,12 @@ func TestHandlersTerminalNotificationFailureAbortsPendingTokenAndMarksEffectResu
 	if err != nil {
 		t.Fatalf("Marshal AgreementDeliveryDetail: %v", err)
 	}
+	if !strings.Contains(string(detailJSON), `"executed_applicable":true`) {
+		t.Fatalf("expected executed_applicable serialized in public delivery detail, got %s", string(detailJSON))
+	}
+	if !strings.Contains(string(detailJSON), `"certificate_applicable":true`) {
+		t.Fatalf("expected certificate_applicable serialized in public delivery detail, got %s", string(detailJSON))
+	}
 	if strings.Contains(string(detailJSON), "pending_token_id") {
 		t.Fatalf("expected pending token ids omitted from public delivery detail, got %s", string(detailJSON))
 	}

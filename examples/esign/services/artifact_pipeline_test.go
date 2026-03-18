@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
@@ -196,6 +197,34 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	return ctx, scope, submit.Agreement
 }
 
+func seedDraftAgreementForArtifacts(t *testing.T, store stores.Store) (context.Context, stores.Scope, stores.AgreementRecord) {
+	t.Helper()
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:              "Draft Artifact Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-artifact-source.pdf",
+		SourceOriginalName: "draft-artifact-source.pdf",
+		PDF:                samplePDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Draft Artifact Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	return ctx, scope, agreement
+}
+
 func TestArtifactPipelineGenerateExecutedRendersAndUploadsOutsideWriteTx(t *testing.T) {
 	store := newTxAwareArtifactStore()
 	ctx, scope, agreement := seedCompletedAgreementForArtifacts(t, store)
@@ -335,4 +364,169 @@ func TestArtifactPipelineGenerateExecutedRetryAfterCommitErrorReusesDeterministi
 	if objectStore.uploads[0] != objectStore.uploads[1] {
 		t.Fatalf("expected retry to upload same deterministic key, got %+v", objectStore.uploads)
 	}
+}
+
+func TestAgreementDeliveryDetailApplicability(t *testing.T) {
+	t.Run("draft agreement marks artifacts not applicable", func(t *testing.T) {
+		store := stores.NewInMemoryStore()
+		ctx, scope, agreement := seedDraftAgreementForArtifacts(t, store)
+		svc := NewArtifactPipelineService(store, nil)
+
+		detail, err := svc.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+		if err != nil {
+			t.Fatalf("AgreementDeliveryDetail: %v", err)
+		}
+		if detail.ExecutedApplicable {
+			t.Fatalf("expected executed_applicable=false, got %+v", detail)
+		}
+		if detail.CertificateApplicable {
+			t.Fatalf("expected certificate_applicable=false, got %+v", detail)
+		}
+		if detail.ExecutedStatus != DeliveryStatePending {
+			t.Fatalf("expected executed status pending, got %+v", detail)
+		}
+		if detail.CertificateStatus != DeliveryStatePending {
+			t.Fatalf("expected certificate status pending, got %+v", detail)
+		}
+	})
+
+	t.Run("completed agreement marks artifacts applicable before generation", func(t *testing.T) {
+		store := stores.NewInMemoryStore()
+		ctx, scope, agreement := seedCompletedAgreementForArtifacts(t, store)
+		svc := NewArtifactPipelineService(store, nil)
+
+		detail, err := svc.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+		if err != nil {
+			t.Fatalf("AgreementDeliveryDetail: %v", err)
+		}
+		if !detail.ExecutedApplicable || !detail.CertificateApplicable {
+			t.Fatalf("expected artifacts applicable for completed agreement, got %+v", detail)
+		}
+		if detail.ExecutedStatus != DeliveryStatePending {
+			t.Fatalf("expected executed status pending, got %+v", detail)
+		}
+		if detail.CertificateStatus != DeliveryStatePending {
+			t.Fatalf("expected certificate status pending, got %+v", detail)
+		}
+	})
+
+	t.Run("completed agreement reflects job run status overlays", func(t *testing.T) {
+		store := stores.NewInMemoryStore()
+		ctx, scope, agreement := seedCompletedAgreementForArtifacts(t, store)
+		now := time.Now().UTC()
+		executedRun, shouldRun, err := store.BeginJobRun(ctx, scope, stores.JobRunInput{
+			JobName:       jobNamePDFGenerateExecuted,
+			DedupeKey:     agreement.ID + "-executed",
+			AgreementID:   agreement.ID,
+			CorrelationID: "corr-executed",
+			MaxAttempts:   3,
+			AttemptedAt:   now,
+		})
+		if err != nil {
+			t.Fatalf("BeginJobRun executed: %v", err)
+		}
+		if !shouldRun {
+			t.Fatalf("expected executed job run to start, got %+v", executedRun)
+		}
+		if _, err := store.MarkJobRunSucceeded(ctx, scope, executedRun.ID, now.Add(1*time.Minute)); err != nil {
+			t.Fatalf("MarkJobRunSucceeded executed: %v", err)
+		}
+
+		certificateRetryRun, shouldRun, err := store.BeginJobRun(ctx, scope, stores.JobRunInput{
+			JobName:       jobNamePDFGenerateCertificate,
+			DedupeKey:     agreement.ID + "-certificate-retrying",
+			AgreementID:   agreement.ID,
+			CorrelationID: "corr-certificate-retrying",
+			MaxAttempts:   3,
+			AttemptedAt:   now.Add(2 * time.Minute),
+		})
+		if err != nil {
+			t.Fatalf("BeginJobRun certificate retrying: %v", err)
+		}
+		if !shouldRun {
+			t.Fatalf("expected certificate retrying job run to start, got %+v", certificateRetryRun)
+		}
+		nextRetryAt := now.Add(3 * time.Minute)
+		if _, err := store.MarkJobRunFailed(ctx, scope, certificateRetryRun.ID, "retry later", &nextRetryAt, now.Add(2*time.Minute)); err != nil {
+			t.Fatalf("MarkJobRunFailed certificate retrying: %v", err)
+		}
+
+		svc := NewArtifactPipelineService(store, nil)
+		detail, err := svc.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+		if err != nil {
+			t.Fatalf("AgreementDeliveryDetail: %v", err)
+		}
+		if !detail.ExecutedApplicable || !detail.CertificateApplicable {
+			t.Fatalf("expected artifacts applicable for completed agreement, got %+v", detail)
+		}
+		if detail.ExecutedStatus != DeliveryStateReady {
+			t.Fatalf("expected executed status ready after succeeded run, got %+v", detail)
+		}
+		if detail.CertificateStatus != DeliveryStateRetrying {
+			t.Fatalf("expected certificate status retrying, got %+v", detail)
+		}
+	})
+
+	t.Run("completed agreement surfaces failed job runs", func(t *testing.T) {
+		store := stores.NewInMemoryStore()
+		ctx, scope, agreement := seedCompletedAgreementForArtifacts(t, store)
+		now := time.Now().UTC()
+		run, shouldRun, err := store.BeginJobRun(ctx, scope, stores.JobRunInput{
+			JobName:       jobNamePDFGenerateExecuted,
+			DedupeKey:     agreement.ID + "-executed-failed",
+			AgreementID:   agreement.ID,
+			CorrelationID: "corr-executed-failed",
+			MaxAttempts:   1,
+			AttemptedAt:   now,
+		})
+		if err != nil {
+			t.Fatalf("BeginJobRun failed: %v", err)
+		}
+		if !shouldRun {
+			t.Fatalf("expected failed job run to start, got %+v", run)
+		}
+		if _, err := store.MarkJobRunFailed(ctx, scope, run.ID, "hard failure", nil, now.Add(1*time.Minute)); err != nil {
+			t.Fatalf("MarkJobRunFailed failed: %v", err)
+		}
+
+		svc := NewArtifactPipelineService(store, nil)
+		detail, err := svc.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+		if err != nil {
+			t.Fatalf("AgreementDeliveryDetail: %v", err)
+		}
+		if !detail.ExecutedApplicable {
+			t.Fatalf("expected executed artifact applicable for completed agreement, got %+v", detail)
+		}
+		if detail.ExecutedStatus != DeliveryStateFailed {
+			t.Fatalf("expected executed status failed, got %+v", detail)
+		}
+	})
+
+	t.Run("legacy executed object key keeps artifact applicable before completion", func(t *testing.T) {
+		store := stores.NewInMemoryStore()
+		ctx, scope, agreement := seedDraftAgreementForArtifacts(t, store)
+		if _, err := store.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+			AgreementID:       agreement.ID,
+			ExecutedObjectKey: "tenant/tenant-1/org/org-1/agreements/legacy-executed.pdf",
+			ExecutedSHA256:    strings.Repeat("e", 64),
+			CorrelationID:     "corr-legacy",
+		}); err != nil {
+			t.Fatalf("SaveAgreementArtifacts legacy executed: %v", err)
+		}
+
+		svc := NewArtifactPipelineService(store, nil)
+		detail, err := svc.AgreementDeliveryDetail(ctx, scope, agreement.ID)
+		if err != nil {
+			t.Fatalf("AgreementDeliveryDetail: %v", err)
+		}
+		if !detail.ExecutedApplicable {
+			t.Fatalf("expected executed artifact applicable when legacy object key exists, got %+v", detail)
+		}
+		if detail.ExecutedStatus != DeliveryStateReady {
+			t.Fatalf("expected executed status ready when object key exists, got %+v", detail)
+		}
+		if detail.CertificateApplicable {
+			t.Fatalf("expected certificate artifact to remain not applicable, got %+v", detail)
+		}
+	})
 }

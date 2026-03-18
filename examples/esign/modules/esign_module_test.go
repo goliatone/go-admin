@@ -188,7 +188,13 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !ok {
 		t.Fatalf("expected delivery object in agreement detail, got %+v", agreementDetail["delivery"])
 	}
-	assertMapHasKeys(t, delivery, "agreement_id", "executed_status", "certificate_status", "distribution_status", "executed_object_key", "certificate_object_key", "last_error", "correlation_ids")
+	assertMapHasKeys(t, delivery, "agreement_id", "executed_status", "certificate_status", "distribution_status", "executed_applicable", "certificate_applicable", "executed_object_key", "certificate_object_key", "last_error", "correlation_ids")
+	if got, ok := delivery["executed_applicable"].(bool); !ok || got {
+		t.Fatalf("expected executed_applicable=false for sent agreement, got %+v", delivery["executed_applicable"])
+	}
+	if got, ok := delivery["certificate_applicable"].(bool); !ok || got {
+		t.Fatalf("expected certificate_applicable=false for sent agreement, got %+v", delivery["certificate_applicable"])
+	}
 
 	menu := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
 	if !hasMenuTargetKey(menu, "esign") {

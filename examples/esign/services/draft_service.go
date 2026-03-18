@@ -1096,8 +1096,8 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
-			Notify:       draftBoolPtr(notify),
-			SigningStage: draftIntPtr(signingStage),
+			Notify:       new(notify),
+			SigningStage: new(signingStage),
 		}, 0)
 		if err != nil {
 			return draftMaterializationResult{}, err
@@ -1136,8 +1136,8 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
 			LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
 			LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
-			IsUnlinked:        draftBoolPtr(placement.IsUnlinked),
-			TabIndex:          draftIntPtr(idx + 1),
+			IsUnlinked:        new(placement.IsUnlinked),
+			TabIndex:          new(idx + 1),
 			Label:             &label,
 		}); err != nil {
 			return draftMaterializationResult{}, err

@@ -1715,6 +1715,45 @@ func TestAgreementRecordToMapLeavesFutureSignerStagesPendingUntilActive(t *testi
 	}
 }
 
+func TestAgreementRecordToMapIncludesDeliveryApplicabilityFlags(t *testing.T) {
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-delivery-applicability-1",
+		TenantID:  defaultModuleScope.TenantID,
+		OrgID:     defaultModuleScope.OrgID,
+		Status:    stores.AgreementStatusDraft,
+		CreatedAt: time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC),
+	}
+
+	payload := agreementRecordToMap(agreement, nil, nil, nil, nil, services.AgreementDeliveryDetail{
+		AgreementID:           agreement.ID,
+		ExecutedStatus:        services.DeliveryStatePending,
+		CertificateStatus:     services.DeliveryStatePending,
+		DistributionStatus:    services.DeliveryStatePending,
+		ExecutedApplicable:    false,
+		CertificateApplicable: false,
+	})
+
+	delivery, ok := payload["delivery"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected delivery payload, got %+v", payload["delivery"])
+	}
+	assertMapHasKeys(t, delivery,
+		"agreement_id",
+		"executed_status",
+		"certificate_status",
+		"distribution_status",
+		"executed_applicable",
+		"certificate_applicable",
+	)
+	if got, ok := delivery["executed_applicable"].(bool); !ok || got {
+		t.Fatalf("expected executed_applicable=false, got %+v", delivery["executed_applicable"])
+	}
+	if got, ok := delivery["certificate_applicable"].(bool); !ok || got {
+		t.Fatalf("expected certificate_applicable=false, got %+v", delivery["certificate_applicable"])
+	}
+}
+
 func TestBuildAgreementLineageIndexDerivesSupersededAndRelatedAgreements(t *testing.T) {
 	root := stores.AgreementRecord{
 		ID:           "agreement-root",
