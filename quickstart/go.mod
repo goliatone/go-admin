@@ -3,6 +3,7 @@ module github.com/goliatone/go-admin/quickstart
 go 1.26.0
 
 replace github.com/goliatone/go-admin => ..
+replace github.com/goliatone/go-uploader => ../../go-uploader
 
 replace github.com/goliatone/go-router => ../../go-router
 

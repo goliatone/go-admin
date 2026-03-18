@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-router v0.53.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
-	github.com/goliatone/go-uploader v0.3.0
+	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
 	github.com/goliatone/go-users v0.17.0
 	github.com/goliatone/hashid v0.2.0
@@ -51,6 +51,14 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2/config v1.32.5 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.5 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.16 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.0.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
 	go.beyondstorage.io/v5 v5.0.0 // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
@@ -210,3 +218,5 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+
+replace github.com/goliatone/go-uploader => ../go-uploader
