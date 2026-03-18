@@ -248,7 +248,7 @@ func bunTranslationFamilyRecordFromModel(family translationservices.FamilyRecord
 		ContentType:                strings.TrimSpace(strings.ToLower(family.ContentType)),
 		SourceLocale:               strings.TrimSpace(strings.ToLower(family.SourceLocale)),
 		SourceVariantID:            strings.TrimSpace(family.SourceVariantID),
-		ReadinessState:             strings.TrimSpace(strings.ToLower(family.ReadinessState)),
+		ReadinessState:             normalizeStoredFamilyReadinessState(family),
 		BlockerCodesJSON:           string(blockerCodesJSON),
 		MissingRequiredLocaleCount: family.MissingRequiredLocaleCount,
 		PendingReviewCount:         family.PendingReviewCount,
@@ -256,6 +256,22 @@ func bunTranslationFamilyRecordFromModel(family translationservices.FamilyRecord
 		CreatedAt:                  family.CreatedAt,
 		UpdatedAt:                  family.UpdatedAt,
 	}, nil
+}
+
+func normalizeStoredFamilyReadinessState(family translationservices.FamilyRecord) string {
+	state := strings.TrimSpace(strings.ToLower(family.ReadinessState))
+	switch state {
+	case "ready", "blocked":
+		return state
+	}
+	if len(family.Blockers) > 0 ||
+		len(family.BlockerCodes) > 0 ||
+		family.MissingRequiredLocaleCount > 0 ||
+		family.PendingReviewCount > 0 ||
+		family.OutdatedLocaleCount > 0 {
+		return "blocked"
+	}
+	return "ready"
 }
 
 func familyModelFromBunRecord(record bunTranslationFamilyRecord) (translationservices.FamilyRecord, error) {

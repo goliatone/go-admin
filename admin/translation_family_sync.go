@@ -49,6 +49,14 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 
 	families := map[string]translationservices.FamilyRecord{}
 	seenVariants := map[string]struct{}{}
+	assignmentsByFamily := map[string][]translationservices.FamilyAssignment{}
+	for _, assignment := range binding.collectAssignments(ctx) {
+		familyID := strings.TrimSpace(assignment.FamilyID)
+		if familyID == "" {
+			continue
+		}
+		assignmentsByFamily[familyID] = append(assignmentsByFamily[familyID], assignment)
+	}
 	for _, locale := range orderedLocales {
 		pages, err := adm.contentSvc.Pages(ctx, locale)
 		if err != nil {
@@ -70,15 +78,9 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 		}
 	}
 
-	for _, family := range families {
+	for familyID, family := range families {
+		family.Assignments = append([]translationservices.FamilyAssignment{}, assignmentsByFamily[familyID]...)
 		if err := adm.translationFamilyStore.SaveFamily(ctx, family); err != nil {
-			return err
-		}
-	}
-	if replacer, ok := adm.translationFamilyStore.(interface {
-		ReplaceAssignments([]translationservices.FamilyAssignment) error
-	}); ok {
-		if err := replacer.ReplaceAssignments(binding.collectAssignments(ctx)); err != nil {
 			return err
 		}
 	}

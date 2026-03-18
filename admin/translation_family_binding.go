@@ -20,7 +20,20 @@ import (
 
 type translationFamilyRuntime struct {
 	service *translationservices.FamilyService
-	report  translationservices.BackfillReport
+	report  translationRuntimeReport
+}
+
+type translationRuntimeReportSummary struct {
+	Families    int
+	Variants    int
+	Assignments int
+	Blockers    int
+	Warnings    int
+}
+
+type translationRuntimeReport struct {
+	Checksum string
+	Summary  translationRuntimeReportSummary
 }
 
 type translationFamilyCreateVariantInput struct {
@@ -1219,109 +1232,6 @@ func equalStringSlices(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-func (b *translationFamilyBinding) collectBackfillInput(ctx context.Context, environment string) (translationservices.BackfillInput, map[string]translationservices.FamilyPolicy, error) {
-	input := translationservices.BackfillInput{
-		Variants: []translationservices.BackfillSourceVariant{},
-		Policies: map[string]translationservices.BackfillPolicy{},
-	}
-	familyPolicies := map[string]translationservices.FamilyPolicy{}
-	if b == nil || b.admin == nil || b.admin.contentSvc == nil {
-		return input, familyPolicies, serviceNotConfiguredDomainError("content service", map[string]any{"component": "translation_family_binding"})
-	}
-	defaultLocale := strings.TrimSpace(b.admin.config.DefaultLocale)
-	if defaultLocale == "" {
-		defaultLocale = "en"
-	}
-	locales := map[string]struct{}{strings.ToLower(defaultLocale): {}}
-	pagesDefault, err := b.admin.contentSvc.Pages(ctx, defaultLocale)
-	if err != nil {
-		return input, familyPolicies, err
-	}
-	for _, page := range pagesDefault {
-		addRecordLocales(locales, page.AvailableLocales)
-	}
-	contentsDefault, err := b.admin.contentSvc.Contents(ctx, defaultLocale)
-	if err != nil {
-		return input, familyPolicies, err
-	}
-	for _, content := range contentsDefault {
-		addRecordLocales(locales, content.AvailableLocales)
-	}
-	for _, locale := range b.policyLocales(ctx, environment) {
-		locales[strings.ToLower(strings.TrimSpace(locale))] = struct{}{}
-	}
-	orderedLocales := make([]string, 0, len(locales))
-	for locale := range locales {
-		if strings.TrimSpace(locale) == "" {
-			continue
-		}
-		orderedLocales = append(orderedLocales, locale)
-	}
-	sort.Strings(orderedLocales)
-
-	contentTypes := map[string]string{}
-	for _, locale := range orderedLocales {
-		pages, pageErr := b.admin.contentSvc.Pages(ctx, locale)
-		if pageErr != nil {
-			return input, familyPolicies, pageErr
-		}
-		for _, page := range pages {
-			input.Variants = append(input.Variants, translationservices.BackfillSourceVariant{
-				Scope:          translationScopeFromMaps(page.Metadata, page.Data),
-				ContentType:    "pages",
-				SourceRecordID: strings.TrimSpace(page.ID),
-				FamilyID:       strings.TrimSpace(page.FamilyID),
-				Locale:         translationFamilyLocale(page.Locale, locale),
-				Fields:         translationFamilyFields(page.Title, page.Slug, page.Data),
-				Metadata:       cloneAnyMap(page.Metadata),
-				Status:         translationFamilyVariantStatus(page.Status),
-			})
-			contentTypes["pages"] = "pages"
-		}
-
-		contents, contentErr := b.admin.contentSvc.Contents(ctx, locale)
-		if contentErr != nil {
-			return input, familyPolicies, contentErr
-		}
-		for _, content := range contents {
-			contentType := strings.TrimSpace(firstNonEmpty(content.ContentTypeSlug, content.ContentType))
-			if contentType == "" {
-				continue
-			}
-			contentType = strings.ToLower(contentType)
-			input.Variants = append(input.Variants, translationservices.BackfillSourceVariant{
-				Scope:          translationScopeFromMaps(content.Metadata, content.Data),
-				ContentType:    contentType,
-				SourceRecordID: strings.TrimSpace(content.ID),
-				FamilyID:       strings.TrimSpace(content.FamilyID),
-				Locale:         translationFamilyLocale(content.Locale, locale),
-				Fields:         translationFamilyFields(content.Title, content.Slug, content.Data),
-				Metadata:       cloneAnyMap(content.Metadata),
-				Status:         translationFamilyVariantStatus(content.Status),
-			})
-			contentTypes[contentType] = contentType
-		}
-	}
-
-	for contentType := range contentTypes {
-		policy, ok := b.translationFamilyPolicy(ctx, contentType, environment)
-		if !ok {
-			continue
-		}
-		input.Policies[contentType] = translationservices.BackfillPolicy{
-			SourceLocale:            policy.SourceLocale,
-			RequiredLocales:         append([]string{}, policy.RequiredLocales...),
-			RequiredFields:          cloneRequiredFieldsString(policy.RequiredFields),
-			ReviewRequired:          policy.ReviewRequired,
-			AllowPublishOverride:    policy.AllowPublishOverride,
-			AssignmentLifecycleMode: policy.AssignmentLifecycleMode,
-			DefaultWorkScope:        policy.DefaultWorkScope,
-		}
-		familyPolicies[contentType] = policy
-	}
-	return input, familyPolicies, nil
 }
 
 func (b *translationFamilyBinding) translationFamilyPolicy(ctx context.Context, contentType, environment string) (translationservices.FamilyPolicy, bool) {
