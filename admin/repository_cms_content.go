@@ -289,8 +289,12 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		}
 		if translationEnabled {
 			item.FamilyID = canonicalFamilyIDForContent(item)
-			if err := requireCanonicalFamilyID(item.FamilyID, contentType, item.ID); err != nil {
-				return nil, 0, err
+			if strings.TrimSpace(item.FamilyID) == "" {
+				return nil, 0, validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
+					"content_type": contentType,
+					"record_id":    strings.TrimSpace(item.ID),
+					"locale":       strings.TrimSpace(item.Locale),
+				})
 			}
 			if err := ensureCanonicalTopLevelFields(item); err != nil {
 				return nil, 0, err
@@ -539,10 +543,9 @@ func schemaHasTranslationHints(schema map[string]any) bool {
 		"available_locales":        {},
 		"requested_locale":         {},
 		"resolved_locale":          {},
+		"fallback_used":            {},
 		"missing_requested_locale": {},
-		"translation":              {},
-		"content_translation":      {},
-		"translation_context":      {},
+		"translation_readiness":    {},
 	}
 	var walk func(any) bool
 	walk = func(value any) bool {
@@ -588,16 +591,6 @@ func canonicalFamilyIDForContent(item CMSContent) string {
 		if groupID := strings.TrimSpace(toString(item.Data["family_id"])); groupID != "" {
 			return groupID
 		}
-		for _, path := range [][]string{
-			{"translation", "meta", "family_id"},
-			{"content_translation", "meta", "family_id"},
-			{"translation_context", "family_id"},
-			{"translation_readiness", "family_id"},
-		} {
-			if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(item.Data, path...))); groupID != "" {
-				return groupID
-			}
-		}
 	}
 	return ""
 }
@@ -635,18 +628,10 @@ func contentRecordLikelyTranslationEnabled(item CMSContent) bool {
 	}
 	for _, path := range [][]string{
 		{"family_id"},
-		{"translation", "meta", "family_id"},
-		{"content_translation", "meta", "family_id"},
-		{"translation_context", "family_id"},
-		{"translation_readiness", "family_id"},
-		{"translation", "meta", "requested_locale"},
-		{"translation", "meta", "resolved_locale"},
-		{"translation", "meta", "missing_requested_locale"},
-		{"translation", "meta", "fallback_used"},
-		{"content_translation", "meta", "requested_locale"},
-		{"content_translation", "meta", "resolved_locale"},
-		{"content_translation", "meta", "missing_requested_locale"},
-		{"content_translation", "meta", "fallback_used"},
+		{"requested_locale"},
+		{"resolved_locale"},
+		{"missing_requested_locale"},
+		{"fallback_used"},
 	} {
 		value := translationReadinessNestedValue(item.Data, path...)
 		last := path[len(path)-1]
@@ -837,8 +822,12 @@ func (r *CMSContentTypeEntryRepository) Get(ctx context.Context, id string) (map
 	}
 	if contentTypeWantsTranslations(r.contentType) {
 		familyID := translationFamilyIDFromRecord(record)
-		if err := requireCanonicalFamilyID(familyID, recordType, strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["id"]), id))); err != nil {
-			return nil, err
+		if strings.TrimSpace(familyID) == "" {
+			return nil, validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
+				"content_type": recordType,
+				"record_id":    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["id"]), id)),
+				"locale":       strings.TrimSpace(toString(record["locale"])),
+			})
 		}
 		record = primitives.CloneAnyMap(record)
 		record["family_id"] = familyID
