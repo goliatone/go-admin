@@ -135,7 +135,7 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 
 	target := cloneAnyMap(item.Target)
 	if itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator {
-		target = nil
+		target = breadcrumbTargetForStructuralMenuItem(target)
 	}
 
 	position := item.Position
@@ -180,6 +180,31 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 	seed.GroupTitle = groupTitle
 	seed.GroupTitleKey = groupTitleKey
 	return seed, nil
+}
+
+func breadcrumbTargetForStructuralMenuItem(target map[string]any) map[string]any {
+	if len(target) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for _, key := range []string{
+		"type",
+		"url",
+		"path",
+		"name",
+		"key",
+		"breadcrumb_label",
+		"breadcrumb_href",
+		"breadcrumb_hidden",
+	} {
+		if value, ok := target[key]; ok {
+			out[key] = value
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func validateSeedMenuIdentity(item admin.MenuItem, defaultLocale string) error {
