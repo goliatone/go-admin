@@ -56,24 +56,16 @@ func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryT
 	}
 	state.RequestedLocale = contentEntryStringField(record, []string{
 		"requested_locale",
-		"translation.meta.requested_locale",
-		"content_translation.meta.requested_locale",
 	})
 	state.ResolvedLocale = contentEntryStringField(record, []string{
 		"resolved_locale",
 		"locale",
-		"translation.meta.resolved_locale",
-		"content_translation.meta.resolved_locale",
 	})
 	state.MissingRequestedLocale = contentEntryBoolField(record, []string{
 		"missing_requested_locale",
-		"translation.meta.missing_requested_locale",
-		"content_translation.meta.missing_requested_locale",
 	})
 	state.FallbackUsed = contentEntryBoolField(record, []string{
 		"fallback_used",
-		"translation.meta.fallback_used",
-		"content_translation.meta.fallback_used",
 	})
 	if !state.FallbackUsed && state.RequestedLocale != "" && state.ResolvedLocale != "" &&
 		!strings.EqualFold(state.RequestedLocale, state.ResolvedLocale) {
@@ -89,8 +81,6 @@ func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryT
 func contentEntryFamilyID(record map[string]any) string {
 	return contentEntryStringField(record, []string{
 		"family_id",
-		"translation.meta.family_id",
-		"content_translation.meta.family_id",
 	})
 }
 
@@ -221,8 +211,6 @@ func contentEntryTranslationLocales(record map[string]any) []string {
 	for _, path := range []string{
 		"available_locales",
 		"translation_readiness.available_locales",
-		"translation.meta.available_locales",
-		"content_translation.meta.available_locales",
 	} {
 		for _, locale := range contentEntryStringSliceField(record, path) {
 			normalized := strings.TrimSpace(strings.ToLower(locale))
