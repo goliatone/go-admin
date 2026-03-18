@@ -740,7 +740,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
 	applyCalled := 0
-	for attempt := 0; attempt < 10; attempt++ {
+	for range 10 {
 		applyCalled, _ = executor.applySnapshot()
 		if applyCalled != 0 {
 			break
@@ -995,7 +995,7 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	var history map[string]any
 	var meta map[string]any
 	var items []map[string]any
-	for attempt := 0; attempt < 10; attempt++ {
+	for range 10 {
 		historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
 		historyReq.Header.Set("X-User-ID", "owner-user")
 		historyResp, err := app.Test(historyReq)
@@ -1111,7 +1111,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 		t.Fatalf("decode second payload: %v", err)
 	}
 	applyCalled := 0
-	for attempt := 0; attempt < 10; attempt++ {
+	for range 10 {
 		applyCalled, _ = executor.applySnapshot()
 		if applyCalled != 0 {
 			break

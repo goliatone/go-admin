@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"strings"
 
 	router "github.com/goliatone/go-router"
@@ -34,9 +35,7 @@ func mergeTranslationChannelContract(payload map[string]any, channel string) map
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	for key, value := range translationChannelContract(channel) {
-		payload[key] = value
-	}
+	maps.Copy(payload, translationChannelContract(channel))
 	return payload
 }
 

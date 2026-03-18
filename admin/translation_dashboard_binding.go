@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -468,12 +469,8 @@ func translationDashboardLink(urls urlkit.Resolver, group, route, resolverKey st
 
 func translationDashboardQuery(base map[string]string, channel string, extra map[string]string) map[string]string {
 	out := map[string]string{}
-	for key, value := range base {
-		out[key] = value
-	}
-	for key, value := range extra {
-		out[key] = value
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, extra)
 	if strings.TrimSpace(channel) != "" {
 		out["channel"] = strings.TrimSpace(channel)
 	}
