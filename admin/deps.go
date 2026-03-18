@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -37,6 +38,7 @@ type Dependencies struct {
 	Workflow                       WorkflowEngine
 	WorkflowRuntime                WorkflowRuntime
 	TranslationPolicy              TranslationPolicy
+	TranslationFamilyStore         translationservices.FamilyStore
 	ActivitySink                   ActivitySink
 	ActivityRepository             types.ActivityRepository
 	ActivityAccessPolicy           activity.ActivityAccessPolicy
