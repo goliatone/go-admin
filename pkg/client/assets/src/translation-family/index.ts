@@ -1060,7 +1060,7 @@ function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
   return metrics
     .map(
       (metric) => `
-        <div class="rounded-xl border border-gray-200 bg-white p-4">
+        <div class="rounded-xl border border-gray-200 bg-white p-6">
           <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${escapeHTML(metric.label)}</div>
           <div class="mt-2 text-2xl font-semibold ${metric.tone}">${escapeHTML(metric.value)}</div>
         </div>
@@ -1095,7 +1095,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
       : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
     return `
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4">
+      <li class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
@@ -1112,7 +1112,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 
   for (const locale of missingLocales) {
     rows.push(`
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
+      <li class="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-rose-900">${escapeHTML(locale.toUpperCase())}</span>
@@ -1134,7 +1134,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
         </div>
       </div>
       <ul class="mt-5 space-y-3" role="list">
-        ${rows.join('') || '<li class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">No locale variants available.</li>'}
+        ${rows.join('') || '<li class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">No locale variants available.</li>'}
       </ul>
     </section>
   `;
@@ -1160,7 +1160,7 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
             const dueState = deriveDueState(assignment.dueDate);
             const dueLabel = dueState === 'none' ? 'No due date' : sentenceCase(dueState);
             return `
-              <li class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCase(assignment.status))}</span>
@@ -1199,7 +1199,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
   return `
     <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
       <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
-      <div class="mt-4 rounded-xl ${detail.publishGate.allowed ? 'border border-emerald-200 bg-emerald-50' : 'border border-amber-200 bg-amber-50'} p-4">
+      <div class="mt-4 rounded-xl ${detail.publishGate.allowed ? 'border border-emerald-200 bg-emerald-50' : 'border border-amber-200 bg-amber-50'} p-6">
         <div class="flex flex-wrap items-center gap-3">
           ${renderReadinessChip(detail.readinessState)}
           <span class="text-sm font-medium ${detail.publishGate.allowed ? 'text-emerald-800' : 'text-amber-800'}">
@@ -1242,7 +1242,7 @@ function renderActivityPanel(detail: TranslationFamilyDetail): string {
               ${items
                 .map(
                   (item) => `
-                    <li class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold text-gray-900">${escapeHTML(item.title)}</span>
                         <span class="rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1285,7 +1285,7 @@ function renderDiagnostics(state: TranslationFamilyDetailLoadState): string {
 
 function renderFamilyLoadingState(message: string): string {
   return `
-    <div class="flex items-center justify-center py-16" aria-busy="true" aria-label="Loading">
+    <div class="${LOADING_STATE}" aria-busy="true" aria-label="Loading">
       <div class="flex flex-col items-center gap-3 text-gray-500">
         <span class="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-500"></span>
         <span class="text-sm">${escapeHTML(message)}</span>
@@ -1595,16 +1595,16 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
               `).join('')}
             </select>
           </label>
-          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-700">
             <p><strong>Required for publish:</strong> ${escapeHTML(quickCreate.requiredForPublish.join(', ') || 'None')}</p>
             <p class="mt-2"><strong>Recommended locale:</strong> ${escapeHTML(quickCreate.recommendedLocale.toUpperCase() || 'N/A')}</p>
             <p class="mt-2"><strong>Default work scope:</strong> ${escapeHTML(quickCreate.defaultAssignment.workScope || '__all__')}</p>
           </div>
-          <label class="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
+          <label class="flex items-center gap-3 rounded-xl border border-gray-200 px-6 py-4">
             <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-gray-300 text-sky-600" ${quickCreate.defaultAssignment.autoCreateAssignment ? 'checked' : ''}>
             <span class="text-sm text-gray-800">Seed an assignment now</span>
           </label>
-          <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-4">
+          <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-6">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Assignee</span>
               <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
@@ -1623,7 +1623,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
             </label>
           </div>
         </div>
-        <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+        <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button type="button" data-close-modal="true" class="${BTN_SECONDARY}">Cancel</button>
           <button type="submit" class="${BTN_PRIMARY}">${escapeHTML(config.submitLabel || 'Create locale')}</button>

@@ -11,9 +11,13 @@ const placementEditorPath = path.resolve(testFileDir, '../src/esign/pages/agreem
 const formPayloadPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/form-payload.ts');
 const previewCardPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/preview-card.ts');
 const normalizationPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/normalization.ts');
+const pdfRuntimePath = path.resolve(testFileDir, '../src/esign/pdf/runtime.ts');
+const buildAssetsPath = path.resolve(testFileDir, '../scripts/build-assets.mjs');
 const templatePath = path.resolve(testFileDir, '../../templates/resources/esign-agreements/form.html');
 const signerReviewPath = path.resolve(testFileDir, '../src/esign/pages/signer-review.ts');
 const signerReviewTemplatePath = path.resolve(testFileDir, '../../templates/esign-signer/review.html');
+const esignDistPath = path.resolve(testFileDir, '../dist/esign/index.js');
+const workerDistPath = path.resolve(testFileDir, '../dist/pdf.worker.min.mjs');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -40,9 +44,11 @@ test('Phase 5 contract: agreement runtime typeahead search uses q and stale requ
 test('Phase 5 contract: agreement runtime uses canonical PDF route and no object-key asset fallback', () => {
   const source = read(placementEditorPath);
   assert.match(source, /\/panels\/esign_documents\/\$\{encodedDocumentID\}\/source\/pdf/);
-  assert.match(source, /disableWorker: true/);
+  assert.match(source, /loadPdfDocument\(\{/);
+  assert.match(source, /surface: 'agreement-placement-editor'/);
   assert.doesNotMatch(source, /source_object_key/);
   assert.doesNotMatch(source, /loadPdfJs\(/);
+  assert.doesNotMatch(source, /window\.pdfjsLib/);
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
@@ -51,20 +57,21 @@ test('Phase 5 contract: document preview card uses canonical PDF route with stal
   assert.match(source, /private requestVersion = 0/);
   assert.match(source, /requestVersion !== this\.requestVersion/);
   assert.match(source, /\/panels\/esign_documents\/\$\{encodeURIComponent\(documentId\)\}\/source\/pdf/);
-  assert.match(source, /disableWorker: true/);
+  assert.match(source, /loadPdfDocument\(\{/);
+  assert.match(source, /surface: 'agreement-preview-card'/);
   assert.doesNotMatch(source, /source_object_key/);
+  assert.doesNotMatch(source, /window\.pdfjsLib/);
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
-test('Phase 5 contract: agreement form template uses conditional submit modes and pins PDF.js script', () => {
+test('Phase 5 contract: agreement form template uses conditional submit modes without CDN PDF.js bootstrap', () => {
   const source = read(templatePath);
   assert.match(source, /"submit_mode": "\{% if is_edit %\}form\{% else %\}json\{% endif %\}"/);
   assert.match(source, /"agreement_id": "\{\{ resource_item\.id\|default:""\|escapejs \}\}"/);
   assert.match(source, /"sync": \{/);
   assert.match(source, /"client_base_path": "\{\{ base_path\|default:"\/admin" \}\}\/sync-client\/sync-core"/);
   assert.match(source, /"bootstrap_path": "\{\{ api_base_path\|default:"\/admin\/api\/v1" \}\}\/esign\/sync\/bootstrap\/agreement-draft"/);
-  assert.match(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/3\.11\.174\/pdf\.min\.js/);
-  assert.match(source, /integrity="sha384-/);
+  assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
 test('Phase 5 contract: runtime removes indexed placement fallback writes', () => {
@@ -82,6 +89,42 @@ test('Phase 5 contract: signer review includes typed live preview and draw save-
   assert.match(source, /previewValueText/);
   assert.match(source, /previewSignatureUrl/);
   assert.match(source, /data-esign-action="save-current-signature-library"/);
+});
+
+test('Phase 5 contract: signer review uses shared PDF runtime and prefers preview_url', () => {
+  const source = read(signerReviewPath);
+  const template = read(signerReviewTemplatePath);
+  assert.match(source, /loadPdfDocument as loadPdfSourceDocument/);
+  assert.match(source, /logPdfLoadError/);
+  assert.match(source, /assets\.preview_url \|\|/);
+  assert.doesNotMatch(source, /pdfjs-dist\/build\/pdf\.min\.mjs/);
+  assert.doesNotMatch(source, /pdf\.worker\.min\.mjs\?url/);
+  assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
+  assert.doesNotMatch(template, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
+});
+
+test('Phase 5 contract: e-sign PDF runtime owns worker configuration and worker asset path', () => {
+  const source = read(pdfRuntimePath);
+  assert.match(source, /import \* as pdfjsLib from 'pdfjs-dist\/build\/pdf\.min\.mjs'/);
+  assert.match(source, /const PDF_WORKER_SRC = new URL\([\s\S]*'\.\.\/pdf\.worker\.min\.mjs'[\s\S]*import\.meta\.url[\s\S]*\)\.toString\(\)/);
+  assert.match(source, /export function ensurePdfWorkerConfigured\(\): string/);
+  assert.match(source, /export function loadPdfDocument/);
+  assert.match(source, /export function normalizePdfLoadError/);
+  assert.match(source, /export function logPdfLoadError/);
+});
+
+test('Phase 5 contract: build copies a same-origin PDF worker asset into dist', () => {
+  const source = read(buildAssetsPath);
+  assert.match(source, /node_modules\/pdfjs-dist\/build\/pdf\.worker\.min\.mjs/);
+  assert.match(source, /distStagingDir, 'pdf\.worker\.min\.mjs'/);
+  assert.ok(fs.existsSync(workerDistPath), 'dist/pdf.worker.min.mjs must exist after build');
+  assert.match(read(workerDistPath), /WorkerMessageHandler/);
+});
+
+test('Phase 5 contract: built e-sign bundle references a local worker asset instead of a data URL', () => {
+  const source = read(esignDistPath);
+  assert.match(source, /pdf\.worker\.min\.mjs/);
+  assert.doesNotMatch(source, /data:text\/javascript;base64/);
 });
 
 test('Phase 5 contract: signer review draw controls are iconized with labels and a11y names', () => {

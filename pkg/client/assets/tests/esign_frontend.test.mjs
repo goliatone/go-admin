@@ -27,6 +27,10 @@ const documentDetailTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-documents/detail.html',
 );
+const documentDetailSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/document-detail.ts',
+);
 const documentFormTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-documents/form.html',
@@ -1157,6 +1161,22 @@ test('document detail template relies on auto-init to avoid duplicate preview li
 
   assert.match(template, /data-esign-page="document-detail"/);
   assert.doesNotMatch(template, /initDocumentDetailPreview\(\s*\{/);
+});
+
+test('document detail template no longer bootstraps PDF.js from a CDN', () => {
+  const template = fs.readFileSync(documentDetailTemplatePath, 'utf8');
+
+  assert.doesNotMatch(template, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
+  assert.doesNotMatch(template, /GlobalWorkerOptions\.workerSrc/);
+});
+
+test('document detail preview uses shared PDF runtime instead of global pdfjsLib', () => {
+  const source = fs.readFileSync(documentDetailSourcePath, 'utf8');
+
+  assert.match(source, /loadPdfDocument\(\{/);
+  assert.match(source, /logPdfLoadError/);
+  assert.doesNotMatch(source, /declare const pdfjsLib/);
+  assert.doesNotMatch(source, /typeof pdfjsLib/);
 });
 
 // =============================================================================
@@ -5739,10 +5759,21 @@ test('coordinate transform handles bottom-left origin', () => {
 function resolveAssetUrl(assets) {
   if (!assets) return null;
   // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-  return assets.source_url || assets.executed_url || assets.certificate_url || null;
+  return assets.preview_url || assets.source_url || assets.executed_url || assets.certificate_url || null;
 }
 
-test('Phase 20.FE.1: resolveAssetUrl returns source_url when available', () => {
+test('Phase 20.FE.1: resolveAssetUrl returns preview_url when available', () => {
+  const assets = {
+    preview_url: '/api/v1/esign/signing/assets/token123?asset=preview',
+    source_url: '/api/v1/esign/signing/assets/token123?asset=source',
+    contract_url: '/api/v1/esign/signing/assets/token123'
+  };
+
+  const result = resolveAssetUrl(assets);
+  assert.equal(result, assets.preview_url);
+});
+
+test('Phase 20.FE.1: resolveAssetUrl returns source_url when preview is unavailable', () => {
   const assets = {
     source_url: '/api/v1/esign/signing/assets/token123?asset=source',
     contract_url: '/api/v1/esign/signing/assets/token123'
@@ -5793,7 +5824,20 @@ test('Phase 20.FE.1: resolveAssetUrl returns null for null/undefined assets', ()
   assert.equal(resolveAssetUrl(undefined), null);
 });
 
-test('Phase 20.FE.1: resolveAssetUrl prioritizes source_url over executed_url', () => {
+test('Phase 20.FE.1: resolveAssetUrl prioritizes preview_url over source_url', () => {
+  const assets = {
+    preview_url: '/assets/preview.pdf',
+    source_url: '/assets/source.pdf',
+    executed_url: '/assets/executed.pdf',
+    certificate_url: '/assets/certificate.pdf',
+    contract_url: '/api/v1/esign/signing/assets/token123'
+  };
+
+  const result = resolveAssetUrl(assets);
+  assert.equal(result, assets.preview_url);
+});
+
+test('Phase 20.FE.1: resolveAssetUrl prioritizes source_url over executed_url when preview is unavailable', () => {
   const assets = {
     source_url: '/assets/source.pdf',
     executed_url: '/assets/executed.pdf',
@@ -6171,6 +6215,17 @@ test('Phase 20.FE.4: document preview with source_url is valid binary', () => {
 
   const previewUrl = resolveAssetUrl(assets);
   assert.equal(previewUrl, assets.source_url);
+  assert.ok(isBinaryAssetUrl(previewUrl), 'preview URL should be binary asset');
+});
+
+test('Phase 20.FE.4: document preview with preview_url is valid binary', () => {
+  const assets = {
+    preview_url: '/api/v1/esign/signing/assets/token123?asset=preview',
+    contract_url: '/api/v1/esign/signing/assets/token123'
+  };
+
+  const previewUrl = resolveAssetUrl(assets);
+  assert.equal(previewUrl, assets.preview_url);
   assert.ok(isBinaryAssetUrl(previewUrl), 'preview URL should be binary asset');
 });
 

@@ -4,36 +4,11 @@
  */
 
 import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
-
-// PDF.js types (loaded globally from CDN)
-declare const pdfjsLib: {
-  getDocument: (url: string) => {
-    promise: Promise<PDFDocumentProxy>;
-  };
-  GlobalWorkerOptions: {
-    workerSrc: string;
-  };
-};
-
-interface PDFDocumentProxy {
-  numPages: number;
-  getPage: (pageNumber: number) => Promise<PDFPageProxy>;
-}
-
-interface PDFPageProxy {
-  getViewport: (options: { scale: number }) => PDFViewport;
-  render: (context: PDFRenderContext) => { promise: Promise<void> };
-}
-
-interface PDFViewport {
-  width: number;
-  height: number;
-}
-
-interface PDFRenderContext {
-  canvasContext: CanvasRenderingContext2D;
-  viewport: PDFViewport;
-}
+import {
+  loadPdfDocument,
+  logPdfLoadError,
+  type PDFDocumentProxy,
+} from '../pdf/runtime.js';
 
 export interface DocumentDetailPreviewConfig {
   documentId: string;
@@ -140,12 +115,13 @@ export class DocumentDetailPreviewController {
     this.showSpinner();
 
     try {
-      if (typeof pdfjsLib === 'undefined') {
-        throw new Error('PDF.js library not loaded');
-      }
-
       this.updateStatus('Loading PDF...');
-      const loadingTask = pdfjsLib.getDocument(this.config.pdfUrl);
+      const loadingTask = loadPdfDocument({
+        url: this.config.pdfUrl,
+        withCredentials: true,
+        surface: 'document-detail-preview',
+        documentId: this.config.documentId,
+      });
       this.pdfDoc = await loadingTask.promise;
 
       // Update total pages
@@ -159,8 +135,12 @@ export class DocumentDetailPreviewController {
       await this.renderPage(1);
       this.updateStatus('');
     } catch (error) {
-      console.error('Failed to load PDF:', error);
-      this.showError(error instanceof Error ? error.message : 'Failed to load document');
+      const normalizedError = logPdfLoadError(error, {
+        surface: 'document-detail-preview',
+        documentId: this.config.documentId,
+        url: this.config.pdfUrl,
+      });
+      this.showError(normalizedError.suggestion);
     } finally {
       this.isLoading = false;
     }

@@ -232,12 +232,6 @@
 {% endblock %}
 
 {% block detail_scripts %}
-{# PDF.js library for document preview #}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-</script>
-
 <script type="module">
 import { initDetailFormatters } from '{{ base_path }}/assets/dist/esign/index.js';
 

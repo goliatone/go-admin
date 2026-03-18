@@ -452,10 +452,10 @@ test('Phase 2 contract: preview-card.ts module exists and exports DocumentPrevie
   assert.match(source, /export function createPreviewCard/);
 });
 
-test('Phase 2 contract: preview-card.ts implements PDF thumbnail rendering with PDF.js', () => {
+test('Phase 2 contract: preview-card.ts implements PDF thumbnail rendering with the shared PDF runtime', () => {
   const source = fs.readFileSync(agreementPreviewCardPath, 'utf8');
-  // Must load PDF.js dynamically
-  assert.match(source, /pdfjsLib\.getDocument/);
+  // Must load via shared PDF runtime
+  assert.match(source, /loadPdfDocument/);
   // Must render page to canvas
   assert.match(source, /page\.render\(/);
   // Must convert to data URL for thumbnail

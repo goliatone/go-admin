@@ -48,6 +48,8 @@ export default defineConfig({
     emptyDirBeforeWrite: true,
     // Generate source maps only in production
     sourcemap: process.env.NODE_ENV === 'production',
+    // Keep runtime assets external to support same-origin worker URLs under CSP.
+    assetsInlineLimit: 0,
     // Rollup options for chunking and externals
     rollupOptions: {
       output: {

@@ -15,32 +15,11 @@ import {
   unlinkField,
 } from './linked-placement';
 import { normalizePlacementInstance, toPlacementFormPayload } from './normalization';
-
-interface PDFPageViewport {
-  width: number;
-  height: number;
-}
-
-interface PDFRenderTask {
-  promise: Promise<unknown>;
-}
-
-interface PDFPageProxy {
-  getViewport(options: { scale: number }): PDFPageViewport;
-  render(options: {
-    canvasContext: CanvasRenderingContext2D | null;
-    viewport: PDFPageViewport;
-  }): PDFRenderTask;
-}
-
-interface PDFDocumentProxy {
-  numPages: number;
-  getPage(pageNumber: number): Promise<PDFPageProxy>;
-}
-
-interface PDFLoadingTask {
-  promise: Promise<PDFDocumentProxy>;
-}
+import {
+  loadPdfDocument,
+  logPdfLoadError,
+  type PDFDocumentProxy,
+} from '../../pdf/runtime.js';
 
 interface PlacementFieldDefinition {
   definitionId: string;
@@ -220,13 +199,6 @@ export interface PlacementEditorController {
 
 declare global {
   interface Window {
-    pdfjsLib?: {
-      getDocument(options: {
-        url: string;
-        withCredentials: boolean;
-        disableWorker: boolean;
-      }): PDFLoadingTask;
-    };
     toastManager?: {
       info?(message: string): void;
       success(message: string): void;
@@ -1491,14 +1463,11 @@ export function createPlacementEditorController(
     const pdfUrl = `${apiBase}/panels/esign_documents/${encodedDocumentID}/source/pdf`;
 
     try {
-      if (!window.pdfjsLib || typeof window.pdfjsLib.getDocument !== 'function') {
-        throw new Error('PDF preview library is unavailable');
-      }
-
-      const loadingTask = window.pdfjsLib.getDocument({
+      const loadingTask = loadPdfDocument({
         url: pdfUrl,
         withCredentials: true,
-        disableWorker: true,
+        surface: 'agreement-placement-editor',
+        documentId: selectedDocumentID,
       });
       const pdfDoc = await loadingTask.promise;
       if (loadRequestVersion !== state.loadRequestVersion) {
@@ -1528,12 +1497,19 @@ export function createPlacementEditorController(
       if (loadRequestVersion !== state.loadRequestVersion) {
         return;
       }
-      console.error('Failed to load PDF:', error);
+      const normalizedError = logPdfLoadError(error, {
+        surface: 'agreement-placement-editor',
+        documentId: selectedDocumentID,
+        url: pdfUrl,
+      });
       els.loading?.classList.add('hidden');
       els.noDocument?.classList.remove('hidden');
       if (els.noDocument) {
-        const normalizedError = (error && typeof error === 'object') ? error as PlacementEditorErrorLike : {};
-        els.noDocument.textContent = `Failed to load PDF: ${mapUserFacingError(normalizedError.message || 'Failed to load PDF')}`;
+        els.noDocument.textContent = `Failed to load PDF: ${mapUserFacingError(
+          normalizedError.message,
+          normalizedError.code,
+          normalizedError.status || undefined,
+        )}`;
       }
     }
 

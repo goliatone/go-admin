@@ -11,6 +11,13 @@ import {
   HEADER_TITLE,
   HEADER_PRETITLE,
   HEADER_DESCRIPTION,
+  EMPTY_STATE,
+  EMPTY_STATE_TITLE,
+  EMPTY_STATE_TEXT,
+  ERROR_STATE,
+  ERROR_STATE_TITLE,
+  ERROR_STATE_TEXT,
+  LOADING_STATE,
   MOBILE_CARD,
   MOBILE_CARD_HEADER,
   MOBILE_CARD_TITLE,
@@ -1222,11 +1229,14 @@ export class AssignmentQueueScreen {
   }
 
   private renderErrorState(kind: 'error' | 'conflict', message: string): string {
+    const title = kind === 'conflict' ? 'Version conflict' : 'Queue unavailable';
     return `
-      <div class="assignment-queue-state ${kind === 'conflict' ? 'is-conflict' : 'is-error'}" data-queue-state="${kind}" role="alert">
-        <strong>${kind === 'conflict' ? 'Version conflict' : 'Queue unavailable'}</strong>
-        <span>${escapeHtml(message)}</span>
-        <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Retry</button>
+      <div class="${ERROR_STATE} p-6" data-queue-state="${kind}" role="alert">
+        <h2 class="${ERROR_STATE_TITLE}">${title}</h2>
+        <p class="${ERROR_STATE_TEXT} mt-2">${escapeHtml(message)}</p>
+        <div class="mt-4">
+          <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Retry</button>
+        </div>
       </div>
     `;
   }

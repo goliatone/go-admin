@@ -3,26 +3,22 @@
 {% block title %}{{ translation_shell_title|default:"Translation" }} - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
-  <div>
-    {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
-      {% if translation_shell_surface == "queue" %}
-      Translator Work Surface
-      {% else %}
-      Translation Rollout Shell
-      {% endif %}
-    </p>
-    <h1 class="text-3xl font-bold text-admin-dark mt-2">{{ translation_shell_title|default:"Translation" }}</h1>
-    <p class="text-sm text-gray-500 mt-1 max-w-3xl">
-      {{ translation_shell_description|default:"Flag-aware shell route for incremental translation rollout." }}
-    </p>
+<header class="px-8 py-6 bg-white border-b border-gray-200">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
+      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
+      <h1 class="mt-2 text-3xl font-bold text-admin-dark">{{ translation_shell_title|default:"Translation" }}</h1>
+      <p class="text-sm text-gray-500 mt-1">
+        {{ translation_shell_description|default:"Translation work surface with feature-based routing." }}
+      </p>
+    </div>
   </div>
 </header>
 
-<div class="flex-1 overflow-y-auto p-8">
-  <div class="{% if translation_shell_surface == "queue" %}max-w-7xl{% else %}max-w-5xl{% endif %} mx-auto">
-    <section class="rounded-xl {% if translation_shell_surface == "queue" %}bg-transparent{% else %}border border-gray-200 bg-white p-6 shadow-sm{% endif %}">
+<div class="flex-1 overflow-y-auto bg-gray-50 p-8">
+  <div class="mx-auto max-w-7xl">
+    <section class="{% if translation_shell_surface != "queue" %}rounded-xl border border-gray-200 bg-white p-6 shadow-sm{% endif %}">
       <div id="translation-shell-root"
            data-surface="{{ translation_shell_surface|default:"surface" }}"
            data-title="{{ translation_shell_title|default:"Translation" }}"

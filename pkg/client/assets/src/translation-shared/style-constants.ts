@@ -117,6 +117,8 @@ export const HEADER_FLEX = 'flex flex-wrap items-center justify-between gap-4';
 
 // =============================================================================
 // Card/Container Patterns
+// Standard card spacing: p-6 for all card bodies, headers, and list items
+// This ensures visual consistency across all translation surfaces.
 // =============================================================================
 
 /** Standard card container */
@@ -125,10 +127,10 @@ export const CARD = 'bg-white border border-gray-200 rounded-xl';
 /** Card with shadow */
 export const CARD_SHADOW = 'bg-white border border-gray-200 rounded-xl shadow-sm';
 
-/** Card header section */
+/** Card header section - always use p-6 */
 export const CARD_HEADER = 'p-6 border-b border-gray-200';
 
-/** Card body section */
+/** Card body section - always use p-6 */
 export const CARD_BODY = 'p-6';
 
 /** Card with muted header */

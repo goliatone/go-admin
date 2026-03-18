@@ -188,7 +188,9 @@ test('initPanelDetailActions renders canonical detail actions and keeps disabled
     const deleteReason = dom.window.document.querySelector('[data-detail-action-reason="delete"]');
     assert.equal(deleteButton.getAttribute('aria-disabled'), 'true');
     assert.equal(deleteButton.getAttribute('title'), 'Document is used by 2 active agreements.');
-    assert.equal(deleteReason?.textContent?.trim(), 'Document is used by 2 active agreements.');
+    // Dropdown items show reason via hover icon (?) with title attribute
+    assert.equal(deleteReason?.getAttribute('title'), 'Document is used by 2 active agreements.');
+    assert.equal(deleteReason?.textContent?.trim(), '?');
 
     deleteButton.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -14,6 +14,7 @@
 
 import type { DocumentPreviewState, DocumentPreviewConfig } from './contracts';
 import { PREVIEW_CARD_DEFAULTS, WIZARD_STEP } from './constants';
+import { loadPdfDocument, logPdfLoadError } from '../../pdf/runtime.js';
 
 /**
  * Thumbnail cache entry
@@ -35,98 +36,6 @@ const thumbnailCache = new Map<string, ThumbnailCacheEntry>();
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 /**
- * User-friendly error messages for common HTTP status codes
- */
-const USER_FRIENDLY_ERRORS: Record<number, { message: string; suggestion: string }> = {
-  401: {
-    message: 'Unable to access this document',
-    suggestion: 'Please sign in again or check your permissions.',
-  },
-  403: {
-    message: 'Access denied',
-    suggestion: 'You don\'t have permission to view this document.',
-  },
-  404: {
-    message: 'Document not found',
-    suggestion: 'This document may have been moved or deleted.',
-  },
-  500: {
-    message: 'Server error',
-    suggestion: 'Please try again in a moment.',
-  },
-  502: {
-    message: 'Service temporarily unavailable',
-    suggestion: 'Please try again in a moment.',
-  },
-  503: {
-    message: 'Service temporarily unavailable',
-    suggestion: 'Please try again in a moment.',
-  },
-};
-
-/**
- * Parse error to extract HTTP status code if present
- */
-function parseErrorStatusCode(error: string | Error): number | null {
-  const errorStr = error instanceof Error ? error.message : error;
-
-  // Match patterns like "response (401)" or "status 401" or just "401"
-  const match = errorStr.match(/\((\d{3})\)|status[:\s]+(\d{3})|^(\d{3})$/i);
-  if (match) {
-    const code = parseInt(match[1] || match[2] || match[3], 10);
-    if (code >= 400 && code < 600) {
-      return code;
-    }
-  }
-  return null;
-}
-
-/**
- * Convert raw error to user-friendly display format
- */
-function toUserFriendlyError(error: string | Error): { message: string; suggestion: string; isRetryable: boolean } {
-  const errorStr = error instanceof Error ? error.message : error;
-  const statusCode = parseErrorStatusCode(errorStr);
-
-  // Check for network/connection errors
-  if (errorStr.toLowerCase().includes('network') ||
-      errorStr.toLowerCase().includes('failed to fetch') ||
-      errorStr.toLowerCase().includes('connection')) {
-    return {
-      message: 'Connection problem',
-      suggestion: 'Please check your internet connection and try again.',
-      isRetryable: true,
-    };
-  }
-
-  // Check for PDF.js specific errors
-  if (errorStr.toLowerCase().includes('pdf') && errorStr.toLowerCase().includes('unavailable')) {
-    return {
-      message: 'Preview not available',
-      suggestion: 'The preview feature is temporarily unavailable.',
-      isRetryable: false,
-    };
-  }
-
-  // Map HTTP status codes
-  if (statusCode && USER_FRIENDLY_ERRORS[statusCode]) {
-    const friendly = USER_FRIENDLY_ERRORS[statusCode];
-    return {
-      message: friendly.message,
-      suggestion: friendly.suggestion,
-      isRetryable: statusCode >= 500, // Server errors are retryable
-    };
-  }
-
-  // Default fallback
-  return {
-    message: 'Preview unavailable',
-    suggestion: 'Unable to load the document preview.',
-    isRetryable: true,
-  };
-}
-
-/**
  * Check if debug mode is enabled
  */
 function isDebugMode(): boolean {
@@ -134,25 +43,6 @@ function isDebugMode(): boolean {
   return (window as any).__ADMIN_DEBUG__ === true ||
          (window as any).ADMIN_DEBUG === true ||
          document.body?.dataset?.debug === 'true';
-}
-
-/**
- * Check if PDF.js is loaded
- */
-function isPdfJsLoaded(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    'pdfjsLib' in window &&
-    typeof (window as any).pdfjsLib?.getDocument === 'function'
-  );
-}
-
-/**
- * Ensure PDF.js is preloaded by the page.
- */
-async function ensurePdfJsLoaded(): Promise<void> {
-  if (isPdfJsLoaded()) return;
-  throw new Error('PDF preview library unavailable');
 }
 
 /**
@@ -194,20 +84,15 @@ export function clearThumbnailCache(): void {
  */
 async function renderPdfThumbnail(
   pdfUrl: string,
+  documentId: string,
   maxWidth: number = PREVIEW_CARD_DEFAULTS.THUMBNAIL_MAX_WIDTH,
   maxHeight: number = PREVIEW_CARD_DEFAULTS.THUMBNAIL_MAX_HEIGHT
 ): Promise<{ dataUrl: string; pageCount: number }> {
-  await ensurePdfJsLoaded();
-
-  const pdfjsLib = (window as any).pdfjsLib;
-  if (!pdfjsLib) {
-    throw new Error('PDF.js not available');
-  }
-
-  const loadingTask = pdfjsLib.getDocument({
+  const loadingTask = loadPdfDocument({
     url: pdfUrl,
     withCredentials: true,
-    disableWorker: true,
+    surface: 'agreement-preview-card',
+    documentId,
   });
   const pdfDoc = await loadingTask.promise;
   const pageCount = pdfDoc.numPages;
@@ -410,13 +295,15 @@ export class DocumentPreviewCard {
     this.render();
 
     // Fetch document data and render thumbnail
+    let pdfUrl = '';
     try {
-      const pdfUrl = await this.fetchDocumentPdfUrl(documentId);
+      pdfUrl = await this.fetchDocumentPdfUrl(documentId);
       if (requestVersion !== this.requestVersion) {
         return;
       }
       const { dataUrl, pageCount: fetchedPageCount } = await renderPdfThumbnail(
         pdfUrl,
+        documentId,
         this.config.thumbnailMaxWidth,
         this.config.thumbnailMaxHeight
       );
@@ -439,13 +326,13 @@ export class DocumentPreviewCard {
       if (requestVersion !== this.requestVersion) {
         return;
       }
-      const rawError = err instanceof Error ? err.message : 'Failed to load preview';
-      const friendlyError = toUserFriendlyError(rawError);
+      const normalizedError = logPdfLoadError(err, {
+        surface: 'agreement-preview-card',
+        documentId,
+        url: pdfUrl,
+      });
 
-      // Only log in debug mode to avoid console noise in production
-      if (isDebugMode()) {
-        console.error('Failed to load document preview:', err);
-      }
+      const rawError = normalizedError.rawMessage;
 
       this.state = {
         documentId,
@@ -454,9 +341,9 @@ export class DocumentPreviewCard {
         thumbnailUrl: null,
         isLoading: false,
         error: rawError,
-        errorMessage: friendlyError.message,
-        errorSuggestion: friendlyError.suggestion,
-        errorRetryable: friendlyError.isRetryable,
+        errorMessage: normalizedError.message,
+        errorSuggestion: normalizedError.suggestion,
+        errorRetryable: normalizedError.isRetryable,
       };
     }
 

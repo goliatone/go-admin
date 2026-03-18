@@ -2,6 +2,10 @@
 
 import { onReady } from '../utils/dom-helpers.js';
 import { escapeHTML } from '../../shared/html.js';
+import {
+  loadPdfDocument as loadPdfSourceDocument,
+  logPdfLoadError,
+} from '../pdf/runtime.js';
 
 export type SignerProfileMode = 'local_only' | 'hybrid' | 'remote_only';
 
@@ -197,7 +201,7 @@ class RemoteSignerProfileStore implements SignerProfileStore {
 
   private endpoint(key: string): string {
     const encodedToken = encodeURIComponent(this.token);
-    const encodedKey = encodeURIComponent(key);
+    const encodedKey = encodeURIComponent(normalizeSignerProfileKeyForTransport(key));
     return `${this.endpointBasePath}/profile/${encodedToken}?key=${encodedKey}`;
   }
 
@@ -589,6 +593,16 @@ function toSignerProfileKey(config: Required<SignerReviewConfig>): string {
   return encodeURIComponent(`${origin}:${principal}`);
 }
 
+function normalizeSignerProfileKeyForTransport(key: string): string {
+  const normalized = String(key || '').trim();
+  if (!normalized) return '';
+  try {
+    return decodeURIComponent(normalized);
+  } catch {
+    return normalized;
+  }
+}
+
 function initialsFromName(name: string): string {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '';
@@ -607,6 +621,9 @@ function sanitizeProfileText(value: string): string {
 
 function createProfileRepository(config: Required<SignerReviewConfig>): SignerProfileRepository {
   const localStore = new LocalSignerProfileStore(config.profile.ttlDays);
+  if (!config.canSign || String(config.sessionKind || '').trim().toLowerCase() === 'reviewer') {
+    return new SignerProfileRepository('local_only', localStore, null);
+  }
   const remoteStore = new RemoteSignerProfileStore(config.profile.endpointBasePath, config.token);
   if (config.profile.mode === 'local_only') {
     return new SignerProfileRepository('local_only', localStore, null);
@@ -615,14 +632,6 @@ function createProfileRepository(config: Required<SignerReviewConfig>): SignerPr
     return new SignerProfileRepository('remote_only', localStore, remoteStore);
   }
   return new SignerProfileRepository('hybrid', localStore, remoteStore);
-}
-
-function configurePdfWorkerFromCDN(): void {
-  const win = window as any;
-  if (win.pdfjsLib && win.pdfjsLib.GlobalWorkerOptions) {
-    win.pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
 }
 
 export function bootstrapSignerReview(config: SignerReviewConfig): void {
@@ -638,7 +647,6 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   const unifiedConfig = normalizeSignerReviewConfig(config);
   const signerProfileKey = toSignerProfileKey(unifiedConfig);
   const signerProfileRepository = createProfileRepository(unifiedConfig);
-  configurePdfWorkerFromCDN();
   // ============================================
   // Client Telemetry Module
   // ============================================
@@ -3388,6 +3396,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   async function loadPdfDocument() {
     const loadingEl = document.getElementById('pdf-loading');
     const loadStartTime = Date.now();
+    let documentUrl = '';
 
     try {
       // Fetch document URL from assets endpoint
@@ -3400,14 +3409,23 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-      const documentUrl = assets.source_url || assets.executed_url || assets.certificate_url || unifiedConfig.documentUrl;
+      documentUrl =
+        assets.preview_url ||
+        assets.source_url ||
+        assets.executed_url ||
+        assets.certificate_url ||
+        unifiedConfig.documentUrl;
 
       if (!documentUrl) {
         throw new Error('Document preview is not available yet. The document may still be processing.');
       }
 
       // Load PDF with PDF.js
-      const loadingTask = pdfjsLib.getDocument(documentUrl);
+      const loadingTask = loadPdfSourceDocument({
+        url: documentUrl,
+        surface: 'signer-review',
+        documentId: unifiedConfig.agreementId,
+      });
       state.pdfDoc = await loadingTask.promise;
 
       // Update page count
@@ -3425,10 +3443,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       telemetry.trackPageView(1);
 
     } catch (error) {
-      console.error('PDF load error:', error);
+      const normalizedError = logPdfLoadError(error, {
+        surface: 'signer-review',
+        documentId: unifiedConfig.agreementId,
+        url: typeof documentUrl === 'string' ? documentUrl : null,
+      });
 
       // Track failed load
-      telemetry.trackViewerLoad(false, Date.now() - loadStartTime, error.message);
+      telemetry.trackViewerLoad(false, Date.now() - loadStartTime, normalizedError.rawMessage);
 
       if (loadingEl) {
         loadingEl.innerHTML = `
@@ -5335,7 +5357,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-      const downloadUrl = assets.source_url || assets.executed_url || assets.certificate_url;
+      const downloadUrl = assets.preview_url || assets.source_url || assets.executed_url || assets.certificate_url;
 
       if (downloadUrl) {
         window.open(downloadUrl, '_blank');
@@ -5544,7 +5566,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     bindConsoleHelpers() {
       window.esignDebug = {
         getState: () => ({
-          config: unifiedConfig,
+          config: {
+            ...unifiedConfig,
+            token: '[redacted]'
+          },
           state: {
             currentPage: state.currentPage,
             zoomLevel: state.zoomLevel,
@@ -5590,7 +5615,6 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       console.group('%c[E-Sign Debug] Session Info', 'color: #3b82f6');
       console.log('Flow Mode:', unifiedConfig.flowMode);
       console.log('Agreement ID:', unifiedConfig.agreementId);
-      console.log('Token:', unifiedConfig.token);
       console.log('Session ID:', telemetry.sessionId);
       console.log('Fields:', state.fieldState?.size || 0);
       console.log('Low Memory:', state.isLowMemory);

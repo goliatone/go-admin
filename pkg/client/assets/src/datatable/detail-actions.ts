@@ -45,29 +45,6 @@ function actionKey(action: ActionButton, index: number): string {
     : `${action.label}-${index + 1}`;
   return raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `action-${index + 1}`;
 }
-
-function renderActionReason(
-  key: string,
-  reason: string,
-  compact = false,
-): string {
-  if (!reason) {
-    return '';
-  }
-  const classes = compact
-    ? 'block text-xs text-amber-700'
-    : 'block px-4 pb-3 text-xs text-amber-700';
-  return `
-    <span
-      id="detail-action-reason-${escapeHtml(key)}"
-      data-detail-action-reason="${escapeHtml(key)}"
-      class="${classes}"
-    >
-      ${escapeHtml(reason)}
-    </span>
-  `;
-}
-
 function detailButtonClasses(action: ActionButton, disabled: boolean): string {
   const base = 'inline-flex w-full items-center justify-center rounded-lg border px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2';
   if (disabled) {
@@ -195,8 +172,18 @@ export function renderDetailActions(actions: ActionButton[]): string {
       : '';
     const buttonTitleAttr = reason ? `title="${escapeHtml(reason)}"` : '';
 
+    // For primary actions, show reason via hover icon instead of inline text
+    const reasonHelpIcon = disabled && reason
+      ? `<span
+           class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
+           title="${escapeHtml(reason)}"
+           data-detail-action-reason="${escapeHtml(key)}"
+           id="detail-action-reason-${escapeHtml(key)}"
+         >?</span>`
+      : '';
+
     primaryHtml = `
-      <div data-detail-action-card="${escapeHtml(key)}" class="space-y-1">
+      <div data-detail-action-card="${escapeHtml(key)}" class="flex items-center gap-2">
         <button
           type="button"
           class="${compactButtonClasses(primary, disabled)}"
@@ -210,8 +197,8 @@ export function renderDetailActions(actions: ActionButton[]): string {
         >
           ${icon ? `<i class="${icon}"></i>` : ''}
           ${escapeHtml(primary.label)}
+          ${reasonHelpIcon}
         </button>
-        ${disabled && reasonId ? renderActionReason(key, reason, true) : ''}
         ${disabled && remediation ? remediation : ''}
       </div>
     `;
@@ -243,6 +230,16 @@ export function renderDetailActions(actions: ActionButton[]): string {
           `
         : '';
 
+      // For dropdown items, show reason via hover icon instead of inline text
+      const reasonHelpIcon = disabled && reason
+        ? `<span
+             class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
+             title="${escapeHtml(reason)}"
+             data-detail-action-reason="${escapeHtml(key)}"
+             id="detail-action-reason-${escapeHtml(key)}"
+           >?</span>`
+        : '';
+
       return `
         ${separator}
         <div data-detail-action-card="${escapeHtml(key)}" class="space-y-1">
@@ -259,9 +256,9 @@ export function renderDetailActions(actions: ActionButton[]): string {
           >
             ${icon ? `<i class="${icon} text-base"></i>` : '<span class="w-4"></span>'}
             <span class="flex-1">${escapeHtml(action.label)}</span>
-            ${disabled ? '<i class="iconoir-lock text-gray-400 text-xs"></i>' : ''}
+            ${reasonHelpIcon}
+            ${disabled ? '<i class="iconoir-lock text-gray-400 text-xs ml-1"></i>' : ''}
           </button>
-          ${disabled && reasonId ? renderActionReason(key, reason) : ''}
           ${disabled && remediation ? remediation : ''}
         </div>
       `;
