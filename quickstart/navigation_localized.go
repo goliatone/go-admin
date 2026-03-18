@@ -11,33 +11,33 @@ import (
 
 // LocalizedMenuItemTranslation captures per-locale display and URL override values.
 type LocalizedMenuItemTranslation struct {
-	Locale        string
-	Label         string
-	LabelKey      string
-	GroupTitle    string
-	GroupTitleKey string
-	URLOverride   string
+	Locale        string `json:"locale"`
+	Label         string `json:"label"`
+	LabelKey      string `json:"label_key"`
+	GroupTitle    string `json:"group_title"`
+	GroupTitleKey string `json:"group_title_key"`
+	URLOverride   string `json:"url_override"`
 }
 
 // LocalizedSeedMenuItem represents one canonical menu item and its localized variants.
 type LocalizedSeedMenuItem struct {
-	Item         admin.MenuItem
-	Translations []LocalizedMenuItemTranslation
+	Item         admin.MenuItem                 `json:"item"`
+	Translations []LocalizedMenuItemTranslation `json:"translations"`
 }
 
 // SeedLocalizedNavigationOptions drives localized menu seeding with stable menu IDs.
 type SeedLocalizedNavigationOptions struct {
-	MenuSvc       admin.CMSMenuService
-	MenuCode      string
-	Items         []LocalizedSeedMenuItem
-	DefaultLocale string
-	Reset         bool
-	ResetEnv      string
-	Logf          func(format string, args ...any)
-	SkipLogger    bool
+	MenuSvc       admin.CMSMenuService             `json:"menu_svc"`
+	MenuCode      string                           `json:"menu_code"`
+	Items         []LocalizedSeedMenuItem          `json:"items"`
+	DefaultLocale string                           `json:"default_locale"`
+	Reset         bool                             `json:"reset"`
+	ResetEnv      string                           `json:"reset_env"`
+	Logf          func(format string, args ...any) `json:"logf"`
+	SkipLogger    bool                             `json:"skip_logger"`
 
 	// AutoCreateParents allows seeds to omit intermediate path segments; missing parents are scaffolded as group nodes.
-	AutoCreateParents bool
+	AutoCreateParents bool `json:"auto_create_parents"`
 }
 
 // SeedLocalizedNavigation seeds canonical menu IDs and applies locale-specific translations.

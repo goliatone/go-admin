@@ -10,10 +10,10 @@ import (
 
 // PathViewContextConfig describes how base/api/asset paths should be injected into a view context.
 type PathViewContextConfig struct {
-	BasePath      string
-	APIBasePath   string
-	AssetBasePath string
-	URLResolver   urlkit.Resolver
+	BasePath      string          `json:"base_path"`
+	APIBasePath   string          `json:"api_base_path"`
+	AssetBasePath string          `json:"asset_base_path"`
+	URLResolver   urlkit.Resolver `json:"url_resolver"`
 }
 
 // PathViewContext returns canonical template path keys:

@@ -26,8 +26,8 @@ func joinAssetPath(prefix, filename string) string {
 
 // AuthUIState captures feature-guarded flags used by auth templates.
 type AuthUIState struct {
-	PasswordResetEnabled    bool
-	SelfRegistrationEnabled bool
+	PasswordResetEnabled    bool `json:"password_reset_enabled"`
+	SelfRegistrationEnabled bool `json:"self_registration_enabled"`
 }
 
 // AuthUIStateFromGate derives auth UI flags from the feature gate.
@@ -47,10 +47,10 @@ func authUISnapshot(state AuthUIState) map[string]bool {
 
 // AuthUIPaths captures common auth-related route paths for templates.
 type AuthUIPaths struct {
-	BasePath                 string
-	PasswordResetPath        string
-	PasswordResetConfirmPath string
-	RegisterPath             string
+	BasePath                 string `json:"base_path"`
+	PasswordResetPath        string `json:"password_reset_path"`
+	PasswordResetConfirmPath string `json:"password_reset_confirm_path"`
+	RegisterPath             string `json:"register_path"`
 }
 
 // AuthUIViewContext builds a view context with auth flags + paths.

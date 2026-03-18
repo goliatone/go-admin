@@ -13,9 +13,9 @@ import (
 var translationCapabilitiesStore sync.Map // map[*admin.Admin]map[string]any
 
 type translationCapabilityModuleState struct {
-	ExchangeEnabled bool
-	QueueEnabled    bool
-	HasState        bool
+	ExchangeEnabled bool `json:"exchange_enabled"`
+	QueueEnabled    bool `json:"queue_enabled"`
+	HasState        bool `json:"has_state"`
 }
 
 // TranslationCapabilities returns a stable translation capability snapshot for the admin instance.

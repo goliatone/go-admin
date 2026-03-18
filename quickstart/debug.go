@@ -13,27 +13,27 @@ import (
 
 // DebugOption applies explicit debug configuration overrides.
 type DebugOption struct {
-	Enabled                    *bool
-	AllowedIPs                 []string
-	AllowedOrigins             []string
-	AppID                      string
-	AppName                    string
-	Environment                string
-	RemoteEnabled              *bool
-	TokenTTL                   *time.Duration
-	SessionTracking            *bool
-	SessionIncludeGlobalPanels *bool
-	SessionCookieName          string
-	SessionInactivityExpiry    *time.Duration
-	CaptureSQL                 *bool
-	CaptureLogs                *bool
-	CaptureJSErrors            *bool
-	CaptureRequestBody         *bool
-	ToolbarMode                *bool
-	ToolbarPanels              []string
-	LayoutMode                 string
-	ReplEnabled                *bool
-	ReplReadOnly               *bool
+	Enabled                    *bool          `json:"enabled"`
+	AllowedIPs                 []string       `json:"allowed_i_ps"`
+	AllowedOrigins             []string       `json:"allowed_origins"`
+	AppID                      string         `json:"app_id"`
+	AppName                    string         `json:"app_name"`
+	Environment                string         `json:"environment"`
+	RemoteEnabled              *bool          `json:"remote_enabled"`
+	TokenTTL                   *time.Duration `json:"token_ttl"`
+	SessionTracking            *bool          `json:"session_tracking"`
+	SessionIncludeGlobalPanels *bool          `json:"session_include_global_panels"`
+	SessionCookieName          string         `json:"session_cookie_name"`
+	SessionInactivityExpiry    *time.Duration `json:"session_inactivity_expiry"`
+	CaptureSQL                 *bool          `json:"capture_sql"`
+	CaptureLogs                *bool          `json:"capture_logs"`
+	CaptureJSErrors            *bool          `json:"capture_js_errors"`
+	CaptureRequestBody         *bool          `json:"capture_request_body"`
+	ToolbarMode                *bool          `json:"toolbar_mode"`
+	ToolbarPanels              []string       `json:"toolbar_panels"`
+	LayoutMode                 string         `json:"layout_mode"`
+	ReplEnabled                *bool          `json:"repl_enabled"`
+	ReplReadOnly               *bool          `json:"repl_read_only"`
 }
 
 // WithDebugConfig merges a debug config into the admin config.

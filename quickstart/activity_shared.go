@@ -89,8 +89,8 @@ func AttachGoAuthActivitySink(auther *auth.Auther, sink admin.ActivitySink, opts
 
 // SharedActivitySinks bundles the admin + go-auth adapters.
 type SharedActivitySinks struct {
-	Admin admin.ActivitySink
-	Auth  auth.ActivitySink
+	Admin admin.ActivitySink `json:"admin"`
+	Auth  auth.ActivitySink  `json:"auth"`
 }
 
 // NewSharedActivitySinks builds a shared activity sink for admin/go-users/go-auth.

@@ -19,8 +19,8 @@ func isJSONRequest(c router.Context) bool {
 }
 
 type schemaPathInfo struct {
-	Schema map[string]any
-	Type   string
+	Schema map[string]any `json:"schema"`
+	Type   string         `json:"type"`
 }
 
 func flattenSchema(schema map[string]any) (map[string]schemaPathInfo, []string) {

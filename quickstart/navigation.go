@@ -20,17 +20,17 @@ type menuResetterWithContext interface {
 
 // SeedNavigationOptions drives the quickstart menu seeding workflow.
 type SeedNavigationOptions struct {
-	MenuSvc    admin.CMSMenuService
-	MenuCode   string
-	Items      []admin.MenuItem
-	Reset      bool
-	ResetEnv   string
-	Locale     string
-	Logf       func(format string, args ...any)
-	SkipLogger bool
+	MenuSvc    admin.CMSMenuService             `json:"menu_svc"`
+	MenuCode   string                           `json:"menu_code"`
+	Items      []admin.MenuItem                 `json:"items"`
+	Reset      bool                             `json:"reset"`
+	ResetEnv   string                           `json:"reset_env"`
+	Locale     string                           `json:"locale"`
+	Logf       func(format string, args ...any) `json:"logf"`
+	SkipLogger bool                             `json:"skip_logger"`
 
 	// AutoCreateParents allows seeds to omit intermediate path segments; missing parents are scaffolded as group nodes.
-	AutoCreateParents bool
+	AutoCreateParents bool `json:"auto_create_parents"`
 }
 
 // SeedNavigation seeds a menu using the public admin CMS menu contract.

@@ -32,11 +32,11 @@ const (
 
 // BreadcrumbSpec describes a breadcrumb trail without relying on nav structure.
 type BreadcrumbSpec struct {
-	Override     []BreadcrumbItem
-	RootLabel    string
-	RootHref     string
-	Trail        []BreadcrumbItem
-	CurrentLabel string
+	Override     []BreadcrumbItem `json:"override"`
+	RootLabel    string           `json:"root_label"`
+	RootHref     string           `json:"root_href"`
+	Trail        []BreadcrumbItem `json:"trail"`
+	CurrentLabel string           `json:"current_label"`
 }
 
 // Breadcrumb builds a linked breadcrumb.

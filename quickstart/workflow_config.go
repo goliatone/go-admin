@@ -99,8 +99,8 @@ func (e WorkflowConfigValidationError) Is(target error) bool {
 }
 
 type workflowConfigError struct {
-	Reason string
-	Cause  error
+	Reason string `json:"reason"`
+	Cause  error  `json:"cause"`
 }
 
 func (e workflowConfigError) Error() string {

@@ -11,42 +11,42 @@ import (
 
 // PanelViewCapabilityOptions configures capability context derived for panel templates.
 type PanelViewCapabilityOptions struct {
-	BasePath       string
-	URLResolver    urlkit.Resolver
-	Definition     string
-	Variant        string
-	ExportEndpoint string
-	DataGrid       PanelDataGridConfigOptions
+	BasePath       string                     `json:"base_path"`
+	URLResolver    urlkit.Resolver            `json:"url_resolver"`
+	Definition     string                     `json:"definition"`
+	Variant        string                     `json:"variant"`
+	ExportEndpoint string                     `json:"export_endpoint"`
+	DataGrid       PanelDataGridConfigOptions `json:"data_grid"`
 }
 
 // PanelDataGridConfigOptions configures datagrid wiring for panel templates.
 type PanelDataGridConfigOptions struct {
-	TableID             string
-	APIEndpoint         string
-	ActionBase          string
-	PreferencesEndpoint string
-	ColumnStorageKey    string
-	EnableGroupedMode   bool
-	DefaultViewMode     string
-	GroupByField        string
-	TranslationUX       bool
-	StateStore          PanelDataGridStateStoreOptions
-	URLState            PanelDataGridURLStateOptions
+	TableID             string                         `json:"table_id"`
+	APIEndpoint         string                         `json:"api_endpoint"`
+	ActionBase          string                         `json:"action_base"`
+	PreferencesEndpoint string                         `json:"preferences_endpoint"`
+	ColumnStorageKey    string                         `json:"column_storage_key"`
+	EnableGroupedMode   bool                           `json:"enable_grouped_mode"`
+	DefaultViewMode     string                         `json:"default_view_mode"`
+	GroupByField        string                         `json:"group_by_field"`
+	TranslationUX       bool                           `json:"translation_ux"`
+	StateStore          PanelDataGridStateStoreOptions `json:"state_store"`
+	URLState            PanelDataGridURLStateOptions   `json:"url_state"`
 }
 
 // PanelDataGridStateStoreOptions configures datagrid state store wiring for templates.
 type PanelDataGridStateStoreOptions struct {
-	Mode            string
-	Resource        string
-	SyncDebounceMS  int
-	MaxShareEntries int
+	Mode            string `json:"mode"`
+	Resource        string `json:"resource"`
+	SyncDebounceMS  int    `json:"sync_debounce_ms"`
+	MaxShareEntries int    `json:"max_share_entries"`
 }
 
 // PanelDataGridURLStateOptions configures datagrid URL sync limits.
 type PanelDataGridURLStateOptions struct {
-	MaxURLLength     int
-	MaxFiltersLength int
-	EnableStateToken *bool
+	MaxURLLength     int   `json:"max_url_length"`
+	MaxFiltersLength int   `json:"max_filters_length"`
+	EnableStateToken *bool `json:"enable_state_token"`
 }
 
 // BuildPanelViewCapabilities returns standard capability keys for panel templates.

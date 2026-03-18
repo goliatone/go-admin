@@ -18,19 +18,19 @@ const (
 )
 
 type deliveryCapability struct {
-	TypeSlug       string
-	Kind           string
-	ListRoute      string
-	DetailRoute    string
-	ListTemplate   string
-	DetailTemplate string
-	PathPolicy     deliveryPathPolicy
+	TypeSlug       string             `json:"type_slug"`
+	Kind           string             `json:"kind"`
+	ListRoute      string             `json:"list_route"`
+	DetailRoute    string             `json:"detail_route"`
+	ListTemplate   string             `json:"list_template"`
+	DetailTemplate string             `json:"detail_template"`
+	PathPolicy     deliveryPathPolicy `json:"path_policy"`
 }
 
 type deliveryPathPolicy struct {
-	AllowExternalURLs bool
-	AllowRoot         bool
-	AllowedPrefixes   []string
+	AllowExternalURLs bool     `json:"allow_external_ur_ls"`
+	AllowRoot         bool     `json:"allow_root"`
+	AllowedPrefixes   []string `json:"allowed_prefixes"`
 	allowRootSet      bool
 	allowedPrefixSet  bool
 }
@@ -107,17 +107,17 @@ func (c deliveryCapability) listTemplateCandidates() []string {
 }
 
 type deliveryResolution struct {
-	Mode               string
-	Capability         deliveryCapability
-	Record             *admin.CMSContent
-	Records            []admin.CMSContent
-	RequestedLocale    string
-	ResolvedLocale     string
-	AvailableLocales   []string
-	MissingRequested   bool
-	FamilyID           string
-	PathsByLocale      map[string]string
-	TemplateCandidates []string
+	Mode               string             `json:"mode"`
+	Capability         deliveryCapability `json:"capability"`
+	Record             *admin.CMSContent  `json:"record"`
+	Records            []admin.CMSContent `json:"records"`
+	RequestedLocale    string             `json:"requested_locale"`
+	ResolvedLocale     string             `json:"resolved_locale"`
+	AvailableLocales   []string           `json:"available_locales"`
+	MissingRequested   bool               `json:"missing_requested"`
+	FamilyID           string             `json:"family_id"`
+	PathsByLocale      map[string]string  `json:"paths_by_locale"`
+	TemplateCandidates []string           `json:"template_candidates"`
 }
 
 type deliveryRuntime struct {

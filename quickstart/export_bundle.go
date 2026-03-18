@@ -19,11 +19,11 @@ const defaultExportPathSuffix = "exports"
 
 // ExportBundle wires go-export integrations for go-admin.
 type ExportBundle struct {
-	Runner    *export.Runner
-	Service   export.Service
-	Registry  admin.ExportRegistry
-	Registrar admin.ExportHTTPRegistrar
-	Metadata  admin.ExportMetadataProvider
+	Runner    *export.Runner               `json:"runner"`
+	Service   export.Service               `json:"service"`
+	Registry  admin.ExportRegistry         `json:"registry"`
+	Registrar admin.ExportHTTPRegistrar    `json:"registrar"`
+	Metadata  admin.ExportMetadataProvider `json:"metadata"`
 }
 
 // ExportBundleOption customizes NewExportBundle behavior.

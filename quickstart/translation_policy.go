@@ -20,8 +20,8 @@ type TranslationChecker interface {
 
 // TranslationPolicyServices supplies translation checkers for pages and content.
 type TranslationPolicyServices struct {
-	Pages   TranslationChecker
-	Content TranslationChecker
+	Pages   TranslationChecker `json:"pages"`
+	Content TranslationChecker `json:"content"`
 }
 
 type translationPolicy struct {

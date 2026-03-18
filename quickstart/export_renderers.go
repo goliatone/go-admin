@@ -26,15 +26,15 @@ type exportTemplateOptions struct {
 
 // ExportPDFConfig controls default PDF renderer behavior.
 type ExportPDFConfig struct {
-	Engine            string
-	WKHTMLToPDFPath   string
-	BrowserPath       string
-	Timeout           time.Duration
-	PageSize          string
-	PrintBackground   bool
-	PreferCSSPageSize bool
-	Headless          bool
-	Args              []string
+	Engine            string        `json:"engine"`
+	WKHTMLToPDFPath   string        `json:"wkhtml_to_pdf_path"`
+	BrowserPath       string        `json:"browser_path"`
+	Timeout           time.Duration `json:"timeout"`
+	PageSize          string        `json:"page_size"`
+	PrintBackground   bool          `json:"print_background"`
+	PreferCSSPageSize bool          `json:"prefer_css_page_size"`
+	Headless          bool          `json:"headless"`
+	Args              []string      `json:"args"`
 }
 
 // DefaultExportPDFConfig returns baseline PDF settings.

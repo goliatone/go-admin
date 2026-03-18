@@ -25,9 +25,9 @@ const (
 
 // ScopeConfig captures the quickstart scope behavior.
 type ScopeConfig struct {
-	Mode            ScopeMode
-	DefaultTenantID string
-	DefaultOrgID    string
+	Mode            ScopeMode `json:"mode"`
+	DefaultTenantID string    `json:"default_tenant_id"`
+	DefaultOrgID    string    `json:"default_org_id"`
 }
 
 // DefaultScopeConfig returns single-tenant defaults aligned with demo seeds.

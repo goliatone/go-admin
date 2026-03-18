@@ -26,13 +26,13 @@ type menuByCodeWithOptions interface {
 }
 
 type navigationReadOptions struct {
-	Locale                   string
-	IncludeContributions     bool
-	IncludeDrafts            bool
-	PreviewToken             string
-	ViewProfile              string
-	DedupPolicy              string
-	ContributionLocalePolicy string
+	Locale                   string `json:"locale"`
+	IncludeContributions     bool   `json:"include_contributions"`
+	IncludeDrafts            bool   `json:"include_drafts"`
+	PreviewToken             string `json:"preview_token"`
+	ViewProfile              string `json:"view_profile"`
+	DedupPolicy              string `json:"dedup_policy"`
+	ContributionLocalePolicy string `json:"contribution_locale_policy"`
 }
 
 func (o navigationReadOptions) toSiteMenuReadOptions() admin.SiteMenuReadOptions {

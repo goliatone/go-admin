@@ -7,15 +7,15 @@ import (
 )
 
 type StorageBundleConfig struct {
-	Provider         uploader.ProviderConfig
-	ValidateProvider bool
-	Validator        *uploader.Validator
-	Logger           uploader.Logger
+	Provider         uploader.ProviderConfig `json:"provider"`
+	ValidateProvider bool                    `json:"validate_provider"`
+	Validator        *uploader.Validator     `json:"validator"`
+	Logger           uploader.Logger         `json:"logger"`
 }
 
 type StorageBundle struct {
-	Provider uploader.Uploader
-	Manager  *uploader.Manager
+	Provider uploader.Uploader `json:"provider"`
+	Manager  *uploader.Manager `json:"manager"`
 }
 
 func NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error) {

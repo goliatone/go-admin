@@ -8,21 +8,21 @@ import (
 
 // ListPredicate is a transport-agnostic predicate shape for list contracts.
 type ListPredicate struct {
-	Field    string
-	Operator string
-	Values   []string
+	Field    string   `json:"field"`
+	Operator string   `json:"operator"`
+	Values   []string `json:"values"`
 }
 
 // ListOptions is a transport-agnostic list query shape for list contracts.
 type ListOptions struct {
-	Page       int
-	PerPage    int
-	SortBy     string
-	SortDesc   bool
-	Filters    map[string]any
-	Predicates []ListPredicate
-	Fields     []string
-	Search     string
+	Page       int             `json:"page"`
+	PerPage    int             `json:"per_page"`
+	SortBy     string          `json:"sort_by"`
+	SortDesc   bool            `json:"sort_desc"`
+	Filters    map[string]any  `json:"filters"`
+	Predicates []ListPredicate `json:"predicates"`
+	Fields     []string        `json:"fields"`
+	Search     string          `json:"search"`
 }
 
 // ListFunc describes the contract target list function.
@@ -30,14 +30,14 @@ type ListFunc func(context.Context, ListOptions) ([]map[string]any, int, error)
 
 // PaginationContractConfig configures assertions for a list total/pagination contract.
 type PaginationContractConfig struct {
-	TotalExpected int
-	PerPage       int
-	SortBy        string
-	SortDesc      bool
-	Filters       map[string]any
-	Predicates    []ListPredicate
-	Search        string
-	UniqueKey     string
+	TotalExpected int             `json:"total_expected"`
+	PerPage       int             `json:"per_page"`
+	SortBy        string          `json:"sort_by"`
+	SortDesc      bool            `json:"sort_desc"`
+	Filters       map[string]any  `json:"filters"`
+	Predicates    []ListPredicate `json:"predicates"`
+	Search        string          `json:"search"`
+	UniqueKey     string          `json:"unique_key"`
 }
 
 // AssertPaginationContract verifies that total is stable across pages and page slicing

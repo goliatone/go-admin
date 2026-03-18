@@ -25,26 +25,26 @@ const (
 
 // OnboardingHandlers provides handlers for onboarding routes.
 type OnboardingHandlers struct {
-	Invite               router.HandlerFunc
-	VerifyInvite         router.HandlerFunc
-	AcceptInvite         router.HandlerFunc
-	SelfRegister         router.HandlerFunc
-	ConfirmRegistration  router.HandlerFunc
-	RequestPasswordReset router.HandlerFunc
-	ConfirmPasswordReset router.HandlerFunc
-	TokenMetadata        router.HandlerFunc
+	Invite               router.HandlerFunc `json:"invite"`
+	VerifyInvite         router.HandlerFunc `json:"verify_invite"`
+	AcceptInvite         router.HandlerFunc `json:"accept_invite"`
+	SelfRegister         router.HandlerFunc `json:"self_register"`
+	ConfirmRegistration  router.HandlerFunc `json:"confirm_registration"`
+	RequestPasswordReset router.HandlerFunc `json:"request_password_reset"`
+	ConfirmPasswordReset router.HandlerFunc `json:"confirm_password_reset"`
+	TokenMetadata        router.HandlerFunc `json:"token_metadata"`
 }
 
 // OnboardingRoutePaths captures full route paths for onboarding endpoints.
 type OnboardingRoutePaths struct {
-	Invite               string
-	InviteVerify         string
-	InviteAccept         string
-	Register             string
-	RegisterConfirm      string
-	PasswordResetRequest string
-	PasswordResetConfirm string
-	TokenMetadata        string
+	Invite               string `json:"invite"`
+	InviteVerify         string `json:"invite_verify"`
+	InviteAccept         string `json:"invite_accept"`
+	Register             string `json:"register"`
+	RegisterConfirm      string `json:"register_confirm"`
+	PasswordResetRequest string `json:"password_reset_request"`
+	PasswordResetConfirm string `json:"password_reset_confirm"`
+	TokenMetadata        string `json:"token_metadata"`
 }
 
 // OnboardingRouteOption customizes onboarding route registration.

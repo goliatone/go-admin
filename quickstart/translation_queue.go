@@ -33,8 +33,8 @@ type TranslationQueueConfig struct {
 }
 
 type translationQueueConfigError struct {
-	Missing []string
-	Reason  string
+	Missing []string `json:"missing"`
+	Reason  string   `json:"reason"`
 }
 
 func (e translationQueueConfigError) Error() string {

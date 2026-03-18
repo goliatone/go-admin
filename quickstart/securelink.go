@@ -21,12 +21,12 @@ const (
 
 // SecureLinkConfig captures securelink defaults for onboarding flows.
 type SecureLinkConfig struct {
-	SigningKey string
-	Expiration time.Duration
-	BaseURL    string
-	QueryKey   string
-	AsQuery    bool
-	Routes     map[string]string
+	SigningKey string            `json:"signing_key"`
+	Expiration time.Duration     `json:"expiration"`
+	BaseURL    string            `json:"base_url"`
+	QueryKey   string            `json:"query_key"`
+	AsQuery    bool              `json:"as_query"`
+	Routes     map[string]string `json:"routes"`
 }
 
 func (c SecureLinkConfig) GetSigningKey() string        { return c.SigningKey }
@@ -75,8 +75,8 @@ func DefaultSecureLinkRoutes(basePath string) map[string]string {
 
 // SecureLinkUIConfig exposes link parsing details for templates.
 type SecureLinkUIConfig struct {
-	QueryKey string
-	AsQuery  bool
+	QueryKey string `json:"query_key"`
+	AsQuery  bool   `json:"as_query"`
 }
 
 // SecureLinkUIConfigFromConfig reads securelink parsing defaults from config.

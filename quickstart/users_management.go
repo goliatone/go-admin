@@ -20,15 +20,15 @@ var ErrGoUsersUserManagementConfig = errors.New("go-users user management config
 
 // GoUsersUserManagementConfig captures go-users adapters used by quickstart user management.
 type GoUsersUserManagementConfig struct {
-	AuthRepo      userstypes.AuthRepository
-	InventoryRepo userstypes.UserInventoryRepository
-	RoleRegistry  userstypes.RoleRegistry
-	ProfileRepo   userstypes.ProfileRepository
-	ScopeResolver func(context.Context) userstypes.ScopeFilter
+	AuthRepo      userstypes.AuthRepository                    `json:"auth_repo"`
+	InventoryRepo userstypes.UserInventoryRepository           `json:"inventory_repo"`
+	RoleRegistry  userstypes.RoleRegistry                      `json:"role_registry"`
+	ProfileRepo   userstypes.ProfileRepository                 `json:"profile_repo"`
+	ScopeResolver func(context.Context) userstypes.ScopeFilter `json:"scope_resolver"`
 }
 
 type GoUsersUserManagementConfigError struct {
-	Missing []string
+	Missing []string `json:"missing"`
 }
 
 func (e GoUsersUserManagementConfigError) Error() string {

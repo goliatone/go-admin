@@ -12,16 +12,16 @@ import (
 
 // AdminPageSpec configures a simple admin HTML page route.
 type AdminPageSpec struct {
-	Route              string
-	Path               string
-	Template           string
-	Title              string
-	Active             string
-	Feature            string
-	Permission         string
-	ViewContextBuilder UIViewContextBuilder
-	BuildContext       func(router.Context) (router.ViewContext, error)
-	Guard              func(router.Context) error
+	Route              string                                           `json:"route"`
+	Path               string                                           `json:"path"`
+	Template           string                                           `json:"template"`
+	Title              string                                           `json:"title"`
+	Active             string                                           `json:"active"`
+	Feature            string                                           `json:"feature"`
+	Permission         string                                           `json:"permission"`
+	ViewContextBuilder UIViewContextBuilder                             `json:"view_context_builder"`
+	BuildContext       func(router.Context) (router.ViewContext, error) `json:"build_context"`
+	Guard              func(router.Context) error                       `json:"guard"`
 }
 
 // RegisterAdminPageRoutes registers simple admin HTML page routes with URLKit resolution.

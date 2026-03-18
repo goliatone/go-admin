@@ -14,9 +14,9 @@ import (
 )
 
 type navRequestScope struct {
-	MenuLocale string
-	Locale     string
-	Channel    string
+	MenuLocale string `json:"menu_locale"`
+	Locale     string `json:"locale"`
+	Channel    string `json:"channel"`
 }
 
 // MenuPlacementKey identifies a logical navigation placement.
@@ -24,20 +24,20 @@ type MenuPlacementKey string
 
 // MenuPlacementSpec describes menu routing for a placement.
 type MenuPlacementSpec struct {
-	MenuCode string
-	Extra    map[string]any
+	MenuCode string         `json:"menu_code"`
+	Extra    map[string]any `json:"extra"`
 }
 
 // DashboardPlacementSpec describes dashboard routing for a placement.
 type DashboardPlacementSpec struct {
-	AreaCode string
-	Extra    map[string]any
+	AreaCode string         `json:"area_code"`
+	Extra    map[string]any `json:"extra"`
 }
 
 // PlacementConfig maps menu and dashboard placements independently.
 type PlacementConfig struct {
-	Menus      map[MenuPlacementKey]MenuPlacementSpec
-	Dashboards map[uiplacement.DashboardPlacementKey]DashboardPlacementSpec
+	Menus      map[MenuPlacementKey]MenuPlacementSpec                       `json:"menus"`
+	Dashboards map[uiplacement.DashboardPlacementKey]DashboardPlacementSpec `json:"dashboards"`
 }
 
 // DefaultPlacements builds a placement map seeded with defaults.

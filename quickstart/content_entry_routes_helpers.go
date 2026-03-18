@@ -58,9 +58,9 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 }
 
 type panelRouteBinding struct {
-	Panel     string
-	Path      string
-	EntryMode admin.PanelEntryMode
+	Panel     string               `json:"panel"`
+	Path      string               `json:"path"`
+	EntryMode admin.PanelEntryMode `json:"entry_mode"`
 }
 
 func canonicalPanelRouteBindings(urls urlkit.Resolver, panels map[string]*admin.Panel) []panelRouteBinding {

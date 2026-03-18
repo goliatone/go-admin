@@ -9,16 +9,16 @@ import (
 )
 
 type translationModuleExposure struct {
-	Module            string
-	CapabilityEnabled bool
-	EntryEnabled      bool
-	Reason            string
-	ReasonCode        string
+	Module            string `json:"module"`
+	CapabilityEnabled bool   `json:"capability_enabled"`
+	EntryEnabled      bool   `json:"entry_enabled"`
+	Reason            string `json:"reason"`
+	ReasonCode        string `json:"reason_code"`
 }
 
 type translationModuleExposureSnapshot struct {
-	Queue    translationModuleExposure
-	Exchange translationModuleExposure
+	Queue    translationModuleExposure `json:"queue"`
+	Exchange translationModuleExposure `json:"exchange"`
 }
 
 func resolveTranslationModuleExposureSnapshot(adm *admin.Admin, reqCtx context.Context) translationModuleExposureSnapshot {

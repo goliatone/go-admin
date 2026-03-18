@@ -26,10 +26,10 @@ type SiteModule interface {
 // SiteSearchFilterRequest describes the current search request state that
 // module filter injectors can inspect before returning extra filters.
 type SiteSearchFilterRequest struct {
-	Query     string
-	Locale    string
-	Filters   map[string][]string
-	IsSuggest bool
+	Query     string              `json:"query"`
+	Locale    string              `json:"locale"`
+	Filters   map[string][]string `json:"filters"`
+	IsSuggest bool                `json:"is_suggest"`
 }
 
 // SiteSearchFilterInjector allows modules to inject additional filter values
@@ -40,10 +40,10 @@ type SiteSearchFilterInjector interface {
 
 // SiteModuleContext contains stable dependencies for module route registration.
 type SiteModuleContext struct {
-	Admin          *admin.Admin
-	Router         SiteRouter
-	BasePath       string
-	DefaultLocale  string
-	ThemeEnabled   bool
-	SearchProvider admin.SearchProvider
+	Admin          *admin.Admin         `json:"admin"`
+	Router         SiteRouter           `json:"router"`
+	BasePath       string               `json:"base_path"`
+	DefaultLocale  string               `json:"default_locale"`
+	ThemeEnabled   bool                 `json:"theme_enabled"`
+	SearchProvider admin.SearchProvider `json:"search_provider"`
 }

@@ -243,11 +243,11 @@ type contentTypeBuilderHandlers struct {
 }
 
 type contentChannelDiagnostics struct {
-	EffectiveChannel  string
-	RequestedChannel  string
-	TotalEffective    int
-	TotalDefault      int
-	AvailableChannels []string
+	EffectiveChannel  string   `json:"effective_channel"`
+	RequestedChannel  string   `json:"requested_channel"`
+	TotalEffective    int      `json:"total_effective"`
+	TotalDefault      int      `json:"total_default"`
+	AvailableChannels []string `json:"available_channels"`
 }
 
 type panelReader interface {
@@ -1461,16 +1461,16 @@ const (
 )
 
 type compatibilityBreakingChange struct {
-	Type        string
-	Field       string
-	Description string
+	Type        string `json:"type"`
+	Field       string `json:"field"`
+	Description string `json:"description"`
 }
 
 type compatibilityResult struct {
-	Compatible      bool
-	ChangeLevel     compatibilityChangeLevel
-	BreakingChanges []compatibilityBreakingChange
-	Warnings        []string
+	Compatible      bool                          `json:"compatible"`
+	ChangeLevel     compatibilityChangeLevel      `json:"change_level"`
+	BreakingChanges []compatibilityBreakingChange `json:"breaking_changes"`
+	Warnings        []string                      `json:"warnings"`
 }
 
 func checkSchemaCompatibility(oldSchema, newSchema map[string]any) compatibilityResult {
@@ -1546,8 +1546,8 @@ func checkSchemaCompatibility(oldSchema, newSchema map[string]any) compatibility
 }
 
 type compatFieldDescriptor struct {
-	Type     compatTypeInfo
-	Required bool
+	Type     compatTypeInfo `json:"type"`
+	Required bool           `json:"required"`
 }
 
 type compatTypeInfo struct {

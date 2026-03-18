@@ -12,32 +12,32 @@ var ErrPersistentCMSSetupFailed = errors.New("quickstart: persistent CMS setup f
 
 // AdapterFlags captures adapter switches (config or env).
 type AdapterFlags struct {
-	UsePersistentCMS   bool
-	UseGoOptions       bool
-	UseGoUsersActivity bool
+	UsePersistentCMS   bool `json:"use_persistent_cms"`
+	UseGoOptions       bool `json:"use_go_options"`
+	UseGoUsersActivity bool `json:"use_go_users_activity"`
 }
 
 // AdapterHooks supplies host-specific builders for optional adapters.
 type AdapterHooks struct {
 	// PersistentCMS should build CMSOptions when persistent storage is desired.
 	// Return backend label (for logging) alongside options.
-	PersistentCMS func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error)
+	PersistentCMS func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) `json:"persistent_cms"`
 	// GoOptions should swap settings to go-options backend.
-	GoOptions func(adm *admin.Admin) (string, error)
+	GoOptions func(adm *admin.Admin) (string, error) `json:"go_options"`
 	// GoUsersActivity should build an activity sink backed by go-users (or nil).
-	GoUsersActivity func() admin.ActivitySink
+	GoUsersActivity func() admin.ActivitySink `json:"go_users_activity"`
 }
 
 // AdapterResult describes applied adapters/backends.
 type AdapterResult struct {
-	Flags              AdapterFlags
-	CMSBackend         string
-	SettingsBackend    string
-	ActivityBackend    string
-	ActivitySink       admin.ActivitySink
-	PersistentCMSSet   bool
-	PersistentCMSError error
-	Config             admin.Config
+	Flags              AdapterFlags       `json:"flags"`
+	CMSBackend         string             `json:"cms_backend"`
+	SettingsBackend    string             `json:"settings_backend"`
+	ActivityBackend    string             `json:"activity_backend"`
+	ActivitySink       admin.ActivitySink `json:"activity_sink"`
+	PersistentCMSSet   bool               `json:"persistent_cms_set"`
+	PersistentCMSError error              `json:"persistent_cms_error"`
+	Config             admin.Config       `json:"config"`
 }
 
 // ConfigureAdapters mutates the admin config (CMS) using explicit defaults and

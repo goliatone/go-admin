@@ -32,10 +32,10 @@ func InsecureAnyTrustedProxyCIDRs() []string {
 // RequestTrustPolicy controls whether forwarded headers are trusted and from where.
 type RequestTrustPolicy struct {
 	// TrustForwardedHeaders enables X-Forwarded-* and Forwarded header handling.
-	TrustForwardedHeaders bool
+	TrustForwardedHeaders bool `json:"trust_forwarded_headers"`
 	// TrustedProxyCIDRs lists reverse-proxy source CIDRs allowed to influence
 	// forwarded header resolution. Empty disables forwarded-header trust.
-	TrustedProxyCIDRs []string
+	TrustedProxyCIDRs []string `json:"trusted_proxy_cid_rs"`
 }
 
 // RequestIPContext captures the request methods needed to resolve client IP.
@@ -51,22 +51,22 @@ type RequestMetaContext interface {
 
 // RequestMeta captures normalized request transport details.
 type RequestMeta struct {
-	PeerIP           string
-	ClientIP         string
-	Host             string
-	Scheme           string
-	Secure           bool
-	ForwardedTrusted bool
+	PeerIP           string `json:"peer_ip"`
+	ClientIP         string `json:"client_ip"`
+	Host             string `json:"host"`
+	Scheme           string `json:"scheme"`
+	Secure           bool   `json:"secure"`
+	ForwardedTrusted bool   `json:"forwarded_trusted"`
 }
 
 // RequestIPOptions controls request IP extraction behavior.
 type RequestIPOptions struct {
 	// TrustForwardedHeaders enables X-Forwarded-For, Forwarded, and X-Real-IP resolution.
 	// Keep disabled unless your runtime sits behind a trusted proxy that sanitizes these headers.
-	TrustForwardedHeaders bool
+	TrustForwardedHeaders bool `json:"trust_forwarded_headers"`
 	// TrustedProxyCIDRs constrains which peer IP ranges can influence forwarded headers.
 	// Empty disables forwarded-header trust even when TrustForwardedHeaders is true.
-	TrustedProxyCIDRs []string
+	TrustedProxyCIDRs []string `json:"trusted_proxy_cid_rs"`
 }
 
 // ResolveRequestIP resolves the best-effort client IP for a request context.

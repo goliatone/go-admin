@@ -2,17 +2,17 @@ package quickstart
 
 // OAuthTokenPolicyInput captures provider token status flags used by UI warnings.
 type OAuthTokenPolicyInput struct {
-	IsExpired      bool
-	IsExpiringSoon bool
-	CanAutoRefresh bool
+	IsExpired      bool `json:"is_expired"`
+	IsExpiringSoon bool `json:"is_expiring_soon"`
+	CanAutoRefresh bool `json:"can_auto_refresh"`
 }
 
 // OAuthTokenPolicyState contains derived UI policy for token warnings.
 type OAuthTokenPolicyState struct {
-	IsExpired            bool
-	IsExpiringSoon       bool
-	CanAutoRefresh       bool
-	NeedsReauthorization bool
+	IsExpired            bool `json:"is_expired"`
+	IsExpiringSoon       bool `json:"is_expiring_soon"`
+	CanAutoRefresh       bool `json:"can_auto_refresh"`
+	NeedsReauthorization bool `json:"needs_reauthorization"`
 }
 
 // OAuthNeedsReauthorization returns true only when manual action is required.

@@ -29,10 +29,10 @@ const defaultFiberReadBufferSize = 16 * 1024
 // FiberRuntimeConfig captures typed runtime overrides for Fiber and router
 // adapter behavior.
 type FiberRuntimeConfig struct {
-	StrictRoutes        *bool
-	RouteConflictPolicy string
-	PathConflictMode    string
-	ReadBufferSize      int
+	StrictRoutes        *bool  `json:"strict_routes"`
+	RouteConflictPolicy string `json:"route_conflict_policy"`
+	PathConflictMode    string `json:"path_conflict_mode"`
+	ReadBufferSize      int    `json:"read_buffer_size"`
 }
 
 // WithFiberConfig overrides the default Fiber config.

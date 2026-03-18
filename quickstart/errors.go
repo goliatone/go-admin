@@ -4,9 +4,9 @@ import "github.com/goliatone/go-admin/admin"
 
 // ErrorOption applies explicit error configuration overrides.
 type ErrorOption struct {
-	DevMode               *bool
-	IncludeStackTrace     *bool
-	ExposeInternalMessage *bool
+	DevMode               *bool `json:"dev_mode"`
+	IncludeStackTrace     *bool `json:"include_stack_trace"`
+	ExposeInternalMessage *bool `json:"expose_internal_message"`
 }
 
 // WithErrorConfig merges an error config into the admin config.

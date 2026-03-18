@@ -55,22 +55,22 @@ type TranslationCriteria struct {
 // TranslationPolicyValidationCatalog describes known policy entities/transitions/fields.
 // Validation is optional and used by hosts that want strict startup checks.
 type TranslationPolicyValidationCatalog struct {
-	Entities map[string]TranslationPolicyEntityCatalog
+	Entities map[string]TranslationPolicyEntityCatalog `json:"entities"`
 }
 
 // TranslationPolicyEntityCatalog describes known transitions and field keys for one entity.
 type TranslationPolicyEntityCatalog struct {
-	Transitions map[string]TranslationPolicyTransitionCatalog
+	Transitions map[string]TranslationPolicyTransitionCatalog `json:"transitions"`
 }
 
 // TranslationPolicyTransitionCatalog describes known required-field keys for one transition.
 type TranslationPolicyTransitionCatalog struct {
-	RequiredFields []string
+	RequiredFields []string `json:"required_fields"`
 }
 
 // TranslationPolicyValidationResult includes non-fatal warnings produced by validation.
 type TranslationPolicyValidationResult struct {
-	Warnings []string
+	Warnings []string `json:"warnings"`
 }
 
 // DefaultTranslationPolicyConfig returns permissive defaults (no enforcement).

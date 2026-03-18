@@ -14,13 +14,13 @@ const (
 // SiteRuntimeError carries normalized site error metadata used by HTML and API
 // responses.
 type SiteRuntimeError struct {
-	Code             string
-	Status           int
-	Message          string
-	RequestedLocale  string
-	AvailableLocales []string
-	ContentType      string
-	SlugOrPath       string
+	Code             string   `json:"code"`
+	Status           int      `json:"status"`
+	Message          string   `json:"message"`
+	RequestedLocale  string   `json:"requested_locale"`
+	AvailableLocales []string `json:"available_locales"`
+	ContentType      string   `json:"content_type"`
+	SlugOrPath       string   `json:"slug_or_path"`
 }
 
 func (e SiteRuntimeError) Error() string {

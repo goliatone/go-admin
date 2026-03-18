@@ -39,11 +39,11 @@ type TranslationProductConfig struct {
 }
 
 type translationProductConfigError struct {
-	Code         string
-	Reason       string
-	Hint         string
-	FailedChecks []string
-	Cause        error
+	Code         string   `json:"code"`
+	Reason       string   `json:"reason"`
+	Hint         string   `json:"hint"`
+	FailedChecks []string `json:"failed_checks"`
+	Cause        error    `json:"cause"`
 }
 
 func (e translationProductConfigError) Error() string {
@@ -76,11 +76,11 @@ func newTranslationProductConfigError(code, reason, hint string, failedChecks []
 }
 
 type translationProductResolution struct {
-	Config    TranslationProductConfig
-	Exchange  TranslationExchangeConfig
-	Queue     TranslationQueueConfig
-	Warnings  []string
-	HasConfig bool
+	Config    TranslationProductConfig  `json:"config"`
+	Exchange  TranslationExchangeConfig `json:"exchange"`
+	Queue     TranslationQueueConfig    `json:"queue"`
+	Warnings  []string                  `json:"warnings"`
+	HasConfig bool                      `json:"has_config"`
 }
 
 const translationProductLegacyOverrideWarning = "translation.productization.legacy_override"

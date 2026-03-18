@@ -28,15 +28,15 @@ type BinaryObjectStore interface {
 
 // BinaryObjectResponseConfig configures object-backed binary responses.
 type BinaryObjectResponseConfig struct {
-	Store        BinaryObjectStore
-	ObjectKey    string
-	ContentType  string
-	Filename     string
-	Disposition  string
-	CacheControl string
-	Pragma       string
-	StatusCode   int
-	Headers      map[string]string
+	Store        BinaryObjectStore `json:"store"`
+	ObjectKey    string            `json:"object_key"`
+	ContentType  string            `json:"content_type"`
+	Filename     string            `json:"filename"`
+	Disposition  string            `json:"disposition"`
+	CacheControl string            `json:"cache_control"`
+	Pragma       string            `json:"pragma"`
+	StatusCode   int               `json:"status_code"`
+	Headers      map[string]string `json:"headers"`
 }
 
 // ServeBinaryObject resolves an object from storage and writes it as an HTTP response body.

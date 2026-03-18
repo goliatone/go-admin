@@ -7,8 +7,8 @@ import (
 
 // SiteViewRuntime captures resolved template loading + reload behavior.
 type SiteViewRuntime struct {
-	TemplateFS []fs.FS
-	Reload     bool
+	TemplateFS []fs.FS `json:"template_fs"`
+	Reload     bool    `json:"reload"`
 }
 
 // ResolveViewRuntime resolves template stack + reload behavior for a given environment.

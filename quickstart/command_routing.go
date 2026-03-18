@@ -34,8 +34,8 @@ type CommandQueueRoutingConfig struct {
 }
 
 type commandQueueRoutingConfigError struct {
-	Missing []string
-	Reason  string
+	Missing []string `json:"missing"`
+	Reason  string   `json:"reason"`
 }
 
 func (e commandQueueRoutingConfigError) Error() string {

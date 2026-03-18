@@ -344,10 +344,10 @@ func (r *searchRuntime) searchViewContext(
 }
 
 type normalizedSearchResult struct {
-	Hits        []map[string]any
-	Facets      []map[string]any
-	FilterChips []map[string]any
-	Pagination  map[string]any
+	Hits        []map[string]any `json:"hits"`
+	Facets      []map[string]any `json:"facets"`
+	FilterChips []map[string]any `json:"filter_chips"`
+	Pagination  map[string]any   `json:"pagination"`
 }
 
 func normalizeSearchResults(

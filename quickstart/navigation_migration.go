@@ -12,17 +12,17 @@ import (
 
 // LegacyLocalizedMenuMigrationOptions configures migration from locale-suffixed menu IDs.
 type LegacyLocalizedMenuMigrationOptions struct {
-	MenuSvc  admin.CMSMenuService
-	MenuCode string
-	Locales  []string
+	MenuSvc  admin.CMSMenuService `json:"menu_svc"`
+	MenuCode string               `json:"menu_code"`
+	Locales  []string             `json:"locales"`
 }
 
 // LegacyLocalizedMenuMigrationReport summarizes migration effects.
 type LegacyLocalizedMenuMigrationReport struct {
-	MigratedTranslations int
-	DeletedLegacyItems   int
-	SkippedLegacyItems   int
-	LegacyItemIDs        []string
+	MigratedTranslations int      `json:"migrated_translations"`
+	DeletedLegacyItems   int      `json:"deleted_legacy_items"`
+	SkippedLegacyItems   int      `json:"skipped_legacy_items"`
+	LegacyItemIDs        []string `json:"legacy_item_i_ds"`
 }
 
 // MigrateLegacyLocalizedMenuItems folds legacy locale-suffixed item IDs (for example

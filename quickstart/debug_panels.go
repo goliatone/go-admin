@@ -8,9 +8,9 @@ import (
 
 // DebugPanelDeps provides optional dependencies for debug panel registration.
 type DebugPanelDeps struct {
-	ScopeBuffer   *ScopeDebugBuffer
-	IsDevelopment *bool
-	DoctorEnabled *bool
+	ScopeBuffer   *ScopeDebugBuffer `json:"scope_buffer"`
+	IsDevelopment *bool             `json:"is_development"`
+	DoctorEnabled *bool             `json:"doctor_enabled"`
 }
 
 // DebugPanelRegistrar registers a debug panel definition.

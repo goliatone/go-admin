@@ -10,9 +10,9 @@ import (
 )
 
 type contentEntryBulkActionContext struct {
-	Primary  []admin.Action
-	Overflow []admin.Action
-	BaseURL  string
+	Primary  []admin.Action `json:"primary"`
+	Overflow []admin.Action `json:"overflow"`
+	BaseURL  string         `json:"base_url"`
 }
 
 func buildContentEntryBulkActionContext(

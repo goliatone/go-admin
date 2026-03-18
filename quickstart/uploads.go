@@ -34,20 +34,20 @@ type UploadSubdirResolver func(router.Context) string
 
 // UploadHandlerConfig configures a multipart upload endpoint backed by go-uploader.
 type UploadHandlerConfig struct {
-	BasePath            string
-	DiskAssetsDir       string
-	FormField           string
-	UploadSubdir        string
-	ResolveUploadSubdir UploadSubdirResolver
-	MaxFileSize         int64
-	AllowedMimeTypes    map[string]bool
-	AllowedImageFormats map[string]bool
-	Provider            uploader.Uploader
-	Validator           *uploader.Validator
-	Manager             *uploader.Manager
-	Authorize           UploadAuthorizeFunc
-	PublicURL           UploadPublicURLFunc
-	Response            UploadResponseFunc
+	BasePath            string               `json:"base_path"`
+	DiskAssetsDir       string               `json:"disk_assets_dir"`
+	FormField           string               `json:"form_field"`
+	UploadSubdir        string               `json:"upload_subdir"`
+	ResolveUploadSubdir UploadSubdirResolver `json:"resolve_upload_subdir"`
+	MaxFileSize         int64                `json:"max_file_size"`
+	AllowedMimeTypes    map[string]bool      `json:"allowed_mime_types"`
+	AllowedImageFormats map[string]bool      `json:"allowed_image_formats"`
+	Provider            uploader.Uploader    `json:"provider"`
+	Validator           *uploader.Validator  `json:"validator"`
+	Manager             *uploader.Manager    `json:"manager"`
+	Authorize           UploadAuthorizeFunc  `json:"authorize"`
+	PublicURL           UploadPublicURLFunc  `json:"public_url"`
+	Response            UploadResponseFunc   `json:"response"`
 }
 
 // NewUploadHandler returns a generic multipart upload handler.

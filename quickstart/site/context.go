@@ -21,29 +21,29 @@ const (
 
 // RequestState is the normalized per-request site runtime state.
 type RequestState struct {
-	Locale              string
-	DefaultLocale       string
-	SupportedLocales    []string
-	Environment         string
-	ContentChannel      string
-	AllowLocaleFallback bool
+	Locale              string   `json:"locale"`
+	DefaultLocale       string   `json:"default_locale"`
+	SupportedLocales    []string `json:"supported_locales"`
+	Environment         string   `json:"environment"`
+	ContentChannel      string   `json:"content_channel"`
+	AllowLocaleFallback bool     `json:"allow_locale_fallback"`
 
-	PreviewTokenPresent bool
-	PreviewTokenValid   bool
-	IsPreview           bool
-	PreviewToken        string
-	PreviewEntityType   string
-	PreviewContentID    string
+	PreviewTokenPresent bool   `json:"preview_token_present"`
+	PreviewTokenValid   bool   `json:"preview_token_valid"`
+	IsPreview           bool   `json:"is_preview"`
+	PreviewToken        string `json:"preview_token"`
+	PreviewEntityType   string `json:"preview_entity_type"`
+	PreviewContentID    string `json:"preview_content_id"`
 
-	ThemeName    string
-	ThemeVariant string
-	Theme        map[string]map[string]string
+	ThemeName    string                       `json:"theme_name"`
+	ThemeVariant string                       `json:"theme_variant"`
+	Theme        map[string]map[string]string `json:"theme"`
 
-	BasePath      string
-	AssetBasePath string
-	ActivePath    string
+	BasePath      string `json:"base_path"`
+	AssetBasePath string `json:"asset_base_path"`
+	ActivePath    string `json:"active_path"`
 
-	ViewContext router.ViewContext
+	ViewContext router.ViewContext `json:"view_context"`
 }
 
 // RequestStateFromContext reads request state from context.
@@ -260,12 +260,12 @@ func ResolveRequestState(
 }
 
 type previewResolution struct {
-	Present    bool
-	Valid      bool
-	Token      string
-	EntityType string
-	ContentID  string
-	Channel    string
+	Present    bool   `json:"present"`
+	Valid      bool   `json:"valid"`
+	Token      string `json:"token"`
+	EntityType string `json:"entity_type"`
+	ContentID  string `json:"content_id"`
+	Channel    string `json:"channel"`
 }
 
 func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) previewResolution {

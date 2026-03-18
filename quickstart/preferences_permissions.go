@@ -6,8 +6,8 @@ import "github.com/goliatone/go-admin/admin"
 
 // PermissionDefinition describes a permission entry for registration.
 type PermissionDefinition struct {
-	Key         string
-	Description string
+	Key         string `json:"key"`
+	Description string `json:"description"`
 }
 
 // PermissionRegisterFunc registers a permission definition with a host registry.

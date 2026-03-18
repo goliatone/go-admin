@@ -42,11 +42,11 @@ func contentEntryFamilyGroupByField(enabled bool) string {
 }
 
 type contentEntryTranslationState struct {
-	RequestedLocale        string
-	ResolvedLocale         string
-	MissingRequestedLocale bool
-	FallbackUsed           bool
-	InFallbackMode         bool
+	RequestedLocale        string `json:"requested_locale"`
+	ResolvedLocale         string `json:"resolved_locale"`
+	MissingRequestedLocale bool   `json:"missing_requested_locale"`
+	FallbackUsed           bool   `json:"fallback_used"`
+	InFallbackMode         bool   `json:"in_fallback_mode"`
 }
 
 func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryTranslationState {

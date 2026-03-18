@@ -36,7 +36,7 @@ type TranslationExchangeConfig struct {
 }
 
 type translationExchangeConfigError struct {
-	Missing []string
+	Missing []string `json:"missing"`
 }
 
 func (e translationExchangeConfigError) Error() string {
