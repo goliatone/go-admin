@@ -10,6 +10,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/routing"
 	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -88,6 +89,7 @@ type Admin struct {
 	translationExchangeRuntime   *TranslationExchangeRuntime
 	traitWorkflowDefaults        map[string]string
 	translationPolicy            TranslationPolicy
+	translationFamilyStore       translationservices.FamilyStore
 	cmsWorkflowDefaults          bool
 	cmsWorkflowActions           []Action
 	cmsWorkflowActionsSet        bool
@@ -419,6 +421,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		workflow:               deps.Workflow,
 		workflowRuntime:        deps.WorkflowRuntime,
 		translationPolicy:      deps.TranslationPolicy,
+		translationFamilyStore: deps.TranslationFamilyStore,
 		preview:                NewPreviewService(cfg.PreviewSecret),
 		iconService:            iconService,
 		menuBuilder:            NewMenuBuilderService(),
@@ -616,6 +619,15 @@ func (a *Admin) WithTraitWorkflowDefaults(defaults map[string]string) *Admin {
 // WithTranslationPolicy attaches a translation policy used during workflow transitions.
 func (a *Admin) WithTranslationPolicy(policy TranslationPolicy) *Admin {
 	a.translationPolicy = policy
+	return a
+}
+
+// WithTranslationFamilyStore wires the canonical translation family store used by family bindings.
+func (a *Admin) WithTranslationFamilyStore(store translationservices.FamilyStore) *Admin {
+	if a == nil {
+		return a
+	}
+	a.translationFamilyStore = store
 	return a
 }
 
