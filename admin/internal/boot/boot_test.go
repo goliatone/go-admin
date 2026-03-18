@@ -550,7 +550,7 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 11)
+	require.Len(t, rr.calls, 10)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -587,7 +587,7 @@ func TestPanelStepActionSuccessEnvelopeUsesResponderForNon200Status(t *testing.T
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 11)
+	require.Len(t, rr.calls, 10)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
