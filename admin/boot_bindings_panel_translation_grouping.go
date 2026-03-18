@@ -79,7 +79,6 @@ func (p *panelBinding) listAllWithTranslationReadinessPredicates(ctx AdminContex
 			break
 		}
 		batch = p.withTranslationReadiness(ctx, batch, baseOpts.Filters)
-		batch = withCanonicalFamilyIDs(batch)
 		for _, record := range batch {
 			if len(predicates) > 0 && !recordMatchesAllListPredicates(record, predicates) {
 				continue
@@ -533,39 +532,6 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 		out = append(out, cloned)
 	}
 	return out, nil
-}
-
-func withCanonicalFamilyIDs(records []map[string]any) []map[string]any {
-	if len(records) == 0 {
-		return records
-	}
-	out := make([]map[string]any, 0, len(records))
-	for _, record := range records {
-		out = append(out, withCanonicalFamilyIDRecord(record))
-	}
-	return out
-}
-
-func withCanonicalFamilyIDRecord(record map[string]any) map[string]any {
-	cloned := primitives.CloneAnyMap(record)
-	if len(cloned) == 0 {
-		return cloned
-	}
-	if groupID := strings.TrimSpace(translationFamilyIDFromRecord(cloned)); groupID != "" {
-		cloned["family_id"] = groupID
-	}
-	if parent := extractMap(cloned["parent"]); len(parent) > 0 {
-		cloned["parent"] = withCanonicalFamilyIDRecord(parent)
-	}
-	if children := toMapSlice(cloned["children"]); len(children) > 0 {
-		canonicalChildren := make([]map[string]any, 0, len(children))
-		for _, child := range children {
-			canonicalChildren = append(canonicalChildren, withCanonicalFamilyIDRecord(child))
-		}
-		cloned["children"] = canonicalChildren
-		cloned["records"] = canonicalChildren
-	}
-	return cloned
 }
 
 func toMapSlice(raw any) []map[string]any {

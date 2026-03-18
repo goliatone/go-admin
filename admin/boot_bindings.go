@@ -156,7 +156,6 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		}
 		records = p.withTranslationReadiness(ctx, records, requestedListOpts.Filters)
 	}
-	records = withCanonicalFamilyIDs(records)
 	records = withTranslationDatagridRecords(p.admin, ctx.Channel, records)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
