@@ -54,7 +54,9 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Menu:          menuCode,
 		Collapsible:   true,
 		Target: map[string]any{
-			"breadcrumb_hidden": true,
+			"name":             "admin.dashboard",
+			"key":              "dashboard",
+			"breadcrumb_label": "Dashboard",
 		},
 	}
 	content := admin.MenuItem{
@@ -69,9 +71,10 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		Target: map[string]any{
 			// go-cms requires a non-empty target for `item` types; the actual href is irrelevant
 			// when this node renders as a collapsible parent.
-			"type": "url",
-			"key":  "content",
-			"name": "admin.content",
+			"type":              "url",
+			"key":               "content",
+			"name":              "admin.content",
+			"breadcrumb_hidden": true,
 		},
 		Menu:        menuCode,
 		ParentID:    mainGroup.ID,
