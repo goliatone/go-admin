@@ -3,6 +3,7 @@ package quickstart
 import (
 	"strings"
 
+	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
 
@@ -18,7 +19,25 @@ const (
 	ViewKeyBreadcrumbAppend   = "breadcrumb_append"
 	ViewKeyBreadcrumbOverride = "breadcrumb_override"
 	ViewKeyBreadcrumbActive   = "breadcrumb_active"
+	ViewKeyBreadcrumbSpec     = "breadcrumb_spec"
 )
+
+// BreadcrumbRouteKind identifies the route surface being rendered.
+type BreadcrumbRouteKind string
+
+const (
+	BreadcrumbRouteList   BreadcrumbRouteKind = "list"
+	BreadcrumbRouteDetail BreadcrumbRouteKind = "detail"
+)
+
+// BreadcrumbSpec describes a breadcrumb trail without relying on nav structure.
+type BreadcrumbSpec struct {
+	Override     []BreadcrumbItem
+	RootLabel    string
+	RootHref     string
+	Trail        []BreadcrumbItem
+	CurrentLabel string
+}
 
 // Breadcrumb builds a linked breadcrumb.
 func Breadcrumb(label, href string) BreadcrumbItem {
@@ -54,6 +73,15 @@ func WithBreadcrumbOverride(ctx router.ViewContext, items ...BreadcrumbItem) rou
 	return ctx
 }
 
+// WithBreadcrumbSpec sets an explicit breadcrumb contract for the current view.
+func WithBreadcrumbSpec(ctx router.ViewContext, spec BreadcrumbSpec) router.ViewContext {
+	if ctx == nil {
+		ctx = router.ViewContext{}
+	}
+	ctx[ViewKeyBreadcrumbSpec] = cloneBreadcrumbSpec(spec)
+	return ctx
+}
+
 // WithBreadcrumbAnchor overrides the active nav key used for breadcrumb derivation.
 func WithBreadcrumbAnchor(ctx router.ViewContext, active string) router.ViewContext {
 	if ctx == nil {
@@ -71,6 +99,13 @@ func withResolvedBreadcrumbs(ctx router.ViewContext, navItems []map[string]any, 
 	if override := cloneBreadcrumbItems(viewBreadcrumbItems(ctx[ViewKeyBreadcrumbOverride])); len(override) > 0 {
 		ctx[ViewKeyBreadcrumbs] = finalizeBreadcrumbs(override)
 		return ctx
+	}
+
+	if spec, ok := viewBreadcrumbSpec(ctx[ViewKeyBreadcrumbSpec]); ok {
+		if items := spec.items(); len(items) > 0 {
+			ctx[ViewKeyBreadcrumbs] = finalizeBreadcrumbs(items)
+			return ctx
+		}
 	}
 
 	anchor := strings.TrimSpace(toNavString(ctx[ViewKeyBreadcrumbActive]))
@@ -91,6 +126,39 @@ func withResolvedBreadcrumbs(ctx router.ViewContext, navItems []map[string]any, 
 	}
 	ctx[ViewKeyBreadcrumbs] = finalizeBreadcrumbs(breadcrumbs)
 	return ctx
+}
+
+// ApplyPanelBreadcrumbs resolves a panel-backed breadcrumb trail without relying on menu nesting.
+func ApplyPanelBreadcrumbs(ctx router.ViewContext, panel *admin.Panel, basePath, fallbackListLabel, listHref string, kind BreadcrumbRouteKind, record map[string]any) router.ViewContext {
+	cfg := admin.PanelBreadcrumbConfig{}
+	if panel != nil {
+		cfg = panel.Breadcrumbs()
+	}
+	rootLabel := strings.TrimSpace(cfg.RootLabel)
+	if rootLabel == "" {
+		rootLabel = "Dashboard"
+	}
+	rootHref := strings.TrimSpace(cfg.RootHref)
+	if rootHref == "" {
+		rootHref = breadcrumbRootHref(basePath)
+	}
+	listLabel := strings.TrimSpace(cfg.ListLabel)
+	if listLabel == "" {
+		listLabel = strings.TrimSpace(fallbackListLabel)
+	}
+	spec := BreadcrumbSpec{
+		RootLabel: rootLabel,
+		RootHref:  rootHref,
+	}
+	if listLabel != "" {
+		spec.Trail = append(spec.Trail, Breadcrumb(listLabel, strings.TrimSpace(listHref)))
+	}
+	if kind == BreadcrumbRouteDetail && cfg.ShowCurrentOnDetail {
+		if label := resolvePanelDetailBreadcrumbLabel(cfg, record); label != "" {
+			spec.CurrentLabel = label
+		}
+	}
+	return WithBreadcrumbSpec(ctx, spec)
 }
 
 // DeriveBreadcrumbsFromNavEntries builds breadcrumbs from the active nav trail.
@@ -146,8 +214,16 @@ func breadcrumbItemFromNavEntry(entry map[string]any, isTerminal bool) (Breadcru
 	if hidden, ok := entry["breadcrumb_hidden"].(bool); ok && hidden {
 		return BreadcrumbItem{}, false
 	}
+	entryType := strings.TrimSpace(toNavString(entry["type"]))
+	explicitLabel := strings.TrimSpace(toNavString(entry["breadcrumb_label"]))
+	explicitHref := strings.TrimSpace(toNavString(entry["breadcrumb_href"]))
+	// Group nodes are structural by default. They should only render in
+	// breadcrumbs when the menu definition explicitly opts in.
+	if entryType == "group" && explicitLabel == "" && explicitHref == "" {
+		return BreadcrumbItem{}, false
+	}
 
-	label := strings.TrimSpace(toNavString(entry["breadcrumb_label"]))
+	label := explicitLabel
 	if label == "" {
 		label = strings.TrimSpace(toNavString(entry["label"]))
 	}
@@ -158,7 +234,7 @@ func breadcrumbItemFromNavEntry(entry map[string]any, isTerminal bool) (Breadcru
 		return BreadcrumbItem{}, false
 	}
 
-	href := strings.TrimSpace(toNavString(entry["breadcrumb_href"]))
+	href := explicitHref
 	if href == "" {
 		href = strings.TrimSpace(toNavString(entry["href"]))
 	}
@@ -215,4 +291,67 @@ func viewBreadcrumbItems(value any) []BreadcrumbItem {
 	default:
 		return nil
 	}
+}
+
+func cloneBreadcrumbSpec(spec BreadcrumbSpec) BreadcrumbSpec {
+	spec.Override = cloneBreadcrumbItems(spec.Override)
+	spec.Trail = cloneBreadcrumbItems(spec.Trail)
+	spec.RootLabel = strings.TrimSpace(spec.RootLabel)
+	spec.RootHref = strings.TrimSpace(spec.RootHref)
+	spec.CurrentLabel = strings.TrimSpace(spec.CurrentLabel)
+	return spec
+}
+
+func viewBreadcrumbSpec(value any) (BreadcrumbSpec, bool) {
+	spec, ok := value.(BreadcrumbSpec)
+	if !ok {
+		return BreadcrumbSpec{}, false
+	}
+	return cloneBreadcrumbSpec(spec), true
+}
+
+func (spec BreadcrumbSpec) items() []BreadcrumbItem {
+	if len(spec.Override) > 0 {
+		return cloneBreadcrumbItems(spec.Override)
+	}
+	items := []BreadcrumbItem{}
+	if label := strings.TrimSpace(spec.RootLabel); label != "" {
+		items = append(items, Breadcrumb(label, strings.TrimSpace(spec.RootHref)))
+	}
+	if len(spec.Trail) > 0 {
+		items = append(items, cloneBreadcrumbItems(spec.Trail)...)
+	}
+	if label := strings.TrimSpace(spec.CurrentLabel); label != "" {
+		items = append(items, CurrentBreadcrumb(label))
+	}
+	return items
+}
+
+func breadcrumbRootHref(basePath string) string {
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		return "/"
+	}
+	return basePath
+}
+
+func resolvePanelDetailBreadcrumbLabel(cfg admin.PanelBreadcrumbConfig, record map[string]any) string {
+	if cfg.DetailLabelResolver != nil {
+		if label := strings.TrimSpace(cfg.DetailLabelResolver(record)); label != "" {
+			return label
+		}
+	}
+	return defaultRecordBreadcrumbLabel(record)
+}
+
+func defaultRecordBreadcrumbLabel(record map[string]any) string {
+	if len(record) == 0 {
+		return ""
+	}
+	for _, key := range []string{"title", "display_name", "name", "username", "slug", "id"} {
+		if label := strings.TrimSpace(anyToString(record[key])); label != "" {
+			return label
+		}
+	}
+	return ""
 }
