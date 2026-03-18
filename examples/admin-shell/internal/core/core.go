@@ -24,29 +24,29 @@ import (
 
 // FeatureStatus is a display-ready feature flag tuple.
 type FeatureStatus struct {
-	Name    string
-	Enabled bool
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
 }
 
 // Core is a lightweight dependency container for the admin shell.
 type Core struct {
-	Config    *config.AppConfig
-	Logger    *slog.Logger
-	StartedAt time.Time
+	Config    *config.AppConfig `json:"config"`
+	Logger    *slog.Logger      `json:"logger"`
+	StartedAt time.Time         `json:"started_at"`
 
-	Server router.Server[*fiber.App]
-	Router router.Router[*fiber.App]
-	Fiber  *fiber.App
+	Server router.Server[*fiber.App] `json:"server"`
+	Router router.Router[*fiber.App] `json:"router"`
+	Fiber  *fiber.App                `json:"fiber"`
 
-	Admin              *admin.Admin
-	Authenticator      *admin.GoAuthAuthenticator
-	AuthCookieName     string
-	FeatureGate        fggate.FeatureGate
-	Auther             *auth.Auther
-	RouteAuthenticator *auth.RouteAuthenticator
-	DemoCredentials    []DemoCredential
-	DemoIdentity       DemoIdentity
-	DemoToken          string
+	Admin              *admin.Admin               `json:"admin"`
+	Authenticator      *admin.GoAuthAuthenticator `json:"authenticator"`
+	AuthCookieName     string                     `json:"auth_cookie_name"`
+	FeatureGate        fggate.FeatureGate         `json:"feature_gate"`
+	Auther             *auth.Auther               `json:"auther"`
+	RouteAuthenticator *auth.RouteAuthenticator   `json:"route_authenticator"`
+	DemoCredentials    []DemoCredential           `json:"demo_credentials"`
+	DemoIdentity       DemoIdentity               `json:"demo_identity"`
+	DemoToken          string                     `json:"demo_token"`
 }
 
 // New builds application dependencies and wires go-admin.

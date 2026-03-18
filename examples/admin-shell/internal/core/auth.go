@@ -17,11 +17,11 @@ import (
 
 // DemoCredential represents a seeded login identity for the app shell.
 type DemoCredential struct {
-	ID       string
-	Username string
-	Email    string
-	Password string
-	Role     string
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
 }
 
 // DemoIdentity is the seeded identity used by the shell.

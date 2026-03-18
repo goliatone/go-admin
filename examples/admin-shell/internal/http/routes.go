@@ -91,21 +91,21 @@ li{margin:4px 0}
 `))
 
 type link struct {
-	Label string
-	Href  string
+	Label string `json:"label"`
+	Href  string `json:"href"`
 }
 
 type homeView struct {
-	Name          string
-	Env           string
-	Address       string
-	AdminBasePath string
-	ConfigPath    string
-	StartedAt     string
-	DemoToken     string
-	Features      []core.FeatureStatus
-	Links         []link
-	Credentials   []core.DemoCredential
+	Name          string                `json:"name"`
+	Env           string                `json:"env"`
+	Address       string                `json:"address"`
+	AdminBasePath string                `json:"admin_base_path"`
+	ConfigPath    string                `json:"config_path"`
+	StartedAt     string                `json:"started_at"`
+	DemoToken     string                `json:"demo_token"`
+	Features      []core.FeatureStatus  `json:"features"`
+	Links         []link                `json:"links"`
+	Credentials   []core.DemoCredential `json:"credentials"`
 }
 
 // Register wires shell utility routes on top of go-admin routes.
