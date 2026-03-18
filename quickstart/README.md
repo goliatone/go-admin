@@ -5,6 +5,10 @@ The quickstart package (module `github.com/goliatone/go-admin/quickstart`) bundl
 ## Bootstrap helpers
 Each helper is optional and composable.
 
+## Storage-backed uploads
+- `NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error)` - Inputs: shared `go-uploader` provider config, optional validator/logger/startup validation toggle. Outputs: configured storage provider plus uploader manager for host apps.
+- `StorageBundleConfig` reuses `go-uploader` provider config so host apps can select `fs`, `s3`, or `multi` without embedding backend-specific construction logic into app modules.
+
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
 - `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`).
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).

@@ -90,3 +90,15 @@ backend_tests: go test ./examples/esign/... -count=1
 frontend_tests: cd pkg/client/assets && npm run build
 contract_hash: 75b1d9dd96328c0dd35dd9c5d6b21e58f4096760a11a6cedb2c38a4c67e2a169
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-03-18-006
+
+date: 2026-03-18
+owner: backend
+breaking_change_rationale: move e-sign object persistence onto a configurable object-storage boundary so filesystem-only upload behavior is no longer hardwired into shared store/service and panel contract flows.
+measurable_gain: app-mediated uploads can now target fs, s3, or multi storage through config and DI, localstack-backed development uses the same object-store path as production, and document/artifact persistence contracts remain stable while backend bootstrap becomes reusable.
+impacted_endpoints: /admin/api/v1/esign/documents/upload response payload, document/admin artifact retrieval paths backed by object_key storage, runtime storage bootstrap/config contracts used by e-sign startup.
+backend_tests: go test ./examples/esign ./examples/esign/handlers ./examples/esign/modules ./examples/esign/services ./quickstart/... && (cd ../go-uploader && go test ./...)
+frontend_tests: N/A (no frontend contract payload shape change beyond existing object_key response fields)
+contract_hash: c979766ba89b16aa981b6f29ba024a8345ec6d45bef888125de7673427830269
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
