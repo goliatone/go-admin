@@ -559,12 +559,16 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			familyID := strings.TrimSpace(c.Param("family_id"))
-			view := WithBreadcrumbAnchor(router.ViewContext{
+			view := WithBreadcrumbSpec(router.ViewContext{
 				"translation_family_id":       familyID,
 				"translation_family_api_path": prefixBasePath(apiBase, path.Join("translations", "families", familyID)),
 				"translation_content_base":    path.Join(options.basePath, "content"),
-			}, options.translationDashboardActive)
-			view = WithBreadcrumbAppend(view, CurrentBreadcrumb(fmt.Sprintf("Family %s", familyID)))
+			}, BreadcrumbSpec{
+				RootLabel:    "Dashboard",
+				RootHref:     options.basePath,
+				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
+				CurrentLabel: fmt.Sprintf("Family %s", familyID),
+			})
 			return renderView(c, options.translationFamilyDetailTemplate, options.translationFamilyDetailTitle, options.translationFamilyDetailActive, view)
 		}))
 	}
@@ -573,13 +577,17 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		r.Get(options.translationEditorPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			assignmentID := strings.TrimSpace(c.Param("assignment_id"))
-			view := WithBreadcrumbAnchor(router.ViewContext{
+			view := WithBreadcrumbSpec(router.ViewContext{
 				"translation_assignment_id":           assignmentID,
 				"translation_editor_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments", assignmentID)),
 				"translation_editor_variant_api_base": prefixBasePath(apiBase, path.Join("translations", "variants")),
 				"translation_editor_action_api_base":  prefixBasePath(apiBase, path.Join("translations", "assignments")),
-			}, options.translationQueueActive)
-			view = WithBreadcrumbAppend(view, CurrentBreadcrumb(fmt.Sprintf("Assignment %s", assignmentID)))
+			}, BreadcrumbSpec{
+				RootLabel:    "Dashboard",
+				RootHref:     options.basePath,
+				Trail:        []BreadcrumbItem{Breadcrumb(options.translationQueueTitle, options.translationQueuePath)},
+				CurrentLabel: fmt.Sprintf("Assignment %s", assignmentID),
+			})
 			return renderView(c, options.translationEditorTemplate, options.translationEditorTitle, options.translationEditorActive, view)
 		}))
 	}
@@ -587,10 +595,14 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if options.registerTranslationMatrix {
 		r.Get(options.translationMatrixPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
-			view := WithBreadcrumbAnchor(router.ViewContext{
+			view := WithBreadcrumbSpec(router.ViewContext{
 				"translation_matrix_api_path": prefixBasePath(apiBase, path.Join("translations", "matrix")),
-			}, options.translationDashboardActive)
-			view = WithBreadcrumbAppend(view, CurrentBreadcrumb("Matrix"))
+			}, BreadcrumbSpec{
+				RootLabel:    "Dashboard",
+				RootHref:     options.basePath,
+				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
+				CurrentLabel: "Matrix",
+			})
 			return renderView(c, options.translationMatrixTemplate, options.translationMatrixTitle, options.translationMatrixActive, view)
 		}))
 	}
