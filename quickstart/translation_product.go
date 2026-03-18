@@ -219,6 +219,15 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 				err,
 			)
 		}
+		if queueCfg.Repository == nil {
+			return translationProductResolution{}, newTranslationProductConfigError(
+				"translation.productization.queue.repository_missing",
+				"queue module enabled without persistent assignment repository",
+				"provide a translation queue repository",
+				[]string{"module.queue.repository"},
+				translationQueueConfigError{Missing: []string{"repository"}},
+			)
+		}
 	}
 
 	return translationProductResolution{
