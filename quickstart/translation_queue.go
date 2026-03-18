@@ -85,7 +85,7 @@ func RegisterTranslationQueueWiring(adm *admin.Admin, cfg TranslationQueueConfig
 
 	repo := cfg.Repository
 	if repo == nil {
-		repo = admin.NewInMemoryTranslationAssignmentRepository()
+		return translationQueueConfigError{Missing: []string{"repository"}}
 	}
 	if _, err := admin.RegisterTranslationQueuePanel(adm, repo); err != nil {
 		return err
@@ -231,7 +231,7 @@ func NewTranslationQueueAutoCreateHook(cfg TranslationQueueConfig) admin.Transla
 	}
 	repo := cfg.Repository
 	if repo == nil {
-		repo = admin.NewInMemoryTranslationAssignmentRepository()
+		return nil
 	}
 	return &admin.DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
