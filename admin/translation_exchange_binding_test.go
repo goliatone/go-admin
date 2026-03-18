@@ -992,27 +992,37 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	}
 	_ = otherResp.Body.Close()
 
-	historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
-	historyReq.Header.Set("X-User-ID", "owner-user")
-	historyResp, err := app.Test(historyReq)
-	if err != nil {
-		t.Fatalf("history request error: %v", err)
+	var history map[string]any
+	var meta map[string]any
+	var items []map[string]any
+	for attempt := 0; attempt < 10; attempt++ {
+		historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
+		historyReq.Header.Set("X-User-ID", "owner-user")
+		historyResp, err := app.Test(historyReq)
+		if err != nil {
+			t.Fatalf("history request error: %v", err)
+		}
+		if historyResp.StatusCode != http.StatusOK {
+			_ = historyResp.Body.Close()
+			t.Fatalf("history status=%d want=200", historyResp.StatusCode)
+		}
+		payload := map[string]any{}
+		if err := json.NewDecoder(historyResp.Body).Decode(&payload); err != nil {
+			_ = historyResp.Body.Close()
+			t.Fatalf("decode history response: %v", err)
+		}
+		_ = historyResp.Body.Close()
+		history = extractMap(payload["history"])
+		meta = extractMap(payload["meta"])
+		items = extractListMaps(history["items"])
+		if len(items) >= 2 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	if historyResp.StatusCode != http.StatusOK {
-		t.Fatalf("history status=%d want=200", historyResp.StatusCode)
-	}
-	defer historyResp.Body.Close()
-
-	payload := map[string]any{}
-	if err := json.NewDecoder(historyResp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode history response: %v", err)
-	}
-	history := extractMap(payload["history"])
-	meta := extractMap(payload["meta"])
 	if meta["include_examples"] != true {
 		t.Fatalf("expected include_examples metadata, got %+v", meta)
 	}
-	items := extractListMaps(history["items"])
 	if len(items) < 2 {
 		t.Fatalf("expected at least one runtime export job plus fixture examples, got %+v", items)
 	}

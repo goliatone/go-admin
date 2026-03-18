@@ -340,6 +340,9 @@ func TestTranslationMatrixBindingExportSelectedReturnsPreviewAndPermissionChecks
 }
 
 func TestTranslationMatrixBindingMatrixViewportP95UnderTarget(t *testing.T) {
+	if testRaceEnabled {
+		t.Skip("matrix latency target is not meaningful under the race detector")
+	}
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
