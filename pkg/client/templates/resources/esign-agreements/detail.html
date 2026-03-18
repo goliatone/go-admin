@@ -803,6 +803,46 @@
               <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if participant.can_comment %}bg-blue-50 text-blue-700 ring-blue-200{% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">Comment {% if participant.can_comment %}On{% else %}Off{% endif %}</span>
               <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if participant.can_approve %}bg-indigo-50 text-indigo-700 ring-indigo-200{% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">Approve {% if participant.can_approve %}On{% else %}Off{% endif %}</span>
             </div>
+            {% if participant.reminder_status or participant.last_sent_at or participant.next_due_at %}
+            <div class="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset
+                  {% if participant.paused %}bg-amber-50 text-amber-700 ring-amber-200
+                  {% elif participant.reminder_status == 'active' %}bg-emerald-50 text-emerald-700 ring-emerald-200
+                  {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+                  Reminder {{ participant.reminder_status|default:"inactive"|title }}
+                </span>
+                {% if participant.reminder_count %}
+                <span class="text-gray-500">{{ participant.reminder_count }} sent</span>
+                {% endif %}
+                {% if participant.last_sent_at %}
+                <span class="text-gray-500">Last sent <span class="recipient-timestamp" data-timestamp="{{ participant.last_sent_at }}">{{ participant.last_sent_at }}</span></span>
+                {% endif %}
+                {% if participant.next_due_at and not participant.paused %}
+                <span class="text-gray-500">Next due <span class="recipient-timestamp" data-timestamp="{{ participant.next_due_at }}">{{ participant.next_due_at }}</span></span>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+            {% if resource_item.review.status == 'in_review' and participant.decision_status == 'pending' %}
+            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium">
+              <button type="button" class="text-blue-600 hover:text-blue-800" data-action="notify-review-participant" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
+                Notify
+              </button>
+              <button type="button" class="text-indigo-600 hover:text-indigo-800" data-action="send-review-reminder-now" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
+                Send Now
+              </button>
+              {% if participant.paused %}
+              <button type="button" class="text-emerald-600 hover:text-emerald-800" data-action="resume-review-reminder" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
+                Resume
+              </button>
+              {% else %}
+              <button type="button" class="text-amber-600 hover:text-amber-800" data-action="pause-review-reminder" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
+                Pause
+              </button>
+              {% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -1851,6 +1891,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const panelName = '{{ panel_name|default:"esign_agreements" }}';
   const resourceTenantId = '{{ resource_item.tenant_id|default:"" }}';
   const resourceOrgId = '{{ resource_item.org_id|default:"" }}';
+  const agreementStatus = '{{ resource_item.status|default:"" }}'.toLowerCase();
   const executedDeliveryStatus = '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase();
   const executedObjectKey = '{{ resource_item.delivery.executed_object_key|default:"" }}';
 
@@ -2228,6 +2269,34 @@ document.addEventListener('DOMContentLoaded', function() {
     await executeAction('notify_reviewers', {});
   }
 
+  async function notifyAgreementReviewParticipant(participantID, recipientID) {
+    await executeAction('notify_reviewers', {
+      participant_id: String(participantID || '').trim(),
+      recipient_id: String(recipientID || '').trim(),
+    });
+  }
+
+  async function pauseAgreementReviewReminder(participantID, recipientID) {
+    await executeAction('pause_review_reminder', {
+      participant_id: String(participantID || '').trim(),
+      recipient_id: String(recipientID || '').trim(),
+    });
+  }
+
+  async function resumeAgreementReviewReminder(participantID, recipientID) {
+    await executeAction('resume_review_reminder', {
+      participant_id: String(participantID || '').trim(),
+      recipient_id: String(recipientID || '').trim(),
+    });
+  }
+
+  async function sendAgreementReviewReminderNow(participantID, recipientID) {
+    await executeAction('send_review_reminder_now', {
+      participant_id: String(participantID || '').trim(),
+      recipient_id: String(recipientID || '').trim(),
+    });
+  }
+
   async function createAgreementThread() {
     if (!reviewBootstrap.review_id) {
       throw new Error('Review must be active before comments can be created.');
@@ -2332,6 +2401,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  document.querySelectorAll('[data-action="notify-review-participant"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await notifyAgreementReviewParticipant(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
+      } catch (error) {
+        const message = error?.message || 'Unable to notify reviewer.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="pause-review-reminder"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await pauseAgreementReviewReminder(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
+      } catch (error) {
+        const message = error?.message || 'Unable to pause reviewer reminders.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="resume-review-reminder"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await resumeAgreementReviewReminder(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
+      } catch (error) {
+        const message = error?.message || 'Unable to resume reviewer reminders.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="send-review-reminder-now"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await sendAgreementReviewReminderNow(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
+      } catch (error) {
+        const message = error?.message || 'Unable to send reviewer reminder now.';
+        if (window.toastManager) {
+          window.toastManager.error(message);
+        } else {
+          alert(message);
+        }
+      }
+    });
+  });
+
   createThreadBtn?.addEventListener('click', async () => {
     try {
       await createAgreementThread();
@@ -2433,7 +2562,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  if (executedDeliveryStatus !== 'ready' && !executedObjectKey) {
+  if (agreementStatus === 'completed' && executedDeliveryStatus !== 'ready' && !executedObjectKey) {
     markExecutedDownloadUnavailable('Executed completion package is still unavailable for this agreement. Artifact generation may still be running.');
   }
 

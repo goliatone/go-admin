@@ -1526,22 +1526,6 @@
 {% endblock %}
 
 {% block scripts %}
-{# Collapsible section handlers #}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.collapsible-trigger').forEach(trigger => {
-    trigger.addEventListener('click', () => {
-      const targetId = trigger.getAttribute('aria-controls');
-      const content = document.getElementById(targetId);
-      const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
-
-      trigger.setAttribute('aria-expanded', !isExpanded);
-      content.classList.toggle('expanded', !isExpanded);
-    });
-  });
-});
-</script>
-
 {# E-Sign agreement form module bootstrap #}
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>

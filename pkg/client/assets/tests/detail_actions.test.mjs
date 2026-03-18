@@ -271,6 +271,49 @@ test('initPanelDetailActions renders remediation links for dropdown disabled act
   }
 });
 
+test('disabled dropdown actions do not close the overflow menu when clicked', async () => {
+  const fixture = await loadFixture();
+  const dom = setupDOM(`
+    <div
+      data-panel-detail-actions
+      data-panel="content"
+      data-record-id="doc_123"
+      data-base-path="/admin"
+      data-panel-base-path="/admin/content"
+      data-api-base-path="/admin/api"
+      data-back-href="/admin/content"
+    ></div>
+  `);
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    return new Response(JSON.stringify(fixture.detail_contract), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    await initPanelDetailActions(dom.window.document);
+
+    const trigger = dom.window.document.querySelector('[data-detail-actions-dropdown-trigger]');
+    const menu = dom.window.document.querySelector('[data-detail-actions-dropdown-menu]');
+    const deleteButton = dom.window.document.querySelector('[data-detail-action-button="delete"]');
+
+    assert.ok(trigger);
+    assert.ok(menu);
+    assert.ok(deleteButton);
+
+    trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(menu.classList.contains('hidden'), false, 'menu should open before clicking disabled action');
+
+    deleteButton.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(menu.classList.contains('hidden'), false, 'disabled dropdown action should not close the menu');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('repeated refresh() does not accumulate document event listeners', async () => {
   const fixture = await loadFixture();
   const dom = setupDOM(`
@@ -326,6 +369,134 @@ test('repeated refresh() does not accumulate document event listeners', async ()
 
     // If listeners accumulated, closeCount would be > 1
     assert.equal(closeCount, 1, 'outside click should close menu exactly once (no listener accumulation)');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('refresh() removes stale document click listeners when detail actions become unavailable', async () => {
+  const fixture = await loadFixture();
+  const dom = setupDOM(`
+    <div
+      data-panel-detail-actions
+      data-panel="content"
+      data-record-id="doc_123"
+      data-base-path="/admin"
+      data-panel-base-path="/admin/content"
+      data-api-base-path="/admin/api"
+      data-back-href="/admin/content"
+    ></div>
+  `);
+  dom.window.toastManager = {
+    success() {},
+    error() {},
+  };
+
+  let fetchCount = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    if (fetchCount === 1) {
+      return new Response(JSON.stringify(fixture.detail_contract), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ message: 'unavailable' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const [controller] = await initPanelDetailActions(dom.window.document);
+    const trigger = dom.window.document.querySelector('[data-detail-actions-dropdown-trigger]');
+    const menu = dom.window.document.querySelector('[data-detail-actions-dropdown-menu]');
+
+    assert.ok(controller);
+    assert.ok(trigger);
+    assert.ok(menu);
+
+    trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(menu.classList.contains('hidden'), false, 'menu should open before refresh');
+
+    let closeCount = 0;
+    const originalAdd = menu.classList.add.bind(menu.classList);
+    menu.classList.add = (...args) => {
+      if (args.includes('hidden')) {
+        closeCount += 1;
+      }
+      return originalAdd(...args);
+    };
+
+    await controller.refresh();
+    const mount = dom.window.document.querySelector('[data-panel-detail-actions]');
+    assert.equal(mount?.innerHTML, '');
+
+    dom.window.document.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(closeCount, 0, 'stale document click handlers should be removed before refresh exits early');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('refresh() removes stale document keydown listeners when detail actions become unavailable', async () => {
+  const fixture = await loadFixture();
+  const dom = setupDOM(`
+    <div
+      data-panel-detail-actions
+      data-panel="content"
+      data-record-id="doc_123"
+      data-base-path="/admin"
+      data-panel-base-path="/admin/content"
+      data-api-base-path="/admin/api"
+      data-back-href="/admin/content"
+    ></div>
+  `);
+  dom.window.toastManager = {
+    success() {},
+    error() {},
+  };
+
+  let fetchCount = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    if (fetchCount === 1) {
+      return new Response(JSON.stringify(fixture.detail_contract), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ message: 'unavailable' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const [controller] = await initPanelDetailActions(dom.window.document);
+    const trigger = dom.window.document.querySelector('[data-detail-actions-dropdown-trigger]');
+    const menu = dom.window.document.querySelector('[data-detail-actions-dropdown-menu]');
+
+    assert.ok(controller);
+    assert.ok(trigger);
+    assert.ok(menu);
+
+    trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(menu.classList.contains('hidden'), false, 'menu should open before refresh');
+
+    let focusCount = 0;
+    trigger.focus = () => {
+      focusCount += 1;
+    };
+
+    await controller.refresh();
+    const mount = dom.window.document.querySelector('[data-panel-detail-actions]');
+    assert.equal(mount?.innerHTML, '');
+
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
+    assert.equal(focusCount, 0, 'stale document keydown handlers should be removed before refresh exits early');
   } finally {
     globalThis.fetch = originalFetch;
   }

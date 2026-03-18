@@ -15,6 +15,14 @@ import {
   type TranslationEntrypoint,
   type TranslationModuleState,
 } from '../translation-contracts/index.js';
+import {
+  BG_MUTED,
+  BG_SURFACE,
+  BORDER_DEFAULT,
+  ROUNDED_CARD,
+  TEXT_DEFAULT,
+  TEXT_MUTED,
+} from '../translation-shared/index.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 
@@ -42,6 +50,9 @@ const ROUTE_KEYS = {
   EXCHANGE_IMPORT_VALIDATE: 'admin.api.translations.import.validate',
   EXCHANGE_IMPORT_APPLY: 'admin.api.translations.import.apply',
 } as const;
+
+const SHELL_MUTED_PANEL = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} px-4 py-4`;
+const SHELL_SURFACE_PANEL = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_SURFACE} px-4 py-4`;
 
 export type TranslationShellStatus = 'loading' | 'empty' | 'ready' | 'error' | 'conflict';
 
@@ -466,10 +477,10 @@ function renderReadyState(result: TranslationShellLoadResult, title: string, des
         <p class="text-sm font-medium text-emerald-800">${escapeHTML(title)}</p>
         <p class="mt-1 text-sm text-emerald-700">${count} contract item${count === 1 ? '' : 's'} available for this shell.</p>
       </div>
-      <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-        <p class="text-sm text-gray-700">${escapeHTML(description)}</p>
+      <div class="${SHELL_MUTED_PANEL}">
+        <p class="text-sm ${TEXT_DEFAULT}">${escapeHTML(description)}</p>
         <details class="mt-4">
-          <summary class="cursor-pointer text-sm font-medium text-gray-800">Inspect payload</summary>
+          <summary class="cursor-pointer text-sm font-medium ${TEXT_DEFAULT}">Inspect payload</summary>
           <pre class="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">${escapeHTML(JSON.stringify(result.payload, null, 2))}</pre>
         </details>
         ${renderTraceSummary(result)}
@@ -492,9 +503,9 @@ function renderConflictState(result: TranslationShellLoadResult): string {
 
 function renderShellEmptyState(title: string, message: string): string {
   return `
-    <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-      <p class="text-sm font-semibold text-gray-900">${escapeHTML(title)}</p>
-      <p class="mt-1 text-sm text-gray-600">${escapeHTML(message)}</p>
+    <div class="${SHELL_MUTED_PANEL}">
+      <p class="text-sm font-semibold ${TEXT_DEFAULT}">${escapeHTML(title)}</p>
+      <p class="mt-1 text-sm ${TEXT_MUTED}">${escapeHTML(message)}</p>
     </div>
   `;
 }
@@ -510,9 +521,9 @@ function renderShellErrorState(title: string, message: string): string {
 
 function renderShellLoadingState(): string {
   return `
-    <div class="rounded-xl border border-gray-200 bg-white px-4 py-4">
-      <p class="text-sm font-medium text-gray-900">Loading translation shell...</p>
-      <p class="mt-1 text-sm text-gray-500">Waiting for the backing API response.</p>
+    <div class="${SHELL_SURFACE_PANEL}">
+      <p class="text-sm font-medium ${TEXT_DEFAULT}">Loading translation shell...</p>
+      <p class="mt-1 text-sm ${TEXT_MUTED}">Waiting for the backing API response.</p>
     </div>
   `;
 }

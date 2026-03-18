@@ -1,88 +1,89 @@
-import { e as f, E as A } from "../chunks/index-YiVxcMWC.js";
-import { h as S } from "../chunks/http-client-Dm229xuF.js";
-import { extractStructuredError as q } from "../toast/error-helpers.js";
-const $ = {
+import { e as h, E as R } from "../chunks/index-YiVxcMWC.js";
+import { R as I, b as A, _ as q, $ as b, a0 as C, c as N } from "../chunks/style-constants-DMszSbOH.js";
+import { h as w } from "../chunks/http-client-Dm229xuF.js";
+import { extractStructuredError as P } from "../toast/error-helpers.js";
+const U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
   EXCHANGE_EXPORT: "admin.api.translations.export",
   EXCHANGE_IMPORT_VALIDATE: "admin.api.translations.import.validate",
   EXCHANGE_IMPORT_APPLY: "admin.api.translations.import.apply"
-};
-function b() {
+}, v = `${I} border ${A} ${N} px-4 py-4`, k = `${I} border ${A} ${q} px-4 py-4`;
+function m() {
   if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__)
-    return f(window.__TRANSLATION_CAPABILITIES__);
+    return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
   if (e)
     try {
-      const a = e.textContent || "", s = JSON.parse(a);
-      return f(s);
+      const n = e.textContent || "", s = JSON.parse(n);
+      return h(s);
     } catch {
     }
   const t = document.body;
   if (t?.dataset?.translationCapabilities)
     try {
-      return f(JSON.parse(t.dataset.translationCapabilities));
+      return h(JSON.parse(t.dataset.translationCapabilities));
     } catch {
     }
-  return { ...A };
+  return { ...R };
 }
 function y(e) {
   if (!e)
     return { visible: !1, enabled: !1 };
-  const t = e.visible === !0 || e.visible === void 0 && e.enabled, a = e.entry ?? { enabled: e.enabled }, s = a.enabled === !0, n = a.reason || (e.enabled ? void 0 : "module disabled by capability mode"), r = a.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), i = a.permission;
+  const t = e.visible === !0 || e.visible === void 0 && e.enabled, n = e.entry ?? { enabled: e.enabled }, s = n.enabled === !0, a = n.reason || (e.enabled ? void 0 : "module disabled by capability mode"), i = n.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), r = n.permission;
   return t ? !e.enabled || !s ? {
     visible: !0,
     enabled: !1,
-    reason: n,
-    reasonCode: r,
-    permission: i
+    reason: a,
+    reasonCode: i,
+    permission: r
   } : { visible: !0, enabled: !0 } : {
     visible: !1,
     enabled: !1,
-    reason: n,
-    reasonCode: r,
-    permission: i
+    reason: a,
+    reasonCode: i,
+    permission: r
   };
 }
-function I(e) {
-  return (e ?? b()).modules.exchange.enabled;
+function $(e) {
+  return (e ?? m()).modules.exchange.enabled;
 }
-function T(e) {
-  return (e ?? b()).modules.queue.enabled;
+function S(e) {
+  return (e ?? m()).modules.queue.enabled;
 }
-function D(e) {
-  return I(e) || T(e);
+function Y(e) {
+  return $(e) || S(e);
 }
-function g(e, t, a) {
-  const s = t ?? b(), n = $[e];
-  if (s.routes[n])
-    return s.routes[n];
-  const r = (a ?? "").replace(/\/+$/, "");
+function E(e, t, n) {
+  const s = t ?? m(), a = U[e];
+  if (s.routes[a])
+    return s.routes[a];
+  const i = (n ?? "").replace(/\/+$/, "");
   switch (e) {
     case "QUEUE":
-      return s.modules.queue.enabled ? `${r}/translations/queue` : null;
+      return s.modules.queue.enabled ? `${i}/translations/queue` : null;
     case "EXCHANGE_UI":
-      return s.modules.exchange.enabled ? `${r}/translations/exchange` : null;
+      return s.modules.exchange.enabled ? `${i}/translations/exchange` : null;
     default:
       return null;
   }
 }
-function v(e, t) {
-  const a = e ?? b(), s = (t ?? "").replace(/\/+$/, ""), n = [], r = y(a.modules.queue), i = g("QUEUE", a, s);
-  r.visible && i && n.push({
+function L(e, t) {
+  const n = e ?? m(), s = (t ?? "").replace(/\/+$/, ""), a = [], i = y(n.modules.queue), r = E("QUEUE", n, s);
+  i.visible && r && a.push({
     id: "translation-queue",
     label: "Translation Queue",
     icon: "iconoir-language",
-    href: i,
+    href: r,
     module: "queue",
-    enabled: r.enabled,
+    enabled: i.enabled,
     description: "Manage translation assignments and review workflow",
-    disabledReason: r.reason,
-    disabledReasonCode: r.reasonCode,
-    permission: r.permission
+    disabledReason: i.reason,
+    disabledReasonCode: i.reasonCode,
+    permission: i.permission
   });
-  const l = y(a.modules.exchange), c = g("EXCHANGE_UI", a, s);
-  return l.visible && c && n.push({
+  const l = y(n.modules.exchange), c = E("EXCHANGE_UI", n, s);
+  return l.visible && c && a.push({
     id: "translation-exchange",
     label: "Translation Exchange",
     icon: "iconoir-translate",
@@ -93,59 +94,59 @@ function v(e, t) {
     disabledReason: l.reason,
     disabledReasonCode: l.reasonCode,
     permission: l.permission
-  }), n;
+  }), a;
 }
-function w(e, t) {
-  const { asListItem: a = !1, className: s = "" } = t ?? {}, n = document.createElement("a");
-  n.href = e.enabled ? e.href : "#", n.className = `nav-item translation-operation-link ${s}`.trim(), n.setAttribute("data-entrypoint-id", e.id), n.setAttribute("data-module", e.module), n.setAttribute("data-enabled", e.enabled ? "true" : "false"), e.enabled || (n.setAttribute("aria-disabled", "true"), n.classList.add("opacity-60", "cursor-not-allowed"));
-  const r = e.disabledReason?.trim(), i = r ? `${e.description || e.label} (${r})` : e.description || e.label;
-  n.setAttribute("aria-label", i), n.setAttribute("title", i);
+function O(e, t) {
+  const { asListItem: n = !1, className: s = "" } = t ?? {}, a = document.createElement("a");
+  a.href = e.enabled ? e.href : "#", a.className = `nav-item translation-operation-link ${s}`.trim(), a.setAttribute("data-entrypoint-id", e.id), a.setAttribute("data-module", e.module), a.setAttribute("data-enabled", e.enabled ? "true" : "false"), e.enabled || (a.setAttribute("aria-disabled", "true"), a.classList.add("opacity-60", "cursor-not-allowed"));
+  const i = e.disabledReason?.trim(), r = i ? `${e.description || e.label} (${i})` : e.description || e.label;
+  a.setAttribute("aria-label", r), a.setAttribute("title", r);
   const l = document.createElement("i");
-  l.className = `${e.icon} flex-shrink-0`, l.style.fontSize = "var(--sidebar-icon-size, 20px)", l.setAttribute("aria-hidden", "true"), n.appendChild(l);
+  l.className = `${e.icon} flex-shrink-0`, l.style.fontSize = "var(--sidebar-icon-size, 20px)", l.setAttribute("aria-hidden", "true"), a.appendChild(l);
   const c = document.createElement("span");
-  if (c.className = "nav-text flex-1", c.textContent = e.label, n.appendChild(c), e.badge) {
+  if (c.className = "nav-text flex-1", c.textContent = e.label, a.appendChild(c), e.badge) {
     const o = document.createElement("span"), u = e.badgeVariant === "warning" ? "bg-yellow-500/20 text-yellow-400" : e.badgeVariant === "danger" ? "bg-red-500/20 text-red-400" : e.badgeVariant === "success" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400";
-    o.className = `ml-auto px-2 py-0.5 ${u} text-xs font-medium rounded`, o.textContent = e.badge, o.setAttribute("aria-label", `${e.badge} badge`), n.appendChild(o);
+    o.className = `ml-auto px-2 py-0.5 ${u} text-xs font-medium rounded`, o.textContent = e.badge, o.setAttribute("aria-label", `${e.badge} badge`), a.appendChild(o);
   }
-  if (e.enabled || n.addEventListener("click", (o) => {
+  if (e.enabled || a.addEventListener("click", (o) => {
     o.preventDefault(), o.stopPropagation();
-  }), a) {
+  }), n) {
     const o = document.createElement("li");
-    return o.appendChild(n), o;
+    return o.appendChild(a), o;
   }
-  return n;
+  return a;
 }
-function L(e, t, a, s) {
-  const { asListItems: n = !1, headerLabel: r } = s ?? {}, i = typeof e == "string" ? document.querySelector(e) : e;
-  if (!i) return;
-  const l = v(t, a);
+function D(e, t, n, s) {
+  const { asListItems: a = !1, headerLabel: i } = s ?? {}, r = typeof e == "string" ? document.querySelector(e) : e;
+  if (!r) return;
+  const l = L(t, n);
   if (l.length === 0) {
-    i.style.display = "none";
+    r.style.display = "none";
     return;
   }
-  i.style.display = "", i.innerHTML = "";
+  r.style.display = "", r.innerHTML = "";
   const c = document.createElement("nav");
-  if (c.setAttribute("aria-label", r || "Translation operations"), c.setAttribute("role", "navigation"), r) {
+  if (c.setAttribute("aria-label", i || "Translation operations"), c.setAttribute("role", "navigation"), i) {
     const u = `translation-ops-header-${Date.now()}`, p = document.createElement("h3");
-    p.id = u, p.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", p.textContent = r, c.appendChild(p), c.setAttribute("aria-labelledby", u);
+    p.id = u, p.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", p.textContent = i, c.appendChild(p), c.setAttribute("aria-labelledby", u);
   }
-  const o = n ? document.createElement("ul") : document.createElement("div");
-  o.className = "space-y-0.5", n && o.setAttribute("role", "list");
+  const o = a ? document.createElement("ul") : document.createElement("div");
+  o.className = "space-y-0.5", a && o.setAttribute("role", "list");
   for (const u of l) {
-    const p = w(u, { asListItem: n });
+    const p = O(u, { asListItem: a });
     o.appendChild(p);
   }
-  c.appendChild(o), i.appendChild(c);
+  c.appendChild(o), r.appendChild(c);
 }
-function h(e, t) {
-  const a = e.headers.get(t);
-  return typeof a == "string" ? a.trim() : "";
+function g(e, t) {
+  const n = e.headers.get(t);
+  return typeof n == "string" ? n.trim() : "";
 }
-function N(e, t) {
-  const a = h(e, "x-request-id"), s = h(e, "x-correlation-id"), n = h(e, "x-trace-id") || s || t;
+function M(e, t) {
+  const n = g(e, "x-request-id"), s = g(e, "x-correlation-id"), a = g(e, "x-trace-id") || s || t;
   return {
-    requestId: a || t,
-    traceId: n || void 0
+    requestId: n || t,
+    traceId: a || void 0
   };
 }
 function x(e) {
@@ -154,56 +155,56 @@ function x(e) {
   if (!e || typeof e != "object")
     return 0;
   const t = e;
-  for (const a of ["items", "assignments", "results", "rows", "families"])
-    if (Array.isArray(t[a]))
-      return t[a].length;
+  for (const n of ["items", "assignments", "results", "rows", "families"])
+    if (Array.isArray(t[n]))
+      return t[n].length;
   return t.data && typeof t.data == "object" ? x(t.data) : Object.keys(t).length;
 }
-async function R(e) {
+async function H(e) {
   const t = e.trim();
   if (!t)
     return {
       status: "empty",
       message: "This shell route is ready, but the backing API contract has not been connected yet."
     };
-  const a = await S(t, { method: "GET" }), s = N(a);
-  if (!a.ok) {
-    const r = await q(a);
+  const n = await w(t, { method: "GET" }), s = M(n);
+  if (!n.ok) {
+    const i = await P(n);
     return {
-      status: a.status === 409 || r.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
-      message: r.message,
+      status: n.status === 409 || i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
+      message: i.message,
       requestId: s.requestId,
       traceId: s.traceId,
-      statusCode: a.status,
-      errorCode: r.textCode
+      statusCode: n.status,
+      errorCode: i.textCode
     };
   }
-  let n = null;
+  let a = null;
   try {
-    n = await a.json();
+    a = await n.json();
   } catch {
-    n = null;
+    a = null;
   }
-  return x(n) === 0 ? {
+  return x(a) === 0 ? {
     status: "empty",
-    payload: n,
+    payload: a,
     requestId: s.requestId,
     traceId: s.traceId,
-    statusCode: a.status,
+    statusCode: n.status,
     message: "No records match the current shell route yet."
   } : {
     status: "ready",
-    payload: n,
+    payload: a,
     requestId: s.requestId,
     traceId: s.traceId,
-    statusCode: a.status
+    statusCode: n.status
   };
 }
-function m(e) {
+function f(e) {
   const t = [];
   return e.requestId && t.push(`<span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">Request ${d(e.requestId)}</span>`), e.traceId && t.push(`<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Trace ${d(e.traceId)}</span>`), t.length ? `<div class="flex flex-wrap gap-2 mt-4">${t.join("")}</div>` : "";
 }
-function _(e, t, a) {
+function G(e, t, n) {
   const s = x(e.payload);
   return `
     <div class="space-y-4">
@@ -211,37 +212,37 @@ function _(e, t, a) {
         <p class="text-sm font-medium text-emerald-800">${d(t)}</p>
         <p class="mt-1 text-sm text-emerald-700">${s} contract item${s === 1 ? "" : "s"} available for this shell.</p>
       </div>
-      <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-        <p class="text-sm text-gray-700">${d(a)}</p>
+      <div class="${v}">
+        <p class="text-sm ${b}">${d(n)}</p>
         <details class="mt-4">
-          <summary class="cursor-pointer text-sm font-medium text-gray-800">Inspect payload</summary>
+          <summary class="cursor-pointer text-sm font-medium ${b}">Inspect payload</summary>
           <pre class="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">${d(JSON.stringify(e.payload, null, 2))}</pre>
         </details>
-        ${m(e)}
+        ${f(e)}
       </div>
     </div>
   `;
 }
-function k(e) {
+function X(e) {
   return `
     <div class="space-y-4">
-      ${C(
+      ${_(
     "Version conflict",
     e.message || "The shell route detected a canonical version conflict."
   )}
-      ${m(e)}
+      ${f(e)}
     </div>
   `;
 }
-function P(e, t) {
+function B(e, t) {
   return `
-    <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
-      <p class="text-sm font-semibold text-gray-900">${d(e)}</p>
-      <p class="mt-1 text-sm text-gray-600">${d(t)}</p>
+    <div class="${v}">
+      <p class="text-sm font-semibold ${b}">${d(e)}</p>
+      <p class="mt-1 text-sm ${C}">${d(t)}</p>
     </div>
   `;
 }
-function C(e, t) {
+function _(e, t) {
   return `
     <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4">
       <p class="text-sm font-semibold text-rose-800">${d(e)}</p>
@@ -249,62 +250,62 @@ function C(e, t) {
     </div>
   `;
 }
-function O() {
+function F() {
   return `
-    <div class="rounded-xl border border-gray-200 bg-white px-4 py-4">
-      <p class="text-sm font-medium text-gray-900">Loading translation shell...</p>
-      <p class="mt-1 text-sm text-gray-500">Waiting for the backing API response.</p>
+    <div class="${k}">
+      <p class="text-sm font-medium ${b}">Loading translation shell...</p>
+      <p class="mt-1 text-sm ${C}">Waiting for the backing API response.</p>
     </div>
   `;
 }
 function d(e) {
   return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function E(e, t, a = {}) {
-  const s = a.title || e.dataset.title || "Translation Shell", n = a.description || e.dataset.description || "Translation shell route";
+function T(e, t, n = {}) {
+  const s = n.title || e.dataset.title || "Translation Shell", a = n.description || e.dataset.description || "Translation shell route";
   switch (t.status) {
     case "ready":
-      e.innerHTML = _(t, s, n);
+      e.innerHTML = G(t, s, a);
       return;
     case "conflict":
-      e.innerHTML = k(t);
+      e.innerHTML = X(t);
       return;
     case "error":
       e.innerHTML = `
-        ${C(
+        ${_(
         "Translation shell request failed",
         t.message || "The shell route could not load its backing payload."
       )}
-        ${m(t)}
+        ${f(t)}
       `;
       return;
     case "empty":
       e.innerHTML = `
-        ${P(s, t.message || n)}
-        ${m(t)}
+        ${B(s, t.message || a)}
+        ${f(t)}
       `;
       return;
     default:
-      e.innerHTML = O();
+      e.innerHTML = F();
   }
 }
-async function X(e) {
+async function K(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
   if (!t)
     return null;
-  E(t, { status: "loading" });
-  const a = await R(t.dataset.endpoint || "");
-  return E(t, a), a;
+  T(t, { status: "loading" });
+  const n = await H(t.dataset.endpoint || "");
+  return T(t, n), n;
 }
-class M {
+class Q {
   constructor(t) {
     this.entrypoints = [], this.config = {
       basePath: t.basePath,
-      capabilities: t.capabilities ?? b(),
+      capabilities: t.capabilities ?? m(),
       container: t.container ?? "[data-translation-operations]",
       onEntrypointClick: t.onEntrypointClick ?? (() => {
       })
-    }, this.capabilities = this.config.capabilities, this.entrypoints = v(this.capabilities, this.config.basePath);
+    }, this.capabilities = this.config.capabilities, this.entrypoints = L(this.capabilities, this.config.basePath);
   }
   /** Get capabilities */
   getCapabilities() {
@@ -320,57 +321,57 @@ class M {
   }
   /** Check if exchange is enabled */
   isExchangeEnabled() {
-    return I(this.capabilities);
+    return $(this.capabilities);
   }
   /** Check if queue is enabled */
   isQueueEnabled() {
-    return T(this.capabilities);
+    return S(this.capabilities);
   }
   /** Get route for a specific operation */
   getRoute(t) {
-    return g(t, this.capabilities, this.config.basePath);
+    return E(t, this.capabilities, this.config.basePath);
   }
   /** Initialize and render entrypoints */
   init() {
     if (!this.hasOperations()) return;
     const t = typeof this.config.container == "string" ? document.querySelector(this.config.container) : this.config.container;
-    t && (L(
+    t && (D(
       t,
       this.capabilities,
       this.config.basePath,
       { headerLabel: "Translations" }
-    ), t.querySelectorAll(".translation-operation-link").forEach((a) => {
-      a.addEventListener("click", (s) => {
-        const n = a.dataset.entrypointId, r = this.entrypoints.find((i) => i.id === n);
-        if (!r || !r.enabled) {
+    ), t.querySelectorAll(".translation-operation-link").forEach((n) => {
+      n.addEventListener("click", (s) => {
+        const a = n.dataset.entrypointId, i = this.entrypoints.find((r) => r.id === a);
+        if (!i || !i.enabled) {
           s.preventDefault();
           return;
         }
-        this.config.onEntrypointClick && this.config.onEntrypointClick(r);
+        this.config.onEntrypointClick && this.config.onEntrypointClick(i);
       });
     }));
   }
 }
-function Q(e) {
+function W(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
-  const a = new M({
+  const n = new Q({
     basePath: e ?? ""
   });
-  return a.init(), a;
+  return n.init(), n;
 }
 export {
-  M as TranslationOperationsManager,
-  v as buildTranslationEntrypoints,
-  b as extractTranslationCapabilities,
-  R as fetchTranslationShellData,
-  g as getTranslationRoute,
-  D as hasTranslationOperations,
-  Q as initTranslationOperations,
-  X as initTranslationSurfaceShell,
-  I as isExchangeEnabled,
-  T as isQueueEnabled,
-  w as renderEntrypointLink,
-  L as renderTranslationEntrypoints,
-  E as renderTranslationSurfaceShell
+  Q as TranslationOperationsManager,
+  L as buildTranslationEntrypoints,
+  m as extractTranslationCapabilities,
+  H as fetchTranslationShellData,
+  E as getTranslationRoute,
+  Y as hasTranslationOperations,
+  W as initTranslationOperations,
+  K as initTranslationSurfaceShell,
+  $ as isExchangeEnabled,
+  S as isQueueEnabled,
+  O as renderEntrypointLink,
+  D as renderTranslationEntrypoints,
+  T as renderTranslationSurfaceShell
 };
 //# sourceMappingURL=index.js.map

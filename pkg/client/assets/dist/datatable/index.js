@@ -6027,6 +6027,7 @@ class wo {
     this.mount && (this.mount.setAttribute("aria-busy", "true"), await this.refresh());
   }
   async refresh() {
+    this.cleanupDocumentListeners();
     const e = await this.fetchDetailPayload();
     if (!e) {
       this.mount.innerHTML = "", this.mount.setAttribute("aria-busy", "false");
@@ -6102,7 +6103,6 @@ class wo {
     this.documentClickHandler && (document.removeEventListener("click", this.documentClickHandler), this.documentClickHandler = null), this.documentKeydownHandler && (document.removeEventListener("keydown", this.documentKeydownHandler), this.documentKeydownHandler = null);
   }
   attachDropdownListeners() {
-    this.cleanupDocumentListeners();
     const e = this.mount.querySelector("[data-detail-actions-dropdown]");
     if (!e)
       return;
@@ -6114,7 +6114,11 @@ class wo {
     }, document.addEventListener("click", this.documentClickHandler), this.documentKeydownHandler = (s) => {
       s.key === "Escape" && !n.classList.contains("hidden") && (this.closeDropdown(t, n), t.focus());
     }, document.addEventListener("keydown", this.documentKeydownHandler), n.querySelectorAll("[data-detail-action-button]").forEach((s) => {
-      s.addEventListener("click", () => {
+      s.addEventListener("click", (o) => {
+        if (s.getAttribute("aria-disabled") === "true" || s.dataset.disabled === "true") {
+          o.preventDefault();
+          return;
+        }
         this.closeDropdown(t, n);
       });
     }));

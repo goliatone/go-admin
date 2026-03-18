@@ -1,7 +1,7 @@
 import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
 import { r as z } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as F } from "../toast/error-helpers.js";
-import { E as R, b as I, c as S, L as P, C as $, d as A, e as j, f as v, H, a as B, l as K, B as L, m as U, k as D } from "../chunks/style-constants-BesmSFuV.js";
+import { E as R, h as I, i as S, L as P, d as $, j, k as A, l as v, H, f as B, a as K, e as L, p as U, o as D } from "../chunks/style-constants-DMszSbOH.js";
 class b extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -559,8 +559,8 @@ function ft(e) {
 function gt(e) {
   const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, a = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${A} p-4" data-dashboard-inline-error="true" role="alert">
-      <p class="${j}">Latest refresh failed</p>
+    <section class="${j} p-4" data-dashboard-inline-error="true" role="alert">
+      <p class="${A}">Latest refresh failed</p>
       <p class="${v} mt-2">${i(e instanceof Error ? e.message : "Failed to load translation dashboard")}</p>
       ${a ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(a)}</p>` : ""}
     </section>
@@ -569,8 +569,8 @@ function gt(e) {
 function mt(e) {
   const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, a = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${A} p-4" data-dashboard-error="true" role="alert">
-      <p class="${j}">Translation dashboard unavailable</p>
+    <section class="${j} p-4" data-dashboard-error="true" role="alert">
+      <p class="${A}">Translation dashboard unavailable</p>
       <p class="${v} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
       <p class="${v} mt-2">${i(t)}</p>
       ${n ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(n)}</p>` : ""}

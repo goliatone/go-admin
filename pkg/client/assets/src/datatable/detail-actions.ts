@@ -323,6 +323,8 @@ export class DetailActionsController {
   }
 
   async refresh(): Promise<void> {
+    this.cleanupDocumentListeners();
+
     const detailPayload = await this.fetchDetailPayload();
     if (!detailPayload) {
       this.mount.innerHTML = '';
@@ -449,9 +451,6 @@ export class DetailActionsController {
   }
 
   private attachDropdownListeners(): void {
-    // Clean up any existing document listeners before attaching new ones
-    this.cleanupDocumentListeners();
-
     const dropdown = this.mount.querySelector<HTMLElement>('[data-detail-actions-dropdown]');
     if (!dropdown) {
       return;
@@ -490,7 +489,11 @@ export class DetailActionsController {
     document.addEventListener('keydown', this.documentKeydownHandler);
 
     menu.querySelectorAll<HTMLElement>('[data-detail-action-button]').forEach((button) => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', (event) => {
+        if (button.getAttribute('aria-disabled') === 'true' || button.dataset.disabled === 'true') {
+          event.preventDefault();
+          return;
+        }
         this.closeDropdown(trigger, menu);
       });
     });

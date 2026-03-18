@@ -2,7 +2,7 @@ import { d as $ } from "../chunks/index-YiVxcMWC.js";
 import { e as g, a as m } from "../chunks/html-Br-oQr7i.js";
 import { r as M } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as R } from "../toast/error-helpers.js";
-import { E as C, b as I, c as L, H, a as U, l as Q, L as X, d as Y, e as W, f as G, m as K, r as v, x as V, y as J, z as Z, A as ee, D as te, F as ae, B as re, k as se } from "../chunks/style-constants-BesmSFuV.js";
+import { E as C, h as I, i as L, H, f as U, a as Q, L as X, j as Y, k as K, l as W, p as G, w as v, A as V, D as J, F as Z, I as ee, J as te, K as ae, e as re, o as se } from "../chunks/style-constants-DMszSbOH.js";
 function s(t) {
   return typeof t == "string" ? t.trim() : "";
 }
@@ -84,7 +84,7 @@ function le(t) {
     e[a] = P(r);
   return e;
 }
-function O(t) {
+function j(t) {
   const e = l(t);
   return {
     endpoint: s(e.endpoint),
@@ -95,7 +95,7 @@ function O(t) {
     type: s(e.type)
   };
 }
-function j(t) {
+function O(t) {
   const e = s(t).toLowerCase();
   switch (e) {
     case "ready":
@@ -141,7 +141,7 @@ function ue(t) {
   } : null;
 }
 function me(t) {
-  const e = l(t), a = j(e.state);
+  const e = l(t), a = O(e.state);
   return {
     locale: s(e.locale),
     state: a,
@@ -214,7 +214,7 @@ function z(t) {
   }
   return {
     schema_version: u(e.schema_version),
-    cell_states: f(e.cell_states).map((o) => j(o)),
+    cell_states: f(e.cell_states).map((o) => O(o)),
     latency_target_ms: u(e.latency_target_ms),
     query_model: q(e.query_model),
     bulk_actions: r
@@ -231,7 +231,7 @@ function fe(t) {
 function ge(t) {
   const e = l(t), a = l(e.data), r = l(e.meta), o = x(a.columns).map(ce), i = x(a.rows).map(pe), n = {};
   for (const [d, c] of Object.entries(l(r.quick_action_targets)))
-    n[d] = O(c);
+    n[d] = j(c);
   return {
     data: {
       columns: o,
@@ -638,22 +638,22 @@ function Le() {
 function Pe() {
   return `<section class="${C} p-8 shadow-sm" data-matrix-empty="true" role="status" aria-live="polite"><p class="${I}">No rows</p><h2 class="mt-2 text-xl font-semibold text-gray-900">No families match this matrix scope.</h2><p class="${L} mt-3 max-w-2xl leading-6">Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.</p></section>`;
 }
-function Oe(t) {
+function je(t) {
   const e = t instanceof T ? t.requestId : "", a = t instanceof T ? t.traceId : "";
   return `
     <section class="${Y} p-6 shadow-sm" data-matrix-error="true" role="alert">
-      <p class="${W}">Matrix unavailable</p>
+      <p class="${K}">Matrix unavailable</p>
       <h2 class="mt-2 text-xl font-semibold text-rose-900">The matrix payload could not be loaded.</h2>
-      <p class="${G} mt-3 leading-6">${m(t instanceof Error ? t.message : "Failed to load the translation matrix")}</p>
+      <p class="${W} mt-3 leading-6">${m(t instanceof Error ? t.message : "Failed to load the translation matrix")}</p>
       ${e || a ? `<p class="mt-3 text-xs uppercase tracking-[0.16em] text-rose-700">${m([e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • "))}</p>` : ""}
       <div class="mt-4">
-        <button type="button" data-matrix-retry="true" class="${K}">Retry matrix</button>
+        <button type="button" data-matrix-retry="true" class="${G}">Retry matrix</button>
       </div>
     </section>
   `;
 }
-function je(t, e, a, r, o, i, n, d = !1, c = "/admin") {
-  const p = Te(e), k = a == null ? r === "loading" ? Le() : Oe(n) : a.data.rows.length === 0 ? Pe() : `${Re(a, o, i, d)}<div class="grid gap-5">${Ce(a)}${Me(a, o)}</div>`, w = `${E(c || "/admin")}/translations`;
+function Oe(t, e, a, r, o, i, n, d = !1, c = "/admin") {
+  const p = Te(e), k = a == null ? r === "loading" ? Le() : je(n) : a.data.rows.length === 0 ? Pe() : `${Re(a, o, i, d)}<div class="grid gap-5">${Ce(a)}${Me(a, o)}</div>`, w = `${E(c || "/admin")}/translations`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
       <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
@@ -806,7 +806,7 @@ class qe {
     this.render();
   }
   render() {
-    this.root && (this.root.innerHTML = je(
+    this.root && (this.root.innerHTML = Oe(
       this.config.title || "Translation Matrix",
       this.query,
       this.payload,
@@ -855,7 +855,7 @@ class qe {
       }
       this.working = !0, this.feedback = "", this.render();
       try {
-        const n = O({
+        const n = j({
           endpoint: i.endpoint,
           method: i.method,
           route: i.route,
@@ -894,7 +894,7 @@ export {
   we as isTranslationMatrixNotRequiredCell,
   _e as normalizeTranslationMatrixBulkActionResponse,
   me as normalizeTranslationMatrixCell,
-  j as normalizeTranslationMatrixCellState,
+  O as normalizeTranslationMatrixCellState,
   ce as normalizeTranslationMatrixColumn,
   ge as normalizeTranslationMatrixResponse,
   pe as normalizeTranslationMatrixRow,

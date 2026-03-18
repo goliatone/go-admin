@@ -117,7 +117,7 @@ class os extends Error {
   }
 }
 let si = null;
-function lo() {
+function uo() {
   if (!si)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
   return si;
@@ -134,7 +134,7 @@ function yn(i) {
   const e = typeof i == "string" ? parseInt(i, 10) : i;
   return !Number.isFinite(e) || e <= 0 ? "-" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function uo(i) {
+function po(i) {
   if (!i) return "-";
   const e = typeof i == "string" ? parseInt(i, 10) : i;
   return !Number.isFinite(e) || e <= 0 ? "-" : e === 1 ? "1 page" : `${e} pages`;
@@ -153,7 +153,7 @@ function In(i, e) {
     return String(i);
   }
 }
-function po(i, e) {
+function go(i, e) {
   if (!i) return "-";
   try {
     const t = i instanceof Date ? i : new Date(i);
@@ -166,7 +166,7 @@ function po(i, e) {
     return String(i);
   }
 }
-function go(i, e) {
+function mo(i, e) {
   if (!i) return "-";
   try {
     const t = i instanceof Date ? i : new Date(i);
@@ -180,7 +180,7 @@ function go(i, e) {
     return String(i);
   }
 }
-function mo(i) {
+function fo(i) {
   if (!i) return "-";
   try {
     const e = i instanceof Date ? i : new Date(i);
@@ -191,16 +191,16 @@ function mo(i) {
     return String(i);
   }
 }
-function fo(i) {
+function ho(i) {
   return i == null ? "0 recipients" : i === 1 ? "1 recipient" : `${i} recipients`;
 }
 function ds(i) {
   return i ? i.charAt(0).toUpperCase() + i.slice(1) : "";
 }
-function ho(i) {
+function vo(i) {
   return i ? i.split("_").map((e) => ds(e)).join(" ") : "";
 }
-function vo(i, e) {
+function yo(i, e) {
   return !i || i.length <= e ? i : `${i.slice(0, e - 3)}...`;
 }
 const us = {
@@ -264,11 +264,11 @@ function ps(i, e) {
   }, d = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
   return `<span class="inline-flex items-center ${c[r]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${d}${t.label}</span>`;
 }
-function yo(i, e) {
+function bo(i, e) {
   const t = document.createElement("span");
   return t.innerHTML = ps(i, e), t.firstElementChild;
 }
-function bo(i, e, t) {
+function wo(i, e, t) {
   const n = er(e), r = t?.size ?? "sm", c = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
@@ -300,7 +300,7 @@ function Ht(i, e = document) {
     return [];
   }
 }
-function wo(i) {
+function So(i) {
   return document.getElementById(i);
 }
 function gs(i, e, t) {
@@ -313,10 +313,10 @@ function gs(i, e, t) {
       typeof r == "string" ? n.appendChild(document.createTextNode(r)) : n.appendChild(r);
   return n;
 }
-function So(i, e, t, n) {
+function xo(i, e, t, n) {
   return i.addEventListener(e, t, n), () => i.removeEventListener(e, t, n);
 }
-function xo(i, e, t, n, r) {
+function Io(i, e, t, n, r) {
   const c = (d) => {
     const s = d.target.closest(e);
     s && i.contains(s) && n.call(s, d, s);
@@ -332,18 +332,18 @@ function Y(i) {
 function B(i) {
   i && i.classList.add("hidden");
 }
-function Io(i, e) {
+function Eo(i, e) {
   if (!i) return;
   e ?? i.classList.contains("hidden") ? Y(i) : B(i);
 }
-function Eo(i, e, t) {
+function Co(i, e, t) {
   i && (e ? (i.setAttribute("aria-busy", "true"), i.classList.add("opacity-50", "pointer-events-none"), (i instanceof HTMLButtonElement || i instanceof HTMLInputElement) && (i.disabled = !0)) : (i.removeAttribute("aria-busy"), i.classList.remove("opacity-50", "pointer-events-none"), (i instanceof HTMLButtonElement || i instanceof HTMLInputElement) && (i.disabled = !1)));
 }
 function Zt(i, e, t = document) {
   const n = g(`[data-esign-${i}]`, t);
   n && (n.textContent = String(e));
 }
-function Co(i, e = document) {
+function Lo(i, e = document) {
   for (const [t, n] of Object.entries(i))
     Zt(t, n, e);
 }
@@ -382,7 +382,7 @@ function mt(i, e = "polite") {
     t.textContent = i;
   });
 }
-async function Lo(i) {
+async function _o(i) {
   const {
     fn: e,
     until: t,
@@ -419,7 +419,7 @@ async function Lo(i) {
     timedOut: !1
   };
 }
-async function _o(i) {
+async function Ao(i) {
   const {
     fn: e,
     maxAttempts: t = 3,
@@ -468,7 +468,7 @@ function En(i, e) {
     }, e);
   };
 }
-function Ao(i, e) {
+function To(i, e) {
   let t = 0, n = null;
   return (...r) => {
     const c = Date.now();
@@ -480,14 +480,14 @@ function Ao(i, e) {
     ));
   };
 }
-function To(i) {
+function Po(i) {
   const e = new AbortController(), t = setTimeout(() => e.abort(), i);
   return {
     controller: e,
     cleanup: () => clearTimeout(t)
   };
 }
-async function Po(i, e, t = "Operation timed out") {
+async function ko(i, e, t = "Operation timed out") {
   let n;
   const r = new Promise((c, d) => {
     n = setTimeout(() => {
@@ -532,7 +532,7 @@ class pi {
     n && (n.textContent = String(t));
   }
 }
-function ko(i) {
+function Do(i) {
   const e = i || ms(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
@@ -541,7 +541,7 @@ function ko(i) {
   const t = new pi(e);
   return Fe(() => t.init()), t;
 }
-function Do(i, e) {
+function Ro(i, e) {
   const t = {
     basePath: i,
     apiBasePath: e || `${i}/api`
@@ -669,11 +669,11 @@ class nr {
     return { ...this.state };
   }
 }
-function Ro(i) {
+function Mo(i) {
   const e = new nr(i);
   return Fe(() => e.init()), e;
 }
-function Mo(i) {
+function $o(i) {
   const e = new nr(i);
   Fe(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
 }
@@ -824,14 +824,14 @@ class ir {
     }
   }
 }
-function $o(i) {
+function Bo(i) {
   const e = i || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
   }, t = new ir(e);
   return Fe(() => t.init()), t;
 }
-function Bo(i) {
+function Fo(i) {
   const e = {
     basePath: i,
     apiBasePath: `${i}/api`
@@ -1640,11 +1640,11 @@ class rr {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function Fo(i) {
+function No(i) {
   const e = new rr(i);
   return Fe(() => e.init()), e;
 }
-function No(i) {
+function Ho(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -2189,11 +2189,11 @@ class sr {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Ho(i) {
+function Uo(i) {
   const e = new sr(i);
   return Fe(() => e.init()), e;
 }
-function Uo(i) {
+function zo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -2581,11 +2581,11 @@ class ar {
     return t.textContent = e, t.innerHTML;
   }
 }
-function zo(i) {
+function Oo(i) {
   const e = new ar(i);
   return Fe(() => e.init()), e;
 }
-function Oo(i) {
+function jo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -3435,11 +3435,11 @@ class or {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function jo(i) {
+function qo(i) {
   const e = new or(i);
   return Fe(() => e.init()), e;
 }
-function qo(i) {
+function Vo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
@@ -3800,11 +3800,11 @@ class cr {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function Vo(i) {
+function Go(i) {
   const e = new cr(i);
   return Fe(() => e.init()), e;
 }
-function Go(i) {
+function Wo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
@@ -4281,11 +4281,11 @@ class lr {
     r && (t === "success" ? r.success(e) : t === "error" ? r.error(e) : t === "info" && r.info && r.info(e));
   }
 }
-function Wo(i) {
+function Yo(i) {
   const e = new lr(i);
   return Fe(() => e.init()), e;
 }
-function Yo(i) {
+function Jo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
@@ -5207,11 +5207,11 @@ class gi {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Jo(i) {
+function Ko(i) {
   const e = new gi(i);
   return Fe(() => e.init()), e;
 }
-function Ko(i) {
+function Xo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api/v1`,
@@ -10314,7 +10314,18 @@ function Da(i = {}) {
   const e = Pa(i);
   e.start(), An = e, typeof window < "u" && (window.__esignAgreementRuntime = e, window.__esignAgreementRuntimeInitialized = !0);
 }
-function Ra(i) {
+function Ra(i = document) {
+  i.querySelectorAll(".collapsible-trigger[aria-controls]").forEach((t) => {
+    const n = t.getAttribute("aria-controls");
+    if (!n) return;
+    const r = document.getElementById(n);
+    r && t.addEventListener("click", () => {
+      const c = t.getAttribute("aria-expanded") === "true";
+      t.setAttribute("aria-expanded", String(!c)), r.classList.toggle("expanded", !c);
+    });
+  });
+}
+function Ma(i) {
   return {
     sync: i.sync && typeof i.sync == "object" ? {
       base_url: String(i.sync.base_url || "").trim(),
@@ -10343,20 +10354,20 @@ function Ra(i) {
 }
 class hr {
   constructor(e) {
-    this.initialized = !1, this.config = Ra(e);
+    this.initialized = !1, this.config = Ma(e);
   }
   init() {
-    this.initialized || (this.initialized = !0, Da(this.config));
+    this.initialized || (this.initialized = !0, Ra(), Da(this.config));
   }
   destroy() {
     ka(), this.initialized = !1;
   }
 }
-function Xo(i) {
+function Qo(i) {
   const e = new hr(i);
   return Fe(() => e.init()), e;
 }
-function Ma(i) {
+function $a(i) {
   const e = new hr({
     sync: i.sync,
     basePath: i.basePath,
@@ -10382,7 +10393,7 @@ typeof document < "u" && Fe(() => {
   if (e)
     try {
       const t = JSON.parse(e.textContent || "{}");
-      Ma({
+      $a({
         sync: t.sync && typeof t.sync == "object" ? t.sync : void 0,
         base_path: t.base_path || t.basePath,
         api_base_path: t.api_base_path || t.apiBasePath,
@@ -10399,14 +10410,14 @@ typeof document < "u" && Fe(() => {
       console.warn("Failed to parse agreement form page config:", t);
     }
 });
-const $a = "esign.signer.profile.v1", Qi = "esign.signer.profile.outbox.v1", di = 90, Zi = 500 * 1024;
-class Ba {
+const Ba = "esign.signer.profile.v1", Qi = "esign.signer.profile.outbox.v1", di = 90, Zi = 500 * 1024;
+class Fa {
   constructor(e) {
     const t = Number.isFinite(e) && e > 0 ? e : di;
     this.ttlMs = t * 24 * 60 * 60 * 1e3;
   }
   storageKey(e) {
-    return `${$a}:${e}`;
+    return `${Ba}:${e}`;
   }
   async load(e) {
     try {
@@ -10451,7 +10462,7 @@ class Ba {
     }
   }
 }
-class Fa {
+class Na {
   constructor(e, t) {
     this.endpointBasePath = e.replace(/\/$/, ""), this.token = t;
   }
@@ -10603,7 +10614,7 @@ class ni {
     this.removeOutboxEntry(e);
   }
 }
-function Na(i) {
+function Ha(i) {
   const e = i.profile?.mode || "local_only";
   return {
     token: String(i.token || "").trim(),
@@ -10647,7 +10658,7 @@ function Na(i) {
     }
   };
 }
-function Ha(i) {
+function Ua(i) {
   return !i || typeof i != "object" ? null : {
     id: String(i.id || "").trim(),
     participant_type: String(i.participant_type || "").trim(),
@@ -10657,7 +10668,7 @@ function Ha(i) {
     decision_status: String(i.decision_status || "").trim()
   };
 }
-function Ua(i) {
+function za(i) {
   if (!i || typeof i != "object") return null;
   const e = i.thread && typeof i.thread == "object" ? i.thread : {}, t = Array.isArray(i.messages) ? i.messages : [];
   return {
@@ -10691,7 +10702,7 @@ function Ua(i) {
 }
 function ui(i) {
   if (!i || typeof i != "object") return null;
-  const e = Array.isArray(i.threads) ? i.threads.map(Ua).filter(Boolean) : [], t = Array.isArray(i.blockers) ? i.blockers.map((n) => String(n || "").trim()).filter(Boolean) : [];
+  const e = Array.isArray(i.threads) ? i.threads.map(za).filter(Boolean) : [], t = Array.isArray(i.blockers) ? i.blockers.map((n) => String(n || "").trim()).filter(Boolean) : [];
   return {
     review_id: String(i.review_id || "").trim(),
     status: String(i.status || "").trim(),
@@ -10706,7 +10717,7 @@ function ui(i) {
     sign_blocked: !!i.sign_blocked,
     sign_block_reason: String(i.sign_block_reason || "").trim(),
     blockers: t,
-    participant: Ha(i.participant),
+    participant: Ua(i.participant),
     open_thread_count: Number(i.open_thread_count || 0) || 0,
     resolved_thread_count: Number(i.resolved_thread_count || 0) || 0,
     threads: e
@@ -10737,7 +10748,7 @@ function Qt(i) {
       return e ? e.replace(/_/g, " ") : "Inactive";
   }
 }
-function za(i) {
+function Oa(i) {
   const e = typeof window < "u" ? window.location.origin.toLowerCase() : "unknown", t = i.recipientEmail ? i.recipientEmail.trim().toLowerCase() : i.recipientId.trim().toLowerCase();
   return encodeURIComponent(`${e}:${t}`);
 }
@@ -10745,31 +10756,31 @@ function ri(i) {
   const e = String(i || "").trim().split(/\s+/).filter(Boolean);
   return e.length === 0 ? "" : e.slice(0, 3).map((t) => t[0].toUpperCase()).join("");
 }
-function Oa(i) {
+function ja(i) {
   const e = String(i || "").trim().toLowerCase();
   return e === "[drawn]" || e === "[drawn initials]";
 }
 function xt(i) {
   const e = String(i || "").trim();
-  return Oa(e) ? "" : e;
+  return ja(e) ? "" : e;
 }
-function ja(i) {
-  const e = new Ba(i.profile.ttlDays), t = new Fa(i.profile.endpointBasePath, i.token);
+function qa(i) {
+  const e = new Fa(i.profile.ttlDays), t = new Na(i.profile.endpointBasePath, i.token);
   return i.profile.mode === "local_only" ? new ni("local_only", e, null) : i.profile.mode === "remote_only" ? new ni("remote_only", e, t) : new ni("hybrid", e, t);
 }
-function qa() {
+function Va() {
   const i = window;
   i.pdfjsLib && i.pdfjsLib.GlobalWorkerOptions && (i.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js");
 }
-function Va(i) {
+function Ga(i) {
   const e = document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]');
   if (!e) return;
   const t = e;
   if (t.dataset.esignBootstrapped === "true")
     return;
   t.dataset.esignBootstrapped = "true";
-  const n = Na(i), r = za(n), c = ja(n);
-  qa();
+  const n = Ha(i), r = Oa(n), c = qa(n);
+  Va();
   const d = {
     events: [],
     sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
@@ -13603,16 +13614,16 @@ class vr {
     this.config = e;
   }
   init() {
-    Va(this.config);
+    Ga(this.config);
   }
   destroy() {
   }
 }
-function Qo(i) {
+function Zo(i) {
   const e = new vr(i);
   return Fe(() => e.init()), e;
 }
-function Ga() {
+function Wa() {
   const i = document.getElementById("esign-signer-review-config");
   if (!i) return null;
   try {
@@ -13624,7 +13635,7 @@ function Ga() {
 }
 typeof document < "u" && Fe(() => {
   if (!document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]')) return;
-  const e = Ga();
+  const e = Wa();
   if (!e) {
     console.warn("Missing signer review config script payload");
     return;
@@ -13659,11 +13670,11 @@ class yr {
     window.location.reload();
   }
 }
-function Zo(i = {}) {
+function ec(i = {}) {
   const e = new yr(i);
   return Fe(() => e.init()), e;
 }
-function ec(i = {}) {
+function tc(i = {}) {
   const e = new yr(i);
   Fe(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
 }
@@ -13786,11 +13797,11 @@ class mi {
     t && B(t), n && B(n), r && Y(r), d && B(d), c && (c.textContent = e);
   }
 }
-function tc(i) {
+function nc(i) {
   const e = new mi(i);
   return e.init(), e;
 }
-function nc(i) {
+function ic(i) {
   const e = {
     documentId: i.documentId,
     pdfUrl: i.pdfUrl,
@@ -13809,7 +13820,7 @@ typeof document < "u" && Fe(() => {
     }).init();
   }
 });
-class ic {
+class rc {
   constructor(e) {
     this.env = e;
   }
@@ -13821,7 +13832,7 @@ class ic {
     await t.refresh();
   }
 }
-class rc {
+class sc {
   constructor(e) {
     this.env = e;
   }
@@ -13833,7 +13844,7 @@ class rc {
     t.resetPagination(), await t.refresh();
   }
 }
-function Wa(i) {
+function Ya(i) {
   switch ((i || "").toLowerCase()) {
     case "select":
     case "enum":
@@ -13849,7 +13860,7 @@ function Wa(i) {
       return "text";
   }
 }
-function Ya(i) {
+function Ja(i) {
   if (!Array.isArray(i)) return;
   const e = i.map((t) => {
     if (!t) return null;
@@ -13858,48 +13869,48 @@ function Ya(i) {
   }).filter((t) => t !== null);
   return e.length > 0 ? e : void 0;
 }
-function Ja(i, e) {
+function Ka(i, e) {
   if (!Array.isArray(i) || i.length === 0) return;
   const t = i.map((c) => String(c || "").trim().toLowerCase()).filter(Boolean);
   if (t.length === 0) return;
   const n = Array.from(new Set(t)), r = e ? String(e).trim().toLowerCase() : "";
   return r && n.includes(r) ? [r, ...n.filter((c) => c !== r)] : n;
 }
-function sc(i) {
+function ac(i) {
   return i.map((e) => ({
     ...e,
     hidden: e.default === !1
   }));
 }
-function ac(i) {
+function oc(i) {
   return i ? i.map((e) => ({
     name: e.name,
     label: e.label,
-    type: Wa(e.type),
-    options: Ya(e.options),
-    operators: Ja(e.operators, e.default_operator)
+    type: Ya(e.type),
+    options: Ja(e.options),
+    operators: Ka(e.operators, e.default_operator)
   })) : [];
 }
-function oc(i) {
+function cc(i) {
   if (!i) return "-";
   const e = ss(i);
   return e ? e.toLocaleDateString() + " " + e.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : String(i);
 }
-function cc(i) {
+function lc(i) {
   if (!i || Number(i) <= 0) return "-";
   const e = parseInt(String(i), 10);
   return e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function lc(i, e, t) {
+function dc(i, e, t) {
   t && t.success(`${i} completed successfully`);
 }
-function dc(i, e, t) {
+function uc(i, e, t) {
   if (t) {
     const n = e?.fields ? Object.entries(e.fields).map(([d, s]) => `${d}: ${s}`).join("; ") : "", r = e?.textCode ? `${e.textCode}: ` : "", c = e?.message || `${i} failed`;
     t.error(n ? `${r}${c}: ${n}` : `${r}${c}`);
   }
 }
-function uc(i, e) {
+function pc(i, e) {
   const t = g(`#${i}`);
   t && t.addEventListener("click", async () => {
     t.disabled = !0, t.classList.add("opacity-50");
@@ -13910,7 +13921,7 @@ function uc(i, e) {
     }
   });
 }
-function pc(i, e) {
+function gc(i, e) {
   const t = i.refresh.bind(i);
   return async function() {
     await t();
@@ -13918,7 +13929,7 @@ function pc(i, e) {
     n?.actions && e(n.actions);
   };
 }
-const gc = {
+const mc = {
   searchInput: "#table-search",
   perPageSelect: "#table-per-page",
   filterRow: "[data-filter-column]",
@@ -13934,23 +13945,23 @@ const gc = {
   rowCheckboxes: ".table-checkbox",
   bulkActionsBar: "#bulk-actions-overlay",
   selectedCount: "#selected-count"
-}, Tn = "application/vnd.google-apps.document", fi = "application/vnd.google-apps.spreadsheet", hi = "application/vnd.google-apps.presentation", br = "application/vnd.google-apps.folder", vi = "application/pdf", Ka = [Tn, vi], wr = "esign.google.account_id";
-function Xa(i) {
+}, Tn = "application/vnd.google-apps.document", fi = "application/vnd.google-apps.spreadsheet", hi = "application/vnd.google-apps.presentation", br = "application/vnd.google-apps.folder", vi = "application/pdf", Xa = [Tn, vi], wr = "esign.google.account_id";
+function Qa(i) {
   return i.mimeType === Tn;
 }
-function Qa(i) {
+function Za(i) {
   return i.mimeType === vi;
 }
 function qt(i) {
   return i.mimeType === br;
 }
-function Za(i) {
-  return Ka.includes(i.mimeType);
+function eo(i) {
+  return Xa.includes(i.mimeType);
 }
-function mc(i) {
+function fc(i) {
   return i.mimeType === Tn || i.mimeType === fi || i.mimeType === hi;
 }
-function eo(i) {
+function to(i) {
   return {
     id: i.id || "",
     name: i.name || "Untitled",
@@ -13963,8 +13974,8 @@ function eo(i) {
     parents: i.parents
   };
 }
-function fc(i) {
-  return i.map(eo);
+function hc(i) {
+  return i.map(to);
 }
 function Sr(i) {
   return {
@@ -13982,16 +13993,16 @@ function Sr(i) {
     "text/plain": "Text File"
   }[i] || "File";
 }
-function to(i) {
+function no(i) {
   return qt(i) ? {
     icon: "iconoir-folder",
     bgClass: "bg-yellow-100",
     textClass: "text-yellow-600"
-  } : Xa(i) ? {
+  } : Qa(i) ? {
     icon: "iconoir-google-docs",
     bgClass: "bg-blue-100",
     textClass: "text-blue-600"
-  } : Qa(i) ? {
+  } : Za(i) ? {
     icon: "iconoir-page",
     bgClass: "bg-red-100",
     textClass: "text-red-600"
@@ -14013,10 +14024,10 @@ function to(i) {
     textClass: "text-gray-600"
   };
 }
-function no(i) {
+function io(i) {
   return !i || i <= 0 ? "-" : i < 1024 ? `${i} B` : i < 1024 * 1024 ? `${(i / 1024).toFixed(1)} KB` : `${(i / (1024 * 1024)).toFixed(2)} MB`;
 }
-function io(i) {
+function ro(i) {
   if (!i) return "-";
   try {
     return new Date(i).toLocaleDateString();
@@ -14024,7 +14035,7 @@ function io(i) {
     return i;
   }
 }
-function hc(i, e) {
+function vc(i, e) {
   const t = i.get("account_id");
   if (t)
     return xn(t);
@@ -14038,11 +14049,11 @@ function xn(i) {
   const e = i.trim();
   return e === "null" || e === "undefined" || e === "0" ? "" : e;
 }
-function vc(i) {
+function yc(i) {
   const e = xn(i);
   e && localStorage.setItem(wr, e);
 }
-function yc(i, e) {
+function bc(i, e) {
   if (!e) return i;
   try {
     const t = new URL(i, window.location.origin);
@@ -14052,11 +14063,11 @@ function yc(i, e) {
     return `${i}${t}account_id=${encodeURIComponent(e)}`;
   }
 }
-function bc(i, e, t) {
+function wc(i, e, t) {
   const n = new URL(e, window.location.origin);
   return n.pathname.startsWith(i) || (n.pathname = `${i}${e}`), t && n.searchParams.set("account_id", t), n;
 }
-function wc(i) {
+function Sc(i) {
   const e = new URL(window.location.href), t = e.searchParams.get("account_id");
   i && t !== i ? (e.searchParams.set("account_id", i), window.history.replaceState({}, "", e.toString())) : !i && t && (e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString()));
 }
@@ -14064,15 +14075,15 @@ function Vt(i) {
   const e = document.createElement("div");
   return e.textContent = i, e.innerHTML;
 }
-function ro(i) {
-  const e = to(i);
+function so(i) {
+  const e = no(i);
   return `
     <div class="w-10 h-10 ${e.bgClass} rounded-lg flex items-center justify-center flex-shrink-0">
       <i class="${e.icon} ${e.textClass}" aria-hidden="true"></i>
     </div>
   `;
 }
-function Sc(i, e) {
+function xc(i, e) {
   if (i.length === 0)
     return '<span class="text-gray-600 text-sm font-medium">My Drive</span>';
   const t = [
@@ -14088,8 +14099,8 @@ function Sc(i, e) {
       >${Vt(n.name)}</button>`;
   }).join("");
 }
-function so(i, e = {}) {
-  const { selectable: t = !0, showSize: n = !0, showDate: r = !0 } = e, c = ro(i), d = qt(i), s = Za(i), h = d ? "cursor-pointer hover:bg-gray-50" : s ? "cursor-pointer hover:bg-blue-50" : "opacity-60", m = d ? `data-folder-id="${i.id}" data-folder-name="${Vt(i.name)}"` : s && t ? `data-file-id="${i.id}" data-file-name="${Vt(i.name)}" data-mime-type="${i.mimeType}"` : "";
+function ao(i, e = {}) {
+  const { selectable: t = !0, showSize: n = !0, showDate: r = !0 } = e, c = so(i), d = qt(i), s = eo(i), h = d ? "cursor-pointer hover:bg-gray-50" : s ? "cursor-pointer hover:bg-blue-50" : "opacity-60", m = d ? `data-folder-id="${i.id}" data-folder-name="${Vt(i.name)}"` : s && t ? `data-file-id="${i.id}" data-file-name="${Vt(i.name)}" data-mime-type="${i.mimeType}"` : "";
   return `
     <div
       class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${h} file-item"
@@ -14102,15 +14113,15 @@ function so(i, e = {}) {
         <p class="font-medium text-gray-900 truncate">${Vt(i.name)}</p>
         <p class="text-xs text-gray-500">
           ${Sr(i.mimeType)}
-          ${n && i.size > 0 ? ` &middot; ${no(i.size)}` : ""}
-          ${r && i.modifiedTime ? ` &middot; ${io(i.modifiedTime)}` : ""}
+          ${n && i.size > 0 ? ` &middot; ${io(i.size)}` : ""}
+          ${r && i.modifiedTime ? ` &middot; ${ro(i.modifiedTime)}` : ""}
         </p>
       </div>
       ${s && t ? '<i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>' : ""}
     </div>
   `;
 }
-function xc(i, e = {}) {
+function Ic(i, e = {}) {
   const { emptyMessage: t = "No files found", selectable: n = !0 } = e;
   return i.length === 0 ? `
       <div class="text-center py-8 text-gray-500">
@@ -14119,11 +14130,11 @@ function xc(i, e = {}) {
       </div>
     ` : `
     <div class="space-y-2" role="list">
-      ${[...i].sort((c, d) => qt(c) && !qt(d) ? -1 : !qt(c) && qt(d) ? 1 : c.name.localeCompare(d.name)).map((c) => so(c, { selectable: n })).join("")}
+      ${[...i].sort((c, d) => qt(c) && !qt(d) ? -1 : !qt(c) && qt(d) ? 1 : c.name.localeCompare(d.name)).map((c) => ao(c, { selectable: n })).join("")}
     </div>
   `;
 }
-function Ic(i) {
+function Ec(i) {
   return {
     id: i.id,
     name: i.name,
@@ -14142,7 +14153,7 @@ export {
   ir as GoogleCallbackController,
   sr as GoogleDrivePickerController,
   rr as GoogleIntegrationController,
-  Ka as IMPORTABLE_MIME_TYPES,
+  Xa as IMPORTABLE_MIME_TYPES,
   cr as IntegrationConflictsController,
   ar as IntegrationHealthController,
   or as IntegrationMappingsController,
@@ -14153,116 +14164,116 @@ export {
   fi as MIME_GOOGLE_SHEET,
   hi as MIME_GOOGLE_SLIDES,
   vi as MIME_PDF,
-  ic as PanelPaginationBehavior,
-  rc as PanelSearchBehavior,
-  gc as STANDARD_GRID_SELECTORS,
+  rc as PanelPaginationBehavior,
+  sc as PanelSearchBehavior,
+  mc as STANDARD_GRID_SELECTORS,
   nr as SignerCompletePageController,
   yr as SignerErrorPageController,
   vr as SignerReviewController,
   mt as announce,
-  yc as applyAccountIdToPath,
+  bc as applyAccountIdToPath,
   vs as applyDetailFormatters,
-  Ma as bootstrapAgreementForm,
-  nc as bootstrapDocumentDetailPreview,
-  Ko as bootstrapDocumentForm,
-  Bo as bootstrapGoogleCallback,
-  Uo as bootstrapGoogleDrivePicker,
-  No as bootstrapGoogleIntegration,
-  Go as bootstrapIntegrationConflicts,
-  Oo as bootstrapIntegrationHealth,
-  qo as bootstrapIntegrationMappings,
-  Yo as bootstrapIntegrationSyncRuns,
-  Do as bootstrapLandingPage,
-  Mo as bootstrapSignerCompletePage,
-  ec as bootstrapSignerErrorPage,
-  Va as bootstrapSignerReview,
-  bc as buildScopedApiUrl,
-  wo as byId,
+  $a as bootstrapAgreementForm,
+  ic as bootstrapDocumentDetailPreview,
+  Xo as bootstrapDocumentForm,
+  Fo as bootstrapGoogleCallback,
+  zo as bootstrapGoogleDrivePicker,
+  Ho as bootstrapGoogleIntegration,
+  Wo as bootstrapIntegrationConflicts,
+  jo as bootstrapIntegrationHealth,
+  Vo as bootstrapIntegrationMappings,
+  Jo as bootstrapIntegrationSyncRuns,
+  Ro as bootstrapLandingPage,
+  $o as bootstrapSignerCompletePage,
+  tc as bootstrapSignerErrorPage,
+  Ga as bootstrapSignerReview,
+  wc as buildScopedApiUrl,
+  So as byId,
   ds as capitalize,
   ls as createESignClient,
   gs as createElement,
-  pc as createSchemaActionCachingRefresh,
-  Ic as createSelectedFile,
-  yo as createStatusBadgeElement,
-  To as createTimeoutController,
-  oc as dateTimeCellRenderer,
+  gc as createSchemaActionCachingRefresh,
+  Ec as createSelectedFile,
+  bo as createStatusBadgeElement,
+  Po as createTimeoutController,
+  cc as dateTimeCellRenderer,
   En as debounce,
-  dc as defaultActionErrorHandler,
-  lc as defaultActionSuccessHandler,
-  xo as delegate,
+  uc as defaultActionErrorHandler,
+  dc as defaultActionSuccessHandler,
+  Io as delegate,
   Vt as escapeHtml,
-  cc as fileSizeCellRenderer,
-  po as formatDate,
+  lc as fileSizeCellRenderer,
+  go as formatDate,
   In as formatDateTime,
-  io as formatDriveDate,
-  no as formatDriveFileSize,
+  ro as formatDriveDate,
+  io as formatDriveFileSize,
   yn as formatFileSize,
-  uo as formatPageCount,
-  fo as formatRecipientCount,
-  mo as formatRelativeTime,
+  po as formatPageCount,
+  ho as formatRecipientCount,
+  fo as formatRelativeTime,
   fs as formatSizeElements,
-  go as formatTime,
+  mo as formatTime,
   hs as formatTimestampElements,
   er as getAgreementStatusBadge,
-  lo as getESignClient,
-  to as getFileIconConfig,
+  uo as getESignClient,
+  no as getFileIconConfig,
   Sr as getFileTypeName,
   ms as getPageConfig,
   B as hide,
-  Xo as initAgreementForm,
+  Qo as initAgreementForm,
   ys as initDetailFormatters,
-  tc as initDocumentDetailPreview,
-  Jo as initDocumentForm,
-  $o as initGoogleCallback,
-  Ho as initGoogleDrivePicker,
-  Fo as initGoogleIntegration,
-  Vo as initIntegrationConflicts,
-  zo as initIntegrationHealth,
-  jo as initIntegrationMappings,
-  Wo as initIntegrationSyncRuns,
-  ko as initLandingPage,
-  Ro as initSignerCompletePage,
-  Zo as initSignerErrorPage,
-  Qo as initSignerReview,
+  nc as initDocumentDetailPreview,
+  Ko as initDocumentForm,
+  Bo as initGoogleCallback,
+  Uo as initGoogleDrivePicker,
+  No as initGoogleIntegration,
+  Go as initIntegrationConflicts,
+  Oo as initIntegrationHealth,
+  qo as initIntegrationMappings,
+  Yo as initIntegrationSyncRuns,
+  Do as initLandingPage,
+  Mo as initSignerCompletePage,
+  ec as initSignerErrorPage,
+  Zo as initSignerReview,
   qt as isFolder,
-  Xa as isGoogleDoc,
-  mc as isGoogleWorkspaceFile,
-  Za as isImportable,
-  Qa as isPDF,
+  Qa as isGoogleDoc,
+  fc as isGoogleWorkspaceFile,
+  eo as isImportable,
+  Za as isPDF,
   xn as normalizeAccountId,
-  eo as normalizeDriveFile,
-  fc as normalizeDriveFiles,
-  Ja as normalizeFilterOperators,
-  Ya as normalizeFilterOptions,
-  Wa as normalizeFilterType,
-  So as on,
+  to as normalizeDriveFile,
+  hc as normalizeDriveFiles,
+  Ka as normalizeFilterOperators,
+  Ja as normalizeFilterOptions,
+  Ya as normalizeFilterType,
+  xo as on,
   Fe as onReady,
-  Lo as poll,
-  ac as prepareFilterFields,
-  sc as prepareGridColumns,
+  _o as poll,
+  oc as prepareFilterFields,
+  ac as prepareGridColumns,
   g as qs,
   Ht as qsa,
-  Sc as renderBreadcrumb,
-  ro as renderFileIcon,
-  so as renderFileItem,
-  xc as renderFileList,
+  xc as renderBreadcrumb,
+  so as renderFileIcon,
+  ao as renderFileItem,
+  Ic as renderFileList,
   ps as renderStatusBadge,
-  hc as resolveAccountId,
-  _o as retry,
-  vc as saveAccountId,
+  vc as resolveAccountId,
+  Ao as retry,
+  yc as saveAccountId,
   cs as setESignClient,
-  Eo as setLoading,
-  uc as setupRefreshButton,
+  Co as setLoading,
+  pc as setupRefreshButton,
   Y as show,
   tr as sleep,
-  ho as snakeToTitle,
-  wc as syncAccountIdToUrl,
-  Ao as throttle,
-  Io as toggle,
-  vo as truncate,
+  vo as snakeToTitle,
+  Sc as syncAccountIdToUrl,
+  To as throttle,
+  Eo as toggle,
+  yo as truncate,
   Zt as updateDataText,
-  Co as updateDataTexts,
-  bo as updateStatusBadge,
-  Po as withTimeout
+  Lo as updateDataTexts,
+  wo as updateStatusBadge,
+  ko as withTimeout
 };
 //# sourceMappingURL=index.js.map

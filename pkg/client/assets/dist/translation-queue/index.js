@@ -1,7 +1,7 @@
 import { r as L } from "../chunks/translation-status-vocabulary-huaq_68y.js";
 import { h as U, r as K } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as G } from "../toast/error-helpers.js";
-import { H as C, a as Y, l as W, r as f, I as D, J as T, K as J, N as X, O as Z, P as ee, Q as te, R as w, S as $, T as k, U as se } from "../chunks/style-constants-BesmSFuV.js";
+import { H as C, f as Y, a as W, w as f, N as D, O as T, P as X, Q as Z, S as J, U as ee, V as te, W as w, X as $, Y as k, Z as se } from "../chunks/style-constants-DMszSbOH.js";
 class E extends Error {
   constructor(e) {
     super(e.message), this.name = "AssignmentQueueRequestError", this.status = e.status, this.code = e.code ?? null, this.metadata = e.metadata ?? null, this.requestId = e.requestId, this.traceId = e.traceId;
@@ -844,7 +844,7 @@ class $e {
     const s = this.pendingActions.has(`claim:${e.id}`), i = this.pendingActions.has(`release:${e.id}`), a = this.pendingActions.has(`approve:${e.id}`), n = this.pendingActions.has(`reject:${e.id}`), c = this.pendingActions.has(`archive:${e.id}`), p = s || !e.actions.claim.enabled, l = i || !e.actions.release.enabled, g = O(e), A = M(e);
     return `
       <article
-        class="${J}"
+        class="${X}"
         data-assignment-id="${d(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -852,9 +852,9 @@ class $e {
         role="button"
         aria-label="${d(z(e))}"
       >
-        <div class="${X}">
+        <div class="${Z}">
           <div>
-            <h3 class="${Z}">${o(e.source_title || e.source_path || e.id)}</h3>
+            <h3 class="${J}">${o(e.source_title || e.source_path || e.id)}</h3>
             <p class="${ee}">${o(e.entity_type)} · ${o(e.source_path || e.family_id)}</p>
           </div>
           ${L(e.queue_state, { domain: "queue", size: "sm" })}

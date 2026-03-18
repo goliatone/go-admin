@@ -18,6 +18,23 @@ export interface AgreementFormConfig extends AgreementFormRuntimeConfig {
   };
 }
 
+function initAgreementFormCollapsibles(root: ParentNode = document): void {
+  const triggers = root.querySelectorAll<HTMLElement>('.collapsible-trigger[aria-controls]');
+  triggers.forEach((trigger) => {
+    const contentID = trigger.getAttribute('aria-controls');
+    if (!contentID) return;
+
+    const content = document.getElementById(contentID);
+    if (!content) return;
+
+    trigger.addEventListener('click', () => {
+      const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+      trigger.setAttribute('aria-expanded', String(!isExpanded));
+      content.classList.toggle('expanded', !isExpanded);
+    });
+  });
+}
+
 function normalizeAgreementFormConfig(config: AgreementFormConfig): AgreementFormRuntimeConfig {
   return {
     sync: config.sync && typeof config.sync === 'object'
@@ -61,6 +78,7 @@ export class AgreementFormController {
   init(): void {
     if (this.initialized) return;
     this.initialized = true;
+    initAgreementFormCollapsibles();
     initAgreementFormRuntime(this.config);
   }
 
