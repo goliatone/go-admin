@@ -550,7 +550,7 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 10)
+	require.Len(t, rr.calls, 11)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -587,7 +587,7 @@ func TestPanelStepActionSuccessEnvelopeUsesResponderForNon200Status(t *testing.T
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 10)
+	require.Len(t, rr.calls, 11)
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -726,7 +726,7 @@ func TestPanelStepRegistersPanelSubresourceRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, PanelStep(ctx))
-	require.Len(t, rr.calls, 10)
+	require.Len(t, rr.calls, 11)
 
 	expectedPath := mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
 		"panel":       "agreements",

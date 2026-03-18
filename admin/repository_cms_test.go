@@ -740,37 +740,25 @@ func TestCMSContentRepositoryListEmitsCanonicalFamilyIDWhenTranslationMetadataPr
 		Title:           "Page One",
 		Slug:            "page-one",
 		Locale:          "en",
+		FamilyID:        "tg-page-1",
 		Status:          "draft",
 		ContentTypeSlug: "page",
-		Data: map[string]any{
-			"translation_context": map[string]any{
-				"family_id": "tg-page-1",
-			},
-		},
 	})
 	_, _ = content.CreateContent(ctx, CMSContent{
 		Title:           "Post One",
 		Slug:            "post-one",
 		Locale:          "en",
+		FamilyID:        "tg-post-1",
 		Status:          "draft",
 		ContentTypeSlug: "post",
-		Data: map[string]any{
-			"translation_context": map[string]any{
-				"family_id": "tg-post-1",
-			},
-		},
 	})
 	_, _ = content.CreateContent(ctx, CMSContent{
 		Title:           "News One",
 		Slug:            "news-one",
 		Locale:          "en",
+		FamilyID:        "tg-news-1",
 		Status:          "draft",
 		ContentTypeSlug: "news",
-		Data: map[string]any{
-			"translation_context": map[string]any{
-				"family_id": "tg-news-1",
-			},
-		},
 	})
 
 	list, total, err := repo.List(ctx, ListOptions{PerPage: 20})
@@ -823,6 +811,52 @@ func TestCMSContentTypeEntryRepositoryListEmitsCanonicalFamilyIDForTranslationCa
 	}
 	if created != nil && strings.TrimSpace(created.FamilyID) != familyID {
 		t.Fatalf("expected created content to preserve family_id %q, got %q", familyID, created.FamilyID)
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryListRejectsTranslationCapabilityTypesWithoutCanonicalFamilyID(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Legacy Announcement",
+		Slug:            "legacy-announcement",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "announcements",
+	})
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{
+		Slug: "announcements",
+		Capabilities: map[string]any{
+			"translations": true,
+		},
+	})
+
+	list, total, err := repo.List(ctx, ListOptions{PerPage: 10})
+	if err == nil {
+		t.Fatalf("expected canonical family_id validation error, got list=%#v total=%d", list, total)
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryGetRejectsTranslationCapabilityTypesWithoutCanonicalFamilyID(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	created, _ := content.CreateContent(ctx, CMSContent{
+		Title:           "Legacy Announcement",
+		Slug:            "legacy-announcement",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "announcements",
+	})
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{
+		Slug: "announcements",
+		Capabilities: map[string]any{
+			"translations": true,
+		},
+	})
+
+	record, err := repo.Get(ctx, created.ID)
+	if err == nil {
+		t.Fatalf("expected canonical family_id validation error, got record=%#v", record)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 )
 
 type stubTranslationExchangeExecutor struct {
+	mu sync.RWMutex
+
 	exportInput   TranslationExportInput
 	validateInput TranslationImportValidateInput
 	applyInput    TranslationImportApplyInput
@@ -30,21 +33,45 @@ type stubTranslationExchangeExecutor struct {
 }
 
 func (s *stubTranslationExchangeExecutor) Export(_ context.Context, input TranslationExportInput) (TranslationExportResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.exportCalled++
 	s.exportInput = input
 	return s.exportResult, nil
 }
 
 func (s *stubTranslationExchangeExecutor) Validate(_ context.Context, input TranslationImportValidateInput) (TranslationExchangeResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.validateCalled++
 	s.validateInput = input
 	return s.validateResult, nil
 }
 
 func (s *stubTranslationExchangeExecutor) Apply(_ context.Context, input TranslationImportApplyInput) (TranslationExchangeResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.applyCalled++
 	s.applyInput = input
 	return s.applyResult, nil
+}
+
+func (s *stubTranslationExchangeExecutor) exportSnapshot() (int, TranslationExportInput) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.exportCalled, s.exportInput
+}
+
+func (s *stubTranslationExchangeExecutor) validateSnapshot() (int, TranslationImportValidateInput) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.validateCalled, s.validateInput
+}
+
+func (s *stubTranslationExchangeExecutor) applySnapshot() (int, TranslationImportApplyInput) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.applyCalled, s.applyInput
 }
 
 func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActivity(t *testing.T) {
@@ -89,13 +116,14 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	if executor.validateCalled != 1 {
-		t.Fatalf("validate called=%d, want 1", executor.validateCalled)
+	validateCalled, validateInput := executor.validateSnapshot()
+	if validateCalled != 1 {
+		t.Fatalf("validate called=%d, want 1", validateCalled)
 	}
-	if len(executor.validateInput.Rows) != 1 {
-		t.Fatalf("rows=%d, want 1", len(executor.validateInput.Rows))
+	if len(validateInput.Rows) != 1 {
+		t.Fatalf("rows=%d, want 1", len(validateInput.Rows))
 	}
-	row := executor.validateInput.Rows[0]
+	row := validateInput.Rows[0]
 	if row.Resource != "pages" || row.EntityID != "page_123" || row.FamilyID != "tg_123" {
 		t.Fatalf("unexpected parsed row: %+v", row)
 	}
@@ -164,26 +192,27 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	if executor.applyCalled != 1 {
-		t.Fatalf("apply called=%d, want 1", executor.applyCalled)
+	applyCalled, applyInput := executor.applySnapshot()
+	if applyCalled != 1 {
+		t.Fatalf("apply called=%d, want 1", applyCalled)
 	}
-	if !executor.applyInput.AllowCreateMissing {
+	if !applyInput.AllowCreateMissing {
 		t.Fatalf("expected AllowCreateMissing=true")
 	}
-	if !executor.applyInput.AllowSourceHashOverride {
+	if !applyInput.AllowSourceHashOverride {
 		t.Fatalf("expected AllowSourceHashOverride=true")
 	}
-	if !executor.applyInput.ContinueOnError {
+	if !applyInput.ContinueOnError {
 		t.Fatalf("expected ContinueOnError=true")
 	}
-	if !executor.applyInput.DryRun {
+	if !applyInput.DryRun {
 		t.Fatalf("expected DryRun=true")
 	}
-	if executor.applyInput.RetryJobID != "" {
-		t.Fatalf("expected RetryJobID to remain unset, got %q", executor.applyInput.RetryJobID)
+	if applyInput.RetryJobID != "" {
+		t.Fatalf("expected RetryJobID to remain unset, got %q", applyInput.RetryJobID)
 	}
-	if len(executor.applyInput.Resolutions) != 0 {
-		t.Fatalf("expected no conflict resolutions, got %+v", executor.applyInput.Resolutions)
+	if len(applyInput.Resolutions) != 0 {
+		t.Fatalf("expected no conflict resolutions, got %+v", applyInput.Resolutions)
 	}
 }
 
@@ -283,7 +312,8 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	if errPayload["text_code"] != TextCodeTranslationExchangeUnsupportedFormat {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationExchangeUnsupportedFormat, errPayload["text_code"])
 	}
-	if executor.validateCalled != 0 {
+	validateCalled, _ := executor.validateSnapshot()
+	if validateCalled != 0 {
 		t.Fatalf("validate should not be called on parse error")
 	}
 }
@@ -318,7 +348,8 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
-	if executor.validateCalled != 0 {
+	validateCalled, _ := executor.validateSnapshot()
+	if validateCalled != 0 {
 		t.Fatalf("validate should not be called on strict top-level key error")
 	}
 }
@@ -357,10 +388,11 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	if executor.exportCalled != 1 {
-		t.Fatalf("export called=%d, want 1", executor.exportCalled)
+	exportCalled, exportInput := executor.exportSnapshot()
+	if exportCalled != 1 {
+		t.Fatalf("export called=%d, want 1", exportCalled)
 	}
-	filter := executor.exportInput.Filter
+	filter := exportInput.Filter
 	if len(filter.Resources) != 2 || filter.Resources[0] != "pages" {
 		t.Fatalf("unexpected resources: %v", filter.Resources)
 	}
@@ -414,14 +446,15 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	if executor.validateCalled != 1 {
-		t.Fatalf("validate called=%d, want 1", executor.validateCalled)
+	validateCalled, validateInput := executor.validateSnapshot()
+	if validateCalled != 1 {
+		t.Fatalf("validate called=%d, want 1", validateCalled)
 	}
-	if len(executor.validateInput.Rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(executor.validateInput.Rows))
+	if len(validateInput.Rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(validateInput.Rows))
 	}
-	if executor.validateInput.Rows[0].FieldPath != "title" {
-		t.Fatalf("expected field_path=title, got %s", executor.validateInput.Rows[0].FieldPath)
+	if validateInput.Rows[0].FieldPath != "title" {
+		t.Fatalf("expected field_path=title, got %s", validateInput.Rows[0].FieldPath)
 	}
 }
 
@@ -457,7 +490,8 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	if errPayload["text_code"] != TextCodeTranslationExchangeInvalidPayload {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationExchangeInvalidPayload, errPayload["text_code"])
 	}
-	if executor.validateCalled != 0 {
+	validateCalled, _ := executor.validateSnapshot()
+	if validateCalled != 0 {
 		t.Fatalf("validate should not be called on parse error")
 	}
 }
@@ -490,7 +524,8 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 		t.Fatalf("request error: %v", err)
 	}
 	// Validation happens in command layer, so executor is called but returns validation error
-	if executor.validateCalled != 0 && resp.StatusCode == http.StatusBadRequest {
+	validateCalled, _ := executor.validateSnapshot()
+	if validateCalled != 0 && resp.StatusCode == http.StatusBadRequest {
 		// Validation happened in binding layer (before command dispatch)
 		defer resp.Body.Close()
 		respPayload := map[string]any{}
@@ -531,13 +566,14 @@ func TestTranslationExchangeBindingImportApplyParsesCSVWithTranslatedText(t *tes
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	if executor.applyCalled != 1 {
-		t.Fatalf("apply called=%d, want 1", executor.applyCalled)
+	applyCalled, applyInput := executor.applySnapshot()
+	if applyCalled != 1 {
+		t.Fatalf("apply called=%d, want 1", applyCalled)
 	}
-	if len(executor.applyInput.Rows) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(executor.applyInput.Rows))
+	if len(applyInput.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(applyInput.Rows))
 	}
-	row := executor.applyInput.Rows[0]
+	row := applyInput.Rows[0]
 	if row.TranslatedText != "Hola mundo" {
 		t.Fatalf("expected translated_text='Hola mundo', got %q", row.TranslatedText)
 	}
@@ -703,11 +739,16 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	for attempt := 0; attempt < 10 && executor.applyCalled == 0; attempt++ {
+	applyCalled := 0
+	for attempt := 0; attempt < 10; attempt++ {
+		applyCalled, _ = executor.applySnapshot()
+		if applyCalled != 0 {
+			break
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if executor.applyCalled != 1 {
-		t.Fatalf("expected async apply dispatch, got %d", executor.applyCalled)
+	if applyCalled != 1 {
+		t.Fatalf("expected async apply dispatch, got %d", applyCalled)
 	}
 	defer resp.Body.Close()
 	respPayload := map[string]any{}
@@ -825,8 +866,9 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 			t.Fatalf("get job: %v", getErr)
 		}
 		if ok && stored.Status == translationExchangeAsyncJobStatusCompleted {
-			if executor.exportCalled != 1 {
-				t.Fatalf("expected async export dispatch, got %d", executor.exportCalled)
+			exportCalled, _ := executor.exportSnapshot()
+			if exportCalled != 1 {
+				t.Fatalf("expected async export dispatch, got %d", exportCalled)
 			}
 			progress := stored.Progress
 			if progress["total"] != 2 || progress["processed"] != 2 {
@@ -1058,11 +1100,16 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
 		t.Fatalf("decode second payload: %v", err)
 	}
-	for attempt := 0; attempt < 10 && executor.applyCalled == 0; attempt++ {
+	applyCalled := 0
+	for attempt := 0; attempt < 10; attempt++ {
+		applyCalled, _ = executor.applySnapshot()
+		if applyCalled != 0 {
+			break
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if executor.applyCalled != 1 {
-		t.Fatalf("expected one executor apply call, got %d", executor.applyCalled)
+	if applyCalled != 1 {
+		t.Fatalf("expected one executor apply call, got %d", applyCalled)
 	}
 	secondJob := extractMap(secondPayload["job"])
 	if toString(secondJob["id"]) != toString(firstJob["id"]) {

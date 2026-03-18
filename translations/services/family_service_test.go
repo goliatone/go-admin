@@ -2,9 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,36 +13,14 @@ import (
 
 func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.T) {
 	store := NewInMemoryFamilyStore()
-	requireNoErr(t, store.LoadBackfillPlan(BackfillPlan{
-		Families: []BackfillFamily{
-			{
-				ID:           "family-1",
-				ContentType:  "pages",
-				SourceLocale: "en",
-				Variants: []BackfillVariant{
-					{
-						ID:       "variant-en",
-						FamilyID: "family-1",
-						Locale:   "en",
-						Status:   string(translationcore.VariantStatusPublished),
-						IsSource: true,
-						Fields: map[string]string{
-							"title": "Home",
-							"path":  "/home",
-						},
-					},
-					{
-						ID:       "variant-es",
-						FamilyID: "family-1",
-						Locale:   "es",
-						Status:   string(translationcore.VariantStatusDraft),
-						Fields: map[string]string{
-							"title": "",
-							"path":  "/es/home",
-						},
-					},
-				},
-			},
+	requireNoErr(t, seedFamilyStore(store, FamilyRecord{
+		ID:              "family-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "variant-en",
+		Variants: []FamilyVariant{
+			{ID: "variant-en", FamilyID: "family-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Home", "path": "/home"}},
+			{ID: "variant-es", FamilyID: "family-1", Locale: "es", Status: string(translationcore.VariantStatusDraft), Fields: map[string]string{"title": "", "path": "/es/home"}},
 		},
 	}))
 
@@ -96,38 +71,12 @@ func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.
 
 func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	store := NewInMemoryFamilyStore()
-	requireNoErr(t, store.LoadBackfillPlan(BackfillPlan{
-		Families: []BackfillFamily{
-			{
-				ID:          "family-override",
-				ContentType: "posts",
-				Variants: []BackfillVariant{
-					{
-						ID:       "variant-es",
-						FamilyID: "family-override",
-						Locale:   "es",
-						Status:   string(translationcore.VariantStatusPublished),
-						IsSource: true,
-						Fields: map[string]string{
-							"title":   "Articulo",
-							"path":    "/es/post",
-							"excerpt": "Resumen",
-						},
-					},
-					{
-						ID:                   "variant-fr",
-						FamilyID:             "family-override",
-						Locale:               "fr",
-						Status:               string(translationcore.VariantStatusPublished),
-						SourceHashAtLastSync: "stale-source-hash",
-						Fields: map[string]string{
-							"title":   "Article FR",
-							"path":    "/fr/post",
-							"excerpt": "Resume",
-						},
-					},
-				},
-			},
+	requireNoErr(t, seedFamilyStore(store, FamilyRecord{
+		ID:          "family-override",
+		ContentType: "posts",
+		Variants: []FamilyVariant{
+			{ID: "variant-es", FamilyID: "family-override", Locale: "es", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Articulo", "path": "/es/post", "excerpt": "Resumen"}},
+			{ID: "variant-fr", FamilyID: "family-override", Locale: "fr", Status: string(translationcore.VariantStatusPublished), SourceHashAtLastSync: "stale-source-hash", Fields: map[string]string{"title": "Article FR", "path": "/fr/post", "excerpt": "Resume"}},
 		},
 	}))
 
@@ -166,26 +115,25 @@ func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 
 func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	store := NewInMemoryFamilyStore()
-	requireNoErr(t, store.LoadBackfillPlan(BackfillPlan{
-		Families: []BackfillFamily{
-			{
-				ID:           "global-family",
-				ContentType:  "pages",
-				SourceLocale: "en",
-				Variants: []BackfillVariant{
-					{ID: "global-en", FamilyID: "global-family", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Home", "path": "/"}}},
-			},
-			{
-				ID:           "tenant-family",
-				TenantID:     "tenant-1",
-				OrgID:        "org-1",
-				ContentType:  "news",
-				SourceLocale: "en",
-				Variants: []BackfillVariant{
-					{ID: "tenant-en", FamilyID: "tenant-family", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "News", "path": "/news"}}},
-			},
+	requireNoErr(t, seedFamilyStore(
+		store,
+		FamilyRecord{
+			ID:              "global-family",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "global-en",
+			Variants:        []FamilyVariant{{ID: "global-en", FamilyID: "global-family", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Home", "path": "/"}}},
 		},
-	}))
+		FamilyRecord{
+			ID:              "tenant-family",
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     "news",
+			SourceLocale:    "en",
+			SourceVariantID: "tenant-en",
+			Variants:        []FamilyVariant{{ID: "tenant-en", FamilyID: "tenant-family", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "News", "path": "/news"}}},
+		},
+	))
 
 	svc := FamilyService{
 		Store: store,
@@ -228,86 +176,21 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	}
 }
 
-func TestBuildBackfillReportMatchesFixture(t *testing.T) {
-	fixture := mustLoadBackfillSeedFixture(t)
-	runner := NewBackfillRunner()
-	plan, err := runner.BuildPlan(context.Background(), fixture)
-	requireNoErr(t, err)
-
-	report := BuildBackfillReport(plan)
-	raw, err := json.MarshalIndent(report, "", "  ")
-	requireNoErr(t, err)
-
-	path := filepath.Join("testdata", "translation_backfill_report.json")
-	expected, err := os.ReadFile(path)
-	requireNoErr(t, err)
-	if strings.TrimSpace(string(raw)) != strings.TrimSpace(string(expected)) {
-		t.Fatalf("translation backfill report mismatch\nexpected:\n%s\n\ngot:\n%s", strings.TrimSpace(string(expected)), strings.TrimSpace(string(raw)))
-	}
-}
-
-func TestWriteBackfillReportPersistsDeterministicJSON(t *testing.T) {
-	report := BackfillReport{
-		SchemaVersion: BackfillReportSchemaVersionCurrent,
-		Checksum:      "abc123",
-		Summary:       BackfillReportSummary{Families: 1, Variants: 2},
-		Families: []BackfillReportFamily{{
-			ID:             "family-1",
-			ContentType:    "pages",
-			SourceLocale:   "en",
-			ReadinessState: "ready",
-		}},
-	}
-	path := filepath.Join(t.TempDir(), "report.json")
-	requireNoErr(t, WriteBackfillReport(path, report))
-
-	first, err := os.ReadFile(path)
-	requireNoErr(t, err)
-	requireNoErr(t, WriteBackfillReport(path, report))
-	second, err := os.ReadFile(path)
-	requireNoErr(t, err)
-	if string(first) != string(second) {
-		t.Fatalf("expected deterministic report bytes")
-	}
-}
-
 func TestFamilyServicePerformanceBudgets(t *testing.T) {
 	store := NewInMemoryFamilyStore()
-	plan := BackfillPlan{Families: make([]BackfillFamily, 0, 250)}
 	for i := range 250 {
 		id := fmtFamilyID(i)
-		plan.Families = append(plan.Families, BackfillFamily{
-			ID:           id,
-			ContentType:  "pages",
-			SourceLocale: "en",
-			Variants: []BackfillVariant{
-				{
-					ID:       id + "-en",
-					FamilyID: id,
-					Locale:   "en",
-					Status:   string(translationcore.VariantStatusPublished),
-					IsSource: true,
-					Fields: map[string]string{
-						"title": "Title",
-						"path":  "/page",
-					},
-					UpdatedAt: time.Date(2026, time.January, 1, 10, 0, 0, 0, time.UTC),
-				},
-				{
-					ID:       id + "-es",
-					FamilyID: id,
-					Locale:   "es",
-					Status:   string(translationcore.VariantStatusPublished),
-					Fields: map[string]string{
-						"title": "Titulo",
-						"path":  "/es/page",
-					},
-					UpdatedAt: time.Date(2026, time.January, 1, 11, 0, 0, 0, time.UTC),
-				},
+		requireNoErr(t, seedFamilyStore(store, FamilyRecord{
+			ID:              id,
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: id + "-en",
+			Variants: []FamilyVariant{
+				{ID: id + "-en", FamilyID: id, Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Title", "path": "/page"}, UpdatedAt: time.Date(2026, time.January, 1, 10, 0, 0, 0, time.UTC)},
+				{ID: id + "-es", FamilyID: id, Locale: "es", Status: string(translationcore.VariantStatusPublished), Fields: map[string]string{"title": "Titulo", "path": "/es/page"}, UpdatedAt: time.Date(2026, time.January, 1, 11, 0, 0, 0, time.UTC)},
 			},
-		})
+		}))
 	}
-	requireNoErr(t, store.LoadBackfillPlan(plan))
 
 	svc := FamilyService{
 		Store: store,
@@ -373,4 +256,16 @@ func requireNoErr(t *testing.T, err error) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+}
+
+func seedFamilyStore(store *InMemoryFamilyStore, families ...FamilyRecord) error {
+	if store == nil {
+		return nil
+	}
+	for _, family := range families {
+		if err := store.SaveFamily(context.Background(), family); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -111,9 +111,13 @@ func TestNewAdminTranslationQueueDerivesLocalesFromPolicyWhenUnset(t *testing.T)
 	}
 
 	cfg := NewAdminConfig("", "", "")
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	adm, _, err := NewAdmin(cfg, AdapterHooks{},
 		WithTranslationPolicyConfig(policy),
-		WithTranslationQueueConfig(TranslationQueueConfig{Enabled: true}),
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:    true,
+			Repository: repo,
+		}),
 	)
 	if err != nil {
 		t.Fatalf("expected queue locales to derive from policy, got %v", err)
@@ -148,10 +152,12 @@ func TestNewAdminTranslationQueueFailsOnPolicyLocaleMismatch(t *testing.T) {
 	}
 
 	cfg := NewAdminConfig("", "", "")
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	_, _, err := NewAdmin(cfg, AdapterHooks{},
 		WithTranslationPolicyConfig(policy),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       repo,
 			SupportedLocales: []string{"en", "fr"},
 		}),
 	)
@@ -207,24 +213,13 @@ func TestNewTranslationQueueAutoCreateHookCreatesHookWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestNewTranslationQueueAutoCreateHookUsesDefaultRepoWhenNil(t *testing.T) {
+func TestNewTranslationQueueAutoCreateHookReturnsNilWhenRepoMissing(t *testing.T) {
 	hook := NewTranslationQueueAutoCreateHook(TranslationQueueConfig{
 		Enabled:          true,
 		EnableAutoCreate: true,
-		Repository:       nil, // nil repo should use default in-memory
+		Repository:       nil,
 	})
-	if hook == nil {
-		t.Fatalf("expected non-nil hook with default repo")
-	}
-
-	result := hook.OnTranslationBlocker(context.Background(), admin.TranslationQueueAutoCreateInput{
-		FamilyID:       "tg_456",
-		EntityType:     "posts",
-		EntityID:       "post_456",
-		SourceLocale:   "en",
-		MissingLocales: []string{"fr"},
-	})
-	if result.Created != 1 {
-		t.Fatalf("expected 1 created with default repo, got %d", result.Created)
+	if hook != nil {
+		t.Fatalf("expected nil hook when repository is missing")
 	}
 }

@@ -141,6 +141,33 @@ func TestDefaultMenuParentsContentPermissionsIncludeContentSurfaces(t *testing.T
 	}
 }
 
+func TestDefaultMenuParentsExposeDashboardBreadcrumbAndHideContentParent(t *testing.T) {
+	parents := DefaultMenuParents("admin.main")
+	main := findMenuItem(parents, func(item admin.MenuItem) bool {
+		return strings.EqualFold(strings.TrimSpace(item.GroupTitleKey), "menu.group.main")
+	})
+	if main == nil {
+		t.Fatalf("expected main group")
+	}
+	if got := strings.TrimSpace(anyToString(main.Target["breadcrumb_label"])); got != "Dashboard" {
+		t.Fatalf("expected main group breadcrumb label Dashboard, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(main.Target["name"])); got != "admin.dashboard" {
+		t.Fatalf("expected main group target name admin.dashboard, got %q", got)
+	}
+
+	content := findMenuItem(parents, func(item admin.MenuItem) bool {
+		return strings.EqualFold(strings.TrimSpace(item.LabelKey), "menu.content")
+	})
+	if content == nil {
+		t.Fatalf("expected content parent")
+	}
+	hidden, ok := content.Target["breadcrumb_hidden"].(bool)
+	if !ok || !hidden {
+		t.Fatalf("expected content parent breadcrumb_hidden=true, got %+v", content.Target)
+	}
+}
+
 func findMenuItem(items []admin.MenuItem, match func(admin.MenuItem) bool) *admin.MenuItem {
 	for idx := range items {
 		if match(items[idx]) {

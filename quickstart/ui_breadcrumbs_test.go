@@ -38,6 +38,33 @@ func TestDeriveBreadcrumbsFromNavEntriesSkipsHiddenGroupsAndUsesOverrides(t *tes
 	}
 }
 
+func TestDeriveBreadcrumbsFromNavEntriesSkipsStructuralGroupsByDefault(t *testing.T) {
+	entries := []map[string]any{
+		{
+			"id":          "nav-group-main",
+			"type":        "group",
+			"group_title": "Navigation",
+			"href":        "/admin",
+			"children": []map[string]any{
+				{
+					"id":    "nav-group-main.content.pages",
+					"key":   "pages",
+					"label": "Pages",
+					"href":  "/admin/content/pages",
+				},
+			},
+		},
+	}
+
+	got := DeriveBreadcrumbsFromNavEntries(entries, "pages")
+	if len(got) != 1 {
+		t.Fatalf("expected 1 breadcrumb, got %d", len(got))
+	}
+	if got[0].Label != "Pages" || !got[0].Current {
+		t.Fatalf("expected current Pages breadcrumb, got %+v", got[0])
+	}
+}
+
 func TestWithResolvedBreadcrumbsAppendsTerminalCrumbFromAnchor(t *testing.T) {
 	navItems := []map[string]any{
 		{
@@ -86,6 +113,89 @@ func TestWithResolvedBreadcrumbsOverrideWins(t *testing.T) {
 	}
 	if got[0].Label != "Admin" || got[1].Label != "Custom" || !got[1].Current {
 		t.Fatalf("unexpected override breadcrumbs: %+v", got)
+	}
+}
+
+func TestWithResolvedBreadcrumbsSpecWinsOverNavTrail(t *testing.T) {
+	ctx := WithBreadcrumbSpec(nil, BreadcrumbSpec{
+		RootLabel:    "Dashboard",
+		RootHref:     "/admin",
+		Trail:        []BreadcrumbItem{Breadcrumb("News", "/admin/content/news")},
+		CurrentLabel: "Story 123",
+	})
+	ctx = withResolvedBreadcrumbs(ctx, []map[string]any{
+		{
+			"id":          "nav-group-main",
+			"type":        "group",
+			"group_title": "Navigation",
+			"href":        "/admin",
+			"children": []map[string]any{
+				{
+					"id":    "nav-group-main.content",
+					"label": "Content",
+					"href":  "/admin/content",
+					"children": []map[string]any{
+						{
+							"key":   "news",
+							"label": "News",
+							"href":  "/admin/content/news",
+						},
+					},
+				},
+			},
+		},
+	}, "news")
+
+	got, ok := ctx[ViewKeyBreadcrumbs].([]BreadcrumbItem)
+	if !ok {
+		t.Fatalf("expected breadcrumbs slice, got %T", ctx[ViewKeyBreadcrumbs])
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 breadcrumbs, got %d", len(got))
+	}
+	if got[0].Label != "Dashboard" || got[1].Label != "News" || got[2].Label != "Story 123" {
+		t.Fatalf("unexpected breadcrumb trail: %+v", got)
+	}
+	for _, item := range got {
+		if item.Label == "Navigation" || item.Label == "Content" {
+			t.Fatalf("unexpected nav-derived breadcrumb leaked into explicit spec: %+v", got)
+		}
+	}
+}
+
+func TestApplyPanelBreadcrumbsDefaultsRootToDashboard(t *testing.T) {
+	panel, err := (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		WithBreadcrumbs(admin.PanelBreadcrumbConfig{ListLabel: "News"}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	ctx := ApplyPanelBreadcrumbs(nil, panel, "/admin", "Ignored", "/admin/content/news", BreadcrumbRouteDetail, map[string]any{
+		"title": "Story 123",
+	})
+	ctx = withResolvedBreadcrumbs(ctx, []map[string]any{
+		{
+			"id":          "nav-group-main",
+			"type":        "group",
+			"group_title": "Navigation",
+			"href":        "/admin",
+		},
+	}, "news")
+
+	got, ok := ctx[ViewKeyBreadcrumbs].([]BreadcrumbItem)
+	if !ok {
+		t.Fatalf("expected breadcrumbs slice, got %T", ctx[ViewKeyBreadcrumbs])
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 breadcrumbs, got %d", len(got))
+	}
+	if got[0].Label != "Dashboard" || got[0].Href != "/admin" || got[0].Current {
+		t.Fatalf("expected linked Dashboard root, got %+v", got[0])
+	}
+	if got[1].Label != "News" || got[1].Href != "" || !got[1].Current {
+		t.Fatalf("expected current News breadcrumb, got %+v", got[1])
 	}
 }
 

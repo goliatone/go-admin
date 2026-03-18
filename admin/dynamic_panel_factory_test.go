@@ -51,6 +51,14 @@ func TestDynamicPanelFactoryCreatesPageAndPostPanelsFromActiveContentTypes(t *te
 	if postsPerms.View != "admin.posts.view" || postsPerms.Create != "admin.posts.create" || postsPerms.Edit != "admin.posts.edit" || postsPerms.Delete != "admin.posts.delete" {
 		t.Fatalf("expected admin.posts permissions, got %+v", postsPerms)
 	}
+
+	pagesBreadcrumbs := pagesPanel.Breadcrumbs()
+	if pagesBreadcrumbs.ListLabel != "Pages" {
+		t.Fatalf("expected pages breadcrumb label Pages, got %+v", pagesBreadcrumbs)
+	}
+	if pagesBreadcrumbs.ShowCurrentOnDetail {
+		t.Fatalf("expected pages detail breadcrumbs to omit current record by default, got %+v", pagesBreadcrumbs)
+	}
 }
 
 func TestDynamicPanelFactoryCreatesPostsPanelForBlogPostPanelSlug(t *testing.T) {

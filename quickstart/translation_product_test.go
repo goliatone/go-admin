@@ -14,6 +14,10 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
+func newQuickstartTranslationQueueRepo() admin.TranslationAssignmentRepository {
+	return admin.NewInMemoryTranslationAssignmentRepository()
+}
+
 func TestWithTranslationProfileSetsProductConfig(t *testing.T) {
 	opts := &adminOptions{}
 	WithTranslationProfile(TranslationProfileFull)(opts)
@@ -122,6 +126,7 @@ func TestNewAdminTranslationProductConfigEnablesQueueProfile(t *testing.T) {
 		Profile: TranslationProfileCoreQueue,
 		Queue: &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		},
 	}))
@@ -175,6 +180,7 @@ func TestNewAdminTranslationProductConfigLegacyOverridesTakePrecedence(t *testin
 		WithTranslationProductConfig(TranslationProductConfig{Profile: TranslationProfileNone}),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		}),
 	)
@@ -218,6 +224,7 @@ func TestNewAdminTranslationProductConfigPublishesCapabilityMetadata(t *testing.
 		},
 		Queue: &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		},
 	}))
@@ -353,7 +360,10 @@ func TestNewAdminTranslationProductConfigDependencyValidationQueue(t *testing.T)
 	// Queue requires locales - should fail without supported_locales and no policy
 	_, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
 		Profile: TranslationProfileCoreQueue,
-		Queue:   &TranslationQueueConfig{Enabled: true},
+		Queue: &TranslationQueueConfig{
+			Enabled:    true,
+			Repository: newQuickstartTranslationQueueRepo(),
+		},
 	}))
 	if err == nil {
 		t.Fatalf("expected queue config error for missing locales")
@@ -573,6 +583,7 @@ func TestTranslationQueueDisableRemovesRuntimeExposure(t *testing.T) {
 	// Enable queue
 	adm1, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationQueueConfig(TranslationQueueConfig{
 		Enabled:          true,
+		Repository:       newQuickstartTranslationQueueRepo(),
 		SupportedLocales: []string{"en", "es"},
 	}))
 	if err != nil {
@@ -1003,7 +1014,10 @@ func TestFeatureFlagInteractionModuleEnablementValidatedAtStartup(t *testing.T) 
 	// Queue module requires locales at startup
 	_, _, err = NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
 		Profile: TranslationProfileCoreQueue,
-		Queue:   &TranslationQueueConfig{Enabled: true}, // no locales
+		Queue: &TranslationQueueConfig{
+			Enabled:    true,
+			Repository: newQuickstartTranslationQueueRepo(),
+		}, // no locales
 	}))
 	if err == nil {
 		t.Fatal("expected startup validation error for queue without locales")
@@ -1026,6 +1040,7 @@ func TestFeatureFlagInteractionCapabilitiesReflectFinalResolvedState(t *testing.
 		},
 		Queue: &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		},
 	}))
@@ -1125,6 +1140,7 @@ func TestFeatureFlagInteractionExplicitModuleFeatureOverridesProfile(t *testing.
 			},
 			Queue: &TranslationQueueConfig{
 				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
 				SupportedLocales: []string{"en", "es"},
 			},
 		}),
@@ -1163,6 +1179,7 @@ func TestFeatureFlagInteractionExplicitQueueFeatureEnableRequiresValidDependenci
 		WithTranslationProductConfig(TranslationProductConfig{
 			Profile: TranslationProfileCore,
 			Queue: &TranslationQueueConfig{
+				Repository:       newQuickstartTranslationQueueRepo(),
 				SupportedLocales: []string{"en", "es"},
 			},
 		}),
@@ -1220,6 +1237,7 @@ func TestFeatureFlagInteractionDashboardDisableDoesNotDisableModules(t *testing.
 			},
 			Queue: &TranslationQueueConfig{
 				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
 				SupportedLocales: []string{"en", "es"},
 			},
 		}),
@@ -1299,6 +1317,7 @@ func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *te
 				Profile:       TranslationProfileCoreQueue,
 				Queue: &TranslationQueueConfig{
 					Enabled:          true,
+					Repository:       newQuickstartTranslationQueueRepo(),
 					SupportedLocales: []string{"en", "es"},
 				},
 			}))
@@ -1338,6 +1357,7 @@ func TestTranslationProductRuntimeValidationRejectsUnresolvableQueueAggregateRou
 		Profile:       TranslationProfileCoreQueue,
 		Queue: &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		},
 	}))
@@ -1487,6 +1507,7 @@ func translationProductConfigForProfile(profile TranslationProfile) TranslationP
 	case TranslationProfileCoreQueue:
 		cfg.Queue = &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		}
 	case TranslationProfileFull:
@@ -1496,6 +1517,7 @@ func translationProductConfigForProfile(profile TranslationProfile) TranslationP
 		}
 		cfg.Queue = &TranslationQueueConfig{
 			Enabled:          true,
+			Repository:       newQuickstartTranslationQueueRepo(),
 			SupportedLocales: []string{"en", "es"},
 		}
 	}

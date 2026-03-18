@@ -191,6 +191,7 @@ func TestTranslationCommandExecutionModeAppliesPolicyOverrides(t *testing.T) {
 		}),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:              true,
+			Repository:           newQuickstartTranslationQueueRepo(),
 			SupportedLocales:     []string{"en"},
 			CommandExecutionMode: gocommand.ExecutionModeQueued,
 		}),
@@ -223,6 +224,7 @@ func TestTranslationCommandExecutionModeDoesNotOverrideExplicitPolicy(t *testing
 		}),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:              true,
+			Repository:           newQuickstartTranslationQueueRepo(),
 			SupportedLocales:     []string{"en"},
 			CommandExecutionMode: gocommand.ExecutionModeQueued,
 		}),

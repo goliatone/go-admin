@@ -211,6 +211,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 			},
 			Queue: &TranslationQueueConfig{
 				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
 				SupportedLocales: []string{"en", "es"},
 			},
 		}),
@@ -428,6 +429,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				Profile:       TranslationProfileCoreQueue,
 				Queue: &TranslationQueueConfig{
 					Enabled:          true,
+					Repository:       newQuickstartTranslationQueueRepo(),
 					SupportedLocales: []string{"en", "es"},
 				},
 			},
@@ -460,6 +462,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				},
 				Queue: &TranslationQueueConfig{
 					Enabled:          true,
+					Repository:       newQuickstartTranslationQueueRepo(),
 					SupportedLocales: []string{"en", "es"},
 				},
 			},
@@ -577,6 +580,7 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 			},
 			Queue: &TranslationQueueConfig{
 				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
 				SupportedLocales: []string{"en", "es"},
 			},
 		}),

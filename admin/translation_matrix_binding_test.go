@@ -356,7 +356,7 @@ func TestTranslationMatrixBindingMatrixViewportP95UnderTarget(t *testing.T) {
 	for range 20 {
 		started := time.Now()
 		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&per_page=100&locale_limit=20", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, 5_000)
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
@@ -509,9 +509,9 @@ func newTranslationMatrixTestRuntime(t *testing.T) *translationFamilyRuntime {
 	}
 	return &translationFamilyRuntime{
 		service: service,
-		report: translationservices.BackfillReport{
+		report: translationRuntimeReport{
 			Checksum: "matrix-test-runtime",
-			Summary:  translationservices.BackfillReportSummary{Families: len(families), Variants: 8, Blockers: 3},
+			Summary:  translationRuntimeReportSummary{Families: len(families), Variants: 8, Blockers: 3},
 		},
 	}
 }
@@ -640,9 +640,9 @@ func newTranslationMatrixPerformanceRuntime(t *testing.T) *translationFamilyRunt
 	}
 	return &translationFamilyRuntime{
 		service: service,
-		report: translationservices.BackfillReport{
+		report: translationRuntimeReport{
 			Checksum: "matrix-performance-runtime",
-			Summary:  translationservices.BackfillReportSummary{Families: 100, Variants: 2_000},
+			Summary:  translationRuntimeReportSummary{Families: 100, Variants: 2_000},
 		},
 	}
 }

@@ -2245,7 +2245,7 @@ func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatase
 	}
 }
 
-func TestPanelBindingListEmitsCanonicalFamilyIDFromNestedMetadata(t *testing.T) {
+func TestPanelBindingListEmitsCanonicalFamilyID(t *testing.T) {
 	panelNames := []string{"pages", "posts", "news", "announcements"}
 	for _, panelName := range panelNames {
 		t.Run(panelName, func(t *testing.T) {
@@ -2256,10 +2256,8 @@ func TestPanelBindingListEmitsCanonicalFamilyIDFromNestedMetadata(t *testing.T) 
 						"title":             "Entry EN",
 						"status":            "draft",
 						"locale":            "en",
+						"family_id":         "tg_" + panelName,
 						"available_locales": []string{"en"},
-						"translation_context": map[string]any{
-							"family_id": "tg_" + panelName,
-						},
 					},
 				},
 			}

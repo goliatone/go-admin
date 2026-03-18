@@ -639,117 +639,50 @@ func newTranslationFamilyBindingTestRuntime(t *testing.T) *translationFamilyRunt
 	t.Helper()
 	ctx := context.Background()
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
-	input := translationservices.BackfillInput{
-		Variants: []translationservices.BackfillSourceVariant{
-			{
-				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:    "pages",
-				SourceRecordID: "page-1",
-				FamilyID:       "tg-page-1",
-				Locale:         "en",
-				Fields:         map[string]string{"title": "Page 1", "body": "Hello"},
-				Status:         string(translationcore.VariantStatusPublished),
-				CreatedAt:      now.Add(-6 * time.Hour),
-				UpdatedAt:      now.Add(-6 * time.Hour),
-			},
-			{
-				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:    "pages",
-				SourceRecordID: "page-1-es",
-				FamilyID:       "tg-page-1",
-				Locale:         "es",
-				Fields:         map[string]string{"title": "Pagina 1", "body": "Hola"},
-				Status:         string(translationcore.VariantStatusInReview),
-				CreatedAt:      now.Add(-5 * time.Hour),
-				UpdatedAt:      now.Add(-5 * time.Hour),
-			},
-			{
-				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:    "posts",
-				SourceRecordID: "post-1",
-				FamilyID:       "tg-post-1",
-				Locale:         "en",
-				Fields:         map[string]string{"title": "Post 1", "body": "Hello"},
-				Status:         string(translationcore.VariantStatusPublished),
-				CreatedAt:      now.Add(-4 * time.Hour),
-				UpdatedAt:      now.Add(-4 * time.Hour),
-			},
-			{
-				Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
-				ContentType:    "posts",
-				SourceRecordID: "post-1-es",
-				FamilyID:       "tg-post-1",
-				Locale:         "es",
-				Fields:         map[string]string{"title": "Post 1 ES", "body": "Hola"},
-				Status:         string(translationcore.VariantStatusApproved),
-				CreatedAt:      now.Add(-3 * time.Hour),
-				UpdatedAt:      now.Add(-3 * time.Hour),
-			},
-			{
-				Scope:          translationservices.Scope{TenantID: "tenant-2", OrgID: "org-9"},
-				ContentType:    "pages",
-				SourceRecordID: "page-tenant-2",
-				FamilyID:       "tg-page-tenant-2",
-				Locale:         "en",
-				Fields:         map[string]string{"title": "Tenant 2", "body": "Hello"},
-				Status:         string(translationcore.VariantStatusPublished),
-				CreatedAt:      now.Add(-2 * time.Hour),
-				UpdatedAt:      now.Add(-2 * time.Hour),
-			},
-		},
-		Policies: map[string]translationservices.BackfillPolicy{
-			"pages": {
-				SourceLocale:            "en",
-				RequiredLocales:         []string{"es", "fr"},
-				RequiredFields:          map[string][]string{"es": {"title", "body"}, "fr": {"title", "body"}},
-				ReviewRequired:          true,
-				AllowPublishOverride:    true,
-				AssignmentLifecycleMode: "single_active_per_locale",
-				DefaultWorkScope:        "localization",
-			},
-			"posts": {
-				SourceLocale:         "en",
-				RequiredLocales:      []string{"es"},
-				RequiredFields:       map[string][]string{"es": {"title", "body"}},
-				AllowPublishOverride: false,
-			},
-		},
-	}
-	plan, err := translationservices.NewBackfillRunner().BuildPlan(ctx, input)
-	if err != nil {
-		t.Fatalf("build backfill plan: %v", err)
-	}
 	store := translationservices.NewInMemoryFamilyStore()
-	if err := store.LoadBackfillPlan(plan); err != nil {
-		t.Fatalf("load backfill plan: %v", err)
+	families := []translationservices.FamilyRecord{
+		{
+			ID:              "tg-page-1",
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "page-1",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "page-1", FamilyID: "tg-page-1", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, SourceRecordID: "page-1", Fields: map[string]string{"title": "Page 1", "body": "Hello"}, CreatedAt: now.Add(-6 * time.Hour), UpdatedAt: now.Add(-6 * time.Hour)},
+				{ID: "page-1-es", FamilyID: "tg-page-1", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: string(translationcore.VariantStatusInReview), SourceRecordID: "page-1-es", Fields: map[string]string{"title": "Pagina 1", "body": "Hola"}, CreatedAt: now.Add(-5 * time.Hour), UpdatedAt: now.Add(-5 * time.Hour)},
+			},
+			Assignments: []translationservices.FamilyAssignment{
+				{ID: "asg-open-es", FamilyID: "tg-page-1", SourceLocale: "en", TargetLocale: "es", WorkScope: "localization", Status: string(translationcore.AssignmentStatusInProgress), AssigneeID: "translator-1", Priority: "high", CreatedAt: now.Add(-90 * time.Minute), UpdatedAt: now.Add(-45 * time.Minute)},
+				{ID: "asg-approved-fr", FamilyID: "tg-page-1", SourceLocale: "en", TargetLocale: "fr", WorkScope: "localization", Status: string(translationcore.AssignmentStatusApproved), ReviewerID: "reviewer-1", Priority: "normal", CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour)},
+			},
+		},
+		{
+			ID:              "tg-post-1",
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     "posts",
+			SourceLocale:    "en",
+			SourceVariantID: "post-1",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "post-1", FamilyID: "tg-post-1", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, SourceRecordID: "post-1", Fields: map[string]string{"title": "Post 1", "body": "Hello"}, CreatedAt: now.Add(-4 * time.Hour), UpdatedAt: now.Add(-4 * time.Hour)},
+				{ID: "post-1-es", FamilyID: "tg-post-1", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: string(translationcore.VariantStatusApproved), SourceRecordID: "post-1-es", Fields: map[string]string{"title": "Post 1 ES", "body": "Hola"}, CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+			},
+		},
+		{
+			ID:              "tg-page-tenant-2",
+			TenantID:        "tenant-2",
+			OrgID:           "org-9",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "page-tenant-2",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "page-tenant-2", FamilyID: "tg-page-tenant-2", TenantID: "tenant-2", OrgID: "org-9", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, SourceRecordID: "page-tenant-2", Fields: map[string]string{"title": "Tenant 2", "body": "Hello"}, CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
+			},
+		},
 	}
-	if err := store.ReplaceAssignments([]translationservices.FamilyAssignment{
-		{
-			ID:           "asg-open-es",
-			FamilyID:     "tg-page-1",
-			SourceLocale: "en",
-			TargetLocale: "es",
-			WorkScope:    "localization",
-			Status:       string(translationcore.AssignmentStatusInProgress),
-			AssigneeID:   "translator-1",
-			Priority:     "high",
-			CreatedAt:    now.Add(-90 * time.Minute),
-			UpdatedAt:    now.Add(-45 * time.Minute),
-		},
-		{
-			ID:           "asg-approved-fr",
-			FamilyID:     "tg-page-1",
-			SourceLocale: "en",
-			TargetLocale: "fr",
-			WorkScope:    "localization",
-			Status:       string(translationcore.AssignmentStatusApproved),
-			ReviewerID:   "reviewer-1",
-			Priority:     "normal",
-			CreatedAt:    now.Add(-2 * time.Hour),
-			UpdatedAt:    now.Add(-1 * time.Hour),
-		},
-	}); err != nil {
-		t.Fatalf("replace assignments: %v", err)
+	if err := seedTranslationFamilyStore(store, families...); err != nil {
+		t.Fatalf("seed family store: %v", err)
 	}
 
 	service := &translationservices.FamilyService{
@@ -783,7 +716,14 @@ func newTranslationFamilyBindingTestRuntime(t *testing.T) *translationFamilyRunt
 	}
 	return &translationFamilyRuntime{
 		service: service,
-		report:  translationservices.BuildBackfillReport(plan),
+		report: translationRuntimeReport{
+			Checksum: "family-binding-test-runtime",
+			Summary: translationRuntimeReportSummary{
+				Families:    len(families),
+				Variants:    5,
+				Assignments: 2,
+			},
+		},
 	}
 }
 
@@ -1000,6 +940,18 @@ func (s *translationFamilyMutationContentService) CreateTranslation(ctx context.
 		Data:            cloneAnyMap(created.Data),
 		Metadata:        cloneAnyMap(created.Metadata),
 	}, nil
+}
+
+func seedTranslationFamilyStore(store *translationservices.InMemoryFamilyStore, families ...translationservices.FamilyRecord) error {
+	if store == nil {
+		return nil
+	}
+	for _, family := range families {
+		if err := store.SaveFamily(context.Background(), family); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func doTranslationFamilyJSONRequest(t *testing.T, app *fiber.App, method, target string, body map[string]any, headers map[string]string) (int, map[string]any) {

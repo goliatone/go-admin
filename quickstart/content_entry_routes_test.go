@@ -1436,6 +1436,194 @@ func TestDetailForPanelIncludesTranslationFamilyLinkWhenTranslationUXEnabled(t *
 	ctx.AssertExpectations(t)
 }
 
+func TestDetailForPanelBuildsDashboardTrailWithoutRecordBreadcrumbByDefault(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(admin.NavigationItem{
+		ID:         "nav-group-main",
+		Type:       admin.MenuItemTypeGroup,
+		GroupTitle: "Navigation",
+		Target: map[string]any{
+			"name":             "admin.dashboard",
+			"key":              "dashboard",
+			"breadcrumb_label": "Dashboard",
+		},
+		Children: []admin.NavigationItem{
+			{
+				ID:          "nav-group-main.content",
+				Label:       "Content",
+				Collapsible: true,
+				Target: map[string]any{
+					"type":              "url",
+					"path":              "/admin/content/pages",
+					"key":               "content",
+					"breadcrumb_hidden": true,
+				},
+				Children: []admin.NavigationItem{
+					{
+						ID:    "nav-group-main.content.pages",
+						Label: "Pages",
+						Target: map[string]any{
+							"type": "url",
+							"path": "/admin/content/pages",
+							"key":  "pages",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "About Us",
+		"slug":  "about-us",
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		DetailFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	h := &contentEntryHandlers{
+		admin:          adm,
+		cfg:            cfg,
+		viewContext:    defaultUIViewContextBuilder(adm, cfg),
+		detailTemplate: "resources/content/detail",
+		templateExists: func(name string) bool {
+			return name == "resources/content/detail"
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "pages"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/detail", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		breadcrumbs, ok := viewCtx["breadcrumbs"].([]BreadcrumbItem)
+		if !ok || len(breadcrumbs) != 2 {
+			return false
+		}
+		dashboardHref := strings.TrimRight(breadcrumbs[0].Href, "/")
+		return breadcrumbs[0].Label == "Dashboard" &&
+			dashboardHref == "/admin" &&
+			!breadcrumbs[0].Current &&
+			breadcrumbs[1].Label == "Pages" &&
+			breadcrumbs[1].Href == "" &&
+			breadcrumbs[1].Current
+	})).Return(nil).Once()
+
+	if err := h.detailForPanel(ctx, ""); err != nil {
+		t.Fatalf("detailForPanel: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestDetailForPanelAppendsRecordBreadcrumbWhenPanelOptsIn(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(admin.NavigationItem{
+		ID:         "nav-group-main",
+		Type:       admin.MenuItemTypeGroup,
+		GroupTitle: "Navigation",
+		Target: map[string]any{
+			"name":             "admin.dashboard",
+			"key":              "dashboard",
+			"breadcrumb_label": "Dashboard",
+		},
+		Children: []admin.NavigationItem{
+			{
+				ID:          "nav-group-main.content",
+				Label:       "Content",
+				Collapsible: true,
+				Target: map[string]any{
+					"type":              "url",
+					"path":              "/admin/content/pages",
+					"key":               "content",
+					"breadcrumb_hidden": true,
+				},
+				Children: []admin.NavigationItem{
+					{
+						ID:    "nav-group-main.content.pages",
+						Label: "Pages",
+						Target: map[string]any{
+							"type": "url",
+							"path": "/admin/content/pages",
+							"key":  "pages",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "About Us",
+		"slug":  "about-us",
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		WithBreadcrumbs(admin.PanelBreadcrumbConfig{
+			ShowCurrentOnDetail: true,
+		}).
+		DetailFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	h := &contentEntryHandlers{
+		admin:          adm,
+		cfg:            cfg,
+		viewContext:    defaultUIViewContextBuilder(adm, cfg),
+		detailTemplate: "resources/content/detail",
+		templateExists: func(name string) bool {
+			return name == "resources/content/detail"
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "pages"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/detail", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		breadcrumbs, ok := viewCtx["breadcrumbs"].([]BreadcrumbItem)
+		if !ok || len(breadcrumbs) != 3 {
+			return false
+		}
+		dashboardHref := strings.TrimRight(breadcrumbs[0].Href, "/")
+		return breadcrumbs[0].Label == "Dashboard" &&
+			dashboardHref == "/admin" &&
+			!breadcrumbs[0].Current &&
+			breadcrumbs[1].Label == "Pages" &&
+			breadcrumbs[1].Href == "/admin/content/pages" &&
+			!breadcrumbs[1].Current &&
+			breadcrumbs[2].Label == "About Us" &&
+			breadcrumbs[2].Href == "" &&
+			breadcrumbs[2].Current
+	})).Return(nil).Once()
+
+	if err := h.detailForPanel(ctx, ""); err != nil {
+		t.Fatalf("detailForPanel: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestContentEntryTranslationStateFromRecordInfersFallbackMode(t *testing.T) {
 	record := map[string]any{
 		"requested_locale":         "fr",

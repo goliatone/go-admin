@@ -2212,7 +2212,7 @@ func TestAgreementServiceOpenReviewEnqueuesReviewInvitationsForRecipientAndExter
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
 
-	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:            stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled: true,
 		ReviewParticipants: []ReviewParticipantInput{
@@ -2234,7 +2234,8 @@ func TestAgreementServiceOpenReviewEnqueuesReviewInvitationsForRecipientAndExter
 		ActorType:         "user",
 		ActorID:           "ops-user",
 		CorrelationID:     "review-open-corr",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("OpenReview: %v", err)
 	}
 	if dispatcher.calls != 1 {
@@ -2322,7 +2323,7 @@ func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testin
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
 
-	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:            stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled: true,
 		ReviewParticipants: []ReviewParticipantInput{
@@ -2344,8 +2345,7 @@ func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testin
 		ActorType:         "user",
 		ActorID:           "ops-user",
 		CorrelationID:     "review-open-corr",
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("OpenReview: %v", err)
 	}
 
