@@ -7,16 +7,17 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
 
 const defaultUploadFormField = "file"
+const defaultUploadPublicURLTTL = 15 * time.Minute
 
 // UploadAuthorizeFunc validates whether the request context can upload files.
 // Return a non-nil error to block the upload.
@@ -70,7 +71,7 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 		}
 		provider := cfg.Provider
 		if provider == nil {
-			provider = uploader.NewFSProvider(assetsDir)
+			provider = uploader.NewFSProvider(assetsDir).WithURLPrefix(resolveDefaultUploadURLPrefix(basePath))
 		}
 		manager = uploader.NewManager(
 			uploader.WithProvider(provider),
@@ -94,9 +95,6 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 		if resolvedUploadSubdir == "" {
 			return router.NewBadRequestError("Upload destination is not configured")
 		}
-		if err := os.MkdirAll(filepath.Join(assetsDir, filepath.FromSlash(resolvedUploadSubdir)), 0o755); err != nil {
-			return err
-		}
 
 		file, err := c.FormFile(formField)
 		if err != nil {
@@ -117,10 +115,9 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 			}
 		}
 
-		publicURL := path.Join(basePath, "assets", meta.Name)
+		publicURL := resolveUploadPublicURL(c.Context(), manager, basePath, meta)
 		if cfg.PublicURL != nil {
-			customURL := strings.TrimSpace(cfg.PublicURL(basePath, meta))
-			if customURL != "" {
+			if customURL := strings.TrimSpace(cfg.PublicURL(basePath, meta)); customURL != "" {
 				publicURL = customURL
 			}
 		}
@@ -132,6 +129,41 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 
 		return c.JSON(http.StatusOK, payload)
 	}
+}
+
+func resolveDefaultUploadURLPrefix(basePath string) string {
+	return path.Join("/", strings.TrimSpace(basePath), "assets")
+}
+
+func resolveUploadPublicURL(ctx context.Context, manager *uploader.Manager, basePath string, meta *uploader.FileMeta) string {
+	if meta == nil {
+		return resolveDefaultUploadURLPrefix(basePath)
+	}
+	if manager != nil && strings.TrimSpace(meta.Name) != "" {
+		if url, err := manager.GetPresignedURL(ctx, meta.Name, defaultUploadPublicURLTTL); err == nil {
+			if trimmed := strings.TrimSpace(url); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	if url := strings.TrimSpace(meta.URL); isBrowserAccessibleUploadURL(url) {
+		return url
+	}
+	if name := strings.TrimSpace(meta.Name); name != "" {
+		return path.Join(resolveDefaultUploadURLPrefix(basePath), name)
+	}
+	return resolveDefaultUploadURLPrefix(basePath)
+}
+
+func isBrowserAccessibleUploadURL(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "/") {
+		return true
+	}
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
 }
 
 func buildUploadValidator(cfg UploadHandlerConfig) *uploader.Validator {
