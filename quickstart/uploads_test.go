@@ -12,11 +12,45 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-router"
+	"github.com/goliatone/go-uploader"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+type uploadMemoryProvider struct {
+	files map[string][]byte
+}
+
+func (p *uploadMemoryProvider) UploadFile(_ context.Context, path string, content []byte, _ ...uploader.UploadOption) (string, error) {
+	if p.files == nil {
+		p.files = map[string][]byte{}
+	}
+	p.files[path] = append([]byte{}, content...)
+	return "/memory/" + path, nil
+}
+
+func (p *uploadMemoryProvider) GetFile(_ context.Context, path string) ([]byte, error) {
+	if p.files == nil {
+		return nil, errors.New("not found")
+	}
+	content, ok := p.files[path]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+	return append([]byte{}, content...), nil
+}
+
+func (p *uploadMemoryProvider) DeleteFile(_ context.Context, path string) error {
+	delete(p.files, path)
+	return nil
+}
+
+func (p *uploadMemoryProvider) GetPresignedURL(_ context.Context, path string, _ time.Duration) (string, error) {
+	return "/memory/" + path, nil
+}
 
 func TestNewUploadHandlerUploadsFileAndReturnsPublicURL(t *testing.T) {
 	assetsDir := t.TempDir()
@@ -123,6 +157,46 @@ func TestNewUploadHandlerResolvesUploadSubdirPerRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, uploadedURL, "/admin/assets/tenant/tenant-42/org/org-77/docs/")
 	require.True(t, strings.HasSuffix(uploadedURL, ".pdf"), uploadedURL)
+}
+
+func TestNewUploadHandlerDoesNotRequireLocalDirectoryWhenManagerInjected(t *testing.T) {
+	fileHeader := mustUploadTestFileHeader(t, "file", "contract.pdf", textproto.MIMEHeader{}, []byte("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Page >>\nendobj\n%%EOF"))
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("FormFile", "file").Return(fileHeader, nil)
+
+	var payload map[string]string
+	ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		var ok bool
+		payload, ok = args.Get(1).(map[string]string)
+		require.True(t, ok)
+	})
+
+	manager := uploader.NewManager(
+		uploader.WithProvider(&uploadMemoryProvider{}),
+		uploader.WithValidator(uploader.NewValidator(
+			uploader.WithAllowedMimeTypes(map[string]bool{"application/pdf": true}),
+			uploader.WithAllowedImageFormats(map[string]bool{".pdf": true}),
+		)),
+	)
+	handler := NewUploadHandler(UploadHandlerConfig{
+		BasePath:      "/admin",
+		DiskAssetsDir: "/root/should/not/be/touched",
+		UploadSubdir:  "tenant/demo/org/demo/docs",
+		Manager:       manager,
+		AllowedMimeTypes: map[string]bool{
+			"application/pdf": true,
+		},
+		AllowedImageFormats: map[string]bool{
+			".pdf": true,
+		},
+	})
+
+	err := handler(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, payload)
+	require.Contains(t, payload["url"], "/memory/tenant/demo/org/demo/docs/")
 }
 
 func mustUploadTestFileHeader(t *testing.T, fieldName, filename string, extraHeaders textproto.MIMEHeader, content []byte) *multipart.FileHeader {

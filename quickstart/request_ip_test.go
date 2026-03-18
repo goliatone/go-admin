@@ -154,3 +154,15 @@ func TestIsLocalRequestUsesTrustedForwardedHost(t *testing.T) {
 		t.Fatalf("expected localhost forwarded host to be treated as local when proxy is trusted")
 	}
 }
+
+func TestIsLoopbackPeerUsesDirectPeerIP(t *testing.T) {
+	ctx := stubRequestIPContext{
+		ip: "127.0.0.1",
+		headers: map[string]string{
+			"Host": "example.com",
+		},
+	}
+	if !IsLoopbackPeer(ctx) {
+		t.Fatal("expected loopback peer IP to be treated as local transport")
+	}
+}
