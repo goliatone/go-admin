@@ -189,6 +189,16 @@ func IsSecureRequest(c RequestMetaContext, policy RequestTrustPolicy) bool {
 	return ResolveRequestMeta(c, policy).Secure
 }
 
+// IsLoopbackPeer reports whether the direct peer address is a loopback IP.
+func IsLoopbackPeer(c RequestMetaContext) bool {
+	peerIP := strings.TrimSpace(ResolveRequestMeta(c, RequestTrustPolicy{}).PeerIP)
+	if peerIP == "" {
+		return false
+	}
+	parsed := net.ParseIP(peerIP)
+	return parsed != nil && parsed.IsLoopback()
+}
+
 // IsLocalRequest reports whether request host resolves to localhost/loopback.
 func IsLocalRequest(c RequestMetaContext, policy RequestTrustPolicy) bool {
 	host := strings.TrimSpace(ResolveRequestMeta(c, policy).Host)
