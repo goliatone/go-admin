@@ -14,6 +14,7 @@ import (
 	"time"
 
 	goconfig "github.com/goliatone/go-config/config"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -43,6 +44,8 @@ type FeatureConfig = Features
 type RuntimeConfig = Runtime
 type ReminderConfig = Reminders
 type StorageConfig = Storage
+type StorageFSConfig = StorageFS
+type StorageS3Config = StorageS3
 type EmailConfig = Email
 type EmailSMTPConfig = SMTP
 type SignerConfig = Signer
@@ -235,7 +238,24 @@ func Defaults() Config {
 			AllowOutOfOrder:             false,
 		},
 		Storage: StorageConfig{
+			Backend:             "fs",
 			EncryptionAlgorithm: "aws:kms",
+			KMSKeyID:            "",
+			FS: StorageFS{
+				BasePath: "",
+			},
+			S3: StorageS3{
+				AccessKeyID:     "",
+				BasePath:        "",
+				Bucket:          "",
+				DisableSSL:      false,
+				EndpointURL:     "",
+				Profile:         "",
+				Region:          "",
+				SecretAccessKey: "",
+				SessionToken:    "",
+				UsePathStyle:    false,
+			},
 		},
 		Email: EmailConfig{
 			Transport: "deterministic",
@@ -380,6 +400,7 @@ func configValidators() []goconfig.Validator[*Config] {
 		validateReminderConfig,
 		validateReminderEncryption,
 		validatePDFRemediationConfig,
+		validateStorageConfig,
 		validateTrustedProxyCIDRs,
 		validateRepositoryDialect,
 	}
@@ -492,6 +513,16 @@ func validatePDFRemediationConfig(c *Config) error {
 	}
 	if command.MaxLogBytes <= 0 {
 		return fmt.Errorf("signer.pdf.remediation.command.max_log_bytes must be greater than zero")
+	}
+	return nil
+}
+
+func validateStorageConfig(c *Config) error {
+	if _, err := uploader.ParseBackend(uploader.Backend(strings.TrimSpace(c.Storage.Backend))); err != nil {
+		return err
+	}
+	if _, err := uploader.NormalizeServerSideEncryption(strings.TrimSpace(c.Storage.EncryptionAlgorithm)); err != nil {
+		return err
 	}
 	return nil
 }

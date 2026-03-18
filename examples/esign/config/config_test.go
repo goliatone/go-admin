@@ -489,6 +489,35 @@ func TestValidateReminderEnabledAllowsStrongEncryptionKey(t *testing.T) {
 	}
 }
 
+func TestValidateStorageConfigRejectsUnsupportedBackend(t *testing.T) {
+	cfg := Defaults()
+	cfg.Storage.Backend = "bogus"
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected unsupported storage backend validation error")
+	}
+}
+
+func TestValidateStorageConfigAcceptsKMSAlias(t *testing.T) {
+	cfg := Defaults()
+	cfg.Storage.EncryptionAlgorithm = "kms"
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected kms alias to pass validation, got %v", err)
+	}
+}
+
+func TestValidateStorageConfigRejectsUnsupportedEncryptionAlgorithm(t *testing.T) {
+	cfg := Defaults()
+	cfg.Storage.EncryptionAlgorithm = "bogus"
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected unsupported encryption algorithm validation error")
+	}
+}
+
 func TestLoadReminderZeroValuesFallbackToDefaults(t *testing.T) {
 	t.Setenv("APP_REMINDERS__INITIAL_DELAY_MINUTES", "0")
 	t.Setenv("APP_REMINDERS__INTERVAL_MINUTES", "0")

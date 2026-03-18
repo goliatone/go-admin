@@ -206,5 +206,26 @@ type Sqlite struct {
 }
 
 type Storage struct {
-	EncryptionAlgorithm string `json:"encryption_algorithm" koanf:"encryption_algorithm"`
+	Backend             string    `json:"backend" koanf:"backend"`
+	EncryptionAlgorithm string    `json:"encryption_algorithm" koanf:"encryption_algorithm"`
+	KMSKeyID            string    `json:"kms_key_id" koanf:"kms_key_id"`
+	FS                  StorageFS `json:"fs" koanf:"fs"`
+	S3                  StorageS3 `json:"s3" koanf:"s3"`
+}
+
+type StorageFS struct {
+	BasePath string `json:"base_path" koanf:"base_path"`
+}
+
+type StorageS3 struct {
+	AccessKeyID     string `json:"access_key_id" koanf:"access_key_id"`
+	BasePath        string `json:"base_path" koanf:"base_path"`
+	Bucket          string `json:"bucket" koanf:"bucket"`
+	DisableSSL      bool   `json:"disable_ssl" koanf:"disable_ssl"`
+	EndpointURL     string `json:"endpoint_url" koanf:"endpoint_url"`
+	Profile         string `json:"profile" koanf:"profile"`
+	Region          string `json:"region" koanf:"region"`
+	SecretAccessKey string `json:"secret_access_key" koanf:"secret_access_key"`
+	SessionToken    string `json:"session_token" koanf:"session_token"`
+	UsePathStyle    bool   `json:"use_path_style" koanf:"use_path_style"`
 }

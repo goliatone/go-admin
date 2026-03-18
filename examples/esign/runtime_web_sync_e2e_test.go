@@ -240,7 +240,7 @@ func createRuntimeWebSyncDocument(t *testing.T, app *fiber.App, authCookie *http
 	}
 
 	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload", &uploadBody)
-	uploadReq.Host = "localhost:8082"
+	prepareRuntimeTestRequest(uploadReq)
 	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
 	uploadReq.AddCookie(authCookie)
 	uploadResp, err := app.Test(uploadReq, -1)

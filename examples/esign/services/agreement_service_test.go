@@ -2305,6 +2305,68 @@ func TestAgreementServiceOpenReviewEnqueuesReviewInvitationsForRecipientAndExter
 	}
 }
 
+func TestAgreementServiceCloseReviewRevokesReviewSessionTokens(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	svc := NewAgreementService(store, WithAgreementReviewTokenService(reviewTokenService))
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("reviewer@example.com"),
+		Name:         new("Recipient Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     reviewer.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	participants, err := store.ListAgreementReviewParticipants(ctx, scope, summary.Review.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementReviewParticipants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected one review participant, got %+v", participants)
+	}
+
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+	if _, err := reviewTokenService.Validate(ctx, scope, issued.Token); err != nil {
+		t.Fatalf("Validate review token before close: %v", err)
+	}
+
+	closed, err := svc.CloseReview(ctx, scope, agreement.ID, "user", "ops-user", "203.0.113.44")
+	if err != nil {
+		t.Fatalf("CloseReview: %v", err)
+	}
+	if closed.Status != stores.AgreementReviewStatusClosed {
+		t.Fatalf("expected closed review status, got %q", closed.Status)
+	}
+	if _, err := reviewTokenService.Validate(ctx, scope, issued.Token); err == nil {
+		t.Fatalf("expected review token validation to fail after close")
+	}
+}
+
 func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	dispatcher := &stubAgreementNotificationDispatchTrigger{}

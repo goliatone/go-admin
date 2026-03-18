@@ -52,7 +52,24 @@
     "allow_out_of_order": false
   },
   "storage": {
-    "encryption_algorithm": "aws:kms"
+    "backend": "fs",
+    "encryption_algorithm": "aws:kms",
+    "kms_key_id": "",
+    "fs": {
+      "base_path": ""
+    },
+    "s3": {
+      "access_key_id": "",
+      "base_path": "",
+      "bucket": "",
+      "disable_ssl": false,
+      "endpoint_url": "",
+      "profile": "",
+      "region": "",
+      "secret_access_key": "",
+      "session_token": "",
+      "use_path_style": false
+    }
   },
   "email": {
     "transport": "deterministic",

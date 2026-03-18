@@ -326,6 +326,10 @@ func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, a
 		if err != nil {
 			return err
 		}
+		participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+		if err != nil {
+			return err
+		}
 		now := txSvc.now()
 		review.Status = stores.AgreementReviewStatusClosed
 		review.ClosedAt = &now
@@ -345,6 +349,16 @@ func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, a
 			"review_status": review.Status,
 		}); err != nil {
 			return err
+		}
+		if txSvc.reviewTokens != nil {
+			for _, participant := range participants {
+				if strings.TrimSpace(participant.ID) == "" {
+					continue
+				}
+				if err := txSvc.reviewTokens.Revoke(ctx, scope, agreementID, participant.ID); err != nil {
+					return err
+				}
+			}
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
 		return err

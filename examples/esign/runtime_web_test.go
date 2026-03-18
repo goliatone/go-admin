@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -66,7 +67,7 @@ func TestRuntimeRegistersWebEntrypointAndAuthRoutes(t *testing.T) {
 func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T) {
 	app := setupESignRuntimeWebApp(t)
 
-	assertRedirect(t, app, http.MethodGet, "/admin/esign", "/admin/login")
+	assertRedirect(t, app, http.MethodGet, "/admin", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/esign/documents", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/esign/agreements", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/content/esign_documents", "/admin/login")
@@ -164,6 +165,8 @@ func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
 	}
 	if csp := strings.TrimSpace(resp.Header.Get("Content-Security-Policy")); csp == "" {
 		t.Fatalf("expected csp header on unified review route")
+	} else if !strings.Contains(csp, "https://cdn.jsdelivr.net") || !strings.Contains(csp, "https://cdnjs.cloudflare.com") {
+		t.Fatalf("expected unified review csp to preserve external asset allowances, got %q", csp)
 	}
 }
 
@@ -223,14 +226,14 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 		t.Fatal("expected auth cookie after login")
 	}
 
-	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign", authCookie)
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin", authCookie)
 	defer landingResp.Body.Close()
 	if landingResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected /admin/esign status 200, got %d", landingResp.StatusCode)
+		t.Fatalf("expected /admin status 200, got %d", landingResp.StatusCode)
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
 	if err != nil {
-		t.Fatalf("read /admin/esign body: %v", err)
+		t.Fatalf("read /admin body: %v", err)
 	}
 	if !strings.Contains(string(landingBody), "/admin/esign/integrations/google") {
 		t.Fatalf("expected google integration link on landing page when feature enabled")
@@ -424,11 +427,11 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 		t.Fatal("expected auth cookie after login")
 	}
 
-	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign", authCookie)
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin", authCookie)
 	defer landingResp.Body.Close()
 	if landingResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(landingResp.Body)
-		t.Fatalf("expected /admin/esign status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
+		t.Fatalf("expected /admin status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
 	if err != nil {
@@ -765,21 +768,20 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 		t.Fatal("expected auth cookie after login")
 	}
 
-	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin", "/admin/dashboard")
-	assertStatusWithCookie(t, app, authCookie, http.MethodGet, "/admin/dashboard", http.StatusOK)
-
-	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign", authCookie)
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin", authCookie)
 	defer landingResp.Body.Close()
 	if landingResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected authenticated /admin/esign status 200, got %d", landingResp.StatusCode)
+		t.Fatalf("expected authenticated /admin status 200, got %d", landingResp.StatusCode)
 	}
 	body, err := io.ReadAll(landingResp.Body)
 	if err != nil {
-		t.Fatalf("read /admin/esign body: %v", err)
+		t.Fatalf("read /admin body: %v", err)
 	}
 	if !strings.Contains(string(body), "E-Sign") {
 		t.Fatalf("expected landing page content in response body")
 	}
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/dashboard", "/admin")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign", "/admin")
 
 	documentsResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents", authCookie)
 	defer documentsResp.Body.Close()
@@ -813,10 +815,25 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 		t.Fatalf("expected agreement create form action to target /admin/content/esign_agreements")
 	}
 
-	statsResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/esign/agreements/stats", authCookie)
+	statsReq := httptest.NewRequest(http.MethodGet, "https://localhost:8082/admin/api/v1/esign/agreements/stats", nil)
+	statsReq.Host = "localhost:8082"
+	if authCookie != nil {
+		statsReq.AddCookie(authCookie)
+	}
+	statsResp, err := app.Test(statsReq, -1)
+	if err != nil {
+		t.Fatalf("request failed (GET /admin/api/v1/esign/agreements/stats): %v", err)
+	}
 	defer statsResp.Body.Close()
 	if statsResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/stats status 200, got %d", statsResp.StatusCode)
+	}
+
+	dashboardAPIResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/dashboard", authCookie)
+	defer dashboardAPIResp.Body.Close()
+	if dashboardAPIResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(dashboardAPIResp.Body)
+		t.Fatalf("expected /admin/api/v1/dashboard status 200, got %d body=%s", dashboardAPIResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
 
@@ -851,15 +868,15 @@ func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
 		"message":     "Landing recent agreement verification",
 	})
 
-	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign?"+query, authCookie)
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin?"+query, authCookie)
 	defer landingResp.Body.Close()
 	if landingResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(landingResp.Body)
-		t.Fatalf("expected /admin/esign status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
+		t.Fatalf("expected /admin status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
 	if err != nil {
-		t.Fatalf("read /admin/esign body: %v", err)
+		t.Fatalf("read /admin body: %v", err)
 	}
 	landingMarkup := string(landingBody)
 	if !strings.Contains(landingMarkup, agreementTitle) {
@@ -1709,9 +1726,6 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("new view engine: %w", err)
 	}
-	if err := configureESignDashboardRenderer(adm, viewEngine, cfg); err != nil {
-		return eSignRuntimeWebFixture{}, fmt.Errorf("configure dashboard renderer: %w", err)
-	}
 
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
@@ -1865,7 +1879,7 @@ func assertStatusWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, m
 func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
-	req.Host = "localhost:8082"
+	prepareRuntimeTestRequest(req)
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -1879,7 +1893,7 @@ func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType strin
 func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, cookie *http.Cookie) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, nil)
-	req.Host = "localhost:8082"
+	prepareRuntimeTestRequest(req)
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
@@ -1893,7 +1907,7 @@ func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, 
 func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cookie, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
-	req.Host = "localhost:8082"
+	prepareRuntimeTestRequest(req)
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
@@ -1910,7 +1924,7 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader, headers map[string]string) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
-	req.Host = "localhost:8082"
+	prepareRuntimeTestRequest(req)
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -1925,6 +1939,18 @@ func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentTy
 		t.Fatalf("request failed (%s %s): %v", method, endpoint, err)
 	}
 	return resp
+}
+
+func prepareRuntimeTestRequest(req *http.Request) {
+	if req == nil {
+		return
+	}
+	req.Host = "localhost:8082"
+	req.RemoteAddr = "127.0.0.1:12345"
+	if req.URL != nil {
+		req.URL.Scheme = "https"
+	}
+	req.TLS = &tls.ConnectionState{}
 }
 
 func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string, payload map[string]any) string {

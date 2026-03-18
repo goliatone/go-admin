@@ -70,12 +70,7 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"esign.agreements.edit_requires_draft",
 		)
 	case "send":
-		action.Guard = agreementAllowedStatusesGuard(
-			action.Name,
-			[]string{stores.AgreementStatusDraft},
-			"Only draft agreements can be sent for signature.",
-			"esign.agreements.send_requires_draft",
-		)
+		action.Guard = agreementSendGuard(action.Name)
 	case "request_review":
 		action.Guard = agreementDraftReviewGuard(
 			action.Name,
@@ -181,6 +176,50 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 		action.Guard = agreementResumeDeliveryGuard()
 	}
 	return action
+}
+
+func agreementSendGuard(actionName string) coreadmin.ActionGuard {
+	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
+		currentStatus := normalizeAgreementStatus(ctx.Record["status"])
+		if !statusAllowed(currentStatus, stores.AgreementStatusDraft) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodeInvalidStatus,
+				Reason:     "Only draft agreements can be sent for signature.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"current_status":   currentStatus,
+					"allowed_statuses": []string{stores.AgreementStatusDraft},
+					"business_rule_id": "esign.agreements.send_requires_draft",
+				},
+			}
+		}
+
+		currentReviewGate := stores.NormalizeAgreementReviewGate(toString(ctx.Record["review_gate"]))
+		currentReviewStatus := stores.NormalizeAgreementReviewStatus(toString(ctx.Record["review_status"]))
+		if currentReviewGate == stores.AgreementReviewGateApproveBeforeSend &&
+			currentReviewStatus != stores.AgreementReviewStatusApproved {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "Review approval is required before send. Use Notify Reviewers while the agreement is in review.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":        strings.ToLower(strings.TrimSpace(actionName)),
+					"current_status":        currentStatus,
+					"current_review_gate":   currentReviewGate,
+					"current_review_status": currentReviewStatus,
+					"recommended_action":    "notify_reviewers",
+					"business_rule_id":      "esign.agreements.send_requires_review_approval",
+				},
+			}
+		}
+
+		return coreadmin.ActionState{Enabled: true}
+	}
 }
 
 func agreementActiveReviewGuard(actionName string, requireCommentsEnabled bool, reason string, ruleID string) coreadmin.ActionGuard {

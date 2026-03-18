@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -228,9 +230,11 @@ func WithSignatureUploadConfig(ttl time.Duration, secret string) SigningServiceO
 			s.signatureUploadTTL = ttl
 		}
 		trimmedSecret := strings.TrimSpace(secret)
-		if trimmedSecret != "" {
-			s.signatureUploadSecret = []byte(trimmedSecret)
+		if trimmedSecret == "" {
+			s.signatureUploadSecret = nil
+			return
 		}
+		s.signatureUploadSecret = []byte(trimmedSecret)
 	}
 }
 
@@ -259,17 +263,16 @@ func WithSigningPreviewFallbackEnabled(enabled bool) SigningServiceOption {
 
 func NewSigningService(store stores.Store, opts ...SigningServiceOption) SigningService {
 	svc := SigningService{
-		agreements:            store,
-		signing:               store,
-		documents:             store,
-		artifacts:             store,
-		audits:                store,
-		now:                   func() time.Time { return time.Now().UTC() },
-		tx:                    store,
-		signatureUploadTTL:    time.Duration(defaultSignatureUploadTTLSeconds) * time.Second,
-		signatureUploadSecret: []byte("esign-signature-upload-secret"),
-		signatureUploadURL:    defaultSignatureUploadURLPath,
-		pdfs:                  NewPDFService(),
+		agreements:         store,
+		signing:            store,
+		documents:          store,
+		artifacts:          store,
+		audits:             store,
+		now:                func() time.Time { return time.Now().UTC() },
+		tx:                 store,
+		signatureUploadTTL: time.Duration(defaultSignatureUploadTTLSeconds) * time.Second,
+		signatureUploadURL: defaultSignatureUploadURLPath,
+		pdfs:               NewPDFService(),
 		state: &signingServiceState{
 			consentAccepted:        map[string]time.Time{},
 			submitByKey:            map[string]SignerSubmitResult{},
@@ -1029,6 +1032,9 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 
 // IssueSignatureUpload creates a short-lived signer-scoped upload contract for drawn signatures.
 func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input SignerSignatureUploadInput) (SignerSignatureUploadContract, error) {
+	if err := s.ensureSignatureUploadSecurityConfigured(); err != nil {
+		return SignerSignatureUploadContract{}, err
+	}
 	agreement, recipient, activeStage, activeSigners, _, fields, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerSignatureUploadContract{}, err
@@ -1120,6 +1126,9 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 
 // ConfirmSignatureUpload records upload receipt metadata and enforces grant-bound digest/object constraints.
 func (s SigningService) ConfirmSignatureUpload(ctx context.Context, scope stores.Scope, input SignerSignatureUploadCommitInput) (SignerSignatureUploadCommitResult, error) {
+	if err := s.ensureSignatureUploadSecurityConfigured(); err != nil {
+		return SignerSignatureUploadCommitResult{}, err
+	}
 	payload := append([]byte{}, input.Payload...)
 	if len(payload) > 0 {
 		sum := sha256.Sum256(payload)
@@ -2287,6 +2296,9 @@ func normalizeSHA256Hex(raw string) string {
 }
 
 func (s SigningService) signSignatureUploadGrant(grant signatureUploadGrant) (string, error) {
+	if err := s.ensureSignatureUploadSecurityConfigured(); err != nil {
+		return "", err
+	}
 	payload, err := json.Marshal(map[string]any{
 		"tenant_id":    strings.TrimSpace(grant.TenantID),
 		"org_id":       strings.TrimSpace(grant.OrgID),
@@ -2311,6 +2323,9 @@ func (s SigningService) signSignatureUploadGrant(grant signatureUploadGrant) (st
 }
 
 func (s SigningService) parseSignatureUploadGrant(uploadToken string) (signatureUploadGrant, error) {
+	if err := s.ensureSignatureUploadSecurityConfigured(); err != nil {
+		return signatureUploadGrant{}, err
+	}
 	parts := strings.Split(strings.TrimSpace(uploadToken), ".")
 	if len(parts) != 2 {
 		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token")
@@ -2367,6 +2382,15 @@ func (s SigningService) parseSignatureUploadGrant(uploadToken string) (signature
 		SizeBytes:   claims.SizeBytes,
 		ExpiresAt:   expiresAt.UTC(),
 	}, nil
+}
+
+func (s SigningService) ensureSignatureUploadSecurityConfigured() error {
+	if len(bytes.TrimSpace(s.signatureUploadSecret)) > 0 {
+		return nil
+	}
+	return goerrors.New("signature upload security is not configured", goerrors.CategoryBadInput).
+		WithCode(http.StatusNotImplemented).
+		WithTextCode(string(ErrorCodeInvalidSignerState))
 }
 
 func (s SigningService) validateSignatureUploadGrant(ctx context.Context, scope stores.Scope, input signatureUploadValidationInput) (signatureUploadGrant, error) {

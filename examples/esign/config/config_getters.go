@@ -566,6 +566,70 @@ func (s Sqlite) GetDSN() string {
 
 // Storage Getters
 
+func (s Storage) GetBackend() string {
+	return s.Backend
+}
+
 func (s Storage) GetEncryptionAlgorithm() string {
 	return s.EncryptionAlgorithm
+}
+
+func (s Storage) GetFS() StorageFS {
+	return s.FS
+}
+
+func (s Storage) GetKMSKeyID() string {
+	return s.KMSKeyID
+}
+
+func (s Storage) GetS3() StorageS3 {
+	return s.S3
+}
+
+// StorageFS Getters
+
+func (s StorageFS) GetBasePath() string {
+	return s.BasePath
+}
+
+// StorageS3 Getters
+
+func (s StorageS3) GetAccessKeyID() string {
+	return s.AccessKeyID
+}
+
+func (s StorageS3) GetBasePath() string {
+	return s.BasePath
+}
+
+func (s StorageS3) GetBucket() string {
+	return s.Bucket
+}
+
+func (s StorageS3) GetDisableSSL() bool {
+	return s.DisableSSL
+}
+
+func (s StorageS3) GetEndpointURL() string {
+	return s.EndpointURL
+}
+
+func (s StorageS3) GetProfile() string {
+	return s.Profile
+}
+
+func (s StorageS3) GetRegion() string {
+	return s.Region
+}
+
+func (s StorageS3) GetSecretAccessKey() string {
+	return s.SecretAccessKey
+}
+
+func (s StorageS3) GetSessionToken() string {
+	return s.SessionToken
+}
+
+func (s StorageS3) GetUsePathStyle() bool {
+	return s.UsePathStyle
 }

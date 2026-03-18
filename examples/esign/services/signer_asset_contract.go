@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"strings"
 
@@ -13,9 +14,11 @@ type SignerAssetContract struct {
 	AgreementStatus           string `json:"agreement_status"`
 	RecipientID               string `json:"recipient_id"`
 	RecipientRole             string `json:"recipient_role"`
+	PreviewDocumentAvailable  bool   `json:"preview_document_available"`
 	SourceDocumentAvailable   bool   `json:"source_document_available"`
 	ExecutedArtifactAvailable bool   `json:"executed_artifact_available"`
 	CertificateAvailable      bool   `json:"certificate_available"`
+	PreviewObjectKey          string `json:"-"`
 	SourceObjectKey           string `json:"-"`
 	ExecutedObjectKey         string `json:"-"`
 	CertificateObjectKey      string `json:"-"`
@@ -27,6 +30,7 @@ type SignerAssetContractService struct {
 	documents  stores.DocumentStore
 	artifacts  stores.AgreementArtifactStore
 	objects    signerAssetObjectStore
+	pdfs       PDFService
 }
 
 type signerAssetObjectStore interface {
@@ -46,11 +50,22 @@ func WithSignerAssetObjectStore(store signerAssetObjectStore) SignerAssetContrac
 	}
 }
 
+// WithSignerAssetPDFService configures preview asset selection to match active PDF policy.
+func WithSignerAssetPDFService(service PDFService) SignerAssetContractOption {
+	return func(s *SignerAssetContractService) {
+		if s == nil {
+			return
+		}
+		s.pdfs = service
+	}
+}
+
 func NewSignerAssetContractService(store stores.Store, opts ...SignerAssetContractOption) SignerAssetContractService {
 	svc := SignerAssetContractService{
 		agreements: store,
 		documents:  store,
 		artifacts:  store,
+		pdfs:       NewPDFService(),
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -101,6 +116,10 @@ func (s SignerAssetContractService) Resolve(ctx context.Context, scope stores.Sc
 
 	if s.documents != nil {
 		if document, err := s.documents.Get(ctx, scope, strings.TrimSpace(agreement.DocumentID)); err == nil {
+			if previewKey := s.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
+				contract.PreviewDocumentAvailable = true
+				contract.PreviewObjectKey = previewKey
+			}
 			objectKey := strings.TrimSpace(document.SourceObjectKey)
 			if s.objectAvailable(ctx, objectKey) {
 				contract.SourceDocumentAvailable = true
@@ -126,6 +145,62 @@ func (s SignerAssetContractService) Resolve(ctx context.Context, scope stores.Sc
 	return contract, nil
 }
 
+// ResolvePublic resolves a token-scoped asset contract for either signer or review sessions.
+// Review sessions are intentionally restricted to source-document preview access only.
+func (s SignerAssetContractService) ResolvePublic(ctx context.Context, scope stores.Scope, token PublicReviewToken) (SignerAssetContract, error) {
+	switch strings.TrimSpace(token.Kind) {
+	case "", PublicReviewTokenKindSigning:
+		if token.SigningToken == nil {
+			return SignerAssetContract{}, domainValidationError("signing_tokens", "token", "required")
+		}
+		return s.Resolve(ctx, scope, *token.SigningToken)
+	case PublicReviewTokenKindReview:
+		if s.agreements == nil {
+			return SignerAssetContract{}, domainValidationError("signing_assets", "agreements", "not configured")
+		}
+		if token.ReviewToken == nil {
+			return SignerAssetContract{}, domainValidationError("review_session_tokens", "token", "required")
+		}
+		agreementID := strings.TrimSpace(token.ReviewToken.AgreementID)
+		participantID := strings.TrimSpace(token.ReviewToken.ParticipantID)
+		if agreementID == "" || participantID == "" {
+			return SignerAssetContract{}, domainValidationError("review_session_tokens", "agreement_id|participant_id", "required")
+		}
+		review, participant, err := ensureActiveReviewParticipant(ctx, scope, s.agreements, *token.ReviewToken)
+		if err != nil {
+			return SignerAssetContract{}, err
+		}
+		if strings.TrimSpace(review.AgreementID) != "" && strings.TrimSpace(review.AgreementID) != agreementID {
+			return SignerAssetContract{}, signerReviewAccessError("review token does not match active review")
+		}
+
+		agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return SignerAssetContract{}, err
+		}
+
+		contract := SignerAssetContract{
+			AgreementID:     agreementID,
+			AgreementStatus: strings.TrimSpace(agreement.Status),
+			RecipientID:     participantID,
+			RecipientRole:   firstNonEmptyString(strings.TrimSpace(participant.Role), stores.AgreementReviewParticipantRoleReviewer),
+		}
+
+		if s.documents != nil {
+			if document, err := s.documents.Get(ctx, scope, strings.TrimSpace(agreement.DocumentID)); err == nil {
+				if previewKey := s.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
+					contract.PreviewDocumentAvailable = true
+					contract.PreviewObjectKey = previewKey
+				}
+			}
+		}
+
+		return contract, nil
+	default:
+		return SignerAssetContract{}, domainValidationError("public_review_tokens", "kind", "unsupported")
+	}
+}
+
 func (s SignerAssetContractService) objectAvailable(ctx context.Context, objectKey string) bool {
 	objectKey = strings.TrimSpace(objectKey)
 	if objectKey == "" {
@@ -136,4 +211,55 @@ func (s SignerAssetContractService) objectAvailable(ctx context.Context, objectK
 	}
 	payload, err := s.objects.GetFile(ctx, objectKey)
 	return err == nil && len(payload) > 0
+}
+
+func (s SignerAssetContractService) resolvePreviewObjectKey(ctx context.Context, scope stores.Scope, document stores.DocumentRecord) string {
+	policy := s.pdfs.Policy(ctx, scope)
+	if policy.PreviewFallbackEnabled {
+		return ""
+	}
+
+	sourceObjectKey := strings.TrimSpace(document.SourceObjectKey)
+	normalizedObjectKey := strings.TrimSpace(document.NormalizedObjectKey)
+
+	if !policyPrefersNormalizedSource(policy) {
+		if s.previewObjectUsable(ctx, scope, sourceObjectKey, document.PageCount) {
+			return sourceObjectKey
+		}
+		if s.previewObjectUsable(ctx, scope, normalizedObjectKey, document.PageCount) {
+			return normalizedObjectKey
+		}
+		return ""
+	}
+
+	if s.previewObjectUsable(ctx, scope, normalizedObjectKey, document.PageCount) {
+		return normalizedObjectKey
+	}
+	if !policyAllowsOriginalFallback(policy) {
+		return ""
+	}
+	if s.previewObjectUsable(ctx, scope, sourceObjectKey, document.PageCount) {
+		return sourceObjectKey
+	}
+	return ""
+}
+
+func (s SignerAssetContractService) previewObjectUsable(ctx context.Context, scope stores.Scope, objectKey string, pageCount int) bool {
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" {
+		return false
+	}
+	if s.objects == nil {
+		return true
+	}
+
+	payload, err := s.objects.GetFile(ctx, objectKey)
+	if err != nil || len(payload) == 0 || !bytes.HasPrefix(payload, []byte("%PDF-")) {
+		return false
+	}
+	if pageCount <= 0 {
+		pageCount = 1
+	}
+	_, err = s.pdfs.PageGeometry(ctx, scope, payload, pageCount)
+	return err == nil
 }

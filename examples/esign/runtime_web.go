@@ -516,10 +516,6 @@ func registerESignWebRoutes(
 	); err != nil {
 		return err
 	}
-	dashboardPath := path.Join(basePath, "dashboard")
-	r.Get(basePath, authn.WrapHandler(func(c router.Context) error {
-		return c.Redirect(dashboardPath, http.StatusFound)
-	}))
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		return err
 	}
@@ -562,9 +558,10 @@ func registerESignWebRoutes(
 		return err
 	}
 
-	landingPath := strings.TrimSpace(routes.AdminHome)
-	if landingPath == "" {
-		landingPath = path.Join(basePath, "esign")
+	landingPath := basePath
+	legacyLandingPath := strings.TrimSpace(routes.AdminLegacyHome)
+	if legacyLandingPath == "" {
+		legacyLandingPath = path.Join(basePath, "esign")
 	}
 	apiBasePath := strings.TrimSpace(adm.AdminAPIBasePath())
 	if err := quickstart.RegisterAdminPageRoutes(
@@ -606,6 +603,11 @@ func registerESignWebRoutes(
 		},
 	); err != nil {
 		return err
+	}
+	if legacyLandingPath != "" && legacyLandingPath != landingPath {
+		r.Get(legacyLandingPath, authn.WrapHandler(func(c router.Context) error {
+			return redirectPathAlias(c, legacyLandingPath, landingPath)
+		}))
 	}
 	if err := registerESignGoogleIntegrationUIRoutes(r, cfg, adm, authn, routes, esignModule); err != nil {
 		return err
@@ -666,10 +668,7 @@ func registerESignGoogleIntegrationUIRoutes(
 		basePath = "/admin"
 	}
 
-	landingPath := strings.TrimSpace(routes.AdminHome)
-	if landingPath == "" {
-		landingPath = path.Join(basePath, "esign")
-	}
+	landingPath := basePath
 	documentsPath := path.Join(basePath, "content", "esign_documents")
 	googleIntegrationPath := path.Join(basePath, "esign", "integrations", "google")
 	googleCallbackPath := path.Join(googleIntegrationPath, "callback")
@@ -1003,6 +1002,7 @@ func registerESignLegacyUIAliasRoutes(
 	}
 
 	aliases := map[string]string{
+		path.Join(basePath, "dashboard"):                  basePath,
 		path.Join(basePath, "esign", "agreements"):        path.Join(basePath, "content", "esign_agreements"),
 		path.Join(basePath, "esign", "agreements", "new"): path.Join(basePath, "content", "esign_agreements", "new"),
 		path.Join(basePath, "esign", "documents"):         path.Join(basePath, "content", "esign_documents"),

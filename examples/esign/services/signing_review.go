@@ -357,19 +357,19 @@ func (s SigningService) ensurePublicReviewAccess(ctx context.Context, scope stor
 		if token.ReviewToken == nil {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review token is required")
 		}
+		participantReview, participant, err := ensureActiveReviewParticipant(ctx, scope, s.agreements, *token.ReviewToken)
+		if err != nil {
+			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
+		}
 		summary, err := s.reviewWorkflow().GetReviewSummary(ctx, scope, token.ReviewToken.AgreementID)
 		if err != nil {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
 		}
-		if summary.Status == "" || summary.Status == stores.AgreementReviewStatusNone || summary.Review == nil {
+		if summary.Status == "" || summary.Status == stores.AgreementReviewStatusNone || summary.Status == stores.AgreementReviewStatusClosed || summary.Review == nil {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review is not enabled for this agreement")
 		}
-		if strings.TrimSpace(summary.Review.ID) != strings.TrimSpace(token.ReviewToken.ReviewID) {
+		if strings.TrimSpace(summary.Review.ID) != strings.TrimSpace(token.ReviewToken.ReviewID) || strings.TrimSpace(summary.Review.ID) != strings.TrimSpace(participantReview.ID) {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("review token does not match active review")
-		}
-		participant, _, err := findReviewParticipant(summary.Participants, token.ReviewToken.ParticipantID, "")
-		if err != nil {
-			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
 		}
 		reviewCtx := buildSignerReviewContext(summary, participant, false)
 		if reviewCtx == nil || !reviewCtx.IsReviewer {

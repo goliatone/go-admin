@@ -2,6 +2,8 @@ package modules
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -98,6 +100,7 @@ type ESignModule struct {
 	signingWorkflows   *jobs.SigningWorkflowOutboxDispatcher
 	integrations       services.IntegrationFoundationService
 	activityMap        *AuditActivityProjector
+	uploadProvider     uploader.Uploader
 	uploadManager      *uploader.Manager
 	remediationStatus  jobqueue.DispatchStatusReader
 }
@@ -119,6 +122,23 @@ func (m *ESignModule) WithUploadDir(dir string) *ESignModule {
 	}
 	m.uploadDir = strings.TrimSpace(dir)
 	m.uploadManager = nil
+	return m
+}
+
+func (m *ESignModule) WithUploadProvider(provider uploader.Uploader) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.uploadProvider = provider
+	m.uploadManager = nil
+	return m
+}
+
+func (m *ESignModule) WithUploadManager(manager *uploader.Manager) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.uploadManager = manager
 	return m
 }
 
@@ -1037,32 +1057,12 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 		menuCode = "admin_main"
 	}
 
-	targetPath := strings.TrimSpace(m.routes.AdminHome)
-	if targetPath == "" {
-		targetPath = joinBasePath(m.basePath, moduleID)
-	}
 	documentsPath := joinBasePath(m.basePath, path.Join("content", esignDocumentsPanelID))
 	agreementsPath := joinBasePath(m.basePath, path.Join("content", esignAgreementsPanelID))
 
-	rootPos := 15
-	agreementsPos := 16
-	documentsPos := 17
+	agreementsPos := 15
+	documentsPos := 16
 	items := []coreadmin.MenuItem{
-		{
-			ID:       "esign.index",
-			Label:    "E-Sign",
-			LabelKey: "menu.esign",
-			Icon:     "shield",
-			Target: map[string]any{
-				"type": "url",
-				"path": targetPath,
-				"key":  moduleID,
-			},
-			Permissions: []string{permissions.AdminESignView},
-			Locale:      locale,
-			Menu:        menuCode,
-			Position:    &rootPos,
-		},
 		{
 			ID:    "esign.agreements",
 			Label: "Agreements",
@@ -1093,7 +1093,7 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 		},
 	}
 	if m.GoogleIntegrationEnabled() {
-		integrationsPos := 18
+		integrationsPos := 17
 		items = append(items, coreadmin.MenuItem{
 			ID:    "esign.integrations",
 			Label: "Integrations",
@@ -1151,8 +1151,6 @@ func (m *ESignModule) documentUploadManager() *uploader.Manager {
 	if m.uploadManager != nil {
 		return m.uploadManager
 	}
-	assetsDir := m.documentUploadDir()
-	_ = os.MkdirAll(assetsDir, 0o755)
 	maxUploadSize := int64(esignDocumentUploadMaxSize)
 	if m.settings.MaxSourcePDFBytes > 0 {
 		maxUploadSize = m.settings.MaxSourcePDFBytes
@@ -1162,8 +1160,13 @@ func (m *ESignModule) documentUploadManager() *uploader.Manager {
 		uploader.WithAllowedMimeTypes(cloneBoolMap(allowedESignDocumentMimeTypes)),
 		uploader.WithAllowedImageFormats(cloneBoolMap(allowedESignDocumentExtensions)),
 	)
+	provider := m.uploadProvider
+	if provider == nil {
+		assetsDir := m.documentUploadDir()
+		provider = uploader.NewFSProvider(assetsDir).WithURLPrefix(joinBasePath(m.basePath, "assets"))
+	}
 	m.uploadManager = uploader.NewManager(
-		uploader.WithProvider(uploader.NewFSProvider(assetsDir)),
+		uploader.WithProvider(provider),
 		uploader.WithValidator(validator),
 	)
 	return m.uploadManager
@@ -1272,7 +1275,20 @@ func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
 	if ttlSeconds > 900 {
 		ttlSeconds = 900
 	}
-	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(cfg.Signer.UploadSigningKey)
+	secret := strings.TrimSpace(cfg.Signer.UploadSigningKey)
+	if secret == "" {
+		secret = deriveSignerUploadSigningKey(strings.TrimSpace(cfg.Auth.SigningKey))
+	}
+	return time.Duration(ttlSeconds) * time.Second, secret
+}
+
+func deriveSignerUploadSigningKey(authSigningKey string) string {
+	authSigningKey = strings.TrimSpace(authSigningKey)
+	if authSigningKey == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("esign:signer-upload:v1:" + authSigningKey))
+	return hex.EncodeToString(sum[:])
 }
 
 func buildPDFRemediationCommandService(

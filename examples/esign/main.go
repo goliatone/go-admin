@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	"github.com/goliatone/go-uploader"
 )
 
 func main() {
@@ -110,10 +112,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("setup services module: %v", err)
 	}
+	storageBundle, err := newESignStorageBundle(adm.NamedLogger("esign.storage"), runtimeConfig)
+	if err != nil {
+		log.Fatalf("setup e-sign storage: %v", err)
+	}
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithPlacements(quickstart.DefaultPlacements(admin.Config{NavMenuCode: cfg.NavMenuCode})).
-		WithUploadDir(resolveESignDiskAssetsDir()).
+		WithUploadManager(storageBundle.Manager).
 		WithServicesModule(servicesModule).
 		WithStore(store)
 	if err := adm.RegisterModule(esignModule); err != nil {
@@ -129,10 +135,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("initialize view engine: %v", err)
 	}
-	if err := configureESignDashboardRenderer(adm, viewEngine, cfg); err != nil {
-		log.Fatalf("configure dashboard renderer: %v", err)
-	}
-
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
 
@@ -343,6 +345,61 @@ func resolveESignDiskAssetsDir() string {
 		"../pkg/client/assets",
 		"../../pkg/client/assets",
 	)
+}
+
+func newESignStorageBundle(logger uploader.Logger, runtimeConfig appcfg.Config) (*quickstart.StorageBundle, error) {
+	providerCfg := uploader.ProviderConfig{
+		Backend: uploader.Backend(strings.TrimSpace(runtimeConfig.Storage.Backend)),
+		FS: uploader.FSConfig{
+			BasePath: firstNonEmptyString(
+				strings.TrimSpace(runtimeConfig.Storage.FS.BasePath),
+				resolveESignDiskAssetsDir(),
+			),
+			URLPrefix: resolveESignAssetsURLPrefix(runtimeConfig.Admin.BasePath),
+		},
+		S3: uploader.S3Config{
+			Bucket:               strings.TrimSpace(runtimeConfig.Storage.S3.Bucket),
+			Region:               strings.TrimSpace(runtimeConfig.Storage.S3.Region),
+			BasePath:             strings.TrimSpace(runtimeConfig.Storage.S3.BasePath),
+			EndpointURL:          strings.TrimSpace(runtimeConfig.Storage.S3.EndpointURL),
+			Profile:              strings.TrimSpace(runtimeConfig.Storage.S3.Profile),
+			AccessKeyID:          strings.TrimSpace(runtimeConfig.Storage.S3.AccessKeyID),
+			SecretAccessKey:      strings.TrimSpace(runtimeConfig.Storage.S3.SecretAccessKey),
+			SessionToken:         strings.TrimSpace(runtimeConfig.Storage.S3.SessionToken),
+			UsePathStyle:         runtimeConfig.Storage.S3.UsePathStyle,
+			DisableSSL:           runtimeConfig.Storage.S3.DisableSSL,
+			ServerSideEncryption: strings.TrimSpace(runtimeConfig.Storage.EncryptionAlgorithm),
+			KMSKeyID:             strings.TrimSpace(runtimeConfig.Storage.KMSKeyID),
+		},
+	}
+	validator := uploader.NewValidator(
+		uploader.WithUploadMaxFileSize(runtimeConfig.Signer.PDF.MaxSourceBytes),
+		uploader.WithAllowedMimeTypes(map[string]bool{
+			"application/pdf": true,
+		}),
+		uploader.WithAllowedImageFormats(map[string]bool{
+			".pdf": true,
+		}),
+	)
+	return quickstart.NewStorageBundle(context.Background(), quickstart.StorageBundleConfig{
+		Provider:         providerCfg,
+		ValidateProvider: runtimeConfig.Runtime.StrictStartup,
+		Validator:        validator,
+		Logger:           logger,
+	})
+}
+
+func resolveESignAssetsURLPrefix(basePath string) string {
+	return path.Join("/", strings.TrimSpace(basePath), "assets")
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func newESignRuntimeStore(bootstrap *esignpersistence.BootstrapResult) (stores.Store, func() error, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -464,16 +465,30 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveSignerTokenWithRedirect(c, cfg, token, routes.SignerAssets)
+		publicToken, err := resolvePublicReviewTokenWithRedirect(c, cfg, token, routes.SignerAssets)
 		if err != nil {
 			return asHandlerError(err)
 		}
-		contract := services.SignerAssetContract{
-			AgreementID: strings.TrimSpace(tokenRecord.AgreementID),
-			RecipientID: strings.TrimSpace(tokenRecord.RecipientID),
+		auditActorType := "signer_token"
+		if strings.TrimSpace(publicToken.Kind) == services.PublicReviewTokenKindReview {
+			auditActorType = "review_token"
+		}
+		contract := services.SignerAssetContract{}
+		switch {
+		case publicToken.SigningToken != nil:
+			contract = services.SignerAssetContract{
+				AgreementID: strings.TrimSpace(publicToken.SigningToken.AgreementID),
+				RecipientID: strings.TrimSpace(publicToken.SigningToken.RecipientID),
+			}
+		case publicToken.ReviewToken != nil:
+			contract = services.SignerAssetContract{
+				AgreementID:   strings.TrimSpace(publicToken.ReviewToken.AgreementID),
+				RecipientID:   strings.TrimSpace(publicToken.ReviewToken.ParticipantID),
+				RecipientRole: stores.AgreementReviewParticipantRoleReviewer,
+			}
 		}
 		if cfg.signerAssets != nil {
-			contract, err = cfg.signerAssets.Resolve(c.Context(), cfg.resolveScope(c), tokenRecord)
+			contract, err = resolveSignerAssetContract(c, cfg, publicToken)
 			if err != nil {
 				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer asset contract", nil)
 			}
@@ -487,7 +502,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		rawAssetType := strings.TrimSpace(c.Query("asset"))
 		assetType := normalizeSignerAssetType(rawAssetType)
 		if rawAssetType != "" && assetType == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "asset must be one of source|executed|certificate", map[string]any{
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "asset must be one of preview|source|executed|certificate", map[string]any{
 				"asset": rawAssetType,
 			})
 		}
@@ -523,7 +538,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
 					AgreementID:  strings.TrimSpace(contract.AgreementID),
 					EventType:    "signer.assets.asset_opened",
-					ActorType:    "signer_token",
+					ActorType:    auditActorType,
 					ActorID:      strings.TrimSpace(contract.RecipientID),
 					IPAddress:    resolveAuditRequestIP(c, cfg),
 					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
@@ -559,7 +574,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
 				AgreementID:  strings.TrimSpace(contract.AgreementID),
 				EventType:    "signer.assets.contract_viewed",
-				ActorType:    "signer_token",
+				ActorType:    auditActorType,
 				ActorID:      strings.TrimSpace(contract.RecipientID),
 				IPAddress:    resolveAuditRequestIP(c, cfg),
 				UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
@@ -586,7 +601,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
 			return asHandlerError(err)
 		}
-		if _, err := resolveSignerToken(c, cfg, token); err != nil {
+		if _, err := resolvePublicReviewToken(c, cfg, token); err != nil {
 			return asHandlerError(err)
 		}
 
@@ -1159,29 +1174,38 @@ func matchRedirectRecipient(source stores.RecipientRecord, targets []stores.Reci
 	sourceRole := strings.TrimSpace(source.Role)
 	sourceOrder := source.SigningOrder
 
-	for _, target := range targets {
-		if sourceEmail == "" {
-			break
+	if sourceEmail != "" {
+		matches := make([]stores.RecipientRecord, 0, len(targets))
+		for _, target := range targets {
+			if strings.ToLower(strings.TrimSpace(target.Email)) == sourceEmail &&
+				strings.TrimSpace(target.Role) == sourceRole &&
+				target.SigningOrder == sourceOrder {
+				matches = append(matches, target)
+			}
 		}
-		if strings.ToLower(strings.TrimSpace(target.Email)) == sourceEmail &&
-			strings.TrimSpace(target.Role) == sourceRole &&
-			target.SigningOrder == sourceOrder {
-			return target, true
-		}
+		return uniqueRedirectRecipientMatch(matches)
 	}
-	for _, target := range targets {
-		if strings.ToLower(strings.TrimSpace(target.Name)) == sourceName &&
-			strings.TrimSpace(target.Role) == sourceRole &&
-			target.SigningOrder == sourceOrder {
-			return target, true
+
+	if sourceName != "" {
+		matches := make([]stores.RecipientRecord, 0, len(targets))
+		for _, target := range targets {
+			if strings.ToLower(strings.TrimSpace(target.Name)) == sourceName &&
+				strings.TrimSpace(target.Role) == sourceRole &&
+				target.SigningOrder == sourceOrder {
+				matches = append(matches, target)
+			}
 		}
+		return uniqueRedirectRecipientMatch(matches)
 	}
-	for _, target := range targets {
-		if strings.TrimSpace(target.Role) == sourceRole && target.SigningOrder == sourceOrder {
-			return target, true
-		}
-	}
+
 	return stores.RecipientRecord{}, false
+}
+
+func uniqueRedirectRecipientMatch(matches []stores.RecipientRecord) (stores.RecipientRecord, bool) {
+	if len(matches) != 1 {
+		return stores.RecipientRecord{}, false
+	}
+	return matches[0], true
 }
 
 func rawQueryFromURL(raw string) string {
@@ -1231,6 +1255,22 @@ func signerReviewThreadStateHandler(c router.Context, cfg registerConfig, resolv
 		"status": "ok",
 		"thread": thread,
 	})
+}
+
+type publicSignerAssetContractResolver interface {
+	ResolvePublic(ctx context.Context, scope stores.Scope, token services.PublicReviewToken) (services.SignerAssetContract, error)
+}
+
+func resolveSignerAssetContract(c router.Context, cfg registerConfig, token services.PublicReviewToken) (services.SignerAssetContract, error) {
+	if resolver, ok := cfg.signerAssets.(publicSignerAssetContractResolver); ok {
+		return resolver.ResolvePublic(c.Context(), cfg.resolveScope(c), token)
+	}
+	if token.SigningToken != nil {
+		return cfg.signerAssets.Resolve(c.Context(), cfg.resolveScope(c), *token.SigningToken)
+	}
+	return services.SignerAssetContract{}, goerrors.New("public signer asset contract resolver not configured for review tokens", goerrors.CategoryBadInput).
+		WithCode(http.StatusNotImplemented).
+		WithTextCode(string(services.ErrorCodeInvalidSignerState))
 }
 
 func resolveSignerProfileSubject(c router.Context, cfg registerConfig, token stores.SigningTokenRecord) string {

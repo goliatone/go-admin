@@ -3,6 +3,7 @@ package modules
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -28,6 +29,8 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	runtimeCfg.Features.ESignGoogle = true
 	runtimeCfg.Google.ProviderMode = services.GoogleProviderModeDeterministic
 	runtimeCfg.Google.CredentialActiveKey = "test-google-credential-key"
+	runtimeCfg.Network.RateLimitTrustProxyHeaders = true
+	runtimeCfg.Network.TrustedProxyCIDRs = []string{"0.0.0.0/32"}
 	appcfg.SetActive(runtimeCfg)
 	t.Cleanup(appcfg.ResetActive)
 
@@ -67,6 +70,8 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	}
 
 	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
+	connectReq.TLS = &tls.ConnectionState{}
+	connectReq.RemoteAddr = "127.0.0.1:41001"
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectReq.Header.Set("X-User-ID", "ops-user")
 	connectReq.Header.Set("X-Forwarded-Proto", "https")
@@ -85,6 +90,8 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 
 	body := `{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement","source_version_hint":"v1"}`
 	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	createReq.TLS = &tls.ConnectionState{}
+	createReq.RemoteAddr = "127.0.0.1:41002"
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "ops-user")
 	createReq.Header.Set("X-Forwarded-Proto", "https")
@@ -111,6 +118,8 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	var final map[string]any
 	for range 50 {
 		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusReq.TLS = &tls.ConnectionState{}
+		statusReq.RemoteAddr = "127.0.0.1:41003"
 		statusReq.Header.Set("X-User-ID", "ops-user")
 		statusReq.Header.Set("X-Forwarded-Proto", "https")
 		statusReq.Host = "localhost:8082"

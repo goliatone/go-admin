@@ -332,6 +332,13 @@ func setupRegisterTestApp(t *testing.T, opts ...RegisterOption) *fiber.App {
 	return adapter.WrappedRouter()
 }
 
+func newTestSigningService(store stores.Store, opts ...services.SigningServiceOption) services.SigningService {
+	allOpts := make([]services.SigningServiceOption, 0, len(opts)+1)
+	allOpts = append(allOpts, opts...)
+	allOpts = append(allOpts, services.WithSignatureUploadConfig(5*time.Minute, "test-signature-upload-secret-v1"))
+	return services.NewSigningService(store, allOpts...)
+}
+
 func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string, string) {
 	t.Helper()
 
@@ -410,7 +417,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		t.Fatalf("Issue: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store,
+	signingSvc := newTestSigningService(store,
 		services.WithSigningObjectStore(objectStore),
 		services.WithSigningPreviewFallbackEnabled(true),
 	)
@@ -1689,7 +1696,46 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	}
 }
 
+type externalReviewRouteFixture struct {
+	app         *fiber.App
+	issued      stores.IssuedReviewSessionToken
+	store       *stores.InMemoryStore
+	scope       stores.Scope
+	agreementID string
+}
+
 func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
+	fixture := setupExternalReviewRouteApp(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+fixture.issued.Token, nil)
+	resp, err := fixture.app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	for _, fragment := range []string{
+		`"session_kind":"reviewer"`,
+		`"recipient_email":"route.reviewer@example.com"`,
+		`"can_sign":false`,
+	} {
+		if !strings.Contains(bodyText, fragment) {
+			t.Fatalf("expected %s in session payload, got %s", fragment, bodyText)
+		}
+	}
+}
+
+func setupExternalReviewRouteApp(t *testing.T) externalReviewRouteFixture {
+	t.Helper()
+
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-review-public", OrgID: "org-review-public"}
 	store := stores.NewInMemoryStore()
@@ -1769,16 +1815,31 @@ func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 
 	signingTokenService := stores.NewTokenService(store)
 	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
+	assetSvc := services.NewSignerAssetContractService(store, services.WithSignerAssetObjectStore(objectStore))
 	publicResolver := services.NewPublicReviewTokenResolver(signingTokenService, reviewTokenService)
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(signingTokenService),
 		WithPublicReviewTokenValidator(publicResolver),
 		WithSignerSessionService(signingSvc),
+		WithSignerAssetContractService(assetSvc),
+		WithSignerObjectStore(objectStore),
+		WithAuditEventStore(store),
 		WithDefaultScope(scope),
 	)
+	return externalReviewRouteFixture{
+		app:         app,
+		issued:      issued,
+		store:       store,
+		scope:       scope,
+		agreementID: agreement.ID,
+	}
+}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
-	resp, err := app.Test(req, -1)
+func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testing.T) {
+	fixture := setupExternalReviewRouteApp(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
+	resp, err := fixture.app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -1792,14 +1853,87 @@ func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 		t.Fatalf("read response body: %v", err)
 	}
 	bodyText := string(body)
-	for _, fragment := range []string{
-		`"session_kind":"reviewer"`,
-		`"recipient_email":"route.reviewer@example.com"`,
-		`"can_sign":false`,
-	} {
-		if !strings.Contains(bodyText, fragment) {
-			t.Fatalf("expected %s in session payload, got %s", fragment, bodyText)
+	if !strings.Contains(bodyText, "\"preview_url\"") {
+		t.Fatalf("expected preview_url in asset contract, got %s", bodyText)
+	}
+	for _, forbidden := range []string{"\"source_url\"", "\"executed_url\"", "\"certificate_url\""} {
+		if strings.Contains(bodyText, forbidden) {
+			t.Fatalf("did not expect %s for reviewer asset contract, got %s", forbidden, bodyText)
 		}
+	}
+
+	binaryReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token+"?asset=preview", nil)
+	binaryReq.Header.Set("User-Agent", "review-token-preview/1.0")
+	binaryResp, err := fixture.app.Test(binaryReq, -1)
+	if err != nil {
+		t.Fatalf("binary request failed: %v", err)
+	}
+	defer binaryResp.Body.Close()
+	if binaryResp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(binaryResp.Body)
+		t.Fatalf("expected binary status 200, got %d body=%s", binaryResp.StatusCode, payload)
+	}
+	if contentType := strings.TrimSpace(binaryResp.Header.Get("Content-Type")); !strings.Contains(contentType, "application/pdf") {
+		t.Fatalf("expected pdf content type, got %q", contentType)
+	}
+
+	events, err := fixture.store.ListForAgreement(context.Background(), fixture.scope, fixture.agreementID, stores.AuditEventQuery{SortDesc: false})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	var opened *stores.AuditEventRecord
+	for idx := range events {
+		if events[idx].EventType == "signer.assets.asset_opened" {
+			opened = &events[idx]
+			break
+		}
+	}
+	if opened == nil {
+		t.Fatalf("expected signer.assets.asset_opened event, got %+v", events)
+	}
+	if opened.ActorType != "review_token" {
+		t.Fatalf("expected actor type review_token, got %q", opened.ActorType)
+	}
+}
+
+func TestRegisterSignerTelemetryAcceptsExternalReviewToken(t *testing.T) {
+	fixture := setupExternalReviewRouteApp(t)
+
+	body := bytes.NewBufferString(`{"events":[{"event":"viewer_load_success"}],"summary":{"sessionId":"reviewer-session-1"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/telemetry/"+fixture.issued.Token, body)
+	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+
+	resp, err := fixture.app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
+	}
+}
+
+func TestRegisterSignerAssetsRejectExternalReviewTokenAfterReviewClose(t *testing.T) {
+	fixture := setupExternalReviewRouteApp(t)
+
+	agreementSvc := services.NewAgreementService(
+		fixture.store,
+		services.WithAgreementReviewTokenService(stores.NewReviewSessionTokenService(fixture.store)),
+	)
+	if _, err := agreementSvc.CloseReview(context.Background(), fixture.scope, fixture.agreementID, "user", "user-1", "203.0.113.10"); err != nil {
+		t.Fatalf("CloseReview: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
+	resp, err := fixture.app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusGone {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 410 after closing review, got %d body=%s", resp.StatusCode, body)
 	}
 }
 

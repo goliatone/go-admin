@@ -9,6 +9,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
+	"github.com/goliatone/go-uploader"
 )
 
 func TestValidateRuntimeProviderConfigurationRejectsDeterministicEmailInProduction(t *testing.T) {
@@ -180,6 +181,48 @@ func TestResolveESignStartupPolicySupportsWarnAliases(t *testing.T) {
 	}
 	if got := string(resolveESignStartupPolicy("warning")); got != "warn" {
 		t.Fatalf("expected warn startup policy for warning alias, got %q", got)
+	}
+}
+
+func TestNewESignStorageBundleDefaultsToFSBackend(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Storage.Backend = ""
+	cfg.Storage.FS.BasePath = t.TempDir()
+
+	bundle, err := newESignStorageBundle(nil, cfg)
+	if err != nil {
+		t.Fatalf("newESignStorageBundle: %v", err)
+	}
+	if bundle == nil || bundle.Provider == nil || bundle.Manager == nil {
+		t.Fatal("expected configured storage bundle")
+	}
+	if _, ok := bundle.Provider.(*uploader.FSProvider); !ok {
+		t.Fatalf("expected fs provider, got %T", bundle.Provider)
+	}
+}
+
+func TestNewESignStorageBundleBuildsS3ProviderConfig(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Storage.Backend = "s3"
+	cfg.Storage.EncryptionAlgorithm = "aws:kms"
+	cfg.Storage.KMSKeyID = "kms-key-1"
+	cfg.Storage.S3.Bucket = "esign-test"
+	cfg.Storage.S3.Region = "us-east-1"
+	cfg.Storage.S3.EndpointURL = "http://localhost:4566"
+	cfg.Storage.S3.AccessKeyID = "test"
+	cfg.Storage.S3.SecretAccessKey = "test"
+	cfg.Storage.S3.UsePathStyle = true
+
+	bundle, err := newESignStorageBundle(nil, cfg)
+	if err != nil {
+		t.Fatalf("newESignStorageBundle: %v", err)
+	}
+	provider, ok := bundle.Provider.(*uploader.AWSProvider)
+	if !ok {
+		t.Fatalf("expected aws provider, got %T", bundle.Provider)
+	}
+	if provider == nil {
+		t.Fatal("expected aws provider instance")
 	}
 }
 

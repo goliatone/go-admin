@@ -43,6 +43,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			},
 			"routes": map[string]string{
 				"admin":                             routes.AdminHome,
+				"admin_legacy":                      routes.AdminLegacyHome,
 				"admin_status":                      routes.AdminStatus,
 				"admin_api":                         routes.AdminAPIStatus,
 				"admin_drafts":                      routes.AdminDrafts,

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/quickstart"
@@ -23,10 +25,11 @@ func (g TLSTransportGuard) Ensure(c router.Context) error {
 		return nil
 	}
 	policy := g.trustPolicy()
-	if quickstart.IsSecureRequest(c, policy) {
+	meta := quickstart.ResolveRequestMeta(c, policy)
+	if meta.Secure {
 		return nil
 	}
-	if g.AllowLocalInsecure && quickstart.IsLocalRequest(c, policy) {
+	if g.AllowLocalInsecure && isAllowedLocalInsecureRequest(c, policy, meta) {
 		return nil
 	}
 	return goerrors.New("tls transport required", goerrors.CategoryAuthz).
@@ -45,4 +48,15 @@ func (g TLSTransportGuard) trustPolicy() quickstart.RequestTrustPolicy {
 		}
 	}
 	return policy
+}
+
+func isAllowedLocalInsecureRequest(c router.Context, policy quickstart.RequestTrustPolicy, meta quickstart.RequestMeta) bool {
+	peerIP := net.ParseIP(strings.TrimSpace(meta.PeerIP))
+	if peerIP != nil && peerIP.IsLoopback() {
+		return true
+	}
+	if peerIP != nil && peerIP.IsUnspecified() && quickstart.IsLocalRequest(c, policy) {
+		return true
+	}
+	return false
 }

@@ -8,11 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -24,6 +27,34 @@ import (
 type allowAllAuthorizer struct{}
 
 func (allowAllAuthorizer) Can(context.Context, string, string) bool { return true }
+
+func TestMain(m *testing.M) {
+	cfg := appcfg.Defaults()
+	cfg.Auth.SigningKey = "module-test-auth-signing-key"
+	appcfg.SetActive(cfg)
+	code := m.Run()
+	appcfg.ResetActive()
+	os.Exit(code)
+}
+
+func TestResolveSignatureUploadSecurityPolicyDerivesFromAuthSigningKey(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Auth.SigningKey = "auth-signing-key-for-tests"
+	cfg.Signer.UploadSigningKey = ""
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	ttl, secret := resolveSignatureUploadSecurityPolicy()
+	if ttl != 5*time.Minute {
+		t.Fatalf("expected default ttl 5m, got %s", ttl)
+	}
+	if strings.TrimSpace(secret) == "" {
+		t.Fatal("expected derived signer upload secret")
+	}
+	if secret == cfg.Auth.SigningKey {
+		t.Fatal("expected signer upload secret derivation to namespace auth signing key")
+	}
+}
 
 func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *testing.T) {
 	_ = registry.Stop(context.Background())
@@ -89,6 +120,9 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 	if !containsPanelAction(agreementsSchema.Actions, "notify_reviewers") {
 		t.Fatalf("expected agreements panel notify_reviewers action, got %+v", agreementsSchema.Actions)
+	}
+	if action, ok := panelActionByName(agreementsSchema.Actions, "notify_reviewers"); !ok || action.Scope != coreadmin.ActionScopeDetail {
+		t.Fatalf("expected agreements panel notify_reviewers action scope detail, got %+v", action)
 	}
 	for _, name := range []string{"pause_review_reminder", "resume_review_reminder", "send_review_reminder_now"} {
 		if !containsPanelAction(agreementsSchema.Actions, name) {
@@ -197,8 +231,8 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 
 	menu := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
-	if !hasMenuTargetKey(menu, "esign") {
-		t.Fatalf("expected e-sign menu contribution in navigation")
+	if hasMenuTargetKey(menu, "esign") {
+		t.Fatalf("expected top-level e-sign menu entry to be removed")
 	}
 	if !hasMenuTarget(menu, esignAgreementsPanelID, "/admin/content/esign_agreements") {
 		t.Fatalf("expected e-sign agreements menu entry in navigation")

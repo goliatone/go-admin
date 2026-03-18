@@ -87,6 +87,7 @@ type RouteSet struct {
 	PublicAPIBase string
 
 	AdminHome                        string
+	AdminLegacyHome                  string
 	AdminStatus                      string
 	AdminAPIStatus                   string
 	AdminDrafts                      string
@@ -178,7 +179,8 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminBasePath:                    adminBase,
 		AdminAPIBase:                     adminAPIBase,
 		PublicAPIBase:                    publicAPIBase,
-		AdminHome:                        joinPath(adminBase, esignSegment),
+		AdminHome:                        adminBase,
+		AdminLegacyHome:                  joinPath(adminBase, esignSegment),
 		AdminStatus:                      joinPath(adminBase, esignSegment, adminStatusSegment),
 		AdminAPIStatus:                   joinPath(adminAPIBase, esignSegment, adminStatusSegment),
 		AdminDrafts:                      joinPath(adminAPIBase, esignSegment, draftsSegment),

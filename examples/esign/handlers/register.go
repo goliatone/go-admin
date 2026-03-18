@@ -637,6 +637,9 @@ func buildSignerAssetLinks(contract services.SignerAssetContract, contractURL, s
 		"contract_url": strings.TrimSpace(contractURL),
 		"session_url":  strings.TrimSpace(sessionURL),
 	}
+	if contract.PreviewDocumentAvailable {
+		assets["preview_url"] = strings.TrimSpace(contractURL) + "?asset=preview"
+	}
 	if contract.SourceDocumentAvailable {
 		assets["source_url"] = strings.TrimSpace(contractURL) + "?asset=source"
 	}
@@ -651,6 +654,8 @@ func buildSignerAssetLinks(contract services.SignerAssetContract, contractURL, s
 
 func normalizeSignerAssetType(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "preview":
+		return "preview"
 	case "source":
 		return "source"
 	case "executed":
@@ -664,6 +669,8 @@ func normalizeSignerAssetType(raw string) string {
 
 func signerAssetAvailable(contract services.SignerAssetContract, assetType string) bool {
 	switch normalizeSignerAssetType(assetType) {
+	case "preview":
+		return contract.PreviewDocumentAvailable
 	case "source":
 		return contract.SourceDocumentAvailable
 	case "executed":
@@ -684,6 +691,8 @@ func signerRoleCanAccessAsset(role, assetType string) bool {
 	switch role {
 	case stores.RecipientRoleSigner, stores.RecipientRoleCC:
 		return true
+	case stores.AgreementReviewParticipantRoleReviewer:
+		return assetType == "preview"
 	default:
 		return false
 	}
@@ -710,6 +719,8 @@ func signerAssetFilename(contract services.SignerAssetContract, assetType string
 
 func signerAssetObjectKey(contract services.SignerAssetContract, assetType string) string {
 	switch normalizeSignerAssetType(assetType) {
+	case "preview":
+		return strings.TrimSpace(contract.PreviewObjectKey)
 	case "source":
 		return strings.TrimSpace(contract.SourceObjectKey)
 	case "executed":
