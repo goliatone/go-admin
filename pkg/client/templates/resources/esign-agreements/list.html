@@ -47,6 +47,7 @@ import { formatStructuredErrorForDisplay } from '{{ base_path }}/assets/dist/toa
 import {
   PanelPaginationBehavior,
   PanelSearchBehavior,
+  dateTimeCellRenderer,
   normalizeFilterType,
   normalizeFilterOptions,
   normalizeFilterOperators
@@ -145,24 +146,9 @@ const agreementCellRenderers = {
     const count = parseInt(value, 10);
     return count === 1 ? '1 recipient' : `${count} recipients`;
   },
-  updated_at: (value) => {
-    if (!value) return '-';
-    try {
-      const date = new Date(value);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return value;
-    }
-  },
-  sent_at: (value) => {
-    if (!value) return '-';
-    try {
-      const date = new Date(value);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return value;
-    }
-  }
+  next_due_at: dateTimeCellRenderer,
+  updated_at: dateTimeCellRenderer,
+  sent_at: dateTimeCellRenderer
 };
 
 const datatableId = '{{ datatable_id|default:resource }}-datatable';

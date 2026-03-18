@@ -1,44 +1,49 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const repoRoot = path.resolve(process.cwd());
+// Resolve paths relative to this test file, not process.cwd()
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const assetsDir = path.resolve(testDir, '..');
+const pkgClientDir = path.resolve(assetsDir, '..');
+
 const runtimePath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form-runtime.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form-runtime.ts'
 );
 const bootstrapConfigPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/bootstrap-config.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/bootstrap-config.ts'
 );
 const stateManagerPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/state-manager.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/state-manager.ts'
 );
 const documentSelectionPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/document-selection.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/document-selection.ts'
 );
 const formSubmitPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/form-submit.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/form-submit.ts'
 );
 const templatePath = path.join(
-  repoRoot,
-  'pkg/client/templates/resources/esign-agreements/form.html'
+  pkgClientDir,
+  'templates/resources/esign-agreements/form.html'
 );
 const resumeFlowPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/resume-flow.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/resume-flow.ts'
 );
 const stateBindingPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/state-binding.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/state-binding.ts'
 );
 const compositionPath = path.join(
-  repoRoot,
-  'pkg/client/assets/src/esign/pages/agreement-form/composition.ts'
+  assetsDir,
+  'src/esign/pages/agreement-form/composition.ts'
 );
 
 function read(filePath) {

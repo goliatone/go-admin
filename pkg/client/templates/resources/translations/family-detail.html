@@ -3,20 +3,20 @@
 {% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 border-b border-slate-200 bg-white">
+<header class="px-8 py-6 border-b border-gray-200 bg-white">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
       {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Translations</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Family detail</h1>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600">
+      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
+      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Family detail</h1>
+      <p class="text-sm text-gray-500 mt-1">
         Canonical diagnosis surface for locale coverage, active assignments, publish gating, and recent family activity.
       </p>
     </div>
   </div>
 </header>
 
-<div class="flex-1 overflow-y-auto bg-slate-50 p-8">
+<div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto max-w-7xl">
     <div
       id="translation-family-detail-root"

@@ -3,6 +3,7 @@ import { executeStructuredDelete } from './action-execution.js';
 import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
 import { renderGroupedEmptyState } from './grouped-mode.js';
+import { parseDateLike } from '../shared/date-utils.js';
 import {
   formatStructuredErrorForDisplay,
   getStructuredActionError,
@@ -217,7 +218,8 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
       } else if (value === null || value === undefined) {
         cell.textContent = '-';
       } else if (col.field.includes('_at')) {
-        cell.textContent = new Date(value).toLocaleDateString();
+        const date = parseDateLike(value);
+        cell.textContent = date ? date.toLocaleDateString() : String(value);
       } else {
         cell.textContent = String(value);
       }

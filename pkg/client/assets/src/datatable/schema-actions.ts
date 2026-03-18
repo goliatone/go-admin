@@ -28,6 +28,70 @@ import { getActionBlockDisplay } from './translation-status-vocabulary.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
 
 // ============================================================================
+// URL Helpers
+// ============================================================================
+
+/**
+ * Extracts the path portion of a URL, stripping any query string.
+ * Preserves the query string for later reattachment.
+ *
+ * @example
+ * extractBasePath('/admin/content/pages?channel=default')
+ * // returns { path: '/admin/content/pages', query: 'channel=default' }
+ */
+function extractBasePath(url: string): { path: string; query: string } {
+  const trimmed = url.trim();
+  const queryIndex = trimmed.indexOf('?');
+  if (queryIndex === -1) {
+    return { path: trimmed, query: '' };
+  }
+  return {
+    path: trimmed.slice(0, queryIndex),
+    query: trimmed.slice(queryIndex + 1),
+  };
+}
+
+/**
+ * Builds a navigation URL by combining a base path, record ID, optional suffix,
+ * and query parameters. Properly handles base paths that may already contain
+ * query parameters.
+ *
+ * @example
+ * buildNavigationUrl('/admin/content/pages?channel=default', 'abc-123', '/edit', 'locale=en')
+ * // returns '/admin/content/pages/abc-123/edit?channel=default&locale=en'
+ */
+function buildNavigationUrl(
+  basePath: string,
+  recordId: string,
+  suffix: string = '',
+  additionalQuery: string = ''
+): string {
+  const { path, query: existingQuery } = extractBasePath(basePath);
+  const normalizedPath = path.replace(/\/+$/, '');
+  const normalizedSuffix = suffix.replace(/^\/+/, '');
+
+  // Build the path portion
+  let targetPath = `${normalizedPath}/${encodeURIComponent(recordId)}`;
+  if (normalizedSuffix) {
+    targetPath += `/${normalizedSuffix}`;
+  }
+
+  // Merge query parameters
+  const queryParts: string[] = [];
+  if (existingQuery) {
+    queryParts.push(existingQuery);
+  }
+  if (additionalQuery) {
+    queryParts.push(additionalQuery);
+  }
+
+  if (queryParts.length > 0) {
+    return `${targetPath}?${queryParts.join('&')}`;
+  }
+  return targetPath;
+}
+
+// ============================================================================
 // Schema Action Types
 // ============================================================================
 
@@ -547,17 +611,19 @@ export class SchemaActionBuilder {
     // Determine target URL
     let targetUrl: string;
     if (schemaAction.href) {
-      targetUrl = this.interpolateHrefTemplate(schemaAction.href, record, recordId);
+      // For custom href templates, interpolate and handle query context
+      const interpolated = this.interpolateHrefTemplate(schemaAction.href, record, recordId);
+      if (queryContext) {
+        targetUrl = interpolated.includes('?') ? `${interpolated}&${queryContext}` : `${interpolated}?${queryContext}`;
+      } else {
+        targetUrl = interpolated;
+      }
     } else if (schemaAction.name === 'edit') {
-      targetUrl = `${basePath}/${recordId}/edit`;
+      // Use buildNavigationUrl to properly handle base paths with query params
+      targetUrl = buildNavigationUrl(basePath, recordId, 'edit', queryContext);
     } else {
       // Default: view
-      targetUrl = `${basePath}/${recordId}`;
-    }
-
-    // Append query context
-    if (queryContext) {
-      targetUrl += targetUrl.includes('?') ? `&${queryContext}` : `?${queryContext}`;
+      targetUrl = buildNavigationUrl(basePath, recordId, '', queryContext);
     }
 
     return {
@@ -749,9 +815,14 @@ export class SchemaActionBuilder {
 
     const redirectToEdit = data.redirect_to_edit === true
       || data.mode === 'redirect';
-    const targetURL = redirectToEdit
-      ? `${this.config.actionBasePath}/${encodeURIComponent(redirectRecordID)}/edit`
-      : `${this.config.actionBasePath}/${encodeURIComponent(redirectRecordID)}`;
+    // Build query context for redirect URL (same as regular navigation)
+    const queryContext = this.buildQueryContext();
+    const targetURL = buildNavigationUrl(
+      this.config.actionBasePath,
+      redirectRecordID,
+      redirectToEdit ? 'edit' : '',
+      queryContext
+    );
 
     window.location.href = targetURL;
     return true;
@@ -1475,7 +1546,6 @@ export class SchemaActionBuilder {
   ): void {
     const recordId = String(record.id || '');
     const basePath = this.config.actionBasePath;
-    const apiEndpoint = this.config.apiEndpoint;
 
     const defaults: Array<{ name: string; button: ActionButton }> = [
       {
@@ -1486,9 +1556,7 @@ export class SchemaActionBuilder {
           icon: 'eye',
           variant: 'secondary',
           action: () => {
-            let url = `${basePath}/${recordId}`;
-            if (queryContext) url += `?${queryContext}`;
-            window.location.href = url;
+            window.location.href = buildNavigationUrl(basePath, recordId, '', queryContext);
           },
         },
       },
@@ -1500,9 +1568,7 @@ export class SchemaActionBuilder {
           icon: 'edit',
           variant: 'primary',
           action: () => {
-            let url = `${basePath}/${recordId}/edit`;
-            if (queryContext) url += `?${queryContext}`;
-            window.location.href = url;
+            window.location.href = buildNavigationUrl(basePath, recordId, 'edit', queryContext);
           },
         },
       },
@@ -1531,7 +1597,6 @@ export class SchemaActionBuilder {
   ): void {
     const recordId = String(record.id || '');
     const basePath = this.config.actionBasePath;
-    const apiEndpoint = this.config.apiEndpoint;
 
     const defaults: Array<{ name: string; button: ActionButton }> = [
       {
@@ -1542,9 +1607,7 @@ export class SchemaActionBuilder {
           icon: 'eye',
           variant: 'secondary',
           action: () => {
-            let url = `${basePath}/${recordId}`;
-            if (queryContext) url += `?${queryContext}`;
-            window.location.href = url;
+            window.location.href = buildNavigationUrl(basePath, recordId, '', queryContext);
           },
         },
       },
@@ -1556,9 +1619,7 @@ export class SchemaActionBuilder {
           icon: 'edit',
           variant: 'primary',
           action: () => {
-            let url = `${basePath}/${recordId}/edit`;
-            if (queryContext) url += `?${queryContext}`;
-            window.location.href = url;
+            window.location.href = buildNavigationUrl(basePath, recordId, 'edit', queryContext);
           },
         },
       },

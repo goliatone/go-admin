@@ -54,6 +54,15 @@ test('datatable/index.js exports DataGrid', async () => {
   assert.equal(typeof module.DataGrid, 'function', 'DataGrid should be a constructor');
 });
 
+test('datatable/index.js datetime renderer handles Go nanosecond timestamps', async () => {
+  const module = await import('../dist/datatable/index.js');
+  const registry = new module.CellRendererRegistry();
+  const renderer = registry.get('_datetime');
+  const output = renderer('2024-01-15T14:30:00.123456789Z', {}, 'next_due_at');
+
+  assert.doesNotMatch(output, /Invalid Date/);
+});
+
 test('datatable/index.js exports core translation UX components', async () => {
   const module = await import('../dist/datatable/index.js');
 

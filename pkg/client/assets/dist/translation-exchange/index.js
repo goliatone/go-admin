@@ -1,4 +1,4 @@
-import { n as m, a as v, b as S, c as E } from "../chunks/index-YiVxcMWC.js";
+import { n as m, a as v, b as w, c as E } from "../chunks/index-YiVxcMWC.js";
 import { g as A } from "../chunks/style-constants-BesmSFuV.js";
 const C = {
   root: "#translation-exchange-app"
@@ -6,7 +6,7 @@ const C = {
 function o(l) {
   return String(l ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function w(l) {
+function S(l) {
   switch (l) {
     case "completed":
       return "success";
@@ -67,7 +67,7 @@ function D(l, t) {
 function I(l, t) {
   return l?.downloads ? l.downloads[t]?.label ?? l.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function k(l) {
+function j(l) {
   const t = [];
   return l.resources.length === 0 && t.push("Select at least one resource."), l.targetLocales.length === 0 && t.push("Select at least one target locale."), l.targetLocales.includes(l.sourceLocale) && t.push("Target locales cannot include the source locale."), l.includeSourceHash || t.push("Conflict detection is weaker when source hashes are excluded."), t;
 }
@@ -78,7 +78,7 @@ function J(l) {
     t[e.index] = e.status === "success" ? "accepted" : "rejected";
   return t;
 }
-function j(l, t) {
+function k(l, t) {
   const e = {};
   for (const [a, s] of l.entries())
     e[typeof s.index == "number" ? s.index : a] = "apply";
@@ -325,7 +325,7 @@ class M {
         poll_endpoint: a,
         attempt: r
       });
-      const c = await this.fetchJSON(a), d = S(
+      const c = await this.fetchJSON(a), d = w(
         c.job && typeof c.job == "object" ? c.job : c
       );
       if (!d)
@@ -354,7 +354,7 @@ class M {
   async submitExport(t) {
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = k(e);
+    const a = j(e);
     if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((s) => s.includes("cannot include"))) {
       this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
@@ -369,7 +369,7 @@ class M {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = S(i);
+      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = w(i);
       if (this.exportState.job = r, r?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const c = await this.pollJobUntilTerminal(r, {
@@ -446,7 +446,7 @@ class M {
         rows: this.validateState.parsedRows.map(x),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: j(this.validateState.parsedRows, a),
+        resolutions: k(this.validateState.parsedRows, a),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -559,7 +559,7 @@ class M {
         rows: n,
         sourceLabel: t.file?.name ?? t.id,
         retryJobId: t.id,
-        resolutions: j(n, r),
+        resolutions: k(n, r),
         allowCreateMissing: t.request?.allow_create_missing === !0,
         allowSourceHashOverride: t.request?.allow_source_hash_override === !0,
         continueOnError: t.request?.continue_on_error !== !1,
@@ -705,19 +705,19 @@ class M {
   }
   render() {
     if (!this.root) return;
-    const t = k(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
+    const t = j(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
       (n) => n === "accepted"
     ).length, a = Object.values(this.validateState.decisions).filter(
       (n) => n === "rejected"
     ).length, s = this.historyExamples(), i = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header class="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-stone-50 to-sky-50">
+      <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Slice 8-9</p>
-              <h1 class="mt-2 text-2xl font-semibold text-gray-900">Translation Exchange Wizard</h1>
-              <p class="mt-2 max-w-3xl text-sm text-gray-600">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translation Exchange</p>
+              <h1 class="mt-2 text-2xl font-bold text-admin-dark">Translation Exchange Wizard</h1>
+              <p class="text-sm text-gray-500 mt-1">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="btn btn-secondary" href="${o(
       `${this.config.apiPath}/template?format=json`
@@ -747,7 +747,7 @@ class M {
       <button
         type="button"
         data-exchange-step="${t}"
-        class="rounded-2xl border px-4 py-4 text-left transition ${s ? "border-sky-400 bg-sky-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}"
+        class="rounded-xl border px-4 py-4 text-left transition ${s ? "border-blue-400 bg-blue-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}"
       >
         <div class="text-sm font-semibold text-gray-900">${o(e)}</div>
         <p class="mt-1 text-sm text-gray-600">${o(a)}</p>
@@ -758,24 +758,24 @@ class M {
     return t.length === 0 ? "" : `
       <section class="space-y-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Seeded Examples</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Seeded Examples</h2>
           <p class="mt-1 text-sm text-gray-600">Use the stable demo artifacts to exercise the wizard and end-to-end coverage.</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">${t.map((a) => {
       const s = Object.values(a.downloads ?? {}).map(
         (i) => `
-              <a class="text-sm font-medium text-sky-700 hover:text-sky-900" href="${o(i.href)}" download="${o(i.filename)}">
+              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(i.href)}" download="${o(i.filename)}">
                 ${o(i.label)}
               </a>`
       ).join("");
       return `
-          <article class="rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4">
+          <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div class="flex items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-gray-900">${o(a.kind.replace(/_/g, " "))}</p>
                 <p class="text-xs text-gray-600">${o(a.file?.name ?? "Seeded example")}</p>
               </div>
-              <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-sky-700">Fixture</span>
+              <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">Fixture</span>
             </div>
             <div class="mt-3 flex flex-wrap gap-3">${s}</div>
           </article>
@@ -789,7 +789,7 @@ class M {
     return `
       ${this.renderExampleLinks(e.filter((s) => s.kind === "export"))}
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <form data-export-form="true" class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+        <form data-export-form="true" class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
           <div class="grid gap-5 md:grid-cols-2">
             <fieldset>
               <legend class="text-sm font-semibold text-gray-900">Resources</legend>
@@ -819,7 +819,7 @@ class M {
                 </label>`).join("")}
             </div>
           </fieldset>
-          <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-3 text-sm text-gray-700">
+          <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
             <input type="checkbox" name="include_source_hash" ${this.exportState.draft.includeSourceHash ? "checked" : ""}>
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
@@ -828,9 +828,9 @@ class M {
             <span class="text-sm text-gray-600">${o(this.exportState.message)}</span>
           </div>
         </form>
-        <aside class="space-y-4 rounded-2xl border border-gray-200 bg-stone-50 p-5">
+        <aside class="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div>
-            <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Preflight</h2>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Preflight</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               ${[
       ["Resources", this.exportState.draft.resources.length],
@@ -854,19 +854,19 @@ class M {
             </ul>
           </div>
           ${a ? `
-              <div class="rounded-2xl bg-white p-4">
+              <div class="rounded-xl bg-white border border-gray-200 p-4">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
                     <p class="text-xs text-gray-500">${o(a.id)}</p>
                   </div>
-                  <span class="${y(w(a.status))}">${o(a.status)}</span>
+                  <span class="${y(S(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-sky-500" style="width: ${_(a)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${_(a)}%"></div>
                 </div>
                 <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
-                ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-sky-700 hover:text-sky-900" href="${o(
+                ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(
       this.exportState.downloadHref
     )}" download>${o(this.exportState.downloadLabel)}</a>` : ""}
               </div>` : ""}
@@ -878,9 +878,9 @@ class M {
     const s = this.validateState.result, i = s?.results ?? [];
     return `
       ${this.renderExampleLinks(a.filter((n) => n.kind === "import_validate"))}
-      <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+      <section class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
         <form data-validate-form="true" class="space-y-4">
-          <div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 p-5">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <label class="text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
             <input id="exchange-import-file" type="file" accept=".json,.csv" class="mt-3 block w-full text-sm text-gray-700">
             <p class="mt-2 text-sm text-gray-600">${o(this.validateState.upload.filename ?? "Choose a JSON or CSV package exported for translators.")}</p>
@@ -900,17 +900,17 @@ class M {
       ["Conflicts", s.summary.conflicts ?? 0],
       ["Failed", s.summary.failed]
     ].map(([n, r]) => `
-                  <div class="rounded-xl bg-stone-50 px-4 py-3">
-                    <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${o(n)}</div>
+                  <div class="rounded-xl bg-gray-50 px-4 py-3">
+                    <div class="text-xs uppercase tracking-wider text-gray-500">${o(n)}</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900">${o(r)}</div>
                   </div>`).join("")}
               </div>
-              <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Staged decisions: ${o(t)} accepted, ${o(e)} rejected.
               </div>
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                  <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                     <tr>
                       <th class="px-4 py-3">Row</th>
                       <th class="px-4 py-3">Field</th>
@@ -950,7 +950,7 @@ class M {
         type="button"
         data-stage-row="${t}"
         data-stage-decision="${e}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-sky-500 bg-sky-100 text-sky-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o(e)}
       </button>
@@ -969,7 +969,7 @@ class M {
     }
     return `
       <section class="space-y-5">
-        <form data-apply-form="true" class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+        <form data-apply-form="true" class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 class="text-lg font-semibold text-gray-900">Apply import package</h2>
@@ -986,8 +986,8 @@ class M {
       ["Override", n.override],
       ["Create", n.create]
     ].map(([r, c]) => `
-              <div class="rounded-xl bg-stone-50 px-4 py-3">
-                <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${o(r)}</div>
+              <div class="rounded-xl bg-gray-50 px-4 py-3">
+                <div class="text-xs uppercase tracking-wider text-gray-500">${o(r)}</div>
                 <div class="mt-1 text-2xl font-semibold text-gray-900">${o(c)}</div>
               </div>`).join("")}
           </div>
@@ -1003,31 +1003,31 @@ class M {
             <span class="text-sm text-gray-600">${o(this.applyState.message)}</span>
           </div>
           ${i ? `
-                <div class="rounded-2xl border border-gray-200 bg-stone-50 p-4">
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold text-gray-900">Job progress</p>
                       <p class="text-xs text-gray-500">${o(i.id)}</p>
                     </div>
-                    <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">${o(i.status)}</span>
+                    <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">${o(i.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-sky-500" style="width: ${_(i)}%"></div>
+                    <div class="h-full bg-blue-500" style="width: ${_(i)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
                 </div>` : ""}
         </form>
         ${t.length > 0 ? `
-              <section class="rounded-2xl border border-gray-200 bg-white p-5">
+              <section class="rounded-xl border border-gray-200 bg-white p-5">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Row Decisions</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Row Decisions</h3>
                     <p class="mt-1 text-sm text-gray-600">Conflict rows can be skipped or explicitly overridden before apply.</p>
                   </div>
                 </div>
                 <div class="mt-4 overflow-x-auto">
                   <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                       <tr>
                         <th class="px-4 py-3">Row</th>
                         <th class="px-4 py-3">Field</th>
@@ -1061,9 +1061,9 @@ class M {
                 </div>
               </section>` : ""}
         ${a ? `
-              <section class="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+              <section class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
                 <div>
-                  <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Terminal Summary</h3>
+                  <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Terminal Summary</h3>
                   <p class="mt-1 text-sm text-gray-600">Review row outcomes and retained downloads before closing the loop.</p>
                 </div>
                 <div class="grid gap-3 md:grid-cols-4">
@@ -1073,19 +1073,19 @@ class M {
       ["Conflicts", a.summary.conflicts ?? 0],
       ["Failed", a.summary.failed]
     ].map(([r, c]) => `
-                    <div class="rounded-xl bg-stone-50 px-4 py-3">
-                      <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${o(r)}</div>
+                    <div class="rounded-xl bg-gray-50 px-4 py-3">
+                      <div class="text-xs uppercase tracking-wider text-gray-500">${o(r)}</div>
                       <div class="mt-1 text-2xl font-semibold text-gray-900">${o(c)}</div>
                     </div>`).join("")}
                 </div>
-                <div class="flex flex-wrap gap-3 text-sm text-sky-700">
+                <div class="flex flex-wrap gap-3 text-sm text-blue-700">
                   ${Object.values(a.job?.downloads ?? {}).map((r) => `
-                    <a href="${o(r.href)}" download="${o(r.filename)}" class="font-medium hover:text-sky-900">${o(r.label)}</a>
+                    <a href="${o(r.href)}" download="${o(r.filename)}" class="font-medium hover:text-blue-900">${o(r.label)}</a>
                   `).join("")}
                 </div>
                 <div class="overflow-x-auto">
                   <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                       <tr>
                         <th class="px-4 py-3">Row</th>
                         <th class="px-4 py-3">Field</th>
@@ -1113,7 +1113,7 @@ class M {
   }
   renderApplyToggle(t, e, a) {
     return `
-      <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-3 text-sm text-gray-700">
+      <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
         <input type="checkbox" data-apply-option="${t}" ${a ? "checked" : ""}>
         <span>${o(e)}</span>
       </label>
@@ -1125,7 +1125,7 @@ class M {
         type="button"
         data-apply-row="${t}"
         data-apply-decision="${e}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-sky-500 bg-sky-100 text-sky-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o({
       apply: "apply",
@@ -1140,7 +1140,7 @@ class M {
     const e = this.historyState.response?.meta, a = e?.job_kinds ?? ["export", "import_validate", "import_apply"], s = e?.job_statuses ?? ["running", "completed", "failed"], i = this.activeHistoryJob(), n = b(i);
     return `
       <section class="space-y-5">
-        <div class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-5">
           <label class="text-sm font-medium text-gray-700">
             Kind
             <select data-history-kind class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
@@ -1163,13 +1163,13 @@ class M {
         <div class="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <div class="grid gap-4">
             ${t.length > 0 ? t.map((r) => `
-                  <article class="rounded-2xl border p-5 ${i?.id === r.id ? "border-sky-300 bg-sky-50/50" : "border-gray-200 bg-white"}">
+                  <article class="rounded-xl border p-5 ${i?.id === r.id ? "border-blue-300 bg-blue-50/50" : "border-gray-200 bg-white"}">
                     <button type="button" data-history-job="${o(r.id)}" class="w-full text-left">
                       <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="${y("info")}">${o(r.kind.replace(/_/g, " "))}</span>
-                            <span class="${y(w(r.status))}">${o(r.status)}</span>
+                            <span class="${y(S(r.status))}">${o(r.status)}</span>
                             ${r.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(r.file?.name ?? r.id)}</h3>
@@ -1181,10 +1181,10 @@ class M {
                         </div>
                       </div>
                     </button>
-                  </article>`).join("") : '<div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 px-6 py-10 text-center text-sm text-gray-600">No jobs match the current filters.</div>'}
+                  </article>`).join("") : '<div class="rounded-xl border border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600">No jobs match the current filters.</div>'}
           </div>
           ${i ? `
-                <section class="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+                <section class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h2>
@@ -1202,24 +1202,24 @@ class M {
       ["Conflicts", i.progress.conflicts ?? n?.summary.conflicts ?? 0],
       ["Failed", i.progress.failed]
     ].map(([r, c]) => `
-                      <div class="rounded-xl bg-stone-50 px-4 py-3">
-                        <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${o(r)}</div>
+                      <div class="rounded-xl bg-gray-50 px-4 py-3">
+                        <div class="text-xs uppercase tracking-wider text-gray-500">${o(r)}</div>
                         <div class="mt-1 text-2xl font-semibold text-gray-900">${o(c)}</div>
                       </div>`).join("")}
                   </div>
-                  <div class="rounded-2xl border border-gray-200 bg-stone-50 p-4 text-sm text-gray-700">
+                  <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
                     <div><span class="font-semibold text-gray-900">Request hash:</span> ${o(i.request_hash ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Request ID:</span> ${o(i.request_id ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Trace ID:</span> ${o(i.trace_id ?? "n/a")}</div>
                   </div>
-                  <div class="flex flex-wrap gap-3 text-sm text-sky-700">
+                  <div class="flex flex-wrap gap-3 text-sm text-blue-700">
                     ${Object.values(i.downloads ?? {}).map((r) => `
-                      <a href="${o(r.href)}" download="${o(r.filename)}" class="font-medium hover:text-sky-900">${o(r.label)}</a>`).join("")}
+                      <a href="${o(r.href)}" download="${o(r.filename)}" class="font-medium hover:text-blue-900">${o(r.label)}</a>`).join("")}
                   </div>
                   ${n ? `
                         <div class="overflow-x-auto">
                           <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                            <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                               <tr>
                                 <th class="px-4 py-3">Row</th>
                                 <th class="px-4 py-3">Field</th>
@@ -1239,7 +1239,7 @@ class M {
                                 </tr>`).join("")}
                             </tbody>
                           </table>
-                        </div>` : '<div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 px-6 py-10 text-center text-sm text-gray-600">No per-row results were retained for this job.</div>'}
+                        </div>` : '<div class="rounded-xl border border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600">No per-row results were retained for this job.</div>'}
                 </section>` : ""}
         </div>
       </section>
@@ -1249,7 +1249,7 @@ class M {
 export {
   M as TranslationExchangeManager,
   E as normalizeTranslationExchangeHistoryResponse,
-  S as normalizeTranslationExchangeJob,
+  w as normalizeTranslationExchangeJob,
   m as normalizeTranslationExchangeUploadDescriptor,
   v as normalizeTranslationExchangeValidationResult
 };

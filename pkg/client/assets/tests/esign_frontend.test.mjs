@@ -75,6 +75,18 @@ const agreementRuntimeSourcePath = path.resolve(
   testFileDir,
   '../src/esign/pages/agreement-form-runtime.ts',
 );
+const agreementFieldDefinitionsSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/agreement-form/field-definitions.ts',
+);
+const agreementFormSubmitSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/agreement-form/form-submit.ts',
+);
+const agreementSendReadinessSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/agreement-form/send-readiness.ts',
+);
 const agreementRuntimeDistPath = path.resolve(
   testFileDir,
   '../dist/esign/index.js',
@@ -1116,8 +1128,9 @@ test('isRetryableDeliveryStatus returns false for non-retryable statuses', () =>
 test('agreement detail template renders unavailable download button with warning icon and label', () => {
   const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
 
-  assert.match(template, /data-download-state="unavailable"/);
-  assert.match(template, />\s*Unable To Download PDF\s*</);
+  assert.match(template, /id="download-status-notice-static"/);
+  assert.match(template, /Executed completion package is not available yet\./);
+  assert.match(template, /data-action="download-executed"/);
   assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
 });
 
@@ -1126,7 +1139,8 @@ test('agreement detail template JS uses warning icon for runtime unavailable dow
 
   assert.match(template, /const unavailableDownloadIcon =/);
   assert.match(template, /markExecutedDownloadUnavailable/);
-  assert.match(template, /Unable To Download PDF/);
+  assert.match(template, /btn\.dataset\.downloadState = 'unavailable'/);
+  assert.match(template, /Unable To Download Package/);
   assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
 });
 
@@ -12230,7 +12244,11 @@ class WizardStateManagerSimulator {
     if (!this.state) {
       this.state = this.createInitialState();
     }
-    this.state = { ...this.state, ...updates, isDirty: true };
+    const nextState = { ...this.state, ...updates };
+    if (!Object.prototype.hasOwnProperty.call(updates, 'isDirty')) {
+      nextState.isDirty = true;
+    }
+    this.state = nextState;
     this.saveToSession();
     return this.state;
   }
@@ -13176,7 +13194,7 @@ test('Phase 30.FE.3: SyncOrchestrator retries with backoff', async () => {
   await orchestrator.retrySync();
 
   assert.equal(orchestrator.status, 'synced');
-  assert.equal(orchestrator.retryCount, 1);
+  assert.equal(orchestrator.retryCount, 0);
 });
 
 test('Phase 30.FE.3: SyncOrchestrator returns bounded retry delays', () => {
@@ -13586,13 +13604,12 @@ test('Phase 30.FE.7: ResumeDialog discard deletes server draft', async () => {
   const syncService = new DraftSyncServiceSimulator();
   const dialog = new ResumeDialogSimulator(stateManager, syncService);
 
-  // Create and sync a draft
-  stateManager.initialize();
-  stateManager.updateDetails({ title: 'To Discard' });
-  const created = await syncService.create(stateManager.getState());
-  stateManager.markSynced(created.draftId, created.revision);
+  await syncService.create({
+    currentStep: 2,
+    details: { title: 'To Discard' },
+  });
 
-  dialog.checkForResumableState();
+  await dialog.checkForServerDrafts();
   const result = await dialog.handleDiscard();
 
   assert.equal(result.action, 'discard');
@@ -14023,6 +14040,13 @@ test('Datatable Utils: dateTimeCellRenderer formats dates', () => {
   assert.ok(result.includes('/') || result.includes('-')); // Date format varies by locale
 });
 
+test('Datatable Utils: dateTimeCellRenderer formats Go nanosecond timestamps', () => {
+  const result = datatableUtils.dateTimeCellRenderer('2024-01-15T14:30:00.123456789Z');
+
+  assert.notEqual(result, '-');
+  assert.doesNotMatch(result, /Invalid Date/);
+});
+
 test('Datatable Utils: dateTimeCellRenderer handles empty values', () => {
   assert.equal(datatableUtils.dateTimeCellRenderer(null), '-');
   assert.equal(datatableUtils.dateTimeCellRenderer(undefined), '-');
@@ -14164,16 +14188,18 @@ test('Phase 31.FE.1: agreement form template includes automation rules UI and hi
 });
 
 test('Phase 31.FE.1: agreement form script wires rule lifecycle and payload synchronization', () => {
-  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+  const fieldDefinitionsSource = fs.readFileSync(agreementFieldDefinitionsSourcePath, 'utf8');
+  const formSubmitSource = fs.readFileSync(agreementFormSubmitSourcePath, 'utf8');
+  const readinessSource = fs.readFileSync(agreementSendReadinessSourcePath, 'utf8');
 
-  assert.match(source, /function collectFieldRulesForState\(\)/);
-  assert.match(source, /function collectFieldRulesForForm\(\)/);
-  assert.match(source, /function expandRulesForPreview\(rules, terminalPage\)/);
-  assert.match(source, /function addFieldRule\(data = \{\}\)/);
-  assert.match(source, /function restoreFieldRulesFromState\(\)/);
-  assert.match(source, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
-  assert.match(source, /Please assign all automation rules to a signer/);
-  assert.match(source, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+  assert.match(fieldDefinitionsSource, /function collectFieldRulesForState\(\): FieldRuleState\[\]/);
+  assert.match(fieldDefinitionsSource, /function collectFieldRulesForForm\(\): FieldRuleFormPayload\[\]/);
+  assert.match(fieldDefinitionsSource, /function expandRulesForPreview\(rules: Array<Partial<FieldRuleState>>, terminalPage: number\): ExpandedRuleField\[\]/);
+  assert.match(fieldDefinitionsSource, /function addFieldRule\(data: Partial<FieldRuleState> & Record<string, unknown> = \{\}\): void \{/);
+  assert.match(fieldDefinitionsSource, /function restoreFieldRulesFromState\(state: \{ fieldRules\?: FieldRuleState\[\] \} \| null \| undefined\): void \{/);
+  assert.match(fieldDefinitionsSource, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
+  assert.match(formSubmitSource, /Please assign all automation rules to a signer/);
+  assert.match(readinessSource, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
 });
 
 test('Phase 0.FE.11: agreement form template keeps coordination banner but removes take-control ownership controls', () => {
@@ -14202,13 +14228,14 @@ test('Phase 0.FE.8: agreement form template emits server-authored storage scope 
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
-  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+  const source = fs.readFileSync(agreementFieldDefinitionsSourcePath, 'utf8');
 
   assert.match(source, /function collectPlacementFieldDefinitions\(\)/);
   assert.match(source, /const generatedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
   assert.match(source, /const placementDefinitions = collectPlacementFieldDefinitions\(\);/);
-  assert.match(source, /placementDefinitions\.forEach\(\(definition\) => \{/);
-  assert.match(source, /placementState\.fieldInstances = placementState\.fieldInstances\.filter\(\(instance\) =>/);
+  assert.match(source, /manualFieldEntries\.forEach\(\(field\) => \{/);
+  assert.match(source, /generatedRuleFields\.forEach\(\(field\) => \{/);
+  assert.match(source, /const uniqueDefinitions = definitions\.filter\(\(definition\) => \{/);
 });
 
 test('Phase 31.FE.3: Step 4 add-field action is rendered below list and jump-to-place is removed', () => {
@@ -14221,11 +14248,11 @@ test('Phase 31.FE.3: Step 4 add-field action is rendered below list and jump-to-
 });
 
 test('Phase 31.FE.3: runtime toggles bottom add-field action and sorts placement sidebar by page then definition', () => {
-  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
-  assert.match(source, /const addFieldBtnContainer = document\.getElementById\('add-field-btn-container'\)/);
+  const source = fs.readFileSync(agreementFieldDefinitionsSourcePath, 'utf8');
+  assert.match(source, /const addFieldBtnContainer = elementById<HTMLElement>\('add-field-btn-container'\)/);
   assert.match(source, /if \(fields\.length === 0\) \{[\s\S]*?addFieldBtnContainer\?\.classList\.add\('hidden'\)/);
   assert.match(source, /else \{[\s\S]*?addFieldBtnContainer\?\.classList\.remove\('hidden'\)/);
-  assert.match(source, /uniqueDefinitions\.sort\(\(a, b\) => \{[\s\S]*?if \(a\.page !== b\.page\) \{[\s\S]*?return a\.page - b\.page;[\s\S]*?\}[\s\S]*?return a\.definitionId\.localeCompare\(b\.definitionId\);[\s\S]*?\}\)/);
+  assert.match(source, /uniqueDefinitions\.sort\(\(a, b\) => \{[\s\S]*?if \(a\.page !== b\.page\) return a\.page - b\.page;[\s\S]*?return a\.definitionId\.localeCompare\(b\.definitionId\);[\s\S]*?\}\);/);
   assert.doesNotMatch(source, /jumpToPlace|updateJumpBtnTooltip/);
 });
 

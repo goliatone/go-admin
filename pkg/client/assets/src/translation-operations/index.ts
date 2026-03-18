@@ -447,7 +447,7 @@ export async function fetchTranslationShellData(endpoint: string): Promise<Trans
 function renderTraceSummary(result: TranslationShellLoadResult): string {
   const chips: string[] = [];
   if (result.requestId) {
-    chips.push(`<span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Request ${escapeHTML(result.requestId)}</span>`);
+    chips.push(`<span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">Request ${escapeHTML(result.requestId)}</span>`);
   }
   if (result.traceId) {
     chips.push(`<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Trace ${escapeHTML(result.traceId)}</span>`);
@@ -466,11 +466,11 @@ function renderReadyState(result: TranslationShellLoadResult, title: string, des
         <p class="text-sm font-medium text-emerald-800">${escapeHTML(title)}</p>
         <p class="mt-1 text-sm text-emerald-700">${count} contract item${count === 1 ? '' : 's'} available for this shell.</p>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-        <p class="text-sm text-slate-700">${escapeHTML(description)}</p>
+      <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
+        <p class="text-sm text-gray-700">${escapeHTML(description)}</p>
         <details class="mt-4">
-          <summary class="cursor-pointer text-sm font-medium text-slate-800">Inspect payload</summary>
-          <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">${escapeHTML(JSON.stringify(result.payload, null, 2))}</pre>
+          <summary class="cursor-pointer text-sm font-medium text-gray-800">Inspect payload</summary>
+          <pre class="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">${escapeHTML(JSON.stringify(result.payload, null, 2))}</pre>
         </details>
         ${renderTraceSummary(result)}
       </div>
@@ -492,9 +492,9 @@ function renderConflictState(result: TranslationShellLoadResult): string {
 
 function renderShellEmptyState(title: string, message: string): string {
   return `
-    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-      <p class="text-sm font-semibold text-slate-900">${escapeHTML(title)}</p>
-      <p class="mt-1 text-sm text-slate-600">${escapeHTML(message)}</p>
+    <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
+      <p class="text-sm font-semibold text-gray-900">${escapeHTML(title)}</p>
+      <p class="mt-1 text-sm text-gray-600">${escapeHTML(message)}</p>
     </div>
   `;
 }
@@ -510,9 +510,9 @@ function renderShellErrorState(title: string, message: string): string {
 
 function renderShellLoadingState(): string {
   return `
-    <div class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-      <p class="text-sm font-medium text-slate-900">Loading translation shell...</p>
-      <p class="mt-1 text-sm text-slate-500">Waiting for the backing API response.</p>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-4">
+      <p class="text-sm font-medium text-gray-900">Loading translation shell...</p>
+      <p class="mt-1 text-sm text-gray-500">Waiting for the backing API response.</p>
     </div>
   `;
 }

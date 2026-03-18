@@ -3,6 +3,7 @@
  * Shared datatable initialization and configuration for e-sign list pages
  */
 
+import { parseDateLike } from '../../shared/date-utils.js';
 import { onReady, qs } from '../utils/dom-helpers.js';
 
 /**
@@ -200,16 +201,15 @@ export function prepareFilterFields(
  */
 export function dateTimeCellRenderer(value: unknown): string {
   if (!value) return '-';
-  try {
-    const date = new Date(value as string);
-    return (
-      date.toLocaleDateString() +
-      ' ' +
-      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    );
-  } catch {
+  const date = parseDateLike(value);
+  if (!date) {
     return String(value);
   }
+  return (
+    date.toLocaleDateString() +
+    ' ' +
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
 }
 
 /**

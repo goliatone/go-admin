@@ -182,18 +182,21 @@ test('Phase 6 fixture: e-sign agreement detail actions render canonical shared a
   try {
     await initPanelDetailActions(dom.window.document);
 
+    const editButton = dom.window.document.querySelector('[data-detail-action-button="edit"]');
+    const dropdownTrigger = dom.window.document.querySelector('[data-detail-actions-dropdown-trigger]');
     const sendButton = dom.window.document.querySelector('[data-detail-action-button="send"]');
     const resendButton = dom.window.document.querySelector('[data-detail-action-button="resend"]');
     const deleteButton = dom.window.document.querySelector('[data-detail-action-button="delete"]');
-    const sendReason = dom.window.document.querySelector('[data-detail-action-reason="send"]');
 
+    assert.ok(editButton);
+    assert.ok(dropdownTrigger);
     assert.ok(sendButton);
     assert.ok(resendButton);
     assert.ok(deleteButton);
     assert.equal(sendButton?.getAttribute('aria-disabled'), 'true');
+    assert.equal(sendButton?.getAttribute('title'), fixture.agreements.detail_contract.data._action_state.send.reason);
     assert.equal(deleteButton?.getAttribute('aria-disabled'), 'true');
     assert.equal(resendButton?.getAttribute('aria-disabled'), 'false');
-    assert.equal(sendReason?.textContent?.trim(), fixture.agreements.detail_contract.data._action_state.send.reason);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -206,6 +209,7 @@ test('Phase 6 template: agreements detail header no longer duplicates shared sen
   assert.equal(template.includes('data-action="send" data-agreement-id='), false);
   assert.equal(template.includes('data-action="resend" data-agreement-id='), false);
   assert.equal(template.includes('data-action="void" data-agreement-id='), false);
+  assert.equal(template.includes('id="agreement-notify-reviewers-btn"'), true);
 });
 
 test('Phase 6 templates: e-sign list surfaces reconcile row actions after structured domain failures', async () => {

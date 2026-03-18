@@ -4,6 +4,7 @@
  */
 
 import { badge, booleanChip as sharedBooleanChip } from '../shared/badge.js';
+import { parseDateLike } from '../shared/date-utils.js';
 import { renderIcon } from '../shared/icon-renderer.js';
 import {
   renderLocaleBadge,
@@ -311,23 +312,21 @@ export class CellRendererRegistry {
     // Date/time renderer
     this.renderers.set('_date', (value: any): string => {
       if (!value) return '<span class="text-gray-400">-</span>';
-      try {
-        const date = new Date(value);
-        return date.toLocaleDateString();
-      } catch {
+      const date = parseDateLike(value);
+      if (!date) {
         return String(value);
       }
+      return date.toLocaleDateString();
     });
 
     // DateTime renderer
     this.renderers.set('_datetime', (value: any): string => {
       if (!value) return '<span class="text-gray-400">-</span>';
-      try {
-        const date = new Date(value);
-        return date.toLocaleString();
-      } catch {
+      const date = parseDateLike(value);
+      if (!date) {
         return String(value);
       }
+      return date.toLocaleString();
     });
 
     // Boolean renderer
@@ -539,22 +538,22 @@ export const CommonRenderers = {
    */
   relativeTime: (value: any): string => {
     if (!value) return '<span class="text-gray-400">-</span>';
-    try {
-      const date = new Date(value);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-      return date.toLocaleDateString();
-    } catch {
+    const date = parseDateLike(value);
+    if (!date) {
       return String(value);
     }
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   },
 
   /**

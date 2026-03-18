@@ -1,5 +1,6 @@
 import { a as Ye } from "../chunks/html-Br-oQr7i.js";
-class ss {
+import { p as ss } from "../chunks/date-utils-Ch6PxlHn.js";
+class as {
   constructor(e) {
     this.basePath = e.basePath, this.apiBasePath = e.apiBasePath || `${e.basePath}/api`, this.defaultHeaders = {
       Accept: "application/json",
@@ -104,36 +105,36 @@ class ss {
           message: e.statusText
         };
       }
-      throw new as(t.code, t.message, t.details);
+      throw new os(t.code, t.message, t.details);
     }
     if (e.status !== 204)
       return e.json();
   }
 }
-class as extends Error {
+class os extends Error {
   constructor(e, t, n) {
     super(t), this.code = e, this.details = n, this.name = "ESignAPIError";
   }
 }
 let si = null;
-function oo() {
+function lo() {
   if (!si)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
   return si;
 }
-function os(i) {
+function cs(i) {
   si = i;
 }
-function cs(i) {
-  const e = new ss(i);
-  return os(e), e;
+function ls(i) {
+  const e = new as(i);
+  return cs(e), e;
 }
 function yn(i) {
   if (i == null || i === "" || i === 0) return "-";
   const e = typeof i == "string" ? parseInt(i, 10) : i;
   return !Number.isFinite(e) || e <= 0 ? "-" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function co(i) {
+function uo(i) {
   if (!i) return "-";
   const e = typeof i == "string" ? parseInt(i, 10) : i;
   return !Number.isFinite(e) || e <= 0 ? "-" : e === 1 ? "1 page" : `${e} pages`;
@@ -152,7 +153,7 @@ function In(i, e) {
     return String(i);
   }
 }
-function lo(i, e) {
+function po(i, e) {
   if (!i) return "-";
   try {
     const t = i instanceof Date ? i : new Date(i);
@@ -165,7 +166,7 @@ function lo(i, e) {
     return String(i);
   }
 }
-function uo(i, e) {
+function go(i, e) {
   if (!i) return "-";
   try {
     const t = i instanceof Date ? i : new Date(i);
@@ -179,7 +180,7 @@ function uo(i, e) {
     return String(i);
   }
 }
-function po(i) {
+function mo(i) {
   if (!i) return "-";
   try {
     const e = i instanceof Date ? i : new Date(i);
@@ -190,19 +191,19 @@ function po(i) {
     return String(i);
   }
 }
-function go(i) {
+function fo(i) {
   return i == null ? "0 recipients" : i === 1 ? "1 recipient" : `${i} recipients`;
 }
-function ls(i) {
+function ds(i) {
   return i ? i.charAt(0).toUpperCase() + i.slice(1) : "";
 }
-function mo(i) {
-  return i ? i.split("_").map((e) => ls(e)).join(" ") : "";
+function ho(i) {
+  return i ? i.split("_").map((e) => ds(e)).join(" ") : "";
 }
-function fo(i, e) {
+function vo(i, e) {
   return !i || i.length <= e ? i : `${i.slice(0, e - 3)}...`;
 }
-const ds = {
+const us = {
   draft: {
     label: "Draft",
     bgClass: "bg-gray-100",
@@ -248,14 +249,14 @@ const ds = {
 };
 function er(i) {
   const e = String(i || "").trim().toLowerCase();
-  return ds[e] || {
+  return us[e] || {
     label: i || "Unknown",
     bgClass: "bg-gray-100",
     textClass: "text-gray-600",
     dotClass: "bg-gray-400"
   };
 }
-function us(i, e) {
+function ps(i, e) {
   const t = er(i), n = e?.showDot ?? !1, r = e?.size ?? "sm", c = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
@@ -263,11 +264,11 @@ function us(i, e) {
   }, d = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
   return `<span class="inline-flex items-center ${c[r]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${d}${t.label}</span>`;
 }
-function ho(i, e) {
+function yo(i, e) {
   const t = document.createElement("span");
-  return t.innerHTML = us(i, e), t.firstElementChild;
+  return t.innerHTML = ps(i, e), t.firstElementChild;
 }
-function vo(i, e, t) {
+function bo(i, e, t) {
   const n = er(e), r = t?.size ?? "sm", c = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
@@ -299,10 +300,10 @@ function Ht(i, e = document) {
     return [];
   }
 }
-function yo(i) {
+function wo(i) {
   return document.getElementById(i);
 }
-function ps(i, e, t) {
+function gs(i, e, t) {
   const n = document.createElement(i);
   if (e)
     for (const [r, c] of Object.entries(e))
@@ -312,10 +313,10 @@ function ps(i, e, t) {
       typeof r == "string" ? n.appendChild(document.createTextNode(r)) : n.appendChild(r);
   return n;
 }
-function bo(i, e, t, n) {
+function So(i, e, t, n) {
   return i.addEventListener(e, t, n), () => i.removeEventListener(e, t, n);
 }
-function wo(i, e, t, n, r) {
+function xo(i, e, t, n, r) {
   const c = (d) => {
     const s = d.target.closest(e);
     s && i.contains(s) && n.call(s, d, s);
@@ -331,22 +332,22 @@ function Y(i) {
 function B(i) {
   i && i.classList.add("hidden");
 }
-function So(i, e) {
+function Io(i, e) {
   if (!i) return;
   e ?? i.classList.contains("hidden") ? Y(i) : B(i);
 }
-function xo(i, e, t) {
+function Eo(i, e, t) {
   i && (e ? (i.setAttribute("aria-busy", "true"), i.classList.add("opacity-50", "pointer-events-none"), (i instanceof HTMLButtonElement || i instanceof HTMLInputElement) && (i.disabled = !0)) : (i.removeAttribute("aria-busy"), i.classList.remove("opacity-50", "pointer-events-none"), (i instanceof HTMLButtonElement || i instanceof HTMLInputElement) && (i.disabled = !1)));
 }
 function Zt(i, e, t = document) {
   const n = g(`[data-esign-${i}]`, t);
   n && (n.textContent = String(e));
 }
-function Io(i, e = document) {
+function Co(i, e = document) {
   for (const [t, n] of Object.entries(i))
     Zt(t, n, e);
 }
-function gs(i = "[data-esign-page]", e = "data-esign-config") {
+function ms(i = "[data-esign-page]", e = "data-esign-config") {
   const t = g(i);
   if (!t) return null;
   const n = t.getAttribute(e);
@@ -370,7 +371,7 @@ function gs(i = "[data-esign-page]", e = "data-esign-config") {
 }
 function mt(i, e = "polite") {
   const t = g(`[aria-live="${e}"]`) || (() => {
-    const n = ps("div", {
+    const n = gs("div", {
       "aria-live": e,
       "aria-atomic": "true",
       class: "sr-only"
@@ -381,7 +382,7 @@ function mt(i, e = "polite") {
     t.textContent = i;
   });
 }
-async function Eo(i) {
+async function Lo(i) {
   const {
     fn: e,
     until: t,
@@ -418,7 +419,7 @@ async function Eo(i) {
     timedOut: !1
   };
 }
-async function Co(i) {
+async function _o(i) {
   const {
     fn: e,
     maxAttempts: t = 3,
@@ -467,7 +468,7 @@ function En(i, e) {
     }, e);
   };
 }
-function Lo(i, e) {
+function Ao(i, e) {
   let t = 0, n = null;
   return (...r) => {
     const c = Date.now();
@@ -479,14 +480,14 @@ function Lo(i, e) {
     ));
   };
 }
-function _o(i) {
+function To(i) {
   const e = new AbortController(), t = setTimeout(() => e.abort(), i);
   return {
     controller: e,
     cleanup: () => clearTimeout(t)
   };
 }
-async function Ao(i, e, t = "Operation timed out") {
+async function Po(i, e, t = "Operation timed out") {
   let n;
   const r = new Promise((c, d) => {
     n = setTimeout(() => {
@@ -501,7 +502,7 @@ async function Ao(i, e, t = "Operation timed out") {
 }
 class pi {
   constructor(e) {
-    this.config = e, this.client = cs({
+    this.config = e, this.client = ls({
       basePath: e.basePath,
       apiBasePath: e.apiBasePath
     });
@@ -531,8 +532,8 @@ class pi {
     n && (n.textContent = String(t));
   }
 }
-function To(i) {
-  const e = i || gs(
+function ko(i) {
+  const e = i || ms(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
   if (!e)
@@ -540,7 +541,7 @@ function To(i) {
   const t = new pi(e);
   return Fe(() => t.init()), t;
 }
-function Po(i, e) {
+function Do(i, e) {
   const t = {
     basePath: i,
     apiBasePath: e || `${i}/api`
@@ -668,35 +669,35 @@ class nr {
     return { ...this.state };
   }
 }
-function ko(i) {
+function Ro(i) {
   const e = new nr(i);
   return Fe(() => e.init()), e;
 }
-function Do(i) {
+function Mo(i) {
   const e = new nr(i);
   Fe(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
 }
-function ms(i = document) {
+function fs(i = document) {
   Ht("[data-size-bytes]", i).forEach((e) => {
     const t = e.getAttribute("data-size-bytes");
     t && (e.textContent = yn(t));
   });
 }
-function fs(i = document) {
+function hs(i = document) {
   Ht("[data-timestamp]", i).forEach((e) => {
     const t = e.getAttribute("data-timestamp");
     t && (e.textContent = In(t));
   });
 }
-function hs(i = document) {
-  ms(i), fs(i);
+function vs(i = document) {
+  fs(i), hs(i);
 }
-function vs() {
+function ys() {
   Fe(() => {
-    hs();
+    vs();
   });
 }
-typeof document < "u" && vs();
+typeof document < "u" && ys();
 const Ri = {
   access_denied: "You denied access to your Google account.",
   invalid_request: "The authorization request was invalid.",
@@ -823,21 +824,21 @@ class ir {
     }
   }
 }
-function Ro(i) {
+function $o(i) {
   const e = i || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
   }, t = new ir(e);
   return Fe(() => t.init()), t;
 }
-function Mo(i) {
+function Bo(i) {
   const e = {
     basePath: i,
     apiBasePath: `${i}/api`
   }, t = new ir(e);
   Fe(() => t.init());
 }
-const Yn = "esign.google.account_id", ys = {
+const Yn = "esign.google.account_id", bs = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -1230,7 +1231,7 @@ class rr {
         return;
       }
       t.innerHTML = e.map((n) => {
-        const r = ys[n] || { label: n, description: "" };
+        const r = bs[n] || { label: n, description: "" };
         return `
         <li class="flex items-start gap-2">
           <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1639,11 +1640,11 @@ class rr {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function $o(i) {
+function Fo(i) {
   const e = new rr(i);
   return Fe(() => e.init()), e;
 }
-function Bo(i) {
+function No(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -2188,11 +2189,11 @@ class sr {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Fo(i) {
+function Ho(i) {
   const e = new sr(i);
   return Fe(() => e.init()), e;
 }
-function No(i) {
+function Uo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -2580,11 +2581,11 @@ class ar {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Ho(i) {
+function zo(i) {
   const e = new ar(i);
   return Fe(() => e.init()), e;
 }
-function Uo(i) {
+function Oo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
@@ -3434,11 +3435,11 @@ class or {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function zo(i) {
+function jo(i) {
   const e = new or(i);
   return Fe(() => e.init()), e;
 }
-function Oo(i) {
+function qo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
@@ -3799,11 +3800,11 @@ class cr {
     r && (t === "success" ? r.success(e) : r.error(e));
   }
 }
-function jo(i) {
+function Vo(i) {
   const e = new cr(i);
   return Fe(() => e.init()), e;
 }
-function qo(i) {
+function Go(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
@@ -4280,21 +4281,21 @@ class lr {
     r && (t === "success" ? r.success(e) : t === "error" ? r.error(e) : t === "info" && r.info && r.info(e));
   }
 }
-function Vo(i) {
+function Wo(i) {
   const e = new lr(i);
   return Fe(() => e.init()), e;
 }
-function Go(i) {
+function Yo(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
   }, t = new lr(e);
   Fe(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
 }
-const Kn = "esign.google.account_id", bs = 25 * 1024 * 1024, ws = 2e3, Bi = 60, ai = "application/vnd.google-apps.document", oi = "application/pdf", Fi = "application/vnd.google-apps.folder", Ss = [ai, oi];
+const Kn = "esign.google.account_id", ws = 25 * 1024 * 1024, Ss = 2e3, Bi = 60, ai = "application/vnd.google-apps.document", oi = "application/pdf", Fi = "application/vnd.google-apps.folder", xs = [ai, oi];
 class gi {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || bs, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || ws, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       // Upload panel
       form: g("#document-upload-form"),
       fileInput: g("#pdf_file"),
@@ -4775,7 +4776,7 @@ class gi {
    * Check if file is importable
    */
   isImportable(e) {
-    return Ss.includes(e.mimeType);
+    return xs.includes(e.mimeType);
   }
   /**
    * Get file type name
@@ -5141,7 +5142,7 @@ class gi {
    * Start polling for import status
    */
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), ws);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), Ss);
   }
   /**
    * Poll import status
@@ -5206,11 +5207,11 @@ class gi {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Wo(i) {
+function Jo(i) {
   const e = new gi(i);
   return Fe(() => e.init()), e;
 }
-function Yo(i) {
+function Ko(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api/v1`,
@@ -5223,7 +5224,7 @@ function Yo(i) {
   }, t = new gi(e);
   Fe(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function xs(i) {
+function Is(i) {
   const e = String(i.basePath || i.base_path || "").trim(), t = i.routes && typeof i.routes == "object" ? i.routes : {}, n = i.features && typeof i.features == "object" ? i.features : {}, r = i.context && typeof i.context == "object" ? i.context : {}, c = String(t.index || "").trim();
   return !e && !c ? null : {
     basePath: e || "/admin",
@@ -5252,7 +5253,7 @@ typeof document < "u" && Fe(() => {
       try {
         const t = JSON.parse(
           e.textContent || "{}"
-        ), n = xs(t);
+        ), n = Is(t);
         n && new gi(n).init();
       } catch (t) {
         console.warn("Failed to parse document form page config:", t);
@@ -5266,7 +5267,7 @@ const lt = {
   FIELDS: 4,
   PLACEMENT: 5,
   REVIEW: 6
-}, mn = lt.REVIEW, Is = {
+}, mn = lt.REVIEW, Es = {
   [lt.DOCUMENT]: "Details",
   [lt.DETAILS]: "Participants",
   [lt.PARTICIPANTS]: "Fields",
@@ -5285,7 +5286,7 @@ const lt = {
   THUMBNAIL_MAX_HEIGHT: 200
 };
 lt.DOCUMENT, lt.DETAILS, lt.PARTICIPANTS, lt.FIELDS, lt.REVIEW;
-const ci = /* @__PURE__ */ new Map(), Es = 30 * 60 * 1e3, Ni = {
+const ci = /* @__PURE__ */ new Map(), Cs = 30 * 60 * 1e3, Ni = {
   401: {
     message: "Unable to access this document",
     suggestion: "Please sign in again or check your permissions."
@@ -5311,7 +5312,7 @@ const ci = /* @__PURE__ */ new Map(), Es = 30 * 60 * 1e3, Ni = {
     suggestion: "Please try again in a moment."
   }
 };
-function Cs(i) {
+function Ls(i) {
   const t = (i instanceof Error ? i.message : i).match(/\((\d{3})\)|status[:\s]+(\d{3})|^(\d{3})$/i);
   if (t) {
     const n = parseInt(t[1] || t[2] || t[3], 10);
@@ -5320,8 +5321,8 @@ function Cs(i) {
   }
   return null;
 }
-function Ls(i) {
-  const e = i instanceof Error ? i.message : i, t = Cs(e);
+function _s(i) {
+  const e = i instanceof Error ? i.message : i, t = Ls(e);
   if (e.toLowerCase().includes("network") || e.toLowerCase().includes("failed to fetch") || e.toLowerCase().includes("connection"))
     return {
       message: "Connection problem",
@@ -5352,26 +5353,26 @@ function Ls(i) {
 function Hi() {
   return typeof window > "u" ? !1 : window.__ADMIN_DEBUG__ === !0 || window.ADMIN_DEBUG === !0 || document.body?.dataset?.debug === "true";
 }
-function _s() {
+function As() {
   return typeof window < "u" && "pdfjsLib" in window && typeof window.pdfjsLib?.getDocument == "function";
 }
-async function As() {
-  if (!_s())
+async function Ts() {
+  if (!As())
     throw new Error("PDF preview library unavailable");
 }
-function Ts(i) {
+function Ps(i) {
   const e = ci.get(i);
-  return e ? Date.now() - e.timestamp > Es ? (ci.delete(i), null) : e : null;
+  return e ? Date.now() - e.timestamp > Cs ? (ci.delete(i), null) : e : null;
 }
-function Ps(i, e, t) {
+function ks(i, e, t) {
   ci.set(i, {
     dataUrl: e,
     pageCount: t,
     timestamp: Date.now()
   });
 }
-async function ks(i, e = Cn.THUMBNAIL_MAX_WIDTH, t = Cn.THUMBNAIL_MAX_HEIGHT) {
-  await As();
+async function Ds(i, e = Cn.THUMBNAIL_MAX_WIDTH, t = Cn.THUMBNAIL_MAX_HEIGHT) {
+  await Ts();
   const n = window.pdfjsLib;
   if (!n)
     throw new Error("PDF.js not available");
@@ -5389,7 +5390,7 @@ async function ks(i, e = Cn.THUMBNAIL_MAX_WIDTH, t = Cn.THUMBNAIL_MAX_HEIGHT) {
     viewport: A
   }).promise, { dataUrl: E.toDataURL("image/jpeg", 0.8), pageCount: d };
 }
-class Ds {
+class Rs {
   constructor(e = {}) {
     this.requestVersion = 0, this.config = {
       apiBasePath: e.apiBasePath || "",
@@ -5460,7 +5461,7 @@ class Ds {
       }, this.render();
       return;
     }
-    const c = Ts(e);
+    const c = Ps(e);
     if (c) {
       this.state = {
         documentId: e,
@@ -5484,14 +5485,14 @@ class Ds {
       const d = await this.fetchDocumentPdfUrl(e);
       if (r !== this.requestVersion)
         return;
-      const { dataUrl: s, pageCount: h } = await ks(
+      const { dataUrl: s, pageCount: h } = await Ds(
         d,
         this.config.thumbnailMaxWidth,
         this.config.thumbnailMaxHeight
       );
       if (r !== this.requestVersion)
         return;
-      Ps(e, s, h), this.state = {
+      ks(e, s, h), this.state = {
         documentId: e,
         documentTitle: t,
         pageCount: n ?? h,
@@ -5502,7 +5503,7 @@ class Ds {
     } catch (d) {
       if (r !== this.requestVersion)
         return;
-      const s = d instanceof Error ? d.message : "Failed to load preview", h = Ls(s);
+      const s = d instanceof Error ? d.message : "Failed to load preview", h = _s(s);
       Hi() && console.error("Failed to load document preview:", d), this.state = {
         documentId: e,
         documentTitle: t,
@@ -5559,11 +5560,11 @@ class Ds {
     }, this.render();
   }
 }
-function Rs(i = {}) {
-  const e = new Ds(i);
+function Ms(i = {}) {
+  const e = new Rs(i);
   return e.init(), e;
 }
-function Ms(i = {}) {
+function $s(i = {}) {
   let e = !1;
   return {
     start() {
@@ -5574,9 +5575,9 @@ function Ms(i = {}) {
     }
   };
 }
-function $s(i) {
+function Bs(i) {
   const { context: e, hooks: t = {} } = i;
-  return Ms({
+  return $s({
     renderInitialUI() {
       t.renderInitialUI?.();
     },
@@ -5600,7 +5601,7 @@ function Jt(i, e, t) {
     throw new Error(`Agreement form boot failed: missing required ${t} element (#${e})`);
   return n;
 }
-function Bs(i = document) {
+function Fs(i = document) {
   return {
     marker: ht(i, "esign-page-config"),
     form: {
@@ -5631,7 +5632,7 @@ function Bs(i = document) {
     }
   };
 }
-function Fs(i, e) {
+function Ns(i, e) {
   return {
     render(t = {}) {
       const n = t?.coordinationAvailable !== !1, r = i.coordination.banner, c = i.coordination.message;
@@ -5649,7 +5650,7 @@ function Fs(i, e) {
     }
   };
 }
-class Ns {
+class Hs {
   constructor(e) {
     this.state = null, this.listeners = [], this.options = e;
   }
@@ -5939,13 +5940,13 @@ class Ns {
   }
 }
 const Xn = /* @__PURE__ */ new Map();
-async function Hs(i) {
+async function Us(i) {
   const e = String(i || "").trim().replace(/\/+$/, "");
   if (e === "")
     throw new Error("sync.client_base_path is required to load sync-core");
-  return typeof window < "u" && window.__esignSyncCoreModule ? li(window.__esignSyncCoreModule) : (Xn.has(e) || Xn.set(e, Us(e)), Xn.get(e));
+  return typeof window < "u" && window.__esignSyncCoreModule ? li(window.__esignSyncCoreModule) : (Xn.has(e) || Xn.set(e, zs(e)), Xn.get(e));
 }
-async function Us(i) {
+async function zs(i) {
   if (typeof window < "u" && typeof window.__esignSyncCoreLoader == "function")
     return li(await window.__esignSyncCoreLoader(i));
   const t = await import(`${i}/index.js`);
@@ -5956,7 +5957,7 @@ function li(i) {
     throw new TypeError("Invalid sync-core runtime module");
   return i;
 }
-class zs {
+class Os {
   constructor(e) {
     this.pendingSync = null, this.retryCount = 0, this.retryTimeout = null, this.syncModulePromise = null, this.syncModule = null, this.transport = null, this.cache = null, this.resource = null, this.resourceRef = null, this.stateManager = e.stateManager, this.requestHeaders = e.requestHeaders, this.fetchImpl = e.fetchImpl || fetch.bind(globalThis), this.syncConfig = e.syncConfig;
   }
@@ -6119,7 +6120,7 @@ class zs {
     };
   }
   async ensureRuntime() {
-    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = Hs(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
+    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = Us(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
       baseURL: this.syncConfig.base_url,
       credentials: "same-origin",
       fetch: this.fetchImpl,
@@ -6220,7 +6221,7 @@ class zs {
     return new Error(String(e || "sync_failed").trim() || "sync_failed");
   }
 }
-class Os {
+class js {
   constructor(e) {
     this.channel = null, this.cleanupFns = [], this.activeDraftId = "", this.coordinationAvailable = !1, this.options = e;
   }
@@ -6318,7 +6319,7 @@ function Ui(i) {
   const e = Number(i);
   return Number.isFinite(e) ? e : null;
 }
-function js() {
+function qs() {
   return `send_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 function nt(i = {}) {
@@ -6351,7 +6352,7 @@ function It(i, e = {}) {
 function At(i, e = {}) {
   console.warn(dr, i, e);
 }
-class qs {
+class Vs {
   constructor(e) {
     this.debounceTimer = null, this.retryTimer = null, this.retryCount = 0, this.isSyncing = !1, this.cleanupFns = [], this.options = e, this.stateManager = e.stateManager, this.syncService = e.syncService, this.activeTabController = e.activeTabController;
   }
@@ -6442,7 +6443,7 @@ class qs {
     e.addEventListener("visibilitychange", r), this.cleanupFns.push(() => e.removeEventListener("visibilitychange", r));
   }
 }
-function Vs() {
+function Gs() {
   return function(e, t = {}) {
     const n = String(e || "").trim();
     if (!n || typeof window > "u") return;
@@ -6465,14 +6466,14 @@ function fn(i, e, t = "") {
   const n = i.querySelector(e);
   return (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement || n instanceof HTMLSelectElement) && n.value || t;
 }
-function Gs(i, e, t = !1) {
+function Ws(i, e, t = !1) {
   const n = i.querySelector(e);
   return n instanceof HTMLInputElement ? n.checked : t;
 }
 function Qn(i, e) {
   i instanceof HTMLButtonElement && (i.disabled = e);
 }
-function Ws(i) {
+function Ys(i) {
   const {
     documentIdInput: e,
     selectedDocumentTitle: t,
@@ -6496,7 +6497,7 @@ function Ws(i) {
       const ee = ye.querySelector(".signing-stage-input"), Ge = ye.querySelector('select[name*=".role"]');
       Ge instanceof HTMLSelectElement && Ge.value === "signer" && ee instanceof HTMLInputElement && ee.value && fe.add(Number.parseInt(ee.value, 10));
     }), F.textContent = ge, $.textContent = ne, P.textContent = `${Te.length} (${Pe.length} signers)`, Q.textContent = String(fe.size > 0 ? fe.size : 1), re.innerHTML = "", Te.forEach((ye) => {
-      const ee = fn(ye, 'input[name*=".name"]'), Ge = fn(ye, 'input[name*=".email"]'), Oe = fn(ye, 'select[name*=".role"]', "signer"), Se = fn(ye, ".signing-stage-input"), Re = Gs(ye, ".notify-input", !0), at = document.createElement("div");
+      const ee = fn(ye, 'input[name*=".name"]'), Ge = fn(ye, 'input[name*=".email"]'), Oe = fn(ye, 'select[name*=".role"]', "signer"), Se = fn(ye, ".signing-stage-input"), Re = Ws(ye, ".notify-input", !0), at = document.createElement("div");
       at.className = "flex items-center justify-between text-sm", at.innerHTML = `
         <div>
           <span class="font-medium">${d(ee || Ge)}</span>
@@ -6585,7 +6586,7 @@ function zi(i, e = 0) {
   const t = Number.parseInt(String(i || "").trim(), 10);
   return Number.isFinite(t) ? t : e;
 }
-function Ys(i) {
+function Js(i) {
   const {
     totalWizardSteps: e,
     wizardStep: t,
@@ -6661,19 +6662,19 @@ function Ys(i) {
 function Oi(i) {
   return i.querySelector('select[name*=".role"]');
 }
-function Js(i) {
+function Ks(i) {
   return i.querySelector(".field-participant-select");
 }
 function bn(i) {
   return typeof i == "object" && i !== null;
 }
-function Ks(i, e, t = {}) {
+function Xs(i, e, t = {}) {
   const n = new Error(e);
   return n.code = String(i).trim(), Number(t.status || 0) > 0 && (n.status = Number(t.status || 0)), Number(t.currentRevision || 0) > 0 && (n.currentRevision = Number(t.currentRevision || 0)), Number(t.conflict?.currentRevision || 0) > 0 && (n.conflict = {
     currentRevision: Number(t.conflict?.currentRevision || 0)
   }), n;
 }
-function Xs(i, e = 0) {
+function Qs(i, e = 0) {
   if (!bn(i))
     return Number(e || 0);
   const t = i, n = Number(t.currentRevision || 0);
@@ -6682,7 +6683,7 @@ function Xs(i, e = 0) {
   const r = Number(t.conflict?.currentRevision || 0);
   return r > 0 ? r : Number(e || 0);
 }
-function Qs(i) {
+function Zs(i) {
   const {
     config: e,
     form: t,
@@ -6863,7 +6864,7 @@ function Qs(i) {
         status: 404,
         phase: "pre_send"
       }), await tt().catch(() => {
-      }), Ks(
+      }), Xs(
         "DRAFT_SEND_NOT_FOUND",
         "Draft not found",
         { status: 404 }
@@ -6912,7 +6913,7 @@ function Qs(i) {
       }
       let se = !1;
       if (H.forEach((O) => {
-        Js(O)?.value || (se = !0);
+        Ks(O)?.value || (se = !0);
       }), se) {
         Le.preventDefault(), De("Please assign all fields to a signer");
         const O = h.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
@@ -6949,7 +6950,7 @@ function Qs(i) {
               if ((w.participants || []).length === 0)
                 throw new Error("Add at least one reviewer before starting review.");
             }
-            Se = js(), It("send_submit_start", nt({
+            Se = qs(), It("send_submit_start", nt({
               state: x.getState(),
               storageKey: E,
               ownership: Re(),
@@ -6997,7 +6998,7 @@ function Qs(i) {
             let be = String(we.code || "").trim();
             const Ee = Number(we.status || 0);
             if (be.toUpperCase() === "STALE_REVISION") {
-              const v = Xs(O, Number(x.getState()?.serverRevision || 0));
+              const v = Qs(O, Number(x.getState()?.serverRevision || 0));
               ye?.("conflict"), Ve?.(v), ke("wizard_send_conflict", {
                 draft_id: String(x.getState()?.serverDraftId || "").trim(),
                 current_revision: v,
@@ -7043,7 +7044,7 @@ function ur(i) {
   const e = qe(i).toLowerCase();
   return e === "" ? !1 : e === "1" || e === "true" || e === "on" || e === "yes";
 }
-function Zs(i) {
+function ea(i) {
   return qe(i).toLowerCase();
 }
 function rt(i, e = 0) {
@@ -7069,7 +7070,7 @@ function Kt(i, e, t = 1) {
   const n = rt(t, 1), r = rt(i, n);
   return e > 0 ? wn(r, 1, e) : r > 0 ? r : n;
 }
-function ea(i, e, t) {
+function ta(i, e, t) {
   const n = rt(t, 1);
   let r = en(i, n), c = en(e, n);
   return r <= 0 && (r = 1), c <= 0 && (c = n), c < r ? { start: c, end: r } : { start: r, end: c };
@@ -7086,7 +7087,7 @@ function Sn(i, e) {
   const t = rt(e, 1), n = qe(i.participantId ?? i.participant_id), r = Ln(i.excludePages ?? i.exclude_pages), c = i.required, d = typeof c == "boolean" ? c : !["0", "false", "off", "no"].includes(qe(c).toLowerCase());
   return {
     id: qe(i.id),
-    type: Zs(i.type),
+    type: ea(i.type),
     participantId: n,
     participantTempId: qe(i.participantTempId) || n,
     fromPage: en(i.fromPage ?? i.from_page, t),
@@ -7097,18 +7098,18 @@ function Sn(i, e) {
     required: d
   };
 }
-function ta(i, e) {
+function na(i, e) {
   const t = qe(i?.id);
   return t !== "" ? t : `rule-${e + 1}`;
 }
-function na(i, e) {
+function ia(i, e) {
   const t = rt(e, 1), n = [];
   return i.forEach((r, c) => {
     const d = Sn(r || {}, t);
     if (d.type === "") return;
-    const s = ta(d, c);
+    const s = na(d, c);
     if (d.type === "initials_each_page") {
-      const h = ea(d.fromPage, d.toPage, t), m = /* @__PURE__ */ new Set();
+      const h = ta(d.fromPage, d.toPage, t), m = /* @__PURE__ */ new Set();
       Ln(d.excludePages).forEach((b) => {
         b <= t && m.add(b);
       }), d.excludeLastPage && m.add(t);
@@ -7138,7 +7139,7 @@ function na(i, e) {
     }
   }), n.sort((r, c) => r.page !== c.page ? r.page - c.page : r.id.localeCompare(c.id)), n;
 }
-function ia(i, e, t, n, r) {
+function ra(i, e, t, n, r) {
   const c = rt(t, 1);
   let d = i > 0 ? i : 1, s = e > 0 ? e : c;
   d = wn(d, 1, c), s = wn(s, 1, c), s < d && ([d, s] = [s, d]);
@@ -7158,7 +7159,7 @@ function ia(i, e, t, n, r) {
     isEmpty: m.length === 0
   };
 }
-function ra(i) {
+function sa(i) {
   if (i.isEmpty)
     return "(no pages - all excluded)";
   const { pages: e } = i;
@@ -7215,7 +7216,7 @@ function tn(i, e = 0) {
     isUnlinked: ur(t.isUnlinked ?? t.is_unlinked)
   };
 }
-function sa(i, e = 0) {
+function aa(i, e = 0) {
   const t = tn(i, e);
   return {
     id: t.id,
@@ -7242,7 +7243,7 @@ function _t(i) {
 function Bt(i) {
   return typeof i == "object" && i !== null;
 }
-function aa(i) {
+function oa(i) {
   const {
     apiBase: e,
     apiVersionBase: t,
@@ -7728,7 +7729,7 @@ function ei(i, e) {
   const t = i.querySelector(e);
   return t instanceof HTMLSelectElement ? t : null;
 }
-function oa(i = {}) {
+function ca(i = {}) {
   const {
     initialParticipants: e = [],
     onParticipantsChanged: t
@@ -7835,7 +7836,7 @@ function oa(i = {}) {
     restoreFromState: f
   };
 }
-function ca() {
+function la() {
   return `link_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 function _n() {
@@ -7845,9 +7846,9 @@ function _n() {
     unlinkedDefinitions: /* @__PURE__ */ new Set()
   };
 }
-function la(i, e) {
+function da(i, e) {
   return {
-    id: ca(),
+    id: la(),
     name: e,
     memberDefinitionIds: [...i],
     sourceFieldId: void 0,
@@ -7885,7 +7886,7 @@ function mr(i, e) {
   if (t)
     return i.groups.get(t);
 }
-function da(i, e) {
+function ua(i, e) {
   const t = mr(i, e.definitionId);
   if (!t || !t.isActive || t.templatePosition) return null;
   const n = {
@@ -7900,7 +7901,7 @@ function da(i, e) {
     templatePosition: n
   } };
 }
-function ua(i, e, t, n) {
+function pa(i, e, t, n) {
   const r = /* @__PURE__ */ new Set();
   for (const c of t)
     r.add(c.definitionId);
@@ -7948,7 +7949,7 @@ function Ft(i, e) {
   const t = i.querySelector(e);
   return t instanceof HTMLElement ? t : null;
 }
-function pa(i) {
+function ga(i) {
   const {
     initialFieldInstances: e = [],
     placementSource: t,
@@ -8052,7 +8053,7 @@ function pa(i) {
     }));
   }
   function st(k, T) {
-    return na(k, T);
+    return ia(k, T);
   }
   function Ve() {
     if (!$) return;
@@ -8092,13 +8093,13 @@ function pa(i) {
       required: !0
     }, be), v = Ee.fromPage > 0 ? Ee.fromPage : 1, w = Ee.toPage > 0 ? Ee.toPage : be, I = Ee.page > 0 ? Ee.page : Ee.toPage > 0 ? Ee.toPage : be, q = Ee.excludeLastPage, W = Ee.excludePages.join(","), K = T?.value === "initials_each_page";
     if (H.classList.toggle("hidden", !K), V.classList.toggle("hidden", !K), he.classList.toggle("hidden", !K), Ae.classList.toggle("hidden", !K), se.classList.toggle("hidden", K), me && (me.value = String(v)), ae && (ae.value = String(w)), O && (O.value = String(I)), ve && (ve.value = W), we && (we.checked = q), K) {
-      const oe = ia(
+      const oe = ra(
         v,
         w,
         be,
         q,
         Ee.excludePages
-      ), ue = ra(oe);
+      ), ue = sa(oe);
       Ie.textContent = oe.isEmpty ? `Warning: No initials fields will be generated ${ue}.` : `Generates initials fields on ${ue}.`;
     } else
       Ie.textContent = `Generates one signature field on page ${I}.`;
@@ -8220,7 +8221,7 @@ function pa(i) {
     let Ae = m();
     he.forEach((ae, O) => {
       if (ae.length > 1 && !Ae.groups.get(`rule_${O}`)) {
-        const ve = la(ae, `Rule ${O}`);
+        const ve = da(ae, `Rule ${O}`);
         ve.id = `rule_${O}`, Ae = gr(Ae, ve);
       }
     }), b(Ae), se.forEach((ae) => {
@@ -8322,7 +8323,7 @@ function pa(i) {
     restoreFieldRulesFromState: Le
   };
 }
-function ga(i) {
+function ma(i) {
   return typeof i == "object" && i !== null && "run" in i;
 }
 const zt = {
@@ -8340,7 +8341,7 @@ const zt = {
   checkbox: { width: 24, height: 24 },
   initials: { width: 80, height: 40 }
 };
-function ma(i) {
+function fa(i) {
   const {
     apiBase: e,
     apiVersionBase: t,
@@ -8429,7 +8430,7 @@ function ma(i) {
     f.linkGroupState = v || _n();
   }
   function Z() {
-    return f.fieldInstances.map((v, w) => sa(v, w));
+    return f.fieldInstances.map((v, w) => aa(v, w));
   }
   function J(v = {}) {
     const { silent: w = !1 } = v, I = $();
@@ -8582,7 +8583,7 @@ function ma(i) {
     }).promise, I.currentPage && (I.currentPage.textContent = String(v)), Oe();
   }
   function ye(v) {
-    const w = da(f.linkGroupState, v);
+    const w = ua(f.linkGroupState, v);
     w && (f.linkGroupState = gr(f.linkGroupState, w.updatedGroup));
   }
   function ee(v) {
@@ -8599,7 +8600,7 @@ function ma(i) {
     });
     let I = 0;
     for (; I < 10; ) {
-      const q = ua(
+      const q = pa(
         f.linkGroupState,
         v,
         f.fieldInstances,
@@ -9008,7 +9009,7 @@ function ma(i) {
       });
       if (!q.ok)
         throw await m(q, "Auto-placement failed");
-      const W = await q.json(), K = ga(W) ? W.run || {} : W;
+      const W = await q.json(), K = ma(W) ? W.run || {} : W;
       L.currentRunId = K?.run_id || K?.id || null, L.suggestions = K?.suggestions || [], L.resolverScores = K?.resolver_scores || [], L.suggestions.length === 0 ? (S("No placement suggestions found. Try placing fields manually.", "warning"), O()) : ae(K);
     } catch (q) {
       console.error("Auto-place error:", q);
@@ -9103,7 +9104,7 @@ function Yi(i) {
 function Xt(i) {
   return String(i ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function fa(i) {
+function ha(i) {
   const {
     getSignerParticipants: e,
     setPrimaryActionLabel: t,
@@ -9231,7 +9232,7 @@ function Ji(i, e, t = !1) {
   const n = i.querySelector(e);
   return n ? n.checked : t;
 }
-function ha(i) {
+function va(i) {
   const {
     documentIdInput: e,
     documentPageCountInput: t,
@@ -9292,7 +9293,7 @@ function ha(i) {
     buildCanonicalAgreementPayload: E
   };
 }
-function va(i) {
+function ya(i) {
   const {
     titleSource: e,
     stateManager: t,
@@ -9401,13 +9402,13 @@ function va(i) {
     renderInitialWizardUI: Ce
   };
 }
-function ya(i) {
+function ba(i) {
   return i.querySelector('select[name*=".role"]');
 }
-function ba(i) {
+function wa(i) {
   return i.querySelector(".field-participant-select");
 }
-function wa(i) {
+function Sa(i) {
   const {
     documentIdInput: e,
     titleInput: t,
@@ -9433,13 +9434,13 @@ function wa(i) {
           return S("Please add at least one participant"), !1;
         let L = !1;
         return f.forEach((x) => {
-          ya(x)?.value === "signer" && (L = !0);
+          ba(x)?.value === "signer" && (L = !0);
         }), L ? !0 : (S("At least one signer is required"), !1);
       }
       case 4: {
         const f = r.querySelectorAll(".field-definition-entry");
         for (const N of Array.from(f)) {
-          const j = ba(N);
+          const j = wa(N);
           if (!j?.value)
             return S("Please assign all fields to a signer"), j?.focus(), !1;
         }
@@ -9458,7 +9459,7 @@ function wa(i) {
     validateStep: A
   };
 }
-function Sa(i) {
+function xa(i) {
   const {
     isEditMode: e,
     storageKey: t,
@@ -9657,7 +9658,7 @@ function Sa(i) {
     maybeShowResumeDialog: j
   };
 }
-function xa(i) {
+function Ia(i) {
   const {
     agreementRefs: e,
     formAnnouncements: t,
@@ -9746,7 +9747,7 @@ function xa(i) {
     updateSyncStatus: s
   };
 }
-function Ia(i) {
+function Ea(i) {
   const {
     createSuccess: e,
     enableServerSync: t = !0,
@@ -9813,7 +9814,7 @@ function fr(i, e = kt.AUTOFILL) {
   const t = String(i || "").trim().toLowerCase();
   return t === kt.USER ? kt.USER : t === kt.SERVER_SEED ? kt.SERVER_SEED : t === kt.AUTOFILL ? kt.AUTOFILL : e;
 }
-function Ea(i, e = 0) {
+function Ca(i, e = 0) {
   if (!i || typeof i != "object") return !1;
   const t = i, n = String(t.name ?? "").trim(), r = String(t.email ?? "").trim(), c = String(t.role ?? "signer").trim().toLowerCase(), d = Number.parseInt(String(t.signingStage ?? t.signing_stage ?? 1), 10), s = t.notify !== !1;
   return n !== "" || r !== "" || c !== "" && c !== "signer" || Number.isFinite(d) && d > 1 || !s ? !0 : e > 0;
@@ -9830,9 +9831,9 @@ function Ki(i, e = {}) {
     i.titleSource,
     d === "" ? n.AUTOFILL : n.USER
   );
-  return !!(d !== "" && h !== n.SERVER_SEED || s !== "" || (Array.isArray(i.participants) ? i.participants : []).some((S, A) => Ea(S, A)) || Array.isArray(i.fieldDefinitions) && i.fieldDefinitions.length > 0 || Array.isArray(i.fieldPlacements) && i.fieldPlacements.length > 0 || Array.isArray(i.fieldRules) && i.fieldRules.length > 0 || i.review?.enabled);
+  return !!(d !== "" && h !== n.SERVER_SEED || s !== "" || (Array.isArray(i.participants) ? i.participants : []).some((S, A) => Ca(S, A)) || Array.isArray(i.fieldDefinitions) && i.fieldDefinitions.length > 0 || Array.isArray(i.fieldPlacements) && i.fieldPlacements.length > 0 || Array.isArray(i.fieldRules) && i.fieldRules.length > 0 || i.review?.enabled);
 }
-function Ca(i = {}) {
+function La(i = {}) {
   const e = i || {}, t = String(e.base_path || "").trim(), n = String(e.api_base_path || "").trim() || `${t}/api`, r = n.replace(/\/+$/, ""), c = /\/v\d+$/i.test(r) ? r : `${r}/v1`, d = !!e.is_edit, s = !!e.create_success, h = String(e.submit_mode || "json").trim().toLowerCase(), m = String(e.agreement_id || "").trim(), b = String(e.active_agreement_id || "").trim(), S = String(e.routes?.documents_upload_url || "").trim() || `${t}/content/esign_documents/new`, A = Array.isArray(e.initial_participants) ? e.initial_participants : [], E = Array.isArray(e.initial_field_instances) ? e.initial_field_instances : [], f = e.sync && typeof e.sync == "object" ? e.sync : {}, L = Array.isArray(f.action_operations) ? f.action_operations.map((j) => String(j || "").trim()).filter(Boolean) : [], x = `${c}/esign`, _ = {
     base_url: String(f.base_url || "").trim() || x,
     bootstrap_path: String(f.bootstrap_path || "").trim() || `${x}/sync/bootstrap/agreement-draft`,
@@ -9875,11 +9876,11 @@ function Ca(i = {}) {
     initialFieldInstances: E
   };
 }
-function La(i = !0) {
+function _a(i = !0) {
   const e = { Accept: "application/json" };
   return i && (e["Content-Type"] = "application/json"), e;
 }
-function _a(i = {}) {
+function Aa(i = {}) {
   const {
     config: e = {},
     isEditMode: t = !1
@@ -9914,12 +9915,12 @@ function Ot(i, e) {
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return i;
 }
-function Aa(i, e) {
+function Ta(i, e) {
   if (!(i instanceof HTMLButtonElement))
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return i;
 }
-function Ta(i = {}) {
+function Pa(i = {}) {
   const {
     config: e,
     normalizedConfig: t,
@@ -9933,27 +9934,27 @@ function Ta(i = {}) {
     documentsUploadURL: b,
     initialParticipants: S,
     initialFieldInstances: A
-  } = Ca(i), E = Bs(document), {
+  } = La(i), E = Fs(document), {
     WIZARD_STATE_VERSION: f,
     WIZARD_STORAGE_KEY: L,
     WIZARD_CHANNEL_NAME: x,
     SYNC_DEBOUNCE_MS: _,
     SYNC_RETRY_DELAYS: N,
     TITLE_SOURCE: j
-  } = _a({
+  } = Aa({
     config: e,
     isEditMode: s
-  }), F = Vs(), $ = (G, xe = j.AUTOFILL) => fr(G, xe), P = (G) => Ki(G, {
+  }), F = Gs(), $ = (G, xe = j.AUTOFILL) => fr(G, xe), P = (G) => Ki(G, {
     normalizeTitleSource: $,
     titleSource: j
-  }), Q = Rs({
+  }), Q = Ms({
     apiBasePath: d,
     basePath: r
-  }), re = E.form.root, Z = Aa(E.form.submitBtn, "submit button"), J = E.form.announcements;
+  }), re = E.form.root, Z = Ta(E.form.submitBtn, "submit button"), J = E.form.announcements;
   let ge = null, ne = null, Te = null, Ce = null, de = null, Pe = null, fe = null, De = null, ke = null, ze = _n();
   const st = (G, xe = {}) => {
     Ce?.applyStateToUI(G, xe);
-  }, Ve = () => Ce?.debouncedTrackChanges?.(), Je = () => De?.trackWizardStateChanges?.(), ye = (G) => fe?.formatRelativeTime(G) || "unknown", ee = () => fe?.restoreSyncStatusFromState(), Ge = (G) => fe?.updateSyncStatus(G), Oe = (G) => fe?.showSyncConflictDialog(G), Se = (G, xe = "", Ne = 0) => fe?.mapUserFacingError(G, xe, Ne) || String(G || "").trim(), Re = (G, xe) => fe ? fe.parseAPIError(G, xe) : Promise.resolve({ status: Number(G.status || 0), code: "", details: {}, message: xe }), at = (G, xe = "", Ne = 0) => fe?.announceError(G, xe, Ne), pt = (G, xe = {}) => fe ? fe.surfaceSyncOutcome(G, xe) : Promise.resolve({}), dt = () => null, tt = Fs(E, {
+  }, Ve = () => Ce?.debouncedTrackChanges?.(), Je = () => De?.trackWizardStateChanges?.(), ye = (G) => fe?.formatRelativeTime(G) || "unknown", ee = () => fe?.restoreSyncStatusFromState(), Ge = (G) => fe?.updateSyncStatus(G), Oe = (G) => fe?.showSyncConflictDialog(G), Se = (G, xe = "", Ne = 0) => fe?.mapUserFacingError(G, xe, Ne) || String(G || "").trim(), Re = (G, xe) => fe ? fe.parseAPIError(G, xe) : Promise.resolve({ status: Number(G.status || 0), code: "", details: {}, message: xe }), at = (G, xe = "", Ne = 0) => fe?.announceError(G, xe, Ne), pt = (G, xe = {}) => fe ? fe.surfaceSyncOutcome(G, xe) : Promise.resolve({}), dt = () => null, tt = Ns(E, {
     formatRelativeTime: ye
   }), ut = () => tt.render({ coordinationAvailable: !0 }), Le = async (G, xe) => {
     const Ne = await Re(G, xe), bt = new Error(Ne.message);
@@ -9970,7 +9971,7 @@ function Ta(i = {}) {
         details: G.details && typeof G.details == "object" ? G.details : {}
       };
     }
-  }, T = new Ns({
+  }, T = new Hs({
     storageKey: L,
     stateVersion: f,
     totalWizardSteps: mn,
@@ -10008,18 +10009,18 @@ function Ta(i = {}) {
     },
     emitTelemetry: F
   });
-  T.start(), fe = xa({
+  T.start(), fe = Ia({
     agreementRefs: E,
     formAnnouncements: J,
     stateManager: T
   });
-  const H = new zs({
+  const H = new Os({
     stateManager: T,
-    requestHeaders: La,
+    requestHeaders: _a,
     syncConfig: n
   });
   let V;
-  const se = new Os({
+  const se = new js({
     channelName: x,
     onCoordinationAvailabilityChange: (G) => {
       ee(), tt.render({ coordinationAvailable: G });
@@ -10054,7 +10055,7 @@ function Ta(i = {}) {
       V?.forceSync();
     }
   });
-  V = new qs({
+  V = new Vs({
     stateManager: T,
     syncService: H,
     activeTabController: se,
@@ -10066,7 +10067,7 @@ function Ta(i = {}) {
     documentRef: document,
     windowRef: window
   });
-  const Ae = $s({
+  const Ae = Bs({
     context: {
       config: t,
       refs: E,
@@ -10091,7 +10092,7 @@ function Ta(i = {}) {
         tt.destroy(), T.destroy();
       }
     }
-  }), Ie = aa({
+  }), Ie = oa({
     apiBase: c,
     apiVersionBase: d,
     documentsUploadURL: b,
@@ -10108,12 +10109,12 @@ function Ta(i = {}) {
   });
   Ie.initializeTitleSourceSeed(), Ie.bindEvents();
   const me = Ot(Ie.refs.documentIdInput, "document id input"), ae = Ot(Ie.refs.documentSearch, "document search input"), O = Ie.refs.selectedDocumentTitle, we = Ie.refs.documentPageCountInput, ve = Ie.ensureSelectedDocumentCompatibility, be = Ie.getCurrentDocumentPageCount;
-  ge = oa({
+  ge = ca({
     initialParticipants: S,
     onParticipantsChanged: () => ne?.updateFieldParticipantOptions?.()
   }), ge.initialize(), ge.bindEvents();
   const Ee = Ot(ge.refs.participantsContainer, "participants container"), v = Ot(ge.refs.addParticipantBtn, "add participant button"), w = () => ge?.getSignerParticipants() || [];
-  ne = pa({
+  ne = ga({
     initialFieldInstances: A,
     placementSource: vt,
     getCurrentDocumentPageCount: be,
@@ -10127,7 +10128,7 @@ function Ta(i = {}) {
       ze = G || _n(), Te?.setLinkGroupState?.(ze);
     }
   }), ne.bindEvents(), ne.initialize();
-  const I = Ot(ne.refs.fieldDefinitionsContainer, "field definitions container"), q = ne.refs.fieldRulesContainer, W = Ot(ne.refs.addFieldBtn, "add field button"), K = ne.refs.fieldPlacementsJSONInput, oe = ne.refs.fieldRulesJSONInput, ue = () => ne?.collectFieldRulesForState() || [], He = () => ne?.collectFieldRulesForState() || [], Me = () => ne?.collectFieldRulesForForm() || [], it = (G, xe) => ne?.expandRulesForPreview(G, xe) || [], We = () => ne?.updateFieldParticipantOptions(), yt = () => ne.collectPlacementFieldDefinitions(), Xe = (G) => ne?.getFieldDefinitionById(G) || null, R = () => ne?.findSignersMissingRequiredSignatureField() || [], U = (G) => ne?.missingSignatureFieldMessage(G) || "", z = Ws({
+  const I = Ot(ne.refs.fieldDefinitionsContainer, "field definitions container"), q = ne.refs.fieldRulesContainer, W = Ot(ne.refs.addFieldBtn, "add field button"), K = ne.refs.fieldPlacementsJSONInput, oe = ne.refs.fieldRulesJSONInput, ue = () => ne?.collectFieldRulesForState() || [], He = () => ne?.collectFieldRulesForState() || [], Me = () => ne?.collectFieldRulesForForm() || [], it = (G, xe) => ne?.expandRulesForPreview(G, xe) || [], We = () => ne?.updateFieldParticipantOptions(), yt = () => ne.collectPlacementFieldDefinitions(), Xe = (G) => ne?.getFieldDefinitionById(G) || null, R = () => ne?.findSignersMissingRequiredSignatureField() || [], U = (G) => ne?.missingSignatureFieldMessage(G) || "", z = Ys({
     documentIdInput: me,
     selectedDocumentTitle: O,
     participantsContainer: Ee,
@@ -10148,11 +10149,11 @@ function Ta(i = {}) {
       ${G}
     `);
   };
-  ke = fa({
+  ke = ha({
     getSignerParticipants: w,
     setPrimaryActionLabel: te,
     onChanged: () => Je()
-  }), ke.bindEvents(), Te = ma({
+  }), ke.bindEvents(), Te = fa({
     apiBase: c,
     apiVersionBase: d,
     documentIdInput: me,
@@ -10167,10 +10168,10 @@ function Ta(i = {}) {
     escapeHtml: ti,
     onPlacementsChanged: () => Je()
   }), Te.bindEvents(), ze = Te.getLinkGroupState();
-  const ie = Ys({
+  const ie = Js({
     totalWizardSteps: mn,
     wizardStep: lt,
-    nextStepLabels: Is,
+    nextStepLabels: Es,
     submitBtn: Z,
     previewCard: Q,
     updateCoordinationUI: ut,
@@ -10185,7 +10186,7 @@ function Ta(i = {}) {
       T.updateStep(G), Je(), V.forceSync();
     }
   });
-  ie.bindEvents(), De = Ia({
+  ie.bindEvents(), De = Ea({
     createSuccess: h,
     enableServerSync: !s && m === "json",
     stateManager: T,
@@ -10197,7 +10198,7 @@ function Ta(i = {}) {
     surfaceSyncOutcome: pt,
     reviewStep: lt.REVIEW
   }), De.handleCreateSuccessCleanup(), De.bindRetryAndConflictHandlers();
-  const le = ha({
+  const le = va({
     documentIdInput: me,
     documentPageCountInput: we,
     titleInput: E.form.titleInput,
@@ -10211,7 +10212,7 @@ function Ta(i = {}) {
     getCurrentStep: () => ie.getCurrentStep(),
     totalWizardSteps: mn
   }), Be = () => le.buildCanonicalAgreementPayload();
-  return Ce = va({
+  return Ce = ya({
     titleSource: j,
     stateManager: T,
     trackWizardStateChanges: Je,
@@ -10228,7 +10229,7 @@ function Ta(i = {}) {
     agreementRefs: E,
     parsePositiveInt: rt,
     isEditMode: s
-  }), Ce.bindChangeTracking(), de = wa({
+  }), Ce.bindChangeTracking(), de = Sa({
     documentIdInput: me,
     titleInput: E.form.titleInput,
     participantsContainer: Ee,
@@ -10240,7 +10241,7 @@ function Ta(i = {}) {
     findSignersMissingRequiredSignatureField: R,
     missingSignatureFieldMessage: U,
     announceError: at
-  }), Pe = Sa({
+  }), Pe = xa({
     isEditMode: s,
     storageKey: L,
     stateManager: T,
@@ -10253,7 +10254,7 @@ function Ta(i = {}) {
     formatRelativeTime: ye,
     emitWizardTelemetry: (G, xe) => F(G, xe),
     getActiveTabDebugState: dt
-  }), Pe.bindEvents(), Qs({
+  }), Pe.bindEvents(), Zs({
     config: e,
     form: re,
     submitBtn: Z,
@@ -10304,16 +10305,16 @@ function Ta(i = {}) {
   }).bindEvents(), Ae;
 }
 let An = null;
-function Pa() {
+function ka() {
   An?.destroy(), An = null, typeof window < "u" && (delete window.__esignAgreementRuntime, delete window.__esignAgreementRuntimeInitialized);
 }
-function ka(i = {}) {
+function Da(i = {}) {
   if (An)
     return;
-  const e = Ta(i);
+  const e = Pa(i);
   e.start(), An = e, typeof window < "u" && (window.__esignAgreementRuntime = e, window.__esignAgreementRuntimeInitialized = !0);
 }
-function Da(i) {
+function Ra(i) {
   return {
     sync: i.sync && typeof i.sync == "object" ? {
       base_url: String(i.sync.base_url || "").trim(),
@@ -10342,20 +10343,20 @@ function Da(i) {
 }
 class hr {
   constructor(e) {
-    this.initialized = !1, this.config = Da(e);
+    this.initialized = !1, this.config = Ra(e);
   }
   init() {
-    this.initialized || (this.initialized = !0, ka(this.config));
+    this.initialized || (this.initialized = !0, Da(this.config));
   }
   destroy() {
-    Pa(), this.initialized = !1;
+    ka(), this.initialized = !1;
   }
 }
-function Jo(i) {
+function Xo(i) {
   const e = new hr(i);
   return Fe(() => e.init()), e;
 }
-function Ra(i) {
+function Ma(i) {
   const e = new hr({
     sync: i.sync,
     basePath: i.basePath,
@@ -10381,7 +10382,7 @@ typeof document < "u" && Fe(() => {
   if (e)
     try {
       const t = JSON.parse(e.textContent || "{}");
-      Ra({
+      Ma({
         sync: t.sync && typeof t.sync == "object" ? t.sync : void 0,
         base_path: t.base_path || t.basePath,
         api_base_path: t.api_base_path || t.apiBasePath,
@@ -10398,14 +10399,14 @@ typeof document < "u" && Fe(() => {
       console.warn("Failed to parse agreement form page config:", t);
     }
 });
-const Ma = "esign.signer.profile.v1", Qi = "esign.signer.profile.outbox.v1", di = 90, Zi = 500 * 1024;
-class $a {
+const $a = "esign.signer.profile.v1", Qi = "esign.signer.profile.outbox.v1", di = 90, Zi = 500 * 1024;
+class Ba {
   constructor(e) {
     const t = Number.isFinite(e) && e > 0 ? e : di;
     this.ttlMs = t * 24 * 60 * 60 * 1e3;
   }
   storageKey(e) {
-    return `${Ma}:${e}`;
+    return `${$a}:${e}`;
   }
   async load(e) {
     try {
@@ -10450,7 +10451,7 @@ class $a {
     }
   }
 }
-class Ba {
+class Fa {
   constructor(e, t) {
     this.endpointBasePath = e.replace(/\/$/, ""), this.token = t;
   }
@@ -10602,7 +10603,7 @@ class ni {
     this.removeOutboxEntry(e);
   }
 }
-function Fa(i) {
+function Na(i) {
   const e = i.profile?.mode || "local_only";
   return {
     token: String(i.token || "").trim(),
@@ -10646,7 +10647,7 @@ function Fa(i) {
     }
   };
 }
-function Na(i) {
+function Ha(i) {
   return !i || typeof i != "object" ? null : {
     id: String(i.id || "").trim(),
     participant_type: String(i.participant_type || "").trim(),
@@ -10656,7 +10657,7 @@ function Na(i) {
     decision_status: String(i.decision_status || "").trim()
   };
 }
-function Ha(i) {
+function Ua(i) {
   if (!i || typeof i != "object") return null;
   const e = i.thread && typeof i.thread == "object" ? i.thread : {}, t = Array.isArray(i.messages) ? i.messages : [];
   return {
@@ -10690,7 +10691,7 @@ function Ha(i) {
 }
 function ui(i) {
   if (!i || typeof i != "object") return null;
-  const e = Array.isArray(i.threads) ? i.threads.map(Ha).filter(Boolean) : [], t = Array.isArray(i.blockers) ? i.blockers.map((n) => String(n || "").trim()).filter(Boolean) : [];
+  const e = Array.isArray(i.threads) ? i.threads.map(Ua).filter(Boolean) : [], t = Array.isArray(i.blockers) ? i.blockers.map((n) => String(n || "").trim()).filter(Boolean) : [];
   return {
     review_id: String(i.review_id || "").trim(),
     status: String(i.status || "").trim(),
@@ -10705,7 +10706,7 @@ function ui(i) {
     sign_blocked: !!i.sign_blocked,
     sign_block_reason: String(i.sign_block_reason || "").trim(),
     blockers: t,
-    participant: Na(i.participant),
+    participant: Ha(i.participant),
     open_thread_count: Number(i.open_thread_count || 0) || 0,
     resolved_thread_count: Number(i.resolved_thread_count || 0) || 0,
     threads: e
@@ -10736,7 +10737,7 @@ function Qt(i) {
       return e ? e.replace(/_/g, " ") : "Inactive";
   }
 }
-function Ua(i) {
+function za(i) {
   const e = typeof window < "u" ? window.location.origin.toLowerCase() : "unknown", t = i.recipientEmail ? i.recipientEmail.trim().toLowerCase() : i.recipientId.trim().toLowerCase();
   return encodeURIComponent(`${e}:${t}`);
 }
@@ -10744,31 +10745,31 @@ function ri(i) {
   const e = String(i || "").trim().split(/\s+/).filter(Boolean);
   return e.length === 0 ? "" : e.slice(0, 3).map((t) => t[0].toUpperCase()).join("");
 }
-function za(i) {
+function Oa(i) {
   const e = String(i || "").trim().toLowerCase();
   return e === "[drawn]" || e === "[drawn initials]";
 }
 function xt(i) {
   const e = String(i || "").trim();
-  return za(e) ? "" : e;
+  return Oa(e) ? "" : e;
 }
-function Oa(i) {
-  const e = new $a(i.profile.ttlDays), t = new Ba(i.profile.endpointBasePath, i.token);
+function ja(i) {
+  const e = new Ba(i.profile.ttlDays), t = new Fa(i.profile.endpointBasePath, i.token);
   return i.profile.mode === "local_only" ? new ni("local_only", e, null) : i.profile.mode === "remote_only" ? new ni("remote_only", e, t) : new ni("hybrid", e, t);
 }
-function ja() {
+function qa() {
   const i = window;
   i.pdfjsLib && i.pdfjsLib.GlobalWorkerOptions && (i.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js");
 }
-function qa(i) {
+function Va(i) {
   const e = document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]');
   if (!e) return;
   const t = e;
   if (t.dataset.esignBootstrapped === "true")
     return;
   t.dataset.esignBootstrapped = "true";
-  const n = Fa(i), r = Ua(n), c = Oa(n);
-  ja();
+  const n = Na(i), r = za(n), c = ja(n);
+  qa();
   const d = {
     events: [],
     sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
@@ -13602,16 +13603,16 @@ class vr {
     this.config = e;
   }
   init() {
-    qa(this.config);
+    Va(this.config);
   }
   destroy() {
   }
 }
-function Ko(i) {
+function Qo(i) {
   const e = new vr(i);
   return Fe(() => e.init()), e;
 }
-function Va() {
+function Ga() {
   const i = document.getElementById("esign-signer-review-config");
   if (!i) return null;
   try {
@@ -13623,7 +13624,7 @@ function Va() {
 }
 typeof document < "u" && Fe(() => {
   if (!document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]')) return;
-  const e = Va();
+  const e = Ga();
   if (!e) {
     console.warn("Missing signer review config script payload");
     return;
@@ -13658,11 +13659,11 @@ class yr {
     window.location.reload();
   }
 }
-function Xo(i = {}) {
+function Zo(i = {}) {
   const e = new yr(i);
   return Fe(() => e.init()), e;
 }
-function Qo(i = {}) {
+function ec(i = {}) {
   const e = new yr(i);
   Fe(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
 }
@@ -13785,11 +13786,11 @@ class mi {
     t && B(t), n && B(n), r && Y(r), d && B(d), c && (c.textContent = e);
   }
 }
-function Zo(i) {
+function tc(i) {
   const e = new mi(i);
   return e.init(), e;
 }
-function ec(i) {
+function nc(i) {
   const e = {
     documentId: i.documentId,
     pdfUrl: i.pdfUrl,
@@ -13808,7 +13809,7 @@ typeof document < "u" && Fe(() => {
     }).init();
   }
 });
-class tc {
+class ic {
   constructor(e) {
     this.env = e;
   }
@@ -13820,7 +13821,7 @@ class tc {
     await t.refresh();
   }
 }
-class nc {
+class rc {
   constructor(e) {
     this.env = e;
   }
@@ -13832,7 +13833,7 @@ class nc {
     t.resetPagination(), await t.refresh();
   }
 }
-function Ga(i) {
+function Wa(i) {
   switch ((i || "").toLowerCase()) {
     case "select":
     case "enum":
@@ -13848,7 +13849,7 @@ function Ga(i) {
       return "text";
   }
 }
-function Wa(i) {
+function Ya(i) {
   if (!Array.isArray(i)) return;
   const e = i.map((t) => {
     if (!t) return null;
@@ -13857,52 +13858,48 @@ function Wa(i) {
   }).filter((t) => t !== null);
   return e.length > 0 ? e : void 0;
 }
-function Ya(i, e) {
+function Ja(i, e) {
   if (!Array.isArray(i) || i.length === 0) return;
   const t = i.map((c) => String(c || "").trim().toLowerCase()).filter(Boolean);
   if (t.length === 0) return;
   const n = Array.from(new Set(t)), r = e ? String(e).trim().toLowerCase() : "";
   return r && n.includes(r) ? [r, ...n.filter((c) => c !== r)] : n;
 }
-function ic(i) {
+function sc(i) {
   return i.map((e) => ({
     ...e,
     hidden: e.default === !1
   }));
 }
-function rc(i) {
+function ac(i) {
   return i ? i.map((e) => ({
     name: e.name,
     label: e.label,
-    type: Ga(e.type),
-    options: Wa(e.options),
-    operators: Ya(e.operators, e.default_operator)
+    type: Wa(e.type),
+    options: Ya(e.options),
+    operators: Ja(e.operators, e.default_operator)
   })) : [];
 }
-function sc(i) {
+function oc(i) {
   if (!i) return "-";
-  try {
-    const e = new Date(i);
-    return e.toLocaleDateString() + " " + e.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return String(i);
-  }
+  const e = ss(i);
+  return e ? e.toLocaleDateString() + " " + e.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : String(i);
 }
-function ac(i) {
+function cc(i) {
   if (!i || Number(i) <= 0) return "-";
   const e = parseInt(String(i), 10);
   return e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function oc(i, e, t) {
+function lc(i, e, t) {
   t && t.success(`${i} completed successfully`);
 }
-function cc(i, e, t) {
+function dc(i, e, t) {
   if (t) {
     const n = e?.fields ? Object.entries(e.fields).map(([d, s]) => `${d}: ${s}`).join("; ") : "", r = e?.textCode ? `${e.textCode}: ` : "", c = e?.message || `${i} failed`;
     t.error(n ? `${r}${c}: ${n}` : `${r}${c}`);
   }
 }
-function lc(i, e) {
+function uc(i, e) {
   const t = g(`#${i}`);
   t && t.addEventListener("click", async () => {
     t.disabled = !0, t.classList.add("opacity-50");
@@ -13913,7 +13910,7 @@ function lc(i, e) {
     }
   });
 }
-function dc(i, e) {
+function pc(i, e) {
   const t = i.refresh.bind(i);
   return async function() {
     await t();
@@ -13921,7 +13918,7 @@ function dc(i, e) {
     n?.actions && e(n.actions);
   };
 }
-const uc = {
+const gc = {
   searchInput: "#table-search",
   perPageSelect: "#table-per-page",
   filterRow: "[data-filter-column]",
@@ -13937,23 +13934,23 @@ const uc = {
   rowCheckboxes: ".table-checkbox",
   bulkActionsBar: "#bulk-actions-overlay",
   selectedCount: "#selected-count"
-}, Tn = "application/vnd.google-apps.document", fi = "application/vnd.google-apps.spreadsheet", hi = "application/vnd.google-apps.presentation", br = "application/vnd.google-apps.folder", vi = "application/pdf", Ja = [Tn, vi], wr = "esign.google.account_id";
-function Ka(i) {
+}, Tn = "application/vnd.google-apps.document", fi = "application/vnd.google-apps.spreadsheet", hi = "application/vnd.google-apps.presentation", br = "application/vnd.google-apps.folder", vi = "application/pdf", Ka = [Tn, vi], wr = "esign.google.account_id";
+function Xa(i) {
   return i.mimeType === Tn;
 }
-function Xa(i) {
+function Qa(i) {
   return i.mimeType === vi;
 }
 function qt(i) {
   return i.mimeType === br;
 }
-function Qa(i) {
-  return Ja.includes(i.mimeType);
+function Za(i) {
+  return Ka.includes(i.mimeType);
 }
-function pc(i) {
+function mc(i) {
   return i.mimeType === Tn || i.mimeType === fi || i.mimeType === hi;
 }
-function Za(i) {
+function eo(i) {
   return {
     id: i.id || "",
     name: i.name || "Untitled",
@@ -13966,8 +13963,8 @@ function Za(i) {
     parents: i.parents
   };
 }
-function gc(i) {
-  return i.map(Za);
+function fc(i) {
+  return i.map(eo);
 }
 function Sr(i) {
   return {
@@ -13985,16 +13982,16 @@ function Sr(i) {
     "text/plain": "Text File"
   }[i] || "File";
 }
-function eo(i) {
+function to(i) {
   return qt(i) ? {
     icon: "iconoir-folder",
     bgClass: "bg-yellow-100",
     textClass: "text-yellow-600"
-  } : Ka(i) ? {
+  } : Xa(i) ? {
     icon: "iconoir-google-docs",
     bgClass: "bg-blue-100",
     textClass: "text-blue-600"
-  } : Xa(i) ? {
+  } : Qa(i) ? {
     icon: "iconoir-page",
     bgClass: "bg-red-100",
     textClass: "text-red-600"
@@ -14016,10 +14013,10 @@ function eo(i) {
     textClass: "text-gray-600"
   };
 }
-function to(i) {
+function no(i) {
   return !i || i <= 0 ? "-" : i < 1024 ? `${i} B` : i < 1024 * 1024 ? `${(i / 1024).toFixed(1)} KB` : `${(i / (1024 * 1024)).toFixed(2)} MB`;
 }
-function no(i) {
+function io(i) {
   if (!i) return "-";
   try {
     return new Date(i).toLocaleDateString();
@@ -14027,7 +14024,7 @@ function no(i) {
     return i;
   }
 }
-function mc(i, e) {
+function hc(i, e) {
   const t = i.get("account_id");
   if (t)
     return xn(t);
@@ -14041,11 +14038,11 @@ function xn(i) {
   const e = i.trim();
   return e === "null" || e === "undefined" || e === "0" ? "" : e;
 }
-function fc(i) {
+function vc(i) {
   const e = xn(i);
   e && localStorage.setItem(wr, e);
 }
-function hc(i, e) {
+function yc(i, e) {
   if (!e) return i;
   try {
     const t = new URL(i, window.location.origin);
@@ -14055,11 +14052,11 @@ function hc(i, e) {
     return `${i}${t}account_id=${encodeURIComponent(e)}`;
   }
 }
-function vc(i, e, t) {
+function bc(i, e, t) {
   const n = new URL(e, window.location.origin);
   return n.pathname.startsWith(i) || (n.pathname = `${i}${e}`), t && n.searchParams.set("account_id", t), n;
 }
-function yc(i) {
+function wc(i) {
   const e = new URL(window.location.href), t = e.searchParams.get("account_id");
   i && t !== i ? (e.searchParams.set("account_id", i), window.history.replaceState({}, "", e.toString())) : !i && t && (e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString()));
 }
@@ -14067,15 +14064,15 @@ function Vt(i) {
   const e = document.createElement("div");
   return e.textContent = i, e.innerHTML;
 }
-function io(i) {
-  const e = eo(i);
+function ro(i) {
+  const e = to(i);
   return `
     <div class="w-10 h-10 ${e.bgClass} rounded-lg flex items-center justify-center flex-shrink-0">
       <i class="${e.icon} ${e.textClass}" aria-hidden="true"></i>
     </div>
   `;
 }
-function bc(i, e) {
+function Sc(i, e) {
   if (i.length === 0)
     return '<span class="text-gray-600 text-sm font-medium">My Drive</span>';
   const t = [
@@ -14091,8 +14088,8 @@ function bc(i, e) {
       >${Vt(n.name)}</button>`;
   }).join("");
 }
-function ro(i, e = {}) {
-  const { selectable: t = !0, showSize: n = !0, showDate: r = !0 } = e, c = io(i), d = qt(i), s = Qa(i), h = d ? "cursor-pointer hover:bg-gray-50" : s ? "cursor-pointer hover:bg-blue-50" : "opacity-60", m = d ? `data-folder-id="${i.id}" data-folder-name="${Vt(i.name)}"` : s && t ? `data-file-id="${i.id}" data-file-name="${Vt(i.name)}" data-mime-type="${i.mimeType}"` : "";
+function so(i, e = {}) {
+  const { selectable: t = !0, showSize: n = !0, showDate: r = !0 } = e, c = ro(i), d = qt(i), s = Za(i), h = d ? "cursor-pointer hover:bg-gray-50" : s ? "cursor-pointer hover:bg-blue-50" : "opacity-60", m = d ? `data-folder-id="${i.id}" data-folder-name="${Vt(i.name)}"` : s && t ? `data-file-id="${i.id}" data-file-name="${Vt(i.name)}" data-mime-type="${i.mimeType}"` : "";
   return `
     <div
       class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${h} file-item"
@@ -14105,15 +14102,15 @@ function ro(i, e = {}) {
         <p class="font-medium text-gray-900 truncate">${Vt(i.name)}</p>
         <p class="text-xs text-gray-500">
           ${Sr(i.mimeType)}
-          ${n && i.size > 0 ? ` &middot; ${to(i.size)}` : ""}
-          ${r && i.modifiedTime ? ` &middot; ${no(i.modifiedTime)}` : ""}
+          ${n && i.size > 0 ? ` &middot; ${no(i.size)}` : ""}
+          ${r && i.modifiedTime ? ` &middot; ${io(i.modifiedTime)}` : ""}
         </p>
       </div>
       ${s && t ? '<i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>' : ""}
     </div>
   `;
 }
-function wc(i, e = {}) {
+function xc(i, e = {}) {
   const { emptyMessage: t = "No files found", selectable: n = !0 } = e;
   return i.length === 0 ? `
       <div class="text-center py-8 text-gray-500">
@@ -14122,11 +14119,11 @@ function wc(i, e = {}) {
       </div>
     ` : `
     <div class="space-y-2" role="list">
-      ${[...i].sort((c, d) => qt(c) && !qt(d) ? -1 : !qt(c) && qt(d) ? 1 : c.name.localeCompare(d.name)).map((c) => ro(c, { selectable: n })).join("")}
+      ${[...i].sort((c, d) => qt(c) && !qt(d) ? -1 : !qt(c) && qt(d) ? 1 : c.name.localeCompare(d.name)).map((c) => so(c, { selectable: n })).join("")}
     </div>
   `;
 }
-function Sc(i) {
+function Ic(i) {
   return {
     id: i.id,
     name: i.name,
@@ -14135,17 +14132,17 @@ function Sc(i) {
   };
 }
 export {
-  ds as AGREEMENT_STATUS_BADGES,
+  us as AGREEMENT_STATUS_BADGES,
   hr as AgreementFormController,
   mi as DocumentDetailPreviewController,
   gi as DocumentFormController,
-  ss as ESignAPIClient,
-  as as ESignAPIError,
+  as as ESignAPIClient,
+  os as ESignAPIError,
   wr as GOOGLE_ACCOUNT_STORAGE_KEY,
   ir as GoogleCallbackController,
   sr as GoogleDrivePickerController,
   rr as GoogleIntegrationController,
-  Ja as IMPORTABLE_MIME_TYPES,
+  Ka as IMPORTABLE_MIME_TYPES,
   cr as IntegrationConflictsController,
   ar as IntegrationHealthController,
   or as IntegrationMappingsController,
@@ -14156,116 +14153,116 @@ export {
   fi as MIME_GOOGLE_SHEET,
   hi as MIME_GOOGLE_SLIDES,
   vi as MIME_PDF,
-  tc as PanelPaginationBehavior,
-  nc as PanelSearchBehavior,
-  uc as STANDARD_GRID_SELECTORS,
+  ic as PanelPaginationBehavior,
+  rc as PanelSearchBehavior,
+  gc as STANDARD_GRID_SELECTORS,
   nr as SignerCompletePageController,
   yr as SignerErrorPageController,
   vr as SignerReviewController,
   mt as announce,
-  hc as applyAccountIdToPath,
-  hs as applyDetailFormatters,
-  Ra as bootstrapAgreementForm,
-  ec as bootstrapDocumentDetailPreview,
-  Yo as bootstrapDocumentForm,
-  Mo as bootstrapGoogleCallback,
-  No as bootstrapGoogleDrivePicker,
-  Bo as bootstrapGoogleIntegration,
-  qo as bootstrapIntegrationConflicts,
-  Uo as bootstrapIntegrationHealth,
-  Oo as bootstrapIntegrationMappings,
-  Go as bootstrapIntegrationSyncRuns,
-  Po as bootstrapLandingPage,
-  Do as bootstrapSignerCompletePage,
-  Qo as bootstrapSignerErrorPage,
-  qa as bootstrapSignerReview,
-  vc as buildScopedApiUrl,
-  yo as byId,
-  ls as capitalize,
-  cs as createESignClient,
-  ps as createElement,
-  dc as createSchemaActionCachingRefresh,
-  Sc as createSelectedFile,
-  ho as createStatusBadgeElement,
-  _o as createTimeoutController,
-  sc as dateTimeCellRenderer,
+  yc as applyAccountIdToPath,
+  vs as applyDetailFormatters,
+  Ma as bootstrapAgreementForm,
+  nc as bootstrapDocumentDetailPreview,
+  Ko as bootstrapDocumentForm,
+  Bo as bootstrapGoogleCallback,
+  Uo as bootstrapGoogleDrivePicker,
+  No as bootstrapGoogleIntegration,
+  Go as bootstrapIntegrationConflicts,
+  Oo as bootstrapIntegrationHealth,
+  qo as bootstrapIntegrationMappings,
+  Yo as bootstrapIntegrationSyncRuns,
+  Do as bootstrapLandingPage,
+  Mo as bootstrapSignerCompletePage,
+  ec as bootstrapSignerErrorPage,
+  Va as bootstrapSignerReview,
+  bc as buildScopedApiUrl,
+  wo as byId,
+  ds as capitalize,
+  ls as createESignClient,
+  gs as createElement,
+  pc as createSchemaActionCachingRefresh,
+  Ic as createSelectedFile,
+  yo as createStatusBadgeElement,
+  To as createTimeoutController,
+  oc as dateTimeCellRenderer,
   En as debounce,
-  cc as defaultActionErrorHandler,
-  oc as defaultActionSuccessHandler,
-  wo as delegate,
+  dc as defaultActionErrorHandler,
+  lc as defaultActionSuccessHandler,
+  xo as delegate,
   Vt as escapeHtml,
-  ac as fileSizeCellRenderer,
-  lo as formatDate,
+  cc as fileSizeCellRenderer,
+  po as formatDate,
   In as formatDateTime,
-  no as formatDriveDate,
-  to as formatDriveFileSize,
+  io as formatDriveDate,
+  no as formatDriveFileSize,
   yn as formatFileSize,
-  co as formatPageCount,
-  go as formatRecipientCount,
-  po as formatRelativeTime,
-  ms as formatSizeElements,
-  uo as formatTime,
-  fs as formatTimestampElements,
+  uo as formatPageCount,
+  fo as formatRecipientCount,
+  mo as formatRelativeTime,
+  fs as formatSizeElements,
+  go as formatTime,
+  hs as formatTimestampElements,
   er as getAgreementStatusBadge,
-  oo as getESignClient,
-  eo as getFileIconConfig,
+  lo as getESignClient,
+  to as getFileIconConfig,
   Sr as getFileTypeName,
-  gs as getPageConfig,
+  ms as getPageConfig,
   B as hide,
-  Jo as initAgreementForm,
-  vs as initDetailFormatters,
-  Zo as initDocumentDetailPreview,
-  Wo as initDocumentForm,
-  Ro as initGoogleCallback,
-  Fo as initGoogleDrivePicker,
-  $o as initGoogleIntegration,
-  jo as initIntegrationConflicts,
-  Ho as initIntegrationHealth,
-  zo as initIntegrationMappings,
-  Vo as initIntegrationSyncRuns,
-  To as initLandingPage,
-  ko as initSignerCompletePage,
-  Xo as initSignerErrorPage,
-  Ko as initSignerReview,
+  Xo as initAgreementForm,
+  ys as initDetailFormatters,
+  tc as initDocumentDetailPreview,
+  Jo as initDocumentForm,
+  $o as initGoogleCallback,
+  Ho as initGoogleDrivePicker,
+  Fo as initGoogleIntegration,
+  Vo as initIntegrationConflicts,
+  zo as initIntegrationHealth,
+  jo as initIntegrationMappings,
+  Wo as initIntegrationSyncRuns,
+  ko as initLandingPage,
+  Ro as initSignerCompletePage,
+  Zo as initSignerErrorPage,
+  Qo as initSignerReview,
   qt as isFolder,
-  Ka as isGoogleDoc,
-  pc as isGoogleWorkspaceFile,
-  Qa as isImportable,
-  Xa as isPDF,
+  Xa as isGoogleDoc,
+  mc as isGoogleWorkspaceFile,
+  Za as isImportable,
+  Qa as isPDF,
   xn as normalizeAccountId,
-  Za as normalizeDriveFile,
-  gc as normalizeDriveFiles,
-  Ya as normalizeFilterOperators,
-  Wa as normalizeFilterOptions,
-  Ga as normalizeFilterType,
-  bo as on,
+  eo as normalizeDriveFile,
+  fc as normalizeDriveFiles,
+  Ja as normalizeFilterOperators,
+  Ya as normalizeFilterOptions,
+  Wa as normalizeFilterType,
+  So as on,
   Fe as onReady,
-  Eo as poll,
-  rc as prepareFilterFields,
-  ic as prepareGridColumns,
+  Lo as poll,
+  ac as prepareFilterFields,
+  sc as prepareGridColumns,
   g as qs,
   Ht as qsa,
-  bc as renderBreadcrumb,
-  io as renderFileIcon,
-  ro as renderFileItem,
-  wc as renderFileList,
-  us as renderStatusBadge,
-  mc as resolveAccountId,
-  Co as retry,
-  fc as saveAccountId,
-  os as setESignClient,
-  xo as setLoading,
-  lc as setupRefreshButton,
+  Sc as renderBreadcrumb,
+  ro as renderFileIcon,
+  so as renderFileItem,
+  xc as renderFileList,
+  ps as renderStatusBadge,
+  hc as resolveAccountId,
+  _o as retry,
+  vc as saveAccountId,
+  cs as setESignClient,
+  Eo as setLoading,
+  uc as setupRefreshButton,
   Y as show,
   tr as sleep,
-  mo as snakeToTitle,
-  yc as syncAccountIdToUrl,
-  Lo as throttle,
-  So as toggle,
-  fo as truncate,
+  ho as snakeToTitle,
+  wc as syncAccountIdToUrl,
+  Ao as throttle,
+  Io as toggle,
+  vo as truncate,
   Zt as updateDataText,
-  Io as updateDataTexts,
-  vo as updateStatusBadge,
-  Ao as withTimeout
+  Co as updateDataTexts,
+  bo as updateStatusBadge,
+  Po as withTimeout
 };
 //# sourceMappingURL=index.js.map

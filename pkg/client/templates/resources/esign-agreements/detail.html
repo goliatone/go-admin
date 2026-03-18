@@ -643,7 +643,10 @@
               <p class="text-xs text-gray-500 mt-0.5">Configure when approval is required and whether comments are enabled.</p>
             </div>
             {% if resource_item.review and resource_item.review.status == "in_review" %}
-            <button type="button" id="agreement-close-review-btn" class="btn btn-secondary">Close Review</button>
+            <div class="flex items-center gap-2">
+              <button type="button" id="agreement-notify-reviewers-btn" class="btn btn-secondary">Notify</button>
+              <button type="button" id="agreement-close-review-btn" class="btn btn-secondary">Close Review</button>
+            </div>
             {% endif %}
           </div>
 
@@ -756,7 +759,7 @@
           {# Action buttons #}
           <div class="mt-6 pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
             <button type="button" id="agreement-submit-review-btn" class="btn btn-primary">
-              {% if resource_item.review and resource_item.review.status and resource_item.review.status != "in_review" %}
+              {% if resource_item.review and resource_item.review.status and resource_item.review.status != "none" and resource_item.review.status != "in_review" %}
                 Reopen Review
               {% else %}
                 Request Review
@@ -2042,6 +2045,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const externalReviewerTemplate = document.getElementById('agreement-external-reviewer-template');
   const addExternalReviewerBtn = document.getElementById('agreement-add-external-reviewer-btn');
   const submitReviewBtn = document.getElementById('agreement-submit-review-btn');
+  const notifyReviewersBtn = document.getElementById('agreement-notify-reviewers-btn');
   const closeReviewBtn = document.getElementById('agreement-close-review-btn');
   const reviewGateSelect = document.getElementById('agreement-review-gate');
   const reviewCommentsEnabledInput = document.getElementById('agreement-review-comments-enabled');
@@ -2220,6 +2224,10 @@ document.addEventListener('DOMContentLoaded', function() {
     await executeAction('close_review', {});
   }
 
+  async function notifyAgreementReviewers() {
+    await executeAction('notify_reviewers', {});
+  }
+
   async function createAgreementThread() {
     if (!reviewBootstrap.review_id) {
       throw new Error('Review must be active before comments can be created.');
@@ -2303,6 +2311,19 @@ document.addEventListener('DOMContentLoaded', function() {
       await closeAgreementReview();
     } catch (error) {
       const message = error?.message || 'Unable to close review.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      } else {
+        alert(message);
+      }
+    }
+  });
+
+  notifyReviewersBtn?.addEventListener('click', async () => {
+    try {
+      await notifyAgreementReviewers();
+    } catch (error) {
+      const message = error?.message || 'Unable to notify reviewers.';
       if (window.toastManager) {
         window.toastManager.error(message);
       } else {

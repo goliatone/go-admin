@@ -201,7 +201,7 @@ async function R(e) {
 }
 function m(e) {
   const t = [];
-  return e.requestId && t.push(`<span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Request ${d(e.requestId)}</span>`), e.traceId && t.push(`<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Trace ${d(e.traceId)}</span>`), t.length ? `<div class="flex flex-wrap gap-2 mt-4">${t.join("")}</div>` : "";
+  return e.requestId && t.push(`<span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">Request ${d(e.requestId)}</span>`), e.traceId && t.push(`<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Trace ${d(e.traceId)}</span>`), t.length ? `<div class="flex flex-wrap gap-2 mt-4">${t.join("")}</div>` : "";
 }
 function _(e, t, a) {
   const s = x(e.payload);
@@ -211,11 +211,11 @@ function _(e, t, a) {
         <p class="text-sm font-medium text-emerald-800">${d(t)}</p>
         <p class="mt-1 text-sm text-emerald-700">${s} contract item${s === 1 ? "" : "s"} available for this shell.</p>
       </div>
-      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-        <p class="text-sm text-slate-700">${d(a)}</p>
+      <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
+        <p class="text-sm text-gray-700">${d(a)}</p>
         <details class="mt-4">
-          <summary class="cursor-pointer text-sm font-medium text-slate-800">Inspect payload</summary>
-          <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">${d(JSON.stringify(e.payload, null, 2))}</pre>
+          <summary class="cursor-pointer text-sm font-medium text-gray-800">Inspect payload</summary>
+          <pre class="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">${d(JSON.stringify(e.payload, null, 2))}</pre>
         </details>
         ${m(e)}
       </div>
@@ -235,9 +235,9 @@ function k(e) {
 }
 function P(e, t) {
   return `
-    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-      <p class="text-sm font-semibold text-slate-900">${d(e)}</p>
-      <p class="mt-1 text-sm text-slate-600">${d(t)}</p>
+    <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
+      <p class="text-sm font-semibold text-gray-900">${d(e)}</p>
+      <p class="mt-1 text-sm text-gray-600">${d(t)}</p>
     </div>
   `;
 }
@@ -251,9 +251,9 @@ function C(e, t) {
 }
 function O() {
   return `
-    <div class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-      <p class="text-sm font-medium text-slate-900">Loading translation shell...</p>
-      <p class="mt-1 text-sm text-slate-500">Waiting for the backing API response.</p>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-4">
+      <p class="text-sm font-medium text-gray-900">Loading translation shell...</p>
+      <p class="mt-1 text-sm text-gray-500">Waiting for the backing API response.</p>
     </div>
   `;
 }

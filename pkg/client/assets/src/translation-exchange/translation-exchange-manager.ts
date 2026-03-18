@@ -1210,13 +1210,13 @@ export class TranslationExchangeManager {
     const historyItems = this.filteredHistoryItems();
 
     this.root.innerHTML = `
-      <section class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header class="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-stone-50 to-sky-50">
+      <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Slice 8-9</p>
-              <h1 class="mt-2 text-2xl font-semibold text-gray-900">Translation Exchange Wizard</h1>
-              <p class="mt-2 max-w-3xl text-sm text-gray-600">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translation Exchange</p>
+              <h1 class="mt-2 text-2xl font-bold text-admin-dark">Translation Exchange Wizard</h1>
+              <p class="text-sm text-gray-500 mt-1">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="btn btn-secondary" href="${escapeHTML(
               `${this.config.apiPath}/template?format=json`,
@@ -1247,9 +1247,9 @@ export class TranslationExchangeManager {
       <button
         type="button"
         data-exchange-step="${step}"
-        class="rounded-2xl border px-4 py-4 text-left transition ${
+        class="rounded-xl border px-4 py-4 text-left transition ${
           active
-            ? "border-sky-400 bg-sky-50 shadow-sm"
+            ? "border-blue-400 bg-blue-50 shadow-sm"
             : "border-gray-200 bg-white hover:border-gray-300"
         }"
       >
@@ -1266,19 +1266,19 @@ export class TranslationExchangeManager {
         const links = Object.values(job.downloads ?? {})
           .map(
             (download) => `
-              <a class="text-sm font-medium text-sky-700 hover:text-sky-900" href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}">
+              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}">
                 ${escapeHTML(download.label)}
               </a>`,
           )
           .join("");
         return `
-          <article class="rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4">
+          <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div class="flex items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-gray-900">${escapeHTML(job.kind.replace(/_/g, " "))}</p>
                 <p class="text-xs text-gray-600">${escapeHTML(job.file?.name ?? "Seeded example")}</p>
               </div>
-              <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-sky-700">Fixture</span>
+              <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">Fixture</span>
             </div>
             <div class="mt-3 flex flex-wrap gap-3">${links}</div>
           </article>
@@ -1288,7 +1288,7 @@ export class TranslationExchangeManager {
     return `
       <section class="space-y-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Seeded Examples</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Seeded Examples</h2>
           <p class="mt-1 text-sm text-gray-600">Use the stable demo artifacts to exercise the wizard and end-to-end coverage.</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">${cards}</div>
@@ -1301,7 +1301,7 @@ export class TranslationExchangeManager {
     return `
       ${this.renderExampleLinks(examples.filter((entry) => entry.kind === "export"))}
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <form data-export-form="true" class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+        <form data-export-form="true" class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
           <div class="grid gap-5 md:grid-cols-2">
             <fieldset>
               <legend class="text-sm font-semibold text-gray-900">Resources</legend>
@@ -1337,7 +1337,7 @@ export class TranslationExchangeManager {
                 </label>`).join("")}
             </div>
           </fieldset>
-          <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-3 text-sm text-gray-700">
+          <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
             <input type="checkbox" name="include_source_hash" ${
               this.exportState.draft.includeSourceHash ? "checked" : ""
             }>
@@ -1348,9 +1348,9 @@ export class TranslationExchangeManager {
             <span class="text-sm text-gray-600">${escapeHTML(this.exportState.message)}</span>
           </div>
         </form>
-        <aside class="space-y-4 rounded-2xl border border-gray-200 bg-stone-50 p-5">
+        <aside class="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div>
-            <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Preflight</h2>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Preflight</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               ${[
                 ["Resources", this.exportState.draft.resources.length],
@@ -1376,7 +1376,7 @@ export class TranslationExchangeManager {
           ${
             job
               ? `
-              <div class="rounded-2xl bg-white p-4">
+              <div class="rounded-xl bg-white border border-gray-200 p-4">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
@@ -1385,12 +1385,12 @@ export class TranslationExchangeManager {
                   <span class="${statusBadgeClass(jobStatusSeverity(job.status))}">${escapeHTML(job.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-sky-500" style="width: ${progressPercent(job)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${progressPercent(job)}%"></div>
                 </div>
                 <div class="mt-3 text-sm text-gray-600">${escapeHTML(job.progress.processed)} / ${escapeHTML(job.progress.total ?? 0)} rows prepared</div>
                 ${
                   this.exportState.downloadHref
-                    ? `<a class="mt-4 inline-flex text-sm font-medium text-sky-700 hover:text-sky-900" href="${escapeHTML(
+                    ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${escapeHTML(
                         this.exportState.downloadHref,
                       )}" download>${escapeHTML(this.exportState.downloadLabel)}</a>`
                     : ""
@@ -1412,9 +1412,9 @@ export class TranslationExchangeManager {
     const rows = result?.results ?? [];
     return `
       ${this.renderExampleLinks(examples.filter((entry) => entry.kind === "import_validate"))}
-      <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+      <section class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
         <form data-validate-form="true" class="space-y-4">
-          <div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 p-5">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <label class="text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
             <input id="exchange-import-file" type="file" accept=".json,.csv" class="mt-3 block w-full text-sm text-gray-700">
             <p class="mt-2 text-sm text-gray-600">${escapeHTML(this.validateState.upload.filename ?? "Choose a JSON or CSV package exported for translators.")}</p>
@@ -1438,17 +1438,17 @@ export class TranslationExchangeManager {
                   ["Conflicts", result.summary.conflicts ?? 0],
                   ["Failed", result.summary.failed],
                 ].map(([label, value]) => `
-                  <div class="rounded-xl bg-stone-50 px-4 py-3">
-                    <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${escapeHTML(label)}</div>
+                  <div class="rounded-xl bg-gray-50 px-4 py-3">
+                    <div class="text-xs uppercase tracking-wider text-gray-500">${escapeHTML(label)}</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900">${escapeHTML(value)}</div>
                   </div>`).join("")}
               </div>
-              <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Staged decisions: ${escapeHTML(accepted)} accepted, ${escapeHTML(rejected)} rejected.
               </div>
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                  <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                     <tr>
                       <th class="px-4 py-3">Row</th>
                       <th class="px-4 py-3">Field</th>
@@ -1496,7 +1496,7 @@ export class TranslationExchangeManager {
         data-stage-row="${row}"
         data-stage-decision="${decision}"
         class="rounded-full border px-3 py-1 text-xs font-medium ${
-          active ? "border-sky-500 bg-sky-100 text-sky-900" : "border-gray-200 bg-white text-gray-600"
+          active ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"
         }"
       >
         ${escapeHTML(decision)}
@@ -1525,7 +1525,7 @@ export class TranslationExchangeManager {
     }
     return `
       <section class="space-y-5">
-        <form data-apply-form="true" class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+        <form data-apply-form="true" class="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 class="text-lg font-semibold text-gray-900">Apply import package</h2>
@@ -1546,8 +1546,8 @@ export class TranslationExchangeManager {
               ["Override", stagedCounts.override],
               ["Create", stagedCounts.create],
             ].map(([label, value]) => `
-              <div class="rounded-xl bg-stone-50 px-4 py-3">
-                <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${escapeHTML(label)}</div>
+              <div class="rounded-xl bg-gray-50 px-4 py-3">
+                <div class="text-xs uppercase tracking-wider text-gray-500">${escapeHTML(label)}</div>
                 <div class="mt-1 text-2xl font-semibold text-gray-900">${escapeHTML(value)}</div>
               </div>`).join("")}
           </div>
@@ -1567,16 +1567,16 @@ export class TranslationExchangeManager {
           ${
             job
               ? `
-                <div class="rounded-2xl border border-gray-200 bg-stone-50 p-4">
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold text-gray-900">Job progress</p>
                       <p class="text-xs text-gray-500">${escapeHTML(job.id)}</p>
                     </div>
-                    <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(job.status)}</span>
+                    <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(job.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-sky-500" style="width: ${progressPercent(job)}%"></div>
+                    <div class="h-full bg-blue-500" style="width: ${progressPercent(job)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${escapeHTML(job.progress.processed)} / ${escapeHTML(job.progress.total ?? 0)} processed</div>
                 </div>`
@@ -1586,16 +1586,16 @@ export class TranslationExchangeManager {
         ${
           stagedRows.length > 0
             ? `
-              <section class="rounded-2xl border border-gray-200 bg-white p-5">
+              <section class="rounded-xl border border-gray-200 bg-white p-5">
                 <div class="flex items-center justify-between gap-3">
                   <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Row Decisions</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Row Decisions</h3>
                     <p class="mt-1 text-sm text-gray-600">Conflict rows can be skipped or explicitly overridden before apply.</p>
                   </div>
                 </div>
                 <div class="mt-4 overflow-x-auto">
                   <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                       <tr>
                         <th class="px-4 py-3">Row</th>
                         <th class="px-4 py-3">Field</th>
@@ -1634,9 +1634,9 @@ export class TranslationExchangeManager {
         ${
           result
             ? `
-              <section class="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+              <section class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
                 <div>
-                  <h3 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Terminal Summary</h3>
+                  <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Terminal Summary</h3>
                   <p class="mt-1 text-sm text-gray-600">Review row outcomes and retained downloads before closing the loop.</p>
                 </div>
                 <div class="grid gap-3 md:grid-cols-4">
@@ -1646,19 +1646,19 @@ export class TranslationExchangeManager {
                     ["Conflicts", result.summary.conflicts ?? 0],
                     ["Failed", result.summary.failed],
                   ].map(([label, value]) => `
-                    <div class="rounded-xl bg-stone-50 px-4 py-3">
-                      <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${escapeHTML(label)}</div>
+                    <div class="rounded-xl bg-gray-50 px-4 py-3">
+                      <div class="text-xs uppercase tracking-wider text-gray-500">${escapeHTML(label)}</div>
                       <div class="mt-1 text-2xl font-semibold text-gray-900">${escapeHTML(value)}</div>
                     </div>`).join("")}
                 </div>
-                <div class="flex flex-wrap gap-3 text-sm text-sky-700">
+                <div class="flex flex-wrap gap-3 text-sm text-blue-700">
                   ${Object.values(result.job?.downloads ?? {}).map((download) => `
-                    <a href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}" class="font-medium hover:text-sky-900">${escapeHTML(download.label)}</a>
+                    <a href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}" class="font-medium hover:text-blue-900">${escapeHTML(download.label)}</a>
                   `).join("")}
                 </div>
                 <div class="overflow-x-auto">
                   <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                       <tr>
                         <th class="px-4 py-3">Row</th>
                         <th class="px-4 py-3">Field</th>
@@ -1689,7 +1689,7 @@ export class TranslationExchangeManager {
 
   private renderApplyToggle(key: string, label: string, checked: boolean): string {
     return `
-      <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-3 text-sm text-gray-700">
+      <label class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
         <input type="checkbox" data-apply-option="${key}" ${checked ? "checked" : ""}>
         <span>${escapeHTML(label)}</span>
       </label>
@@ -1713,7 +1713,7 @@ export class TranslationExchangeManager {
         data-apply-row="${row}"
         data-apply-decision="${decision}"
         class="rounded-full border px-3 py-1 text-xs font-medium ${
-          active ? "border-sky-500 bg-sky-100 text-sky-900" : "border-gray-200 bg-white text-gray-600"
+          active ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"
         }"
       >
         ${escapeHTML(labelMap[decision])}
@@ -1729,7 +1729,7 @@ export class TranslationExchangeManager {
     const selectedResult = jobValidationResult(selected);
     return `
       <section class="space-y-5">
-        <div class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-5">
           <label class="text-sm font-medium text-gray-700">
             Kind
             <select data-history-kind class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
@@ -1758,9 +1758,9 @@ export class TranslationExchangeManager {
             ${
               items.length > 0
                 ? items.map((job) => `
-                  <article class="rounded-2xl border p-5 ${
+                  <article class="rounded-xl border p-5 ${
                     selected?.id === job.id
-                      ? "border-sky-300 bg-sky-50/50"
+                      ? "border-blue-300 bg-blue-50/50"
                       : "border-gray-200 bg-white"
                   }">
                     <button type="button" data-history-job="${escapeHTML(job.id)}" class="w-full text-left">
@@ -1781,13 +1781,13 @@ export class TranslationExchangeManager {
                       </div>
                     </button>
                   </article>`).join("")
-                : `<div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 px-6 py-10 text-center text-sm text-gray-600">No jobs match the current filters.</div>`
+                : `<div class="rounded-xl border border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600">No jobs match the current filters.</div>`
             }
           </div>
           ${
             selected
               ? `
-                <section class="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+                <section class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(selected.file?.name ?? selected.id)}</h2>
@@ -1807,26 +1807,26 @@ export class TranslationExchangeManager {
                       ["Conflicts", selected.progress.conflicts ?? selectedResult?.summary.conflicts ?? 0],
                       ["Failed", selected.progress.failed],
                     ].map(([label, value]) => `
-                      <div class="rounded-xl bg-stone-50 px-4 py-3">
-                        <div class="text-xs uppercase tracking-[0.2em] text-gray-500">${escapeHTML(label)}</div>
+                      <div class="rounded-xl bg-gray-50 px-4 py-3">
+                        <div class="text-xs uppercase tracking-wider text-gray-500">${escapeHTML(label)}</div>
                         <div class="mt-1 text-2xl font-semibold text-gray-900">${escapeHTML(value)}</div>
                       </div>`).join("")}
                   </div>
-                  <div class="rounded-2xl border border-gray-200 bg-stone-50 p-4 text-sm text-gray-700">
+                  <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
                     <div><span class="font-semibold text-gray-900">Request hash:</span> ${escapeHTML(selected.request_hash ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Request ID:</span> ${escapeHTML(selected.request_id ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Trace ID:</span> ${escapeHTML(selected.trace_id ?? "n/a")}</div>
                   </div>
-                  <div class="flex flex-wrap gap-3 text-sm text-sky-700">
+                  <div class="flex flex-wrap gap-3 text-sm text-blue-700">
                     ${Object.values(selected.downloads ?? {}).map((download) => `
-                      <a href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}" class="font-medium hover:text-sky-900">${escapeHTML(download.label)}</a>`).join("")}
+                      <a href="${escapeHTML(download.href)}" download="${escapeHTML(download.filename)}" class="font-medium hover:text-blue-900">${escapeHTML(download.label)}</a>`).join("")}
                   </div>
                   ${
                     selectedResult
                       ? `
                         <div class="overflow-x-auto">
                           <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-stone-50 text-left text-xs uppercase tracking-[0.18em] text-gray-500">
+                            <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                               <tr>
                                 <th class="px-4 py-3">Row</th>
                                 <th class="px-4 py-3">Field</th>
@@ -1847,7 +1847,7 @@ export class TranslationExchangeManager {
                             </tbody>
                           </table>
                         </div>`
-                      : `<div class="rounded-2xl border border-dashed border-gray-300 bg-stone-50 px-6 py-10 text-center text-sm text-gray-600">No per-row results were retained for this job.</div>`
+                      : `<div class="rounded-xl border border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-600">No per-row results were retained for this job.</div>`
                   }
                 </section>`
               : ""

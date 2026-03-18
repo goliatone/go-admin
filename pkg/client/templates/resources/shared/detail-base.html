@@ -18,9 +18,15 @@
     {% block header_pretitle %}{% endblock %}
     <h1 class="text-3xl font-bold text-admin-dark">{% block header_title %}{{ singularize(resource_label|default:resource)|title }}{% endblock %}</h1>
   </div>
-  <div class="flex flex-wrap items-start justify-end gap-3">
+  <div class="flex items-center justify-end gap-3">
     {% block header_actions %}
       {% block header_actions_prepend %}{% endblock %}
+      {% if routes.index %}
+        <a href="{{ routes.index }}" class="btn btn-secondary">
+          <i class="iconoir-arrow-left"></i>
+          Back to {{ resource_label|default:resource|title }}
+        </a>
+      {% endif %}
       {% block detail_action_mount %}
       <div
         data-panel-detail-actions
@@ -33,12 +39,6 @@
         aria-live="polite"
       ></div>
       {% endblock %}
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary">
-          <i class="iconoir-arrow-left"></i>
-          Back to {{ resource_label|default:resource|title }}
-        </a>
-      {% endif %}
       {% block header_actions_append %}{% endblock %}
     {% endblock %}
   </div>
