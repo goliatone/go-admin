@@ -88,5 +88,5 @@ measurable_gain: canonical original filename persistence across store/service/AP
 impacted_endpoints: /admin/api/v1/esign/documents/upload response payload, /admin/content/esign_documents create payload contract, document panel payload shape, executed/certificate audit metadata rendering.
 backend_tests: go test ./examples/esign/... -count=1
 frontend_tests: cd pkg/client/assets && npm run build
-contract_hash: eafe2ca55716236ba350b8d8beee4ae18c8d10f46a456225c4b3051b45361386
+contract_hash: 75b1d9dd96328c0dd35dd9c5d6b21e58f4096760a11a6cedb2c38a4c67e2a169
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
