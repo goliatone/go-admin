@@ -1,7 +1,7 @@
 import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
 import { r as z } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as F } from "../toast/error-helpers.js";
-import { E as R, h as I, i as S, L as P, d as $, j, k as A, l as v, H, f as B, a as K, e as L, p as U, o as D } from "../chunks/style-constants-DMszSbOH.js";
+import { E as R, i as I, j as S, L as P, d as $, k as j, l as A, m as v, H, h as B, a as K, f as L, q as U, p as D } from "../chunks/style-constants-i2xRoO1L.js";
 class b extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -135,7 +135,7 @@ function Q(e, t = "") {
     rows: a
   };
 }
-function C(e) {
+function q(e) {
   const t = l(e), s = r(t.id);
   return s ? {
     id: s,
@@ -147,7 +147,7 @@ function C(e) {
     query: x(t.query)
   } : null;
 }
-function q(e) {
+function C(e) {
   const t = l(e), s = r(t.id);
   if (!s)
     return null;
@@ -174,7 +174,7 @@ function q(e) {
 function W(e) {
   const t = l(e), s = {};
   for (const [a, n] of Object.entries(l(t.query_models))) {
-    const o = q(n);
+    const o = C(n);
     o && (s[a] = o);
   }
   return {
@@ -183,7 +183,7 @@ function W(e) {
     alertStates: d(t.alert_states, (a) => w(a)),
     defaultLimits: T(t.default_limits),
     queryModels: s,
-    runbooks: d(t.runbooks, C)
+    runbooks: d(t.runbooks, q)
   };
 }
 function J(e) {
@@ -211,7 +211,7 @@ function Z(e) {
     c[g] = Q(f, g);
   const u = { ...n.queryModels };
   for (const [g, f] of Object.entries(l(a.query_models))) {
-    const m = q(f);
+    const m = C(f);
     m && (u[g] = m);
   }
   return {
@@ -219,7 +219,7 @@ function Z(e) {
       cards: o,
       tables: c,
       alerts: d(s.alerts, J),
-      runbooks: d(s.runbooks, C),
+      runbooks: d(s.runbooks, q),
       summary: T(s.summary)
     },
     meta: {
@@ -702,9 +702,9 @@ export {
   wt as initTranslationDashboardPage,
   G as normalizeTranslationDashboardCard,
   M as normalizeTranslationDashboardLink,
-  q as normalizeTranslationDashboardQueryModel,
+  C as normalizeTranslationDashboardQueryModel,
   Z as normalizeTranslationDashboardResponse,
-  C as normalizeTranslationDashboardRunbook,
+  q as normalizeTranslationDashboardRunbook,
   Q as normalizeTranslationDashboardTable,
   Y as normalizeTranslationDashboardTableRow
 };

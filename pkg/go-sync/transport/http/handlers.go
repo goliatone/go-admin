@@ -21,10 +21,10 @@ const (
 
 // RequestIdentity contains trusted request-derived sync metadata.
 type RequestIdentity struct {
-	Scope         map[string]string
-	ActorID       string
-	ClientID      string
-	CorrelationID string
+	Scope         map[string]string `json:"scope"`
+	ActorID       string            `json:"actor_id"`
+	ClientID      string            `json:"client_id"`
+	CorrelationID string            `json:"correlation_id"`
 }
 
 // RequestIdentityResolver derives trusted scope and actor metadata from the request context.
@@ -68,9 +68,9 @@ type MutationRequestBody struct {
 }
 
 type routeParams struct {
-	Kind      string
-	ID        string
-	Operation string
+	Kind      string `json:"kind"`
+	ID        string `json:"id"`
+	Operation string `json:"operation"`
 }
 
 // NewHandler builds an HTTP mapping helper around a sync service.

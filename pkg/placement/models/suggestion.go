@@ -2,13 +2,13 @@ package models
 
 // Suggestion captures one candidate placement for a field definition.
 type Suggestion struct {
-	ID                string
-	FieldDefinitionID string
-	ResolverID        string
-	Confidence        float64
-	Geometry          Geometry
-	Label             string
-	Metadata          map[string]any
+	ID                string         `json:"id"`
+	FieldDefinitionID string         `json:"field_definition_id"`
+	ResolverID        string         `json:"resolver_id"`
+	Confidence        float64        `json:"confidence"`
+	Geometry          Geometry       `json:"geometry"`
+	Label             string         `json:"label"`
+	Metadata          map[string]any `json:"metadata"`
 }
 
 // NormalizedConfidence clamps confidence into [0,1].

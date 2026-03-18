@@ -28,6 +28,8 @@ import {
   CARD_SHADOW,
   HEADER_DESCRIPTION,
   HEADER_PRETITLE,
+  INPUT_CHECKBOX,
+  INPUT_SELECT,
   ROUNDED_CARD,
   getStatusSeverityClass,
   TEXT_TITLE,
@@ -1327,7 +1329,7 @@ export class TranslationExchangeManager {
               <div class="mt-3 space-y-2">
                 ${["pages", "posts"].map((resource) => `
                   <label class="flex items-center gap-3 text-sm text-gray-700">
-                    <input type="checkbox" name="resources" value="${resource}" ${
+                    <input type="checkbox" class="${INPUT_CHECKBOX}" name="resources" value="${resource}" ${
                       this.exportState.draft.resources.includes(resource) ? "checked" : ""
                     }>
                     <span>${resource}</span>
@@ -1336,7 +1338,7 @@ export class TranslationExchangeManager {
             </fieldset>
             <label class="block text-sm font-semibold text-gray-900">
               Source locale
-              <select name="source_locale" class="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2">
+              <select name="source_locale" class="mt-3 ${INPUT_SELECT}">
                 ${["en", "es", "fr", "de"].map((locale) => `
                   <option value="${locale}" ${
                     this.exportState.draft.sourceLocale === locale ? "selected" : ""
@@ -1349,7 +1351,7 @@ export class TranslationExchangeManager {
             <div class="mt-3 flex flex-wrap gap-3">
               ${["es", "fr", "de", "it"].map((locale) => `
                 <label class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                  <input type="checkbox" name="target_locales" value="${locale}" ${
+                  <input type="checkbox" class="${INPUT_CHECKBOX}" name="target_locales" value="${locale}" ${
                     this.exportState.draft.targetLocales.includes(locale) ? "checked" : ""
                   }>
                   <span>${locale.toUpperCase()}</span>
@@ -1357,7 +1359,7 @@ export class TranslationExchangeManager {
             </div>
           </fieldset>
           <label class="flex items-center gap-3 ${MUTED_PANEL_TIGHT} text-sm text-gray-700">
-            <input type="checkbox" name="include_source_hash" ${
+            <input type="checkbox" class="${INPUT_CHECKBOX}" name="include_source_hash" ${
               this.exportState.draft.includeSourceHash ? "checked" : ""
             }>
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
@@ -1514,7 +1516,7 @@ export class TranslationExchangeManager {
         type="button"
         data-stage-row="${row}"
         data-stage-decision="${decision}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${
           active ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"
         }"
       >
@@ -1709,7 +1711,7 @@ export class TranslationExchangeManager {
   private renderApplyToggle(key: string, label: string, checked: boolean): string {
     return `
       <label class="flex items-center gap-3 ${MUTED_PANEL_TIGHT} text-sm text-gray-700">
-        <input type="checkbox" data-apply-option="${key}" ${checked ? "checked" : ""}>
+        <input type="checkbox" class="${INPUT_CHECKBOX}" data-apply-option="${key}" ${checked ? "checked" : ""}>
         <span>${escapeHTML(label)}</span>
       </label>
     `;
@@ -1731,7 +1733,7 @@ export class TranslationExchangeManager {
         type="button"
         data-apply-row="${row}"
         data-apply-decision="${decision}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${
           active ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"
         }"
       >
@@ -1751,7 +1753,7 @@ export class TranslationExchangeManager {
         <div class="flex flex-wrap items-end gap-3 ${CARD_PANEL}">
           <label class="text-sm font-medium text-gray-700">
             Kind
-            <select data-history-kind class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
+            <select data-history-kind class="mt-2 ${INPUT_SELECT}">
               <option value="all">All</option>
               ${jobKinds.map((kind) => `
                 <option value="${escapeHTML(kind)}" ${
@@ -1761,7 +1763,7 @@ export class TranslationExchangeManager {
           </label>
           <label class="text-sm font-medium text-gray-700">
             Status
-            <select data-history-status class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
+            <select data-history-status class="mt-2 ${INPUT_SELECT}">
               <option value="all">All</option>
               ${jobStatuses.map((status) => `
                 <option value="${escapeHTML(status)}" ${

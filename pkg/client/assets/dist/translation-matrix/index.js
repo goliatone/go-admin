@@ -2,7 +2,7 @@ import { d as $ } from "../chunks/index-YiVxcMWC.js";
 import { e as g, a as m } from "../chunks/html-Br-oQr7i.js";
 import { r as M } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as R } from "../toast/error-helpers.js";
-import { E as C, h as I, i as L, H, f as U, a as Q, L as X, j as Y, k as K, l as W, p as G, w as v, A as V, D as J, F as Z, I as ee, J as te, K as ae, e as re, o as se } from "../chunks/style-constants-DMszSbOH.js";
+import { E as C, i as I, j as L, H, h as U, a as Q, L as X, k as Y, l as K, m as W, q as G, x as v, D as V, F as J, J as Z, K as ee, N as te, O as ae, f as re, p as se } from "../chunks/style-constants-i2xRoO1L.js";
 function s(t) {
   return typeof t == "string" ? t.trim() : "";
 }
@@ -84,7 +84,7 @@ function le(t) {
     e[a] = P(r);
   return e;
 }
-function j(t) {
+function O(t) {
   const e = l(t);
   return {
     endpoint: s(e.endpoint),
@@ -95,7 +95,7 @@ function j(t) {
     type: s(e.type)
   };
 }
-function O(t) {
+function j(t) {
   const e = s(t).toLowerCase();
   switch (e) {
     case "ready":
@@ -141,7 +141,7 @@ function ue(t) {
   } : null;
 }
 function me(t) {
-  const e = l(t), a = O(e.state);
+  const e = l(t), a = j(e.state);
   return {
     locale: s(e.locale),
     state: a,
@@ -214,7 +214,7 @@ function z(t) {
   }
   return {
     schema_version: u(e.schema_version),
-    cell_states: f(e.cell_states).map((o) => O(o)),
+    cell_states: f(e.cell_states).map((o) => j(o)),
     latency_target_ms: u(e.latency_target_ms),
     query_model: q(e.query_model),
     bulk_actions: r
@@ -231,7 +231,7 @@ function fe(t) {
 function ge(t) {
   const e = l(t), a = l(e.data), r = l(e.meta), o = x(a.columns).map(ce), i = x(a.rows).map(pe), n = {};
   for (const [d, c] of Object.entries(l(r.quick_action_targets)))
-    n[d] = j(c);
+    n[d] = O(c);
   return {
     data: {
       columns: o,
@@ -638,7 +638,7 @@ function Le() {
 function Pe() {
   return `<section class="${C} p-8 shadow-sm" data-matrix-empty="true" role="status" aria-live="polite"><p class="${I}">No rows</p><h2 class="mt-2 text-xl font-semibold text-gray-900">No families match this matrix scope.</h2><p class="${L} mt-3 max-w-2xl leading-6">Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.</p></section>`;
 }
-function je(t) {
+function Oe(t) {
   const e = t instanceof T ? t.requestId : "", a = t instanceof T ? t.traceId : "";
   return `
     <section class="${Y} p-6 shadow-sm" data-matrix-error="true" role="alert">
@@ -652,8 +652,8 @@ function je(t) {
     </section>
   `;
 }
-function Oe(t, e, a, r, o, i, n, d = !1, c = "/admin") {
-  const p = Te(e), k = a == null ? r === "loading" ? Le() : je(n) : a.data.rows.length === 0 ? Pe() : `${Re(a, o, i, d)}<div class="grid gap-5">${Ce(a)}${Me(a, o)}</div>`, w = `${E(c || "/admin")}/translations`;
+function je(t, e, a, r, o, i, n, d = !1, c = "/admin") {
+  const p = Te(e), k = a == null ? r === "loading" ? Le() : Oe(n) : a.data.rows.length === 0 ? Pe() : `${Re(a, o, i, d)}<div class="grid gap-5">${Ce(a)}${Me(a, o)}</div>`, w = `${E(c || "/admin")}/translations`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
       <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
@@ -806,7 +806,7 @@ class qe {
     this.render();
   }
   render() {
-    this.root && (this.root.innerHTML = Oe(
+    this.root && (this.root.innerHTML = je(
       this.config.title || "Translation Matrix",
       this.query,
       this.payload,
@@ -855,7 +855,7 @@ class qe {
       }
       this.working = !0, this.feedback = "", this.render();
       try {
-        const n = j({
+        const n = O({
           endpoint: i.endpoint,
           method: i.method,
           route: i.route,
@@ -894,7 +894,7 @@ export {
   we as isTranslationMatrixNotRequiredCell,
   _e as normalizeTranslationMatrixBulkActionResponse,
   me as normalizeTranslationMatrixCell,
-  O as normalizeTranslationMatrixCellState,
+  j as normalizeTranslationMatrixCellState,
   ce as normalizeTranslationMatrixColumn,
   ge as normalizeTranslationMatrixResponse,
   pe as normalizeTranslationMatrixRow,

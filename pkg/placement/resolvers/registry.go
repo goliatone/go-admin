@@ -4,8 +4,8 @@ import "strings"
 
 // RegisteredResolver binds resolver implementation and advertised capability metadata.
 type RegisteredResolver struct {
-	Resolver   PlacementResolver
-	Capability ResolverCapability
+	Resolver   PlacementResolver  `json:"resolver"`
+	Capability ResolverCapability `json:"capability"`
 }
 
 // Registry stores ordered resolver registrations.

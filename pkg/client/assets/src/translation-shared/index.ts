@@ -94,6 +94,7 @@ export {
   INPUT_READONLY,
   INPUT_ERROR,
   INPUT_DISABLED,
+  INPUT_CHECKBOX,
 
   // Form Input Groups (Phase 6.1.1)
   INPUT_GROUP,

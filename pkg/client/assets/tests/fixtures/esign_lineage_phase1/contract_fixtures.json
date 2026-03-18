@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "presentation_rules": {
+    "frontend_presentation_only": true,
+    "diagnostics_owned_by_backend": true,
+    "warning_precedence": [
+      "candidate_warning",
+      "newer_source_exists",
+      "fingerprint_pending",
+      "empty_state"
+    ],
+    "candidate_review_visibility": "admin_debug_only"
+  },
+  "metadata_baseline": {
+    "account_id": "acct_primary",
+    "external_file_id": "google-file-123",
+    "web_url": "https://docs.google.com/document/d/google-file-123/edit",
+    "modified_time": "2026-03-15T18:00:00Z",
+    "source_version_hint": "v2026-03-15T18:00:00Z",
+    "source_mime_type": "application/vnd.google-apps.document",
+    "source_ingestion_mode": "google_export_pdf",
+    "title_hint": "MSA Packet",
+    "page_count_hint": 12,
+    "owner_email": "owner@example.com",
+    "parent_id": "folder-legal"
+  },
+  "states": {
+    "document_native": {
+      "document_id": "doc_001",
+      "source_document": {
+        "id": "src_doc_001",
+        "label": "MSA Packet"
+      },
+      "source_revision": {
+        "id": "src_rev_001",
+        "provider_revision_hint": "v2026-03-15T18:00:00Z",
+        "modified_time": "2026-03-15T18:00:00Z",
+        "exported_at": "2026-03-15T18:05:00Z",
+        "exported_by_user_id": "ops-user",
+        "source_mime_type": "application/vnd.google-apps.document"
+      },
+      "source_artifact": {
+        "id": "src_art_001",
+        "artifact_kind": "signable_pdf",
+        "object_key": "tenant/tenant-1/org/org-1/docs/doc_001/source.pdf",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "page_count": 12,
+        "size_bytes": 24576,
+        "compatibility_tier": "supported",
+        "normalization_status": "completed"
+      },
+      "google_source": {
+        "account_id": "acct_primary",
+        "external_file_id": "google-file-123",
+        "web_url": "https://docs.google.com/document/d/google-file-123/edit",
+        "modified_time": "2026-03-15T18:00:00Z",
+        "source_version_hint": "v2026-03-15T18:00:00Z",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "source_ingestion_mode": "google_export_pdf",
+        "title_hint": "MSA Packet",
+        "page_count_hint": 12,
+        "owner_email": "owner@example.com",
+        "parent_id": "folder-legal"
+      },
+      "fingerprint_status": {
+        "status": "ready",
+        "extract_version": "v1_pdf_text",
+        "evidence_available": true
+      },
+      "candidate_warning_summary": [
+        {
+          "id": "rel_candidate_1",
+          "relationship_type": "copied_from",
+          "status": "pending_review",
+          "confidence_band": "medium",
+          "confidence_score": 0.87,
+          "summary": "Possible continuity with a copied Google document under a different account.",
+          "evidence": [
+            {
+              "code": "normalized_text_match",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "title_similarity",
+              "label": "Title similarity",
+              "details": "Identical canonical title"
+            }
+          ],
+          "review_action_visible": "admin_debug_only"
+        }
+      ],
+      "diagnostics_url": "/admin/debug/lineage/documents/doc_001",
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "document_empty": {
+      "document_id": "doc_upload_only",
+      "fingerprint_status": {
+        "status": "unknown",
+        "evidence_available": false
+      },
+      "diagnostics_url": "/admin/debug/lineage/documents/doc_upload_only",
+      "empty_state": {
+        "kind": "no_source",
+        "title": "No source lineage",
+        "description": "This document was uploaded directly and has no linked source document."
+      }
+    },
+    "agreement_native": {
+      "agreement_id": "agr_001",
+      "source_revision": {
+        "id": "src_rev_001",
+        "provider_revision_hint": "v2026-03-15T18:00:00Z",
+        "modified_time": "2026-03-15T18:00:00Z",
+        "exported_at": "2026-03-15T18:05:00Z",
+        "exported_by_user_id": "ops-user",
+        "source_mime_type": "application/vnd.google-apps.document"
+      },
+      "linked_document_artifact": {
+        "id": "src_art_001",
+        "artifact_kind": "signable_pdf",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "page_count": 12,
+        "size_bytes": 24576,
+        "compatibility_tier": "supported",
+        "normalization_status": "completed"
+      },
+      "google_source": {
+        "account_id": "acct_primary",
+        "external_file_id": "google-file-123",
+        "web_url": "https://docs.google.com/document/d/google-file-123/edit",
+        "modified_time": "2026-03-15T18:00:00Z",
+        "source_version_hint": "v2026-03-15T18:00:00Z",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "source_ingestion_mode": "google_export_pdf",
+        "title_hint": "MSA Packet",
+        "page_count_hint": 12,
+        "owner_email": "owner@example.com",
+        "parent_id": "folder-legal"
+      },
+      "newer_source_exists": true,
+      "candidate_warning_summary": [
+        {
+          "id": "rel_candidate_1",
+          "relationship_type": "copied_from",
+          "status": "pending_review",
+          "confidence_band": "medium",
+          "confidence_score": 0.87,
+          "summary": "Possible continuity with a copied Google document under a different account.",
+          "evidence": [
+            {
+              "code": "normalized_text_match",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "title_similarity",
+              "label": "Title similarity",
+              "details": "Identical canonical title"
+            }
+          ],
+          "review_action_visible": "admin_debug_only"
+        }
+      ],
+      "diagnostics_url": "/admin/debug/lineage/agreements/agr_001",
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "agreement_empty": {
+      "agreement_id": "agr_upload_only",
+      "newer_source_exists": false,
+      "diagnostics_url": "/admin/debug/lineage/agreements/agr_upload_only",
+      "empty_state": {
+        "kind": "no_source",
+        "title": "No source lineage",
+        "description": "This agreement is linked to a document without source provenance."
+      }
+    },
+    "import_running": {
+      "import_run_id": "gir_queued_001",
+      "lineage_status": "running",
+      "fingerprint_status": {
+        "status": "pending",
+        "extract_version": "v1_pdf_text",
+        "evidence_available": false
+      }
+    },
+    "import_linked": {
+      "import_run_id": "gir_linked_001",
+      "lineage_status": "linked",
+      "source_document": {
+        "id": "src_doc_001",
+        "label": "MSA Packet"
+      },
+      "source_revision": {
+        "id": "src_rev_001",
+        "provider_revision_hint": "v2026-03-15T18:00:00Z",
+        "modified_time": "2026-03-15T18:00:00Z",
+        "exported_at": "2026-03-15T18:05:00Z",
+        "exported_by_user_id": "ops-user",
+        "source_mime_type": "application/vnd.google-apps.document"
+      },
+      "source_artifact": {
+        "id": "src_art_001",
+        "artifact_kind": "signable_pdf",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "page_count": 12,
+        "size_bytes": 24576,
+        "compatibility_tier": "supported",
+        "normalization_status": "completed"
+      },
+      "fingerprint_status": {
+        "status": "ready",
+        "extract_version": "v1_pdf_text",
+        "evidence_available": true
+      },
+      "candidate_status": [
+        {
+          "id": "rel_candidate_1",
+          "relationship_type": "copied_from",
+          "status": "pending_review",
+          "confidence_band": "medium",
+          "confidence_score": 0.87,
+          "summary": "Possible continuity with a copied Google document under a different account.",
+          "evidence": [
+            {
+              "code": "normalized_text_match",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "title_similarity",
+              "label": "Title similarity",
+              "details": "Identical canonical title"
+            }
+          ],
+          "review_action_visible": "admin_debug_only"
+        }
+      ],
+      "document_detail_url": "/admin/content/esign_documents/doc_001",
+      "agreement_detail_url": "/admin/content/esign_agreements/agr_001"
+    }
+  }
+}

@@ -222,6 +222,10 @@ export const INPUT_ERROR =
 export const INPUT_DISABLED =
   'w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed opacity-60';
 
+/** Checkbox input (matches datagrid style) */
+export const INPUT_CHECKBOX =
+  'w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500';
+
 // =============================================================================
 // Form Input Groups
 // =============================================================================

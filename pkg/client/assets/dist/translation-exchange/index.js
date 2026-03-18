@@ -1,12 +1,12 @@
-import { n as x, a as A, b as k, c as P } from "../chunks/index-YiVxcMWC.js";
-import { C as F, H as U, T as V, a as B, B as f, R as w, b as $, c as _, d as N, e as j, g as W } from "../chunks/style-constants-DMszSbOH.js";
-const q = {
+import { n as x, a as k, b as C, c as U } from "../chunks/index-YiVxcMWC.js";
+import { C as V, H as B, T as W, a as q, B as f, R as $, b as _, c as j, d as F, I as E, e as v, f as R, g as z } from "../chunks/style-constants-i2xRoO1L.js";
+const G = {
   root: "#translation-exchange-app"
 };
 function o(l) {
   return String(l ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function T(l) {
+function D(l) {
   switch (l) {
     case "completed":
       return "success";
@@ -18,7 +18,7 @@ function T(l) {
       return "neutral";
   }
 }
-function v(l) {
+function S(l) {
   switch (l) {
     case "success":
       return "success";
@@ -31,10 +31,10 @@ function v(l) {
   }
 }
 function y(l) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${W(l)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${z(l)}`;
 }
-const m = `${N} p-5`, z = `${N} p-4`, D = `${w} border ${$} ${_} p-5`, E = `${w} border ${$} ${_} p-4`, C = `${w} border ${$} ${_} px-4 py-3`, L = `${w} border ${$} ${_} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", G = `mt-2 text-2xl font-bold ${V}`;
-function I(l) {
+const m = `${F} p-5`, K = `${F} p-4`, L = `${$} border ${_} ${j} p-5`, A = `${$} border ${_} ${j} p-4`, I = `${$} border ${_} ${j} px-4 py-3`, H = `${$} border ${_} ${j} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", Y = `mt-2 text-2xl font-bold ${W}`;
+function O(l) {
   if (!l) return "Pending";
   const t = new Date(l);
   return Number.isNaN(t.getTime()) ? l : new Intl.DateTimeFormat(void 0, {
@@ -44,7 +44,7 @@ function I(l) {
     minute: "2-digit"
   }).format(t);
 }
-function Y(l, t) {
+function X(l, t) {
   const e = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return e ? `data:${l};base64,${e(
     encodeURIComponent(t).replace(
@@ -53,33 +53,33 @@ function Y(l, t) {
     )
   )}` : `data:${l},${encodeURIComponent(t)}`;
 }
-function K(l) {
+function Q(l) {
   return new Promise((t) => setTimeout(t, Math.max(0, l)));
 }
-function H(l) {
+function J(l) {
   return !l || !l.progress.total || l.progress.total <= 0 ? 0 : Math.max(
     0,
     Math.min(100, Math.round(l.progress.processed / l.progress.total * 100))
   );
 }
-function X(l, t) {
+function Z(l, t) {
   return l?.downloads ? l.downloads[t]?.href ?? l.downloads.artifact?.href ?? "" : "";
 }
-function Q(l, t) {
+function tt(l, t) {
   return l?.downloads ? l.downloads[t]?.label ?? l.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function O(l) {
+function N(l) {
   const t = [];
   return l.resources.length === 0 && t.push("Select at least one resource."), l.targetLocales.length === 0 && t.push("Select at least one target locale."), l.targetLocales.includes(l.sourceLocale) && t.push("Target locales cannot include the source locale."), l.includeSourceHash || t.push("Conflict detection is weaker when source hashes are excluded."), t;
 }
-function Z(l) {
+function et(l) {
   const t = {};
   if (!l) return t;
   for (const e of l.results)
     t[e.index] = e.status === "success" ? "accepted" : "rejected";
   return t;
 }
-function J(l, t) {
+function M(l, t) {
   const e = {};
   for (const [a, s] of l.entries())
     e[typeof s.index == "number" ? s.index : a] = "apply";
@@ -88,22 +88,22 @@ function J(l, t) {
     e[a.index] = a.status === "success" ? "apply" : "skip";
   return e;
 }
-function M(l) {
+function P(l) {
   const t = /* @__PURE__ */ new Map();
   for (const e of l?.results ?? [])
     t.set(e.index, e);
   return t;
 }
-function R(l) {
+function T(l) {
   return l?.result ? {
-    ...A({
+    ...k({
       ...l.result,
       job: l
     }),
     job: l
   } : null;
 }
-function tt(l) {
+function st(l) {
   const e = String(l ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
   const [, a, s] = e;
@@ -117,13 +117,13 @@ function tt(l) {
   }
   return decodeURIComponent(s);
 }
-function S(l, t) {
+function w(l, t) {
   return {
     ...l,
     index: typeof l.index == "number" ? l.index : t
   };
 }
-class at {
+class it {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -256,7 +256,7 @@ class at {
         }
         i.matches('[data-apply-form="true"]') && (s.preventDefault(), this.submitApply());
       }
-    }, this.config = t, this.selectors = { ...q, ...e }, this.toast = a ?? window.toastManager ?? null;
+    }, this.config = t, this.selectors = { ...G, ...e }, this.toast = a ?? window.toastManager ?? null;
   }
   init() {
     this.root = document.querySelector(this.selectors.root), this.root && (this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.render(), this.loadHistory());
@@ -300,7 +300,7 @@ class at {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), a = A(e);
+    }), a = k(e);
     return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
       processed: a.summary.processed,
       succeeded: a.summary.succeeded,
@@ -326,7 +326,7 @@ class at {
         poll_endpoint: a,
         attempt: r
       });
-      const c = await this.fetchJSON(a), d = k(
+      const c = await this.fetchJSON(a), d = C(
         c.job && typeof c.job == "object" ? c.job : c
       );
       if (!d)
@@ -340,7 +340,7 @@ class at {
         }), d;
       if (Date.now() - n >= i)
         throw new Error("Polling timed out.");
-      r += 1, await K(s);
+      r += 1, await Q(s);
     }
   }
   readExportDraft(t) {
@@ -355,7 +355,7 @@ class at {
   async submitExport(t) {
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = O(e);
+    const a = N(e);
     if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((s) => s.includes("cannot include"))) {
       this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
@@ -370,7 +370,7 @@ class at {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = k(i);
+      }), i = s.job && typeof s.job == "object" ? s.job : s.data && typeof s.data == "object" ? s.data.job : void 0, n = Array.isArray(s.rows) ? s.rows : s.data && typeof s.data == "object" && Array.isArray(s.data.rows) ? s.data.rows ?? [] : [], r = C(i);
       if (this.exportState.job = r, r?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const c = await this.pollJobUntilTerminal(r, {
@@ -382,7 +382,7 @@ class at {
         });
         this.exportState.job = c;
       }
-      this.exportState.downloadHref = X(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = Q(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+      this.exportState.downloadHref = Z(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = tt(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
     } catch (s) {
       const i = s instanceof Error ? s.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = i, this.toast?.error(i);
@@ -436,18 +436,18 @@ class at {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = A(e);
-      this.validateState.result = a, this.validateState.decisions = Z(a), this.validateState.upload = x({
+      const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = k(e);
+      this.validateState.result = a, this.validateState.decisions = et(a), this.validateState.upload = x({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
         row_count: a.summary.processed
       }), this.validateState.status = "validated", this.validateState.message = "Validation completed. Review conflicts, then continue to apply.", this.applyState = {
         ...this.applyState,
-        rows: this.validateState.parsedRows.map(S),
+        rows: this.validateState.parsedRows.map(w),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: J(this.validateState.parsedRows, a),
+        resolutions: M(this.validateState.parsedRows, a),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -465,7 +465,7 @@ class at {
       return;
     }
     const t = this.buildApplyRequest(
-      this.applyState.rows.map(S),
+      this.applyState.rows.map(w),
       {
         allow_create_missing: this.applyState.allowCreateMissing,
         allow_source_hash_override: this.applyState.allowSourceHashOverride,
@@ -487,7 +487,7 @@ class at {
             this.applyState.job = s, this.applyState.message = `Apply job running: ${s.progress.processed} / ${s.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.applyState.job = a, this.applyState.result = R(a);
+        this.applyState.job = a, this.applyState.result = T(a);
       }
       this.applyState.status = "completed", this.applyState.message = this.applyState.dryRun ? "Dry-run apply completed." : "Apply completed.", this.toast?.success(this.applyState.message), this.loadHistory(!0);
     } catch (e) {
@@ -515,7 +515,7 @@ class at {
         const e = new URL(this.historyEndpoint, window.location.origin);
         this.includeExamples && e.searchParams.set("include_examples", "true");
         const a = await this.fetchJSON(e.pathname + e.search);
-        this.historyState.response = P(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
+        this.historyState.response = U(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
           (s) => s.id === this.historyState.selectedJobId
         ) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
       } catch (e) {
@@ -541,10 +541,10 @@ class at {
       return;
     }
     try {
-      const s = tt(a);
+      const s = st(a);
       let n = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(s) : this.parseJSONRows(s);
-      n = n.map(S);
-      const r = R(t);
+      n = n.map(w);
+      const r = T(t);
       if (e && r) {
         const c = new Set(
           r.results.filter(
@@ -560,7 +560,7 @@ class at {
         rows: n,
         sourceLabel: t.file?.name ?? t.id,
         retryJobId: t.id,
-        resolutions: J(n, r),
+        resolutions: M(n, r),
         allowCreateMissing: t.request?.allow_create_missing === !0,
         allowSourceHashOverride: t.request?.allow_source_hash_override === !0,
         continueOnError: t.request?.continue_on_error !== !1,
@@ -578,11 +578,11 @@ class at {
   }
   createRowsDownload(t) {
     const e = JSON.stringify(t, null, 2);
-    return Y("application/json", e);
+    return X("application/json", e);
   }
   async parseImportFile(t) {
     const e = await this.readFileText(t);
-    return ((t.name.toLowerCase().endsWith(".csv") ? "csv" : "json") === "csv" ? this.parseCSVText(e) : this.parseJSONRows(e)).map(S);
+    return ((t.name.toLowerCase().endsWith(".csv") ? "csv" : "json") === "csv" ? this.parseCSVText(e) : this.parseJSONRows(e)).map(w);
   }
   async readFileText(t) {
     const e = t;
@@ -666,7 +666,7 @@ class at {
     return this.applyState.resolutions[t] ?? "apply";
   }
   validationRowForIndex(t) {
-    return M(this.validateState.result).get(t) ?? null;
+    return P(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
     const a = ["apply", "skip"], s = e?.metadata ?? {};
@@ -706,19 +706,19 @@ class at {
   }
   render() {
     if (!this.root) return;
-    const t = O(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
+    const t = N(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
       (n) => n === "accepted"
     ).length, a = Object.values(this.validateState.decisions).filter(
       (n) => n === "rejected"
     ).length, s = this.historyExamples(), i = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="${F} overflow-hidden">
+      <section class="${V} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="${U}">Translation Exchange</p>
-              <h1 class="${G}">Translation Exchange Wizard</h1>
-              <p class="${B}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="${B}">Translation Exchange</p>
+              <h1 class="${Y}">Translation Exchange Wizard</h1>
+              <p class="${q}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="${f}" href="${o(
       `${this.config.apiPath}/template?format=json`
@@ -770,7 +770,7 @@ class at {
               </a>`
       ).join("");
       return `
-          <article class="${E}">
+          <article class="${A}">
             <div class="flex items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-gray-900">${o(a.kind.replace(/_/g, " "))}</p>
@@ -797,14 +797,14 @@ class at {
               <div class="mt-3 space-y-2">
                 ${["pages", "posts"].map((s) => `
                   <label class="flex items-center gap-3 text-sm text-gray-700">
-                    <input type="checkbox" name="resources" value="${s}" ${this.exportState.draft.resources.includes(s) ? "checked" : ""}>
+                    <input type="checkbox" class="${v}" name="resources" value="${s}" ${this.exportState.draft.resources.includes(s) ? "checked" : ""}>
                     <span>${s}</span>
                   </label>`).join("")}
               </div>
             </fieldset>
             <label class="block text-sm font-semibold text-gray-900">
               Source locale
-              <select name="source_locale" class="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2">
+              <select name="source_locale" class="mt-3 ${E}">
                 ${["en", "es", "fr", "de"].map((s) => `
                   <option value="${s}" ${this.exportState.draft.sourceLocale === s ? "selected" : ""}>${s.toUpperCase()}</option>`).join("")}
               </select>
@@ -815,21 +815,21 @@ class at {
             <div class="mt-3 flex flex-wrap gap-3">
               ${["es", "fr", "de", "it"].map((s) => `
                 <label class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                  <input type="checkbox" name="target_locales" value="${s}" ${this.exportState.draft.targetLocales.includes(s) ? "checked" : ""}>
+                  <input type="checkbox" class="${v}" name="target_locales" value="${s}" ${this.exportState.draft.targetLocales.includes(s) ? "checked" : ""}>
                   <span>${s.toUpperCase()}</span>
                 </label>`).join("")}
             </div>
           </fieldset>
-          <label class="flex items-center gap-3 ${C} text-sm text-gray-700">
-            <input type="checkbox" name="include_source_hash" ${this.exportState.draft.includeSourceHash ? "checked" : ""}>
+          <label class="flex items-center gap-3 ${I} text-sm text-gray-700">
+            <input type="checkbox" class="${v}" name="include_source_hash" ${this.exportState.draft.includeSourceHash ? "checked" : ""}>
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${j}" type="submit">Create export package</button>
+            <button class="${R}" type="submit">Create export package</button>
             <span class="text-sm text-gray-600">${o(this.exportState.message)}</span>
           </div>
         </form>
-        <aside class="space-y-4 ${D}">
+        <aside class="space-y-4 ${L}">
           <div>
             <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Preflight</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -855,16 +855,16 @@ class at {
             </ul>
           </div>
           ${a ? `
-              <div class="${z}">
+              <div class="${K}">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
                     <p class="text-xs text-gray-500">${o(a.id)}</p>
                   </div>
-                  <span class="${y(T(a.status))}">${o(a.status)}</span>
+                  <span class="${y(D(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-blue-500" style="width: ${H(a)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${J(a)}%"></div>
                 </div>
                 <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
                 ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(
@@ -881,13 +881,13 @@ class at {
       ${this.renderExampleLinks(a.filter((n) => n.kind === "import_validate"))}
       <section class="space-y-5 ${m}">
         <form data-validate-form="true" class="space-y-4">
-          <div class="${D}">
+          <div class="${L}">
             <label class="text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
             <input id="exchange-import-file" type="file" accept=".json,.csv" class="mt-3 block w-full text-sm text-gray-700">
             <p class="mt-2 text-sm text-gray-600">${o(this.validateState.upload.filename ?? "Choose a JSON or CSV package exported for translators.")}</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${j}" type="submit">Validate package</button>
+            <button class="${R}" type="submit">Validate package</button>
             <button class="${f}" type="button" data-exchange-step="apply" ${this.applyState.rows.length === 0 ? "disabled" : ""}>Continue to apply</button>
             <span class="text-sm text-gray-600">${o(this.validateState.message)}</span>
           </div>
@@ -927,7 +927,7 @@ class at {
                         <td class="px-4 py-3 font-medium text-gray-900">${o(n.index)}</td>
                         <td class="px-4 py-3 text-gray-700">${o(`${n.resource}.${n.field_path}`)}</td>
                         <td class="px-4 py-3 text-gray-700">${o(n.target_locale.toUpperCase())}</td>
-                        <td class="px-4 py-3"><span class="${y(v(n.status))}">${o(n.status)}</span></td>
+                        <td class="px-4 py-3"><span class="${y(S(n.status))}">${o(n.status)}</span></td>
                         <td class="px-4 py-3">
                           <div class="flex gap-2">
                             ${this.renderDecisionButton(n.index, "accepted", this.validateState.decisions[n.index] === "accepted")}
@@ -951,14 +951,14 @@ class at {
         type="button"
         data-stage-row="${t}"
         data-stage-decision="${e}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o(e)}
       </button>
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = M(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
+    const t = this.applyState.rows, e = P(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
       apply: 0,
       skip: 0,
       override: 0,
@@ -999,12 +999,12 @@ class at {
             ${this.renderApplyToggle("dryRun", "Dry-run only (no writes)", this.applyState.dryRun)}
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${j}" type="submit" ${t.length === 0 ? "disabled" : ""}>Submit apply job</button>
+            <button class="${R}" type="submit" ${t.length === 0 ? "disabled" : ""}>Submit apply job</button>
             <button class="${f}" type="button" data-exchange-step="history">Inspect history</button>
             <span class="text-sm text-gray-600">${o(this.applyState.message)}</span>
           </div>
           ${i ? `
-                <div class="${E}">
+                <div class="${A}">
                   <div class="flex items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold text-gray-900">Job progress</p>
@@ -1013,7 +1013,7 @@ class at {
                     <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">${o(i.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-blue-500" style="width: ${H(i)}%"></div>
+                    <div class="h-full bg-blue-500" style="width: ${J(i)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
                 </div>` : ""}
@@ -1044,7 +1044,7 @@ class at {
                           <tr>
                             <td class="px-4 py-3 font-medium text-gray-900">${o(d)}</td>
                             <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                            <td class="px-4 py-3"><span class="${y(v(p?.status ?? "staged"))}">${o(p?.status ?? "staged")}</span></td>
+                            <td class="px-4 py-3"><span class="${y(S(p?.status ?? "staged"))}">${o(p?.status ?? "staged")}</span></td>
                             <td class="px-4 py-3">
                               <div class="flex flex-wrap gap-2">
                                 ${this.rowActions(d, p).map((g) => this.renderApplyDecisionButton(
@@ -1100,7 +1100,7 @@ class at {
                         <tr>
                           <td class="px-4 py-3 font-medium text-gray-900">${o(r.index)}</td>
                           <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                          <td class="px-4 py-3"><span class="${y(v(r.status))}">${o(r.status)}</span></td>
+                          <td class="px-4 py-3"><span class="${y(S(r.status))}">${o(r.status)}</span></td>
                           <td class="px-4 py-3 text-gray-600">${o(String(r.metadata?.resolution_decision ?? "apply"))}</td>
                           <td class="px-4 py-3 text-gray-600">${o(r.conflict?.message ?? r.error ?? "Applied without conflict.")}</td>
                         </tr>
@@ -1114,8 +1114,8 @@ class at {
   }
   renderApplyToggle(t, e, a) {
     return `
-      <label class="flex items-center gap-3 ${C} text-sm text-gray-700">
-        <input type="checkbox" data-apply-option="${t}" ${a ? "checked" : ""}>
+      <label class="flex items-center gap-3 ${I} text-sm text-gray-700">
+        <input type="checkbox" class="${v}" data-apply-option="${t}" ${a ? "checked" : ""}>
         <span>${o(e)}</span>
       </label>
     `;
@@ -1126,7 +1126,7 @@ class at {
         type="button"
         data-apply-row="${t}"
         data-apply-decision="${e}"
-        class="rounded-full border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o({
       apply: "apply",
@@ -1138,13 +1138,13 @@ class at {
     `;
   }
   renderHistoryStep(t) {
-    const e = this.historyState.response?.meta, a = e?.job_kinds ?? ["export", "import_validate", "import_apply"], s = e?.job_statuses ?? ["running", "completed", "failed"], i = this.activeHistoryJob(), n = R(i);
+    const e = this.historyState.response?.meta, a = e?.job_kinds ?? ["export", "import_validate", "import_apply"], s = e?.job_statuses ?? ["running", "completed", "failed"], i = this.activeHistoryJob(), n = T(i);
     return `
       <section class="space-y-5">
         <div class="flex flex-wrap items-end gap-3 ${m}">
           <label class="text-sm font-medium text-gray-700">
             Kind
-            <select data-history-kind class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
+            <select data-history-kind class="mt-2 ${E}">
               <option value="all">All</option>
               ${a.map((r) => `
                 <option value="${o(r)}" ${this.historyState.kind === r ? "selected" : ""}>${o(r)}</option>`).join("")}
@@ -1152,7 +1152,7 @@ class at {
           </label>
           <label class="text-sm font-medium text-gray-700">
             Status
-            <select data-history-status class="mt-2 rounded-xl border border-gray-200 px-3 py-2">
+            <select data-history-status class="mt-2 ${E}">
               <option value="all">All</option>
               ${s.map((r) => `
                 <option value="${o(r)}" ${this.historyState.jobStatus === r ? "selected" : ""}>${o(r)}</option>`).join("")}
@@ -1170,11 +1170,11 @@ class at {
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="${y("info")}">${o(r.kind.replace(/_/g, " "))}</span>
-                            <span class="${y(T(r.status))}">${o(r.status)}</span>
+                            <span class="${y(D(r.status))}">${o(r.status)}</span>
                             ${r.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(r.file?.name ?? r.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o(I(r.created_at))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o(O(r.created_at))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(r.progress.processed)} / ${o(r.progress.total ?? 0)} processed</div>
@@ -1182,14 +1182,14 @@ class at {
                         </div>
                       </div>
                     </button>
-                  </article>`).join("") : `<div class="${L}">No jobs match the current filters.</div>`}
+                  </article>`).join("") : `<div class="${H}">No jobs match the current filters.</div>`}
           </div>
           ${i ? `
                 <section class="${m} space-y-4">
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o(I(i.updated_at))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o(O(i.updated_at))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
@@ -1208,7 +1208,7 @@ class at {
                         <div class="mt-1 text-2xl font-semibold text-gray-900">${o(c)}</div>
                       </div>`).join("")}
                   </div>
-                  <div class="${E} text-sm text-gray-700">
+                  <div class="${A} text-sm text-gray-700">
                     <div><span class="font-semibold text-gray-900">Request hash:</span> ${o(i.request_hash ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Request ID:</span> ${o(i.request_id ?? "n/a")}</div>
                     <div><span class="font-semibold text-gray-900">Trace ID:</span> ${o(i.trace_id ?? "n/a")}</div>
@@ -1234,13 +1234,13 @@ class at {
                                 <tr>
                                   <td class="px-4 py-3 font-medium text-gray-900">${o(r.index)}</td>
                                   <td class="px-4 py-3 text-gray-700">${o(`${r.resource}.${r.field_path}`)}</td>
-                                  <td class="px-4 py-3"><span class="${y(v(r.status))}">${o(r.status)}</span></td>
+                                  <td class="px-4 py-3"><span class="${y(S(r.status))}">${o(r.status)}</span></td>
                                   <td class="px-4 py-3 text-gray-600">${o(String(r.metadata?.resolution_decision ?? "apply"))}</td>
                                   <td class="px-4 py-3 text-gray-600">${o(r.conflict?.message ?? r.error ?? "Completed without conflict.")}</td>
                                 </tr>`).join("")}
                             </tbody>
                           </table>
-                        </div>` : `<div class="${L}">No per-row results were retained for this job.</div>`}
+                        </div>` : `<div class="${H}">No per-row results were retained for this job.</div>`}
                 </section>` : ""}
         </div>
       </section>
@@ -1248,10 +1248,10 @@ class at {
   }
 }
 export {
-  at as TranslationExchangeManager,
-  P as normalizeTranslationExchangeHistoryResponse,
-  k as normalizeTranslationExchangeJob,
+  it as TranslationExchangeManager,
+  U as normalizeTranslationExchangeHistoryResponse,
+  C as normalizeTranslationExchangeJob,
   x as normalizeTranslationExchangeUploadDescriptor,
-  A as normalizeTranslationExchangeValidationResult
+  k as normalizeTranslationExchangeValidationResult
 };
 //# sourceMappingURL=index.js.map

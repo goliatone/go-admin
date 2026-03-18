@@ -8,6 +8,13 @@
 
 // Types
 export * from './types.js';
+export {
+  normalizeCandidateWarningSummary,
+  normalizeDocumentLineageDetail,
+  normalizeAgreementLineageDetail,
+  normalizeGoogleImportLineageStatus,
+  normalizePhase1LineageContractFixtures,
+} from './lineage-contracts.js';
 
 // API Client
 export {

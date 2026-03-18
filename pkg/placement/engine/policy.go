@@ -14,17 +14,17 @@ type PlacementPolicy interface {
 
 // PolicyResolveInput captures precedence context for policy resolution.
 type PolicyResolveInput struct {
-	OrgID           string
-	UserID          string
-	PerRunOverride  *models.Policy
-	RegisteredOrder []string
+	OrgID           string         `json:"org_id"`
+	UserID          string         `json:"user_id"`
+	PerRunOverride  *models.Policy `json:"per_run_override"`
+	RegisteredOrder []string       `json:"registered_order"`
 }
 
 // StaticPolicyResolver provides in-memory system/org/user policy overlays.
 type StaticPolicyResolver struct {
-	System models.Policy
-	Org    map[string]models.Policy
-	User   map[string]models.Policy
+	System models.Policy            `json:"system"`
+	Org    map[string]models.Policy `json:"org"`
+	User   map[string]models.Policy `json:"user"`
 }
 
 // DefaultPolicy returns the baseline placement policy.

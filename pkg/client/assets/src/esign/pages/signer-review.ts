@@ -488,38 +488,60 @@ function normalizeReviewParticipant(participant) {
   };
 }
 
+function readNormalizedRecordValue(record, ...keys) {
+  if (!record || typeof record !== 'object') return undefined;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] != null) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function readNormalizedRecordString(record, ...keys) {
+  const value = readNormalizedRecordValue(record, ...keys);
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function readNormalizedRecordNumber(record, ...keys) {
+  const value = readNormalizedRecordValue(record, ...keys);
+  if (value == null || value === '') return 0;
+  return Number(value) || 0;
+}
+
 function normalizeReviewThread(threadWrapper) {
   if (!threadWrapper || typeof threadWrapper !== 'object') return null;
   const thread = threadWrapper.thread && typeof threadWrapper.thread === 'object' ? threadWrapper.thread : {};
   const messages = Array.isArray(threadWrapper.messages) ? threadWrapper.messages : [];
   return {
     thread: {
-      id: String(thread.id || '').trim(),
-      review_id: String(thread.review_id || '').trim(),
-      agreement_id: String(thread.agreement_id || '').trim(),
-      visibility: String(thread.visibility || 'shared').trim() || 'shared',
-      anchor_type: String(thread.anchor_type || 'agreement').trim() || 'agreement',
-      page_number: Number(thread.page_number || 0) || 0,
-      field_id: String(thread.field_id || '').trim(),
-      anchor_x: Number(thread.anchor_x || 0) || 0,
-      anchor_y: Number(thread.anchor_y || 0) || 0,
-      status: String(thread.status || 'open').trim() || 'open',
-      created_by_type: String(thread.created_by_type || '').trim(),
-      created_by_id: String(thread.created_by_id || '').trim(),
-      resolved_by_type: String(thread.resolved_by_type || '').trim(),
-      resolved_by_id: String(thread.resolved_by_id || '').trim(),
-      resolved_at: String(thread.resolved_at || '').trim(),
-      last_activity_at: String(thread.last_activity_at || '').trim(),
+      id: readNormalizedRecordString(thread, 'id', 'ID'),
+      review_id: readNormalizedRecordString(thread, 'review_id', 'reviewId', 'ReviewID'),
+      agreement_id: readNormalizedRecordString(thread, 'agreement_id', 'agreementId', 'AgreementID'),
+      visibility: readNormalizedRecordString(thread, 'visibility', 'Visibility') || 'shared',
+      anchor_type: readNormalizedRecordString(thread, 'anchor_type', 'anchorType', 'AnchorType') || 'agreement',
+      page_number: readNormalizedRecordNumber(thread, 'page_number', 'pageNumber', 'PageNumber'),
+      field_id: readNormalizedRecordString(thread, 'field_id', 'fieldId', 'FieldID'),
+      anchor_x: readNormalizedRecordNumber(thread, 'anchor_x', 'anchorX', 'AnchorX'),
+      anchor_y: readNormalizedRecordNumber(thread, 'anchor_y', 'anchorY', 'AnchorY'),
+      status: readNormalizedRecordString(thread, 'status', 'Status') || 'open',
+      created_by_type: readNormalizedRecordString(thread, 'created_by_type', 'createdByType', 'CreatedByType'),
+      created_by_id: readNormalizedRecordString(thread, 'created_by_id', 'createdByID', 'CreatedByID'),
+      resolved_by_type: readNormalizedRecordString(thread, 'resolved_by_type', 'resolvedByType', 'ResolvedByType'),
+      resolved_by_id: readNormalizedRecordString(thread, 'resolved_by_id', 'resolvedByID', 'ResolvedByID'),
+      resolved_at: readNormalizedRecordString(thread, 'resolved_at', 'resolvedAt', 'ResolvedAt'),
+      last_activity_at: readNormalizedRecordString(thread, 'last_activity_at', 'lastActivityAt', 'LastActivityAt'),
     },
     messages: messages
       .filter((message) => message && typeof message === 'object')
       .map((message) => ({
-        id: String(message.id || '').trim(),
-        thread_id: String(message.thread_id || '').trim(),
-        body: String(message.body || '').trim(),
-        created_by_type: String(message.created_by_type || '').trim(),
-        created_by_id: String(message.created_by_id || '').trim(),
-        created_at: String(message.created_at || '').trim(),
+        id: readNormalizedRecordString(message, 'id', 'ID'),
+        thread_id: readNormalizedRecordString(message, 'thread_id', 'threadId', 'ThreadID'),
+        body: readNormalizedRecordString(message, 'body', 'Body'),
+        created_by_type: readNormalizedRecordString(message, 'created_by_type', 'createdByType', 'CreatedByType'),
+        created_by_id: readNormalizedRecordString(message, 'created_by_id', 'createdByID', 'CreatedByID'),
+        created_at: readNormalizedRecordString(message, 'created_at', 'createdAt', 'CreatedAt'),
       })),
   };
 }
@@ -1016,6 +1038,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     return String(unifiedConfig.sessionKind || '').trim().toLowerCase() === 'reviewer';
   }
 
+  function signingInteractionsEnabled() {
+    return !isReviewOnlySession();
+  }
+
   function reviewSessionPath() {
     return `${unifiedConfig.apiBasePath}/session/${encodeURIComponent(unifiedConfig.token)}`;
   }
@@ -1059,6 +1085,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       state.reviewContext.resolved_thread_count = countReviewThreadsByStatus(state.reviewContext.threads, 'resolved');
     }
     renderReviewPanel();
+    requestOverlayRender();
     updateSessionChrome();
     updateSubmitButton();
   }
@@ -1606,12 +1633,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function setupReviewAnchorPointCapture() {
+    const clickSurface = document.getElementById('pdf-container');
     const pageContainer = document.getElementById('pdf-page-1');
-    if (!pageContainer) return;
+    if (!clickSurface || !pageContainer) return;
 
-    pageContainer.addEventListener('click', (event) => {
+    clickSurface.addEventListener('click', (event) => {
       if (!state.pickingReviewAnchorPoint || currentReviewAnchorType() !== 'page') return;
       if (!(event.target instanceof Element)) return;
+      event.preventDefault();
+      event.stopPropagation();
       const canvas = pageContainer.querySelector('canvas');
       const sourceElement = canvas instanceof HTMLElement ? canvas : pageContainer;
       const point = coordinateTransform.screenToPagePoint(
@@ -3722,11 +3752,18 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
   function renderFieldOverlays() {
     const overlaysContainer = document.getElementById('field-overlays');
+    if (!overlaysContainer) return;
     overlaysContainer.innerHTML = '';
     overlaysContainer.style.pointerEvents = 'auto';
 
     // Get PDF container for coordinate transforms
     const pdfContainer = document.getElementById('pdf-container');
+    if (!pdfContainer) return;
+
+    if (!signingInteractionsEnabled()) {
+      renderReviewThreadMarkers(overlaysContainer, pdfContainer);
+      return;
+    }
 
     state.fieldState.forEach((fieldData, fieldId) => {
       // Only show overlays for current page
@@ -3891,6 +3928,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // Field Activation and Editor
   // ============================================
   function activateField(fieldId) {
+    if (!signingInteractionsEnabled()) {
+      announceToScreenReader('This review session is read-only for signing fields.');
+      return;
+    }
     // Check consent first
     if (!state.hasConsented && unifiedConfig.fields.some(f => f.id === fieldId && f.type !== 'date_signed')) {
       showConsentModal();
@@ -3902,6 +3943,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   function focusField(fieldId, options = { openEditor: true }) {
     const fieldData = state.fieldState.get(fieldId);
     if (!fieldData) return;
+
+    if (options.openEditor && !signingInteractionsEnabled()) {
+      scrollFieldIntoView(fieldId);
+      return;
+    }
 
     if (options.openEditor) {
       state.activeFieldId = fieldId;
@@ -4673,6 +4719,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function saveFieldFromEditor() {
+    if (!signingInteractionsEnabled()) {
+      announceToScreenReader('This review session cannot modify signing fields.', 'assertive');
+      return;
+    }
     const fieldId = state.activeFieldId;
     if (!fieldId) return;
 
@@ -4782,6 +4832,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function saveFieldValue(fieldId, valueText, valueBool) {
+    if (!signingInteractionsEnabled()) {
+      throw new Error('This review session cannot modify signing fields');
+    }
     state.pendingSaves.add(fieldId);
     const saveStartTime = Date.now();
     const fieldData = state.fieldState.get(fieldId);
@@ -4836,6 +4889,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function saveSignatureArtifact(fieldId, signatureData, valueText) {
+    if (!signingInteractionsEnabled()) {
+      throw new Error('This review session cannot modify signing fields');
+    }
     state.pendingSaves.add(fieldId);
     const saveStartTime = Date.now();
     const signatureType = signatureData?.type || 'typed';
@@ -5153,6 +5209,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // Consent Management
   // ============================================
   function showConsentModal() {
+    if (!signingInteractionsEnabled()) {
+      return;
+    }
     const consentModal = document.getElementById('consent-modal');
     consentModal.classList.add('active');
     consentModal.setAttribute('aria-hidden', 'false');
@@ -5181,6 +5240,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function acceptConsent() {
+    if (!signingInteractionsEnabled()) {
+      return;
+    }
     const acceptBtn = document.getElementById('consent-accept-btn');
     acceptBtn.disabled = true;
     acceptBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
@@ -5279,6 +5341,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function showDeclineModal() {
+    if (!signingInteractionsEnabled()) {
+      return;
+    }
     const declineModal = document.getElementById('decline-modal');
     declineModal.classList.add('active');
     declineModal.setAttribute('aria-hidden', 'false');
@@ -5307,6 +5372,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function confirmDecline() {
+    if (!signingInteractionsEnabled()) {
+      return;
+    }
     const reason = document.getElementById('decline-reason').value;
 
     try {

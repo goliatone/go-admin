@@ -151,6 +151,7 @@ test('Phase 5 contract: signer review exposes unified review state and actions',
   assert.match(source, /sessionKind:\s*String\(config\.sessionKind \|\| 'signer'\)/);
   assert.match(source, /review:\s*normalizeReviewContext\(config\.review\)/);
   assert.match(source, /function renderReviewPanel\(\)/);
+  assert.match(source, /function syncReviewContext\(reviewContext\)\s*{[\s\S]*renderReviewPanel\(\);\s*requestOverlayRender\(\);\s*updateSessionChrome\(\);\s*updateSubmitButton\(\);/);
   assert.match(source, /reviewAPIRequest\(suffix,\s*\{\s*method:\s*'POST'/);
   assert.match(source, /state\.reviewContext\?\.sign_blocked/);
   assert.match(template, /data-esign-action="approve-review"/);
@@ -166,4 +167,30 @@ test('Phase 5 contract: signer review request-changes persists rationale and sep
   assert.match(source, /marker\.dataset\.esignAction = 'go-review-thread'/);
   assert.match(source, /trapFocusInModal\(modalContent\)/);
   assert.match(source, /e\.key === 'Escape'[\s\S]*hideReviewDecisionModal\(\);/);
+});
+
+test('Phase 5 contract: signer review normalizes PascalCase review thread payloads from Go JSON', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /function readNormalizedRecordValue\(record, \.\.\.keys\)/);
+  assert.match(source, /id: readNormalizedRecordString\(thread, 'id', 'ID'\)/);
+  assert.match(source, /anchor_type: readNormalizedRecordString\(thread, 'anchor_type', 'anchorType', 'AnchorType'\)/);
+  assert.match(source, /body: readNormalizedRecordString\(message, 'body', 'Body'\)/);
+  assert.match(source, /created_at: readNormalizedRecordString\(message, 'created_at', 'createdAt', 'CreatedAt'\)/);
+});
+
+test('Phase 5 contract: signer review captures page pin clicks from the shared PDF surface', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /const clickSurface = document\.getElementById\('pdf-container'\);/);
+  assert.match(source, /if \(!clickSurface \|\| !pageContainer\) return;/);
+  assert.match(source, /clickSurface\.addEventListener\('click', \(event\) => \{/);
+  assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
+});
+
+test('Phase 5 contract: reviewer sessions stay read-only in the signer review UI', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /function signingInteractionsEnabled\(\)\s*{\s*return !isReviewOnlySession\(\);/);
+  assert.match(source, /if \(!signingInteractionsEnabled\(\)\) {\s*renderReviewThreadMarkers\(overlaysContainer, pdfContainer\);\s*return;\s*}/);
+  assert.match(source, /function activateField\(fieldId\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
+  assert.match(source, /async function saveFieldFromEditor\(\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
+  assert.match(source, /async function acceptConsent\(\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
 });

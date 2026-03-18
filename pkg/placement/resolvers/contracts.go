@@ -16,23 +16,23 @@ type PlacementResolver interface {
 
 // ResolveInput is the canonical resolver execution input.
 type ResolveInput struct {
-	DocumentBytes      []byte
-	DocumentPageCount  int
-	FieldDefinitions   []models.FieldDefinition
-	ExistingPlacements []models.ExistingPlacement
-	NativeFormFields   []models.NativeFormField
-	BudgetRemaining    float64
-	TimeRemaining      time.Duration
+	DocumentBytes      []byte                     `json:"document_bytes"`
+	DocumentPageCount  int                        `json:"document_page_count"`
+	FieldDefinitions   []models.FieldDefinition   `json:"field_definitions"`
+	ExistingPlacements []models.ExistingPlacement `json:"existing_placements"`
+	NativeFormFields   []models.NativeFormField   `json:"native_form_fields"`
+	BudgetRemaining    float64                    `json:"budget_remaining"`
+	TimeRemaining      time.Duration              `json:"time_remaining"`
 }
 
 // ResolverCapability advertises resolver strategy capabilities.
 type ResolverCapability struct {
-	Description      string
-	Deterministic    bool
-	SupportsNative   bool
-	SupportsText     bool
-	SupportsOCR      bool
-	SupportsML       bool
-	EstimatedCost    string
-	EstimatedLatency string
+	Description      string `json:"description"`
+	Deterministic    bool   `json:"deterministic"`
+	SupportsNative   bool   `json:"supports_native"`
+	SupportsText     bool   `json:"supports_text"`
+	SupportsOCR      bool   `json:"supports_ocr"`
+	SupportsML       bool   `json:"supports_ml"`
+	EstimatedCost    string `json:"estimated_cost"`
+	EstimatedLatency string `json:"estimated_latency"`
 }

@@ -20,17 +20,17 @@ type PlacementOrchestrator interface {
 
 // RunInput captures a placement execution request.
 type RunInput struct {
-	RunID              string
-	AgreementID        string
-	CreatedByUserID    string
-	OrgID              string
-	UserID             string
-	PolicyOverride     *models.Policy
-	DocumentBytes      []byte
-	DocumentPageCount  int
-	FieldDefinitions   []models.FieldDefinition
-	ExistingPlacements []models.ExistingPlacement
-	NativeFormFields   []models.NativeFormField
+	RunID              string                     `json:"run_id"`
+	AgreementID        string                     `json:"agreement_id"`
+	CreatedByUserID    string                     `json:"created_by_user_id"`
+	OrgID              string                     `json:"org_id"`
+	UserID             string                     `json:"user_id"`
+	PolicyOverride     *models.Policy             `json:"policy_override"`
+	DocumentBytes      []byte                     `json:"document_bytes"`
+	DocumentPageCount  int                        `json:"document_page_count"`
+	FieldDefinitions   []models.FieldDefinition   `json:"field_definitions"`
+	ExistingPlacements []models.ExistingPlacement `json:"existing_placements"`
+	NativeFormFields   []models.NativeFormField   `json:"native_form_fields"`
 }
 
 // Orchestrator is the default placement orchestrator implementation.

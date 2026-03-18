@@ -247,3 +247,19 @@ export interface WizardState {
   fields?: Field[];
   [key: string]: unknown;
 }
+
+export type {
+  SourceMetadataBaseline,
+  LineageReference,
+  SourceRevisionSummary,
+  SourceArtifactSummary,
+  FingerprintStatusSummary,
+  CandidateEvidenceSummary,
+  CandidateWarningSummary,
+  LineageEmptyState,
+  DocumentLineageDetail,
+  AgreementLineageDetail,
+  GoogleImportLineageStatus,
+  LineagePresentationRules,
+  Phase1LineageContractFixtures,
+} from './lineage-contracts.js';

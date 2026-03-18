@@ -26,15 +26,15 @@ type IdempotencyStore interface {
 
 // IdempotencyReservation is an opaque claim over a replay key while a mutation is in flight.
 type IdempotencyReservation struct {
-	Key   string
-	Token string
+	Key   string `json:"key"`
+	Token string `json:"token"`
 }
 
 // IdempotencyReserveResult describes whether a replay key can be used, replayed, or is still in flight.
 type IdempotencyReserveResult struct {
-	Reservation *IdempotencyReservation
-	Result      *core.MutationResult
-	Pending     bool
+	Reservation *IdempotencyReservation `json:"reservation"`
+	Result      *core.MutationResult    `json:"result"`
+	Pending     bool                    `json:"pending"`
 }
 
 // ReservingIdempotencyStore coordinates replay keys safely across in-flight and completed mutations.
@@ -53,13 +53,13 @@ type CommitRecoveryStore interface {
 type MemoryResourceStore struct {
 	mu              sync.RWMutex
 	snapshots       map[string]core.Snapshot
-	Now             func() time.Time
-	GetError        error
-	MutateError     error
-	GetCalls        int
-	MutateCalls     int
-	LastGetRef      core.ResourceRef
-	LastMutateInput core.MutationInput
+	Now             func() time.Time   `json:"now"`
+	GetError        error              `json:"get_error"`
+	MutateError     error              `json:"mutate_error"`
+	GetCalls        int                `json:"get_calls"`
+	MutateCalls     int                `json:"mutate_calls"`
+	LastGetRef      core.ResourceRef   `json:"last_get_ref"`
+	LastMutateInput core.MutationInput `json:"last_mutate_input"`
 }
 
 // NewMemoryResourceStore builds an in-memory store seeded with snapshots.
@@ -141,20 +141,20 @@ func (s *MemoryResourceStore) Mutate(_ context.Context, input core.MutationInput
 type MemoryIdempotencyStore struct {
 	mu             sync.RWMutex
 	entries        map[string]memoryIdempotencyEntry
-	Now            func() time.Time
-	GetError       error
-	PutError       error
-	ReserveError   error
-	CommitError    error
-	RecoverError   error
-	ReleaseError   error
-	LastGetKey     string
-	LastPutKey     string
-	LastReserveKey string
-	LastCommitKey  string
-	LastRecoverKey string
-	LastReleaseKey string
-	LastTTL        time.Duration
+	Now            func() time.Time `json:"now"`
+	GetError       error            `json:"get_error"`
+	PutError       error            `json:"put_error"`
+	ReserveError   error            `json:"reserve_error"`
+	CommitError    error            `json:"commit_error"`
+	RecoverError   error            `json:"recover_error"`
+	ReleaseError   error            `json:"release_error"`
+	LastGetKey     string           `json:"last_get_key"`
+	LastPutKey     string           `json:"last_put_key"`
+	LastReserveKey string           `json:"last_reserve_key"`
+	LastCommitKey  string           `json:"last_commit_key"`
+	LastRecoverKey string           `json:"last_recover_key"`
+	LastReleaseKey string           `json:"last_release_key"`
+	LastTTL        time.Duration    `json:"last_ttl"`
 	counter        int64
 }
 
