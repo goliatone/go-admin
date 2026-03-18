@@ -43,6 +43,7 @@ type PanelBuilder struct {
 	actionDefaultsMode             PanelActionDefaultsMode
 	actionStateResolver            BatchActionStateResolver
 	bulkActionStateResolver        BulkActionStateResolver
+	breadcrumbs                    PanelBreadcrumbConfig
 }
 
 // Panel represents a registered panel.
@@ -75,6 +76,7 @@ type Panel struct {
 	actionDefaultsMode             PanelActionDefaultsMode
 	actionStateResolver            BatchActionStateResolver
 	bulkActionStateResolver        BulkActionStateResolver
+	breadcrumbs                    PanelBreadcrumbConfig
 }
 
 // PanelUIRouteMode declares who owns the panel's HTML UI route surface.
@@ -297,6 +299,15 @@ type MediaConfig struct {
 	LibraryPath string `json:"library_path"`
 }
 
+// PanelBreadcrumbConfig controls breadcrumb rendering for panel-backed routes.
+type PanelBreadcrumbConfig struct {
+	ListLabel           string
+	RootLabel           string
+	RootHref            string
+	ShowCurrentOnDetail bool
+	DetailLabelResolver func(record map[string]any) string
+}
+
 // WithRepository sets the panel repository.
 func (b *PanelBuilder) WithRepository(repo Repository) *PanelBuilder {
 	b.repo = repo
@@ -471,6 +482,12 @@ func (b *PanelBuilder) WithBulkActionStateResolver(resolver BulkActionStateResol
 	return b
 }
 
+// WithBreadcrumbs configures package-level breadcrumb defaults for the panel.
+func (b *PanelBuilder) WithBreadcrumbs(cfg PanelBreadcrumbConfig) *PanelBuilder {
+	b.breadcrumbs = normalizePanelBreadcrumbConfig(cfg)
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -514,6 +531,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		actionDefaultsMode:             normalizePanelActionDefaultsMode(b.actionDefaultsMode),
 		actionStateResolver:            b.actionStateResolver,
 		bulkActionStateResolver:        b.bulkActionStateResolver,
+		breadcrumbs:                    normalizePanelBreadcrumbConfig(b.breadcrumbs),
 	}, nil
 }
 
@@ -588,6 +606,14 @@ func (p *Panel) EntryMode() PanelEntryMode {
 	return normalizePanelEntryMode(p.entryMode)
 }
 
+// Breadcrumbs returns the panel breadcrumb contract.
+func (p *Panel) Breadcrumbs() PanelBreadcrumbConfig {
+	if p == nil {
+		return PanelBreadcrumbConfig{}
+	}
+	return normalizePanelBreadcrumbConfig(p.breadcrumbs)
+}
+
 func normalizePanelUIRouteMode(mode PanelUIRouteMode) PanelUIRouteMode {
 	switch mode {
 	case PanelUIRouteModeCustom:
@@ -615,6 +641,13 @@ func normalizePanelActionDefaultsMode(mode PanelActionDefaultsMode) PanelActionD
 	default:
 		return PanelActionDefaultsModeConservative
 	}
+}
+
+func normalizePanelBreadcrumbConfig(cfg PanelBreadcrumbConfig) PanelBreadcrumbConfig {
+	cfg.ListLabel = strings.TrimSpace(cfg.ListLabel)
+	cfg.RootLabel = strings.TrimSpace(cfg.RootLabel)
+	cfg.RootHref = strings.TrimSpace(cfg.RootHref)
+	return cfg
 }
 
 // Schema returns a basic schema description.
