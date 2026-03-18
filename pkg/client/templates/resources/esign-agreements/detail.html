@@ -279,6 +279,8 @@
 {% block extra_sections %}
 {% set page_status = resource_item.status|lower %}
 {% set page_executed_status = resource_item.delivery.executed_status|lower %}
+{% set page_executed_applicable = resource_item.delivery and resource_item.delivery.executed_applicable %}
+{% set page_certificate_applicable = resource_item.delivery and resource_item.delivery.certificate_applicable %}
 {% set page_executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or page_executed_status == "ready") %}
 
 {# Workflow & Lineage - Collapsible Card #}
@@ -1058,7 +1060,7 @@
 }
 </script>
 
-{% if page_status == "completed" and not page_executed_available %}
+{% if page_executed_applicable and page_status == "completed" and not page_executed_available %}
 <div id="download-status-notice-static" class="mx-6 mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
   <div class="flex items-start gap-2">
     <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1757,7 +1759,9 @@
         <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
           <div class="text-sm font-medium text-gray-900">Executed PDF (Completion Package)</div>
           {% set executed_status = resource_item.delivery.executed_status|lower %}
-          {% if executed_status == "ready" %}
+          {% if not page_executed_applicable %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">Not Available Until Completion</span>
+          {% elif executed_status == "ready" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
           {% elif executed_status == "failed" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
@@ -1770,7 +1774,9 @@
         <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
           <div class="text-sm font-medium text-gray-900">Certificate of Completion</div>
           {% set certificate_status = resource_item.delivery.certificate_status|lower %}
-          {% if certificate_status == "ready" %}
+          {% if not page_certificate_applicable %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">Not Available Until Completion</span>
+          {% elif certificate_status == "ready" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
           {% elif certificate_status == "failed" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
@@ -1892,6 +1898,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const resourceTenantId = '{{ resource_item.tenant_id|default:"" }}';
   const resourceOrgId = '{{ resource_item.org_id|default:"" }}';
   const agreementStatus = '{{ resource_item.status|default:"" }}'.toLowerCase();
+  const executedApplicable = {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %};
   const executedDeliveryStatus = '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase();
   const executedObjectKey = '{{ resource_item.delivery.executed_object_key|default:"" }}';
 
@@ -2562,7 +2569,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  if (agreementStatus === 'completed' && executedDeliveryStatus !== 'ready' && !executedObjectKey) {
+  if (executedApplicable && agreementStatus === 'completed' && executedDeliveryStatus !== 'ready' && !executedObjectKey) {
     markExecutedDownloadUnavailable('Executed completion package is still unavailable for this agreement. Artifact generation may still be running.');
   }
 
