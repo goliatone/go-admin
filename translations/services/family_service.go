@@ -157,8 +157,6 @@ type FamilyStore interface {
 	Families(context.Context) ([]FamilyRecord, error)
 	Family(context.Context, string) (FamilyRecord, bool, error)
 	SaveFamily(context.Context, FamilyRecord) error
-	LoadBackfillPlan(BackfillPlan) error
-	ReplaceAssignments([]FamilyAssignment) error
 }
 
 type InMemoryFamilyStore struct {
@@ -221,105 +219,6 @@ func (s *InMemoryFamilyStore) SaveFamily(_ context.Context, family FamilyRecord)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.families[family.ID] = cloneFamilyRecord(family)
-	return nil
-}
-
-func (s *InMemoryFamilyStore) LoadBackfillPlan(plan BackfillPlan) error {
-	if s == nil {
-		return fmt.Errorf("family store not configured")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.families = map[string]FamilyRecord{}
-	for _, family := range plan.Families {
-		record := FamilyRecord{
-			ID:                         strings.TrimSpace(family.ID),
-			TenantID:                   strings.TrimSpace(family.TenantID),
-			OrgID:                      strings.TrimSpace(family.OrgID),
-			ContentType:                strings.TrimSpace(strings.ToLower(family.ContentType)),
-			SourceLocale:               strings.TrimSpace(strings.ToLower(family.SourceLocale)),
-			SourceVariantID:            strings.TrimSpace(family.SourceVariantID),
-			ReadinessState:             strings.TrimSpace(family.ReadinessState),
-			MissingRequiredLocaleCount: family.MissingRequiredLocaleCount,
-			PendingReviewCount:         family.PendingReviewCount,
-			OutdatedLocaleCount:        family.OutdatedLocaleCount,
-			BlockerCodes:               normalizedStringSlice(family.BlockerCodes),
-			Variants:                   make([]FamilyVariant, 0, len(family.Variants)),
-			Assignments:                make([]FamilyAssignment, 0, len(family.Assignments)),
-			Blockers:                   make([]FamilyBlocker, 0, len(family.Blockers)),
-		}
-		for _, variant := range family.Variants {
-			record.Variants = append(record.Variants, FamilyVariant{
-				ID:                   strings.TrimSpace(variant.ID),
-				FamilyID:             strings.TrimSpace(variant.FamilyID),
-				TenantID:             strings.TrimSpace(variant.TenantID),
-				OrgID:                strings.TrimSpace(variant.OrgID),
-				Locale:               strings.TrimSpace(strings.ToLower(variant.Locale)),
-				Status:               normalizeVariantStatus(variant.Status),
-				IsSource:             variant.IsSource,
-				SourceHashAtLastSync: strings.TrimSpace(variant.SourceHashAtLastSync),
-				Fields:               cloneStringMap(variant.Fields),
-				Metadata:             cloneAnyMap(variant.Metadata),
-				SourceRecordID:       strings.TrimSpace(variant.SourceRecordID),
-				CreatedAt:            variant.CreatedAt,
-				UpdatedAt:            variant.UpdatedAt,
-			})
-		}
-		for _, assignment := range family.Assignments {
-			record.Assignments = append(record.Assignments, FamilyAssignment{
-				ID:           strings.TrimSpace(assignment.ID),
-				FamilyID:     strings.TrimSpace(assignment.FamilyID),
-				VariantID:    strings.TrimSpace(assignment.VariantID),
-				TenantID:     strings.TrimSpace(assignment.TenantID),
-				OrgID:        strings.TrimSpace(assignment.OrgID),
-				SourceLocale: strings.TrimSpace(strings.ToLower(assignment.SourceLocale)),
-				TargetLocale: strings.TrimSpace(strings.ToLower(assignment.TargetLocale)),
-				WorkScope:    strings.TrimSpace(assignment.WorkScope),
-				Status:       strings.TrimSpace(strings.ToLower(assignment.Status)),
-				Priority:     strings.TrimSpace(strings.ToLower(assignment.Priority)),
-			})
-		}
-		for _, blocker := range family.Blockers {
-			record.Blockers = append(record.Blockers, FamilyBlocker{
-				ID:          strings.TrimSpace(blocker.ID),
-				FamilyID:    strings.TrimSpace(blocker.FamilyID),
-				TenantID:    strings.TrimSpace(blocker.TenantID),
-				OrgID:       strings.TrimSpace(blocker.OrgID),
-				BlockerCode: strings.TrimSpace(strings.ToLower(blocker.BlockerCode)),
-				Locale:      strings.TrimSpace(strings.ToLower(blocker.Locale)),
-				FieldPath:   strings.TrimSpace(blocker.FieldPath),
-			})
-		}
-		s.families[record.ID] = record
-	}
-	return nil
-}
-
-func (s *InMemoryFamilyStore) ReplaceAssignments(assignments []FamilyAssignment) error {
-	if s == nil {
-		return fmt.Errorf("family store not configured")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	byFamily := map[string][]FamilyAssignment{}
-	for _, assignment := range assignments {
-		familyID := strings.TrimSpace(assignment.FamilyID)
-		if familyID == "" {
-			continue
-		}
-		normalized := assignment
-		normalized.FamilyID = familyID
-		normalized.TargetLocale = strings.TrimSpace(strings.ToLower(normalized.TargetLocale))
-		normalized.SourceLocale = strings.TrimSpace(strings.ToLower(normalized.SourceLocale))
-		normalized.WorkScope = normalizeWorkScope(normalized.WorkScope)
-		normalized.Status = strings.TrimSpace(strings.ToLower(normalized.Status))
-		normalized.Priority = strings.TrimSpace(strings.ToLower(normalized.Priority))
-		byFamily[familyID] = append(byFamily[familyID], normalized)
-	}
-	for familyID, family := range s.families {
-		family.Assignments = cloneFamilyAssignments(byFamily[familyID])
-		s.families[familyID] = family
-	}
 	return nil
 }
 
