@@ -255,6 +255,10 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	builder := f.admin.Panel(panelName).
 		WithRepository(repo).
 		WithActionDefaults(PanelActionDefaultsModeCRUD).
+		WithBreadcrumbs(PanelBreadcrumbConfig{
+			ListLabel:           dynamicPanelBreadcrumbLabel(contentType, panelSlug),
+			ShowCurrentOnDetail: false,
+		}).
 		ListFields(fields.List...).
 		FormFields(fields.Form...).
 		DetailFields(fields.Detail...).
@@ -1485,4 +1489,38 @@ func extractTabs(uiSchema map[string]any, panelName string) []PanelTab {
 		return out[i].Position < out[j].Position
 	})
 	return out
+}
+
+func dynamicPanelBreadcrumbLabel(contentType *CMSContentType, fallback string) string {
+	if contentType != nil {
+		if panelSlug := strings.TrimSpace(panelSlugForContentType(contentType)); panelSlug != "" {
+			return dynamicPanelBreadcrumbTitle(panelSlug)
+		}
+		if label := strings.TrimSpace(contentType.Name); label != "" {
+			return label
+		}
+		if slug := strings.TrimSpace(contentType.Slug); slug != "" {
+			return dynamicPanelBreadcrumbTitle(slug)
+		}
+	}
+	fallback = strings.TrimSpace(fallback)
+	if fallback == "" {
+		return ""
+	}
+	return dynamicPanelBreadcrumbTitle(fallback)
+}
+
+func dynamicPanelBreadcrumbTitle(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(value, "_", " "), "-", " "))
+	if value == "" {
+		return ""
+	}
+	parts := strings.Fields(value)
+	for idx, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[idx] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+	}
+	return strings.Join(parts, " ")
 }
