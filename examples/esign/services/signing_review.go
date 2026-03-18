@@ -351,6 +351,7 @@ func (s SigningService) ensurePublicReviewAccess(ctx context.Context, scope stor
 		if err != nil {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
 		}
+		_ = s.recordReviewParticipantView(ctx, scope, summary, participant)
 		return summary, reviewCtx, participant, nil
 	case PublicReviewTokenKindReview:
 		if token.ReviewToken == nil {
@@ -374,10 +375,29 @@ func (s SigningService) ensurePublicReviewAccess(ctx context.Context, scope stor
 		if reviewCtx == nil || !reviewCtx.IsReviewer {
 			return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("participant is not selected for review")
 		}
+		_ = s.recordReviewParticipantView(ctx, scope, summary, participant)
 		return summary, reviewCtx, participant, nil
 	default:
 		return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("unsupported review token type")
 	}
+}
+
+func (s SigningService) recordReviewParticipantView(
+	ctx context.Context,
+	scope stores.Scope,
+	summary ReviewSummary,
+	participant stores.AgreementReviewParticipantRecord,
+) error {
+	if summary.Review == nil {
+		return nil
+	}
+	return s.reviewWorkflow().appendAuditEvent(ctx, scope, summary.AgreementID, "agreement.review_viewed", reviewActorTypeForParticipant(participant), strings.TrimSpace(firstNonEmptyString(participant.RecipientID, participant.ID)), map[string]any{
+		"review_id":         strings.TrimSpace(summary.Review.ID),
+		"participant_id":    strings.TrimSpace(participant.ID),
+		"recipient_id":      strings.TrimSpace(participant.RecipientID),
+		"participant_type":  strings.TrimSpace(participant.ParticipantType),
+		"participant_email": strings.TrimSpace(participant.Email),
+	})
 }
 
 func buildSummaryOnlyReviewContext(summary ReviewSummary, canSign bool) *SignerSessionReviewContext {

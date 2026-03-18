@@ -194,6 +194,61 @@ func (m AgreementNotifyReviewersInput) Validate() error {
 	return nil
 }
 
+type AgreementReviewReminderControlInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ParticipantID string
+	RecipientID   string
+	ActorID       string
+	CorrelationID string
+}
+
+func (m AgreementReviewReminderControlInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.ParticipantID) == "" && strings.TrimSpace(m.RecipientID) == "" {
+		return fmt.Errorf("participant_id or recipient_id required")
+	}
+	return nil
+}
+
+type AgreementReviewReminderPauseInput struct {
+	AgreementReviewReminderControlInput
+}
+
+func (AgreementReviewReminderPauseInput) Type() string {
+	return CommandAgreementReviewReminderPause
+}
+
+func (m AgreementReviewReminderPauseInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReviewReminderResumeInput struct {
+	AgreementReviewReminderControlInput
+}
+
+func (AgreementReviewReminderResumeInput) Type() string {
+	return CommandAgreementReviewReminderResume
+}
+
+func (m AgreementReviewReminderResumeInput) Validate() error {
+	return m.validateRequired()
+}
+
+type AgreementReviewReminderSendNowInput struct {
+	AgreementReviewReminderControlInput
+}
+
+func (AgreementReviewReminderSendNowInput) Type() string {
+	return CommandAgreementReviewReminderSendNow
+}
+
+func (m AgreementReviewReminderSendNowInput) Validate() error {
+	return m.validateRequired()
+}
+
 type AgreementCloseReviewInput struct {
 	Scope         stores.Scope
 	AgreementID   string

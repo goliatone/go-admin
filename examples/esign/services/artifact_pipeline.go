@@ -451,6 +451,8 @@ type AgreementDeliveryDetail struct {
 	ExecutedStatus          string                              `json:"executed_status"`
 	CertificateStatus       string                              `json:"certificate_status"`
 	DistributionStatus      string                              `json:"distribution_status"`
+	ExecutedApplicable      bool                                `json:"executed_applicable"`
+	CertificateApplicable   bool                                `json:"certificate_applicable"`
 	NotificationStatus      string                              `json:"notification_status,omitempty"`
 	ExecutedObjectKey       string                              `json:"executed_object_key,omitempty"`
 	CertificateObjectKey    string                              `json:"certificate_object_key,omitempty"`
@@ -461,16 +463,28 @@ type AgreementDeliveryDetail struct {
 }
 
 func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, scope stores.Scope, agreementID string) (AgreementDeliveryDetail, error) {
+	agreementStatus := ""
 	detail := AgreementDeliveryDetail{
 		AgreementID:        strings.TrimSpace(agreementID),
 		ExecutedStatus:     DeliveryStatePending,
 		CertificateStatus:  DeliveryStatePending,
 		DistributionStatus: DeliveryStatePending,
 	}
+	if s.agreements != nil {
+		agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return detail, err
+		}
+		agreementStatus = strings.TrimSpace(agreement.Status)
+		detail.ExecutedApplicable = agreementArtifactApplicable(agreementStatus, "")
+		detail.CertificateApplicable = agreementArtifactApplicable(agreementStatus, "")
+	}
 	if s.artifacts != nil {
 		if artifactRecord, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID); err == nil {
 			detail.ExecutedObjectKey = artifactRecord.ExecutedObjectKey
 			detail.CertificateObjectKey = artifactRecord.CertificateObjectKey
+			detail.ExecutedApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.ExecutedObjectKey)
+			detail.CertificateApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.CertificateObjectKey)
 			if artifactRecord.ExecutedObjectKey != "" {
 				detail.ExecutedStatus = DeliveryStateReady
 			}
@@ -522,6 +536,13 @@ func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, sc
 	}
 	detail.CorrelationIDs = dedupeStrings(detail.CorrelationIDs)
 	return detail, nil
+}
+
+func agreementArtifactApplicable(status, objectKey string) bool {
+	if strings.TrimSpace(objectKey) != "" {
+		return true
+	}
+	return strings.TrimSpace(status) == stores.AgreementStatusCompleted
 }
 
 func (s ArtifactPipelineService) persistArtifactBlob(ctx context.Context, objectKey string, payload []byte) error {

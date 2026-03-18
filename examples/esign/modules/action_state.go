@@ -101,6 +101,13 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"Review notifications can only be resent while a draft agreement has an active review.",
 			"esign.agreements.notify_reviewers_requires_active_review",
 		)
+	case "pause_review_reminder", "resume_review_reminder", "send_review_reminder_now":
+		action.Guard = agreementDraftReviewGuard(
+			action.Name,
+			[]string{stores.AgreementReviewStatusInReview},
+			"Review reminder controls can only be used while a draft agreement has an active review.",
+			"esign.agreements.review_reminder_controls_require_active_review",
+		)
 	case "close_review":
 		action.Guard = agreementDraftReviewGuard(
 			action.Name,

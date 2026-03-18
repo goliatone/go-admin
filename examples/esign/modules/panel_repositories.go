@@ -494,7 +494,11 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
 	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
 	if reviewSummary, err := r.service.GetReviewSummary(ctx, scope, agreementID); err == nil {
-		result["review"] = reviewSummaryToMap(reviewSummary)
+		reviewReminderStates, statesErr := r.service.ReviewReminderStates(ctx, scope, agreementID)
+		if statesErr != nil {
+			reviewReminderStates = map[string]services.ReviewReminderState{}
+		}
+		result["review"] = reviewSummaryToMap(reviewSummary, reviewReminderStates)
 	}
 	// Fetch document title if document_id exists
 	documentID := strings.TrimSpace(agreement.DocumentID)
@@ -918,6 +922,8 @@ func agreementRecordToMap(
 			"executed_status":          delivery.ExecutedStatus,
 			"certificate_status":       delivery.CertificateStatus,
 			"distribution_status":      delivery.DistributionStatus,
+			"executed_applicable":      delivery.ExecutedApplicable,
+			"certificate_applicable":   delivery.CertificateApplicable,
 			"notification_status":      delivery.NotificationStatus,
 			"executed_object_key":      delivery.ExecutedObjectKey,
 			"certificate_object_key":   delivery.CertificateObjectKey,
@@ -930,7 +936,7 @@ func agreementRecordToMap(
 	return payload
 }
 
-func reviewSummaryToMap(summary services.ReviewSummary) map[string]any {
+func reviewSummaryToMap(summary services.ReviewSummary, reminderStates map[string]services.ReviewReminderState) map[string]any {
 	payload := map[string]any{
 		"agreement_id":          strings.TrimSpace(summary.AgreementID),
 		"status":                strings.TrimSpace(summary.Status),
@@ -949,6 +955,7 @@ func reviewSummaryToMap(summary services.ReviewSummary) map[string]any {
 	if len(summary.Participants) > 0 {
 		participants := make([]map[string]any, 0, len(summary.Participants))
 		for _, participant := range summary.Participants {
+			reminderState := reminderStates[strings.TrimSpace(participant.ID)]
 			participants = append(participants, map[string]any{
 				"id":               strings.TrimSpace(participant.ID),
 				"participant_type": strings.TrimSpace(participant.ParticipantType),
@@ -960,6 +967,12 @@ func reviewSummaryToMap(summary services.ReviewSummary) map[string]any {
 				"can_approve":      participant.CanApprove,
 				"decision_status":  strings.TrimSpace(participant.DecisionStatus),
 				"decision_at":      formatTimePtr(participant.DecisionAt),
+				"reminder_status":  strings.TrimSpace(reminderState.Status),
+				"next_due_at":      formatTimePtr(reminderState.NextDueAt),
+				"last_sent_at":     formatTimePtr(reminderState.LastSentAt),
+				"reminder_count":   reminderState.SentCount,
+				"last_error_code":  strings.TrimSpace(reminderState.LastErrorCode),
+				"paused":           reminderState.Paused,
 			})
 		}
 		payload["participants"] = participants

@@ -18,21 +18,22 @@ import (
 )
 
 type stubAgreementLifecycleService struct {
-	sentCalls        int
-	voidCalls        int
-	resendCalls      int
-	revisionCalls    int
-	reviewCalls      int
-	commentCalls     int
-	lastScope        stores.Scope
-	lastID           string
-	lastSend         services.SendInput
-	lastVoid         services.VoidInput
-	lastResend       services.ResendInput
-	lastRevision     services.CreateRevisionInput
-	lastReviewNotify services.ReviewNotifyInput
-	sendErr          error
-	revisionErr      error
+	sentCalls         int
+	voidCalls         int
+	resendCalls       int
+	revisionCalls     int
+	reviewCalls       int
+	commentCalls      int
+	lastScope         stores.Scope
+	lastID            string
+	lastSend          services.SendInput
+	lastVoid          services.VoidInput
+	lastResend        services.ResendInput
+	lastRevision      services.CreateRevisionInput
+	lastReviewNotify  services.ReviewNotifyInput
+	lastReviewControl services.ReviewReminderControlInput
+	sendErr           error
+	revisionErr       error
 }
 
 func (s *stubAgreementLifecycleService) Send(_ context.Context, scope stores.Scope, agreementID string, input services.SendInput) (stores.AgreementRecord, error) {
@@ -215,18 +216,22 @@ func (s *stubDraftCleanupService) CleanupExpiredDrafts(_ context.Context, before
 }
 
 type stubAgreementReminderService struct {
-	sweepCalls    int
-	cleanupCalls  int
-	pauseCalls    int
-	resumeCalls   int
-	sendNowCalls  int
-	lastScope     stores.Scope
-	lastID        string
-	lastRecipient string
-	lastCleanupAt time.Time
-	lastLimit     int
-	sweepResult   services.AgreementReminderSweepResult
-	sendNowResult services.ResendResult
+	sweepCalls         int
+	cleanupCalls       int
+	pauseCalls         int
+	resumeCalls        int
+	sendNowCalls       int
+	reviewPauseCalls   int
+	reviewResumeCalls  int
+	reviewSendNowCalls int
+	lastScope          stores.Scope
+	lastID             string
+	lastRecipient      string
+	lastParticipant    string
+	lastCleanupAt      time.Time
+	lastLimit          int
+	sweepResult        services.AgreementReminderSweepResult
+	sendNowResult      services.ResendResult
 }
 
 func (s *stubAgreementReminderService) Sweep(_ context.Context, scope stores.Scope) (services.AgreementReminderSweepResult, error) {
@@ -276,6 +281,41 @@ func (s *stubAgreementReminderService) SendNow(_ context.Context, scope stores.S
 		s.sendNowResult.Agreement.ID = agreementID
 	}
 	return s.sendNowResult, nil
+}
+
+func (s *stubAgreementLifecycleService) PauseReviewReminder(_ context.Context, scope stores.Scope, agreementID string, input services.ReviewReminderControlInput) (services.ReviewReminderState, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastReviewControl = input
+	return services.ReviewReminderState{
+		AgreementID:   agreementID,
+		ParticipantID: input.ParticipantID,
+		RecipientID:   input.RecipientID,
+		Status:        stores.AgreementReminderStatusPaused,
+		Paused:        true,
+	}, nil
+}
+
+func (s *stubAgreementLifecycleService) ResumeReviewReminder(_ context.Context, scope stores.Scope, agreementID string, input services.ReviewReminderControlInput) (services.ReviewReminderState, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastReviewControl = input
+	return services.ReviewReminderState{
+		AgreementID:   agreementID,
+		ParticipantID: input.ParticipantID,
+		RecipientID:   input.RecipientID,
+		Status:        stores.AgreementReminderStatusActive,
+	}, nil
+}
+
+func (s *stubAgreementLifecycleService) SendReviewReminderNow(_ context.Context, scope stores.Scope, agreementID string, input services.ReviewReminderControlInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastReviewControl = input
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
 }
 
 func TestBuildAgreementSendInputUsesIDsFallback(t *testing.T) {
@@ -535,6 +575,22 @@ func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
 	}
 	if got := agreementSvc.lastReviewNotify.RecipientID; got != "recipient-1" {
 		t.Fatalf("expected notify_reviewers recipient propagation, got %q", got)
+	}
+	reviewReminderPayload := map[string]any{"agreement_id": "agreement-1", "participant_id": "participant-1", "recipient_id": "recipient-1"}
+	if err := bus.DispatchByName(ctx, CommandAgreementReviewReminderPause, reviewReminderPayload, nil); err != nil {
+		t.Fatalf("DispatchByName review reminder pause: %v", err)
+	}
+	if err := bus.DispatchByName(ctx, CommandAgreementReviewReminderResume, reviewReminderPayload, nil); err != nil {
+		t.Fatalf("DispatchByName review reminder resume: %v", err)
+	}
+	if err := bus.DispatchByName(ctx, CommandAgreementReviewReminderSendNow, reviewReminderPayload, nil); err != nil {
+		t.Fatalf("DispatchByName review reminder send_now: %v", err)
+	}
+	if got := agreementSvc.lastReviewControl.IPAddress; got != "198.51.100.25" {
+		t.Fatalf("expected review reminder ip propagation, got %q", got)
+	}
+	if got := agreementSvc.lastReviewControl.ParticipantID; got != "participant-1" {
+		t.Fatalf("expected review reminder participant propagation, got %q", got)
 	}
 }
 

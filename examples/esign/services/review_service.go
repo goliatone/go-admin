@@ -49,7 +49,14 @@ type ReviewNotifyInput struct {
 	ActorID       string
 	IPAddress     string
 	CorrelationID string
+	Source        string
+	Reason        string
 }
+
+const (
+	ReviewNotificationSourceManual       = "manual"
+	ReviewNotificationSourceAutoReminder = "auto_reminder"
+)
 
 type ReviewCommentThreadInput struct {
 	ReviewID   string
@@ -276,6 +283,7 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 			return err
 		}
 		now := txSvc.now()
+		source := normalizeReviewNotificationSource(input.Source)
 		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
 		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, targets, issuedTokens, correlationID)
 		if err != nil {
@@ -288,6 +296,8 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":            review.ID,
 			"review_status":        review.Status,
+			"source":               source,
+			"reason":               strings.TrimSpace(input.Reason),
 			"requested_by_user_id": strings.TrimSpace(input.RequestedByID),
 			"notified_count":       len(targets),
 			"review_participants":  normalizeReviewParticipantMetadata(targets),
@@ -745,6 +755,15 @@ func normalizeReviewActorType(actorType string) string {
 		return "user"
 	}
 	return actorType
+}
+
+func normalizeReviewNotificationSource(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case ReviewNotificationSourceAutoReminder:
+		return ReviewNotificationSourceAutoReminder
+	default:
+		return ReviewNotificationSourceManual
+	}
 }
 
 func resolveReviewNotificationTargets(

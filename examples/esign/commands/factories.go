@@ -37,6 +37,15 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementNotifyReviewers, buildAgreementNotifyReviewersInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReviewReminderPause, buildAgreementReviewReminderPauseInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReviewReminderResume, buildAgreementReviewReminderResumeInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReviewReminderSendNow, buildAgreementReviewReminderSendNowInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementCloseReview, buildAgreementCloseReviewInput); err != nil {
 		return err
 	}
@@ -242,6 +251,57 @@ func buildAgreementNotifyReviewersInput(payload map[string]any, ids []string) (A
 		return msg, err
 	}
 	return msg, nil
+}
+
+func buildAgreementReviewReminderPauseInput(payload map[string]any, ids []string) (AgreementReviewReminderPauseInput, error) {
+	base, err := buildAgreementReviewReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReviewReminderPauseInput{}, err
+	}
+	msg := AgreementReviewReminderPauseInput{AgreementReviewReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReviewReminderResumeInput(payload map[string]any, ids []string) (AgreementReviewReminderResumeInput, error) {
+	base, err := buildAgreementReviewReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReviewReminderResumeInput{}, err
+	}
+	msg := AgreementReviewReminderResumeInput{AgreementReviewReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReviewReminderSendNowInput(payload map[string]any, ids []string) (AgreementReviewReminderSendNowInput, error) {
+	base, err := buildAgreementReviewReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReviewReminderSendNowInput{}, err
+	}
+	msg := AgreementReviewReminderSendNowInput{AgreementReviewReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReviewReminderControlInput(payload map[string]any, ids []string) (AgreementReviewReminderControlInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementReviewReminderControlInput{}, err
+	}
+	return AgreementReviewReminderControlInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}, nil
 }
 
 func buildAgreementApproveReviewInput(payload map[string]any, ids []string) (AgreementApproveReviewInput, error) {

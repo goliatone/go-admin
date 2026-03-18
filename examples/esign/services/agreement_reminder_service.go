@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +33,34 @@ type AgreementReminderSweepResult struct {
 	ClaimToSendMS           []float64
 	DueToSendMS             []float64
 	DueBacklogAgeMS         []float64
+}
+
+// ReviewReminderControlInput captures actor/context for participant-level review reminder controls.
+type ReviewReminderControlInput struct {
+	ParticipantID string
+	RecipientID   string
+	ActorType     string
+	ActorID       string
+	IPAddress     string
+	CorrelationID string
+}
+
+// ReviewReminderState summarizes derived review reminder cadence for one review participant.
+type ReviewReminderState struct {
+	AgreementID        string
+	ReviewID           string
+	ParticipantID      string
+	RecipientID        string
+	Status             string
+	SentCount          int
+	FirstSentAt        *time.Time
+	LastSentAt         *time.Time
+	LastViewedAt       *time.Time
+	LastManualResendAt *time.Time
+	NextDueAt          *time.Time
+	LastReasonCode     string
+	LastErrorCode      string
+	Paused             bool
 }
 
 // AgreementReminderService coordinates due reminder claims and resend dispatch.
@@ -213,6 +243,11 @@ func (s AgreementReminderService) Sweep(ctx context.Context, scope stores.Scope)
 			}
 		}
 	}
+	reviewResult, err := s.sweepReviewReminders(ctx, scope, now, policy)
+	if err != nil {
+		return out, err
+	}
+	mergeAgreementReminderSweepResult(&out, reviewResult)
 	return out, nil
 }
 
@@ -476,6 +511,354 @@ func durationMillisNonNegative(value time.Duration) float64 {
 	return float64(value.Milliseconds())
 }
 
+func mergeAgreementReminderSweepResult(dst *AgreementReminderSweepResult, src AgreementReminderSweepResult) {
+	if dst == nil {
+		return
+	}
+	dst.Claimed += src.Claimed
+	dst.Sent += src.Sent
+	dst.Skipped += src.Skipped
+	dst.Failed += src.Failed
+	dst.LeaseLost += src.LeaseLost
+	dst.LeaseConflict += src.LeaseConflict
+	dst.StateInvariantViolation += src.StateInvariantViolation
+	dst.PolicyBlock += src.PolicyBlock
+	if dst.SkipReasons == nil {
+		dst.SkipReasons = map[string]int{}
+	}
+	for key, value := range src.SkipReasons {
+		dst.SkipReasons[key] += value
+	}
+	if dst.FailureReasons == nil {
+		dst.FailureReasons = map[string]int{}
+	}
+	for key, value := range src.FailureReasons {
+		dst.FailureReasons[key] += value
+	}
+	dst.ClaimToSendMS = append(dst.ClaimToSendMS, src.ClaimToSendMS...)
+	dst.DueToSendMS = append(dst.DueToSendMS, src.DueToSendMS...)
+	dst.DueBacklogAgeMS = append(dst.DueBacklogAgeMS, src.DueBacklogAgeMS...)
+}
+
+type derivedReviewReminderState struct {
+	Snapshot          ReviewReminderState
+	State             reminders.State
+	AutoReminderCount int
+	pausedNextDueAt   *time.Time
+}
+
+func (s AgreementReminderService) sweepReviewReminders(
+	ctx context.Context,
+	scope stores.Scope,
+	now time.Time,
+	policy reminders.Policy,
+) (AgreementReminderSweepResult, error) {
+	out := AgreementReminderSweepResult{
+		SkipReasons:    map[string]int{},
+		FailureReasons: map[string]int{},
+	}
+	if s.agreements == nil {
+		return out, nil
+	}
+	audits, ok := s.agreements.(stores.AuditEventStore)
+	if !ok || audits == nil {
+		return out, nil
+	}
+	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{
+		Status: stores.AgreementStatusDraft,
+		Limit:  500,
+	})
+	if err != nil {
+		return out, err
+	}
+	for _, agreement := range agreements {
+		if strings.TrimSpace(agreement.ReviewStatus) != stores.AgreementReviewStatusInReview {
+			continue
+		}
+		summary, err := s.lifecycle.GetReviewSummary(ctx, scope, agreement.ID)
+		if err != nil {
+			out.Failed++
+			out.FailureReasons["review_summary_failed"]++
+			continue
+		}
+		if summary.Review == nil || strings.TrimSpace(summary.Status) != stores.AgreementReviewStatusInReview {
+			continue
+		}
+		events, err := audits.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+		if err != nil {
+			out.Failed++
+			out.FailureReasons["review_audit_lookup_failed"]++
+			continue
+		}
+		sort.Slice(events, func(i, j int) bool {
+			if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
+				return events[i].CreatedAt.Before(events[j].CreatedAt)
+			}
+			return events[i].ID < events[j].ID
+		})
+		for _, participant := range summary.Participants {
+			if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending {
+				continue
+			}
+			derived, ok := deriveReviewReminderState(scope, agreement.ID, summary.Status, now, participant, events, policy)
+			if !ok {
+				continue
+			}
+			if strings.TrimSpace(derived.Snapshot.Status) == stores.AgreementReminderStatusPaused {
+				out.Skipped++
+				out.SkipReasons["review_paused"]++
+				continue
+			}
+			decision := reminders.Evaluate(now, policy, derived.State)
+			if derived.State.NextDueAt != nil {
+				out.DueBacklogAgeMS = append(out.DueBacklogAgeMS, durationMillisNonNegative(now.Sub(derived.State.NextDueAt.UTC())))
+			}
+			if !decision.Due {
+				out.Skipped++
+				reason := prefixReviewReminderReason(decision.ReasonCode)
+				if reason != "" {
+					out.SkipReasons[reason]++
+				}
+				continue
+			}
+			out.Claimed++
+			correlationID := fmt.Sprintf("review-reminder:%s:%s:%d", strings.TrimSpace(agreement.ID), strings.TrimSpace(participant.ID), derived.AutoReminderCount+1)
+			notifyStartedAt := s.now().UTC()
+			if _, err := s.lifecycle.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
+				ParticipantID: strings.TrimSpace(participant.ID),
+				RequestedByID: "",
+				ActorType:     "system",
+				ActorID:       "",
+				CorrelationID: correlationID,
+				Source:        ReviewNotificationSourceAutoReminder,
+			}); err != nil {
+				out.Failed++
+				out.FailureReasons["review_notify_failed"]++
+				continue
+			}
+			out.Sent++
+			out.ClaimToSendMS = append(out.ClaimToSendMS, 0)
+			if derived.State.NextDueAt != nil {
+				out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(notifyStartedAt.Sub(derived.State.NextDueAt.UTC())))
+			}
+		}
+	}
+	return out, nil
+}
+
+func deriveReviewReminderState(
+	scope stores.Scope,
+	agreementID string,
+	reviewStatus string,
+	now time.Time,
+	participant stores.AgreementReviewParticipantRecord,
+	events []stores.AuditEventRecord,
+	policy reminders.Policy,
+) (derivedReviewReminderState, bool) {
+	state := reminders.State{}
+	snapshot := ReviewReminderState{
+		AgreementID:   strings.TrimSpace(agreementID),
+		ReviewID:      strings.TrimSpace(participant.ReviewID),
+		ParticipantID: strings.TrimSpace(participant.ID),
+		RecipientID:   strings.TrimSpace(participant.RecipientID),
+		Status:        stores.AgreementReminderStatusActive,
+	}
+	stableKey := reviewReminderStableKey(scope, participant)
+	var cycleStart *time.Time
+	for _, event := range events {
+		if !reviewReminderEventApplies(event, participant) {
+			continue
+		}
+		switch strings.TrimSpace(event.EventType) {
+		case "agreement.review_requested", "agreement.review_reopened":
+			startedAt := event.CreatedAt.UTC()
+			cycleStart = &startedAt
+			state = reminders.State{
+				FirstSentAt: &startedAt,
+				LastSentAt:  &startedAt,
+			}
+			snapshot = ReviewReminderState{
+				AgreementID:   strings.TrimSpace(agreementID),
+				ReviewID:      strings.TrimSpace(participant.ReviewID),
+				ParticipantID: strings.TrimSpace(participant.ID),
+				RecipientID:   strings.TrimSpace(participant.RecipientID),
+				Status:        stores.AgreementReminderStatusActive,
+				FirstSentAt:   cloneServiceTimePtr(&startedAt),
+				LastSentAt:    cloneServiceTimePtr(&startedAt),
+			}
+		}
+	}
+	if cycleStart == nil {
+		return derivedReviewReminderState{}, false
+	}
+	derived := derivedReviewReminderState{Snapshot: snapshot, State: state}
+	for _, event := range events {
+		eventAt := event.CreatedAt.UTC()
+		if eventAt.Before(*cycleStart) {
+			continue
+		}
+		if !reviewReminderEventApplies(event, participant) {
+			continue
+		}
+		switch strings.TrimSpace(event.EventType) {
+		case "agreement.review_requested", "agreement.review_reopened":
+			derived.State.FirstSentAt = cloneServiceTimePtr(&eventAt)
+			derived.State.LastSentAt = cloneServiceTimePtr(&eventAt)
+			derived.Snapshot.FirstSentAt = cloneServiceTimePtr(&eventAt)
+			derived.Snapshot.LastSentAt = cloneServiceTimePtr(&eventAt)
+			derived.Snapshot.Status = stores.AgreementReminderStatusActive
+			derived.Snapshot.Paused = false
+			derived.Snapshot.NextDueAt = nil
+			derived.Snapshot.LastReasonCode = ""
+			derived.pausedNextDueAt = nil
+		case "agreement.review_notified":
+			source := reviewReminderEventSource(event)
+			derived.State.LastSentAt = cloneServiceTimePtr(&eventAt)
+			derived.Snapshot.LastSentAt = cloneServiceTimePtr(&eventAt)
+			if source == ReviewNotificationSourceAutoReminder {
+				derived.AutoReminderCount++
+				derived.State.SentCount = derived.AutoReminderCount
+				derived.Snapshot.SentCount = derived.AutoReminderCount
+			} else {
+				derived.State.LastManualResendAt = cloneServiceTimePtr(&eventAt)
+				derived.Snapshot.LastManualResendAt = cloneServiceTimePtr(&eventAt)
+			}
+		case "agreement.review_viewed":
+			derived.State.LastViewedAt = newerTimePtr(derived.State.LastViewedAt, &eventAt)
+			derived.Snapshot.LastViewedAt = newerTimePtr(derived.Snapshot.LastViewedAt, &eventAt)
+		case "agreement.review_reminders_paused":
+			derived.Snapshot.Status = stores.AgreementReminderStatusPaused
+			derived.Snapshot.Paused = true
+			derived.Snapshot.LastReasonCode = "paused"
+			derived.pausedNextDueAt = reviewReminderEventNextDueAt(event)
+			derived.Snapshot.NextDueAt = nil
+		case "agreement.review_reminders_resumed":
+			derived.Snapshot.Status = stores.AgreementReminderStatusActive
+			derived.Snapshot.Paused = false
+			derived.Snapshot.LastReasonCode = "resumed"
+			derived.Snapshot.NextDueAt = reviewReminderEventNextDueAt(event)
+			derived.pausedNextDueAt = nil
+		}
+	}
+	if derived.State.FirstSentAt == nil {
+		return derivedReviewReminderState{}, false
+	}
+	derived.Snapshot.FirstSentAt = newerTimePtr(derived.Snapshot.FirstSentAt, derived.State.FirstSentAt)
+	derived.Snapshot.LastSentAt = newerTimePtr(derived.Snapshot.LastSentAt, derived.State.LastSentAt)
+	derived.Snapshot.LastViewedAt = newerTimePtr(derived.Snapshot.LastViewedAt, derived.State.LastViewedAt)
+	derived.Snapshot.LastManualResendAt = newerTimePtr(derived.Snapshot.LastManualResendAt, derived.State.LastManualResendAt)
+	if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending || strings.TrimSpace(reviewStatus) != stores.AgreementReviewStatusInReview {
+		derived.Snapshot.Status = stores.AgreementReminderStatusTerminal
+		derived.Snapshot.Paused = false
+		derived.Snapshot.NextDueAt = nil
+		derived.State.NextDueAt = nil
+		return derived, true
+	}
+	if derived.Snapshot.Paused {
+		derived.State.NextDueAt = nil
+		derived.Snapshot.NextDueAt = nil
+		return derived, true
+	}
+	baseline := newerTimePtr(derived.State.LastSentAt, derived.State.FirstSentAt)
+	if derived.Snapshot.NextDueAt != nil {
+		derived.State.NextDueAt = cloneServiceTimePtr(derived.Snapshot.NextDueAt)
+	} else if baseline != nil {
+		decision := reminders.Evaluate(now.UTC(), policy, reminders.State{
+			SentCount:          derived.State.SentCount,
+			FirstSentAt:        derived.State.FirstSentAt,
+			LastSentAt:         derived.State.LastSentAt,
+			LastViewedAt:       derived.State.LastViewedAt,
+			LastManualResendAt: derived.State.LastManualResendAt,
+			NextDueAt:          derived.State.NextDueAt,
+		})
+		if decision.NextDueAt != nil {
+			derived.State.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
+			derived.Snapshot.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
+		} else {
+			nextDue := reminders.ComputeNextDue(baseline.UTC(), policy, stableKey)
+			derived.State.NextDueAt = &nextDue
+			derived.Snapshot.NextDueAt = cloneServiceTimePtr(&nextDue)
+		}
+	}
+	return derived, true
+}
+
+func reviewReminderStableKey(scope stores.Scope, participant stores.AgreementReviewParticipantRecord) string {
+	return strings.Join([]string{
+		strings.TrimSpace(scope.TenantID),
+		strings.TrimSpace(scope.OrgID),
+		strings.TrimSpace(participant.ReviewID),
+		strings.TrimSpace(participant.ID),
+	}, "|")
+}
+
+func reviewReminderEventApplies(event stores.AuditEventRecord, participant stores.AgreementReviewParticipantRecord) bool {
+	switch strings.TrimSpace(event.EventType) {
+	case "agreement.review_requested", "agreement.review_reopened", "agreement.review_notified", "agreement.review_reminders_paused", "agreement.review_reminders_resumed":
+		for _, reviewParticipant := range reviewReminderEventParticipants(event) {
+			if strings.TrimSpace(fmt.Sprint(reviewParticipant["participant_id"])) == strings.TrimSpace(participant.ID) {
+				return true
+			}
+		}
+	case "agreement.review_viewed":
+		metadata := reviewReminderEventMetadata(event)
+		return strings.TrimSpace(fmt.Sprint(metadata["participant_id"])) == strings.TrimSpace(participant.ID)
+	}
+	return false
+}
+
+func reviewReminderEventSource(event stores.AuditEventRecord) string {
+	metadata := reviewReminderEventMetadata(event)
+	return normalizeReviewNotificationSource(strings.TrimSpace(fmt.Sprint(metadata["source"])))
+}
+
+func reviewReminderEventNextDueAt(event stores.AuditEventRecord) *time.Time {
+	metadata := reviewReminderEventMetadata(event)
+	raw := strings.TrimSpace(fmt.Sprint(metadata["next_due_at"]))
+	if raw == "" {
+		return nil
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return nil
+	}
+	return cloneServiceTimePtr(&parsed)
+}
+
+func reviewReminderEventParticipants(event stores.AuditEventRecord) []map[string]any {
+	metadata := reviewReminderEventMetadata(event)
+	raw, ok := metadata["review_participants"].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for _, entry := range raw {
+		typed, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		out = append(out, typed)
+	}
+	return out
+}
+
+func reviewReminderEventMetadata(event stores.AuditEventRecord) map[string]any {
+	metadata := map[string]any{}
+	if strings.TrimSpace(event.MetadataJSON) == "" {
+		return metadata
+	}
+	_ = json.Unmarshal([]byte(event.MetadataJSON), &metadata)
+	return metadata
+}
+
+func prefixReviewReminderReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return "review_not_due"
+	}
+	return "review_" + reason
+}
+
 func recipientByID(recipients []stores.RecipientRecord, id string) (stores.RecipientRecord, bool) {
 	id = strings.TrimSpace(id)
 	for _, recipient := range recipients {
@@ -484,6 +867,202 @@ func recipientByID(recipients []stores.RecipientRecord, id string) (stores.Recip
 		}
 	}
 	return stores.RecipientRecord{}, false
+}
+
+func (s AgreementService) ReviewReminderStates(ctx context.Context, scope stores.Scope, agreementID string) (map[string]ReviewReminderState, error) {
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		return nil, domainValidationError("agreements", "id", "required")
+	}
+	summary, err := s.GetReviewSummary(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	if summary.Review == nil || len(summary.Participants) == 0 || s.audits == nil {
+		return map[string]ReviewReminderState{}, nil
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
+			return events[i].CreatedAt.Before(events[j].CreatedAt)
+		}
+		return events[i].ID < events[j].ID
+	})
+	policy := ReminderPolicyFromConfig(appcfg.Active())
+	out := make(map[string]ReviewReminderState, len(summary.Participants))
+	for _, participant := range summary.Participants {
+		derived, ok := deriveReviewReminderState(scope, agreementID, summary.Status, s.now().UTC(), participant, events, policy)
+		if !ok {
+			continue
+		}
+		out[strings.TrimSpace(participant.ID)] = derived.Snapshot
+	}
+	return out, nil
+}
+
+func (s AgreementService) PauseReviewReminder(ctx context.Context, scope stores.Scope, agreementID string, input ReviewReminderControlInput) (ReviewReminderState, error) {
+	var out ReviewReminderState
+	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		target, err := txSvc.resolveReviewReminderTarget(ctx, scope, agreementID, input.ParticipantID, input.RecipientID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(target.State.Snapshot.Status) == stores.AgreementReminderStatusPaused {
+			out = target.State.Snapshot
+			return nil
+		}
+		now := txSvc.now().UTC()
+		target.Review.LastActivityAt = &now
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review); err != nil {
+			return err
+		}
+		metadata := map[string]any{
+			"review_id":           target.Review.ID,
+			"review_status":       target.Review.Status,
+			"reminder_status":     stores.AgreementReminderStatusPaused,
+			"review_participants": normalizeReviewParticipantMetadata([]stores.AgreementReviewParticipantRecord{target.Participant}),
+		}
+		if target.State.Snapshot.NextDueAt != nil {
+			metadata["next_due_at"] = target.State.Snapshot.NextDueAt.UTC().Format(time.RFC3339Nano)
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_paused", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata); err != nil {
+			return err
+		}
+		states, err := txSvc.ReviewReminderStates(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		out = states[strings.TrimSpace(target.Participant.ID)]
+		return nil
+	})
+	return out, err
+}
+
+func (s AgreementService) ResumeReviewReminder(ctx context.Context, scope stores.Scope, agreementID string, input ReviewReminderControlInput) (ReviewReminderState, error) {
+	var out ReviewReminderState
+	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		target, err := txSvc.resolveReviewReminderTarget(ctx, scope, agreementID, input.ParticipantID, input.RecipientID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(target.State.Snapshot.Status) != stores.AgreementReminderStatusPaused {
+			out = target.State.Snapshot
+			return nil
+		}
+		now := txSvc.now().UTC()
+		nextDueAt := now
+		if target.State.pausedNextDueAt != nil && target.State.pausedNextDueAt.After(now) {
+			nextDueAt = target.State.pausedNextDueAt.UTC()
+		}
+		target.Review.LastActivityAt = &now
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review); err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_resumed", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+			"review_id":           target.Review.ID,
+			"review_status":       target.Review.Status,
+			"reminder_status":     stores.AgreementReminderStatusActive,
+			"next_due_at":         nextDueAt.UTC().Format(time.RFC3339Nano),
+			"review_participants": normalizeReviewParticipantMetadata([]stores.AgreementReviewParticipantRecord{target.Participant}),
+		}); err != nil {
+			return err
+		}
+		states, err := txSvc.ReviewReminderStates(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		out = states[strings.TrimSpace(target.Participant.ID)]
+		return nil
+	})
+	return out, err
+}
+
+func (s AgreementService) SendReviewReminderNow(ctx context.Context, scope stores.Scope, agreementID string, input ReviewReminderControlInput) (ReviewSummary, error) {
+	target, err := s.resolveReviewReminderTarget(ctx, scope, agreementID, input.ParticipantID, input.RecipientID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	now := s.now().UTC()
+	decision := reminders.Evaluate(now, ReminderPolicyFromConfig(appcfg.Active()), target.State.State)
+	if !decision.Due {
+		return ReviewSummary{}, domainValidationError("reminders", "policy", "send_now blocked by reminder policy")
+	}
+	return s.NotifyReviewers(ctx, scope, agreementID, ReviewNotifyInput{
+		ParticipantID: strings.TrimSpace(target.Participant.ID),
+		RecipientID:   strings.TrimSpace(target.Participant.RecipientID),
+		RequestedByID: strings.TrimSpace(input.ActorID),
+		ActorType:     normalizeReviewActorType(input.ActorType),
+		ActorID:       strings.TrimSpace(input.ActorID),
+		IPAddress:     input.IPAddress,
+		CorrelationID: strings.TrimSpace(input.CorrelationID),
+		Source:        ReviewNotificationSourceManual,
+		Reason:        "send_now",
+	})
+}
+
+type resolvedReviewReminderTarget struct {
+	Agreement   stores.AgreementRecord
+	Review      stores.AgreementReviewRecord
+	Participant stores.AgreementReviewParticipantRecord
+	State       derivedReviewReminderState
+}
+
+func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope stores.Scope, agreementID, participantID, recipientID string) (resolvedReviewReminderTarget, error) {
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreements", "id", "required")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	if strings.TrimSpace(agreement.Status) != stores.AgreementStatusDraft {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreements", "status", "review reminders require draft agreement")
+	}
+	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreement_reviews", "status", "review reminders require active review")
+	}
+	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	participant, _, err := findReviewParticipant(participants, participantID, recipientID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "decision_status", "review reminders require pending reviewer")
+	}
+	if s.audits == nil {
+		return resolvedReviewReminderTarget{}, fmt.Errorf("review reminder audit store not configured")
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{})
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
+			return events[i].CreatedAt.Before(events[j].CreatedAt)
+		}
+		return events[i].ID < events[j].ID
+	})
+	derived, ok := deriveReviewReminderState(scope, agreementID, review.Status, s.now().UTC(), participant, events, ReminderPolicyFromConfig(appcfg.Active()))
+	if !ok {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	return resolvedReviewReminderTarget{
+		Agreement:   agreement,
+		Review:      review,
+		Participant: participant,
+		State:       derived,
+	}, nil
 }
 
 func (s AgreementReminderService) Pause(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error) {

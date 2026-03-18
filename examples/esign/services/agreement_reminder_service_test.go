@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -478,6 +479,271 @@ func TestAgreementReminderServicePauseRejectsNonSigner(t *testing.T) {
 	}
 }
 
+func TestAgreementReminderServiceSweepSendsDueReviewReminder(t *testing.T) {
+	now := time.Date(2026, 3, 10, 2, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.BatchSize = 10
+	cfg.Reminders.ClaimLeaseSeconds = 120
+	cfg.Reminders.IntervalMinutes = 60
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.MaxReminders = 6
+	cfg.Reminders.JitterPercent = 0
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	current := now.Add(-2 * time.Hour)
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreements, agreement, participant := seedDraftAgreementInReviewWithReviewer(t, store, scope, &current)
+	reminders := NewAgreementReminderService(
+		store,
+		agreements,
+		WithAgreementReminderClock(func() time.Time { return current }),
+		WithAgreementReminderWorkerID("test-sweep"),
+	)
+
+	current = now
+	result, err := reminders.Sweep(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Sweep: %v", err)
+	}
+	if result.Claimed != 1 || result.Sent != 1 {
+		t.Fatalf("expected one scheduled review reminder sent, got %+v", result)
+	}
+
+	outbox, err := store.ListOutboxMessages(context.Background(), scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 2 {
+		t.Fatalf("expected initial invite plus reminder, got %+v", outbox)
+	}
+	foundReminder := false
+	for _, record := range outbox {
+		var payload EmailSendAgreementNotificationOutboxPayload
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", err)
+		}
+		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participant.ID+":1" {
+			continue
+		}
+		if payload.Notification != string(NotificationReviewInvitation) {
+			t.Fatalf("expected review invitation payload, got %+v", payload)
+		}
+		foundReminder = true
+	}
+	if !foundReminder {
+		t.Fatalf("expected scheduled review reminder outbox payload for participant %q", participant.ID)
+	}
+
+	events, err := store.ListForAgreement(context.Background(), scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	foundAutoAudit := false
+	for _, event := range events {
+		if event.EventType != "agreement.review_notified" {
+			continue
+		}
+		metadata := map[string]any{}
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &metadata); err != nil {
+			t.Fatalf("Unmarshal audit metadata: %v", err)
+		}
+		if strings.TrimSpace(fmt.Sprint(metadata["source"])) != ReviewNotificationSourceAutoReminder {
+			continue
+		}
+		foundAutoAudit = true
+		break
+	}
+	if !foundAutoAudit {
+		t.Fatalf("expected auto reminder audit event, got %+v", events)
+	}
+}
+
+func TestAgreementReminderServiceSweepSkipsReviewReminderDuringManualCooldown(t *testing.T) {
+	now := time.Date(2026, 3, 10, 3, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.BatchSize = 10
+	cfg.Reminders.ClaimLeaseSeconds = 120
+	cfg.Reminders.IntervalMinutes = 60
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.ManualResendCooldownMinutes = 180
+	cfg.Reminders.MaxReminders = 6
+	cfg.Reminders.JitterPercent = 0
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	current := now.Add(-4 * time.Hour)
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreements, agreement, participant := seedDraftAgreementInReviewWithReviewer(t, store, scope, &current)
+
+	current = now.Add(-30 * time.Minute)
+	if _, err := agreements.NotifyReviewers(context.Background(), scope, agreement.ID, ReviewNotifyInput{
+		ParticipantID: participant.ID,
+		RequestedByID: "ops-user",
+		ActorType:     "user",
+		ActorID:       "ops-user",
+		CorrelationID: "manual-review-notify",
+	}); err != nil {
+		t.Fatalf("NotifyReviewers: %v", err)
+	}
+
+	reminders := NewAgreementReminderService(
+		store,
+		agreements,
+		WithAgreementReminderClock(func() time.Time { return current }),
+		WithAgreementReminderWorkerID("test-sweep"),
+	)
+
+	current = now
+	result, err := reminders.Sweep(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Sweep: %v", err)
+	}
+	if result.Sent != 0 {
+		t.Fatalf("expected no scheduled review reminder during manual cooldown, got %+v", result)
+	}
+	if result.SkipReasons["review_manual_resend_cooldown"] != 1 {
+		t.Fatalf("expected review_manual_resend_cooldown skip, got %+v", result.SkipReasons)
+	}
+}
+
+func TestAgreementServicePauseAndResumeReviewReminder(t *testing.T) {
+	now := time.Date(2026, 3, 10, 3, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.IntervalMinutes = 60
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.MaxReminders = 6
+	cfg.Reminders.JitterPercent = 0
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	current := now
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreements, agreement, participant := seedDraftAgreementInReviewWithReviewer(t, store, scope, &current)
+
+	current = now.Add(10 * time.Minute)
+	paused, err := agreements.PauseReviewReminder(context.Background(), scope, agreement.ID, ReviewReminderControlInput{
+		ParticipantID: participant.ID,
+		ActorType:     "user",
+		ActorID:       "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("PauseReviewReminder: %v", err)
+	}
+	if !paused.Paused || paused.Status != stores.AgreementReminderStatusPaused {
+		t.Fatalf("expected paused review reminder state, got %+v", paused)
+	}
+
+	reminders := NewAgreementReminderService(
+		store,
+		agreements,
+		WithAgreementReminderClock(func() time.Time { return current }),
+		WithAgreementReminderWorkerID("test-sweep"),
+	)
+	current = now.Add(40 * time.Minute)
+	result, err := reminders.Sweep(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Sweep paused: %v", err)
+	}
+	if result.Sent != 0 || result.SkipReasons["review_paused"] != 1 {
+		t.Fatalf("expected paused review reminder skip, got %+v", result)
+	}
+
+	current = now.Add(20 * time.Minute)
+	resumed, err := agreements.ResumeReviewReminder(context.Background(), scope, agreement.ID, ReviewReminderControlInput{
+		ParticipantID: participant.ID,
+		ActorType:     "user",
+		ActorID:       "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("ResumeReviewReminder: %v", err)
+	}
+	if resumed.Paused || resumed.Status != stores.AgreementReminderStatusActive || resumed.NextDueAt == nil {
+		t.Fatalf("expected active resumed review reminder state, got %+v", resumed)
+	}
+
+	current = now.Add(31 * time.Minute)
+	result, err = reminders.Sweep(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Sweep resumed: %v", err)
+	}
+	if result.Sent != 1 {
+		t.Fatalf("expected resumed review reminder to send once due, got %+v", result)
+	}
+}
+
+func TestAgreementServiceSendReviewReminderNowRespectsPolicy(t *testing.T) {
+	now := time.Date(2026, 3, 10, 5, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.IntervalMinutes = 60
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.MaxReminders = 6
+	cfg.Reminders.JitterPercent = 0
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	current := now
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreements, agreement, participant := seedDraftAgreementInReviewWithReviewer(t, store, scope, &current)
+
+	current = now.Add(10 * time.Minute)
+	if _, err := agreements.SendReviewReminderNow(context.Background(), scope, agreement.ID, ReviewReminderControlInput{
+		ParticipantID: participant.ID,
+		ActorType:     "user",
+		ActorID:       "ops-user",
+		CorrelationID: "review-send-now-blocked",
+	}); err == nil {
+		t.Fatalf("expected send review reminder now to be blocked by policy")
+	}
+
+	current = now.Add(40 * time.Minute)
+	if _, err := agreements.SendReviewReminderNow(context.Background(), scope, agreement.ID, ReviewReminderControlInput{
+		ParticipantID: participant.ID,
+		ActorType:     "user",
+		ActorID:       "ops-user",
+		CorrelationID: "review-send-now",
+	}); err != nil {
+		t.Fatalf("SendReviewReminderNow: %v", err)
+	}
+
+	outbox, err := store.ListOutboxMessages(context.Background(), scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 2 {
+		t.Fatalf("expected initial invite plus send_now reminder, got %+v", outbox)
+	}
+	events, err := store.ListForAgreement(context.Background(), scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	foundSendNow := false
+	for _, event := range events {
+		if event.EventType != "agreement.review_notified" {
+			continue
+		}
+		metadata := map[string]any{}
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &metadata); err != nil {
+			t.Fatalf("Unmarshal audit metadata: %v", err)
+		}
+		if strings.TrimSpace(fmt.Sprint(metadata["reason"])) == "send_now" {
+			foundSendNow = true
+			break
+		}
+	}
+	if !foundSendNow {
+		t.Fatalf("expected send_now audit event in %+v", events)
+	}
+}
+
 func seedSentAgreementWithSigner(t *testing.T, store *stores.InMemoryStore, scope stores.Scope, now time.Time) (stores.AgreementRecord, stores.RecipientRecord) {
 	t.Helper()
 	ctx := context.Background()
@@ -636,4 +902,67 @@ func seedSentAgreementWithCC(t *testing.T, store *stores.InMemoryStore, scope st
 func cloneServiceTestTimePtr(value time.Time) *time.Time {
 	out := value.UTC()
 	return &out
+}
+
+func seedDraftAgreementInReviewWithReviewer(
+	t *testing.T,
+	store *stores.InMemoryStore,
+	scope stores.Scope,
+	current *time.Time,
+) (AgreementService, stores.AgreementRecord, stores.AgreementReviewParticipantRecord) {
+	t.Helper()
+	ctx := context.Background()
+	docSvc := NewDocumentService(store, WithDocumentClock(func() time.Time { return current.UTC() }))
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:              "Review Reminder Document",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-review-reminder/original.pdf",
+		SourceOriginalName: "review-reminder.pdf",
+		PDF:                samplePDF(2),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreements := NewAgreementService(
+		store,
+		WithAgreementClock(func() time.Time { return current.UTC() }),
+		WithAgreementNotificationOutbox(store),
+	)
+	agreement, err := agreements.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Review Reminder Agreement",
+		Message:         "Please review",
+		CreatedByUserID: "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	email := "reviewer@example.test"
+	name := "Reviewer"
+	role := stores.RecipientRoleSigner
+	stage := 1
+	recipient, err := agreements.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        &email,
+		Name:         &name,
+		Role:         &role,
+		SigningOrder: &stage,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	summary, err := agreements.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{recipient.ID},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+		CorrelationID:     "initial-review-open",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if len(summary.Participants) != 1 {
+		t.Fatalf("expected one review participant, got %+v", summary.Participants)
+	}
+	return agreements, agreement, summary.Participants[0]
 }

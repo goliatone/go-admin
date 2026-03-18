@@ -90,6 +90,11 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !containsPanelAction(agreementsSchema.Actions, "notify_reviewers") {
 		t.Fatalf("expected agreements panel notify_reviewers action, got %+v", agreementsSchema.Actions)
 	}
+	for _, name := range []string{"pause_review_reminder", "resume_review_reminder", "send_review_reminder_now"} {
+		if !containsPanelAction(agreementsSchema.Actions, name) {
+			t.Fatalf("expected agreements panel %s action, got %+v", name, agreementsSchema.Actions)
+		}
+	}
 	for _, name := range []string{"edit", "delete"} {
 		action, ok := panelActionByName(agreementsSchema.Actions, name)
 		if !ok || action.Scope != coreadmin.ActionScopeDetail {
