@@ -9,7 +9,7 @@ import (
 
 // RuntimeConfig controls helpers package runtime defaults.
 type RuntimeConfig struct {
-	Scope quickstart.ScopeConfig
+	Scope quickstart.ScopeConfig `json:"scope"`
 }
 
 var (

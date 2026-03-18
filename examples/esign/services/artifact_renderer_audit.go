@@ -10,39 +10,39 @@ import (
 )
 
 type auditTrailRenderOptions struct {
-	StandaloneCertificate bool
-	ReverseChronological  bool
-	PageWidth             float64
-	PageHeight            float64
+	StandaloneCertificate bool    `json:"standalone_certificate"`
+	ReverseChronological  bool    `json:"reverse_chronological"`
+	PageWidth             float64 `json:"page_width"`
+	PageHeight            float64 `json:"page_height"`
 }
 
 type auditTrailMetadataRow struct {
-	Label     string
-	Value     string
-	Monospace bool
-	Status    bool
+	Label     string `json:"label"`
+	Value     string `json:"value"`
+	Monospace bool   `json:"monospace"`
+	Status    bool   `json:"status"`
 }
 
 type auditTrailColor struct {
-	R int
-	G int
-	B int
+	R int `json:"r"`
+	G int `json:"g"`
+	B int `json:"b"`
 }
 
 type auditTrailStyle struct {
-	PageWidth      float64
-	PageHeight     float64
-	MarginLeft     float64
-	MarginRight    float64
-	MarginTop      float64
-	MarginBottom   float64
-	FooterReserve  float64
-	TimelineOffset float64
-	Text           auditTrailColor
-	Muted          auditTrailColor
-	Border         auditTrailColor
-	Surface        auditTrailColor
-	Brand          auditTrailColor
+	PageWidth      float64         `json:"page_width"`
+	PageHeight     float64         `json:"page_height"`
+	MarginLeft     float64         `json:"margin_left"`
+	MarginRight    float64         `json:"margin_right"`
+	MarginTop      float64         `json:"margin_top"`
+	MarginBottom   float64         `json:"margin_bottom"`
+	FooterReserve  float64         `json:"footer_reserve"`
+	TimelineOffset float64         `json:"timeline_offset"`
+	Text           auditTrailColor `json:"text"`
+	Muted          auditTrailColor `json:"muted"`
+	Border         auditTrailColor `json:"border"`
+	Surface        auditTrailColor `json:"surface"`
+	Brand          auditTrailColor `json:"brand"`
 }
 
 func defaultAuditTrailStyle() auditTrailStyle {

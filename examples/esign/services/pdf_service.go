@@ -140,11 +140,11 @@ const (
 
 // PDFError wraps typed pdf operation failures.
 type PDFError struct {
-	Op     string
-	Reason PDFReasonCode
-	Page   int
-	Box    string
-	Cause  error
+	Op     string        `json:"op"`
+	Reason PDFReasonCode `json:"reason"`
+	Page   int           `json:"page"`
+	Box    string        `json:"box"`
+	Cause  error         `json:"cause"`
 }
 
 func (e *PDFError) Error() string {
@@ -192,17 +192,17 @@ func mapContextPDFError(op string, err error, timeoutReason PDFReasonCode) error
 
 // PDFPolicy captures resolved limits/behavior switches.
 type PDFPolicy struct {
-	MaxSourceBytes         int64
-	MaxPages               int
-	MaxObjects             int
-	MaxDecompressedBytes   int64
-	ParseTimeout           time.Duration
-	NormalizationTimeout   time.Duration
-	AllowEncrypted         bool
-	AllowJavaScriptActions bool
-	CompatibilityMode      PDFCompatibilityMode
-	PreviewFallbackEnabled bool
-	PipelineMode           PDFPipelineMode
+	MaxSourceBytes         int64                `json:"max_source_bytes"`
+	MaxPages               int                  `json:"max_pages"`
+	MaxObjects             int                  `json:"max_objects"`
+	MaxDecompressedBytes   int64                `json:"max_decompressed_bytes"`
+	ParseTimeout           time.Duration        `json:"parse_timeout"`
+	NormalizationTimeout   time.Duration        `json:"normalization_timeout"`
+	AllowEncrypted         bool                 `json:"allow_encrypted"`
+	AllowJavaScriptActions bool                 `json:"allow_java_script_actions"`
+	CompatibilityMode      PDFCompatibilityMode `json:"compatibility_mode"`
+	PreviewFallbackEnabled bool                 `json:"preview_fallback_enabled"`
+	PipelineMode           PDFPipelineMode      `json:"pipeline_mode"`
 }
 
 func DefaultPDFPolicy() PDFPolicy {
@@ -578,28 +578,28 @@ func normalizePipelineMode(raw string) PDFPipelineMode {
 
 // PDFAnalysis captures canonical source metadata.
 type PDFAnalysis struct {
-	SHA256              string
-	SizeBytes           int64
-	PageCount           int
-	CompatibilityTier   PDFCompatibilityTier
-	ReasonCode          PDFReasonCode
-	NormalizationStatus PDFNormalizationStatus
+	SHA256              string                 `json:"sha256"`
+	SizeBytes           int64                  `json:"size_bytes"`
+	PageCount           int                    `json:"page_count"`
+	CompatibilityTier   PDFCompatibilityTier   `json:"compatibility_tier"`
+	ReasonCode          PDFReasonCode          `json:"reason_code"`
+	NormalizationStatus PDFNormalizationStatus `json:"normalization_status"`
 }
 
 // PDFPageGeometry captures canonical PDF page dimensions.
 type PDFPageGeometry struct {
-	Page     int
-	Width    float64
-	Height   float64
-	Rotation int
+	Page     int     `json:"page"`
+	Width    float64 `json:"width"`
+	Height   float64 `json:"height"`
+	Rotation int     `json:"rotation"`
 }
 
 // PDFNormalized captures a successfully normalized PDF variant.
 type PDFNormalized struct {
-	Payload   []byte
-	SHA256    string
-	SizeBytes int64
-	PageCount int
+	Payload   []byte `json:"payload"`
+	SHA256    string `json:"sha256"`
+	SizeBytes int64  `json:"size_bytes"`
+	PageCount int    `json:"page_count"`
 }
 
 // PDFService centralizes PDF analysis/import behavior.

@@ -7,19 +7,19 @@ import "context"
 // emit rich events to a slice of hooks for fan-out notification.
 type Event struct {
 	// Channel categorizes the event source (e.g., "users", "pages", "posts")
-	Channel string
+	Channel string `json:"channel"`
 
 	// Verb describes the action taken (e.g., "created", "activated", "published")
-	Verb string
+	Verb string `json:"verb"`
 
 	// ObjectType identifies the resource type (e.g., "user", "page", "post")
-	ObjectType string
+	ObjectType string `json:"object_type"`
 
 	// ObjectID is the unique identifier of the affected resource
-	ObjectID string
+	ObjectID string `json:"object_id"`
 
 	// Data carries rich metadata for context (e.g., email, status, previous values)
-	Data map[string]any
+	Data map[string]any `json:"data"`
 }
 
 // ActivityHook receives activity notifications.

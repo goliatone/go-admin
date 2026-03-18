@@ -493,10 +493,10 @@ func (s *AgreementDraftIdempotencyStore) evictExpired(now time.Time) {
 }
 
 type scopedReplayKey struct {
-	ResourceID     string
-	Operation      string
-	RawIdempotency string
-	Scope          map[string]string
+	ResourceID     string            `json:"resource_id"`
+	Operation      string            `json:"operation"`
+	RawIdempotency string            `json:"raw_idempotency"`
+	Scope          map[string]string `json:"scope"`
 }
 
 func parseScopedReplayKey(key string) (scopedReplayKey, error) {

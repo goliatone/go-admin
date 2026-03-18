@@ -21,8 +21,8 @@ const (
 
 // RegistrationConfig controls self-registration guardrails.
 type RegistrationConfig struct {
-	Mode      RegistrationMode
-	Allowlist []string
+	Mode      RegistrationMode `json:"mode"`
+	Allowlist []string         `json:"allowlist"`
 }
 
 // DefaultRegistrationConfig returns a closed registration mode with a sample allowlist.

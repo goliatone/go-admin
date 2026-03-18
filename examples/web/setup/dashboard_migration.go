@@ -11,8 +11,8 @@ import (
 )
 
 type widgetDefinitionRow struct {
-	ID   uuid.UUID `bun:"id"`
-	Name string    `bun:"name"`
+	ID   uuid.UUID `bun:"id" json:"id"`
+	Name string    `bun:"name" json:"name"`
 }
 
 func migrateDashboardWidgetDefinitions(ctx context.Context, db *bun.DB, widgetSvc admin.CMSWidgetService) error {

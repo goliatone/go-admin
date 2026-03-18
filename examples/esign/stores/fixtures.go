@@ -11,20 +11,20 @@ import (
 
 // FixtureSet identifies seeded phase-1 records used by integration tests.
 type FixtureSet struct {
-	DocumentID              string
-	AgreementID             string
-	RecipientID             string
-	ParticipantID           string
-	FieldDefinitionID       string
-	FieldInstanceID         string
-	SigningTokenID          string
-	FieldID                 string
-	FieldValueID            string
-	SignatureArtifactID     string
-	DraftAuditEventID       string
-	AuditEventID            string
-	EmailLogID              string
-	IntegrationCredentialID string
+	DocumentID              string `json:"document_id"`
+	AgreementID             string `json:"agreement_id"`
+	RecipientID             string `json:"recipient_id"`
+	ParticipantID           string `json:"participant_id"`
+	FieldDefinitionID       string `json:"field_definition_id"`
+	FieldInstanceID         string `json:"field_instance_id"`
+	SigningTokenID          string `json:"signing_token_id"`
+	FieldID                 string `json:"field_id"`
+	FieldValueID            string `json:"field_value_id"`
+	SignatureArtifactID     string `json:"signature_artifact_id"`
+	DraftAuditEventID       string `json:"draft_audit_event_id"`
+	AuditEventID            string `json:"audit_event_id"`
+	EmailLogID              string `json:"email_log_id"`
+	IntegrationCredentialID string `json:"integration_credential_id"`
 }
 
 // SeedCoreFixtures inserts one scope-bound record for each phase-1 core table.

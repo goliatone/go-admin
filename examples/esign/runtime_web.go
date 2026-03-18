@@ -1264,14 +1264,14 @@ func cloneStringBoolMap(input map[string]bool) map[string]bool {
 
 // SignerWebRouteConfig holds dependencies for public signer web routes.
 type SignerWebRouteConfig struct {
-	TokenValidator       handlers.SignerTokenValidator
-	PublicTokenValidator handlers.PublicReviewTokenValidator
-	SigningService       handlers.SignerSessionService
-	PublicReviewSession  handlers.PublicReviewSessionService
-	AssetContractService handlers.SignerAssetContractService
-	DefaultScope         stores.Scope
-	APIBasePath          string
-	AssetBasePath        string
+	TokenValidator       handlers.SignerTokenValidator       `json:"token_validator"`
+	PublicTokenValidator handlers.PublicReviewTokenValidator `json:"public_token_validator"`
+	SigningService       handlers.SignerSessionService       `json:"signing_service"`
+	PublicReviewSession  handlers.PublicReviewSessionService `json:"public_review_session"`
+	AssetContractService handlers.SignerAssetContractService `json:"asset_contract_service"`
+	DefaultScope         stores.Scope                        `json:"default_scope"`
+	APIBasePath          string                              `json:"api_base_path"`
+	AssetBasePath        string                              `json:"asset_base_path"`
 }
 
 // registerESignPublicSignerWebRoutes registers HTML routes for the public signer flow.

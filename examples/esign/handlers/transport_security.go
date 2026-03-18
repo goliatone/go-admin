@@ -13,11 +13,11 @@ import (
 
 // TLSTransportGuard enforces TLS for runtime e-sign routes.
 type TLSTransportGuard struct {
-	AllowLocalInsecure bool
-	RequestTrustPolicy quickstart.RequestTrustPolicy
+	AllowLocalInsecure bool                          `json:"allow_local_insecure"`
+	RequestTrustPolicy quickstart.RequestTrustPolicy `json:"request_trust_policy"`
 	// Deprecated: use RequestTrustPolicy.
 	// TrustForwardedHeaders should only be enabled behind trusted reverse proxies.
-	TrustForwardedHeaders bool
+	TrustForwardedHeaders bool `json:"trust_forwarded_headers"`
 }
 
 func (g TLSTransportGuard) Ensure(c router.Context) error {

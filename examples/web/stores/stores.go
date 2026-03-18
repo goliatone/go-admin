@@ -15,38 +15,38 @@ import (
 
 // DataStores holds all in-memory or CMS-backed data stores.
 type DataStores struct {
-	Users        *UserStore
-	UserProfiles *UserProfileStore
-	Pages        PageRepository
-	Posts        PostRepository
-	Templates    *TemplateStore
-	Media        *MediaStore
-	Stats        *StatsStore
-	PageRecords  repository.Repository[*PageRecord]
-	PostRecords  repository.Repository[*PostRecord]
-	MediaRecords repository.Repository[*MediaRecord]
+	Users        *UserStore                          `json:"users"`
+	UserProfiles *UserProfileStore                   `json:"user_profiles"`
+	Pages        PageRepository                      `json:"pages"`
+	Posts        PostRepository                      `json:"posts"`
+	Templates    *TemplateStore                      `json:"templates"`
+	Media        *MediaStore                         `json:"media"`
+	Stats        *StatsStore                         `json:"stats"`
+	PageRecords  repository.Repository[*PageRecord]  `json:"page_records"`
+	PostRecords  repository.Repository[*PostRecord]  `json:"post_records"`
+	MediaRecords repository.Repository[*MediaRecord] `json:"media_records"`
 }
 
 // InitOptions configures initialization for data stores.
 type InitOptions struct {
-	RepoOptions        []repository.Option
-	PersistenceOptions []persistence.ClientOption
+	RepoOptions        []repository.Option        `json:"repo_options"`
+	PersistenceOptions []persistence.ClientOption `json:"persistence_options"`
 }
 
 // UserDependencies wires DB-backed user storage and related services.
 type UserDependencies struct {
-	DB             *bun.DB
-	RepoManager    auth.RepositoryManager
-	AuthRepo       types.AuthRepository
-	InventoryRepo  types.UserInventoryRepository
-	RoleRegistry   types.RoleRegistry
-	ActivitySink   types.ActivitySink
-	ActivityRepo   types.ActivityRepository
-	ProfileRepo    types.ProfileRepository
-	PreferenceRepo types.PreferenceRepository
-	SecureLinks    types.SecureLinkManager
-	UserTokenRepo  types.UserTokenRepository
-	ResetRepo      types.PasswordResetRepository
+	DB             *bun.DB                       `json:"db"`
+	RepoManager    auth.RepositoryManager        `json:"repo_manager"`
+	AuthRepo       types.AuthRepository          `json:"auth_repo"`
+	InventoryRepo  types.UserInventoryRepository `json:"inventory_repo"`
+	RoleRegistry   types.RoleRegistry            `json:"role_registry"`
+	ActivitySink   types.ActivitySink            `json:"activity_sink"`
+	ActivityRepo   types.ActivityRepository      `json:"activity_repo"`
+	ProfileRepo    types.ProfileRepository       `json:"profile_repo"`
+	PreferenceRepo types.PreferenceRepository    `json:"preference_repo"`
+	SecureLinks    types.SecureLinkManager       `json:"secure_links"`
+	UserTokenRepo  types.UserTokenRepository     `json:"user_token_repo"`
+	ResetRepo      types.PasswordResetRepository `json:"reset_repo"`
 }
 
 // Initialize creates all data stores backed by the CMS content service (pages/posts)

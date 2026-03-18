@@ -18,10 +18,10 @@ import (
 
 // UserActionHandlers exposes lifecycle/role/invite/reset endpoints for admin users.
 type UserActionHandlers struct {
-	Service     *userssvc.Service
-	Roles       userstypes.RoleRegistry
-	AuthRepo    userstypes.AuthRepository
-	FeatureGate fggate.FeatureGate
+	Service     *userssvc.Service         `json:"service"`
+	Roles       userstypes.RoleRegistry   `json:"roles"`
+	AuthRepo    userstypes.AuthRepository `json:"auth_repo"`
+	FeatureGate fggate.FeatureGate        `json:"feature_gate"`
 }
 
 // Lifecycle transitions a single user to the target state.

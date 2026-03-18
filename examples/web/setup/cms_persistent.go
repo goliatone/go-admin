@@ -679,10 +679,10 @@ func execIfTableExists(ctx context.Context, db *bun.DB, table, query string, arg
 }
 
 type contentTranslationPathBackfillRow struct {
-	ContentID string `bun:"content_id"`
-	LocaleID  string `bun:"locale_id"`
-	Content   string `bun:"content"`
-	Path      string `bun:"path"`
+	ContentID string `bun:"content_id" json:"content_id"`
+	LocaleID  string `bun:"locale_id" json:"locale_id"`
+	Content   string `bun:"content" json:"content"`
+	Path      string `bun:"path" json:"path"`
 }
 
 // backfillContentTranslationPathsFromPages ensures page translation paths are

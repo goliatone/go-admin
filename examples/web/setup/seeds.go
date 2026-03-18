@@ -26,9 +26,9 @@ const (
 
 // SeedConfig controls fixture loading behavior.
 type SeedConfig struct {
-	Enabled          bool
-	Truncate         bool
-	IgnoreDuplicates bool
+	Enabled          bool `json:"enabled"`
+	Truncate         bool `json:"truncate"`
+	IgnoreDuplicates bool `json:"ignore_duplicates"`
 }
 
 // DefaultSeedConfig returns baseline fixture loading behavior.

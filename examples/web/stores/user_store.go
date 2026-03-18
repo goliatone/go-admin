@@ -29,9 +29,9 @@ const (
 
 // userFilterExtensions holds advanced search filters not in the base types.UserInventoryFilter
 type userFilterExtensions struct {
-	UsernameFilters []string // Support multiple values for OR logic
-	EmailFilters    []string
-	RoleFilters     []string
+	UsernameFilters []string `json:"username_filters"` // Support multiple values for OR logic
+	EmailFilters    []string `json:"email_filters"`
+	RoleFilters     []string `json:"role_filters"`
 }
 
 type contextKey string

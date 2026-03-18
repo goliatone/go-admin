@@ -76,9 +76,9 @@ const (
 
 // ReminderPolicyResolution captures normalized reminder policy values and compatibility status.
 type ReminderPolicyResolution struct {
-	Config        ReminderConfig
-	PolicyVersion string
-	Statuses      map[string]string
+	Config        ReminderConfig    `json:"config"`
+	PolicyVersion string            `json:"policy_version"`
+	Statuses      map[string]string `json:"statuses"`
 }
 
 func (r ReminderPolicyResolution) CompatibilityMatrix() map[string][]string {

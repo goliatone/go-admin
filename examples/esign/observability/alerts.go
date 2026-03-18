@@ -4,22 +4,22 @@ import "strings"
 
 // AlertPolicy defines thresholds for provider/job health checks.
 type AlertPolicy struct {
-	ProviderFailureRatePercentThreshold float64
-	JobFailureRatePercentThreshold      float64
-	GoogleImportFailureTotalThreshold   int64
-	GoogleAuthChurnTotalThreshold       int64
-	SignerLinkOpenRatePercentFloor      float64
-	SignerSubmitConversionPercentFloor  float64
-	CompletionDeliverySuccessRateFloor  float64
-	PDFIngestAnalyzeFailTotalThreshold  int64
-	PDFIngestPolicyRejectTotalThreshold int64
-	PDFPreviewFallbackTotalThreshold    int64
-	PDFRenderImportFailTotalThreshold   int64
-	DedupStoreMissTotalThreshold        int64
-	RemediationRetryingTotalThreshold   int64
-	RemediationDeadLetterTotalThreshold int64
-	RemediationLockContentionThreshold  int64
-	RemediationLockTimeoutThreshold     int64
+	ProviderFailureRatePercentThreshold float64 `json:"provider_failure_rate_percent_threshold"`
+	JobFailureRatePercentThreshold      float64 `json:"job_failure_rate_percent_threshold"`
+	GoogleImportFailureTotalThreshold   int64   `json:"google_import_failure_total_threshold"`
+	GoogleAuthChurnTotalThreshold       int64   `json:"google_auth_churn_total_threshold"`
+	SignerLinkOpenRatePercentFloor      float64 `json:"signer_link_open_rate_percent_floor"`
+	SignerSubmitConversionPercentFloor  float64 `json:"signer_submit_conversion_percent_floor"`
+	CompletionDeliverySuccessRateFloor  float64 `json:"completion_delivery_success_rate_floor"`
+	PDFIngestAnalyzeFailTotalThreshold  int64   `json:"pdf_ingest_analyze_fail_total_threshold"`
+	PDFIngestPolicyRejectTotalThreshold int64   `json:"pdf_ingest_policy_reject_total_threshold"`
+	PDFPreviewFallbackTotalThreshold    int64   `json:"pdf_preview_fallback_total_threshold"`
+	PDFRenderImportFailTotalThreshold   int64   `json:"pdf_render_import_fail_total_threshold"`
+	DedupStoreMissTotalThreshold        int64   `json:"dedup_store_miss_total_threshold"`
+	RemediationRetryingTotalThreshold   int64   `json:"remediation_retrying_total_threshold"`
+	RemediationDeadLetterTotalThreshold int64   `json:"remediation_dead_letter_total_threshold"`
+	RemediationLockContentionThreshold  int64   `json:"remediation_lock_contention_threshold"`
+	RemediationLockTimeoutThreshold     int64   `json:"remediation_lock_timeout_threshold"`
 }
 
 // DefaultAlertPolicy returns baseline thresholds for e-sign runtime alerting.

@@ -73,13 +73,13 @@ func FetchPanelTabs(c router.Context, cfg admin.Config, panelName, id string, ad
 
 // PanelTabViewOptions controls how panel tabs are mapped to template payloads.
 type PanelTabViewOptions struct {
-	Context      context.Context
-	PanelName    string
-	BasePath     string
-	DetailPath   string
-	Record       map[string]any
-	Resolver     TabContentResolver
-	ModeSelector TabRenderModeSelector
+	Context      context.Context       `json:"context"`
+	PanelName    string                `json:"panel_name"`
+	BasePath     string                `json:"base_path"`
+	DetailPath   string                `json:"detail_path"`
+	Record       map[string]any        `json:"record"`
+	Resolver     TabContentResolver    `json:"resolver"`
+	ModeSelector TabRenderModeSelector `json:"mode_selector"`
 }
 
 // BuildPanelTabViews maps admin tabs to template-friendly payloads with hrefs.

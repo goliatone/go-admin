@@ -517,37 +517,37 @@ type SignerSignatureInput struct {
 }
 
 type signatureUploadGrant struct {
-	Token       string
-	TenantID    string
-	OrgID       string
-	AgreementID string
-	RecipientID string
-	FieldID     string
-	ObjectKey   string
-	SHA256      string
-	ContentType string
-	SizeBytes   int64
-	ExpiresAt   time.Time
-	ConsumedAt  *time.Time
-	ReservedAt  *time.Time
+	Token       string     `json:"token"`
+	TenantID    string     `json:"tenant_id"`
+	OrgID       string     `json:"org_id"`
+	AgreementID string     `json:"agreement_id"`
+	RecipientID string     `json:"recipient_id"`
+	FieldID     string     `json:"field_id"`
+	ObjectKey   string     `json:"object_key"`
+	SHA256      string     `json:"sha256"`
+	ContentType string     `json:"content_type"`
+	SizeBytes   int64      `json:"size_bytes"`
+	ExpiresAt   time.Time  `json:"expires_at"`
+	ConsumedAt  *time.Time `json:"consumed_at"`
+	ReservedAt  *time.Time `json:"reserved_at"`
 }
 
 type signatureUploadReceipt struct {
-	UploadToken string
-	ObjectKey   string
-	SHA256      string
-	ContentType string
-	SizeBytes   int64
-	CommittedAt time.Time
+	UploadToken string    `json:"upload_token"`
+	ObjectKey   string    `json:"object_key"`
+	SHA256      string    `json:"sha256"`
+	ContentType string    `json:"content_type"`
+	SizeBytes   int64     `json:"size_bytes"`
+	CommittedAt time.Time `json:"committed_at"`
 }
 
 type signatureUploadValidationInput struct {
-	UploadToken string
-	AgreementID string
-	RecipientID string
-	FieldID     string
-	ObjectKey   string
-	SHA256      string
+	UploadToken string `json:"upload_token"`
+	AgreementID string `json:"agreement_id"`
+	RecipientID string `json:"recipient_id"`
+	FieldID     string `json:"field_id"`
+	ObjectKey   string `json:"object_key"`
+	SHA256      string `json:"sha256"`
 }
 
 // SignerSignatureResult returns created artifact and attached field-value record.

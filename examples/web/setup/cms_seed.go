@@ -128,173 +128,173 @@ func localesFromSeedTranslations(seed contentSeed) []string {
 }
 
 type cmsSeedRefs struct {
-	PageContentTypeID uuid.UUID
-	PostContentTypeID uuid.UUID
-	NewsContentTypeID uuid.UUID
-	TemplateID        uuid.UUID
+	PageContentTypeID uuid.UUID `json:"page_content_type_id"`
+	PostContentTypeID uuid.UUID `json:"post_content_type_id"`
+	NewsContentTypeID uuid.UUID `json:"news_content_type_id"`
+	TemplateID        uuid.UUID `json:"template_id"`
 }
 
 type localeRow struct {
 	bun.BaseModel `bun:"table:locales,alias:l"`
 
-	ID         uuid.UUID      `bun:",pk,type:uuid"`
-	Code       string         `bun:"code,notnull"`
-	Display    string         `bun:"display_name,notnull"`
-	NativeName *string        `bun:"native_name"`
-	IsActive   bool           `bun:"is_active,notnull,default:true"`
-	IsDefault  bool           `bun:"is_default,notnull,default:false"`
-	Metadata   map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt  time.Time      `bun:"created_at"`
+	ID         uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	Code       string         `bun:"code,notnull" json:"code"`
+	Display    string         `bun:"display_name,notnull" json:"display"`
+	NativeName *string        `bun:"native_name" json:"native_name"`
+	IsActive   bool           `bun:"is_active,notnull,default:true" json:"is_active"`
+	IsDefault  bool           `bun:"is_default,notnull,default:false" json:"is_default"`
+	Metadata   map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt  time.Time      `bun:"created_at" json:"created_at"`
 }
 
 type themeRow struct {
 	bun.BaseModel `bun:"table:themes,alias:th"`
 
-	ID          uuid.UUID      `bun:",pk,type:uuid"`
-	Name        string         `bun:"name,notnull"`
-	Description *string        `bun:"description"`
-	Version     string         `bun:"version,notnull"`
-	Author      *string        `bun:"author"`
-	IsActive    bool           `bun:"is_active,notnull,default:false"`
-	ThemePath   string         `bun:"theme_path,notnull"`
-	Config      map[string]any `bun:"config,type:jsonb"`
-	CreatedAt   time.Time      `bun:"created_at"`
-	UpdatedAt   time.Time      `bun:"updated_at"`
+	ID          uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	Name        string         `bun:"name,notnull" json:"name"`
+	Description *string        `bun:"description" json:"description"`
+	Version     string         `bun:"version,notnull" json:"version"`
+	Author      *string        `bun:"author" json:"author"`
+	IsActive    bool           `bun:"is_active,notnull,default:false" json:"is_active"`
+	ThemePath   string         `bun:"theme_path,notnull" json:"theme_path"`
+	Config      map[string]any `bun:"config,type:jsonb" json:"config"`
+	CreatedAt   time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt   time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type templateRow struct {
 	bun.BaseModel `bun:"table:templates,alias:tpl"`
 
-	ID           uuid.UUID      `bun:",pk,type:uuid"`
-	ThemeID      uuid.UUID      `bun:"theme_id,notnull,type:uuid"`
-	Name         string         `bun:"name,notnull"`
-	Slug         string         `bun:"slug,notnull"`
-	Description  *string        `bun:"description"`
-	TemplatePath string         `bun:"template_path,notnull"`
-	Regions      map[string]any `bun:"regions,type:jsonb"`
-	Metadata     map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt    time.Time      `bun:"created_at"`
-	UpdatedAt    time.Time      `bun:"updated_at"`
+	ID           uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	ThemeID      uuid.UUID      `bun:"theme_id,notnull,type:uuid" json:"theme_id"`
+	Name         string         `bun:"name,notnull" json:"name"`
+	Slug         string         `bun:"slug,notnull" json:"slug"`
+	Description  *string        `bun:"description" json:"description"`
+	TemplatePath string         `bun:"template_path,notnull" json:"template_path"`
+	Regions      map[string]any `bun:"regions,type:jsonb" json:"regions"`
+	Metadata     map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt    time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt    time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type contentTypeRow struct {
 	bun.BaseModel `bun:"table:content_types,alias:ct"`
 
-	ID           uuid.UUID      `bun:",pk,type:uuid"`
-	Name         string         `bun:"name,notnull"`
-	Slug         string         `bun:"slug"`
-	Description  *string        `bun:"description"`
-	Schema       map[string]any `bun:"schema,type:jsonb,notnull"`
-	Capabilities map[string]any `bun:"capabilities,type:jsonb"`
-	Icon         *string        `bun:"icon"`
-	Status       string         `bun:"status"`
-	CreatedAt    time.Time      `bun:"created_at"`
-	UpdatedAt    time.Time      `bun:"updated_at"`
+	ID           uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	Name         string         `bun:"name,notnull" json:"name"`
+	Slug         string         `bun:"slug" json:"slug"`
+	Description  *string        `bun:"description" json:"description"`
+	Schema       map[string]any `bun:"schema,type:jsonb,notnull" json:"schema"`
+	Capabilities map[string]any `bun:"capabilities,type:jsonb" json:"capabilities"`
+	Icon         *string        `bun:"icon" json:"icon"`
+	Status       string         `bun:"status" json:"status"`
+	CreatedAt    time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt    time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type pageRow struct {
 	bun.BaseModel `bun:"table:pages,alias:p"`
 
-	ID       uuid.UUID  `bun:",pk,type:uuid"`
-	Slug     string     `bun:"slug"`
-	ParentID *uuid.UUID `bun:"parent_id"`
+	ID       uuid.UUID  `bun:",pk,type:uuid" json:"id"`
+	Slug     string     `bun:"slug" json:"slug"`
+	ParentID *uuid.UUID `bun:"parent_id" json:"parent_id"`
 }
 
 type contentTranslationRow struct {
 	bun.BaseModel `bun:"table:content_translations,alias:ct"`
 
-	ID        uuid.UUID      `bun:",pk,type:uuid"`
-	ContentID uuid.UUID      `bun:"content_id,notnull,type:uuid"`
-	LocaleID  uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	FamilyID  *uuid.UUID     `bun:"family_id,type:uuid"`
-	Title     string         `bun:"title,notnull"`
-	Summary   *string        `bun:"summary"`
-	Content   map[string]any `bun:"content,type:jsonb,notnull"`
-	CreatedAt time.Time      `bun:"created_at"`
-	UpdatedAt time.Time      `bun:"updated_at"`
+	ID        uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	ContentID uuid.UUID      `bun:"content_id,notnull,type:uuid" json:"content_id"`
+	LocaleID  uuid.UUID      `bun:"locale_id,notnull,type:uuid" json:"locale_id"`
+	FamilyID  *uuid.UUID     `bun:"family_id,type:uuid" json:"family_id"`
+	Title     string         `bun:"title,notnull" json:"title"`
+	Summary   *string        `bun:"summary" json:"summary"`
+	Content   map[string]any `bun:"content,type:jsonb,notnull" json:"content"`
+	CreatedAt time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type pageTranslationRow struct {
 	bun.BaseModel `bun:"table:page_translations,alias:pt"`
 
-	ID             uuid.UUID      `bun:",pk,type:uuid"`
-	PageID         uuid.UUID      `bun:"page_id,notnull,type:uuid"`
-	LocaleID       uuid.UUID      `bun:"locale_id,notnull,type:uuid"`
-	FamilyID       *uuid.UUID     `bun:"family_id,type:uuid"`
-	Title          string         `bun:"title,notnull"`
-	Path           string         `bun:"path,notnull"`
-	SEOTitle       *string        `bun:"seo_title"`
-	SEODescription *string        `bun:"seo_description"`
-	Summary        *string        `bun:"summary"`
-	MediaBindings  map[string]any `bun:"media_bindings,type:jsonb"`
-	CreatedAt      time.Time      `bun:"created_at"`
-	UpdatedAt      time.Time      `bun:"updated_at"`
+	ID             uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	PageID         uuid.UUID      `bun:"page_id,notnull,type:uuid" json:"page_id"`
+	LocaleID       uuid.UUID      `bun:"locale_id,notnull,type:uuid" json:"locale_id"`
+	FamilyID       *uuid.UUID     `bun:"family_id,type:uuid" json:"family_id"`
+	Title          string         `bun:"title,notnull" json:"title"`
+	Path           string         `bun:"path,notnull" json:"path"`
+	SEOTitle       *string        `bun:"seo_title" json:"seo_title"`
+	SEODescription *string        `bun:"seo_description" json:"seo_description"`
+	Summary        *string        `bun:"summary" json:"summary"`
+	MediaBindings  map[string]any `bun:"media_bindings,type:jsonb" json:"media_bindings"`
+	CreatedAt      time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt      time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type menuViewProfileRow struct {
 	bun.BaseModel `bun:"table:menu_view_profiles,alias:mvp"`
 
-	ID             uuid.UUID  `bun:",pk,type:uuid"`
-	Code           string     `bun:"code,notnull"`
-	Name           string     `bun:"name,notnull"`
-	Mode           string     `bun:"mode,notnull"`
-	MaxTopLevel    *int       `bun:"max_top_level"`
-	MaxDepth       *int       `bun:"max_depth"`
-	IncludeItemIDs []string   `bun:"include_item_ids,type:jsonb"`
-	ExcludeItemIDs []string   `bun:"exclude_item_ids,type:jsonb"`
-	Status         string     `bun:"status,notnull"`
-	PublishedAt    *time.Time `bun:"published_at"`
-	EnvironmentID  uuid.UUID  `bun:"environment_id,type:uuid"`
-	CreatedBy      uuid.UUID  `bun:"created_by,notnull,type:uuid"`
-	UpdatedBy      uuid.UUID  `bun:"updated_by,notnull,type:uuid"`
-	CreatedAt      time.Time  `bun:"created_at"`
-	UpdatedAt      time.Time  `bun:"updated_at"`
+	ID             uuid.UUID  `bun:",pk,type:uuid" json:"id"`
+	Code           string     `bun:"code,notnull" json:"code"`
+	Name           string     `bun:"name,notnull" json:"name"`
+	Mode           string     `bun:"mode,notnull" json:"mode"`
+	MaxTopLevel    *int       `bun:"max_top_level" json:"max_top_level"`
+	MaxDepth       *int       `bun:"max_depth" json:"max_depth"`
+	IncludeItemIDs []string   `bun:"include_item_ids,type:jsonb" json:"include_item_i_ds"`
+	ExcludeItemIDs []string   `bun:"exclude_item_ids,type:jsonb" json:"exclude_item_i_ds"`
+	Status         string     `bun:"status,notnull" json:"status"`
+	PublishedAt    *time.Time `bun:"published_at" json:"published_at"`
+	EnvironmentID  uuid.UUID  `bun:"environment_id,type:uuid" json:"environment_id"`
+	CreatedBy      uuid.UUID  `bun:"created_by,notnull,type:uuid" json:"created_by"`
+	UpdatedBy      uuid.UUID  `bun:"updated_by,notnull,type:uuid" json:"updated_by"`
+	CreatedAt      time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt      time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 type menuLocationBindingRow struct {
 	bun.BaseModel `bun:"table:menu_location_bindings,alias:mlb"`
 
-	ID              uuid.UUID  `bun:",pk,type:uuid"`
-	Location        string     `bun:"location,notnull"`
-	MenuCode        string     `bun:"menu_code,notnull"`
-	ViewProfileCode *string    `bun:"view_profile_code"`
-	Locale          *string    `bun:"locale"`
-	Priority        int        `bun:"priority,notnull"`
-	Status          string     `bun:"status,notnull"`
-	PublishedAt     *time.Time `bun:"published_at"`
-	EnvironmentID   uuid.UUID  `bun:"environment_id,type:uuid"`
-	CreatedBy       uuid.UUID  `bun:"created_by,notnull,type:uuid"`
-	UpdatedBy       uuid.UUID  `bun:"updated_by,notnull,type:uuid"`
-	CreatedAt       time.Time  `bun:"created_at"`
-	UpdatedAt       time.Time  `bun:"updated_at"`
+	ID              uuid.UUID  `bun:",pk,type:uuid" json:"id"`
+	Location        string     `bun:"location,notnull" json:"location"`
+	MenuCode        string     `bun:"menu_code,notnull" json:"menu_code"`
+	ViewProfileCode *string    `bun:"view_profile_code" json:"view_profile_code"`
+	Locale          *string    `bun:"locale" json:"locale"`
+	Priority        int        `bun:"priority,notnull" json:"priority"`
+	Status          string     `bun:"status,notnull" json:"status"`
+	PublishedAt     *time.Time `bun:"published_at" json:"published_at"`
+	EnvironmentID   uuid.UUID  `bun:"environment_id,type:uuid" json:"environment_id"`
+	CreatedBy       uuid.UUID  `bun:"created_by,notnull,type:uuid" json:"created_by"`
+	UpdatedBy       uuid.UUID  `bun:"updated_by,notnull,type:uuid" json:"updated_by"`
+	CreatedAt       time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 type contentSeed struct {
-	Slug         string                            `yaml:"slug"`
-	Title        string                            `yaml:"title"`
-	Summary      string                            `yaml:"summary"`
-	Body         string                            `yaml:"body"`
-	Status       string                            `yaml:"status"`
-	Path         string                            `yaml:"path"`
-	Tags         []string                          `yaml:"tags"`
-	Custom       map[string]any                    `yaml:"custom"`
-	Translations map[string]contentSeedTranslation `yaml:"translations"`
+	Slug         string                            `yaml:"slug" json:"slug"`
+	Title        string                            `yaml:"title" json:"title"`
+	Summary      string                            `yaml:"summary" json:"summary"`
+	Body         string                            `yaml:"body" json:"body"`
+	Status       string                            `yaml:"status" json:"status"`
+	Path         string                            `yaml:"path" json:"path"`
+	Tags         []string                          `yaml:"tags" json:"tags"`
+	Custom       map[string]any                    `yaml:"custom" json:"custom"`
+	Translations map[string]contentSeedTranslation `yaml:"translations" json:"translations"`
 }
 
 type contentSeedTranslation struct {
-	Title   *string        `yaml:"title"`
-	Summary *string        `yaml:"summary"`
-	Body    *string        `yaml:"body"`
-	Status  *string        `yaml:"status"`
-	Path    *string        `yaml:"path"`
-	Tags    []string       `yaml:"tags"`
-	Custom  map[string]any `yaml:"custom"`
+	Title   *string        `yaml:"title" json:"title"`
+	Summary *string        `yaml:"summary" json:"summary"`
+	Body    *string        `yaml:"body" json:"body"`
+	Status  *string        `yaml:"status" json:"status"`
+	Path    *string        `yaml:"path" json:"path"`
+	Tags    []string       `yaml:"tags" json:"tags"`
+	Custom  map[string]any `yaml:"custom" json:"custom"`
 }
 
 type cmsContentSeedsFile struct {
-	Pages []contentSeed `yaml:"pages"`
-	Posts []contentSeed `yaml:"posts"`
-	News  []contentSeed `yaml:"news"`
+	Pages []contentSeed `yaml:"pages" json:"pages"`
+	Posts []contentSeed `yaml:"posts" json:"posts"`
+	News  []contentSeed `yaml:"news" json:"news"`
 }
 
 func loadCMSContentSeeds() ([]contentSeed, []contentSeed, []contentSeed, error) {
@@ -1022,11 +1022,11 @@ func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSee
 }
 
 type seedContentTypeSpec struct {
-	Name            string
-	Capabilities    map[string]any
-	RequiredStrings map[string]string
-	RequiredBools   map[string]bool
-	RequiredTraits  []string
+	Name            string            `json:"name"`
+	Capabilities    map[string]any    `json:"capabilities"`
+	RequiredStrings map[string]string `json:"required_strings"`
+	RequiredBools   map[string]bool   `json:"required_bools"`
+	RequiredTraits  []string          `json:"required_traits"`
 }
 
 func validateSeedContentTypeCapabilities(seeds []seedContentTypeSpec) error {

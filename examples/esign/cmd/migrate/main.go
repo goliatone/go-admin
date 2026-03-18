@@ -28,21 +28,21 @@ const (
 )
 
 type options struct {
-	Command    string
-	ConfigPath string
-	Timeout    time.Duration
+	Command    string        `json:"command"`
+	ConfigPath string        `json:"config_path"`
+	Timeout    time.Duration `json:"timeout"`
 }
 
 type migrationStatus struct {
-	AppliedCount int
-	Latest       migrationEntry
-	HasLatest    bool
+	AppliedCount int            `json:"applied_count"`
+	Latest       migrationEntry `json:"latest"`
+	HasLatest    bool           `json:"has_latest"`
 }
 
 type migrationEntry struct {
-	Name       string    `bun:"name"`
-	GroupID    int64     `bun:"group_id"`
-	MigratedAt time.Time `bun:"migrated_at"`
+	Name       string    `bun:"name" json:"name"`
+	GroupID    int64     `bun:"group_id" json:"group_id"`
+	MigratedAt time.Time `bun:"migrated_at" json:"migrated_at"`
 }
 
 func main() {

@@ -10,38 +10,38 @@ import (
 
 // DatabasesRuntimeConfig controls DSN values consumed by setup package code.
 type DatabasesRuntimeConfig struct {
-	CMSDSN     string
-	ContentDSN string
+	CMSDSN     string `json:"cmsdsn"`
+	ContentDSN string `json:"content_dsn"`
 }
 
 // NavigationRuntimeConfig controls navigation seed/debug behavior.
 type NavigationRuntimeConfig struct {
-	ResetMenu bool
-	Debug     bool
-	DebugLog  bool
+	ResetMenu bool `json:"reset_menu"`
+	Debug     bool `json:"debug"`
+	DebugLog  bool `json:"debug_log"`
 }
 
 // SecureLinkRuntimeConfig controls securelink defaults for setup/auth flows.
 type SecureLinkRuntimeConfig struct {
-	BasePath   string
-	BaseURL    string
-	SigningKey string
-	QueryKey   string
-	AsQuery    bool
-	Expiration time.Duration
+	BasePath   string        `json:"base_path"`
+	BaseURL    string        `json:"base_url"`
+	SigningKey string        `json:"signing_key"`
+	QueryKey   string        `json:"query_key"`
+	AsQuery    bool          `json:"as_query"`
+	Expiration time.Duration `json:"expiration"`
 }
 
 // RuntimeConfig controls setup package runtime defaults.
 type RuntimeConfig struct {
-	AppEnv                     string
-	Scope                      quickstart.ScopeConfig
-	Seeds                      SeedConfig
-	Navigation                 NavigationRuntimeConfig
-	SecureLink                 SecureLinkRuntimeConfig
-	PasswordPolicyHints        []string
-	PermissionResolverCacheTTL time.Duration
-	Databases                  DatabasesRuntimeConfig
-	CMSRuntimeLogs             *bool
+	AppEnv                     string                  `json:"app_env"`
+	Scope                      quickstart.ScopeConfig  `json:"scope"`
+	Seeds                      SeedConfig              `json:"seeds"`
+	Navigation                 NavigationRuntimeConfig `json:"navigation"`
+	SecureLink                 SecureLinkRuntimeConfig `json:"secure_link"`
+	PasswordPolicyHints        []string                `json:"password_policy_hints"`
+	PermissionResolverCacheTTL time.Duration           `json:"permission_resolver_cache_ttl"`
+	Databases                  DatabasesRuntimeConfig  `json:"databases"`
+	CMSRuntimeLogs             *bool                   `json:"cms_runtime_logs"`
 }
 
 var (

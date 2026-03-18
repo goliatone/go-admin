@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -164,5 +166,24 @@ func TestValidateESignRuntimeAssetContractsWithFSRejectsInvalidModulePrefix(t *t
 	})
 	if err == nil {
 		t.Fatal("expected invalid module prefix failure")
+	}
+}
+
+func TestResolveESignRuntimeAssetsFSWithDiskPrefersDiskAssets(t *testing.T) {
+	tmpDir := t.TempDir()
+	assetPath := filepath.Join(tmpDir, "dist", "esign", "index.js")
+	if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
+		t.Fatalf("mkdir asset dir: %v", err)
+	}
+	if err := os.WriteFile(assetPath, []byte("export const source = 'disk';"), 0o644); err != nil {
+		t.Fatalf("write disk asset: %v", err)
+	}
+
+	assetsFS := resolveESignRuntimeAssetsFSWithDisk(fstest.MapFS{}, tmpDir)
+	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
+		eSignPageAgreementForm: "dist/esign/index.js",
+	})
+	if err != nil {
+		t.Fatalf("expected disk-backed asset contract validation to pass, got %v", err)
 	}
 }

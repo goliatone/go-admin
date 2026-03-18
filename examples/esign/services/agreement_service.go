@@ -80,17 +80,17 @@ const (
 
 // AgreementNotification carries canonical email notification payload context.
 type AgreementNotification struct {
-	AgreementID         string
-	ReviewID            string
-	RecipientID         string
-	ReviewParticipantID string
-	RecipientEmail      string
-	RecipientName       string
-	EffectID            string
-	CorrelationID       string
-	Type                AgreementNotificationType
-	Token               stores.IssuedSigningToken
-	ReviewToken         stores.IssuedReviewSessionToken
+	AgreementID         string                          `json:"agreement_id"`
+	ReviewID            string                          `json:"review_id"`
+	RecipientID         string                          `json:"recipient_id"`
+	ReviewParticipantID string                          `json:"review_participant_id"`
+	RecipientEmail      string                          `json:"recipient_email"`
+	RecipientName       string                          `json:"recipient_name"`
+	EffectID            string                          `json:"effect_id"`
+	CorrelationID       string                          `json:"correlation_id"`
+	Type                AgreementNotificationType       `json:"type"`
+	Token               stores.IssuedSigningToken       `json:"token"`
+	ReviewToken         stores.IssuedReviewSessionToken `json:"review_token"`
 }
 
 // AgreementEmailWorkflow captures post-send and post-resend email dispatch behavior.
@@ -228,34 +228,34 @@ func WithAgreementPDFService(service PDFService) AgreementServiceOption {
 
 // CreateDraftInput captures required agreement draft creation fields.
 type CreateDraftInput struct {
-	DocumentID             string
-	Title                  string
-	Message                string
-	CreatedByUserID        string
-	IPAddress              string
-	SourceType             string
-	SourceGoogleFileID     string
-	SourceGoogleDocURL     string
-	SourceModifiedTime     *time.Time
-	SourceExportedAt       *time.Time
-	SourceExportedByUserID string
-	SourceMimeType         string
-	SourceIngestionMode    string
+	DocumentID             string     `json:"document_id"`
+	Title                  string     `json:"title"`
+	Message                string     `json:"message"`
+	CreatedByUserID        string     `json:"created_by_user_id"`
+	IPAddress              string     `json:"ip_address"`
+	SourceType             string     `json:"source_type"`
+	SourceGoogleFileID     string     `json:"source_google_file_id"`
+	SourceGoogleDocURL     string     `json:"source_google_doc_url"`
+	SourceModifiedTime     *time.Time `json:"source_modified_time"`
+	SourceExportedAt       *time.Time `json:"source_exported_at"`
+	SourceExportedByUserID string     `json:"source_exported_by_user_id"`
+	SourceMimeType         string     `json:"source_mime_type"`
+	SourceIngestionMode    string     `json:"source_ingestion_mode"`
 }
 
 // ValidationIssue represents a pre-send validation failure.
 type ValidationIssue struct {
-	Code    string
-	Field   string
-	Message string
+	Code    string `json:"code"`
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 // AgreementValidationResult captures pre-send validation output.
 type AgreementValidationResult struct {
-	Valid          bool
-	RecipientCount int
-	FieldCount     int
-	Issues         []ValidationIssue
+	Valid          bool              `json:"valid"`
+	RecipientCount int               `json:"recipient_count"`
+	FieldCount     int               `json:"field_count"`
+	Issues         []ValidationIssue `json:"issues"`
 }
 
 func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) AgreementService {
@@ -362,53 +362,53 @@ func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(Agreemen
 
 // CreateRevisionInput captures source-agreement bootstrap parameters for correction/amendment drafts.
 type CreateRevisionInput struct {
-	SourceAgreementID string
-	Kind              AgreementRevisionKind
-	CreatedByUserID   string
-	IdempotencyKey    string
-	IPAddress         string
+	SourceAgreementID string                `json:"source_agreement_id"`
+	Kind              AgreementRevisionKind `json:"kind"`
+	CreatedByUserID   string                `json:"created_by_user_id"`
+	IdempotencyKey    string                `json:"idempotency_key"`
+	IPAddress         string                `json:"ip_address"`
 }
 
 // SendInput controls send transition behavior.
 type SendInput struct {
-	IdempotencyKey string
-	IPAddress      string
-	CorrelationID  string
+	IdempotencyKey string `json:"idempotency_key"`
+	IPAddress      string `json:"ip_address"`
+	CorrelationID  string `json:"correlation_id"`
 }
 
 // VoidInput controls void transition behavior.
 type VoidInput struct {
-	Reason       string
-	RevokeTokens bool
-	IPAddress    string
+	Reason       string `json:"reason"`
+	RevokeTokens bool   `json:"revoke_tokens"`
+	IPAddress    string `json:"ip_address"`
 }
 
 // ExpireInput controls expiry transition metadata.
 type ExpireInput struct {
-	Reason    string
-	IPAddress string
+	Reason    string `json:"reason"`
+	IPAddress string `json:"ip_address"`
 }
 
 // ResendInput controls resend behavior and token lifecycle options.
 type ResendInput struct {
-	RecipientID           string
-	RotateToken           bool
-	InvalidateExisting    bool
-	AllowOutOfOrderResend bool
-	IdempotencyKey        string
-	IPAddress             string
-	Source                string
-	ReminderLease         stores.AgreementReminderLeaseToken
-	ReminderLeaseSeconds  int
+	RecipientID           string                             `json:"recipient_id"`
+	RotateToken           bool                               `json:"rotate_token"`
+	InvalidateExisting    bool                               `json:"invalidate_existing"`
+	AllowOutOfOrderResend bool                               `json:"allow_out_of_order_resend"`
+	IdempotencyKey        string                             `json:"idempotency_key"`
+	IPAddress             string                             `json:"ip_address"`
+	Source                string                             `json:"source"`
+	ReminderLease         stores.AgreementReminderLeaseToken `json:"reminder_lease"`
+	ReminderLeaseSeconds  int                                `json:"reminder_lease_seconds"`
 }
 
 // ResendResult returns resend decision context and newly issued token.
 type ResendResult struct {
-	Agreement       stores.AgreementRecord
-	Recipient       stores.RecipientRecord
-	ActiveRecipient stores.RecipientRecord
-	Token           stores.IssuedSigningToken
-	Effects         []AgreementNotificationEffectDetail
+	Agreement       stores.AgreementRecord              `json:"agreement"`
+	Recipient       stores.RecipientRecord              `json:"recipient"`
+	ActiveRecipient stores.RecipientRecord              `json:"active_recipient"`
+	Token           stores.IssuedSigningToken           `json:"token"`
+	Effects         []AgreementNotificationEffectDetail `json:"effects"`
 }
 
 type agreementNotificationEffectPreparePayload struct {
@@ -2334,29 +2334,29 @@ func cloneAnyMap(in map[string]any) map[string]any {
 }
 
 type comparableParticipant struct {
-	ID           string
-	Email        string
-	Name         string
-	Role         string
-	SigningStage int
-	Notify       bool
+	ID           string `json:"id"`
+	Email        string `json:"email"`
+	Name         string `json:"name"`
+	Role         string `json:"role"`
+	SigningStage int    `json:"signing_stage"`
+	Notify       bool   `json:"notify"`
 }
 
 type comparableField struct {
-	ID              string
-	ParticipantKey  string
-	Type            string
-	Required        bool
-	PageNumber      int
-	X               float64
-	Y               float64
-	Width           float64
-	Height          float64
-	TabIndex        int
-	Label           string
-	PlacementSource string
-	LinkGroupID     string
-	IsUnlinked      bool
+	ID              string  `json:"id"`
+	ParticipantKey  string  `json:"participant_key"`
+	Type            string  `json:"type"`
+	Required        bool    `json:"required"`
+	PageNumber      int     `json:"page_number"`
+	X               float64 `json:"x"`
+	Y               float64 `json:"y"`
+	Width           float64 `json:"width"`
+	Height          float64 `json:"height"`
+	TabIndex        int     `json:"tab_index"`
+	Label           string  `json:"label"`
+	PlacementSource string  `json:"placement_source"`
+	LinkGroupID     string  `json:"link_group_id"`
+	IsUnlinked      bool    `json:"is_unlinked"`
 }
 
 func (s AgreementService) buildAgreementChangeSummary(ctx context.Context, scope stores.Scope, source, target stores.AgreementRecord) (map[string]any, error) {
@@ -2708,9 +2708,9 @@ func comparableFieldChangedFields(left, right comparableField) ([]string, bool) 
 }
 
 type comparableMatch struct {
-	LeftIndex  int
-	RightIndex int
-	Score      int
+	LeftIndex  int `json:"left_index"`
+	RightIndex int `json:"right_index"`
+	Score      int `json:"score"`
 }
 
 func matchComparableParticipants(left, right []comparableParticipant) []comparableMatch {

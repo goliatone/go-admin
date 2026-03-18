@@ -21,8 +21,8 @@ type TokenServiceOption func(*TokenService)
 
 // IssuedSigningToken contains the opaque token value and persisted metadata.
 type IssuedSigningToken struct {
-	Token  string
-	Record SigningTokenRecord
+	Token  string             `json:"token"`
+	Record SigningTokenRecord `json:"record"`
 }
 
 // TokenService issues and validates signer tokens with hash-only persistence.

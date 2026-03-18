@@ -33,13 +33,13 @@ var errResponseHandled = errors.New("response handled")
 
 // Permissions captures the e-sign admin permission set.
 type Permissions struct {
-	AdminView     string
-	AdminCreate   string
-	AdminEdit     string
-	AdminSend     string
-	AdminVoid     string
-	AdminDownload string
-	AdminSettings string
+	AdminView     string `json:"admin_view"`
+	AdminCreate   string `json:"admin_create"`
+	AdminEdit     string `json:"admin_edit"`
+	AdminSend     string `json:"admin_send"`
+	AdminVoid     string `json:"admin_void"`
+	AdminDownload string `json:"admin_download"`
+	AdminSettings string `json:"admin_settings"`
 }
 
 // DefaultPermissions is the canonical admin permission matrix for e-sign endpoints.
@@ -95,22 +95,22 @@ type registerConfig struct {
 
 // RemediationTriggerInput captures document remediation dispatch request context.
 type RemediationTriggerInput struct {
-	Scope          stores.Scope
-	DocumentID     string
-	ActorID        string
-	CorrelationID  string
-	ModeOverride   string
-	IdempotencyKey string
+	Scope          stores.Scope `json:"scope"`
+	DocumentID     string       `json:"document_id"`
+	ActorID        string       `json:"actor_id"`
+	CorrelationID  string       `json:"correlation_id"`
+	ModeOverride   string       `json:"mode_override"`
+	IdempotencyKey string       `json:"idempotency_key"`
 }
 
 // RemediationDispatchReceipt captures accepted remediation dispatch metadata.
 type RemediationDispatchReceipt struct {
-	Accepted      bool
-	Mode          string
-	CommandID     string
-	DispatchID    string
-	CorrelationID string
-	EnqueuedAt    *time.Time
+	Accepted      bool       `json:"accepted"`
+	Mode          string     `json:"mode"`
+	CommandID     string     `json:"command_id"`
+	DispatchID    string     `json:"dispatch_id"`
+	CorrelationID string     `json:"correlation_id"`
+	EnqueuedAt    *time.Time `json:"enqueued_at"`
 }
 
 // RemediationTrigger dispatches remediation command execution.
@@ -289,19 +289,19 @@ type PDFPolicyService interface {
 
 // RemediationDispatchStatus describes a remediation command dispatch status record for scope checks.
 type RemediationDispatchStatus struct {
-	DispatchID     string
-	Status         string
-	TenantID       string
-	OrgID          string
-	Attempt        int
-	MaxAttempts    int
-	EnqueuedAt     *time.Time
-	NextRunAt      *time.Time
-	StartedAt      *time.Time
-	CompletedAt    *time.Time
-	CanceledAt     *time.Time
-	TerminalReason string
-	UpdatedAt      *time.Time
+	DispatchID     string     `json:"dispatch_id"`
+	Status         string     `json:"status"`
+	TenantID       string     `json:"tenant_id"`
+	OrgID          string     `json:"org_id"`
+	Attempt        int        `json:"attempt"`
+	MaxAttempts    int        `json:"max_attempts"`
+	EnqueuedAt     *time.Time `json:"enqueued_at"`
+	NextRunAt      *time.Time `json:"next_run_at"`
+	StartedAt      *time.Time `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+	CanceledAt     *time.Time `json:"canceled_at"`
+	TerminalReason string     `json:"terminal_reason"`
+	UpdatedAt      *time.Time `json:"updated_at"`
 }
 
 // RemediationDispatchStatusLookup resolves remediation dispatch status by dispatch id.
@@ -314,10 +314,10 @@ type GoogleImportEnqueueFunc func(ctx context.Context, msg jobs.GoogleDriveImpor
 
 // GoogleRuntimeConfig captures Google integration + async import runtime wiring.
 type GoogleRuntimeConfig struct {
-	Enabled       bool
-	Integration   GoogleIntegrationService
-	ImportRuns    stores.GoogleImportRunStore
-	ImportEnqueue GoogleImportEnqueueFunc
+	Enabled       bool                        `json:"enabled"`
+	Integration   GoogleIntegrationService    `json:"integration"`
+	ImportRuns    stores.GoogleImportRunStore `json:"import_runs"`
+	ImportEnqueue GoogleImportEnqueueFunc     `json:"import_enqueue"`
 }
 
 // Validate returns an error when Google runtime wiring is incomplete.

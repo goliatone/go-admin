@@ -30,8 +30,8 @@ const (
 
 // V2ValidationConfig controls v2-focused production-hardening validation profile execution.
 type V2ValidationConfig struct {
-	AgreementCount      int
-	IntegrationRunCount int
+	AgreementCount      int `json:"agreement_count"`
+	IntegrationRunCount int `json:"integration_run_count"`
 }
 
 type v2AgreementMetrics struct {

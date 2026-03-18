@@ -24,11 +24,11 @@ var remediationArgTokenPattern = regexp.MustCompile(`\{[^{}]+\}`)
 
 // PDFRemediationCommandTemplate defines a safe external conversion command template.
 type PDFRemediationCommandTemplate struct {
-	Bin         string
-	Args        []string
-	Timeout     time.Duration
-	MaxPDFBytes int64
-	MaxLogBytes int
+	Bin         string        `json:"bin"`
+	Args        []string      `json:"args"`
+	Timeout     time.Duration `json:"timeout"`
+	MaxPDFBytes int64         `json:"max_pdf_bytes"`
+	MaxLogBytes int           `json:"max_log_bytes"`
 }
 
 // Validate checks command safety bounds and executable allowlist policy.
@@ -100,18 +100,18 @@ func remediationExecutableID(bin string) string {
 
 // PDFRemediationRunInput contains source bytes for one conversion attempt.
 type PDFRemediationRunInput struct {
-	SourcePDF []byte
+	SourcePDF []byte `json:"source_pdf"`
 }
 
 // PDFRemediationRunResult contains converted payload and bounded process logs.
 type PDFRemediationRunResult struct {
-	OutputPDF      []byte
-	Stdout         string
-	Stderr         string
-	StdoutTrimmed  bool
-	StderrTrimmed  bool
-	CompletedAt    time.Time
-	ExecutionDelay time.Duration
+	OutputPDF      []byte        `json:"output_pdf"`
+	Stdout         string        `json:"stdout"`
+	Stderr         string        `json:"stderr"`
+	StdoutTrimmed  bool          `json:"stdout_trimmed"`
+	StderrTrimmed  bool          `json:"stderr_trimmed"`
+	CompletedAt    time.Time     `json:"completed_at"`
+	ExecutionDelay time.Duration `json:"execution_delay"`
 }
 
 // PDFRemediationRunner runs external remediation safely using exec.CommandContext.

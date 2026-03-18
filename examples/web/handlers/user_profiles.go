@@ -44,11 +44,11 @@ func userProfileDataGridColumns() []helpers.DataGridColumn {
 
 // UserProfileHandlers holds dependencies for user-profile HTML handlers.
 type UserProfileHandlers struct {
-	Store         *stores.UserProfileStore
-	FormGenerator *formgenorchestrator.Orchestrator
-	Admin         *admin.Admin
-	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
+	Store         *stores.UserProfileStore                                                                                                                     `json:"store"`
+	FormGenerator *formgenorchestrator.Orchestrator                                                                                                            `json:"form_generator"`
+	Admin         *admin.Admin                                                                                                                                 `json:"admin"`
+	Config        admin.Config                                                                                                                                 `json:"config"`
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext `json:"with_nav"`
 }
 
 func NewUserProfileHandlers(

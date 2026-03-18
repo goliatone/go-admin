@@ -4,8 +4,8 @@ import "strings"
 
 // Scope captures tenant and organization context required by e-sign stores.
 type Scope struct {
-	TenantID string
-	OrgID    string
+	TenantID string `json:"tenant_id"`
+	OrgID    string `json:"org_id"`
 }
 
 func (s Scope) normalize() Scope {

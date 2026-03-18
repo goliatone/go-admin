@@ -20,28 +20,28 @@ import (
 
 // DocumentUploadInput contains the minimum source data required to persist a document.
 type DocumentUploadInput struct {
-	ID                     string
-	Title                  string
-	SourceOriginalName     string
-	ObjectKey              string
-	PDF                    []byte
-	CreatedBy              string
-	UploadedAt             time.Time
-	SourceType             string
-	SourceGoogleFileID     string
-	SourceGoogleDocURL     string
-	SourceModifiedTime     *time.Time
-	SourceExportedAt       *time.Time
-	SourceExportedByUserID string
-	SourceMimeType         string
-	SourceIngestionMode    string
+	ID                     string     `json:"id"`
+	Title                  string     `json:"title"`
+	SourceOriginalName     string     `json:"source_original_name"`
+	ObjectKey              string     `json:"object_key"`
+	PDF                    []byte     `json:"pdf"`
+	CreatedBy              string     `json:"created_by"`
+	UploadedAt             time.Time  `json:"uploaded_at"`
+	SourceType             string     `json:"source_type"`
+	SourceGoogleFileID     string     `json:"source_google_file_id"`
+	SourceGoogleDocURL     string     `json:"source_google_doc_url"`
+	SourceModifiedTime     *time.Time `json:"source_modified_time"`
+	SourceExportedAt       *time.Time `json:"source_exported_at"`
+	SourceExportedByUserID string     `json:"source_exported_by_user_id"`
+	SourceMimeType         string     `json:"source_mime_type"`
+	SourceIngestionMode    string     `json:"source_ingestion_mode"`
 }
 
 // DocumentMetadata captures extracted immutable source PDF metadata.
 type DocumentMetadata struct {
-	SHA256    string
-	SizeBytes int64
-	PageCount int
+	SHA256    string `json:"sha256"`
+	SizeBytes int64  `json:"size_bytes"`
+	PageCount int    `json:"page_count"`
 }
 
 // DocumentService validates uploaded PDFs, extracts metadata, and persists document records.

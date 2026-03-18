@@ -16,9 +16,9 @@ const (
 )
 
 type PublicReviewToken struct {
-	Kind         string
-	SigningToken *stores.SigningTokenRecord
-	ReviewToken  *stores.ReviewSessionTokenRecord
+	Kind         string                           `json:"kind"`
+	SigningToken *stores.SigningTokenRecord       `json:"signing_token"`
+	ReviewToken  *stores.ReviewSessionTokenRecord `json:"review_token"`
 }
 
 type signingTokenValidator interface {

@@ -76,10 +76,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	require.Equal(t, http.StatusOK, adminPreviewRes.Code)
 	adminPreview := decodeTestJSON(t, adminPreviewRes)
 	adminRecord := extractTestRecord(adminPreview)
-	slug := fmt.Sprint(adminRecord["slug"])
-	if slug == "" || slug == "<nil>" {
-		slug = fmt.Sprint(adminRecord["Slug"])
-	}
+	slug := firstTestString(adminRecord, "slug", "path", "Slug", "Path")
 	require.Equal(t, "example-draft", slug)
 
 	publicReq := httptest.NewRequest(http.MethodGet, "/api/v1/content/post/example-draft", nil)
@@ -110,6 +107,15 @@ func extractTestRecord(payload map[string]any) map[string]any {
 	if payload == nil {
 		return nil
 	}
+	if _, hasID := payload["id"]; hasID {
+		return payload
+	}
+	if _, hasSlug := payload["slug"]; hasSlug {
+		return payload
+	}
+	if record, ok := payload["record"].(map[string]any); ok {
+		return record
+	}
 	if data, ok := payload["data"].(map[string]any); ok {
 		return data
 	}
@@ -117,4 +123,25 @@ func extractTestRecord(payload map[string]any) map[string]any {
 		return values
 	}
 	return payload
+}
+
+func firstTestString(payload map[string]any, keys ...string) string {
+	if payload == nil {
+		return ""
+	}
+	for _, key := range keys {
+		if value := fmt.Sprint(payload[key]); value != "" && value != "<nil>" {
+			return value
+		}
+	}
+	for _, value := range payload {
+		nested, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if resolved := firstTestString(nested, keys...); resolved != "" {
+			return resolved
+		}
+	}
+	return ""
 }

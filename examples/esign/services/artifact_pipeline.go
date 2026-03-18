@@ -33,33 +33,33 @@ const (
 
 // RenderedArtifact captures deterministic rendered artifact metadata.
 type RenderedArtifact struct {
-	ObjectKey string
-	SHA256    string
-	Payload   []byte
+	ObjectKey string `json:"object_key"`
+	SHA256    string `json:"sha256"`
+	Payload   []byte `json:"payload"`
 }
 
 // ExecutedRenderInput provides source data required to render an executed artifact.
 type ExecutedRenderInput struct {
-	Scope         stores.Scope
-	Agreement     stores.AgreementRecord
-	Recipients    []stores.RecipientRecord
-	Fields        []stores.FieldRecord
-	FieldValues   []stores.FieldValueRecord
-	Events        []stores.AuditEventRecord
-	CorrelationID string
+	Scope         stores.Scope              `json:"scope"`
+	Agreement     stores.AgreementRecord    `json:"agreement"`
+	Recipients    []stores.RecipientRecord  `json:"recipients"`
+	Fields        []stores.FieldRecord      `json:"fields"`
+	FieldValues   []stores.FieldValueRecord `json:"field_values"`
+	Events        []stores.AuditEventRecord `json:"events"`
+	CorrelationID string                    `json:"correlation_id"`
 }
 
 // CertificateRenderInput provides source data required to render a certificate artifact.
 type CertificateRenderInput struct {
-	Scope                stores.Scope
-	Agreement            stores.AgreementRecord
-	Recipients           []stores.RecipientRecord
-	Events               []stores.AuditEventRecord
-	ExecutedSHA256       string
-	CorrelationID        string
-	RootAgreementID      string
-	ParentAgreementID    string
-	ParentExecutedSHA256 string
+	Scope                stores.Scope              `json:"scope"`
+	Agreement            stores.AgreementRecord    `json:"agreement"`
+	Recipients           []stores.RecipientRecord  `json:"recipients"`
+	Events               []stores.AuditEventRecord `json:"events"`
+	ExecutedSHA256       string                    `json:"executed_sha256"`
+	CorrelationID        string                    `json:"correlation_id"`
+	RootAgreementID      string                    `json:"root_agreement_id"`
+	ParentAgreementID    string                    `json:"parent_agreement_id"`
+	ParentExecutedSHA256 string                    `json:"parent_executed_sha256"`
 }
 
 // ArtifactRenderer integrates executed/certificate rendering behind a stable interface.
@@ -229,18 +229,18 @@ type ArtifactPipelineService struct {
 }
 
 type preparedExecutedArtifact struct {
-	Agreement   stores.AgreementRecord
-	Recipients  []stores.RecipientRecord
-	Fields      []stores.FieldRecord
-	FieldValues []stores.FieldValueRecord
-	Events      []stores.AuditEventRecord
+	Agreement   stores.AgreementRecord    `json:"agreement"`
+	Recipients  []stores.RecipientRecord  `json:"recipients"`
+	Fields      []stores.FieldRecord      `json:"fields"`
+	FieldValues []stores.FieldValueRecord `json:"field_values"`
+	Events      []stores.AuditEventRecord `json:"events"`
 }
 
 type preparedCertificateArtifact struct {
-	Agreement  stores.AgreementRecord
-	Recipients []stores.RecipientRecord
-	Events     []stores.AuditEventRecord
-	Executed   stores.AgreementArtifactRecord
+	Agreement  stores.AgreementRecord         `json:"agreement"`
+	Recipients []stores.RecipientRecord       `json:"recipients"`
+	Events     []stores.AuditEventRecord      `json:"events"`
+	Executed   stores.AgreementArtifactRecord `json:"executed"`
 }
 
 // ArtifactPipelineOption customizes artifact pipeline dependencies.

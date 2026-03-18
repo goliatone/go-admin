@@ -34,15 +34,15 @@ const (
 
 // UserHandlers holds dependencies for user-related HTTP handlers
 type UserHandlers struct {
-	Store         *stores.UserStore
-	FormGenerator *formgenorchestrator.Orchestrator
-	Admin         *admin.Admin
-	Config        admin.Config
-	ActivityLog   *slog.Logger
-	ActivityStats UserTabActivityMetrics
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
-	TabResolver   helpers.TabContentResolver
-	TabMode       helpers.TabRenderModeSelector
+	Store         *stores.UserStore                                                                                                                            `json:"store"`
+	FormGenerator *formgenorchestrator.Orchestrator                                                                                                            `json:"form_generator"`
+	Admin         *admin.Admin                                                                                                                                 `json:"admin"`
+	Config        admin.Config                                                                                                                                 `json:"config"`
+	ActivityLog   *slog.Logger                                                                                                                                 `json:"activity_log"`
+	ActivityStats UserTabActivityMetrics                                                                                                                       `json:"activity_stats"`
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext `json:"with_nav"`
+	TabResolver   helpers.TabContentResolver                                                                                                                   `json:"tab_resolver"`
+	TabMode       helpers.TabRenderModeSelector                                                                                                                `json:"tab_mode"`
 }
 
 func userDataGridColumns() []helpers.DataGridColumn {

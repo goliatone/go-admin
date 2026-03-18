@@ -8,17 +8,17 @@ import (
 
 // RetentionPolicy configures artifact, log, and PII metadata lifecycle controls.
 type RetentionPolicy struct {
-	ArtifactTTL    time.Duration
-	LogTTL         time.Duration
-	PIIMetadataTTL time.Duration
+	ArtifactTTL    time.Duration `json:"artifact_ttl"`
+	LogTTL         time.Duration `json:"log_ttl"`
+	PIIMetadataTTL time.Duration `json:"pii_metadata_ttl"`
 }
 
 // RetentionLifecycleCheck summarizes a periodic retention sweep evaluation.
 type RetentionLifecycleCheck struct {
-	CheckedAt        time.Time
-	ArtifactDueCount int
-	LogDueCount      int
-	PIIDueCount      int
+	CheckedAt        time.Time `json:"checked_at"`
+	ArtifactDueCount int       `json:"artifact_due_count"`
+	LogDueCount      int       `json:"log_due_count"`
+	PIIDueCount      int       `json:"pii_due_count"`
 }
 
 func DefaultRetentionPolicy() RetentionPolicy {

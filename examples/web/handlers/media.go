@@ -15,10 +15,10 @@ import (
 )
 
 type MediaHandlers struct {
-	Store   *stores.MediaStore
-	Admin   *admin.Admin
-	Config  admin.Config
-	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
+	Store   *stores.MediaStore                                                                                                                           `json:"store"`
+	Admin   *admin.Admin                                                                                                                                 `json:"admin"`
+	Config  admin.Config                                                                                                                                 `json:"config"`
+	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext `json:"with_nav"`
 }
 
 func NewMediaHandlers(store *stores.MediaStore, adm *admin.Admin, cfg admin.Config, withNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext) *MediaHandlers {

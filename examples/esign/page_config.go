@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"os"
 	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/client"
+	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
 
@@ -298,7 +300,22 @@ func rawToString(value any) string {
 }
 
 func validateESignRuntimeAssetContracts() error {
-	return validateESignRuntimeAssetContractsWithFS(client.Assets(), eSignMigratedPageModuleAssets)
+	return validateESignRuntimeAssetContractsWithFS(resolveESignRuntimeAssetsFS(), eSignMigratedPageModuleAssets)
+}
+
+func resolveESignRuntimeAssetsFS() fs.FS {
+	return resolveESignRuntimeAssetsFSWithDisk(client.Assets(), resolveESignDiskAssetsDir())
+}
+
+func resolveESignRuntimeAssetsFSWithDisk(base fs.FS, diskAssetsDir string) fs.FS {
+	diskAssetsDir = strings.TrimSpace(diskAssetsDir)
+	if diskAssetsDir == "" {
+		return base
+	}
+	if _, err := os.Stat(diskAssetsDir); err != nil {
+		return base
+	}
+	return quickstart.WithFallbackFS(os.DirFS(diskAssetsDir), base)
 }
 
 func validateESignRuntimeAssetContractsWithFS(assetsFS fs.FS, pageModuleAssets map[string]string) error {

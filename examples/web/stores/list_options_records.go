@@ -28,9 +28,9 @@ var reservedListPredicateFields = map[string]struct{}{
 }
 
 type listPredicate struct {
-	Field    string
-	Operator string
-	Values   []string
+	Field    string   `json:"field"`
+	Operator string   `json:"operator"`
+	Values   []string `json:"values"`
 }
 
 func applyListOptionsToRecords(records []map[string]any, opts admin.ListOptions, skipFields map[string]struct{}) ([]map[string]any, int) {

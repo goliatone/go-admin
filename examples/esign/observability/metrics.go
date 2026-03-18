@@ -52,107 +52,107 @@ type Metrics interface {
 
 // MetricsSnapshot is a read-model used by alerting and SLO dashboards.
 type MetricsSnapshot struct {
-	AdminReadP95MS          float64
-	SendP95MS               float64
-	ReminderSweepP95MS      float64
-	SignerSubmitP95MS       float64
-	UnifiedViewerLoadP95MS  float64
-	UnifiedFieldSaveP95MS   float64
-	UnifiedSignatureP95MS   float64
-	FinalizeP99MS           float64
-	EmailDispatchStartP99MS float64
+	AdminReadP95MS          float64 `json:"admin_read_p95_ms"`
+	SendP95MS               float64 `json:"send_p95_ms"`
+	ReminderSweepP95MS      float64 `json:"reminder_sweep_p95_ms"`
+	SignerSubmitP95MS       float64 `json:"signer_submit_p95_ms"`
+	UnifiedViewerLoadP95MS  float64 `json:"unified_viewer_load_p95_ms"`
+	UnifiedFieldSaveP95MS   float64 `json:"unified_field_save_p95_ms"`
+	UnifiedSignatureP95MS   float64 `json:"unified_signature_p95_ms"`
+	FinalizeP99MS           float64 `json:"finalize_p99_ms"`
+	EmailDispatchStartP99MS float64 `json:"email_dispatch_start_p99_ms"`
 
-	AdminReadSampleTotal     int64
-	SendSampleTotal          int64
-	ReminderSweepSampleTotal int64
-	SignerSubmitSampleTotal  int64
-	UnifiedViewerSampleTotal int64
-	UnifiedFieldSaveTotal    int64
-	UnifiedSignatureTotal    int64
-	FinalizeSampleTotal      int64
-	EmailDispatchSampleTotal int64
+	AdminReadSampleTotal     int64 `json:"admin_read_sample_total"`
+	SendSampleTotal          int64 `json:"send_sample_total"`
+	ReminderSweepSampleTotal int64 `json:"reminder_sweep_sample_total"`
+	SignerSubmitSampleTotal  int64 `json:"signer_submit_sample_total"`
+	UnifiedViewerSampleTotal int64 `json:"unified_viewer_sample_total"`
+	UnifiedFieldSaveTotal    int64 `json:"unified_field_save_total"`
+	UnifiedSignatureTotal    int64 `json:"unified_signature_total"`
+	FinalizeSampleTotal      int64 `json:"finalize_sample_total"`
+	EmailDispatchSampleTotal int64 `json:"email_dispatch_sample_total"`
 
-	SendSuccessTotal                int64
-	SendFailureTotal                int64
-	CommandDispatchP95MS            float64
-	CommandDispatchAcceptedTotal    int64
-	CommandDispatchRejectedTotal    int64
-	CommandDispatchAcceptedByMode   map[string]int64
-	CommandDispatchAcceptedByID     map[string]int64
-	CommandDispatchRejectedByReason map[string]int64
-	DedupStoreMissTotal             int64
-	DedupStoreMissByCommandID       map[string]int64
-	ReminderSweepClaimedTotal       int64
-	ReminderSweepSentTotal          int64
-	ReminderSweepSkippedTotal       int64
-	ReminderSweepFailedTotal        int64
-	ReminderSweepSkipByReason       map[string]int64
-	ReminderSweepFailureByReason    map[string]int64
-	ReminderLeaseLostTotal          int64
-	ReminderLeaseConflictTotal      int64
-	ReminderStateInvariantTotal     int64
-	ReminderPolicyBlockTotal        int64
-	ReminderClaimToSendP95MS        float64
-	ReminderDueToSendP95MS          float64
-	ReminderDueBacklogAgeP95MS      float64
-	SignerLinkOpenSuccessTotal      int64
-	SignerLinkOpenFailureTotal      int64
-	SignerSubmitSuccessTotal        int64
-	SignerSubmitFailureTotal        int64
-	UnifiedViewerSuccessTotal       int64
-	UnifiedViewerFailureTotal       int64
-	UnifiedFieldSaveSuccessTotal    int64
-	UnifiedFieldSaveFailureTotal    int64
-	UnifiedSignatureSuccessTotal    int64
-	UnifiedSignatureFailureTotal    int64
-	UnifiedSubmitSuccessTotal       int64
-	UnifiedSubmitFailureTotal       int64
-	FinalizeSuccessTotal            int64
-	FinalizeFailureTotal            int64
-	CompletionDeliverySuccessTotal  int64
-	CompletionDeliveryFailureTotal  int64
+	SendSuccessTotal                int64            `json:"send_success_total"`
+	SendFailureTotal                int64            `json:"send_failure_total"`
+	CommandDispatchP95MS            float64          `json:"command_dispatch_p95_ms"`
+	CommandDispatchAcceptedTotal    int64            `json:"command_dispatch_accepted_total"`
+	CommandDispatchRejectedTotal    int64            `json:"command_dispatch_rejected_total"`
+	CommandDispatchAcceptedByMode   map[string]int64 `json:"command_dispatch_accepted_by_mode"`
+	CommandDispatchAcceptedByID     map[string]int64 `json:"command_dispatch_accepted_by_id"`
+	CommandDispatchRejectedByReason map[string]int64 `json:"command_dispatch_rejected_by_reason"`
+	DedupStoreMissTotal             int64            `json:"dedup_store_miss_total"`
+	DedupStoreMissByCommandID       map[string]int64 `json:"dedup_store_miss_by_command_id"`
+	ReminderSweepClaimedTotal       int64            `json:"reminder_sweep_claimed_total"`
+	ReminderSweepSentTotal          int64            `json:"reminder_sweep_sent_total"`
+	ReminderSweepSkippedTotal       int64            `json:"reminder_sweep_skipped_total"`
+	ReminderSweepFailedTotal        int64            `json:"reminder_sweep_failed_total"`
+	ReminderSweepSkipByReason       map[string]int64 `json:"reminder_sweep_skip_by_reason"`
+	ReminderSweepFailureByReason    map[string]int64 `json:"reminder_sweep_failure_by_reason"`
+	ReminderLeaseLostTotal          int64            `json:"reminder_lease_lost_total"`
+	ReminderLeaseConflictTotal      int64            `json:"reminder_lease_conflict_total"`
+	ReminderStateInvariantTotal     int64            `json:"reminder_state_invariant_total"`
+	ReminderPolicyBlockTotal        int64            `json:"reminder_policy_block_total"`
+	ReminderClaimToSendP95MS        float64          `json:"reminder_claim_to_send_p95_ms"`
+	ReminderDueToSendP95MS          float64          `json:"reminder_due_to_send_p95_ms"`
+	ReminderDueBacklogAgeP95MS      float64          `json:"reminder_due_backlog_age_p95_ms"`
+	SignerLinkOpenSuccessTotal      int64            `json:"signer_link_open_success_total"`
+	SignerLinkOpenFailureTotal      int64            `json:"signer_link_open_failure_total"`
+	SignerSubmitSuccessTotal        int64            `json:"signer_submit_success_total"`
+	SignerSubmitFailureTotal        int64            `json:"signer_submit_failure_total"`
+	UnifiedViewerSuccessTotal       int64            `json:"unified_viewer_success_total"`
+	UnifiedViewerFailureTotal       int64            `json:"unified_viewer_failure_total"`
+	UnifiedFieldSaveSuccessTotal    int64            `json:"unified_field_save_success_total"`
+	UnifiedFieldSaveFailureTotal    int64            `json:"unified_field_save_failure_total"`
+	UnifiedSignatureSuccessTotal    int64            `json:"unified_signature_success_total"`
+	UnifiedSignatureFailureTotal    int64            `json:"unified_signature_failure_total"`
+	UnifiedSubmitSuccessTotal       int64            `json:"unified_submit_success_total"`
+	UnifiedSubmitFailureTotal       int64            `json:"unified_submit_failure_total"`
+	FinalizeSuccessTotal            int64            `json:"finalize_success_total"`
+	FinalizeFailureTotal            int64            `json:"finalize_failure_total"`
+	CompletionDeliverySuccessTotal  int64            `json:"completion_delivery_success_total"`
+	CompletionDeliveryFailureTotal  int64            `json:"completion_delivery_failure_total"`
 
-	JobSuccessTotal      int64
-	JobFailureTotal      int64
-	EmailSuccessTotal    int64
-	EmailFailureTotal    int64
-	TokenFailureTotal    int64
-	TokenFailureByReason map[string]int64
+	JobSuccessTotal      int64            `json:"job_success_total"`
+	JobFailureTotal      int64            `json:"job_failure_total"`
+	EmailSuccessTotal    int64            `json:"email_success_total"`
+	EmailFailureTotal    int64            `json:"email_failure_total"`
+	TokenFailureTotal    int64            `json:"token_failure_total"`
+	TokenFailureByReason map[string]int64 `json:"token_failure_by_reason"`
 
-	GoogleImportSuccessTotal    int64
-	GoogleImportFailureTotal    int64
-	GoogleImportFailureByReason map[string]int64
-	GoogleAuthChurnTotal        int64
-	GoogleAuthChurnByReason     map[string]int64
+	GoogleImportSuccessTotal    int64            `json:"google_import_success_total"`
+	GoogleImportFailureTotal    int64            `json:"google_import_failure_total"`
+	GoogleImportFailureByReason map[string]int64 `json:"google_import_failure_by_reason"`
+	GoogleAuthChurnTotal        int64            `json:"google_auth_churn_total"`
+	GoogleAuthChurnByReason     map[string]int64 `json:"google_auth_churn_by_reason"`
 
-	ProviderSuccessByName map[string]int64
-	ProviderFailureByName map[string]int64
-	JobSuccessByName      map[string]int64
-	JobFailureByName      map[string]int64
+	ProviderSuccessByName map[string]int64 `json:"provider_success_by_name"`
+	ProviderFailureByName map[string]int64 `json:"provider_failure_by_name"`
+	JobSuccessByName      map[string]int64 `json:"job_success_by_name"`
+	JobFailureByName      map[string]int64 `json:"job_failure_by_name"`
 
-	PDFIngestAnalyzeFailTotal         int64
-	PDFIngestAnalyzeFailByReasonTier  map[string]int64
-	PDFIngestPolicyRejectTotal        int64
-	PDFIngestPolicyRejectByReasonTier map[string]int64
-	PDFPreviewFallbackTotal           int64
-	PDFPreviewFallbackByReasonTier    map[string]int64
-	PDFRenderImportFailTotal          int64
-	PDFRenderImportFailByReasonTier   map[string]int64
+	PDFIngestAnalyzeFailTotal         int64            `json:"pdf_ingest_analyze_fail_total"`
+	PDFIngestAnalyzeFailByReasonTier  map[string]int64 `json:"pdf_ingest_analyze_fail_by_reason_tier"`
+	PDFIngestPolicyRejectTotal        int64            `json:"pdf_ingest_policy_reject_total"`
+	PDFIngestPolicyRejectByReasonTier map[string]int64 `json:"pdf_ingest_policy_reject_by_reason_tier"`
+	PDFPreviewFallbackTotal           int64            `json:"pdf_preview_fallback_total"`
+	PDFPreviewFallbackByReasonTier    map[string]int64 `json:"pdf_preview_fallback_by_reason_tier"`
+	PDFRenderImportFailTotal          int64            `json:"pdf_render_import_fail_total"`
+	PDFRenderImportFailByReasonTier   map[string]int64 `json:"pdf_render_import_fail_by_reason_tier"`
 
-	RemediationCandidateTotal           int64
-	RemediationStartedTotal             int64
-	RemediationSucceededTotal           int64
-	RemediationFailedTotal              int64
-	RemediationRetryingTotal            int64
-	RemediationCanceledTotal            int64
-	RemediationDeadLetterTotal          int64
-	RemediationLifecycleByStatus        map[string]int64
-	RemediationDispatchStateByStatus    map[string]int64
-	RemediationFailureByReason          map[string]int64
-	RemediationDuplicateSuppressedTotal int64
-	RemediationLockContentionTotal      int64
-	RemediationLockTimeoutTotal         int64
-	RemediationLockSignals              map[string]int64
+	RemediationCandidateTotal           int64            `json:"remediation_candidate_total"`
+	RemediationStartedTotal             int64            `json:"remediation_started_total"`
+	RemediationSucceededTotal           int64            `json:"remediation_succeeded_total"`
+	RemediationFailedTotal              int64            `json:"remediation_failed_total"`
+	RemediationRetryingTotal            int64            `json:"remediation_retrying_total"`
+	RemediationCanceledTotal            int64            `json:"remediation_canceled_total"`
+	RemediationDeadLetterTotal          int64            `json:"remediation_dead_letter_total"`
+	RemediationLifecycleByStatus        map[string]int64 `json:"remediation_lifecycle_by_status"`
+	RemediationDispatchStateByStatus    map[string]int64 `json:"remediation_dispatch_state_by_status"`
+	RemediationFailureByReason          map[string]int64 `json:"remediation_failure_by_reason"`
+	RemediationDuplicateSuppressedTotal int64            `json:"remediation_duplicate_suppressed_total"`
+	RemediationLockContentionTotal      int64            `json:"remediation_lock_contention_total"`
+	RemediationLockTimeoutTotal         int64            `json:"remediation_lock_timeout_total"`
+	RemediationLockSignals              map[string]int64 `json:"remediation_lock_signals"`
 }
 
 func (s MetricsSnapshot) JobSuccessRatePercent() float64 {

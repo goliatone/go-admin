@@ -4,8 +4,8 @@ import "strings"
 
 // ObjectStorageSecurityPolicy enforces encryption requirements for e-sign artifacts.
 type ObjectStorageSecurityPolicy struct {
-	RequireEncryption bool
-	AllowedAlgorithms map[string]struct{}
+	RequireEncryption bool                `json:"require_encryption"`
+	AllowedAlgorithms map[string]struct{} `json:"allowed_algorithms"`
 }
 
 func DefaultObjectStorageSecurityPolicy() ObjectStorageSecurityPolicy {

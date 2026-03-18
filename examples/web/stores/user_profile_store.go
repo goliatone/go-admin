@@ -315,19 +315,19 @@ func (s *UserProfileStore) ensureUserExists(ctx context.Context, id uuid.UUID) e
 }
 
 type userProfileInput struct {
-	UserID      uuid.UUID
-	DisplayName string
-	DisplaySet  bool
-	AvatarURL   string
-	AvatarSet   bool
-	Email       string
-	EmailSet    bool
-	Locale      string
-	LocaleSet   bool
-	Timezone    string
-	TimezoneSet bool
-	Bio         string
-	BioSet      bool
+	UserID      uuid.UUID `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	DisplaySet  bool      `json:"display_set"`
+	AvatarURL   string    `json:"avatar_url"`
+	AvatarSet   bool      `json:"avatar_set"`
+	Email       string    `json:"email"`
+	EmailSet    bool      `json:"email_set"`
+	Locale      string    `json:"locale"`
+	LocaleSet   bool      `json:"locale_set"`
+	Timezone    string    `json:"timezone"`
+	TimezoneSet bool      `json:"timezone_set"`
+	Bio         string    `json:"bio"`
+	BioSet      bool      `json:"bio_set"`
 }
 
 func (p userProfileInput) ToUsersProfile(scope types.ScopeFilter, actor types.ActorRef) types.UserProfile {

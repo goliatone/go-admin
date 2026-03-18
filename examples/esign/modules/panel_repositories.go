@@ -761,12 +761,12 @@ func isNotFoundDomainError(err error) bool {
 }
 
 type reminderSummary struct {
-	Status        string
-	NextDueAt     *time.Time
-	LastSentAt    *time.Time
-	SentCount     int
-	LastErrorCode string
-	Paused        bool
+	Status        string     `json:"status"`
+	NextDueAt     *time.Time `json:"next_due_at"`
+	LastSentAt    *time.Time `json:"last_sent_at"`
+	SentCount     int        `json:"sent_count"`
+	LastErrorCode string     `json:"last_error_code"`
+	Paused        bool       `json:"paused"`
 }
 
 func reminderErrorForClient(state stores.AgreementReminderStateRecord) string {
@@ -1031,8 +1031,8 @@ func formatTimeValue(value time.Time) string {
 }
 
 type agreementLineagePayload struct {
-	SupersededByAgreementID string
-	RelatedAgreements       []map[string]any
+	SupersededByAgreementID string           `json:"superseded_by_agreement_id"`
+	RelatedAgreements       []map[string]any `json:"related_agreements"`
 }
 
 func applyAgreementLineagePayload(payload map[string]any, lineage agreementLineagePayload, includeRelated bool) {
@@ -1415,57 +1415,57 @@ func formatTimePtr(value *time.Time) string {
 }
 
 type agreementRecipientFormInput struct {
-	ID           string
-	Name         string
-	Email        string
-	Role         string
-	Notify       bool
-	SigningStage int
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	Notify       bool   `json:"notify"`
+	SigningStage int    `json:"signing_stage"`
 }
 
 type agreementFieldFormInput struct {
-	ID                string
-	Type              string
-	ParticipantID     string
-	RecipientIndex    int
-	PageNumber        int
-	PosX              float64
-	PosY              float64
-	Width             float64
-	Height            float64
-	PlacementSource   string
-	LinkGroupID       string
-	LinkedFromFieldID string
-	IsUnlinked        *bool
-	Required          bool
+	ID                string  `json:"id"`
+	Type              string  `json:"type"`
+	ParticipantID     string  `json:"participant_id"`
+	RecipientIndex    int     `json:"recipient_index"`
+	PageNumber        int     `json:"page_number"`
+	PosX              float64 `json:"pos_x"`
+	PosY              float64 `json:"pos_y"`
+	Width             float64 `json:"width"`
+	Height            float64 `json:"height"`
+	PlacementSource   string  `json:"placement_source"`
+	LinkGroupID       string  `json:"link_group_id"`
+	LinkedFromFieldID string  `json:"linked_from_field_id"`
+	IsUnlinked        *bool   `json:"is_unlinked"`
+	Required          bool    `json:"required"`
 }
 
 type agreementFieldPlacementFormInput struct {
-	ID                string
-	DefinitionID      string
-	PageNumber        int
-	PosX              float64
-	PosY              float64
-	Width             float64
-	Height            float64
-	PlacementSource   string
-	LinkGroupID       string
-	LinkedFromFieldID string
-	IsUnlinked        *bool
+	ID                string  `json:"id"`
+	DefinitionID      string  `json:"definition_id"`
+	PageNumber        int     `json:"page_number"`
+	PosX              float64 `json:"pos_x"`
+	PosY              float64 `json:"pos_y"`
+	Width             float64 `json:"width"`
+	Height            float64 `json:"height"`
+	PlacementSource   string  `json:"placement_source"`
+	LinkGroupID       string  `json:"link_group_id"`
+	LinkedFromFieldID string  `json:"linked_from_field_id"`
+	IsUnlinked        *bool   `json:"is_unlinked"`
 }
 
 type agreementFieldRuleFormInput struct {
-	ID               string
-	Type             string
-	ParticipantID    string
-	ParticipantIndex int
-	Page             int
-	FromPage         int
-	ToPage           int
-	ExcludeLastPage  bool
-	ExcludePages     []int
-	Label            string
-	Required         bool
+	ID               string `json:"id"`
+	Type             string `json:"type"`
+	ParticipantID    string `json:"participant_id"`
+	ParticipantIndex int    `json:"participant_index"`
+	Page             int    `json:"page"`
+	FromPage         int    `json:"from_page"`
+	ToPage           int    `json:"to_page"`
+	ExcludeLastPage  bool   `json:"exclude_last_page"`
+	ExcludePages     []int  `json:"exclude_pages"`
+	Label            string `json:"label"`
+	Required         bool   `json:"required"`
 }
 
 func (r *agreementPanelRepository) syncDraftFormPayload(

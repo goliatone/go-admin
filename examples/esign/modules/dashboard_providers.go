@@ -169,12 +169,12 @@ func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (coreadmin.
 	}
 
 	type activityEntry struct {
-		CreatedAt      string
-		CreatedAtSort  string
-		Type           string
-		Actor          string
-		AgreementTitle string
-		AgreementURL   string
+		CreatedAt      string `json:"created_at"`
+		CreatedAtSort  string `json:"created_at_sort"`
+		Type           string `json:"type"`
+		Actor          string `json:"actor"`
+		AgreementTitle string `json:"agreement_title"`
+		AgreementURL   string `json:"agreement_url"`
 	}
 
 	items := make([]activityEntry, 0)

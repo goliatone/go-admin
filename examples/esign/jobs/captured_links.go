@@ -10,18 +10,18 @@ import (
 
 // CapturedRecipientLink stores the signer/completion links emitted by email dispatch.
 type CapturedRecipientLink struct {
-	Scope               stores.Scope
-	AgreementID         string
-	RecipientID         string
-	ReviewParticipantID string
-	RecipientEmail      string
-	TemplateCode        string
-	Notification        string
-	SignURL             string
-	ReviewURL           string
-	CompletionURL       string
-	CorrelationID       string
-	CapturedAt          time.Time
+	Scope               stores.Scope `json:"scope"`
+	AgreementID         string       `json:"agreement_id"`
+	RecipientID         string       `json:"recipient_id"`
+	ReviewParticipantID string       `json:"review_participant_id"`
+	RecipientEmail      string       `json:"recipient_email"`
+	TemplateCode        string       `json:"template_code"`
+	Notification        string       `json:"notification"`
+	SignURL             string       `json:"sign_url"`
+	ReviewURL           string       `json:"review_url"`
+	CompletionURL       string       `json:"completion_url"`
+	CorrelationID       string       `json:"correlation_id"`
+	CapturedAt          time.Time    `json:"captured_at"`
 }
 
 var capturedRecipientLinks = struct {

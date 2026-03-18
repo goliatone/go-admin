@@ -77,66 +77,66 @@ func WithDraftAgreementService(agreements AgreementService) DraftServiceOption {
 
 // DraftCreateInput captures draft creation payload.
 type DraftCreateInput struct {
-	WizardID        string
-	WizardState     map[string]any
-	Title           string
-	CurrentStep     int
-	DocumentID      string
-	CreatedByUserID string
+	WizardID        string         `json:"wizard_id"`
+	WizardState     map[string]any `json:"wizard_state"`
+	Title           string         `json:"title"`
+	CurrentStep     int            `json:"current_step"`
+	DocumentID      string         `json:"document_id"`
+	CreatedByUserID string         `json:"created_by_user_id"`
 }
 
 // DraftUpdateInput captures revision-aware draft update payload.
 type DraftUpdateInput struct {
-	ExpectedRevision int64
-	WizardState      map[string]any
-	Title            string
-	CurrentStep      int
-	DocumentID       *string
-	UpdatedByUserID  string
+	ExpectedRevision int64          `json:"expected_revision"`
+	WizardState      map[string]any `json:"wizard_state"`
+	Title            string         `json:"title"`
+	CurrentStep      int            `json:"current_step"`
+	DocumentID       *string        `json:"document_id"`
+	UpdatedByUserID  string         `json:"updated_by_user_id"`
 }
 
 // DraftListInput captures paginated draft list query.
 type DraftListInput struct {
-	CreatedByUserID string
-	Limit           int
-	Cursor          string
+	CreatedByUserID string `json:"created_by_user_id"`
+	Limit           int    `json:"limit"`
+	Cursor          string `json:"cursor"`
 }
 
 // DraftSendInput captures draft-to-agreement send preconditions.
 type DraftSendInput struct {
-	ExpectedRevision int64
-	CreatedByUserID  string
-	IPAddress        string
-	CorrelationID    string
-	IdempotencyKey   string
+	ExpectedRevision int64  `json:"expected_revision"`
+	CreatedByUserID  string `json:"created_by_user_id"`
+	IPAddress        string `json:"ip_address"`
+	CorrelationID    string `json:"correlation_id"`
+	IdempotencyKey   string `json:"idempotency_key"`
 }
 
 // DraftStartReviewInput captures draft-to-review start preconditions.
 type DraftStartReviewInput struct {
-	ExpectedRevision int64
-	CreatedByUserID  string
-	IPAddress        string
-	CorrelationID    string
-	IdempotencyKey   string
+	ExpectedRevision int64  `json:"expected_revision"`
+	CreatedByUserID  string `json:"created_by_user_id"`
+	IPAddress        string `json:"ip_address"`
+	CorrelationID    string `json:"correlation_id"`
+	IdempotencyKey   string `json:"idempotency_key"`
 }
 
 // DraftSendResult captures send conversion output contract.
 type DraftSendResult struct {
-	AgreementID  string
-	Status       string
-	DraftID      string
-	DraftDeleted bool
+	AgreementID  string `json:"agreement_id"`
+	Status       string `json:"status"`
+	DraftID      string `json:"draft_id"`
+	DraftDeleted bool   `json:"draft_deleted"`
 }
 
 // DraftStartReviewResult captures draft-to-review conversion output contract.
 type DraftStartReviewResult struct {
-	AgreementID     string
-	Status          string
-	ReviewStatus    string
-	ReviewGate      string
-	CommentsEnabled bool
-	DraftID         string
-	DraftDeleted    bool
+	AgreementID     string `json:"agreement_id"`
+	Status          string `json:"status"`
+	ReviewStatus    string `json:"review_status"`
+	ReviewGate      string `json:"review_gate"`
+	CommentsEnabled bool   `json:"comments_enabled"`
+	DraftID         string `json:"draft_id"`
+	DraftDeleted    bool   `json:"draft_deleted"`
 }
 
 // NewDraftService builds a draft lifecycle service over the shared e-sign store.
@@ -1044,8 +1044,8 @@ func (s DraftService) verifySendPersistenceInvariants(
 }
 
 type draftMaterializationResult struct {
-	Agreement            stores.AgreementRecord
-	ParticipantsByTempID map[string]stores.ParticipantRecord
+	Agreement            stores.AgreementRecord              `json:"agreement"`
+	ParticipantsByTempID map[string]stores.ParticipantRecord `json:"participants_by_temp_id"`
 }
 
 func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress string) (draftMaterializationResult, error) {

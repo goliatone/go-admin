@@ -8,8 +8,8 @@ import (
 
 // ResourceRoutes builds CRUD-style URLs for a resource.
 type ResourceRoutes struct {
-	BasePath string
-	Resource string
+	BasePath string `json:"base_path"`
+	Resource string `json:"resource"`
 }
 
 // NewResourceRoutes normalizes base path/resource and returns a route builder.

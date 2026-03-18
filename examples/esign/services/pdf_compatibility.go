@@ -14,8 +14,8 @@ const (
 )
 
 type PDFCompatibilityStatus struct {
-	Tier   PDFCompatibilityTier
-	Reason string
+	Tier   PDFCompatibilityTier `json:"tier"`
+	Reason string               `json:"reason"`
 }
 
 func normalizePDFCompatibilityTier(raw string) PDFCompatibilityTier {

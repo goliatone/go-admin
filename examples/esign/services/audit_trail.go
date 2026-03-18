@@ -99,12 +99,12 @@ const (
 )
 
 type auditTrailSourceEventPolicy struct {
-	EventType         string
-	Severity          string
-	ShowIPAddress     bool
-	UseNearestActorIP bool
-	LifecycleMarker   auditTrailLifecycleMarker
-	DescriptionKind   auditTrailDescriptionKind
+	EventType         string                    `json:"event_type"`
+	Severity          string                    `json:"severity"`
+	ShowIPAddress     bool                      `json:"show_ip_address"`
+	UseNearestActorIP bool                      `json:"use_nearest_actor_ip"`
+	LifecycleMarker   auditTrailLifecycleMarker `json:"lifecycle_marker"`
+	DescriptionKind   auditTrailDescriptionKind `json:"description_kind"`
 }
 
 var auditTrailSourceEventPolicies = map[string]auditTrailSourceEventPolicy{
@@ -281,9 +281,9 @@ var auditTrailSourceEventPolicies = map[string]auditTrailSourceEventPolicy{
 }
 
 type auditTrailDerivedEventPolicy struct {
-	EventType     string
-	Severity      string
-	ShowIPAddress bool
+	EventType     string `json:"event_type"`
+	Severity      string `json:"severity"`
+	ShowIPAddress bool   `json:"show_ip_address"`
 }
 
 var auditTrailDerivedEventPolicies = map[string]auditTrailDerivedEventPolicy{
@@ -321,50 +321,50 @@ var auditTrailDerivedEventPolicies = map[string]auditTrailDerivedEventPolicy{
 
 // AuditTrailEntry is a normalized timeline event used by executed/certificate renderers.
 type AuditTrailEntry struct {
-	EventType     string
-	Timestamp     time.Time
-	ActorName     string
-	ActorEmail    string
-	IPAddress     string
-	ShowIPAddress bool
-	Description   string
-	Severity      string
-	SourceEvent   string
-	SourceEventID string
+	EventType     string    `json:"event_type"`
+	Timestamp     time.Time `json:"timestamp"`
+	ActorName     string    `json:"actor_name"`
+	ActorEmail    string    `json:"actor_email"`
+	IPAddress     string    `json:"ip_address"`
+	ShowIPAddress bool      `json:"show_ip_address"`
+	Description   string    `json:"description"`
+	Severity      string    `json:"severity"`
+	SourceEvent   string    `json:"source_event"`
+	SourceEventID string    `json:"source_event_id"`
 }
 
 // AuditTrailDocument provides a canonical render model for timeline-based audit artifacts.
 type AuditTrailDocument struct {
-	AgreementID          string
-	Title                string
-	FileName             string
-	DocumentID           string
-	DocumentHash         string
-	Status               string
-	GeneratedAt          time.Time
-	ExecutedSHA256       string
-	CorrelationID        string
-	RootAgreementID      string
-	ParentAgreementID    string
-	ParentExecutedSHA256 string
-	Entries              []AuditTrailEntry
+	AgreementID          string            `json:"agreement_id"`
+	Title                string            `json:"title"`
+	FileName             string            `json:"file_name"`
+	DocumentID           string            `json:"document_id"`
+	DocumentHash         string            `json:"document_hash"`
+	Status               string            `json:"status"`
+	GeneratedAt          time.Time         `json:"generated_at"`
+	ExecutedSHA256       string            `json:"executed_sha256"`
+	CorrelationID        string            `json:"correlation_id"`
+	RootAgreementID      string            `json:"root_agreement_id"`
+	ParentAgreementID    string            `json:"parent_agreement_id"`
+	ParentExecutedSHA256 string            `json:"parent_executed_sha256"`
+	Entries              []AuditTrailEntry `json:"entries"`
 }
 
 // AuditTrailBuildInput carries source entities required to construct a normalized audit trail.
 type AuditTrailBuildInput struct {
-	Agreement            stores.AgreementRecord
-	Recipients           []stores.RecipientRecord
-	Events               []stores.AuditEventRecord
-	GeneratedAt          time.Time
-	DocumentID           string
-	DocumentTitle        string
-	DocumentOriginalName string
-	DocumentHash         string
-	ExecutedSHA256       string
-	CorrelationID        string
-	RootAgreementID      string
-	ParentAgreementID    string
-	ParentExecutedSHA256 string
+	Agreement            stores.AgreementRecord    `json:"agreement"`
+	Recipients           []stores.RecipientRecord  `json:"recipients"`
+	Events               []stores.AuditEventRecord `json:"events"`
+	GeneratedAt          time.Time                 `json:"generated_at"`
+	DocumentID           string                    `json:"document_id"`
+	DocumentTitle        string                    `json:"document_title"`
+	DocumentOriginalName string                    `json:"document_original_name"`
+	DocumentHash         string                    `json:"document_hash"`
+	ExecutedSHA256       string                    `json:"executed_sha256"`
+	CorrelationID        string                    `json:"correlation_id"`
+	RootAgreementID      string                    `json:"root_agreement_id"`
+	ParentAgreementID    string                    `json:"parent_agreement_id"`
+	ParentExecutedSHA256 string                    `json:"parent_executed_sha256"`
 }
 
 // BuildAuditTrailDocument maps e-sign agreement/audit data into a deterministic render contract.
@@ -634,17 +634,17 @@ func buildAuditTrailEventDescription(
 }
 
 type auditTrailSourceMarkers struct {
-	HasCreated            bool
-	HasSent               bool
-	HasViewedWithoutActor bool
-	HasSignedWithoutActor bool
-	ViewedRecipientIDs    map[string]struct{}
-	SignedRecipientIDs    map[string]struct{}
+	HasCreated            bool                `json:"has_created"`
+	HasSent               bool                `json:"has_sent"`
+	HasViewedWithoutActor bool                `json:"has_viewed_without_actor"`
+	HasSignedWithoutActor bool                `json:"has_signed_without_actor"`
+	ViewedRecipientIDs    map[string]struct{} `json:"viewed_recipient_i_ds"`
+	SignedRecipientIDs    map[string]struct{} `json:"signed_recipient_i_ds"`
 }
 
 type auditTrailActorIPPoint struct {
-	Timestamp time.Time
-	IPAddress string
+	Timestamp time.Time `json:"timestamp"`
+	IPAddress string    `json:"ip_address"`
 }
 
 type auditTrailActorIPIndex map[string][]auditTrailActorIPPoint

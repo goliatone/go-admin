@@ -32,11 +32,11 @@ const (
 
 // TabContentSpec describes where content should be sourced for a tab.
 type TabContentSpec struct {
-	Kind     TabContentKind
-	AreaCode string
-	Panel    string
-	Template string
-	Data     map[string]any
+	Kind     TabContentKind `json:"kind"`
+	AreaCode string         `json:"area_code"`
+	Panel    string         `json:"panel"`
+	Template string         `json:"template"`
+	Data     map[string]any `json:"data"`
 }
 
 // TabContentResolver maps (panel, record, tab) to a content specification.
@@ -93,8 +93,8 @@ const (
 
 // TabRenderModeSelector picks a render mode for a tab (defaults + overrides).
 type TabRenderModeSelector struct {
-	Default   TabRenderMode
-	Overrides map[string]TabRenderMode
+	Default   TabRenderMode            `json:"default"`
+	Overrides map[string]TabRenderMode `json:"overrides"`
 }
 
 func (s TabRenderModeSelector) ModeFor(panelName string, tab admin.PanelTab, spec TabContentSpec) TabRenderMode {

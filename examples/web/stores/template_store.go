@@ -18,11 +18,11 @@ type TemplateStore struct {
 type templateRow struct {
 	bun.BaseModel `bun:"table:templates,alias:tpl"`
 
-	ID           uuid.UUID `bun:",pk,type:uuid"`
-	Name         string    `bun:"name"`
-	Slug         string    `bun:"slug"`
-	TemplatePath string    `bun:"template_path"`
-	CreatedAt    time.Time `bun:"created_at"`
+	ID           uuid.UUID `bun:",pk,type:uuid" json:"id"`
+	Name         string    `bun:"name" json:"name"`
+	Slug         string    `bun:"slug" json:"slug"`
+	TemplatePath string    `bun:"template_path" json:"template_path"`
+	CreatedAt    time.Time `bun:"created_at" json:"created_at"`
 }
 
 // TemplateOption is a minimal payload for relationship selectors.

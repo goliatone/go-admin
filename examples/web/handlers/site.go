@@ -19,52 +19,52 @@ import (
 
 // SiteHandlers renders CMS-backed pages and posts for the public site.
 type SiteHandlers struct {
-	Admin         *admin.Admin
-	Pages         stores.PageRepository
-	Posts         stores.PostRepository
-	Nav           *admin.Navigation
-	DefaultLocale string
-	MenuCode      string
-	AssetBasePath string
-	AdminBasePath string
-	CMSEnabled    bool
+	Admin         *admin.Admin          `json:"admin"`
+	Pages         stores.PageRepository `json:"pages"`
+	Posts         stores.PostRepository `json:"posts"`
+	Nav           *admin.Navigation     `json:"nav"`
+	DefaultLocale string                `json:"default_locale"`
+	MenuCode      string                `json:"menu_code"`
+	AssetBasePath string                `json:"asset_base_path"`
+	AdminBasePath string                `json:"admin_base_path"`
+	CMSEnabled    bool                  `json:"cms_enabled"`
 }
 
 // SiteNavItem is a minimal navigation node for site templates.
 type SiteNavItem struct {
-	Label    string
-	Href     string
-	Key      string
-	Active   bool
-	Children []SiteNavItem
+	Label    string        `json:"label"`
+	Href     string        `json:"href"`
+	Key      string        `json:"key"`
+	Active   bool          `json:"active"`
+	Children []SiteNavItem `json:"children"`
 }
 
 type sitePage struct {
-	ID              string
-	Title           string
-	Summary         string
-	Content         string
-	Path            string
-	Status          string
-	MetaTitle       string
-	MetaDescription string
-	UpdatedAt       *time.Time
-	UpdatedAtText   string
+	ID              string     `json:"id"`
+	Title           string     `json:"title"`
+	Summary         string     `json:"summary"`
+	Content         string     `json:"content"`
+	Path            string     `json:"path"`
+	Status          string     `json:"status"`
+	MetaTitle       string     `json:"meta_title"`
+	MetaDescription string     `json:"meta_description"`
+	UpdatedAt       *time.Time `json:"updated_at"`
+	UpdatedAtText   string     `json:"updated_at_text"`
 }
 
 type sitePost struct {
-	ID              string
-	Title           string
-	Summary         string
-	Content         string
-	Path            string
-	Status          string
-	MetaTitle       string
-	MetaDescription string
-	PublishedAt     *time.Time
-	UpdatedAt       *time.Time
-	Tags            string
-	PublishedAtText string
+	ID              string     `json:"id"`
+	Title           string     `json:"title"`
+	Summary         string     `json:"summary"`
+	Content         string     `json:"content"`
+	Path            string     `json:"path"`
+	Status          string     `json:"status"`
+	MetaTitle       string     `json:"meta_title"`
+	MetaDescription string     `json:"meta_description"`
+	PublishedAt     *time.Time `json:"published_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
+	Tags            string     `json:"tags"`
+	PublishedAtText string     `json:"published_at_text"`
 }
 
 // NewSiteHandlers wires the dependencies needed to render CMS content.
@@ -91,15 +91,15 @@ func NewSiteHandlers(cfg SiteHandlersConfig) *SiteHandlers {
 
 // SiteHandlersConfig configures the site handlers.
 type SiteHandlersConfig struct {
-	Admin         *admin.Admin
-	Pages         stores.PageRepository
-	Posts         stores.PostRepository
-	Nav           *admin.Navigation
-	DefaultLocale string
-	MenuCode      string
-	AssetBasePath string
-	AdminBasePath string
-	CMSEnabled    bool
+	Admin         *admin.Admin          `json:"admin"`
+	Pages         stores.PageRepository `json:"pages"`
+	Posts         stores.PostRepository `json:"posts"`
+	Nav           *admin.Navigation     `json:"nav"`
+	DefaultLocale string                `json:"default_locale"`
+	MenuCode      string                `json:"menu_code"`
+	AssetBasePath string                `json:"asset_base_path"`
+	AdminBasePath string                `json:"admin_base_path"`
+	CMSEnabled    bool                  `json:"cms_enabled"`
 }
 
 // Page renders CMS pages (or 404 when no matching page is found).

@@ -8,16 +8,16 @@ import (
 
 // DraftUpgradeIssue captures unmet v2 invariants discovered during upgrade.
 type DraftUpgradeIssue struct {
-	Field   string
-	Message string
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 // DraftUpgradeReport captures normalization actions and residual issues.
 type DraftUpgradeReport struct {
-	AgreementID string
-	Upgraded    bool
-	Actions     []string
-	Issues      []DraftUpgradeIssue
+	AgreementID string              `json:"agreement_id"`
+	Upgraded    bool                `json:"upgraded"`
+	Actions     []string            `json:"actions"`
+	Issues      []DraftUpgradeIssue `json:"issues"`
 }
 
 // UpgradeDraftAgreementToV2 normalizes draft records to v2 participant/field invariants.

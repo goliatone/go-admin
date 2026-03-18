@@ -11,10 +11,10 @@ import (
 
 // AgreementSendInput captures payload for send transitions dispatched from panel actions.
 type AgreementSendInput struct {
-	Scope          stores.Scope
-	AgreementID    string
-	IdempotencyKey string
-	CorrelationID  string
+	Scope          stores.Scope `json:"scope"`
+	AgreementID    string       `json:"agreement_id"`
+	IdempotencyKey string       `json:"idempotency_key"`
+	CorrelationID  string       `json:"correlation_id"`
 }
 
 func (AgreementSendInput) Type() string {
@@ -34,11 +34,11 @@ func (m AgreementSendInput) SendInput() services.SendInput {
 
 // AgreementVoidInput captures payload for void transitions dispatched from panel actions.
 type AgreementVoidInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	Reason        string
-	RevokeTokens  bool
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	Reason        string       `json:"reason"`
+	RevokeTokens  bool         `json:"revoke_tokens"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementVoidInput) Type() string {
@@ -61,14 +61,14 @@ func (m AgreementVoidInput) VoidInput() services.VoidInput {
 
 // AgreementResendInput captures payload for resend transitions dispatched from panel actions.
 type AgreementResendInput struct {
-	Scope              stores.Scope
-	AgreementID        string
-	RecipientID        string
-	RotateToken        bool
-	InvalidateExisting bool
-	AllowOutOfOrder    bool
-	IdempotencyKey     string
-	CorrelationID      string
+	Scope              stores.Scope `json:"scope"`
+	AgreementID        string       `json:"agreement_id"`
+	RecipientID        string       `json:"recipient_id"`
+	RotateToken        bool         `json:"rotate_token"`
+	InvalidateExisting bool         `json:"invalidate_existing"`
+	AllowOutOfOrder    bool         `json:"allow_out_of_order"`
+	IdempotencyKey     string       `json:"idempotency_key"`
+	CorrelationID      string       `json:"correlation_id"`
 }
 
 func (AgreementResendInput) Type() string {
@@ -94,11 +94,11 @@ func (m AgreementResendInput) ResendInput() services.ResendInput {
 }
 
 type AgreementRevisionRequestInput struct {
-	Scope          stores.Scope
-	AgreementID    string
-	ActorID        string
-	IdempotencyKey string
-	CorrelationID  string
+	Scope          stores.Scope `json:"scope"`
+	AgreementID    string       `json:"agreement_id"`
+	ActorID        string       `json:"actor_id"`
+	IdempotencyKey string       `json:"idempotency_key"`
+	CorrelationID  string       `json:"correlation_id"`
 }
 
 func (m AgreementRevisionRequestInput) validateRequired() error {
@@ -133,14 +133,14 @@ func (m AgreementRequestAmendmentInput) Validate() error {
 }
 
 type AgreementReviewInput struct {
-	Scope              stores.Scope
-	AgreementID        string
-	ReviewParticipants []services.ReviewParticipantInput
-	ReviewerIDs        []string
-	Gate               string
-	CommentsEnabled    bool
-	ActorID            string
-	CorrelationID      string
+	Scope              stores.Scope                      `json:"scope"`
+	AgreementID        string                            `json:"agreement_id"`
+	ReviewParticipants []services.ReviewParticipantInput `json:"review_participants"`
+	ReviewerIDs        []string                          `json:"reviewer_i_ds"`
+	Gate               string                            `json:"gate"`
+	CommentsEnabled    bool                              `json:"comments_enabled"`
+	ActorID            string                            `json:"actor_id"`
+	CorrelationID      string                            `json:"correlation_id"`
 }
 
 func (m AgreementReviewInput) validateRequired() error {
@@ -175,12 +175,12 @@ func (m AgreementReopenReviewInput) Validate() error {
 }
 
 type AgreementNotifyReviewersInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ParticipantID string
-	RecipientID   string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ParticipantID string       `json:"participant_id"`
+	RecipientID   string       `json:"recipient_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementNotifyReviewersInput) Type() string {
@@ -195,12 +195,12 @@ func (m AgreementNotifyReviewersInput) Validate() error {
 }
 
 type AgreementReviewReminderControlInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ParticipantID string
-	RecipientID   string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ParticipantID string       `json:"participant_id"`
+	RecipientID   string       `json:"recipient_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (m AgreementReviewReminderControlInput) validateRequired() error {
@@ -250,10 +250,10 @@ func (m AgreementReviewReminderSendNowInput) Validate() error {
 }
 
 type AgreementCloseReviewInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementCloseReviewInput) Type() string {
@@ -268,13 +268,13 @@ func (m AgreementCloseReviewInput) Validate() error {
 }
 
 type AgreementReviewDecisionCommandInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ParticipantID string
-	RecipientID   string
-	Comment       string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ParticipantID string       `json:"participant_id"`
+	RecipientID   string       `json:"recipient_id"`
+	Comment       string       `json:"comment"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (m AgreementReviewDecisionCommandInput) validateRequired() error {
@@ -318,18 +318,18 @@ func (m AgreementRequestReviewChangesInput) Validate() error {
 }
 
 type AgreementCommentThreadInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ReviewID      string
-	Visibility    string
-	AnchorType    string
-	PageNumber    int
-	FieldID       string
-	AnchorX       float64
-	AnchorY       float64
-	Body          string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ReviewID      string       `json:"review_id"`
+	Visibility    string       `json:"visibility"`
+	AnchorType    string       `json:"anchor_type"`
+	PageNumber    int          `json:"page_number"`
+	FieldID       string       `json:"field_id"`
+	AnchorX       float64      `json:"anchor_x"`
+	AnchorY       float64      `json:"anchor_y"`
+	Body          string       `json:"body"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (m AgreementCommentThreadInput) validateRequired() error {
@@ -355,12 +355,12 @@ func (m AgreementCreateCommentThreadInput) Validate() error {
 }
 
 type AgreementReplyCommentThreadInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ThreadID      string
-	Body          string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ThreadID      string       `json:"thread_id"`
+	Body          string       `json:"body"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementReplyCommentThreadInput) Type() string {
@@ -381,11 +381,11 @@ func (m AgreementReplyCommentThreadInput) Validate() error {
 }
 
 type AgreementCommentThreadStateInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ThreadID      string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ThreadID      string       `json:"thread_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (m AgreementCommentThreadStateInput) validateRequired() error {
@@ -423,10 +423,10 @@ func (m AgreementReopenCommentThreadInput) Validate() error {
 }
 
 type AgreementDeliveryResumeInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementDeliveryResumeInput) Type() string {
@@ -441,10 +441,10 @@ func (m AgreementDeliveryResumeInput) Validate() error {
 }
 
 type GuardedEffectResumeInput struct {
-	Scope         stores.Scope
-	EffectID      string
-	ActorID       string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	EffectID      string       `json:"effect_id"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (GuardedEffectResumeInput) Type() string {
@@ -460,10 +460,10 @@ func (m GuardedEffectResumeInput) Validate() error {
 
 // TokenRotateInput captures payload for explicit token-rotation actions.
 type TokenRotateInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	RecipientID   string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	RecipientID   string       `json:"recipient_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (TokenRotateInput) Type() string {
@@ -482,8 +482,8 @@ func (m TokenRotateInput) Validate() error {
 
 // AgreementReminderSweepInput captures payload for periodic reminder sweeps.
 type AgreementReminderSweepInput struct {
-	Scope         stores.Scope
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementReminderSweepInput) Type() string {
@@ -497,10 +497,10 @@ func (m AgreementReminderSweepInput) Validate() error {
 
 // AgreementReminderCleanupInput captures payload for periodic internal reminder error cleanup.
 type AgreementReminderCleanupInput struct {
-	Scope         stores.Scope
-	Before        string
-	Limit         int
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	Before        string       `json:"before"`
+	Limit         int          `json:"limit"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (AgreementReminderCleanupInput) Type() string {
@@ -528,10 +528,10 @@ func (m AgreementReminderCleanupInput) BeforeTime(now time.Time) time.Time {
 
 // AgreementReminderControlInput captures pause/resume/send-now reminder actions.
 type AgreementReminderControlInput struct {
-	Scope         stores.Scope
-	AgreementID   string
-	RecipientID   string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	RecipientID   string       `json:"recipient_id"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (m AgreementReminderControlInput) validateRequired() error {
@@ -676,9 +676,9 @@ func (m PDFRemediationInput) Request(now time.Time) services.PDFRemediationReque
 
 // DraftCleanupInput captures payload for scheduled/manual draft expiry cleanup.
 type DraftCleanupInput struct {
-	Scope         stores.Scope
-	Before        string
-	CorrelationID string
+	Scope         stores.Scope `json:"scope"`
+	Before        string       `json:"before"`
+	CorrelationID string       `json:"correlation_id"`
 }
 
 func (DraftCleanupInput) Type() string {

@@ -85,128 +85,128 @@ func (s IntegrationFoundationService) withWriteTx(ctx context.Context, fn func(I
 
 // MappingCompileInput captures a mapping spec validation/compile request payload.
 type MappingCompileInput struct {
-	ID              string
-	Provider        string
-	Name            string
-	Version         int64
-	Status          string
-	CreatedByUserID string
-	UpdatedByUserID string
-	ExternalSchema  stores.ExternalSchema
-	Rules           []stores.MappingRule
+	ID              string                `json:"id"`
+	Provider        string                `json:"provider"`
+	Name            string                `json:"name"`
+	Version         int64                 `json:"version"`
+	Status          string                `json:"status"`
+	CreatedByUserID string                `json:"created_by_user_id"`
+	UpdatedByUserID string                `json:"updated_by_user_id"`
+	ExternalSchema  stores.ExternalSchema `json:"external_schema"`
+	Rules           []stores.MappingRule  `json:"rules"`
 }
 
 // MappingCompileResult returns persisted mapping contract + canonical compile output.
 type MappingCompileResult struct {
-	Spec          stores.MappingSpecRecord
-	CanonicalJSON string
-	Hash          string
-	Warnings      []string
+	Spec          stores.MappingSpecRecord `json:"spec"`
+	CanonicalJSON string                   `json:"canonical_json"`
+	Hash          string                   `json:"hash"`
+	Warnings      []string                 `json:"warnings"`
 }
 
 // StartSyncRunInput captures a sync run initialization request.
 type StartSyncRunInput struct {
-	Provider        string
-	Direction       string
-	MappingSpecID   string
-	Cursor          string
-	CreatedByUserID string
-	IdempotencyKey  string
+	Provider        string `json:"provider"`
+	Direction       string `json:"direction"`
+	MappingSpecID   string `json:"mapping_spec_id"`
+	Cursor          string `json:"cursor"`
+	CreatedByUserID string `json:"created_by_user_id"`
+	IdempotencyKey  string `json:"idempotency_key"`
 }
 
 // SaveCheckpointInput captures checkpoint persistence payload.
 type SaveCheckpointInput struct {
-	RunID         string
-	CheckpointKey string
-	Cursor        string
-	Payload       map[string]any
+	RunID         string         `json:"run_id"`
+	CheckpointKey string         `json:"checkpoint_key"`
+	Cursor        string         `json:"cursor"`
+	Payload       map[string]any `json:"payload"`
 }
 
 // ResolveConflictInput captures conflict resolution payload.
 type ResolveConflictInput struct {
-	ConflictID       string
-	Status           string
-	Resolution       map[string]any
-	ResolvedByUserID string
-	IdempotencyKey   string
+	ConflictID       string         `json:"conflict_id"`
+	Status           string         `json:"status"`
+	Resolution       map[string]any `json:"resolution"`
+	ResolvedByUserID string         `json:"resolved_by_user_id"`
+	IdempotencyKey   string         `json:"idempotency_key"`
 }
 
 // DetectConflictInput captures conflict creation payload.
 type DetectConflictInput struct {
-	RunID          string
-	BindingID      string
-	Provider       string
-	EntityKind     string
-	ExternalID     string
-	InternalID     string
-	Reason         string
-	Payload        map[string]any
-	IdempotencyKey string
+	RunID          string         `json:"run_id"`
+	BindingID      string         `json:"binding_id"`
+	Provider       string         `json:"provider"`
+	EntityKind     string         `json:"entity_kind"`
+	ExternalID     string         `json:"external_id"`
+	InternalID     string         `json:"internal_id"`
+	Reason         string         `json:"reason"`
+	Payload        map[string]any `json:"payload"`
+	IdempotencyKey string         `json:"idempotency_key"`
 }
 
 // InboundParticipantInput captures provider participant data for apply operations.
 type InboundParticipantInput struct {
-	ExternalID   string
-	Email        string
-	Name         string
-	Role         string
-	SigningStage int
+	ExternalID   string `json:"external_id"`
+	Email        string `json:"email"`
+	Name         string `json:"name"`
+	Role         string `json:"role"`
+	SigningStage int    `json:"signing_stage"`
 }
 
 // InboundFieldDefinitionInput captures optional field bootstrap data.
 type InboundFieldDefinitionInput struct {
-	FieldDefinitionID     string
-	ParticipantID         string
-	ParticipantExternalID string
-	Type                  string
-	Required              bool
-	ValidationJSON        string
-	PageNumber            int
-	X                     float64
-	Y                     float64
-	Width                 float64
-	Height                float64
-	TabIndex              int
-	Label                 string
-	AppearanceJSON        string
+	FieldDefinitionID     string  `json:"field_definition_id"`
+	ParticipantID         string  `json:"participant_id"`
+	ParticipantExternalID string  `json:"participant_external_id"`
+	Type                  string  `json:"type"`
+	Required              bool    `json:"required"`
+	ValidationJSON        string  `json:"validation_json"`
+	PageNumber            int     `json:"page_number"`
+	X                     float64 `json:"x"`
+	Y                     float64 `json:"y"`
+	Width                 float64 `json:"width"`
+	Height                float64 `json:"height"`
+	TabIndex              int     `json:"tab_index"`
+	Label                 string  `json:"label"`
+	AppearanceJSON        string  `json:"appearance_json"`
 }
 
 // InboundApplyInput captures idempotent inbound sync payload.
 type InboundApplyInput struct {
-	Provider         string
-	EntityKind       string
-	ExternalID       string
-	AgreementID      string
-	MetadataTitle    string
-	MetadataMessage  string
-	Participants     []InboundParticipantInput
-	FieldDefinitions []InboundFieldDefinitionInput
-	IdempotencyKey   string
+	Provider         string                        `json:"provider"`
+	EntityKind       string                        `json:"entity_kind"`
+	ExternalID       string                        `json:"external_id"`
+	AgreementID      string                        `json:"agreement_id"`
+	MetadataTitle    string                        `json:"metadata_title"`
+	MetadataMessage  string                        `json:"metadata_message"`
+	Participants     []InboundParticipantInput     `json:"participants"`
+	FieldDefinitions []InboundFieldDefinitionInput `json:"field_definitions"`
+	IdempotencyKey   string                        `json:"idempotency_key"`
 }
 
 // InboundApplyResult captures inbound apply summary.
 type InboundApplyResult struct {
-	AgreementID          string
-	ParticipantCount     int
-	FieldDefinitionCount int
-	Replay               bool
+	AgreementID          string `json:"agreement_id"`
+	ParticipantCount     int    `json:"participant_count"`
+	FieldDefinitionCount int    `json:"field_definition_count"`
+	Replay               bool   `json:"replay"`
 }
 
 // OutboundChangeInput captures a normalized outbound change event payload.
 type OutboundChangeInput struct {
-	Provider       string
-	AgreementID    string
-	EventType      string
-	SourceEventID  string
-	Payload        map[string]any
-	IdempotencyKey string
+	Provider       string         `json:"provider"`
+	AgreementID    string         `json:"agreement_id"`
+	EventType      string         `json:"event_type"`
+	SourceEventID  string         `json:"source_event_id"`
+	Payload        map[string]any `json:"payload"`
+	IdempotencyKey string         `json:"idempotency_key"`
 }
 
 // SyncRunDiagnostics returns run/checkpoint/conflict diagnostics payload.
 type SyncRunDiagnostics struct {
-	Run         stores.IntegrationSyncRunRecord
-	Checkpoints []stores.IntegrationCheckpointRecord
-	Conflicts   []stores.IntegrationConflictRecord
+	Run         stores.IntegrationSyncRunRecord      `json:"run"`
+	Checkpoints []stores.IntegrationCheckpointRecord `json:"checkpoints"`
+	Conflicts   []stores.IntegrationConflictRecord   `json:"conflicts"`
 }
 
 // DeterministicIntegrationMutationKey produces stable idempotency keys for integration mutations.

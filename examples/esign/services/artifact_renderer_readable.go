@@ -419,19 +419,19 @@ func drawExecutedFooter(pdf *gofpdf.Fpdf, pageWidth, pageHeight float64, footer 
 }
 
 type executedOverlay struct {
-	PageNumber int
-	X          float64
-	Y          float64
-	W          float64
-	H          float64
-	Text       string
-	Style      overlayStyle
-	Image      []byte
+	PageNumber int          `json:"page_number"`
+	X          float64      `json:"x"`
+	Y          float64      `json:"y"`
+	W          float64      `json:"w"`
+	H          float64      `json:"h"`
+	Text       string       `json:"text"`
+	Style      overlayStyle `json:"style"`
+	Image      []byte       `json:"image"`
 }
 
 type overlayStyle struct {
-	FontStyle string
-	FontSize  float64
+	FontStyle string  `json:"font_style"`
+	FontSize  float64 `json:"font_size"`
 }
 
 func drawExecutedOverlay(pdf *gofpdf.Fpdf, overlay executedOverlay) {

@@ -25,7 +25,7 @@ const (
 var defaultValidationTargets = []string{"postgres", "sqlite"}
 
 type migrationRegistration struct {
-	Label string
+	Label string `json:"label"`
 }
 
 type migrationObserver func(migrationRegistration)

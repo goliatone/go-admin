@@ -24,11 +24,11 @@ const (
 
 // TenantHandlers manages HTML CRUD for tenants using generic resource templates.
 type TenantHandlers struct {
-	Service       *admin.TenantService
-	FormGenerator *formgenorchestrator.Orchestrator
-	Admin         *admin.Admin
-	Config        admin.Config
-	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
+	Service       *admin.TenantService                                                                                                                         `json:"service"`
+	FormGenerator *formgenorchestrator.Orchestrator                                                                                                            `json:"form_generator"`
+	Admin         *admin.Admin                                                                                                                                 `json:"admin"`
+	Config        admin.Config                                                                                                                                 `json:"config"`
+	WithNav       func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext `json:"with_nav"`
 }
 
 // NewTenantHandlers constructs tenant handlers.

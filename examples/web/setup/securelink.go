@@ -35,8 +35,8 @@ func (c secureLinkConfig) GetAsQuery() bool             { return c.asQuery }
 
 // SecureLinkUIConfig exposes link parsing details for UI templates.
 type SecureLinkUIConfig struct {
-	QueryKey string
-	AsQuery  bool
+	QueryKey string `json:"query_key"`
+	AsQuery  bool   `json:"as_query"`
 }
 
 // NewSecureLinkManager builds a securelink manager for onboarding flows.

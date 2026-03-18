@@ -340,26 +340,6 @@ func TestSeedExampleTranslationQueueFixtureSeedsReviewerOwnedReviewAssignments(t
 	require.True(t, hasPostReview, "expected seeded review post assignment in reviewer inbox")
 }
 
-func TestTranslationQAFamilyTargetResolvesCurrentFixtureFamily(t *testing.T) {
-	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
-
-	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
-	require.NoError(t, err)
-	require.NotNil(t, cmsOpts.Container)
-
-	contentSvc := cmsOpts.Container.ContentService()
-	require.NotNil(t, contentSvc)
-
-	page, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
-	require.NoError(t, err)
-	require.NotNil(t, page)
-
-	target, err := translationQAFamilyTarget(ctx, "/admin", contentSvc)
-	require.NoError(t, err)
-	require.Equal(t, "/admin/translations/families/"+normalizeFamilyID(page.FamilyID, page.ID), target)
-}
-
 func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))

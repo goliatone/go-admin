@@ -14,9 +14,9 @@ import (
 
 // ProfileHandlers renders a self-service HTML profile screen for the current session user.
 type ProfileHandlers struct {
-	Admin   *admin.Admin
-	Config  admin.Config
-	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext
+	Admin   *admin.Admin                                                                                                                                 `json:"admin"`
+	Config  admin.Config                                                                                                                                 `json:"config"`
+	WithNav func(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context, c router.Context) router.ViewContext `json:"with_nav"`
 }
 
 func NewProfileHandlers(

@@ -40,14 +40,14 @@ const (
 )
 
 type GoogleHTTPProviderConfig struct {
-	ClientID         string
-	ClientSecret     string
-	TokenEndpoint    string
-	RevokeEndpoint   string
-	DriveBaseURL     string
-	UserInfoEndpoint string
-	HealthEndpoint   string
-	HTTPClient       *http.Client
+	ClientID         string       `json:"client_id"`
+	ClientSecret     string       `json:"client_secret"`
+	TokenEndpoint    string       `json:"token_endpoint"`
+	RevokeEndpoint   string       `json:"revoke_endpoint"`
+	DriveBaseURL     string       `json:"drive_base_url"`
+	UserInfoEndpoint string       `json:"user_info_endpoint"`
+	HealthEndpoint   string       `json:"health_endpoint"`
+	HTTPClient       *http.Client `json:"http_client"`
 }
 
 type GoogleHTTPProvider struct {

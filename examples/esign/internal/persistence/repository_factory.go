@@ -21,12 +21,12 @@ type OutboxMessageRecord struct {
 // IntegrationMutationClaimRecord represents idempotency claim rows for integration mutations.
 type IntegrationMutationClaimRecord struct {
 	bun.BaseModel  `bun:"table:integration_mutation_claims,alias:imc"`
-	ID             string
-	TenantID       string
-	OrgID          string
-	IdempotencyKey string
-	FirstSeenAt    time.Time
-	CreatedAt      time.Time
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	OrgID          string    `json:"org_id"`
+	IdempotencyKey string    `json:"idempotency_key"`
+	FirstSeenAt    time.Time `json:"first_seen_at"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // RepositoryFactory builds Bun-backed repositories for e-sign aggregates.

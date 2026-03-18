@@ -29,18 +29,18 @@ type eSignActivityStore struct {
 }
 
 type eSignActivityRow struct {
-	ID         string
-	UserID     string
-	ActorID    string
-	TenantID   string
-	OrgID      string
-	Verb       string
-	ObjectType string
-	ObjectID   string
-	Channel    string
-	IP         string
-	DataJSON   string
-	OccurredAt string
+	ID         string `json:"id"`
+	UserID     string `json:"user_id"`
+	ActorID    string `json:"actor_id"`
+	TenantID   string `json:"tenant_id"`
+	OrgID      string `json:"org_id"`
+	Verb       string `json:"verb"`
+	ObjectType string `json:"object_type"`
+	ObjectID   string `json:"object_id"`
+	Channel    string `json:"channel"`
+	IP         string `json:"ip"`
+	DataJSON   string `json:"data_json"`
+	OccurredAt string `json:"occurred_at"`
 }
 
 var (

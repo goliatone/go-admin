@@ -27,14 +27,14 @@ const (
 type googleServicesConnectionRecord struct {
 	bun.BaseModel `bun:"table:service_connections,alias:sc"`
 
-	ID                string    `bun:"id"`
-	ProviderID        string    `bun:"provider_id"`
-	ScopeType         string    `bun:"scope_type"`
-	ScopeID           string    `bun:"scope_id"`
-	ExternalAccountID string    `bun:"external_account_id"`
-	Status            string    `bun:"status"`
-	CreatedAt         time.Time `bun:"created_at"`
-	UpdatedAt         time.Time `bun:"updated_at"`
+	ID                string    `bun:"id" json:"id"`
+	ProviderID        string    `bun:"provider_id" json:"provider_id"`
+	ScopeType         string    `bun:"scope_type" json:"scope_type"`
+	ScopeID           string    `bun:"scope_id" json:"scope_id"`
+	ExternalAccountID string    `bun:"external_account_id" json:"external_account_id"`
+	Status            string    `bun:"status" json:"status"`
+	CreatedAt         time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt         time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 // GoogleServicesIntegrationService bridges the legacy e-sign Google endpoints

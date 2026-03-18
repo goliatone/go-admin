@@ -17,14 +17,14 @@ const (
 )
 
 type ValidationConfig struct {
-	AgreementCount int
+	AgreementCount int `json:"agreement_count"`
 }
 
 type ValidationResult struct {
-	AgreementCount int
-	Elapsed        time.Duration
-	Snapshot       observability.MetricsSnapshot
-	SLO            observability.SLOStatus
+	AgreementCount int                           `json:"agreement_count"`
+	Elapsed        time.Duration                 `json:"elapsed"`
+	Snapshot       observability.MetricsSnapshot `json:"snapshot"`
+	SLO            observability.SLOStatus       `json:"slo"`
 }
 
 func (cfg ValidationConfig) normalize() ValidationConfig {

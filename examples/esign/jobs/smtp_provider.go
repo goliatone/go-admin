@@ -30,15 +30,15 @@ const (
 
 // SMTPEmailProviderConfig captures SMTP transport settings.
 type SMTPEmailProviderConfig struct {
-	Host            string
-	Port            int
-	Username        string
-	Password        string
-	FromName        string
-	FromAddress     string
-	Timeout         time.Duration
-	DisableSTARTTLS bool
-	InsecureTLS     bool
+	Host            string        `json:"host"`
+	Port            int           `json:"port"`
+	Username        string        `json:"username"`
+	Password        string        `json:"password"`
+	FromName        string        `json:"from_name"`
+	FromAddress     string        `json:"from_address"`
+	Timeout         time.Duration `json:"timeout"`
+	DisableSTARTTLS bool          `json:"disable_starttls"`
+	InsecureTLS     bool          `json:"insecure_tls"`
 }
 
 // DefaultSMTPEmailProviderConfig returns Mailpit-friendly defaults for local runtime.

@@ -1,0 +1,60 @@
+{
+  "release_id": "translations-2026.03.18-ga-sample",
+  "phase": "20",
+  "rollout_defaults": {
+    "profile": "full",
+    "exchange": true,
+    "queue": true,
+    "kill_switches": [
+      "translations.exchange",
+      "translations.queue"
+    ]
+  },
+  "signoffs": {
+    "be": {
+      "approved": true,
+      "approver": "be-lead",
+      "approved_at": "2026-03-18T17:00:00Z",
+      "ticket": "REL-TRANS-BE-SAMPLE"
+    },
+    "fe": {
+      "approved": true,
+      "approver": "fe-lead",
+      "approved_at": "2026-03-18T17:05:00Z",
+      "ticket": "REL-TRANS-FE-SAMPLE"
+    },
+    "qa": {
+      "approved": true,
+      "approver": "qa-lead",
+      "approved_at": "2026-03-18T17:10:00Z",
+      "ticket": "REL-TRANS-QA-SAMPLE"
+    },
+    "ops": {
+      "approved": true,
+      "approver": "ops-lead",
+      "approved_at": "2026-03-18T17:15:00Z",
+      "ticket": "REL-TRANS-OPS-SAMPLE"
+    }
+  },
+  "evidence": {
+    "contracts_ref": "evidence/contracts.md",
+    "migrations_ref": "evidence/migrations.md",
+    "scope_ref": "evidence/scope.md",
+    "security_ref": "evidence/security.md",
+    "observability_ref": "evidence/observability.md",
+    "performance_ref": "evidence/performance.md",
+    "extraction_dry_run_ref": "evidence/extraction_dry_run.md",
+    "accessibility_ref": "evidence/accessibility.md",
+    "e2e_ref": "evidence/e2e.md",
+    "staging_soak_ref": "evidence/staging_soak.md"
+  },
+  "rollback": {
+    "feature_flags_off": [
+      "translations.exchange",
+      "translations.queue"
+    ],
+    "restore_app_build": true,
+    "restore_db_snapshot": true,
+    "notes": "Disable both translation feature flags, restore the previous application build, restore the pre-rollout database snapshot, and rerun the translation smoke checks before reopening traffic."
+  }
+}

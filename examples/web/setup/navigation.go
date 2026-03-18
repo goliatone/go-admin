@@ -307,7 +307,7 @@ func flattenMenuIDs(items []admin.MenuItem, out *[]string) {
 type EnsureDashboardFirstOptions struct {
 	// EnsureContentParentPath controls whether a path is injected into the Content parent target
 	// when it is missing. Keeping it false allows the parent to remain non-clickable.
-	EnsureContentParentPath bool
+	EnsureContentParentPath bool `json:"ensure_content_parent_path"`
 }
 
 // EnsureDashboardFirst updates persisted menu item positions so Dashboard renders before Content.
@@ -649,14 +649,14 @@ func samePermissions(left []string, right []string) bool {
 
 // NavigationIntegrityReport captures lightweight health metrics for a persisted menu tree.
 type NavigationIntegrityReport struct {
-	MenuCode        string
-	Locale          string
-	NodeCount       int
-	RootCount       int
-	OrphanCount     int
-	CycleCount      int
-	SelfParentCount int
-	RepairedCount   int
+	MenuCode        string `json:"menu_code"`
+	Locale          string `json:"locale"`
+	NodeCount       int    `json:"node_count"`
+	RootCount       int    `json:"root_count"`
+	OrphanCount     int    `json:"orphan_count"`
+	CycleCount      int    `json:"cycle_count"`
+	SelfParentCount int    `json:"self_parent_count"`
+	RepairedCount   int    `json:"repaired_count"`
 }
 
 func (r NavigationIntegrityReport) HasIssues() bool {

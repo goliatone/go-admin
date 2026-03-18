@@ -16,20 +16,20 @@ const (
 
 // RateLimitRule configures max requests per operation window.
 type RateLimitRule struct {
-	MaxRequests int
-	Window      time.Duration
+	MaxRequests int           `json:"max_requests"`
+	Window      time.Duration `json:"window"`
 }
 
 // RateLimitDecision captures allow/deny and retry metadata for the checked bucket.
 type RateLimitDecision struct {
-	Allowed    bool
-	Operation  string
-	Key        string
-	Limit      int
-	Remaining  int
-	Window     time.Duration
-	RetryAfter time.Duration
-	ResetAt    time.Time
+	Allowed    bool          `json:"allowed"`
+	Operation  string        `json:"operation"`
+	Key        string        `json:"key"`
+	Limit      int           `json:"limit"`
+	Remaining  int           `json:"remaining"`
+	Window     time.Duration `json:"window"`
+	RetryAfter time.Duration `json:"retry_after"`
+	ResetAt    time.Time     `json:"reset_at"`
 }
 
 // SlidingWindowRateLimiter enforces per-operation and per-key request limits.

@@ -196,7 +196,10 @@ func TestNavigationUsesCMSMenu(t *testing.T) {
 	rawMenu, ok := payload["data"].(map[string]any)
 	require.Truef(t, ok, "expected CMS menu object, payload: %+v", payload)
 
-	rawItems, ok := rawMenu["Items"].([]any)
+	rawItems, ok := rawMenu["items"].([]any)
+	if !ok {
+		rawItems, ok = rawMenu["Items"].([]any)
+	}
 	require.Truef(t, ok, "expected Items array in menu payload, payload: %+v", payload)
 	require.NotEmptyf(t, rawItems, "navigation should return CMS items, payload: %+v", payload)
 

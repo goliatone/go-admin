@@ -28,10 +28,10 @@ func All() []string {
 
 // RolePermissionDefault defines the baseline permission mapping for a role key.
 type RolePermissionDefault struct {
-	RoleKey     string
-	Name        string
-	Description string
-	Permissions []string
+	RoleKey     string   `json:"role_key"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
 }
 
 // DefaultRoleMappings returns baseline role permission defaults for e-sign operators.

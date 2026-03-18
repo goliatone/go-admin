@@ -17,7 +17,7 @@ const (
 )
 
 type PostBulkPublishMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PostBulkPublishMsg) Type() string { return postBulkPublishCommandName }
@@ -25,7 +25,7 @@ func (PostBulkPublishMsg) Type() string { return postBulkPublishCommandName }
 func (m PostBulkPublishMsg) Validate() error { return requireIDs(m.IDs, "post ids required") }
 
 type PostBulkUnpublishMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PostBulkUnpublishMsg) Type() string { return postBulkUnpublishCommandName }
@@ -33,10 +33,10 @@ func (PostBulkUnpublishMsg) Type() string { return postBulkUnpublishCommandName 
 func (m PostBulkUnpublishMsg) Validate() error { return requireIDs(m.IDs, "post ids required") }
 
 type PostBulkScheduleMsg struct {
-	IDs         []string
-	PublishAt   time.Time
-	ScheduledAt time.Time
-	Payload     map[string]any
+	IDs         []string       `json:"i_ds"`
+	PublishAt   time.Time      `json:"publish_at"`
+	ScheduledAt time.Time      `json:"scheduled_at"`
+	Payload     map[string]any `json:"payload"`
 }
 
 func (PostBulkScheduleMsg) Type() string { return postBulkScheduleCommandName }
@@ -44,7 +44,7 @@ func (PostBulkScheduleMsg) Type() string { return postBulkScheduleCommandName }
 func (m PostBulkScheduleMsg) Validate() error { return requireIDs(m.IDs, "post ids required") }
 
 type PostBulkArchiveMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PostBulkArchiveMsg) Type() string { return postBulkArchiveCommandName }
@@ -52,7 +52,7 @@ func (PostBulkArchiveMsg) Type() string { return postBulkArchiveCommandName }
 func (m PostBulkArchiveMsg) Validate() error { return requireIDs(m.IDs, "post ids required") }
 
 type PagePublishMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PagePublishMsg) Type() string { return pagePublishCommandName }
@@ -60,7 +60,7 @@ func (PagePublishMsg) Type() string { return pagePublishCommandName }
 func (m PagePublishMsg) Validate() error { return requireIDs(m.IDs, "page ids required") }
 
 type PageBulkPublishMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PageBulkPublishMsg) Type() string { return pageBulkPublishCommandName }
@@ -68,7 +68,7 @@ func (PageBulkPublishMsg) Type() string { return pageBulkPublishCommandName }
 func (m PageBulkPublishMsg) Validate() error { return requireIDs(m.IDs, "page ids required") }
 
 type PageBulkUnpublishMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (PageBulkUnpublishMsg) Type() string { return pageBulkUnpublishCommandName }
@@ -76,7 +76,7 @@ func (PageBulkUnpublishMsg) Type() string { return pageBulkUnpublishCommandName 
 func (m PageBulkUnpublishMsg) Validate() error { return requireIDs(m.IDs, "page ids required") }
 
 type MediaBulkDeleteMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (MediaBulkDeleteMsg) Type() string { return mediaBulkDeleteCommandName }

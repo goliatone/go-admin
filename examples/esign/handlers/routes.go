@@ -82,83 +82,83 @@ const (
 
 // RouteSet captures resolver-derived route paths used by the e-sign app.
 type RouteSet struct {
-	AdminBasePath string
-	AdminAPIBase  string
-	PublicAPIBase string
+	AdminBasePath string `json:"admin_base_path"`
+	AdminAPIBase  string `json:"admin_api_base"`
+	PublicAPIBase string `json:"public_api_base"`
 
-	AdminHome                        string
-	AdminLegacyHome                  string
-	AdminStatus                      string
-	AdminAPIStatus                   string
-	AdminDrafts                      string
-	AdminDraft                       string
-	AdminDraftSend                   string
-	AdminSyncResource                string
-	AdminSyncResourceAction          string
-	AdminSyncBootstrapAgreementDraft string
-	AdminAgreementsStats             string
-	AdminAgreementParticipants       string
-	AdminAgreementParticipant        string
-	AdminAgreementFieldDefinitions   string
-	AdminAgreementFieldDefinition    string
-	AdminAgreementFieldInstances     string
-	AdminAgreementFieldInstance      string
-	AdminAgreementSendReadiness      string
-	AdminAgreementAutoPlace          string
-	AdminAgreementPlacementRuns      string
-	AdminAgreementPlacementRun       string
-	AdminAgreementPlacementApply     string
-	AdminSmokeRecipientLinks         string
-	AdminDocumentsUpload             string
-	AdminDocumentRemediate           string
-	AdminRemediationDispatchStatus   string
-	AdminGuardedEffectStatus         string
-	AdminGuardedEffectResume         string
-	SignerSession                    string
-	SignerReviewThreads              string
-	SignerReviewThreadReplies        string
-	SignerReviewThreadResolve        string
-	SignerReviewThreadReopen         string
-	SignerReviewApprove              string
-	SignerReviewRequestChanges       string
-	SignerConsent                    string
-	SignerFieldValues                string
-	SignerSignature                  string
-	SignerSignatureUpload            string
-	SignerSignatureObject            string
-	SignerTelemetry                  string
-	SignerSubmit                     string
-	SignerDecline                    string
-	SignerAssets                     string
-	SignerProfile                    string
-	SignerSavedSignatures            string
-	SignerSavedSignature             string
+	AdminHome                        string `json:"admin_home"`
+	AdminLegacyHome                  string `json:"admin_legacy_home"`
+	AdminStatus                      string `json:"admin_status"`
+	AdminAPIStatus                   string `json:"admin_api_status"`
+	AdminDrafts                      string `json:"admin_drafts"`
+	AdminDraft                       string `json:"admin_draft"`
+	AdminDraftSend                   string `json:"admin_draft_send"`
+	AdminSyncResource                string `json:"admin_sync_resource"`
+	AdminSyncResourceAction          string `json:"admin_sync_resource_action"`
+	AdminSyncBootstrapAgreementDraft string `json:"admin_sync_bootstrap_agreement_draft"`
+	AdminAgreementsStats             string `json:"admin_agreements_stats"`
+	AdminAgreementParticipants       string `json:"admin_agreement_participants"`
+	AdminAgreementParticipant        string `json:"admin_agreement_participant"`
+	AdminAgreementFieldDefinitions   string `json:"admin_agreement_field_definitions"`
+	AdminAgreementFieldDefinition    string `json:"admin_agreement_field_definition"`
+	AdminAgreementFieldInstances     string `json:"admin_agreement_field_instances"`
+	AdminAgreementFieldInstance      string `json:"admin_agreement_field_instance"`
+	AdminAgreementSendReadiness      string `json:"admin_agreement_send_readiness"`
+	AdminAgreementAutoPlace          string `json:"admin_agreement_auto_place"`
+	AdminAgreementPlacementRuns      string `json:"admin_agreement_placement_runs"`
+	AdminAgreementPlacementRun       string `json:"admin_agreement_placement_run"`
+	AdminAgreementPlacementApply     string `json:"admin_agreement_placement_apply"`
+	AdminSmokeRecipientLinks         string `json:"admin_smoke_recipient_links"`
+	AdminDocumentsUpload             string `json:"admin_documents_upload"`
+	AdminDocumentRemediate           string `json:"admin_document_remediate"`
+	AdminRemediationDispatchStatus   string `json:"admin_remediation_dispatch_status"`
+	AdminGuardedEffectStatus         string `json:"admin_guarded_effect_status"`
+	AdminGuardedEffectResume         string `json:"admin_guarded_effect_resume"`
+	SignerSession                    string `json:"signer_session"`
+	SignerReviewThreads              string `json:"signer_review_threads"`
+	SignerReviewThreadReplies        string `json:"signer_review_thread_replies"`
+	SignerReviewThreadResolve        string `json:"signer_review_thread_resolve"`
+	SignerReviewThreadReopen         string `json:"signer_review_thread_reopen"`
+	SignerReviewApprove              string `json:"signer_review_approve"`
+	SignerReviewRequestChanges       string `json:"signer_review_request_changes"`
+	SignerConsent                    string `json:"signer_consent"`
+	SignerFieldValues                string `json:"signer_field_values"`
+	SignerSignature                  string `json:"signer_signature"`
+	SignerSignatureUpload            string `json:"signer_signature_upload"`
+	SignerSignatureObject            string `json:"signer_signature_object"`
+	SignerTelemetry                  string `json:"signer_telemetry"`
+	SignerSubmit                     string `json:"signer_submit"`
+	SignerDecline                    string `json:"signer_decline"`
+	SignerAssets                     string `json:"signer_assets"`
+	SignerProfile                    string `json:"signer_profile"`
+	SignerSavedSignatures            string `json:"signer_saved_signatures"`
+	SignerSavedSignature             string `json:"signer_saved_signature"`
 
-	AdminGoogleOAuthConnect      string
-	AdminGoogleOAuthDisconnect   string
-	AdminGoogleOAuthRotate       string
-	AdminGoogleOAuthStatus       string
-	AdminGoogleOAuthAccounts     string
-	AdminGoogleDriveSearch       string
-	AdminGoogleDriveBrowse       string
-	AdminGoogleDriveImport       string
-	AdminGoogleDriveImports      string
-	AdminGoogleDriveImportRun    string
-	AdminIntegrationMappings     string
-	AdminIntegrationMapping      string
-	AdminIntegrationMapPublish   string
-	AdminIntegrationSyncRuns     string
-	AdminIntegrationSyncRun      string
-	AdminIntegrationCheckpoints  string
-	AdminIntegrationSyncResume   string
-	AdminIntegrationSyncComplete string
-	AdminIntegrationSyncFail     string
-	AdminIntegrationConflicts    string
-	AdminIntegrationConflict     string
-	AdminIntegrationResolve      string
-	AdminIntegrationDiagnostics  string
-	AdminIntegrationInbound      string
-	AdminIntegrationOutbound     string
+	AdminGoogleOAuthConnect      string `json:"admin_google_o_auth_connect"`
+	AdminGoogleOAuthDisconnect   string `json:"admin_google_o_auth_disconnect"`
+	AdminGoogleOAuthRotate       string `json:"admin_google_o_auth_rotate"`
+	AdminGoogleOAuthStatus       string `json:"admin_google_o_auth_status"`
+	AdminGoogleOAuthAccounts     string `json:"admin_google_o_auth_accounts"`
+	AdminGoogleDriveSearch       string `json:"admin_google_drive_search"`
+	AdminGoogleDriveBrowse       string `json:"admin_google_drive_browse"`
+	AdminGoogleDriveImport       string `json:"admin_google_drive_import"`
+	AdminGoogleDriveImports      string `json:"admin_google_drive_imports"`
+	AdminGoogleDriveImportRun    string `json:"admin_google_drive_import_run"`
+	AdminIntegrationMappings     string `json:"admin_integration_mappings"`
+	AdminIntegrationMapping      string `json:"admin_integration_mapping"`
+	AdminIntegrationMapPublish   string `json:"admin_integration_map_publish"`
+	AdminIntegrationSyncRuns     string `json:"admin_integration_sync_runs"`
+	AdminIntegrationSyncRun      string `json:"admin_integration_sync_run"`
+	AdminIntegrationCheckpoints  string `json:"admin_integration_checkpoints"`
+	AdminIntegrationSyncResume   string `json:"admin_integration_sync_resume"`
+	AdminIntegrationSyncComplete string `json:"admin_integration_sync_complete"`
+	AdminIntegrationSyncFail     string `json:"admin_integration_sync_fail"`
+	AdminIntegrationConflicts    string `json:"admin_integration_conflicts"`
+	AdminIntegrationConflict     string `json:"admin_integration_conflict"`
+	AdminIntegrationResolve      string `json:"admin_integration_resolve"`
+	AdminIntegrationDiagnostics  string `json:"admin_integration_diagnostics"`
+	AdminIntegrationInbound      string `json:"admin_integration_inbound"`
+	AdminIntegrationOutbound     string `json:"admin_integration_outbound"`
 }
 
 // BuildRouteSet resolves admin/public namespace roots and builds e-sign routes from them.

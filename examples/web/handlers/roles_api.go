@@ -24,18 +24,18 @@ const (
 
 // RolesAPIHandlers serves the DataGrid JSON payload for roles.
 type RolesAPIHandlers struct {
-	Admin  *admin.Admin
-	Config admin.Config
+	Admin  *admin.Admin `json:"admin"`
+	Config admin.Config `json:"config"`
 }
 
 type roleListQuery struct {
-	Limit          int
-	Offset         int
-	Search         string
-	SortBy         string
-	SortDesc       bool
-	Filters        map[string]string
-	ServiceFilters map[string]any
+	Limit          int               `json:"limit"`
+	Offset         int               `json:"offset"`
+	Search         string            `json:"search"`
+	SortBy         string            `json:"sort_by"`
+	SortDesc       bool              `json:"sort_desc"`
+	Filters        map[string]string `json:"filters"`
+	ServiceFilters map[string]any    `json:"service_filters"`
 }
 
 // NewRolesAPIHandlers constructs a roles API handler.

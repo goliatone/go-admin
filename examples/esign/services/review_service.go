@@ -12,45 +12,45 @@ import (
 )
 
 type ReviewOpenInput struct {
-	Gate               string
-	CommentsEnabled    bool
-	ReviewParticipants []ReviewParticipantInput
-	ReviewerIDs        []string
-	RequestedByUserID  string
-	ActorType          string
-	ActorID            string
-	IPAddress          string
-	CorrelationID      string
+	Gate               string                   `json:"gate"`
+	CommentsEnabled    bool                     `json:"comments_enabled"`
+	ReviewParticipants []ReviewParticipantInput `json:"review_participants"`
+	ReviewerIDs        []string                 `json:"reviewer_i_ds"`
+	RequestedByUserID  string                   `json:"requested_by_user_id"`
+	ActorType          string                   `json:"actor_type"`
+	ActorID            string                   `json:"actor_id"`
+	IPAddress          string                   `json:"ip_address"`
+	CorrelationID      string                   `json:"correlation_id"`
 }
 
 type ReviewParticipantInput struct {
-	ParticipantType string
-	RecipientID     string
-	Email           string
-	DisplayName     string
-	CanComment      bool
-	CanApprove      bool
+	ParticipantType string `json:"participant_type"`
+	RecipientID     string `json:"recipient_id"`
+	Email           string `json:"email"`
+	DisplayName     string `json:"display_name"`
+	CanComment      bool   `json:"can_comment"`
+	CanApprove      bool   `json:"can_approve"`
 }
 
 type ReviewDecisionInput struct {
-	ParticipantID string
-	RecipientID   string
-	ActorType     string
-	ActorID       string
-	IPAddress     string
-	Comment       string
+	ParticipantID string `json:"participant_id"`
+	RecipientID   string `json:"recipient_id"`
+	ActorType     string `json:"actor_type"`
+	ActorID       string `json:"actor_id"`
+	IPAddress     string `json:"ip_address"`
+	Comment       string `json:"comment"`
 }
 
 type ReviewNotifyInput struct {
-	ParticipantID string
-	RecipientID   string
-	RequestedByID string
-	ActorType     string
-	ActorID       string
-	IPAddress     string
-	CorrelationID string
-	Source        string
-	Reason        string
+	ParticipantID string `json:"participant_id"`
+	RecipientID   string `json:"recipient_id"`
+	RequestedByID string `json:"requested_by_id"`
+	ActorType     string `json:"actor_type"`
+	ActorID       string `json:"actor_id"`
+	IPAddress     string `json:"ip_address"`
+	CorrelationID string `json:"correlation_id"`
+	Source        string `json:"source"`
+	Reason        string `json:"reason"`
 }
 
 const (
@@ -59,29 +59,29 @@ const (
 )
 
 type ReviewCommentThreadInput struct {
-	ReviewID   string
-	Visibility string
-	AnchorType string
-	PageNumber int
-	FieldID    string
-	AnchorX    float64
-	AnchorY    float64
-	Body       string
-	ActorType  string
-	ActorID    string
+	ReviewID   string  `json:"review_id"`
+	Visibility string  `json:"visibility"`
+	AnchorType string  `json:"anchor_type"`
+	PageNumber int     `json:"page_number"`
+	FieldID    string  `json:"field_id"`
+	AnchorX    float64 `json:"anchor_x"`
+	AnchorY    float64 `json:"anchor_y"`
+	Body       string  `json:"body"`
+	ActorType  string  `json:"actor_type"`
+	ActorID    string  `json:"actor_id"`
 }
 
 type ReviewCommentReplyInput struct {
-	ThreadID  string
-	Body      string
-	ActorType string
-	ActorID   string
+	ThreadID  string `json:"thread_id"`
+	Body      string `json:"body"`
+	ActorType string `json:"actor_type"`
+	ActorID   string `json:"actor_id"`
 }
 
 type ReviewCommentStateInput struct {
-	ThreadID  string
-	ActorType string
-	ActorID   string
+	ThreadID  string `json:"thread_id"`
+	ActorType string `json:"actor_type"`
+	ActorID   string `json:"actor_id"`
 }
 
 type ReviewThread struct {

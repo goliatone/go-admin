@@ -12,11 +12,11 @@ import (
 
 // ClientHandles represents open persistence runtime handles without executing migrations.
 type ClientHandles struct {
-	SQLDB   *sql.DB
-	BunDB   *bun.DB
-	Client  *persistence.Client
-	Dialect Dialect
-	DSN     string
+	SQLDB   *sql.DB             `json:"sqldb"`
+	BunDB   *bun.DB             `json:"bun_db"`
+	Client  *persistence.Client `json:"client"`
+	Dialect Dialect             `json:"dialect"`
+	DSN     string              `json:"dsn"`
 }
 
 // Close releases all persistence resources.

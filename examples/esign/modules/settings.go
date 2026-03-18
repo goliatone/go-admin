@@ -31,12 +31,12 @@ const (
 
 // RuntimeSettings captures e-sign runtime settings resolved from SettingsService.
 type RuntimeSettings struct {
-	EmailDefaultFromName    string
-	EmailDefaultFromAddress string
-	TokenTTLSeconds         int64
-	MaxSourcePDFBytes       int64
-	SavedSignaturesLimit    int64
-	PreviewFallbackEnabled  bool
+	EmailDefaultFromName    string `json:"email_default_from_name"`
+	EmailDefaultFromAddress string `json:"email_default_from_address"`
+	TokenTTLSeconds         int64  `json:"token_ttl_seconds"`
+	MaxSourcePDFBytes       int64  `json:"max_source_pdf_bytes"`
+	SavedSignaturesLimit    int64  `json:"saved_signatures_limit"`
+	PreviewFallbackEnabled  bool   `json:"preview_fallback_enabled"`
 }
 
 func defaultRuntimeSettings() RuntimeSettings {

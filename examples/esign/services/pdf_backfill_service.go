@@ -19,24 +19,24 @@ const (
 
 // PDFBackfillInput controls a single backfill run.
 type PDFBackfillInput struct {
-	DryRun bool
-	Limit  int
-	Offset int
+	DryRun bool `json:"dry_run"`
+	Limit  int  `json:"limit"`
+	Offset int  `json:"offset"`
 }
 
 // PDFBackfillFailure captures non-fatal per-document errors.
 type PDFBackfillFailure struct {
-	DocumentID string
-	Reason     string
+	DocumentID string `json:"document_id"`
+	Reason     string `json:"reason"`
 }
 
 // PDFBackfillResult summarizes a backfill run.
 type PDFBackfillResult struct {
-	Scanned  int
-	Updated  int
-	Skipped  int
-	Failed   int
-	Failures []PDFBackfillFailure
+	Scanned  int                  `json:"scanned"`
+	Updated  int                  `json:"updated"`
+	Skipped  int                  `json:"skipped"`
+	Failed   int                  `json:"failed"`
+	Failures []PDFBackfillFailure `json:"failures"`
 }
 
 // PDFBackfillService migrates legacy documents into the hardened PDF metadata model.

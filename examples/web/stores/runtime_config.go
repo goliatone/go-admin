@@ -7,8 +7,8 @@ import (
 
 // RuntimeConfig controls stores package runtime defaults.
 type RuntimeConfig struct {
-	CMSDSN     string
-	ContentDSN string
+	CMSDSN     string `json:"cmsdsn"`
+	ContentDSN string `json:"content_dsn"`
 }
 
 var (

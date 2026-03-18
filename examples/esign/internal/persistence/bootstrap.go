@@ -40,11 +40,11 @@ func (c bootstrapPersistenceConfig) GetOtelIdentifier() string     { return "" }
 
 // BootstrapResult holds resolved persistence runtime handles.
 type BootstrapResult struct {
-	SQLDB   *sql.DB
-	BunDB   *bun.DB
-	Client  *persistence.Client
-	Dialect Dialect
-	DSN     string
+	SQLDB   *sql.DB             `json:"sqldb"`
+	BunDB   *bun.DB             `json:"bun_db"`
+	Client  *persistence.Client `json:"client"`
+	Dialect Dialect             `json:"dialect"`
+	DSN     string              `json:"dsn"`
 }
 
 // Close releases persistence resources.

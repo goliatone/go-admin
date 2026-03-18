@@ -37,12 +37,12 @@ type AgreementNotificationEffectDetail struct {
 }
 
 type AgreementNotificationSummary struct {
-	Status         string
-	DeliveryEffect string
-	LastError      string
-	LastAttemptAt  *time.Time
-	Effects        []AgreementNotificationEffectDetail
-	Recoverable    bool
+	Status         string                              `json:"status"`
+	DeliveryEffect string                              `json:"delivery_effect"`
+	LastError      string                              `json:"last_error"`
+	LastAttemptAt  *time.Time                          `json:"last_attempt_at"`
+	Effects        []AgreementNotificationEffectDetail `json:"effects"`
+	Recoverable    bool                                `json:"recoverable"`
 }
 
 type AgreementNotificationEffectsReader interface {
@@ -50,23 +50,23 @@ type AgreementNotificationEffectsReader interface {
 }
 
 type GuardedEffectResumeInput struct {
-	ActorID       string
-	CorrelationID string
+	ActorID       string `json:"actor_id"`
+	CorrelationID string `json:"correlation_id"`
 }
 
 type GuardedEffectResumeResult struct {
-	AgreementID string
-	Effect      AgreementNotificationEffectDetail
+	AgreementID string                            `json:"agreement_id"`
+	Effect      AgreementNotificationEffectDetail `json:"effect"`
 }
 
 type AgreementDeliveryResumeInput struct {
-	ActorID       string
-	CorrelationID string
+	ActorID       string `json:"actor_id"`
+	CorrelationID string `json:"correlation_id"`
 }
 
 type AgreementDeliveryResumeResult struct {
-	Agreement stores.AgreementRecord
-	Effects   []AgreementNotificationEffectDetail
+	Agreement stores.AgreementRecord              `json:"agreement"`
+	Effects   []AgreementNotificationEffectDetail `json:"effects"`
 }
 
 type AgreementNotificationRecoveryService struct {

@@ -1365,8 +1365,8 @@ var _ admin.PreferencesStore = (*GoUsersPreferencesStore)(nil)
 
 // OnboardingNotifier fans out invite/reset activity into notifications.
 type OnboardingNotifier struct {
-	Notifications admin.NotificationService
-	Activity      types.ActivitySink
+	Notifications admin.NotificationService `json:"notifications"`
+	Activity      types.ActivitySink        `json:"activity"`
 }
 
 // HandleActivity attaches to go-users hooks to emit example notifications.

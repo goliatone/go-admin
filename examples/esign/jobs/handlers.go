@@ -28,15 +28,15 @@ const (
 )
 
 type EmailSendInput struct {
-	Scope         stores.Scope
-	Agreement     stores.AgreementRecord
-	Recipient     stores.RecipientRecord
-	TemplateCode  string
-	Notification  string
-	CorrelationID string
-	SignURL       string
-	ReviewURL     string
-	CompletionURL string
+	Scope         stores.Scope           `json:"scope"`
+	Agreement     stores.AgreementRecord `json:"agreement"`
+	Recipient     stores.RecipientRecord `json:"recipient"`
+	TemplateCode  string                 `json:"template_code"`
+	Notification  string                 `json:"notification"`
+	CorrelationID string                 `json:"correlation_id"`
+	SignURL       string                 `json:"sign_url"`
+	ReviewURL     string                 `json:"review_url"`
+	CompletionURL string                 `json:"completion_url"`
 }
 
 type EmailProvider interface {
@@ -73,8 +73,8 @@ type GoogleImporter interface {
 }
 
 type RetryPolicy struct {
-	BaseDelay   time.Duration
-	MaxAttempts int
+	BaseDelay   time.Duration `json:"base_delay"`
+	MaxAttempts int           `json:"max_attempts"`
 }
 
 func DefaultRetryPolicy() RetryPolicy {
@@ -108,23 +108,23 @@ func (p RetryPolicy) nextRetry(attempt, maxAttempts int, now time.Time) *time.Ti
 }
 
 type HandlerDependencies struct {
-	Agreements       stores.AgreementStore
-	Effects          stores.GuardedEffectStore
-	Artifacts        stores.AgreementArtifactStore
-	JobRuns          stores.JobRunStore
-	GoogleImportRuns stores.GoogleImportRunStore
-	EmailLogs        stores.EmailLogStore
-	Audits           stores.AuditEventStore
-	Documents        stores.DocumentStore
-	ObjectStore      uploaderStore
-	Tokens           TokenService
-	Pipeline         services.ArtifactPipelineService
-	PDFService       services.PDFService
-	EmailProvider    EmailProvider
-	GoogleImporter   GoogleImporter
-	Transactions     stores.TransactionManager
-	RetryPolicy      RetryPolicy
-	Now              func() time.Time
+	Agreements       stores.AgreementStore            `json:"agreements"`
+	Effects          stores.GuardedEffectStore        `json:"effects"`
+	Artifacts        stores.AgreementArtifactStore    `json:"artifacts"`
+	JobRuns          stores.JobRunStore               `json:"job_runs"`
+	GoogleImportRuns stores.GoogleImportRunStore      `json:"google_import_runs"`
+	EmailLogs        stores.EmailLogStore             `json:"email_logs"`
+	Audits           stores.AuditEventStore           `json:"audits"`
+	Documents        stores.DocumentStore             `json:"documents"`
+	ObjectStore      uploaderStore                    `json:"object_store"`
+	Tokens           TokenService                     `json:"tokens"`
+	Pipeline         services.ArtifactPipelineService `json:"pipeline"`
+	PDFService       services.PDFService              `json:"pdf_service"`
+	EmailProvider    EmailProvider                    `json:"email_provider"`
+	GoogleImporter   GoogleImporter                   `json:"google_importer"`
+	Transactions     stores.TransactionManager        `json:"transactions"`
+	RetryPolicy      RetryPolicy                      `json:"retry_policy"`
+	Now              func() time.Time                 `json:"now"`
 }
 
 type Handlers struct {

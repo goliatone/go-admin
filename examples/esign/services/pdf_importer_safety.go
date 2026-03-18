@@ -20,11 +20,11 @@ const (
 )
 
 type PDFImportError struct {
-	Op    string
-	Page  int
-	Box   string
-	Code  PDFImportErrorCode
-	Cause error
+	Op    string             `json:"op"`
+	Page  int                `json:"page"`
+	Box   string             `json:"box"`
+	Code  PDFImportErrorCode `json:"code"`
+	Cause error              `json:"cause"`
 }
 
 func (e *PDFImportError) Error() string {

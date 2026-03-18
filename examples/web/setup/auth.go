@@ -498,8 +498,8 @@ func resolveRolePermissionsVersion(ctx context.Context, registry userstypes.Role
 }
 
 type rolePermissionSnapshot struct {
-	Permissions []string
-	Version     string
+	Permissions []string `json:"permissions"`
+	Version     string   `json:"version"`
 }
 
 func resolveRolePermissionsSnapshot(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity, scope userstypes.ScopeFilter) (rolePermissionSnapshot, error) {

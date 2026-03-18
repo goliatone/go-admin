@@ -31,23 +31,23 @@ const (
 
 // PDFRemediationRequest captures typed remediation execution context.
 type PDFRemediationRequest struct {
-	DocumentID    string
-	AgreementID   string
-	ActorID       string
-	CommandID     string
-	DispatchID    string
-	CorrelationID string
-	ExecutionMode string
-	RequestedAt   *time.Time
-	Force         bool
+	DocumentID    string     `json:"document_id"`
+	AgreementID   string     `json:"agreement_id"`
+	ActorID       string     `json:"actor_id"`
+	CommandID     string     `json:"command_id"`
+	DispatchID    string     `json:"dispatch_id"`
+	CorrelationID string     `json:"correlation_id"`
+	ExecutionMode string     `json:"execution_mode"`
+	RequestedAt   *time.Time `json:"requested_at"`
+	Force         bool       `json:"force"`
 }
 
 // PDFRemediationResult captures remediation outcome metadata.
 type PDFRemediationResult struct {
-	Document        stores.DocumentRecord
-	Compatibility   PDFCompatibilityStatus
-	Analysis        PDFAnalysis
-	OutputObjectKey string
+	Document        stores.DocumentRecord  `json:"document"`
+	Compatibility   PDFCompatibilityStatus `json:"compatibility"`
+	Analysis        PDFAnalysis            `json:"analysis"`
+	OutputObjectKey string                 `json:"output_object_key"`
 }
 
 // PDFRemediationService executes bounded PDF remediation and persists compatibility metadata.

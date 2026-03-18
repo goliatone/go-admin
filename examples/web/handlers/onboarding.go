@@ -23,15 +23,15 @@ import (
 
 // OnboardingHandlers surfaces invite, registration, and password reset flows.
 type OnboardingHandlers struct {
-	UsersService *userssvc.Service
-	AuthRepo     userstypes.AuthRepository
-	FeatureGate  fggate.FeatureGate
-	Registration setup.RegistrationConfig
-	Notifier     *setup.OnboardingNotifier
-	Config       admin.Config
-	SecureLinks  userstypes.SecureLinkManager
-	TokenRepo    userstypes.UserTokenRepository
-	ResetRepo    userstypes.PasswordResetRepository
+	UsersService *userssvc.Service                  `json:"users_service"`
+	AuthRepo     userstypes.AuthRepository          `json:"auth_repo"`
+	FeatureGate  fggate.FeatureGate                 `json:"feature_gate"`
+	Registration setup.RegistrationConfig           `json:"registration"`
+	Notifier     *setup.OnboardingNotifier          `json:"notifier"`
+	Config       admin.Config                       `json:"config"`
+	SecureLinks  userstypes.SecureLinkManager       `json:"secure_links"`
+	TokenRepo    userstypes.UserTokenRepository     `json:"token_repo"`
+	ResetRepo    userstypes.PasswordResetRepository `json:"reset_repo"`
 }
 
 // Invite issues a new invite using go-users UserInvite command.

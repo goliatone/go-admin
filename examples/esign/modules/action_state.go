@@ -13,8 +13,8 @@ import (
 )
 
 type documentAgreementReferenceSummary struct {
-	Count    int
-	Statuses []string
+	Count    int      `json:"count"`
+	Statuses []string `json:"statuses"`
 }
 
 func documentsActionStateResolver(basePath string, agreements stores.AgreementStore, defaultScope stores.Scope) coreadmin.BatchActionStateResolver {

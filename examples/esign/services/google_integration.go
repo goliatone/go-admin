@@ -75,9 +75,9 @@ const (
 
 // GoogleProviderError captures typed provider failures that must map to API-safe error codes.
 type GoogleProviderError struct {
-	Code     GoogleProviderErrorCode
-	Message  string
-	Metadata map[string]any
+	Code     GoogleProviderErrorCode `json:"code"`
+	Message  string                  `json:"message"`
+	Metadata map[string]any          `json:"metadata"`
 }
 
 func (e *GoogleProviderError) Error() string {
@@ -152,8 +152,8 @@ type CredentialKeyVersioner interface {
 
 // GoogleCredentialKeyring represents a provider-supplied active key and keyring material.
 type GoogleCredentialKeyring struct {
-	ActiveKeyID string
-	Keys        map[string][]byte
+	ActiveKeyID string            `json:"active_key_id"`
+	Keys        map[string][]byte `json:"keys"`
 }
 
 // GoogleCredentialKeyProvider resolves encryption key material for Google credential storage.
@@ -163,9 +163,9 @@ type GoogleCredentialKeyProvider interface {
 
 // EnvGoogleCredentialKeyProvider loads key material from environment variables.
 type EnvGoogleCredentialKeyProvider struct {
-	ActiveKeyIDEnv string
-	ActiveKeyEnv   string
-	KeysJSONEnv    string
+	ActiveKeyIDEnv string `json:"active_key_id_env"`
+	ActiveKeyEnv   string `json:"active_key_env"`
+	KeysJSONEnv    string `json:"keys_json_env"`
 }
 
 // NewEnvGoogleCredentialKeyProvider returns the default env-backed key provider.
@@ -397,11 +397,11 @@ func (c KeyringCredentialCipher) CiphertextKeyID(ciphertext string) string {
 
 // GoogleOAuthToken captures provider OAuth token exchange output.
 type GoogleOAuthToken struct {
-	AccessToken  string
-	RefreshToken string
-	Scopes       []string
-	ExpiresAt    time.Time
-	AccountEmail string
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	Scopes       []string  `json:"scopes"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	AccountEmail string    `json:"account_email"`
 }
 
 // GoogleOAuthStatus captures connection status details returned by status endpoints.
@@ -450,14 +450,14 @@ type GoogleDriveFile struct {
 
 // GoogleDriveListResult captures search/browse pagination results.
 type GoogleDriveListResult struct {
-	Files         []GoogleDriveFile
-	NextPageToken string
+	Files         []GoogleDriveFile `json:"files"`
+	NextPageToken string            `json:"next_page_token"`
 }
 
 // GoogleExportSnapshot captures exported PDF bytes plus source metadata.
 type GoogleExportSnapshot struct {
-	File GoogleDriveFile
-	PDF  []byte
+	File GoogleDriveFile `json:"file"`
+	PDF  []byte          `json:"pdf"`
 }
 
 // GoogleProvider captures provider operations used by backend OAuth/search/import flows.
@@ -675,46 +675,46 @@ type GoogleAgreementCreator interface {
 
 // GoogleConnectInput captures OAuth connect inputs.
 type GoogleConnectInput struct {
-	UserID      string
-	AccountID   string
-	AuthCode    string
-	RedirectURI string
+	UserID      string `json:"user_id"`
+	AccountID   string `json:"account_id"`
+	AuthCode    string `json:"auth_code"`
+	RedirectURI string `json:"redirect_uri"`
 }
 
 // GoogleDriveQueryInput captures search/browse query input.
 type GoogleDriveQueryInput struct {
-	UserID    string
-	AccountID string
-	Query     string
-	FolderID  string
-	PageToken string
-	PageSize  int
+	UserID    string `json:"user_id"`
+	AccountID string `json:"account_id"`
+	Query     string `json:"query"`
+	FolderID  string `json:"folder_id"`
+	PageToken string `json:"page_token"`
+	PageSize  int    `json:"page_size"`
 }
 
 // GoogleImportInput captures import request inputs.
 type GoogleImportInput struct {
-	UserID          string
-	AccountID       string
-	GoogleFileID    string
-	DocumentTitle   string
-	AgreementTitle  string
-	CreatedByUserID string
+	UserID          string `json:"user_id"`
+	AccountID       string `json:"account_id"`
+	GoogleFileID    string `json:"google_file_id"`
+	DocumentTitle   string `json:"document_title"`
+	AgreementTitle  string `json:"agreement_title"`
+	CreatedByUserID string `json:"created_by_user_id"`
 }
 
 // GoogleImportResult captures imported document/agreement output.
 type GoogleImportResult struct {
-	Document       stores.DocumentRecord
-	Agreement      stores.AgreementRecord
-	SourceMimeType string
-	IngestionMode  string
+	Document       stores.DocumentRecord  `json:"document"`
+	Agreement      stores.AgreementRecord `json:"agreement"`
+	SourceMimeType string                 `json:"source_mime_type"`
+	IngestionMode  string                 `json:"ingestion_mode"`
 }
 
 // GoogleProviderHealthStatus captures runtime provider health used for degraded-mode signaling.
 type GoogleProviderHealthStatus struct {
-	Mode      string
-	Healthy   bool
-	Reason    string
-	CheckedAt *time.Time
+	Mode      string     `json:"mode"`
+	Healthy   bool       `json:"healthy"`
+	Reason    string     `json:"reason"`
+	CheckedAt *time.Time `json:"checked_at"`
 }
 
 // GoogleIntegrationOption customizes Google integration service behavior.

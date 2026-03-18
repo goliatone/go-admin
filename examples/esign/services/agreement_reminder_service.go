@@ -20,47 +20,47 @@ const reminderInternalErrorTTL = 30 * 24 * time.Hour
 
 // AgreementReminderSweepResult summarizes one reminder sweep execution.
 type AgreementReminderSweepResult struct {
-	Claimed                 int
-	Sent                    int
-	Skipped                 int
-	Failed                  int
-	LeaseLost               int
-	LeaseConflict           int
-	StateInvariantViolation int
-	PolicyBlock             int
-	SkipReasons             map[string]int
-	FailureReasons          map[string]int
-	ClaimToSendMS           []float64
-	DueToSendMS             []float64
-	DueBacklogAgeMS         []float64
+	Claimed                 int            `json:"claimed"`
+	Sent                    int            `json:"sent"`
+	Skipped                 int            `json:"skipped"`
+	Failed                  int            `json:"failed"`
+	LeaseLost               int            `json:"lease_lost"`
+	LeaseConflict           int            `json:"lease_conflict"`
+	StateInvariantViolation int            `json:"state_invariant_violation"`
+	PolicyBlock             int            `json:"policy_block"`
+	SkipReasons             map[string]int `json:"skip_reasons"`
+	FailureReasons          map[string]int `json:"failure_reasons"`
+	ClaimToSendMS           []float64      `json:"claim_to_send_ms"`
+	DueToSendMS             []float64      `json:"due_to_send_ms"`
+	DueBacklogAgeMS         []float64      `json:"due_backlog_age_ms"`
 }
 
 // ReviewReminderControlInput captures actor/context for participant-level review reminder controls.
 type ReviewReminderControlInput struct {
-	ParticipantID string
-	RecipientID   string
-	ActorType     string
-	ActorID       string
-	IPAddress     string
-	CorrelationID string
+	ParticipantID string `json:"participant_id"`
+	RecipientID   string `json:"recipient_id"`
+	ActorType     string `json:"actor_type"`
+	ActorID       string `json:"actor_id"`
+	IPAddress     string `json:"ip_address"`
+	CorrelationID string `json:"correlation_id"`
 }
 
 // ReviewReminderState summarizes derived review reminder cadence for one review participant.
 type ReviewReminderState struct {
-	AgreementID        string
-	ReviewID           string
-	ParticipantID      string
-	RecipientID        string
-	Status             string
-	SentCount          int
-	FirstSentAt        *time.Time
-	LastSentAt         *time.Time
-	LastViewedAt       *time.Time
-	LastManualResendAt *time.Time
-	NextDueAt          *time.Time
-	LastReasonCode     string
-	LastErrorCode      string
-	Paused             bool
+	AgreementID        string     `json:"agreement_id"`
+	ReviewID           string     `json:"review_id"`
+	ParticipantID      string     `json:"participant_id"`
+	RecipientID        string     `json:"recipient_id"`
+	Status             string     `json:"status"`
+	SentCount          int        `json:"sent_count"`
+	FirstSentAt        *time.Time `json:"first_sent_at"`
+	LastSentAt         *time.Time `json:"last_sent_at"`
+	LastViewedAt       *time.Time `json:"last_viewed_at"`
+	LastManualResendAt *time.Time `json:"last_manual_resend_at"`
+	NextDueAt          *time.Time `json:"next_due_at"`
+	LastReasonCode     string     `json:"last_reason_code"`
+	LastErrorCode      string     `json:"last_error_code"`
+	Paused             bool       `json:"paused"`
 }
 
 // AgreementReminderService coordinates due reminder claims and resend dispatch.
@@ -541,9 +541,9 @@ func mergeAgreementReminderSweepResult(dst *AgreementReminderSweepResult, src Ag
 }
 
 type derivedReviewReminderState struct {
-	Snapshot          ReviewReminderState
-	State             reminders.State
-	AutoReminderCount int
+	Snapshot          ReviewReminderState `json:"snapshot"`
+	State             reminders.State     `json:"state"`
+	AutoReminderCount int                 `json:"auto_reminder_count"`
 	pausedNextDueAt   *time.Time
 }
 
@@ -1004,10 +1004,10 @@ func (s AgreementService) SendReviewReminderNow(ctx context.Context, scope store
 }
 
 type resolvedReviewReminderTarget struct {
-	Agreement   stores.AgreementRecord
-	Review      stores.AgreementReviewRecord
-	Participant stores.AgreementReviewParticipantRecord
-	State       derivedReviewReminderState
+	Agreement   stores.AgreementRecord                  `json:"agreement"`
+	Review      stores.AgreementReviewRecord            `json:"review"`
+	Participant stores.AgreementReviewParticipantRecord `json:"participant"`
+	State       derivedReviewReminderState              `json:"state"`
 }
 
 func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope stores.Scope, agreementID, participantID, recipientID string) (resolvedReviewReminderTarget, error) {

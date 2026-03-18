@@ -18,8 +18,8 @@ const defaultReviewSessionTokenTTL = 7 * 24 * time.Hour
 type ReviewSessionTokenServiceOption func(*ReviewSessionTokenService)
 
 type IssuedReviewSessionToken struct {
-	Token  string
-	Record ReviewSessionTokenRecord
+	Token  string                   `json:"token"`
+	Record ReviewSessionTokenRecord `json:"record"`
 }
 
 type ReviewSessionTokenService struct {

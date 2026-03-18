@@ -18,71 +18,71 @@ import (
 type SeedUserProfile struct {
 	bun.BaseModel `bun:"table:user_profiles"`
 
-	UserID      uuid.UUID      `bun:"user_id,pk,type:uuid"`
-	DisplayName string         `bun:"display_name"`
-	AvatarURL   string         `bun:"avatar_url"`
-	Locale      string         `bun:"locale"`
-	Timezone    string         `bun:"timezone"`
-	Bio         string         `bun:"bio"`
-	Contact     map[string]any `bun:"contact,type:jsonb"`
-	Metadata    map[string]any `bun:"metadata,type:jsonb"`
-	TenantID    uuid.UUID      `bun:"tenant_id,type:uuid"`
-	OrgID       uuid.UUID      `bun:"org_id,type:uuid"`
-	CreatedAt   time.Time      `bun:"created_at"`
-	CreatedBy   uuid.UUID      `bun:"created_by,type:uuid"`
-	UpdatedAt   time.Time      `bun:"updated_at"`
-	UpdatedBy   uuid.UUID      `bun:"updated_by,type:uuid"`
+	UserID      uuid.UUID      `bun:"user_id,pk,type:uuid" json:"user_id"`
+	DisplayName string         `bun:"display_name" json:"display_name"`
+	AvatarURL   string         `bun:"avatar_url" json:"avatar_url"`
+	Locale      string         `bun:"locale" json:"locale"`
+	Timezone    string         `bun:"timezone" json:"timezone"`
+	Bio         string         `bun:"bio" json:"bio"`
+	Contact     map[string]any `bun:"contact,type:jsonb" json:"contact"`
+	Metadata    map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	TenantID    uuid.UUID      `bun:"tenant_id,type:uuid" json:"tenant_id"`
+	OrgID       uuid.UUID      `bun:"org_id,type:uuid" json:"org_id"`
+	CreatedAt   time.Time      `bun:"created_at" json:"created_at"`
+	CreatedBy   uuid.UUID      `bun:"created_by,type:uuid" json:"created_by"`
+	UpdatedAt   time.Time      `bun:"updated_at" json:"updated_at"`
+	UpdatedBy   uuid.UUID      `bun:"updated_by,type:uuid" json:"updated_by"`
 }
 
 // ContentType mirrors cms content_types for environment-scoped fixture loading.
 type ContentType struct {
 	bun.BaseModel `bun:"table:content_types"`
 
-	ID            uuid.UUID      `bun:",pk,type:uuid"`
-	Name          string         `bun:"name"`
-	Slug          string         `bun:"slug"`
-	Description   string         `bun:"description"`
-	Schema        map[string]any `bun:"schema,type:jsonb"`
-	Capabilities  map[string]any `bun:"capabilities,type:jsonb"`
-	Status        string         `bun:"status"`
-	EnvironmentID uuid.UUID      `bun:"environment_id,type:uuid"`
-	CreatedAt     time.Time      `bun:"created_at"`
-	UpdatedAt     time.Time      `bun:"updated_at"`
+	ID            uuid.UUID      `bun:",pk,type:uuid" json:"id"`
+	Name          string         `bun:"name" json:"name"`
+	Slug          string         `bun:"slug" json:"slug"`
+	Description   string         `bun:"description" json:"description"`
+	Schema        map[string]any `bun:"schema,type:jsonb" json:"schema"`
+	Capabilities  map[string]any `bun:"capabilities,type:jsonb" json:"capabilities"`
+	Status        string         `bun:"status" json:"status"`
+	EnvironmentID uuid.UUID      `bun:"environment_id,type:uuid" json:"environment_id"`
+	CreatedAt     time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt     time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 // Content mirrors cms contents for environment-scoped fixture loading.
 type Content struct {
 	bun.BaseModel `bun:"table:contents"`
 
-	ID               uuid.UUID `bun:",pk,type:uuid"`
-	ContentTypeID    uuid.UUID `bun:"content_type_id,type:uuid"`
-	CurrentVersion   int       `bun:"current_version"`
-	PublishedVersion int       `bun:"published_version"`
-	Status           string    `bun:"status"`
-	Slug             string    `bun:"slug"`
-	EnvironmentID    uuid.UUID `bun:"environment_id,type:uuid"`
-	CreatedBy        uuid.UUID `bun:"created_by,type:uuid"`
-	UpdatedBy        uuid.UUID `bun:"updated_by,type:uuid"`
-	CreatedAt        time.Time `bun:"created_at"`
-	UpdatedAt        time.Time `bun:"updated_at"`
+	ID               uuid.UUID `bun:",pk,type:uuid" json:"id"`
+	ContentTypeID    uuid.UUID `bun:"content_type_id,type:uuid" json:"content_type_id"`
+	CurrentVersion   int       `bun:"current_version" json:"current_version"`
+	PublishedVersion int       `bun:"published_version" json:"published_version"`
+	Status           string    `bun:"status" json:"status"`
+	Slug             string    `bun:"slug" json:"slug"`
+	EnvironmentID    uuid.UUID `bun:"environment_id,type:uuid" json:"environment_id"`
+	CreatedBy        uuid.UUID `bun:"created_by,type:uuid" json:"created_by"`
+	UpdatedBy        uuid.UUID `bun:"updated_by,type:uuid" json:"updated_by"`
+	CreatedAt        time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt        time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 // Page mirrors cms pages for environment-scoped fixture loading.
 type Page struct {
 	bun.BaseModel `bun:"table:pages"`
 
-	ID               uuid.UUID `bun:",pk,type:uuid"`
-	ContentID        uuid.UUID `bun:"content_id,type:uuid"`
-	CurrentVersion   int       `bun:"current_version"`
-	PublishedVersion int       `bun:"published_version"`
-	TemplateID       uuid.UUID `bun:"template_id,type:uuid"`
-	Slug             string    `bun:"slug"`
-	Status           string    `bun:"status"`
-	EnvironmentID    uuid.UUID `bun:"environment_id,type:uuid"`
-	CreatedBy        uuid.UUID `bun:"created_by,type:uuid"`
-	UpdatedBy        uuid.UUID `bun:"updated_by,type:uuid"`
-	CreatedAt        time.Time `bun:"created_at"`
-	UpdatedAt        time.Time `bun:"updated_at"`
+	ID               uuid.UUID `bun:",pk,type:uuid" json:"id"`
+	ContentID        uuid.UUID `bun:"content_id,type:uuid" json:"content_id"`
+	CurrentVersion   int       `bun:"current_version" json:"current_version"`
+	PublishedVersion int       `bun:"published_version" json:"published_version"`
+	TemplateID       uuid.UUID `bun:"template_id,type:uuid" json:"template_id"`
+	Slug             string    `bun:"slug" json:"slug"`
+	Status           string    `bun:"status" json:"status"`
+	EnvironmentID    uuid.UUID `bun:"environment_id,type:uuid" json:"environment_id"`
+	CreatedBy        uuid.UUID `bun:"created_by,type:uuid" json:"created_by"`
+	UpdatedBy        uuid.UUID `bun:"updated_by,type:uuid" json:"updated_by"`
+	CreatedAt        time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt        time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 // RegisterSeedModels registers Bun models used by fixture files.
