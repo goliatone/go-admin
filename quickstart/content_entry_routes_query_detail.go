@@ -190,26 +190,19 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 			"status": contentTypeStatus(contentType),
 		},
 	}
-	viewCtx = WithBreadcrumbAnchor(viewCtx, panelName)
-	if label := strings.TrimSpace(contentEntryRecordBreadcrumbLabel(record)); label != "" {
-		viewCtx = WithBreadcrumbAppend(viewCtx, CurrentBreadcrumb(label))
-	}
+	viewCtx = ApplyPanelBreadcrumbs(
+		viewCtx,
+		panel,
+		resolveAdminBasePath(h.adminURLs(), h.cfg.BasePath),
+		contentTypeLabel(contentType, panelName),
+		routes.index(),
+		BreadcrumbRouteDetail,
+		record,
+	)
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
 	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.detailTemplate, viewCtx)
-}
-
-func contentEntryRecordBreadcrumbLabel(record map[string]any) string {
-	if len(record) == 0 {
-		return ""
-	}
-	for _, key := range []string{"title", "display_name", "name", "username", "slug", "id"} {
-		if label := strings.TrimSpace(anyToString(record[key])); label != "" {
-			return label
-		}
-	}
-	return ""
 }
 
 func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug string) (*admin.Panel, string, *admin.CMSContentType, admin.AdminContext, error) {
