@@ -21,9 +21,9 @@ import (
 // a block definition's schema as form HTML. The caller is responsible
 // for feeding Schema and Overlay into the formgen orchestrator.
 type blockLibraryRenderInput struct {
-	Schema  map[string]any // Schema after stripping unsupported keywords.
-	Overlay []byte         // Marshaled UI overlay (ready for NormalizeOptions.Overlay), nil when no ui_schema.
-	Slug    string         // Block definition slug (used as content type slug for form ID discovery).
+	Schema  map[string]any `json:"schema"`  // Schema after stripping unsupported keywords.
+	Overlay []byte         `json:"overlay"` // Marshaled UI overlay (ready for NormalizeOptions.Overlay), nil when no ui_schema.
+	Slug    string         `json:"slug"`    // Block definition slug (used as content type slug for form ID discovery).
 }
 
 // blockDefinitionsFromLibrary converts stored block definitions into

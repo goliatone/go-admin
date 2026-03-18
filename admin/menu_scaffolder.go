@@ -7,10 +7,10 @@ import (
 
 // EnsureMenuParentsOptions controls how parent/group menu items are scaffolded.
 type EnsureMenuParentsOptions struct {
-	MenuSvc  CMSMenuService
-	MenuCode string
-	Parents  []MenuItem
-	Locale   string
+	MenuSvc  CMSMenuService `json:"menu_svc"`
+	MenuCode string         `json:"menu_code"`
+	Parents  []MenuItem     `json:"parents"`
+	Locale   string         `json:"locale"`
 }
 
 // EnsureMenuParents upserts parent/group/collapsible nodes with deterministic IDs before children are added.

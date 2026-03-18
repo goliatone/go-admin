@@ -15,52 +15,52 @@ import (
 type bunTranslationFamilyRecord struct {
 	bun.BaseModel `bun:"table:content_families,alias:cf"`
 
-	FamilyID                   string    `bun:"family_id,pk"`
-	TenantID                   string    `bun:"tenant_id"`
-	OrgID                      string    `bun:"org_id"`
-	ContentType                string    `bun:"content_type"`
-	SourceLocale               string    `bun:"source_locale"`
-	SourceVariantID            string    `bun:"source_variant_id"`
-	ReadinessState             string    `bun:"readiness_state"`
-	BlockerCodesJSON           string    `bun:"blocker_codes_json"`
-	MissingRequiredLocaleCount int       `bun:"missing_required_locale_count"`
-	PendingReviewCount         int       `bun:"pending_review_count"`
-	OutdatedLocaleCount        int       `bun:"outdated_locale_count"`
-	CreatedAt                  time.Time `bun:"created_at"`
-	UpdatedAt                  time.Time `bun:"updated_at"`
+	FamilyID                   string    `bun:"family_id,pk" json:"family_id"`
+	TenantID                   string    `bun:"tenant_id" json:"tenant_id"`
+	OrgID                      string    `bun:"org_id" json:"org_id"`
+	ContentType                string    `bun:"content_type" json:"content_type"`
+	SourceLocale               string    `bun:"source_locale" json:"source_locale"`
+	SourceVariantID            string    `bun:"source_variant_id" json:"source_variant_id"`
+	ReadinessState             string    `bun:"readiness_state" json:"readiness_state"`
+	BlockerCodesJSON           string    `bun:"blocker_codes_json" json:"blocker_codes_json"`
+	MissingRequiredLocaleCount int       `bun:"missing_required_locale_count" json:"missing_required_locale_count"`
+	PendingReviewCount         int       `bun:"pending_review_count" json:"pending_review_count"`
+	OutdatedLocaleCount        int       `bun:"outdated_locale_count" json:"outdated_locale_count"`
+	CreatedAt                  time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt                  time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 type bunTranslationLocaleVariantRecord struct {
 	bun.BaseModel `bun:"table:locale_variants,alias:lv"`
 
-	VariantID            string     `bun:"variant_id,pk"`
-	TenantID             string     `bun:"tenant_id"`
-	OrgID                string     `bun:"org_id"`
-	FamilyID             string     `bun:"family_id"`
-	Locale               string     `bun:"locale"`
-	Status               string     `bun:"status"`
-	IsSource             bool       `bun:"is_source"`
-	SourceHashAtLastSync string     `bun:"source_hash_at_last_sync"`
-	FieldsJSON           string     `bun:"fields_json"`
-	RowVersion           int64      `bun:"row_version"`
-	SourceRecordID       string     `bun:"source_record_id"`
-	CreatedAt            time.Time  `bun:"created_at"`
-	UpdatedAt            time.Time  `bun:"updated_at"`
-	PublishedAt          *time.Time `bun:"published_at,nullzero"`
+	VariantID            string     `bun:"variant_id,pk" json:"variant_id"`
+	TenantID             string     `bun:"tenant_id" json:"tenant_id"`
+	OrgID                string     `bun:"org_id" json:"org_id"`
+	FamilyID             string     `bun:"family_id" json:"family_id"`
+	Locale               string     `bun:"locale" json:"locale"`
+	Status               string     `bun:"status" json:"status"`
+	IsSource             bool       `bun:"is_source" json:"is_source"`
+	SourceHashAtLastSync string     `bun:"source_hash_at_last_sync" json:"source_hash_at_last_sync"`
+	FieldsJSON           string     `bun:"fields_json" json:"fields_json"`
+	RowVersion           int64      `bun:"row_version" json:"row_version"`
+	SourceRecordID       string     `bun:"source_record_id" json:"source_record_id"`
+	CreatedAt            time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt            time.Time  `bun:"updated_at" json:"updated_at"`
+	PublishedAt          *time.Time `bun:"published_at,nullzero" json:"published_at"`
 }
 
 type bunTranslationFamilyBlockerRecord struct {
 	bun.BaseModel `bun:"table:family_blockers,alias:fb"`
 
-	FamilyID    string    `bun:"family_id"`
-	TenantID    string    `bun:"tenant_id"`
-	OrgID       string    `bun:"org_id"`
-	BlockerCode string    `bun:"blocker_code"`
-	Locale      string    `bun:"locale"`
-	FieldPath   string    `bun:"field_path"`
-	DetailsJSON string    `bun:"details_json"`
-	CreatedAt   time.Time `bun:"created_at"`
-	UpdatedAt   time.Time `bun:"updated_at"`
+	FamilyID    string    `bun:"family_id" json:"family_id"`
+	TenantID    string    `bun:"tenant_id" json:"tenant_id"`
+	OrgID       string    `bun:"org_id" json:"org_id"`
+	BlockerCode string    `bun:"blocker_code" json:"blocker_code"`
+	Locale      string    `bun:"locale" json:"locale"`
+	FieldPath   string    `bun:"field_path" json:"field_path"`
+	DetailsJSON string    `bun:"details_json" json:"details_json"`
+	CreatedAt   time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 type BunTranslationFamilyStore struct {

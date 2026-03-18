@@ -30,9 +30,9 @@ type listRecordPredicateMatcher func(record map[string]any, predicate ListPredic
 type listRecordSearchMatcher func(record map[string]any, term string) bool
 
 type listRecordOptions struct {
-	SkipFields       map[string]struct{}
-	PredicateMatcher listRecordPredicateMatcher
-	SearchMatcher    listRecordSearchMatcher
+	SkipFields       map[string]struct{}        `json:"skip_fields"`
+	PredicateMatcher listRecordPredicateMatcher `json:"predicate_matcher"`
+	SearchMatcher    listRecordSearchMatcher    `json:"search_matcher"`
 }
 
 // applyListOptionsToRecordMaps applies a canonical list query pipeline:

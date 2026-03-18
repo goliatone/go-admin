@@ -14,8 +14,8 @@ const debugQueryHookKey = "admin.debug.sql"
 
 // DebugQueryHook captures Bun query events and forwards them to the debug collector.
 type DebugQueryHook struct {
-	Collector         *DebugCollector
-	CollectorProvider func() *DebugCollector
+	Collector         *DebugCollector        `json:"collector"`
+	CollectorProvider func() *DebugCollector `json:"collector_provider"`
 }
 
 // NewDebugQueryHook builds a query hook bound to a specific collector.

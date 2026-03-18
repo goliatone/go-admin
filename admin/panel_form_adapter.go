@@ -15,7 +15,7 @@ type PanelFormRequest struct {
 // PanelFormAdapter maps panel definitions into a form request, injecting theme tokens and context.
 // This is intentionally light so hosts can pass the payload to go-formgen orchestrators.
 type PanelFormAdapter struct {
-	ThemeResolver func(context.Context) *ThemeSelection
+	ThemeResolver func(context.Context) *ThemeSelection `json:"theme_resolver"`
 }
 
 // Build assembles a PanelFormRequest for a panel and locale, merging theme payload and provided values/errors.

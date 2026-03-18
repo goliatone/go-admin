@@ -14,9 +14,9 @@ var errManagementReadOnly = errors.New("management service is read-only")
 
 // ManagementServices bundles CRUD-compatible services for management GraphQL.
 type ManagementServices struct {
-	Contents     crud.Service[admingraphql.Content]
-	Pages        crud.Service[admingraphql.Page]
-	ContentTypes crud.Service[admingraphql.ContentType]
+	Contents     crud.Service[admingraphql.Content]     `json:"contents"`
+	Pages        crud.Service[admingraphql.Page]        `json:"pages"`
+	ContentTypes crud.Service[admingraphql.ContentType] `json:"content_types"`
 }
 
 // NewManagementServices builds management services backed by CMS adapters.

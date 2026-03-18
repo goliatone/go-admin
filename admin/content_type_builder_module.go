@@ -44,9 +44,9 @@ const (
 
 // SchemaValidationOptions captures schema validation/preview context.
 type SchemaValidationOptions struct {
-	Slug     string
-	FormID   string
-	UISchema map[string]any
+	Slug     string         `json:"slug"`
+	FormID   string         `json:"form_id"`
+	UISchema map[string]any `json:"ui_schema"`
 }
 
 // SchemaValidator validates JSON schema input for content types.
@@ -1044,7 +1044,7 @@ func (c *contentTypePublishCommand) Execute(ctx context.Context, msg ContentType
 
 // ContentTypeCreateMsg is a command payload for creating content types.
 type ContentTypeCreateMsg struct {
-	ContentType CMSContentType
+	ContentType CMSContentType `json:"content_type"`
 }
 
 func (ContentTypeCreateMsg) Type() string { return contentTypeCreateCommandName }
@@ -1065,7 +1065,7 @@ func (m ContentTypeCreateMsg) Validate() error {
 
 // ContentTypeUpdateMsg is a command payload for updating content types.
 type ContentTypeUpdateMsg struct {
-	ContentType CMSContentType
+	ContentType CMSContentType `json:"content_type"`
 }
 
 func (ContentTypeUpdateMsg) Type() string { return contentTypeUpdateCommandName }
@@ -1081,7 +1081,7 @@ func (m ContentTypeUpdateMsg) Validate() error {
 
 // ContentTypeDeleteMsg is a command payload for deleting content types.
 type ContentTypeDeleteMsg struct {
-	ID string
+	ID string `json:"id"`
 }
 
 func (ContentTypeDeleteMsg) Type() string { return contentTypeDeleteCommandName }
@@ -1097,9 +1097,9 @@ func (m ContentTypeDeleteMsg) Validate() error {
 
 // ContentTypePublishMsg is a command payload for publishing content types.
 type ContentTypePublishMsg struct {
-	ID                   string
-	Status               string
-	AllowBreakingChanges bool
+	ID                   string `json:"id"`
+	Status               string `json:"status"`
+	AllowBreakingChanges bool   `json:"allow_breaking_changes"`
 }
 
 func (ContentTypePublishMsg) Type() string { return contentTypePublishCommandName }

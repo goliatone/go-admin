@@ -62,8 +62,8 @@ type PersistedWorkflow struct {
 
 // PersistedWorkflowListOptions filters workflow list queries.
 type PersistedWorkflowListOptions struct {
-	Status      PersistedWorkflowStatus
-	Environment string
+	Status      PersistedWorkflowStatus `json:"status"`
+	Environment string                  `json:"environment"`
 }
 
 // WorkflowBinding stores a scoped workflow assignment.
@@ -82,17 +82,17 @@ type WorkflowBinding struct {
 
 // WorkflowBindingListOptions filters binding list queries.
 type WorkflowBindingListOptions struct {
-	ScopeType   WorkflowBindingScopeType
-	ScopeRef    string
-	Environment string
-	Status      WorkflowBindingStatus
+	ScopeType   WorkflowBindingScopeType `json:"scope_type"`
+	ScopeRef    string                   `json:"scope_ref"`
+	Environment string                   `json:"environment"`
+	Status      WorkflowBindingStatus    `json:"status"`
 }
 
 // WorkflowBindingResolveInput captures scope details used for runtime resolution.
 type WorkflowBindingResolveInput struct {
-	ContentType string
-	Traits      []string
-	Environment string
+	ContentType string   `json:"content_type"`
+	Traits      []string `json:"traits"`
+	Environment string   `json:"environment"`
 }
 
 // WorkflowBindingResolution describes the resolved binding winner.
@@ -111,9 +111,9 @@ type WorkflowBindingResolution struct {
 
 // WorkflowVersionConflictError indicates optimistic-lock mismatch for workflows.
 type WorkflowVersionConflictError struct {
-	WorkflowID      string
-	ExpectedVersion int
-	ActualVersion   int
+	WorkflowID      string `json:"workflow_id"`
+	ExpectedVersion int    `json:"expected_version"`
+	ActualVersion   int    `json:"actual_version"`
 }
 
 func (e WorkflowVersionConflictError) Error() string {
@@ -128,12 +128,12 @@ func (e WorkflowVersionConflictError) Unwrap() error {
 
 // WorkflowBindingConflictError indicates duplicate active binding scope+priority+environment.
 type WorkflowBindingConflictError struct {
-	BindingID         string
-	ExistingBindingID string
-	ScopeType         WorkflowBindingScopeType
-	ScopeRef          string
-	Environment       string
-	Priority          int
+	BindingID         string                   `json:"binding_id"`
+	ExistingBindingID string                   `json:"existing_binding_id"`
+	ScopeType         WorkflowBindingScopeType `json:"scope_type"`
+	ScopeRef          string                   `json:"scope_ref"`
+	Environment       string                   `json:"environment"`
+	Priority          int                      `json:"priority"`
 }
 
 func (e WorkflowBindingConflictError) Error() string {
@@ -149,9 +149,9 @@ func (e WorkflowBindingConflictError) Unwrap() error {
 
 // WorkflowBindingVersionConflictError indicates optimistic-lock mismatch for bindings.
 type WorkflowBindingVersionConflictError struct {
-	BindingID       string
-	ExpectedVersion int
-	ActualVersion   int
+	BindingID       string `json:"binding_id"`
+	ExpectedVersion int    `json:"expected_version"`
+	ActualVersion   int    `json:"actual_version"`
 }
 
 func (e WorkflowBindingVersionConflictError) Error() string {

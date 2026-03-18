@@ -85,9 +85,9 @@ type ResolvedSetting struct {
 
 // SettingsBundle captures a bulk mutation request.
 type SettingsBundle struct {
-	Scope  SettingsScope
-	UserID string
-	Values map[string]any
+	Scope  SettingsScope  `json:"scope"`
+	UserID string         `json:"user_id"`
+	Values map[string]any `json:"values"`
 }
 
 // SettingsValidationErrors aggregates field-level validation issues.

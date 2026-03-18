@@ -459,10 +459,10 @@ type SchemaToFieldsConverter struct {
 
 // ConvertedFields captures the derived list/form/detail fields and filters.
 type ConvertedFields struct {
-	List    []Field
-	Form    []Field
-	Detail  []Field
-	Filters []Filter
+	List    []Field  `json:"list"`
+	Form    []Field  `json:"form"`
+	Detail  []Field  `json:"detail"`
+	Filters []Filter `json:"filters"`
 }
 
 // NewSchemaToFieldsConverter builds a converter with default mappings.

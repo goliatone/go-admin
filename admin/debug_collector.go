@@ -134,7 +134,7 @@ type DebugEvent struct {
 
 // DebugSessionSnapshotOptions controls session-scoped snapshot behavior.
 type DebugSessionSnapshotOptions struct {
-	IncludeGlobalPanels bool
+	IncludeGlobalPanels bool `json:"include_global_panels"`
 }
 
 // NewDebugCollector initializes a collector with the provided configuration.

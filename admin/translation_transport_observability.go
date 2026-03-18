@@ -15,14 +15,14 @@ const translationAPIOperationCountMetric = "admin_translation_api_operation_coun
 var translationAPIObservabilityMetrics = expvar.NewMap(translationAPIOperationCountMetric)
 
 type translationAPIObservation struct {
-	Operation string
-	Kind      string
-	RequestID string
-	TraceID   string
-	TenantID  string
-	OrgID     string
-	Duration  time.Duration
-	Err       error
+	Operation string        `json:"operation"`
+	Kind      string        `json:"kind"`
+	RequestID string        `json:"request_id"`
+	TraceID   string        `json:"trace_id"`
+	TenantID  string        `json:"tenant_id"`
+	OrgID     string        `json:"org_id"`
+	Duration  time.Duration `json:"duration"`
+	Err       error         `json:"err"`
 }
 
 func setTranslationTraceHeaders(c router.Context, ctx context.Context) {

@@ -43,9 +43,9 @@ type translationQueueBinding struct {
 }
 
 type translationQueueActionReplay struct {
-	PayloadHash string
-	Response    map[string]any
-	StoredAt    time.Time
+	PayloadHash string         `json:"payload_hash"`
+	Response    map[string]any `json:"response"`
+	StoredAt    time.Time      `json:"stored_at"`
 }
 
 func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
@@ -515,18 +515,18 @@ func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminCont
 }
 
 type translationAssignmentListFilter struct {
-	Status      string
-	AssigneeID  string
-	ReviewerID  string
-	DueState    string
-	Locale      string
-	Priority    string
-	ReviewState string
-	FamilyID    string
-	SortBy      string
-	SortDesc    bool
-	TenantID    string
-	OrgID       string
+	Status      string `json:"status"`
+	AssigneeID  string `json:"assignee_id"`
+	ReviewerID  string `json:"reviewer_id"`
+	DueState    string `json:"due_state"`
+	Locale      string `json:"locale"`
+	Priority    string `json:"priority"`
+	ReviewState string `json:"review_state"`
+	FamilyID    string `json:"family_id"`
+	SortBy      string `json:"sort_by"`
+	SortDesc    bool   `json:"sort_desc"`
+	TenantID    string `json:"tenant_id"`
+	OrgID       string `json:"org_id"`
 }
 
 func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string) ([]TranslationAssignment, int, error) {

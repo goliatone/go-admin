@@ -15,13 +15,13 @@ var (
 
 // TranslationAssignmentConflictError captures active uniqueness conflicts.
 type TranslationAssignmentConflictError struct {
-	AssignmentID         string
-	ExistingAssignmentID string
-	FamilyID             string
-	EntityType           string
-	SourceLocale         string
-	TargetLocale         string
-	WorkScope            string
+	AssignmentID         string `json:"assignment_id"`
+	ExistingAssignmentID string `json:"existing_assignment_id"`
+	FamilyID             string `json:"family_id"`
+	EntityType           string `json:"entity_type"`
+	SourceLocale         string `json:"source_locale"`
+	TargetLocale         string `json:"target_locale"`
+	WorkScope            string `json:"work_scope"`
 }
 
 func (e TranslationAssignmentConflictError) Error() string {
@@ -37,9 +37,9 @@ func (e TranslationAssignmentConflictError) Unwrap() error {
 
 // TranslationAssignmentVersionConflictError captures optimistic locking conflicts.
 type TranslationAssignmentVersionConflictError struct {
-	AssignmentID    string
-	ExpectedVersion int64
-	ActualVersion   int64
+	AssignmentID    string `json:"assignment_id"`
+	ExpectedVersion int64  `json:"expected_version"`
+	ActualVersion   int64  `json:"actual_version"`
 }
 
 func (e TranslationAssignmentVersionConflictError) Error() string {

@@ -62,10 +62,10 @@ const (
 
 // DomainErrorCode describes a text code exposed to clients.
 type DomainErrorCode struct {
-	Code        string
-	Description string
-	Category    goerrors.Category
-	HTTPStatus  int
+	Code        string            `json:"code"`
+	Description string            `json:"description"`
+	Category    goerrors.Category `json:"category"`
+	HTTPStatus  int               `json:"http_status"`
 }
 
 var defaultDomainErrorCodes = []DomainErrorCode{

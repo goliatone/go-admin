@@ -17,9 +17,9 @@ type IconContributor interface {
 // IconContributorCallbacks holds callbacks for processing icon contributions.
 type IconContributorCallbacks struct {
 	// OnLibrary is called for each library contributed by a module.
-	OnLibrary func(lib IconLibrary) error
+	OnLibrary func(lib IconLibrary) error `json:"on_library"`
 	// OnIcon is called for each standalone icon contributed by a module.
-	OnIcon func(icon IconDefinition) error
+	OnIcon func(icon IconDefinition) error `json:"on_icon"`
 }
 
 // CollectIconContributions processes icon contributions from a module.

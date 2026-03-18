@@ -57,19 +57,19 @@ func widgetInstanceRecord(instance WidgetInstance) map[string]any {
 }
 
 type cmsCommonRecordFields struct {
-	ID       string
-	FamilyID string
-	Title    string
-	Slug     string
-	Locale   string
-	Status   string
+	ID       string `json:"id"`
+	FamilyID string `json:"family_id"`
+	Title    string `json:"title"`
+	Slug     string `json:"slug"`
+	Locale   string `json:"locale"`
+	Status   string `json:"status"`
 }
 
 type cmsMappedDataFields struct {
-	Data          map[string]any
-	Blocks        []string
-	Embedded      []map[string]any
-	SchemaVersion string
+	Data          map[string]any   `json:"data"`
+	Blocks        []string         `json:"blocks"`
+	Embedded      []map[string]any `json:"embedded"`
+	SchemaVersion string           `json:"schema_version"`
 }
 
 func assignStringIfPresent(record map[string]any, key string, target *string) {

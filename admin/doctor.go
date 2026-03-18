@@ -94,12 +94,12 @@ type DoctorCheckOutput struct {
 
 // DoctorCheck defines a diagnostic check that can run in the debug doctor panel.
 type DoctorCheck struct {
-	ID          string        `json:"id"`
-	Label       string        `json:"label,omitempty"`
-	Description string        `json:"description,omitempty"`
-	Help        string        `json:"help,omitempty"`
-	Action      *DoctorAction `json:"action,omitempty"`
-	Run         func(ctx context.Context, adm *Admin) DoctorCheckOutput
+	ID          string                                                  `json:"id"`
+	Label       string                                                  `json:"label,omitempty"`
+	Description string                                                  `json:"description,omitempty"`
+	Help        string                                                  `json:"help,omitempty"`
+	Action      *DoctorAction                                           `json:"action,omitempty"`
+	Run         func(ctx context.Context, adm *Admin) DoctorCheckOutput `json:"run"`
 }
 
 // DoctorCheckResult is the rendered output for a check run.

@@ -29,8 +29,8 @@ type TranslationImportRunTriggerBuilder func(context.Context, TranslationImportR
 
 // TranslationImportRunTriggerCommand composes run input and dispatches the run command.
 type TranslationImportRunTriggerCommand struct {
-	Schedule   string
-	BuildInput TranslationImportRunTriggerBuilder
+	Schedule   string                             `json:"schedule"`
+	BuildInput TranslationImportRunTriggerBuilder `json:"build_input"`
 }
 
 var _ command.Commander[TranslationImportRunTriggerInput] = (*TranslationImportRunTriggerCommand)(nil)

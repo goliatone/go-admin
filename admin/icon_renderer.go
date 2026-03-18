@@ -14,13 +14,13 @@ type IconRenderer interface {
 // DefaultIconRenderer implements IconRenderer with standard HTML output.
 type DefaultIconRenderer struct {
 	// CDNURLs maps library IDs to their CDN stylesheet URLs.
-	CDNURLs map[string]string
+	CDNURLs map[string]string `json:"cdnur_ls"`
 	// ClassPatterns maps library IDs to class patterns (e.g., "iconoir-{name}").
-	ClassPatterns map[string]string
+	ClassPatterns map[string]string `json:"class_patterns"`
 	// DefaultSize is the default icon size CSS value.
-	DefaultSize string
+	DefaultSize string `json:"default_size"`
 	// SecurityValidator validates and sanitizes icon content.
-	SecurityValidator *IconSecurityValidator
+	SecurityValidator *IconSecurityValidator `json:"security_validator"`
 }
 
 // NewDefaultIconRenderer creates a new DefaultIconRenderer with sensible defaults.

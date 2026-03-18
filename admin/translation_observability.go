@@ -80,47 +80,47 @@ func (m *expvarTranslationMetrics) IncrementQAOutcome(_ context.Context, tags ma
 }
 
 type translationCreateActionEvent struct {
-	Entity       string
-	EntityID     string
-	SourceLocale string
-	Locale       string
-	Transition   string
-	Environment  string
-	Outcome      string
-	FamilyID     string
-	Err          error
+	Entity       string `json:"entity"`
+	EntityID     string `json:"entity_id"`
+	SourceLocale string `json:"source_locale"`
+	Locale       string `json:"locale"`
+	Transition   string `json:"transition"`
+	Environment  string `json:"environment"`
+	Outcome      string `json:"outcome"`
+	FamilyID     string `json:"family_id"`
+	Err          error  `json:"err"`
 }
 
 type translationCreateLocaleEvent struct {
-	ContentType string
-	FamilyID    string
-	Locale      string
-	Environment string
-	Outcome     string
-	Err         error
+	ContentType string `json:"content_type"`
+	FamilyID    string `json:"family_id"`
+	Locale      string `json:"locale"`
+	Environment string `json:"environment"`
+	Outcome     string `json:"outcome"`
+	Err         error  `json:"err"`
 }
 
 type translationReviewActionEvent struct {
-	Action       string
-	Flow         string
-	AssignmentID string
-	EntityType   string
-	Locale       string
-	Environment  string
-	Outcome      string
-	ReasonCode   string
-	Err          error
+	Action       string `json:"action"`
+	Flow         string `json:"flow"`
+	AssignmentID string `json:"assignment_id"`
+	EntityType   string `json:"entity_type"`
+	Locale       string `json:"locale"`
+	Environment  string `json:"environment"`
+	Outcome      string `json:"outcome"`
+	ReasonCode   string `json:"reason_code"`
+	Err          error  `json:"err"`
 }
 
 type translationQAOutcomeEvent struct {
-	Trigger      string
-	AssignmentID string
-	EntityType   string
-	Locale       string
-	Environment  string
-	Outcome      string
-	WarningCount int
-	BlockerCount int
+	Trigger      string `json:"trigger"`
+	AssignmentID string `json:"assignment_id"`
+	EntityType   string `json:"entity_type"`
+	Locale       string `json:"locale"`
+	Environment  string `json:"environment"`
+	Outcome      string `json:"outcome"`
+	WarningCount int    `json:"warning_count"`
+	BlockerCount int    `json:"blocker_count"`
 }
 
 func recordTranslationBlockedTransitionMetric(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError) {

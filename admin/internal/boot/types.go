@@ -37,15 +37,15 @@ type Router interface {
 
 // RouteSpec describes a route to register.
 type RouteSpec struct {
-	Method  string
-	Path    string
-	Handler router.HandlerFunc
+	Method  string             `json:"method"`
+	Path    string             `json:"path"`
+	Handler router.HandlerFunc `json:"handler"`
 }
 
 // ActionResponse captures structured panel action output and an optional HTTP status override.
 type ActionResponse struct {
-	StatusCode int
-	Data       map[string]any
+	StatusCode int            `json:"status_code"`
+	Data       map[string]any `json:"data"`
 }
 
 func normalizeActionResponse(response ActionResponse) ActionResponse {
@@ -71,27 +71,27 @@ type Responder interface {
 
 // ListOptions holds pagination and filtering input for bindings.
 type ListOptions struct {
-	Page       int
-	PerPage    int
-	SortBy     string
-	SortDesc   bool
-	Filters    map[string]any
-	Predicates []ListPredicate
-	Fields     []string
-	Search     string
+	Page       int             `json:"page"`
+	PerPage    int             `json:"per_page"`
+	SortBy     string          `json:"sort_by"`
+	SortDesc   bool            `json:"sort_desc"`
+	Filters    map[string]any  `json:"filters"`
+	Predicates []ListPredicate `json:"predicates"`
+	Fields     []string        `json:"fields"`
+	Search     string          `json:"search"`
 }
 
 // ListPredicate defines an operator-aware list filter predicate for boot bindings.
 type ListPredicate struct {
-	Field    string
-	Operator string
-	Values   []string
+	Field    string   `json:"field"`
+	Operator string   `json:"operator"`
+	Values   []string `json:"values"`
 }
 
 // PanelSubresourceSpec declares an additional panel-owned route.
 type PanelSubresourceSpec struct {
-	Name   string
-	Method string
+	Name   string `json:"name"`
+	Method string `json:"method"`
 }
 
 // PanelBinding exposes panel CRUD/action handlers for routes.
@@ -133,8 +133,8 @@ type SearchBinding interface {
 
 // ExportRouteOptions configures export route registration.
 type ExportRouteOptions struct {
-	BasePath string
-	Wrap     HandlerWrapper
+	BasePath string         `json:"base_path"`
+	Wrap     HandlerWrapper `json:"wrap"`
 }
 
 // ExportRegistrar registers export HTTP endpoints on the router.

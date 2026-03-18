@@ -43,10 +43,10 @@ type ActivityRecord struct {
 
 // ActivityFilter narrows feed listings.
 type ActivityFilter struct {
-	Actor   string
-	Action  string
-	Object  string
-	Channel string
+	Actor   string `json:"actor"`
+	Action  string `json:"action"`
+	Object  string `json:"object"`
+	Channel string `json:"channel"`
 }
 
 const (

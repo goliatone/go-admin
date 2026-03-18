@@ -12,8 +12,8 @@ import (
 
 // BunRecordMapper converts between map payloads and repository models.
 type BunRecordMapper[T any] struct {
-	ToRecord func(map[string]any) (T, error)
-	ToMap    func(T) (map[string]any, error)
+	ToRecord func(map[string]any) (T, error) `json:"to_record"`
+	ToMap    func(T) (map[string]any, error) `json:"to_map"`
 }
 
 // BunRepositoryAdapter wraps a go-repository-bun Repository to satisfy the admin Repository interface.

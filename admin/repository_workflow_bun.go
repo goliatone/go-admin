@@ -15,42 +15,42 @@ import (
 type bunWorkflowRecord struct {
 	bun.BaseModel `bun:"table:workflows"`
 
-	ID          string    `bun:"id,pk"`
-	Name        string    `bun:"name,notnull"`
-	Definition  string    `bun:"definition,notnull"`
-	Status      string    `bun:"status,notnull"`
-	Version     int       `bun:"version,notnull"`
-	Environment string    `bun:"environment,notnull"`
-	CreatedAt   time.Time `bun:"created_at,notnull"`
-	UpdatedAt   time.Time `bun:"updated_at,notnull"`
+	ID          string    `bun:"id,pk" json:"id"`
+	Name        string    `bun:"name,notnull" json:"name"`
+	Definition  string    `bun:"definition,notnull" json:"definition"`
+	Status      string    `bun:"status,notnull" json:"status"`
+	Version     int       `bun:"version,notnull" json:"version"`
+	Environment string    `bun:"environment,notnull" json:"environment"`
+	CreatedAt   time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
 type bunWorkflowRevisionRecord struct {
 	bun.BaseModel `bun:"table:workflow_revisions"`
 
-	WorkflowID  string    `bun:"workflow_id,pk"`
-	Version     int       `bun:"version,pk"`
-	Name        string    `bun:"name,notnull"`
-	Definition  string    `bun:"definition,notnull"`
-	Status      string    `bun:"status,notnull"`
-	Environment string    `bun:"environment,notnull"`
-	CreatedAt   time.Time `bun:"created_at,notnull"`
-	UpdatedAt   time.Time `bun:"updated_at,notnull"`
+	WorkflowID  string    `bun:"workflow_id,pk" json:"workflow_id"`
+	Version     int       `bun:"version,pk" json:"version"`
+	Name        string    `bun:"name,notnull" json:"name"`
+	Definition  string    `bun:"definition,notnull" json:"definition"`
+	Status      string    `bun:"status,notnull" json:"status"`
+	Environment string    `bun:"environment,notnull" json:"environment"`
+	CreatedAt   time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
 type bunWorkflowBindingRecord struct {
 	bun.BaseModel `bun:"table:workflow_bindings"`
 
-	ID          string    `bun:"id,pk"`
-	ScopeType   string    `bun:"scope_type,notnull"`
-	ScopeRef    string    `bun:"scope_ref,notnull"`
-	WorkflowID  string    `bun:"workflow_id,notnull"`
-	Priority    int       `bun:"priority,notnull"`
-	Status      string    `bun:"status,notnull"`
-	Environment string    `bun:"environment,notnull"`
-	Version     int       `bun:"version,notnull"`
-	CreatedAt   time.Time `bun:"created_at,notnull"`
-	UpdatedAt   time.Time `bun:"updated_at,notnull"`
+	ID          string    `bun:"id,pk" json:"id"`
+	ScopeType   string    `bun:"scope_type,notnull" json:"scope_type"`
+	ScopeRef    string    `bun:"scope_ref,notnull" json:"scope_ref"`
+	WorkflowID  string    `bun:"workflow_id,notnull" json:"workflow_id"`
+	Priority    int       `bun:"priority,notnull" json:"priority"`
+	Status      string    `bun:"status,notnull" json:"status"`
+	Environment string    `bun:"environment,notnull" json:"environment"`
+	Version     int       `bun:"version,notnull" json:"version"`
+	CreatedAt   time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull" json:"updated_at"`
 }
 
 // BunWorkflowDefinitionRepository persists workflow definitions and version snapshots.

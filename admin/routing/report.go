@@ -41,7 +41,7 @@ type Conflict struct {
 }
 
 type ConflictError struct {
-	Conflicts []Conflict
+	Conflicts []Conflict `json:"conflicts"`
 }
 
 func (e *ConflictError) Error() string {

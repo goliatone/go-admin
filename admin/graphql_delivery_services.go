@@ -14,14 +14,14 @@ var errDeliveryReadOnly = errors.New("delivery service is read-only")
 
 // DeliveryServices bundles CRUD-compatible services for GraphQL resolvers.
 type DeliveryServices struct {
-	Contents crud.Service[delivery.Content]
-	Pages    crud.Service[delivery.Page]
-	Menus    crud.Service[delivery.Menu]
+	Contents crud.Service[delivery.Content] `json:"contents"`
+	Pages    crud.Service[delivery.Page]    `json:"pages"`
+	Menus    crud.Service[delivery.Menu]    `json:"menus"`
 }
 
 // DeliveryOptions configures delivery adapters.
 type DeliveryOptions struct {
-	DefaultLocale string
+	DefaultLocale string `json:"default_locale"`
 }
 
 // NewDeliveryServices builds read-only services backed by CMS adapters.

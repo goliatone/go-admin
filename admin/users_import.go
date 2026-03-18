@@ -44,19 +44,19 @@ type bulkImportResponse struct {
 }
 
 type importRecord struct {
-	Email    string
-	Username string
-	Role     string
-	AppRole  string
-	Status   string
-	Metadata any
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	AppRole  string `json:"app_role"`
+	Status   string `json:"status"`
+	Metadata any    `json:"metadata"`
 }
 
 type bulkImportParseOutcome struct {
-	Users       []*userstypes.AuthUser
-	UserIndexes []int
-	Results     []bulkImportResult
-	Processed   int
+	Users       []*userstypes.AuthUser `json:"users"`
+	UserIndexes []int                  `json:"user_indexes"`
+	Results     []bulkImportResult     `json:"results"`
+	Processed   int                    `json:"processed"`
 }
 
 type userImportBinding struct {

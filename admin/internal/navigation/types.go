@@ -10,11 +10,11 @@ import (
 
 // Menu represents a simple CMS menu tree.
 type Menu struct {
-	ID       string
-	Code     string
-	Slug     string
-	Location string
-	Items    []MenuItem
+	ID       string     `json:"id"`
+	Code     string     `json:"code"`
+	Slug     string     `json:"slug"`
+	Location string     `json:"location"`
+	Items    []MenuItem `json:"items"`
 }
 
 const (

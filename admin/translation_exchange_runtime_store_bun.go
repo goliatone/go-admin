@@ -26,78 +26,78 @@ func NewBunTranslationExchangeRuntimeStore(db *bun.DB) *BunTranslationExchangeRu
 type bunTranslationExchangeJobRecord struct {
 	bun.BaseModel `bun:"table:exchange_jobs,alias:txj"`
 
-	JobID          string     `bun:"job_id,pk"`
-	TenantID       string     `bun:"tenant_id"`
-	OrgID          string     `bun:"org_id"`
-	Kind           string     `bun:"kind"`
-	Status         string     `bun:"status"`
-	CreatedBy      string     `bun:"created_by"`
-	Permission     string     `bun:"permission"`
-	RequestHash    string     `bun:"request_hash"`
-	RequestJSON    string     `bun:"request_json"`
-	ProgressJSON   string     `bun:"progress_json"`
-	SummaryJSON    string     `bun:"summary_json"`
-	ResultJSON     string     `bun:"result_json"`
-	RetentionJSON  string     `bun:"retention_json"`
-	Error          string     `bun:"error"`
-	RequestID      string     `bun:"request_id"`
-	TraceID        string     `bun:"trace_id"`
-	PollEndpoint   string     `bun:"poll_endpoint"`
-	WorkerID       string     `bun:"worker_id"`
-	StartedAt      *time.Time `bun:"started_at"`
-	CompletedAt    *time.Time `bun:"completed_at"`
-	HeartbeatAt    *time.Time `bun:"heartbeat_at"`
-	LeaseExpiresAt *time.Time `bun:"lease_expires_at"`
-	DeletedAt      *time.Time `bun:"deleted_at"`
-	CreatedAt      time.Time  `bun:"created_at"`
-	UpdatedAt      time.Time  `bun:"updated_at"`
+	JobID          string     `bun:"job_id,pk" json:"job_id"`
+	TenantID       string     `bun:"tenant_id" json:"tenant_id"`
+	OrgID          string     `bun:"org_id" json:"org_id"`
+	Kind           string     `bun:"kind" json:"kind"`
+	Status         string     `bun:"status" json:"status"`
+	CreatedBy      string     `bun:"created_by" json:"created_by"`
+	Permission     string     `bun:"permission" json:"permission"`
+	RequestHash    string     `bun:"request_hash" json:"request_hash"`
+	RequestJSON    string     `bun:"request_json" json:"request_json"`
+	ProgressJSON   string     `bun:"progress_json" json:"progress_json"`
+	SummaryJSON    string     `bun:"summary_json" json:"summary_json"`
+	ResultJSON     string     `bun:"result_json" json:"result_json"`
+	RetentionJSON  string     `bun:"retention_json" json:"retention_json"`
+	Error          string     `bun:"error" json:"error"`
+	RequestID      string     `bun:"request_id" json:"request_id"`
+	TraceID        string     `bun:"trace_id" json:"trace_id"`
+	PollEndpoint   string     `bun:"poll_endpoint" json:"poll_endpoint"`
+	WorkerID       string     `bun:"worker_id" json:"worker_id"`
+	StartedAt      *time.Time `bun:"started_at" json:"started_at"`
+	CompletedAt    *time.Time `bun:"completed_at" json:"completed_at"`
+	HeartbeatAt    *time.Time `bun:"heartbeat_at" json:"heartbeat_at"`
+	LeaseExpiresAt *time.Time `bun:"lease_expires_at" json:"lease_expires_at"`
+	DeletedAt      *time.Time `bun:"deleted_at" json:"deleted_at"`
+	CreatedAt      time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt      time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 type bunTranslationExchangeJobRowRecord struct {
 	bun.BaseModel `bun:"table:translation_exchange_job_rows,alias:txjr"`
 
-	JobID             string     `bun:"job_id,pk"`
-	RowIndex          int        `bun:"row_index,pk"`
-	TenantID          string     `bun:"tenant_id"`
-	OrgID             string     `bun:"org_id"`
-	Kind              string     `bun:"kind"`
-	Status            string     `bun:"status"`
-	InputJSON         string     `bun:"input_json"`
-	ResultJSON        string     `bun:"result_json"`
-	LinkageKey        string     `bun:"linkage_key"`
-	PayloadHash       string     `bun:"payload_hash"`
-	SeenRegistered    bool       `bun:"seen_registered"`
-	CreateTranslation bool       `bun:"create_translation"`
-	AppliedAt         *time.Time `bun:"applied_at"`
-	CreatedAt         time.Time  `bun:"created_at"`
-	UpdatedAt         time.Time  `bun:"updated_at"`
+	JobID             string     `bun:"job_id,pk" json:"job_id"`
+	RowIndex          int        `bun:"row_index,pk" json:"row_index"`
+	TenantID          string     `bun:"tenant_id" json:"tenant_id"`
+	OrgID             string     `bun:"org_id" json:"org_id"`
+	Kind              string     `bun:"kind" json:"kind"`
+	Status            string     `bun:"status" json:"status"`
+	InputJSON         string     `bun:"input_json" json:"input_json"`
+	ResultJSON        string     `bun:"result_json" json:"result_json"`
+	LinkageKey        string     `bun:"linkage_key" json:"linkage_key"`
+	PayloadHash       string     `bun:"payload_hash" json:"payload_hash"`
+	SeenRegistered    bool       `bun:"seen_registered" json:"seen_registered"`
+	CreateTranslation bool       `bun:"create_translation" json:"create_translation"`
+	AppliedAt         *time.Time `bun:"applied_at" json:"applied_at"`
+	CreatedAt         time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt         time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 type bunTranslationExchangeJobArtifactRecord struct {
 	bun.BaseModel `bun:"table:translation_exchange_job_artifacts,alias:txja"`
 
-	JobID        string    `bun:"job_id,pk"`
-	Kind         string    `bun:"kind,pk"`
-	Label        string    `bun:"label"`
-	Filename     string    `bun:"filename"`
-	ContentType  string    `bun:"content_type"`
-	ContentBytes []byte    `bun:"content_bytes"`
-	CreatedAt    time.Time `bun:"created_at"`
-	UpdatedAt    time.Time `bun:"updated_at"`
+	JobID        string    `bun:"job_id,pk" json:"job_id"`
+	Kind         string    `bun:"kind,pk" json:"kind"`
+	Label        string    `bun:"label" json:"label"`
+	Filename     string    `bun:"filename" json:"filename"`
+	ContentType  string    `bun:"content_type" json:"content_type"`
+	ContentBytes []byte    `bun:"content_bytes" json:"content_bytes"`
+	CreatedAt    time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 type bunTranslationExchangeApplyLedgerRecord struct {
 	bun.BaseModel `bun:"table:translation_exchange_apply_ledger,alias:txal"`
 
-	LedgerID          string    `bun:"ledger_id,pk"`
-	TenantID          string    `bun:"tenant_id"`
-	OrgID             string    `bun:"org_id"`
-	LinkageKey        string    `bun:"linkage_key"`
-	PayloadHash       string    `bun:"payload_hash"`
-	CreateTranslation bool      `bun:"create_translation"`
-	WorkflowStatus    string    `bun:"workflow_status"`
-	AppliedAt         time.Time `bun:"applied_at"`
-	RequestJSON       string    `bun:"request_json"`
+	LedgerID          string    `bun:"ledger_id,pk" json:"ledger_id"`
+	TenantID          string    `bun:"tenant_id" json:"tenant_id"`
+	OrgID             string    `bun:"org_id" json:"org_id"`
+	LinkageKey        string    `bun:"linkage_key" json:"linkage_key"`
+	PayloadHash       string    `bun:"payload_hash" json:"payload_hash"`
+	CreateTranslation bool      `bun:"create_translation" json:"create_translation"`
+	WorkflowStatus    string    `bun:"workflow_status" json:"workflow_status"`
+	AppliedAt         time.Time `bun:"applied_at" json:"applied_at"`
+	RequestJSON       string    `bun:"request_json" json:"request_json"`
 }
 
 func (s *BunTranslationExchangeRuntimeStore) CreateJob(ctx context.Context, job translationExchangeAsyncJob) (translationExchangeAsyncJob, error) {

@@ -33,31 +33,31 @@ type TranslationExchangeRuntimeStore interface {
 }
 
 type translationExchangeJobArtifact struct {
-	Kind        string
-	Label       string
-	Filename    string
-	ContentType string
-	Content     []byte
+	Kind        string `json:"kind"`
+	Label       string `json:"label"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Content     []byte `json:"content"`
 }
 
 type translationExchangeStoredRow struct {
-	RowIndex          int
-	Input             TranslationExchangeRow
-	Result            *TranslationExchangeRowResult
-	LinkageKey        string
-	PayloadHash       string
-	SeenRegistered    bool
-	CreateTranslation bool
-	AppliedAt         time.Time
-	UpdatedAt         time.Time
+	RowIndex          int                           `json:"row_index"`
+	Input             TranslationExchangeRow        `json:"input"`
+	Result            *TranslationExchangeRowResult `json:"result"`
+	LinkageKey        string                        `json:"linkage_key"`
+	PayloadHash       string                        `json:"payload_hash"`
+	SeenRegistered    bool                          `json:"seen_registered"`
+	CreateTranslation bool                          `json:"create_translation"`
+	AppliedAt         time.Time                     `json:"applied_at"`
+	UpdatedAt         time.Time                     `json:"updated_at"`
 }
 
 type translationExchangeJobQuery struct {
-	Identity translationTransportIdentity
-	Page     int
-	PerPage  int
-	Kind     string
-	Status   string
+	Identity translationTransportIdentity `json:"identity"`
+	Page     int                          `json:"page"`
+	PerPage  int                          `json:"per_page"`
+	Kind     string                       `json:"kind"`
+	Status   string                       `json:"status"`
 }
 
 // MemoryTranslationExchangeRuntimeStore provides a non-persistent runtime store used by tests and fallback wiring.

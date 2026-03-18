@@ -41,8 +41,8 @@ type ExportRouteWrapper func(router.HandlerFunc) router.HandlerFunc
 
 // ExportRouteOptions configures export route registration.
 type ExportRouteOptions struct {
-	BasePath string
-	Wrap     ExportRouteWrapper
+	BasePath string             `json:"base_path"`
+	Wrap     ExportRouteWrapper `json:"wrap"`
 }
 
 // ExportHTTPRegistrar registers export HTTP endpoints on a router.

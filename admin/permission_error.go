@@ -7,10 +7,10 @@ import (
 
 // PermissionDeniedError describes a missing authorization permission.
 type PermissionDeniedError struct {
-	Permission     string
-	Resource       string
-	Hint           string
-	ReauthRequired bool
+	Permission     string `json:"permission"`
+	Resource       string `json:"resource"`
+	Hint           string `json:"hint"`
+	ReauthRequired bool   `json:"reauth_required"`
 }
 
 func (e PermissionDeniedError) Error() string {

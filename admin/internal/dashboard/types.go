@@ -7,36 +7,36 @@ import (
 
 // WidgetAreaDefinition captures CMS widget area metadata.
 type WidgetAreaDefinition struct {
-	Code  string
-	Name  string
-	Scope string
+	Code  string `json:"code"`
+	Name  string `json:"name"`
+	Scope string `json:"scope"`
 }
 
 // WidgetDefinition captures admin widget metadata.
 type WidgetDefinition struct {
-	Code   string
-	Name   string
-	Schema map[string]any
+	Code   string         `json:"code"`
+	Name   string         `json:"name"`
+	Schema map[string]any `json:"schema"`
 }
 
 // WidgetInstanceFilter narrows widget instance queries.
 type WidgetInstanceFilter struct {
-	Area   string
-	PageID string
-	Locale string
+	Area   string `json:"area"`
+	PageID string `json:"page_id"`
+	Locale string `json:"locale"`
 }
 
 // WidgetInstance links a widget definition to a specific area/page.
 type WidgetInstance struct {
-	ID             string
-	DefinitionCode string
-	Area           string
-	PageID         string
-	Locale         string
-	Config         map[string]any
-	Position       int
-	Span           int
-	Hidden         bool
+	ID             string         `json:"id"`
+	DefinitionCode string         `json:"definition_code"`
+	Area           string         `json:"area"`
+	PageID         string         `json:"page_id"`
+	Locale         string         `json:"locale"`
+	Config         map[string]any `json:"config"`
+	Position       int            `json:"position"`
+	Span           int            `json:"span"`
+	Hidden         bool           `json:"hidden"`
 }
 
 // WidgetService registers dashboard widget areas/definitions and instances.

@@ -19,8 +19,8 @@ var (
 
 // TranslationExchangeUnsupportedFormatError captures unsupported upload format details.
 type TranslationExchangeUnsupportedFormatError struct {
-	Format    string
-	Supported []string
+	Format    string   `json:"format"`
+	Supported []string `json:"supported"`
 }
 
 func (e TranslationExchangeUnsupportedFormatError) Error() string {
@@ -37,10 +37,10 @@ func (e TranslationExchangeUnsupportedFormatError) Unwrap() error {
 
 // TranslationExchangeInvalidPayloadError captures invalid payload details.
 type TranslationExchangeInvalidPayloadError struct {
-	Message  string
-	Field    string
-	Format   string
-	Metadata map[string]any
+	Message  string         `json:"message"`
+	Field    string         `json:"field"`
+	Format   string         `json:"format"`
+	Metadata map[string]any `json:"metadata"`
 }
 
 func (e TranslationExchangeInvalidPayloadError) Error() string {
@@ -57,15 +57,15 @@ func (e TranslationExchangeInvalidPayloadError) Unwrap() error {
 
 // TranslationExchangeConflictError captures row-level deterministic linkage conflicts.
 type TranslationExchangeConflictError struct {
-	Type               string
-	Index              int
-	Resource           string
-	EntityID           string
-	FamilyID           string
-	TargetLocale       string
-	FieldPath          string
-	CurrentSourceHash  string
-	ProvidedSourceHash string
+	Type               string `json:"type"`
+	Index              int    `json:"index"`
+	Resource           string `json:"resource"`
+	EntityID           string `json:"entity_id"`
+	FamilyID           string `json:"family_id"`
+	TargetLocale       string `json:"target_locale"`
+	FieldPath          string `json:"field_path"`
+	CurrentSourceHash  string `json:"current_source_hash"`
+	ProvidedSourceHash string `json:"provided_source_hash"`
 }
 
 func (e TranslationExchangeConflictError) Error() string {

@@ -133,14 +133,14 @@ var (
 
 // ListOptions holds pagination and filtering input.
 type ListOptions struct {
-	Page       int
-	PerPage    int
-	SortBy     string
-	SortDesc   bool
-	Filters    map[string]any
-	Predicates []ListPredicate
-	Fields     []string
-	Search     string
+	Page       int             `json:"page"`
+	PerPage    int             `json:"per_page"`
+	SortBy     string          `json:"sort_by"`
+	SortDesc   bool            `json:"sort_desc"`
+	Filters    map[string]any  `json:"filters"`
+	Predicates []ListPredicate `json:"predicates"`
+	Fields     []string        `json:"fields"`
+	Search     string          `json:"search"`
 }
 
 // ListPredicate defines an operator-aware list filter predicate.
@@ -237,21 +237,21 @@ type Action struct {
 
 // PanelPermissions declares resource actions.
 type PanelPermissions struct {
-	View   string
-	Create string
-	Edit   string
-	Delete string
+	View   string `json:"view"`
+	Create string `json:"create"`
+	Edit   string `json:"edit"`
+	Delete string `json:"delete"`
 }
 
 // PanelHooks contains lifecycle callbacks.
 type PanelHooks struct {
-	BeforeCreate       func(ctx AdminContext, record map[string]any) error
-	AfterCreate        func(ctx AdminContext, record map[string]any) error
-	BeforeUpdate       func(ctx AdminContext, record map[string]any) error
-	BeforeUpdateWithID func(ctx AdminContext, id string, record map[string]any) error
-	AfterUpdate        func(ctx AdminContext, record map[string]any) error
-	BeforeDelete       func(ctx AdminContext, id string) error
-	AfterDelete        func(ctx AdminContext, id string) error
+	BeforeCreate       func(ctx AdminContext, record map[string]any) error            `json:"before_create"`
+	AfterCreate        func(ctx AdminContext, record map[string]any) error            `json:"after_create"`
+	BeforeUpdate       func(ctx AdminContext, record map[string]any) error            `json:"before_update"`
+	BeforeUpdateWithID func(ctx AdminContext, id string, record map[string]any) error `json:"before_update_with_id"`
+	AfterUpdate        func(ctx AdminContext, record map[string]any) error            `json:"after_update"`
+	BeforeDelete       func(ctx AdminContext, id string) error                        `json:"before_delete"`
+	AfterDelete        func(ctx AdminContext, id string) error                        `json:"after_delete"`
 }
 
 // WorkflowAuthorizer optionally guards workflow transitions.
@@ -301,11 +301,11 @@ type MediaConfig struct {
 
 // PanelBreadcrumbConfig controls breadcrumb rendering for panel-backed routes.
 type PanelBreadcrumbConfig struct {
-	ListLabel           string
-	RootLabel           string
-	RootHref            string
-	ShowCurrentOnDetail bool
-	DetailLabelResolver func(record map[string]any) string
+	ListLabel           string                             `json:"list_label"`
+	RootLabel           string                             `json:"root_label"`
+	RootHref            string                             `json:"root_href"`
+	ShowCurrentOnDetail bool                               `json:"show_current_on_detail"`
+	DetailLabelResolver func(record map[string]any) string `json:"detail_label_resolver"`
 }
 
 // WithRepository sets the panel repository.

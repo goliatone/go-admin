@@ -570,21 +570,21 @@ func translationReadinessLocaleMetadata(record map[string]any) map[string]map[st
 }
 
 type translationQuickCreateDefaultAssignment struct {
-	AutoCreateAssignment bool
-	WorkScope            string
-	Priority             string
-	AssigneeID           string
-	DueDate              string
+	AutoCreateAssignment bool   `json:"auto_create_assignment"`
+	WorkScope            string `json:"work_scope"`
+	Priority             string `json:"priority"`
+	AssigneeID           string `json:"assignee_id"`
+	DueDate              string `json:"due_date"`
 }
 
 type translationQuickCreatePayload struct {
-	Enabled            bool
-	MissingLocales     []string
-	RecommendedLocale  string
-	RequiredForPublish []string
-	DefaultAssignment  translationQuickCreateDefaultAssignment
-	DisabledReasonCode string
-	DisabledReason     string
+	Enabled            bool                                    `json:"enabled"`
+	MissingLocales     []string                                `json:"missing_locales"`
+	RecommendedLocale  string                                  `json:"recommended_locale"`
+	RequiredForPublish []string                                `json:"required_for_publish"`
+	DefaultAssignment  translationQuickCreateDefaultAssignment `json:"default_assignment"`
+	DisabledReasonCode string                                  `json:"disabled_reason_code"`
+	DisabledReason     string                                  `json:"disabled_reason"`
 }
 
 func translationReadinessQuickCreatePayload(

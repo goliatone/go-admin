@@ -12,11 +12,11 @@ import (
 
 // BulkRequest describes a requested bulk job.
 type BulkRequest struct {
-	Name   string
-	Action string
-	Total  int
+	Name   string `json:"name"`
+	Action string `json:"action"`
+	Total  int    `json:"total"`
 	// Payload carries optional job metadata for downstream processors.
-	Payload map[string]any
+	Payload map[string]any `json:"payload"`
 }
 
 // BulkJob captures bulk job state for UI/progress.
@@ -204,7 +204,7 @@ func (DisabledBulkService) Rollback(ctx context.Context, id string) (BulkJob, er
 
 // BulkCommand triggers a bulk job via the command bus.
 type BulkCommand struct {
-	Service BulkService
+	Service BulkService `json:"service"`
 }
 
 func (c *BulkCommand) Execute(ctx context.Context, msg BulkStartMsg) error {

@@ -7,8 +7,8 @@ import (
 )
 
 type dashboardRouteRegistrars struct {
-	HTTP  func(router.Router[*httprouter.Router]) error
-	Fiber func(router.Router[*fiber.App]) error
+	HTTP  func(router.Router[*httprouter.Router]) error `json:"http"`
+	Fiber func(router.Router[*fiber.App]) error         `json:"fiber"`
 }
 
 // registerDashboardRoutesByRouterType tries supported concrete router backends.

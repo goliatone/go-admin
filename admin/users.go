@@ -15,41 +15,41 @@ import (
 
 // UserRecord captures the fields managed by the user administration module.
 type UserRecord struct {
-	ID          string
-	Email       string
-	Username    string
-	FirstName   string
-	LastName    string
-	Status      string
-	Role        string
-	Roles       []string
-	RoleDisplay string
-	RoleLabels  []string
-	Permissions []string
-	Metadata    map[string]any
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          string         `json:"id"`
+	Email       string         `json:"email"`
+	Username    string         `json:"username"`
+	FirstName   string         `json:"first_name"`
+	LastName    string         `json:"last_name"`
+	Status      string         `json:"status"`
+	Role        string         `json:"role"`
+	Roles       []string       `json:"roles"`
+	RoleDisplay string         `json:"role_display"`
+	RoleLabels  []string       `json:"role_labels"`
+	Permissions []string       `json:"permissions"`
+	Metadata    map[string]any `json:"metadata"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // RoleRecord captures custom roles and their permissions.
 type RoleRecord struct {
-	ID          string
-	Name        string
-	RoleKey     string
-	Description string
-	Permissions []string
-	Metadata    map[string]any
-	IsSystem    bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	RoleKey     string         `json:"role_key"`
+	Description string         `json:"description"`
+	Permissions []string       `json:"permissions"`
+	Metadata    map[string]any `json:"metadata"`
+	IsSystem    bool           `json:"is_system"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // BulkRoleChangeRequest captures inputs for bulk role assignment operations.
 type BulkRoleChangeRequest struct {
-	UserIDs []string
-	RoleID  string
-	Assign  bool
-	Replace bool
+	UserIDs []string `json:"user_i_ds"`
+	RoleID  string   `json:"role_id"`
+	Assign  bool     `json:"assign"`
+	Replace bool     `json:"replace"`
 }
 
 // BulkRoleChangeSummary aggregates per-user execution status for bulk role changes.

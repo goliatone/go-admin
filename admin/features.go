@@ -42,8 +42,8 @@ var ErrInvalidFeatureConfig = errors.New("invalid feature configuration")
 
 // FeatureDisabledError includes the specific feature name and optional reason.
 type FeatureDisabledError struct {
-	Feature string
-	Reason  string
+	Feature string `json:"feature"`
+	Reason  string `json:"reason"`
 }
 
 func (e FeatureDisabledError) Error() string {
@@ -59,8 +59,8 @@ func (e FeatureDisabledError) Unwrap() error {
 
 // FeatureDependencyError captures missing dependencies for an enabled feature.
 type FeatureDependencyError struct {
-	Feature string
-	Missing []string
+	Feature string   `json:"feature"`
+	Missing []string `json:"missing"`
 }
 
 func (e FeatureDependencyError) Error() string {
@@ -75,7 +75,7 @@ func (e FeatureDependencyError) Unwrap() error {
 
 // InvalidFeatureConfigError aggregates dependency validation failures.
 type InvalidFeatureConfigError struct {
-	Issues []FeatureDependencyError
+	Issues []FeatureDependencyError `json:"issues"`
 }
 
 func (e InvalidFeatureConfigError) Error() string {

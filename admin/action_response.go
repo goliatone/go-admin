@@ -10,8 +10,8 @@ type actionResponseContextKey struct{}
 
 // ActionResponse captures structured panel action output and an optional HTTP status override.
 type ActionResponse struct {
-	StatusCode int
-	Data       map[string]any
+	StatusCode int            `json:"status_code"`
+	Data       map[string]any `json:"data"`
 }
 
 // ActionResponseCollector stores the latest action response emitted during a command-backed panel action.

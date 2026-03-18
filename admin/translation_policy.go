@@ -29,13 +29,13 @@ func (fn TranslationPolicyFunc) Validate(ctx context.Context, input TranslationP
 
 // TranslationPolicyInput captures workflow context needed for translation checks.
 type TranslationPolicyInput struct {
-	EntityType      string
-	EntityID        string
-	Transition      string
-	Environment     string
-	State           string
-	PolicyEntity    string
-	RequestedLocale string
+	EntityType      string `json:"entity_type"`
+	EntityID        string `json:"entity_id"`
+	Transition      string `json:"transition"`
+	Environment     string `json:"environment"`
+	State           string `json:"state"`
+	PolicyEntity    string `json:"policy_entity"`
+	RequestedLocale string `json:"requested_locale"`
 }
 
 func (input TranslationPolicyInput) effectiveEntity() string {
@@ -47,13 +47,13 @@ func (input TranslationPolicyInput) effectiveEntity() string {
 
 // TranslationRequirements captures required locales and optional field checks.
 type TranslationRequirements struct {
-	Locales                 []string
-	RequiredFields          map[string][]string
-	RequiredFieldsStrategy  RequiredFieldsValidationStrategy
-	ReviewRequired          bool
-	AllowPublishOverride    bool
-	AssignmentLifecycleMode string
-	DefaultWorkScope        string
+	Locales                 []string                         `json:"locales"`
+	RequiredFields          map[string][]string              `json:"required_fields"`
+	RequiredFieldsStrategy  RequiredFieldsValidationStrategy `json:"required_fields_strategy"`
+	ReviewRequired          bool                             `json:"review_required"`
+	AllowPublishOverride    bool                             `json:"allow_publish_override"`
+	AssignmentLifecycleMode string                           `json:"assignment_lifecycle_mode"`
+	DefaultWorkScope        string                           `json:"default_work_scope"`
 }
 
 // TranslationRequirementsResolver resolves translation requirements for a transition.
@@ -86,9 +86,9 @@ type TranslationCheckOptions = cmsinterfaces.TranslationCheckOptions
 
 // GoCMSTranslationPolicy enforces translation requirements using go-cms checks.
 type GoCMSTranslationPolicy struct {
-	Pages    cmsinterfaces.PageService
-	Content  cmsinterfaces.ContentService
-	Resolver TranslationRequirementsResolver
+	Pages    cmsinterfaces.PageService       `json:"pages"`
+	Content  cmsinterfaces.ContentService    `json:"content"`
+	Resolver TranslationRequirementsResolver `json:"resolver"`
 }
 
 // Requirements resolves transition requirements when the policy exposes a resolver.
@@ -207,15 +207,15 @@ var ErrMissingTranslations = errors.New("missing required translations")
 
 // MissingTranslationsError reports which locales are required but absent.
 type MissingTranslationsError struct {
-	EntityType              string
-	PolicyEntity            string
-	EntityID                string
-	Transition              string
-	Environment             string
-	RequestedLocale         string
-	MissingLocales          []string
-	MissingFieldsByLocale   map[string][]string
-	RequiredFieldsEvaluated bool
+	EntityType              string              `json:"entity_type"`
+	PolicyEntity            string              `json:"policy_entity"`
+	EntityID                string              `json:"entity_id"`
+	Transition              string              `json:"transition"`
+	Environment             string              `json:"environment"`
+	RequestedLocale         string              `json:"requested_locale"`
+	MissingLocales          []string            `json:"missing_locales"`
+	MissingFieldsByLocale   map[string][]string `json:"missing_fields_by_locale"`
+	RequiredFieldsEvaluated bool                `json:"required_fields_evaluated"`
 }
 
 func (e MissingTranslationsError) Error() string {

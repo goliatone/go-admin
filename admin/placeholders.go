@@ -205,21 +205,21 @@ type PermissionResolverFunc func(context.Context) ([]string, error)
 
 // PermissionResolverMetrics captures resolver/caching behavior counters.
 type PermissionResolverMetrics struct {
-	Calls              uint64
-	ResolverRuns       uint64
-	CacheHits          uint64
-	CacheMisses        uint64
-	Errors             uint64
-	ContextCacheAbsent uint64
+	Calls              uint64 `json:"calls"`
+	ResolverRuns       uint64 `json:"resolver_runs"`
+	CacheHits          uint64 `json:"cache_hits"`
+	CacheMisses        uint64 `json:"cache_misses"`
+	Errors             uint64 `json:"errors"`
+	ContextCacheAbsent uint64 `json:"context_cache_absent"`
 }
 
 // GoAuthAuthorizerConfig configures resource resolution.
 type GoAuthAuthorizerConfig struct {
-	DefaultResource    string
-	Debug              bool
-	Logger             Logger
-	StrictResolver     bool
-	ResolvePermissions PermissionResolverFunc
+	DefaultResource    string                 `json:"default_resource"`
+	Debug              bool                   `json:"debug"`
+	Logger             Logger                 `json:"logger"`
+	StrictResolver     bool                   `json:"strict_resolver"`
+	ResolvePermissions PermissionResolverFunc `json:"resolve_permissions"`
 }
 
 // NewGoAuthAuthorizer builds an Authorizer backed by go-auth claims.

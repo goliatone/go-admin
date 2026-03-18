@@ -15,36 +15,36 @@ import (
 type bunTranslationAssignmentRecord struct {
 	bun.BaseModel `bun:"table:translation_assignments,alias:ta"`
 
-	AssignmentID        string     `bun:"assignment_id,pk"`
-	TenantID            string     `bun:"tenant_id"`
-	OrgID               string     `bun:"org_id"`
-	FamilyID            string     `bun:"family_id"`
-	VariantID           string     `bun:"variant_id"`
-	EntityType          string     `bun:"entity_type"`
-	SourceRecordID      string     `bun:"source_record_id"`
-	SourceLocale        string     `bun:"source_locale"`
-	TargetLocale        string     `bun:"target_locale"`
-	TargetRecordID      string     `bun:"target_record_id"`
-	SourceTitle         string     `bun:"source_title"`
-	SourcePath          string     `bun:"source_path"`
-	WorkScope           string     `bun:"work_scope"`
-	AssignmentType      string     `bun:"assignment_type"`
-	Status              string     `bun:"status"`
-	AssigneeID          string     `bun:"assignee_id"`
-	ReviewerID          string     `bun:"reviewer_id"`
-	AssignerID          string     `bun:"assigner_id"`
-	LastReviewerID      string     `bun:"last_reviewer_id"`
-	LastRejectionReason string     `bun:"last_rejection_reason"`
-	Priority            string     `bun:"priority"`
-	DueDate             *time.Time `bun:"due_date,nullzero"`
-	RowVersion          int64      `bun:"row_version"`
-	ClaimedAt           *time.Time `bun:"claimed_at,nullzero"`
-	SubmittedAt         *time.Time `bun:"submitted_at,nullzero"`
-	ApprovedAt          *time.Time `bun:"approved_at,nullzero"`
-	PublishedAt         *time.Time `bun:"published_at,nullzero"`
-	ArchivedAt          *time.Time `bun:"archived_at,nullzero"`
-	CreatedAt           time.Time  `bun:"created_at"`
-	UpdatedAt           time.Time  `bun:"updated_at"`
+	AssignmentID        string     `bun:"assignment_id,pk" json:"assignment_id"`
+	TenantID            string     `bun:"tenant_id" json:"tenant_id"`
+	OrgID               string     `bun:"org_id" json:"org_id"`
+	FamilyID            string     `bun:"family_id" json:"family_id"`
+	VariantID           string     `bun:"variant_id" json:"variant_id"`
+	EntityType          string     `bun:"entity_type" json:"entity_type"`
+	SourceRecordID      string     `bun:"source_record_id" json:"source_record_id"`
+	SourceLocale        string     `bun:"source_locale" json:"source_locale"`
+	TargetLocale        string     `bun:"target_locale" json:"target_locale"`
+	TargetRecordID      string     `bun:"target_record_id" json:"target_record_id"`
+	SourceTitle         string     `bun:"source_title" json:"source_title"`
+	SourcePath          string     `bun:"source_path" json:"source_path"`
+	WorkScope           string     `bun:"work_scope" json:"work_scope"`
+	AssignmentType      string     `bun:"assignment_type" json:"assignment_type"`
+	Status              string     `bun:"status" json:"status"`
+	AssigneeID          string     `bun:"assignee_id" json:"assignee_id"`
+	ReviewerID          string     `bun:"reviewer_id" json:"reviewer_id"`
+	AssignerID          string     `bun:"assigner_id" json:"assigner_id"`
+	LastReviewerID      string     `bun:"last_reviewer_id" json:"last_reviewer_id"`
+	LastRejectionReason string     `bun:"last_rejection_reason" json:"last_rejection_reason"`
+	Priority            string     `bun:"priority" json:"priority"`
+	DueDate             *time.Time `bun:"due_date,nullzero" json:"due_date"`
+	RowVersion          int64      `bun:"row_version" json:"row_version"`
+	ClaimedAt           *time.Time `bun:"claimed_at,nullzero" json:"claimed_at"`
+	SubmittedAt         *time.Time `bun:"submitted_at,nullzero" json:"submitted_at"`
+	ApprovedAt          *time.Time `bun:"approved_at,nullzero" json:"approved_at"`
+	PublishedAt         *time.Time `bun:"published_at,nullzero" json:"published_at"`
+	ArchivedAt          *time.Time `bun:"archived_at,nullzero" json:"archived_at"`
+	CreatedAt           time.Time  `bun:"created_at" json:"created_at"`
+	UpdatedAt           time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 type BunTranslationAssignmentRepository struct {

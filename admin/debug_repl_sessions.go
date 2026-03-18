@@ -14,17 +14,17 @@ var ErrREPLSessionLimit = errors.New("repl session limit reached")
 
 // DebugREPLSession tracks an active REPL session.
 type DebugREPLSession struct {
-	ID        string
-	UserID    string
-	Username  string
-	IP        string
-	UserAgent string
-	Kind      string
-	ReadOnly  bool
-	StartedAt time.Time
-	ExpiresAt time.Time
-	ClosedAt  *time.Time
-	Metadata  map[string]any
+	ID        string         `json:"id"`
+	UserID    string         `json:"user_id"`
+	Username  string         `json:"username"`
+	IP        string         `json:"ip"`
+	UserAgent string         `json:"user_agent"`
+	Kind      string         `json:"kind"`
+	ReadOnly  bool           `json:"read_only"`
+	StartedAt time.Time      `json:"started_at"`
+	ExpiresAt time.Time      `json:"expires_at"`
+	ClosedAt  *time.Time     `json:"closed_at"`
+	Metadata  map[string]any `json:"metadata"`
 }
 
 // DebugREPLSessionStore persists REPL sessions.

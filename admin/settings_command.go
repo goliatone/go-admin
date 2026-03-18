@@ -10,8 +10,8 @@ const settingsUpdateCommandName = "admin.settings.update"
 
 // SettingsUpdateCommand wraps settings mutations in a go-command handler.
 type SettingsUpdateCommand struct {
-	Service    *SettingsService
-	Permission string
+	Service    *SettingsService `json:"service"`
+	Permission string           `json:"permission"`
 }
 
 // Execute applies the bundle found in the message.

@@ -35,12 +35,12 @@ type RPCCommandListResponse struct {
 }
 
 type rpcTrustedIdentity struct {
-	ActorID        string
-	Subject        string
-	TenantID       string
-	OrganizationID string
-	RequestID      string
-	CorrelationID  string
+	ActorID        string `json:"actor_id"`
+	Subject        string `json:"subject"`
+	TenantID       string `json:"tenant_id"`
+	OrganizationID string `json:"organization_id"`
+	RequestID      string `json:"request_id"`
+	CorrelationID  string `json:"correlation_id"`
 }
 
 func newRPCServer(server *cmdrpc.Server) *cmdrpc.Server {

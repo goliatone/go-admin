@@ -8,9 +8,9 @@ import (
 
 // FeatureFlags captures the minimal flags needed for dashboard helpers.
 type FeatureFlags struct {
-	CMS       bool
-	Dashboard bool
-	Settings  bool
+	CMS       bool `json:"cms"`
+	Dashboard bool `json:"dashboard"`
+	Settings  bool `json:"settings"`
 }
 
 // DashboardAreaRegistrar exposes minimal area registration hooks.

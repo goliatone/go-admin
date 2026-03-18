@@ -34,7 +34,7 @@ const NotificationMarkCommandName = "notifications.mark"
 
 // NotificationMarkCommand toggles read state for notifications via the command bus.
 type NotificationMarkCommand struct {
-	Service NotificationService
+	Service NotificationService `json:"service"`
 }
 
 func (c *NotificationMarkCommand) Execute(ctx context.Context, msg NotificationMarkMsg) error {

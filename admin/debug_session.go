@@ -11,8 +11,8 @@ import (
 )
 
 type debugSessionContext struct {
-	SessionID string
-	UserID    string
+	SessionID string `json:"session_id"`
+	UserID    string `json:"user_id"`
 }
 
 type debugSessionContextKey struct{}

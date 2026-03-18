@@ -24,39 +24,39 @@ const (
 type bunWorkflowAuthoringMachineRecord struct {
 	bun.BaseModel `bun:"table:workflow_authoring_machines"`
 
-	MachineID           string     `bun:"machine_id,pk"`
-	Name                string     `bun:"name,notnull"`
-	Version             string     `bun:"version,notnull"`
-	ETag                string     `bun:"etag,notnull"`
-	Draft               string     `bun:"draft,notnull"`
-	Diagnostics         string     `bun:"diagnostics,notnull"`
-	UpdatedAt           time.Time  `bun:"updated_at,notnull"`
-	PublishedAt         *time.Time `bun:"published_at"`
-	PublishedDefinition string     `bun:"published_definition"`
-	DeletedAt           *time.Time `bun:"deleted_at"`
+	MachineID           string     `bun:"machine_id,pk" json:"machine_id"`
+	Name                string     `bun:"name,notnull" json:"name"`
+	Version             string     `bun:"version,notnull" json:"version"`
+	ETag                string     `bun:"etag,notnull" json:"e_tag"`
+	Draft               string     `bun:"draft,notnull" json:"draft"`
+	Diagnostics         string     `bun:"diagnostics,notnull" json:"diagnostics"`
+	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updated_at"`
+	PublishedAt         *time.Time `bun:"published_at" json:"published_at"`
+	PublishedDefinition string     `bun:"published_definition" json:"published_definition"`
+	DeletedAt           *time.Time `bun:"deleted_at" json:"deleted_at"`
 }
 
 type bunWorkflowAuthoringVersionRecord struct {
 	bun.BaseModel `bun:"table:workflow_authoring_versions"`
 
-	MachineID           string     `bun:"machine_id,pk"`
-	Version             string     `bun:"version,pk"`
-	Name                string     `bun:"name,notnull"`
-	ETag                string     `bun:"etag,notnull"`
-	Draft               string     `bun:"draft,notnull"`
-	Diagnostics         string     `bun:"diagnostics,notnull"`
-	UpdatedAt           time.Time  `bun:"updated_at,notnull"`
-	PublishedAt         *time.Time `bun:"published_at"`
-	PublishedDefinition string     `bun:"published_definition"`
-	DeletedAt           *time.Time `bun:"deleted_at"`
+	MachineID           string     `bun:"machine_id,pk" json:"machine_id"`
+	Version             string     `bun:"version,pk" json:"version"`
+	Name                string     `bun:"name,notnull" json:"name"`
+	ETag                string     `bun:"etag,notnull" json:"e_tag"`
+	Draft               string     `bun:"draft,notnull" json:"draft"`
+	Diagnostics         string     `bun:"diagnostics,notnull" json:"diagnostics"`
+	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updated_at"`
+	PublishedAt         *time.Time `bun:"published_at" json:"published_at"`
+	PublishedDefinition string     `bun:"published_definition" json:"published_definition"`
+	DeletedAt           *time.Time `bun:"deleted_at" json:"deleted_at"`
 }
 
 type bunWorkflowMigrationMarkerRecord struct {
 	bun.BaseModel `bun:"table:workflow_migration_markers"`
 
-	MarkerKey   string    `bun:"marker_key,pk"`
-	CompletedAt time.Time `bun:"completed_at,notnull"`
-	DetailsJSON string    `bun:"details_json,notnull"`
+	MarkerKey   string    `bun:"marker_key,pk" json:"marker_key"`
+	CompletedAt time.Time `bun:"completed_at,notnull" json:"completed_at"`
+	DetailsJSON string    `bun:"details_json,notnull" json:"details_json"`
 }
 
 // WorkflowAuthoringVersionStore extends flow.AuthoringStore with version-history lookup.

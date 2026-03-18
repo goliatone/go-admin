@@ -15,8 +15,8 @@ type Store interface {
 
 // Scope identifies the tenant/org boundary used for idempotency and persistence.
 type Scope struct {
-	TenantID string
-	OrgID    string
+	TenantID string `json:"tenant_id"`
+	OrgID    string `json:"org_id"`
 }
 
 // Handler owns workflow-specific finalization and failure behavior.

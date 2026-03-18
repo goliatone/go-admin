@@ -32,11 +32,11 @@ type BulkActionStateConfig struct {
 // ActionGuardContext contains the inputs used to evaluate action availability
 // for a single action against a single record.
 type ActionGuardContext struct {
-	AdminContext AdminContext
-	Panel        *Panel
-	Action       Action
-	Record       map[string]any
-	Scope        ActionScope
+	AdminContext AdminContext   `json:"admin_context"`
+	Panel        *Panel         `json:"panel"`
+	Action       Action         `json:"action"`
+	Record       map[string]any `json:"record"`
+	Scope        ActionScope    `json:"scope"`
 }
 
 // ActionGuard evaluates action availability for a single record context.

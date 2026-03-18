@@ -10,12 +10,12 @@ import (
 )
 
 type preferenceQueryOptions struct {
-	Levels           []PreferenceLevel
-	Keys             []string
-	IncludeTraces    bool
-	IncludeVersions  bool
-	IncludeEffective bool
-	Base             map[string]any
+	Levels           []PreferenceLevel `json:"levels"`
+	Keys             []string          `json:"keys"`
+	IncludeTraces    bool              `json:"include_traces"`
+	IncludeVersions  bool              `json:"include_versions"`
+	IncludeEffective bool              `json:"include_effective"`
+	Base             map[string]any    `json:"base"`
 }
 
 func preferenceQueryOptionsFromContext(ctx context.Context) (preferenceQueryOptions, error) {

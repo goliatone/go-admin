@@ -20,13 +20,13 @@ import (
 type SettingRecord struct {
 	bun.BaseModel `bun:"table:admin_settings"`
 
-	ID        uuid.UUID       `bun:",pk,type:uuid"`
-	Key       string          `bun:",notnull,unique:admin_settings_scope"`
-	Scope     string          `bun:",notnull,unique:admin_settings_scope"`
-	UserID    string          `bun:",nullzero,unique:admin_settings_scope"`
-	Value     json.RawMessage `bun:"type:jsonb,nullzero"`
-	CreatedAt time.Time       `bun:",nullzero,notnull,default:current_timestamp"`
-	UpdatedAt time.Time       `bun:",nullzero,notnull,default:current_timestamp"`
+	ID        uuid.UUID       `bun:",pk,type:uuid" json:"id"`
+	Key       string          `bun:",notnull,unique:admin_settings_scope" json:"key"`
+	Scope     string          `bun:",notnull,unique:admin_settings_scope" json:"scope"`
+	UserID    string          `bun:",nullzero,unique:admin_settings_scope" json:"user_id"`
+	Value     json.RawMessage `bun:"type:jsonb,nullzero" json:"value"`
+	CreatedAt time.Time       `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt time.Time       `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // BunSettingsAdapter persists settings using go-repository-bun and resolves

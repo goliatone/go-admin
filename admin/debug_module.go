@@ -42,9 +42,9 @@ const (
 )
 
 type debugPanelMeta struct {
-	Label string
-	Icon  string
-	Span  int
+	Label string `json:"label"`
+	Icon  string `json:"icon"`
+	Span  int    `json:"span"`
 }
 
 var debugPanelDefaults = map[string]debugPanelMeta{

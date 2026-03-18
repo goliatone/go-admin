@@ -13,23 +13,23 @@ const (
 
 // DebugREPLConfig controls shell + app console access.
 type DebugREPLConfig struct {
-	Enabled            bool
-	ShellEnabled       bool
-	AppEnabled         bool
-	Permission         string
-	ExecPermission     string
-	ReadOnly           *bool
-	AllowedRoles       []string
-	AllowedIPs         []string
-	ShellCommand       string
-	ShellArgs          []string
-	WorkingDir         string
-	Environment        []string
-	MaxSessionSeconds  int
-	AppEvalTimeoutMs   int
-	AppAllowedPackages []string
-	OverrideStrategy   DebugREPLOverrideStrategy
-	MaxSessionsPerUser int
+	Enabled            bool                      `json:"enabled"`
+	ShellEnabled       bool                      `json:"shell_enabled"`
+	AppEnabled         bool                      `json:"app_enabled"`
+	Permission         string                    `json:"permission"`
+	ExecPermission     string                    `json:"exec_permission"`
+	ReadOnly           *bool                     `json:"read_only"`
+	AllowedRoles       []string                  `json:"allowed_roles"`
+	AllowedIPs         []string                  `json:"allowed_i_ps"`
+	ShellCommand       string                    `json:"shell_command"`
+	ShellArgs          []string                  `json:"shell_args"`
+	WorkingDir         string                    `json:"working_dir"`
+	Environment        []string                  `json:"environment"`
+	MaxSessionSeconds  int                       `json:"max_session_seconds"`
+	AppEvalTimeoutMs   int                       `json:"app_eval_timeout_ms"`
+	AppAllowedPackages []string                  `json:"app_allowed_packages"`
+	OverrideStrategy   DebugREPLOverrideStrategy `json:"override_strategy"`
+	MaxSessionsPerUser int                       `json:"max_sessions_per_user"`
 }
 
 func (cfg DebugREPLConfig) ReadOnlyEnabled() bool {

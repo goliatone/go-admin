@@ -83,12 +83,12 @@ type WorkflowEngine interface {
 
 // WorkflowMessage captures workflow event payload used for guards/resolvers/hooks.
 type WorkflowMessage struct {
-	EntityID     string
-	EntityType   string
-	CurrentState string
-	TargetState  string
-	Event        string
-	Payload      map[string]any
+	EntityID     string         `json:"entity_id"`
+	EntityType   string         `json:"entity_type"`
+	CurrentState string         `json:"current_state"`
+	TargetState  string         `json:"target_state"`
+	Event        string         `json:"event"`
+	Payload      map[string]any `json:"payload"`
 }
 
 // Type implements command.Message.
@@ -126,13 +126,13 @@ type WorkflowTransitionResult = flow.TransitionResult[WorkflowMessage]
 
 // WorkflowTransition declares an allowed transition between two states.
 type WorkflowTransition struct {
-	Name        string
-	Description string
-	From        string
-	To          string
-	Guard       string
-	DynamicTo   string
-	Metadata    map[string]any
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	From        string         `json:"from"`
+	To          string         `json:"to"`
+	Guard       string         `json:"guard"`
+	DynamicTo   string         `json:"dynamic_to"`
+	Metadata    map[string]any `json:"metadata"`
 }
 
 // WidgetAreaDefinition captures CMS widget area metadata.
@@ -155,119 +155,119 @@ type MenuItem = navinternal.MenuItem
 
 // CMSPage represents a page managed by the CMS.
 type CMSPage struct {
-	ID                     string
-	Title                  string
-	Slug                   string
-	TemplateID             string
-	Locale                 string
-	FamilyID               string
-	RequestedLocale        string
-	ResolvedLocale         string
-	AvailableLocales       []string
-	MissingRequestedLocale bool
-	Navigation             map[string]string
-	EffectiveMenuLocations []string
-	ParentID               string
-	Blocks                 []string
-	EmbeddedBlocks         []map[string]any
-	SchemaVersion          string
-	SEO                    map[string]any
-	Status                 string
-	Data                   map[string]any
-	Metadata               map[string]any
-	PreviewURL             string
+	ID                     string            `json:"id"`
+	Title                  string            `json:"title"`
+	Slug                   string            `json:"slug"`
+	TemplateID             string            `json:"template_id"`
+	Locale                 string            `json:"locale"`
+	FamilyID               string            `json:"family_id"`
+	RequestedLocale        string            `json:"requested_locale"`
+	ResolvedLocale         string            `json:"resolved_locale"`
+	AvailableLocales       []string          `json:"available_locales"`
+	MissingRequestedLocale bool              `json:"missing_requested_locale"`
+	Navigation             map[string]string `json:"navigation"`
+	EffectiveMenuLocations []string          `json:"effective_menu_locations"`
+	ParentID               string            `json:"parent_id"`
+	Blocks                 []string          `json:"blocks"`
+	EmbeddedBlocks         []map[string]any  `json:"embedded_blocks"`
+	SchemaVersion          string            `json:"schema_version"`
+	SEO                    map[string]any    `json:"seo"`
+	Status                 string            `json:"status"`
+	Data                   map[string]any    `json:"data"`
+	Metadata               map[string]any    `json:"metadata"`
+	PreviewURL             string            `json:"preview_url"`
 }
 
 // CMSContent represents structured content managed by the CMS.
 type CMSContent struct {
-	ID                     string
-	Title                  string
-	Slug                   string
-	Locale                 string
-	FamilyID               string
-	RequestedLocale        string
-	ResolvedLocale         string
-	AvailableLocales       []string
-	MissingRequestedLocale bool
-	Navigation             map[string]string
-	EffectiveMenuLocations []string
-	ContentType            string
-	ContentTypeSlug        string
-	Status                 string
-	Blocks                 []string
-	EmbeddedBlocks         []map[string]any
-	SchemaVersion          string
-	Data                   map[string]any
-	Metadata               map[string]any
+	ID                     string            `json:"id"`
+	Title                  string            `json:"title"`
+	Slug                   string            `json:"slug"`
+	Locale                 string            `json:"locale"`
+	FamilyID               string            `json:"family_id"`
+	RequestedLocale        string            `json:"requested_locale"`
+	ResolvedLocale         string            `json:"resolved_locale"`
+	AvailableLocales       []string          `json:"available_locales"`
+	MissingRequestedLocale bool              `json:"missing_requested_locale"`
+	Navigation             map[string]string `json:"navigation"`
+	EffectiveMenuLocations []string          `json:"effective_menu_locations"`
+	ContentType            string            `json:"content_type"`
+	ContentTypeSlug        string            `json:"content_type_slug"`
+	Status                 string            `json:"status"`
+	Blocks                 []string          `json:"blocks"`
+	EmbeddedBlocks         []map[string]any  `json:"embedded_blocks"`
+	SchemaVersion          string            `json:"schema_version"`
+	Data                   map[string]any    `json:"data"`
+	Metadata               map[string]any    `json:"metadata"`
 }
 
 // CMSContentType describes a content type definition.
 type CMSContentType struct {
-	ID             string
-	Name           string
-	Slug           string
-	Description    string
-	DescriptionSet bool
-	Channel        string
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Slug           string `json:"slug"`
+	Description    string `json:"description"`
+	DescriptionSet bool   `json:"description_set"`
+	Channel        string `json:"channel"`
 	// Deprecated: use Channel for content scoping.
-	Environment          string
-	Schema               map[string]any
-	UISchema             map[string]any
-	Capabilities         map[string]any
-	ReplaceCapabilities  bool
-	Icon                 string
-	IconSet              bool
-	Status               string
-	AllowBreakingChanges bool
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	Environment          string         `json:"environment"`
+	Schema               map[string]any `json:"schema"`
+	UISchema             map[string]any `json:"ui_schema"`
+	Capabilities         map[string]any `json:"capabilities"`
+	ReplaceCapabilities  bool           `json:"replace_capabilities"`
+	Icon                 string         `json:"icon"`
+	IconSet              bool           `json:"icon_set"`
+	Status               string         `json:"status"`
+	AllowBreakingChanges bool           `json:"allow_breaking_changes"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
 }
 
 // CMSBlockDefinition describes a reusable block schema.
 type CMSBlockDefinition struct {
-	ID             string
-	Name           string
-	Slug           string
-	Type           string
-	Description    string
-	DescriptionSet bool
-	Icon           string
-	IconSet        bool
-	Category       string
-	CategorySet    bool
-	Status         string
-	Channel        string
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Slug           string `json:"slug"`
+	Type           string `json:"type"`
+	Description    string `json:"description"`
+	DescriptionSet bool   `json:"description_set"`
+	Icon           string `json:"icon"`
+	IconSet        bool   `json:"icon_set"`
+	Category       string `json:"category"`
+	CategorySet    bool   `json:"category_set"`
+	Status         string `json:"status"`
+	Channel        string `json:"channel"`
 	// Deprecated: use Channel for content scoping.
-	Environment     string
-	Schema          map[string]any
-	UISchema        map[string]any
-	SchemaVersion   string
-	MigrationStatus string
-	Locale          string
+	Environment     string         `json:"environment"`
+	Schema          map[string]any `json:"schema"`
+	UISchema        map[string]any `json:"ui_schema"`
+	SchemaVersion   string         `json:"schema_version"`
+	MigrationStatus string         `json:"migration_status"`
+	Locale          string         `json:"locale"`
 }
 
 // CMSBlockDefinitionVersion captures a specific block definition schema version.
 type CMSBlockDefinitionVersion struct {
-	ID              string
-	DefinitionID    string
-	SchemaVersion   string
-	Schema          map[string]any
-	Defaults        map[string]any
-	MigrationStatus string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID              string         `json:"id"`
+	DefinitionID    string         `json:"definition_id"`
+	SchemaVersion   string         `json:"schema_version"`
+	Schema          map[string]any `json:"schema"`
+	Defaults        map[string]any `json:"defaults"`
+	MigrationStatus string         `json:"migration_status"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 // CMSBlock represents a block instance attached to content/pages.
 type CMSBlock struct {
-	ID             string
-	DefinitionID   string
-	ContentID      string
-	Region         string
-	Locale         string
-	Status         string
-	Data           map[string]any
-	Position       int
-	BlockType      string
-	BlockSchemaKey string
+	ID             string         `json:"id"`
+	DefinitionID   string         `json:"definition_id"`
+	ContentID      string         `json:"content_id"`
+	Region         string         `json:"region"`
+	Locale         string         `json:"locale"`
+	Status         string         `json:"status"`
+	Data           map[string]any `json:"data"`
+	Position       int            `json:"position"`
+	BlockType      string         `json:"block_type"`
+	BlockSchemaKey string         `json:"block_schema_key"`
 }

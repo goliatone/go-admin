@@ -11,8 +11,8 @@ import (
 )
 
 type ErrorPresenter struct {
-	Config  ErrorConfig
-	Mappers []goerrors.ErrorMapper
+	Config  ErrorConfig            `json:"config"`
+	Mappers []goerrors.ErrorMapper `json:"mappers"`
 }
 
 var defaultErrorPresenter atomic.Value

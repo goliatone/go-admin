@@ -13,15 +13,15 @@ import (
 )
 
 type translationMatrixCreateMissingInput struct {
-	Locales []string
-	Plan    translationFamilyCreateVariantInput
+	Locales []string                            `json:"locales"`
+	Plan    translationFamilyCreateVariantInput `json:"plan"`
 }
 
 type translationMatrixExportSelectedInput struct {
-	Locales           []string
-	Format            string
-	IncludeSourceHash bool
-	Environment       string
+	Locales           []string `json:"locales"`
+	Format            string   `json:"format"`
+	IncludeSourceHash bool     `json:"include_source_hash"`
+	Environment       string   `json:"environment"`
 }
 
 func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err error) {

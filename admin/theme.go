@@ -16,19 +16,19 @@ const (
 
 // ThemeSelector describes the requested theme/variant.
 type ThemeSelector struct {
-	Name    string
-	Variant string
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
 }
 
 // ThemeSelection captures resolved theme assets/tokens.
 type ThemeSelection struct {
-	Name        string
-	Variant     string
-	Tokens      map[string]string
-	Assets      map[string]string
-	Partials    map[string]string
-	ChartTheme  string
-	AssetPrefix string
+	Name        string            `json:"name"`
+	Variant     string            `json:"variant"`
+	Tokens      map[string]string `json:"tokens"`
+	Assets      map[string]string `json:"assets"`
+	Partials    map[string]string `json:"partials"`
+	ChartTheme  string            `json:"chart_theme"`
+	AssetPrefix string            `json:"asset_prefix"`
 }
 
 // ThemeProvider resolves the theme selection, typically backed by go-theme.

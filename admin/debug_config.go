@@ -85,71 +85,71 @@ func DefaultDebugToolbarPanels() []string {
 
 // DebugConfig controls the debug module behavior and feature flags.
 type DebugConfig struct {
-	Enabled            bool
-	CaptureSQL         bool
-	CaptureLogs        bool
-	CaptureRequestBody bool
+	Enabled            bool `json:"enabled"`
+	CaptureSQL         bool `json:"capture_sql"`
+	CaptureLogs        bool `json:"capture_logs"`
+	CaptureRequestBody bool `json:"capture_request_body"`
 	// CaptureJSErrors enables the global JS error collector on all pages.
 	// When true, an inline script is injected into every page <head> that
 	// captures uncaught exceptions, unhandled rejections, and console.error
 	// calls, then reports them to the debug backend. This flag is independent
 	// of ToolbarMode — the collector works in production without the toolbar.
-	CaptureJSErrors  bool
-	StrictQueryHooks bool
-	MaxLogEntries    int
-	MaxSQLQueries    int
-	MaskFieldTypes   map[string]string
-	MaskPlaceholder  string
-	Panels           []string
-	FeatureKey       string
-	Permission       string
-	BasePath         string
+	CaptureJSErrors  bool              `json:"capture_js_errors"`
+	StrictQueryHooks bool              `json:"strict_query_hooks"`
+	MaxLogEntries    int               `json:"max_log_entries"`
+	MaxSQLQueries    int               `json:"max_sql_queries"`
+	MaskFieldTypes   map[string]string `json:"mask_field_types"`
+	MaskPlaceholder  string            `json:"mask_placeholder"`
+	Panels           []string          `json:"panels"`
+	FeatureKey       string            `json:"feature_key"`
+	Permission       string            `json:"permission"`
+	BasePath         string            `json:"base_path"`
 	// AppID identifies the running application instance for remote debug clients.
-	AppID string
+	AppID string `json:"app_id"`
 	// AppName is a human-friendly application name for remote debug clients.
-	AppName string
+	AppName string `json:"app_name"`
 	// Environment labels the current deployment (e.g., "staging", "prod").
-	Environment string
+	Environment string `json:"environment"`
 	// RemoteEnabled toggles the remote debug identity/token endpoints.
-	RemoteEnabled bool
+	RemoteEnabled bool `json:"remote_enabled"`
 	// TokenTTL overrides the default TTL for debug exchange tokens.
-	TokenTTL time.Duration
+	TokenTTL time.Duration `json:"token_ttl"`
 	// AllowedOrigins restricts remote debug origins (identity/token/ws).
-	AllowedOrigins []string
+	AllowedOrigins []string `json:"allowed_origins"`
 	// LayoutMode controls which debug template is rendered for the HTML route.
-	LayoutMode DebugLayoutMode
+	LayoutMode DebugLayoutMode `json:"layout_mode"`
 	// PageTemplate is the primary debug template used for HTML rendering.
-	PageTemplate string
+	PageTemplate string `json:"page_template"`
 	// StandaloneTemplate is used when forcing a standalone render via query param.
-	StandaloneTemplate string
+	StandaloneTemplate string `json:"standalone_template"`
 	// DashboardTemplate overrides the go-dashboard HTML template for debug routes.
-	DashboardTemplate string
+	DashboardTemplate string `json:"dashboard_template"`
 	// ViewContextBuilder can inject navigation/session data for admin-layout templates.
-	ViewContextBuilder DebugViewContextBuilder
+	ViewContextBuilder DebugViewContextBuilder `json:"view_context_builder"`
 	// SecureRequestResolver determines secure transport checks for debug cookies/nonces.
 	// When nil, debug secure detection only trusts direct TLS.
-	SecureRequestResolver DebugSecureRequestResolver
-	SlowQueryThreshold    time.Duration
-	AllowedIPs            []string
-	PersistLayout         bool
-	Repl                  DebugREPLConfig
+	SecureRequestResolver DebugSecureRequestResolver `json:"secure_request_resolver"`
+	SlowQueryThreshold    time.Duration              `json:"slow_query_threshold"`
+	AllowedIPs            []string                   `json:"allowed_i_ps"`
+	PersistLayout         bool                       `json:"persist_layout"`
+	Repl                  DebugREPLConfig            `json:"repl"`
 	// ToolbarMode injects a debug toolbar at the bottom of all admin pages.
 	// When true, the toolbar is shown in addition to the /admin/debug page.
-	ToolbarMode bool
+	ToolbarMode bool `json:"toolbar_mode"`
 	// ToolbarPanels specifies which panels appear in the toolbar.
 	// Defaults to ["requests", "sql", "logs", "routes", "config"] if empty.
-	ToolbarPanels []string
+	ToolbarPanels []string `json:"toolbar_panels"`
 	// ToolbarExcludePaths disables the toolbar on matching paths.
 	// Use exact paths ("/admin/debug") or prefix wildcards ("/admin/debug/*").
-	ToolbarExcludePaths []string
+	ToolbarExcludePaths []string `json:"toolbar_exclude_paths"`
 	// SessionTracking enables debug session tracking with optional cookie fallback.
-	SessionTracking bool
+	SessionTracking bool `json:"session_tracking"`
 	// SessionIncludeGlobalPanels controls whether global panels are included in session views.
-	SessionIncludeGlobalPanels *bool
+	SessionIncludeGlobalPanels *bool `json:"session_include_global_panels"`
 	// SessionCookieName controls the debug session cookie name.
-	SessionCookieName string
+	SessionCookieName string `json:"session_cookie_name"`
 	// SessionInactivityExpiry controls the TTL for session cookies and session registry expiry.
-	SessionInactivityExpiry time.Duration
+	SessionInactivityExpiry time.Duration `json:"session_inactivity_expiry"`
 }
 
 func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {

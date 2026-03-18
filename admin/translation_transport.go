@@ -7,9 +7,9 @@ import (
 )
 
 type translationTransportIdentity struct {
-	ActorID  string
-	TenantID string
-	OrgID    string
+	ActorID  string `json:"actor_id"`
+	TenantID string `json:"tenant_id"`
+	OrgID    string `json:"org_id"`
 }
 
 func translationIdentityFromAdminContext(ctx AdminContext) translationTransportIdentity {

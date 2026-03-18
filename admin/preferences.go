@@ -38,12 +38,12 @@ type PreferenceScope struct {
 
 // PreferencesResolveInput configures preference resolution.
 type PreferencesResolveInput struct {
-	Scope          PreferenceScope
-	Keys           []string
-	Levels         []PreferenceLevel
-	Base           map[string]any
-	IncludeTraces  bool
-	IncludeVersion bool
+	Scope          PreferenceScope   `json:"scope"`
+	Keys           []string          `json:"keys"`
+	Levels         []PreferenceLevel `json:"levels"`
+	Base           map[string]any    `json:"base"`
+	IncludeTraces  bool              `json:"include_traces"`
+	IncludeVersion bool              `json:"include_version"`
 }
 
 // PreferenceTraceLayer records a resolved value at a specific level.
@@ -63,23 +63,23 @@ type PreferenceTrace struct {
 
 // PreferenceSnapshot returns effective values plus optional metadata.
 type PreferenceSnapshot struct {
-	Effective map[string]any
-	Traces    []PreferenceTrace
-	Versions  map[string]int
+	Effective map[string]any    `json:"effective"`
+	Traces    []PreferenceTrace `json:"traces"`
+	Versions  map[string]int    `json:"versions"`
 }
 
 // PreferencesUpsertInput represents a scoped preference update.
 type PreferencesUpsertInput struct {
-	Scope  PreferenceScope
-	Level  PreferenceLevel
-	Values map[string]any
+	Scope  PreferenceScope `json:"scope"`
+	Level  PreferenceLevel `json:"level"`
+	Values map[string]any  `json:"values"`
 }
 
 // PreferencesDeleteInput represents a scoped preference delete.
 type PreferencesDeleteInput struct {
-	Scope PreferenceScope
-	Level PreferenceLevel
-	Keys  []string
+	Scope PreferenceScope `json:"scope"`
+	Level PreferenceLevel `json:"level"`
+	Keys  []string        `json:"keys"`
 }
 
 // PreferencesStore defines the resolver-based preference contract.
@@ -99,8 +99,8 @@ type InMemoryPreferencesStore struct {
 }
 
 type preferenceRecord struct {
-	Value   any
-	Version int
+	Value   any `json:"value"`
+	Version int `json:"version"`
 }
 
 // NewInMemoryPreferencesStore builds an empty in-memory preference store.

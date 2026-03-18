@@ -16,12 +16,12 @@ const (
 // ContentTypeCapabilityContracts captures normalized capability payloads and
 // validation metadata used by admin and quickstart callers.
 type ContentTypeCapabilityContracts struct {
-	Normalized           map[string]any
-	Delivery             map[string]any
-	Navigation           map[string]any
-	Search               map[string]any
-	Validation           map[string]string
-	MigratedDeliveryMenu bool
+	Normalized           map[string]any    `json:"normalized"`
+	Delivery             map[string]any    `json:"delivery"`
+	Navigation           map[string]any    `json:"navigation"`
+	Search               map[string]any    `json:"search"`
+	Validation           map[string]string `json:"validation"`
+	MigratedDeliveryMenu bool              `json:"migrated_delivery_menu"`
 }
 
 // ReadContentTypeCapabilityContracts resolves normalized capability contracts

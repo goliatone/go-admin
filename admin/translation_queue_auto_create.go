@@ -21,32 +21,32 @@ type TranslationQueueAutoCreateHook interface {
 
 // TranslationQueueAutoCreateInput captures the context needed to create queue items.
 type TranslationQueueAutoCreateInput struct {
-	FamilyID       string
-	EntityType     string
-	EntityID       string
-	SourceLocale   string
-	MissingLocales []string
-	Transition     string
-	Environment    string
-	SourceTitle    string
-	SourcePath     string
-	ActorID        string
-	Priority       Priority
+	FamilyID       string   `json:"family_id"`
+	EntityType     string   `json:"entity_type"`
+	EntityID       string   `json:"entity_id"`
+	SourceLocale   string   `json:"source_locale"`
+	MissingLocales []string `json:"missing_locales"`
+	Transition     string   `json:"transition"`
+	Environment    string   `json:"environment"`
+	SourceTitle    string   `json:"source_title"`
+	SourcePath     string   `json:"source_path"`
+	ActorID        string   `json:"actor_id"`
+	Priority       Priority `json:"priority"`
 }
 
 // TranslationQueueAutoCreateResult captures the outcome of auto-create operations.
 type TranslationQueueAutoCreateResult struct {
-	Created     int
-	Reused      int
-	Failed      int
-	Errors      []error
-	Assignments []TranslationAssignment
+	Created     int                     `json:"created"`
+	Reused      int                     `json:"reused"`
+	Failed      int                     `json:"failed"`
+	Errors      []error                 `json:"errors"`
+	Assignments []TranslationAssignment `json:"assignments"`
 }
 
 // DefaultTranslationQueueAutoCreateHook implements auto-create using the assignment repository.
 type DefaultTranslationQueueAutoCreateHook struct {
-	Repository TranslationAssignmentRepository
-	Logger     *slog.Logger
+	Repository TranslationAssignmentRepository `json:"repository"`
+	Logger     *slog.Logger                    `json:"logger"`
 }
 
 // OnTranslationBlocker creates or reuses queue assignments for missing locales.

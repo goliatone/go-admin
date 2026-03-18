@@ -20,12 +20,12 @@ type DebugREPLOverrideStrategy interface {
 
 // DebugREPLRequest captures request metadata for override strategies.
 type DebugREPLRequest struct {
-	UserID      string
-	IP          string
-	UserAgent   string
-	Kind        string
-	RequestedAt time.Time
-	Metadata    map[string]any
+	UserID      string         `json:"user_id"`
+	IP          string         `json:"ip"`
+	UserAgent   string         `json:"user_agent"`
+	Kind        string         `json:"kind"`
+	RequestedAt time.Time      `json:"requested_at"`
+	Metadata    map[string]any `json:"metadata"`
 }
 
 // DenyAllStrategy denies all override attempts.
@@ -37,8 +37,8 @@ func (DenyAllStrategy) Allows(_ context.Context, _ DebugREPLRequest) (bool, erro
 
 // StaticKeyStrategy allows overrides when a shared key matches.
 type StaticKeyStrategy struct {
-	Key       string
-	ExpiresAt time.Time
+	Key       string    `json:"key"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func (s StaticKeyStrategy) Allows(_ context.Context, req DebugREPLRequest) (bool, error) {
@@ -60,9 +60,9 @@ func (s StaticKeyStrategy) Allows(_ context.Context, req DebugREPLRequest) (bool
 
 // SignedTokenStrategy allows overrides when a signed token validates.
 type SignedTokenStrategy struct {
-	Secret   []byte
-	Audience string
-	Issuer   string
+	Secret   []byte `json:"secret"`
+	Audience string `json:"audience"`
+	Issuer   string `json:"issuer"`
 }
 
 func (s SignedTokenStrategy) Allows(_ context.Context, req DebugREPLRequest) (bool, error) {

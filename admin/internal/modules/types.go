@@ -10,11 +10,11 @@ import (
 
 // Manifest captures identifying metadata and dependencies for a module.
 type Manifest struct {
-	ID             string
-	NameKey        string
-	DescriptionKey string
-	Dependencies   []string
-	FeatureFlags   []string
+	ID             string   `json:"id"`
+	NameKey        string   `json:"name_key"`
+	DescriptionKey string   `json:"description_key"`
+	Dependencies   []string `json:"dependencies"`
+	FeatureFlags   []string `json:"feature_flags"`
 }
 
 // Module exposes manifest metadata used for ordering and validation.
@@ -37,27 +37,27 @@ type MenuContributor interface {
 
 // IconLibrary represents an icon library contribution from a module.
 type IconLibrary struct {
-	ID          string
-	Name        string
-	Description string
-	CDN         string
-	CSSClass    string
-	RenderMode  string
-	Priority    int
-	Trusted     bool
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CDN         string `json:"cdn"`
+	CSSClass    string `json:"css_class"`
+	RenderMode  string `json:"render_mode"`
+	Priority    int    `json:"priority"`
+	Trusted     bool   `json:"trusted"`
 }
 
 // IconDefinition represents a single icon contribution from a module.
 type IconDefinition struct {
-	ID       string
-	Name     string
-	Label    string
-	Type     string
-	Library  string
-	Content  string
-	Keywords []string
-	Category string
-	Trusted  bool
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Label    string   `json:"label"`
+	Type     string   `json:"type"`
+	Library  string   `json:"library"`
+	Content  string   `json:"content"`
+	Keywords []string `json:"keywords"`
+	Category string   `json:"category"`
+	Trusted  bool     `json:"trusted"`
 }
 
 // IconContributor optionally lets a module contribute icon libraries and definitions.
@@ -86,14 +86,14 @@ type IconDefinitionFunc func(icon IconDefinition) error
 
 // LoadOptions configures module loading.
 type LoadOptions struct {
-	Modules           []Module
-	Gates             FeatureGates
-	DefaultLocale     string
-	Translator        Translator
-	DisabledError     DisabledErrorFactory
-	Register          RegisterFunc
-	AddMenuItems      MenuItemsFunc
-	AddIconLibrary    IconLibraryFunc
-	AddIconDefinition IconDefinitionFunc
-	RegisterDefaults  func() error
+	Modules           []Module             `json:"modules"`
+	Gates             FeatureGates         `json:"gates"`
+	DefaultLocale     string               `json:"default_locale"`
+	Translator        Translator           `json:"translator"`
+	DisabledError     DisabledErrorFactory `json:"disabled_error"`
+	Register          RegisterFunc         `json:"register"`
+	AddMenuItems      MenuItemsFunc        `json:"add_menu_items"`
+	AddIconLibrary    IconLibraryFunc      `json:"add_icon_library"`
+	AddIconDefinition IconDefinitionFunc   `json:"add_icon_definition"`
+	RegisterDefaults  func() error         `json:"register_defaults"`
 }

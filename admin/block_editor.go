@@ -16,15 +16,15 @@ const (
 )
 
 type blockDefinition struct {
-	Type           string
-	Label          string
-	Icon           string
-	Collapsed      bool
-	Schema         string
-	RequiredFields []string
-	Category       string
-	Status         string
-	HTML           string
+	Type           string   `json:"type"`
+	Label          string   `json:"label"`
+	Icon           string   `json:"icon"`
+	Collapsed      bool     `json:"collapsed"`
+	Schema         string   `json:"schema"`
+	RequiredFields []string `json:"required_fields"`
+	Category       string   `json:"category"`
+	Status         string   `json:"status"`
+	HTML           string   `json:"html"`
 }
 
 func blockEditorRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {

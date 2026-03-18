@@ -42,8 +42,8 @@ const (
 
 // AdminActorResolver enriches actor details using admin user sources.
 type AdminActorResolver struct {
-	Users    UserRepository
-	Profiles ProfileStore
+	Users    UserRepository `json:"users"`
+	Profiles ProfileStore   `json:"profiles"`
 }
 
 // ResolveActors resolves actor details in batch.
@@ -117,8 +117,8 @@ func (f ObjectResolverFunc) ResolveObjects(ctx context.Context, objectType strin
 
 // ObjectResolverMap dispatches object resolution by object type.
 type ObjectResolverMap struct {
-	Resolvers map[string]usersactivity.ObjectResolver
-	Fallback  usersactivity.ObjectResolver
+	Resolvers map[string]usersactivity.ObjectResolver `json:"resolvers"`
+	Fallback  usersactivity.ObjectResolver            `json:"fallback"`
 }
 
 // ResolveObjects resolves objects by type, falling back when needed.
@@ -137,17 +137,17 @@ func (m ObjectResolverMap) ResolveObjects(ctx context.Context, objectType string
 
 // AdminObjectResolverConfig wires admin object resolvers.
 type AdminObjectResolverConfig struct {
-	Users         UserRepository
-	Roles         RoleRepository
-	Tenants       TenantRepository
-	Organizations OrganizationRepository
-	Profiles      ProfileStore
-	Settings      *SettingsService
-	Jobs          *JobRegistry
-	Widgets       CMSWidgetService
-	Menus         CMSMenuService
-	Content       CMSContentService
-	Fallback      usersactivity.ObjectResolver
+	Users         UserRepository               `json:"users"`
+	Roles         RoleRepository               `json:"roles"`
+	Tenants       TenantRepository             `json:"tenants"`
+	Organizations OrganizationRepository       `json:"organizations"`
+	Profiles      ProfileStore                 `json:"profiles"`
+	Settings      *SettingsService             `json:"settings"`
+	Jobs          *JobRegistry                 `json:"jobs"`
+	Widgets       CMSWidgetService             `json:"widgets"`
+	Menus         CMSMenuService               `json:"menus"`
+	Content       CMSContentService            `json:"content"`
+	Fallback      usersactivity.ObjectResolver `json:"fallback"`
 }
 
 // NewAdminObjectResolver returns an object resolver map for admin object types.
@@ -185,10 +185,10 @@ func NewAdminObjectResolver(cfg AdminObjectResolverConfig) usersactivity.ObjectR
 
 // AdminActivityEnricherConfig wires the actor/object resolvers for activity enrichment.
 type AdminActivityEnricherConfig struct {
-	ActorResolver   usersactivity.ActorResolver
-	ObjectResolver  usersactivity.ObjectResolver
-	EnricherVersion string
-	Now             func() time.Time
+	ActorResolver   usersactivity.ActorResolver  `json:"actor_resolver"`
+	ObjectResolver  usersactivity.ObjectResolver `json:"object_resolver"`
+	EnricherVersion string                       `json:"enricher_version"`
+	Now             func() time.Time             `json:"now"`
 }
 
 // NewAdminActivityEnricher builds an activity enricher that adds missing metadata keys.

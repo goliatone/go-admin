@@ -22,7 +22,7 @@ type TranslationExchangeApplier interface {
 }
 
 type TranslationExportCommand struct {
-	Service TranslationExchangeExporter
+	Service TranslationExchangeExporter `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationExportInput] = (*TranslationExportCommand)(nil)
@@ -61,7 +61,7 @@ func (c *TranslationExportCommand) CLIOptions() gocommand.CLIConfig {
 }
 
 type TranslationImportValidateCommand struct {
-	Service TranslationExchangeValidator
+	Service TranslationExchangeValidator `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationImportValidateInput] = (*TranslationImportValidateCommand)(nil)
@@ -100,7 +100,7 @@ func (c *TranslationImportValidateCommand) CLIOptions() gocommand.CLIConfig {
 }
 
 type TranslationImportApplyCommand struct {
-	Service TranslationExchangeApplier
+	Service TranslationExchangeApplier `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationImportApplyInput] = (*TranslationImportApplyCommand)(nil)
@@ -139,8 +139,8 @@ func (c *TranslationImportApplyCommand) CLIOptions() gocommand.CLIConfig {
 }
 
 type TranslationImportRunCommand struct {
-	Validator TranslationExchangeValidator
-	Applier   TranslationExchangeApplier
+	Validator TranslationExchangeValidator `json:"validator"`
+	Applier   TranslationExchangeApplier   `json:"applier"`
 }
 
 var _ gocommand.Commander[TranslationImportRunInput] = (*TranslationImportRunCommand)(nil)

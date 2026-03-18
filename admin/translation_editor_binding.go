@@ -31,28 +31,28 @@ const (
 )
 
 type translationEditorContext struct {
-	Environment          string
-	Family               translationservices.FamilyRecord
-	Policy               translationservices.FamilyPolicy
-	SourceVariant        translationservices.FamilyVariant
-	TargetVariant        translationservices.FamilyVariant
-	SourceFields         map[string]string
-	TargetFields         map[string]string
-	CurrentSourceHash    string
-	LastSyncedSourceHash string
-	LastSyncedFields     map[string]string
-	TargetRowVersion     int64
-	SourceVersion        string
-	SourceRecordID       string
-	TargetRecordID       string
-	TargetStatus         string
-	ActivityEntries      []ActivityEntry
-	HasTarget            bool
+	Environment          string                            `json:"environment"`
+	Family               translationservices.FamilyRecord  `json:"family"`
+	Policy               translationservices.FamilyPolicy  `json:"policy"`
+	SourceVariant        translationservices.FamilyVariant `json:"source_variant"`
+	TargetVariant        translationservices.FamilyVariant `json:"target_variant"`
+	SourceFields         map[string]string                 `json:"source_fields"`
+	TargetFields         map[string]string                 `json:"target_fields"`
+	CurrentSourceHash    string                            `json:"current_source_hash"`
+	LastSyncedSourceHash string                            `json:"last_synced_source_hash"`
+	LastSyncedFields     map[string]string                 `json:"last_synced_fields"`
+	TargetRowVersion     int64                             `json:"target_row_version"`
+	SourceVersion        string                            `json:"source_version"`
+	SourceRecordID       string                            `json:"source_record_id"`
+	TargetRecordID       string                            `json:"target_record_id"`
+	TargetStatus         string                            `json:"target_status"`
+	ActivityEntries      []ActivityEntry                   `json:"activity_entries"`
+	HasTarget            bool                              `json:"has_target"`
 }
 
 type translationEditorSourceSyncState struct {
-	SourceHash   string
-	SourceFields map[string]string
+	SourceHash   string            `json:"source_hash"`
+	SourceFields map[string]string `json:"source_fields"`
 }
 
 func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentID string) (payload any, err error) {

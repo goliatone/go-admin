@@ -17,33 +17,33 @@ const (
 )
 
 type translationExchangeAsyncJob struct {
-	ID           string
-	Kind         string
-	Status       string
-	Permission   string
-	CreatedBy    string
-	TenantID     string
-	OrgID        string
-	Fixture      bool
-	RequestHash  string
-	Request      map[string]any
-	PollEndpoint string
-	Progress     map[string]any
-	Summary      map[string]any
-	Result       map[string]any
-	Retention    map[string]any
-	Artifacts    []translationExchangeJobArtifact
-	Error        string
-	RequestID    string
-	TraceID      string
-	WorkerID     string
-	StartedAt    time.Time
-	CompletedAt  time.Time
-	HeartbeatAt  time.Time
-	LeaseUntil   time.Time
-	DeletedAt    time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           string                           `json:"id"`
+	Kind         string                           `json:"kind"`
+	Status       string                           `json:"status"`
+	Permission   string                           `json:"permission"`
+	CreatedBy    string                           `json:"created_by"`
+	TenantID     string                           `json:"tenant_id"`
+	OrgID        string                           `json:"org_id"`
+	Fixture      bool                             `json:"fixture"`
+	RequestHash  string                           `json:"request_hash"`
+	Request      map[string]any                   `json:"request"`
+	PollEndpoint string                           `json:"poll_endpoint"`
+	Progress     map[string]any                   `json:"progress"`
+	Summary      map[string]any                   `json:"summary"`
+	Result       map[string]any                   `json:"result"`
+	Retention    map[string]any                   `json:"retention"`
+	Artifacts    []translationExchangeJobArtifact `json:"artifacts"`
+	Error        string                           `json:"error"`
+	RequestID    string                           `json:"request_id"`
+	TraceID      string                           `json:"trace_id"`
+	WorkerID     string                           `json:"worker_id"`
+	StartedAt    time.Time                        `json:"started_at"`
+	CompletedAt  time.Time                        `json:"completed_at"`
+	HeartbeatAt  time.Time                        `json:"heartbeat_at"`
+	LeaseUntil   time.Time                        `json:"lease_until"`
+	DeletedAt    time.Time                        `json:"deleted_at"`
+	CreatedAt    time.Time                        `json:"created_at"`
+	UpdatedAt    time.Time                        `json:"updated_at"`
 }
 
 type translationExchangeAsyncJobStore struct {
@@ -56,8 +56,8 @@ type translationExchangeAsyncJobStore struct {
 }
 
 type translationExchangeAsyncJobCreateOptions struct {
-	RequestHash string
-	Retention   map[string]any
+	RequestHash string         `json:"request_hash"`
+	Retention   map[string]any `json:"retention"`
 }
 
 func newTranslationExchangeAsyncJobStore(nowFn func() time.Time) *translationExchangeAsyncJobStore {

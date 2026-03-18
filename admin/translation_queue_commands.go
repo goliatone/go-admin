@@ -8,7 +8,7 @@ import (
 
 // TranslationQueueClaimCommand dispatches claim lifecycle actions.
 type TranslationQueueClaimCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueClaimInput] = (*TranslationQueueClaimCommand)(nil)
@@ -32,7 +32,7 @@ func (c *TranslationQueueClaimCommand) Execute(ctx context.Context, msg Translat
 
 // TranslationQueueAssignCommand dispatches assign lifecycle actions.
 type TranslationQueueAssignCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueAssignInput] = (*TranslationQueueAssignCommand)(nil)
@@ -56,7 +56,7 @@ func (c *TranslationQueueAssignCommand) Execute(ctx context.Context, msg Transla
 
 // TranslationQueueReleaseCommand dispatches release lifecycle actions.
 type TranslationQueueReleaseCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueReleaseInput] = (*TranslationQueueReleaseCommand)(nil)
@@ -80,7 +80,7 @@ func (c *TranslationQueueReleaseCommand) Execute(ctx context.Context, msg Transl
 
 // TranslationQueueSubmitCommand dispatches submit-review lifecycle actions.
 type TranslationQueueSubmitCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueSubmitInput] = (*TranslationQueueSubmitCommand)(nil)
@@ -104,7 +104,7 @@ func (c *TranslationQueueSubmitCommand) Execute(ctx context.Context, msg Transla
 
 // TranslationQueueApproveCommand dispatches approve lifecycle actions.
 type TranslationQueueApproveCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueApproveInput] = (*TranslationQueueApproveCommand)(nil)
@@ -128,7 +128,7 @@ func (c *TranslationQueueApproveCommand) Execute(ctx context.Context, msg Transl
 
 // TranslationQueueRejectCommand dispatches reject lifecycle actions.
 type TranslationQueueRejectCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueRejectInput] = (*TranslationQueueRejectCommand)(nil)
@@ -152,7 +152,7 @@ func (c *TranslationQueueRejectCommand) Execute(ctx context.Context, msg Transla
 
 // TranslationQueueArchiveCommand dispatches archive lifecycle actions.
 type TranslationQueueArchiveCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueArchiveInput] = (*TranslationQueueArchiveCommand)(nil)
@@ -176,7 +176,7 @@ func (c *TranslationQueueArchiveCommand) Execute(ctx context.Context, msg Transl
 
 // TranslationQueueBulkAssignCommand dispatches bulk-assign lifecycle actions.
 type TranslationQueueBulkAssignCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueBulkAssignInput] = (*TranslationQueueBulkAssignCommand)(nil)
@@ -200,7 +200,7 @@ func (c *TranslationQueueBulkAssignCommand) Execute(ctx context.Context, msg Tra
 
 // TranslationQueueBulkReleaseCommand dispatches bulk-release lifecycle actions.
 type TranslationQueueBulkReleaseCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueBulkReleaseInput] = (*TranslationQueueBulkReleaseCommand)(nil)
@@ -224,7 +224,7 @@ func (c *TranslationQueueBulkReleaseCommand) Execute(ctx context.Context, msg Tr
 
 // TranslationQueueBulkPriorityCommand dispatches bulk-priority lifecycle actions.
 type TranslationQueueBulkPriorityCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueBulkPriorityInput] = (*TranslationQueueBulkPriorityCommand)(nil)
@@ -248,7 +248,7 @@ func (c *TranslationQueueBulkPriorityCommand) Execute(ctx context.Context, msg T
 
 // TranslationQueueBulkArchiveCommand dispatches bulk-archive lifecycle actions.
 type TranslationQueueBulkArchiveCommand struct {
-	Service TranslationQueueService
+	Service TranslationQueueService `json:"service"`
 }
 
 var _ gocommand.Commander[TranslationQueueBulkArchiveInput] = (*TranslationQueueBulkArchiveCommand)(nil)

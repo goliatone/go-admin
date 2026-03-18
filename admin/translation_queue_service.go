@@ -27,10 +27,10 @@ type TranslationQueueService interface {
 
 // DefaultTranslationQueueService implements queue lifecycle transitions over a repository.
 type DefaultTranslationQueueService struct {
-	Repository    TranslationAssignmentRepository
-	Activity      ActivitySink
-	Notifications NotificationService
-	URLs          urlkit.Resolver
+	Repository    TranslationAssignmentRepository `json:"repository"`
+	Activity      ActivitySink                    `json:"activity"`
+	Notifications NotificationService             `json:"notifications"`
+	URLs          urlkit.Resolver                 `json:"ur_ls"`
 }
 
 func (s *DefaultTranslationQueueService) ensureRepository() error {

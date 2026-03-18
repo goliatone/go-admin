@@ -17,42 +17,42 @@ const (
 
 // Message stores durable side-effect events for post-commit dispatch.
 type Message struct {
-	ID            string
-	TenantID      string
-	OrgID         string
-	Topic         string
-	MessageKey    string
-	PayloadJSON   string
-	HeadersJSON   string
-	CorrelationID string
-	Status        string
-	AttemptCount  int
-	MaxAttempts   int
-	LastError     string
-	AvailableAt   time.Time
-	LockedAt      *time.Time
-	LockedBy      string
-	PublishedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            string     `json:"id"`
+	TenantID      string     `json:"tenant_id"`
+	OrgID         string     `json:"org_id"`
+	Topic         string     `json:"topic"`
+	MessageKey    string     `json:"message_key"`
+	PayloadJSON   string     `json:"payload_json"`
+	HeadersJSON   string     `json:"headers_json"`
+	CorrelationID string     `json:"correlation_id"`
+	Status        string     `json:"status"`
+	AttemptCount  int        `json:"attempt_count"`
+	MaxAttempts   int        `json:"max_attempts"`
+	LastError     string     `json:"last_error"`
+	AvailableAt   time.Time  `json:"available_at"`
+	LockedAt      *time.Time `json:"locked_at"`
+	LockedBy      string     `json:"locked_by"`
+	PublishedAt   *time.Time `json:"published_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 // ClaimInput controls batched outbox claiming.
 type ClaimInput struct {
-	Consumer  string
-	Now       time.Time
-	Limit     int
-	Topic     string
-	LockUntil *time.Time
+	Consumer  string     `json:"consumer"`
+	Now       time.Time  `json:"now"`
+	Limit     int        `json:"limit"`
+	Topic     string     `json:"topic"`
+	LockUntil *time.Time `json:"lock_until"`
 }
 
 // Query controls outbox listing filters.
 type Query struct {
-	Topic    string
-	Status   string
-	Limit    int
-	Offset   int
-	SortDesc bool
+	Topic    string `json:"topic"`
+	Status   string `json:"status"`
+	Limit    int    `json:"limit"`
+	Offset   int    `json:"offset"`
+	SortDesc bool   `json:"sort_desc"`
 }
 
 // Store defines durable post-commit side-effect message persistence.
@@ -71,20 +71,20 @@ type Publisher interface {
 
 // DispatchInput controls outbox dispatch behavior.
 type DispatchInput struct {
-	Consumer    string
-	Topic       string
-	Limit       int
-	Now         time.Time
-	RetryDelay  time.Duration
-	ClaimLockTo *time.Time
+	Consumer    string        `json:"consumer"`
+	Topic       string        `json:"topic"`
+	Limit       int           `json:"limit"`
+	Now         time.Time     `json:"now"`
+	RetryDelay  time.Duration `json:"retry_delay"`
+	ClaimLockTo *time.Time    `json:"claim_lock_to"`
 }
 
 // DispatchResult captures batch dispatch outcomes.
 type DispatchResult struct {
-	Claimed   int
-	Published int
-	Retrying  int
-	Failed    int
+	Claimed   int `json:"claimed"`
+	Published int `json:"published"`
+	Retrying  int `json:"retrying"`
+	Failed    int `json:"failed"`
 }
 
 var (

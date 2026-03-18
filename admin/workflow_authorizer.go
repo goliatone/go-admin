@@ -9,10 +9,10 @@ import (
 
 // RoleWorkflowAuthorizer enforces minimum role requirements and optional permission checks.
 type RoleWorkflowAuthorizer struct {
-	MinRole    string
-	Resource   string
-	Permission string
-	Extra      func(context.Context, WorkflowApplyEventRequest) bool
+	MinRole    string                                                `json:"min_role"`
+	Resource   string                                                `json:"resource"`
+	Permission string                                                `json:"permission"`
+	Extra      func(context.Context, WorkflowApplyEventRequest) bool `json:"extra"`
 }
 
 // RoleWorkflowAuthorizerOption customizes a RoleWorkflowAuthorizer.

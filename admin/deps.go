@@ -17,69 +17,69 @@ import (
 // Dependencies captures host-provided integrations and storage adapters.
 // Optional dependencies fall back to in-memory defaults when omitted.
 type Dependencies struct {
-	Router AdminRouter
-	Logger Logger
+	Router AdminRouter `json:"router"`
+	Logger Logger      `json:"logger"`
 
-	LoggerProvider LoggerProvider
+	LoggerProvider LoggerProvider `json:"logger_provider"`
 
-	CMSContainer        CMSContainer
-	CMSContainerBuilder CMSContainerBuilder
+	CMSContainer        CMSContainer        `json:"cms_container"`
+	CMSContainerBuilder CMSContainerBuilder `json:"cms_container_builder"`
 
-	Registry             *Registry
-	CommandBus           *CommandBus
-	RPCServer            *cmdrpc.Server
-	RPCCommandPolicyHook RPCCommandPolicyHook
-	JobRegistry          *JobRegistry
-	URLManager           *urlkit.RouteManager
+	Registry             *Registry            `json:"registry"`
+	CommandBus           *CommandBus          `json:"command_bus"`
+	RPCServer            *cmdrpc.Server       `json:"rpc_server"`
+	RPCCommandPolicyHook RPCCommandPolicyHook `json:"rpc_command_policy_hook"`
+	JobRegistry          *JobRegistry         `json:"job_registry"`
+	URLManager           *urlkit.RouteManager `json:"url_manager"`
 
-	Authorizer                     Authorizer
-	Authenticator                  Authenticator
-	Translator                     Translator
-	Workflow                       WorkflowEngine
-	WorkflowRuntime                WorkflowRuntime
-	TranslationPolicy              TranslationPolicy
-	TranslationFamilyStore         translationservices.FamilyStore
-	ActivitySink                   ActivitySink
-	ActivityRepository             types.ActivityRepository
-	ActivityAccessPolicy           activity.ActivityAccessPolicy
-	ActivityFeedQuery              ActivityFeedQuerier
-	ActivityService                ActivityFeedQuerier
-	ActivityEnricher               activity.ActivityEnricher
-	ActivityEnrichmentErrorHandler activity.EnrichmentErrorHandler
-	ActivityEnrichmentWriteMode    activity.EnrichmentWriteMode
-	ActivitySessionIDProvider      activity.SessionIDProvider
-	ActivitySessionIDKey           string
-	DebugREPLSessionStore          DebugREPLSessionStore
-	DebugUserSessionStore          DebugUserSessionStore
+	Authorizer                     Authorizer                      `json:"authorizer"`
+	Authenticator                  Authenticator                   `json:"authenticator"`
+	Translator                     Translator                      `json:"translator"`
+	Workflow                       WorkflowEngine                  `json:"workflow"`
+	WorkflowRuntime                WorkflowRuntime                 `json:"workflow_runtime"`
+	TranslationPolicy              TranslationPolicy               `json:"translation_policy"`
+	TranslationFamilyStore         translationservices.FamilyStore `json:"translation_family_store"`
+	ActivitySink                   ActivitySink                    `json:"activity_sink"`
+	ActivityRepository             types.ActivityRepository        `json:"activity_repository"`
+	ActivityAccessPolicy           activity.ActivityAccessPolicy   `json:"activity_access_policy"`
+	ActivityFeedQuery              ActivityFeedQuerier             `json:"activity_feed_query"`
+	ActivityService                ActivityFeedQuerier             `json:"activity_service"`
+	ActivityEnricher               activity.ActivityEnricher       `json:"activity_enricher"`
+	ActivityEnrichmentErrorHandler activity.EnrichmentErrorHandler `json:"activity_enrichment_error_handler"`
+	ActivityEnrichmentWriteMode    activity.EnrichmentWriteMode    `json:"activity_enrichment_write_mode"`
+	ActivitySessionIDProvider      activity.SessionIDProvider      `json:"activity_session_id_provider"`
+	ActivitySessionIDKey           string                          `json:"activity_session_id_key"`
+	DebugREPLSessionStore          DebugREPLSessionStore           `json:"debug_repl_session_store"`
+	DebugUserSessionStore          DebugUserSessionStore           `json:"debug_user_session_store"`
 
-	NotificationService NotificationService
-	ExportRegistry      ExportRegistry
-	ExportRegistrar     ExportHTTPRegistrar
-	ExportMetadata      ExportMetadataProvider
-	BulkService         BulkService
-	MediaLibrary        MediaLibrary
+	NotificationService NotificationService    `json:"notification_service"`
+	ExportRegistry      ExportRegistry         `json:"export_registry"`
+	ExportRegistrar     ExportHTTPRegistrar    `json:"export_registrar"`
+	ExportMetadata      ExportMetadataProvider `json:"export_metadata"`
+	BulkService         BulkService            `json:"bulk_service"`
+	MediaLibrary        MediaLibrary           `json:"media_library"`
 
-	PreferencesStore PreferencesStore
-	ProfileStore     ProfileStore
+	PreferencesStore PreferencesStore `json:"preferences_store"`
+	ProfileStore     ProfileStore     `json:"profile_store"`
 
-	UserRepository         UserRepository
-	RoleRepository         RoleRepository
-	TenantRepository       TenantRepository
-	OrganizationRepository OrganizationRepository
-	BulkUserImport         *command.BulkUserImportCommand
+	UserRepository         UserRepository                 `json:"user_repository"`
+	RoleRepository         RoleRepository                 `json:"role_repository"`
+	TenantRepository       TenantRepository               `json:"tenant_repository"`
+	OrganizationRepository OrganizationRepository         `json:"organization_repository"`
+	BulkUserImport         *command.BulkUserImportCommand `json:"bulk_user_import"`
 
-	SettingsService *SettingsService
+	SettingsService *SettingsService `json:"settings_service"`
 
-	IconService *IconService
+	IconService *IconService `json:"icon_service"`
 
-	FeatureGate            fggate.FeatureGate
-	FeatureCatalog         catalog.Catalog
-	FeatureCatalogResolver catalog.MessageResolver
+	FeatureGate            fggate.FeatureGate      `json:"feature_gate"`
+	FeatureCatalog         catalog.Catalog         `json:"feature_catalog"`
+	FeatureCatalogResolver catalog.MessageResolver `json:"feature_catalog_resolver"`
 }
 
 type dependencyIssue struct {
-	Field  string
-	Reason string
+	Field  string `json:"field"`
+	Reason string `json:"reason"`
 }
 
 func (i dependencyIssue) Error() string {
@@ -93,7 +93,7 @@ func (i dependencyIssue) Error() string {
 var ErrInvalidDependencies = errors.New("invalid dependencies")
 
 type InvalidDependenciesError struct {
-	Issues []error
+	Issues []error `json:"issues"`
 }
 
 func (e InvalidDependenciesError) Error() string {

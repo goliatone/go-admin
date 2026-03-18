@@ -23,16 +23,16 @@ const (
 
 // UserProfile mirrors the go-users profile model using string IDs for admin context.
 type UserProfile struct {
-	UserID      string
-	DisplayName string
-	Email       string
-	AvatarURL   string
-	Locale      string
-	Timezone    string
-	Bio         string
-	Contact     map[string]any
-	Metadata    map[string]any
-	Raw         map[string]any
+	UserID      string         `json:"user_id"`
+	DisplayName string         `json:"display_name"`
+	Email       string         `json:"email"`
+	AvatarURL   string         `json:"avatar_url"`
+	Locale      string         `json:"locale"`
+	Timezone    string         `json:"timezone"`
+	Bio         string         `json:"bio"`
+	Contact     map[string]any `json:"contact"`
+	Metadata    map[string]any `json:"metadata"`
+	Raw         map[string]any `json:"raw"`
 }
 
 // ProfileStore persists profile data.

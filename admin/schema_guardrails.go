@@ -46,12 +46,12 @@ var reservedFieldNames = map[string]bool{
 
 // SchemaGuardrails provides validation and security checks for content type schemas
 type SchemaGuardrails struct {
-	MaxSizeBytes            int
-	MaxFields               int
-	MaxDepth                int
-	UISchemaMaxSizeBytes    int
-	PreviewHTMLMaxSizeBytes int
-	ReservedFields          map[string]bool
+	MaxSizeBytes            int             `json:"max_size_bytes"`
+	MaxFields               int             `json:"max_fields"`
+	MaxDepth                int             `json:"max_depth"`
+	UISchemaMaxSizeBytes    int             `json:"ui_schema_max_size_bytes"`
+	PreviewHTMLMaxSizeBytes int             `json:"preview_html_max_size_bytes"`
+	ReservedFields          map[string]bool `json:"reserved_fields"`
 }
 
 // NewSchemaGuardrails creates guardrails with default limits

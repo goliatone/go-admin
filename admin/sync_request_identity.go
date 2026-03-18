@@ -11,21 +11,21 @@ import (
 // AuthenticatedRequestScopeDefaults captures single-tenant scope defaults for
 // consumers that resolve scope strictly from authenticated request context.
 type AuthenticatedRequestScopeDefaults struct {
-	TenantID string
-	OrgID    string
-	Enabled  bool
+	TenantID string `json:"tenant_id"`
+	OrgID    string `json:"org_id"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // AuthenticatedRequestIdentity captures trusted actor, scope, and trace fields
 // resolved from authenticated admin request context.
 type AuthenticatedRequestIdentity struct {
-	ActorID       string
-	Subject       string
-	TenantID      string
-	OrgID         string
-	RequestID     string
-	CorrelationID string
-	TraceID       string
+	ActorID       string `json:"actor_id"`
+	Subject       string `json:"subject"`
+	TenantID      string `json:"tenant_id"`
+	OrgID         string `json:"org_id"`
+	RequestID     string `json:"request_id"`
+	CorrelationID string `json:"correlation_id"`
+	TraceID       string `json:"trace_id"`
 }
 
 // ScopeDefaults returns the admin single-tenant scope defaults when enabled.

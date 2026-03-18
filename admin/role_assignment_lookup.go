@@ -29,7 +29,7 @@ func (UUIDRoleAssignmentLookup) IsAssignable(_ context.Context, roleID string) (
 
 // RoleRepositoryLookup uses a RoleRepository to validate assignable IDs.
 type RoleRepositoryLookup struct {
-	Roles RoleRepository
+	Roles RoleRepository `json:"roles"`
 }
 
 func (l RoleRepositoryLookup) IsAssignable(ctx context.Context, roleID string) (bool, error) {

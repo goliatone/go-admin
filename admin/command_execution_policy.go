@@ -9,14 +9,14 @@ import (
 
 // CommandConfig controls command subsystem behavior.
 type CommandConfig struct {
-	Execution CommandExecutionPolicy
-	RPC       RPCCommandConfig
+	Execution CommandExecutionPolicy `json:"execution"`
+	RPC       RPCCommandConfig       `json:"rpc"`
 }
 
 // CommandExecutionPolicy controls dispatch mode resolution for name-based command dispatch.
 type CommandExecutionPolicy struct {
-	DefaultMode command.ExecutionMode
-	PerCommand  map[string]command.ExecutionMode
+	DefaultMode command.ExecutionMode            `json:"default_mode"`
+	PerCommand  map[string]command.ExecutionMode `json:"per_command"`
 }
 
 // Resolve returns the configured mode for a command id.

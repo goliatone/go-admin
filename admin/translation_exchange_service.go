@@ -17,11 +17,11 @@ var (
 )
 
 type TranslationExchangeLinkageKey struct {
-	Resource     string
-	EntityID     string
-	FamilyID     string
-	TargetLocale string
-	FieldPath    string
+	Resource     string `json:"resource"`
+	EntityID     string `json:"entity_id"`
+	FamilyID     string `json:"family_id"`
+	TargetLocale string `json:"target_locale"`
+	FieldPath    string `json:"field_path"`
 }
 
 func (k TranslationExchangeLinkageKey) String() string {
@@ -35,16 +35,16 @@ func (k TranslationExchangeLinkageKey) String() string {
 }
 
 type TranslationExchangeLinkage struct {
-	Key          TranslationExchangeLinkageKey
-	SourceHash   string
-	TargetExists bool
+	Key          TranslationExchangeLinkageKey `json:"key"`
+	SourceHash   string                        `json:"source_hash"`
+	TargetExists bool                          `json:"target_exists"`
 }
 
 type TranslationExchangeApplyRequest struct {
-	Key               TranslationExchangeLinkageKey
-	TranslatedText    string
-	CreateTranslation bool
-	WorkflowStatus    string
+	Key               TranslationExchangeLinkageKey `json:"key"`
+	TranslatedText    string                        `json:"translated_text"`
+	CreateTranslation bool                          `json:"create_translation"`
+	WorkflowStatus    string                        `json:"workflow_status"`
 }
 
 // TranslationExchangeStore abstracts deterministic linkage resolution and row writes.
@@ -93,10 +93,10 @@ func NewTranslationExchangeService(store TranslationExchangeStore, opts ...Trans
 }
 
 type translationExchangeAppliedRecord struct {
-	LinkageKey  string
-	PayloadHash string
-	Request     TranslationExchangeApplyRequest
-	AppliedAt   time.Time
+	LinkageKey  string                          `json:"linkage_key"`
+	PayloadHash string                          `json:"payload_hash"`
+	Request     TranslationExchangeApplyRequest `json:"request"`
+	AppliedAt   time.Time                       `json:"applied_at"`
 }
 
 type translationExchangeApplyFlight struct {
@@ -448,10 +448,10 @@ func translationExchangeResolutionAllows(
 }
 
 type translationExchangeApplyRowOutcome struct {
-	RowResult      TranslationExchangeRowResult
-	SeenKey        string
-	SeenRegistered bool
-	TerminalStop   bool
+	RowResult      TranslationExchangeRowResult `json:"row_result"`
+	SeenKey        string                       `json:"seen_key"`
+	SeenRegistered bool                         `json:"seen_registered"`
+	TerminalStop   bool                         `json:"terminal_stop"`
 }
 
 func (s *TranslationExchangeService) applyImportRow(

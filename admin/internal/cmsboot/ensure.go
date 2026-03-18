@@ -7,23 +7,23 @@ import (
 
 // EnsureOptions configure CMS container resolution.
 type EnsureOptions struct {
-	Container          CMSContainer
-	WidgetService      CMSWidgetService
-	MenuService        CMSMenuService
-	ContentService     CMSContentService
-	ContentTypeService CMSContentTypeService
-	RequireCMS         bool
-	BuildContainer     func(context.Context) (CMSContainer, error)
-	FallbackContainer  func() CMSContainer
+	Container          CMSContainer                                `json:"container"`
+	WidgetService      CMSWidgetService                            `json:"widget_service"`
+	MenuService        CMSMenuService                              `json:"menu_service"`
+	ContentService     CMSContentService                           `json:"content_service"`
+	ContentTypeService CMSContentTypeService                       `json:"content_type_service"`
+	RequireCMS         bool                                        `json:"require_cms"`
+	BuildContainer     func(context.Context) (CMSContainer, error) `json:"build_container"`
+	FallbackContainer  func() CMSContainer                         `json:"fallback_container"`
 }
 
 // EnsureResult returns resolved CMS container/services.
 type EnsureResult struct {
-	Container          CMSContainer
-	WidgetService      CMSWidgetService
-	MenuService        CMSMenuService
-	ContentService     CMSContentService
-	ContentTypeService CMSContentTypeService
+	Container          CMSContainer          `json:"container"`
+	WidgetService      CMSWidgetService      `json:"widget_service"`
+	MenuService        CMSMenuService        `json:"menu_service"`
+	ContentService     CMSContentService     `json:"content_service"`
+	ContentTypeService CMSContentTypeService `json:"content_type_service"`
 }
 
 // Ensure resolves a CMS container and required services, using builders or fallbacks when enabled.

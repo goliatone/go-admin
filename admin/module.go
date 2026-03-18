@@ -15,18 +15,18 @@ type ModuleManifest = modinternal.Manifest
 // ModuleContext is passed to modules so they can register panels, routes,
 // commands, and other contributions against the admin orchestrator.
 type ModuleContext struct {
-	Admin *Admin
+	Admin *Admin `json:"admin"`
 	// Router is the default module router and is auth-protected when auth is configured.
-	Router AdminRouter
+	Router AdminRouter `json:"router"`
 	// ProtectedRouter always wraps routes with admin auth middleware when auth is configured.
-	ProtectedRouter AdminRouter
+	ProtectedRouter AdminRouter `json:"protected_router"`
 	// PublicRouter bypasses auth middleware and must be used explicitly for public endpoints.
-	PublicRouter AdminRouter
+	PublicRouter AdminRouter `json:"public_router"`
 	// AuthMiddleware exposes the admin auth middleware for selective route protection.
-	AuthMiddleware router.MiddlewareFunc
-	Locale         string
-	Translator     Translator
-	Routing        routing.ModuleContext
+	AuthMiddleware router.MiddlewareFunc `json:"auth_middleware"`
+	Locale         string                `json:"locale"`
+	Translator     Translator            `json:"translator"`
+	Routing        routing.ModuleContext `json:"routing"`
 }
 
 // Module defines the minimal contract for pluggable slices.

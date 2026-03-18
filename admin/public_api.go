@@ -21,8 +21,8 @@ type menuByCodeWithOptions interface {
 }
 
 type siteRequestOptions struct {
-	Query SiteQuery
-	List  ListOptions
+	Query SiteQuery   `json:"query"`
+	List  ListOptions `json:"list"`
 }
 
 // RegisterPublicAPI registers read-only endpoints for content delivery.

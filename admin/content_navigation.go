@@ -21,17 +21,17 @@ var navigationOverrideModes = []string{
 }
 
 type contentEntryNavigationPolicy struct {
-	Enabled               bool
-	EligibleLocations     []string
-	DefaultLocations      []string
-	DefaultVisible        bool
-	AllowInstanceOverride bool
+	Enabled               bool     `json:"enabled"`
+	EligibleLocations     []string `json:"eligible_locations"`
+	DefaultLocations      []string `json:"default_locations"`
+	DefaultVisible        bool     `json:"default_visible"`
+	AllowInstanceOverride bool     `json:"allow_instance_override"`
 }
 
 type contentEntryNavigationEvaluation struct {
-	Overrides           map[string]string
-	EffectiveLocations  []string
-	EffectiveVisibility map[string]bool
+	Overrides           map[string]string `json:"overrides"`
+	EffectiveLocations  []string          `json:"effective_locations"`
+	EffectiveVisibility map[string]bool   `json:"effective_visibility"`
 }
 
 func navigationOverrideModesContract() []string {

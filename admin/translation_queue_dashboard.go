@@ -29,7 +29,7 @@ type TranslationQueueStatsService interface {
 
 // TranslationQueueStatsFromRepository computes queue stats from assignment storage.
 type TranslationQueueStatsFromRepository struct {
-	Repository TranslationAssignmentRepository
+	Repository TranslationAssignmentRepository `json:"repository"`
 }
 
 func (s *TranslationQueueStatsFromRepository) Snapshot(ctx context.Context) (TranslationQueueStatsSnapshot, error) {

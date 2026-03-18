@@ -27,10 +27,10 @@ const (
 )
 
 type preferencesSchemaInfo struct {
-	Source string
-	Path   string
-	FormID string
-	Schema map[string]any
+	Source string         `json:"source"`
+	Path   string         `json:"path"`
+	FormID string         `json:"form_id"`
+	Schema map[string]any `json:"schema"`
 }
 
 func newPreferencesFormGenerator() (*formgenorchestrator.Orchestrator, error) {

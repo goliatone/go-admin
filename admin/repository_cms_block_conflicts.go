@@ -21,16 +21,16 @@ func NewCMSBlockConflictRepository(content CMSContentService) *CMSBlockConflictR
 }
 
 type cmsBlockConflict struct {
-	ID             string
-	EntityID       string
-	EntityType     string
-	Title          string
-	ContentType    string
-	Locale         string
-	EmbeddedBlocks []map[string]any
-	LegacyBlocks   []CMSBlock
-	EmbeddedTypes  []string
-	LegacyTypes    []string
+	ID             string           `json:"id"`
+	EntityID       string           `json:"entity_id"`
+	EntityType     string           `json:"entity_type"`
+	Title          string           `json:"title"`
+	ContentType    string           `json:"content_type"`
+	Locale         string           `json:"locale"`
+	EmbeddedBlocks []map[string]any `json:"embedded_blocks"`
+	LegacyBlocks   []CMSBlock       `json:"legacy_blocks"`
+	EmbeddedTypes  []string         `json:"embedded_types"`
+	LegacyTypes    []string         `json:"legacy_types"`
 }
 
 func (c cmsBlockConflict) summary() map[string]any {

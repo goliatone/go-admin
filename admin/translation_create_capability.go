@@ -12,13 +12,13 @@ var ErrTranslationCreateUnsupported = errors.New("translation create unsupported
 
 // TranslationCreateInput captures canonical translation creation intent.
 type TranslationCreateInput struct {
-	SourceID     string
-	Locale       string
-	Environment  string
-	PolicyEntity string
-	ContentType  string
-	Status       string
-	Metadata     map[string]any
+	SourceID     string         `json:"source_id"`
+	Locale       string         `json:"locale"`
+	Environment  string         `json:"environment"`
+	PolicyEntity string         `json:"policy_entity"`
+	ContentType  string         `json:"content_type"`
+	Status       string         `json:"status"`
+	Metadata     map[string]any `json:"metadata"`
 }
 
 // RepositoryTranslationCreator allows repositories to provide a first-class

@@ -4,21 +4,21 @@ import "context"
 
 // BootstrapConfig captures the inputs needed to derive default settings.
 type BootstrapConfig struct {
-	Title            string
-	DefaultLocale    string
-	Theme            string
-	DashboardEnabled bool
-	SearchEnabled    bool
+	Title            string `json:"title"`
+	DefaultLocale    string `json:"default_locale"`
+	Theme            string `json:"theme"`
+	DashboardEnabled bool   `json:"dashboard_enabled"`
+	SearchEnabled    bool   `json:"search_enabled"`
 }
 
 // DefaultDefinition describes a basic setting definition used for bootstrap.
 type DefaultDefinition struct {
-	Key         string
-	Title       string
-	Description string
-	Default     any
-	Type        string
-	Group       string
+	Key         string `json:"key"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Default     any    `json:"default"`
+	Type        string `json:"type"`
+	Group       string `json:"group"`
 }
 
 // DefaultDefinitions returns the bootstrap definitions and system-scoped values.

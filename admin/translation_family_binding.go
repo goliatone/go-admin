@@ -24,44 +24,44 @@ type translationFamilyRuntime struct {
 }
 
 type translationRuntimeReportSummary struct {
-	Families    int
-	Variants    int
-	Assignments int
-	Blockers    int
-	Warnings    int
+	Families    int `json:"families"`
+	Variants    int `json:"variants"`
+	Assignments int `json:"assignments"`
+	Blockers    int `json:"blockers"`
+	Warnings    int `json:"warnings"`
 }
 
 type translationRuntimeReport struct {
-	Checksum string
-	Summary  translationRuntimeReportSummary
+	Checksum string                          `json:"checksum"`
+	Summary  translationRuntimeReportSummary `json:"summary"`
 }
 
 type translationFamilyCreateVariantInput struct {
-	Locale               string
-	AutoCreateAssignment bool
-	AssigneeID           string
-	Priority             Priority
-	DueDate              *time.Time
-	Environment          string
-	IdempotencyKey       string
+	Locale               string     `json:"locale"`
+	AutoCreateAssignment bool       `json:"auto_create_assignment"`
+	AssigneeID           string     `json:"assignee_id"`
+	Priority             Priority   `json:"priority"`
+	DueDate              *time.Time `json:"due_date"`
+	Environment          string     `json:"environment"`
+	IdempotencyKey       string     `json:"idempotency_key"`
 }
 
 type translationFamilyCreateVariantAssignmentPlan struct {
-	ReuseAssignment    *TranslationAssignment
-	ArchiveAssignments []TranslationAssignment
-	WorkScope          string
+	ReuseAssignment    *TranslationAssignment  `json:"reuse_assignment"`
+	ArchiveAssignments []TranslationAssignment `json:"archive_assignments"`
+	WorkScope          string                  `json:"work_scope"`
 }
 
 type translationFamilyCreateVariantOutcome struct {
-	Assignment            *TranslationAssignment
-	AssignmentReused      bool
-	ArchivedAssignmentIDs []string
+	Assignment            *TranslationAssignment `json:"assignment"`
+	AssignmentReused      bool                   `json:"assignment_reused"`
+	ArchivedAssignmentIDs []string               `json:"archived_assignment_i_ds"`
 }
 
 type translationFamilyIdempotencyRecord struct {
-	RequestHash string
-	Payload     map[string]any
-	CreatedAt   time.Time
+	RequestHash string         `json:"request_hash"`
+	Payload     map[string]any `json:"payload"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
 type translationFamilyBinding struct {

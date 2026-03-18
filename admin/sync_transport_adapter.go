@@ -14,18 +14,18 @@ type SyncTransportScopeResolver func(router.Context, AuthenticatedRequestIdentit
 // SyncTransportRequestMetadata captures trusted sync transport metadata that a
 // consumer can adapt into its package-specific transport layer.
 type SyncTransportRequestMetadata struct {
-	ActorID       string
-	RequestID     string
-	CorrelationID string
-	TraceID       string
-	Scope         map[string]string
+	ActorID       string            `json:"actor_id"`
+	RequestID     string            `json:"request_id"`
+	CorrelationID string            `json:"correlation_id"`
+	TraceID       string            `json:"trace_id"`
+	Scope         map[string]string `json:"scope"`
 }
 
 // SyncTransportAdapter resolves authenticated actor, scope, and trace metadata
 // for go-admin consumers that expose pkg/go-sync transports.
 type SyncTransportAdapter struct {
-	ScopeDefaults AuthenticatedRequestScopeDefaults
-	ResolveScope  SyncTransportScopeResolver
+	ScopeDefaults AuthenticatedRequestScopeDefaults `json:"scope_defaults"`
+	ResolveScope  SyncTransportScopeResolver        `json:"resolve_scope"`
 }
 
 // Resolve returns trusted sync transport metadata without consulting

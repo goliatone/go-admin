@@ -127,21 +127,21 @@ func (r IconReference) IsEmpty() bool {
 // IconRenderOptions configures icon rendering behavior.
 type IconRenderOptions struct {
 	// Variant selects a specific icon variant (e.g., "dark", "light").
-	Variant string
+	Variant string `json:"variant"`
 	// TrustedInput indicates the icon value comes from a trusted source.
-	TrustedInput bool
+	TrustedInput bool `json:"trusted_input"`
 	// AllowCustomUntrusted permits custom SVG/URL for untrusted input.
-	AllowCustomUntrusted bool
+	AllowCustomUntrusted bool `json:"allow_custom_untrusted"`
 	// Size is the CSS size value (e.g., "20px", "1.5rem").
-	Size string
+	Size string `json:"size"`
 	// Classes are additional CSS classes to apply.
-	Classes []string
+	Classes []string `json:"classes"`
 	// Style is additional inline CSS.
-	Style string
+	Style string `json:"style"`
 	// AriaLabel sets the aria-label for accessibility.
-	AriaLabel string
+	AriaLabel string `json:"aria_label"`
 	// AriaHidden hides the icon from screen readers.
-	AriaHidden bool
+	AriaHidden bool `json:"aria_hidden"`
 }
 
 // DefaultIconLibrary is the library used when no prefix is specified.

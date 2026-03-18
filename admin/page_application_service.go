@@ -9,69 +9,69 @@ import (
 
 // PageApplicationService orchestrates admin page reads/writes plus mapping/workflow.
 type PageApplicationService struct {
-	Read              AdminPageReadService
-	Write             AdminPageWriteService
-	Mapper            PageMapper
-	Workflow          WorkflowEngine
-	TranslationPolicy TranslationPolicy
-	IncludeDefaults   *PageReadDefaults
+	Read              AdminPageReadService  `json:"read"`
+	Write             AdminPageWriteService `json:"write"`
+	Mapper            PageMapper            `json:"mapper"`
+	Workflow          WorkflowEngine        `json:"workflow"`
+	TranslationPolicy TranslationPolicy     `json:"translation_policy"`
+	IncludeDefaults   *PageReadDefaults     `json:"include_defaults"`
 }
 
 // AdminPageRecord mirrors the admin read model contract for page data.
 type AdminPageRecord struct {
-	ID                 string
-	ContentID          string
-	FamilyID           string
-	TemplateID         string
-	Title              string
-	Slug               string
-	Path               string
-	RequestedLocale    string
-	ResolvedLocale     string
-	Translation        TranslationBundle[PageTranslation]
-	ContentTranslation TranslationBundle[ContentTranslation]
-	Status             string
-	ParentID           string
-	MetaTitle          string
-	MetaDescription    string
-	Summary            *string
-	Tags               []string
-	SchemaVersion      string
-	Data               map[string]any
-	Content            any
-	Blocks             any
-	PreviewURL         string
-	PublishedAt        *time.Time
-	CreatedAt          *time.Time
-	UpdatedAt          *time.Time
+	ID                 string                                `json:"id"`
+	ContentID          string                                `json:"content_id"`
+	FamilyID           string                                `json:"family_id"`
+	TemplateID         string                                `json:"template_id"`
+	Title              string                                `json:"title"`
+	Slug               string                                `json:"slug"`
+	Path               string                                `json:"path"`
+	RequestedLocale    string                                `json:"requested_locale"`
+	ResolvedLocale     string                                `json:"resolved_locale"`
+	Translation        TranslationBundle[PageTranslation]    `json:"translation"`
+	ContentTranslation TranslationBundle[ContentTranslation] `json:"content_translation"`
+	Status             string                                `json:"status"`
+	ParentID           string                                `json:"parent_id"`
+	MetaTitle          string                                `json:"meta_title"`
+	MetaDescription    string                                `json:"meta_description"`
+	Summary            *string                               `json:"summary"`
+	Tags               []string                              `json:"tags"`
+	SchemaVersion      string                                `json:"schema_version"`
+	Data               map[string]any                        `json:"data"`
+	Content            any                                   `json:"content"`
+	Blocks             any                                   `json:"blocks"`
+	PreviewURL         string                                `json:"preview_url"`
+	PublishedAt        *time.Time                            `json:"published_at"`
+	CreatedAt          *time.Time                            `json:"created_at"`
+	UpdatedAt          *time.Time                            `json:"updated_at"`
 }
 
 // AdminPageListOptions configures admin page list reads.
 type AdminPageListOptions struct {
-	Locale                   string
-	FallbackLocale           string
-	AllowMissingTranslations bool
-	IncludeContent           bool
-	IncludeBlocks            bool
-	IncludeData              bool
-	EnvironmentKey           string
-	Page                     int
-	PerPage                  int
-	SortBy                   string
-	SortDesc                 bool
-	Search                   string
-	Filters                  map[string]any
+	Locale                   string         `json:"locale"`
+	FallbackLocale           string         `json:"fallback_locale"`
+	AllowMissingTranslations bool           `json:"allow_missing_translations"`
+	IncludeContent           bool           `json:"include_content"`
+	IncludeBlocks            bool           `json:"include_blocks"`
+	IncludeData              bool           `json:"include_data"`
+	EnvironmentKey           string         `json:"environment_key"`
+	Page                     int            `json:"page"`
+	PerPage                  int            `json:"per_page"`
+	SortBy                   string         `json:"sort_by"`
+	SortDesc                 bool           `json:"sort_desc"`
+	Search                   string         `json:"search"`
+	Filters                  map[string]any `json:"filters"`
 }
 
 // AdminPageGetOptions configures admin page detail reads.
 type AdminPageGetOptions struct {
-	Locale                   string
-	FallbackLocale           string
-	AllowMissingTranslations bool
-	IncludeContent           bool
-	IncludeBlocks            bool
-	IncludeData              bool
-	EnvironmentKey           string
+	Locale                   string `json:"locale"`
+	FallbackLocale           string `json:"fallback_locale"`
+	AllowMissingTranslations bool   `json:"allow_missing_translations"`
+	IncludeContent           bool   `json:"include_content"`
+	IncludeBlocks            bool   `json:"include_blocks"`
+	IncludeData              bool   `json:"include_data"`
+	EnvironmentKey           string `json:"environment_key"`
 }
 
 // AdminPageReadService provides list/detail admin read operations.
@@ -96,37 +96,37 @@ type PageMapper interface {
 
 // PageIncludeDefaults defines default include flags for read operations.
 type PageIncludeDefaults struct {
-	IncludeContent bool
-	IncludeBlocks  bool
-	IncludeData    bool
+	IncludeContent bool `json:"include_content"`
+	IncludeBlocks  bool `json:"include_blocks"`
+	IncludeData    bool `json:"include_data"`
 }
 
 // PageReadDefaults captures include defaults for list/get endpoints.
 type PageReadDefaults struct {
-	List PageIncludeDefaults
-	Get  PageIncludeDefaults
+	List PageIncludeDefaults `json:"list"`
+	Get  PageIncludeDefaults `json:"get"`
 }
 
 // PageReadOptions captures caller overrides for read behavior.
 type PageReadOptions struct {
-	Locale                   string
-	FallbackLocale           string
-	AllowMissingTranslations bool
-	IncludeContent           *bool
-	IncludeBlocks            *bool
-	IncludeData              *bool
-	EnvironmentKey           string
+	Locale                   string `json:"locale"`
+	FallbackLocale           string `json:"fallback_locale"`
+	AllowMissingTranslations bool   `json:"allow_missing_translations"`
+	IncludeContent           *bool  `json:"include_content"`
+	IncludeBlocks            *bool  `json:"include_blocks"`
+	IncludeData              *bool  `json:"include_data"`
+	EnvironmentKey           string `json:"environment_key"`
 }
 
 // PageListOptions captures list options plus read overrides.
 type PageListOptions struct {
 	PageReadOptions
-	Page     int
-	PerPage  int
-	SortBy   string
-	SortDesc bool
-	Search   string
-	Filters  map[string]any
+	Page     int            `json:"page"`
+	PerPage  int            `json:"per_page"`
+	SortBy   string         `json:"sort_by"`
+	SortDesc bool           `json:"sort_desc"`
+	Search   string         `json:"search"`
+	Filters  map[string]any `json:"filters"`
 }
 
 // PageGetOptions captures get options plus read overrides.

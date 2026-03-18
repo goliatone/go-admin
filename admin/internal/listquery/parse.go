@@ -10,34 +10,34 @@ import (
 
 // Predicate describes a single parsed operator-aware filter.
 type Predicate struct {
-	Field    string
-	Operator string
-	Values   []string
+	Field    string   `json:"field"`
+	Operator string   `json:"operator"`
+	Values   []string `json:"values"`
 }
 
 // Result captures normalized list query options.
 type Result struct {
-	Page       int
-	PerPage    int
-	SortBy     string
-	SortDesc   bool
-	Search     string
-	Filters    map[string]any
-	Predicates []Predicate
-	Fields     []string
+	Page       int            `json:"page"`
+	PerPage    int            `json:"per_page"`
+	SortBy     string         `json:"sort_by"`
+	SortDesc   bool           `json:"sort_desc"`
+	Search     string         `json:"search"`
+	Filters    map[string]any `json:"filters"`
+	Predicates []Predicate    `json:"predicates"`
+	Fields     []string       `json:"fields"`
 }
 
 // Options projects Result into consumer-specific predicate types.
 // The field layout intentionally mirrors admin and boot list option structs.
 type Options[T any] struct {
-	Page       int
-	PerPage    int
-	SortBy     string
-	SortDesc   bool
-	Filters    map[string]any
-	Predicates []T
-	Fields     []string
-	Search     string
+	Page       int            `json:"page"`
+	PerPage    int            `json:"per_page"`
+	SortBy     string         `json:"sort_by"`
+	SortDesc   bool           `json:"sort_desc"`
+	Filters    map[string]any `json:"filters"`
+	Predicates []T            `json:"predicates"`
+	Fields     []string       `json:"fields"`
+	Search     string         `json:"search"`
 }
 
 // ParseContext extracts list query options from a router context.

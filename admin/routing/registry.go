@@ -15,14 +15,14 @@ type Registry struct {
 }
 
 type registryEntry struct {
-	Owner     string
-	Module    string
-	Surface   string
-	GroupPath string
-	RouteKey  string
-	RouteName string
-	Method    string
-	Path      string
+	Owner     string `json:"owner"`
+	Module    string `json:"module"`
+	Surface   string `json:"surface"`
+	GroupPath string `json:"group_path"`
+	RouteKey  string `json:"route_key"`
+	RouteName string `json:"route_name"`
+	Method    string `json:"method"`
+	Path      string `json:"path"`
 }
 
 func NewRegistry() *Registry {

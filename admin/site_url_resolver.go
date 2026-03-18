@@ -14,7 +14,7 @@ type SiteURLResolver interface {
 
 // CanonicalURLResolver resolves canonical paths and URLs with an optional base URL prefix.
 type CanonicalURLResolver struct {
-	BaseURL string
+	BaseURL string `json:"base_url"`
 }
 
 // ContentPath returns a canonical content path for (type, slug).

@@ -9,13 +9,13 @@ const (
 )
 
 type Config struct {
-	Enabled                bool
-	EnforceRouteNamePolicy bool
-	EnforceSlugPolicy      bool
-	ConflictPolicy         ConflictPolicy
-	Roots                  RootsConfig
-	Modules                map[string]ModuleConfig
-	Manifest               ManifestConfig
+	Enabled                bool                    `json:"enabled"`
+	EnforceRouteNamePolicy bool                    `json:"enforce_route_name_policy"`
+	EnforceSlugPolicy      bool                    `json:"enforce_slug_policy"`
+	ConflictPolicy         ConflictPolicy          `json:"conflict_policy"`
+	Roots                  RootsConfig             `json:"roots"`
+	Modules                map[string]ModuleConfig `json:"modules"`
+	Manifest               ManifestConfig          `json:"manifest"`
 }
 
 type RootsConfig struct {
@@ -41,19 +41,19 @@ type ManifestConfig struct {
 }
 
 type URLNamespaceConfig struct {
-	BasePath   string
-	APIPrefix  string
-	APIVersion string
+	BasePath   string `json:"base_path"`
+	APIPrefix  string `json:"api_prefix"`
+	APIVersion string `json:"api_version"`
 }
 
 type URLConfig struct {
-	Admin  URLNamespaceConfig
-	Public URLNamespaceConfig
+	Admin  URLNamespaceConfig `json:"admin"`
+	Public URLNamespaceConfig `json:"public"`
 }
 
 type RootDerivationInput struct {
-	BasePath string
-	URLs     URLConfig
+	BasePath string    `json:"base_path"`
+	URLs     URLConfig `json:"ur_ls"`
 }
 
 func DefaultConfig() Config {

@@ -11,31 +11,31 @@ import (
 type IconSecurityPolicy struct {
 	// AllowUntrustedCustom permits custom SVG/URL for untrusted input.
 	// Default: false
-	AllowUntrustedCustom bool
+	AllowUntrustedCustom bool `json:"allow_untrusted_custom"`
 
 	// AllowDataURI permits data: URIs.
 	// For trusted input, default is true. For untrusted, follows AllowUntrustedCustom.
-	AllowDataURI bool
+	AllowDataURI bool `json:"allow_data_uri"`
 
 	// AllowedExternalSchemes lists permitted URL schemes.
 	// Default: ["https"]
-	AllowedExternalSchemes []string
+	AllowedExternalSchemes []string `json:"allowed_external_schemes"`
 
 	// AllowedDataMIMEs lists permitted MIME types for data URIs.
 	// Default: ["image/svg+xml", "image/png", "image/jpeg", "image/webp", "image/gif"]
-	AllowedDataMIMEs []string
+	AllowedDataMIMEs []string `json:"allowed_data_mim_es"`
 
 	// MaxSVGBytes is the maximum allowed size for SVG content.
 	// Default: 65536 (64KB)
-	MaxSVGBytes int
+	MaxSVGBytes int `json:"max_svg_bytes"`
 
 	// MaxDataURIBytes is the maximum allowed size for data URI payloads.
 	// Default: 131072 (128KB)
-	MaxDataURIBytes int
+	MaxDataURIBytes int `json:"max_data_uri_bytes"`
 
 	// AllowedExternalHosts is an optional allowlist of external hosts.
 	// Empty means any host with allowed scheme is permitted.
-	AllowedExternalHosts []string
+	AllowedExternalHosts []string `json:"allowed_external_hosts"`
 }
 
 // DefaultIconSecurityPolicy returns the default security policy.
@@ -59,13 +59,13 @@ func DefaultIconSecurityPolicy() IconSecurityPolicy {
 // IconSecurityResult represents the result of security validation.
 type IconSecurityResult struct {
 	// Allowed indicates whether the icon can be rendered.
-	Allowed bool
+	Allowed bool `json:"allowed"`
 	// Reason explains why the icon was blocked (empty if allowed).
-	Reason string
+	Reason string `json:"reason"`
 	// SanitizedContent contains sanitized SVG content (if applicable).
-	SanitizedContent string
+	SanitizedContent string `json:"sanitized_content"`
 	// ValidatedURL contains the validated URL (if applicable).
-	ValidatedURL string
+	ValidatedURL string `json:"validated_url"`
 }
 
 // IconSecurityValidator validates and sanitizes icon content.

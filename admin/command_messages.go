@@ -18,7 +18,7 @@ const (
 
 // SettingsUpdateMsg updates settings via the command bus.
 type SettingsUpdateMsg struct {
-	Bundle SettingsBundle
+	Bundle SettingsBundle `json:"bundle"`
 }
 
 func (SettingsUpdateMsg) Type() string { return settingsUpdateCommandName }
@@ -34,8 +34,8 @@ func (m SettingsUpdateMsg) Validate() error {
 
 // NotificationMarkMsg toggles notification read state.
 type NotificationMarkMsg struct {
-	IDs  []string
-	Read bool
+	IDs  []string `json:"i_ds"`
+	Read bool     `json:"read"`
 }
 
 func (NotificationMarkMsg) Type() string { return NotificationMarkCommandName }
@@ -51,10 +51,10 @@ func (m NotificationMarkMsg) Validate() error {
 
 // BulkStartMsg triggers a bulk job.
 type BulkStartMsg struct {
-	Name    string
-	Action  string
-	Total   int
-	Payload map[string]any
+	Name    string         `json:"name"`
+	Action  string         `json:"action"`
+	Total   int            `json:"total"`
+	Payload map[string]any `json:"payload"`
 }
 
 func (BulkStartMsg) Type() string { return bulkCommandName }
@@ -70,7 +70,7 @@ func (m BulkStartMsg) Validate() error {
 
 // UserActivateMsg updates users to active state.
 type UserActivateMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (UserActivateMsg) Type() string { return userActivateCommandName }
@@ -79,7 +79,7 @@ func (m UserActivateMsg) Validate() error { return requireIDs(m.IDs, "user ids r
 
 // UserSuspendMsg updates users to suspended state.
 type UserSuspendMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (UserSuspendMsg) Type() string { return userSuspendCommandName }
@@ -88,7 +88,7 @@ func (m UserSuspendMsg) Validate() error { return requireIDs(m.IDs, "user ids re
 
 // UserDisableMsg updates users to disabled state.
 type UserDisableMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (UserDisableMsg) Type() string { return userDisableCommandName }
@@ -97,7 +97,7 @@ func (m UserDisableMsg) Validate() error { return requireIDs(m.IDs, "user ids re
 
 // UserArchiveMsg updates users to archived state.
 type UserArchiveMsg struct {
-	IDs []string
+	IDs []string `json:"i_ds"`
 }
 
 func (UserArchiveMsg) Type() string { return userArchiveCommandName }
@@ -106,9 +106,9 @@ func (m UserArchiveMsg) Validate() error { return requireIDs(m.IDs, "user ids re
 
 // UserBulkAssignRoleMsg assigns a role for multiple users.
 type UserBulkAssignRoleMsg struct {
-	IDs     []string
-	RoleID  string
-	Replace bool
+	IDs     []string `json:"i_ds"`
+	RoleID  string   `json:"role_id"`
+	Replace bool     `json:"replace"`
 }
 
 func (UserBulkAssignRoleMsg) Type() string { return userBulkAssignRoleCommandName }
@@ -127,8 +127,8 @@ func (m UserBulkAssignRoleMsg) Validate() error {
 
 // UserBulkUnassignRoleMsg unassigns a role for multiple users.
 type UserBulkUnassignRoleMsg struct {
-	IDs    []string
-	RoleID string
+	IDs    []string `json:"i_ds"`
+	RoleID string   `json:"role_id"`
 }
 
 func (UserBulkUnassignRoleMsg) Type() string { return userBulkUnassignRoleCommandName }
@@ -147,9 +147,9 @@ func (m UserBulkUnassignRoleMsg) Validate() error {
 
 // DashboardProviderMsg routes dashboard provider commands.
 type DashboardProviderMsg struct {
-	CommandName string
-	Code        string
-	Config      map[string]any
+	CommandName string         `json:"command_name"`
+	Code        string         `json:"code"`
+	Config      map[string]any `json:"config"`
 }
 
 func (DashboardProviderMsg) Type() string { return dashboardProviderCommandName }

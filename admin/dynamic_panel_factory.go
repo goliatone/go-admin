@@ -29,10 +29,10 @@ type DynamicPanelFactory struct {
 
 // DynamicPanelHooks exposes lifecycle callbacks for panel creation.
 type DynamicPanelHooks struct {
-	BeforeCreate func(ctx context.Context, contentType *CMSContentType) error
-	AfterCreate  func(ctx context.Context, panel *Panel) error
-	BeforeUpdate func(ctx context.Context, contentType *CMSContentType) error
-	AfterUpdate  func(ctx context.Context, panel *Panel) error
+	BeforeCreate func(ctx context.Context, contentType *CMSContentType) error `json:"before_create"`
+	AfterCreate  func(ctx context.Context, panel *Panel) error                `json:"after_create"`
+	BeforeUpdate func(ctx context.Context, contentType *CMSContentType) error `json:"before_update"`
+	AfterUpdate  func(ctx context.Context, panel *Panel) error                `json:"after_update"`
 }
 
 // DynamicPanelFactoryOption customizes the factory.

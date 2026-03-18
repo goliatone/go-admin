@@ -22,11 +22,11 @@ type IconService struct {
 // IconServiceDefaults configures fallback behavior for icon resolution.
 type IconServiceDefaults struct {
 	// DefaultLibrary is used when no library prefix is specified.
-	DefaultLibrary string
+	DefaultLibrary string `json:"default_library"`
 	// FallbackIcon is rendered when an icon cannot be resolved.
-	FallbackIcon string
+	FallbackIcon string `json:"fallback_icon"`
 	// DefaultVariant is the default theme variant.
-	DefaultVariant string
+	DefaultVariant string `json:"default_variant"`
 }
 
 // IconServiceOption configures the icon service.
