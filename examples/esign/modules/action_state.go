@@ -94,6 +94,13 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"Review can only be reopened for draft agreements after a prior review cycle exists.",
 			"esign.agreements.reopen_review_requires_prior_review",
 		)
+	case "notify_reviewers":
+		action.Guard = agreementDraftReviewGuard(
+			action.Name,
+			[]string{stores.AgreementReviewStatusInReview},
+			"Review notifications can only be resent while a draft agreement has an active review.",
+			"esign.agreements.notify_reviewers_requires_active_review",
+		)
 	case "close_review":
 		action.Guard = agreementDraftReviewGuard(
 			action.Name,

@@ -116,6 +116,35 @@ func TestValidateTranslationSeedFixtureCoveragePassesForPersistentCMSSeeds(t *te
 	}
 }
 
+func TestSetupPersistentCMSSeedsCanonicalFamilyIDForTranslationEnabledContent(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected CMS content service")
+	}
+
+	items, err := opts.Container.ContentService().Contents(ctx, "en")
+	if err != nil {
+		t.Fatalf("load default-locale content: %v", err)
+	}
+
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.ContentType), "page") {
+			continue
+		}
+		if strings.TrimSpace(item.FamilyID) == "" {
+			t.Fatalf("expected canonical family_id for translation-enabled content slug=%s type=%s content=%#v", item.Slug, item.ContentType, item)
+		}
+	}
+}
+
 func TestValidateTranslationSeedFixtureCoverageFailsWhenOptionALocaleChildMissing(t *testing.T) {
 	t.Helper()
 
@@ -185,6 +214,53 @@ func TestSetupPersistentCMSTranslationSeedsRemainIdempotentAcrossRestart(t *test
 	postLocales := translationFixtureLocales(t, ctx, db, "content_translations", "translation-review-post")
 	if got, want := strings.Join(postLocales, ","), "en,es"; got != want {
 		t.Fatalf("expected translation-review-post content locales %q, got %q", want, got)
+	}
+}
+
+func TestSetupPersistentCMSRepairsSeedRerunWhenLegacyTranslationRowsAreMissing(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("setup persistent cms (first pass): %v", err)
+	}
+
+	db := openTranslationFixtureTestDB(t, dsn)
+	defer db.Close()
+
+	if _, err := db.NewDelete().
+		TableExpr("content_translations AS ct").
+		Where("ct.content_id IN (SELECT id FROM contents WHERE slug = ?)", "translation-missing-fr").
+		Exec(ctx); err != nil {
+		t.Fatalf("remove translation-missing-fr content translations: %v", err)
+	}
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("setup persistent cms (second pass after translation drift): %v", err)
+	}
+
+	var contentCount int
+	if err := db.NewSelect().
+		Table("contents").
+		ColumnExpr("COUNT(1)").
+		Where("slug = ?", "translation-missing-fr").
+		Scan(ctx, &contentCount); err != nil {
+		t.Fatalf("count translation-missing-fr contents: %v", err)
+	}
+	if contentCount != 1 {
+		t.Fatalf("expected exactly one translation-missing-fr content row after repair, got %d", contentCount)
+	}
+
+	pageLocales := translationFixtureLocales(t, ctx, db, "page_translations", "translation-missing-fr")
+	if got, want := strings.Join(pageLocales, ","), "en,es"; got != want {
+		t.Fatalf("expected translation-missing-fr page locales %q after repair, got %q", want, got)
+	}
+
+	contentLocales := translationFixtureLocales(t, ctx, db, "content_translations", "translation-missing-fr")
+	if got, want := strings.Join(contentLocales, ","), "en,es"; got != want {
+		t.Fatalf("expected translation-missing-fr content locales %q after repair, got %q", want, got)
 	}
 }
 

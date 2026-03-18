@@ -287,6 +287,54 @@ func TestAdminSmokeRecipientLinksReturnsCapturedInvitationLink(t *testing.T) {
 	}
 }
 
+func TestAdminSmokeRecipientLinksReturnsCapturedReviewLink(t *testing.T) {
+	jobs.ResetCapturedRecipientLinks()
+	t.Cleanup(jobs.ResetCapturedRecipientLinks)
+
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	jobs.CaptureRecipientLink(jobs.EmailSendInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID: "agreement-1",
+		},
+		Recipient: stores.RecipientRecord{
+			ID:    "participant-1",
+			Email: "reviewer@example.test",
+		},
+		TemplateCode:  "esign.review_invitation",
+		Notification:  "review_invitation",
+		ReviewURL:     "https://esign.test/sign/review-token-1",
+		CorrelationID: "corr-review-smoke-1",
+	})
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=participant-1&notification=review_invitation", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	link, ok := payload["link"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected link payload, got %+v", payload["link"])
+	}
+	if link["review_url"] != "https://esign.test/sign/review-token-1" {
+		t.Fatalf("expected captured review_url, got %+v", link["review_url"])
+	}
+	if link["notification"] != "review_invitation" {
+		t.Fatalf("expected review_invitation notification, got %+v", link["notification"])
+	}
+}
+
 func TestAdminSmokeRecipientLinksReturnsTyped404WhenUnavailable(t *testing.T) {
 	jobs.ResetCapturedRecipientLinks()
 	t.Cleanup(jobs.ResetCapturedRecipientLinks)

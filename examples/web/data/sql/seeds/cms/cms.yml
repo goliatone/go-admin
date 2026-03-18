@@ -302,9 +302,11 @@
     - id: '{{ hashid "content_translation:welcome-post:en" }}'
       content_id: '{{ hashid "content:welcome-post" }}'
       locale_id: "e5540cdd-38f9-5149-828a-de16f7ad2476"
+      family_id: "11111111-1111-1111-1111-111111111213"
       title: "Welcome Post"
       summary: "Getting started with the CMS"
       content:
+        family_id: "11111111-1111-1111-1111-111111111213"
         path: "/posts/welcome-post"
         meta_title: "Welcome Post"
         meta_description: "Getting started with the CMS"
@@ -350,6 +352,7 @@
             title: "Welcome Post"
             summary: "Getting started with the CMS"
             content:
+              family_id: "11111111-1111-1111-1111-111111111213"
               path: "/posts/welcome-post"
               meta_title: "Welcome Post"
               meta_description: "Getting started with the CMS"

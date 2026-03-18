@@ -15,24 +15,25 @@ import (
 const GuardedEffectGroupTypeAgreement = "agreement"
 
 type AgreementNotificationEffectDetail struct {
-	EffectID      string     `json:"effect_id"`
-	GroupType     string     `json:"group_type,omitempty"`
-	GroupID       string     `json:"group_id,omitempty"`
-	Kind          string     `json:"kind"`
-	RecipientID   string     `json:"recipient_id,omitempty"`
-	Notification  string     `json:"notification,omitempty"`
-	Status        string     `json:"status"`
-	DispatchID    string     `json:"dispatch_id,omitempty"`
-	CorrelationID string     `json:"correlation_id,omitempty"`
-	Error         string     `json:"error,omitempty"`
-	AttemptCount  int        `json:"attempt_count"`
-	MaxAttempts   int        `json:"max_attempts"`
-	UpdatedAt     time.Time  `json:"updated_at"`
-	DispatchedAt  *time.Time `json:"dispatched_at,omitempty"`
-	FinalizedAt   *time.Time `json:"finalized_at,omitempty"`
-	AbortedAt     *time.Time `json:"aborted_at,omitempty"`
-	RetryAt       *time.Time `json:"retry_at,omitempty"`
-	Resumable     bool       `json:"resumable"`
+	EffectID            string     `json:"effect_id"`
+	GroupType           string     `json:"group_type,omitempty"`
+	GroupID             string     `json:"group_id,omitempty"`
+	Kind                string     `json:"kind"`
+	RecipientID         string     `json:"recipient_id,omitempty"`
+	ReviewParticipantID string     `json:"review_participant_id,omitempty"`
+	Notification        string     `json:"notification,omitempty"`
+	Status              string     `json:"status"`
+	DispatchID          string     `json:"dispatch_id,omitempty"`
+	CorrelationID       string     `json:"correlation_id,omitempty"`
+	Error               string     `json:"error,omitempty"`
+	AttemptCount        int        `json:"attempt_count"`
+	MaxAttempts         int        `json:"max_attempts"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	DispatchedAt        *time.Time `json:"dispatched_at,omitempty"`
+	FinalizedAt         *time.Time `json:"finalized_at,omitempty"`
+	AbortedAt           *time.Time `json:"aborted_at,omitempty"`
+	RetryAt             *time.Time `json:"retry_at,omitempty"`
+	Resumable           bool       `json:"resumable"`
 }
 
 type AgreementNotificationSummary struct {
@@ -71,6 +72,7 @@ type AgreementDeliveryResumeResult struct {
 type AgreementNotificationRecoveryService struct {
 	store                stores.Store
 	tokens               AgreementTokenService
+	reviewTokens         AgreementReviewTokenService
 	notificationDispatch AgreementNotificationDispatchTrigger
 	now                  func() time.Time
 }
@@ -92,6 +94,15 @@ func WithAgreementNotificationRecoveryDispatch(trigger AgreementNotificationDisp
 			return
 		}
 		s.notificationDispatch = trigger
+	}
+}
+
+func WithAgreementNotificationRecoveryReviewTokens(tokens AgreementReviewTokenService) AgreementNotificationRecoveryOption {
+	return func(s *AgreementNotificationRecoveryService) {
+		if s == nil || tokens == nil {
+			return
+		}
+		s.reviewTokens = tokens
 	}
 }
 
@@ -131,9 +142,27 @@ func (s AgreementNotificationRecoveryService) tokensForTx(tx stores.TxStore) Agr
 	}
 }
 
+func (s AgreementNotificationRecoveryService) reviewTokensForTx(tx stores.TxStore) AgreementReviewTokenService {
+	if tx == nil {
+		return s.reviewTokens
+	}
+	switch typed := s.reviewTokens.(type) {
+	case stores.ReviewSessionTokenService:
+		return typed.ForTx(tx)
+	case *stores.ReviewSessionTokenService:
+		return typed.ForTx(tx)
+	case interface {
+		ForTx(tx stores.TxStore) AgreementReviewTokenService
+	}:
+		return typed.ForTx(tx)
+	default:
+		return stores.NewReviewSessionTokenService(tx)
+	}
+}
+
 func isAgreementNotificationEffectKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case GuardedEffectKindAgreementSendInvitation, GuardedEffectKindAgreementResendReminder:
+	case GuardedEffectKindAgreementSendInvitation, GuardedEffectKindAgreementResendReminder, GuardedEffectKindAgreementReviewInvite:
 		return true
 	default:
 		return false
@@ -148,10 +177,14 @@ func agreementNotificationTypeFromPreparePayload(payload agreementNotificationEf
 		return NotificationSigningReminder
 	case string(NotificationCompletionPackage):
 		return NotificationCompletionPackage
+	case string(NotificationReviewInvitation):
+		return NotificationReviewInvitation
 	}
 	switch strings.TrimSpace(kind) {
 	case GuardedEffectKindAgreementResendReminder:
 		return NotificationSigningReminder
+	case GuardedEffectKindAgreementReviewInvite:
+		return NotificationReviewInvitation
 	default:
 		return NotificationSigningInvitation
 	}
@@ -231,27 +264,65 @@ func agreementNotificationPayload(record guardedeffects.Record) agreementNotific
 	return payload
 }
 
+func loadReviewNotificationParticipant(
+	ctx context.Context,
+	agreements stores.AgreementStore,
+	scope stores.Scope,
+	agreementID, reviewID, participantID string,
+) (stores.AgreementReviewParticipantRecord, error) {
+	if agreements == nil {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "store", "not configured")
+	}
+	participantID = strings.TrimSpace(participantID)
+	if participantID == "" {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_review_participants", "id", "required")
+	}
+	reviewID = strings.TrimSpace(reviewID)
+	if reviewID == "" {
+		review, err := agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+		if err != nil {
+			return stores.AgreementReviewParticipantRecord{}, err
+		}
+		reviewID = strings.TrimSpace(review.ID)
+	}
+	participants, err := agreements.ListAgreementReviewParticipants(ctx, scope, reviewID)
+	if err != nil {
+		return stores.AgreementReviewParticipantRecord{}, err
+	}
+	for _, participant := range participants {
+		if strings.TrimSpace(participant.ID) == participantID {
+			return participant, nil
+		}
+	}
+	return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_review_participants", "id", "participant not found")
+}
+
 func AgreementNotificationEffectDetailFromRecord(record guardedeffects.Record) AgreementNotificationEffectDetail {
 	payload := agreementNotificationPayload(record)
+	reviewParticipantID := strings.TrimSpace(payload.ReviewParticipantID)
+	if reviewParticipantID == "" && strings.EqualFold(strings.TrimSpace(record.SubjectType), "agreement_review_participant_notification") {
+		reviewParticipantID = strings.TrimSpace(record.SubjectID)
+	}
 	return AgreementNotificationEffectDetail{
-		EffectID:      strings.TrimSpace(record.EffectID),
-		GroupType:     strings.TrimSpace(record.GroupType),
-		GroupID:       strings.TrimSpace(record.GroupID),
-		Kind:          strings.TrimSpace(record.Kind),
-		RecipientID:   firstNonEmpty(strings.TrimSpace(payload.RecipientID), strings.TrimSpace(record.SubjectID)),
-		Notification:  strings.TrimSpace(payload.Notification),
-		Status:        guardedeffects.NormalizeStatus(record.Status),
-		DispatchID:    strings.TrimSpace(record.DispatchID),
-		CorrelationID: strings.TrimSpace(record.CorrelationID),
-		Error:         strings.TrimSpace(record.ErrorJSON),
-		AttemptCount:  record.AttemptCount,
-		MaxAttempts:   record.MaxAttempts,
-		UpdatedAt:     record.UpdatedAt.UTC(),
-		DispatchedAt:  cloneAgreementTime(record.DispatchedAt),
-		FinalizedAt:   cloneAgreementTime(record.FinalizedAt),
-		AbortedAt:     cloneAgreementTime(record.AbortedAt),
-		RetryAt:       cloneAgreementTime(record.RetryAt),
-		Resumable:     canResumeAgreementNotificationEffect(record),
+		EffectID:            strings.TrimSpace(record.EffectID),
+		GroupType:           strings.TrimSpace(record.GroupType),
+		GroupID:             strings.TrimSpace(record.GroupID),
+		Kind:                strings.TrimSpace(record.Kind),
+		RecipientID:         strings.TrimSpace(payload.RecipientID),
+		ReviewParticipantID: reviewParticipantID,
+		Notification:        strings.TrimSpace(payload.Notification),
+		Status:              guardedeffects.NormalizeStatus(record.Status),
+		DispatchID:          strings.TrimSpace(record.DispatchID),
+		CorrelationID:       strings.TrimSpace(record.CorrelationID),
+		Error:               strings.TrimSpace(record.ErrorJSON),
+		AttemptCount:        record.AttemptCount,
+		MaxAttempts:         record.MaxAttempts,
+		UpdatedAt:           record.UpdatedAt.UTC(),
+		DispatchedAt:        cloneAgreementTime(record.DispatchedAt),
+		FinalizedAt:         cloneAgreementTime(record.FinalizedAt),
+		AbortedAt:           cloneAgreementTime(record.AbortedAt),
+		RetryAt:             cloneAgreementTime(record.RetryAt),
+		Resumable:           canResumeAgreementNotificationEffect(record),
 	}
 }
 
@@ -262,11 +333,15 @@ func compatibilityDeliveryEffect(records []guardedeffects.Record, summaryStatus 
 	summaryStatus = guardedeffects.NormalizeStatus(summaryStatus)
 	recipientIDs := make(map[string]struct{}, len(records))
 	for _, record := range records {
-		recipientID := strings.TrimSpace(firstNonEmpty(agreementNotificationPayload(record).RecipientID, record.SubjectID))
-		if recipientID == "" {
+		subjectID := strings.TrimSpace(firstNonEmpty(
+			agreementNotificationPayload(record).RecipientID,
+			agreementNotificationPayload(record).ReviewParticipantID,
+			record.SubjectID,
+		))
+		if subjectID == "" {
 			continue
 		}
-		recipientIDs[recipientID] = struct{}{}
+		recipientIDs[subjectID] = struct{}{}
 	}
 	if len(recipientIDs) <= 1 {
 		return strings.TrimSpace(records[0].EffectID)
@@ -405,9 +480,6 @@ func (s AgreementNotificationRecoveryService) ResumeEffect(
 	if s.store == nil {
 		return GuardedEffectResumeResult{}, domainValidationError("guarded_effects", "store", "not configured")
 	}
-	if s.tokens == nil {
-		return GuardedEffectResumeResult{}, domainValidationError("signing_tokens", "service", "not configured")
-	}
 	effectID = strings.TrimSpace(effectID)
 	if effectID == "" {
 		return GuardedEffectResumeResult{}, domainValidationError("guarded_effects", "effect_id", "required")
@@ -418,7 +490,7 @@ func (s AgreementNotificationRecoveryService) ResumeEffect(
 		if innerErr != nil {
 			return innerErr
 		}
-		detail, agreementID, innerErr := s.resumeAgreementNotificationEffect(ctx, tx, s.tokensForTx(tx), scope, record, input)
+		detail, agreementID, innerErr := s.resumeAgreementNotificationEffect(ctx, tx, s.tokensForTx(tx), s.reviewTokensForTx(tx), scope, record, input)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -443,9 +515,6 @@ func (s AgreementNotificationRecoveryService) ResumeAgreementDelivery(
 	if s.store == nil {
 		return AgreementDeliveryResumeResult{}, domainValidationError("guarded_effects", "store", "not configured")
 	}
-	if s.tokens == nil {
-		return AgreementDeliveryResumeResult{}, domainValidationError("signing_tokens", "service", "not configured")
-	}
 	agreementID = strings.TrimSpace(agreementID)
 	if agreementID == "" {
 		return AgreementDeliveryResumeResult{}, domainValidationError("agreements", "id", "required")
@@ -461,7 +530,7 @@ func (s AgreementNotificationRecoveryService) ResumeAgreementDelivery(
 			if !canResumeAgreementNotificationEffect(record) {
 				continue
 			}
-			detail, _, resumeErr := s.resumeAgreementNotificationEffect(ctx, tx, s.tokensForTx(tx), scope, record, GuardedEffectResumeInput{
+			detail, _, resumeErr := s.resumeAgreementNotificationEffect(ctx, tx, s.tokensForTx(tx), s.reviewTokensForTx(tx), scope, record, GuardedEffectResumeInput{
 				ActorID:       strings.TrimSpace(input.ActorID),
 				CorrelationID: strings.TrimSpace(input.CorrelationID),
 			})
@@ -496,6 +565,7 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 	ctx context.Context,
 	tx stores.TxStore,
 	tokens AgreementTokenService,
+	reviewTokens AgreementReviewTokenService,
 	scope stores.Scope,
 	record guardedeffects.Record,
 	input GuardedEffectResumeInput,
@@ -505,33 +575,70 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 	}
 	payload := agreementNotificationPayload(record)
 	agreementID := strings.TrimSpace(firstNonEmpty(payload.AgreementID, record.GroupID))
-	recipientID := strings.TrimSpace(firstNonEmpty(payload.RecipientID, record.SubjectID))
-	if agreementID == "" || recipientID == "" {
-		return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing agreement or recipient")
-	}
-	if pendingTokenID := strings.TrimSpace(payload.PendingTokenID); pendingTokenID != "" {
-		_, _ = tokens.AbortPending(ctx, scope, pendingTokenID)
-	}
-	issued, err := tokens.IssuePending(ctx, scope, agreementID, recipientID)
-	if err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+	recipientID := strings.TrimSpace(payload.RecipientID)
+	reviewParticipantID := strings.TrimSpace(firstNonEmpty(payload.ReviewParticipantID, record.SubjectID))
+	if agreementID == "" {
+		return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing agreement")
 	}
 	now := s.now().UTC()
 	correlationID := strings.TrimSpace(firstNonEmpty(input.CorrelationID, record.CorrelationID, record.EffectID))
+	notificationType := agreementNotificationTypeFromPreparePayload(payload, record.Kind)
 	notification := AgreementNotification{
-		AgreementID:   agreementID,
-		RecipientID:   recipientID,
-		EffectID:      strings.TrimSpace(record.EffectID),
-		CorrelationID: correlationID,
-		Type:          agreementNotificationTypeFromPreparePayload(payload, record.Kind),
-		Token:         issued,
+		AgreementID:         agreementID,
+		ReviewID:            strings.TrimSpace(payload.ReviewID),
+		RecipientID:         recipientID,
+		ReviewParticipantID: reviewParticipantID,
+		EffectID:            strings.TrimSpace(record.EffectID),
+		CorrelationID:       correlationID,
+		Type:                notificationType,
+	}
+	switch notificationType {
+	case NotificationReviewInvitation:
+		if reviewParticipantID == "" {
+			return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing review participant")
+		}
+		participant, err := loadReviewNotificationParticipant(ctx, tx, scope, agreementID, notification.ReviewID, reviewParticipantID)
+		if err != nil {
+			return AgreementNotificationEffectDetail{}, "", err
+		}
+		if notification.ReviewID == "" {
+			notification.ReviewID = strings.TrimSpace(participant.ReviewID)
+		}
+		notification.RecipientID = strings.TrimSpace(participant.RecipientID)
+		notification.RecipientEmail = strings.TrimSpace(participant.Email)
+		notification.RecipientName = strings.TrimSpace(participant.DisplayName)
+		if reviewTokens == nil {
+			return AgreementNotificationEffectDetail{}, "", domainValidationError("review_session_tokens", "service", "not configured")
+		}
+		issued, err := reviewTokens.Rotate(ctx, scope, agreementID, notification.ReviewID, reviewParticipantID)
+		if err != nil {
+			return AgreementNotificationEffectDetail{}, "", err
+		}
+		notification.ReviewToken = issued
+	default:
+		if recipientID == "" {
+			return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing agreement recipient")
+		}
+		if tokens == nil {
+			return AgreementNotificationEffectDetail{}, "", domainValidationError("signing_tokens", "service", "not configured")
+		}
+		if pendingTokenID := strings.TrimSpace(payload.PendingTokenID); pendingTokenID != "" {
+			_, _ = tokens.AbortPending(ctx, scope, pendingTokenID)
+		}
+		issued, err := tokens.IssuePending(ctx, scope, agreementID, recipientID)
+		if err != nil {
+			return AgreementNotificationEffectDetail{}, "", err
+		}
+		notification.Token = issued
 	}
 	preparePayload, err := json.Marshal(agreementNotificationEffectPreparePayload{
-		AgreementID:       agreementID,
-		RecipientID:       recipientID,
-		PendingTokenID:    strings.TrimSpace(issued.Record.ID),
-		Notification:      strings.TrimSpace(firstNonEmpty(payload.Notification, string(notification.Type))),
-		FailureAuditEvent: strings.TrimSpace(payload.FailureAuditEvent),
+		AgreementID:         agreementID,
+		ReviewID:            strings.TrimSpace(notification.ReviewID),
+		RecipientID:         strings.TrimSpace(notification.RecipientID),
+		ReviewParticipantID: strings.TrimSpace(notification.ReviewParticipantID),
+		PendingTokenID:      strings.TrimSpace(notification.Token.Record.ID),
+		Notification:        strings.TrimSpace(firstNonEmpty(payload.Notification, string(notification.Type))),
+		FailureAuditEvent:   strings.TrimSpace(payload.FailureAuditEvent),
 	})
 	if err != nil {
 		return AgreementNotificationEffectDetail{}, "", err
@@ -564,11 +671,12 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 		return AgreementNotificationEffectDetail{}, "", err
 	}
 	metadata, _ := json.Marshal(map[string]any{
-		"effect_id":      strings.TrimSpace(saved.EffectID),
-		"recipient_id":   recipientID,
-		"notification":   strings.TrimSpace(payload.Notification),
-		"resumed_by":     strings.TrimSpace(input.ActorID),
-		"correlation_id": correlationID,
+		"effect_id":             strings.TrimSpace(saved.EffectID),
+		"recipient_id":          strings.TrimSpace(notification.RecipientID),
+		"review_participant_id": strings.TrimSpace(notification.ReviewParticipantID),
+		"notification":          strings.TrimSpace(payload.Notification),
+		"resumed_by":            strings.TrimSpace(input.ActorID),
+		"correlation_id":        correlationID,
 	})
 	actorType := "admin"
 	if strings.TrimSpace(input.ActorID) == "" {

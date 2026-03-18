@@ -16,15 +16,13 @@ import (
 )
 
 const (
-	exampleTranslationQueueSourceSlug   = "translation-missing-fr"
+	exampleTranslationQueueSourceSlug   = "translation-demo-exchange"
 	exampleTranslationQueuePostSource   = "translation-demo-queue-active"
 	exampleTranslationQueueOpenPoolSlug = "translation-exchange-ready"
 	exampleTranslationQueueTargetLocale = "fr"
 	exampleTranslationQueueFallbackUser = "translator.demo"
 	exampleTranslationQAAssignmentID    = "tqa_editor"
 )
-
-var exampleTranslationQueueTargetLocales = []string{"fr", "es", "de", "it", "pt", "ja"}
 
 type exampleTranslationExchangeStore struct {
 	resolveContentService func() coreadmin.CMSContentService
@@ -341,6 +339,18 @@ func seedExampleTranslationQueueFixture(
 	orgID string,
 	assigneeIDs ...string,
 ) error {
+	return seedExampleTranslationQueueFixtureWithFamilySync(ctx, repo, contentSvc, tenantID, orgID, nil, assigneeIDs...)
+}
+
+func seedExampleTranslationQueueFixtureWithFamilySync(
+	ctx context.Context,
+	repo coreadmin.TranslationAssignmentRepository,
+	contentSvc coreadmin.CMSContentService,
+	tenantID string,
+	orgID string,
+	syncFamilies func(context.Context) error,
+	assigneeIDs ...string,
+) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -354,6 +364,9 @@ func seedExampleTranslationQueueFixture(
 	assignees := normalizeQueueFixtureAssignees(assigneeIDs)
 	if len(assignees) == 0 {
 		assignees = []string{exampleTranslationQueueFallbackUser}
+	}
+	if _, bunRepo := repo.(*coreadmin.BunTranslationAssignmentRepository); bunRepo {
+		return seedPersistentQueueFixture(ctx, repo, contentSvc, tenantID, orgID, syncFamilies, assigneeIDs...)
 	}
 
 	sourcePage, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
@@ -377,155 +390,154 @@ func seedExampleTranslationQueueFixture(
 	primarySourcePath := strings.TrimSpace(exchangePagePath(*sourcePage))
 	primaryTitle := strings.TrimSpace(sourcePage.Title)
 
-	editorSource, err := findPageBySlug(ctx, contentSvc, "home")
-	if err != nil {
-		return fmt.Errorf("translation editor qa source page lookup failed: %w", err)
-	}
-	if editorSource != nil {
-		editorSource, err = ensureScopedPageFamily(ctx, contentSvc, editorSource, tenantID, orgID)
+	if _, bunRepo := repo.(*coreadmin.BunTranslationAssignmentRepository); !bunRepo {
+		editorSource, err := findPageBySlug(ctx, contentSvc, "home")
 		if err != nil {
-			return fmt.Errorf("translation editor qa source page scope update failed: %w", err)
+			return fmt.Errorf("translation editor qa source page lookup failed: %w", err)
 		}
-		editorGroupID := normalizeFamilyID(editorSource.FamilyID, editorSource.ID)
-		editorTarget, targetErr := findPageLocaleVariantForSource(ctx, contentSvc, editorSource, editorGroupID, "fr")
-		if targetErr != nil {
-			return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
-		}
-		if editorTarget != nil && !matchesTranslationGroup(editorGroupID, editorTarget.FamilyID) {
-			repairedTarget := cloneCMSPage(*editorTarget)
-			repairedTarget.FamilyID = editorGroupID
-			editorTarget, err = contentSvc.UpdatePage(ctx, repairedTarget)
+		if editorSource != nil {
+			editorSource, err = ensureScopedPageFamily(ctx, contentSvc, editorSource, tenantID, orgID)
 			if err != nil {
-				return fmt.Errorf("translation editor qa target page family repair failed: %w", err)
+				return fmt.Errorf("translation editor qa source page scope update failed: %w", err)
 			}
-		}
-		if editorTarget == nil && strings.TrimSpace(editorGroupID) != "" {
-			createdTarget, createErr := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
-				ID:       ensureLocaleSlug(strings.TrimSpace(editorSource.ID), "fr"),
-				Title:    "Guide d'accueil",
-				Slug:     ensureLocaleSlug(strings.TrimSpace(editorSource.Slug), "fr"),
-				Locale:   "fr",
-				FamilyID: editorGroupID,
-				Status:   "draft",
-				Data: map[string]any{
-					"path": ensureLocaleSlug(strings.TrimSpace(exchangePagePath(*editorSource)), "fr"),
-					"body": "Publier la traduction depuis l'accueil.",
-				},
-				Metadata: map[string]any{
-					"tenant_id": strings.TrimSpace(tenantID),
-					"org_id":    strings.TrimSpace(orgID),
-				},
-			})
-			if createErr != nil {
-				return fmt.Errorf("translation editor qa target page create failed: %w", createErr)
+			editorGroupID := normalizeFamilyID(editorSource.FamilyID, editorSource.ID)
+			editorTarget, targetErr := findPageLocaleVariantForSource(ctx, contentSvc, editorSource, editorGroupID, "fr")
+			if targetErr != nil {
+				return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
 			}
-			editorTarget = createdTarget
-		}
-		if editorTarget != nil {
-			editorTarget, err = ensureScopedPage(ctx, contentSvc, editorTarget, tenantID, orgID)
-			if err != nil {
-				return fmt.Errorf("translation editor qa target page scope update failed: %w", err)
+			if editorTarget != nil && !matchesTranslationGroup(editorGroupID, editorTarget.FamilyID) {
+				repairedTarget := cloneCMSPage(*editorTarget)
+				repairedTarget.FamilyID = editorGroupID
+				editorTarget, err = contentSvc.UpdatePage(ctx, repairedTarget)
+				if err != nil {
+					return fmt.Errorf("translation editor qa target page family repair failed: %w", err)
+				}
 			}
-		}
-		if editorTarget != nil && strings.TrimSpace(editorGroupID) != "" {
-			staleSourceFields := map[string]string{
-				"title": strings.TrimSpace(editorSource.Title),
-				"path":  strings.TrimSpace(exchangePagePath(*editorSource)),
-				"body":  "Older home page source snapshot.",
+			if editorTarget == nil && strings.TrimSpace(editorGroupID) != "" {
+				createdTarget, createErr := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+					ID:       ensureLocaleSlug(strings.TrimSpace(editorSource.ID), "fr"),
+					Title:    "Guide d'accueil",
+					Slug:     ensureLocaleSlug(strings.TrimSpace(editorSource.Slug), "fr"),
+					Locale:   "fr",
+					FamilyID: editorGroupID,
+					Status:   "draft",
+					Data: map[string]any{
+						"path": ensureLocaleSlug(strings.TrimSpace(exchangePagePath(*editorSource)), "fr"),
+						"body": "Publier la traduction depuis l'accueil.",
+					},
+					Metadata: map[string]any{
+						"tenant_id": strings.TrimSpace(tenantID),
+						"org_id":    strings.TrimSpace(orgID),
+					},
+				})
+				if createErr != nil {
+					return fmt.Errorf("translation editor qa target page create failed: %w", createErr)
+				}
+				editorTarget = createdTarget
 			}
-			sourceFields := fixtureTranslationFields(editorSource.Title, editorSource.Slug, editorSource.Data)
-			editorTargetMetadata := cloneAnyMap(editorTarget.Metadata)
-			if editorTargetMetadata == nil {
-				editorTargetMetadata = map[string]any{}
+			if editorTarget != nil {
+				editorTarget, err = ensureScopedPage(ctx, contentSvc, editorTarget, tenantID, orgID)
+				if err != nil {
+					return fmt.Errorf("translation editor qa target page scope update failed: %w", err)
+				}
 			}
-			editorTargetMetadata["attachments"] = []any{
-				map[string]any{
-					"id":          "asset-qa-1",
-					"kind":        "reference",
-					"filename":    "homepage-brief.pdf",
-					"byte_size":   2048,
-					"uploaded_at": now.Add(-2 * time.Hour).Format(time.RFC3339),
-					"description": "Homepage localization brief",
-					"url":         "/media/homepage-brief.pdf",
-				},
-				map[string]any{
-					"id":          "asset-qa-2",
-					"kind":        "terminology",
-					"filename":    "glossary.csv",
-					"byte_size":   1024,
-					"uploaded_at": now.Add(-26 * time.Hour).Format(time.RFC3339),
-					"description": "Approved glossary extract",
-					"url":         "/media/glossary.csv",
-				},
-			}
-			editorTargetMetadata["translation_editor"] = map[string]any{
-				"row_version":               3,
-				"source_hash_at_last_sync":  translationEditorHashFields(staleSourceFields),
-				"last_synced_source_fields": cloneStringMapToAny(staleSourceFields),
-				"last_saved_at":             now.Add(-15 * time.Minute).Format(time.RFC3339),
-				"last_saved_by":             assignees[0],
-			}
-			editorTargetMetadata["source_hash_at_last_sync"] = translationEditorHashFields(staleSourceFields)
-			editorTargetUpdated := cloneCMSPage(*editorTarget)
-			editorTargetUpdated.Metadata = editorTargetMetadata
-			editorTargetUpdated.Title = strings.TrimSpace(firstNonEmpty(editorTargetUpdated.Title, "Guide d'accueil"))
-			if editorTargetUpdated.Data == nil {
-				editorTargetUpdated.Data = map[string]any{}
-			}
-			if strings.TrimSpace(fmt.Sprint(editorTargetUpdated.Data["body"])) == "" {
-				editorTargetUpdated.Data["body"] = "Publier la traduction depuis l'accueil."
-			}
-			if _, updateErr := contentSvc.UpdatePage(ctx, editorTargetUpdated); updateErr != nil {
-				return fmt.Errorf("translation editor qa target page metadata update failed: %w", updateErr)
-			}
-			editorAssignment := coreadmin.TranslationAssignment{
-				ID:                  exampleTranslationQAAssignmentID,
-				FamilyID:            editorGroupID,
-				EntityType:          "pages",
-				TenantID:            strings.TrimSpace(tenantID),
-				OrgID:               strings.TrimSpace(orgID),
-				SourceRecordID:      strings.TrimSpace(editorSource.ID),
-				SourceLocale:        strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
-				TargetLocale:        "fr",
-				TargetRecordID:      strings.TrimSpace(editorTarget.ID),
-				AssignmentType:      coreadmin.AssignmentTypeDirect,
-				Status:              coreadmin.AssignmentStatusReview,
-				Priority:            coreadmin.PriorityHigh,
-				AssigneeID:          assignees[0],
-				ReviewerID:          assignees[0],
-				SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
-				SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
-				LastRejectionReason: "Please tighten the CTA tone.",
-				ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
-				SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
-			}
-			if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
-				return err
+			if editorTarget != nil && strings.TrimSpace(editorGroupID) != "" {
+				staleSourceFields := map[string]string{
+					"title": strings.TrimSpace(editorSource.Title),
+					"path":  strings.TrimSpace(exchangePagePath(*editorSource)),
+					"body":  "Older home page source snapshot.",
+				}
+				sourceFields := fixtureTranslationFields(editorSource.Title, editorSource.Slug, editorSource.Data)
+				editorTargetMetadata := cloneAnyMap(editorTarget.Metadata)
+				if editorTargetMetadata == nil {
+					editorTargetMetadata = map[string]any{}
+				}
+				editorTargetMetadata["attachments"] = []any{
+					map[string]any{
+						"id":          "asset-qa-1",
+						"kind":        "reference",
+						"filename":    "homepage-brief.pdf",
+						"byte_size":   2048,
+						"uploaded_at": now.Add(-2 * time.Hour).Format(time.RFC3339),
+						"description": "Homepage localization brief",
+						"url":         "/media/homepage-brief.pdf",
+					},
+					map[string]any{
+						"id":          "asset-qa-2",
+						"kind":        "terminology",
+						"filename":    "glossary.csv",
+						"byte_size":   1024,
+						"uploaded_at": now.Add(-26 * time.Hour).Format(time.RFC3339),
+						"description": "Approved glossary extract",
+						"url":         "/media/glossary.csv",
+					},
+				}
+				editorTargetMetadata["translation_editor"] = map[string]any{
+					"row_version":               3,
+					"source_hash_at_last_sync":  translationEditorHashFields(staleSourceFields),
+					"last_synced_source_fields": cloneStringMapToAny(staleSourceFields),
+					"last_saved_at":             now.Add(-15 * time.Minute).Format(time.RFC3339),
+					"last_saved_by":             assignees[0],
+				}
+				editorTargetMetadata["source_hash_at_last_sync"] = translationEditorHashFields(staleSourceFields)
+				editorTargetUpdated := cloneCMSPage(*editorTarget)
+				editorTargetUpdated.Metadata = editorTargetMetadata
+				editorTargetUpdated.Title = strings.TrimSpace(firstNonEmpty(editorTargetUpdated.Title, "Guide d'accueil"))
+				if editorTargetUpdated.Data == nil {
+					editorTargetUpdated.Data = map[string]any{}
+				}
+				if strings.TrimSpace(fmt.Sprint(editorTargetUpdated.Data["body"])) == "" {
+					editorTargetUpdated.Data["body"] = "Publier la traduction depuis l'accueil."
+				}
+				if _, updateErr := contentSvc.UpdatePage(ctx, editorTargetUpdated); updateErr != nil {
+					return fmt.Errorf("translation editor qa target page metadata update failed: %w", updateErr)
+				}
+				editorAssignment := coreadmin.TranslationAssignment{
+					ID:                  exampleTranslationQAAssignmentID,
+					FamilyID:            editorGroupID,
+					EntityType:          "pages",
+					TenantID:            strings.TrimSpace(tenantID),
+					OrgID:               strings.TrimSpace(orgID),
+					SourceRecordID:      strings.TrimSpace(editorSource.ID),
+					SourceLocale:        strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
+					TargetLocale:        "fr",
+					TargetRecordID:      strings.TrimSpace(editorTarget.ID),
+					AssignmentType:      coreadmin.AssignmentTypeDirect,
+					Status:              coreadmin.AssignmentStatusReview,
+					Priority:            coreadmin.PriorityHigh,
+					AssigneeID:          assignees[0],
+					ReviewerID:          assignees[0],
+					SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
+					SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
+					LastRejectionReason: "Please tighten the CTA tone.",
+					ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
+					SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
+				}
+				if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	for index, assigneeID := range assignees {
-		targetLocale := exampleTranslationQueueTargetLocales[index%len(exampleTranslationQueueTargetLocales)]
-		inProgress := coreadmin.TranslationAssignment{
-			FamilyID:       primaryGroupID,
-			EntityType:     "pages",
-			TenantID:       strings.TrimSpace(tenantID),
-			OrgID:          strings.TrimSpace(orgID),
-			SourceRecordID: strings.TrimSpace(sourcePage.ID),
-			SourceLocale:   primarySourceLocale,
-			TargetLocale:   targetLocale,
-			SourceTitle:    primaryTitle,
-			SourcePath:     primarySourcePath,
-			AssignmentType: coreadmin.AssignmentTypeDirect,
-			Status:         coreadmin.AssignmentStatusInProgress,
-			Priority:       coreadmin.PriorityHigh,
-			AssigneeID:     assigneeID,
-			ClaimedAt:      fixtureTimePtr(now),
-		}
-		if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
-			return err
-		}
+	inProgress := coreadmin.TranslationAssignment{
+		FamilyID:       primaryGroupID,
+		EntityType:     "pages",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(sourcePage.ID),
+		SourceLocale:   primarySourceLocale,
+		TargetLocale:   exampleTranslationQueueTargetLocale,
+		SourceTitle:    primaryTitle,
+		SourcePath:     primarySourcePath,
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInProgress,
+		Priority:       coreadmin.PriorityHigh,
+		AssigneeID:     assignees[0],
+		ClaimedAt:      fixtureTimePtr(now),
+	}
+	if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
+		return err
 	}
 
 	postSource, postErr := findPostBySlug(ctx, contentSvc, exampleTranslationQueuePostSource)
@@ -577,7 +589,7 @@ func seedExampleTranslationQueueFixture(
 		OrgID:          strings.TrimSpace(orgID),
 		SourceRecordID: strings.TrimSpace(postSource.ID),
 		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
-		TargetLocale:   "nl",
+		TargetLocale:   "es",
 		SourceTitle:    strings.TrimSpace(postSource.Title),
 		SourcePath:     strings.TrimSpace(postAssignment.SourcePath),
 		AssignmentType: coreadmin.AssignmentTypeDirect,
@@ -599,7 +611,7 @@ func seedExampleTranslationQueueFixture(
 		OrgID:          strings.TrimSpace(orgID),
 		SourceRecordID: strings.TrimSpace(sourcePage.ID),
 		SourceLocale:   primarySourceLocale,
-		TargetLocale:   "sv",
+		TargetLocale:   "es",
 		SourceTitle:    primaryTitle,
 		SourcePath:     primarySourcePath,
 		AssignmentType: coreadmin.AssignmentTypeDirect,
@@ -630,7 +642,7 @@ func seedExampleTranslationQueueFixture(
 		OrgID:          strings.TrimSpace(orgID),
 		SourceRecordID: strings.TrimSpace(openPoolSource.ID),
 		SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolSource.Locale, "en"))),
-		TargetLocale:   "ja",
+		TargetLocale:   "fr",
 		SourceTitle:    strings.TrimSpace(openPoolSource.Title),
 		SourcePath:     strings.TrimSpace(exchangePagePath(*openPoolSource)),
 		AssignmentType: coreadmin.AssignmentTypeOpenPool,
@@ -647,10 +659,383 @@ func seedExampleTranslationQueueFixture(
 	return nil
 }
 
+func seedPersistentQueueFixture(
+	ctx context.Context,
+	repo coreadmin.TranslationAssignmentRepository,
+	contentSvc coreadmin.CMSContentService,
+	tenantID string,
+	orgID string,
+	syncFamilies func(context.Context) error,
+	assigneeIDs ...string,
+) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if repo == nil {
+		return fmt.Errorf("translation queue fixture repository is required")
+	}
+	if contentSvc == nil {
+		return fmt.Errorf("translation queue fixture content service is required")
+	}
+
+	assignees := normalizeQueueFixtureAssignees(assigneeIDs)
+	if len(assignees) == 0 {
+		assignees = []string{exampleTranslationQueueFallbackUser}
+	}
+	persistAssignment := func(assignment coreadmin.TranslationAssignment) error {
+		if syncFamilies == nil {
+			return fmt.Errorf("persistent queue fixture family sync callback is required")
+		}
+		if err := syncFamilies(ctx); err != nil {
+			return fmt.Errorf("persistent queue fixture family sync failed: %w", err)
+		}
+		return seedOrRefreshQueueAssignment(ctx, repo, assignment)
+	}
+
+	sourcePage, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
+	if err != nil {
+		return fmt.Errorf("persistent queue fixture source page lookup failed: %w", err)
+	}
+	if sourcePage == nil {
+		return fmt.Errorf("persistent queue fixture source page %q not found", exampleTranslationQueueSourceSlug)
+	}
+	sourcePage, err = ensureScopedPageFamily(ctx, contentSvc, sourcePage, tenantID, orgID)
+	if err != nil {
+		return fmt.Errorf("persistent queue fixture source page scope update failed: %w", err)
+	}
+
+	now := time.Now().UTC()
+	primaryGroupID := strings.TrimSpace(normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID))
+	if primaryGroupID == "" {
+		return fmt.Errorf("persistent queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
+	}
+	primarySourceLocale := strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(sourcePage.Locale, "en")))
+	primarySourcePath := strings.TrimSpace(exchangePagePath(*sourcePage))
+	primaryTitle := strings.TrimSpace(sourcePage.Title)
+
+	editorSource, err := findPageBySlug(ctx, contentSvc, "home")
+	if err != nil {
+		return fmt.Errorf("persistent translation editor qa source page lookup failed: %w", err)
+	}
+	if editorSource == nil {
+		return fmt.Errorf("persistent translation editor qa source page %q not found", "home")
+	}
+	editorSource, err = ensureScopedPageFamily(ctx, contentSvc, editorSource, tenantID, orgID)
+	if err != nil {
+		return fmt.Errorf("persistent translation editor qa source page scope update failed: %w", err)
+	}
+	editorGroupID := strings.TrimSpace(normalizeFamilyID(editorSource.FamilyID, editorSource.ID))
+	if editorGroupID == "" {
+		return fmt.Errorf("persistent translation editor qa source page %q missing family_id", "home")
+	}
+	editorTarget, err := ensureQueuePageTargetVariant(ctx, contentSvc, editorSource, editorGroupID, "fr", tenantID, orgID)
+	if err != nil {
+		return fmt.Errorf("persistent translation editor qa target page ensure failed: %w", err)
+	}
+	if editorTarget == nil {
+		return fmt.Errorf("persistent translation editor qa target page %q unavailable", "home-fr")
+	}
+	staleSourceFields := map[string]string{
+		"title": strings.TrimSpace(editorSource.Title),
+		"path":  strings.TrimSpace(exchangePagePath(*editorSource)),
+		"body":  "Older home page source snapshot.",
+	}
+	sourceFields := fixtureTranslationFields(editorSource.Title, editorSource.Slug, editorSource.Data)
+	editorTargetMetadata := cloneAnyMap(editorTarget.Metadata)
+	if editorTargetMetadata == nil {
+		editorTargetMetadata = map[string]any{}
+	}
+	editorTargetMetadata["attachments"] = []any{
+		map[string]any{
+			"id":          "asset-qa-1",
+			"kind":        "reference",
+			"filename":    "homepage-brief.pdf",
+			"byte_size":   2048,
+			"uploaded_at": now.Add(-2 * time.Hour).Format(time.RFC3339),
+			"description": "Homepage localization brief",
+			"url":         "/media/homepage-brief.pdf",
+		},
+		map[string]any{
+			"id":          "asset-qa-2",
+			"kind":        "terminology",
+			"filename":    "glossary.csv",
+			"byte_size":   1024,
+			"uploaded_at": now.Add(-26 * time.Hour).Format(time.RFC3339),
+			"description": "Approved glossary extract",
+			"url":         "/media/glossary.csv",
+		},
+	}
+	editorTargetMetadata["translation_editor"] = map[string]any{
+		"row_version":               3,
+		"source_hash_at_last_sync":  translationEditorHashFields(staleSourceFields),
+		"last_synced_source_fields": cloneStringMapToAny(staleSourceFields),
+		"last_saved_at":             now.Add(-15 * time.Minute).Format(time.RFC3339),
+		"last_saved_by":             assignees[0],
+	}
+	editorTargetMetadata["source_hash_at_last_sync"] = translationEditorHashFields(staleSourceFields)
+	editorTargetUpdated := cloneCMSPage(*editorTarget)
+	editorTargetUpdated.Metadata = editorTargetMetadata
+	editorTargetUpdated.Title = strings.TrimSpace(firstNonEmpty(editorTargetUpdated.Title, "Guide d'accueil"))
+	if editorTargetUpdated.Data == nil {
+		editorTargetUpdated.Data = map[string]any{}
+	}
+	if strings.TrimSpace(fmt.Sprint(editorTargetUpdated.Data["body"])) == "" {
+		editorTargetUpdated.Data["body"] = "Publier la traduction depuis l'accueil."
+	}
+	if _, err := contentSvc.UpdatePage(ctx, editorTargetUpdated); err != nil {
+		return fmt.Errorf("persistent translation editor qa target page metadata update failed: %w", err)
+	}
+	editorAssignment := coreadmin.TranslationAssignment{
+		ID:                  exampleTranslationQAAssignmentID,
+		FamilyID:            editorGroupID,
+		EntityType:          "pages",
+		TenantID:            strings.TrimSpace(tenantID),
+		OrgID:               strings.TrimSpace(orgID),
+		SourceRecordID:      strings.TrimSpace(editorSource.ID),
+		SourceLocale:        strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
+		TargetLocale:        "fr",
+		TargetRecordID:      strings.TrimSpace(editorTarget.ID),
+		AssignmentType:      coreadmin.AssignmentTypeDirect,
+		Status:              coreadmin.AssignmentStatusInReview,
+		Priority:            coreadmin.PriorityHigh,
+		AssigneeID:          assignees[0],
+		ReviewerID:          assignees[0],
+		SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
+		SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
+		LastRejectionReason: "Please tighten the CTA tone.",
+		ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
+		SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
+	}
+	if err := persistAssignment(editorAssignment); err != nil {
+		return err
+	}
+
+	primaryTarget, err := ensureQueuePageTargetVariant(
+		ctx,
+		contentSvc,
+		sourcePage,
+		primaryGroupID,
+		exampleTranslationQueueTargetLocale,
+		tenantID,
+		orgID,
+	)
+	if err != nil {
+		return fmt.Errorf("persistent queue fixture primary target page ensure failed: %w", err)
+	}
+	if primaryTarget == nil {
+		return fmt.Errorf("persistent queue fixture primary target page %q unavailable", ensureLocaleSlug(strings.TrimSpace(sourcePage.Slug), exampleTranslationQueueTargetLocale))
+	}
+	inProgress := coreadmin.TranslationAssignment{
+		FamilyID:       primaryGroupID,
+		EntityType:     "pages",
+		TenantID:       strings.TrimSpace(tenantID),
+		OrgID:          strings.TrimSpace(orgID),
+		SourceRecordID: strings.TrimSpace(sourcePage.ID),
+		SourceLocale:   primarySourceLocale,
+		TargetLocale:   exampleTranslationQueueTargetLocale,
+		TargetRecordID: strings.TrimSpace(primaryTarget.ID),
+		SourceTitle:    primaryTitle,
+		SourcePath:     primarySourcePath,
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInProgress,
+		Priority:       coreadmin.PriorityHigh,
+		AssigneeID:     assignees[0],
+		ClaimedAt:      fixtureTimePtr(now),
+	}
+	if err := persistAssignment(inProgress); err != nil {
+		return err
+	}
+
+	openPoolPageSource := sourcePage
+	if candidate, candidateErr := findPageBySlug(ctx, contentSvc, exampleTranslationQueueOpenPoolSlug); candidateErr == nil && candidate != nil {
+		openPoolPageSource, err = ensureScopedPageFamily(ctx, contentSvc, candidate, tenantID, orgID)
+		if err != nil {
+			return fmt.Errorf("persistent queue fixture open-pool page scope update failed: %w", err)
+		}
+	} else if candidateErr != nil {
+		return fmt.Errorf("persistent queue fixture open-pool page lookup failed: %w", candidateErr)
+	}
+	openPoolPageFamilyID := strings.TrimSpace(normalizeFamilyID(openPoolPageSource.FamilyID, openPoolPageSource.ID))
+	if openPoolPageFamilyID != "" {
+		openPoolPageTarget, err := ensureQueuePageTargetVariant(ctx, contentSvc, openPoolPageSource, openPoolPageFamilyID, "fr", tenantID, orgID)
+		if err != nil {
+			return fmt.Errorf("persistent queue fixture open-pool page target ensure failed: %w", err)
+		}
+		if openPoolPageTarget != nil {
+			openPoolPage := coreadmin.TranslationAssignment{
+				FamilyID:       openPoolPageFamilyID,
+				EntityType:     "pages",
+				TenantID:       strings.TrimSpace(tenantID),
+				OrgID:          strings.TrimSpace(orgID),
+				SourceRecordID: strings.TrimSpace(openPoolPageSource.ID),
+				SourceLocale:   strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolPageSource.Locale, "en"))),
+				TargetLocale:   "fr",
+				TargetRecordID: strings.TrimSpace(openPoolPageTarget.ID),
+				SourceTitle:    strings.TrimSpace(openPoolPageSource.Title),
+				SourcePath:     strings.TrimSpace(exchangePagePath(*openPoolPageSource)),
+				AssignmentType: coreadmin.AssignmentTypeOpenPool,
+				Status:         coreadmin.AssignmentStatusPending,
+				Priority:       coreadmin.PriorityNormal,
+			}
+			if err := persistAssignment(openPoolPage); err != nil {
+				return err
+			}
+		}
+	}
+
+	overduePageTarget, err := ensureQueuePageTargetVariant(ctx, contentSvc, sourcePage, primaryGroupID, "es", tenantID, orgID)
+	if err != nil {
+		return fmt.Errorf("persistent queue fixture overdue page target ensure failed: %w", err)
+	}
+	if overduePageTarget != nil {
+		overduePageDueDate := now.Add(-6 * time.Hour)
+		overduePage := coreadmin.TranslationAssignment{
+			FamilyID:       primaryGroupID,
+			EntityType:     "pages",
+			TenantID:       strings.TrimSpace(tenantID),
+			OrgID:          strings.TrimSpace(orgID),
+			SourceRecordID: strings.TrimSpace(sourcePage.ID),
+			SourceLocale:   primarySourceLocale,
+			TargetLocale:   "es",
+			TargetRecordID: strings.TrimSpace(overduePageTarget.ID),
+			SourceTitle:    primaryTitle,
+			SourcePath:     primarySourcePath,
+			AssignmentType: coreadmin.AssignmentTypeDirect,
+			Status:         coreadmin.AssignmentStatusInProgress,
+			Priority:       coreadmin.PriorityUrgent,
+			AssigneeID:     assignees[0],
+			DueDate:        &overduePageDueDate,
+			ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
+		}
+		if err := persistAssignment(overduePage); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureQueuePageTargetVariant(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	source *coreadmin.CMSPage,
+	groupID string,
+	targetLocale string,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSPage, error) {
+	if source == nil || contentSvc == nil {
+		return nil, nil
+	}
+	variant, err := findPageLocaleVariantForSource(ctx, contentSvc, source, groupID, targetLocale)
+	if err != nil {
+		return nil, err
+	}
+	if variant == nil {
+		if candidate, candidateErr := findPageBySlug(ctx, contentSvc, ensureLocaleSlug(strings.TrimSpace(source.Slug), targetLocale)); candidateErr == nil && candidate != nil {
+			variant = candidate
+		} else if candidateErr != nil {
+			return nil, candidateErr
+		}
+	}
+	if variant == nil {
+		created := cloneCMSPage(*source)
+		created.ID = ""
+		created.Locale = targetLocale
+		created.Status = "draft"
+		created.FamilyID = groupID
+		created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
+		if created.Data == nil {
+			created.Data = map[string]any{}
+		}
+		created.Data["path"] = ensureLocaleSlug(strings.TrimSpace(exchangePagePath(*source)), targetLocale)
+		createdPage, err := contentSvc.CreatePage(ctx, created)
+		if err != nil {
+			return nil, err
+		}
+		variant = createdPage
+	}
+	if variant != nil && !matchesTranslationGroup(groupID, variant.FamilyID) {
+		repaired := cloneCMSPage(*variant)
+		repaired.FamilyID = groupID
+		saved, err := contentSvc.UpdatePage(ctx, repaired)
+		if err != nil {
+			return nil, err
+		}
+		variant = saved
+	}
+	return ensureScopedPage(ctx, contentSvc, variant, tenantID, orgID)
+}
+
+func ensureQueuePostTargetVariant(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	source *coreadmin.CMSContent,
+	groupID string,
+	targetLocale string,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSContent, error) {
+	if source == nil || contentSvc == nil {
+		return nil, nil
+	}
+	variant, err := findPostLocaleVariant(ctx, contentSvc, groupID, targetLocale)
+	if err != nil {
+		return nil, err
+	}
+	if variant == nil {
+		if candidate, candidateErr := findPostBySlug(ctx, contentSvc, ensureLocaleSlug(strings.TrimSpace(source.Slug), targetLocale)); candidateErr == nil && candidate != nil {
+			variant = candidate
+		} else if candidateErr != nil {
+			return nil, candidateErr
+		}
+	}
+	if variant == nil {
+		created := cloneCMSContent(*source)
+		created.ID = ""
+		created.Locale = targetLocale
+		created.Status = "draft"
+		created.FamilyID = groupID
+		created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
+		if created.Data == nil {
+			created.Data = map[string]any{}
+		}
+		path := strings.TrimSpace(fmt.Sprint(created.Data["path"]))
+		if path == "" || path == "<nil>" {
+			path = "/posts/" + strings.Trim(strings.TrimSpace(created.Slug), "/")
+		}
+		created.Data["path"] = ensureLocaleSlug(path, targetLocale)
+		createdContent, err := contentSvc.CreateContent(ctx, created)
+		if err != nil {
+			return nil, err
+		}
+		variant = createdContent
+	}
+	if variant != nil && !matchesTranslationGroup(groupID, variant.FamilyID) {
+		repaired := cloneCMSContent(*variant)
+		repaired.FamilyID = groupID
+		saved, err := contentSvc.UpdateContent(ctx, repaired)
+		if err != nil {
+			return nil, err
+		}
+		variant = saved
+	}
+	return ensureScopedContent(ctx, contentSvc, variant, tenantID, orgID)
+}
+
 func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) error {
 	persisted, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
 	if err != nil {
-		return err
+		return fmt.Errorf(
+			"queue assignment create_or_reuse failed family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
+			strings.TrimSpace(assignment.FamilyID),
+			strings.TrimSpace(assignment.EntityType),
+			strings.TrimSpace(assignment.SourceRecordID),
+			strings.TrimSpace(assignment.SourceLocale),
+			strings.TrimSpace(assignment.TargetLocale),
+			strings.TrimSpace(assignment.TargetRecordID),
+			string(assignment.Status),
+			err,
+		)
 	}
 	if inserted {
 		return nil
@@ -690,7 +1075,21 @@ func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.Translatio
 		return nil
 	}
 	_, err = repo.Update(ctx, updated, updated.Version)
-	return err
+	if err != nil {
+		return fmt.Errorf(
+			"queue assignment update failed id=%s family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
+			strings.TrimSpace(updated.ID),
+			strings.TrimSpace(updated.FamilyID),
+			strings.TrimSpace(updated.EntityType),
+			strings.TrimSpace(updated.SourceRecordID),
+			strings.TrimSpace(updated.SourceLocale),
+			strings.TrimSpace(updated.TargetLocale),
+			strings.TrimSpace(updated.TargetRecordID),
+			string(updated.Status),
+			err,
+		)
+	}
+	return nil
 }
 
 func normalizeQueueFixtureAssignees(values []string) []string {
@@ -768,6 +1167,36 @@ func ensureScopedPage(
 		return &copy, nil
 	}
 	return saved, nil
+}
+
+func ensureScopedContentFamily(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	content *coreadmin.CMSContent,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSContent, error) {
+	if content == nil {
+		return nil, nil
+	}
+	groupID := normalizeFamilyID(content.FamilyID, content.ID)
+	if strings.TrimSpace(groupID) == "" {
+		return ensureScopedContent(ctx, contentSvc, content, tenantID, orgID)
+	}
+	items, err := contentSvc.Contents(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, candidate := range items {
+		if !matchesTranslationGroup(groupID, candidate.FamilyID) && !matchesTranslationGroup(groupID, candidate.ID) {
+			continue
+		}
+		candidateCopy := cloneCMSContent(candidate)
+		if _, err := ensureScopedContent(ctx, contentSvc, &candidateCopy, tenantID, orgID); err != nil {
+			return nil, err
+		}
+	}
+	return ensureScopedContent(ctx, contentSvc, content, tenantID, orgID)
 }
 
 func ensureScopedContent(

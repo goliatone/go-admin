@@ -34,6 +34,9 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReopenReview, buildAgreementReopenReviewInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementNotifyReviewers, buildAgreementNotifyReviewersInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementCloseReview, buildAgreementCloseReviewInput); err != nil {
 		return err
 	}
@@ -213,6 +216,25 @@ func buildAgreementCloseReviewInput(payload map[string]any, ids []string) (Agree
 	msg := AgreementCloseReviewInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementNotifyReviewersInput(payload map[string]any, ids []string) (AgreementNotifyReviewersInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementNotifyReviewersInput{}, err
+	}
+	msg := AgreementNotifyReviewersInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
 		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
 		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}

@@ -18,20 +18,21 @@ import (
 )
 
 type stubAgreementLifecycleService struct {
-	sentCalls     int
-	voidCalls     int
-	resendCalls   int
-	revisionCalls int
-	reviewCalls   int
-	commentCalls  int
-	lastScope     stores.Scope
-	lastID        string
-	lastSend      services.SendInput
-	lastVoid      services.VoidInput
-	lastResend    services.ResendInput
-	lastRevision  services.CreateRevisionInput
-	sendErr       error
-	revisionErr   error
+	sentCalls        int
+	voidCalls        int
+	resendCalls      int
+	revisionCalls    int
+	reviewCalls      int
+	commentCalls     int
+	lastScope        stores.Scope
+	lastID           string
+	lastSend         services.SendInput
+	lastVoid         services.VoidInput
+	lastResend       services.ResendInput
+	lastRevision     services.CreateRevisionInput
+	lastReviewNotify services.ReviewNotifyInput
+	sendErr          error
+	revisionErr      error
 }
 
 func (s *stubAgreementLifecycleService) Send(_ context.Context, scope stores.Scope, agreementID string, input services.SendInput) (stores.AgreementRecord, error) {
@@ -93,6 +94,14 @@ func (s *stubAgreementLifecycleService) ReopenReview(_ context.Context, scope st
 	s.reviewCalls++
 	s.lastScope = scope
 	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
+}
+
+func (s *stubAgreementLifecycleService) NotifyReviewers(_ context.Context, scope stores.Scope, agreementID string, input services.ReviewNotifyInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastReviewNotify = input
 	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
 }
 
@@ -517,6 +526,15 @@ func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
 	}
 	if got := agreementSvc.lastResend.IPAddress; got != "198.51.100.25" {
 		t.Fatalf("expected resend ip propagation, got %q", got)
+	}
+	if err := bus.DispatchByName(ctx, CommandAgreementNotifyReviewers, map[string]any{"agreement_id": "agreement-1", "recipient_id": "recipient-1"}, nil); err != nil {
+		t.Fatalf("DispatchByName notify_reviewers: %v", err)
+	}
+	if got := agreementSvc.lastReviewNotify.IPAddress; got != "198.51.100.25" {
+		t.Fatalf("expected notify_reviewers ip propagation, got %q", got)
+	}
+	if got := agreementSvc.lastReviewNotify.RecipientID; got != "recipient-1" {
+		t.Fatalf("expected notify_reviewers recipient propagation, got %q", got)
 	}
 }
 

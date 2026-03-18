@@ -69,21 +69,28 @@ const (
 	NotificationSigningInvitation AgreementNotificationType = "signing_invitation"
 	NotificationSigningReminder   AgreementNotificationType = "signing_reminder"
 	NotificationCompletionPackage AgreementNotificationType = "completion_delivery"
+	NotificationReviewInvitation  AgreementNotificationType = "review_invitation"
 )
 
 const (
 	GuardedEffectKindAgreementSendInvitation = "esign.agreements.send_invitation"
 	GuardedEffectKindAgreementResendReminder = "esign.agreements.resend_reminder"
+	GuardedEffectKindAgreementReviewInvite   = "esign.agreements.review_invitation"
 )
 
 // AgreementNotification carries canonical email notification payload context.
 type AgreementNotification struct {
-	AgreementID   string
-	RecipientID   string
-	EffectID      string
-	CorrelationID string
-	Type          AgreementNotificationType
-	Token         stores.IssuedSigningToken
+	AgreementID         string
+	ReviewID            string
+	RecipientID         string
+	ReviewParticipantID string
+	RecipientEmail      string
+	RecipientName       string
+	EffectID            string
+	CorrelationID       string
+	Type                AgreementNotificationType
+	Token               stores.IssuedSigningToken
+	ReviewToken         stores.IssuedReviewSessionToken
 }
 
 // AgreementEmailWorkflow captures post-send and post-resend email dispatch behavior.
@@ -405,22 +412,24 @@ type ResendResult struct {
 }
 
 type agreementNotificationEffectPreparePayload struct {
-	AgreementID       string `json:"agreement_id"`
-	RecipientID       string `json:"recipient_id"`
-	PendingTokenID    string `json:"pending_token_id"`
-	Notification      string `json:"notification"`
-	FailureAuditEvent string `json:"failure_audit_event"`
+	AgreementID         string `json:"agreement_id"`
+	ReviewID            string `json:"review_id,omitempty"`
+	RecipientID         string `json:"recipient_id,omitempty"`
+	ReviewParticipantID string `json:"review_participant_id,omitempty"`
+	PendingTokenID      string `json:"pending_token_id,omitempty"`
+	Notification        string `json:"notification"`
+	FailureAuditEvent   string `json:"failure_audit_event"`
 }
 
 func agreementNotificationEffectIdempotencyKey(
 	scope stores.Scope,
-	kind, agreementID, recipientID, idempotencyKey string,
+	kind, agreementID, subjectID, idempotencyKey string,
 ) string {
 	kind = strings.TrimSpace(kind)
 	agreementID = strings.TrimSpace(agreementID)
-	recipientID = strings.TrimSpace(recipientID)
+	subjectID = strings.TrimSpace(subjectID)
 	idempotencyKey = strings.TrimSpace(idempotencyKey)
-	if kind == "" || agreementID == "" || recipientID == "" || idempotencyKey == "" {
+	if kind == "" || agreementID == "" || subjectID == "" || idempotencyKey == "" {
 		return ""
 	}
 	return strings.Join([]string{
@@ -428,9 +437,16 @@ func agreementNotificationEffectIdempotencyKey(
 		strings.TrimSpace(scope.OrgID),
 		kind,
 		agreementID,
-		recipientID,
+		subjectID,
 		idempotencyKey,
 	}, "|")
+}
+
+func agreementNotificationSubject(notification AgreementNotification) (string, string) {
+	if participantID := strings.TrimSpace(notification.ReviewParticipantID); participantID != "" {
+		return "agreement_review_participant_notification", participantID
+	}
+	return "agreement_recipient_notification", strings.TrimSpace(notification.RecipientID)
 }
 
 // CreateDraft creates a draft agreement scoped to tenant/org.
@@ -1215,7 +1231,8 @@ func (s AgreementService) prepareAgreementNotificationEffect(
 	if s.outbox == nil {
 		return guardedeffects.Record{}, false, domainValidationError("notifications", "outbox", "not configured")
 	}
-	effectKey := agreementNotificationEffectIdempotencyKey(scope, kind, notification.AgreementID, notification.RecipientID, idempotencyKey)
+	subjectType, subjectID := agreementNotificationSubject(notification)
+	effectKey := agreementNotificationEffectIdempotencyKey(scope, kind, notification.AgreementID, subjectID, idempotencyKey)
 	if effectKey != "" {
 		record, err := s.effects.GetGuardedEffectByIdempotencyKey(ctx, scope, effectKey)
 		if err == nil {
@@ -1226,11 +1243,13 @@ func (s AgreementService) prepareAgreementNotificationEffect(
 	now := s.now().UTC()
 	notification.EffectID = uuid.NewString()
 	preparePayload, err := json.Marshal(agreementNotificationEffectPreparePayload{
-		AgreementID:       strings.TrimSpace(notification.AgreementID),
-		RecipientID:       strings.TrimSpace(notification.RecipientID),
-		PendingTokenID:    strings.TrimSpace(notification.Token.Record.ID),
-		Notification:      strings.TrimSpace(string(notification.Type)),
-		FailureAuditEvent: strings.TrimSpace(failureAuditEvent),
+		AgreementID:         strings.TrimSpace(notification.AgreementID),
+		ReviewID:            strings.TrimSpace(notification.ReviewID),
+		RecipientID:         strings.TrimSpace(notification.RecipientID),
+		ReviewParticipantID: strings.TrimSpace(notification.ReviewParticipantID),
+		PendingTokenID:      strings.TrimSpace(notification.Token.Record.ID),
+		Notification:        strings.TrimSpace(string(notification.Type)),
+		FailureAuditEvent:   strings.TrimSpace(failureAuditEvent),
 	})
 	if err != nil {
 		return guardedeffects.Record{}, false, err
@@ -1246,8 +1265,8 @@ func (s AgreementService) prepareAgreementNotificationEffect(
 		Kind:                strings.TrimSpace(kind),
 		GroupType:           GuardedEffectGroupTypeAgreement,
 		GroupID:             strings.TrimSpace(notification.AgreementID),
-		SubjectType:         "agreement_recipient_notification",
-		SubjectID:           strings.TrimSpace(notification.RecipientID),
+		SubjectType:         subjectType,
+		SubjectID:           subjectID,
 		IdempotencyKey:      effectKey,
 		CorrelationID:       strings.TrimSpace(notification.CorrelationID),
 		Status:              guardedeffects.StatusPrepared,

@@ -10,16 +10,18 @@ import (
 
 // CapturedRecipientLink stores the signer/completion links emitted by email dispatch.
 type CapturedRecipientLink struct {
-	Scope          stores.Scope
-	AgreementID    string
-	RecipientID    string
-	RecipientEmail string
-	TemplateCode   string
-	Notification   string
-	SignURL        string
-	CompletionURL  string
-	CorrelationID  string
-	CapturedAt     time.Time
+	Scope               stores.Scope
+	AgreementID         string
+	RecipientID         string
+	ReviewParticipantID string
+	RecipientEmail      string
+	TemplateCode        string
+	Notification        string
+	SignURL             string
+	ReviewURL           string
+	CompletionURL       string
+	CorrelationID       string
+	CapturedAt          time.Time
 }
 
 var capturedRecipientLinks = struct {
@@ -40,11 +42,12 @@ func CaptureRecipientLink(input EmailSendInput) {
 		TemplateCode:   strings.TrimSpace(input.TemplateCode),
 		Notification:   strings.TrimSpace(input.Notification),
 		SignURL:        strings.TrimSpace(input.SignURL),
+		ReviewURL:      strings.TrimSpace(input.ReviewURL),
 		CompletionURL:  strings.TrimSpace(input.CompletionURL),
 		CorrelationID:  strings.TrimSpace(input.CorrelationID),
 		CapturedAt:     time.Now().UTC(),
 	}
-	if entry.SignURL == "" && entry.CompletionURL == "" {
+	if entry.SignURL == "" && entry.ReviewURL == "" && entry.CompletionURL == "" {
 		return
 	}
 	capturedRecipientLinks.mu.Lock()

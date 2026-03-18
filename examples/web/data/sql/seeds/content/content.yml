@@ -439,6 +439,32 @@ pages:
         body: "This page has complete translations across all required locales and stable family_id linkage for exchange operations."
 
 posts:
+  - slug: "welcome-post"
+    title: "Welcome Post"
+    summary: "Getting started with the CMS"
+    body: "This is a sample post stored in SQLite-backed go-cms."
+    status: "published"
+    path: "/posts/welcome-post"
+    tags: ["announcement"]
+    custom:
+      author: "editorial.team"
+      category: "guides"
+      featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111213"
+      seo:
+        title: "Welcome Post"
+        description: "Getting started with the CMS"
+      markdown:
+        frontmatter:
+          title: "Welcome Post"
+          summary: "Getting started with the CMS"
+          status: "published"
+          author: "editorial.team"
+          category: "guides"
+          featured_image: "/static/media/banner.jpg"
+          tags: ["announcement"]
+        body: "This is a sample post stored in SQLite-backed go-cms."
+
   - slug: "getting-started-go"
     title: "Getting Started with Go"
     summary: "A pragmatic path from zero to shipping your first Go service."
@@ -450,6 +476,7 @@ posts:
       author: "jane.smith"
       category: "guides"
       featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111208"
       published_at: "2025-11-27T10:00:00Z"
       meta:
         reading_time_minutes: 8
@@ -482,6 +509,7 @@ posts:
       author: "jane.smith"
       category: "guides"
       featured_image: "/static/media/logo.png"
+      family_id: "11111111-1111-1111-1111-111111111209"
       published_at: "2025-12-20T10:00:00Z"
       meta:
         reading_time_minutes: 10
@@ -514,6 +542,7 @@ posts:
       author: "editorial.team"
       category: "news"
       featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111210"
       published_at: "2026-01-11T10:00:00Z"
       _navigation:
         site.main: "show"
@@ -546,6 +575,7 @@ posts:
       author: "sre.team"
       category: "updates"
       featured_image: "/static/media/logo.png"
+      family_id: "11111111-1111-1111-1111-111111111211"
       meta:
         reading_time_minutes: 7
         difficulty: "advanced"
@@ -574,6 +604,7 @@ posts:
       author: "product.team"
       category: "news"
       featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111212"
       published_at: "2026-02-24T10:00:00Z"
       _navigation:
         site.main: "hide"
@@ -639,6 +670,7 @@ posts:
       author: "translation.team"
       category: "guides"
       featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111204"
       meta:
         translation_scenario: "review_missing_fields"
         required_locales: ["en", "es"]
@@ -672,6 +704,7 @@ posts:
       author: "translation.team"
       category: "guides"
       featured_image: "/static/media/logo.png"
+      family_id: "11111111-1111-1111-1111-111111111205"
       meta:
         translation_scenario: "queue_in_progress"
         required_locales: ["en", "es", "fr"]
@@ -707,6 +740,7 @@ news:
       author: "platform.team"
       category: "updates"
       featured_image: "/static/media/banner.jpg"
+      family_id: "11111111-1111-1111-1111-111111111206"
       published_at: "2026-02-20T10:00:00Z"
       _navigation:
         site.main: "show"
@@ -726,6 +760,7 @@ news:
       author: "platform.team"
       category: "news"
       featured_image: "/static/media/logo.png"
+      family_id: "11111111-1111-1111-1111-111111111207"
       published_at: "2026-02-22T10:00:00Z"
       _navigation:
         site.main: "show"

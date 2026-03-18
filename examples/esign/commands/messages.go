@@ -174,6 +174,26 @@ func (m AgreementReopenReviewInput) Validate() error {
 	return m.validateRequired()
 }
 
+type AgreementNotifyReviewersInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ParticipantID string
+	RecipientID   string
+	ActorID       string
+	CorrelationID string
+}
+
+func (AgreementNotifyReviewersInput) Type() string {
+	return CommandAgreementNotifyReviewers
+}
+
+func (m AgreementNotifyReviewersInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	return nil
+}
+
 type AgreementCloseReviewInput struct {
 	Scope         stores.Scope
 	AgreementID   string

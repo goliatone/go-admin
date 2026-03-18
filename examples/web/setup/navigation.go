@@ -67,6 +67,12 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 			GroupTitleKey: "menu.group.main",
 			Position:      prtInt(0),
 			Menu:          menuCode,
+			Target: map[string]any{
+				"type":             "url",
+				"path":             basePath,
+				"key":              "dashboard",
+				"breadcrumb_label": "Dashboard",
+			},
 		},
 		{
 			ID:            NavigationGroupOthers,
@@ -87,9 +93,10 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		Collapsible: true,
 		Collapsed:   false,
 		Target: map[string]any{
-			"type": "url",
-			"path": path.Join(basePath, "content", "pages"),
-			"key":  "content",
+			"type":              "url",
+			"path":              path.Join(basePath, "content", "pages"),
+			"key":               "content",
+			"breadcrumb_hidden": true,
 		},
 		Menu:        menuCode,
 		ParentID:    NavigationGroupMain,

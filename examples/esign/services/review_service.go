@@ -20,6 +20,7 @@ type ReviewOpenInput struct {
 	ActorType          string
 	ActorID            string
 	IPAddress          string
+	CorrelationID      string
 }
 
 type ReviewParticipantInput struct {
@@ -38,6 +39,16 @@ type ReviewDecisionInput struct {
 	ActorID       string
 	IPAddress     string
 	Comment       string
+}
+
+type ReviewNotifyInput struct {
+	ParticipantID string
+	RecipientID   string
+	RequestedByID string
+	ActorType     string
+	ActorID       string
+	IPAddress     string
+	CorrelationID string
 }
 
 type ReviewCommentThreadInput struct {
@@ -85,7 +96,7 @@ type ReviewSummary struct {
 
 func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, agreementID string, input ReviewOpenInput) (ReviewSummary, error) {
 	var summary ReviewSummary
-	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+	err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -105,7 +116,17 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
-		if err := txSvc.syncExternalReviewSessionTokens(ctx, scope, review); err != nil {
+		storedParticipants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+		if err != nil {
+			return err
+		}
+		issuedTokens, err := txSvc.syncReviewSessionTokens(ctx, scope, review)
+		if err != nil {
+			return err
+		}
+		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
+		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, storedParticipants, issuedTokens, correlationID)
+		if err != nil {
 			return err
 		}
 		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
@@ -120,20 +141,29 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 			"review_gate":          review.Gate,
 			"review_status":        review.Status,
 			"comments_enabled":     input.CommentsEnabled,
-			"review_participants":  normalizeReviewParticipantMetadata(participants),
+			"review_participants":  normalizeReviewParticipantMetadata(storedParticipants),
 			"requested_by_user_id": strings.TrimSpace(input.RequestedByUserID),
 		}); err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
-		return err
+		if err != nil {
+			return err
+		}
+		if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
+			hooks.AfterCommit(func() error {
+				s.notificationDispatch.NotifyScope(scope)
+				return nil
+			})
+		}
+		return nil
 	})
 	return summary, err
 }
 
 func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, agreementID string, input ReviewOpenInput) (ReviewSummary, error) {
 	var summary ReviewSummary
-	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+	err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -169,7 +199,17 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
 			return err
 		}
-		if err := txSvc.syncExternalReviewSessionTokens(ctx, scope, review); err != nil {
+		storedParticipants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+		if err != nil {
+			return err
+		}
+		issuedTokens, err := txSvc.syncReviewSessionTokens(ctx, scope, review)
+		if err != nil {
+			return err
+		}
+		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
+		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, storedParticipants, issuedTokens, correlationID)
+		if err != nil {
 			return err
 		}
 		commentsEnabled := input.CommentsEnabled
@@ -187,12 +227,84 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 			"review_id":           review.ID,
 			"review_gate":         review.Gate,
 			"review_status":       review.Status,
-			"review_participants": normalizeReviewParticipantMetadata(participants),
+			"review_participants": normalizeReviewParticipantMetadata(storedParticipants),
 		}); err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
-		return err
+		if err != nil {
+			return err
+		}
+		if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
+			hooks.AfterCommit(func() error {
+				s.notificationDispatch.NotifyScope(scope)
+				return nil
+			})
+		}
+		return nil
+	})
+	return summary, err
+}
+
+func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scope, agreementID string, input ReviewNotifyInput) (ReviewSummary, error) {
+	var summary ReviewSummary
+	err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusDraft {
+			return domainValidationError("agreements", "status", "review notifications require draft agreement")
+		}
+		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
+			return domainValidationError("agreement_reviews", "status", "review notifications require active review")
+		}
+		participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+		if err != nil {
+			return err
+		}
+		targets, err := resolveReviewNotificationTargets(participants, input.ParticipantID, input.RecipientID)
+		if err != nil {
+			return err
+		}
+		issuedTokens, err := txSvc.issueReviewSessionTokensForParticipants(ctx, scope, review, targets, true)
+		if err != nil {
+			return err
+		}
+		now := txSvc.now()
+		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
+		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, targets, issuedTokens, correlationID)
+		if err != nil {
+			return err
+		}
+		review.LastActivityAt = &now
+		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+			return err
+		}
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+			"review_id":            review.ID,
+			"review_status":        review.Status,
+			"requested_by_user_id": strings.TrimSpace(input.RequestedByID),
+			"notified_count":       len(targets),
+			"review_participants":  normalizeReviewParticipantMetadata(targets),
+		}); err != nil {
+			return err
+		}
+		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
+			hooks.AfterCommit(func() error {
+				s.notificationDispatch.NotifyScope(scope)
+				return nil
+			})
+		}
+		return nil
 	})
 	return summary, err
 }
@@ -635,6 +747,35 @@ func normalizeReviewActorType(actorType string) string {
 	return actorType
 }
 
+func resolveReviewNotificationTargets(
+	participants []stores.AgreementReviewParticipantRecord,
+	participantID, recipientID string,
+) ([]stores.AgreementReviewParticipantRecord, error) {
+	participantID = strings.TrimSpace(participantID)
+	recipientID = strings.TrimSpace(recipientID)
+	if participantID != "" || recipientID != "" {
+		target, _, err := findReviewParticipant(participants, participantID, recipientID)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(target.DecisionStatus) != stores.AgreementReviewDecisionPending {
+			return nil, domainValidationError("agreement_review_participants", "decision_status", "review notifications require pending reviewers")
+		}
+		return []stores.AgreementReviewParticipantRecord{target}, nil
+	}
+	out := make([]stores.AgreementReviewParticipantRecord, 0, len(participants))
+	for _, participant := range participants {
+		if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending {
+			continue
+		}
+		out = append(out, participant)
+	}
+	if len(out) == 0 {
+		return nil, domainValidationError("agreement_review_participants", "decision_status", "no pending reviewers to notify")
+	}
+	return out, nil
+}
+
 func isRecipientActor(actorType string) bool {
 	actorType = strings.TrimSpace(strings.ToLower(actorType))
 	return actorType == "recipient" || actorType == "signer"
@@ -895,23 +1036,111 @@ func (s AgreementService) normalizeCommentAnchor(ctx context.Context, scope stor
 	return normalized, nil
 }
 
-func (s AgreementService) syncExternalReviewSessionTokens(ctx context.Context, scope stores.Scope, review stores.AgreementReviewRecord) error {
+func resolveReviewNotificationCorrelationID(correlationID, reviewID string, now time.Time) string {
+	correlationID = strings.TrimSpace(correlationID)
+	if correlationID != "" {
+		return correlationID
+	}
+	reviewID = strings.TrimSpace(reviewID)
+	if reviewID == "" {
+		reviewID = "review"
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	return reviewID + "|" + now.UTC().Format(time.RFC3339Nano)
+}
+
+func (s AgreementService) syncReviewSessionTokens(ctx context.Context, scope stores.Scope, review stores.AgreementReviewRecord) (map[string]stores.IssuedReviewSessionToken, error) {
 	if s.reviewTokens == nil {
-		return nil
+		return nil, nil
 	}
 	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return s.issueReviewSessionTokensForParticipants(ctx, scope, review, participants, true)
+}
+
+func (s AgreementService) issueReviewSessionTokensForParticipants(
+	ctx context.Context,
+	scope stores.Scope,
+	review stores.AgreementReviewRecord,
+	participants []stores.AgreementReviewParticipantRecord,
+	rotate bool,
+) (map[string]stores.IssuedReviewSessionToken, error) {
+	if s.reviewTokens == nil {
+		return nil, nil
+	}
+	issuedTokens := make(map[string]stores.IssuedReviewSessionToken, len(participants))
 	for _, participant := range participants {
-		if stores.NormalizeAgreementReviewParticipantType(participant.ParticipantType) != stores.AgreementReviewParticipantTypeExternal {
-			continue
+		var (
+			issued stores.IssuedReviewSessionToken
+			err    error
+		)
+		if rotate {
+			issued, err = s.reviewTokens.Rotate(ctx, scope, review.AgreementID, review.ID, participant.ID)
+		} else {
+			issued, err = s.reviewTokens.Issue(ctx, scope, review.AgreementID, review.ID, participant.ID)
 		}
-		if _, err := s.reviewTokens.Rotate(ctx, scope, review.AgreementID, review.ID, participant.ID); err != nil {
-			return err
+		if err != nil {
+			return nil, err
+		}
+		issuedTokens[strings.TrimSpace(participant.ID)] = issued
+	}
+	return issuedTokens, nil
+}
+
+func (s AgreementService) enqueueReviewInvitationEffects(
+	ctx context.Context,
+	scope stores.Scope,
+	review stores.AgreementReviewRecord,
+	participants []stores.AgreementReviewParticipantRecord,
+	issuedTokens map[string]stores.IssuedReviewSessionToken,
+	correlationID string,
+) (int, error) {
+	if s.effects == nil || s.outbox == nil {
+		return 0, nil
+	}
+	enqueuedCount := 0
+	for _, participant := range participants {
+		token, ok := issuedTokens[strings.TrimSpace(participant.ID)]
+		if !ok || strings.TrimSpace(token.Token) == "" {
+			return 0, domainValidationError("review_session_tokens", "participant_id", "review invite token is required")
+		}
+		notification := AgreementNotification{
+			AgreementID:         strings.TrimSpace(review.AgreementID),
+			ReviewID:            strings.TrimSpace(review.ID),
+			RecipientID:         strings.TrimSpace(participant.RecipientID),
+			ReviewParticipantID: strings.TrimSpace(participant.ID),
+			RecipientEmail:      strings.TrimSpace(participant.Email),
+			RecipientName:       strings.TrimSpace(participant.DisplayName),
+			CorrelationID:       strings.TrimSpace(correlationID),
+			Type:                NotificationReviewInvitation,
+			ReviewToken:         token,
+		}
+		_, replayed, err := s.prepareAgreementNotificationEffect(
+			ctx,
+			scope,
+			GuardedEffectKindAgreementReviewInvite,
+			notification,
+			AgreementReviewNotificationFailedAuditEvent,
+			strings.TrimSpace(correlationID),
+		)
+		if err != nil {
+			return 0, err
+		}
+		if !replayed {
+			enqueuedCount++
 		}
 	}
-	return nil
+	if enqueuedCount == 0 {
+		return 0, nil
+	}
+	if _, _, err := ApplyAgreementNotificationSummary(ctx, s.agreements, s.effects, scope, review.AgreementID); err != nil {
+		return 0, err
+	}
+	return enqueuedCount, nil
 }
 
 func (s AgreementService) upsertAgreementReview(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, input ReviewOpenInput, status string, openedAt, closedAt *time.Time) (stores.AgreementReviewRecord, error) {

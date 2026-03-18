@@ -877,6 +877,7 @@ func (s DraftService) StartReview(ctx context.Context, scope stores.Scope, id st
 		reviewInput.ActorType = "user"
 		reviewInput.ActorID = strings.TrimSpace(input.CreatedByUserID)
 		reviewInput.IPAddress = strings.TrimSpace(input.IPAddress)
+		reviewInput.CorrelationID = strings.TrimSpace(correlationID)
 
 		summary, err := txSvc.agreements.OpenReview(txCtx, scope, materialized.Agreement.ID, reviewInput)
 		if err != nil {

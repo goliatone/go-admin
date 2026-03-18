@@ -2194,6 +2194,229 @@ func TestAgreementServiceValidateBeforeSendBlocksApproveBeforeSendReview(t *test
 	}
 }
 
+func TestAgreementServiceOpenReviewEnqueuesReviewInvitationsForRecipientAndExternalReviewers(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	svc := NewAgreementService(store,
+		WithAgreementNotificationOutbox(store),
+		WithAgreementNotificationDispatchTrigger(dispatcher),
+	)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("reviewer@example.com"),
+		Name:         new("Recipient Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+
+	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     reviewer.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.reviewer@example.com",
+				DisplayName:     "Outside Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+		CorrelationID:     "review-open-corr",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if dispatcher.calls != 1 {
+		t.Fatalf("expected one async review dispatch nudge, got %d", dispatcher.calls)
+	}
+	if summary.Status != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected review status %q, got %q", stores.AgreementReviewStatusInReview, summary.Status)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 2 {
+		t.Fatalf("expected two queued review notifications, got %+v", outbox)
+	}
+
+	byNotificationSubject := map[string]EmailSendAgreementNotificationOutboxPayload{}
+	for _, record := range outbox {
+		var payload EmailSendAgreementNotificationOutboxPayload
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", err)
+		}
+		if payload.Notification != string(NotificationReviewInvitation) {
+			t.Fatalf("expected review invitation payload, got %+v", payload)
+		}
+		if strings.TrimSpace(payload.CorrelationID) != "review-open-corr" {
+			t.Fatalf("expected correlation review-open-corr, got %+v", payload)
+		}
+		if strings.TrimSpace(payload.ReviewToken) == "" {
+			t.Fatalf("expected review token in payload, got %+v", payload)
+		}
+		key := strings.TrimSpace(payload.RecipientID)
+		if key == "" {
+			key = strings.TrimSpace(payload.ReviewParticipantID)
+		}
+		byNotificationSubject[key] = payload
+	}
+
+	recipientPayload, ok := byNotificationSubject[reviewer.ID]
+	if !ok {
+		t.Fatalf("expected recipient reviewer payload, got %+v", byNotificationSubject)
+	}
+	if strings.TrimSpace(recipientPayload.RecipientEmail) != "reviewer@example.com" {
+		t.Fatalf("expected recipient reviewer email, got %+v", recipientPayload)
+	}
+
+	foundExternal := false
+	for _, participant := range summary.Participants {
+		if strings.TrimSpace(participant.ParticipantType) != stores.AgreementReviewParticipantTypeExternal {
+			continue
+		}
+		payload, ok := byNotificationSubject[participant.ID]
+		if !ok {
+			t.Fatalf("expected external participant payload keyed by participant id, got %+v", byNotificationSubject)
+		}
+		if strings.TrimSpace(payload.RecipientID) != "" {
+			t.Fatalf("expected external reviewer payload to keep recipient_id empty, got %+v", payload)
+		}
+		if strings.TrimSpace(payload.RecipientEmail) != "outside.reviewer@example.com" {
+			t.Fatalf("expected external reviewer email, got %+v", payload)
+		}
+		foundExternal = true
+	}
+	if !foundExternal {
+		t.Fatalf("expected external review participant in %+v", summary.Participants)
+	}
+}
+
+func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	svc := NewAgreementService(store,
+		WithAgreementNotificationOutbox(store),
+		WithAgreementNotificationDispatchTrigger(dispatcher),
+	)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("reviewer@example.com"),
+		Name:         new("Recipient Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     reviewer.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.reviewer@example.com",
+				DisplayName:     "Outside Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+		CorrelationID:     "review-open-corr",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	if _, err := svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: reviewer.ID,
+		ActorType:   "recipient",
+		ActorID:     reviewer.ID,
+		IPAddress:   "203.0.113.10",
+	}); err != nil {
+		t.Fatalf("ApproveReview: %v", err)
+	}
+
+	renotifySummary, err := svc.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
+		RequestedByID: "ops-user",
+		ActorType:     "user",
+		ActorID:       "ops-user",
+		CorrelationID: "review-notify-corr",
+	})
+	if err != nil {
+		t.Fatalf("NotifyReviewers: %v", err)
+	}
+	if dispatcher.calls != 2 {
+		t.Fatalf("expected two async review dispatch nudges, got %d", dispatcher.calls)
+	}
+	if renotifySummary.Status != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected review status to remain in_review, got %q", renotifySummary.Status)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 3 {
+		t.Fatalf("expected three queued review notifications after renotify, got %+v", outbox)
+	}
+
+	var renotifyPayloads []EmailSendAgreementNotificationOutboxPayload
+	for _, record := range outbox {
+		var payload EmailSendAgreementNotificationOutboxPayload
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", err)
+		}
+		if strings.TrimSpace(payload.CorrelationID) == "review-notify-corr" {
+			renotifyPayloads = append(renotifyPayloads, payload)
+		}
+	}
+	if len(renotifyPayloads) != 1 {
+		t.Fatalf("expected one renotify payload for the remaining pending reviewer, got %+v", renotifyPayloads)
+	}
+	if strings.TrimSpace(renotifyPayloads[0].RecipientEmail) != "outside.reviewer@example.com" {
+		t.Fatalf("expected renotify payload for external pending reviewer, got %+v", renotifyPayloads[0])
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	var found bool
+	for _, event := range events {
+		if event.EventType != "agreement.review_notified" {
+			continue
+		}
+		found = true
+		break
+	}
+	if !found {
+		t.Fatalf("expected agreement.review_notified audit event, got %+v", events)
+	}
+
+}
+
 func TestAgreementServiceRequestReviewChangesRequiresCommentAndPersistsRationale(t *testing.T) {
 	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
 

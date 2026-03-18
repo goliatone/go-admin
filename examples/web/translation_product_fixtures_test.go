@@ -9,7 +9,11 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/quickstart"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	"github.com/stretchr/testify/require"
 )
 
@@ -210,6 +214,90 @@ func TestSeedExampleTranslationQueueFixtureRepairsLegacyQATargetFamily(t *testin
 	require.Equal(t, coreadmin.AssignmentStatusReview, assignment.Status)
 	require.Equal(t, exampleTranslationQueueFallbackUser, strings.TrimSpace(assignment.ReviewerID))
 	require.NotNil(t, assignment.SubmittedAt)
+}
+
+func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAndScopedFamily(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	db, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+
+	repo := coreadmin.NewBunTranslationAssignmentRepository(db)
+	require.NotNil(t, repo)
+
+	const tenantID = "tenant-demo"
+	const orgID = "org-demo"
+	familyStore := coreadmin.NewBunTranslationFamilyStore(db)
+	require.NotNil(t, familyStore)
+
+	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.CMS = cmsOpts
+	queueEnabled := true
+	translationCfg := appcfg.TranslationConfig{
+		Profile: "full",
+		Queue:   &queueEnabled,
+	}
+	adm, _, err := quickstart.NewAdmin(
+		cfg,
+		quickstart.AdapterHooks{},
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			TranslationFamilyStore: familyStore,
+		}),
+		quickstart.WithFeatureDefaults(map[string]bool{
+			string(coreadmin.FeatureCMS): true,
+		}),
+		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationProductConfig(buildTranslationProductConfig(
+			resolveTranslationProfile("full"),
+			noopExchangeStore{},
+			repo,
+			translationCfg,
+		)),
+	)
+	require.NoError(t, err)
+
+	err = seedExampleTranslationQueueFixtureWithFamilySync(
+		ctx,
+		repo,
+		cmsOpts.Container.ContentService(),
+		tenantID,
+		orgID,
+		func(ctx context.Context) error {
+			return coreadmin.SyncTranslationFamilyStore(ctx, adm, "default")
+		},
+		"reviewer-qa",
+		"translator-qa",
+	)
+	require.NoError(t, err)
+
+	assignment, err := repo.Get(ctx, exampleTranslationQAAssignmentID)
+	require.NoError(t, err)
+	require.Equal(t, tenantID, strings.TrimSpace(assignment.TenantID))
+	require.Equal(t, orgID, strings.TrimSpace(assignment.OrgID))
+	require.Equal(t, coreadmin.AssignmentStatusInReview, assignment.Status)
+	require.NotEmpty(t, strings.TrimSpace(assignment.TargetRecordID))
+
+	require.NoError(t, coreadmin.SyncTranslationFamilyStore(ctx, adm, "default"))
+
+	service := translationservices.FamilyService{Store: familyStore}
+	family, ok, err := service.Detail(ctx, translationservices.GetFamilyInput{
+		Scope: translationservices.Scope{
+			TenantID: tenantID,
+			OrgID:    orgID,
+		},
+		Environment: "default",
+		FamilyID:    assignment.FamilyID,
+	})
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, tenantID, strings.TrimSpace(family.TenantID))
+	require.Equal(t, orgID, strings.TrimSpace(family.OrgID))
 }
 
 func TestSeedExampleTranslationQueueFixtureSeedsReviewerOwnedReviewAssignments(t *testing.T) {

@@ -184,6 +184,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"template_code":   link.TemplateCode,
 				"notification":    link.Notification,
 				"sign_url":        link.SignURL,
+				"review_url":      link.ReviewURL,
 				"completion_url":  link.CompletionURL,
 				"correlation_id":  link.CorrelationID,
 				"captured_at":     link.CapturedAt.UTC().Format(time.RFC3339Nano),
@@ -495,7 +496,7 @@ func sanitizeGuardedEffectPayloadValue(value any) any {
 
 func isSensitiveGuardedEffectPayloadKey(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "token", "signer_token", "pending_token_id", "sign_url", "completion_url":
+	case "token", "signer_token", "review_token", "pending_token_id", "sign_url", "review_url", "completion_url":
 		return true
 	default:
 		return false

@@ -81,7 +81,7 @@ type AgreementReviewParticipantRecord struct {
 	OrgID           string
 	ReviewID        string
 	ParticipantType string
-	RecipientID     string
+	RecipientID     string `bun:"recipient_id,nullzero"`
 	Email           string
 	DisplayName     string
 	Role            string
@@ -105,8 +105,8 @@ type AgreementCommentThreadRecord struct {
 	AnchorType     string
 	PageNumber     int
 	FieldID        string
-	AnchorX        float64
-	AnchorY        float64
+	AnchorX        float64 `bun:"anchor_x"`
+	AnchorY        float64 `bun:"anchor_y"`
 	Status         string
 	CreatedByType  string
 	CreatedByID    string

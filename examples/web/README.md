@@ -94,8 +94,11 @@ Override precedence:
 
 Module routes when enabled:
 - Exchange UI: `GET /admin/translations/exchange`
-- Exchange API: `/admin/api/translations/*`
-- Queue panel route key: `admin.translations.queue` (resolved path typically `/admin/content/translations`)
+- Exchange API: `/admin/api/translations/exchange/*`
+- Queue UI: `GET /admin/translations/queue`
+- Queue compatibility alias: `GET /admin/content/translations`
+- Queue API: `GET /admin/api/translations/queue`
+- Queue panel route key: `admin.translations.queue`
 
 Operational verification:
 1. Start with `APP_TRANSLATION__PROFILE=full` and optional explicit overrides:
@@ -104,9 +107,11 @@ Operational verification:
 2. Verify startup event `translation.capabilities.startup` includes expected `profile`, `modules`, `routes`, and `resolver_keys`.
 3. Verify enabled-module routes:
    - `GET /admin/translations/exchange` (exchange UI)
-   - `GET /admin/content/translations` (queue UI)
-   - `POST /admin/api/translations/export` (exchange API)
-   - `GET /admin/api/translations` (queue panel API)
+   - `GET /admin/translations/queue` (queue UI)
+   - `POST /admin/api/translations/exchange/export` (exchange API)
+   - `POST /admin/api/translations/exchange/import/validate` (exchange validate API)
+   - `POST /admin/api/translations/exchange/import/apply` (exchange apply API)
+   - `GET /admin/api/translations/queue` (queue API)
 4. Verify disabled-module behavior by switching profiles:
    - `APP_TRANSLATION__PROFILE=core`: exchange + queue routes should not be exposed.
    - `APP_TRANSLATION__PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
@@ -141,6 +146,16 @@ APP_TRANSLATION__PROFILE=core go run .
 # none profile (translation capabilities disabled)
 APP_TRANSLATION__PROFILE=none go run .
 ```
+
+Translation QA paths in `examples/web`:
+- Family detail + create-locale: `/admin/translations/qa/family`
+- Content summary: `/admin/translations/qa/content-summary`
+- Fallback edit: `/admin/translations/qa/fallback-edit`
+- Matrix: `/admin/translations/matrix?channel=production&tenant_id=tenant-1&org_id=org-1&locale_limit=4`
+- Queue: `/admin/translations/queue?preset=review_inbox`
+- Editor: `/admin/translations/assignments/assignment-page-home-fr/edit`
+- Exchange wizard + jobs: `/admin/translations/exchange`
+- Content datagrid enrichment: `/admin/content/pages?incomplete=true`
 
 ### DataGrid state persistence (content pages/posts)
 

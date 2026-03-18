@@ -70,6 +70,37 @@ func TestEnsureContentParentPermissionsReconcilesExistingMenuNode(t *testing.T) 
 	}
 }
 
+func TestSetupNavigationSeedsBreadcrumbMetadataForMainAndContentNodes(t *testing.T) {
+	ctx := context.Background()
+	svc := admin.NewInMemoryMenuService()
+
+	if err := SetupNavigation(ctx, svc, "/admin", NavigationMenuCode, "en"); err != nil {
+		t.Fatalf("setup navigation: %v", err)
+	}
+
+	menu, err := svc.Menu(ctx, NavigationMenuCode, "en")
+	if err != nil || menu == nil {
+		t.Fatalf("menu fetch failed: err=%v menu=%v", err, menu)
+	}
+
+	main := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupMain))
+	if main == nil {
+		t.Fatalf("main group not found")
+	}
+	if got, _ := main.Target["breadcrumb_label"].(string); strings.TrimSpace(got) != "Dashboard" {
+		t.Fatalf("expected main breadcrumb label Dashboard, got %+v", main.Target)
+	}
+
+	content := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationSectionContent))
+	if content == nil {
+		t.Fatalf("content parent not found")
+	}
+	hidden, ok := content.Target["breadcrumb_hidden"].(bool)
+	if !ok || !hidden {
+		t.Fatalf("expected content breadcrumb_hidden=true, got %+v", content.Target)
+	}
+}
+
 func findMenuItemByID(items []admin.MenuItem, id string) *admin.MenuItem {
 	id = strings.TrimSpace(id)
 	if id == "" {

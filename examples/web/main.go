@@ -340,7 +340,7 @@ func main() {
 	exchangeStore := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService {
 		return exchangeContentService
 	})
-	var queueRepository coreadmin.TranslationAssignmentRepository = coreadmin.NewInMemoryTranslationAssignmentRepository()
+	var queueRepository coreadmin.TranslationAssignmentRepository
 	if adapterFlags.UsePersistentCMS {
 		translationDB, err := stores.SetupContentDatabase(context.Background(), "")
 		if err != nil {
@@ -355,6 +355,9 @@ func main() {
 		queueRepository,
 		runtimeConfig.Translation,
 	)
+	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled && !adapterFlags.UsePersistentCMS {
+		log.Panicf("translation queue requires persistent CMS storage")
+	}
 	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled {
 		featureDefaults[string(coreadmin.FeatureTranslationQATerms)] = true
 		featureDefaults[string(coreadmin.FeatureTranslationQAStyle)] = true
@@ -477,15 +480,27 @@ func main() {
 	exchangeContentService = cmsContentSvc
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
 		queueFixtureAssignees := resolveTranslationQueueFixtureAssignees(context.Background(), usersDeps.AuthRepo)
-		if err := seedExampleTranslationQueueFixture(
+		familySync := func(ctx context.Context) error {
+			if adminDeps.TranslationFamilyStore == nil {
+				return nil
+			}
+			return coreadmin.SyncTranslationFamilyStore(ctx, adm, defaultSiteContentChannel)
+		}
+		if err := seedExampleTranslationQueueFixtureWithFamilySync(
 			context.Background(),
 			queueRepository,
 			cmsContentSvc,
 			scopeCfg.DefaultTenantID,
 			scopeCfg.DefaultOrgID,
+			familySync,
 			queueFixtureAssignees...,
 		); err != nil {
 			log.Panicf("failed to seed translation queue fixture: %v", err)
+		}
+		if adminDeps.TranslationFamilyStore != nil {
+			if err := coreadmin.SyncTranslationFamilyStore(context.Background(), adm, defaultSiteContentChannel); err != nil {
+				log.Panicf("failed to resync translation family store after queue fixture seed: %v", err)
+			}
 		}
 	}
 	repoOptions := adm.DebugQueryHookOptions()

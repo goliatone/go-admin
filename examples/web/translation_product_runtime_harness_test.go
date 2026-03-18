@@ -17,11 +17,17 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/quickstart"
+	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
+	require.NoError(t, commandregistry.Stop(context.Background()))
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
+
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
 

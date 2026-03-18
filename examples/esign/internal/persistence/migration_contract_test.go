@@ -123,6 +123,30 @@ func TestPhase8AppLocalPostgresReviewSessionRepairMigrationDropsConstraintBefore
 	}
 }
 
+func TestPhase8AppLocalPostgresExternalReviewParticipantMigrationRelaxesRecipientFK(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := path.Join("postgres", "0025_esign_review_external_participants_fk.up.sql")
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+	if !strings.Contains(upText, "DROP CONSTRAINT IF EXISTS fk_agreement_review_participants_recipient") {
+		t.Fatalf("expected postgres external-review migration to drop the recipient FK before rebuilding it")
+	}
+	if !strings.Contains(upText, "ALTER COLUMN recipient_id DROP NOT NULL") {
+		t.Fatalf("expected postgres external-review migration to relax recipient_id nullability")
+	}
+	if !strings.Contains(upText, "participant_type = 'external' AND recipient_id IS NULL AND email <> ''") {
+		t.Fatalf("expected postgres external-review migration to enforce external participant identity semantics")
+	}
+}
+
 func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

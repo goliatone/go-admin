@@ -8,6 +8,7 @@ const (
 	CommandAgreementRequestAmendment     = "esign.agreements.request_amendment"
 	CommandAgreementRequestReview        = "esign.agreements.request_review"
 	CommandAgreementReopenReview         = "esign.agreements.reopen_review"
+	CommandAgreementNotifyReviewers      = "esign.agreements.notify_reviewers"
 	CommandAgreementCloseReview          = "esign.agreements.close_review"
 	CommandAgreementApproveReview        = "esign.agreements.approve_review"
 	CommandAgreementRequestReviewChanges = "esign.agreements.request_review_changes"
@@ -35,6 +36,7 @@ var All = []string{
 	CommandAgreementRequestAmendment,
 	CommandAgreementRequestReview,
 	CommandAgreementReopenReview,
+	CommandAgreementNotifyReviewers,
 	CommandAgreementCloseReview,
 	CommandAgreementApproveReview,
 	CommandAgreementRequestReviewChanges,

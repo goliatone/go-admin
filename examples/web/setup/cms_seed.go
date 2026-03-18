@@ -1343,7 +1343,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	}
 
 	if useContentFallback {
-		if err := ensureSeedContent(ctx, contentSvc, refs, defaultLocale, pageSeeds, postSeeds, newsSeeds); err != nil {
+		if err := ensureSeedContent(ctx, db, contentSvc, refs, defaultLocale, pageSeeds, postSeeds, newsSeeds); err != nil {
 			return err
 		}
 	}
@@ -1359,7 +1359,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 	return seedSiteMenu(ctx, db, menuSvc, defaultLocale)
 }
 
-func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, refs cmsSeedRefs, defaultLocale string, pageSeeds, postSeeds, newsSeeds []contentSeed) error {
+func ensureSeedContent(ctx context.Context, db *bun.DB, contentSvc admin.CMSContentService, refs cmsSeedRefs, defaultLocale string, pageSeeds, postSeeds, newsSeeds []contentSeed) error {
 	if contentSvc == nil {
 		return nil
 	}
@@ -1378,15 +1378,21 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 	}
 
 	seedLocales := translationSeedLocales(locale)
-	pageSlugs, err := collectSeedPageSlugs(ctx, pageStore, seedLocales)
+	pageSlugs, err := collectSeedContentSlugs(ctx, db, "page", seedLocales, func() (map[string]struct{}, error) {
+		return collectSeedPageSlugs(ctx, pageStore, seedLocales)
+	})
 	if err != nil {
 		return err
 	}
-	postSlugs, err := collectSeedPostSlugs(ctx, postStore, seedLocales)
+	postSlugs, err := collectSeedContentSlugs(ctx, db, "post", seedLocales, func() (map[string]struct{}, error) {
+		return collectSeedPostSlugs(ctx, postStore, seedLocales)
+	})
 	if err != nil {
 		return err
 	}
-	newsSlugs, err := collectSeedNewsSlugs(ctx, contentSvc, seedLocales)
+	newsSlugs, err := collectSeedContentSlugs(ctx, db, "news", seedLocales, func() (map[string]struct{}, error) {
+		return collectSeedNewsSlugs(ctx, contentSvc, seedLocales)
+	})
 	if err != nil {
 		return err
 	}
@@ -1516,6 +1522,57 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 	}
 
+	if err := repairSeedContentFamilyIDs(ctx, contentSvc, seedLocales, postSeeds, newsSeeds); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func repairSeedContentFamilyIDs(ctx context.Context, contentSvc admin.CMSContentService, locales []string, seedGroups ...[]contentSeed) error {
+	if contentSvc == nil {
+		return fmt.Errorf("content service unavailable")
+	}
+	seedFamilyBySlug := map[string]string{}
+	for _, seeds := range seedGroups {
+		for _, seed := range seeds {
+			slug := strings.ToLower(strings.TrimSpace(seed.Slug))
+			familyID := strings.TrimSpace(seedFamilyIDValue(seed))
+			if slug == "" || familyID == "" {
+				continue
+			}
+			seedFamilyBySlug[slug] = familyID
+		}
+	}
+	if len(seedFamilyBySlug) == 0 {
+		return nil
+	}
+
+	for _, locale := range normalizedSeedLocales(locales) {
+		items, err := contentSvc.Contents(ctx, locale)
+		if err != nil {
+			return err
+		}
+		for _, item := range items {
+			if strings.EqualFold(strings.TrimSpace(item.ContentType), "page") {
+				continue
+			}
+			slug := strings.ToLower(strings.TrimSpace(item.Slug))
+			familyID, ok := seedFamilyBySlug[slug]
+			if !ok || strings.TrimSpace(item.FamilyID) != "" {
+				continue
+			}
+			updated := item
+			updated.FamilyID = familyID
+			updated.Data = primitives.CloneAnyMapEmptyOnEmpty(updated.Data)
+			updated.Metadata = primitives.CloneAnyMapEmptyOnEmpty(updated.Metadata)
+			updated.Data["family_id"] = familyID
+			updated.Metadata["family_id"] = familyID
+			if _, err := contentSvc.UpdateContent(ctx, updated); err != nil {
+				return fmt.Errorf("repair seed content family_id %s (%s): %w", item.Slug, locale, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -1553,6 +1610,49 @@ func collectSeedStoreSlugs(ctx context.Context, locales []string, fetch func(loc
 			}
 			slugs[slug] = struct{}{}
 		}
+	}
+	return slugs, nil
+}
+
+func collectSeedContentSlugs(ctx context.Context, db *bun.DB, contentType string, locales []string, fallback func() (map[string]struct{}, error)) (map[string]struct{}, error) {
+	if db != nil {
+		slugs, err := collectSeedContentSlugsFromDB(ctx, db, contentType)
+		if err != nil {
+			return nil, err
+		}
+		if len(slugs) > 0 {
+			return slugs, nil
+		}
+	}
+	if fallback == nil {
+		return map[string]struct{}{}, nil
+	}
+	return fallback()
+}
+
+func collectSeedContentSlugsFromDB(ctx context.Context, db *bun.DB, contentType string) (map[string]struct{}, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db is nil")
+	}
+	rows := []struct {
+		Slug string `bun:"slug"`
+	}{}
+	if err := db.NewSelect().
+		TableExpr("contents AS c").
+		ColumnExpr("LOWER(TRIM(c.slug)) AS slug").
+		Join("JOIN content_types AS ct ON ct.id = c.content_type_id").
+		Where("LOWER(TRIM(ct.slug)) = LOWER(TRIM(?))", contentType).
+		Where("TRIM(COALESCE(c.slug, '')) <> ''").
+		Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	slugs := map[string]struct{}{}
+	for _, row := range rows {
+		slug := strings.ToLower(strings.TrimSpace(row.Slug))
+		if slug == "" {
+			continue
+		}
+		slugs[slug] = struct{}{}
 	}
 	return slugs, nil
 }

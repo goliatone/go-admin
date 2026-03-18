@@ -285,6 +285,8 @@ func subjectForTemplate(input EmailSendInput) string {
 		return "Agreement Completed: " + title
 	case defaultSigningReminderTemplate:
 		return "Reminder: Signature Requested: " + title
+	case reviewInvitationTemplate:
+		return "Review Requested: " + title
 	default:
 		return "Signature Requested: " + title
 	}
@@ -323,6 +325,20 @@ func textBodyForTemplate(input EmailSendInput) string {
 		}
 		if signURL := strings.TrimSpace(input.SignURL); signURL != "" {
 			lines = append(lines, fmt.Sprintf("Sign Now: %s", signURL))
+		}
+		if correlationID := strings.TrimSpace(input.CorrelationID); correlationID != "" {
+			lines = append(lines, "", fmt.Sprintf("Correlation ID: %s", correlationID))
+		}
+		return strings.Join(lines, "\n")
+	case reviewInvitationTemplate:
+		lines := []string{
+			fmt.Sprintf("Hello %s,", name),
+			"",
+			"You have been invited to review an agreement.",
+			fmt.Sprintf("Agreement: %s", agreementTitle),
+		}
+		if reviewURL := strings.TrimSpace(input.ReviewURL); reviewURL != "" {
+			lines = append(lines, fmt.Sprintf("Review Agreement: %s", reviewURL))
 		}
 		if correlationID := strings.TrimSpace(input.CorrelationID); correlationID != "" {
 			lines = append(lines, "", fmt.Sprintf("Correlation ID: %s", correlationID))
@@ -383,6 +399,22 @@ func htmlBodyForTemplate(input EmailSendInput) string {
 		}
 		if signURL != "" {
 			lines = append(lines, fmt.Sprintf("<p><a href=\"%s\">Review and Sign</a></p>", signURL))
+		}
+		if correlation != "" {
+			lines = append(lines, fmt.Sprintf("<p><small>Correlation ID: %s</small></p>", correlation))
+		}
+		lines = append(lines, "</body></html>")
+		return strings.Join(lines, "")
+	case reviewInvitationTemplate:
+		reviewURL := htmlEscape(strings.TrimSpace(input.ReviewURL))
+		lines := []string{
+			"<html><body>",
+			fmt.Sprintf("<p>Hello %s,</p>", name),
+			"<p>You have been invited to review an agreement.</p>",
+			fmt.Sprintf("<p><strong>Agreement:</strong> %s</p>", agreementTitle),
+		}
+		if reviewURL != "" {
+			lines = append(lines, fmt.Sprintf("<p><a href=\"%s\">Open Review</a></p>", reviewURL))
 		}
 		if correlation != "" {
 			lines = append(lines, fmt.Sprintf("<p><small>Correlation ID: %s</small></p>", correlation))

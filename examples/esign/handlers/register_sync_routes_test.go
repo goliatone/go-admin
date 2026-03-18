@@ -474,6 +474,13 @@ func TestRegisterSyncDraftStartReviewAction(t *testing.T) {
 	if agreement.ReviewStatus != stores.AgreementReviewStatusInReview {
 		t.Fatalf("expected agreement review status %q, got %q", stores.AgreementReviewStatusInReview, agreement.ReviewStatus)
 	}
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: services.NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 2 {
+		t.Fatalf("expected 2 review invitation outbox messages, got %+v", outbox)
+	}
 
 	status, body = doSyncRequest(t, app, http.MethodPost, "/admin/api/v1/esign/sync/resources/agreement_draft/"+draftID+"/actions/start_review", testAdminUserID, map[string]any{
 		"expected_revision": 2,

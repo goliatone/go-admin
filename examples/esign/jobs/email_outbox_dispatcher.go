@@ -36,7 +36,7 @@ func (p EmailOutboxPublisher) PublishOutboxMessage(ctx context.Context, message 
 	if strings.TrimSpace(message.Topic) != services.NotificationOutboxTopicEmailSendSigningRequest {
 		return fmt.Errorf("unsupported outbox topic %q", strings.TrimSpace(message.Topic))
 	}
-	var payload services.EmailSendSigningRequestOutboxPayload
+	var payload services.EmailSendAgreementNotificationOutboxPayload
 	if err := json.Unmarshal([]byte(message.PayloadJSON), &payload); err != nil {
 		return fmt.Errorf("decode email outbox payload: %w", err)
 	}
@@ -45,15 +45,20 @@ func (p EmailOutboxPublisher) PublishOutboxMessage(ctx context.Context, message 
 		OrgID:    strings.TrimSpace(message.OrgID),
 	}
 	msg := EmailSendSigningRequestMsg{
-		Scope:         scope,
-		AgreementID:   strings.TrimSpace(payload.AgreementID),
-		RecipientID:   strings.TrimSpace(payload.RecipientID),
-		EffectID:      strings.TrimSpace(payload.EffectID),
-		Notification:  strings.TrimSpace(payload.Notification),
-		SignerToken:   strings.TrimSpace(payload.SignerToken),
-		CorrelationID: strings.TrimSpace(payload.CorrelationID),
-		DedupeKey:     strings.TrimSpace(payload.DedupeKey),
-		MaxAttempts:   payload.MaxAttempts,
+		Scope:               scope,
+		AgreementID:         strings.TrimSpace(payload.AgreementID),
+		ReviewID:            strings.TrimSpace(payload.ReviewID),
+		RecipientID:         strings.TrimSpace(payload.RecipientID),
+		ReviewParticipantID: strings.TrimSpace(payload.ReviewParticipantID),
+		RecipientEmail:      strings.TrimSpace(payload.RecipientEmail),
+		RecipientName:       strings.TrimSpace(payload.RecipientName),
+		EffectID:            strings.TrimSpace(payload.EffectID),
+		Notification:        strings.TrimSpace(payload.Notification),
+		SignerToken:         strings.TrimSpace(payload.SignerToken),
+		ReviewToken:         strings.TrimSpace(payload.ReviewToken),
+		CorrelationID:       strings.TrimSpace(payload.CorrelationID),
+		DedupeKey:           strings.TrimSpace(payload.DedupeKey),
+		MaxAttempts:         payload.MaxAttempts,
 	}
 	if err := p.handlers.ExecuteEmailSendSigningRequest(ctx, msg); err != nil {
 		failureAuditEvent := strings.TrimSpace(payload.FailureAuditEvent)

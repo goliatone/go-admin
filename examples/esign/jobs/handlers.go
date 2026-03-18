@@ -24,6 +24,7 @@ const (
 	defaultSigningRequestTemplate  = "esign.sign_request_invitation"
 	defaultSigningReminderTemplate = "esign.sign_request_reminder"
 	completionCCTemplate           = "esign.completed_delivery"
+	reviewInvitationTemplate       = "esign.review_invitation"
 )
 
 type EmailSendInput struct {
@@ -34,6 +35,7 @@ type EmailSendInput struct {
 	Notification  string
 	CorrelationID string
 	SignURL       string
+	ReviewURL     string
 	CompletionURL string
 }
 
@@ -54,6 +56,7 @@ func (p DeterministicEmailProvider) Send(_ context.Context, input EmailSendInput
 		strings.TrimSpace(input.CorrelationID),
 		strings.TrimSpace(input.Notification),
 		strings.TrimSpace(input.SignURL),
+		strings.TrimSpace(input.ReviewURL),
 		strings.TrimSpace(input.CompletionURL),
 	}, "|")
 	sum := sha256.Sum256([]byte(payload))
@@ -211,11 +214,13 @@ func (a guardedEffectStoreAdapter) GetGuardedEffectByIdempotencyKey(ctx context.
 }
 
 type agreementNotificationEffectPayload struct {
-	AgreementID       string `json:"agreement_id"`
-	RecipientID       string `json:"recipient_id"`
-	PendingTokenID    string `json:"pending_token_id"`
-	Notification      string `json:"notification"`
-	FailureAuditEvent string `json:"failure_audit_event"`
+	AgreementID         string `json:"agreement_id"`
+	ReviewID            string `json:"review_id,omitempty"`
+	RecipientID         string `json:"recipient_id,omitempty"`
+	ReviewParticipantID string `json:"review_participant_id,omitempty"`
+	PendingTokenID      string `json:"pending_token_id,omitempty"`
+	Notification        string `json:"notification"`
+	FailureAuditEvent   string `json:"failure_audit_event"`
 }
 
 type agreementNotificationEffectHandler struct {
@@ -246,11 +251,12 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 	}
 	if h.audits != nil && strings.TrimSpace(payload.AgreementID) != "" {
 		metadata, _ := json.Marshal(map[string]any{
-			"effect_id":     strings.TrimSpace(effect.EffectID),
-			"recipient_id":  strings.TrimSpace(payload.RecipientID),
-			"notification":  strings.TrimSpace(payload.Notification),
-			"guard_policy":  strings.TrimSpace(effect.GuardPolicy),
-			"effect_status": strings.TrimSpace(effect.Status),
+			"effect_id":             strings.TrimSpace(effect.EffectID),
+			"recipient_id":          strings.TrimSpace(payload.RecipientID),
+			"review_participant_id": strings.TrimSpace(payload.ReviewParticipantID),
+			"notification":          strings.TrimSpace(payload.Notification),
+			"guard_policy":          strings.TrimSpace(effect.GuardPolicy),
+			"effect_status":         strings.TrimSpace(effect.Status),
 		})
 		_, _ = h.audits.Append(ctx, h.scope, stores.AuditEventRecord{
 			AgreementID:  strings.TrimSpace(payload.AgreementID),
@@ -304,8 +310,8 @@ func isNotificationEffectTerminal(status string) bool {
 	}
 }
 
-func decodeNotificationDispatchPayload(raw string) (services.EmailSendSigningRequestOutboxPayload, error) {
-	var payload services.EmailSendSigningRequestOutboxPayload
+func decodeNotificationDispatchPayload(raw string) (services.EmailSendAgreementNotificationOutboxPayload, error) {
+	var payload services.EmailSendAgreementNotificationOutboxPayload
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return payload, fmt.Errorf("missing guarded effect dispatch payload")
@@ -316,14 +322,29 @@ func decodeNotificationDispatchPayload(raw string) (services.EmailSendSigningReq
 	return payload, nil
 }
 
-func notificationDispatchMatchesMessage(msg EmailSendSigningRequestMsg, payload services.EmailSendSigningRequestOutboxPayload) bool {
+func notificationDispatchMatchesMessage(msg EmailSendSigningRequestMsg, payload services.EmailSendAgreementNotificationOutboxPayload) bool {
 	return strings.TrimSpace(payload.AgreementID) == strings.TrimSpace(msg.AgreementID) &&
+		strings.TrimSpace(payload.ReviewID) == strings.TrimSpace(msg.ReviewID) &&
 		strings.TrimSpace(payload.RecipientID) == strings.TrimSpace(msg.RecipientID) &&
+		strings.TrimSpace(payload.ReviewParticipantID) == strings.TrimSpace(msg.ReviewParticipantID) &&
+		strings.TrimSpace(payload.RecipientEmail) == strings.TrimSpace(msg.RecipientEmail) &&
+		strings.TrimSpace(payload.RecipientName) == strings.TrimSpace(msg.RecipientName) &&
 		strings.TrimSpace(payload.EffectID) == strings.TrimSpace(msg.EffectID) &&
 		strings.TrimSpace(payload.Notification) == strings.TrimSpace(msg.Notification) &&
 		strings.TrimSpace(payload.SignerToken) == strings.TrimSpace(msg.SignerToken) &&
+		strings.TrimSpace(payload.ReviewToken) == strings.TrimSpace(msg.ReviewToken) &&
 		strings.TrimSpace(payload.CorrelationID) == strings.TrimSpace(msg.CorrelationID) &&
 		strings.TrimSpace(payload.DedupeKey) == strings.TrimSpace(msg.DedupeKey)
+}
+
+func notificationSubjectID(msg EmailSendSigningRequestMsg) string {
+	if participantID := strings.TrimSpace(msg.ReviewParticipantID); participantID != "" {
+		return participantID
+	}
+	if recipientID := strings.TrimSpace(msg.RecipientID); recipientID != "" {
+		return recipientID
+	}
+	return strings.TrimSpace(msg.RecipientEmail)
 }
 
 func (h Handlers) shouldExecuteNotificationEffectDispatch(
@@ -353,7 +374,7 @@ func (h Handlers) shouldExecuteNotificationEffectDispatch(
 
 func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
 	startedAt := h.now()
-	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, msg.RecipientID, JobEmailSendSigningRequest)
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, notificationSubjectID(msg), JobEmailSendSigningRequest)
 	if h.agreements == nil || h.jobRuns == nil || h.emailLogs == nil {
 		err := fmt.Errorf("email job dependencies not configured")
 		observability.LogOperation(ctx, slog.LevelError, "job", "email_send_signing_request", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
@@ -364,9 +385,10 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	notification := resolveNotificationType(msg.Notification, msg.TemplateCode)
 	templateCode := resolveTemplateCode(msg.TemplateCode, notification)
 	isCompletionNotification := notification == string(services.NotificationCompletionPackage)
+	isReviewNotification := notification == string(services.NotificationReviewInvitation)
 	dedupeKey := strings.TrimSpace(msg.DedupeKey)
 	if dedupeKey == "" {
-		dedupeKey = strings.Join([]string{msg.AgreementID, msg.RecipientID, templateCode, notification, strings.TrimSpace(msg.CorrelationID)}, "|")
+		dedupeKey = strings.Join([]string{msg.AgreementID, notificationSubjectID(msg), templateCode, notification, strings.TrimSpace(msg.CorrelationID)}, "|")
 	}
 	now := h.now()
 	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
@@ -399,24 +421,26 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		}
 		observability.ObserveJobResult(ctx, JobEmailSendSigningRequest, true)
 		observability.LogOperation(ctx, slog.LevelInfo, "job", "email_send_signing_request", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
-			"job_name":      JobEmailSendSigningRequest,
-			"agreement_id":  strings.TrimSpace(msg.AgreementID),
-			"recipient_id":  strings.TrimSpace(msg.RecipientID),
-			"effect_id":     strings.TrimSpace(msg.EffectID),
-			"skip_reason":   strings.TrimSpace(skipReason),
-			"attempt_count": run.AttemptCount,
+			"job_name":              JobEmailSendSigningRequest,
+			"agreement_id":          strings.TrimSpace(msg.AgreementID),
+			"recipient_id":          strings.TrimSpace(msg.RecipientID),
+			"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+			"effect_id":             strings.TrimSpace(msg.EffectID),
+			"skip_reason":           strings.TrimSpace(skipReason),
+			"attempt_count":         run.AttemptCount,
 		})
 		return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.skipped", map[string]any{
-			"job_name":       JobEmailSendSigningRequest,
-			"agreement_id":   strings.TrimSpace(msg.AgreementID),
-			"recipient_id":   strings.TrimSpace(msg.RecipientID),
-			"effect_id":      strings.TrimSpace(msg.EffectID),
-			"notification":   strings.TrimSpace(notification),
-			"template_code":  strings.TrimSpace(templateCode),
-			"correlation_id": strings.TrimSpace(run.CorrelationID),
-			"dedupe_key":     strings.TrimSpace(dedupeKey),
-			"skip_reason":    strings.TrimSpace(skipReason),
-			"attempt_count":  run.AttemptCount,
+			"job_name":              JobEmailSendSigningRequest,
+			"agreement_id":          strings.TrimSpace(msg.AgreementID),
+			"recipient_id":          strings.TrimSpace(msg.RecipientID),
+			"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+			"effect_id":             strings.TrimSpace(msg.EffectID),
+			"notification":          strings.TrimSpace(notification),
+			"template_code":         strings.TrimSpace(templateCode),
+			"correlation_id":        strings.TrimSpace(run.CorrelationID),
+			"dedupe_key":            strings.TrimSpace(dedupeKey),
+			"skip_reason":           strings.TrimSpace(skipReason),
+			"attempt_count":         run.AttemptCount,
 		})
 	}
 	agreement, err := h.agreements.GetAgreement(ctx, msg.Scope, msg.AgreementID)
@@ -428,7 +452,7 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	if hasDispatchDelay {
 		dispatchDelay = now.Sub(agreement.SentAt.UTC())
 	}
-	recipient, err := h.findRecipient(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
+	recipient, err := h.resolveNotificationRecipient(ctx, msg.Scope, msg)
 	if err != nil {
 		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
 	}
@@ -479,6 +503,20 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			})
 		}
 		emailInput.SignURL = signURL
+	}
+	if isReviewNotification {
+		reviewURL := strings.TrimSpace(msg.ReviewURL)
+		reviewToken := strings.TrimSpace(msg.ReviewToken)
+		if reviewURL == "" {
+			reviewURL = buildReviewLink(reviewToken)
+		}
+		if reviewURL == "" {
+			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing review link for review notification"), msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.ReviewURL = reviewURL
 	}
 	if isCompletionNotification {
 		completionURL := strings.TrimSpace(msg.CompletionURL)
@@ -1360,6 +1398,67 @@ func (h Handlers) findRecipient(ctx context.Context, scope stores.Scope, agreeme
 	return stores.RecipientRecord{}, fmt.Errorf("recipient not found for agreement")
 }
 
+func (h Handlers) resolveNotificationRecipient(ctx context.Context, scope stores.Scope, msg EmailSendSigningRequestMsg) (stores.RecipientRecord, error) {
+	if recipientID := strings.TrimSpace(msg.RecipientID); recipientID != "" {
+		recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
+		if err == nil {
+			if strings.TrimSpace(msg.RecipientEmail) != "" {
+				recipient.Email = strings.TrimSpace(msg.RecipientEmail)
+			}
+			if strings.TrimSpace(msg.RecipientName) != "" {
+				recipient.Name = strings.TrimSpace(msg.RecipientName)
+			}
+			return recipient, nil
+		}
+	}
+	if participantID := strings.TrimSpace(msg.ReviewParticipantID); participantID != "" {
+		reviewID := strings.TrimSpace(msg.ReviewID)
+		if reviewID == "" {
+			review, err := h.agreements.GetAgreementReviewByAgreementID(ctx, scope, msg.AgreementID)
+			if err != nil {
+				return stores.RecipientRecord{}, err
+			}
+			reviewID = strings.TrimSpace(review.ID)
+		}
+		participants, err := h.agreements.ListAgreementReviewParticipants(ctx, scope, reviewID)
+		if err != nil {
+			return stores.RecipientRecord{}, err
+		}
+		for _, participant := range participants {
+			if strings.TrimSpace(participant.ID) != participantID {
+				continue
+			}
+			if recipientID := strings.TrimSpace(participant.RecipientID); recipientID != "" {
+				recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
+				if err != nil {
+					return stores.RecipientRecord{}, err
+				}
+				if strings.TrimSpace(participant.Email) != "" {
+					recipient.Email = strings.TrimSpace(participant.Email)
+				}
+				if strings.TrimSpace(participant.DisplayName) != "" {
+					recipient.Name = strings.TrimSpace(participant.DisplayName)
+				}
+				return recipient, nil
+			}
+			return stores.RecipientRecord{
+				ID:    strings.TrimSpace(participant.ID),
+				Email: strings.TrimSpace(firstNonEmpty(msg.RecipientEmail, participant.Email)),
+				Name:  strings.TrimSpace(firstNonEmpty(msg.RecipientName, participant.DisplayName)),
+			}, nil
+		}
+		return stores.RecipientRecord{}, fmt.Errorf("review participant not found for agreement")
+	}
+	if email := strings.TrimSpace(msg.RecipientEmail); email != "" {
+		return stores.RecipientRecord{
+			ID:    strings.TrimSpace(notificationSubjectID(msg)),
+			Email: email,
+			Name:  strings.TrimSpace(msg.RecipientName),
+		}, nil
+	}
+	return stores.RecipientRecord{}, fmt.Errorf("notification recipient not found")
+}
+
 func resolveTemplateCode(templateCode, notification string) string {
 	templateCode = strings.TrimSpace(templateCode)
 	if templateCode != "" {
@@ -1370,6 +1469,8 @@ func resolveTemplateCode(templateCode, notification string) string {
 		return defaultSigningReminderTemplate
 	case string(services.NotificationCompletionPackage):
 		return completionCCTemplate
+	case string(services.NotificationReviewInvitation):
+		return reviewInvitationTemplate
 	default:
 		return defaultSigningRequestTemplate
 	}
@@ -1385,6 +1486,8 @@ func resolveNotificationType(notification, templateCode string) string {
 		return string(services.NotificationCompletionPackage)
 	case defaultSigningReminderTemplate:
 		return string(services.NotificationSigningReminder)
+	case reviewInvitationTemplate:
+		return string(services.NotificationReviewInvitation)
 	case defaultSigningRequestTemplate:
 		return string(services.NotificationSigningInvitation)
 	default:
@@ -1399,4 +1502,13 @@ func isSigningNotification(notification string) bool {
 	default:
 		return false
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }

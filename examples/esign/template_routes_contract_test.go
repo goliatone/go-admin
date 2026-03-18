@@ -46,6 +46,9 @@ func TestESignAgreementDetailTemplateUsesCanonicalPanelActionAndArtifactRoutes(t
 	if strings.Contains(template, "${apiBase}/${panelName}/actions/${action}") {
 		t.Fatal("expected detail template to avoid non-canonical action endpoint")
 	}
+	if !strings.Contains(template, `resource_item.review.status != "none" and resource_item.review.status != "in_review"`) {
+		t.Fatal(`expected review CTA label to treat status "none" as a new request, not a reopen`)
+	}
 }
 
 func TestESignDocumentDetailTemplateUsesCanonicalPanelSourceRoute(t *testing.T) {

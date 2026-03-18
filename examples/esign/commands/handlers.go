@@ -28,6 +28,7 @@ type AgreementLifecycleService interface {
 	CreateRevision(ctx context.Context, scope stores.Scope, input services.CreateRevisionInput) (stores.AgreementRecord, error)
 	OpenReview(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewOpenInput) (services.ReviewSummary, error)
 	ReopenReview(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewOpenInput) (services.ReviewSummary, error)
+	NotifyReviewers(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewNotifyInput) (services.ReviewSummary, error)
 	CloseReview(ctx context.Context, scope stores.Scope, agreementID, actorType, actorID, ipAddress string) (services.ReviewSummary, error)
 	ApproveReview(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewDecisionInput) (services.ReviewSummary, error)
 	RequestReviewChanges(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewDecisionInput) (services.ReviewSummary, error)
@@ -142,6 +143,9 @@ func Register(
 		return err
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementNotifyReviewersCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
 		return err
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
@@ -634,6 +638,18 @@ func (c *AgreementCloseReviewCommand) Execute(ctx context.Context, msg Agreement
 	return executeAgreementCloseReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
 }
 
+type AgreementNotifyReviewersCommand struct {
+	agreements   AgreementLifecycleService
+	defaultScope stores.Scope
+	projector    AgreementActivityProjector
+}
+
+var _ gocommand.Commander[AgreementNotifyReviewersInput] = (*AgreementNotifyReviewersCommand)(nil)
+
+func (c *AgreementNotifyReviewersCommand) Execute(ctx context.Context, msg AgreementNotifyReviewersInput) error {
+	return executeAgreementNotifyReviewersCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+}
+
 type AgreementApproveReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
@@ -737,6 +753,7 @@ func executeAgreementReviewOpenCommand(
 		ActorType:          "user",
 		ActorID:            strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
 		IPAddress:          resolveCommandRequestIP(ctx),
+		CorrelationID:      strings.TrimSpace(correlationID),
 	}
 	if open {
 		_, err = agreements.OpenReview(ctx, scope, strings.TrimSpace(agreementID), reviewInput)
@@ -771,6 +788,35 @@ func executeAgreementCloseReviewCommand(
 		return err
 	}
 	if _, err := agreements.CloseReview(ctx, scope, strings.TrimSpace(msg.AgreementID), "user", strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))), resolveCommandRequestIP(ctx)); err != nil {
+		return err
+	}
+	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+}
+
+func executeAgreementNotifyReviewersCommand(
+	ctx context.Context,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	msg AgreementNotifyReviewersInput,
+) error {
+	if agreements == nil {
+		return fmt.Errorf("%s command not configured", CommandAgreementNotifyReviewers)
+	}
+	scope, err := resolveScope(ctx, msg.Scope, defaultScope)
+	if err != nil {
+		return err
+	}
+	notifyInput := services.ReviewNotifyInput{
+		ParticipantID: strings.TrimSpace(msg.ParticipantID),
+		RecipientID:   strings.TrimSpace(msg.RecipientID),
+		RequestedByID: strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorType:     "user",
+		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		IPAddress:     resolveCommandRequestIP(ctx),
+		CorrelationID: strings.TrimSpace(msg.CorrelationID),
+	}
+	if _, err := agreements.NotifyReviewers(ctx, scope, strings.TrimSpace(msg.AgreementID), notifyInput); err != nil {
 		return err
 	}
 	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)

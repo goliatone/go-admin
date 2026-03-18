@@ -3,18 +3,24 @@ package jobs
 import "github.com/goliatone/go-admin/examples/esign/stores"
 
 type EmailSendSigningRequestMsg struct {
-	Scope         stores.Scope
-	AgreementID   string
-	RecipientID   string
-	EffectID      string
-	TemplateCode  string
-	Notification  string
-	SignerToken   string
-	SignURL       string
-	CompletionURL string
-	CorrelationID string
-	DedupeKey     string
-	MaxAttempts   int
+	Scope               stores.Scope
+	AgreementID         string
+	RecipientID         string
+	ReviewID            string
+	ReviewParticipantID string
+	RecipientEmail      string
+	RecipientName       string
+	EffectID            string
+	TemplateCode        string
+	Notification        string
+	SignerToken         string
+	ReviewToken         string
+	SignURL             string
+	ReviewURL           string
+	CompletionURL       string
+	CorrelationID       string
+	DedupeKey           string
+	MaxAttempts         int
 }
 
 func (EmailSendSigningRequestMsg) Type() string { return JobEmailSendSigningRequest }

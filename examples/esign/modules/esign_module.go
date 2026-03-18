@@ -606,6 +606,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	notificationRecovery := services.NewAgreementNotificationRecoveryService(
 		m.store,
 		m.tokens,
+		services.WithAgreementNotificationRecoveryReviewTokens(m.reviewTokens),
 		services.WithAgreementNotificationRecoveryDispatch(m.emailOutbox),
 	)
 
@@ -871,6 +872,16 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
 				PayloadRequired: []string{"gate"},
 				Idempotent:      true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:           "notify_reviewers",
+				Label:          "Notify Reviewers",
+				CommandName:    commands.CommandAgreementNotifyReviewers,
+				Scope:          coreadmin.ActionScopeDetail,
+				Permission:     permissions.AdminESignEdit,
+				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				Idempotent:     true,
+				Overflow:       true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{
 				Name:           "close_review",

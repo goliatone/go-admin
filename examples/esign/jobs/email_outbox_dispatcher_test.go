@@ -56,6 +56,113 @@ func TestEmailOutboxPublisherDispatchesSigningRequest(t *testing.T) {
 	}
 }
 
+func TestEmailOutboxPublisherDispatchesReviewInvitationForExternalReviewer(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-review", OrgID: "org-review"}
+	store := stores.NewInMemoryStore()
+	docSvc := services.NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "Review Source",
+		ObjectKey:          "tenant/tenant-review/org/org-review/docs/review/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Review Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, services.ReviewOpenInput{
+		Gate: stores.AgreementReviewGateApproveBeforeSend,
+		ReviewParticipants: []services.ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside-reviewer@example.com",
+				DisplayName:     "Outside Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+		CorrelationID:     "review-outbox-corr",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	var external stores.AgreementReviewParticipantRecord
+	foundExternal := false
+	for _, participant := range summary.Participants {
+		if strings.TrimSpace(participant.ParticipantType) != stores.AgreementReviewParticipantTypeExternal {
+			continue
+		}
+		external = participant
+		foundExternal = true
+		break
+	}
+	if !foundExternal {
+		t.Fatalf("expected external participant in %+v", summary.Participants)
+	}
+
+	provider := &captureEmailProvider{}
+	publisher := NewEmailOutboxPublisher(NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		EmailProvider: provider,
+	}))
+
+	payloadJSON, err := json.Marshal(services.EmailSendAgreementNotificationOutboxPayload{
+		AgreementID:         agreement.ID,
+		ReviewID:            summary.Review.ID,
+		ReviewParticipantID: external.ID,
+		RecipientEmail:      external.Email,
+		RecipientName:       external.DisplayName,
+		Notification:        string(services.NotificationReviewInvitation),
+		ReviewToken:         "review-token-1",
+		CorrelationID:       "review-outbox-corr",
+		DedupeKey:           strings.Join([]string{agreement.ID, external.ID, string(services.NotificationReviewInvitation), "review-outbox-corr"}, "|"),
+	})
+	if err != nil {
+		t.Fatalf("Marshal payload: %v", err)
+	}
+
+	if err := publisher.PublishOutboxMessage(ctx, stores.OutboxMessageRecord{
+		ID:          uuid.NewString(),
+		TenantID:    scope.TenantID,
+		OrgID:       scope.OrgID,
+		Topic:       services.NotificationOutboxTopicEmailSendSigningRequest,
+		PayloadJSON: string(payloadJSON),
+	}); err != nil {
+		t.Fatalf("PublishOutboxMessage: %v", err)
+	}
+
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound review email, got %d", len(inputs))
+	}
+	if strings.TrimSpace(inputs[0].Recipient.Email) != external.Email {
+		t.Fatalf("expected external reviewer email %q, got %+v", external.Email, inputs[0])
+	}
+	if inputs[0].Notification != string(services.NotificationReviewInvitation) {
+		t.Fatalf("expected review invitation notification type, got %q", inputs[0].Notification)
+	}
+	if strings.TrimSpace(inputs[0].ReviewURL) == "" {
+		t.Fatalf("expected review URL in payload, got %+v", inputs[0])
+	}
+}
+
 func TestEmailOutboxDispatcherDrainsPendingMessages(t *testing.T) {
 	ctx, scope, store, agreement, signerOne, _ := setupSentAgreementForWorkflow(t)
 	provider := &captureEmailProvider{}

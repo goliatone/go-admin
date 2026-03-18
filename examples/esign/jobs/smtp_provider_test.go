@@ -141,3 +141,22 @@ func TestCompletionTemplateUsesCompletionLink(t *testing.T) {
 		t.Fatalf("expected completion link in body, got %q", body)
 	}
 }
+
+func TestReviewInvitationTemplateUsesReviewLink(t *testing.T) {
+	body := textBodyForTemplate(EmailSendInput{
+		TemplateCode: reviewInvitationTemplate,
+		Agreement: stores.AgreementRecord{
+			ID:    "agreement-1",
+			Title: "Mutual NDA",
+		},
+		Recipient: stores.RecipientRecord{
+			ID:    "participant-1",
+			Name:  "Jordan",
+			Email: "jordan@example.test",
+		},
+		ReviewURL: "https://example.test/sign/review-token-1",
+	})
+	if !strings.Contains(body, "Review Agreement: https://example.test/sign/review-token-1") {
+		t.Fatalf("expected review link in body, got %q", body)
+	}
+}

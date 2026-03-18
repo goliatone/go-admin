@@ -199,6 +199,74 @@ func TestRuntimeRelationalAgreementSendAndReminderState(t *testing.T) {
 	})
 }
 
+func TestRuntimeRelationalAgreementOpenReviewSupportsExternalReviewers(t *testing.T) {
+	runRuntimeAdapterBackends(t, func(t *testing.T, store *StoreAdapter) {
+		ctx := context.Background()
+		now := time.Date(2026, 3, 17, 20, 0, 0, 0, time.UTC)
+		scope, agreementSvc, agreement, signer := setupRuntimeAgreementForSend(t, ctx, store, now)
+
+		summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, services.ReviewOpenInput{
+			Gate:            stores.AgreementReviewGateApproveBeforeSend,
+			CommentsEnabled: true,
+			ReviewParticipants: []services.ReviewParticipantInput{
+				{
+					ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+					RecipientID:     signer.ID,
+					CanComment:      true,
+					CanApprove:      true,
+				},
+				{
+					ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+					Email:           "outside-reviewer@example.com",
+					DisplayName:     "Outside Reviewer",
+					CanComment:      true,
+					CanApprove:      true,
+				},
+			},
+			RequestedByUserID: "user-runtime-review",
+			ActorType:         "user",
+			ActorID:           "user-runtime-review",
+		})
+		if err != nil {
+			t.Fatalf("OpenReview with external participant: %v", err)
+		}
+		if summary.Review == nil {
+			t.Fatal("expected persisted review record")
+		}
+		if got := len(summary.Participants); got != 2 {
+			t.Fatalf("expected two review participants, got %d", got)
+		}
+
+		participants, err := store.ListAgreementReviewParticipants(ctx, scope, summary.Review.ID)
+		if err != nil {
+			t.Fatalf("ListAgreementReviewParticipants: %v", err)
+		}
+		if got := len(participants); got != 2 {
+			t.Fatalf("expected two persisted review participants, got %d", got)
+		}
+
+		var external stores.AgreementReviewParticipantRecord
+		foundExternal := false
+		for _, participant := range participants {
+			if participant.ParticipantType != stores.AgreementReviewParticipantTypeExternal {
+				continue
+			}
+			external = participant
+			foundExternal = true
+			break
+		}
+		if !foundExternal {
+			t.Fatalf("expected external review participant in %+v", participants)
+		}
+		if strings.TrimSpace(external.RecipientID) != "" {
+			t.Fatalf("expected external reviewer recipient_id to round-trip empty, got %q", external.RecipientID)
+		}
+		if strings.TrimSpace(external.Email) != "outside-reviewer@example.com" {
+			t.Fatalf("expected external reviewer email to persist, got %+v", external)
+		}
+	})
+}
+
 func TestRuntimeRelationalReminderSweep(t *testing.T) {
 	runRuntimeAdapterBackends(t, func(t *testing.T, store *StoreAdapter) {
 		cfg := appcfg.Defaults()
