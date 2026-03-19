@@ -72,23 +72,25 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 				"document_id": documentID,
 			})
 		}
-		if detail.SourceDocument == nil || strings.TrimSpace(detail.SourceDocument.ID) == "" {
+		sourceDocumentID := lineageSourceDocumentID(detail)
+		if sourceDocumentID == "" {
 			return writeAPIError(c, nil, http.StatusNotFound, "LINEAGE_SOURCE_NOT_FOUND", "document has no canonical source lineage", map[string]any{
 				"document_id": documentID,
 			})
 		}
-		relationships, err := cfg.sourceReconciliation.ListCandidateRelationships(c.Context(), cfg.resolveScope(c), detail.SourceDocument.ID)
+		relationships, err := cfg.sourceReconciliation.ListCandidateRelationships(c.Context(), cfg.resolveScope(c), sourceDocumentID)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusUnprocessableEntity, "LINEAGE_CANDIDATES_UNAVAILABLE", "unable to list lineage candidates", map[string]any{
-				"document_id":       documentID,
-				"source_document_id": detail.SourceDocument.ID,
+				"document_id":        documentID,
+				"source_document_id": sourceDocumentID,
 			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"status":             "ok",
 			"document_id":        documentID,
-			"source_document_id": detail.SourceDocument.ID,
+			"source_document_id": sourceDocumentID,
 			"relationships":      relationships,
+			"status_counts":      relationshipStatusCounts(relationships),
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
@@ -126,7 +128,7 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{
-			"status":   "ok",
+			"status":    "ok",
 			"candidate": summary,
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))

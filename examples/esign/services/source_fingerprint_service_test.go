@@ -210,7 +210,7 @@ func makeTextPDF(t *testing.T, pages ...string) []byte {
 	doc.SetFont("Helvetica", "", 12)
 	for _, page := range pages {
 		doc.AddPage()
-		for _, paragraph := range strings.Split(page, "\n\n") {
+		for paragraph := range strings.SplitSeq(page, "\n\n") {
 			doc.MultiCell(0, 16, paragraph, "", "L", false)
 			doc.Ln(8)
 		}

@@ -480,12 +480,16 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if resolved, ok := any(m.store).(stores.LineageStore); ok {
 		lineageStore = resolved
 	}
+	var sourceReconciliation services.SourceReconciliationService
 	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
 	m.sourceLineageQueue = nil
 	if lineageStore != nil {
 		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
+		reconciliationService := services.NewDefaultSourceReconciliationService(lineageStore)
+		sourceReconciliation = reconciliationService
 		lineageJobDeps := jobHandlerDeps
 		lineageJobDeps.Fingerprints = fingerprintService
+		lineageJobDeps.Reconciliation = reconciliationService
 		lineageQueue, queueErr := jobs.NewSourceLineageQueue(jobs.NewHandlers(lineageJobDeps))
 		if queueErr != nil {
 			return fmt.Errorf("esign module: source lineage queue: %w", queueErr)
@@ -799,6 +803,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}),
 		handlers.WithGoogleRuntime(googleRuntime),
 		handlers.WithSourceReadModelService(sourceReadModels),
+		handlers.WithSourceReconciliationService(sourceReconciliation),
 		handlers.WithLineageDiagnosticsService(lineageDiagnostics),
 		handlers.WithIntegrationFoundationService(m.integrations),
 	); err != nil {

@@ -332,7 +332,7 @@ func computeFingerprintSimHash(tokens []string) string {
 	for _, token := range tokens {
 		hash := hashFingerprintUint64(token)
 		weight := 1
-		for idx := 0; idx < 64; idx++ {
+		for idx := range 64 {
 			if hash&(1<<idx) != 0 {
 				bits[idx] += weight
 				continue
@@ -358,7 +358,7 @@ func computeFingerprintMinHashes(tokens []string) []string {
 		unique[token] = struct{}{}
 	}
 	out := make([]string, 0, defaultFingerprintMinHashCount)
-	for seed := 0; seed < defaultFingerprintMinHashCount; seed++ {
+	for seed := range defaultFingerprintMinHashCount {
 		var best uint64
 		bestSet := false
 		for token := range unique {

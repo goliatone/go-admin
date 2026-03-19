@@ -372,7 +372,6 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		"candidate_source_revision_id": strings.TrimSpace(candidate.revision.ID),
 		"candidate_source_artifact_id": strings.TrimSpace(candidate.artifact.ID),
 		"evaluated_at":                 s.now().UTC().Format(time.RFC3339Nano),
-		"evaluation_actor_id":          strings.TrimSpace(firstNonEmpty(input.ActorID, "system")),
 	}
 
 	return candidateScoreEvaluation{
@@ -483,6 +482,7 @@ func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx cont
 	record.ConfidenceScore = evaluation.score
 	record.Status = preservedRelationshipStatus(existing, evaluation)
 	record.UpdatedAt = now
+	evaluation.evidence["evaluation_actor_id"] = strings.TrimSpace(firstNonEmpty(input.ActorID, "system"))
 	encoded, err := json.Marshal(evaluation.evidence)
 	if err != nil {
 		return stores.SourceRelationshipRecord{}, err
