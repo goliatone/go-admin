@@ -970,6 +970,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     pickingReviewAnchorPoint: false,
     highlightedReviewThreadID: '',
     highlightedReviewThreadTimer: null,
+    inlineComposerVisible: false,
+    inlineComposerPosition: { x: 0, y: 0 },
+    inlineComposerAnchor: null,
   };
 
   function requestOverlayRender() {
@@ -1170,10 +1173,158 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     pdfContainer?.classList.toggle('review-anchor-picking', state.pickingReviewAnchorPoint);
     if (!state.pickingReviewAnchorPoint) {
       announceToScreenReader('Comment pin placement cancelled.');
+      hideInlineComposer();
     } else {
-      announceToScreenReader('Click on the document page to pin this comment.');
+      announceToScreenReader('Click on the document page to add a comment.');
     }
     updateReviewAnchorPointUI();
+  }
+
+  function showInlineComposer(x, y, anchorPoint) {
+    if (!hasReviewContext() || !state.reviewContext?.comments_enabled || !state.reviewContext?.can_comment) {
+      return;
+    }
+
+    state.inlineComposerPosition = { x, y };
+    state.inlineComposerAnchor = anchorPoint;
+    state.inlineComposerVisible = true;
+
+    let composer = document.getElementById('inline-comment-composer');
+    if (!composer) {
+      composer = createInlineComposerElement();
+      document.body.appendChild(composer);
+    }
+
+    // Position the composer near the click, but adjust to stay on screen
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const composerWidth = 320;
+    const composerHeight = 200;
+    const padding = 16;
+
+    let left = x + 20;
+    let top = y - composerHeight / 2;
+
+    // Keep within viewport bounds
+    if (left + composerWidth > viewportWidth - padding) {
+      left = x - composerWidth - 20;
+    }
+    if (left < padding) {
+      left = padding;
+    }
+    if (top < padding) {
+      top = padding;
+    }
+    if (top + composerHeight > viewportHeight - padding) {
+      top = viewportHeight - composerHeight - padding;
+    }
+
+    composer.style.left = `${left}px`;
+    composer.style.top = `${top}px`;
+    composer.classList.remove('hidden');
+
+    // Focus the textarea
+    const textarea = composer.querySelector('textarea');
+    if (textarea) {
+      setTimeout(() => textarea.focus(), 100);
+    }
+
+    announceToScreenReader('Comment composer opened. Type your comment and press submit.');
+  }
+
+  function hideInlineComposer() {
+    state.inlineComposerVisible = false;
+    state.inlineComposerAnchor = null;
+    const composer = document.getElementById('inline-comment-composer');
+    if (composer) {
+      composer.classList.add('hidden');
+      const textarea = composer.querySelector('textarea');
+      if (textarea) {
+        textarea.value = '';
+      }
+    }
+  }
+
+  function createInlineComposerElement() {
+    const composer = document.createElement('div');
+    composer.id = 'inline-comment-composer';
+    composer.className = 'inline-comment-composer hidden';
+    composer.innerHTML = `
+      <div class="inline-composer-header">
+        <span class="inline-composer-title">Add Comment</span>
+        <button type="button" class="inline-composer-close" aria-label="Close">
+          <i class="iconoir-xmark"></i>
+        </button>
+      </div>
+      <div class="inline-composer-body">
+        <textarea id="inline-comment-body" rows="3" placeholder="Write your comment..." class="inline-composer-textarea"></textarea>
+        <div class="inline-composer-visibility">
+          <label class="inline-composer-label">
+            <input type="radio" name="inline-visibility" value="shared" checked />
+            <span>Shared</span>
+          </label>
+          <label class="inline-composer-label">
+            <input type="radio" name="inline-visibility" value="internal" />
+            <span>Internal</span>
+          </label>
+        </div>
+      </div>
+      <div class="inline-composer-footer">
+        <button type="button" class="inline-composer-cancel" data-esign-action="cancel-inline-comment">Cancel</button>
+        <button type="button" class="inline-composer-submit" data-esign-action="submit-inline-comment">Comment</button>
+      </div>
+    `;
+
+    // Close button handler
+    const closeBtn = composer.querySelector('.inline-composer-close');
+    closeBtn?.addEventListener('click', () => hideInlineComposer());
+
+    return composer;
+  }
+
+  async function handleSubmitInlineComment() {
+    if (!state.inlineComposerAnchor) return;
+
+    const textarea = document.getElementById('inline-comment-body');
+    const body = String(textarea?.value || '').trim();
+    if (!body) {
+      announceToScreenReader('Enter a comment before submitting.', 'assertive');
+      return;
+    }
+
+    const visibilityRadio = document.querySelector('input[name="inline-visibility"]:checked') as HTMLInputElement;
+    const visibility = visibilityRadio?.value || 'shared';
+
+    const payload = {
+      thread: {
+        review_id: state.reviewContext.review_id,
+        visibility,
+        body,
+        anchor_type: 'page',
+        page_number: state.inlineComposerAnchor.page_number,
+        anchor_x: state.inlineComposerAnchor.anchor_x,
+        anchor_y: state.inlineComposerAnchor.anchor_y,
+      },
+    };
+
+    try {
+      await reviewAPIRequest('/threads', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }, 'Failed to create review comment');
+
+      hideInlineComposer();
+      state.pickingReviewAnchorPoint = false;
+      document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
+
+      await reloadReviewSessionContext();
+      announceToScreenReader('Comment added successfully.');
+    } catch (error) {
+      console.error('Failed to submit inline comment:', error);
+      if (window.toastManager) {
+        window.toastManager.error('Failed to add comment');
+      }
+    }
   }
 
   function updateReviewAnchorPointUI() {
@@ -1375,9 +1526,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const canComment = review.comments_enabled && review.can_comment;
       reviewThreadComposer.classList.toggle('hidden', !canComment);
       if (reviewThreadComposerHint) {
-        reviewThreadComposerHint.textContent = state.activeFieldId
-          ? 'New threads can target the agreement, current page, or active field.'
-          : 'New threads can target the agreement or current page. Activate a field to anchor to it.';
+        const anchorType = currentReviewAnchorType();
+        if (anchorType === 'page') {
+          reviewThreadComposerHint.textContent = 'Click anywhere on the document to add a positioned comment.';
+        } else if (anchorType === 'field' && state.activeFieldId) {
+          reviewThreadComposerHint.textContent = 'Comment will be anchored to the active field.';
+        } else {
+          reviewThreadComposerHint.textContent = 'Select "Agreement" for general comments, or "Page" to click on the document.';
+        }
       }
     }
     if (reviewBanner) {
@@ -1594,6 +1750,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   function selectReviewAnchorChip(anchorType) {
     const anchorInput = document.getElementById('review-thread-anchor');
     const chips = document.querySelectorAll('.review-anchor-chip');
+    const hint = document.getElementById('review-thread-composer-hint');
 
     if (anchorInput) {
       anchorInput.value = anchorType;
@@ -1610,10 +1767,25 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       }
     });
 
-    if (anchorType !== 'page') {
+    // Update hint text immediately based on selected anchor type
+    if (hint) {
+      if (anchorType === 'page') {
+        hint.textContent = 'Click anywhere on the document to add a positioned comment.';
+      } else if (anchorType === 'field' && state.activeFieldId) {
+        hint.textContent = 'Comment will be anchored to the active field.';
+      } else {
+        hint.textContent = 'General comment on the agreement.';
+      }
+    }
+
+    if (anchorType === 'page') {
+      // Auto-enable picking mode when page anchor is selected
+      setReviewAnchorPicking(true);
+    } else {
       state.pickingReviewAnchorPoint = false;
       const pdfContainer = document.getElementById('pdf-container');
       pdfContainer?.classList.remove('review-anchor-picking');
+      hideInlineComposer();
     }
     updateReviewAnchorPointUI();
   }
@@ -1651,10 +1823,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         event.clientY,
       );
       if (!point) return;
-      setReviewAnchorPointDraft(point);
-      state.pickingReviewAnchorPoint = false;
-      document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
-      announceToScreenReader(`Comment pinned on page ${point.page_number}.`);
+
+      // Show inline composer at click location
+      showInlineComposer(event.clientX, event.clientY, point);
     });
   }
 
@@ -2677,6 +2848,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
           setReviewAnchorPointDraft(null);
           announceToScreenReader('Pinned comment location cleared.');
+          break;
+        case 'submit-inline-comment':
+          handleSubmitInlineComment().catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to add comment');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to add comment'}`, 'assertive');
+          });
+          break;
+        case 'cancel-inline-comment':
+          hideInlineComposer();
           break;
         case 'retry-load-pdf':
           loadPdfDocument();

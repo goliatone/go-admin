@@ -455,19 +455,20 @@
   }
 
   .pdf-container.review-anchor-picking::after {
-    content: 'Click anywhere on the page to pin the comment.';
+    content: 'Click anywhere to add a comment';
     position: absolute;
     left: 50%;
     top: 0.75rem;
     transform: translateX(-50%);
     padding: 0.4rem 0.75rem;
     border-radius: 9999px;
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(37, 99, 235, 0.95);
     color: white;
     font-size: 12px;
     font-weight: 500;
     z-index: 10;
     pointer-events: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
   }
 
   .review-anchor-point-controls {
@@ -758,6 +759,165 @@
   .review-progress-line.active {
     background: linear-gradient(90deg, #10b981 50%, #e5e7eb 50%);
   }
+
+  /* Inline Comment Composer */
+  .inline-comment-composer {
+    position: fixed;
+    width: 320px;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    z-index: 200;
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .inline-comment-composer.hidden {
+    opacity: 0;
+    transform: scale(0.95);
+    pointer-events: none;
+  }
+
+  .inline-composer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .inline-composer-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .inline-composer-close {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .inline-composer-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .inline-composer-body {
+    padding: 1rem;
+  }
+
+  .inline-composer-textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #111827;
+    resize: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .inline-composer-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .inline-composer-textarea::placeholder {
+    color: #9ca3af;
+  }
+
+  .inline-composer-visibility {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .inline-composer-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: #6b7280;
+    cursor: pointer;
+  }
+
+  .inline-composer-label input[type="radio"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: #3b82f6;
+  }
+
+  .inline-composer-footer {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .inline-composer-cancel {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .inline-composer-cancel:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+  }
+
+  .inline-composer-submit {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    background: #3b82f6;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .inline-composer-submit:hover {
+    background: #2563eb;
+  }
+
+  .inline-composer-submit:active {
+    background: #1d4ed8;
+  }
+
+  /* Pointer/arrow for inline composer */
+  .inline-comment-composer::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid white;
+    filter: drop-shadow(-2px 0 2px rgba(0, 0, 0, 0.1));
+  }
 </style>
 {% endblock %}
 
@@ -999,7 +1159,8 @@
                 </div>
                 <input type="hidden" id="review-thread-anchor" value="agreement" />
               </div>
-              <div id="review-anchor-point-controls" class="review-anchor-point-controls hidden rounded-lg px-3 py-3">
+              <!-- Pick location controls hidden - auto-enabled on Page anchor selection -->
+              <div id="review-anchor-point-controls" class="review-anchor-point-controls hidden rounded-lg px-3 py-3" style="display: none;">
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinned location</p>
@@ -1015,7 +1176,7 @@
                   </div>
                 </div>
               </div>
-              <p id="review-thread-composer-hint" class="text-xs text-gray-500">New threads can target the agreement or current page. Activate a field to anchor to it.</p>
+              <p id="review-thread-composer-hint" class="text-xs text-gray-500">Select "Agreement" for general comments, or "Page" to click directly on the document to add a positioned comment.</p>
               <label class="block text-xs font-medium text-gray-700">
                 New comment
                 <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add a comment or review note"></textarea>

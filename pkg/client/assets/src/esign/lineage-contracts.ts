@@ -347,3 +347,127 @@ export function normalizePhase1LineageContractFixtures(value: unknown): Phase1Li
   };
 }
 
+/**
+ * Import provenance summary included in import responses.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
+ */
+export interface ImportProvenanceSummary {
+  source_document_id: string | null;
+  source_revision_id: string | null;
+  source_artifact_id: string | null;
+  revision_reused: boolean;
+  is_new_source: boolean;
+}
+
+/**
+ * Import lineage outcome classification.
+ */
+export type ImportLineageOutcome =
+  | 'native_import'
+  | 'duplicate_import'
+  | 'unchanged_reimport'
+  | 'changed_source_reimport'
+  | 'import_failure';
+
+/**
+ * Stable import response contract with lineage information.
+ * This is the canonical backend-owned payload shape for import responses.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
+ */
+export interface GoogleImportResponseWithLineage {
+  import_run_id: string;
+  status: string;
+  lineage_outcome: ImportLineageOutcome;
+  provenance: ImportProvenanceSummary;
+  document_id: string | null;
+  agreement_id: string | null;
+  source_document_url: string | null;
+  document_detail_url: string | null;
+  agreement_detail_url: string | null;
+  error: { code: string; message: string } | null;
+}
+
+/**
+ * Normalize import provenance summary from backend response.
+ */
+function normalizeImportProvenanceSummary(value: unknown): ImportProvenanceSummary {
+  const record = asRecord(value);
+  return {
+    source_document_id: asOptionalString(record.source_document_id) ?? null,
+    source_revision_id: asOptionalString(record.source_revision_id) ?? null,
+    source_artifact_id: asOptionalString(record.source_artifact_id) ?? null,
+    revision_reused: asBoolean(record.revision_reused),
+    is_new_source: asBoolean(record.is_new_source),
+  };
+}
+
+/**
+ * Validate and normalize the lineage outcome field.
+ */
+function normalizeImportLineageOutcome(value: unknown): ImportLineageOutcome {
+  const outcome = asString(value);
+  const validOutcomes: ImportLineageOutcome[] = [
+    'native_import',
+    'duplicate_import',
+    'unchanged_reimport',
+    'changed_source_reimport',
+    'import_failure',
+  ];
+  if (validOutcomes.includes(outcome as ImportLineageOutcome)) {
+    return outcome as ImportLineageOutcome;
+  }
+  // Default to native_import for unknown values (forward compatibility)
+  return 'native_import';
+}
+
+/**
+ * Normalize a Google import response with lineage information.
+ * This adapter ensures frontend code consumes a stable, validated payload
+ * regardless of backend response variations.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
+ */
+export function normalizeGoogleImportResponseWithLineage(value: unknown): GoogleImportResponseWithLineage {
+  const record = asRecord(value);
+  const errorRecord = asRecord(record.error);
+
+  return {
+    import_run_id: asString(record.import_run_id),
+    status: asString(record.status),
+    lineage_outcome: normalizeImportLineageOutcome(record.lineage_outcome),
+    provenance: normalizeImportProvenanceSummary(record.provenance),
+    document_id: asOptionalString(record.document_id) ?? null,
+    agreement_id: asOptionalString(record.agreement_id) ?? null,
+    source_document_url: asOptionalString(record.source_document_url) ?? null,
+    document_detail_url: asOptionalString(record.document_detail_url) ?? null,
+    agreement_detail_url: asOptionalString(record.agreement_detail_url) ?? null,
+    error: errorRecord.code ? {
+      code: asString(errorRecord.code),
+      message: asString(errorRecord.message),
+    } : null,
+  };
+}
+
+/**
+ * Check if an import response indicates lineage was successfully resolved.
+ */
+export function hasLineageResolved(response: GoogleImportResponseWithLineage): boolean {
+  return (
+    response.lineage_outcome !== 'import_failure' &&
+    response.provenance.source_document_id !== null
+  );
+}
+
+/**
+ * Check if an import response indicates a new source document was created.
+ */
+export function isNewSourceImport(response: GoogleImportResponseWithLineage): boolean {
+  return response.provenance.is_new_source;
+}
+
+/**
+ * Check if an import response indicates revision reuse (unchanged content).
+ */
+export function isRevisionReused(response: GoogleImportResponseWithLineage): boolean {
+  return response.provenance.revision_reused;
+}
+

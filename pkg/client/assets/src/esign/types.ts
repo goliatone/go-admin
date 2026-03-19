@@ -214,12 +214,35 @@ export interface GoogleDriveFile {
   thumbnail_link?: string;
 }
 
+/**
+ * Google import run status values.
+ */
+export type GoogleImportRunStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+
+/**
+ * Google import run response with optional lineage information.
+ * This is the runtime import response shape. For normalized lineage-aware
+ * responses, use GoogleImportResponseWithLineage from lineage-contracts.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
+ */
 export interface GoogleImportRun {
   import_run_id: string;
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  status: GoogleImportRunStatus;
   document?: DocumentSummary;
   agreement?: AgreementSummary;
   error?: APIError;
+  // Lineage fields added in Phase 3 - optional for backward compatibility
+  lineage_outcome?: string;
+  provenance?: {
+    source_document_id?: string | null;
+    source_revision_id?: string | null;
+    source_artifact_id?: string | null;
+    revision_reused?: boolean;
+    is_new_source?: boolean;
+  };
+  source_document_url?: string;
+  document_detail_url?: string;
+  agreement_detail_url?: string;
 }
 
 // Draft persistence types (for wizard state)
@@ -262,4 +285,8 @@ export type {
   GoogleImportLineageStatus,
   LineagePresentationRules,
   Phase1LineageContractFixtures,
+  // Phase 3 Task 3.9 - Import response contracts
+  ImportProvenanceSummary,
+  ImportLineageOutcome,
+  GoogleImportResponseWithLineage,
 } from './lineage-contracts.js';

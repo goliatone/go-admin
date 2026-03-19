@@ -14,7 +14,35 @@ export {
   normalizeAgreementLineageDetail,
   normalizeGoogleImportLineageStatus,
   normalizePhase1LineageContractFixtures,
+  // Phase 3 Task 3.9 - Import response adapters
+  normalizeGoogleImportResponseWithLineage,
+  hasLineageResolved,
+  isNewSourceImport,
+  isRevisionReused,
+  type ImportProvenanceSummary,
+  type ImportLineageOutcome,
+  type GoogleImportResponseWithLineage,
 } from './lineage-contracts.js';
+
+// Lineage Fixtures (Phase 2 Task 2.7-2.9)
+export {
+  documentLineageFixtures,
+  agreementLineageFixtures,
+  getDocumentLineageFixture,
+  getAgreementLineageFixture,
+  validateDocumentLineagePayload,
+  validateAgreementLineagePayload,
+  type DocumentLineageFixtures,
+  type AgreementLineageFixtures,
+  type LineageFixtureState,
+  // Phase 3 Task 3.10 - Import state fixtures
+  importResponseFixtures,
+  getImportResponseFixture,
+  validateImportResponsePayload,
+  getImportFixtureStates,
+  type ImportResponseFixtures,
+  type ImportFixtureState,
+} from './lineage-fixtures.js';
 
 // API Client
 export {
