@@ -1897,11 +1897,11 @@ func buildRetryAfterTrend(rows []rateLimitStateRecord) []map[string]any {
 }
 
 type rateLimitListFilter struct {
-	ProviderID   string
-	ScopeType    string
-	ScopeID      string
-	BucketKey    string
-	ConnectionID string
+	ProviderID   string `json:"provider_id"`
+	ScopeType    string `json:"scope_type"`
+	ScopeID      string `json:"scope_id"`
+	BucketKey    string `json:"bucket_key"`
+	ConnectionID string `json:"connection_id"`
 }
 
 func (f rateLimitListFilter) toMap() map[string]any {
@@ -2024,17 +2024,17 @@ func errorsIsNoRows(err error) bool {
 type installationRecord struct {
 	bun.BaseModel `bun:"table:service_installations,alias:si"`
 
-	ID          string         `bun:"id,pk"`
-	ProviderID  string         `bun:"provider_id"`
-	ScopeType   string         `bun:"scope_type"`
-	ScopeID     string         `bun:"scope_id"`
-	InstallType string         `bun:"install_type"`
-	Status      string         `bun:"status"`
-	GrantedAt   *time.Time     `bun:"granted_at"`
-	RevokedAt   *time.Time     `bun:"revoked_at"`
-	Metadata    map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt   time.Time      `bun:"created_at"`
-	UpdatedAt   time.Time      `bun:"updated_at"`
+	ID          string         `bun:"id,pk" json:"id"`
+	ProviderID  string         `bun:"provider_id" json:"provider_id"`
+	ScopeType   string         `bun:"scope_type" json:"scope_type"`
+	ScopeID     string         `bun:"scope_id" json:"scope_id"`
+	InstallType string         `bun:"install_type" json:"install_type"`
+	Status      string         `bun:"status" json:"status"`
+	GrantedAt   *time.Time     `bun:"granted_at" json:"granted_at"`
+	RevokedAt   *time.Time     `bun:"revoked_at" json:"revoked_at"`
+	Metadata    map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt   time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt   time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 func (r installationRecord) toMap() map[string]any {
@@ -2072,29 +2072,29 @@ func installationToMap(installation gocore.Installation) map[string]any {
 type connectionRecord struct {
 	bun.BaseModel `bun:"table:service_connections,alias:sc"`
 
-	ID                string    `bun:"id,pk"`
-	ProviderID        string    `bun:"provider_id"`
-	ScopeType         string    `bun:"scope_type"`
-	ScopeID           string    `bun:"scope_id"`
-	ExternalAccountID string    `bun:"external_account_id"`
-	Status            string    `bun:"status"`
-	LastError         string    `bun:"last_error"`
-	CreatedAt         time.Time `bun:"created_at"`
-	UpdatedAt         time.Time `bun:"updated_at"`
+	ID                string    `bun:"id,pk" json:"id"`
+	ProviderID        string    `bun:"provider_id" json:"provider_id"`
+	ScopeType         string    `bun:"scope_type" json:"scope_type"`
+	ScopeID           string    `bun:"scope_id" json:"scope_id"`
+	ExternalAccountID string    `bun:"external_account_id" json:"external_account_id"`
+	Status            string    `bun:"status" json:"status"`
+	LastError         string    `bun:"last_error" json:"last_error"`
+	CreatedAt         time.Time `bun:"created_at" json:"created_at"`
+	UpdatedAt         time.Time `bun:"updated_at" json:"updated_at"`
 }
 
 type credentialHealthRecord struct {
 	bun.BaseModel `bun:"table:service_credentials,alias:scr"`
 
-	ExpiresAt   *time.Time `bun:"expires_at"`
-	UpdatedAt   time.Time  `bun:"updated_at"`
-	Refreshable bool       `bun:"refreshable"`
+	ExpiresAt   *time.Time `bun:"expires_at" json:"expires_at"`
+	UpdatedAt   time.Time  `bun:"updated_at" json:"updated_at"`
+	Refreshable bool       `bun:"refreshable" json:"refreshable"`
 }
 
 type outboxNextAttemptRecord struct {
 	bun.BaseModel `bun:"table:service_lifecycle_outbox,alias:slo"`
 
-	NextAttemptAt *time.Time `bun:"next_attempt_at"`
+	NextAttemptAt *time.Time `bun:"next_attempt_at" json:"next_attempt_at"`
 }
 
 func (r connectionRecord) toMap() map[string]any {
@@ -2114,20 +2114,20 @@ func (r connectionRecord) toMap() map[string]any {
 type subscriptionRecord struct {
 	bun.BaseModel `bun:"table:service_subscriptions,alias:ss"`
 
-	ID                   string         `bun:"id,pk"`
-	ConnectionID         string         `bun:"connection_id"`
-	ProviderID           string         `bun:"provider_id"`
-	ResourceType         string         `bun:"resource_type"`
-	ResourceID           string         `bun:"resource_id"`
-	ChannelID            string         `bun:"channel_id"`
-	RemoteSubscriptionID string         `bun:"remote_subscription_id"`
-	CallbackURL          string         `bun:"callback_url"`
-	Status               string         `bun:"status"`
-	ExpiresAt            *time.Time     `bun:"expires_at"`
-	LastNotifiedAt       *time.Time     `bun:"last_notified_at"`
-	Metadata             map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt            time.Time      `bun:"created_at"`
-	UpdatedAt            time.Time      `bun:"updated_at"`
+	ID                   string         `bun:"id,pk" json:"id"`
+	ConnectionID         string         `bun:"connection_id" json:"connection_id"`
+	ProviderID           string         `bun:"provider_id" json:"provider_id"`
+	ResourceType         string         `bun:"resource_type" json:"resource_type"`
+	ResourceID           string         `bun:"resource_id" json:"resource_id"`
+	ChannelID            string         `bun:"channel_id" json:"channel_id"`
+	RemoteSubscriptionID string         `bun:"remote_subscription_id" json:"remote_subscription_id"`
+	CallbackURL          string         `bun:"callback_url" json:"callback_url"`
+	Status               string         `bun:"status" json:"status"`
+	ExpiresAt            *time.Time     `bun:"expires_at" json:"expires_at"`
+	LastNotifiedAt       *time.Time     `bun:"last_notified_at" json:"last_notified_at"`
+	Metadata             map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt            time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt            time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 func (r subscriptionRecord) toMap() map[string]any {
@@ -2152,17 +2152,17 @@ func (r subscriptionRecord) toMap() map[string]any {
 type syncCursorRecord struct {
 	bun.BaseModel `bun:"table:service_sync_cursors,alias:ssc"`
 
-	ID           string         `bun:"id,pk"`
-	ConnectionID string         `bun:"connection_id"`
-	ProviderID   string         `bun:"provider_id"`
-	ResourceType string         `bun:"resource_type"`
-	ResourceID   string         `bun:"resource_id"`
-	Cursor       string         `bun:"cursor"`
-	Status       string         `bun:"status"`
-	LastSyncedAt *time.Time     `bun:"last_synced_at"`
-	Metadata     map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt    time.Time      `bun:"created_at"`
-	UpdatedAt    time.Time      `bun:"updated_at"`
+	ID           string         `bun:"id,pk" json:"id"`
+	ConnectionID string         `bun:"connection_id" json:"connection_id"`
+	ProviderID   string         `bun:"provider_id" json:"provider_id"`
+	ResourceType string         `bun:"resource_type" json:"resource_type"`
+	ResourceID   string         `bun:"resource_id" json:"resource_id"`
+	Cursor       string         `bun:"cursor" json:"cursor"`
+	Status       string         `bun:"status" json:"status"`
+	LastSyncedAt *time.Time     `bun:"last_synced_at" json:"last_synced_at"`
+	Metadata     map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt    time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt    time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 func (r syncCursorRecord) toMap() map[string]any {
@@ -2184,28 +2184,28 @@ func (r syncCursorRecord) toMap() map[string]any {
 type syncJobStatusRecord struct {
 	bun.BaseModel `bun:"table:service_sync_jobs,alias:ssj"`
 
-	ID           string         `bun:"id,pk"`
-	ConnectionID string         `bun:"connection_id"`
-	ProviderID   string         `bun:"provider_id"`
-	Mode         string         `bun:"mode"`
-	Checkpoint   string         `bun:"checkpoint"`
-	Status       string         `bun:"status"`
-	Attempts     int            `bun:"attempts"`
-	NextAttempt  *time.Time     `bun:"next_attempt_at"`
-	Metadata     map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt    time.Time      `bun:"created_at"`
-	UpdatedAt    time.Time      `bun:"updated_at"`
+	ID           string         `bun:"id,pk" json:"id"`
+	ConnectionID string         `bun:"connection_id" json:"connection_id"`
+	ProviderID   string         `bun:"provider_id" json:"provider_id"`
+	Mode         string         `bun:"mode" json:"mode"`
+	Checkpoint   string         `bun:"checkpoint" json:"checkpoint"`
+	Status       string         `bun:"status" json:"status"`
+	Attempts     int            `bun:"attempts" json:"attempts"`
+	NextAttempt  *time.Time     `bun:"next_attempt_at" json:"next_attempt"`
+	Metadata     map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt    time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt    time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type lifecycleOutboxStatusRecord struct {
 	bun.BaseModel `bun:"table:service_lifecycle_outbox,alias:slo"`
 
-	EventName     string     `bun:"event_name"`
-	Status        string     `bun:"status"`
-	Attempts      int        `bun:"attempts"`
-	NextAttemptAt *time.Time `bun:"next_attempt_at"`
-	LastError     string     `bun:"last_error"`
-	UpdatedAt     time.Time  `bun:"updated_at"`
+	EventName     string     `bun:"event_name" json:"event_name"`
+	Status        string     `bun:"status" json:"status"`
+	Attempts      int        `bun:"attempts" json:"attempts"`
+	NextAttemptAt *time.Time `bun:"next_attempt_at" json:"next_attempt_at"`
+	LastError     string     `bun:"last_error" json:"last_error"`
+	UpdatedAt     time.Time  `bun:"updated_at" json:"updated_at"`
 }
 
 func (r syncJobStatusRecord) toMap() map[string]any {
@@ -2227,18 +2227,18 @@ func (r syncJobStatusRecord) toMap() map[string]any {
 type rateLimitStateRecord struct {
 	bun.BaseModel `bun:"table:service_rate_limit_state,alias:sr"`
 
-	ID         string         `bun:"id,pk"`
-	ProviderID string         `bun:"provider_id"`
-	ScopeType  string         `bun:"scope_type"`
-	ScopeID    string         `bun:"scope_id"`
-	BucketKey  string         `bun:"bucket_key"`
-	Limit      int            `bun:"limit"`
-	Remaining  int            `bun:"remaining"`
-	ResetAt    *time.Time     `bun:"reset_at"`
-	RetryAfter int            `bun:"retry_after"`
-	Metadata   map[string]any `bun:"metadata,type:jsonb"`
-	CreatedAt  time.Time      `bun:"created_at"`
-	UpdatedAt  time.Time      `bun:"updated_at"`
+	ID         string         `bun:"id,pk" json:"id"`
+	ProviderID string         `bun:"provider_id" json:"provider_id"`
+	ScopeType  string         `bun:"scope_type" json:"scope_type"`
+	ScopeID    string         `bun:"scope_id" json:"scope_id"`
+	BucketKey  string         `bun:"bucket_key" json:"bucket_key"`
+	Limit      int            `bun:"limit" json:"limit"`
+	Remaining  int            `bun:"remaining" json:"remaining"`
+	ResetAt    *time.Time     `bun:"reset_at" json:"reset_at"`
+	RetryAfter int            `bun:"retry_after" json:"retry_after"`
+	Metadata   map[string]any `bun:"metadata,type:jsonb" json:"metadata"`
+	CreatedAt  time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt  time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 func (r rateLimitStateRecord) toMap() map[string]any {
