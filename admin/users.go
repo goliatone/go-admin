@@ -46,7 +46,7 @@ type RoleRecord struct {
 
 // BulkRoleChangeRequest captures inputs for bulk role assignment operations.
 type BulkRoleChangeRequest struct {
-	UserIDs []string `json:"user_i_ds"`
+	UserIDs []string `json:"user_ids"`
 	RoleID  string   `json:"role_id"`
 	Assign  bool     `json:"assign"`
 	Replace bool     `json:"replace"`
