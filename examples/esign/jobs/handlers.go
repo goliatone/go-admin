@@ -1079,6 +1079,7 @@ func (h Handlers) ExecuteSourceLineageProcessing(ctx context.Context, msg Source
 			SourceDocumentID: strings.TrimSpace(msg.SourceDocumentID),
 			SourceRevisionID: strings.TrimSpace(msg.SourceRevisionID),
 			ArtifactID:       strings.TrimSpace(msg.ArtifactID),
+			ActorID:          strings.TrimSpace(msg.ActorID),
 			Metadata:         msg.Metadata,
 		})
 		if err != nil {

@@ -77,6 +77,7 @@ type registerConfig struct {
 	googleImportRuns      stores.GoogleImportRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
 	sourceReadModels      services.SourceReadModelService
+	sourceReconciliation  services.SourceReconciliationService
 	lineageDiagnostics    services.LineageDiagnosticsService
 	integration           IntegrationFoundationService
 	pdfPolicy             PDFPolicyService
@@ -580,6 +581,15 @@ func WithSourceReadModelService(service services.SourceReadModelService) Registe
 			return
 		}
 		cfg.sourceReadModels = service
+	}
+}
+
+func WithSourceReconciliationService(service services.SourceReconciliationService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.sourceReconciliation = service
 	}
 }
 

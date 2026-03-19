@@ -247,6 +247,7 @@ type SourceReconciliationInput struct {
 	SourceDocumentID string                 `json:"source_document_id"`
 	SourceRevisionID string                 `json:"source_revision_id"`
 	ArtifactID       string                 `json:"artifact_id"`
+	ActorID          string                 `json:"actor_id,omitempty"`
 	Metadata         SourceMetadataBaseline `json:"metadata"`
 }
 

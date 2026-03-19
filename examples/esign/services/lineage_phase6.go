@@ -452,6 +452,7 @@ func (s DefaultLineageRepairService) runRepairOperations(
 			SourceDocumentID: reconcileInput.SourceDocumentID,
 			SourceRevisionID: reconcileInput.SourceRevisionID,
 			ArtifactID:       reconcileInput.ArtifactID,
+			ActorID:          reconcileInput.ActorID,
 			Metadata:         reconcileInput.Metadata,
 		})
 		if err != nil {
