@@ -30,7 +30,7 @@ type DefaultTranslationQueueService struct {
 	Repository    TranslationAssignmentRepository `json:"repository"`
 	Activity      ActivitySink                    `json:"activity"`
 	Notifications NotificationService             `json:"notifications"`
-	URLs          urlkit.Resolver                 `json:"ur_ls"`
+	URLs          urlkit.Resolver                 `json:"urls"`
 }
 
 func (s *DefaultTranslationQueueService) ensureRepository() error {
