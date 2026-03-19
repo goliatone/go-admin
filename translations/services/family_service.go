@@ -94,15 +94,15 @@ type FamilyRecord struct {
 }
 
 type ListFamiliesInput struct {
-	Scope          Scope
-	Environment    string
-	FamilyID       string
-	ContentType    string
-	ReadinessState string
-	BlockerCode    string
-	MissingLocale  string
-	Page           int
-	PerPage        int
+	Scope          Scope  `json:"scope"`
+	Environment    string `json:"environment"`
+	FamilyID       string `json:"family_id"`
+	ContentType    string `json:"content_type"`
+	ReadinessState string `json:"readiness_state"`
+	BlockerCode    string `json:"blocker_code"`
+	MissingLocale  string `json:"missing_locale"`
+	Page           int    `json:"page"`
+	PerPage        int    `json:"per_page"`
 }
 
 type ListFamiliesResult struct {
@@ -113,9 +113,9 @@ type ListFamiliesResult struct {
 }
 
 type GetFamilyInput struct {
-	Scope       Scope
-	Environment string
-	FamilyID    string
+	Scope       Scope  `json:"scope"`
+	Environment string `json:"environment"`
+	FamilyID    string `json:"family_id"`
 }
 
 type FamilyPolicyResolver interface {
@@ -123,7 +123,7 @@ type FamilyPolicyResolver interface {
 }
 
 type StaticPolicyResolver struct {
-	Policies map[string]FamilyPolicy
+	Policies map[string]FamilyPolicy `json:"policies"`
 }
 
 func (r StaticPolicyResolver) ResolvePolicy(_ context.Context, contentType, environment string) (FamilyPolicy, bool, error) {
@@ -139,7 +139,7 @@ func (r StaticPolicyResolver) ResolvePolicy(_ context.Context, contentType, envi
 }
 
 type PolicyService struct {
-	Resolver FamilyPolicyResolver
+	Resolver FamilyPolicyResolver `json:"resolver"`
 }
 
 func (s PolicyService) ResolvePolicy(ctx context.Context, contentType, environment string) (FamilyPolicy, bool, error) {
@@ -223,9 +223,9 @@ func (s *InMemoryFamilyStore) SaveFamily(_ context.Context, family FamilyRecord)
 }
 
 type FamilyService struct {
-	Store    FamilyStore
-	Policies PolicyService
-	Clock    Clock
+	Store    FamilyStore   `json:"store"`
+	Policies PolicyService `json:"policies"`
+	Clock    Clock         `json:"clock"`
 }
 
 func (s *FamilyService) Recompute(ctx context.Context, familyID, environment string) (FamilyRecord, error) {
