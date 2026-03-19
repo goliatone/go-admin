@@ -33,7 +33,7 @@ const (
 
 // MigrationRegistration records an ordered migration registration step.
 type MigrationRegistration struct {
-	Label string
+	Label string `json:"label"`
 }
 
 // MigrationObserver receives ordered migration registration events.

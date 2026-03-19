@@ -35,30 +35,30 @@ type workflowRuntime struct {
 }
 
 type workflowSyncRunRecord struct {
-	RunID             string
-	ProviderID        string
-	Scope             gocore.ScopeRef
-	SyncBindingID     string
-	Mode              gocore.SyncRunMode
-	Direction         gocore.SyncDirection
-	Plan              gocore.SyncRunPlan
-	Result            gocore.SyncRunResult
-	RecordedConflicts []map[string]any
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	RunID             string               `json:"run_id"`
+	ProviderID        string               `json:"provider_id"`
+	Scope             gocore.ScopeRef      `json:"scope"`
+	SyncBindingID     string               `json:"sync_binding_id"`
+	Mode              gocore.SyncRunMode   `json:"mode"`
+	Direction         gocore.SyncDirection `json:"direction"`
+	Plan              gocore.SyncRunPlan   `json:"plan"`
+	Result            gocore.SyncRunResult `json:"result"`
+	RecordedConflicts []map[string]any     `json:"recorded_conflicts"`
+	CreatedAt         time.Time            `json:"created_at"`
+	UpdatedAt         time.Time            `json:"updated_at"`
 }
 
 type workflowSchemaBaseline struct {
-	ID         string
-	ProviderID string
-	Scope      gocore.ScopeRef
-	SpecID     string
-	Version    int
-	SchemaRef  string
-	CapturedBy string
-	Metadata   map[string]any
-	CapturedAt time.Time
-	UpdatedAt  time.Time
+	ID         string          `json:"id"`
+	ProviderID string          `json:"provider_id"`
+	Scope      gocore.ScopeRef `json:"scope"`
+	SpecID     string          `json:"spec_id"`
+	Version    int             `json:"version"`
+	SchemaRef  string          `json:"schema_ref"`
+	CapturedBy string          `json:"captured_by"`
+	Metadata   map[string]any  `json:"metadata"`
+	CapturedAt time.Time       `json:"captured_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
 }
 
 func newWorkflowRuntime() (*workflowRuntime, error) {

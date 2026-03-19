@@ -50,34 +50,34 @@ func (f activityListFilter) toMap() map[string]any {
 }
 
 type activityListPage struct {
-	Entries    []map[string]any
-	Total      int
-	Limit      int
-	Offset     int
-	HasMore    bool
-	NextOffset int
+	Entries    []map[string]any `json:"entries"`
+	Total      int              `json:"total"`
+	Limit      int              `json:"limit"`
+	Offset     int              `json:"offset"`
+	HasMore    bool             `json:"has_more"`
+	NextOffset int              `json:"next_offset"`
 }
 
 type activityFeedRecord struct {
 	bun.BaseModel `bun:"table:service_activity_entries,alias:sae"`
 
-	ID             string         `bun:"id"`
-	ProviderID     string         `bun:"provider_id"`
-	ScopeType      string         `bun:"scope_type"`
-	ScopeID        string         `bun:"scope_id"`
-	ConnectionID   *string        `bun:"connection_id"`
-	InstallationID *string        `bun:"installation_id"`
-	SubscriptionID *string        `bun:"subscription_id"`
-	SyncJobID      *string        `bun:"sync_job_id"`
-	Channel        string         `bun:"channel"`
-	Action         string         `bun:"action"`
-	ObjectType     string         `bun:"object_type"`
-	ObjectID       string         `bun:"object_id"`
-	Actor          string         `bun:"actor"`
-	ActorType      string         `bun:"actor_type"`
-	Status         string         `bun:"status"`
-	Metadata       map[string]any `bun:"metadata"`
-	CreatedAt      time.Time      `bun:"created_at"`
+	ID             string         `bun:"id" json:"id"`
+	ProviderID     string         `bun:"provider_id" json:"provider_id"`
+	ScopeType      string         `bun:"scope_type" json:"scope_type"`
+	ScopeID        string         `bun:"scope_id" json:"scope_id"`
+	ConnectionID   *string        `bun:"connection_id" json:"connection_id"`
+	InstallationID *string        `bun:"installation_id" json:"installation_id"`
+	SubscriptionID *string        `bun:"subscription_id" json:"subscription_id"`
+	SyncJobID      *string        `bun:"sync_job_id" json:"sync_job_id"`
+	Channel        string         `bun:"channel" json:"channel"`
+	Action         string         `bun:"action" json:"action"`
+	ObjectType     string         `bun:"object_type" json:"object_type"`
+	ObjectID       string         `bun:"object_id" json:"object_id"`
+	Actor          string         `bun:"actor" json:"actor"`
+	ActorType      string         `bun:"actor_type" json:"actor_type"`
+	Status         string         `bun:"status" json:"status"`
+	Metadata       map[string]any `bun:"metadata" json:"metadata"`
+	CreatedAt      time.Time      `bun:"created_at" json:"created_at"`
 }
 
 func (r activityFeedRecord) toMap() map[string]any {
@@ -418,8 +418,8 @@ func (m *Module) handleRunActivityRetentionCleanup(c router.Context, body map[st
 }
 
 type statusCountRow struct {
-	Status string `bun:"status"`
-	Count  int    `bun:"count"`
+	Status string `bun:"status" json:"status"`
+	Count  int    `bun:"count" json:"count"`
 }
 
 func collectStatusCounts(ctx context.Context, db *bun.DB, table string) (map[string]any, error) {
@@ -446,7 +446,7 @@ func collectStatusCounts(ctx context.Context, db *bun.DB, table string) (map[str
 }
 
 type oldestPendingOutboxRow struct {
-	OccurredAt *time.Time `bun:"occurred_at"`
+	OccurredAt *time.Time `bun:"occurred_at" json:"occurred_at"`
 }
 
 func selectOldestPendingOutbox(ctx context.Context, db *bun.DB) (*time.Time, error) {

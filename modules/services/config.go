@@ -91,189 +91,189 @@ type TableLifecycleHook func(ctx context.Context, db *bun.DB) error
 
 // AppMigrationSource describes app-local migrations to register after go-services.
 type AppMigrationSource struct {
-	Label      string
-	Filesystem fs.FS
+	Label      string `json:"label"`
+	Filesystem fs.FS  `json:"filesystem"`
 }
 
 // LifecycleDispatcherConfig controls outbox dispatcher runtime defaults.
 type LifecycleDispatcherConfig struct {
-	Enabled        bool          `koanf:"enabled" mapstructure:"enabled"`
-	BatchSize      int           `koanf:"batch_size" mapstructure:"batch_size"`
-	MaxAttempts    int           `koanf:"max_attempts" mapstructure:"max_attempts"`
-	InitialBackoff time.Duration `koanf:"initial_backoff" mapstructure:"initial_backoff"`
+	Enabled        bool          `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	BatchSize      int           `koanf:"batch_size" mapstructure:"batch_size" json:"batch_size"`
+	MaxAttempts    int           `koanf:"max_attempts" mapstructure:"max_attempts" json:"max_attempts"`
+	InitialBackoff time.Duration `koanf:"initial_backoff" mapstructure:"initial_backoff" json:"initial_backoff"`
 }
 
 // LifecycleActivityProjectorConfig controls activity projector runtime wiring.
 type LifecycleActivityProjectorConfig struct {
-	Enabled            bool                 `koanf:"enabled" mapstructure:"enabled"`
-	BufferSize         int                  `koanf:"buffer_size" mapstructure:"buffer_size"`
-	FallbackBufferSize int                  `koanf:"fallback_buffer_size" mapstructure:"fallback_buffer_size"`
-	RetentionTTL       time.Duration        `koanf:"retention_ttl" mapstructure:"retention_ttl"`
-	RetentionRowCap    int                  `koanf:"retention_row_cap" mapstructure:"retention_row_cap"`
-	PrimarySink        ServicesActivitySink `koanf:"-" mapstructure:"-"`
-	FallbackSink       ServicesActivitySink `koanf:"-" mapstructure:"-"`
+	Enabled            bool                 `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	BufferSize         int                  `koanf:"buffer_size" mapstructure:"buffer_size" json:"buffer_size"`
+	FallbackBufferSize int                  `koanf:"fallback_buffer_size" mapstructure:"fallback_buffer_size" json:"fallback_buffer_size"`
+	RetentionTTL       time.Duration        `koanf:"retention_ttl" mapstructure:"retention_ttl" json:"retention_ttl"`
+	RetentionRowCap    int                  `koanf:"retention_row_cap" mapstructure:"retention_row_cap" json:"retention_row_cap"`
+	PrimarySink        ServicesActivitySink `koanf:"-" mapstructure:"-" json:"primary_sink"`
+	FallbackSink       ServicesActivitySink `koanf:"-" mapstructure:"-" json:"fallback_sink"`
 }
 
 // LifecycleNotificationsProjectorConfig controls notifications projector wiring.
 type LifecycleNotificationsProjectorConfig struct {
-	Enabled            bool                           `koanf:"enabled" mapstructure:"enabled"`
-	DefinitionMap      map[string]string              `koanf:"definition_map" mapstructure:"definition_map"`
-	DefinitionResolver NotificationDefinitionResolver `koanf:"-" mapstructure:"-"`
-	RecipientResolver  NotificationRecipientResolver  `koanf:"-" mapstructure:"-"`
-	Sender             NotificationSender             `koanf:"-" mapstructure:"-"`
+	Enabled            bool                           `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	DefinitionMap      map[string]string              `koanf:"definition_map" mapstructure:"definition_map" json:"definition_map"`
+	DefinitionResolver NotificationDefinitionResolver `koanf:"-" mapstructure:"-" json:"definition_resolver"`
+	RecipientResolver  NotificationRecipientResolver  `koanf:"-" mapstructure:"-" json:"recipient_resolver"`
+	Sender             NotificationSender             `koanf:"-" mapstructure:"-" json:"sender"`
 }
 
 // LifecycleSubscriberConfig maps a named subscriber into lifecycle projector fan-out.
 type LifecycleSubscriberConfig struct {
-	Name    string
-	Handler LifecycleEventHandler
+	Name    string                `json:"name"`
+	Handler LifecycleEventHandler `json:"handler"`
 }
 
 // LifecycleProjectorsConfig groups projector switches for lifecycle fan-out.
 type LifecycleProjectorsConfig struct {
-	Activity      LifecycleActivityProjectorConfig      `koanf:"activity" mapstructure:"activity"`
-	Notifications LifecycleNotificationsProjectorConfig `koanf:"notifications" mapstructure:"notifications"`
-	Subscribers   []LifecycleSubscriberConfig           `koanf:"-" mapstructure:"-"`
+	Activity      LifecycleActivityProjectorConfig      `koanf:"activity" mapstructure:"activity" json:"activity"`
+	Notifications LifecycleNotificationsProjectorConfig `koanf:"notifications" mapstructure:"notifications" json:"notifications"`
+	Subscribers   []LifecycleSubscriberConfig           `koanf:"-" mapstructure:"-" json:"subscribers"`
 }
 
 // LifecycleConfig exposes module lifecycle runtime surface.
 type LifecycleConfig struct {
-	Dispatcher LifecycleDispatcherConfig `koanf:"dispatcher" mapstructure:"dispatcher"`
-	Projectors LifecycleProjectorsConfig `koanf:"projectors" mapstructure:"projectors"`
+	Dispatcher LifecycleDispatcherConfig `koanf:"dispatcher" mapstructure:"dispatcher" json:"dispatcher"`
+	Projectors LifecycleProjectorsConfig `koanf:"projectors" mapstructure:"projectors" json:"projectors"`
 }
 
 // APIConfig controls admin services API route registration behavior.
 type APIConfig struct {
-	Enabled                      bool              `koanf:"enabled" mapstructure:"enabled"`
-	RequireIdempotencyKey        bool              `koanf:"require_idempotency_key" mapstructure:"require_idempotency_key"`
-	IdempotencyTTL               time.Duration     `koanf:"idempotency_ttl" mapstructure:"idempotency_ttl"`
-	ActivityActionLabelOverrides map[string]string `koanf:"activity_action_label_overrides" mapstructure:"activity_action_label_overrides"`
+	Enabled                      bool              `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	RequireIdempotencyKey        bool              `koanf:"require_idempotency_key" mapstructure:"require_idempotency_key" json:"require_idempotency_key"`
+	IdempotencyTTL               time.Duration     `koanf:"idempotency_ttl" mapstructure:"idempotency_ttl" json:"idempotency_ttl"`
+	ActivityActionLabelOverrides map[string]string `koanf:"activity_action_label_overrides" mapstructure:"activity_action_label_overrides" json:"activity_action_label_overrides"`
 }
 
 // CallbackURLConfig controls callback URL resolution for OAuth/re-consent flows.
 type CallbackURLConfig struct {
-	Strict bool `koanf:"strict" mapstructure:"strict"`
+	Strict bool `koanf:"strict" mapstructure:"strict" json:"strict"`
 
 	// PublicBaseURL overrides request-origin derived callback URL roots (scheme/host/path prefix).
-	PublicBaseURL string `koanf:"public_base_url" mapstructure:"public_base_url"`
+	PublicBaseURL string `koanf:"public_base_url" mapstructure:"public_base_url" json:"public_base_url"`
 
 	// URLKitGroup overrides the URLKit group used to resolve callback routes.
 	// Defaults to admin.AdminAPIGroup().
-	URLKitGroup string `koanf:"urlkit_group" mapstructure:"urlkit_group"`
+	URLKitGroup string `koanf:"urlkit_group" mapstructure:"urlkit_group" json:"url_kit_group"`
 
 	// DefaultRoute is the URLKit route key used when no provider-specific route exists.
-	DefaultRoute string `koanf:"default_route" mapstructure:"default_route"`
+	DefaultRoute string `koanf:"default_route" mapstructure:"default_route" json:"default_route"`
 
 	// ProviderRoutes maps provider IDs to URLKit route keys.
-	ProviderRoutes map[string]string `koanf:"provider_routes" mapstructure:"provider_routes"`
+	ProviderRoutes map[string]string `koanf:"provider_routes" mapstructure:"provider_routes" json:"provider_routes"`
 
 	// ProviderURLOverrides maps provider IDs to absolute callback URLs.
-	ProviderURLOverrides map[string]string `koanf:"provider_url_overrides" mapstructure:"provider_url_overrides"`
+	ProviderURLOverrides map[string]string `koanf:"provider_url_overrides" mapstructure:"provider_url_overrides" json:"provider_url_overrides"`
 }
 
 // WorkerConfig controls async worker adapter wiring.
 type WorkerConfig struct {
-	Enabled bool `koanf:"enabled" mapstructure:"enabled"`
+	Enabled bool `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
 }
 
 // WebhookConfig controls webhook processor defaults.
 type WebhookConfig struct {
-	Enabled     bool          `koanf:"enabled" mapstructure:"enabled"`
-	ClaimLease  time.Duration `koanf:"claim_lease" mapstructure:"claim_lease"`
-	MaxAttempts int           `koanf:"max_attempts" mapstructure:"max_attempts"`
+	Enabled     bool          `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	ClaimLease  time.Duration `koanf:"claim_lease" mapstructure:"claim_lease" json:"claim_lease"`
+	MaxAttempts int           `koanf:"max_attempts" mapstructure:"max_attempts" json:"max_attempts"`
 }
 
 // InboundConfig controls inbound dispatcher defaults.
 type InboundConfig struct {
-	Enabled bool          `koanf:"enabled" mapstructure:"enabled"`
-	KeyTTL  time.Duration `koanf:"key_ttl" mapstructure:"key_ttl"`
+	Enabled bool          `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
+	KeyTTL  time.Duration `koanf:"key_ttl" mapstructure:"key_ttl" json:"key_ttl"`
 }
 
 // ExtensionsConfig controls downstream package integration points and diagnostics.
 type ExtensionsConfig struct {
-	EnabledProviderPacks []string        `koanf:"enabled_provider_packs" mapstructure:"enabled_provider_packs"`
-	FeatureFlags         map[string]bool `koanf:"feature_flags" mapstructure:"feature_flags"`
-	DiagnosticsEnabled   bool            `koanf:"diagnostics_enabled" mapstructure:"diagnostics_enabled"`
+	EnabledProviderPacks []string        `koanf:"enabled_provider_packs" mapstructure:"enabled_provider_packs" json:"enabled_provider_packs"`
+	FeatureFlags         map[string]bool `koanf:"feature_flags" mapstructure:"feature_flags" json:"feature_flags"`
+	DiagnosticsEnabled   bool            `koanf:"diagnostics_enabled" mapstructure:"diagnostics_enabled" json:"diagnostics_enabled"`
 }
 
 // Config controls go-admin services module wiring.
 type Config struct {
-	Enabled bool `koanf:"enabled" mapstructure:"enabled"`
+	Enabled bool `koanf:"enabled" mapstructure:"enabled" json:"enabled"`
 
 	// Service runtime configuration consumed by go-services.
-	Service     goservices.Config            `koanf:"service" mapstructure:"service"`
-	Inheritance goservices.InheritanceConfig `koanf:"inheritance" mapstructure:"inheritance"`
+	Service     goservices.Config            `koanf:"service" mapstructure:"service" json:"service"`
+	Inheritance goservices.InheritanceConfig `koanf:"inheritance" mapstructure:"inheritance" json:"inheritance"`
 
 	// ConfigValues is loaded through go-config/cfgx and merged via go-options.
-	ConfigValues map[string]any `koanf:"config" mapstructure:"config"`
+	ConfigValues map[string]any `koanf:"config" mapstructure:"config" json:"config_values"`
 
 	// PersistenceClient defaults to go-persistence-bun client used for SQL stores.
-	PersistenceClient *persistence.Client `koanf:"-" mapstructure:"-"`
+	PersistenceClient *persistence.Client `koanf:"-" mapstructure:"-" json:"persistence_client"`
 
 	// RepositoryFactory optionally overrides default go-services SQL repository factory wiring.
-	RepositoryFactory any `koanf:"-" mapstructure:"-"`
+	RepositoryFactory any `koanf:"-" mapstructure:"-" json:"repository_factory"`
 
 	// SecretProvider optionally overrides app-key secret provider wiring.
-	SecretProvider SecretProvider `koanf:"-" mapstructure:"-"`
+	SecretProvider SecretProvider `koanf:"-" mapstructure:"-" json:"secret_provider"`
 
 	// Encryption key material for default app-key secret provider.
-	EncryptionKey     string `koanf:"encryption_key" mapstructure:"encryption_key"`
-	EncryptionKeyID   string `koanf:"encryption_key_id" mapstructure:"encryption_key_id"`
-	EncryptionVersion int    `koanf:"encryption_version" mapstructure:"encryption_version"`
+	EncryptionKey     string `koanf:"encryption_key" mapstructure:"encryption_key" json:"encryption_key"`
+	EncryptionKeyID   string `koanf:"encryption_key_id" mapstructure:"encryption_key_id" json:"encryption_key_id"`
+	EncryptionVersion int    `koanf:"encryption_version" mapstructure:"encryption_version" json:"encryption_version"`
 
 	// Providers are registered on startup in deterministic order.
-	Providers []Provider `koanf:"-" mapstructure:"-"`
-	Registry  Registry   `koanf:"-" mapstructure:"-"`
+	Providers []Provider `koanf:"-" mapstructure:"-" json:"providers"`
+	Registry  Registry   `koanf:"-" mapstructure:"-" json:"registry"`
 
 	// Optional module-level logging/error wiring.
-	LoggerProvider goadmin.LoggerProvider `koanf:"-" mapstructure:"-"`
-	Logger         goadmin.Logger         `koanf:"-" mapstructure:"-"`
-	ErrorFactory   ErrorFactory           `koanf:"-" mapstructure:"-"`
-	ErrorMapper    ErrorMapper            `koanf:"-" mapstructure:"-"`
+	LoggerProvider goadmin.LoggerProvider `koanf:"-" mapstructure:"-" json:"logger_provider"`
+	Logger         goadmin.Logger         `koanf:"-" mapstructure:"-" json:"logger"`
+	ErrorFactory   ErrorFactory           `koanf:"-" mapstructure:"-" json:"error_factory"`
+	ErrorMapper    ErrorMapper            `koanf:"-" mapstructure:"-" json:"error_mapper"`
 
 	// Optional overrides for go-services config loading/layering.
-	ConfigProvider  ConfigProvider  `koanf:"-" mapstructure:"-"`
-	OptionsResolver OptionsResolver `koanf:"-" mapstructure:"-"`
+	ConfigProvider  ConfigProvider  `koanf:"-" mapstructure:"-" json:"config_provider"`
+	OptionsResolver OptionsResolver `koanf:"-" mapstructure:"-" json:"options_resolver"`
 
 	// RegisterMigrations defaults to true when nil.
-	RegisterMigrations *bool `koanf:"register_migrations" mapstructure:"register_migrations"`
+	RegisterMigrations *bool `koanf:"register_migrations" mapstructure:"register_migrations" json:"register_migrations"`
 
 	// Validation targets used when registering dialect-aware migrations.
-	ValidationTargets []string `koanf:"validation_targets" mapstructure:"validation_targets"`
+	ValidationTargets []string `koanf:"validation_targets" mapstructure:"validation_targets" json:"validation_targets"`
 
 	// AppMigrations are registered after go-auth/go-users/go-services in dependency order.
-	AppMigrations []AppMigrationSource `koanf:"-" mapstructure:"-"`
+	AppMigrations []AppMigrationSource `koanf:"-" mapstructure:"-" json:"app_migrations"`
 
 	// TableLifecycleHooks run after migration registration and before service startup.
-	TableLifecycleHooks []TableLifecycleHook `koanf:"-" mapstructure:"-"`
+	TableLifecycleHooks []TableLifecycleHook `koanf:"-" mapstructure:"-" json:"table_lifecycle_hooks"`
 
 	// Lifecycle runtime/projector config surface.
-	Lifecycle LifecycleConfig `koanf:"lifecycle" mapstructure:"lifecycle"`
+	Lifecycle LifecycleConfig `koanf:"lifecycle" mapstructure:"lifecycle" json:"lifecycle"`
 
 	// Admin services API/runtime integration controls.
-	API        APIConfig         `koanf:"api" mapstructure:"api"`
-	Callbacks  CallbackURLConfig `koanf:"callbacks" mapstructure:"callbacks"`
-	Worker     WorkerConfig      `koanf:"worker" mapstructure:"worker"`
-	Webhook    WebhookConfig     `koanf:"webhook" mapstructure:"webhook"`
-	Inbound    InboundConfig     `koanf:"inbound" mapstructure:"inbound"`
-	Extensions ExtensionsConfig  `koanf:"extensions" mapstructure:"extensions"`
+	API        APIConfig         `koanf:"api" mapstructure:"api" json:"api"`
+	Callbacks  CallbackURLConfig `koanf:"callbacks" mapstructure:"callbacks" json:"callbacks"`
+	Worker     WorkerConfig      `koanf:"worker" mapstructure:"worker" json:"worker"`
+	Webhook    WebhookConfig     `koanf:"webhook" mapstructure:"webhook" json:"webhook"`
+	Inbound    InboundConfig     `koanf:"inbound" mapstructure:"inbound" json:"inbound"`
+	Extensions ExtensionsConfig  `koanf:"extensions" mapstructure:"extensions" json:"extensions"`
 
 	// Optional worker/inbound/webhook runtime adapters.
-	JobEnqueuer           JobEnqueuer           `koanf:"-" mapstructure:"-"`
-	WebhookVerifier       WebhookVerifier       `koanf:"-" mapstructure:"-"`
-	WebhookHandler        WebhookHandler        `koanf:"-" mapstructure:"-"`
-	WebhookDeliveryLedger WebhookDeliveryLedger `koanf:"-" mapstructure:"-"`
-	InboundVerifier       InboundVerifier       `koanf:"-" mapstructure:"-"`
-	InboundHandlers       []InboundHandler      `koanf:"-" mapstructure:"-"`
-	InboundClaimStore     InboundClaimStore     `koanf:"-" mapstructure:"-"`
+	JobEnqueuer           JobEnqueuer           `koanf:"-" mapstructure:"-" json:"job_enqueuer"`
+	WebhookVerifier       WebhookVerifier       `koanf:"-" mapstructure:"-" json:"webhook_verifier"`
+	WebhookHandler        WebhookHandler        `koanf:"-" mapstructure:"-" json:"webhook_handler"`
+	WebhookDeliveryLedger WebhookDeliveryLedger `koanf:"-" mapstructure:"-" json:"webhook_delivery_ledger"`
+	InboundVerifier       InboundVerifier       `koanf:"-" mapstructure:"-" json:"inbound_verifier"`
+	InboundHandlers       []InboundHandler      `koanf:"-" mapstructure:"-" json:"inbound_handlers"`
+	InboundClaimStore     InboundClaimStore     `koanf:"-" mapstructure:"-" json:"inbound_claim_store"`
 }
 
 // RuntimeContracts exposes resolved logger/runtime bridges for async worker wiring.
 type RuntimeContracts struct {
-	LoggerProvider    goadmin.LoggerProvider
-	Logger            goadmin.Logger
-	JobLoggerProvider any
-	JobLogger         any
+	LoggerProvider    goadmin.LoggerProvider `json:"logger_provider"`
+	Logger            goadmin.Logger         `json:"logger"`
+	JobLoggerProvider any                    `json:"job_logger_provider"`
+	JobLogger         any                    `json:"job_logger"`
 }
 
 // DefaultConfig returns module defaults aligned with SERVICES_TDD.md.
