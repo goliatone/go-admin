@@ -40,16 +40,21 @@ type googleServicesConnectionRecord struct {
 // GoogleServicesIntegrationService bridges the legacy e-sign Google endpoints
 // to the go-admin/services module runtime.
 type GoogleServicesIntegrationService struct {
-	module        *servicesmodule.Module
-	provider      GoogleProvider
-	providerMode  string
-	providerID    string
-	documents     GoogleDocumentUploader
-	agreements    GoogleAgreementCreator
-	lineage       stores.LineageStore
-	identity      SourceIdentityService
-	now           func() time.Time
-	allowedScopes []string
+	module            *servicesmodule.Module
+	provider          GoogleProvider
+	providerMode      string
+	providerID        string
+	documents         GoogleDocumentUploader
+	agreements        GoogleAgreementCreator
+	documentStore     stores.DocumentStore
+	agreementStore    stores.AgreementStore
+	lineage           stores.LineageStore
+	identity          SourceIdentityService
+	lineageProcessing SourceLineageProcessingTrigger
+	importRuns        stores.GoogleImportRunStore
+	tx                stores.TransactionManager
+	now               func() time.Time
+	allowedScopes     []string
 }
 
 type GoogleServicesIntegrationOption func(*GoogleServicesIntegrationService)
@@ -69,6 +74,33 @@ func WithGoogleServicesSourceIdentityService(identity SourceIdentityService) Goo
 			return
 		}
 		s.identity = identity
+	}
+}
+
+func WithGoogleServicesLineageProcessingTrigger(trigger SourceLineageProcessingTrigger) GoogleServicesIntegrationOption {
+	return func(s *GoogleServicesIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.lineageProcessing = trigger
+	}
+}
+
+func WithGoogleServicesPersistenceStore(store stores.Store) GoogleServicesIntegrationOption {
+	return func(s *GoogleServicesIntegrationService) {
+		if s == nil || store == nil {
+			return
+		}
+		s.tx = store
+		s.importRuns = store
+		s.documentStore = store
+		s.agreementStore = store
+		if s.lineage == nil {
+			lineage, ok := any(store).(stores.LineageStore)
+			if ok {
+				s.lineage = lineage
+			}
+		}
 	}
 }
 
@@ -97,6 +129,14 @@ func NewGoogleServicesIntegrationService(
 		agreements:    agreements,
 		now:           func() time.Time { return time.Now().UTC() },
 		allowedScopes: normalizeScopes(DefaultGoogleOAuthScopes),
+	}
+	switch typed := documents.(type) {
+	case DocumentService:
+		svc.documentStore = typed.store
+	}
+	switch typed := agreements.(type) {
+	case AgreementService:
+		svc.agreementStore = typed.agreements
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -540,7 +580,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 
-	return executeGoogleImportWithLineage(ctx, scope, GoogleImportInput{
+	result, err = executeGoogleImportWithPersistence(ctx, scope, GoogleImportInput{
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
 		GoogleFileID:      fileID,
@@ -555,6 +595,65 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		agreements: s.agreements,
 		identity:   s.identity,
 		now:        s.now,
+	}, googleImportPersistenceDeps{
+		tx:             s.tx,
+		importRuns:     s.importRuns,
+		documentStore:  s.documentStore,
+		agreementStore: s.agreementStore,
+	})
+	if err != nil {
+		return GoogleImportResult{}, err
+	}
+	s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+		UserID:            strings.TrimSpace(input.UserID),
+		AccountID:         strings.TrimSpace(input.AccountID),
+		GoogleFileID:      fileID,
+		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
+		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
+		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
+		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
+		CorrelationID:     strings.TrimSpace(input.CorrelationID),
+		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
+	}, snapshot, sourceMimeType, ingestionMode)
+	return result, nil
+}
+
+func (s GoogleServicesIntegrationService) enqueueLineageProcessing(
+	ctx context.Context,
+	scope stores.Scope,
+	result GoogleImportResult,
+	input GoogleImportInput,
+	snapshot GoogleExportSnapshot,
+	sourceMimeType string,
+	ingestionMode string,
+) {
+	if s.lineageProcessing == nil || strings.TrimSpace(result.SourceRevisionID) == "" || strings.TrimSpace(result.SourceArtifactID) == "" {
+		return
+	}
+	modifiedTime := snapshot.File.ModifiedTime
+	if modifiedTime.IsZero() {
+		modifiedTime = s.now().UTC()
+	}
+	_ = s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
+		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
+		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),
+		ArtifactID:       strings.TrimSpace(result.SourceArtifactID),
+		ActorID:          strings.TrimSpace(input.CreatedByUserID),
+		CorrelationID:    strings.TrimSpace(input.CorrelationID),
+		DedupeKey:        strings.Join([]string{"google-import-lineage", strings.TrimSpace(result.SourceRevisionID), strings.TrimSpace(result.SourceArtifactID)}, "|"),
+		Metadata: SourceMetadataBaseline{
+			AccountID:           strings.TrimSpace(input.AccountID),
+			ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
+			WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
+			ModifiedTime:        &modifiedTime,
+			SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),
+			SourceMimeType:      strings.TrimSpace(sourceMimeType),
+			SourceIngestionMode: strings.TrimSpace(ingestionMode),
+			TitleHint:           firstNonEmpty(strings.TrimSpace(input.DocumentTitle), strings.TrimSpace(snapshot.File.Name)),
+			PageCountHint:       result.Document.PageCount,
+			OwnerEmail:          strings.TrimSpace(snapshot.File.OwnerEmail),
+			ParentID:            strings.TrimSpace(snapshot.File.ParentID),
+		},
 	})
 }
 

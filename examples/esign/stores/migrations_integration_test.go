@@ -261,9 +261,19 @@ func TestMigrationsExposeVersionAndRecipientLifecycleColumns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tableColumnNames(agreement_review_participants): %v", err)
 	}
-	for _, col := range []string{"participant_type", "email", "display_name"} {
+	for _, col := range []string{"participant_type", "email", "display_name", "approved_on_behalf_by_user_id", "approved_on_behalf_by_display_name", "approved_on_behalf_reason", "approved_on_behalf_at"} {
 		if !contains(reviewParticipantCols, col) {
 			t.Fatalf("expected agreement_review_participants.%s column", col)
+		}
+	}
+
+	reviewCols, err := tableColumnNames(ctx, client.DB(), "agreement_reviews")
+	if err != nil {
+		t.Fatalf("tableColumnNames(agreement_reviews): %v", err)
+	}
+	for _, col := range []string{"override_active", "override_reason", "override_by_user_id", "override_by_display_name", "override_at"} {
+		if !contains(reviewCols, col) {
+			t.Fatalf("expected agreement_reviews.%s column", col)
 		}
 	}
 }

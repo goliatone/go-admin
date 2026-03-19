@@ -47,6 +47,10 @@ func (s *InMemoryStore) CreateAgreementReview(ctx context.Context, scope Scope, 
 		return AgreementReviewRecord{}, invalidRecordError("agreement_reviews", "gate", "unsupported review gate")
 	}
 	record.RequestedByUserID = normalizeID(record.RequestedByUserID)
+	record.OverrideReason = strings.TrimSpace(record.OverrideReason)
+	record.OverrideByUserID = normalizeID(record.OverrideByUserID)
+	record.OverrideByDisplayName = strings.TrimSpace(record.OverrideByDisplayName)
+	record.OverrideAt = cloneTimePtr(record.OverrideAt)
 	record.OpenedAt = cloneTimePtr(record.OpenedAt)
 	record.ClosedAt = cloneTimePtr(record.ClosedAt)
 	record.LastActivityAt = cloneTimePtr(record.LastActivityAt)
@@ -110,6 +114,11 @@ func (s *InMemoryStore) UpdateAgreementReview(ctx context.Context, scope Scope, 
 		existing.Gate = normalized
 	}
 	existing.RequestedByUserID = normalizeID(record.RequestedByUserID)
+	existing.OverrideActive = record.OverrideActive
+	existing.OverrideReason = strings.TrimSpace(record.OverrideReason)
+	existing.OverrideByUserID = normalizeID(record.OverrideByUserID)
+	existing.OverrideByDisplayName = strings.TrimSpace(record.OverrideByDisplayName)
+	existing.OverrideAt = cloneTimePtr(record.OverrideAt)
 	existing.OpenedAt = cloneTimePtr(record.OpenedAt)
 	existing.ClosedAt = cloneTimePtr(record.ClosedAt)
 	existing.LastActivityAt = cloneTimePtr(record.LastActivityAt)
@@ -223,6 +232,10 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 			return invalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
 		}
 		record.DecisionAt = cloneTimePtr(record.DecisionAt)
+		record.ApprovedOnBehalfByUserID = normalizeID(record.ApprovedOnBehalfByUserID)
+		record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+		record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+		record.ApprovedOnBehalfAt = cloneTimePtr(record.ApprovedOnBehalfAt)
 		record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 		record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
 		s.agreementReviewParticipants[scopedKey(scope, record.ID)] = record
@@ -297,6 +310,10 @@ func (s *InMemoryStore) UpdateAgreementReviewParticipant(ctx context.Context, sc
 		existing.DisplayName = displayName
 	}
 	existing.DecisionAt = cloneTimePtr(record.DecisionAt)
+	existing.ApprovedOnBehalfByUserID = normalizeID(record.ApprovedOnBehalfByUserID)
+	existing.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+	existing.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+	existing.ApprovedOnBehalfAt = cloneTimePtr(record.ApprovedOnBehalfAt)
 	existing.UpdatedAt = time.Now().UTC()
 	s.agreementReviewParticipants[key] = existing
 	return existing, nil

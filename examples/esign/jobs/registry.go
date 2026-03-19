@@ -8,6 +8,7 @@ const (
 	JobPDFBackfillDocuments    = "jobs.esign.pdf_backfill_documents"
 	JobTokenRotate             = "jobs.esign.token_rotate"
 	JobGoogleDriveImport       = "jobs.esign.google_drive_import"
+	JobSourceLineageProcessing = "jobs.esign.source_lineage_processing"
 )
 
 var All = []string{
@@ -18,4 +19,5 @@ var All = []string{
 	JobPDFBackfillDocuments,
 	JobTokenRotate,
 	JobGoogleDriveImport,
+	JobSourceLineageProcessing,
 }

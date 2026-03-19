@@ -60,6 +60,11 @@ const (
 	SourceExtractVersionPDFTextV1 = "v1_pdf_text"
 )
 
+const (
+	SourceFingerprintStatusReady  = "ready"
+	SourceFingerprintStatusFailed = "failed"
+)
+
 // SourceDocumentRecord stores canonical logical source identity.
 type SourceDocumentRecord struct {
 	bun.BaseModel     `bun:"table:source_documents,alias:sdoc"`
@@ -132,20 +137,24 @@ type SourceArtifactRecord struct {
 
 // SourceFingerprintRecord stores versioned exact and approximate evidence for reconciliation.
 type SourceFingerprintRecord struct {
-	bun.BaseModel        `bun:"table:source_fingerprints,alias:sfp"`
-	ID                   string    `bun:"id" json:"id"`
-	TenantID             string    `bun:"tenant_id" json:"tenant_id"`
-	OrgID                string    `bun:"org_id" json:"org_id"`
-	SourceRevisionID     string    `bun:"source_revision_id" json:"source_revision_id"`
-	ArtifactID           string    `bun:"artifact_id" json:"artifact_id"`
-	ExtractVersion       string    `bun:"extract_version" json:"extract_version"`
-	RawSHA256            string    `bun:"raw_sha256" json:"raw_sha256"`
-	NormalizedTextSHA256 string    `bun:"normalized_text_sha256" json:"normalized_text_sha256"`
-	SimHash64            string    `bun:"simhash64" json:"simhash64"`
-	MinHashJSON          string    `bun:"minhash_json" json:"minhash_json"`
-	ChunkHashesJSON      string    `bun:"chunk_hashes_json" json:"chunk_hashes_json"`
-	TokenCount           int       `bun:"token_count" json:"token_count"`
-	CreatedAt            time.Time `bun:"created_at" json:"created_at"`
+	bun.BaseModel          `bun:"table:source_fingerprints,alias:sfp"`
+	ID                     string    `bun:"id" json:"id"`
+	TenantID               string    `bun:"tenant_id" json:"tenant_id"`
+	OrgID                  string    `bun:"org_id" json:"org_id"`
+	SourceRevisionID       string    `bun:"source_revision_id" json:"source_revision_id"`
+	ArtifactID             string    `bun:"artifact_id" json:"artifact_id"`
+	ExtractVersion         string    `bun:"extract_version" json:"extract_version"`
+	Status                 string    `bun:"status" json:"status"`
+	RawSHA256              string    `bun:"raw_sha256" json:"raw_sha256"`
+	NormalizedTextSHA256   string    `bun:"normalized_text_sha256" json:"normalized_text_sha256"`
+	SimHash64              string    `bun:"simhash64" json:"simhash64"`
+	MinHashJSON            string    `bun:"minhash_json" json:"minhash_json"`
+	ChunkHashesJSON        string    `bun:"chunk_hashes_json" json:"chunk_hashes_json"`
+	ExtractionMetadataJSON string    `bun:"extraction_metadata_json" json:"extraction_metadata_json"`
+	ErrorCode              string    `bun:"error_code" json:"error_code"`
+	ErrorMessage           string    `bun:"error_message" json:"error_message"`
+	TokenCount             int       `bun:"token_count" json:"token_count"`
+	CreatedAt              time.Time `bun:"created_at" json:"created_at"`
 }
 
 // SourceRelationshipRecord stores inferred or confirmed lineage relationships.

@@ -89,6 +89,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	adminRoutes := wrapRouteRegistrar(r, composeMiddleware(cfg.adminRouteAuth, traceResponseHeadersMiddleware()))
 
 	registerAdminCoreRoutes(adminRoutes, routes, cfg)
+	registerLineageRoutes(adminRoutes, cfg)
 	registerDraftRoutes(adminRoutes, routes, cfg)
 	registerSyncRoutes(adminRoutes, routes, cfg)
 	registerAgreementAuthoringRoutes(adminRoutes, routes, cfg)
@@ -612,6 +613,32 @@ func googleImportRunRecordToMap(record stores.GoogleImportRunRecord) map[string]
 			errPayload["details"] = details
 		}
 		out["error"] = errPayload
+	}
+	return out
+}
+
+func applyGoogleImportLineageStatus(out map[string]any, status services.GoogleImportLineageStatus) map[string]any {
+	if len(out) == 0 {
+		out = map[string]any{}
+	}
+	out["import_run_id"] = strings.TrimSpace(status.ImportRunID)
+	out["id"] = strings.TrimSpace(status.ImportRunID)
+	out["lineage_status"] = strings.TrimSpace(status.LineageStatus)
+	out["fingerprint_status"] = status.FingerprintStatus
+	out["source_document"] = status.SourceDocument
+	out["source_revision"] = status.SourceRevision
+	out["source_artifact"] = status.SourceArtifact
+	out["candidate_status"] = append([]services.CandidateWarningSummary{}, status.CandidateStatus...)
+	out["document_detail_url"] = strings.TrimSpace(status.DocumentDetailURL)
+	out["agreement_detail_url"] = strings.TrimSpace(status.AgreementDetailURL)
+	if status.SourceDocument != nil {
+		out["source_document_id"] = strings.TrimSpace(status.SourceDocument.ID)
+	}
+	if status.SourceRevision != nil {
+		out["source_revision_id"] = strings.TrimSpace(status.SourceRevision.ID)
+	}
+	if status.SourceArtifact != nil {
+		out["source_artifact_id"] = strings.TrimSpace(status.SourceArtifact.ID)
 	}
 	return out
 }

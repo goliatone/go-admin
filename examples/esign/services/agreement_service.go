@@ -349,6 +349,10 @@ func (s AgreementService) withWriteTx(ctx context.Context, fn func(AgreementServ
 	})
 }
 
+func (s AgreementService) ForTx(tx stores.TxStore) GoogleAgreementCreator {
+	return s.forTx(tx)
+}
+
 func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(AgreementService, *stores.TxHooks) error) error {
 	if fn == nil {
 		return nil

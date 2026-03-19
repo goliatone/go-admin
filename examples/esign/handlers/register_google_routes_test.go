@@ -3,14 +3,17 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	auth "github.com/goliatone/go-auth"
@@ -252,6 +255,226 @@ func TestRegisterGoogleOAuthStatusUnexpectedErrorReturnsInternalServerError(t *t
 	}
 }
 
+func TestRegisterGoogleImportRunDetailUsesSourceReadModelService(t *testing.T) {
+	_, scope, store := newScopeStoreFixture()
+	runID := seedGoogleImportRunLineageFixture(t, store, scope)
+	google := services.NewGoogleIntegrationService(
+		store,
+		services.NewDeterministicGoogleProvider(),
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+	)
+	readModels := services.NewDefaultSourceReadModelService(
+		store,
+		store,
+		store,
+		services.WithSourceReadModelImportRuns(store),
+	)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminCreate, DefaultPermissions.AdminView, DefaultPermissions.AdminSettings)),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(google),
+		WithGoogleImportRunStore(store),
+		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error { return nil }),
+		WithSourceReadModelService(readModels),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/imports/"+runID+"?user_id=ops-user", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("import run detail request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected import run detail 200, got %d body=%s", resp.StatusCode, string(body))
+	}
+	payload := decodeBodyMap(t, resp.Body)
+	sourceDocument, ok := payload["source_document"].(map[string]any)
+	if !ok || strings.TrimSpace(fmt.Sprint(sourceDocument["id"])) != "src-doc-lineage-1" {
+		t.Fatalf("expected canonical source_document from read model service, got %+v", payload["source_document"])
+	}
+	sourceRevision, ok := payload["source_revision"].(map[string]any)
+	if !ok || strings.TrimSpace(fmt.Sprint(sourceRevision["id"])) != "src-rev-lineage-1" {
+		t.Fatalf("expected canonical source_revision from read model service, got %+v", payload["source_revision"])
+	}
+	candidates, ok := payload["candidate_status"].([]any)
+	if !ok || len(candidates) != 1 {
+		t.Fatalf("expected candidate_status from read model service, got %+v", payload["candidate_status"])
+	}
+}
+
+func seedGoogleImportRunLineageFixture(t *testing.T, store *stores.InMemoryStore, scope stores.Scope) string {
+	t.Helper()
+
+	now := time.Date(2026, time.March, 18, 12, 0, 0, 0, time.UTC)
+	validFrom := now
+	if _, err := store.CreateSourceDocument(context.Background(), scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-lineage-1",
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Google Import Run Fixture",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}); err != nil {
+		t.Fatalf("CreateSourceDocument: %v", err)
+	}
+	if _, err := store.CreateSourceDocument(context.Background(), scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-lineage-candidate",
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Google Import Run Fixture",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandMedium,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}); err != nil {
+		t.Fatalf("CreateSourceDocument candidate: %v", err)
+	}
+	if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+		ID:               "src-handle-lineage-1",
+		SourceDocumentID: "src-doc-lineage-1",
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "google-lineage-file-1",
+		AccountID:        "acct-1",
+		DriveID:          "drive-1",
+		WebURL:           "https://docs.google.com/document/d/google-lineage-file-1/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &validFrom,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}); err != nil {
+		t.Fatalf("CreateSourceHandle: %v", err)
+	}
+	if _, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
+		ID:                   "src-rev-lineage-1",
+		SourceDocumentID:     "src-doc-lineage-1",
+		SourceHandleID:       "src-handle-lineage-1",
+		ProviderRevisionHint: "v1",
+		ModifiedTime:         &now,
+		ExportedAt:           &now,
+		ExportedByUserID:     "fixture-user",
+		SourceMimeType:       "application/vnd.google-apps.document",
+		MetadataJSON:         `{"external_file_id":"google-lineage-file-1","account_id":"acct-1","web_url":"https://docs.google.com/document/d/google-lineage-file-1/edit","title_hint":"Google Import Run Fixture","source_version_hint":"v1"}`,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}); err != nil {
+		t.Fatalf("CreateSourceRevision: %v", err)
+	}
+	if _, err := store.CreateSourceArtifact(context.Background(), scope, stores.SourceArtifactRecord{
+		ID:                  "src-art-lineage-1",
+		SourceRevisionID:    "src-rev-lineage-1",
+		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+		ObjectKey:           "tenant/google-import-run.pdf",
+		SHA256:              strings.Repeat("a", 64),
+		PageCount:           2,
+		SizeBytes:           2048,
+		CompatibilityTier:   "supported",
+		NormalizationStatus: "completed",
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}); err != nil {
+		t.Fatalf("CreateSourceArtifact: %v", err)
+	}
+	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
+		ID:                     "doc-lineage-1",
+		Title:                  "Google Import Run Fixture",
+		SourceOriginalName:     "google-import-run.pdf",
+		SourceObjectKey:        "tenant/google-import-run.pdf",
+		SourceSHA256:           strings.Repeat("a", 64),
+		SourceType:             stores.SourceTypeGoogleDrive,
+		SourceGoogleFileID:     "google-lineage-file-1",
+		SourceGoogleDocURL:     "https://docs.google.com/document/d/google-lineage-file-1/edit",
+		SourceModifiedTime:     &now,
+		SourceExportedAt:       &now,
+		SourceExportedByUserID: "fixture-user",
+		SourceMimeType:         "application/vnd.google-apps.document",
+		SourceIngestionMode:    services.GoogleIngestionModeExportPDF,
+		SourceDocumentID:       "src-doc-lineage-1",
+		SourceRevisionID:       "src-rev-lineage-1",
+		SourceArtifactID:       "src-art-lineage-1",
+		SizeBytes:              2048,
+		PageCount:              2,
+		CreatedByUserID:        "fixture-user",
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	}); err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+	if _, err := store.CreateDraft(context.Background(), scope, stores.AgreementRecord{
+		ID:                     "agr-lineage-1",
+		DocumentID:             "doc-lineage-1",
+		Status:                 stores.AgreementStatusDraft,
+		Title:                  "Google Import Run Agreement",
+		Version:                1,
+		SourceType:             stores.SourceTypeGoogleDrive,
+		SourceGoogleFileID:     "google-lineage-file-1",
+		SourceGoogleDocURL:     "https://docs.google.com/document/d/google-lineage-file-1/edit",
+		SourceModifiedTime:     &now,
+		SourceExportedAt:       &now,
+		SourceExportedByUserID: "fixture-user",
+		SourceMimeType:         "application/vnd.google-apps.document",
+		SourceIngestionMode:    services.GoogleIngestionModeExportPDF,
+		SourceRevisionID:       "src-rev-lineage-1",
+		CreatedByUserID:        "fixture-user",
+		UpdatedByUserID:        "fixture-user",
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	}); err != nil {
+		t.Fatalf("Create agreement: %v", err)
+	}
+	if _, err := store.CreateSourceRelationship(context.Background(), scope, stores.SourceRelationshipRecord{
+		ID:                    "src-rel-lineage-1",
+		LeftSourceDocumentID:  "src-doc-lineage-candidate",
+		RightSourceDocumentID: "src-doc-lineage-1",
+		RelationshipType:      stores.SourceRelationshipTypeSameLogicalDoc,
+		ConfidenceBand:        stores.LineageConfidenceBandMedium,
+		ConfidenceScore:       0.71,
+		Status:                stores.SourceRelationshipStatusPendingReview,
+		EvidenceJSON:          `{"candidate_reason":"matching_title_with_partial_google_context"}`,
+		CreatedByUserID:       "fixture-user",
+		CreatedAt:             now,
+		UpdatedAt:             now,
+	}); err != nil {
+		t.Fatalf("CreateSourceRelationship: %v", err)
+	}
+	run, created, err := store.BeginGoogleImportRun(context.Background(), scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-lineage-file-1",
+		SourceVersionHint: "v1",
+		DedupeKey:         "ops-user|google-lineage-file-1|v1",
+		DocumentTitle:     "Google Import Run Fixture",
+		AgreementTitle:    "Google Import Run Agreement",
+		CreatedByUserID:   "fixture-user",
+		CorrelationID:     "corr-run-lineage-1",
+		RequestedAt:       now,
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
+	if !created {
+		t.Fatalf("expected import run to be created")
+	}
+	if _, err := store.MarkGoogleImportRunSucceeded(context.Background(), scope, run.ID, stores.GoogleImportRunSuccessInput{
+		DocumentID:         "doc-lineage-1",
+		AgreementID:        "agr-lineage-1",
+		SourceDocumentID:   "src-doc-lineage-1",
+		SourceRevisionID:   "src-rev-lineage-1",
+		SourceArtifactID:   "src-art-lineage-1",
+		LineageStatus:      services.LineageImportStatusLinked,
+		FingerprintStatus:  services.LineageFingerprintStatusPending,
+		DocumentDetailURL:  "/admin/content/esign_documents/doc-lineage-1",
+		AgreementDetailURL: "/admin/content/esign_agreements/agr-lineage-1",
+		SourceMimeType:     "application/vnd.google-apps.document",
+		IngestionMode:      services.GoogleIngestionModeExportPDF,
+		CompletedAt:        now,
+	}); err != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	}
+	return run.ID
+}
+
 func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	_, scope, store := newScopeStoreFixture()
 	google := services.NewGoogleIntegrationService(
@@ -335,6 +558,91 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if !strings.Contains(string(importBody), `"source_type":"google_drive"`) {
 		t.Fatalf("expected source_type in import response, got %s", string(importBody))
 	}
+}
+
+func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing.T) {
+	_, scope, store := newScopeStoreFixture()
+	google := services.NewGoogleIntegrationService(
+		store,
+		services.NewDeterministicGoogleProvider(),
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+		services.WithGoogleLineageStore(store),
+	)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(
+			DefaultPermissions.AdminSettings,
+			DefaultPermissions.AdminCreate,
+			DefaultPermissions.AdminView,
+		)),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(google),
+		WithDefaultScope(scope),
+	)
+
+	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-replay","account_id":"work@example.com"}`))
+	connectReq.Header.Set("Content-Type", "application/json")
+	connectResp, err := app.Test(connectReq, -1)
+	if err != nil {
+		t.Fatalf("connect request failed: %v", err)
+	}
+	_ = connectResp.Body.Close()
+	if connectResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
+	}
+
+	body := `{"google_file_id":"google-file-1","account_id":"work@example.com","document_title":"Imported NDA","agreement_title":"Imported NDA Agreement","source_version_hint":"v1"}`
+	firstReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstResp, err := app.Test(firstReq, -1)
+	if err != nil {
+		t.Fatalf("first import request failed: %v", err)
+	}
+	defer firstResp.Body.Close()
+	if firstResp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(firstResp.Body)
+		t.Fatalf("expected first import 200, got %d body=%s", firstResp.StatusCode, string(payload))
+	}
+	firstPayload, err := io.ReadAll(firstResp.Body)
+	if err != nil {
+		t.Fatalf("read first import response: %v", err)
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondResp, err := app.Test(secondReq, -1)
+	if err != nil {
+		t.Fatalf("second import request failed: %v", err)
+	}
+	defer secondResp.Body.Close()
+	if secondResp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(secondResp.Body)
+		t.Fatalf("expected second import 200, got %d body=%s", secondResp.StatusCode, string(payload))
+	}
+	secondPayload, err := io.ReadAll(secondResp.Body)
+	if err != nil {
+		t.Fatalf("read second import response: %v", err)
+	}
+
+	if extractJSONField(t, firstPayload, "document", "id") != extractJSONField(t, secondPayload, "document", "id") {
+		t.Fatalf("expected replayed import to reuse document id, first=%s second=%s", string(firstPayload), string(secondPayload))
+	}
+	if extractJSONField(t, firstPayload, "agreement", "id") != extractJSONField(t, secondPayload, "agreement", "id") {
+		t.Fatalf("expected replayed import to reuse agreement id, first=%s second=%s", string(firstPayload), string(secondPayload))
+	}
+}
+
+func extractJSONField(t *testing.T, payload []byte, parentKey, childKey string) string {
+	t.Helper()
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode json payload: %v", err)
+	}
+	parent, ok := decoded[parentKey].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s object in payload: %+v", parentKey, decoded)
+	}
+	return strings.TrimSpace(fmt.Sprint(parent[childKey]))
 }
 
 func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {

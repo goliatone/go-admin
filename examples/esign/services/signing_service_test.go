@@ -2870,6 +2870,328 @@ func TestSigningServiceGetReviewSessionSupportsExternalReviewerToken(t *testing.
 	}
 }
 
+func TestSigningServiceSessionIncludesReviewApprovalCounts(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("review-count-signer@example.com"),
+		Name:         new("Review Count Signer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signer: %v", err)
+	}
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "review-count-a@example.com",
+				DisplayName:     "Review Count A",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "review-count-b@example.com",
+				DisplayName:     "Review Count B",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "review-count-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if len(summary.Participants) != 2 {
+		t.Fatalf("expected two external review participants, got %+v", summary.Participants)
+	}
+	if _, err := agreementSvc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		ParticipantID: summary.Participants[0].ID,
+		ActorType:     "reviewer",
+		ActorID:       summary.Participants[0].ID,
+	}); err != nil {
+		t.Fatalf("ApproveReview approverA: %v", err)
+	}
+
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, summary.Participants[1].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	session, err := signingSvc.GetReviewSession(ctx, scope, PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &issued.Record,
+	})
+	if err != nil {
+		t.Fatalf("GetReviewSession: %v", err)
+	}
+	if session.Review == nil {
+		t.Fatal("expected review context in signer session")
+	}
+	if session.Review.ApprovedCount != 1 || session.Review.TotalApprovers != 2 {
+		t.Fatalf("expected review counts 1 of 2, got %+v", session.Review)
+	}
+}
+
+func TestSigningServiceSessionIncludesReviewOverrideState(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("override-session@example.com"),
+		Name:         new("Override Session Signer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "override-session-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if _, err := agreementSvc.ForceApproveReview(ctx, scope, agreement.ID, ReviewOverrideInput{
+		ActorType: "user",
+		ActorID:   "ops-admin",
+		ActorName: "Ops Admin",
+		IPAddress: "203.0.113.13",
+		Reason:    "Admin finalized the review",
+	}); err != nil {
+		t.Fatalf("ForceApproveReview: %v", err)
+	}
+
+	tokens, err := store.ListSigningTokens(ctx, scope, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("ListSigningTokens: %v", err)
+	}
+	if len(tokens) == 0 {
+		t.Fatal("expected signing token after send")
+	}
+
+	signingSvc := NewSigningService(store)
+	session, err := signingSvc.GetSession(ctx, scope, tokens[0])
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if session.Review == nil {
+		t.Fatal("expected review context in signer session")
+	}
+	if !session.Review.OverrideActive || strings.TrimSpace(session.Review.OverrideReason) != "Admin finalized the review" {
+		t.Fatalf("expected override metadata in signer session, got %+v", session.Review)
+	}
+	if strings.TrimSpace(session.Review.OverrideByDisplayName) != "Ops Admin" {
+		t.Fatalf("expected override actor display name in signer session, got %+v", session.Review)
+	}
+	if session.Review.CanApprove || session.Review.CanRequestChanges || session.Review.CanComment {
+		t.Fatalf("expected review session to be read-only after override, got %+v", session.Review)
+	}
+}
+
+func TestSigningServicePublicReviewSessionFiltersInternalThreadsAndCarriesActorMap(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("public-review-filter@example.com"),
+		Name:         new("Public Review Filter Signer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.public.filter@example.com",
+				DisplayName:     "Outside Public Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityInternal,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Internal only",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	}); err != nil {
+		t.Fatalf("CreateCommentThread internal: %v", err)
+	}
+	sharedThread, err := agreementSvc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityShared,
+		AnchorType: stores.AgreementCommentAnchorPage,
+		PageNumber: 1,
+		AnchorX:    120,
+		AnchorY:    240,
+		Body:       "Shared only",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("CreateCommentThread shared: %v", err)
+	}
+
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, summary.Participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	token := PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &issued.Record,
+	}
+	session, err := signingSvc.GetReviewSession(ctx, scope, token)
+	if err != nil {
+		t.Fatalf("GetReviewSession: %v", err)
+	}
+	if session.Review == nil {
+		t.Fatal("expected review context in public review session")
+	}
+	if len(session.Review.Threads) != 1 {
+		t.Fatalf("expected only shared threads in public session, got %+v", session.Review.Threads)
+	}
+	if got := strings.TrimSpace(session.Review.Threads[0].Thread.ID); got != sharedThread.Thread.ID {
+		t.Fatalf("expected shared thread %q, got %q", sharedThread.Thread.ID, got)
+	}
+	if got := session.Review.ActorMap[reviewActorKey("reviewer", summary.Participants[0].ID)]; strings.TrimSpace(got.Name) != "Outside Public Reviewer" {
+		t.Fatalf("expected reviewer actor map in public session, got %+v", got)
+	}
+	if got := session.Review.ActorMap[reviewActorKey("user", "ops-user")]; strings.TrimSpace(got.Name) != "ops-user" {
+		t.Fatalf("expected sender fallback actor map in public session, got %+v", got)
+	}
+
+	threads, err := signingSvc.ListPublicReviewThreads(ctx, scope, token)
+	if err != nil {
+		t.Fatalf("ListPublicReviewThreads: %v", err)
+	}
+	if len(threads) != 1 || strings.TrimSpace(threads[0].Thread.ID) != sharedThread.Thread.ID {
+		t.Fatalf("expected only shared thread from ListPublicReviewThreads, got %+v", threads)
+	}
+}
+
+func TestSigningServiceCreatePublicReviewThreadRejectsInternalVisibility(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("public-review-create@example.com"),
+		Name:         new("Public Review Create Signer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.public.create@example.com",
+				DisplayName:     "Outside Create Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, summary.Participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	_, err = signingSvc.CreatePublicReviewThread(ctx, scope, PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &issued.Record,
+	}, ReviewCommentThreadInput{
+		Visibility: stores.AgreementCommentVisibilityInternal,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Should be rejected",
+	})
+	if err == nil {
+		t.Fatal("expected public internal review thread creation to fail")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "internal") {
+		t.Fatalf("expected internal visibility error, got %v", err)
+	}
+}
+
 func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 

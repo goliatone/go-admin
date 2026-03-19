@@ -275,26 +275,30 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 		},
 		{
 			table:    "source_fingerprints",
-			columns:  []string{"id", "tenant_id", "org_id", "source_revision_id", "artifact_id", "extract_version", "raw_sha256", "normalized_text_sha256", "simhash64", "minhash_json", "chunk_hashes_json", "token_count", "created_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "source_revision_id", "artifact_id", "extract_version", "status", "raw_sha256", "normalized_text_sha256", "simhash64", "minhash_json", "chunk_hashes_json", "extraction_metadata_json", "error_code", "error_message", "token_count", "created_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SourceFingerprints))
 				for _, record := range sortedMapValues(snapshot.SourceFingerprints) {
 					createdAt := requiredTime(record.CreatedAt, now())
 					rows = append(rows, map[string]any{
-						"id":                     strings.TrimSpace(record.ID),
-						"tenant_id":              strings.TrimSpace(record.TenantID),
-						"org_id":                 strings.TrimSpace(record.OrgID),
-						"source_revision_id":     strings.TrimSpace(record.SourceRevisionID),
-						"artifact_id":            strings.TrimSpace(record.ArtifactID),
-						"extract_version":        strings.TrimSpace(record.ExtractVersion),
-						"raw_sha256":             strings.TrimSpace(record.RawSHA256),
-						"normalized_text_sha256": strings.TrimSpace(record.NormalizedTextSHA256),
-						"simhash64":              strings.TrimSpace(record.SimHash64),
-						"minhash_json":           strings.TrimSpace(record.MinHashJSON),
-						"chunk_hashes_json":      strings.TrimSpace(record.ChunkHashesJSON),
-						"token_count":            record.TokenCount,
-						"created_at":             createdAt,
+						"id":                       strings.TrimSpace(record.ID),
+						"tenant_id":                strings.TrimSpace(record.TenantID),
+						"org_id":                   strings.TrimSpace(record.OrgID),
+						"source_revision_id":       strings.TrimSpace(record.SourceRevisionID),
+						"artifact_id":              strings.TrimSpace(record.ArtifactID),
+						"extract_version":          strings.TrimSpace(record.ExtractVersion),
+						"status":                   strings.TrimSpace(record.Status),
+						"raw_sha256":               strings.TrimSpace(record.RawSHA256),
+						"normalized_text_sha256":   strings.TrimSpace(record.NormalizedTextSHA256),
+						"simhash64":                strings.TrimSpace(record.SimHash64),
+						"minhash_json":             strings.TrimSpace(record.MinHashJSON),
+						"chunk_hashes_json":        strings.TrimSpace(record.ChunkHashesJSON),
+						"extraction_metadata_json": strings.TrimSpace(record.ExtractionMetadataJSON),
+						"error_code":               strings.TrimSpace(record.ErrorCode),
+						"error_message":            strings.TrimSpace(record.ErrorMessage),
+						"token_count":              record.TokenCount,
+						"created_at":               createdAt,
 					})
 				}
 				return rows

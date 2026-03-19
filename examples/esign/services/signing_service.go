@@ -378,32 +378,46 @@ type SignerSessionViewerContext struct {
 }
 
 type SignerSessionReviewContext struct {
-	ReviewID            string                    `json:"review_id,omitempty"`
-	Status              string                    `json:"status"`
-	Gate                string                    `json:"gate"`
-	CommentsEnabled     bool                      `json:"comments_enabled"`
-	IsReviewer          bool                      `json:"is_reviewer"`
-	CanComment          bool                      `json:"can_comment"`
-	CanApprove          bool                      `json:"can_approve"`
-	CanRequestChanges   bool                      `json:"can_request_changes"`
-	CanSign             bool                      `json:"can_sign"`
-	ParticipantStatus   string                    `json:"participant_status,omitempty"`
-	OpenThreadCount     int                       `json:"open_thread_count"`
-	ResolvedThreadCount int                       `json:"resolved_thread_count"`
-	SignBlocked         bool                      `json:"sign_blocked"`
-	SignBlockReason     string                    `json:"sign_block_reason,omitempty"`
-	Blockers            []string                  `json:"blockers,omitempty"`
-	Participant         *ReviewSessionParticipant `json:"participant,omitempty"`
-	Threads             []ReviewThread            `json:"threads,omitempty"`
+	ReviewID              string                     `json:"review_id,omitempty"`
+	Status                string                     `json:"status"`
+	Gate                  string                     `json:"gate"`
+	CommentsEnabled       bool                       `json:"comments_enabled"`
+	OverrideActive        bool                       `json:"override_active"`
+	OverrideReason        string                     `json:"override_reason,omitempty"`
+	OverrideByUserID      string                     `json:"override_by_user_id,omitempty"`
+	OverrideByDisplayName string                     `json:"override_by_display_name,omitempty"`
+	OverrideAt            *time.Time                 `json:"override_at,omitempty"`
+	IsReviewer            bool                       `json:"is_reviewer"`
+	CanComment            bool                       `json:"can_comment"`
+	CanApprove            bool                       `json:"can_approve"`
+	CanRequestChanges     bool                       `json:"can_request_changes"`
+	CanSign               bool                       `json:"can_sign"`
+	ParticipantStatus     string                     `json:"participant_status,omitempty"`
+	ApprovedCount         int                        `json:"approved_count"`
+	TotalApprovers        int                        `json:"total_approvers"`
+	OpenThreadCount       int                        `json:"open_thread_count"`
+	ResolvedThreadCount   int                        `json:"resolved_thread_count"`
+	SignBlocked           bool                       `json:"sign_blocked"`
+	SignBlockReason       string                     `json:"sign_block_reason,omitempty"`
+	Blockers              []string                   `json:"blockers,omitempty"`
+	Participant           *ReviewSessionParticipant  `json:"participant,omitempty"`
+	Threads               []ReviewThread             `json:"threads,omitempty"`
+	ActorMap              map[string]ReviewActorInfo `json:"actor_map,omitempty"`
 }
 
 type ReviewSessionParticipant struct {
-	ID              string `json:"id"`
-	ParticipantType string `json:"participant_type,omitempty"`
-	RecipientID     string `json:"recipient_id,omitempty"`
-	Email           string `json:"email,omitempty"`
-	DisplayName     string `json:"display_name,omitempty"`
-	DecisionStatus  string `json:"decision_status,omitempty"`
+	ID                            string     `json:"id"`
+	ParticipantType               string     `json:"participant_type,omitempty"`
+	RecipientID                   string     `json:"recipient_id,omitempty"`
+	Email                         string     `json:"email,omitempty"`
+	DisplayName                   string     `json:"display_name,omitempty"`
+	DecisionStatus                string     `json:"decision_status,omitempty"`
+	EffectiveDecisionStatus       string     `json:"effective_decision_status,omitempty"`
+	ApprovedOnBehalf              bool       `json:"approved_on_behalf"`
+	ApprovedOnBehalfByUserID      string     `json:"approved_on_behalf_by_user_id,omitempty"`
+	ApprovedOnBehalfByDisplayName string     `json:"approved_on_behalf_by_display_name,omitempty"`
+	ApprovedOnBehalfReason        string     `json:"approved_on_behalf_reason,omitempty"`
+	ApprovedOnBehalfAt            *time.Time `json:"approved_on_behalf_at,omitempty"`
 }
 
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.

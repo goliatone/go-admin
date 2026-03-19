@@ -2194,6 +2194,395 @@ func TestAgreementServiceValidateBeforeSendBlocksApproveBeforeSendReview(t *test
 	}
 }
 
+func TestAgreementServiceReviewApprovalCountsTrackApproversOnly(t *testing.T) {
+	ctx, scope, _, svc, agreement := setupDraftAgreement(t)
+
+	approverA, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("approver-a@example.com"),
+		Name:         new("Approver A"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft approverA: %v", err)
+	}
+	approverB, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("approver-b@example.com"),
+		Name:         new("Approver B"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft approverB: %v", err)
+	}
+	commentOnly, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("comment-only@example.com"),
+		Name:         new("Comment Only"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(3),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft commentOnly: %v", err)
+	}
+	for _, recipientID := range []string{approverA.ID, approverB.ID, commentOnly.ID} {
+		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &recipientID,
+			Type:        new(stores.FieldTypeSignature),
+			PageNumber:  new(1),
+			Required:    new(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft %s: %v", recipientID, err)
+		}
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     approverA.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     approverB.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     commentOnly.ID,
+				CanComment:      true,
+				CanApprove:      false,
+			},
+		},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if summary.ApprovedCount != 0 || summary.TotalApprovers != 2 {
+		t.Fatalf("expected 0 of 2 approvers after open, got %+v", summary)
+	}
+
+	summary, err = svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: approverA.ID,
+		ActorType:   "recipient",
+		ActorID:     approverA.ID,
+	})
+	if err != nil {
+		t.Fatalf("ApproveReview approverA: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusInReview {
+		t.Fatalf("expected in_review after first approver, got %q", summary.Status)
+	}
+	if summary.ApprovedCount != 1 || summary.TotalApprovers != 2 {
+		t.Fatalf("expected 1 of 2 approvers after first approval, got %+v", summary)
+	}
+
+	summary, err = svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+		RecipientID: approverB.ID,
+		ActorType:   "recipient",
+		ActorID:     approverB.ID,
+	})
+	if err != nil {
+		t.Fatalf("ApproveReview approverB: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusApproved {
+		t.Fatalf("expected approved after all approvers approved, got %q", summary.Status)
+	}
+	if summary.ApprovedCount != 2 || summary.TotalApprovers != 2 {
+		t.Fatalf("expected 2 of 2 approvers after final approval, got %+v", summary)
+	}
+
+	validation, err := svc.ValidateBeforeSend(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ValidateBeforeSend: %v", err)
+	}
+	if !validation.Valid {
+		t.Fatalf("expected send validation to pass once all approvers approved, got %+v", validation.Issues)
+	}
+}
+
+func TestAgreementServiceForceApproveReviewFinalizesCycleWithoutRewritingParticipantDecision(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("override-reviewer@example.com"),
+		Name:         new("Override Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &reviewer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft reviewer signature: %v", err)
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{reviewer.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if len(summary.Participants) != 1 {
+		t.Fatalf("expected one review participant, got %+v", summary.Participants)
+	}
+
+	summary, err = svc.ForceApproveReview(ctx, scope, agreement.ID, ReviewOverrideInput{
+		ActorType: "user",
+		ActorID:   "ops-admin",
+		ActorName: "Ops Admin",
+		IPAddress: "203.0.113.10",
+		Reason:    "Confirmed approval over the phone",
+	})
+	if err != nil {
+		t.Fatalf("ForceApproveReview: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusApproved {
+		t.Fatalf("expected approved review after override, got %q", summary.Status)
+	}
+	if !summary.OverrideActive || strings.TrimSpace(summary.OverrideReason) != "Confirmed approval over the phone" {
+		t.Fatalf("expected override metadata in summary, got %+v", summary)
+	}
+	if strings.TrimSpace(summary.OverrideByDisplayName) != "Ops Admin" {
+		t.Fatalf("expected override display name in summary, got %+v", summary)
+	}
+
+	storedReview, err := store.GetAgreementReviewByAgreementID(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetAgreementReviewByAgreementID: %v", err)
+	}
+	if !storedReview.OverrideActive || strings.TrimSpace(storedReview.OverrideByUserID) != "ops-admin" {
+		t.Fatalf("expected persisted review override metadata, got %+v", storedReview)
+	}
+	if strings.TrimSpace(storedReview.OverrideByDisplayName) != "Ops Admin" {
+		t.Fatalf("expected persisted override display name, got %+v", storedReview)
+	}
+
+	participants, err := store.ListAgreementReviewParticipants(ctx, scope, storedReview.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementReviewParticipants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected one stored participant, got %+v", participants)
+	}
+	if participants[0].DecisionStatus != stores.AgreementReviewDecisionPending {
+		t.Fatalf("expected raw participant decision to remain pending, got %+v", participants[0])
+	}
+
+	reviewTokens, err := store.ListReviewSessionTokens(ctx, scope, agreement.ID, participants[0].ID)
+	if err != nil {
+		t.Fatalf("ListReviewSessionTokens: %v", err)
+	}
+	if len(reviewTokens) == 0 {
+		t.Fatalf("expected review session tokens to exist")
+	}
+	for _, token := range reviewTokens {
+		if token.Status != stores.ReviewSessionTokenStatusRevoked || token.RevokedAt == nil {
+			t.Fatalf("expected review token to be revoked after override, got %+v", token)
+		}
+	}
+
+	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   storedReview.ID,
+		Visibility: stores.AgreementCommentVisibilityShared,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "should not be accepted",
+		ActorType:  "user",
+		ActorID:    "ops-admin",
+	}); err == nil {
+		t.Fatal("expected comment mutation to be blocked after review override")
+	}
+
+	validation, err := svc.ValidateBeforeSend(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ValidateBeforeSend: %v", err)
+	}
+	if !validation.Valid {
+		t.Fatalf("expected send validation to pass after override, got %+v", validation.Issues)
+	}
+}
+
+func TestAgreementServiceApproveReviewParticipantOnBehalfCountsAndRevokesParticipant(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+
+	approverA, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("behalf-a@example.com"),
+		Name:         new("Behalf Approver A"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft approverA: %v", err)
+	}
+	approverB, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("behalf-b@example.com"),
+		Name:         new("Behalf Approver B"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft approverB: %v", err)
+	}
+	for _, recipientID := range []string{approverA.ID, approverB.ID} {
+		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &recipientID,
+			Type:        new(stores.FieldTypeSignature),
+			PageNumber:  new(1),
+			Required:    new(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft %s: %v", recipientID, err)
+		}
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{approverA.ID, approverB.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if len(summary.Participants) != 2 {
+		t.Fatalf("expected two review participants, got %+v", summary.Participants)
+	}
+
+	summary, err = svc.ApproveReviewParticipantOnBehalf(ctx, scope, agreement.ID, ReviewApproveOnBehalfInput{
+		RecipientID: approverA.ID,
+		ActorType:   "user",
+		ActorID:     "ops-admin",
+		ActorName:   "Ops Admin",
+		IPAddress:   "203.0.113.11",
+		Reason:      "Received explicit approval offline",
+	})
+	if err != nil {
+		t.Fatalf("ApproveReviewParticipantOnBehalf approverA: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusInReview || summary.ApprovedCount != 1 || summary.TotalApprovers != 2 {
+		t.Fatalf("expected 1 of 2 approvers after on-behalf approval, got %+v", summary)
+	}
+
+	review, err := store.GetAgreementReviewByAgreementID(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetAgreementReviewByAgreementID: %v", err)
+	}
+	participants, err := store.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		t.Fatalf("ListAgreementReviewParticipants: %v", err)
+	}
+	participantA, _, err := findReviewParticipant(participants, "", approverA.ID)
+	if err != nil {
+		t.Fatalf("findReviewParticipant approverA: %v", err)
+	}
+	if participantA.DecisionStatus != stores.AgreementReviewDecisionPending || participantA.ApprovedOnBehalfAt == nil {
+		t.Fatalf("expected approverA to remain raw-pending with on-behalf metadata, got %+v", participantA)
+	}
+	if strings.TrimSpace(participantA.ApprovedOnBehalfByDisplayName) != "Ops Admin" {
+		t.Fatalf("expected on-behalf display name snapshot, got %+v", participantA)
+	}
+	reviewTokens, err := store.ListReviewSessionTokens(ctx, scope, agreement.ID, participantA.ID)
+	if err != nil {
+		t.Fatalf("ListReviewSessionTokens approverA: %v", err)
+	}
+	if len(reviewTokens) == 0 {
+		t.Fatalf("expected review tokens for approverA")
+	}
+	for _, token := range reviewTokens {
+		if token.Status != stores.ReviewSessionTokenStatusRevoked || token.RevokedAt == nil {
+			t.Fatalf("expected approverA review token revoked after on-behalf approval, got %+v", token)
+		}
+	}
+
+	if _, err := svc.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
+		RecipientID: approverA.ID,
+		ActorType:   "user",
+		ActorID:     "ops-admin",
+	}); err == nil {
+		t.Fatal("expected notify to reject already-effectively-approved participant")
+	}
+
+	summary, err = svc.ApproveReviewParticipantOnBehalf(ctx, scope, agreement.ID, ReviewApproveOnBehalfInput{
+		RecipientID: approverB.ID,
+		ActorType:   "user",
+		ActorID:     "ops-admin",
+		ActorName:   "Ops Admin",
+		IPAddress:   "203.0.113.12",
+		Reason:      "Received explicit approval offline",
+	})
+	if err != nil {
+		t.Fatalf("ApproveReviewParticipantOnBehalf approverB: %v", err)
+	}
+	if summary.Status != stores.AgreementReviewStatusApproved || summary.ApprovedCount != 2 || summary.TotalApprovers != 2 {
+		t.Fatalf("expected approved review after second on-behalf approval, got %+v", summary)
+	}
+}
+
+func TestAgreementServiceOverrideActionsRequireActorID(t *testing.T) {
+	ctx, scope, _, svc, agreement := setupDraftAgreement(t)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("actor-required@example.com"),
+		Name:         new("Actor Required Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &reviewer.ID,
+		Type:        new(stores.FieldTypeSignature),
+		PageNumber:  new(1),
+		Required:    new(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft reviewer signature: %v", err)
+	}
+	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   true,
+		ReviewerIDs:       []string{reviewer.ID},
+		RequestedByUserID: "user-1",
+		ActorType:         "user",
+		ActorID:           "user-1",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	if _, err := svc.ForceApproveReview(ctx, scope, agreement.ID, ReviewOverrideInput{
+		ActorType: "user",
+		Reason:    "Missing actor should fail",
+	}); err == nil {
+		t.Fatal("expected ForceApproveReview to require actor_id")
+	}
+
+	if _, err := svc.ApproveReviewParticipantOnBehalf(ctx, scope, agreement.ID, ReviewApproveOnBehalfInput{
+		RecipientID: reviewer.ID,
+		ActorType:   "user",
+		Reason:      "Missing actor should fail",
+	}); err == nil {
+		t.Fatal("expected ApproveReviewParticipantOnBehalf to require actor_id")
+	}
+}
+
 func TestAgreementServiceOpenReviewEnqueuesReviewInvitationsForRecipientAndExternalReviewers(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	dispatcher := &stubAgreementNotificationDispatchTrigger{}
@@ -2565,6 +2954,123 @@ func TestAgreementServiceRequestReviewChangesRequiresCommentAndPersistsRationale
 	}
 	if !found {
 		t.Fatalf("expected agreement.review_changes_requested audit event, got %+v", events)
+	}
+}
+
+func TestAgreementServiceReviewSummaryIncludesActorMapAndInternalThreads(t *testing.T) {
+	ctx, scope, _, svc, agreement := setupDraftAgreement(t)
+
+	reviewer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("summary-reviewer@example.com"),
+		Name:         new("Summary Reviewer"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
+	}
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: false,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+				RecipientID:     reviewer.ID,
+				CanComment:      true,
+				CanApprove:      true,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.summary@example.com",
+				DisplayName:     "Outside Summary Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	internalThread, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityInternal,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Internal note for owners only",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("CreateCommentThread internal: %v", err)
+	}
+	if _, err := svc.ReplyCommentThread(ctx, scope, agreement.ID, ReviewCommentReplyInput{
+		ThreadID:  internalThread.Thread.ID,
+		Body:      "Follow-up on the internal note",
+		ActorType: "user",
+		ActorID:   "ops-user",
+	}); err != nil {
+		t.Fatalf("ReplyCommentThread internal: %v", err)
+	}
+	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityShared,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Shared comment for reviewers",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	}); err != nil {
+		t.Fatalf("CreateCommentThread shared: %v", err)
+	}
+
+	updated, err := svc.GetReviewSummary(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetReviewSummary: %v", err)
+	}
+	if len(updated.Threads) != 2 {
+		t.Fatalf("expected 2 threads, got %+v", updated.Threads)
+	}
+	if got := updated.ActorMap[reviewActorKey("recipient", reviewer.ID)]; strings.TrimSpace(got.Name) != "Summary Reviewer" {
+		t.Fatalf("expected recipient actor map entry for reviewer recipient, got %+v", got)
+	}
+	if got := updated.ActorMap[reviewActorKey("signer", reviewer.ID)]; strings.TrimSpace(got.Name) != "Summary Reviewer" {
+		t.Fatalf("expected signer actor map alias for reviewer recipient, got %+v", got)
+	}
+	externalParticipantID := ""
+	for _, participant := range updated.Participants {
+		if strings.TrimSpace(participant.RecipientID) == "" {
+			externalParticipantID = participant.ID
+			break
+		}
+	}
+	if externalParticipantID == "" {
+		t.Fatalf("expected external review participant, got %+v", updated.Participants)
+	}
+	if got := updated.ActorMap[reviewActorKey("reviewer", externalParticipantID)]; strings.TrimSpace(got.Name) != "Outside Summary Reviewer" {
+		t.Fatalf("expected reviewer actor map entry, got %+v", got)
+	}
+	if got := updated.ActorMap[reviewActorKey("user", "ops-user")]; strings.TrimSpace(got.Name) != "ops-user" {
+		t.Fatalf("expected user actor map fallback entry, got %+v", got)
+	}
+	if got := updated.ActorMap[reviewActorKey("sender", "ops-user")]; strings.TrimSpace(got.Name) != "ops-user" {
+		t.Fatalf("expected sender actor map alias, got %+v", got)
+	}
+
+	foundInternal := false
+	for _, thread := range updated.Threads {
+		if strings.TrimSpace(thread.Thread.Visibility) != stores.AgreementCommentVisibilityInternal {
+			continue
+		}
+		foundInternal = true
+		if len(thread.Messages) != 2 {
+			t.Fatalf("expected internal thread replies to remain on the same thread, got %+v", thread.Messages)
+		}
+	}
+	if !foundInternal {
+		t.Fatalf("expected one internal thread in %+v", updated.Threads)
 	}
 }
 

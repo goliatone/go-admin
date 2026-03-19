@@ -36,6 +36,10 @@ func (s *relationalTxStore) CreateAgreementReview(ctx context.Context, scope sto
 		return stores.AgreementReviewRecord{}, relationalInvalidRecordError("agreement_reviews", "gate", "unsupported review gate")
 	}
 	record.RequestedByUserID = normalizeRelationalID(record.RequestedByUserID)
+	record.OverrideReason = strings.TrimSpace(record.OverrideReason)
+	record.OverrideByUserID = normalizeRelationalID(record.OverrideByUserID)
+	record.OverrideByDisplayName = strings.TrimSpace(record.OverrideByDisplayName)
+	record.OverrideAt = cloneRelationalTimePtr(record.OverrideAt)
 	record.OpenedAt = cloneRelationalTimePtr(record.OpenedAt)
 	record.ClosedAt = cloneRelationalTimePtr(record.ClosedAt)
 	record.LastActivityAt = cloneRelationalTimePtr(record.LastActivityAt)
@@ -75,6 +79,11 @@ func (s *relationalTxStore) UpdateAgreementReview(ctx context.Context, scope sto
 		existing.Gate = normalized
 	}
 	existing.RequestedByUserID = normalizeRelationalID(record.RequestedByUserID)
+	existing.OverrideActive = record.OverrideActive
+	existing.OverrideReason = strings.TrimSpace(record.OverrideReason)
+	existing.OverrideByUserID = normalizeRelationalID(record.OverrideByUserID)
+	existing.OverrideByDisplayName = strings.TrimSpace(record.OverrideByDisplayName)
+	existing.OverrideAt = cloneRelationalTimePtr(record.OverrideAt)
 	existing.OpenedAt = cloneRelationalTimePtr(record.OpenedAt)
 	existing.ClosedAt = cloneRelationalTimePtr(record.ClosedAt)
 	existing.LastActivityAt = cloneRelationalTimePtr(record.LastActivityAt)
@@ -157,6 +166,10 @@ func (s *relationalTxStore) ReplaceAgreementReviewParticipants(ctx context.Conte
 			return relationalInvalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
 		}
 		record.DecisionAt = cloneRelationalTimePtr(record.DecisionAt)
+		record.ApprovedOnBehalfByUserID = normalizeRelationalID(record.ApprovedOnBehalfByUserID)
+		record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+		record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+		record.ApprovedOnBehalfAt = cloneRelationalTimePtr(record.ApprovedOnBehalfAt)
 		record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
 		record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
 		if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
@@ -203,6 +216,10 @@ func (s *relationalTxStore) UpdateAgreementReviewParticipant(ctx context.Context
 		existing.DisplayName = displayName
 	}
 	existing.DecisionAt = cloneRelationalTimePtr(record.DecisionAt)
+	existing.ApprovedOnBehalfByUserID = normalizeRelationalID(record.ApprovedOnBehalfByUserID)
+	existing.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+	existing.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+	existing.ApprovedOnBehalfAt = cloneRelationalTimePtr(record.ApprovedOnBehalfAt)
 	existing.UpdatedAt = time.Now().UTC()
 	if err := updateScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); err != nil {
 		return stores.AgreementReviewParticipantRecord{}, err

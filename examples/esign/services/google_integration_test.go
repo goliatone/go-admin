@@ -34,8 +34,25 @@ type failingSourceIdentityService struct {
 	err error
 }
 
+type failingAgreementCreator struct {
+	err error
+}
+
+type recordingLineageProcessingTrigger struct {
+	inputs []SourceLineageProcessingInput
+}
+
+func (c failingAgreementCreator) CreateDraft(context.Context, stores.Scope, CreateDraftInput) (stores.AgreementRecord, error) {
+	return stores.AgreementRecord{}, c.err
+}
+
 func (s failingSourceIdentityService) ResolveSourceIdentity(context.Context, stores.Scope, SourceIdentityResolutionInput) (SourceIdentityResolution, error) {
 	return SourceIdentityResolution{}, s.err
+}
+
+func (r *recordingLineageProcessingTrigger) EnqueueLineageProcessing(_ context.Context, _ stores.Scope, input SourceLineageProcessingInput) error {
+	r.inputs = append(r.inputs, input)
+	return nil
 }
 
 func (p *resolverAwareGoogleProvider) ResolveAccountEmail(_ context.Context, _ string) (string, error) {
@@ -195,6 +212,52 @@ func TestGoogleIntegrationConnectStatusDisconnect(t *testing.T) {
 	}
 	if status.Connected {
 		t.Fatalf("expected disconnected status after disconnect, got %+v", status)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentEnqueuesLineageProcessing(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-google-lineage", OrgID: "org-google-lineage"}
+	store := stores.NewInMemoryStore()
+	trigger := &recordingLineageProcessingTrigger{}
+	service := NewGoogleIntegrationService(
+		store,
+		NewDeterministicGoogleProvider(),
+		NewDocumentService(store),
+		NewAgreementService(store),
+		WithGoogleLineageStore(store),
+		WithGoogleLineageProcessingTrigger(trigger),
+	)
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "ops-user",
+		AuthCode: "google-lineage-trigger",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	result, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "ops-user",
+		AccountID:         "",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "rev-lineage",
+		DocumentTitle:     "Imported Lineage Contract",
+		AgreementTitle:    "Imported Lineage Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-lineage",
+		IdempotencyKey:    "google-lineage-import-1",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument: %v", err)
+	}
+	if len(trigger.inputs) != 1 {
+		t.Fatalf("expected one lineage processing trigger call, got %+v", trigger.inputs)
+	}
+	enqueued := trigger.inputs[0]
+	if enqueued.SourceDocumentID != result.SourceDocumentID || enqueued.SourceRevisionID != result.SourceRevisionID || enqueued.ArtifactID != result.SourceArtifactID {
+		t.Fatalf("expected enqueued lineage ids to match import result, enqueued=%+v result=%+v", enqueued, result)
+	}
+	if enqueued.Metadata.ExternalFileID != "google-file-1" || enqueued.Metadata.TitleHint != "Imported Lineage Contract" {
+		t.Fatalf("expected import metadata forwarded to lineage trigger, got %+v", enqueued.Metadata)
 	}
 }
 
@@ -673,6 +736,132 @@ func TestGoogleIntegrationImportDocumentFailsBeforeDocumentOrAgreementWriteWhenL
 	}
 	if len(agreementsList) != 0 {
 		t.Fatalf("expected zero agreements after lineage resolution failure, got %d", len(agreementsList))
+	}
+}
+
+func TestGoogleIntegrationImportDocumentRollsBackLineageAndDocumentWhenAgreementPersistFails(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		failingAgreementCreator{err: errors.New("agreement persist failed")},
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	if _, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		AgreementTitle:    "Imported NDA Agreement",
+		CreatedByUserID:   "ops-user",
+		IdempotencyKey:    "sync-failure-retry-key",
+	}); err == nil {
+		t.Fatalf("expected agreement persistence failure")
+	}
+
+	docs, err := store.List(ctx, scope, stores.DocumentQuery{})
+	if err != nil {
+		t.Fatalf("List documents: %v", err)
+	}
+	if len(docs) != 0 {
+		t.Fatalf("expected zero documents after rollback, got %d", len(docs))
+	}
+	agreementsList, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		t.Fatalf("ListAgreements: %v", err)
+	}
+	if len(agreementsList) != 0 {
+		t.Fatalf("expected zero agreements after rollback, got %d", len(agreementsList))
+	}
+	sourceDocuments, err := store.ListSourceDocuments(ctx, scope, stores.SourceDocumentQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceDocuments: %v", err)
+	}
+	if len(sourceDocuments) != 0 {
+		t.Fatalf("expected zero source documents after rollback, got %d", len(sourceDocuments))
+	}
+}
+
+func TestGoogleIntegrationImportDocumentReplaysCompletedRunForSameIdempotencyKey(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:    "import-user",
+		AccountID: "work@example.com",
+		AuthCode:  "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	first, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		AccountID:         "work@example.com",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		AgreementTitle:    "Imported NDA Agreement",
+		CreatedByUserID:   "ops-user",
+		IdempotencyKey:    "sync-import-replay-key",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument first: %v", err)
+	}
+
+	second, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		AccountID:         "work@example.com",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA Retry",
+		AgreementTitle:    "Imported NDA Agreement Retry",
+		CreatedByUserID:   "ops-user",
+		IdempotencyKey:    "sync-import-replay-key",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument second: %v", err)
+	}
+	if first.Document.ID != second.Document.ID || first.Agreement.ID != second.Agreement.ID {
+		t.Fatalf("expected replay to reuse imported entities, got first=%+v second=%+v", first, second)
+	}
+
+	docs, err := store.List(ctx, scope, stores.DocumentQuery{})
+	if err != nil {
+		t.Fatalf("List documents: %v", err)
+	}
+	if len(docs) != 1 {
+		t.Fatalf("expected one persisted document after replay, got %d", len(docs))
+	}
+	agreementsList, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		t.Fatalf("List agreements: %v", err)
+	}
+	if len(agreementsList) != 1 {
+		t.Fatalf("expected one persisted agreement after replay, got %d", len(agreementsList))
 	}
 }
 

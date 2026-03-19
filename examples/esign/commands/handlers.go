@@ -33,6 +33,8 @@ type AgreementLifecycleService interface {
 	ResumeReviewReminder(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewReminderControlInput) (services.ReviewReminderState, error)
 	SendReviewReminderNow(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewReminderControlInput) (services.ReviewSummary, error)
 	CloseReview(ctx context.Context, scope stores.Scope, agreementID, actorType, actorID, ipAddress string) (services.ReviewSummary, error)
+	ForceApproveReview(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewOverrideInput) (services.ReviewSummary, error)
+	ApproveReviewParticipantOnBehalf(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewApproveOnBehalfInput) (services.ReviewSummary, error)
 	ApproveReview(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewDecisionInput) (services.ReviewSummary, error)
 	RequestReviewChanges(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewDecisionInput) (services.ReviewSummary, error)
 	CreateCommentThread(ctx context.Context, scope stores.Scope, agreementID string, input services.ReviewCommentThreadInput) (services.ReviewThread, error)
@@ -161,6 +163,12 @@ func Register(
 		return err
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementForceApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewOnBehalfCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
 		return err
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
@@ -698,6 +706,30 @@ func (c *AgreementReviewReminderSendNowCommand) Execute(ctx context.Context, msg
 	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderSendNow)
 }
 
+type AgreementForceApproveReviewCommand struct {
+	agreements   AgreementLifecycleService
+	defaultScope stores.Scope
+	projector    AgreementActivityProjector
+}
+
+var _ gocommand.Commander[AgreementForceApproveReviewInput] = (*AgreementForceApproveReviewCommand)(nil)
+
+func (c *AgreementForceApproveReviewCommand) Execute(ctx context.Context, msg AgreementForceApproveReviewInput) error {
+	return executeAgreementForceApproveReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+}
+
+type AgreementApproveReviewOnBehalfCommand struct {
+	agreements   AgreementLifecycleService
+	defaultScope stores.Scope
+	projector    AgreementActivityProjector
+}
+
+var _ gocommand.Commander[AgreementApproveReviewOnBehalfInput] = (*AgreementApproveReviewOnBehalfCommand)(nil)
+
+func (c *AgreementApproveReviewOnBehalfCommand) Execute(ctx context.Context, msg AgreementApproveReviewOnBehalfInput) error {
+	return executeAgreementApproveReviewOnBehalfCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+}
+
 type AgreementApproveReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
@@ -836,6 +868,68 @@ func executeAgreementCloseReviewCommand(
 		return err
 	}
 	if _, err := agreements.CloseReview(ctx, scope, strings.TrimSpace(msg.AgreementID), "user", strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))), resolveCommandRequestIP(ctx)); err != nil {
+		return err
+	}
+	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+}
+
+func executeAgreementForceApproveReviewCommand(
+	ctx context.Context,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	msg AgreementForceApproveReviewInput,
+) error {
+	if agreements == nil {
+		return fmt.Errorf("%s command not configured", CommandAgreementForceApproveReview)
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, defaultScope)
+	if err != nil {
+		return err
+	}
+	_, err = agreements.ForceApproveReview(ctx, scope, strings.TrimSpace(msg.AgreementID), services.ReviewOverrideInput{
+		ActorType: "user",
+		ActorID:   strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorName: strings.TrimSpace(resolveCommandActorDisplayName(ctx)),
+		IPAddress: resolveCommandRequestIP(ctx),
+		Reason:    strings.TrimSpace(msg.Reason),
+	})
+	if err != nil {
+		return err
+	}
+	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+}
+
+func executeAgreementApproveReviewOnBehalfCommand(
+	ctx context.Context,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	msg AgreementApproveReviewOnBehalfInput,
+) error {
+	if agreements == nil {
+		return fmt.Errorf("%s command not configured", CommandAgreementApproveReviewOnBehalf)
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, defaultScope)
+	if err != nil {
+		return err
+	}
+	_, err = agreements.ApproveReviewParticipantOnBehalf(ctx, scope, strings.TrimSpace(msg.AgreementID), services.ReviewApproveOnBehalfInput{
+		ParticipantID: strings.TrimSpace(msg.ParticipantID),
+		RecipientID:   strings.TrimSpace(msg.RecipientID),
+		ActorType:     "user",
+		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorName:     strings.TrimSpace(resolveCommandActorDisplayName(ctx)),
+		IPAddress:     resolveCommandRequestIP(ctx),
+		Reason:        strings.TrimSpace(msg.Reason),
+	})
+	if err != nil {
 		return err
 	}
 	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
@@ -1624,6 +1718,15 @@ func resolveCommandActorID(ctx context.Context) string {
 		}
 		if id := strings.TrimSpace(fmt.Sprint(actor.Metadata["user_id"])); id != "" && id != "<nil>" {
 			return id
+		}
+	}
+	return ""
+}
+
+func resolveCommandActorDisplayName(ctx context.Context) string {
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if displayName := firstMetadataValue(actor.Metadata, "display_name", "name", "username", "email"); displayName != "" {
+			return displayName
 		}
 	}
 	return ""

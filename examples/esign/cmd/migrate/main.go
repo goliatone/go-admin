@@ -8,12 +8,15 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	"github.com/goliatone/go-admin/examples/esign/fixtures"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 	"github.com/uptrace/bun"
 )
 
@@ -24,6 +27,7 @@ const (
 	commandRollbackAll      = "rollback-all"
 	commandValidateDialects = "validate-dialects"
 	commandValidateFixtures = "validate-fixtures"
+	commandSeedFixtures     = "seed-fixtures"
 	commandHelp             = "help"
 )
 
@@ -127,7 +131,7 @@ func parseArgs(args []string) (options, error) {
 	}
 	opts.Command = strings.ToLower(strings.TrimSpace(remaining[0]))
 	switch opts.Command {
-	case commandStatus, commandUp, commandDown, commandRollbackAll, commandValidateDialects, commandValidateFixtures:
+	case commandStatus, commandUp, commandDown, commandRollbackAll, commandValidateDialects, commandValidateFixtures, commandSeedFixtures:
 	default:
 		return opts, fmt.Errorf("unsupported command %q", opts.Command)
 	}
@@ -159,6 +163,8 @@ func runCommand(ctx context.Context, opts options, handles *esignpersistence.Cli
 		return runValidateDialects(ctx, handles)
 	case commandValidateFixtures:
 		return runValidateFixtures(ctx, handles)
+	case commandSeedFixtures:
+		return runSeedFixtures(ctx, handles)
 	default:
 		return fmt.Errorf("unsupported command %q", opts.Command)
 	}
@@ -291,11 +297,77 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 		_ = tx.Rollback()
 		return fmt.Errorf("fixture validation did not insert expected documents")
 	}
+	validationAssetsDir, err := os.MkdirTemp("", "esign-lineage-fixtures-validate-")
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("create lineage validation assets dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(validationAssetsDir) }()
+	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(validationAssetsDir)))
+	lineageSet, err := fixtures.EnsureLineageQAFixtures(ctx, tx, uploads, scope)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("seed lineage fixtures in validation transaction: %w", err)
+	}
+	var lineageDocuments int
+	if err := tx.NewRaw(
+		`SELECT COUNT(1) FROM documents WHERE id IN (?)`,
+		bun.In([]string{
+			lineageSet.UploadOnlyDocumentID,
+			lineageSet.ImportedDocumentID,
+			lineageSet.RepeatedImportDocumentID,
+		}),
+	).Scan(ctx, &lineageDocuments); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("verify lineage fixture inserts: %w", err)
+	}
+	if lineageDocuments != 3 {
+		_ = tx.Rollback()
+		return fmt.Errorf("lineage fixture validation expected 3 documents, got %d", lineageDocuments)
+	}
 
 	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		return fmt.Errorf("rollback validation transaction: %w", err)
 	}
 	fmt.Printf("fixture validation passed (agreement_id=%s)\n", strings.TrimSpace(fx.AgreementID))
+	return nil
+}
+
+func runSeedFixtures(ctx context.Context, handles *esignpersistence.ClientHandles) error {
+	if handles == nil || handles.Client == nil || handles.BunDB == nil {
+		return fmt.Errorf("persistence client is not configured")
+	}
+	if err := handles.Client.ValidateDialects(ctx); err != nil {
+		return fmt.Errorf("validate dialect contracts: %w", err)
+	}
+	if err := handles.Client.Migrate(ctx); err != nil {
+		return fmt.Errorf("apply migrations before fixture seed: %w", err)
+	}
+
+	scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
+	assetsDir, err := filepath.Abs(filepath.Join("..", "..", "..", "pkg", "client", "assets"))
+	if err != nil {
+		return fmt.Errorf("resolve assets dir: %w", err)
+	}
+	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(assetsDir)))
+	fixtureSet, err := fixtures.EnsureLineageQAFixtures(ctx, handles.BunDB, uploads, scope)
+	if err != nil {
+		return fmt.Errorf("seed lineage fixtures: %w", err)
+	}
+	urls, err := fixtures.BuildLineageFixtureURLs(appcfg.Active().Admin.BasePath, scope, fixtureSet)
+	if err != nil {
+		return fmt.Errorf("build fixture urls: %w", err)
+	}
+
+	fmt.Printf("seeded_lineage_fixtures: tenant_id=%s org_id=%s\n", scope.TenantID, scope.OrgID)
+	fmt.Printf("upload_only_document_id: %s\n", strings.TrimSpace(fixtureSet.UploadOnlyDocumentID))
+	fmt.Printf("imported_document_id: %s\n", strings.TrimSpace(fixtureSet.ImportedDocumentID))
+	fmt.Printf("repeated_import_document_id: %s\n", strings.TrimSpace(fixtureSet.RepeatedImportDocumentID))
+	fmt.Printf("imported_agreement_id: %s\n", strings.TrimSpace(fixtureSet.ImportedAgreementID))
+	fmt.Printf("upload_only_document_url: %s\n", strings.TrimSpace(urls.UploadOnlyDocumentURL))
+	fmt.Printf("imported_document_url: %s\n", strings.TrimSpace(urls.ImportedDocumentURL))
+	fmt.Printf("repeated_import_document_url: %s\n", strings.TrimSpace(urls.RepeatedImportDocumentURL))
+	fmt.Printf("imported_agreement_url: %s\n", strings.TrimSpace(urls.ImportedAgreementURL))
 	return nil
 }
 
@@ -386,9 +458,11 @@ func printUsage(out io.Writer) {
 	_, _ = fmt.Fprintln(out, "  rollback-all       Roll back all applied migration groups.")
 	_, _ = fmt.Fprintln(out, "  validate-dialects  Validate migration dialect contracts (postgres/sqlite).")
 	_, _ = fmt.Fprintln(out, "  validate-fixtures  Apply migrations, seed fixtures in a transaction, and roll back.")
+	_, _ = fmt.Fprintln(out, "  seed-fixtures      Apply migrations and persist deterministic lineage QA fixtures.")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")
 	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate status")
+	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate seed-fixtures")
 	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate --config examples/esign/config/app.json up")
 }
 

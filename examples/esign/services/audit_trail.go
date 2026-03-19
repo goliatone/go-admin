@@ -45,6 +45,8 @@ const (
 	auditTrailSourceReviewApproved         = "agreement.review_approved"
 	auditTrailSourceReviewChangesRequested = "agreement.review_changes_requested"
 	auditTrailSourceReviewClosed           = "agreement.review_closed"
+	auditTrailSourceReviewForceApproved    = "agreement.review_force_approved"
+	auditTrailSourceReviewApprovedOnBehalf = "agreement.review_participant_approved_on_behalf"
 	auditTrailSourceCommentThreadCreated   = "agreement.comment_thread_created"
 	auditTrailSourceCommentReplied         = "agreement.comment_replied"
 	auditTrailSourceCommentResolved        = "agreement.comment_resolved"
@@ -92,6 +94,8 @@ const (
 	auditTrailDescriptionKindReviewApproved         auditTrailDescriptionKind = "review_approved"
 	auditTrailDescriptionKindReviewChangesRequested auditTrailDescriptionKind = "review_changes_requested"
 	auditTrailDescriptionKindReviewClosed           auditTrailDescriptionKind = "review_closed"
+	auditTrailDescriptionKindReviewForceApproved    auditTrailDescriptionKind = "review_force_approved"
+	auditTrailDescriptionKindReviewApprovedOnBehalf auditTrailDescriptionKind = "review_approved_on_behalf"
 	auditTrailDescriptionKindCommentCreated         auditTrailDescriptionKind = "comment_created"
 	auditTrailDescriptionKindCommentReplied         auditTrailDescriptionKind = "comment_replied"
 	auditTrailDescriptionKindCommentResolved        auditTrailDescriptionKind = "comment_resolved"
@@ -253,6 +257,18 @@ var auditTrailSourceEventPolicies = map[string]auditTrailSourceEventPolicy{
 		Severity:        "normal",
 		ShowIPAddress:   false,
 		DescriptionKind: auditTrailDescriptionKindReviewClosed,
+	},
+	auditTrailSourceReviewForceApproved: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewForceApproved,
+	},
+	auditTrailSourceReviewApprovedOnBehalf: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindReviewApprovedOnBehalf,
 	},
 	auditTrailSourceCommentThreadCreated: {
 		EventType:       AuditTrailEventCreated,
@@ -620,6 +636,10 @@ func buildAuditTrailEventDescription(
 		return fmt.Sprintf("Changes requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
 	case auditTrailDescriptionKindReviewClosed:
 		return fmt.Sprintf("Review closed by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewForceApproved:
+		return fmt.Sprintf("Review force approved by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindReviewApprovedOnBehalf:
+		return fmt.Sprintf("Review approved on behalf by %s", formatActorIdentity(actorName, actorEmail, actorID))
 	case auditTrailDescriptionKindCommentCreated:
 		return fmt.Sprintf("Comment added by %s", formatActorIdentity(actorName, actorEmail, actorID))
 	case auditTrailDescriptionKindCommentReplied:

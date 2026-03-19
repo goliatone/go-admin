@@ -160,7 +160,7 @@ function dev:serve {
     export APP_SERVER__ADDRESS=:8082;
     export RESET_NAV_MENU=true;
     export ADMIN_DEBUG=true;
-    export ADMIN_SEEDS=false;
+    export ADMIN_SEEDS="${ADMIN_SEEDS:-false}";
     export ADMIN_ASSETS_DEBUG=1;
     export APP_ADMIN__PUBLIC_API=true;
     export APP_ADMIN__API_VERSION=v1;
@@ -173,6 +173,13 @@ function dev:serve {
     export APP_EMAIL__SMTP__USERNAME=User1;
     export APP_EMAIL__SMTP__PASSWORD=Password1;
     export APP_SIGNER__PROFILE_MODE=hybrid;
+    export APP_REMINDERS__ENABLED="${APP_REMINDERS__ENABLED:-true}";
+    export APP_REMINDERS__SWEEP_CRON="${APP_REMINDERS__SWEEP_CRON:-* * * * *}";
+    export APP_REMINDERS__INITIAL_DELAY_MINUTES="${APP_REMINDERS__INITIAL_DELAY_MINUTES:-5}";
+    export APP_REMINDERS__INTERVAL_MINUTES="${APP_REMINDERS__INTERVAL_MINUTES:-5}";
+    export APP_REMINDERS__JITTER_PERCENT="${APP_REMINDERS__JITTER_PERCENT:-1}";
+    export APP_REMINDERS__MAX_REMINDERS="${APP_REMINDERS__MAX_REMINDERS:-2}";
+    export APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES="${APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES:-5}";
 
 	export APP_FEATURES__ESIGN_GOOGLE=true;
 	export APP_SERVICES__MODULE_ENABLED=true;
@@ -197,6 +204,15 @@ function dev:serve {
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
 
     "${GO_BIN}" run .
+}
+
+function dev:serve:lineage {
+    export ADMIN_SEEDS=true
+    dev:serve
+}
+
+function dev:seed:fixtures {
+    "${GO_BIN}" run ./cmd/migrate seed-fixtures
 }
 
 # Force rebuild assets, bypassing hash check

@@ -597,7 +597,7 @@ func (s AgreementReminderService) sweepReviewReminders(
 			return events[i].ID < events[j].ID
 		})
 		for _, participant := range summary.Participants {
-			if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending {
+			if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
 				continue
 			}
 			derived, ok := deriveReviewReminderState(scope, agreement.ID, summary.Status, now, participant, events, policy)
@@ -747,7 +747,7 @@ func deriveReviewReminderState(
 	derived.Snapshot.LastSentAt = newerTimePtr(derived.Snapshot.LastSentAt, derived.State.LastSentAt)
 	derived.Snapshot.LastViewedAt = newerTimePtr(derived.Snapshot.LastViewedAt, derived.State.LastViewedAt)
 	derived.Snapshot.LastManualResendAt = newerTimePtr(derived.Snapshot.LastManualResendAt, derived.State.LastManualResendAt)
-	if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending || strings.TrimSpace(reviewStatus) != stores.AgreementReviewStatusInReview {
+	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending || strings.TrimSpace(reviewStatus) != stores.AgreementReviewStatusInReview {
 		derived.Snapshot.Status = stores.AgreementReminderStatusTerminal
 		derived.Snapshot.Paused = false
 		derived.Snapshot.NextDueAt = nil
@@ -1026,6 +1026,9 @@ func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope
 	if err != nil {
 		return resolvedReviewReminderTarget{}, err
 	}
+	if err := ensureReviewCycleMutable(review, "agreement_reviews", "override_active"); err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
 	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
 		return resolvedReviewReminderTarget{}, domainValidationError("agreement_reviews", "status", "review reminders require active review")
 	}
@@ -1037,7 +1040,7 @@ func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope
 	if err != nil {
 		return resolvedReviewReminderTarget{}, err
 	}
-	if strings.TrimSpace(participant.DecisionStatus) != stores.AgreementReviewDecisionPending {
+	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
 		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "decision_status", "review reminders require pending reviewer")
 	}
 	if s.audits == nil {

@@ -300,7 +300,17 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, err, nil)
 				return werr
 			}
-			respErr := c.JSON(http.StatusOK, googleImportRunRecordToMap(run))
+			payload := googleImportRunRecordToMap(run)
+			if cfg.sourceReadModels != nil {
+				status, statusErr := cfg.sourceReadModels.GetGoogleImportLineageStatus(c.Context(), scope, run.ID)
+				if statusErr != nil {
+					werr := writeAPIError(c, statusErr, http.StatusInternalServerError, string(services.ErrorCodeGoogleProviderDegraded), "google import lineage status unavailable", nil)
+					logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, statusErr, nil)
+					return werr
+				}
+				payload = applyGoogleImportLineageStatus(payload, status)
+			}
+			respErr := c.JSON(http.StatusOK, payload)
 			logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, respErr, map[string]any{
 				"import_run_id": strings.TrimSpace(run.ID),
 				"status":        strings.TrimSpace(run.Status),
@@ -340,7 +350,17 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			}
 			rows := make([]map[string]any, 0, len(runs))
 			for _, run := range runs {
-				rows = append(rows, googleImportRunRecordToMap(run))
+				payload := googleImportRunRecordToMap(run)
+				if cfg.sourceReadModels != nil {
+					status, statusErr := cfg.sourceReadModels.GetGoogleImportLineageStatus(c.Context(), scope, run.ID)
+					if statusErr != nil {
+						werr := writeAPIError(c, statusErr, http.StatusInternalServerError, string(services.ErrorCodeGoogleProviderDegraded), "google import lineage status unavailable", nil)
+						logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, statusErr, nil)
+						return werr
+					}
+					payload = applyGoogleImportLineageStatus(payload, status)
+				}
+				rows = append(rows, payload)
 			}
 			respErr := c.JSON(http.StatusOK, map[string]any{
 				"status":      "ok",

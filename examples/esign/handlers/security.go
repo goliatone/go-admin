@@ -76,6 +76,8 @@ type registerConfig struct {
 	google                GoogleIntegrationService
 	googleImportRuns      stores.GoogleImportRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
+	sourceReadModels      services.SourceReadModelService
+	lineageDiagnostics    services.LineageDiagnosticsService
 	integration           IntegrationFoundationService
 	pdfPolicy             PDFPolicyService
 	remediationTrigger    RemediationTrigger
@@ -569,6 +571,24 @@ func WithGoogleIntegrationService(service GoogleIntegrationService) RegisterOpti
 			return
 		}
 		cfg.google = service
+	}
+}
+
+func WithSourceReadModelService(service services.SourceReadModelService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.sourceReadModels = service
+	}
+}
+
+func WithLineageDiagnosticsService(service services.LineageDiagnosticsService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.lineageDiagnostics = service
 	}
 }
 

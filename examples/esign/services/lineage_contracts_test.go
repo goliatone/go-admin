@@ -62,6 +62,12 @@ func TestPhase1LineageContractFixtureCoversCanonicalStates(t *testing.T) {
 	if len(fixture.States.AgreementNative.CandidateWarningSummary) == 0 {
 		t.Fatalf("expected agreement_native candidate warning summary")
 	}
+	if len(fixture.States.DocumentNative.PresentationWarnings) == 0 {
+		t.Fatalf("expected document_native presentation warnings")
+	}
+	if fixture.States.DocumentNative.PresentationWarnings[0].ActionURL == "" {
+		t.Fatalf("expected document_native presentation warning to expose diagnostics action")
+	}
 }
 
 func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
@@ -81,6 +87,9 @@ func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
 	}
 	if _, ok := reconciliation.MethodByName("ApplyReviewAction"); !ok {
 		t.Fatalf("expected SourceReconciliationService.ApplyReviewAction")
+	}
+	if _, ok := reconciliation.MethodByName("ListCandidateRelationships"); !ok {
+		t.Fatalf("expected SourceReconciliationService.ListCandidateRelationships")
 	}
 
 	readModels := reflect.TypeFor[SourceReadModelService]()
@@ -135,6 +144,7 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 			DiagnosticsOwnedByBackend: true,
 			WarningPrecedence: []string{
 				"candidate_warning",
+				"fingerprint_failed",
 				"newer_source_exists",
 				"fingerprint_pending",
 				"empty_state",
@@ -174,7 +184,20 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 					EvidenceAvailable: true,
 				},
 				CandidateWarningSummary: []CandidateWarningSummary{candidate},
-				DiagnosticsURL:          "/admin/debug/lineage/documents/doc_001",
+				PresentationWarnings: []LineagePresentationWarning{
+					{
+						ID:                  "rel_candidate_1",
+						Type:                "candidate_relationship",
+						Severity:            LineageWarningSeverityWarning,
+						Title:               "Copied From - Pending Review",
+						Description:         "Possible continuity with a copied Google document under a different account.",
+						ActionLabel:         "Review in diagnostics",
+						ActionURL:           "/admin/debug/lineage/documents/doc_001",
+						ReviewActionVisible: LineageReviewVisibilityAdminOnly,
+						Evidence:            append([]CandidateEvidenceSummary{}, candidate.Evidence...),
+					},
+				},
+				DiagnosticsURL: "/admin/debug/lineage/documents/doc_001",
 				EmptyState: LineageEmptyState{
 					Kind: LineageEmptyStateNone,
 				},
@@ -182,10 +205,11 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 			DocumentEmpty: DocumentLineageDetail{
 				DocumentID: "doc_upload_only",
 				FingerprintStatus: FingerprintStatusSummary{
-					Status:            LineageFingerprintStatusUnknown,
+					Status:            LineageFingerprintStatusNotApplicable,
 					EvidenceAvailable: false,
 				},
-				DiagnosticsURL: "/admin/debug/lineage/documents/doc_upload_only",
+				PresentationWarnings: nil,
+				DiagnosticsURL:       "/admin/debug/lineage/documents/doc_upload_only",
 				EmptyState: LineageEmptyState{
 					Kind:        LineageEmptyStateNoSource,
 					Title:       "No source lineage",
@@ -214,12 +238,33 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 				GoogleSource:            metadataPtr(metadata),
 				NewerSourceExists:       true,
 				CandidateWarningSummary: []CandidateWarningSummary{candidate},
-				DiagnosticsURL:          "/admin/debug/lineage/agreements/agr_001",
-				EmptyState:              LineageEmptyState{Kind: LineageEmptyStateNone},
+				PresentationWarnings: []LineagePresentationWarning{
+					{
+						ID:                  "rel_candidate_1",
+						Type:                "candidate_relationship",
+						Severity:            LineageWarningSeverityWarning,
+						Title:               "Copied From - Pending Review",
+						Description:         "Possible continuity with a copied Google document under a different account.",
+						ActionLabel:         "Review in diagnostics",
+						ActionURL:           "/admin/debug/lineage/agreements/agr_001",
+						ReviewActionVisible: LineageReviewVisibilityAdminOnly,
+						Evidence:            append([]CandidateEvidenceSummary{}, candidate.Evidence...),
+					},
+					{
+						ID:          "newer_source_warning",
+						Type:        "newer_source_exists",
+						Severity:    LineageWarningSeverityInfo,
+						Title:       "Newer Source Available",
+						Description: "A newer source revision exists. This agreement remains pinned to the earlier revision used when it was created.",
+					},
+				},
+				DiagnosticsURL: "/admin/debug/lineage/agreements/agr_001",
+				EmptyState:     LineageEmptyState{Kind: LineageEmptyStateNone},
 			},
 			AgreementEmpty: AgreementLineageDetail{
-				AgreementID:    "agr_upload_only",
-				DiagnosticsURL: "/admin/debug/lineage/agreements/agr_upload_only",
+				AgreementID:          "agr_upload_only",
+				PresentationWarnings: nil,
+				DiagnosticsURL:       "/admin/debug/lineage/agreements/agr_upload_only",
 				EmptyState: LineageEmptyState{
 					Kind:        LineageEmptyStateNoSource,
 					Title:       "No source lineage",

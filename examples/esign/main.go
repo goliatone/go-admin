@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	"github.com/goliatone/go-admin/examples/esign/fixtures"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
@@ -124,6 +126,23 @@ func main() {
 		WithStore(store)
 	if err := adm.RegisterModule(esignModule); err != nil {
 		log.Fatalf("register module: %v", err)
+	}
+	if shouldSeedESignRuntimeFixtures() {
+		fixtureSet, urls, seedErr := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult)
+		if seedErr != nil {
+			log.Fatalf("seed e-sign runtime fixtures: %v", seedErr)
+		}
+		adm.NamedLogger("esign.bootstrap").Info(
+			"seeded e-sign lineage qa fixtures",
+			"upload_only_document_id", fixtureSet.UploadOnlyDocumentID,
+			"imported_document_id", fixtureSet.ImportedDocumentID,
+			"repeated_import_document_id", fixtureSet.RepeatedImportDocumentID,
+			"imported_agreement_id", fixtureSet.ImportedAgreementID,
+			"upload_only_document_url", urls.UploadOnlyDocumentURL,
+			"imported_document_url", urls.ImportedDocumentURL,
+			"repeated_import_document_url", urls.RepeatedImportDocumentURL,
+			"imported_agreement_url", urls.ImportedAgreementURL,
+		)
 	}
 
 	authn, auther, authCookieName, err := configureESignAuth(adm, cfg)
@@ -284,6 +303,46 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 		}
 	}
 	return nil
+}
+
+func shouldSeedESignRuntimeFixtures() bool {
+	raw := strings.TrimSpace(os.Getenv("ADMIN_SEEDS"))
+	if raw == "" {
+		return false
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func seedESignRuntimeFixtures(
+	ctx context.Context,
+	basePath string,
+	module *modules.ESignModule,
+	bootstrap *esignpersistence.BootstrapResult,
+) (stores.LineageFixtureSet, fixtures.LineageFixtureURLSet, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if module == nil {
+		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, fmt.Errorf("e-sign module is required")
+	}
+	if bootstrap == nil || bootstrap.BunDB == nil {
+		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, fmt.Errorf("persistence bootstrap is required")
+	}
+
+	fixtureSet, err := fixtures.EnsureLineageQAFixtures(ctx, bootstrap.BunDB, module.UploadManager(), module.DefaultScope())
+	if err != nil {
+		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
+	}
+	urls, err := fixtures.BuildLineageFixtureURLs(strings.TrimSpace(basePath), module.DefaultScope(), fixtureSet)
+	if err != nil {
+		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
+	}
+	return fixtureSet, urls, nil
 }
 
 func isProductionLikeRuntimeProfile(profile string) bool {

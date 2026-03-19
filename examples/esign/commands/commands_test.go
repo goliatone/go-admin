@@ -113,6 +113,20 @@ func (s *stubAgreementLifecycleService) CloseReview(_ context.Context, scope sto
 	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusClosed}, nil
 }
 
+func (s *stubAgreementLifecycleService) ForceApproveReview(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewOverrideInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusApproved, OverrideActive: true}, nil
+}
+
+func (s *stubAgreementLifecycleService) ApproveReviewParticipantOnBehalf(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewApproveOnBehalfInput) (services.ReviewSummary, error) {
+	s.reviewCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	return services.ReviewSummary{AgreementID: agreementID, Status: stores.AgreementReviewStatusInReview}, nil
+}
+
 func (s *stubAgreementLifecycleService) ApproveReview(_ context.Context, scope stores.Scope, agreementID string, _ services.ReviewDecisionInput) (services.ReviewSummary, error) {
 	s.reviewCalls++
 	s.lastScope = scope
@@ -786,5 +800,22 @@ func TestRegisterDoesNotExposePDFRemediationCommandWithoutService(t *testing.T) 
 	}, nil)
 	if err == nil {
 		t.Fatal("expected dispatch error when remediation service is not registered")
+	}
+}
+
+func TestReviewOverrideCommandInputsRequireActorID(t *testing.T) {
+	if err := (AgreementForceApproveReviewInput{
+		AgreementID: "agreement-1",
+		Reason:      "override",
+	}).Validate(); err == nil {
+		t.Fatal("expected force-approve input to require actor_id")
+	}
+
+	if err := (AgreementApproveReviewOnBehalfInput{
+		AgreementID:   "agreement-1",
+		ParticipantID: "participant-1",
+		Reason:        "offline approval",
+	}).Validate(); err == nil {
+		t.Fatal("expected approve-on-behalf input to require actor_id")
 	}
 }

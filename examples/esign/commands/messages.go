@@ -267,6 +267,61 @@ func (m AgreementCloseReviewInput) Validate() error {
 	return nil
 }
 
+type AgreementForceApproveReviewInput struct {
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	Reason        string       `json:"reason"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
+}
+
+func (AgreementForceApproveReviewInput) Type() string {
+	return CommandAgreementForceApproveReview
+}
+
+func (m AgreementForceApproveReviewInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.Reason) == "" {
+		return fmt.Errorf("reason required")
+	}
+	if strings.TrimSpace(m.ActorID) == "" {
+		return fmt.Errorf("actor_id required")
+	}
+	return nil
+}
+
+type AgreementApproveReviewOnBehalfInput struct {
+	Scope         stores.Scope `json:"scope"`
+	AgreementID   string       `json:"agreement_id"`
+	ParticipantID string       `json:"participant_id"`
+	RecipientID   string       `json:"recipient_id"`
+	Reason        string       `json:"reason"`
+	ActorID       string       `json:"actor_id"`
+	CorrelationID string       `json:"correlation_id"`
+}
+
+func (AgreementApproveReviewOnBehalfInput) Type() string {
+	return CommandAgreementApproveReviewOnBehalf
+}
+
+func (m AgreementApproveReviewOnBehalfInput) Validate() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.ParticipantID) == "" && strings.TrimSpace(m.RecipientID) == "" {
+		return fmt.Errorf("participant_id or recipient_id required")
+	}
+	if strings.TrimSpace(m.Reason) == "" {
+		return fmt.Errorf("reason required")
+	}
+	if strings.TrimSpace(m.ActorID) == "" {
+		return fmt.Errorf("actor_id required")
+	}
+	return nil
+}
+
 type AgreementReviewDecisionCommandInput struct {
 	Scope         stores.Scope `json:"scope"`
 	AgreementID   string       `json:"agreement_id"`

@@ -42,13 +42,27 @@ type documentPanelRepository struct {
 	store        stores.DocumentStore
 	agreements   stores.AgreementStore
 	uploader     services.DocumentService
+	readModels   services.SourceReadModelService
 	uploads      *uploader.Manager
 	defaultScope stores.Scope
 	settings     RuntimeSettings
 }
 
 func newDocumentPanelRepository(store stores.DocumentStore, agreements stores.AgreementStore, uploader services.DocumentService, uploads *uploader.Manager, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
-	return &documentPanelRepository{store: store, agreements: agreements, uploader: uploader, uploads: uploads, defaultScope: defaultScope, settings: settings}
+	repo := &documentPanelRepository{store: store, agreements: agreements, uploader: uploader, uploads: uploads, defaultScope: defaultScope, settings: settings}
+	if lineage, ok := any(store).(stores.LineageStore); ok {
+		var agreementStore stores.AgreementStore
+		if agreements != nil {
+			agreementStore = agreements
+		}
+		readModels := services.NewDefaultSourceReadModelService(
+			store,
+			agreementStore,
+			lineage,
+		)
+		repo.readModels = readModels
+	}
+	return repo
 }
 
 func (r *documentPanelRepository) List(ctx context.Context, opts coreadmin.ListOptions) ([]map[string]any, int, error) {
@@ -100,8 +114,17 @@ func (r *documentPanelRepository) Get(ctx context.Context, id string) (map[strin
 	if err != nil {
 		return nil, err
 	}
+	result := documentRecordToMap(record)
+	if r.readModels != nil {
+		lineage, err := r.readModels.GetDocumentLineageDetail(ctx, scope, record.ID)
+		if err != nil {
+			return nil, err
+		}
+		result["lineage"] = lineage
+		result["lineage_presentation"] = buildDocumentLineagePresentation(lineage)
+	}
 	success = true
-	return documentRecordToMap(record), nil
+	return result, nil
 }
 
 func (r *documentPanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
@@ -314,6 +337,11 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 		"source_modified_time":       formatTimePtr(record.SourceModifiedTime),
 		"source_exported_at":         formatTimePtr(record.SourceExportedAt),
 		"source_exported_by_user_id": record.SourceExportedByUserID,
+		"source_mime_type":           record.SourceMimeType,
+		"source_ingestion_mode":      record.SourceIngestionMode,
+		"source_document_id":         record.SourceDocumentID,
+		"source_revision_id":         record.SourceRevisionID,
+		"source_artifact_id":         record.SourceArtifactID,
 		"pdf_compatibility_tier":     record.PDFCompatibilityTier,
 		"pdf_compatibility_reason":   record.PDFCompatibilityReason,
 		"pdf_normalization_status":   record.PDFNormalizationStatus,
@@ -332,6 +360,7 @@ type agreementPanelRepository struct {
 	documents    stores.DocumentStore
 	service      services.AgreementService
 	artifacts    services.ArtifactPipelineService
+	readModels   services.SourceReadModelService
 	projector    *AuditActivityProjector
 	objectStore  quickstart.BinaryObjectStore
 	defaultScope stores.Scope
@@ -352,7 +381,7 @@ func newAgreementPanelRepository(
 	if cast, ok := agreements.(stores.AgreementReminderStore); ok {
 		reminders = cast
 	}
-	return &agreementPanelRepository{
+	repo := &agreementPanelRepository{
 		agreements:   agreements,
 		reminders:    reminders,
 		documents:    documents,
@@ -363,6 +392,15 @@ func newAgreementPanelRepository(
 		defaultScope: defaultScope,
 		settings:     settings,
 	}
+	if lineage, ok := any(agreements).(stores.LineageStore); ok {
+		readModels := services.NewDefaultSourceReadModelService(
+			documents,
+			agreements,
+			lineage,
+		)
+		repo.readModels = readModels
+	}
+	return repo
 }
 
 func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.ListOptions) ([]map[string]any, int, error) {
@@ -493,12 +531,21 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	reminderStates := r.reminderStateMap(ctx, scope, agreementID, recipients)
 	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
 	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
+	if r.readModels != nil {
+		lineage, err := r.readModels.GetAgreementLineageDetail(ctx, scope, agreementID)
+		if err != nil {
+			return nil, err
+		}
+		result["lineage"] = lineage
+		result["lineage_presentation"] = buildAgreementLineagePresentation(lineage)
+	}
 	if reviewSummary, err := r.service.GetReviewSummary(ctx, scope, agreementID); err == nil {
 		reviewReminderStates, statesErr := r.service.ReviewReminderStates(ctx, scope, agreementID)
 		if statesErr != nil {
 			reviewReminderStates = map[string]services.ReviewReminderState{}
 		}
 		result["review"] = reviewSummaryToMap(reviewSummary, reviewReminderStates)
+		result["review_override_active"] = reviewSummary.OverrideActive
 	}
 	// Fetch document title if document_id exists
 	documentID := strings.TrimSpace(agreement.DocumentID)
@@ -868,6 +915,9 @@ func agreementRecordToMap(
 		"source_modified_time":       formatTimePtr(agreement.SourceModifiedTime),
 		"source_exported_at":         formatTimePtr(agreement.SourceExportedAt),
 		"source_exported_by_user_id": agreement.SourceExportedByUserID,
+		"source_mime_type":           agreement.SourceMimeType,
+		"source_ingestion_mode":      agreement.SourceIngestionMode,
+		"source_revision_id":         agreement.SourceRevisionID,
 		"status":                     agreement.Status,
 		"review_status":              agreement.ReviewStatus,
 		"review_gate":                agreement.ReviewGate,
@@ -938,12 +988,19 @@ func agreementRecordToMap(
 
 func reviewSummaryToMap(summary services.ReviewSummary, reminderStates map[string]services.ReviewReminderState) map[string]any {
 	payload := map[string]any{
-		"agreement_id":          strings.TrimSpace(summary.AgreementID),
-		"status":                strings.TrimSpace(summary.Status),
-		"gate":                  strings.TrimSpace(summary.Gate),
-		"comments_enabled":      summary.CommentsEnabled,
-		"open_thread_count":     summary.OpenThreadCount,
-		"resolved_thread_count": summary.ResolvedThreadCount,
+		"agreement_id":             strings.TrimSpace(summary.AgreementID),
+		"status":                   strings.TrimSpace(summary.Status),
+		"gate":                     strings.TrimSpace(summary.Gate),
+		"comments_enabled":         summary.CommentsEnabled,
+		"override_active":          summary.OverrideActive,
+		"override_reason":          strings.TrimSpace(summary.OverrideReason),
+		"override_by_user_id":      strings.TrimSpace(summary.OverrideByUserID),
+		"override_by_display_name": strings.TrimSpace(summary.OverrideByDisplayName),
+		"override_at":              formatTimePtr(summary.OverrideAt),
+		"approved_count":           summary.ApprovedCount,
+		"total_approvers":          summary.TotalApprovers,
+		"open_thread_count":        summary.OpenThreadCount,
+		"resolved_thread_count":    summary.ResolvedThreadCount,
 	}
 	if summary.Review != nil {
 		payload["review_id"] = strings.TrimSpace(summary.Review.ID)
@@ -957,25 +1014,34 @@ func reviewSummaryToMap(summary services.ReviewSummary, reminderStates map[strin
 		for _, participant := range summary.Participants {
 			reminderState := reminderStates[strings.TrimSpace(participant.ID)]
 			participants = append(participants, map[string]any{
-				"id":               strings.TrimSpace(participant.ID),
-				"participant_type": strings.TrimSpace(participant.ParticipantType),
-				"recipient_id":     strings.TrimSpace(participant.RecipientID),
-				"email":            strings.TrimSpace(participant.Email),
-				"display_name":     strings.TrimSpace(participant.DisplayName),
-				"role":             strings.TrimSpace(participant.Role),
-				"can_comment":      participant.CanComment,
-				"can_approve":      participant.CanApprove,
-				"decision_status":  strings.TrimSpace(participant.DecisionStatus),
-				"decision_at":      formatTimePtr(participant.DecisionAt),
-				"reminder_status":  strings.TrimSpace(reminderState.Status),
-				"next_due_at":      formatTimePtr(reminderState.NextDueAt),
-				"last_sent_at":     formatTimePtr(reminderState.LastSentAt),
-				"reminder_count":   reminderState.SentCount,
-				"last_error_code":  strings.TrimSpace(reminderState.LastErrorCode),
-				"paused":           reminderState.Paused,
+				"id":                                 strings.TrimSpace(participant.ID),
+				"participant_type":                   strings.TrimSpace(participant.ParticipantType),
+				"recipient_id":                       strings.TrimSpace(participant.RecipientID),
+				"email":                              strings.TrimSpace(participant.Email),
+				"display_name":                       strings.TrimSpace(participant.DisplayName),
+				"role":                               strings.TrimSpace(participant.Role),
+				"can_comment":                        participant.CanComment,
+				"can_approve":                        participant.CanApprove,
+				"decision_status":                    strings.TrimSpace(participant.DecisionStatus),
+				"effective_decision_status":          reviewParticipantEffectiveDecisionStatusValue(participant),
+				"decision_at":                        formatTimePtr(participant.DecisionAt),
+				"approved_on_behalf":                 participantApprovedOnBehalf(participant),
+				"approved_on_behalf_by_user_id":      strings.TrimSpace(participant.ApprovedOnBehalfByUserID),
+				"approved_on_behalf_by_display_name": strings.TrimSpace(participant.ApprovedOnBehalfByDisplayName),
+				"approved_on_behalf_reason":          strings.TrimSpace(participant.ApprovedOnBehalfReason),
+				"approved_on_behalf_at":              formatTimePtr(participant.ApprovedOnBehalfAt),
+				"reminder_status":                    strings.TrimSpace(reminderState.Status),
+				"next_due_at":                        formatTimePtr(reminderState.NextDueAt),
+				"last_sent_at":                       formatTimePtr(reminderState.LastSentAt),
+				"reminder_count":                     reminderState.SentCount,
+				"last_error_code":                    strings.TrimSpace(reminderState.LastErrorCode),
+				"paused":                             reminderState.Paused,
 			})
 		}
 		payload["participants"] = participants
+	}
+	if len(summary.ActorMap) > 0 {
+		payload["actor_map"] = reviewActorMapToPayload(summary.ActorMap)
 	}
 	if len(summary.Threads) > 0 {
 		threads := make([]map[string]any, 0, len(summary.Threads))
@@ -1003,6 +1069,45 @@ func reviewSummaryToMap(summary services.ReviewSummary, reminderStates map[strin
 			})
 		}
 		payload["threads"] = threads
+	}
+	return payload
+}
+
+func participantApprovedOnBehalf(participant stores.AgreementReviewParticipantRecord) bool {
+	return participant.ApprovedOnBehalfAt != nil
+}
+
+func reviewParticipantEffectiveDecisionStatusValue(participant stores.AgreementReviewParticipantRecord) string {
+	if participantApprovedOnBehalf(participant) {
+		return stores.AgreementReviewDecisionApproved
+	}
+	normalized := strings.TrimSpace(participant.DecisionStatus)
+	if normalized == "" {
+		return stores.AgreementReviewDecisionPending
+	}
+	return normalized
+}
+
+func reviewActorMapToPayload(actorMap map[string]services.ReviewActorInfo) map[string]any {
+	if len(actorMap) == 0 {
+		return nil
+	}
+	payload := make(map[string]any, len(actorMap))
+	for key, actor := range actorMap {
+		normalizedKey := strings.TrimSpace(key)
+		if normalizedKey == "" {
+			continue
+		}
+		payload[normalizedKey] = map[string]any{
+			"name":       strings.TrimSpace(actor.Name),
+			"email":      strings.TrimSpace(actor.Email),
+			"role":       strings.TrimSpace(actor.Role),
+			"actor_type": strings.TrimSpace(actor.ActorType),
+			"actor_id":   strings.TrimSpace(actor.ActorID),
+		}
+	}
+	if len(payload) == 0 {
+		return nil
 	}
 	return payload
 }

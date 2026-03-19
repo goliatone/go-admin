@@ -13,6 +13,8 @@ const (
 	CommandAgreementReviewReminderResume  = "esign.agreements.review_reminder.resume"
 	CommandAgreementReviewReminderSendNow = "esign.agreements.review_reminder.send_now"
 	CommandAgreementCloseReview           = "esign.agreements.close_review"
+	CommandAgreementForceApproveReview    = "esign.agreements.force_approve_review"
+	CommandAgreementApproveReviewOnBehalf = "esign.agreements.approve_review_participant_on_behalf"
 	CommandAgreementApproveReview         = "esign.agreements.approve_review"
 	CommandAgreementRequestReviewChanges  = "esign.agreements.request_review_changes"
 	CommandAgreementCreateCommentThread   = "esign.agreements.create_comment_thread"
@@ -44,6 +46,8 @@ var All = []string{
 	CommandAgreementReviewReminderResume,
 	CommandAgreementReviewReminderSendNow,
 	CommandAgreementCloseReview,
+	CommandAgreementForceApproveReview,
+	CommandAgreementApproveReviewOnBehalf,
 	CommandAgreementApproveReview,
 	CommandAgreementRequestReviewChanges,
 	CommandAgreementCreateCommentThread,

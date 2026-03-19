@@ -20,6 +20,229 @@ type googleImportExecutionDeps struct {
 	now        func() time.Time
 }
 
+type googleImportPersistenceDeps struct {
+	tx             stores.TransactionManager
+	importRuns     stores.GoogleImportRunStore
+	documentStore  stores.DocumentStore
+	agreementStore stores.AgreementStore
+}
+
+func (d googleImportExecutionDeps) forTx(tx stores.TxStore) googleImportExecutionDeps {
+	txDeps := d
+	txDeps.documents = bindGoogleDocumentUploaderForTx(d.documents, tx)
+	txDeps.agreements = bindGoogleAgreementCreatorForTx(d.agreements, tx)
+	txDeps.identity = bindSourceIdentityServiceForTx(d.identity, tx)
+	return txDeps
+}
+
+func (d googleImportPersistenceDeps) forTx(tx stores.TxStore) googleImportPersistenceDeps {
+	txDeps := d
+	if tx == nil {
+		return txDeps
+	}
+	txDeps.tx = nil
+	txDeps.importRuns = tx
+	txDeps.documentStore = tx
+	txDeps.agreementStore = tx
+	return txDeps
+}
+
+func executeGoogleImportWithPersistence(
+	ctx context.Context,
+	scope stores.Scope,
+	input GoogleImportInput,
+	snapshot GoogleExportSnapshot,
+	sourceMimeType string,
+	ingestionMode string,
+	resolvedUserID string,
+	execution googleImportExecutionDeps,
+	persistence googleImportPersistenceDeps,
+) (GoogleImportResult, error) {
+	var run stores.GoogleImportRunRecord
+	var err error
+	if persistence.importRuns != nil && strings.TrimSpace(input.IdempotencyKey) != "" {
+		var created bool
+		run, created, err = persistence.importRuns.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+			UserID:            strings.TrimSpace(input.UserID),
+			GoogleFileID:      strings.TrimSpace(input.GoogleFileID),
+			SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
+			DedupeKey:         strings.TrimSpace(input.IdempotencyKey),
+			DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
+			AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
+			CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
+			CorrelationID:     strings.TrimSpace(input.CorrelationID),
+			RequestedAt:       execution.now().UTC(),
+		})
+		if err != nil {
+			return GoogleImportResult{}, err
+		}
+		_ = created
+		if replay, replayed, replayErr := loadCompletedGoogleImportResult(ctx, scope, run, persistence.documentStore, persistence.agreementStore); replayErr != nil {
+			return GoogleImportResult{}, replayErr
+		} else if replayed {
+			return replay, nil
+		}
+	}
+
+	if execution.identity != nil && persistence.tx == nil {
+		return GoogleImportResult{}, domainValidationError("google", "transaction_manager", "required for lineage imports")
+	}
+
+	if persistence.tx == nil {
+		result, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
+		if err != nil {
+			if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
+					ErrorCode:    string(ErrorCodeGooglePermissionDenied),
+					ErrorMessage: strings.TrimSpace(err.Error()),
+					CompletedAt:  execution.now().UTC(),
+				})
+			}
+			return GoogleImportResult{}, err
+		}
+		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+			if markErr := markGoogleImportRunSucceeded(ctx, scope, persistence.importRuns, run.ID, result, execution.now().UTC()); markErr != nil {
+				return GoogleImportResult{}, markErr
+			}
+		}
+		return result, nil
+	}
+
+	result := GoogleImportResult{}
+	err = persistence.tx.WithTx(ctx, func(tx stores.TxStore) error {
+		txExecution := execution.forTx(tx)
+		txPersistence := persistence.forTx(tx)
+		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+			if _, err := txPersistence.importRuns.MarkGoogleImportRunRunning(ctx, scope, run.ID, txExecution.now().UTC()); err != nil {
+				return err
+			}
+		}
+		imported, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, txExecution)
+		if err != nil {
+			return err
+		}
+		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+			if err := markGoogleImportRunSucceeded(ctx, scope, txPersistence.importRuns, run.ID, imported, txExecution.now().UTC()); err != nil {
+				return err
+			}
+		}
+		result = imported
+		return nil
+	})
+	if err != nil {
+		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
+				ErrorCode:    string(ErrorCodeGooglePermissionDenied),
+				ErrorMessage: strings.TrimSpace(err.Error()),
+				CompletedAt:  execution.now().UTC(),
+			})
+		}
+		return GoogleImportResult{}, err
+	}
+	return result, nil
+}
+
+func markGoogleImportRunSucceeded(ctx context.Context, scope stores.Scope, store stores.GoogleImportRunStore, runID string, result GoogleImportResult, completedAt time.Time) error {
+	if store == nil || strings.TrimSpace(runID) == "" {
+		return nil
+	}
+	candidateStatusJSON := "[]"
+	if encoded, err := json.Marshal(result.CandidateStatus); err == nil {
+		candidateStatusJSON = string(encoded)
+	}
+	_, err := store.MarkGoogleImportRunSucceeded(ctx, scope, runID, stores.GoogleImportRunSuccessInput{
+		DocumentID:          strings.TrimSpace(result.Document.ID),
+		AgreementID:         strings.TrimSpace(result.Agreement.ID),
+		SourceDocumentID:    strings.TrimSpace(result.SourceDocumentID),
+		SourceRevisionID:    strings.TrimSpace(result.SourceRevisionID),
+		SourceArtifactID:    strings.TrimSpace(result.SourceArtifactID),
+		LineageStatus:       strings.TrimSpace(result.LineageStatus),
+		FingerprintStatus:   strings.TrimSpace(result.FingerprintStatus.Status),
+		CandidateStatusJSON: candidateStatusJSON,
+		DocumentDetailURL:   strings.TrimSpace(result.DocumentDetailURL),
+		AgreementDetailURL:  strings.TrimSpace(result.AgreementDetailURL),
+		SourceMimeType:      strings.TrimSpace(result.SourceMimeType),
+		IngestionMode:       strings.TrimSpace(result.IngestionMode),
+		CompletedAt:         completedAt.UTC(),
+	})
+	return err
+}
+
+func loadCompletedGoogleImportResult(ctx context.Context, scope stores.Scope, run stores.GoogleImportRunRecord, documents stores.DocumentStore, agreements stores.AgreementStore) (GoogleImportResult, bool, error) {
+	if strings.TrimSpace(run.ID) == "" || strings.TrimSpace(run.Status) != stores.GoogleImportRunStatusSucceeded {
+		return GoogleImportResult{}, false, nil
+	}
+
+	result := GoogleImportResult{
+		SourceDocumentID:   strings.TrimSpace(run.SourceDocumentID),
+		SourceRevisionID:   strings.TrimSpace(run.SourceRevisionID),
+		SourceArtifactID:   strings.TrimSpace(run.SourceArtifactID),
+		LineageStatus:      strings.TrimSpace(run.LineageStatus),
+		FingerprintStatus:  FingerprintStatusSummary{Status: firstNonEmpty(strings.TrimSpace(run.FingerprintStatus), LineageFingerprintStatusUnknown), EvidenceAvailable: false},
+		DocumentDetailURL:  strings.TrimSpace(run.DocumentDetailURL),
+		AgreementDetailURL: strings.TrimSpace(run.AgreementDetailURL),
+		SourceMimeType:     strings.TrimSpace(run.SourceMimeType),
+		IngestionMode:      strings.TrimSpace(run.IngestionMode),
+	}
+	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
+		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus)
+	}
+	if documents != nil && strings.TrimSpace(run.DocumentID) != "" {
+		document, err := documents.Get(ctx, scope, run.DocumentID)
+		if err != nil {
+			return GoogleImportResult{}, false, err
+		}
+		result.Document = document
+		if result.SourceDocumentID == "" {
+			result.SourceDocumentID = strings.TrimSpace(document.SourceDocumentID)
+		}
+		if result.SourceRevisionID == "" {
+			result.SourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
+		}
+		if result.SourceArtifactID == "" {
+			result.SourceArtifactID = strings.TrimSpace(document.SourceArtifactID)
+		}
+	}
+	if agreements != nil && strings.TrimSpace(run.AgreementID) != "" {
+		agreement, err := agreements.GetAgreement(ctx, scope, run.AgreementID)
+		if err != nil {
+			return GoogleImportResult{}, false, err
+		}
+		result.Agreement = agreement
+		if result.SourceRevisionID == "" {
+			result.SourceRevisionID = strings.TrimSpace(agreement.SourceRevisionID)
+		}
+	}
+	return result, true, nil
+}
+
+func bindGoogleDocumentUploaderForTx(uploader GoogleDocumentUploader, tx stores.TxStore) GoogleDocumentUploader {
+	switch typed := uploader.(type) {
+	case DocumentService:
+		return typed.forTx(tx)
+	default:
+		return uploader
+	}
+}
+
+func bindGoogleAgreementCreatorForTx(creator GoogleAgreementCreator, tx stores.TxStore) GoogleAgreementCreator {
+	switch typed := creator.(type) {
+	case AgreementService:
+		return typed.forTx(tx)
+	default:
+		return creator
+	}
+}
+
+func bindSourceIdentityServiceForTx(identity SourceIdentityService, tx stores.TxStore) SourceIdentityService {
+	switch typed := identity.(type) {
+	case DefaultSourceIdentityService:
+		return typed.forTx(tx)
+	default:
+		return identity
+	}
+}
+
 func executeGoogleImportWithLineage(
 	ctx context.Context,
 	scope stores.Scope,

@@ -53,6 +53,7 @@ type DocumentService struct {
 	objectStore documentObjectStore
 	pdfs        PDFService
 	now         func() time.Time
+	txActive    bool
 }
 
 // DocumentServiceOption customizes document service behavior.
@@ -106,6 +107,15 @@ func NewDocumentService(store stores.Store, opts ...DocumentServiceOption) Docum
 		opt(&svc)
 	}
 	return svc
+}
+
+func (s DocumentService) forTx(tx stores.TxStore) DocumentService {
+	txSvc := s
+	if tx != nil {
+		txSvc.store = tx
+		txSvc.txActive = true
+	}
+	return txSvc
 }
 
 // Upload validates source PDF bytes and persists immutable metadata.
@@ -251,6 +261,23 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 }
 
 func (s DocumentService) createLineageBackedDocument(ctx context.Context, scope stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
+	if s.txActive {
+		documentStore, ok := s.store.(stores.DocumentStore)
+		if !ok {
+			return stores.DocumentRecord{}, domainValidationError("documents", "store", "transaction document store not configured")
+		}
+		lineage, ok := s.store.(stores.LineageStore)
+		if !ok {
+			return documentStore.Create(ctx, scope, record)
+		}
+		artifact, err := ensureSourceArtifactRecord(ctx, scope, lineage, record)
+		if err != nil {
+			return stores.DocumentRecord{}, err
+		}
+		record.SourceArtifactID = strings.TrimSpace(artifact.ID)
+		return documentStore.Create(ctx, scope, record)
+	}
+
 	txManager, ok := s.store.(stores.TransactionManager)
 	if !ok {
 		return s.store.Create(ctx, scope, record)

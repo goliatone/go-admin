@@ -20,6 +20,24 @@ cd examples/esign
 ./taskfile dev:serve
 ```
 
+### `dev:serve:lineage`
+
+Start the example with deterministic Phase 2 lineage QA fixtures seeded into the default `tenant-bootstrap` / `org-bootstrap` scope.
+
+```bash
+cd examples/esign
+./taskfile dev:serve:lineage
+```
+
+### `dev:seed:fixtures`
+
+Apply migrations and persist the deterministic lineage QA fixtures without starting the server.
+
+```bash
+cd examples/esign
+./taskfile dev:seed:fixtures
+```
+
 ### `dev:test`
 
 Run backend tests for the e-sign example package.

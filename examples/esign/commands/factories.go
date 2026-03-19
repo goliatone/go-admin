@@ -49,6 +49,12 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementCloseReview, buildAgreementCloseReviewInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementForceApproveReview, buildAgreementForceApproveReviewInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementApproveReviewOnBehalf, buildAgreementApproveReviewOnBehalfInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementApproveReview, buildAgreementApproveReviewInput); err != nil {
 		return err
 	}
@@ -225,6 +231,44 @@ func buildAgreementCloseReviewInput(payload map[string]any, ids []string) (Agree
 	msg := AgreementCloseReviewInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementForceApproveReviewInput(payload map[string]any, ids []string) (AgreementForceApproveReviewInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementForceApproveReviewInput{}, err
+	}
+	msg := AgreementForceApproveReviewInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		Reason:        strings.TrimSpace(toString(payloadValue(payload, "reason"))),
+		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementApproveReviewOnBehalfInput(payload map[string]any, ids []string) (AgreementApproveReviewOnBehalfInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementApproveReviewOnBehalfInput{}, err
+	}
+	msg := AgreementApproveReviewOnBehalfInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		Reason:        strings.TrimSpace(toString(payloadValue(payload, "reason"))),
 		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
 		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}

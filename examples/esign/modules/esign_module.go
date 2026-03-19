@@ -95,6 +95,7 @@ type ESignModule struct {
 	savedSignatures    services.SignerSavedSignatureService
 	artifacts          services.ArtifactPipelineService
 	google             googleIntegrationService
+	sourceLineageQueue *jobs.SourceLineageQueue
 	googleImportQueue  *jobs.GoogleDriveImportQueue
 	emailOutbox        *jobs.EmailOutboxDispatcher
 	signingWorkflows   *jobs.SigningWorkflowOutboxDispatcher
@@ -224,6 +225,10 @@ func (m *ESignModule) Close() {
 	if m.googleImportQueue != nil {
 		m.googleImportQueue.Close()
 		m.googleImportQueue = nil
+	}
+	if m.sourceLineageQueue != nil {
+		m.sourceLineageQueue.Close()
+		m.sourceLineageQueue = nil
 	}
 	if m.emailOutbox != nil {
 		m.emailOutbox.Close()
@@ -471,6 +476,23 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Transactions:     m.store,
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
+	var lineageStore stores.LineageStore
+	if resolved, ok := any(m.store).(stores.LineageStore); ok {
+		lineageStore = resolved
+	}
+	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
+	m.sourceLineageQueue = nil
+	if lineageStore != nil {
+		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
+		lineageJobDeps := jobHandlerDeps
+		lineageJobDeps.Fingerprints = fingerprintService
+		lineageQueue, queueErr := jobs.NewSourceLineageQueue(jobs.NewHandlers(lineageJobDeps))
+		if queueErr != nil {
+			return fmt.Errorf("esign module: source lineage queue: %w", queueErr)
+		}
+		m.sourceLineageQueue = lineageQueue
+		lineageProcessingTrigger = jobs.NewSourceLineageProcessingEnqueuer(lineageQueue.Enqueue)
+	}
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
 	emailOutbox, err := jobs.NewEmailOutboxDispatcher(m.store, jobs.NewEmailOutboxPublisher(jobHandlers))
 	if err != nil {
@@ -589,15 +611,15 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		if err != nil {
 			return fmt.Errorf("esign module: google provider: %w", err)
 		}
-		var lineageStore stores.LineageStore
-		if resolved, ok := any(m.store).(stores.LineageStore); ok {
-			lineageStore = resolved
-		}
 		if m.services != nil {
 			opts := make([]services.GoogleServicesIntegrationOption, 0, 1)
 			if lineageStore != nil {
 				opts = append(opts, services.WithGoogleServicesLineageStore(lineageStore))
 			}
+			if lineageProcessingTrigger != nil {
+				opts = append(opts, services.WithGoogleServicesLineageProcessingTrigger(lineageProcessingTrigger))
+			}
+			opts = append(opts, services.WithGoogleServicesPersistenceStore(m.store))
 			m.google = services.NewGoogleServicesIntegrationService(
 				m.services,
 				googleProvider,
@@ -617,6 +639,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			}
 			if lineageStore != nil {
 				opts = append(opts, services.WithGoogleLineageStore(lineageStore))
+			}
+			if lineageProcessingTrigger != nil {
+				opts = append(opts, services.WithGoogleLineageProcessingTrigger(lineageProcessingTrigger))
 			}
 			m.google = services.NewGoogleIntegrationService(
 				m.store,
@@ -690,6 +715,22 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if routeRouter == nil {
 		routeRouter = ctx.Router
 	}
+	var sourceReadModels services.SourceReadModelService
+	var lineageDiagnostics services.LineageDiagnosticsService
+	if lineageStore, ok := any(m.store).(stores.LineageStore); ok {
+		sourceReadModels = services.NewDefaultSourceReadModelService(
+			m.store,
+			m.store,
+			lineageStore,
+			services.WithSourceReadModelImportRuns(m.store),
+		)
+		lineageDiagnostics = services.NewDefaultLineageDiagnosticsService(
+			m.store,
+			m.store,
+			lineageStore,
+			services.WithSourceReadModelImportRuns(m.store),
+		)
+	}
 	googleRuntime := handlers.GoogleRuntimeConfig{
 		Enabled:     m.googleEnabled,
 		Integration: m.google,
@@ -757,6 +798,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			})
 		}),
 		handlers.WithGoogleRuntime(googleRuntime),
+		handlers.WithSourceReadModelService(sourceReadModels),
+		handlers.WithLineageDiagnosticsService(lineageDiagnostics),
 		handlers.WithIntegrationFoundationService(m.integrations),
 	); err != nil {
 		return err
@@ -956,6 +999,28 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				Permission:     permissions.AdminESignEdit,
 				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
 				Idempotent:     true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "force_approve_review",
+				Label:           "Force Approve Review",
+				CommandName:     commands.CommandAgreementForceApproveReview,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				PayloadRequired: []string{"reason"},
+				Idempotent:      true,
+				Overflow:        true,
+			}),
+			withAgreementActionGuard(coreadmin.Action{
+				Name:            "approve_review_participant_on_behalf",
+				Label:           "Approve On Behalf",
+				CommandName:     commands.CommandAgreementApproveReviewOnBehalf,
+				Scope:           coreadmin.ActionScopeDetail,
+				Permission:      permissions.AdminESignEdit,
+				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
+				PayloadRequired: []string{"participant_id", "reason"},
+				Idempotent:      true,
+				Overflow:        true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{
 				Name:            "create_comment_thread",

@@ -59,6 +59,11 @@ var validSourceExtractVersions = map[string]struct{}{
 	SourceExtractVersionPDFTextV1: {},
 }
 
+var validSourceFingerprintStatuses = map[string]struct{}{
+	SourceFingerprintStatusReady:  {},
+	SourceFingerprintStatusFailed: {},
+}
+
 func normalizeLineageTime(value time.Time) time.Time {
 	if value.IsZero() {
 		return time.Now().UTC()
@@ -199,11 +204,21 @@ func PrepareSourceFingerprintRecord(record SourceFingerprintRecord, current *Sou
 	if record.SourceRevisionID == "" || record.ArtifactID == "" || record.ExtractVersion == "" {
 		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "source_revision_id|artifact_id|extract_version", "required")
 	}
+	record.Status = normalizeLineageEnum(coalesceLineageString(record.Status, currentString(current, func(v SourceFingerprintRecord) string { return v.Status })), validSourceFingerprintStatuses)
+	if record.Status == "" {
+		record.Status = SourceFingerprintStatusReady
+	}
 	record.RawSHA256 = strings.TrimSpace(record.RawSHA256)
 	record.NormalizedTextSHA256 = strings.TrimSpace(record.NormalizedTextSHA256)
 	record.SimHash64 = strings.TrimSpace(record.SimHash64)
 	record.MinHashJSON = strings.TrimSpace(record.MinHashJSON)
 	record.ChunkHashesJSON = strings.TrimSpace(record.ChunkHashesJSON)
+	record.ExtractionMetadataJSON = strings.TrimSpace(coalesceLineageString(record.ExtractionMetadataJSON, currentString(current, func(v SourceFingerprintRecord) string { return v.ExtractionMetadataJSON })))
+	if record.ExtractionMetadataJSON == "" {
+		record.ExtractionMetadataJSON = "{}"
+	}
+	record.ErrorCode = strings.TrimSpace(record.ErrorCode)
+	record.ErrorMessage = strings.TrimSpace(record.ErrorMessage)
 	if record.TokenCount < 0 {
 		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "token_count", "must be non-negative")
 	}

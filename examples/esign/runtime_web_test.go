@@ -1659,8 +1659,9 @@ func setESignRuntimeTestConfig(googleEnabled bool) {
 }
 
 type eSignRuntimeWebFixture struct {
-	App    *fiber.App
-	Module *modules.ESignModule
+	App       *fiber.App
+	Module    *modules.ESignModule
+	Bootstrap *esignpersistence.BootstrapResult
 }
 
 func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnabled bool) (eSignRuntimeWebFixture, error) {
@@ -1716,6 +1717,11 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	if err := adm.RegisterModule(esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register module: %w", err)
 	}
+	if shouldSeedESignRuntimeFixtures() {
+		if _, _, err := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult); err != nil {
+			return eSignRuntimeWebFixture{}, fmt.Errorf("seed runtime fixtures: %w", err)
+		}
+	}
 
 	authn, auther, cookieName, err := configureESignAuth(adm, cfg)
 	if err != nil {
@@ -1745,8 +1751,9 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	}
 	server.Init()
 	return eSignRuntimeWebFixture{
-		App:    server.WrappedRouter(),
-		Module: esignModule,
+		App:       server.WrappedRouter(),
+		Module:    esignModule,
+		Bootstrap: bootstrapResult,
 	}, nil
 }
 

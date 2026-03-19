@@ -30,6 +30,16 @@ type sourceHandleBinding struct {
 	ReusedExisting bool
 }
 
+type sourceCandidateContext struct {
+	Document         stores.SourceDocumentRecord
+	Handle           stores.SourceHandleRecord
+	OwnerEmail       string
+	ParentID         string
+	WebURL           string
+	RevisionHint     string
+	SourceHandleSeen bool
+}
+
 func WithSourceIdentityClock(now func() time.Time) SourceIdentityServiceOption {
 	return func(s *DefaultSourceIdentityService) {
 		if s == nil || now == nil {
@@ -50,6 +60,14 @@ func NewDefaultSourceIdentityService(store stores.LineageStore, opts ...SourceId
 		}
 	}
 	return svc
+}
+
+func (s DefaultSourceIdentityService) forTx(tx stores.TxStore) DefaultSourceIdentityService {
+	txSvc := s
+	if lineage, ok := tx.(stores.LineageStore); ok {
+		txSvc.store = lineage
+	}
+	return txSvc
 }
 
 func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context, scope stores.Scope, input SourceIdentityResolutionInput) (SourceIdentityResolution, error) {
@@ -206,25 +224,106 @@ func (s DefaultSourceIdentityService) findCandidateTarget(ctx context.Context, s
 	if err != nil {
 		return stores.SourceDocumentRecord{}, "", 0, err
 	}
+	bestDocument := stores.SourceDocumentRecord{}
+	bestScore := 0.0
 	for _, document := range documents {
-		score := 0.0
-		if metadata.ParentID != "" {
-			score += 0.35
+		score, err := s.scoreCandidateTarget(ctx, scope, document, providerKind, metadata)
+		if err != nil {
+			return stores.SourceDocumentRecord{}, "", 0, err
 		}
-		if metadata.OwnerEmail != "" {
-			score += 0.35
-		}
-		if metadata.WebURL != "" {
-			score += 0.15
-		}
-		if metadata.SourceVersionHint != "" {
-			score += 0.15
-		}
-		if score >= 0.5 {
-			return document, stores.LineageConfidenceBandMedium, score, nil
+		if score >= 0.5 && score > bestScore {
+			bestDocument = document
+			bestScore = score
 		}
 	}
+	if strings.TrimSpace(bestDocument.ID) != "" {
+		return bestDocument, stores.LineageConfidenceBandMedium, bestScore, nil
+	}
 	return stores.SourceDocumentRecord{}, "", 0, nil
+}
+
+func (s DefaultSourceIdentityService) scoreCandidateTarget(ctx context.Context, scope stores.Scope, document stores.SourceDocumentRecord, providerKind string, metadata SourceMetadataBaseline) (float64, error) {
+	contexts, err := s.loadCandidateContexts(ctx, scope, document, providerKind)
+	if err != nil {
+		return 0, err
+	}
+	bestScore := 0.0
+	for _, candidate := range contexts {
+		score := 0.0
+		corroborationCount := 0
+		if metadata.ParentID != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(firstNonEmpty(candidate.ParentID, candidate.Handle.DriveID))) {
+			score += 0.35
+			corroborationCount++
+		}
+		if metadata.OwnerEmail != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(candidate.OwnerEmail)) {
+			score += 0.35
+			corroborationCount++
+		}
+		if metadata.WebURL != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(firstNonEmpty(candidate.WebURL, candidate.Handle.WebURL))) {
+			score += 0.15
+			corroborationCount++
+		}
+		if metadata.SourceVersionHint != "" && strings.EqualFold(strings.TrimSpace(metadata.SourceVersionHint), strings.TrimSpace(candidate.RevisionHint)) {
+			score += 0.15
+			corroborationCount++
+		}
+		if corroborationCount == 0 {
+			continue
+		}
+		if score > bestScore {
+			bestScore = score
+		}
+	}
+	return bestScore, nil
+}
+
+func (s DefaultSourceIdentityService) loadCandidateContexts(ctx context.Context, scope stores.Scope, document stores.SourceDocumentRecord, providerKind string) ([]sourceCandidateContext, error) {
+	handles, err := s.store.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{
+		SourceDocumentID: document.ID,
+		ProviderKind:     providerKind,
+		ActiveOnly:       true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(handles) == 0 {
+		return nil, nil
+	}
+
+	contexts := make([]sourceCandidateContext, 0, len(handles))
+	for _, handle := range handles {
+		candidate := sourceCandidateContext{
+			Document:         document,
+			Handle:           handle,
+			ParentID:         strings.TrimSpace(handle.DriveID),
+			WebURL:           strings.TrimSpace(handle.WebURL),
+			SourceHandleSeen: true,
+		}
+		revisions, err := s.store.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
+			SourceDocumentID: document.ID,
+			SourceHandleID:   handle.ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, revision := range revisions {
+			ownerEmail, parentID, webURL := revisionMetadataCandidateContext(revision.MetadataJSON)
+			if candidate.OwnerEmail == "" {
+				candidate.OwnerEmail = ownerEmail
+			}
+			if candidate.ParentID == "" {
+				candidate.ParentID = parentID
+			}
+			if candidate.WebURL == "" {
+				candidate.WebURL = webURL
+			}
+			if candidate.RevisionHint == "" {
+				candidate.RevisionHint = strings.TrimSpace(revision.ProviderRevisionHint)
+			}
+		}
+		contexts = append(contexts, candidate)
+	}
+	return contexts, nil
 }
 
 func (s DefaultSourceIdentityService) resolveRevision(ctx context.Context, scope stores.Scope, document stores.SourceDocumentRecord, handle stores.SourceHandleRecord, metadata SourceMetadataBaseline, input SourceIdentityResolutionInput) (stores.SourceRevisionRecord, error) {
@@ -428,6 +527,23 @@ func revisionContentSHA256FromMetadata(raw string) string {
 		return strings.TrimSpace(value)
 	}
 	return ""
+}
+
+func revisionMetadataCandidateContext(raw string) (ownerEmail string, parentID string, webURL string) {
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &decoded); err != nil {
+		return "", "", ""
+	}
+	if value, ok := decoded["owner_email"].(string); ok {
+		ownerEmail = strings.TrimSpace(strings.ToLower(value))
+	}
+	if value, ok := decoded["parent_id"].(string); ok {
+		parentID = strings.TrimSpace(value)
+	}
+	if value, ok := decoded["web_url"].(string); ok {
+		webURL = strings.TrimSpace(value)
+	}
+	return ownerEmail, parentID, webURL
 }
 
 func buildRevisionSignature(metadata SourceMetadataBaseline, contentSHA256 string) string {

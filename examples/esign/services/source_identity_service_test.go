@@ -140,6 +140,58 @@ func TestDefaultSourceIdentityServiceCreatesCandidateRelationshipForSimilarGoogl
 	}
 }
 
+func TestDefaultSourceIdentityServiceDoesNotCreateCandidateForTitleOnlyMatch(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	service := NewDefaultSourceIdentityService(store, WithSourceIdentityClock(func() time.Time { return now }))
+
+	_, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Master Services Agreement",
+			OwnerEmail:        "owner-1@example.com",
+			ParentID:          "root-a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity seed: %v", err)
+	}
+
+	candidate, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-2",
+			ExternalFileID:    "google-file-2",
+			WebURL:            "https://docs.google.com/document/d/google-file-2/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v9",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Master Services Agreement",
+			OwnerEmail:        "owner-2@example.com",
+			ParentID:          "root-b",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity candidate: %v", err)
+	}
+	if candidate.CandidateRelationship != nil {
+		t.Fatalf("expected no candidate relationship for title-only match, got %+v", candidate.CandidateRelationship)
+	}
+	if candidate.ResolutionKind != sourceResolutionNewSource {
+		t.Fatalf("expected new_source without corroborating candidate evidence, got %q", candidate.ResolutionKind)
+	}
+}
+
 func TestDefaultSourceIdentityServiceReusesRevisionWhenContentUnchangedAcrossMetadataChanges(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}

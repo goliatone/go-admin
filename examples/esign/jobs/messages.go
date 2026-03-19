@@ -1,6 +1,9 @@
 package jobs
 
-import "github.com/goliatone/go-admin/examples/esign/stores"
+import (
+	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
+)
 
 type EmailSendSigningRequestMsg struct {
 	Scope               stores.Scope `json:"scope"`
@@ -94,3 +97,18 @@ type GoogleDriveImportMsg struct {
 }
 
 func (GoogleDriveImportMsg) Type() string { return JobGoogleDriveImport }
+
+type SourceLineageProcessingMsg struct {
+	Scope            stores.Scope                    `json:"scope"`
+	ImportRunID      string                          `json:"import_run_id"`
+	SourceDocumentID string                          `json:"source_document_id"`
+	SourceRevisionID string                          `json:"source_revision_id"`
+	ArtifactID       string                          `json:"artifact_id"`
+	ActorID          string                          `json:"actor_id"`
+	Metadata         services.SourceMetadataBaseline `json:"metadata"`
+	CorrelationID    string                          `json:"correlation_id"`
+	DedupeKey        string                          `json:"dedupe_key"`
+	MaxAttempts      int                             `json:"max_attempts"`
+}
+
+func (SourceLineageProcessingMsg) Type() string { return JobSourceLineageProcessing }

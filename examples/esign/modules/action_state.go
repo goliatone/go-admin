@@ -114,6 +114,10 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"Review can only be closed when a draft agreement currently has review activity.",
 			"esign.agreements.close_review_requires_active_review",
 		)
+	case "force_approve_review":
+		action.Guard = agreementReviewOverrideGuard(action.Name)
+	case "approve_review_participant_on_behalf":
+		action.Guard = agreementApproveOnBehalfGuard(action.Name)
 	case "create_comment_thread":
 		action.Guard = agreementActiveReviewGuard(
 			action.Name,
@@ -244,6 +248,20 @@ func agreementActiveReviewGuard(actionName string, requireCommentsEnabled bool, 
 				},
 			}
 		}
+		if reviewOverrideActiveInRecord(ctx.Record) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "Comments are read-only after an admin review override finalizes the review.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"current_review":   currentReviewStatus,
+					"business_rule_id": "esign.agreements.comments_disabled_after_review_override",
+				},
+			}
+		}
 		if requireCommentsEnabled {
 			enabled, _ := ctx.Record["comments_enabled"].(bool)
 			if !enabled {
@@ -332,6 +350,73 @@ func agreementDraftReviewGuard(actionName string, allowedReviewStatuses []string
 	}
 }
 
+func agreementReviewOverrideGuard(actionName string) coreadmin.ActionGuard {
+	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
+		if state := agreementDraftReviewGuard(
+			actionName,
+			[]string{stores.AgreementReviewStatusInReview, stores.AgreementReviewStatusChangesRequested},
+			"Review override can only be used while a draft agreement has an active review.",
+			"esign.agreements.force_approve_review_requires_active_review",
+		)(ctx); !state.Enabled {
+			return state
+		}
+		if reviewOverrideActiveInRecord(ctx.Record) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "Review has already been finalized by admin override.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"business_rule_id": "esign.agreements.force_approve_review_already_finalized",
+				},
+			}
+		}
+		return coreadmin.ActionState{Enabled: true}
+	}
+}
+
+func agreementApproveOnBehalfGuard(actionName string) coreadmin.ActionGuard {
+	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
+		if state := agreementDraftReviewGuard(
+			actionName,
+			[]string{stores.AgreementReviewStatusInReview},
+			"On-behalf review approval can only be used while a draft agreement has an active review.",
+			"esign.agreements.approve_review_on_behalf_requires_active_review",
+		)(ctx); !state.Enabled {
+			return state
+		}
+		if reviewOverrideActiveInRecord(ctx.Record) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "Review has already been finalized by admin override.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"business_rule_id": "esign.agreements.approve_review_on_behalf_override_finalized",
+				},
+			}
+		}
+		if !recordHasPendingApprover(ctx.Record) {
+			return coreadmin.ActionState{
+				Enabled:    false,
+				ReasonCode: coreadmin.ActionDisabledReasonCodePreconditionFailed,
+				Reason:     "There are no pending approvers left for on-behalf approval.",
+				Severity:   "warning",
+				Kind:       "business_rule",
+				Metadata: map[string]any{
+					"blocked_action":   strings.ToLower(strings.TrimSpace(actionName)),
+					"business_rule_id": "esign.agreements.approve_review_on_behalf_requires_pending_approver",
+				},
+			}
+		}
+		return coreadmin.ActionState{Enabled: true}
+	}
+}
+
 func agreementDeleteDisabledGuard() coreadmin.ActionGuard {
 	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
 		return coreadmin.ActionState{
@@ -405,6 +490,54 @@ func statusAllowed(current string, allowed ...string) bool {
 	current = strings.ToLower(strings.TrimSpace(current))
 	for _, candidate := range allowed {
 		if current == strings.ToLower(strings.TrimSpace(candidate)) {
+			return true
+		}
+	}
+	return false
+}
+
+func reviewOverrideActiveInRecord(record map[string]any) bool {
+	if value, ok := record["review_override_active"].(bool); ok {
+		return value
+	}
+	review, _ := record["review"].(map[string]any)
+	if review == nil {
+		return false
+	}
+	value, _ := review["override_active"].(bool)
+	return value
+}
+
+func recordHasPendingApprover(record map[string]any) bool {
+	review, _ := record["review"].(map[string]any)
+	if review == nil {
+		return false
+	}
+	var participants []map[string]any
+	switch raw := review["participants"].(type) {
+	case []map[string]any:
+		participants = raw
+	case []any:
+		for _, entry := range raw {
+			participant, _ := entry.(map[string]any)
+			if participant != nil {
+				participants = append(participants, participant)
+			}
+		}
+	}
+	for _, participant := range participants {
+		if participant == nil {
+			continue
+		}
+		canApprove, _ := participant["can_approve"].(bool)
+		if !canApprove {
+			continue
+		}
+		effective := normalizeAgreementStatus(participant["effective_decision_status"])
+		if effective == "" {
+			effective = normalizeAgreementStatus(participant["decision_status"])
+		}
+		if effective == "" || effective == stores.AgreementReviewDecisionPending {
 			return true
 		}
 	}

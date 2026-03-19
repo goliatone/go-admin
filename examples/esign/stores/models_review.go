@@ -59,38 +59,47 @@ const (
 )
 
 type AgreementReviewRecord struct {
-	bun.BaseModel     `bun:"table:agreement_reviews,alias:arv"`
-	ID                string     `json:"id"`
-	TenantID          string     `json:"tenant_id"`
-	OrgID             string     `json:"org_id"`
-	AgreementID       string     `json:"agreement_id"`
-	Status            string     `json:"status"`
-	Gate              string     `json:"gate"`
-	RequestedByUserID string     `json:"requested_by_user_id"`
-	OpenedAt          *time.Time `json:"opened_at"`
-	ClosedAt          *time.Time `json:"closed_at"`
-	LastActivityAt    *time.Time `json:"last_activity_at"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	bun.BaseModel         `bun:"table:agreement_reviews,alias:arv"`
+	ID                    string     `json:"id"`
+	TenantID              string     `json:"tenant_id"`
+	OrgID                 string     `json:"org_id"`
+	AgreementID           string     `json:"agreement_id"`
+	Status                string     `json:"status"`
+	Gate                  string     `json:"gate"`
+	RequestedByUserID     string     `json:"requested_by_user_id"`
+	OverrideActive        bool       `json:"override_active"`
+	OverrideReason        string     `json:"override_reason"`
+	OverrideByUserID      string     `json:"override_by_user_id"`
+	OverrideByDisplayName string     `json:"override_by_display_name"`
+	OverrideAt            *time.Time `json:"override_at"`
+	OpenedAt              *time.Time `json:"opened_at"`
+	ClosedAt              *time.Time `json:"closed_at"`
+	LastActivityAt        *time.Time `json:"last_activity_at"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
 }
 
 type AgreementReviewParticipantRecord struct {
-	bun.BaseModel   `bun:"table:agreement_review_participants,alias:arp"`
-	ID              string     `json:"id"`
-	TenantID        string     `json:"tenant_id"`
-	OrgID           string     `json:"org_id"`
-	ReviewID        string     `json:"review_id"`
-	ParticipantType string     `json:"participant_type"`
-	RecipientID     string     `bun:"recipient_id,nullzero" json:"recipient_id"`
-	Email           string     `json:"email"`
-	DisplayName     string     `json:"display_name"`
-	Role            string     `json:"role"`
-	CanComment      bool       `json:"can_comment"`
-	CanApprove      bool       `json:"can_approve"`
-	DecisionStatus  string     `json:"decision_status"`
-	DecisionAt      *time.Time `json:"decision_at"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	bun.BaseModel                 `bun:"table:agreement_review_participants,alias:arp"`
+	ID                            string     `json:"id"`
+	TenantID                      string     `json:"tenant_id"`
+	OrgID                         string     `json:"org_id"`
+	ReviewID                      string     `json:"review_id"`
+	ParticipantType               string     `json:"participant_type"`
+	RecipientID                   string     `bun:"recipient_id,nullzero" json:"recipient_id"`
+	Email                         string     `json:"email"`
+	DisplayName                   string     `json:"display_name"`
+	Role                          string     `json:"role"`
+	CanComment                    bool       `json:"can_comment"`
+	CanApprove                    bool       `json:"can_approve"`
+	DecisionStatus                string     `json:"decision_status"`
+	DecisionAt                    *time.Time `json:"decision_at"`
+	ApprovedOnBehalfByUserID      string     `json:"approved_on_behalf_by_user_id"`
+	ApprovedOnBehalfByDisplayName string     `json:"approved_on_behalf_by_display_name"`
+	ApprovedOnBehalfReason        string     `json:"approved_on_behalf_reason"`
+	ApprovedOnBehalfAt            *time.Time `json:"approved_on_behalf_at"`
+	CreatedAt                     time.Time  `json:"created_at"`
+	UpdatedAt                     time.Time  `json:"updated_at"`
 }
 
 type AgreementCommentThreadRecord struct {

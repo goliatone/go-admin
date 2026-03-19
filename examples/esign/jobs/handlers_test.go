@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,6 +21,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
+	"github.com/phpdave11/gofpdf"
 )
 
 //go:fix inline
@@ -689,6 +691,83 @@ func TestExecuteGoogleDriveImportJobReplaysCompletedRunWithoutReimport(t *testin
 	}
 }
 
+func TestExecuteSourceLineageProcessingUpdatesImportRunFingerprintState(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-lineage-job", OrgID: "org-lineage-job"}
+	store := stores.NewInMemoryStore()
+	seeded := seedJobFingerprintFixture(t, store, scope, "job")
+	objects := &jobFingerprintObjectStoreStub{
+		files: map[string][]byte{
+			seeded.artifactObjectKey: makeJobTextPDF(t, "Lineage processing fixture\n\nThis import should update the persisted fingerprint status."),
+		},
+	}
+	fingerprints := services.NewDefaultSourceFingerprintService(store, objects)
+	handlers := NewHandlers(HandlerDependencies{
+		JobRuns:          store,
+		GoogleImportRuns: store,
+		Fingerprints:     fingerprints,
+	})
+
+	run, _, err := store.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-job",
+		SourceVersionHint: "rev-job",
+		DedupeKey:         "lineage-job|google-file-job",
+		DocumentTitle:     "Lineage Fixture Document",
+		RequestedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
+	if _, err := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+		SourceDocumentID:    seeded.sourceDocumentID,
+		SourceRevisionID:    seeded.revisionID,
+		SourceArtifactID:    seeded.artifactID,
+		LineageStatus:       services.LineageImportStatusLinked,
+		FingerprintStatus:   services.LineageFingerprintStatusPending,
+		CandidateStatusJSON: "[]",
+		CompletedAt:         time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	}
+
+	fingerprint, _, err := handlers.ExecuteSourceLineageProcessing(ctx, SourceLineageProcessingMsg{
+		Scope:            scope,
+		ImportRunID:      run.ID,
+		SourceDocumentID: seeded.sourceDocumentID,
+		SourceRevisionID: seeded.revisionID,
+		ArtifactID:       seeded.artifactID,
+		Metadata: services.SourceMetadataBaseline{
+			ExternalFileID:      "google-file-job",
+			TitleHint:           "Lineage Fixture Document",
+			SourceMimeType:      services.GoogleDriveMimeTypeDoc,
+			SourceIngestionMode: services.GoogleIngestionModeExportPDF,
+		},
+		CorrelationID: "corr-lineage-job",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteSourceLineageProcessing: %v", err)
+	}
+	if fingerprint.Status.Status != services.LineageFingerprintStatusReady {
+		t.Fatalf("expected ready fingerprint status, got %+v", fingerprint.Status)
+	}
+
+	storedRun, err := store.GetGoogleImportRun(ctx, scope, run.ID)
+	if err != nil {
+		t.Fatalf("GetGoogleImportRun: %v", err)
+	}
+	if storedRun.FingerprintStatus != services.LineageFingerprintStatusReady {
+		t.Fatalf("expected import run fingerprint_status ready, got %+v", storedRun)
+	}
+	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobSourceLineageProcessing, strings.Join([]string{run.ID, seeded.sourceDocumentID, seeded.revisionID, seeded.artifactID, stores.SourceExtractVersionPDFTextV1}, "|"))
+	if err != nil {
+		t.Fatalf("GetJobRunByDedupe source lineage: %v", err)
+	}
+	if jobRun.Status != stores.JobRunStatusSucceeded {
+		t.Fatalf("expected source lineage job succeeded, got %+v", jobRun)
+	}
+}
+
 func TestCompletedLifecycleEnforcesImmutabilityAndAppendOnlyAudit(t *testing.T) {
 	ctx, scope, store, agreement, _, _ := setupCompletedAgreement(t)
 	agreementSvc := services.NewAgreementService(store)
@@ -1208,4 +1287,113 @@ func textCodeFromError(err error) string {
 		return strings.TrimSpace(coded.TextCode)
 	}
 	return ""
+}
+
+type jobFingerprintObjectStoreStub struct {
+	files map[string][]byte
+}
+
+func (s *jobFingerprintObjectStoreStub) GetFile(_ context.Context, path string) ([]byte, error) {
+	payload, ok := s.files[strings.TrimSpace(path)]
+	if !ok {
+		return nil, errors.New("object not found")
+	}
+	return append([]byte{}, payload...), nil
+}
+
+type seededJobFingerprintFixture struct {
+	sourceDocumentID  string
+	revisionID        string
+	artifactID        string
+	artifactObjectKey string
+}
+
+func seedJobFingerprintFixture(t *testing.T, store stores.LineageStore, scope stores.Scope, suffix string) seededJobFingerprintFixture {
+	t.Helper()
+	now := time.Date(2026, 3, 18, 12, 30, 0, 0, time.UTC)
+	document, err := store.CreateSourceDocument(context.Background(), scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-job-" + suffix,
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Job Fixture " + suffix,
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument: %v", err)
+	}
+	handle, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+		ID:               "src-handle-job-" + suffix,
+		SourceDocumentID: document.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "google-file-job-" + suffix,
+		AccountID:        "account-job-" + suffix,
+		WebURL:           "https://docs.google.com/document/d/google-file-job-" + suffix + "/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle: %v", err)
+	}
+	revision, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
+		ID:                   "src-rev-job-" + suffix,
+		SourceDocumentID:     document.ID,
+		SourceHandleID:       handle.ID,
+		ProviderRevisionHint: "rev-job-" + suffix,
+		ExportedAt:           &now,
+		ExportedByUserID:     "ops-user",
+		SourceMimeType:       services.GoogleDriveMimeTypeDoc,
+		MetadataJSON:         `{}`,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision: %v", err)
+	}
+	objectKey := "tenant/" + scope.TenantID + "/job/" + suffix + ".pdf"
+	artifactPDF := services.GenerateDeterministicPDF(1)
+	artifact, err := store.CreateSourceArtifact(context.Background(), scope, stores.SourceArtifactRecord{
+		ID:                  "src-art-job-" + suffix,
+		SourceRevisionID:    revision.ID,
+		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+		ObjectKey:           objectKey,
+		SHA256:              hashJobFingerprintBytes(artifactPDF),
+		PageCount:           1,
+		SizeBytes:           int64(len(artifactPDF)),
+		CompatibilityTier:   string(services.PDFCompatibilityTierFull),
+		NormalizationStatus: string(services.PDFNormalizationStatusCompleted),
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceArtifact: %v", err)
+	}
+	return seededJobFingerprintFixture{
+		sourceDocumentID:  document.ID,
+		revisionID:        revision.ID,
+		artifactID:        artifact.ID,
+		artifactObjectKey: objectKey,
+	}
+}
+
+func makeJobTextPDF(t *testing.T, text string) []byte {
+	t.Helper()
+	doc := gofpdf.New("P", "pt", "Letter", "")
+	doc.SetMargins(48, 48, 48)
+	doc.SetFont("Helvetica", "", 12)
+	doc.AddPage()
+	doc.MultiCell(0, 16, text, "", "L", false)
+	var out bytes.Buffer
+	if err := doc.Output(&out); err != nil {
+		t.Fatalf("makeJobTextPDF: %v", err)
+	}
+	return out.Bytes()
+}
+
+func hashJobFingerprintBytes(value []byte) string {
+	sum := sha256.Sum256(value)
+	return hex.EncodeToString(sum[:])
 }

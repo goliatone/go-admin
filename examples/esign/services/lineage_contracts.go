@@ -8,18 +8,30 @@ import (
 )
 
 const (
-	LineageEmptyStateNone            = "none"
-	LineageEmptyStateNoSource        = "no_source"
-	LineageFingerprintStatusUnknown  = "unknown"
-	LineageFingerprintStatusPending  = "pending"
-	LineageFingerprintStatusReady    = "ready"
-	LineageFingerprintStatusFailed   = "failed"
-	LineageImportStatusQueued        = "queued"
-	LineageImportStatusRunning       = "running"
-	LineageImportStatusLinked        = "linked"
-	LineageImportStatusNeedsReview   = "needs_review"
-	LineageReviewVisibilityHidden    = "hidden"
-	LineageReviewVisibilityAdminOnly = "admin_debug_only"
+	DefaultLineageDiagnosticsBasePath     = "/admin/debug/lineage"
+	LineageEmptyStateNone                 = "none"
+	LineageEmptyStateNoSource             = "no_source"
+	LineageFingerprintStatusNotApplicable = "not_applicable"
+	LineageFingerprintStatusUnknown       = "unknown"
+	LineageFingerprintStatusPending       = "pending"
+	LineageFingerprintStatusReady         = "ready"
+	LineageFingerprintStatusFailed        = "failed"
+	LineageWarningSeverityCritical        = "critical"
+	LineageWarningSeverityWarning         = "warning"
+	LineageWarningSeverityInfo            = "info"
+	LineageWarningSeverityNone            = "none"
+	LineageImportStatusQueued             = "queued"
+	LineageImportStatusRunning            = "running"
+	LineageImportStatusLinked             = "linked"
+	LineageImportStatusNeedsReview        = "needs_review"
+	LineageReviewVisibilityHidden         = "hidden"
+	LineageReviewVisibilityAdminOnly      = "admin_debug_only"
+)
+
+const (
+	SourceRelationshipActionConfirm   = "confirm"
+	SourceRelationshipActionReject    = "reject"
+	SourceRelationshipActionSupersede = "supersede"
 )
 
 // SourceMetadataBaseline captures the minimum provider metadata used for identity and reconciliation.
@@ -69,6 +81,8 @@ type FingerprintStatusSummary struct {
 	Status            string `json:"status"`
 	ExtractVersion    string `json:"extract_version,omitempty"`
 	EvidenceAvailable bool   `json:"evidence_available"`
+	ErrorMessage      string `json:"error_message,omitempty"`
+	ErrorCode         string `json:"error_code,omitempty"`
 }
 
 type CandidateEvidenceSummary struct {
@@ -88,6 +102,18 @@ type CandidateWarningSummary struct {
 	ReviewActionVisible string                     `json:"review_action_visible,omitempty"`
 }
 
+type LineagePresentationWarning struct {
+	ID                  string                     `json:"id"`
+	Type                string                     `json:"type"`
+	Severity            string                     `json:"severity"`
+	Title               string                     `json:"title"`
+	Description         string                     `json:"description"`
+	ActionLabel         string                     `json:"action_label,omitempty"`
+	ActionURL           string                     `json:"action_url,omitempty"`
+	ReviewActionVisible string                     `json:"review_action_visible,omitempty"`
+	Evidence            []CandidateEvidenceSummary `json:"evidence,omitempty"`
+}
+
 type LineageEmptyState struct {
 	Kind        string `json:"kind"`
 	Title       string `json:"title"`
@@ -96,27 +122,29 @@ type LineageEmptyState struct {
 
 // DocumentLineageDetail is the canonical backend-owned detail payload for document provenance.
 type DocumentLineageDetail struct {
-	DocumentID              string                    `json:"document_id"`
-	SourceDocument          *LineageReference         `json:"source_document,omitempty"`
-	SourceRevision          *SourceRevisionSummary    `json:"source_revision,omitempty"`
-	SourceArtifact          *SourceArtifactSummary    `json:"source_artifact,omitempty"`
-	GoogleSource            *SourceMetadataBaseline   `json:"google_source,omitempty"`
-	FingerprintStatus       FingerprintStatusSummary  `json:"fingerprint_status"`
-	CandidateWarningSummary []CandidateWarningSummary `json:"candidate_warning_summary,omitempty"`
-	DiagnosticsURL          string                    `json:"diagnostics_url,omitempty"`
-	EmptyState              LineageEmptyState         `json:"empty_state"`
+	DocumentID              string                       `json:"document_id"`
+	SourceDocument          *LineageReference            `json:"source_document,omitempty"`
+	SourceRevision          *SourceRevisionSummary       `json:"source_revision,omitempty"`
+	SourceArtifact          *SourceArtifactSummary       `json:"source_artifact,omitempty"`
+	GoogleSource            *SourceMetadataBaseline      `json:"google_source,omitempty"`
+	FingerprintStatus       FingerprintStatusSummary     `json:"fingerprint_status"`
+	CandidateWarningSummary []CandidateWarningSummary    `json:"candidate_warning_summary,omitempty"`
+	PresentationWarnings    []LineagePresentationWarning `json:"presentation_warnings,omitempty"`
+	DiagnosticsURL          string                       `json:"diagnostics_url,omitempty"`
+	EmptyState              LineageEmptyState            `json:"empty_state"`
 }
 
 // AgreementLineageDetail is the canonical backend-owned detail payload for agreement provenance.
 type AgreementLineageDetail struct {
-	AgreementID             string                    `json:"agreement_id"`
-	SourceRevision          *SourceRevisionSummary    `json:"source_revision,omitempty"`
-	LinkedDocumentArtifact  *SourceArtifactSummary    `json:"linked_document_artifact,omitempty"`
-	GoogleSource            *SourceMetadataBaseline   `json:"google_source,omitempty"`
-	NewerSourceExists       bool                      `json:"newer_source_exists"`
-	CandidateWarningSummary []CandidateWarningSummary `json:"candidate_warning_summary,omitempty"`
-	DiagnosticsURL          string                    `json:"diagnostics_url,omitempty"`
-	EmptyState              LineageEmptyState         `json:"empty_state"`
+	AgreementID             string                       `json:"agreement_id"`
+	SourceRevision          *SourceRevisionSummary       `json:"source_revision,omitempty"`
+	LinkedDocumentArtifact  *SourceArtifactSummary       `json:"linked_document_artifact,omitempty"`
+	GoogleSource            *SourceMetadataBaseline      `json:"google_source,omitempty"`
+	NewerSourceExists       bool                         `json:"newer_source_exists"`
+	CandidateWarningSummary []CandidateWarningSummary    `json:"candidate_warning_summary,omitempty"`
+	PresentationWarnings    []LineagePresentationWarning `json:"presentation_warnings,omitempty"`
+	DiagnosticsURL          string                       `json:"diagnostics_url,omitempty"`
+	EmptyState              LineageEmptyState            `json:"empty_state"`
 }
 
 // GoogleImportLineageStatus is the canonical backend-owned status payload for async imports.
@@ -171,6 +199,11 @@ type SourceFingerprintService interface {
 type SourceReconciliationService interface {
 	EvaluateCandidates(ctx context.Context, scope stores.Scope, input SourceReconciliationInput) (SourceReconciliationResult, error)
 	ApplyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error)
+	ListCandidateRelationships(ctx context.Context, scope stores.Scope, sourceDocumentID string) ([]stores.SourceRelationshipRecord, error)
+}
+
+type SourceLineageProcessingTrigger interface {
+	EnqueueLineageProcessing(ctx context.Context, scope stores.Scope, input SourceLineageProcessingInput) error
 }
 
 // SourceReadModelService owns server-authored lineage DTOs for current UI surfaces.
@@ -227,4 +260,15 @@ type SourceRelationshipReviewInput struct {
 	Action         string `json:"action"`
 	ActorID        string `json:"actor_id"`
 	Reason         string `json:"reason,omitempty"`
+}
+
+type SourceLineageProcessingInput struct {
+	ImportRunID      string                 `json:"import_run_id,omitempty"`
+	SourceDocumentID string                 `json:"source_document_id,omitempty"`
+	SourceRevisionID string                 `json:"source_revision_id"`
+	ArtifactID       string                 `json:"artifact_id"`
+	ActorID          string                 `json:"actor_id,omitempty"`
+	CorrelationID    string                 `json:"correlation_id,omitempty"`
+	DedupeKey        string                 `json:"dedupe_key,omitempty"`
+	Metadata         SourceMetadataBaseline `json:"metadata"`
 }

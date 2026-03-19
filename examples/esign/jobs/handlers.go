@@ -108,23 +108,25 @@ func (p RetryPolicy) nextRetry(attempt, maxAttempts int, now time.Time) *time.Ti
 }
 
 type HandlerDependencies struct {
-	Agreements       stores.AgreementStore            `json:"agreements"`
-	Effects          stores.GuardedEffectStore        `json:"effects"`
-	Artifacts        stores.AgreementArtifactStore    `json:"artifacts"`
-	JobRuns          stores.JobRunStore               `json:"job_runs"`
-	GoogleImportRuns stores.GoogleImportRunStore      `json:"google_import_runs"`
-	EmailLogs        stores.EmailLogStore             `json:"email_logs"`
-	Audits           stores.AuditEventStore           `json:"audits"`
-	Documents        stores.DocumentStore             `json:"documents"`
-	ObjectStore      uploaderStore                    `json:"object_store"`
-	Tokens           TokenService                     `json:"tokens"`
-	Pipeline         services.ArtifactPipelineService `json:"pipeline"`
-	PDFService       services.PDFService              `json:"pdf_service"`
-	EmailProvider    EmailProvider                    `json:"email_provider"`
-	GoogleImporter   GoogleImporter                   `json:"google_importer"`
-	Transactions     stores.TransactionManager        `json:"transactions"`
-	RetryPolicy      RetryPolicy                      `json:"retry_policy"`
-	Now              func() time.Time                 `json:"now"`
+	Agreements       stores.AgreementStore                `json:"agreements"`
+	Effects          stores.GuardedEffectStore            `json:"effects"`
+	Artifacts        stores.AgreementArtifactStore        `json:"artifacts"`
+	JobRuns          stores.JobRunStore                   `json:"job_runs"`
+	GoogleImportRuns stores.GoogleImportRunStore          `json:"google_import_runs"`
+	EmailLogs        stores.EmailLogStore                 `json:"email_logs"`
+	Audits           stores.AuditEventStore               `json:"audits"`
+	Documents        stores.DocumentStore                 `json:"documents"`
+	ObjectStore      uploaderStore                        `json:"object_store"`
+	Tokens           TokenService                         `json:"tokens"`
+	Pipeline         services.ArtifactPipelineService     `json:"pipeline"`
+	PDFService       services.PDFService                  `json:"pdf_service"`
+	EmailProvider    EmailProvider                        `json:"email_provider"`
+	GoogleImporter   GoogleImporter                       `json:"google_importer"`
+	Fingerprints     services.SourceFingerprintService    `json:"fingerprints"`
+	Reconciliation   services.SourceReconciliationService `json:"reconciliation"`
+	Transactions     stores.TransactionManager            `json:"transactions"`
+	RetryPolicy      RetryPolicy                          `json:"retry_policy"`
+	Now              func() time.Time                     `json:"now"`
 }
 
 type Handlers struct {
@@ -142,6 +144,8 @@ type Handlers struct {
 	pdfs             services.PDFService
 	emailProvider    EmailProvider
 	googleImporter   GoogleImporter
+	fingerprints     services.SourceFingerprintService
+	reconciliation   services.SourceReconciliationService
 	tx               stores.TransactionManager
 	retryPolicy      RetryPolicy
 	now              func() time.Time
@@ -183,6 +187,8 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		pdfs:             deps.PDFService,
 		emailProvider:    provider,
 		googleImporter:   deps.GoogleImporter,
+		fingerprints:     deps.Fingerprints,
+		reconciliation:   deps.Reconciliation,
 		tx:               deps.Transactions,
 		retryPolicy:      retryPolicy,
 		now:              now,
@@ -193,6 +199,16 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 func (h Handlers) ValidateGoogleImportDeps() error {
 	if h.googleImporter == nil {
 		return fmt.Errorf("google import dependencies not configured: google importer is required")
+	}
+	return nil
+}
+
+func (h Handlers) ValidateSourceLineageProcessingDeps() error {
+	if h.jobRuns == nil {
+		return fmt.Errorf("source lineage job dependencies not configured: job runs are required")
+	}
+	if h.fingerprints == nil {
+		return fmt.Errorf("source lineage job dependencies not configured: fingerprint service is required")
 	}
 	return nil
 }
@@ -1003,6 +1019,149 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		"account_id":     strings.TrimSpace(msg.GoogleAccountID),
 	})
 	return result, nil
+}
+
+func (h Handlers) ExecuteSourceLineageProcessing(ctx context.Context, msg SourceLineageProcessingMsg) (services.SourceFingerprintBuildResult, services.SourceReconciliationResult, error) {
+	startedAt := h.now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.SourceRevisionID, msg.ArtifactID, JobSourceLineageProcessing)
+	if err := h.ValidateSourceLineageProcessingDeps(); err != nil {
+		observability.LogOperation(ctx, slog.LevelError, "job", "source_lineage_processing", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name": JobSourceLineageProcessing,
+		})
+		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, err
+	}
+	dedupeKey := strings.TrimSpace(msg.DedupeKey)
+	if dedupeKey == "" {
+		dedupeKey = strings.Join([]string{
+			strings.TrimSpace(msg.ImportRunID),
+			strings.TrimSpace(msg.SourceDocumentID),
+			strings.TrimSpace(msg.SourceRevisionID),
+			strings.TrimSpace(msg.ArtifactID),
+			stores.SourceExtractVersionPDFTextV1,
+		}, "|")
+	}
+	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
+		JobName:       JobSourceLineageProcessing,
+		DedupeKey:     dedupeKey,
+		CorrelationID: correlationID,
+		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(msg.MaxAttempts),
+		AttemptedAt:   h.now(),
+	})
+	if err != nil || !shouldRun {
+		if err != nil {
+			observability.LogOperation(ctx, slog.LevelWarn, "job", "source_lineage_processing", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+				"job_name":   JobSourceLineageProcessing,
+				"dedupe_key": dedupeKey,
+			})
+		}
+		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, err
+	}
+
+	fingerprint, err := h.fingerprints.BuildFingerprint(ctx, msg.Scope, services.SourceFingerprintBuildInput{
+		SourceRevisionID: strings.TrimSpace(msg.SourceRevisionID),
+		ArtifactID:       strings.TrimSpace(msg.ArtifactID),
+		Metadata:         msg.Metadata,
+	})
+	if err != nil {
+		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+			"source_revision_id": strings.TrimSpace(msg.SourceRevisionID),
+			"artifact_id":        strings.TrimSpace(msg.ArtifactID),
+		})
+	}
+
+	reconciliationResult := services.SourceReconciliationResult{}
+	reconciliationApplied := false
+	if h.reconciliation != nil &&
+		strings.TrimSpace(msg.SourceDocumentID) != "" &&
+		strings.TrimSpace(fingerprint.Status.Status) == services.LineageFingerprintStatusReady {
+		reconciliationApplied = true
+		reconciliationResult, err = h.reconciliation.EvaluateCandidates(ctx, msg.Scope, services.SourceReconciliationInput{
+			SourceDocumentID: strings.TrimSpace(msg.SourceDocumentID),
+			SourceRevisionID: strings.TrimSpace(msg.SourceRevisionID),
+			ArtifactID:       strings.TrimSpace(msg.ArtifactID),
+			Metadata:         msg.Metadata,
+		})
+		if err != nil {
+			return fingerprint, services.SourceReconciliationResult{}, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+				"source_document_id": strings.TrimSpace(msg.SourceDocumentID),
+				"source_revision_id": strings.TrimSpace(msg.SourceRevisionID),
+				"artifact_id":        strings.TrimSpace(msg.ArtifactID),
+			})
+		}
+	}
+
+	if h.googleImportRuns != nil && strings.TrimSpace(msg.ImportRunID) != "" {
+		if err := h.updateImportRunLineageState(ctx, msg.Scope, msg.ImportRunID, strings.TrimSpace(msg.SourceDocumentID), reconciliationApplied, fingerprint, reconciliationResult); err != nil {
+			return fingerprint, reconciliationResult, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+				"import_run_id": strings.TrimSpace(msg.ImportRunID),
+			})
+		}
+	}
+
+	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
+		return fingerprint, reconciliationResult, err
+	}
+	observability.ObserveJobResult(ctx, JobSourceLineageProcessing, true)
+	observability.LogOperation(ctx, slog.LevelInfo, "job", "source_lineage_processing", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
+		"job_name":           JobSourceLineageProcessing,
+		"dedupe_key":         dedupeKey,
+		"source_document":    strings.TrimSpace(msg.SourceDocumentID),
+		"source_revision":    strings.TrimSpace(msg.SourceRevisionID),
+		"artifact_id":        strings.TrimSpace(msg.ArtifactID),
+		"fingerprint_status": strings.TrimSpace(fingerprint.Status.Status),
+		"candidate_count":    len(reconciliationResult.Candidates),
+		"attempt_count":      run.AttemptCount,
+	})
+	return fingerprint, reconciliationResult, nil
+}
+
+func (h Handlers) updateImportRunLineageState(
+	ctx context.Context,
+	scope stores.Scope,
+	importRunID string,
+	sourceDocumentID string,
+	reconciliationApplied bool,
+	fingerprint services.SourceFingerprintBuildResult,
+	reconciliation services.SourceReconciliationResult,
+) error {
+	run, err := h.googleImportRuns.GetGoogleImportRun(ctx, scope, strings.TrimSpace(importRunID))
+	if err != nil {
+		return err
+	}
+	lineageStatus := strings.TrimSpace(run.LineageStatus)
+	candidateStatusJSON := strings.TrimSpace(run.CandidateStatusJSON)
+	if candidateStatusJSON == "" {
+		candidateStatusJSON = "[]"
+	}
+	if reconciliationApplied {
+		candidateStatusJSON = "[]"
+		if encoded, marshalErr := json.Marshal(reconciliation.Candidates); marshalErr == nil {
+			candidateStatusJSON = string(encoded)
+		}
+		if len(reconciliation.Candidates) > 0 {
+			lineageStatus = services.LineageImportStatusNeedsReview
+		} else if lineageStatus == "" || lineageStatus == services.LineageImportStatusNeedsReview {
+			lineageStatus = services.LineageImportStatusLinked
+		}
+	} else if lineageStatus == "" {
+		lineageStatus = services.LineageImportStatusLinked
+	}
+	_, err = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+		DocumentID:          strings.TrimSpace(run.DocumentID),
+		AgreementID:         strings.TrimSpace(run.AgreementID),
+		SourceDocumentID:    firstNonEmpty(strings.TrimSpace(run.SourceDocumentID), strings.TrimSpace(sourceDocumentID)),
+		SourceRevisionID:    firstNonEmpty(strings.TrimSpace(run.SourceRevisionID), strings.TrimSpace(fingerprint.Fingerprint.SourceRevisionID)),
+		SourceArtifactID:    firstNonEmpty(strings.TrimSpace(run.SourceArtifactID), strings.TrimSpace(fingerprint.Fingerprint.ArtifactID)),
+		LineageStatus:       lineageStatus,
+		FingerprintStatus:   strings.TrimSpace(fingerprint.Status.Status),
+		CandidateStatusJSON: candidateStatusJSON,
+		DocumentDetailURL:   strings.TrimSpace(run.DocumentDetailURL),
+		AgreementDetailURL:  strings.TrimSpace(run.AgreementDetailURL),
+		SourceMimeType:      strings.TrimSpace(run.SourceMimeType),
+		IngestionMode:       strings.TrimSpace(run.IngestionMode),
+		CompletedAt:         h.now(),
+	})
+	return err
 }
 
 func (h Handlers) loadCompletedGoogleImportResult(ctx context.Context, scope stores.Scope, importRunID string) (services.GoogleImportResult, bool, error) {

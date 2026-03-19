@@ -60,7 +60,7 @@ func (s SigningService) ListReviewThreads(ctx context.Context, scope stores.Scop
 	if err != nil {
 		return nil, err
 	}
-	if !reviewCtx.CanComment && !reviewCtx.CanApprove {
+	if !reviewCtx.IsReviewer {
 		return nil, signerReviewAccessError("review access is not enabled for this recipient")
 	}
 	return s.reviewWorkflow().ListReviewThreads(ctx, scope, token.AgreementID, stores.AgreementCommentVisibilityShared)
@@ -73,6 +73,9 @@ func (s SigningService) CreateReviewThread(ctx context.Context, scope stores.Sco
 	}
 	if !reviewCtx.CanComment {
 		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this recipient")
+	}
+	if visibility := strings.TrimSpace(input.Visibility); visibility != "" && stores.NormalizeAgreementCommentVisibility(visibility) != stores.AgreementCommentVisibilityShared {
+		return ReviewThread{}, reviewVisibilityError()
 	}
 	input.Visibility = stores.AgreementCommentVisibilityShared
 	input.ActorType = "recipient"
@@ -173,7 +176,7 @@ func (s SigningService) ListPublicReviewThreads(ctx context.Context, scope store
 	if err != nil {
 		return nil, err
 	}
-	if !reviewCtx.CanComment && !reviewCtx.CanApprove {
+	if !reviewCtx.IsReviewer {
 		return nil, signerReviewAccessError("review access is not enabled for this participant")
 	}
 	return filterSharedReviewThreads(reviewCtx.Threads), nil
@@ -186,6 +189,9 @@ func (s SigningService) CreatePublicReviewThread(ctx context.Context, scope stor
 	}
 	if !reviewCtx.CanComment {
 		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this participant")
+	}
+	if visibility := strings.TrimSpace(input.Visibility); visibility != "" && stores.NormalizeAgreementCommentVisibility(visibility) != stores.AgreementCommentVisibilityShared {
+		return ReviewThread{}, reviewVisibilityError()
 	}
 	input.ReviewID = strings.TrimSpace(summary.Review.ID)
 	input.Visibility = stores.AgreementCommentVisibilityShared
@@ -406,14 +412,22 @@ func buildSummaryOnlyReviewContext(summary ReviewSummary, canSign bool) *SignerS
 	}
 	sharedThreads := filterSharedReviewThreads(summary.Threads)
 	ctx := &SignerSessionReviewContext{
-		ReviewID:            strings.TrimSpace(summary.Review.ID),
-		Status:              summary.Status,
-		Gate:                summary.Gate,
-		CommentsEnabled:     summary.CommentsEnabled,
-		CanSign:             canSign,
-		OpenThreadCount:     countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusOpen),
-		ResolvedThreadCount: countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusResolved),
-		Threads:             sharedThreads,
+		ReviewID:              strings.TrimSpace(summary.Review.ID),
+		Status:                summary.Status,
+		Gate:                  summary.Gate,
+		CommentsEnabled:       summary.CommentsEnabled,
+		OverrideActive:        summary.OverrideActive,
+		OverrideReason:        strings.TrimSpace(summary.OverrideReason),
+		OverrideByUserID:      strings.TrimSpace(summary.OverrideByUserID),
+		OverrideByDisplayName: strings.TrimSpace(summary.OverrideByDisplayName),
+		OverrideAt:            summary.OverrideAt,
+		CanSign:               canSign,
+		ApprovedCount:         summary.ApprovedCount,
+		TotalApprovers:        summary.TotalApprovers,
+		OpenThreadCount:       countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusOpen),
+		ResolvedThreadCount:   countThreadsByStatus(sharedThreads, stores.AgreementCommentThreadStatusResolved),
+		Threads:               sharedThreads,
+		ActorMap:              summary.ActorMap,
 	}
 	return ctx
 }
@@ -424,10 +438,10 @@ func buildSignerReviewContext(summary ReviewSummary, participant stores.Agreemen
 		return nil
 	}
 	ctx.IsReviewer = true
-	ctx.CanComment = summary.CommentsEnabled && participant.CanComment
-	ctx.CanApprove = participant.CanApprove
-	ctx.CanRequestChanges = participant.CanApprove
-	ctx.ParticipantStatus = participant.DecisionStatus
+	ctx.CanComment = summary.CommentsEnabled && participant.CanComment && !summary.OverrideActive
+	ctx.CanApprove = participant.CanApprove && !summary.OverrideActive && reviewParticipantEffectiveDecisionStatus(participant) == stores.AgreementReviewDecisionPending
+	ctx.CanRequestChanges = participant.CanApprove && !summary.OverrideActive && reviewParticipantEffectiveDecisionStatus(participant) == stores.AgreementReviewDecisionPending
+	ctx.ParticipantStatus = reviewParticipantEffectiveDecisionStatus(participant)
 	ctx.Participant = reviewSessionParticipantFromRecord(participant)
 	if ctx.Gate == stores.AgreementReviewGateApproveBeforeSign && canSign && summary.Status != stores.AgreementReviewStatusApproved {
 		ctx.SignBlocked = true
@@ -454,6 +468,27 @@ func filterSharedReviewThreads(threads []ReviewThread) []ReviewThread {
 	return out
 }
 
+func reviewSessionParticipantFromRecord(participant stores.AgreementReviewParticipantRecord) *ReviewSessionParticipant {
+	result := &ReviewSessionParticipant{
+		ID:                            strings.TrimSpace(participant.ID),
+		ParticipantType:               strings.TrimSpace(participant.ParticipantType),
+		RecipientID:                   strings.TrimSpace(participant.RecipientID),
+		Email:                         strings.TrimSpace(participant.Email),
+		DisplayName:                   strings.TrimSpace(participant.DisplayName),
+		DecisionStatus:                strings.TrimSpace(participant.DecisionStatus),
+		EffectiveDecisionStatus:       reviewParticipantEffectiveDecisionStatus(participant),
+		ApprovedOnBehalf:              reviewParticipantApprovedOnBehalf(participant),
+		ApprovedOnBehalfByUserID:      strings.TrimSpace(participant.ApprovedOnBehalfByUserID),
+		ApprovedOnBehalfByDisplayName: strings.TrimSpace(participant.ApprovedOnBehalfByDisplayName),
+		ApprovedOnBehalfReason:        strings.TrimSpace(participant.ApprovedOnBehalfReason),
+	}
+	if participant.ApprovedOnBehalfAt != nil {
+		approvedAt := participant.ApprovedOnBehalfAt.UTC()
+		result.ApprovedOnBehalfAt = &approvedAt
+	}
+	return result
+}
+
 func countThreadsByStatus(threads []ReviewThread, status string) int {
 	count := 0
 	for _, thread := range threads {
@@ -462,17 +497,6 @@ func countThreadsByStatus(threads []ReviewThread, status string) int {
 		}
 	}
 	return count
-}
-
-func reviewSessionParticipantFromRecord(record stores.AgreementReviewParticipantRecord) *ReviewSessionParticipant {
-	return &ReviewSessionParticipant{
-		ID:              strings.TrimSpace(record.ID),
-		ParticipantType: strings.TrimSpace(record.ParticipantType),
-		RecipientID:     strings.TrimSpace(record.RecipientID),
-		Email:           strings.TrimSpace(record.Email),
-		DisplayName:     strings.TrimSpace(record.DisplayName),
-		DecisionStatus:  strings.TrimSpace(record.DecisionStatus),
-	}
 }
 
 func reviewActorTypeForParticipant(participant stores.AgreementReviewParticipantRecord) string {
