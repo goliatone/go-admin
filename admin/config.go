@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Title            string            `json:"title"`
 	BasePath         string            `json:"base_path"`
-	URLs             URLConfig         `json:"ur_ls"`
+	URLs             URLConfig         `json:"urls"`
 	DefaultLocale    string            `json:"default_locale"`
 	Theme            string            `json:"theme"`
 	ThemeVariant     string            `json:"theme_variant"`
