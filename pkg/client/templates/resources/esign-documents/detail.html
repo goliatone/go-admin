@@ -238,9 +238,12 @@
 
 {% block detail_scripts %}
 <script type="module">
-import { initDetailFormatters } from '{{ base_path }}/assets/dist/esign/index.js';
+import { initDetailFormatters, bootstrapProvenanceCards } from '{{ base_path }}/assets/dist/esign/index.js';
 
 // Apply formatters to detail page elements (data-size-bytes, data-timestamp)
 initDetailFormatters();
+
+// Initialize provenance card interactivity (evidence toggles, etc.)
+bootstrapProvenanceCards();
 </script>
 {% endblock %}

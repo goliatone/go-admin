@@ -1,0 +1,62 @@
+{% if provenance.empty_state and provenance.empty_state.show_placeholder %}
+<div
+  class="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-5"
+  data-lineage-empty-state
+  role="status"
+  aria-label="No source lineage available"
+>
+  <div class="flex items-start gap-4">
+    {# Icon based on context #}
+    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center" aria-hidden="true">
+      {% if provenance.source_type == "upload" %}
+      <svg class="w-5 h-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+      {% else %}
+      <svg class="w-5 h-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+      </svg>
+      {% endif %}
+    </div>
+
+    <div class="flex-1 min-w-0">
+      {# Title with fallback based on source type #}
+      <p class="text-sm font-semibold text-slate-900">
+        {% if provenance.empty_state.title %}
+          {{ provenance.empty_state.title }}
+        {% elif provenance.source_type == "upload" %}
+          Direct Upload
+        {% else %}
+          No Source Lineage
+        {% endif %}
+      </p>
+
+      {# Description with contextual fallbacks #}
+      <p class="mt-1.5 text-sm text-slate-600 leading-relaxed">
+        {% if provenance.empty_state.description %}
+          {{ provenance.empty_state.description }}
+        {% elif provenance.source_type == "upload" %}
+          This {{ provenance.resource_kind|default:"document" }} was uploaded directly without importing from an external source like Google Drive. Direct uploads don't have source lineage tracking.
+        {% elif provenance.resource_kind == "agreement" %}
+          This agreement was created from a document that doesn't have source lineage. Source tracking is available for documents imported from Google Drive.
+        {% else %}
+          This record has no linked source provenance. Source lineage is automatically tracked when documents are imported from connected services.
+        {% endif %}
+      </p>
+
+      {# Optional help link #}
+      {% if provenance.empty_state.help_url %}
+      <a
+        href="{{ provenance.empty_state.help_url }}"
+        class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+      >
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Learn about source lineage
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}

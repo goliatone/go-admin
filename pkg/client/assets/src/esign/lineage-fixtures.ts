@@ -20,6 +20,7 @@ import type {
   SourceArtifactSummary,
   FingerprintStatusSummary,
   CandidateWarningSummary,
+  CandidateEvidenceSummary,
   LineagePresentationWarning,
   LineageEmptyState,
   LineageReference,
@@ -1542,6 +1543,592 @@ export function validateSeededScenarioLineage(scenario: SeededGoogleImportScenar
   // Validate document links to agreement
   if (scenario.agreement.document_id !== scenario.document.id) {
     errors.push('agreement document_id does not match document id');
+  }
+
+  return errors;
+}
+
+// ============================================================================
+// Phase 8 Task 8.9 - Candidate Warning View Models and Fixtures
+// Fixtures for single/multiple candidates, rejected, and superseded states
+// ============================================================================
+
+/**
+ * Candidate warning fixture state identifiers.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export type CandidateWarningFixtureState =
+  | 'single_likely_continuity'
+  | 'multiple_ambiguous_candidates'
+  | 'previously_rejected'
+  | 'superseded_candidate'
+  | 'high_confidence_auto_linked'
+  | 'cross_account_migration';
+
+/**
+ * Extended candidate warning summary for fixture scenarios.
+ * Includes additional fields for rendering tests.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export interface ExtendedCandidateWarningSummary extends CandidateWarningSummary {
+  /** Additional context for the relationship */
+  context?: string;
+  /** Related source document info if available */
+  related_source?: {
+    id: string;
+    title?: string;
+    account_id?: string;
+  };
+  /** Timestamp when the relationship was last evaluated */
+  evaluated_at?: string;
+  /** Actor who performed the review action (if any) */
+  reviewed_by_user_id?: string;
+  /** Timestamp when review action was taken */
+  reviewed_at?: string;
+}
+
+/**
+ * Candidate warning fixture collection for document detail pages.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export interface CandidateWarningFixtures {
+  single_likely_continuity: DocumentLineageDetail;
+  multiple_ambiguous_candidates: DocumentLineageDetail;
+  previously_rejected: DocumentLineageDetail;
+  superseded_candidate: DocumentLineageDetail;
+  high_confidence_auto_linked: DocumentLineageDetail;
+  cross_account_migration: DocumentLineageDetail;
+}
+
+/**
+ * Agreement candidate warning fixture collection.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export interface AgreementCandidateWarningFixtures {
+  single_likely_continuity: AgreementLineageDetail;
+  multiple_ambiguous_candidates: AgreementLineageDetail;
+  previously_rejected: AgreementLineageDetail;
+}
+
+// Build candidate evidence entries for various scenarios
+
+const evidenceNormalizedTextMatch: CandidateEvidenceSummary = {
+  code: 'normalized_text_match',
+  label: 'Normalized text match',
+  details: '0.94 similarity',
+};
+
+const evidenceTitleSimilarity: CandidateEvidenceSummary = {
+  code: 'title_similarity',
+  label: 'Title similarity',
+  details: 'Identical canonical title',
+};
+
+const evidenceChunkOverlap: CandidateEvidenceSummary = {
+  code: 'chunk_overlap',
+  label: 'Content chunk overlap',
+  details: '87% of chunks match',
+};
+
+const evidenceTemporalProximity: CandidateEvidenceSummary = {
+  code: 'temporal_proximity',
+  label: 'Temporal proximity',
+  details: 'Created within 24 hours',
+};
+
+const evidenceAccountCorroboration: CandidateEvidenceSummary = {
+  code: 'account_corroboration',
+  label: 'Account corroboration',
+  details: 'Same owner email domain',
+};
+
+const evidenceExactArtifactMatch: CandidateEvidenceSummary = {
+  code: 'exact_artifact_match',
+  label: 'Exact artifact match',
+  details: 'SHA-256 hash identical',
+};
+
+const evidenceURLHistory: CandidateEvidenceSummary = {
+  code: 'url_history',
+  label: 'URL history',
+  details: 'Previous URL recorded in metadata',
+};
+
+// Build candidate warning summaries for various scenarios
+
+const singleLikelyCandidateWarning: CandidateWarningSummary = {
+  id: 'rel-single-likely-1',
+  relationship_type: 'copied_from',
+  status: 'pending_review',
+  confidence_band: 'high',
+  confidence_score: 0.94,
+  summary: 'High-confidence match detected with a Google document from a different account.',
+  evidence: [evidenceNormalizedTextMatch, evidenceTitleSimilarity, evidenceChunkOverlap],
+  review_action_visible: 'admin_debug_only',
+};
+
+const ambiguousCandidate1Warning: CandidateWarningSummary = {
+  id: 'rel-ambiguous-1',
+  relationship_type: 'copied_from',
+  status: 'pending_review',
+  confidence_band: 'medium',
+  confidence_score: 0.72,
+  summary: 'Possible copy from document "Contract Template v2" in shared drive.',
+  evidence: [evidenceNormalizedTextMatch, evidenceTemporalProximity],
+  review_action_visible: 'admin_debug_only',
+};
+
+const ambiguousCandidate2Warning: CandidateWarningSummary = {
+  id: 'rel-ambiguous-2',
+  relationship_type: 'copied_from',
+  status: 'pending_review',
+  confidence_band: 'medium',
+  confidence_score: 0.68,
+  summary: 'Possible copy from document "MSA Packet Draft" in personal drive.',
+  evidence: [evidenceTitleSimilarity, evidenceAccountCorroboration],
+  review_action_visible: 'admin_debug_only',
+};
+
+const rejectedCandidateWarning: CandidateWarningSummary = {
+  id: 'rel-rejected-1',
+  relationship_type: 'copied_from',
+  status: 'rejected',
+  confidence_band: 'medium',
+  confidence_score: 0.65,
+  summary: 'Previously rejected: This relationship was reviewed and determined to be a false positive.',
+  evidence: [evidenceTitleSimilarity],
+  review_action_visible: 'none',
+};
+
+const supersededCandidateWarning: CandidateWarningSummary = {
+  id: 'rel-superseded-1',
+  relationship_type: 'predecessor_of',
+  status: 'superseded',
+  confidence_band: 'medium',
+  confidence_score: 0.71,
+  summary: 'Superseded: A newer relationship evaluation has replaced this candidate.',
+  evidence: [evidenceNormalizedTextMatch],
+  review_action_visible: 'none',
+};
+
+const autoLinkedCandidateWarning: CandidateWarningSummary = {
+  id: 'rel-auto-linked-1',
+  relationship_type: 'exact_duplicate',
+  status: 'auto_linked',
+  confidence_band: 'exact',
+  confidence_score: 1.0,
+  summary: 'Auto-linked: Exact artifact match confirmed this as an identical document.',
+  evidence: [evidenceExactArtifactMatch],
+  review_action_visible: 'none',
+};
+
+const crossAccountMigrationWarning: CandidateWarningSummary = {
+  id: 'rel-migration-1',
+  relationship_type: 'migrated_from',
+  status: 'pending_review',
+  confidence_band: 'high',
+  confidence_score: 0.91,
+  summary: 'Cross-account migration detected. Document appears to have been moved from another Google account.',
+  evidence: [evidenceNormalizedTextMatch, evidenceURLHistory, evidenceAccountCorroboration],
+  review_action_visible: 'admin_debug_only',
+};
+
+// Build presentation warnings for candidate scenarios
+
+function buildSingleLikelyPresentationWarning(diagnosticsUrl: string): LineagePresentationWarning {
+  return {
+    id: singleLikelyCandidateWarning.id,
+    type: 'candidate_relationship',
+    severity: 'warning',
+    title: 'High-Confidence Match - Pending Review',
+    description: singleLikelyCandidateWarning.summary,
+    action_label: 'Review in diagnostics',
+    action_url: diagnosticsUrl,
+    review_action_visible: 'admin_debug_only',
+    evidence: singleLikelyCandidateWarning.evidence,
+  };
+}
+
+function buildAmbiguousCandidatesPresentationWarning(diagnosticsUrl: string): LineagePresentationWarning {
+  return {
+    id: 'ambiguous-candidates-group',
+    type: 'candidate_relationship',
+    severity: 'warning',
+    title: 'Multiple Potential Matches - Review Required',
+    description: 'Multiple source documents have been detected as potential origins. Operator review is required to determine the correct relationship.',
+    action_label: 'Review candidates',
+    action_url: diagnosticsUrl,
+    review_action_visible: 'admin_debug_only',
+    evidence: [
+      { code: 'candidate_count', label: 'Candidates detected', details: '2 potential matches' },
+    ],
+  };
+}
+
+function buildRejectedCandidatePresentationWarning(): LineagePresentationWarning {
+  return {
+    id: rejectedCandidateWarning.id,
+    type: 'candidate_relationship',
+    severity: 'info',
+    title: 'Rejected Candidate',
+    description: rejectedCandidateWarning.summary,
+    review_action_visible: 'none',
+    evidence: rejectedCandidateWarning.evidence,
+  };
+}
+
+function buildSupersededCandidatePresentationWarning(): LineagePresentationWarning {
+  return {
+    id: supersededCandidateWarning.id,
+    type: 'candidate_relationship',
+    severity: 'info',
+    title: 'Superseded Candidate',
+    description: supersededCandidateWarning.summary,
+    review_action_visible: 'none',
+    evidence: supersededCandidateWarning.evidence,
+  };
+}
+
+function buildAutoLinkedPresentationWarning(): LineagePresentationWarning {
+  return {
+    id: autoLinkedCandidateWarning.id,
+    type: 'candidate_relationship',
+    severity: 'info',
+    title: 'Exact Match - Auto-Linked',
+    description: autoLinkedCandidateWarning.summary,
+    review_action_visible: 'none',
+    evidence: autoLinkedCandidateWarning.evidence,
+  };
+}
+
+function buildCrossAccountMigrationPresentationWarning(diagnosticsUrl: string): LineagePresentationWarning {
+  return {
+    id: crossAccountMigrationWarning.id,
+    type: 'candidate_relationship',
+    severity: 'warning',
+    title: 'Cross-Account Migration - Pending Review',
+    description: crossAccountMigrationWarning.summary,
+    action_label: 'Review migration',
+    action_url: diagnosticsUrl,
+    review_action_visible: 'admin_debug_only',
+    evidence: crossAccountMigrationWarning.evidence,
+  };
+}
+
+// Candidate warning document fixtures
+
+export const candidateWarningFixtures: CandidateWarningFixtures = {
+  /**
+   * Single likely continuity match - high confidence candidate requiring review.
+   * Represents a document with one strong candidate relationship.
+   */
+  single_likely_continuity: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-single-likely' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [{ ...singleLikelyCandidateWarning }],
+      presentation_warnings: [
+        buildSingleLikelyPresentationWarning('/admin/debug/lineage/documents/doc-single-likely'),
+      ],
+      empty_state: nativeLineageState,
+    },
+    'doc-single-likely'
+  ),
+
+  /**
+   * Multiple ambiguous candidates - requires operator review to resolve.
+   * Represents a document with multiple competing potential sources.
+   */
+  multiple_ambiguous_candidates: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-ambiguous' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [
+        { ...ambiguousCandidate1Warning },
+        { ...ambiguousCandidate2Warning },
+      ],
+      presentation_warnings: [
+        buildAmbiguousCandidatesPresentationWarning('/admin/debug/lineage/documents/doc-ambiguous'),
+      ],
+      empty_state: nativeLineageState,
+    },
+    'doc-ambiguous'
+  ),
+
+  /**
+   * Previously rejected candidate - relationship was reviewed and rejected.
+   * Shows how rejected candidates appear in the UI (read-only, no action).
+   */
+  previously_rejected: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-rejected' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [{ ...rejectedCandidateWarning }],
+      presentation_warnings: [buildRejectedCandidatePresentationWarning()],
+      empty_state: nativeLineageState,
+    },
+    'doc-rejected'
+  ),
+
+  /**
+   * Superseded candidate - relationship was replaced by newer evaluation.
+   * Shows how superseded candidates appear in the UI (read-only, historical).
+   */
+  superseded_candidate: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-superseded' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [{ ...supersededCandidateWarning }],
+      presentation_warnings: [buildSupersededCandidatePresentationWarning()],
+      empty_state: nativeLineageState,
+    },
+    'doc-superseded'
+  ),
+
+  /**
+   * High confidence auto-linked - exact artifact match auto-confirmed.
+   * Shows how auto-linked exact matches appear (no review needed).
+   */
+  high_confidence_auto_linked: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-auto-linked' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [{ ...autoLinkedCandidateWarning }],
+      presentation_warnings: [buildAutoLinkedPresentationWarning()],
+      empty_state: nativeLineageState,
+    },
+    'doc-auto-linked'
+  ),
+
+  /**
+   * Cross-account migration candidate - document moved between accounts.
+   * Shows how account migration candidates appear for review.
+   */
+  cross_account_migration: withDocumentDiagnosticsURL(
+    {
+      ...canonicalDocumentNative,
+      source_document: { ...fixtureSourceDocument, id: 'src-doc-migration' },
+      source_revision: { ...fixtureFirstRevision },
+      source_artifact: { ...fixtureFirstArtifact },
+      google_source: {
+        ...fixtureSourceMetadata,
+        account_id: 'acct_secondary',
+        owner_email: 'migrated@different-domain.com',
+      },
+      fingerprint_status: { ...fixtureFingerprintReady },
+      candidate_warning_summary: [{ ...crossAccountMigrationWarning }],
+      presentation_warnings: [
+        buildCrossAccountMigrationPresentationWarning('/admin/debug/lineage/documents/doc-migration'),
+      ],
+      empty_state: nativeLineageState,
+    },
+    'doc-migration'
+  ),
+};
+
+// Candidate warning agreement fixtures
+
+export const agreementCandidateWarningFixtures: AgreementCandidateWarningFixtures = {
+  /**
+   * Agreement with single likely continuity match.
+   */
+  single_likely_continuity: withAgreementDiagnosticsURL(
+    {
+      ...canonicalAgreementNative,
+      source_revision: { ...fixtureFirstRevision },
+      linked_document_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      newer_source_exists: false,
+      candidate_warning_summary: [{ ...singleLikelyCandidateWarning }],
+      presentation_warnings: [
+        buildSingleLikelyPresentationWarning('/admin/debug/lineage/agreements/agr-single-likely'),
+      ],
+      empty_state: nativeLineageState,
+    },
+    'agr-single-likely'
+  ),
+
+  /**
+   * Agreement with multiple ambiguous candidates.
+   */
+  multiple_ambiguous_candidates: withAgreementDiagnosticsURL(
+    {
+      ...canonicalAgreementNative,
+      source_revision: { ...fixtureFirstRevision },
+      linked_document_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      newer_source_exists: false,
+      candidate_warning_summary: [
+        { ...ambiguousCandidate1Warning },
+        { ...ambiguousCandidate2Warning },
+      ],
+      presentation_warnings: [
+        buildAmbiguousCandidatesPresentationWarning('/admin/debug/lineage/agreements/agr-ambiguous'),
+      ],
+      empty_state: nativeLineageState,
+    },
+    'agr-ambiguous'
+  ),
+
+  /**
+   * Agreement with previously rejected candidate.
+   */
+  previously_rejected: withAgreementDiagnosticsURL(
+    {
+      ...canonicalAgreementNative,
+      source_revision: { ...fixtureFirstRevision },
+      linked_document_artifact: { ...fixtureFirstArtifact },
+      google_source: { ...fixtureSourceMetadata },
+      newer_source_exists: false,
+      candidate_warning_summary: [{ ...rejectedCandidateWarning }],
+      presentation_warnings: [buildRejectedCandidatePresentationWarning()],
+      empty_state: nativeLineageState,
+    },
+    'agr-rejected'
+  ),
+};
+
+/**
+ * Get candidate warning fixture for document by state.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function getCandidateWarningFixture(state: CandidateWarningFixtureState): DocumentLineageDetail {
+  const fixture = candidateWarningFixtures[state];
+  if (!fixture) {
+    throw new Error(`Unknown candidate warning fixture state: ${state}`);
+  }
+  return normalizeDocumentLineageDetail(fixture);
+}
+
+/**
+ * Get candidate warning fixture for agreement by state.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function getAgreementCandidateWarningFixture(
+  state: keyof AgreementCandidateWarningFixtures
+): AgreementLineageDetail {
+  const fixture = agreementCandidateWarningFixtures[state];
+  if (!fixture) {
+    throw new Error(`Unknown agreement candidate warning fixture state: ${state}`);
+  }
+  return normalizeAgreementLineageDetail(fixture);
+}
+
+/**
+ * Get all candidate warning fixture states for iteration.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function getCandidateWarningFixtureStates(): CandidateWarningFixtureState[] {
+  return [
+    'single_likely_continuity',
+    'multiple_ambiguous_candidates',
+    'previously_rejected',
+    'superseded_candidate',
+    'high_confidence_auto_linked',
+    'cross_account_migration',
+  ];
+}
+
+/**
+ * Check if a candidate warning is actionable (requires review).
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function isCandidateActionable(warning: CandidateWarningSummary): boolean {
+  return warning.status === 'pending_review';
+}
+
+/**
+ * Check if a candidate warning has been resolved (confirmed, rejected, or superseded).
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function isCandidateResolved(warning: CandidateWarningSummary): boolean {
+  return ['confirmed', 'rejected', 'superseded', 'auto_linked'].includes(warning.status);
+}
+
+/**
+ * Get the primary (highest priority) candidate warning from a list.
+ * Priority: pending_review > confirmed > auto_linked > rejected > superseded
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function getPrimaryCandidateWarning(
+  warnings: CandidateWarningSummary[]
+): CandidateWarningSummary | null {
+  if (warnings.length === 0) return null;
+
+  const statusPriority: Record<string, number> = {
+    pending_review: 0,
+    confirmed: 1,
+    auto_linked: 2,
+    rejected: 3,
+    superseded: 4,
+  };
+
+  return [...warnings].sort((a, b) => {
+    const aPriority = statusPriority[a.status] ?? 99;
+    const bPriority = statusPriority[b.status] ?? 99;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    // Secondary sort by confidence score (descending)
+    return (b.confidence_score ?? 0) - (a.confidence_score ?? 0);
+  })[0];
+}
+
+/**
+ * Count candidates by status for summary display.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function countCandidatesByStatus(warnings: CandidateWarningSummary[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const warning of warnings) {
+    counts[warning.status] = (counts[warning.status] || 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Validate candidate warning fixture has required structure.
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export function validateCandidateWarningFixture(fixture: DocumentLineageDetail): string[] {
+  const errors: string[] = [];
+
+  // Must have at least one candidate warning
+  if (!fixture.candidate_warning_summary || fixture.candidate_warning_summary.length === 0) {
+    errors.push('candidate_warning_summary must have at least one entry');
+  }
+
+  // Each warning must have required fields
+  for (const warning of fixture.candidate_warning_summary || []) {
+    if (!warning.id) errors.push('candidate warning missing id');
+    if (!warning.relationship_type) errors.push('candidate warning missing relationship_type');
+    if (!warning.status) errors.push('candidate warning missing status');
+    if (!warning.confidence_band) errors.push('candidate warning missing confidence_band');
+    if (!warning.summary) errors.push('candidate warning missing summary');
+    if (!Array.isArray(warning.evidence)) errors.push('candidate warning evidence must be an array');
+  }
+
+  // Presentation warnings should exist
+  if (!fixture.presentation_warnings || fixture.presentation_warnings.length === 0) {
+    errors.push('presentation_warnings must have at least one entry');
   }
 
   return errors;

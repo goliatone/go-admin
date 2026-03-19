@@ -1,0 +1,21 @@
+<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+  <div class="min-w-0">
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+      {{ provenance.headline|default:"Source Provenance" }}
+    </p>
+    <h3 class="mt-1 text-lg font-semibold text-slate-900">
+      {{ provenance.summary|default:"Source provenance is available for this record." }}
+    </h3>
+  </div>
+  {% if provenance.show_diagnostics_link and provenance.diagnostics_url %}
+  <a
+    href="{{ provenance.diagnostics_url }}"
+    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+    data-lineage-diagnostics-link
+    aria-label="Open diagnostics for this source"
+  >
+    <i class="iconoir-binocular" aria-hidden="true"></i>
+    Open diagnostics
+  </a>
+  {% endif %}
+</div>

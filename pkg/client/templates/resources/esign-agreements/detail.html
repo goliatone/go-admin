@@ -1906,6 +1906,10 @@ import {
   executeActionRequest,
   formatStructuredErrorForDisplay
 } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
+import { bootstrapProvenanceCards } from '{{ base_path }}/assets/dist/esign/index.js';
+
+// Initialize provenance card interactivity (evidence toggles, etc.)
+bootstrapProvenanceCards();
 
 document.addEventListener('DOMContentLoaded', function() {
   // Format timestamps

@@ -15,6 +15,7 @@
   "metadata_baseline": {
     "account_id": "acct_primary",
     "external_file_id": "google-file-123",
+    "drive_id": "shared-drive-123",
     "web_url": "https://docs.google.com/document/d/google-file-123/edit",
     "modified_time": "2026-03-15T18:00:00Z",
     "source_version_hint": "v2026-03-15T18:00:00Z",
@@ -53,6 +54,7 @@
       "google_source": {
         "account_id": "acct_primary",
         "external_file_id": "google-file-123",
+        "drive_id": "shared-drive-123",
         "web_url": "https://docs.google.com/document/d/google-file-123/edit",
         "modified_time": "2026-03-15T18:00:00Z",
         "source_version_hint": "v2026-03-15T18:00:00Z",
@@ -137,6 +139,12 @@
     },
     "agreement_native": {
       "agreement_id": "agr_001",
+      "pinned_source_revision_id": "src_rev_001",
+      "source_document": {
+        "id": "src_doc_001",
+        "label": "MSA Packet",
+        "url": "https://docs.google.com/document/d/google-file-123/edit"
+      },
       "source_revision": {
         "id": "src_rev_001",
         "provider_revision_hint": "v2026-03-15T18:00:00Z",
@@ -157,6 +165,7 @@
       "google_source": {
         "account_id": "acct_primary",
         "external_file_id": "google-file-123",
+        "drive_id": "shared-drive-123",
         "web_url": "https://docs.google.com/document/d/google-file-123/edit",
         "modified_time": "2026-03-15T18:00:00Z",
         "source_version_hint": "v2026-03-15T18:00:00Z",
@@ -168,6 +177,12 @@
         "parent_id": "folder-legal"
       },
       "newer_source_exists": true,
+      "newer_source_summary": {
+        "exists": true,
+        "pinned_source_revision_id": "src_rev_001",
+        "latest_source_revision_id": "src_rev_002",
+        "summary": "A newer source revision exists while this agreement remains pinned to the revision used at creation time."
+      },
       "candidate_warning_summary": [
         {
           "id": "rel_candidate_1",

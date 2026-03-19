@@ -54,7 +54,7 @@ func TestESignDocumentDetailTemplateIncludesLineagePresentationCard(t *testing.T
 }
 
 func TestESignLineageCardTemplateRendersBackendAuthoredWarningActions(t *testing.T) {
-	template := mustReadClientTemplate(t, "partials/esign-lineage-card.html")
+	template := mustReadClientTemplate(t, "partials/esign-provenance-warnings.html")
 
 	required := []string{
 		`{% if warning.action_label and warning.action_url %}`,

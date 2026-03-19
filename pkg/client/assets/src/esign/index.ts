@@ -22,7 +22,15 @@ export {
   // Fingerprint status constants (Phase 7 Task 7.7)
   FINGERPRINT_STATUS,
   isValidFingerprintStatus,
+  // Candidate relationship constants (Phase 8 Task 8.9)
+  CANDIDATE_RELATIONSHIP_STATUS,
+  CANDIDATE_RELATIONSHIP_TYPE,
+  CONFIDENCE_BAND,
+  isValidCandidateRelationshipStatus,
   type FingerprintStatus,
+  type CandidateRelationshipStatus,
+  type CandidateRelationshipType,
+  type ConfidenceBand,
   type GoogleImportRunHandle,
   type GoogleImportRunDetail,
   type GoogleImportRunResource,
@@ -107,6 +115,30 @@ export {
   type DiagnosticFixtureState,
 } from './lineage-diagnostics.js';
 
+// Provenance Card Interactivity (Phase 9 Task 9.5-9.8)
+export {
+  // Initialization
+  initProvenanceCards,
+  bootstrapProvenanceCards,
+  initAllEvidenceToggles,
+  initEvidenceToggle,
+  // Utilities
+  getProvenanceCards,
+  getProvenanceCardFor,
+  hasWarnings,
+  hasEmptyState,
+  getLineageStatus,
+  getResourceKind,
+  // Constants
+  PROVENANCE_CARD_SELECTOR,
+  EVIDENCE_TOGGLE_SELECTOR,
+  EVIDENCE_COLLAPSED_SELECTOR,
+  EVIDENCE_CONTAINER_SELECTOR,
+  DEFAULT_PROVENANCE_CARD_CONFIG,
+  // Types
+  type ProvenanceCardConfig,
+} from './provenance-card.js';
+
 // Lineage Fixtures (Phase 2 Task 2.7-2.9)
 export {
   documentLineageFixtures,
@@ -146,6 +178,21 @@ export {
   getSeededScenarioIds,
   validateSeededScenarioLineage,
   type SeededGoogleImportScenario,
+  // Phase 8 Task 8.9 - Candidate warning fixtures
+  candidateWarningFixtures,
+  agreementCandidateWarningFixtures,
+  getCandidateWarningFixture,
+  getAgreementCandidateWarningFixture,
+  getCandidateWarningFixtureStates,
+  isCandidateActionable,
+  isCandidateResolved,
+  getPrimaryCandidateWarning,
+  countCandidatesByStatus,
+  validateCandidateWarningFixture,
+  type CandidateWarningFixtureState,
+  type ExtendedCandidateWarningSummary,
+  type CandidateWarningFixtures,
+  type AgreementCandidateWarningFixtures,
 } from './lineage-fixtures.js';
 
 // API Client

@@ -1,6 +1,7 @@
 export interface SourceMetadataBaseline {
   account_id: string;
   external_file_id: string;
+  drive_id?: string;
   web_url: string;
   modified_time?: string;
   source_version_hint: string;
@@ -61,6 +62,88 @@ export const FINGERPRINT_STATUS = {
   /** Fingerprint extraction not applicable (e.g., upload-only documents) */
   NOT_APPLICABLE: 'not_applicable',
 } as const;
+
+// ============================================================================
+// Candidate Relationship Status Constants (Phase 8 Task 8.9)
+// ============================================================================
+
+/**
+ * Canonical candidate relationship status values.
+ * These constants define the possible states for source relationship candidates.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export const CANDIDATE_RELATIONSHIP_STATUS = {
+  /** Candidate relationship is awaiting operator review */
+  PENDING_REVIEW: 'pending_review',
+  /** Candidate relationship has been confirmed by operator */
+  CONFIRMED: 'confirmed',
+  /** Candidate relationship has been rejected by operator */
+  REJECTED: 'rejected',
+  /** Candidate relationship has been superseded by a newer evaluation */
+  SUPERSEDED: 'superseded',
+  /** Candidate relationship was auto-linked due to exact match */
+  AUTO_LINKED: 'auto_linked',
+} as const;
+
+/**
+ * Type representing valid candidate relationship status values.
+ */
+export type CandidateRelationshipStatus =
+  (typeof CANDIDATE_RELATIONSHIP_STATUS)[keyof typeof CANDIDATE_RELATIONSHIP_STATUS];
+
+/**
+ * Check if a status string is a valid candidate relationship status.
+ */
+export function isValidCandidateRelationshipStatus(status: string): status is CandidateRelationshipStatus {
+  return Object.values(CANDIDATE_RELATIONSHIP_STATUS).includes(status as CandidateRelationshipStatus);
+}
+
+/**
+ * Canonical candidate relationship type values.
+ * These constants define the types of relationships between sources.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export const CANDIDATE_RELATIONSHIP_TYPE = {
+  /** Document was copied from another source */
+  COPIED_FROM: 'copied_from',
+  /** Document is a potential predecessor to another */
+  PREDECESSOR_OF: 'predecessor_of',
+  /** Document is a potential successor to another */
+  SUCCESSOR_OF: 'successor_of',
+  /** Document migrated from another account/drive */
+  MIGRATED_FROM: 'migrated_from',
+  /** Document is an exact duplicate */
+  EXACT_DUPLICATE: 'exact_duplicate',
+} as const;
+
+/**
+ * Type representing valid candidate relationship type values.
+ */
+export type CandidateRelationshipType =
+  (typeof CANDIDATE_RELATIONSHIP_TYPE)[keyof typeof CANDIDATE_RELATIONSHIP_TYPE];
+
+/**
+ * Canonical confidence band values for candidate scoring.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 8 Task 8.9
+ */
+export const CONFIDENCE_BAND = {
+  /** High confidence - likely a true match */
+  HIGH: 'high',
+  /** Medium confidence - may require review */
+  MEDIUM: 'medium',
+  /** Low confidence - likely a false positive */
+  LOW: 'low',
+  /** Exact match - artifact or identifier match */
+  EXACT: 'exact',
+} as const;
+
+/**
+ * Type representing valid confidence band values.
+ */
+export type ConfidenceBand = (typeof CONFIDENCE_BAND)[keyof typeof CONFIDENCE_BAND];
 
 /**
  * Type representing valid fingerprint status values.
@@ -132,6 +215,13 @@ export interface LineageEmptyState {
   description?: string;
 }
 
+export interface NewerSourceSummary {
+  exists: boolean;
+  pinned_source_revision_id?: string;
+  latest_source_revision_id?: string;
+  summary?: string;
+}
+
 export interface DocumentLineageDetail {
   document_id: string;
   source_document: LineageReference | null;
@@ -147,10 +237,13 @@ export interface DocumentLineageDetail {
 
 export interface AgreementLineageDetail {
   agreement_id: string;
+  pinned_source_revision_id?: string;
+  source_document: LineageReference | null;
   source_revision: SourceRevisionSummary | null;
   linked_document_artifact: SourceArtifactSummary | null;
   google_source: SourceMetadataBaseline | null;
   newer_source_exists: boolean;
+  newer_source_summary: NewerSourceSummary | null;
   candidate_warning_summary: CandidateWarningSummary[];
   presentation_warnings: LineagePresentationWarning[];
   diagnostics_url?: string;
@@ -329,6 +422,7 @@ function normalizeSourceMetadataBaseline(value: unknown): SourceMetadataBaseline
   return {
     account_id: asString(record.account_id),
     external_file_id: externalFileID,
+    drive_id: asOptionalString(record.drive_id),
     web_url: asString(record.web_url),
     modified_time: asOptionalString(record.modified_time),
     source_version_hint: asString(record.source_version_hint),
@@ -399,6 +493,19 @@ function normalizeLineageEmptyState(value: unknown): LineageEmptyState {
   };
 }
 
+function normalizeNewerSourceSummary(value: unknown): NewerSourceSummary | null {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) {
+    return null;
+  }
+  return {
+    exists: asBoolean(record.exists),
+    pinned_source_revision_id: asOptionalString(record.pinned_source_revision_id),
+    latest_source_revision_id: asOptionalString(record.latest_source_revision_id),
+    summary: asOptionalString(record.summary),
+  };
+}
+
 export function normalizeDocumentLineageDetail(value: unknown): DocumentLineageDetail {
   const record = asRecord(value);
   return {
@@ -423,10 +530,13 @@ export function normalizeAgreementLineageDetail(value: unknown): AgreementLineag
   const record = asRecord(value);
   return {
     agreement_id: asString(record.agreement_id),
+    pinned_source_revision_id: asOptionalString(record.pinned_source_revision_id),
+    source_document: normalizeLineageReference(record.source_document),
     source_revision: normalizeSourceRevisionSummary(record.source_revision),
     linked_document_artifact: normalizeSourceArtifactSummary(record.linked_document_artifact),
     google_source: normalizeSourceMetadataBaseline(record.google_source),
     newer_source_exists: asBoolean(record.newer_source_exists),
+    newer_source_summary: normalizeNewerSourceSummary(record.newer_source_summary),
     candidate_warning_summary: Array.isArray(record.candidate_warning_summary)
       ? record.candidate_warning_summary.map(normalizeCandidateWarningSummary)
       : [],

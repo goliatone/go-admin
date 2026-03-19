@@ -133,6 +133,7 @@ export interface ProvenanceFingerprintStatus {
 export interface ProvenanceGoogleSource {
   accountId: string;
   fileId: string;
+  driveId?: string;
   webUrl: string;
   title: string;
   modifiedTime?: string;
@@ -151,6 +152,13 @@ export interface ProvenanceEmptyState {
   title: string;
   description: string;
   showPlaceholder: boolean;
+}
+
+export interface ProvenanceNewerSourceSummary {
+  exists: boolean;
+  pinnedSourceRevisionId?: string;
+  latestSourceRevisionId?: string;
+  summary?: string;
 }
 
 /**
@@ -207,9 +215,12 @@ export interface AgreementProvenanceViewModel {
   newerSourceExists: boolean;
 
   // Normalized display data
+  pinnedSourceRevisionId?: string;
+  source: ProvenanceSourceReference | null;
   revision: ProvenanceRevisionSummary | null;
   artifact: ProvenanceArtifactSummary | null;
   googleSource: ProvenanceGoogleSource | null;
+  newerSourceSummary: ProvenanceNewerSourceSummary | null;
   emptyState: ProvenanceEmptyState;
 
   // Warnings sorted by precedence
@@ -395,6 +406,7 @@ function normalizeGoogleSource(source: SourceMetadataBaseline | null): Provenanc
   return {
     accountId: source.account_id,
     fileId: source.external_file_id,
+    driveId: source.drive_id,
     webUrl: source.web_url,
     title: source.title_hint,
     modifiedTime: source.modified_time,
@@ -403,6 +415,16 @@ function normalizeGoogleSource(source: SourceMetadataBaseline | null): Provenanc
     ingestionMode: source.source_ingestion_mode,
     pageCountHint: source.page_count_hint,
     ownerEmail: source.owner_email,
+  };
+}
+
+function normalizeNewerSourceSummary(summary: AgreementLineageDetail['newer_source_summary']): ProvenanceNewerSourceSummary | null {
+  if (!summary) return null;
+  return {
+    exists: summary.exists,
+    pinnedSourceRevisionId: summary.pinned_source_revision_id,
+    latestSourceRevisionId: summary.latest_source_revision_id,
+    summary: summary.summary,
   };
 }
 
@@ -529,9 +551,12 @@ export function mapAgreementProvenance(detail: AgreementLineageDetail): Agreemen
     hasCandidateWarnings: hasCandidateRelationshipWarning(normalizedWarnings),
     newerSourceExists: detail.newer_source_exists,
 
+    pinnedSourceRevisionId: detail.pinned_source_revision_id,
+    source: normalizeSourceReference(detail.source_document, sourceType),
     revision: normalizeRevisionSummary(detail.source_revision),
     artifact: normalizeArtifactSummary(detail.linked_document_artifact),
     googleSource: normalizeGoogleSource(detail.google_source),
+    newerSourceSummary: normalizeNewerSourceSummary(detail.newer_source_summary),
     emptyState: normalizeEmptyState(detail.empty_state),
 
     warnings: normalizedWarnings,
@@ -651,7 +676,7 @@ export function validateAgreementProvenanceViewModel(vm: unknown): string[] {
   }
 
   // Required object fields (can be null)
-  const nullableObjects = ['revision', 'artifact', 'googleSource', 'primaryWarning'];
+  const nullableObjects = ['source', 'revision', 'artifact', 'googleSource', 'newerSourceSummary', 'primaryWarning'];
   for (const field of nullableObjects) {
     if (record[field] !== null && typeof record[field] !== 'object') {
       errors.push(`${field} must be an object or null`);
