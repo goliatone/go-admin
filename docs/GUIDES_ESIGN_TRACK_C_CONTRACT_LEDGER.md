@@ -100,5 +100,5 @@ measurable_gain: app-mediated uploads can now target fs, s3, or multi storage th
 impacted_endpoints: /admin/api/v1/esign/documents/upload response payload, document/admin artifact retrieval paths backed by object_key storage, runtime storage bootstrap/config contracts used by e-sign startup.
 backend_tests: go test ./examples/esign ./examples/esign/handlers ./examples/esign/modules ./examples/esign/services ./quickstart/... && (cd ../go-uploader && go test ./...)
 frontend_tests: N/A (no frontend contract payload shape change beyond existing object_key response fields)
-contract_hash: c979766ba89b16aa981b6f29ba024a8345ec6d45bef888125de7673427830269
+contract_hash: 58e3e5c4f45d918b6f7d64435f204bffe0dd86b1b657a5c1aa945ba51a42632f
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
