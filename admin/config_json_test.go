@@ -27,7 +27,7 @@ func TestConfigJSONUsesCanonicalURLsKey(t *testing.T) {
 		t.Fatalf("expected public urls api prefix to decode, got %q", cfg.URLs.Public.APIPrefix)
 	}
 
-	field, ok := reflect.TypeOf(Config{}).FieldByName("URLs")
+	field, ok := reflect.TypeFor[Config]().FieldByName("URLs")
 	if !ok {
 		t.Fatal("expected Config.URLs field")
 	}
@@ -55,14 +55,14 @@ func TestDebugConfigJSONUsesCanonicalAllowedIPsKey(t *testing.T) {
 		t.Fatalf("expected repl allowed_ips to decode, got %#v", cfg.Repl.AllowedIPs)
 	}
 
-	field, ok := reflect.TypeOf(DebugConfig{}).FieldByName("AllowedIPs")
+	field, ok := reflect.TypeFor[DebugConfig]().FieldByName("AllowedIPs")
 	if !ok {
 		t.Fatal("expected DebugConfig.AllowedIPs field")
 	}
 	if got := field.Tag.Get("json"); got != "allowed_ips" {
 		t.Fatalf("expected DebugConfig.AllowedIPs json tag allowed_ips, got %q", got)
 	}
-	replField, ok := reflect.TypeOf(DebugREPLConfig{}).FieldByName("AllowedIPs")
+	replField, ok := reflect.TypeFor[DebugREPLConfig]().FieldByName("AllowedIPs")
 	if !ok {
 		t.Fatal("expected DebugREPLConfig.AllowedIPs field")
 	}
