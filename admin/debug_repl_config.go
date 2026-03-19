@@ -20,7 +20,7 @@ type DebugREPLConfig struct {
 	ExecPermission     string                    `json:"exec_permission"`
 	ReadOnly           *bool                     `json:"read_only"`
 	AllowedRoles       []string                  `json:"allowed_roles"`
-	AllowedIPs         []string                  `json:"allowed_i_ps"`
+	AllowedIPs         []string                  `json:"allowed_ips"`
 	ShellCommand       string                    `json:"shell_command"`
 	ShellArgs          []string                  `json:"shell_args"`
 	WorkingDir         string                    `json:"working_dir"`
