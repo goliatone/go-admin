@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/internal/primitives"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/julienschmidt/httprouter"
 )
@@ -463,6 +464,49 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	allowedServer.WrappedRouter().ServeHTTP(allowedRes, allowedReq)
 	if allowedRes.Code != http.StatusOK {
 		t.Fatalf("expected protected site read allowed, got %d body=%s", allowedRes.Code, allowedRes.Body.String())
+	}
+
+	draftProtectedCfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Site: SiteConfig{
+			Protected:           true,
+			ReadPermission:      "admin.site.read",
+			DraftReadPermission: "admin.site.read_drafts",
+		},
+	}
+	draftPath := mustResolveURL(t, admAllowed.URLs(), publicAPIGroupName(admAllowed.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en", "include_drafts": "true"})
+
+	actorDeniedAdmin, actorDeniedServer := newSiteTestServer(t, draftProtectedCfg, Dependencies{
+		Authorizer: permissionAuthorizer{allowed: map[string]bool{
+			"admin.site.read": true,
+		}},
+	}, contentSvc, nil)
+	actorDeniedReq := httptest.NewRequest(http.MethodGet, draftPath, nil)
+	actorDeniedReq = actorDeniedReq.WithContext(auth.WithActorContext(actorDeniedReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
+	actorDeniedRes := httptest.NewRecorder()
+	actorDeniedServer.WrappedRouter().ServeHTTP(actorDeniedRes, actorDeniedReq)
+	if actorDeniedRes.Code != http.StatusForbidden {
+		t.Fatalf("expected authenticated draft read without draft permission denied, got %d body=%s", actorDeniedRes.Code, actorDeniedRes.Body.String())
+	}
+
+	actorAllowedPath := mustResolveURL(t, actorDeniedAdmin.URLs(), publicAPIGroupName(actorDeniedAdmin.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en", "include_drafts": "true"})
+	_, actorAllowedServer := newSiteTestServer(t, draftProtectedCfg, Dependencies{
+		Authorizer: permissionAuthorizer{allowed: map[string]bool{
+			"admin.site.read":        true,
+			"admin.site.read_drafts": true,
+		}},
+	}, contentSvc, nil)
+	actorAllowedReq := httptest.NewRequest(http.MethodGet, actorAllowedPath, nil)
+	actorAllowedReq = actorAllowedReq.WithContext(auth.WithActorContext(actorAllowedReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
+	actorAllowedRes := httptest.NewRecorder()
+	actorAllowedServer.WrappedRouter().ServeHTTP(actorAllowedRes, actorAllowedReq)
+	if actorAllowedRes.Code != http.StatusOK {
+		t.Fatalf("expected authenticated draft read with draft permission allowed, got %d body=%s", actorAllowedRes.Code, actorAllowedRes.Body.String())
 	}
 }
 
