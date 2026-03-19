@@ -17,19 +17,19 @@ type PanelClearFunc func(ctx context.Context) error
 
 // PanelConfig configures a server-side debug panel registration.
 type PanelConfig struct {
-	Label           string
-	Icon            string
-	Span            int
-	SnapshotKey     string
-	EventType       string
-	EventTypes      []string
-	Snapshot        PanelSnapshotFunc
-	Clear           PanelClearFunc
-	SupportsToolbar *bool
-	Category        string
-	Order           int
-	Version         string
-	Metadata        map[string]any
+	Label           string            `json:"label"`
+	Icon            string            `json:"icon"`
+	Span            int               `json:"span"`
+	SnapshotKey     string            `json:"snapshot_key"`
+	EventType       string            `json:"event_type"`
+	EventTypes      []string          `json:"event_types"`
+	Snapshot        PanelSnapshotFunc `json:"snapshot"`
+	Clear           PanelClearFunc    `json:"clear"`
+	SupportsToolbar *bool             `json:"supports_toolbar"`
+	Category        string            `json:"category"`
+	Order           int               `json:"order"`
+	Version         string            `json:"version"`
+	Metadata        map[string]any    `json:"metadata"`
 }
 
 // PanelDefinition describes a registered panel for client discovery.
@@ -49,9 +49,9 @@ type PanelDefinition struct {
 
 // PanelRegistration stores definition metadata and server hooks.
 type PanelRegistration struct {
-	Definition PanelDefinition
-	Snapshot   PanelSnapshotFunc
-	Clear      PanelClearFunc
+	Definition PanelDefinition   `json:"definition"`
+	Snapshot   PanelSnapshotFunc `json:"snapshot"`
+	Clear      PanelClearFunc    `json:"clear"`
 }
 
 // PanelRegistry stores registered panels and metadata.
