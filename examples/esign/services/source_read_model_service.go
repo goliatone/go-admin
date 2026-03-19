@@ -171,8 +171,9 @@ func (s DefaultSourceReadModelService) buildDocumentLineageDetail(ctx context.Co
 
 func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (AgreementLineageDetail, error) {
 	detail := AgreementLineageDetail{
-		AgreementID:    strings.TrimSpace(agreement.ID),
-		DiagnosticsURL: s.diagnosticsURL("agreements", agreement.ID),
+		AgreementID:            strings.TrimSpace(agreement.ID),
+		PinnedSourceRevisionID: strings.TrimSpace(agreement.SourceRevisionID),
+		DiagnosticsURL:         s.diagnosticsURL("agreements", agreement.ID),
 		EmptyState: LineageEmptyState{
 			Kind:        LineageEmptyStateNoSource,
 			Title:       "No source lineage",
@@ -194,7 +195,7 @@ func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.C
 		document = loaded
 	}
 
-	pinnedRevisionID := firstNonEmpty(strings.TrimSpace(agreement.SourceRevisionID), strings.TrimSpace(document.SourceRevisionID))
+	pinnedRevisionID := strings.TrimSpace(agreement.SourceRevisionID)
 	if pinnedRevisionID == "" {
 		detail.PresentationWarnings = BuildAgreementPresentationWarnings(detail)
 		return detail, nil
@@ -205,10 +206,13 @@ func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.C
 		return AgreementLineageDetail{}, err
 	}
 
+	detail.PinnedSourceRevisionID = pinnedRevisionID
+	detail.SourceDocument = resolved.sourceDocumentReference()
 	detail.SourceRevision = resolved.sourceRevisionSummary()
 	detail.LinkedDocumentArtifact = resolved.agreementArtifactSummary(document)
 	detail.GoogleSource = resolved.metadataBaseline(document)
 	detail.NewerSourceExists = resolved.newerSourceExists()
+	detail.NewerSourceSummary = resolved.newerSourceSummary()
 	detail.CandidateWarningSummary = resolved.candidateWarnings
 	detail.EmptyState = LineageEmptyState{Kind: LineageEmptyStateNone}
 	detail.PresentationWarnings = BuildAgreementPresentationWarnings(detail)
@@ -531,7 +535,6 @@ func (r resolvedLineageContext) metadataBaseline(document stores.DocumentRecord)
 	parentID := firstNonEmpty(
 		lineageMetadataString(metadataHints, "parent_id"),
 		lineageMetadataString(metadataHints, "folder_id"),
-		strings.TrimSpace(r.activeHandle.DriveID),
 	)
 	ownerEmail := firstNonEmpty(
 		lineageMetadataString(metadataHints, "owner_email"),
@@ -540,6 +543,7 @@ func (r resolvedLineageContext) metadataBaseline(document stores.DocumentRecord)
 	return &SourceMetadataBaseline{
 		AccountID:           firstNonEmpty(strings.TrimSpace(r.activeHandle.AccountID), lineageMetadataString(metadataHints, "account_id")),
 		ExternalFileID:      firstNonEmpty(strings.TrimSpace(r.activeHandle.ExternalFileID), lineageMetadataString(metadataHints, "external_file_id"), strings.TrimSpace(document.SourceGoogleFileID)),
+		DriveID:             firstNonEmpty(strings.TrimSpace(r.activeHandle.DriveID), lineageMetadataString(metadataHints, "drive_id")),
 		WebURL:              firstNonEmpty(strings.TrimSpace(r.activeHandle.WebURL), lineageMetadataString(metadataHints, "web_url"), strings.TrimSpace(document.SourceGoogleDocURL)),
 		ModifiedTime:        cloneSourceTimePtr(firstSourceTimePtr(r.sourceRevision.ModifiedTime, document.SourceModifiedTime)),
 		SourceVersionHint:   firstNonEmpty(strings.TrimSpace(r.sourceRevision.ProviderRevisionHint), lineageMetadataString(metadataHints, "source_version_hint")),
@@ -575,6 +579,26 @@ func (r resolvedLineageContext) newerSourceExists() bool {
 	}
 	return strings.TrimSpace(r.sourceRevision.ID) != strings.TrimSpace(r.latestRevision.ID) &&
 		sourceRevisionRank(r.latestRevision).After(sourceRevisionRank(r.sourceRevision))
+}
+
+func (r resolvedLineageContext) newerSourceSummary() *NewerSourceSummary {
+	if strings.TrimSpace(r.sourceRevision.ID) == "" {
+		return nil
+	}
+	summary := &NewerSourceSummary{
+		Exists:                 r.newerSourceExists(),
+		PinnedSourceRevisionID: strings.TrimSpace(r.sourceRevision.ID),
+		LatestSourceRevisionID: strings.TrimSpace(r.latestRevision.ID),
+	}
+	if summary.LatestSourceRevisionID == "" {
+		summary.LatestSourceRevisionID = summary.PinnedSourceRevisionID
+	}
+	if summary.Exists {
+		summary.Summary = "A newer source revision exists while this agreement remains pinned to the revision used at creation time."
+	} else {
+		summary.Summary = "This agreement remains pinned to the latest known source revision."
+	}
+	return summary
 }
 
 func sourceRevisionSummaryFromRecord(record stores.SourceRevisionRecord) *SourceRevisionSummary {
@@ -649,7 +673,7 @@ func candidateWarningSummaryFromRelationship(relationship stores.SourceRelations
 			Label: "Candidate match evidence",
 		})
 	}
-	for _, key := range []string{"normalized_text_similarity", "title_similarity", "account_match", "web_url"} {
+	for _, key := range []string{"normalized_text_similarity", "title_similarity", "account_match", "drive_match", "web_url"} {
 		if value := lineageMetadataString(evidence, key); value != "" {
 			summary.Evidence = append(summary.Evidence, CandidateEvidenceSummary{
 				Code:    key,
@@ -684,6 +708,8 @@ func humanizeLineageEvidenceKey(key string) string {
 		return "Title similarity"
 	case "account_match":
 		return "Account corroboration"
+	case "drive_match":
+		return "Drive corroboration"
 	case "web_url":
 		return "Source URL history"
 	default:

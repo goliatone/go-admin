@@ -97,6 +97,9 @@ type ESignModule struct {
 	google             googleIntegrationService
 	sourceLineageQueue *jobs.SourceLineageQueue
 	googleImportQueue  *jobs.GoogleDriveImportQueue
+	sourceReadModels   services.SourceReadModelService
+	sourceDiagnostics  services.LineageDiagnosticsService
+	reconciliation     services.SourceReconciliationService
 	emailOutbox        *jobs.EmailOutboxDispatcher
 	signingWorkflows   *jobs.SigningWorkflowOutboxDispatcher
 	integrations       services.IntegrationFoundationService
@@ -394,7 +397,10 @@ func (m *ESignModule) ValidateStartup(ctx context.Context) error {
 	if m == nil {
 		return fmt.Errorf("esign module: startup validator module is nil")
 	}
-	return m.validateGoogleRuntimeWiring(ctx, resolveESignStrictStartup())
+	if err := m.validateGoogleRuntimeWiring(ctx, resolveESignStrictStartup()); err != nil {
+		return err
+	}
+	return m.validateLineageRuntimeWiring(ctx)
 }
 
 func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
@@ -735,6 +741,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			services.WithSourceReadModelImportRuns(m.store),
 		)
 	}
+	m.sourceReadModels = sourceReadModels
+	m.sourceDiagnostics = lineageDiagnostics
+	m.reconciliation = sourceReconciliation
 	googleRuntime := handlers.GoogleRuntimeConfig{
 		Enabled:     m.googleEnabled,
 		Integration: m.google,
@@ -824,6 +833,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		m.defaultScope,
 		m.settings,
 	)
+	docRepo.authorizer = adm.Authorizer()
 	docBuilder := adm.Panel(esignDocumentsPanelID).
 		WithRepository(docRepo).
 		WithActionStateResolver(documentsActionStateResolver(m.basePath, m.store, m.defaultScope)).
@@ -881,6 +891,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	}
 
 	agreementRepo := newAgreementPanelRepository(m.store, m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
+	agreementRepo.authorizer = adm.Authorizer()
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
 		ListFields(
@@ -1440,6 +1451,28 @@ func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bo
 		return fmt.Errorf("esign module: google provider degraded at startup (mode=%s reason=%s)", strings.TrimSpace(health.Mode), strings.TrimSpace(health.Reason))
 	}
 	slog.Warn("esign module: google provider degraded at startup", "mode", health.Mode, "reason", health.Reason)
+	return nil
+}
+
+func (m *ESignModule) validateLineageRuntimeWiring(ctx context.Context) error {
+	if m == nil || m.store == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := any(m.store).(stores.LineageStore); !ok {
+		return nil
+	}
+	if m.sourceReadModels == nil {
+		return fmt.Errorf("esign module: source read model service is required when lineage store is enabled")
+	}
+	if m.sourceDiagnostics == nil {
+		return fmt.Errorf("esign module: lineage diagnostics service is required when lineage store is enabled")
+	}
+	if m.googleEnabled && m.sourceLineageQueue == nil {
+		return fmt.Errorf("esign module: source lineage queue is required when esign_google is enabled")
+	}
 	return nil
 }
 

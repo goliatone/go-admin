@@ -96,13 +96,6 @@ func (s DefaultLineageDiagnosticsService) GetAgreementLineageDiagnostics(ctx con
 		EmptyState:   detail.EmptyState,
 	}
 	pinnedRevisionID := strings.TrimSpace(agreement.SourceRevisionID)
-	if pinnedRevisionID == "" && s.readModels.documents != nil && strings.TrimSpace(agreement.DocumentID) != "" {
-		if document, docErr := s.readModels.documents.Get(ctx, scope, agreement.DocumentID); docErr == nil {
-			pinnedRevisionID = strings.TrimSpace(document.SourceRevisionID)
-		} else if !isNotFound(docErr) {
-			return LineageDiagnostics{}, docErr
-		}
-	}
 	if s.readModels.lineage == nil || pinnedRevisionID == "" {
 		return diagnostics, nil
 	}
@@ -354,9 +347,6 @@ func (s DefaultLineageRepairService) RepairAgreement(ctx context.Context, scope 
 		loaded, docErr := s.readModels.documents.Get(ctx, scope, agreement.DocumentID)
 		if docErr == nil {
 			document = loaded
-			if sourceRevisionID == "" {
-				sourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
-			}
 		} else if !isNotFound(docErr) {
 			return LineageRepairResult{}, docErr
 		}

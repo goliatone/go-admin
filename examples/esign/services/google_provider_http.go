@@ -66,6 +66,7 @@ type googleDriveFilePayload struct {
 	Name         string   `json:"name"`
 	MimeType     string   `json:"mimeType"`
 	WebViewLink  string   `json:"webViewLink"`
+	DriveID      string   `json:"driveId"`
 	Parents      []string `json:"parents"`
 	ModifiedTime string   `json:"modifiedTime"`
 	Owners       []struct {
@@ -276,7 +277,7 @@ func (p *GoogleHTTPProvider) SearchFiles(ctx context.Context, accessToken, query
 		pageSize = 100
 	}
 	params := url.Values{}
-	params.Set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,parents,modifiedTime,owners(emailAddress))")
+	params.Set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,driveId,parents,modifiedTime,owners(emailAddress))")
 	params.Set("pageSize", strconv.Itoa(pageSize))
 	params.Set("q", buildGoogleSearchQuery(query))
 	if strings.TrimSpace(pageToken) != "" {
@@ -318,7 +319,7 @@ func (p *GoogleHTTPProvider) BrowseFiles(ctx context.Context, accessToken, folde
 		folderID = "root"
 	}
 	params := url.Values{}
-	params.Set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,parents,modifiedTime,owners(emailAddress))")
+	params.Set("fields", "nextPageToken,files(id,name,mimeType,webViewLink,driveId,parents,modifiedTime,owners(emailAddress))")
 	params.Set("pageSize", strconv.Itoa(pageSize))
 	params.Set("q", fmt.Sprintf("'%s' in parents and trashed = false", escapeGoogleDriveQueryValue(folderID)))
 	if strings.TrimSpace(pageToken) != "" {
@@ -406,7 +407,7 @@ func (p *GoogleHTTPProvider) DownloadFilePDF(ctx context.Context, accessToken, f
 
 func (p *GoogleHTTPProvider) fetchDriveFileMetadata(ctx context.Context, accessToken, fileID string) (GoogleDriveFile, error) {
 	params := url.Values{}
-	params.Set("fields", "id,name,mimeType,webViewLink,parents,modifiedTime,owners(emailAddress)")
+	params.Set("fields", "id,name,mimeType,webViewLink,driveId,parents,modifiedTime,owners(emailAddress)")
 	endpoint := fmt.Sprintf("%s/files/%s?%s", p.driveBaseURL, url.PathEscape(fileID), params.Encode())
 	respBody, statusCode, err := p.requestJSON(ctx, http.MethodGet, endpoint, accessToken, nil)
 	if err != nil {
@@ -420,6 +421,7 @@ func (p *GoogleHTTPProvider) fetchDriveFileMetadata(ctx context.Context, accessT
 		Name         string   `json:"name"`
 		MimeType     string   `json:"mimeType"`
 		WebViewLink  string   `json:"webViewLink"`
+		DriveID      string   `json:"driveId"`
 		Parents      []string `json:"parents"`
 		ModifiedTime string   `json:"modifiedTime"`
 		Owners       []struct {
@@ -444,6 +446,7 @@ func (p *GoogleHTTPProvider) fetchDriveFileMetadata(ctx context.Context, accessT
 		MimeType:     strings.TrimSpace(payload.MimeType),
 		WebViewURL:   strings.TrimSpace(payload.WebViewLink),
 		OwnerEmail:   ownerEmail,
+		DriveID:      strings.TrimSpace(payload.DriveID),
 		ParentID:     parentID,
 		ModifiedTime: modifiedAt,
 	}, nil
@@ -547,6 +550,7 @@ func decodeGoogleDriveFiles(in []googleDriveFilePayload) []GoogleDriveFile {
 			MimeType:     strings.TrimSpace(record.MimeType),
 			WebViewURL:   strings.TrimSpace(record.WebViewLink),
 			OwnerEmail:   ownerEmail,
+			DriveID:      strings.TrimSpace(record.DriveID),
 			ParentID:     parentID,
 			ModifiedTime: modifiedAt,
 		})

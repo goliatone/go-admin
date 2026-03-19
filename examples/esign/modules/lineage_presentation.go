@@ -61,6 +61,8 @@ func buildAgreementLineagePresentation(detail services.AgreementLineageDetail) m
 		"has_artifact":           hasArtifact,
 		"has_candidate_warnings": len(detail.CandidateWarningSummary) > 0,
 		"newer_source_exists":    detail.NewerSourceExists,
+		"newer_source":           normalizePresentationNewerSource(detail.NewerSourceSummary),
+		"source":                 normalizePresentationSource(detail.SourceDocument, sourceType),
 		"revision":               normalizePresentationRevision(detail.SourceRevision),
 		"artifact":               normalizePresentationArtifact(detail.LinkedDocumentArtifact),
 		"google_source":          normalizePresentationGoogleSource(detail.GoogleSource),
@@ -205,6 +207,18 @@ func normalizePresentationEmptyState(state services.LineageEmptyState) map[strin
 		"title":            strings.TrimSpace(state.Title),
 		"description":      strings.TrimSpace(state.Description),
 		"show_placeholder": strings.TrimSpace(state.Kind) != services.LineageEmptyStateNone,
+	}
+}
+
+func normalizePresentationNewerSource(summary *services.NewerSourceSummary) map[string]any {
+	if summary == nil {
+		return nil
+	}
+	return map[string]any{
+		"exists":                    summary.Exists,
+		"pinned_source_revision_id": strings.TrimSpace(summary.PinnedSourceRevisionID),
+		"latest_source_revision_id": strings.TrimSpace(summary.LatestSourceRevisionID),
+		"summary":                   strings.TrimSpace(summary.Summary),
 	}
 }
 

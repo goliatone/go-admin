@@ -33,6 +33,7 @@ type sourceHandleBinding struct {
 type sourceCandidateContext struct {
 	Document         stores.SourceDocumentRecord
 	Handle           stores.SourceHandleRecord
+	DriveID          string
 	OwnerEmail       string
 	ParentID         string
 	WebURL           string
@@ -251,8 +252,12 @@ func (s DefaultSourceIdentityService) scoreCandidateTarget(ctx context.Context, 
 	for _, candidate := range contexts {
 		score := 0.0
 		corroborationCount := 0
-		if metadata.ParentID != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(firstNonEmpty(candidate.ParentID, candidate.Handle.DriveID))) {
+		if metadata.DriveID != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidate.DriveID, candidate.Handle.DriveID))) {
 			score += 0.35
+			corroborationCount++
+		}
+		if metadata.ParentID != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(candidate.ParentID)) {
+			score += 0.2
 			corroborationCount++
 		}
 		if metadata.OwnerEmail != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(candidate.OwnerEmail)) {
@@ -295,7 +300,7 @@ func (s DefaultSourceIdentityService) loadCandidateContexts(ctx context.Context,
 		candidate := sourceCandidateContext{
 			Document:         document,
 			Handle:           handle,
-			ParentID:         strings.TrimSpace(handle.DriveID),
+			DriveID:          strings.TrimSpace(handle.DriveID),
 			WebURL:           strings.TrimSpace(handle.WebURL),
 			SourceHandleSeen: true,
 		}
@@ -307,9 +312,12 @@ func (s DefaultSourceIdentityService) loadCandidateContexts(ctx context.Context,
 			return nil, err
 		}
 		for _, revision := range revisions {
-			ownerEmail, parentID, webURL := revisionMetadataCandidateContext(revision.MetadataJSON)
+			ownerEmail, driveID, parentID, webURL := revisionMetadataCandidateContext(revision.MetadataJSON)
 			if candidate.OwnerEmail == "" {
 				candidate.OwnerEmail = ownerEmail
+			}
+			if candidate.DriveID == "" {
+				candidate.DriveID = driveID
 			}
 			if candidate.ParentID == "" {
 				candidate.ParentID = parentID
@@ -332,13 +340,12 @@ func (s DefaultSourceIdentityService) resolveRevision(ctx context.Context, scope
 	}
 	revisions, err := s.store.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
 		SourceDocumentID: document.ID,
-		SourceHandleID:   handle.ID,
 	})
 	if err != nil {
 		return stores.SourceRevisionRecord{}, err
 	}
 
-	signature := buildRevisionSignature(metadata, input.RevisionContentSHA256)
+	signature := buildCanonicalRevisionSignature(metadata, input.RevisionContentSHA256)
 	for _, revision := range revisions {
 		if metadata.SourceVersionHint != "" && strings.EqualFold(strings.TrimSpace(revision.ProviderRevisionHint), metadata.SourceVersionHint) {
 			return revision, nil
@@ -346,7 +353,7 @@ func (s DefaultSourceIdentityService) resolveRevision(ctx context.Context, scope
 		if input.RevisionContentSHA256 != "" && strings.EqualFold(revisionContentSHA256FromMetadata(revision.MetadataJSON), input.RevisionContentSHA256) {
 			return revision, nil
 		}
-		if revisionSignatureFromMetadata(revision.MetadataJSON) == signature {
+		if signature != "" && revisionSignatureFromMetadata(revision.MetadataJSON) == signature {
 			return revision, nil
 		}
 	}
@@ -389,7 +396,7 @@ func (s DefaultSourceIdentityService) resolveOrCreateSourceHandle(ctx context.Co
 		ProviderKind:     strings.TrimSpace(providerKind),
 		ExternalFileID:   strings.TrimSpace(metadata.ExternalFileID),
 		AccountID:        strings.TrimSpace(metadata.AccountID),
-		DriveID:          strings.TrimSpace(metadata.ParentID),
+		DriveID:          strings.TrimSpace(metadata.DriveID),
 		WebURL:           strings.TrimSpace(metadata.WebURL),
 		HandleStatus:     strings.TrimSpace(status),
 		ValidFrom:        &now,
@@ -454,6 +461,7 @@ func normalizeSourceMetadataBaseline(metadata SourceMetadataBaseline) SourceMeta
 	normalized := metadata
 	normalized.AccountID = strings.TrimSpace(metadata.AccountID)
 	normalized.ExternalFileID = strings.TrimSpace(metadata.ExternalFileID)
+	normalized.DriveID = strings.TrimSpace(metadata.DriveID)
 	normalized.WebURL = strings.TrimSpace(metadata.WebURL)
 	normalized.SourceVersionHint = strings.TrimSpace(metadata.SourceVersionHint)
 	normalized.SourceMimeType = strings.TrimSpace(metadata.SourceMimeType)
@@ -486,6 +494,7 @@ func buildRevisionMetadataJSON(metadata SourceMetadataBaseline, input SourceIden
 		"origin":                  "native_google_import",
 		"external_file_id":        metadata.ExternalFileID,
 		"account_id":              metadata.AccountID,
+		"drive_id":                metadata.DriveID,
 		"web_url":                 metadata.WebURL,
 		"title_hint":              metadata.TitleHint,
 		"owner_email":             metadata.OwnerEmail,
@@ -529,13 +538,16 @@ func revisionContentSHA256FromMetadata(raw string) string {
 	return ""
 }
 
-func revisionMetadataCandidateContext(raw string) (ownerEmail string, parentID string, webURL string) {
+func revisionMetadataCandidateContext(raw string) (ownerEmail string, driveID string, parentID string, webURL string) {
 	decoded := map[string]any{}
 	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &decoded); err != nil {
-		return "", "", ""
+		return "", "", "", ""
 	}
 	if value, ok := decoded["owner_email"].(string); ok {
 		ownerEmail = strings.TrimSpace(strings.ToLower(value))
+	}
+	if value, ok := decoded["drive_id"].(string); ok {
+		driveID = strings.TrimSpace(value)
 	}
 	if value, ok := decoded["parent_id"].(string); ok {
 		parentID = strings.TrimSpace(value)
@@ -543,23 +555,18 @@ func revisionMetadataCandidateContext(raw string) (ownerEmail string, parentID s
 	if value, ok := decoded["web_url"].(string); ok {
 		webURL = strings.TrimSpace(value)
 	}
-	return ownerEmail, parentID, webURL
+	return ownerEmail, driveID, parentID, webURL
 }
 
-func buildRevisionSignature(metadata SourceMetadataBaseline, contentSHA256 string) string {
-	parts := []string{
-		"account_id=" + strings.TrimSpace(strings.ToLower(metadata.AccountID)),
+func buildCanonicalRevisionSignature(metadata SourceMetadataBaseline, contentSHA256 string) string {
+	contentSHA256 = strings.TrimSpace(strings.ToLower(contentSHA256))
+	if contentSHA256 == "" {
+		return ""
+	}
+	return strings.Join([]string{
 		"source_mime_type=" + strings.TrimSpace(strings.ToLower(metadata.SourceMimeType)),
-		"title_hint=" + strings.TrimSpace(strings.ToLower(metadata.TitleHint)),
-		"owner_email=" + strings.TrimSpace(strings.ToLower(metadata.OwnerEmail)),
-		"parent_id=" + strings.TrimSpace(strings.ToLower(metadata.ParentID)),
-		"web_url=" + strings.TrimSpace(strings.ToLower(metadata.WebURL)),
-		"content_sha256=" + strings.TrimSpace(strings.ToLower(contentSHA256)),
-	}
-	if metadata.ModifiedTime != nil && !metadata.ModifiedTime.IsZero() {
-		parts = append(parts, "modified_time="+metadata.ModifiedTime.UTC().Format(time.RFC3339Nano))
-	}
-	return strings.Join(parts, "|")
+		"content_sha256=" + contentSHA256,
+	}, "|")
 }
 
 func orderedRelationshipIDs(leftID, rightID string) (string, string) {

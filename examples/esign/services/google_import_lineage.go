@@ -11,7 +11,10 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 )
+
+const googleImportRunFailureCode = "GOOGLE_IMPORT_FAILED"
 
 type googleImportExecutionDeps struct {
 	documents  GoogleDocumentUploader
@@ -85,6 +88,12 @@ func executeGoogleImportWithPersistence(
 	}
 
 	if execution.identity != nil && persistence.tx == nil {
+		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
+			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(
+				domainValidationError("google", "transaction_manager", "required for lineage imports"),
+				execution.now().UTC(),
+			))
+		}
 		return GoogleImportResult{}, domainValidationError("google", "transaction_manager", "required for lineage imports")
 	}
 
@@ -92,11 +101,7 @@ func executeGoogleImportWithPersistence(
 		result, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
 		if err != nil {
 			if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
-					ErrorCode:    string(ErrorCodeGooglePermissionDenied),
-					ErrorMessage: strings.TrimSpace(err.Error()),
-					CompletedAt:  execution.now().UTC(),
-				})
+				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(err, execution.now().UTC()))
 			}
 			return GoogleImportResult{}, err
 		}
@@ -131,15 +136,50 @@ func executeGoogleImportWithPersistence(
 	})
 	if err != nil {
 		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
-				ErrorCode:    string(ErrorCodeGooglePermissionDenied),
-				ErrorMessage: strings.TrimSpace(err.Error()),
-				CompletedAt:  execution.now().UTC(),
-			})
+			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(err, execution.now().UTC()))
 		}
 		return GoogleImportResult{}, err
 	}
 	return result, nil
+}
+
+func googleImportRunFailureInput(err error, completedAt time.Time) stores.GoogleImportRunFailureInput {
+	failure := stores.GoogleImportRunFailureInput{
+		ErrorCode:    googleImportRunFailureCode,
+		ErrorMessage: strings.TrimSpace(err.Error()),
+		CompletedAt:  completedAt.UTC(),
+	}
+
+	mapped := MapGoogleProviderError(err)
+	var coded *goerrors.Error
+	if goerrors.As(mapped, &coded) && coded != nil {
+		if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
+			failure.ErrorCode = textCode
+		}
+		if message := strings.TrimSpace(coded.Message); message != "" {
+			failure.ErrorMessage = message
+		}
+		details := map[string]any{}
+		if category := strings.TrimSpace(string(coded.Category)); category != "" {
+			details["category"] = category
+		}
+		if coded.Code != 0 {
+			details["http_status"] = coded.Code
+		}
+		if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
+			details["text_code"] = textCode
+		}
+		if len(coded.Metadata) > 0 {
+			details["metadata"] = coded.Metadata
+		}
+		if len(details) > 0 {
+			if encoded, marshalErr := json.Marshal(details); marshalErr == nil {
+				failure.ErrorDetailsJSON = string(encoded)
+			}
+		}
+	}
+
+	return failure
 }
 
 func markGoogleImportRunSucceeded(ctx context.Context, scope stores.Scope, store stores.GoogleImportRunStore, runID string, result GoogleImportResult, completedAt time.Time) error {
@@ -284,6 +324,7 @@ func executeGoogleImportWithLineage(
 			Metadata: SourceMetadataBaseline{
 				AccountID:           strings.TrimSpace(input.AccountID),
 				ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
+				DriveID:             strings.TrimSpace(snapshot.File.DriveID),
 				WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
 				ModifiedTime:        &modifiedTime,
 				SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),

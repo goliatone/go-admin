@@ -38,6 +38,7 @@ const (
 type SourceMetadataBaseline struct {
 	AccountID           string     `json:"account_id"`
 	ExternalFileID      string     `json:"external_file_id"`
+	DriveID             string     `json:"drive_id,omitempty"`
 	WebURL              string     `json:"web_url"`
 	ModifiedTime        *time.Time `json:"modified_time,omitempty"`
 	SourceVersionHint   string     `json:"source_version_hint"`
@@ -120,6 +121,13 @@ type LineageEmptyState struct {
 	Description string `json:"description"`
 }
 
+type NewerSourceSummary struct {
+	Exists                 bool   `json:"exists"`
+	PinnedSourceRevisionID string `json:"pinned_source_revision_id,omitempty"`
+	LatestSourceRevisionID string `json:"latest_source_revision_id,omitempty"`
+	Summary                string `json:"summary,omitempty"`
+}
+
 // DocumentLineageDetail is the canonical backend-owned detail payload for document provenance.
 type DocumentLineageDetail struct {
 	DocumentID              string                       `json:"document_id"`
@@ -137,10 +145,13 @@ type DocumentLineageDetail struct {
 // AgreementLineageDetail is the canonical backend-owned detail payload for agreement provenance.
 type AgreementLineageDetail struct {
 	AgreementID             string                       `json:"agreement_id"`
+	PinnedSourceRevisionID  string                       `json:"pinned_source_revision_id,omitempty"`
+	SourceDocument          *LineageReference            `json:"source_document,omitempty"`
 	SourceRevision          *SourceRevisionSummary       `json:"source_revision,omitempty"`
 	LinkedDocumentArtifact  *SourceArtifactSummary       `json:"linked_document_artifact,omitempty"`
 	GoogleSource            *SourceMetadataBaseline      `json:"google_source,omitempty"`
 	NewerSourceExists       bool                         `json:"newer_source_exists"`
+	NewerSourceSummary      *NewerSourceSummary          `json:"newer_source_summary,omitempty"`
 	CandidateWarningSummary []CandidateWarningSummary    `json:"candidate_warning_summary,omitempty"`
 	PresentationWarnings    []LineagePresentationWarning `json:"presentation_warnings,omitempty"`
 	DiagnosticsURL          string                       `json:"diagnostics_url,omitempty"`

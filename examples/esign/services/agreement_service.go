@@ -565,13 +565,6 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 			return err
 		}
 		sourceRevisionID := strings.TrimSpace(source.SourceRevisionID)
-		if sourceRevisionID == "" && txSvc.documents != nil && strings.TrimSpace(source.DocumentID) != "" {
-			document, docErr := txSvc.documents.Get(ctx, scope, source.DocumentID)
-			if docErr != nil {
-				return docErr
-			}
-			sourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
-		}
 		now := txSvc.now().UTC()
 		rootAgreementID := strings.TrimSpace(source.RootAgreementID)
 		if rootAgreementID == "" {

@@ -15,6 +15,7 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
+	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
@@ -46,6 +47,7 @@ type documentPanelRepository struct {
 	uploads      *uploader.Manager
 	defaultScope stores.Scope
 	settings     RuntimeSettings
+	authorizer   coreadmin.Authorizer
 }
 
 func newDocumentPanelRepository(store stores.DocumentStore, agreements stores.AgreementStore, uploader services.DocumentService, uploads *uploader.Manager, defaultScope stores.Scope, settings RuntimeSettings) *documentPanelRepository {
@@ -120,6 +122,7 @@ func (r *documentPanelRepository) Get(ctx context.Context, id string) (map[strin
 		if err != nil {
 			return nil, err
 		}
+		lineage = sanitizeDocumentLineageDetailForPermissions(ctx, r.authorizer, permissions.AdminESignView, lineage)
 		result["lineage"] = lineage
 		result["lineage_presentation"] = buildDocumentLineagePresentation(lineage)
 	}
@@ -365,6 +368,7 @@ type agreementPanelRepository struct {
 	objectStore  quickstart.BinaryObjectStore
 	defaultScope stores.Scope
 	settings     RuntimeSettings
+	authorizer   coreadmin.Authorizer
 }
 
 func newAgreementPanelRepository(
@@ -536,6 +540,7 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 		if err != nil {
 			return nil, err
 		}
+		lineage = sanitizeAgreementLineageDetailForPermissions(ctx, r.authorizer, permissions.AdminESignView, lineage)
 		result["lineage"] = lineage
 		result["lineage_presentation"] = buildAgreementLineagePresentation(lineage)
 	}

@@ -86,8 +86,17 @@ func TestAgreementPanelRepositoryGetIncludesCanonicalLineageDetail(t *testing.T)
 	if lineage.SourceRevision == nil || expected.SourceRevision == nil || lineage.SourceRevision.ID != expected.SourceRevision.ID {
 		t.Fatalf("expected agreement lineage payload to pass through canonical detail, got %+v want %+v", lineage, expected)
 	}
+	if lineage.PinnedSourceRevisionID != expected.PinnedSourceRevisionID {
+		t.Fatalf("expected pinned_source_revision_id %q, got %+v", expected.PinnedSourceRevisionID, lineage)
+	}
+	if lineage.SourceDocument == nil || expected.SourceDocument == nil || lineage.SourceDocument.ID != expected.SourceDocument.ID {
+		t.Fatalf("expected agreement source_document to pass through, got %+v want %+v", lineage.SourceDocument, expected.SourceDocument)
+	}
 	if lineage.NewerSourceExists != expected.NewerSourceExists {
 		t.Fatalf("expected newer_source_exists=%v, got %+v want %+v", expected.NewerSourceExists, lineage, expected)
+	}
+	if lineage.NewerSourceSummary == nil || expected.NewerSourceSummary == nil || lineage.NewerSourceSummary.LatestSourceRevisionID != expected.NewerSourceSummary.LatestSourceRevisionID {
+		t.Fatalf("expected newer_source_summary to pass through, got %+v want %+v", lineage.NewerSourceSummary, expected.NewerSourceSummary)
 	}
 	presentation, ok := record["lineage_presentation"].(map[string]any)
 	if !ok {
@@ -99,12 +108,75 @@ func TestAgreementPanelRepositoryGetIncludesCanonicalLineageDetail(t *testing.T)
 	if got := toString(presentation["diagnostics_url"]); got != expected.DiagnosticsURL {
 		t.Fatalf("expected agreement diagnostics_url %q, got %+v", expected.DiagnosticsURL, presentation)
 	}
+	source, ok := presentation["source"].(map[string]any)
+	if !ok || toString(source["url"]) != expected.SourceDocument.URL {
+		t.Fatalf("expected agreement presentation source link %q, got %+v", expected.SourceDocument.URL, presentation["source"])
+	}
 	warnings, ok := presentation["warnings"].([]map[string]any)
 	if !ok || len(warnings) == 0 {
 		t.Fatalf("expected agreement presentation warnings, got %+v", presentation["warnings"])
 	}
 	if got := toString(warnings[0]["action_url"]); got != expected.DiagnosticsURL {
 		t.Fatalf("expected agreement warning action_url %q, got %+v", expected.DiagnosticsURL, warnings[0])
+	}
+}
+
+func TestPanelRepositoriesStripLineageLinkoutsWhenAuthorizerDeniesView(t *testing.T) {
+	store, scope, fixtures := seedPanelLineageFixtures(t)
+	denyView := panelLineageAuthorizer{allowed: map[string]bool{}}
+
+	docRepo := newDocumentPanelRepository(store, store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	docRepo.authorizer = denyView
+	documentRecord, err := docRepo.Get(context.Background(), fixtures.documentID)
+	if err != nil {
+		t.Fatalf("document Get: %v", err)
+	}
+	documentLineage, ok := documentRecord["lineage"].(services.DocumentLineageDetail)
+	if !ok {
+		t.Fatalf("expected document lineage detail payload, got %T", documentRecord["lineage"])
+	}
+	if documentLineage.SourceDocument == nil || documentLineage.SourceDocument.URL != "" {
+		t.Fatalf("expected document source link stripped, got %+v", documentLineage.SourceDocument)
+	}
+	if documentLineage.GoogleSource == nil || documentLineage.GoogleSource.WebURL != "" {
+		t.Fatalf("expected document google link stripped, got %+v", documentLineage.GoogleSource)
+	}
+	if documentLineage.DiagnosticsURL != "" {
+		t.Fatalf("expected document diagnostics url stripped, got %+v", documentLineage)
+	}
+
+	agreementRepo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+	agreementRepo.authorizer = denyView
+	agreementRecord, err := agreementRepo.Get(context.Background(), fixtures.agreementID)
+	if err != nil {
+		t.Fatalf("agreement Get: %v", err)
+	}
+	agreementLineage, ok := agreementRecord["lineage"].(services.AgreementLineageDetail)
+	if !ok {
+		t.Fatalf("expected agreement lineage detail payload, got %T", agreementRecord["lineage"])
+	}
+	if agreementLineage.SourceDocument == nil || agreementLineage.SourceDocument.URL != "" {
+		t.Fatalf("expected agreement source link stripped, got %+v", agreementLineage.SourceDocument)
+	}
+	if agreementLineage.GoogleSource == nil || agreementLineage.GoogleSource.WebURL != "" {
+		t.Fatalf("expected agreement google link stripped, got %+v", agreementLineage.GoogleSource)
+	}
+	if agreementLineage.DiagnosticsURL != "" {
+		t.Fatalf("expected agreement diagnostics url stripped, got %+v", agreementLineage)
+	}
+	for _, warning := range agreementLineage.PresentationWarnings {
+		if warning.ActionURL != "" || warning.ActionLabel != "" {
+			t.Fatalf("expected agreement warning action stripped, got %+v", warning)
+		}
 	}
 }
 
@@ -284,4 +356,15 @@ type panelLineageFixtures struct {
 	secondRevisionID  string
 	sourceArtifactID  string
 	candidateSourceID string
+}
+
+type panelLineageAuthorizer struct {
+	allowed map[string]bool
+}
+
+func (a panelLineageAuthorizer) Can(_ context.Context, action string, _ string) bool {
+	if len(a.allowed) == 0 {
+		return false
+	}
+	return a.allowed[action]
 }

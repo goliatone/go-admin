@@ -193,8 +193,9 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
 	relationshipID := strings.TrimSpace(input.RelationshipID)
 	action := strings.TrimSpace(strings.ToLower(input.Action))
-	if relationshipID == "" || action == "" {
-		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship_id|action", "required")
+	actorID := strings.TrimSpace(input.ActorID)
+	if relationshipID == "" || action == "" || actorID == "" {
+		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
 	}
 	relationship, err := s.lineage.GetSourceRelationship(ctx, scope, relationshipID)
 	if err != nil {
@@ -206,7 +207,7 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 
 	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
 	evidence["review_action"] = action
-	evidence["reviewed_by_user_id"] = strings.TrimSpace(input.ActorID)
+	evidence["reviewed_by_user_id"] = actorID
 	evidence["review_reason"] = strings.TrimSpace(input.Reason)
 	evidence["reviewed_at"] = s.now().UTC().Format(time.RFC3339Nano)
 
@@ -304,6 +305,7 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 	normalizedSimilarity := reconciliationNormalizedTextSimilarity(targetFingerprint, candidate.fingerprint)
 	exactArtifactMatch := strings.TrimSpace(targetArtifact.SHA256) != "" && strings.TrimSpace(targetArtifact.SHA256) == strings.TrimSpace(candidate.artifact.SHA256)
 	accountMatch := strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidate.handle.AccountID))
+	driveMatch := strings.TrimSpace(metadata.DriveID) != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidate.handle.DriveID, reconciliationMetadataString(candidate.revision.MetadataJSON, "drive_id"))))
 	webURLMatch := strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(candidate.handle.WebURL))
 	ownerMatch := strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "owner_email")))
 	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "parent_id")))
@@ -318,7 +320,10 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		score += titleSimilarity * 0.14
 		score += temporal * 0.08
 		if accountMatch {
-			score += 0.08
+			score += 0.06
+		}
+		if driveMatch {
+			score += 0.05
 		}
 		if webURLMatch {
 			score += 0.1
@@ -365,6 +370,7 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		"title_similarity":             fmt.Sprintf("%.3f", titleSimilarity),
 		"temporal_proximity":           fmt.Sprintf("%.3f", temporal),
 		"account_match":                fmt.Sprintf("%t", accountMatch),
+		"drive_match":                  fmt.Sprintf("%t", driveMatch),
 		"web_url":                      fmt.Sprintf("%t", webURLMatch),
 		"owner_match":                  fmt.Sprintf("%t", ownerMatch),
 		"folder_match":                 fmt.Sprintf("%t", folderMatch),

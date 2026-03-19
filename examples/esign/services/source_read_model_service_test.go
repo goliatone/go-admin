@@ -103,11 +103,23 @@ func TestDefaultSourceReadModelServiceBuildsAgreementDetails(t *testing.T) {
 	if imported.SourceRevision == nil || imported.SourceRevision.ID != seeded.firstSourceRevisionID {
 		t.Fatalf("expected imported agreement pinned revision %q, got %+v", seeded.firstSourceRevisionID, imported.SourceRevision)
 	}
+	if imported.PinnedSourceRevisionID != seeded.firstSourceRevisionID {
+		t.Fatalf("expected imported agreement pinned_source_revision_id %q, got %+v", seeded.firstSourceRevisionID, imported)
+	}
+	if imported.SourceDocument == nil || imported.SourceDocument.ID != seeded.sourceDocumentID {
+		t.Fatalf("expected imported agreement source_document_id %q, got %+v", seeded.sourceDocumentID, imported.SourceDocument)
+	}
 	if imported.LinkedDocumentArtifact == nil || imported.LinkedDocumentArtifact.ID != seeded.firstSourceArtifactID {
 		t.Fatalf("expected imported agreement artifact %q, got %+v", seeded.firstSourceArtifactID, imported.LinkedDocumentArtifact)
 	}
 	if !imported.NewerSourceExists {
 		t.Fatalf("expected imported agreement to detect newer source")
+	}
+	if imported.NewerSourceSummary == nil || !imported.NewerSourceSummary.Exists {
+		t.Fatalf("expected imported agreement newer source summary, got %+v", imported.NewerSourceSummary)
+	}
+	if imported.NewerSourceSummary.PinnedSourceRevisionID != seeded.firstSourceRevisionID || imported.NewerSourceSummary.LatestSourceRevisionID != seeded.secondSourceRevisionID {
+		t.Fatalf("expected imported agreement newer source summary ids, got %+v", imported.NewerSourceSummary)
 	}
 	if len(imported.CandidateWarningSummary) != 1 {
 		t.Fatalf("expected imported agreement candidate warning, got %+v", imported.CandidateWarningSummary)
@@ -142,11 +154,53 @@ func TestDefaultSourceReadModelServiceBuildsAgreementDetails(t *testing.T) {
 	if laterDetail.SourceRevision == nil || laterDetail.SourceRevision.ID != seeded.secondSourceRevisionID {
 		t.Fatalf("expected later-created agreement pinned revision %q, got %+v", seeded.secondSourceRevisionID, laterDetail.SourceRevision)
 	}
+	if laterDetail.PinnedSourceRevisionID != seeded.secondSourceRevisionID {
+		t.Fatalf("expected later-created agreement pinned_source_revision_id %q, got %+v", seeded.secondSourceRevisionID, laterDetail)
+	}
 	if laterDetail.LinkedDocumentArtifact == nil || laterDetail.LinkedDocumentArtifact.ID != seeded.secondSourceArtifactID {
 		t.Fatalf("expected later-created agreement artifact %q, got %+v", seeded.secondSourceArtifactID, laterDetail.LinkedDocumentArtifact)
 	}
 	if laterDetail.NewerSourceExists {
 		t.Fatalf("expected later-created agreement to be pinned to latest source")
+	}
+	if laterDetail.NewerSourceSummary == nil || laterDetail.NewerSourceSummary.Exists {
+		t.Fatalf("expected later-created agreement newer source summary to report pinned latest revision, got %+v", laterDetail.NewerSourceSummary)
+	}
+}
+
+func TestDefaultSourceReadModelServiceRequiresPinnedAgreementRevision(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(store, store, store)
+
+	agreement, err := store.CreateDraft(context.Background(), scope, stores.AgreementRecord{
+		ID:                 "agr-missing-pin",
+		DocumentID:         seeded.importedDocumentID,
+		Status:             stores.AgreementStatusDraft,
+		Title:              "Agreement Missing Pinned Revision",
+		CreatedByUserID:    "fixture-user",
+		UpdatedByUserID:    "fixture-user",
+		CreatedAt:          time.Date(2026, time.March, 18, 21, 0, 0, 0, time.UTC),
+		UpdatedAt:          time.Date(2026, time.March, 18, 21, 0, 0, 0, time.UTC),
+		SourceRevisionID:   "",
+		SourceType:         stores.SourceTypeGoogleDrive,
+		SourceGoogleFileID: "fixture-google-file-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft missing-pin agreement: %v", err)
+	}
+
+	detail, err := service.GetAgreementLineageDetail(context.Background(), scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetAgreementLineageDetail missing-pin: %v", err)
+	}
+	if detail.EmptyState.Kind != LineageEmptyStateNoSource {
+		t.Fatalf("expected missing-pin agreement to remain empty-state, got %+v", detail.EmptyState)
+	}
+	if detail.PinnedSourceRevisionID != "" {
+		t.Fatalf("expected missing-pin agreement to omit pinned revision, got %+v", detail)
+	}
+	if detail.SourceRevision != nil || detail.SourceDocument != nil || detail.LinkedDocumentArtifact != nil {
+		t.Fatalf("expected missing-pin agreement to omit lineage details, got %+v", detail)
 	}
 }
 

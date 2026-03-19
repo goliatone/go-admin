@@ -615,6 +615,148 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	}
 }
 
+func TestRuntimeSeededLineageDetailAPIsExposeSlice4Contracts(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime fixture: %v", err)
+	}
+	fixtureSet, _, err := seedESignRuntimeFixtures(context.Background(), "/admin", fixture.Module, fixture.Bootstrap)
+	if err != nil {
+		t.Fatalf("seed runtime fixtures: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	documentResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_documents/"+fixtureSet.ImportedDocumentID+"?"+query, authCookie)
+	defer documentResp.Body.Close()
+	if documentResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(documentResp.Body)
+		t.Fatalf("expected document detail status 200, got %d body=%s", documentResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	documentPayload := map[string]any{}
+	documentBody, _ := io.ReadAll(documentResp.Body)
+	if err := json.Unmarshal(documentBody, &documentPayload); err != nil {
+		t.Fatalf("decode document detail payload: %v body=%s", err, strings.TrimSpace(string(documentBody)))
+	}
+	if data, ok := documentPayload["data"].(map[string]any); ok && data != nil {
+		documentPayload = data
+	}
+	documentLineage, ok := documentPayload["lineage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected document lineage payload, got %+v", documentPayload["lineage"])
+	}
+	for _, key := range []string{"source_document", "source_revision", "source_artifact", "google_source", "fingerprint_status", "candidate_warning_summary"} {
+		if _, ok := documentLineage[key]; !ok {
+			t.Fatalf("expected document lineage field %q, got %+v", key, documentLineage)
+		}
+	}
+
+	agreementResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+fixtureSet.ImportedAgreementID+"?"+query, authCookie)
+	defer agreementResp.Body.Close()
+	if agreementResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(agreementResp.Body)
+		t.Fatalf("expected agreement detail status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	agreementPayload := map[string]any{}
+	agreementBody, _ := io.ReadAll(agreementResp.Body)
+	if err := json.Unmarshal(agreementBody, &agreementPayload); err != nil {
+		t.Fatalf("decode agreement detail payload: %v body=%s", err, strings.TrimSpace(string(agreementBody)))
+	}
+	if data, ok := agreementPayload["data"].(map[string]any); ok && data != nil {
+		agreementPayload = data
+	}
+	agreementLineage, ok := agreementPayload["lineage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agreement lineage payload, got %+v", agreementPayload["lineage"])
+	}
+	for _, key := range []string{"pinned_source_revision_id", "source_document", "source_revision", "linked_document_artifact", "google_source", "newer_source_exists", "newer_source_summary"} {
+		if _, ok := agreementLineage[key]; !ok {
+			t.Fatalf("expected agreement lineage field %q, got %+v", key, agreementLineage)
+		}
+	}
+}
+
+func TestRuntimeSeededLineageQAScenarioExposesCandidateWarningsAndNewerSourceStates(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime fixture: %v", err)
+	}
+	fixtureSet, _, err := seedESignRuntimeFixtures(context.Background(), "/admin", fixture.Module, fixture.Bootstrap)
+	if err != nil {
+		t.Fatalf("seed runtime fixtures: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	importedDocumentLineage := fetchPanelLineagePayload(t, app, authCookie, "/admin/api/v1/panels/esign_documents/"+fixtureSet.ImportedDocumentID+"?"+query)
+	repeatedDocumentLineage := fetchPanelLineagePayload(t, app, authCookie, "/admin/api/v1/panels/esign_documents/"+fixtureSet.RepeatedImportDocumentID+"?"+query)
+	importedAgreementLineage := fetchPanelLineagePayload(t, app, authCookie, "/admin/api/v1/panels/esign_agreements/"+fixtureSet.ImportedAgreementID+"?"+query)
+
+	candidateWarnings, ok := importedDocumentLineage["candidate_warning_summary"].([]any)
+	if !ok || len(candidateWarnings) == 0 {
+		t.Fatalf("expected seeded imported document to expose candidate warnings, got %+v", importedDocumentLineage["candidate_warning_summary"])
+	}
+
+	importedSource, ok := importedDocumentLineage["source_document"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_document payload on imported detail, got %+v", importedDocumentLineage["source_document"])
+	}
+	repeatedSource, ok := repeatedDocumentLineage["source_document"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_document payload on repeated detail, got %+v", repeatedDocumentLineage["source_document"])
+	}
+	importedRevision, ok := importedDocumentLineage["source_revision"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_revision payload on imported detail, got %+v", importedDocumentLineage["source_revision"])
+	}
+	repeatedRevision, ok := repeatedDocumentLineage["source_revision"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_revision payload on repeated detail, got %+v", repeatedDocumentLineage["source_revision"])
+	}
+	if fmt.Sprint(importedSource["id"]) == "" || fmt.Sprint(importedSource["id"]) != fmt.Sprint(repeatedSource["id"]) {
+		t.Fatalf("expected repeated import QA scenario to share the same source_document_id, imported=%+v repeated=%+v", importedSource, repeatedSource)
+	}
+	if fmt.Sprint(importedRevision["id"]) == "" || fmt.Sprint(importedRevision["id"]) == fmt.Sprint(repeatedRevision["id"]) {
+		t.Fatalf("expected repeated import QA scenario to advance source_revision_id, imported=%+v repeated=%+v", importedRevision, repeatedRevision)
+	}
+
+	if newerSourceExists, ok := importedAgreementLineage["newer_source_exists"].(bool); !ok || !newerSourceExists {
+		t.Fatalf("expected imported agreement to expose newer_source_exists, got %+v", importedAgreementLineage["newer_source_exists"])
+	}
+	newerSourceSummary, ok := importedAgreementLineage["newer_source_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected newer_source_summary payload, got %+v", importedAgreementLineage["newer_source_summary"])
+	}
+	if fmt.Sprint(newerSourceSummary["pinned_source_revision_id"]) == "" || fmt.Sprint(newerSourceSummary["latest_source_revision_id"]) == "" {
+		t.Fatalf("expected newer source summary revision ids, got %+v", newerSourceSummary)
+	}
+	if fmt.Sprint(newerSourceSummary["pinned_source_revision_id"]) == fmt.Sprint(newerSourceSummary["latest_source_revision_id"]) {
+		t.Fatalf("expected newer source summary to differentiate pinned and latest revisions, got %+v", newerSourceSummary)
+	}
+}
+
 func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T) {
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
@@ -1993,6 +2135,29 @@ func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cook
 		t.Fatalf("expected id in create payload, got %+v", out)
 	}
 	return id
+}
+
+func fetchPanelLineagePayload(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string) map[string]any {
+	t.Helper()
+	resp := doRequestWithCookie(t, app, http.MethodGet, endpoint, cookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected lineage detail status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	rawBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		t.Fatalf("decode lineage detail payload: %v body=%s", err, strings.TrimSpace(string(rawBody)))
+	}
+	if data, ok := payload["data"].(map[string]any); ok && data != nil {
+		payload = data
+	}
+	lineage, ok := payload["lineage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected lineage object, got %+v", payload["lineage"])
+	}
+	return lineage
 }
 
 func parseIDFromLocation(prefix, location string) string {

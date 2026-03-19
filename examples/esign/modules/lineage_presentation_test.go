@@ -73,6 +73,33 @@ func TestBuildAgreementLineagePresentationTreatsArtifactOnlyLineageAsPartial(t *
 	}
 }
 
+func TestBuildAgreementLineagePresentationExposesSourceAndNewerSourceSummary(t *testing.T) {
+	presentation := buildAgreementLineagePresentation(services.AgreementLineageDetail{
+		AgreementID:            "agr-lineage-native",
+		SourceDocument:         &services.LineageReference{ID: "src-doc-1", Label: "Master Service Agreement", URL: "https://docs.google.com/document/d/src-doc-1/edit"},
+		PinnedSourceRevisionID: "src-rev-1",
+		SourceRevision:         &services.SourceRevisionSummary{ID: "src-rev-1", ProviderRevisionHint: "v1"},
+		LinkedDocumentArtifact: &services.SourceArtifactSummary{ID: "src-art-1", ArtifactKind: "signable_pdf"},
+		NewerSourceExists:      true,
+		NewerSourceSummary: &services.NewerSourceSummary{
+			Exists:                 true,
+			PinnedSourceRevisionID: "src-rev-1",
+			LatestSourceRevisionID: "src-rev-2",
+			Summary:                "A newer source revision exists while this agreement remains pinned to the revision used at creation time.",
+		},
+		EmptyState: services.LineageEmptyState{Kind: services.LineageEmptyStateNone},
+	})
+
+	source, ok := presentation["source"].(map[string]any)
+	if !ok || toString(source["url"]) != "https://docs.google.com/document/d/src-doc-1/edit" {
+		t.Fatalf("expected agreement presentation source link, got %+v", presentation["source"])
+	}
+	newerSource, ok := presentation["newer_source"].(map[string]any)
+	if !ok || toString(newerSource["latest_source_revision_id"]) != "src-rev-2" {
+		t.Fatalf("expected agreement newer_source summary, got %+v", presentation["newer_source"])
+	}
+}
+
 func TestBuildDocumentLineagePresentationExposesFingerprintFailureMetadata(t *testing.T) {
 	presentation := buildDocumentLineagePresentation(services.DocumentLineageDetail{
 		DocumentID:     "doc-lineage-failed",

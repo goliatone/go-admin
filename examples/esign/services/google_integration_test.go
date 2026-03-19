@@ -739,6 +739,63 @@ func TestGoogleIntegrationImportDocumentFailsBeforeDocumentOrAgreementWriteWhenL
 	}
 }
 
+func TestGoogleIntegrationImportDocumentMarksRunFailedWithoutPermissionDeniedWhenLineageResolutionFails(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+		WithGoogleSourceIdentityService(failingSourceIdentityService{err: errors.New("lineage resolution failed")}),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	if _, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		AgreementTitle:    "Imported NDA Agreement",
+		CreatedByUserID:   "ops-user",
+		IdempotencyKey:    "lineage-resolution-failure-run",
+	}); err == nil {
+		t.Fatalf("expected lineage resolution failure")
+	}
+
+	runs, _, err := store.ListGoogleImportRuns(ctx, scope, stores.GoogleImportRunQuery{UserID: "import-user", Limit: 10})
+	if err != nil {
+		t.Fatalf("ListGoogleImportRuns: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one import run, got %+v", runs)
+	}
+	run := runs[0]
+	if run.Status != stores.GoogleImportRunStatusFailed {
+		t.Fatalf("expected failed import run, got %+v", run)
+	}
+	if run.ErrorCode != googleImportRunFailureCode {
+		t.Fatalf("expected generic import failure code %q, got %+v", googleImportRunFailureCode, run)
+	}
+	if run.ErrorCode == string(ErrorCodeGooglePermissionDenied) {
+		t.Fatalf("expected lineage resolution failure to avoid GOOGLE_PERMISSION_DENIED, got %+v", run)
+	}
+	if !strings.Contains(run.ErrorMessage, "lineage resolution failed") {
+		t.Fatalf("expected failure message to preserve lineage error, got %+v", run)
+	}
+}
+
 func TestGoogleIntegrationImportDocumentRollsBackLineageAndDocumentWhenAgreementPersistFails(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
@@ -792,6 +849,38 @@ func TestGoogleIntegrationImportDocumentRollsBackLineageAndDocumentWhenAgreement
 	}
 	if len(sourceDocuments) != 0 {
 		t.Fatalf("expected zero source documents after rollback, got %d", len(sourceDocuments))
+	}
+}
+
+func TestGoogleImportRunFailureInputPreservesTypedDomainCodes(t *testing.T) {
+	completedAt := time.Date(2026, 3, 19, 9, 30, 0, 0, time.UTC)
+	input := googleImportRunFailureInput(
+		goerrors.New("unsupported google file type", goerrors.CategoryValidation).
+			WithCode(http.StatusUnprocessableEntity).
+			WithTextCode(string(ErrorCodeGoogleUnsupportedType)).
+			WithMetadata(map[string]any{"file_id": "shared-sheet-1"}),
+		completedAt,
+	)
+
+	if input.ErrorCode != string(ErrorCodeGoogleUnsupportedType) {
+		t.Fatalf("expected typed failure code %q, got %+v", ErrorCodeGoogleUnsupportedType, input)
+	}
+	if input.ErrorMessage != "unsupported google file type" {
+		t.Fatalf("expected typed failure message to be preserved, got %+v", input)
+	}
+	if strings.TrimSpace(input.ErrorDetailsJSON) == "" {
+		t.Fatalf("expected typed failure details json, got %+v", input)
+	}
+
+	var details map[string]any
+	if err := json.Unmarshal([]byte(input.ErrorDetailsJSON), &details); err != nil {
+		t.Fatalf("unmarshal failure details: %v", err)
+	}
+	if got := strings.TrimSpace(anyString(details["text_code"])); got != string(ErrorCodeGoogleUnsupportedType) {
+		t.Fatalf("expected details text_code %q, got %+v", ErrorCodeGoogleUnsupportedType, details)
+	}
+	if got := strings.TrimSpace(anyString(details["category"])); got != string(goerrors.CategoryValidation) {
+		t.Fatalf("expected details category %q, got %+v", goerrors.CategoryValidation, details)
 	}
 }
 
@@ -1659,6 +1748,11 @@ func writeJSONResponse(w http.ResponseWriter, status int, payload map[string]any
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func anyString(value any) string {
+	text, _ := value.(string)
+	return text
 }
 
 func asGoError(err error, target **goerrors.Error) bool {

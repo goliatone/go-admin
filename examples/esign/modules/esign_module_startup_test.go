@@ -81,6 +81,63 @@ func TestValidateGoogleRuntimeWiringStrictModeFailsOnDegradedProvider(t *testing
 	}
 }
 
+func TestValidateLineageRuntimeWiringRequiresReadModelsWhenLineageEnabled(t *testing.T) {
+	module := &ESignModule{
+		store: stores.NewInMemoryStore(),
+	}
+	err := module.validateLineageRuntimeWiring(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error when lineage read models are missing")
+	}
+	if !strings.Contains(err.Error(), "source read model service is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateLineageRuntimeWiringRequiresDiagnosticsWhenLineageEnabled(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	module := &ESignModule{
+		store:            store,
+		sourceReadModels: services.NewDefaultSourceReadModelService(store, store, store),
+	}
+	err := module.validateLineageRuntimeWiring(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error when lineage diagnostics are missing")
+	}
+	if !strings.Contains(err.Error(), "lineage diagnostics service is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateLineageRuntimeWiringRequiresQueueWhenGoogleAndLineageEnabled(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	module := &ESignModule{
+		store:             store,
+		googleEnabled:     true,
+		sourceReadModels:  services.NewDefaultSourceReadModelService(store, store, store),
+		sourceDiagnostics: services.NewDefaultLineageDiagnosticsService(store, store, store),
+	}
+	err := module.validateLineageRuntimeWiring(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error when lineage queue is missing")
+	}
+	if !strings.Contains(err.Error(), "source lineage queue is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateLineageRuntimeWiringPassesWhenLineageServicesAreConfigured(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	module := &ESignModule{
+		store:             store,
+		sourceReadModels:  services.NewDefaultSourceReadModelService(store, store, store),
+		sourceDiagnostics: services.NewDefaultLineageDiagnosticsService(store, store, store),
+	}
+	if err := module.validateLineageRuntimeWiring(context.Background()); err != nil {
+		t.Fatalf("expected lineage startup validation to pass, got %v", err)
+	}
+}
+
 func TestResolveESignStrictStartupDefaultsFalse(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.StrictStartup = false

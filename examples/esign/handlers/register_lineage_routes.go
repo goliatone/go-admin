@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -112,10 +114,14 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid lineage review payload"); err != nil {
 			return err
 		}
+		actorID := resolveAuthenticatedAdminUserID(c)
+		if actorID == "" {
+			return writeAPIError(c, nil, http.StatusForbidden, string(services.ErrorCodeScopeDenied), "authenticated admin actor is required for lineage review actions", nil)
+		}
 		summary, err := cfg.sourceReconciliation.ApplyReviewAction(c.Context(), cfg.resolveScope(c), services.SourceRelationshipReviewInput{
 			RelationshipID: relationshipID,
 			Action:         strings.TrimSpace(payload.Action),
-			ActorID:        resolveLineageReviewActorID(c),
+			ActorID:        actorID,
 			Reason:         strings.TrimSpace(payload.Reason),
 		})
 		if err != nil {
@@ -132,13 +138,6 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			"candidate": summary,
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
-}
-
-func resolveLineageReviewActorID(c router.Context) string {
-	return strings.TrimSpace(firstNonEmpty(
-		resolveAuthenticatedAdminUserID(c),
-		stableString(c.Query("user_id")),
-	))
 }
 
 func lineageSourceDocumentID(detail services.DocumentLineageDetail) string {
@@ -158,4 +157,15 @@ func relationshipStatusCounts(relationships []stores.SourceRelationshipRecord) m
 		counts[status]++
 	}
 	return counts
+}
+
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) {
+		return strings.EqualFold(strings.TrimSpace(coded.TextCode), "NOT_FOUND") || coded.Code == http.StatusNotFound
+	}
+	return false
 }

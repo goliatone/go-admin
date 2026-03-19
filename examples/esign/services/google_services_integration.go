@@ -644,6 +644,7 @@ func (s GoogleServicesIntegrationService) enqueueLineageProcessing(
 		Metadata: SourceMetadataBaseline{
 			AccountID:           strings.TrimSpace(input.AccountID),
 			ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
+			DriveID:             strings.TrimSpace(snapshot.File.DriveID),
 			WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
 			ModifiedTime:        &modifiedTime,
 			SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),

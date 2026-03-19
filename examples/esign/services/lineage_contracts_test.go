@@ -112,6 +112,7 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 	metadata := SourceMetadataBaseline{
 		AccountID:           "acct_primary",
 		ExternalFileID:      "google-file-123",
+		DriveID:             "shared-drive-123",
 		WebURL:              "https://docs.google.com/document/d/google-file-123/edit",
 		ModifiedTime:        &modifiedAt,
 		SourceVersionHint:   "v2026-03-15T18:00:00Z",
@@ -217,7 +218,13 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 				},
 			},
 			AgreementNative: AgreementLineageDetail{
-				AgreementID: "agr_001",
+				AgreementID:            "agr_001",
+				PinnedSourceRevisionID: "src_rev_001",
+				SourceDocument: &LineageReference{
+					ID:    "src_doc_001",
+					Label: metadata.TitleHint,
+					URL:   metadata.WebURL,
+				},
 				SourceRevision: &SourceRevisionSummary{
 					ID:                   "src_rev_001",
 					ProviderRevisionHint: metadata.SourceVersionHint,
@@ -235,8 +242,14 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 					CompatibilityTier:   "supported",
 					NormalizationStatus: "completed",
 				},
-				GoogleSource:            metadataPtr(metadata),
-				NewerSourceExists:       true,
+				GoogleSource:      metadataPtr(metadata),
+				NewerSourceExists: true,
+				NewerSourceSummary: &NewerSourceSummary{
+					Exists:                 true,
+					PinnedSourceRevisionID: "src_rev_001",
+					LatestSourceRevisionID: "src_rev_002",
+					Summary:                "A newer source revision exists while this agreement remains pinned to the revision used at creation time.",
+				},
 				CandidateWarningSummary: []CandidateWarningSummary{candidate},
 				PresentationWarnings: []LineagePresentationWarning{
 					{
