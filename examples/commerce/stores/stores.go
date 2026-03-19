@@ -10,9 +10,9 @@ import (
 
 // CommerceStores groups the in-memory repositories used by the commerce example.
 type CommerceStores struct {
-	Users    *admin.MemoryRepository
-	Products *admin.MemoryRepository
-	Orders   *admin.MemoryRepository
+	Users    *admin.MemoryRepository `json:"users"`
+	Products *admin.MemoryRepository `json:"products"`
+	Orders   *admin.MemoryRepository `json:"orders"`
 }
 
 // Seed initializes repositories with sample data for the commerce demo.
