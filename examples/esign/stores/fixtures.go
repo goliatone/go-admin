@@ -27,6 +27,22 @@ type FixtureSet struct {
 	IntegrationCredentialID string `json:"integration_credential_id"`
 }
 
+type LineageFixtureSet struct {
+	UploadOnlyDocumentID      string `json:"upload_only_document_id"`
+	ImportedDocumentID        string `json:"imported_document_id"`
+	ImportedAgreementID       string `json:"imported_agreement_id"`
+	SourceDocumentID          string `json:"source_document_id"`
+	ActiveSourceHandleID      string `json:"active_source_handle_id"`
+	FirstSourceRevisionID     string `json:"first_source_revision_id"`
+	FirstSourceArtifactID     string `json:"first_source_artifact_id"`
+	RepeatedImportDocumentID  string `json:"repeated_import_document_id"`
+	SecondSourceRevisionID    string `json:"second_source_revision_id"`
+	SecondSourceArtifactID    string `json:"second_source_artifact_id"`
+	CandidateSourceDocumentID string `json:"candidate_source_document_id"`
+	CandidateSourceHandleID   string `json:"candidate_source_handle_id"`
+	CandidateRelationshipID   string `json:"candidate_relationship_id"`
+}
+
 // SeedCoreFixtures inserts one scope-bound record for each phase-1 core table.
 func SeedCoreFixtures(ctx context.Context, db bun.IDB, scope Scope) (FixtureSet, error) {
 	if ctx == nil {
@@ -156,6 +172,121 @@ INSERT INTO integration_credentials (id, tenant_id, org_id, user_id, provider, e
 VALUES (?, ?, ?, ?, 'google', ?, ?, ?, ?, ?, ?)
 `, fx.IntegrationCredentialID, scope.TenantID, scope.OrgID, "fixture-user", "enc-access", "enc-refresh", `["https://www.googleapis.com/auth/drive.readonly"]`, now.Add(24*time.Hour), now, now); err != nil {
 		return FixtureSet{}, err
+	}
+
+	return fx, nil
+}
+
+func SeedLineageFixtures(ctx context.Context, db bun.IDB, scope Scope) (LineageFixtureSet, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if db == nil {
+		return LineageFixtureSet{}, invalidRecordError("fixtures", "db", "required")
+	}
+	scope, err := validateScope(scope)
+	if err != nil {
+		return LineageFixtureSet{}, err
+	}
+
+	now := time.Now().UTC()
+	fx := LineageFixtureSet{
+		UploadOnlyDocumentID:      uuid.NewString(),
+		ImportedDocumentID:        uuid.NewString(),
+		ImportedAgreementID:       uuid.NewString(),
+		SourceDocumentID:          uuid.NewString(),
+		ActiveSourceHandleID:      uuid.NewString(),
+		FirstSourceRevisionID:     uuid.NewString(),
+		FirstSourceArtifactID:     uuid.NewString(),
+		RepeatedImportDocumentID:  uuid.NewString(),
+		SecondSourceRevisionID:    uuid.NewString(),
+		SecondSourceArtifactID:    uuid.NewString(),
+		CandidateSourceDocumentID: uuid.NewString(),
+		CandidateSourceHandleID:   uuid.NewString(),
+		CandidateRelationshipID:   uuid.NewString(),
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, source_sha256, size_bytes, page_count, created_by_user_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.UploadOnlyDocumentID, scope.TenantID, scope.OrgID, "Upload Only Fixture", "upload-only.pdf", "fixtures/upload-only.pdf", strings.Repeat("1", 64), 1024, 1, "fixture-user", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_documents (id, tenant_id, org_id, provider_kind, canonical_title, status, lineage_confidence, created_at, updated_at)
+VALUES (?, ?, ?, 'google_drive', ?, 'active', 'exact', ?, ?)
+`, fx.SourceDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_handles (id, tenant_id, org_id, source_document_id, provider_kind, external_file_id, account_id, drive_id, web_url, handle_status, valid_from, valid_to, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, 'active', ?, NULL, ?, ?)
+`, fx.ActiveSourceHandleID, scope.TenantID, scope.OrgID, fx.SourceDocumentID, "google-file-1", "account-1", "drive-root", "https://docs.google.com/document/d/google-file-1/edit", now, now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_revisions (id, tenant_id, org_id, source_document_id, source_handle_id, provider_revision_hint, modified_time, exported_at, exported_by_user_id, source_mime_type, metadata_json, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.FirstSourceRevisionID, scope.TenantID, scope.OrgID, fx.SourceDocumentID, fx.ActiveSourceHandleID, "v1", now, now, "fixture-user", "application/vnd.google-apps.document", `{"origin":"native_google_import","revision_signature":"sig-v1"}`, now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_artifacts (id, tenant_id, org_id, source_revision_id, artifact_kind, object_key, sha256, page_count, size_bytes, compatibility_tier, compatibility_reason, normalization_status, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'signable_pdf', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.FirstSourceArtifactID, scope.TenantID, scope.OrgID, fx.FirstSourceRevisionID, "fixtures/google-v1.pdf", strings.Repeat("2", 64), 3, 4096, "full", "", "completed", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, normalized_object_key, source_sha256, size_bytes, page_count, source_type, source_google_file_id, source_google_doc_url, source_mime_type, source_ingestion_mode, source_document_id, source_revision_id, source_artifact_id, created_by_user_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.ImportedDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", "Imported Fixture Source.pdf", "fixtures/google-v1.pdf", "fixtures/google-v1.normalized.pdf", strings.Repeat("2", 64), 4096, 3, "google-file-1", "https://docs.google.com/document/d/google-file-1/edit", "application/vnd.google-apps.document", "google_export_pdf", fx.SourceDocumentID, fx.FirstSourceRevisionID, fx.FirstSourceArtifactID, "fixture-user", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO agreements (id, tenant_id, org_id, document_id, status, title, message, version, source_type, source_google_file_id, source_google_doc_url, source_mime_type, source_ingestion_mode, source_revision_id, created_by_user_id, updated_by_user_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'draft', ?, ?, 1, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.ImportedAgreementID, scope.TenantID, scope.OrgID, fx.ImportedDocumentID, "Imported Fixture Agreement", "Fixture", "google-file-1", "https://docs.google.com/document/d/google-file-1/edit", "application/vnd.google-apps.document", "google_export_pdf", fx.FirstSourceRevisionID, "fixture-user", "fixture-user", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+
+	secondNow := now.Add(2 * time.Hour)
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_revisions (id, tenant_id, org_id, source_document_id, source_handle_id, provider_revision_hint, modified_time, exported_at, exported_by_user_id, source_mime_type, metadata_json, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.SecondSourceRevisionID, scope.TenantID, scope.OrgID, fx.SourceDocumentID, fx.ActiveSourceHandleID, "v2", secondNow, secondNow, "fixture-user", "application/vnd.google-apps.document", `{"origin":"native_google_import","revision_signature":"sig-v2"}`, secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_artifacts (id, tenant_id, org_id, source_revision_id, artifact_kind, object_key, sha256, page_count, size_bytes, compatibility_tier, compatibility_reason, normalization_status, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'signable_pdf', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.SecondSourceArtifactID, scope.TenantID, scope.OrgID, fx.SecondSourceRevisionID, "fixtures/google-v2.pdf", strings.Repeat("3", 64), 4, 5120, "full", "", "completed", secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, normalized_object_key, source_sha256, size_bytes, page_count, source_type, source_google_file_id, source_google_doc_url, source_mime_type, source_ingestion_mode, source_document_id, source_revision_id, source_artifact_id, created_by_user_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.RepeatedImportDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source Rev 2", "Imported Fixture Source Rev 2.pdf", "fixtures/google-v2.pdf", "fixtures/google-v2.normalized.pdf", strings.Repeat("3", 64), 5120, 4, "google-file-1", "https://docs.google.com/document/d/google-file-1/edit", "application/vnd.google-apps.document", "google_export_pdf", fx.SourceDocumentID, fx.SecondSourceRevisionID, fx.SecondSourceArtifactID, "fixture-user", secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_documents (id, tenant_id, org_id, provider_kind, canonical_title, status, lineage_confidence, created_at, updated_at)
+VALUES (?, ?, ?, 'google_drive', ?, 'active', 'medium', ?, ?)
+`, fx.CandidateSourceDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_handles (id, tenant_id, org_id, source_document_id, provider_kind, external_file_id, account_id, drive_id, web_url, handle_status, valid_from, valid_to, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, 'active', ?, NULL, ?, ?)
+`, fx.CandidateSourceHandleID, scope.TenantID, scope.OrgID, fx.CandidateSourceDocumentID, "google-file-candidate", "account-2", "drive-root", "https://docs.google.com/document/d/google-file-candidate/edit", secondNow, secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_relationships (id, tenant_id, org_id, left_source_document_id, right_source_document_id, relationship_type, confidence_band, confidence_score, status, evidence_json, created_by_user_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, 'same_logical_doc', 'medium', 0.72, 'pending_review', ?, ?, ?, ?)
+`, fx.CandidateRelationshipID, scope.TenantID, scope.OrgID, fx.CandidateSourceDocumentID, fx.SourceDocumentID, `{"candidate_reason":"matching_title_with_partial_google_context"}`, "fixture-user", secondNow, secondNow); err != nil {
+		return LineageFixtureSet{}, err
 	}
 
 	return fx, nil

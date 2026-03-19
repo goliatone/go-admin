@@ -36,6 +36,9 @@ func ensureSQLiteRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		{table: "documents", column: "source_original_name", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "documents", column: "source_mime_type", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "documents", column: "source_ingestion_mode", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "documents", column: "source_document_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "documents", column: "source_revision_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "documents", column: "source_artifact_id", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "documents", column: "pdf_compatibility_tier", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "documents", column: "pdf_compatibility_reason", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "documents", column: "pdf_normalization_status", ddl: "TEXT NOT NULL DEFAULT ''"},
@@ -56,6 +59,16 @@ func ensureSQLiteRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 
 		{table: "agreements", column: "source_mime_type", ddl: "TEXT NOT NULL DEFAULT ''"},
 		{table: "agreements", column: "source_ingestion_mode", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "agreements", column: "source_revision_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+
+		{table: "google_import_runs", column: "source_document_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "source_revision_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "source_artifact_id", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "lineage_status", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "fingerprint_status", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "candidate_status_json", ddl: "TEXT NOT NULL DEFAULT '[]'"},
+		{table: "google_import_runs", column: "document_detail_url", ddl: "TEXT NOT NULL DEFAULT ''"},
+		{table: "google_import_runs", column: "agreement_detail_url", ddl: "TEXT NOT NULL DEFAULT ''"},
 
 		{table: "fields", column: "field_definition_id", ddl: "TEXT NULL"},
 		{table: "fields", column: "placement_source", ddl: "TEXT NOT NULL DEFAULT ''"},
@@ -155,6 +168,9 @@ func ensurePostgresRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_original_name TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_mime_type TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_ingestion_mode TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_document_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_revision_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS source_artifact_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS pdf_compatibility_tier TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS pdf_compatibility_reason TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS pdf_normalization_status TEXT NOT NULL DEFAULT ''`,
@@ -175,6 +191,16 @@ func ensurePostgresRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 
 		`ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS source_mime_type TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS source_ingestion_mode TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS source_revision_id TEXT NOT NULL DEFAULT ''`,
+
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS source_document_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS source_revision_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS source_artifact_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS lineage_status TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS fingerprint_status TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS candidate_status_json TEXT NOT NULL DEFAULT '[]'`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS document_detail_url TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS google_import_runs ADD COLUMN IF NOT EXISTS agreement_detail_url TEXT NOT NULL DEFAULT ''`,
 
 		`ALTER TABLE IF EXISTS fields ADD COLUMN IF NOT EXISTS field_definition_id TEXT NULL`,
 		`ALTER TABLE IF EXISTS fields ADD COLUMN IF NOT EXISTS placement_source TEXT NOT NULL DEFAULT ''`,

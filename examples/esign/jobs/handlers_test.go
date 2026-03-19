@@ -62,6 +62,23 @@ func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) 
 	return "provider-" + input.Recipient.ID, nil
 }
 
+type captureGoogleImporter struct {
+	mu     sync.Mutex
+	inputs []services.GoogleImportInput
+	result services.GoogleImportResult
+	err    error
+}
+
+func (i *captureGoogleImporter) ImportDocument(_ context.Context, _ stores.Scope, input services.GoogleImportInput) (services.GoogleImportResult, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.inputs = append(i.inputs, input)
+	if i.err != nil {
+		return services.GoogleImportResult{}, i.err
+	}
+	return i.result, nil
+}
+
 func (p *captureTemplateProvider) Snapshot() []EmailSendInput {
 	if p == nil {
 		return nil
@@ -507,6 +524,7 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 		services.NewDeterministicGoogleProvider(),
 		services.NewDocumentService(store),
 		services.NewAgreementService(store),
+		services.WithGoogleLineageStore(store),
 	)
 	if _, err := google.Connect(ctx, scope, services.GoogleConnectInput{
 		UserID:   "ops-user",
@@ -564,6 +582,16 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 	if importRun.SourceMimeType == "" || importRun.IngestionMode == "" {
 		t.Fatalf("expected import diagnostics metadata on run, got %+v", importRun)
 	}
+	revision, err := store.GetSourceRevision(ctx, scope, result.SourceRevisionID)
+	if err != nil {
+		t.Fatalf("GetSourceRevision: %v", err)
+	}
+	if !strings.Contains(revision.MetadataJSON, `"correlation_id":"corr-google-import-1"`) {
+		t.Fatalf("expected correlation id in revision metadata, got %s", revision.MetadataJSON)
+	}
+	if !strings.Contains(revision.MetadataJSON, `"idempotency_key":"ops-user|google-file-1|v1"`) {
+		t.Fatalf("expected idempotency key in revision metadata, got %s", revision.MetadataJSON)
+	}
 
 	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobGoogleDriveImport, "ops-user|google-file-1|v1")
 	if err != nil {
@@ -571,6 +599,93 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 	}
 	if jobRun.Status != stores.JobRunStatusSucceeded {
 		t.Fatalf("expected google import job succeeded, got %+v", jobRun)
+	}
+}
+
+func TestExecuteGoogleDriveImportJobReplaysCompletedRunWithoutReimport(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                 "doc-import-replay",
+		CreatedByUserID:    "ops-user",
+		Title:              "Imported Replay",
+		SourceObjectKey:    "tenant/tenant-1/imported-replay.pdf",
+		SourceOriginalName: "imported-replay.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          128,
+		PageCount:          1,
+		SourceType:         stores.SourceTypeGoogleDrive,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedAt:          time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+	agreement, err := store.CreateDraft(ctx, scope, stores.AgreementRecord{
+		ID:              "agr-import-replay",
+		DocumentID:      document.ID,
+		Status:          stores.AgreementStatusDraft,
+		Title:           "Imported Replay Agreement",
+		CreatedByUserID: "ops-user",
+		UpdatedByUserID: "ops-user",
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Create agreement: %v", err)
+	}
+	run, _, err := store.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DedupeKey:         "ops-user|google-file-1|v1",
+		RequestedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
+	if _, err := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+		DocumentID:          document.ID,
+		AgreementID:         agreement.ID,
+		SourceDocumentID:    "src-doc-1",
+		SourceRevisionID:    "src-rev-1",
+		SourceArtifactID:    "src-art-1",
+		LineageStatus:       services.LineageImportStatusLinked,
+		FingerprintStatus:   services.LineageFingerprintStatusPending,
+		CandidateStatusJSON: "[]",
+		DocumentDetailURL:   "/admin/content/esign_documents/" + document.ID,
+		AgreementDetailURL:  "/admin/content/esign_agreements/" + agreement.ID,
+		SourceMimeType:      services.GoogleDriveMimeTypeDoc,
+		IngestionMode:       services.GoogleIngestionModeExportPDF,
+		CompletedAt:         time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	}
+
+	importer := &captureGoogleImporter{}
+	handlers := NewHandlers(HandlerDependencies{
+		Agreements:       store,
+		Documents:        store,
+		GoogleImportRuns: store,
+		GoogleImporter:   importer,
+	})
+	result, err := handlers.ExecuteGoogleDriveImport(ctx, GoogleDriveImportMsg{
+		Scope:             scope,
+		ImportRunID:       run.ID,
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DedupeKey:         "ops-user|google-file-1|v1",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteGoogleDriveImport replay: %v", err)
+	}
+	if result.Document.ID != document.ID || result.Agreement.ID != agreement.ID {
+		t.Fatalf("expected replayed result to reuse stored entities, got %+v", result)
+	}
+	if len(importer.inputs) != 0 {
+		t.Fatalf("expected completed run replay to skip importer, got %d calls", len(importer.inputs))
 	}
 }
 

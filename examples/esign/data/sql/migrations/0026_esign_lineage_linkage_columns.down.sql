@@ -1,0 +1,2 @@
+-- SQLite/Postgres column rollback intentionally omitted.
+-- Lineage linkage columns are additive and safe to keep after rollback.

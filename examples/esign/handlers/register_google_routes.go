@@ -367,11 +367,12 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				return err
 			}
 			var payload struct {
-				GoogleFileID    string `json:"google_file_id"`
-				AccountID       string `json:"account_id"`
-				DocumentTitle   string `json:"document_title"`
-				AgreementTitle  string `json:"agreement_title"`
-				CreatedByUserID string `json:"created_by_user_id"`
+				GoogleFileID      string `json:"google_file_id"`
+				AccountID         string `json:"account_id"`
+				DocumentTitle     string `json:"document_title"`
+				AgreementTitle    string `json:"agreement_title"`
+				CreatedByUserID   string `json:"created_by_user_id"`
+				SourceVersionHint string `json:"source_version_hint"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid google import payload", nil)
@@ -381,13 +382,17 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			c.Set("Deprecation", "true")
 			c.Set("Link", fmt.Sprintf("<%s>; rel=\"successor-version\"", routes.AdminGoogleDriveImports))
 			accountID := stableString(firstNonEmpty(payload.AccountID, c.Query("account_id")))
+			idempotencyKey := googleImportRunDedupeKey(userID, accountID, payload.GoogleFileID, payload.SourceVersionHint)
 			imported, err := cfg.google.ImportDocument(c.Context(), cfg.resolveScope(c), services.GoogleImportInput{
-				UserID:          userID,
-				AccountID:       accountID,
-				GoogleFileID:    strings.TrimSpace(payload.GoogleFileID),
-				DocumentTitle:   strings.TrimSpace(payload.DocumentTitle),
-				AgreementTitle:  strings.TrimSpace(payload.AgreementTitle),
-				CreatedByUserID: strings.TrimSpace(payload.CreatedByUserID),
+				UserID:            userID,
+				AccountID:         accountID,
+				GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
+				SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
+				DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
+				AgreementTitle:    strings.TrimSpace(payload.AgreementTitle),
+				CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
+				CorrelationID:     correlationID,
+				IdempotencyKey:    idempotencyKey,
 			})
 			if err != nil {
 				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGooglePermissionDenied), "google import failed", nil)
@@ -408,6 +413,9 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 					"source_exported_by_user_id": imported.Document.SourceExportedByUserID,
 					"source_mime_type":           imported.Document.SourceMimeType,
 					"source_ingestion_mode":      imported.Document.SourceIngestionMode,
+					"source_document_id":         imported.Document.SourceDocumentID,
+					"source_revision_id":         imported.Document.SourceRevisionID,
+					"source_artifact_id":         imported.Document.SourceArtifactID,
 				},
 				"agreement": map[string]any{
 					"id":                         imported.Agreement.ID,
@@ -421,9 +429,18 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 					"source_exported_by_user_id": imported.Agreement.SourceExportedByUserID,
 					"source_mime_type":           imported.Agreement.SourceMimeType,
 					"source_ingestion_mode":      imported.Agreement.SourceIngestionMode,
+					"source_revision_id":         imported.Agreement.SourceRevisionID,
 				},
-				"source_mime_type": imported.SourceMimeType,
-				"ingestion_mode":   imported.IngestionMode,
+				"source_document_id":   imported.SourceDocumentID,
+				"source_revision_id":   imported.SourceRevisionID,
+				"source_artifact_id":   imported.SourceArtifactID,
+				"lineage_status":       imported.LineageStatus,
+				"fingerprint_status":   imported.FingerprintStatus,
+				"candidate_status":     imported.CandidateStatus,
+				"document_detail_url":  imported.DocumentDetailURL,
+				"agreement_detail_url": imported.AgreementDetailURL,
+				"source_mime_type":     imported.SourceMimeType,
+				"ingestion_mode":       imported.IngestionMode,
 			})
 			logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, respErr, map[string]any{
 				"agreement_id": strings.TrimSpace(imported.Agreement.ID),

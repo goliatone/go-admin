@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
 
@@ -136,5 +137,73 @@ func TestEnsureRuntimeParityColumnsSQLiteBackfillsEmailLogUpdatedAt(t *testing.T
 	}
 	if updatedAt == "" || updatedAt == "1970-01-01T00:00:00Z" {
 		t.Fatalf("expected updated_at backfill from created_at, got %q", updatedAt)
+	}
+}
+
+func TestEnsureRuntimeParityColumnsSQLiteRepairsLineageLinkageColumns(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "phase10-repair-lineage-columns.db") + "?_fk=1&_busy_timeout=5000"
+	sqlDB, bunDialect, driverName, err := openDialectDB(context.Background(), DialectSQLite, dsn)
+	if err != nil {
+		t.Fatalf("openDialectDB: %v", err)
+	}
+	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
+	if err != nil {
+		_ = sqlDB.Close()
+		t.Fatalf("persistence.New: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	cfg := appcfg.Defaults()
+	cfg.Persistence.Migrations.LocalOnly = true
+	if err := registerOrderedSources(client, cfg); err != nil {
+		t.Fatalf("registerOrderedSources: %v", err)
+	}
+	if err := client.Migrate(context.Background()); err != nil {
+		t.Fatalf("client.Migrate: %v", err)
+	}
+
+	dropStatements := []string{
+		`ALTER TABLE documents DROP COLUMN source_document_id`,
+		`ALTER TABLE documents DROP COLUMN source_revision_id`,
+		`ALTER TABLE documents DROP COLUMN source_artifact_id`,
+		`ALTER TABLE agreements DROP COLUMN source_revision_id`,
+	}
+	for _, stmt := range dropStatements {
+		if _, err := sqlDB.ExecContext(context.Background(), stmt); err != nil {
+			if err := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite); err != nil {
+				t.Fatalf("ensureRuntimeParityColumns existing-column case: %v", err)
+			}
+			assertSQLiteLineageColumnsExist(t, sqlDB)
+			return
+		}
+	}
+
+	if err := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite); err != nil {
+		t.Fatalf("ensureRuntimeParityColumns: %v", err)
+	}
+	assertSQLiteLineageColumnsExist(t, sqlDB)
+}
+
+func assertSQLiteLineageColumnsExist(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	ctx := context.Background()
+	requiredColumns := []struct {
+		table  string
+		column string
+	}{
+		{table: "documents", column: "source_document_id"},
+		{table: "documents", column: "source_revision_id"},
+		{table: "documents", column: "source_artifact_id"},
+		{table: "agreements", column: "source_revision_id"},
+	}
+	for _, spec := range requiredColumns {
+		exists, err := sqliteColumnExists(ctx, db, spec.table, spec.column)
+		if err != nil {
+			t.Fatalf("sqliteColumnExists %s.%s: %v", spec.table, spec.column, err)
+		}
+		if !exists {
+			t.Fatalf("expected %s.%s to exist after parity repair", spec.table, spec.column)
+		}
 	}
 }

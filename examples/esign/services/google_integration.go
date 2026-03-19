@@ -693,20 +693,31 @@ type GoogleDriveQueryInput struct {
 
 // GoogleImportInput captures import request inputs.
 type GoogleImportInput struct {
-	UserID          string `json:"user_id"`
-	AccountID       string `json:"account_id"`
-	GoogleFileID    string `json:"google_file_id"`
-	DocumentTitle   string `json:"document_title"`
-	AgreementTitle  string `json:"agreement_title"`
-	CreatedByUserID string `json:"created_by_user_id"`
+	UserID            string `json:"user_id"`
+	AccountID         string `json:"account_id"`
+	GoogleFileID      string `json:"google_file_id"`
+	SourceVersionHint string `json:"source_version_hint"`
+	DocumentTitle     string `json:"document_title"`
+	AgreementTitle    string `json:"agreement_title"`
+	CreatedByUserID   string `json:"created_by_user_id"`
+	CorrelationID     string `json:"correlation_id"`
+	IdempotencyKey    string `json:"idempotency_key"`
 }
 
 // GoogleImportResult captures imported document/agreement output.
 type GoogleImportResult struct {
-	Document       stores.DocumentRecord  `json:"document"`
-	Agreement      stores.AgreementRecord `json:"agreement"`
-	SourceMimeType string                 `json:"source_mime_type"`
-	IngestionMode  string                 `json:"ingestion_mode"`
+	Document           stores.DocumentRecord     `json:"document"`
+	Agreement          stores.AgreementRecord    `json:"agreement"`
+	SourceDocumentID   string                    `json:"source_document_id"`
+	SourceRevisionID   string                    `json:"source_revision_id"`
+	SourceArtifactID   string                    `json:"source_artifact_id"`
+	LineageStatus      string                    `json:"lineage_status"`
+	FingerprintStatus  FingerprintStatusSummary  `json:"fingerprint_status"`
+	CandidateStatus    []CandidateWarningSummary `json:"candidate_status,omitempty"`
+	DocumentDetailURL  string                    `json:"document_detail_url"`
+	AgreementDetailURL string                    `json:"agreement_detail_url"`
+	SourceMimeType     string                    `json:"source_mime_type"`
+	IngestionMode      string                    `json:"ingestion_mode"`
 }
 
 // GoogleProviderHealthStatus captures runtime provider health used for degraded-mode signaling.
@@ -760,6 +771,24 @@ func WithGoogleProviderMode(mode string) GoogleIntegrationOption {
 	}
 }
 
+func WithGoogleLineageStore(store stores.LineageStore) GoogleIntegrationOption {
+	return func(s *GoogleIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.lineage = store
+	}
+}
+
+func WithGoogleSourceIdentityService(identity SourceIdentityService) GoogleIntegrationOption {
+	return func(s *GoogleIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.identity = identity
+	}
+}
+
 // GoogleIntegrationService handles OAuth credential lifecycle, Drive search/browse, and import flows.
 type GoogleIntegrationService struct {
 	credentials   stores.IntegrationCredentialStore
@@ -767,6 +796,8 @@ type GoogleIntegrationService struct {
 	providerMode  string
 	documents     GoogleDocumentUploader
 	agreements    GoogleAgreementCreator
+	lineage       stores.LineageStore
+	identity      SourceIdentityService
 	cipher        CredentialCipher
 	now           func() time.Time
 	allowedScopes []string
@@ -801,6 +832,10 @@ func NewGoogleIntegrationService(
 	}
 	if len(svc.allowedScopes) == 0 {
 		svc.allowedScopes = normalizeScopes(DefaultGoogleOAuthScopes)
+	}
+	if svc.identity == nil && svc.lineage != nil {
+		identity := NewDefaultSourceIdentityService(svc.lineage, WithSourceIdentityClock(svc.now))
+		svc.identity = identity
 	}
 	return svc
 }
@@ -1188,70 +1223,22 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		return GoogleImportResult{}, err
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
-	modifiedTime := snapshot.File.ModifiedTime
-	if modifiedTime.IsZero() {
-		modifiedTime = s.now().UTC()
-	}
-	exportedAt := s.now().UTC()
-	documentTitle := strings.TrimSpace(input.DocumentTitle)
-	if documentTitle == "" {
-		documentTitle = strings.TrimSpace(snapshot.File.Name)
-	}
-	if documentTitle == "" {
-		documentTitle = "Imported Google Document"
-	}
-	agreementTitle := strings.TrimSpace(input.AgreementTitle)
-	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
-	if createdByUserID == "" {
-		createdByUserID = userID
-	}
-
-	document, err := s.documents.Upload(ctx, scope, DocumentUploadInput{
-		Title:                  documentTitle,
-		SourceOriginalName:     strings.TrimSpace(snapshot.File.Name),
-		ObjectKey:              googleImportObjectKey(scope, fileID, exportedAt),
-		PDF:                    append([]byte{}, snapshot.PDF...),
-		CreatedBy:              createdByUserID,
-		UploadedAt:             exportedAt,
-		SourceType:             stores.SourceTypeGoogleDrive,
-		SourceGoogleFileID:     fileID,
-		SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-		SourceModifiedTime:     &modifiedTime,
-		SourceExportedAt:       &exportedAt,
-		SourceExportedByUserID: userID,
-		SourceMimeType:         sourceMimeType,
-		SourceIngestionMode:    ingestionMode,
+	return executeGoogleImportWithLineage(ctx, scope, GoogleImportInput{
+		UserID:            strings.TrimSpace(input.UserID),
+		AccountID:         strings.TrimSpace(input.AccountID),
+		GoogleFileID:      fileID,
+		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
+		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
+		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
+		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
+		CorrelationID:     strings.TrimSpace(input.CorrelationID),
+		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
+	}, snapshot, sourceMimeType, ingestionMode, userID, googleImportExecutionDeps{
+		documents:  s.documents,
+		agreements: s.agreements,
+		identity:   s.identity,
+		now:        s.now,
 	})
-	if err != nil {
-		return GoogleImportResult{}, err
-	}
-
-	var agreement stores.AgreementRecord
-	if agreementTitle != "" {
-		agreement, err = s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
-			DocumentID:             document.ID,
-			Title:                  agreementTitle,
-			CreatedByUserID:        createdByUserID,
-			SourceType:             stores.SourceTypeGoogleDrive,
-			SourceGoogleFileID:     fileID,
-			SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-			SourceModifiedTime:     &modifiedTime,
-			SourceExportedAt:       &exportedAt,
-			SourceExportedByUserID: userID,
-			SourceMimeType:         sourceMimeType,
-			SourceIngestionMode:    ingestionMode,
-		})
-		if err != nil {
-			return GoogleImportResult{}, err
-		}
-	}
-
-	return GoogleImportResult{
-		Document:       document,
-		Agreement:      agreement,
-		SourceMimeType: sourceMimeType,
-		IngestionMode:  ingestionMode,
-	}, nil
 }
 
 func resolveGoogleImportSnapshot(ctx context.Context, provider GoogleProvider, accessToken, fileID string) (GoogleExportSnapshot, string, string, error) {

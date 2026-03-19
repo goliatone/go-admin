@@ -182,10 +182,12 @@ type SourceReadModelService interface {
 }
 
 type SourceIdentityResolutionInput struct {
-	ProviderKind  string                 `json:"provider_kind"`
-	ActorID       string                 `json:"actor_id"`
-	CorrelationID string                 `json:"correlation_id"`
-	Metadata      SourceMetadataBaseline `json:"metadata"`
+	ProviderKind          string                 `json:"provider_kind"`
+	ActorID               string                 `json:"actor_id"`
+	CorrelationID         string                 `json:"correlation_id"`
+	IdempotencyKey        string                 `json:"idempotency_key"`
+	RevisionContentSHA256 string                 `json:"revision_content_sha256"`
+	Metadata              SourceMetadataBaseline `json:"metadata"`
 }
 
 type SourceIdentityResolution struct {

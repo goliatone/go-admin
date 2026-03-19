@@ -83,6 +83,12 @@ func (b *runtimeRelationalStoreSync) loadSnapshot(ctx context.Context) (runtimeS
 func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, idb bun.IDB) (runtimeStoreSnapshot, error) {
 	snapshot := runtimeStoreSnapshot{
 		Documents:                  map[string]stores.DocumentRecord{},
+		SourceDocuments:            map[string]stores.SourceDocumentRecord{},
+		SourceHandles:              map[string]stores.SourceHandleRecord{},
+		SourceRevisions:            map[string]stores.SourceRevisionRecord{},
+		SourceArtifacts:            map[string]stores.SourceArtifactRecord{},
+		SourceFingerprints:         map[string]stores.SourceFingerprintRecord{},
+		SourceRelationships:        map[string]stores.SourceRelationshipRecord{},
 		Agreements:                 map[string]stores.AgreementRecord{},
 		Drafts:                     map[string]stores.DraftRecord{},
 		DraftWizardIndex:           map[string]string{},
@@ -138,6 +144,72 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 			continue
 		}
 		snapshot.Documents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceDocuments, err := listRepositoryRecords(ctx, idb, b.factory.SourceDocuments())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source documents: %w", err)
+	}
+	for _, record := range sourceDocuments {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceDocuments[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceHandles, err := listRepositoryRecords(ctx, idb, b.factory.SourceHandles())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source handles: %w", err)
+	}
+	for _, record := range sourceHandles {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceHandles[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceRevisions, err := listRepositoryRecords(ctx, idb, b.factory.SourceRevisions())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source revisions: %w", err)
+	}
+	for _, record := range sourceRevisions {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceRevisions[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceArtifacts, err := listRepositoryRecords(ctx, idb, b.factory.SourceArtifacts())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source artifacts: %w", err)
+	}
+	for _, record := range sourceArtifacts {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceFingerprints, err := listRepositoryRecords(ctx, idb, b.factory.SourceFingerprints())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source fingerprints: %w", err)
+	}
+	for _, record := range sourceFingerprints {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceFingerprints[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	sourceRelationships, err := listRepositoryRecords(ctx, idb, b.factory.SourceRelationships())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list source relationships: %w", err)
+	}
+	for _, record := range sourceRelationships {
+		if record == nil {
+			continue
+		}
+		snapshot.SourceRelationships[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
 	agreements, err := listRepositoryRecords(ctx, idb, b.factory.Agreements())

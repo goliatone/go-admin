@@ -241,6 +241,7 @@ type CreateDraftInput struct {
 	SourceExportedByUserID string     `json:"source_exported_by_user_id"`
 	SourceMimeType         string     `json:"source_mime_type"`
 	SourceIngestionMode    string     `json:"source_ingestion_mode"`
+	SourceRevisionID       string     `json:"source_revision_id"`
 }
 
 // ValidationIssue represents a pre-send validation failure.
@@ -458,9 +459,14 @@ func (s AgreementService) CreateDraft(ctx context.Context, scope stores.Scope, i
 	if documentID == "" {
 		return stores.AgreementRecord{}, domainValidationError("agreements", "document_id", "required")
 	}
+	sourceRevisionID := strings.TrimSpace(input.SourceRevisionID)
 	if s.documents != nil {
-		if _, err := s.documents.Get(ctx, scope, documentID); err != nil {
+		document, err := s.documents.Get(ctx, scope, documentID)
+		if err != nil {
 			return stores.AgreementRecord{}, err
+		}
+		if sourceRevisionID == "" {
+			sourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
 		}
 	}
 	now := s.now()
@@ -474,6 +480,7 @@ func (s AgreementService) CreateDraft(ctx context.Context, scope stores.Scope, i
 		SourceExportedByUserID: strings.TrimSpace(input.SourceExportedByUserID),
 		SourceMimeType:         strings.TrimSpace(input.SourceMimeType),
 		SourceIngestionMode:    strings.TrimSpace(input.SourceIngestionMode),
+		SourceRevisionID:       sourceRevisionID,
 		Status:                 stores.AgreementStatusDraft,
 		Title:                  strings.TrimSpace(input.Title),
 		Message:                strings.TrimSpace(input.Message),
@@ -553,6 +560,14 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 		if err != nil {
 			return err
 		}
+		sourceRevisionID := strings.TrimSpace(source.SourceRevisionID)
+		if sourceRevisionID == "" && txSvc.documents != nil && strings.TrimSpace(source.DocumentID) != "" {
+			document, docErr := txSvc.documents.Get(ctx, scope, source.DocumentID)
+			if docErr != nil {
+				return docErr
+			}
+			sourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
+		}
 		now := txSvc.now().UTC()
 		rootAgreementID := strings.TrimSpace(source.RootAgreementID)
 		if rootAgreementID == "" {
@@ -583,6 +598,7 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 			SourceExportedByUserID: strings.TrimSpace(source.SourceExportedByUserID),
 			SourceMimeType:         strings.TrimSpace(source.SourceMimeType),
 			SourceIngestionMode:    strings.TrimSpace(source.SourceIngestionMode),
+			SourceRevisionID:       sourceRevisionID,
 			Status:                 stores.AgreementStatusDraft,
 			Title:                  strings.TrimSpace(source.Title),
 			Message:                strings.TrimSpace(source.Message),

@@ -1,0 +1,285 @@
+package services
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
+)
+
+type delayedActiveHandleStore struct {
+	stores.LineageStore
+	suppressFirstLookup bool
+}
+
+func (s *delayedActiveHandleStore) GetActiveSourceHandle(ctx context.Context, scope stores.Scope, providerKind, externalFileID, accountID string) (stores.SourceHandleRecord, error) {
+	if s.suppressFirstLookup {
+		s.suppressFirstLookup = false
+		return stores.SourceHandleRecord{}, goerrors.New("source handle not found", goerrors.CategoryNotFound).
+			WithCode(404).
+			WithTextCode("NOT_FOUND")
+	}
+	return s.LineageStore.GetActiveSourceHandle(ctx, scope, providerKind, externalFileID, accountID)
+}
+
+func TestDefaultSourceIdentityServiceCreatesAndReusesExactRevision(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	service := NewDefaultSourceIdentityService(store, WithSourceIdentityClock(func() time.Time { return now }))
+
+	first, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Customer NDA",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity first: %v", err)
+	}
+	if first.SourceDocument.ID == "" || first.SourceHandle.ID == "" || first.SourceRevision.ID == "" {
+		t.Fatalf("expected lineage ids on first resolution, got %+v", first)
+	}
+	if first.ResolutionKind != sourceResolutionNewSource {
+		t.Fatalf("expected new_source resolution, got %q", first.ResolutionKind)
+	}
+
+	second, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Customer NDA",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity second: %v", err)
+	}
+	if second.SourceDocument.ID != first.SourceDocument.ID {
+		t.Fatalf("expected same source document, got %q vs %q", second.SourceDocument.ID, first.SourceDocument.ID)
+	}
+	if second.SourceRevision.ID != first.SourceRevision.ID {
+		t.Fatalf("expected same source revision, got %q vs %q", second.SourceRevision.ID, first.SourceRevision.ID)
+	}
+	if second.ResolutionKind != sourceResolutionExactActiveHandle {
+		t.Fatalf("expected exact_active_handle on replay, got %q", second.ResolutionKind)
+	}
+}
+
+func TestDefaultSourceIdentityServiceCreatesCandidateRelationshipForSimilarGoogleSource(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	service := NewDefaultSourceIdentityService(store, WithSourceIdentityClock(func() time.Time { return now }))
+
+	_, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Master Services Agreement",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity seed: %v", err)
+	}
+
+	candidate, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		ActorID:      "ops-user",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-2",
+			ExternalFileID:    "google-file-2",
+			WebURL:            "https://docs.google.com/document/d/google-file-2/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Master Services Agreement",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity candidate: %v", err)
+	}
+	if candidate.CandidateRelationship == nil {
+		t.Fatalf("expected candidate relationship, got %+v", candidate)
+	}
+	if candidate.ResolutionKind != sourceResolutionCandidateCreated {
+		t.Fatalf("expected candidate_created, got %q", candidate.ResolutionKind)
+	}
+	if candidate.CandidateRelationship.Status != stores.SourceRelationshipStatusPendingReview {
+		t.Fatalf("expected pending_review, got %q", candidate.CandidateRelationship.Status)
+	}
+}
+
+func TestDefaultSourceIdentityServiceReusesRevisionWhenContentUnchangedAcrossMetadataChanges(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	service := NewDefaultSourceIdentityService(store, WithSourceIdentityClock(func() time.Time { return now }))
+
+	first, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind:          stores.SourceProviderKindGoogleDrive,
+		ActorID:               "ops-user",
+		RevisionContentSHA256: "sha256-same-content",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Customer NDA",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity first: %v", err)
+	}
+
+	changedMetadataAt := now.Add(10 * time.Minute)
+	second, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind:          stores.SourceProviderKindGoogleDrive,
+		ActorID:               "ops-user",
+		RevisionContentSHA256: "sha256-same-content",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/google-file-1/edit",
+			ModifiedTime:      &changedMetadataAt,
+			SourceVersionHint: "v2",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Customer NDA",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity second: %v", err)
+	}
+	if second.SourceRevision.ID != first.SourceRevision.ID {
+		t.Fatalf("expected unchanged content to reuse source revision, got %q vs %q", second.SourceRevision.ID, first.SourceRevision.ID)
+	}
+}
+
+func TestDefaultSourceIdentityServiceConflictFallbackKeepsCanonicalHandleOwnership(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	baseStore := stores.NewInMemoryStore()
+	store := &delayedActiveHandleStore{
+		LineageStore:        baseStore,
+		suppressFirstLookup: true,
+	}
+	now := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
+	service := NewDefaultSourceIdentityService(store, WithSourceIdentityClock(func() time.Time { return now }))
+
+	canonical, err := baseStore.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Canonical Existing Source",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument canonical: %v", err)
+	}
+	canonicalHandle, err := baseStore.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		SourceDocumentID: canonical.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "google-file-1",
+		AccountID:        "account-1",
+		WebURL:           "https://docs.google.com/document/d/google-file-1/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle canonical: %v", err)
+	}
+
+	highConfidenceTarget, err := baseStore.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Imported NDA",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandHigh,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument highConfidenceTarget: %v", err)
+	}
+	if _, err := baseStore.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		SourceDocumentID: highConfidenceTarget.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "other-google-file",
+		AccountID:        "account-2",
+		WebURL:           "https://docs.google.com/document/d/imported-nda/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}); err != nil {
+		t.Fatalf("CreateSourceHandle highConfidenceTarget: %v", err)
+	}
+
+	resolved, err := service.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind:          stores.SourceProviderKindGoogleDrive,
+		ActorID:               "ops-user",
+		RevisionContentSHA256: "sha256-imported-nda",
+		Metadata: SourceMetadataBaseline{
+			AccountID:         "account-1",
+			ExternalFileID:    "google-file-1",
+			WebURL:            "https://docs.google.com/document/d/imported-nda/edit",
+			ModifiedTime:      &now,
+			SourceVersionHint: "v1",
+			SourceMimeType:    GoogleDriveMimeTypeDoc,
+			TitleHint:         "Imported NDA",
+			OwnerEmail:        "owner@example.com",
+			ParentID:          "root",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveSourceIdentity: %v", err)
+	}
+	if resolved.SourceDocument.ID != canonical.ID {
+		t.Fatalf("expected canonical source document %q, got %q", canonical.ID, resolved.SourceDocument.ID)
+	}
+	if resolved.SourceHandle.ID != canonicalHandle.ID {
+		t.Fatalf("expected canonical source handle %q, got %q", canonicalHandle.ID, resolved.SourceHandle.ID)
+	}
+	if resolved.SourceRevision.SourceDocumentID != canonical.ID || resolved.SourceRevision.SourceHandleID != canonicalHandle.ID {
+		t.Fatalf("expected revision to stay aligned to canonical handle/document, got %+v", resolved.SourceRevision)
+	}
+}

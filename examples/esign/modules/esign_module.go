@@ -589,26 +589,41 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		if err != nil {
 			return fmt.Errorf("esign module: google provider: %w", err)
 		}
+		var lineageStore stores.LineageStore
+		if resolved, ok := any(m.store).(stores.LineageStore); ok {
+			lineageStore = resolved
+		}
 		if m.services != nil {
+			opts := make([]services.GoogleServicesIntegrationOption, 0, 1)
+			if lineageStore != nil {
+				opts = append(opts, services.WithGoogleServicesLineageStore(lineageStore))
+			}
 			m.google = services.NewGoogleServicesIntegrationService(
 				m.services,
 				googleProvider,
 				providerMode,
 				m.documents,
 				m.agreements,
+				opts...,
 			)
 		} else {
 			googleCipher, cipherErr := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
 			if cipherErr != nil {
 				return fmt.Errorf("esign module: google credential key provider: %w", cipherErr)
 			}
+			opts := []services.GoogleIntegrationOption{
+				services.WithGoogleCipher(googleCipher),
+				services.WithGoogleProviderMode(providerMode),
+			}
+			if lineageStore != nil {
+				opts = append(opts, services.WithGoogleLineageStore(lineageStore))
+			}
 			m.google = services.NewGoogleIntegrationService(
 				m.store,
 				googleProvider,
 				m.documents,
 				m.agreements,
-				services.WithGoogleCipher(googleCipher),
-				services.WithGoogleProviderMode(providerMode),
+				opts...,
 			)
 		}
 		googleImportJobDeps := jobHandlerDeps

@@ -116,6 +116,38 @@ func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	}
 }
 
+func TestBootstrapSQLiteCreatesLineageLinkageColumns(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "bootstrap-lineage-columns.db") + "?_fk=1&_busy_timeout=5000"
+
+	result, err := Bootstrap(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	defer func() { _ = result.Close() }()
+
+	requiredColumns := []struct {
+		table  string
+		column string
+	}{
+		{table: "documents", column: "source_document_id"},
+		{table: "documents", column: "source_revision_id"},
+		{table: "documents", column: "source_artifact_id"},
+		{table: "agreements", column: "source_revision_id"},
+	}
+	for _, spec := range requiredColumns {
+		exists, err := sqliteColumnExists(context.Background(), result.SQLDB, spec.table, spec.column)
+		if err != nil {
+			t.Fatalf("sqliteColumnExists %s.%s: %v", spec.table, spec.column, err)
+		}
+		if !exists {
+			t.Fatalf("expected %s.%s to exist after bootstrap", spec.table, spec.column)
+		}
+	}
+}
+
 func TestResolveDialectInputDefaultsByProfile(t *testing.T) {
 	devCfg := appcfg.Defaults()
 	devCfg.Runtime.Profile = "development"

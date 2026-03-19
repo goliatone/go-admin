@@ -46,8 +46,30 @@ type GoogleServicesIntegrationService struct {
 	providerID    string
 	documents     GoogleDocumentUploader
 	agreements    GoogleAgreementCreator
+	lineage       stores.LineageStore
+	identity      SourceIdentityService
 	now           func() time.Time
 	allowedScopes []string
+}
+
+type GoogleServicesIntegrationOption func(*GoogleServicesIntegrationService)
+
+func WithGoogleServicesLineageStore(store stores.LineageStore) GoogleServicesIntegrationOption {
+	return func(s *GoogleServicesIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.lineage = store
+	}
+}
+
+func WithGoogleServicesSourceIdentityService(identity SourceIdentityService) GoogleServicesIntegrationOption {
+	return func(s *GoogleServicesIntegrationService) {
+		if s == nil {
+			return
+		}
+		s.identity = identity
+	}
 }
 
 // NewGoogleServicesIntegrationService creates a Google integration facade backed by go-services.
@@ -57,6 +79,7 @@ func NewGoogleServicesIntegrationService(
 	providerMode string,
 	documents GoogleDocumentUploader,
 	agreements GoogleAgreementCreator,
+	opts ...GoogleServicesIntegrationOption,
 ) GoogleServicesIntegrationService {
 	resolvedMode := normalizeGoogleProviderMode(providerMode)
 	if resolvedMode == "" {
@@ -65,7 +88,7 @@ func NewGoogleServicesIntegrationService(
 	if resolvedMode == "" {
 		resolvedMode = GoogleProviderModeReal
 	}
-	return GoogleServicesIntegrationService{
+	svc := GoogleServicesIntegrationService{
 		module:        module,
 		provider:      provider,
 		providerMode:  resolvedMode,
@@ -75,6 +98,16 @@ func NewGoogleServicesIntegrationService(
 		now:           func() time.Time { return time.Now().UTC() },
 		allowedScopes: normalizeScopes(DefaultGoogleOAuthScopes),
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&svc)
+		}
+	}
+	if svc.identity == nil && svc.lineage != nil {
+		identity := NewDefaultSourceIdentityService(svc.lineage, WithSourceIdentityClock(svc.now))
+		svc.identity = identity
+	}
+	return svc
 }
 
 // Connect exchanges the auth code through the services runtime and stores credentials in go-services tables.
@@ -507,70 +540,22 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 
-	modifiedTime := snapshot.File.ModifiedTime
-	if modifiedTime.IsZero() {
-		modifiedTime = s.now().UTC()
-	}
-	exportedAt := s.now().UTC()
-	documentTitle := strings.TrimSpace(input.DocumentTitle)
-	if documentTitle == "" {
-		documentTitle = strings.TrimSpace(snapshot.File.Name)
-	}
-	if documentTitle == "" {
-		documentTitle = "Imported Google Document"
-	}
-	agreementTitle := strings.TrimSpace(input.AgreementTitle)
-	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
-	if createdByUserID == "" {
-		createdByUserID = userID
-	}
-
-	document, err := s.documents.Upload(ctx, scope, DocumentUploadInput{
-		Title:                  documentTitle,
-		SourceOriginalName:     strings.TrimSpace(snapshot.File.Name),
-		ObjectKey:              googleImportObjectKey(scope, fileID, exportedAt),
-		PDF:                    append([]byte{}, snapshot.PDF...),
-		CreatedBy:              createdByUserID,
-		UploadedAt:             exportedAt,
-		SourceType:             stores.SourceTypeGoogleDrive,
-		SourceGoogleFileID:     fileID,
-		SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-		SourceModifiedTime:     &modifiedTime,
-		SourceExportedAt:       &exportedAt,
-		SourceExportedByUserID: userID,
-		SourceMimeType:         sourceMimeType,
-		SourceIngestionMode:    ingestionMode,
+	return executeGoogleImportWithLineage(ctx, scope, GoogleImportInput{
+		UserID:            strings.TrimSpace(input.UserID),
+		AccountID:         strings.TrimSpace(input.AccountID),
+		GoogleFileID:      fileID,
+		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
+		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
+		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
+		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
+		CorrelationID:     strings.TrimSpace(input.CorrelationID),
+		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
+	}, snapshot, sourceMimeType, ingestionMode, userID, googleImportExecutionDeps{
+		documents:  s.documents,
+		agreements: s.agreements,
+		identity:   s.identity,
+		now:        s.now,
 	})
-	if err != nil {
-		return GoogleImportResult{}, err
-	}
-
-	var agreement stores.AgreementRecord
-	if agreementTitle != "" {
-		agreement, err = s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
-			DocumentID:             document.ID,
-			Title:                  agreementTitle,
-			CreatedByUserID:        createdByUserID,
-			SourceType:             stores.SourceTypeGoogleDrive,
-			SourceGoogleFileID:     fileID,
-			SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-			SourceModifiedTime:     &modifiedTime,
-			SourceExportedAt:       &exportedAt,
-			SourceExportedByUserID: userID,
-			SourceMimeType:         sourceMimeType,
-			SourceIngestionMode:    ingestionMode,
-		})
-		if err != nil {
-			return GoogleImportResult{}, err
-		}
-	}
-
-	return GoogleImportResult{
-		Document:       document,
-		Agreement:      agreement,
-		SourceMimeType: sourceMimeType,
-		IngestionMode:  ingestionMode,
-	}, nil
 }
 
 // ProviderHealth reports provider/runtime health used for degraded-mode signaling.

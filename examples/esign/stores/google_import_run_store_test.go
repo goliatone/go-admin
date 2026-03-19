@@ -59,11 +59,19 @@ func TestInMemoryGoogleImportRunLifecycleAndDedupe(t *testing.T) {
 	}
 
 	succeeded, err := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, GoogleImportRunSuccessInput{
-		DocumentID:     "doc-1",
-		AgreementID:    "agreement-1",
-		SourceMimeType: "application/vnd.google-apps.document",
-		IngestionMode:  "google_export_pdf",
-		CompletedAt:    now.Add(3 * time.Minute),
+		DocumentID:          "doc-1",
+		AgreementID:         "agreement-1",
+		SourceDocumentID:    "src-doc-1",
+		SourceRevisionID:    "src-rev-1",
+		SourceArtifactID:    "src-art-1",
+		LineageStatus:       "linked",
+		FingerprintStatus:   "pending",
+		CandidateStatusJSON: "[]",
+		DocumentDetailURL:   "/admin/content/esign_documents/doc-1",
+		AgreementDetailURL:  "/admin/content/esign_agreements/agreement-1",
+		SourceMimeType:      "application/vnd.google-apps.document",
+		IngestionMode:       "google_export_pdf",
+		CompletedAt:         now.Add(3 * time.Minute),
 	})
 	if err != nil {
 		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
@@ -76,6 +84,9 @@ func TestInMemoryGoogleImportRunLifecycleAndDedupe(t *testing.T) {
 	}
 	if succeeded.SourceMimeType == "" || succeeded.IngestionMode == "" {
 		t.Fatalf("expected diagnostics metadata, got %+v", succeeded)
+	}
+	if succeeded.SourceDocumentID != "src-doc-1" || succeeded.SourceRevisionID != "src-rev-1" || succeeded.SourceArtifactID != "src-art-1" {
+		t.Fatalf("expected lineage ids to persist, got %+v", succeeded)
 	}
 }
 

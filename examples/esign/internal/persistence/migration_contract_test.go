@@ -147,6 +147,51 @@ func TestPhase8AppLocalPostgresExternalReviewParticipantMigrationRelaxesRecipien
 	}
 }
 
+func TestPhase8AppLocalLineageLinkageMigrationDefinesDocumentAndAgreementColumns(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := "0026_esign_lineage_linkage_columns.up.sql"
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+
+	requiredStatements := []string{
+		"ALTER TABLE documents ADD COLUMN source_document_id TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE documents ADD COLUMN source_revision_id TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE documents ADD COLUMN source_artifact_id TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE agreements ADD COLUMN source_revision_id TEXT NOT NULL DEFAULT ''",
+	}
+	for _, stmt := range requiredStatements {
+		if !strings.Contains(upText, stmt) {
+			t.Fatalf("expected lineage linkage migration to contain %q", stmt)
+		}
+	}
+}
+
+func TestPhase8AppLocalLineageTablesMigrationDefinesRelationshipUniqueness(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := "0027_esign_lineage_tables.up.sql"
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+	if !strings.Contains(upText, "CREATE UNIQUE INDEX IF NOT EXISTS uq_source_relationships_scope_tuple") {
+		t.Fatalf("expected lineage tables migration to define source relationship uniqueness")
+	}
+}
+
 func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

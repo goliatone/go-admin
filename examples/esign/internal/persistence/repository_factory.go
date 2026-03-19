@@ -36,6 +36,12 @@ type RepositoryFactory struct {
 	repositoryDBOptions []repository.Option
 
 	documents                 repository.Repository[*stores.DocumentRecord]
+	sourceDocuments           repository.Repository[*stores.SourceDocumentRecord]
+	sourceHandles             repository.Repository[*stores.SourceHandleRecord]
+	sourceRevisions           repository.Repository[*stores.SourceRevisionRecord]
+	sourceArtifacts           repository.Repository[*stores.SourceArtifactRecord]
+	sourceFingerprints        repository.Repository[*stores.SourceFingerprintRecord]
+	sourceRelationships       repository.Repository[*stores.SourceRelationshipRecord]
 	drafts                    repository.Repository[*stores.DraftRecord]
 	agreements                repository.Repository[*stores.AgreementRecord]
 	recipients                repository.Repository[*stores.RecipientRecord]
@@ -138,6 +144,12 @@ func (f *RepositoryFactory) Build(candidate any) (*RepositoryFactory, error) {
 
 func (f *RepositoryFactory) initRepositories() {
 	f.documents = newRepositoryWithFactoryConfig(f.db, documentHandlers(), f.repositoryDBOptions)
+	f.sourceDocuments = newRepositoryWithFactoryConfig(f.db, sourceDocumentHandlers(), f.repositoryDBOptions)
+	f.sourceHandles = newRepositoryWithFactoryConfig(f.db, sourceHandleHandlers(), f.repositoryDBOptions)
+	f.sourceRevisions = newRepositoryWithFactoryConfig(f.db, sourceRevisionHandlers(), f.repositoryDBOptions)
+	f.sourceArtifacts = newRepositoryWithFactoryConfig(f.db, sourceArtifactHandlers(), f.repositoryDBOptions)
+	f.sourceFingerprints = newRepositoryWithFactoryConfig(f.db, sourceFingerprintHandlers(), f.repositoryDBOptions)
+	f.sourceRelationships = newRepositoryWithFactoryConfig(f.db, sourceRelationshipHandlers(), f.repositoryDBOptions)
 	f.drafts = newRepositoryWithFactoryConfig(f.db, draftHandlers(), f.repositoryDBOptions)
 	f.agreements = newRepositoryWithFactoryConfig(f.db, agreementHandlers(), f.repositoryDBOptions)
 	f.recipients = newRepositoryWithFactoryConfig(f.db, recipientHandlers(), f.repositoryDBOptions)
@@ -182,6 +194,48 @@ func (f *RepositoryFactory) Documents() repository.Repository[*stores.DocumentRe
 		return nil
 	}
 	return f.documents
+}
+
+func (f *RepositoryFactory) SourceDocuments() repository.Repository[*stores.SourceDocumentRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceDocuments
+}
+
+func (f *RepositoryFactory) SourceHandles() repository.Repository[*stores.SourceHandleRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceHandles
+}
+
+func (f *RepositoryFactory) SourceRevisions() repository.Repository[*stores.SourceRevisionRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceRevisions
+}
+
+func (f *RepositoryFactory) SourceArtifacts() repository.Repository[*stores.SourceArtifactRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceArtifacts
+}
+
+func (f *RepositoryFactory) SourceFingerprints() repository.Repository[*stores.SourceFingerprintRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceFingerprints
+}
+
+func (f *RepositoryFactory) SourceRelationships() repository.Repository[*stores.SourceRelationshipRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.sourceRelationships
 }
 
 func (f *RepositoryFactory) Drafts() repository.Repository[*stores.DraftRecord] {
@@ -420,6 +474,60 @@ func documentHandlers() repository.ModelHandlers[*stores.DocumentRecord] {
 		func() *stores.DocumentRecord { return &stores.DocumentRecord{} },
 		func(record *stores.DocumentRecord) string { return record.ID },
 		func(record *stores.DocumentRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceDocumentHandlers() repository.ModelHandlers[*stores.SourceDocumentRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceDocumentRecord { return &stores.SourceDocumentRecord{} },
+		func(record *stores.SourceDocumentRecord) string { return record.ID },
+		func(record *stores.SourceDocumentRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceHandleHandlers() repository.ModelHandlers[*stores.SourceHandleRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceHandleRecord { return &stores.SourceHandleRecord{} },
+		func(record *stores.SourceHandleRecord) string { return record.ID },
+		func(record *stores.SourceHandleRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceRevisionHandlers() repository.ModelHandlers[*stores.SourceRevisionRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceRevisionRecord { return &stores.SourceRevisionRecord{} },
+		func(record *stores.SourceRevisionRecord) string { return record.ID },
+		func(record *stores.SourceRevisionRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceArtifactHandlers() repository.ModelHandlers[*stores.SourceArtifactRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceArtifactRecord { return &stores.SourceArtifactRecord{} },
+		func(record *stores.SourceArtifactRecord) string { return record.ID },
+		func(record *stores.SourceArtifactRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceFingerprintHandlers() repository.ModelHandlers[*stores.SourceFingerprintRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceFingerprintRecord { return &stores.SourceFingerprintRecord{} },
+		func(record *stores.SourceFingerprintRecord) string { return record.ID },
+		func(record *stores.SourceFingerprintRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func sourceRelationshipHandlers() repository.ModelHandlers[*stores.SourceRelationshipRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SourceRelationshipRecord { return &stores.SourceRelationshipRecord{} },
+		func(record *stores.SourceRelationshipRecord) string { return record.ID },
+		func(record *stores.SourceRelationshipRecord, id string) { record.ID = id },
 		"id",
 	)
 }

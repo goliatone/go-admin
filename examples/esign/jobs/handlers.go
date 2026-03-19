@@ -905,6 +905,16 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	}
 
 	importRunID := strings.TrimSpace(msg.ImportRunID)
+	if replay, replayed, replayErr := h.loadCompletedGoogleImportResult(ctx, msg.Scope, importRunID); replayErr != nil {
+		return services.GoogleImportResult{}, replayErr
+	} else if replayed {
+		observability.LogOperation(ctx, slog.LevelInfo, "job", "google_drive_import", "replay", correlationID, h.now().Sub(startedAt), nil, map[string]any{
+			"job_name":       JobGoogleDriveImport,
+			"import_run_id":  importRunID,
+			"google_file_id": strings.TrimSpace(msg.GoogleFileID),
+		})
+		return replay, nil
+	}
 	if h.googleImportRuns != nil && importRunID != "" {
 		if _, markErr := h.googleImportRuns.MarkGoogleImportRunRunning(ctx, msg.Scope, importRunID, h.now()); markErr != nil {
 			observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), markErr, map[string]any{
@@ -915,12 +925,15 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	}
 
 	result, err := h.googleImporter.ImportDocument(ctx, msg.Scope, services.GoogleImportInput{
-		UserID:          strings.TrimSpace(msg.UserID),
-		AccountID:       strings.TrimSpace(msg.GoogleAccountID),
-		GoogleFileID:    strings.TrimSpace(msg.GoogleFileID),
-		DocumentTitle:   strings.TrimSpace(msg.DocumentTitle),
-		AgreementTitle:  strings.TrimSpace(msg.AgreementTitle),
-		CreatedByUserID: strings.TrimSpace(msg.CreatedByUserID),
+		UserID:            strings.TrimSpace(msg.UserID),
+		AccountID:         strings.TrimSpace(msg.GoogleAccountID),
+		GoogleFileID:      strings.TrimSpace(msg.GoogleFileID),
+		SourceVersionHint: strings.TrimSpace(msg.SourceVersionHint),
+		DocumentTitle:     strings.TrimSpace(msg.DocumentTitle),
+		AgreementTitle:    strings.TrimSpace(msg.AgreementTitle),
+		CreatedByUserID:   strings.TrimSpace(msg.CreatedByUserID),
+		CorrelationID:     correlationID,
+		IdempotencyKey:    dedupeKey,
 	})
 	if err != nil {
 		if h.googleImportRuns != nil && importRunID != "" {
@@ -941,12 +954,24 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	}
 
 	if h.googleImportRuns != nil && importRunID != "" {
+		candidateStatusJSON := "[]"
+		if encoded, marshalErr := json.Marshal(result.CandidateStatus); marshalErr == nil {
+			candidateStatusJSON = string(encoded)
+		}
 		_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, msg.Scope, importRunID, stores.GoogleImportRunSuccessInput{
-			DocumentID:     strings.TrimSpace(result.Document.ID),
-			AgreementID:    strings.TrimSpace(result.Agreement.ID),
-			SourceMimeType: strings.TrimSpace(result.SourceMimeType),
-			IngestionMode:  strings.TrimSpace(result.IngestionMode),
-			CompletedAt:    h.now(),
+			DocumentID:          strings.TrimSpace(result.Document.ID),
+			AgreementID:         strings.TrimSpace(result.Agreement.ID),
+			SourceDocumentID:    strings.TrimSpace(result.SourceDocumentID),
+			SourceRevisionID:    strings.TrimSpace(result.SourceRevisionID),
+			SourceArtifactID:    strings.TrimSpace(result.SourceArtifactID),
+			LineageStatus:       strings.TrimSpace(result.LineageStatus),
+			FingerprintStatus:   strings.TrimSpace(result.FingerprintStatus.Status),
+			CandidateStatusJSON: candidateStatusJSON,
+			DocumentDetailURL:   strings.TrimSpace(result.DocumentDetailURL),
+			AgreementDetailURL:  strings.TrimSpace(result.AgreementDetailURL),
+			SourceMimeType:      strings.TrimSpace(result.SourceMimeType),
+			IngestionMode:       strings.TrimSpace(result.IngestionMode),
+			CompletedAt:         h.now(),
 		})
 	}
 
@@ -978,6 +1003,75 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		"account_id":     strings.TrimSpace(msg.GoogleAccountID),
 	})
 	return result, nil
+}
+
+func (h Handlers) loadCompletedGoogleImportResult(ctx context.Context, scope stores.Scope, importRunID string) (services.GoogleImportResult, bool, error) {
+	if h.googleImportRuns == nil || strings.TrimSpace(importRunID) == "" {
+		return services.GoogleImportResult{}, false, nil
+	}
+	run, err := h.googleImportRuns.GetGoogleImportRun(ctx, scope, importRunID)
+	if err != nil {
+		if jobNotFound(err) {
+			return services.GoogleImportResult{}, false, nil
+		}
+		return services.GoogleImportResult{}, false, err
+	}
+	if strings.TrimSpace(run.Status) != stores.GoogleImportRunStatusSucceeded {
+		return services.GoogleImportResult{}, false, nil
+	}
+
+	result := services.GoogleImportResult{
+		SourceDocumentID:   strings.TrimSpace(run.SourceDocumentID),
+		SourceRevisionID:   strings.TrimSpace(run.SourceRevisionID),
+		SourceArtifactID:   strings.TrimSpace(run.SourceArtifactID),
+		LineageStatus:      strings.TrimSpace(run.LineageStatus),
+		FingerprintStatus:  services.FingerprintStatusSummary{Status: firstNonEmpty(strings.TrimSpace(run.FingerprintStatus), services.LineageFingerprintStatusUnknown), EvidenceAvailable: false},
+		DocumentDetailURL:  strings.TrimSpace(run.DocumentDetailURL),
+		AgreementDetailURL: strings.TrimSpace(run.AgreementDetailURL),
+		SourceMimeType:     strings.TrimSpace(run.SourceMimeType),
+		IngestionMode:      strings.TrimSpace(run.IngestionMode),
+	}
+	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
+		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus)
+	}
+	if h.documents != nil && strings.TrimSpace(run.DocumentID) != "" {
+		document, err := h.documents.Get(ctx, scope, run.DocumentID)
+		if err != nil {
+			return services.GoogleImportResult{}, false, err
+		}
+		result.Document = document
+		if result.SourceDocumentID == "" {
+			result.SourceDocumentID = strings.TrimSpace(document.SourceDocumentID)
+		}
+		if result.SourceRevisionID == "" {
+			result.SourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
+		}
+		if result.SourceArtifactID == "" {
+			result.SourceArtifactID = strings.TrimSpace(document.SourceArtifactID)
+		}
+	}
+	if h.agreements != nil && strings.TrimSpace(run.AgreementID) != "" {
+		agreement, err := h.agreements.GetAgreement(ctx, scope, run.AgreementID)
+		if err != nil {
+			return services.GoogleImportResult{}, false, err
+		}
+		result.Agreement = agreement
+		if result.SourceRevisionID == "" {
+			result.SourceRevisionID = strings.TrimSpace(agreement.SourceRevisionID)
+		}
+	}
+	return result, true, nil
+}
+
+func jobNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) && coded != nil {
+		return coded.Category == goerrors.CategoryNotFound || strings.EqualFold(strings.TrimSpace(coded.TextCode), "NOT_FOUND")
+	}
+	return false
 }
 
 func googleImportFailureDetails(err error) (string, string, string) {

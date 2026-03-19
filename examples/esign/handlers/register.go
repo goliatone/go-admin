@@ -567,29 +567,41 @@ func googleImportRunDedupeKey(userID, accountID, googleFileID, sourceVersionHint
 
 func googleImportRunRecordToMap(record stores.GoogleImportRunRecord) map[string]any {
 	out := map[string]any{
-		"import_run_id":       strings.TrimSpace(record.ID),
-		"id":                  strings.TrimSpace(record.ID),
-		"status":              strings.TrimSpace(record.Status),
-		"user_id":             strings.TrimSpace(record.UserID),
-		"google_file_id":      strings.TrimSpace(record.GoogleFileID),
-		"source_version_hint": strings.TrimSpace(record.SourceVersionHint),
-		"dedupe_key":          strings.TrimSpace(record.DedupeKey),
-		"document_title":      strings.TrimSpace(record.DocumentTitle),
-		"agreement_title":     strings.TrimSpace(record.AgreementTitle),
-		"created_by_user_id":  strings.TrimSpace(record.CreatedByUserID),
-		"correlation_id":      strings.TrimSpace(record.CorrelationID),
-		"source_mime_type":    strings.TrimSpace(record.SourceMimeType),
-		"ingestion_mode":      strings.TrimSpace(record.IngestionMode),
-		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		"started_at":          formatTime(record.StartedAt),
-		"completed_at":        formatTime(record.CompletedAt),
+		"import_run_id":        strings.TrimSpace(record.ID),
+		"id":                   strings.TrimSpace(record.ID),
+		"status":               strings.TrimSpace(record.Status),
+		"user_id":              strings.TrimSpace(record.UserID),
+		"google_file_id":       strings.TrimSpace(record.GoogleFileID),
+		"source_version_hint":  strings.TrimSpace(record.SourceVersionHint),
+		"dedupe_key":           strings.TrimSpace(record.DedupeKey),
+		"document_title":       strings.TrimSpace(record.DocumentTitle),
+		"agreement_title":      strings.TrimSpace(record.AgreementTitle),
+		"created_by_user_id":   strings.TrimSpace(record.CreatedByUserID),
+		"correlation_id":       strings.TrimSpace(record.CorrelationID),
+		"source_document_id":   strings.TrimSpace(record.SourceDocumentID),
+		"source_revision_id":   strings.TrimSpace(record.SourceRevisionID),
+		"source_artifact_id":   strings.TrimSpace(record.SourceArtifactID),
+		"lineage_status":       strings.TrimSpace(record.LineageStatus),
+		"fingerprint_status":   map[string]any{"status": strings.TrimSpace(record.FingerprintStatus), "evidence_available": false},
+		"source_mime_type":     strings.TrimSpace(record.SourceMimeType),
+		"ingestion_mode":       strings.TrimSpace(record.IngestionMode),
+		"document_detail_url":  strings.TrimSpace(record.DocumentDetailURL),
+		"agreement_detail_url": strings.TrimSpace(record.AgreementDetailURL),
+		"created_at":           record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":           record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"started_at":           formatTime(record.StartedAt),
+		"completed_at":         formatTime(record.CompletedAt),
 	}
 	if strings.TrimSpace(record.DocumentID) != "" {
 		out["document"] = map[string]any{"id": strings.TrimSpace(record.DocumentID)}
 	}
 	if strings.TrimSpace(record.AgreementID) != "" {
 		out["agreement"] = map[string]any{"id": strings.TrimSpace(record.AgreementID), "document_id": strings.TrimSpace(record.DocumentID)}
+	}
+	if candidates := decodeJSONArray(record.CandidateStatusJSON); len(candidates) > 0 {
+		out["candidate_status"] = candidates
+	} else {
+		out["candidate_status"] = []any{}
 	}
 	if strings.TrimSpace(record.ErrorCode) != "" || strings.TrimSpace(record.ErrorMessage) != "" {
 		errPayload := map[string]any{
@@ -600,6 +612,18 @@ func googleImportRunRecordToMap(record stores.GoogleImportRunRecord) map[string]
 			errPayload["details"] = details
 		}
 		out["error"] = errPayload
+	}
+	return out
+}
+
+func decodeJSONArray(raw string) []any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	out := make([]any, 0)
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
 	}
 	return out
 }

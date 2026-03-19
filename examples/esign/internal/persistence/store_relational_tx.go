@@ -4101,6 +4101,14 @@ func (s *relationalTxStore) MarkGoogleImportRunSucceeded(ctx context.Context, sc
 	record.Status = stores.GoogleImportRunStatusSucceeded
 	record.DocumentID = normalizeRelationalID(input.DocumentID)
 	record.AgreementID = normalizeRelationalID(input.AgreementID)
+	record.SourceDocumentID = normalizeRelationalID(input.SourceDocumentID)
+	record.SourceRevisionID = normalizeRelationalID(input.SourceRevisionID)
+	record.SourceArtifactID = normalizeRelationalID(input.SourceArtifactID)
+	record.LineageStatus = strings.TrimSpace(input.LineageStatus)
+	record.FingerprintStatus = strings.TrimSpace(input.FingerprintStatus)
+	record.CandidateStatusJSON = strings.TrimSpace(input.CandidateStatusJSON)
+	record.DocumentDetailURL = strings.TrimSpace(input.DocumentDetailURL)
+	record.AgreementDetailURL = strings.TrimSpace(input.AgreementDetailURL)
 	record.SourceMimeType = strings.TrimSpace(input.SourceMimeType)
 	record.IngestionMode = strings.TrimSpace(input.IngestionMode)
 	record.ErrorCode = ""

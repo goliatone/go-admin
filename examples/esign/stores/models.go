@@ -621,30 +621,38 @@ type JobRunInput struct {
 
 // GoogleImportRunRecord stores async Google Drive import execution state and result payload.
 type GoogleImportRunRecord struct {
-	bun.BaseModel     `bun:"table:google_import_runs,alias:gir"`
-	ID                string     `json:"id"`
-	TenantID          string     `json:"tenant_id"`
-	OrgID             string     `json:"org_id"`
-	UserID            string     `json:"user_id"`
-	GoogleFileID      string     `json:"google_file_id"`
-	SourceVersionHint string     `json:"source_version_hint"`
-	DedupeKey         string     `json:"dedupe_key"`
-	DocumentTitle     string     `json:"document_title"`
-	AgreementTitle    string     `json:"agreement_title"`
-	CreatedByUserID   string     `json:"created_by_user_id"`
-	CorrelationID     string     `json:"correlation_id"`
-	Status            string     `json:"status"`
-	DocumentID        string     `json:"document_id"`
-	AgreementID       string     `json:"agreement_id"`
-	SourceMimeType    string     `json:"source_mime_type"`
-	IngestionMode     string     `json:"ingestion_mode"`
-	ErrorCode         string     `json:"error_code"`
-	ErrorMessage      string     `json:"error_message"`
-	ErrorDetailsJSON  string     `json:"error_details_json"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
-	StartedAt         *time.Time `json:"started_at"`
-	CompletedAt       *time.Time `json:"completed_at"`
+	bun.BaseModel       `bun:"table:google_import_runs,alias:gir"`
+	ID                  string     `json:"id"`
+	TenantID            string     `json:"tenant_id"`
+	OrgID               string     `json:"org_id"`
+	UserID              string     `json:"user_id"`
+	GoogleFileID        string     `json:"google_file_id"`
+	SourceVersionHint   string     `json:"source_version_hint"`
+	DedupeKey           string     `json:"dedupe_key"`
+	DocumentTitle       string     `json:"document_title"`
+	AgreementTitle      string     `json:"agreement_title"`
+	CreatedByUserID     string     `json:"created_by_user_id"`
+	CorrelationID       string     `json:"correlation_id"`
+	Status              string     `json:"status"`
+	DocumentID          string     `json:"document_id"`
+	AgreementID         string     `json:"agreement_id"`
+	SourceDocumentID    string     `json:"source_document_id"`
+	SourceRevisionID    string     `json:"source_revision_id"`
+	SourceArtifactID    string     `json:"source_artifact_id"`
+	LineageStatus       string     `json:"lineage_status"`
+	FingerprintStatus   string     `json:"fingerprint_status"`
+	CandidateStatusJSON string     `json:"candidate_status_json"`
+	DocumentDetailURL   string     `json:"document_detail_url"`
+	AgreementDetailURL  string     `json:"agreement_detail_url"`
+	SourceMimeType      string     `json:"source_mime_type"`
+	IngestionMode       string     `json:"ingestion_mode"`
+	ErrorCode           string     `json:"error_code"`
+	ErrorMessage        string     `json:"error_message"`
+	ErrorDetailsJSON    string     `json:"error_details_json"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	StartedAt           *time.Time `json:"started_at"`
+	CompletedAt         *time.Time `json:"completed_at"`
 }
 
 // AgreementReminderStateRecord stores recipient-level reminder cadence state.
@@ -694,11 +702,19 @@ type GoogleImportRunInput struct {
 
 // GoogleImportRunSuccessInput captures terminal success payload for an import run.
 type GoogleImportRunSuccessInput struct {
-	DocumentID     string    `json:"document_id"`
-	AgreementID    string    `json:"agreement_id"`
-	SourceMimeType string    `json:"source_mime_type"`
-	IngestionMode  string    `json:"ingestion_mode"`
-	CompletedAt    time.Time `json:"completed_at"`
+	DocumentID          string    `json:"document_id"`
+	AgreementID         string    `json:"agreement_id"`
+	SourceDocumentID    string    `json:"source_document_id"`
+	SourceRevisionID    string    `json:"source_revision_id"`
+	SourceArtifactID    string    `json:"source_artifact_id"`
+	LineageStatus       string    `json:"lineage_status"`
+	FingerprintStatus   string    `json:"fingerprint_status"`
+	CandidateStatusJSON string    `json:"candidate_status_json"`
+	DocumentDetailURL   string    `json:"document_detail_url"`
+	AgreementDetailURL  string    `json:"agreement_detail_url"`
+	SourceMimeType      string    `json:"source_mime_type"`
+	IngestionMode       string    `json:"ingestion_mode"`
+	CompletedAt         time.Time `json:"completed_at"`
 }
 
 // GoogleImportRunFailureInput captures terminal failure payload for an import run.

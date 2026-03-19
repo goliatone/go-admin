@@ -27,6 +27,12 @@ type InMemoryStore struct {
 	mu sync.RWMutex
 
 	documents                   map[string]DocumentRecord
+	sourceDocuments             map[string]SourceDocumentRecord
+	sourceHandles               map[string]SourceHandleRecord
+	sourceRevisions             map[string]SourceRevisionRecord
+	sourceArtifacts             map[string]SourceArtifactRecord
+	sourceFingerprints          map[string]SourceFingerprintRecord
+	sourceRelationships         map[string]SourceRelationshipRecord
 	agreements                  map[string]AgreementRecord
 	agreementRevisionRequests   map[string]AgreementRevisionRequestRecord
 	agreementRevisionReqIndex   map[string]string
@@ -83,6 +89,12 @@ type InMemoryStore struct {
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		documents:                   map[string]DocumentRecord{},
+		sourceDocuments:             map[string]SourceDocumentRecord{},
+		sourceHandles:               map[string]SourceHandleRecord{},
+		sourceRevisions:             map[string]SourceRevisionRecord{},
+		sourceArtifacts:             map[string]SourceArtifactRecord{},
+		sourceFingerprints:          map[string]SourceFingerprintRecord{},
+		sourceRelationships:         map[string]SourceRelationshipRecord{},
 		agreements:                  map[string]AgreementRecord{},
 		agreementRevisionRequests:   map[string]AgreementRevisionRequestRecord{},
 		agreementRevisionReqIndex:   map[string]string{},
@@ -193,6 +205,12 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 	defer s.mu.RUnlock()
 	payload := inMemoryStoreSnapshot{
 		Documents:                   s.documents,
+		SourceDocuments:             s.sourceDocuments,
+		SourceHandles:               s.sourceHandles,
+		SourceRevisions:             s.sourceRevisions,
+		SourceArtifacts:             s.sourceArtifacts,
+		SourceFingerprints:          s.sourceFingerprints,
+		SourceRelationships:         s.sourceRelationships,
 		Agreements:                  s.agreements,
 		AgreementRevisionRequests:   s.agreementRevisionRequests,
 		AgreementRevisionReqIndex:   s.agreementRevisionReqIndex,
@@ -258,6 +276,12 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 
 func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.documents = ensureDocumentMap(snapshot.Documents)
+	s.sourceDocuments = ensureSourceDocumentMap(snapshot.SourceDocuments)
+	s.sourceHandles = ensureSourceHandleMap(snapshot.SourceHandles)
+	s.sourceRevisions = ensureSourceRevisionMap(snapshot.SourceRevisions)
+	s.sourceArtifacts = ensureSourceArtifactMap(snapshot.SourceArtifacts)
+	s.sourceFingerprints = ensureSourceFingerprintMap(snapshot.SourceFingerprints)
+	s.sourceRelationships = ensureSourceRelationshipMap(snapshot.SourceRelationships)
 	s.agreements = ensureAgreementMap(snapshot.Agreements)
 	s.agreementRevisionRequests = ensureAgreementRevisionRequestMap(snapshot.AgreementRevisionRequests)
 	s.agreementRevisionReqIndex = ensureStringMap(snapshot.AgreementRevisionReqIndex)
@@ -4815,6 +4839,14 @@ func (s *InMemoryStore) MarkGoogleImportRunSucceeded(ctx context.Context, scope 
 	record.Status = GoogleImportRunStatusSucceeded
 	record.DocumentID = normalizeID(input.DocumentID)
 	record.AgreementID = normalizeID(input.AgreementID)
+	record.SourceDocumentID = normalizeID(input.SourceDocumentID)
+	record.SourceRevisionID = normalizeID(input.SourceRevisionID)
+	record.SourceArtifactID = normalizeID(input.SourceArtifactID)
+	record.LineageStatus = strings.TrimSpace(input.LineageStatus)
+	record.FingerprintStatus = strings.TrimSpace(input.FingerprintStatus)
+	record.CandidateStatusJSON = strings.TrimSpace(input.CandidateStatusJSON)
+	record.DocumentDetailURL = strings.TrimSpace(input.DocumentDetailURL)
+	record.AgreementDetailURL = strings.TrimSpace(input.AgreementDetailURL)
 	record.SourceMimeType = strings.TrimSpace(input.SourceMimeType)
 	record.IngestionMode = strings.TrimSpace(input.IngestionMode)
 	record.ErrorCode = ""

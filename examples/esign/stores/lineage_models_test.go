@@ -9,10 +9,13 @@ func TestLineageVocabularyConstantsRemainCanonical(t *testing.T) {
 	if SourceProviderKindGoogleDrive != "google_drive" {
 		t.Fatalf("unexpected provider kind: %q", SourceProviderKindGoogleDrive)
 	}
+	if SourceProviderKindOneDrive != "onedrive" || SourceProviderKindDropbox != "dropbox" || SourceProviderKindBox != "box" || SourceProviderKindLocal != "local" {
+		t.Fatalf("unexpected secondary provider kinds")
+	}
 	if SourceHandleStatusActive != "active" || SourceHandleStatusSuperseded != "superseded" || SourceHandleStatusSuspectedDuplicate != "suspected_duplicate" {
 		t.Fatalf("unexpected handle statuses")
 	}
-	if SourceArtifactKindSignablePDF != "signable_pdf" || SourceArtifactKindPreviewPDF != "preview_pdf" || SourceArtifactKindHTMLSnapshot != "html_snapshot" {
+	if SourceArtifactKindSignablePDF != "signable_pdf" || SourceArtifactKindPreviewPDF != "preview_pdf" || SourceArtifactKindHTMLSnapshot != "html_snapshot" || SourceArtifactKindTextExtract != "text_extract" {
 		t.Fatalf("unexpected artifact kinds")
 	}
 	if SourceRelationshipStatusPendingReview != "pending_review" || SourceRelationshipStatusConfirmed != "confirmed" || SourceRelationshipStatusRejected != "rejected" || SourceRelationshipStatusSuperseded != "superseded" {

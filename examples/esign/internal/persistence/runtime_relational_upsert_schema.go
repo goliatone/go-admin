@@ -22,6 +22,12 @@ const (
 
 type runtimeStoreSnapshot struct {
 	Documents                  map[string]stores.DocumentRecord                 `json:"documents"`
+	SourceDocuments            map[string]stores.SourceDocumentRecord           `json:"source_documents"`
+	SourceHandles              map[string]stores.SourceHandleRecord             `json:"source_handles"`
+	SourceRevisions            map[string]stores.SourceRevisionRecord           `json:"source_revisions"`
+	SourceArtifacts            map[string]stores.SourceArtifactRecord           `json:"source_artifacts"`
+	SourceFingerprints         map[string]stores.SourceFingerprintRecord        `json:"source_fingerprints"`
+	SourceRelationships        map[string]stores.SourceRelationshipRecord       `json:"source_relationships"`
 	Agreements                 map[string]stores.AgreementRecord                `json:"agreements"`
 	Drafts                     map[string]stores.DraftRecord                    `json:"drafts"`
 	DraftWizardIndex           map[string]string                                `json:"draft_wizard_index"`
@@ -158,8 +164,173 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 	now := func() time.Time { return time.Now().UTC() }
 	return []runtimeTableUpsertSpec{
 		{
+			table:    "source_documents",
+			columns:  []string{"id", "tenant_id", "org_id", "provider_kind", "canonical_title", "status", "lineage_confidence", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceDocuments))
+				for _, record := range sortedMapValues(snapshot.SourceDocuments) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					rows = append(rows, map[string]any{
+						"id":                 strings.TrimSpace(record.ID),
+						"tenant_id":          strings.TrimSpace(record.TenantID),
+						"org_id":             strings.TrimSpace(record.OrgID),
+						"provider_kind":      strings.TrimSpace(record.ProviderKind),
+						"canonical_title":    strings.TrimSpace(record.CanonicalTitle),
+						"status":             strings.TrimSpace(record.Status),
+						"lineage_confidence": record.LineageConfidence,
+						"created_at":         createdAt,
+						"updated_at":         updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "source_handles",
+			columns:  []string{"id", "tenant_id", "org_id", "source_document_id", "provider_kind", "external_file_id", "account_id", "drive_id", "web_url", "handle_status", "valid_from", "valid_to", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceHandles))
+				for _, record := range sortedMapValues(snapshot.SourceHandles) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					rows = append(rows, map[string]any{
+						"id":                 strings.TrimSpace(record.ID),
+						"tenant_id":          strings.TrimSpace(record.TenantID),
+						"org_id":             strings.TrimSpace(record.OrgID),
+						"source_document_id": strings.TrimSpace(record.SourceDocumentID),
+						"provider_kind":      strings.TrimSpace(record.ProviderKind),
+						"external_file_id":   strings.TrimSpace(record.ExternalFileID),
+						"account_id":         strings.TrimSpace(record.AccountID),
+						"drive_id":           strings.TrimSpace(record.DriveID),
+						"web_url":            strings.TrimSpace(record.WebURL),
+						"handle_status":      strings.TrimSpace(record.HandleStatus),
+						"valid_from":         requiredTime(derefTime(record.ValidFrom), createdAt),
+						"valid_to":           optionalTime(record.ValidTo),
+						"created_at":         createdAt,
+						"updated_at":         updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "source_revisions",
+			columns:  []string{"id", "tenant_id", "org_id", "source_document_id", "source_handle_id", "provider_revision_hint", "modified_time", "exported_at", "exported_by_user_id", "source_mime_type", "metadata_json", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceRevisions))
+				for _, record := range sortedMapValues(snapshot.SourceRevisions) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					rows = append(rows, map[string]any{
+						"id":                     strings.TrimSpace(record.ID),
+						"tenant_id":              strings.TrimSpace(record.TenantID),
+						"org_id":                 strings.TrimSpace(record.OrgID),
+						"source_document_id":     strings.TrimSpace(record.SourceDocumentID),
+						"source_handle_id":       strings.TrimSpace(record.SourceHandleID),
+						"provider_revision_hint": strings.TrimSpace(record.ProviderRevisionHint),
+						"modified_time":          optionalTime(record.ModifiedTime),
+						"exported_at":            optionalTime(record.ExportedAt),
+						"exported_by_user_id":    strings.TrimSpace(record.ExportedByUserID),
+						"source_mime_type":       strings.TrimSpace(record.SourceMimeType),
+						"metadata_json":          strings.TrimSpace(record.MetadataJSON),
+						"created_at":             createdAt,
+						"updated_at":             updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "source_artifacts",
+			columns:  []string{"id", "tenant_id", "org_id", "source_revision_id", "artifact_kind", "object_key", "sha256", "page_count", "size_bytes", "compatibility_tier", "compatibility_reason", "normalization_status", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceArtifacts))
+				for _, record := range sortedMapValues(snapshot.SourceArtifacts) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					rows = append(rows, map[string]any{
+						"id":                   strings.TrimSpace(record.ID),
+						"tenant_id":            strings.TrimSpace(record.TenantID),
+						"org_id":               strings.TrimSpace(record.OrgID),
+						"source_revision_id":   strings.TrimSpace(record.SourceRevisionID),
+						"artifact_kind":        strings.TrimSpace(record.ArtifactKind),
+						"object_key":           strings.TrimSpace(record.ObjectKey),
+						"sha256":               strings.TrimSpace(record.SHA256),
+						"page_count":           record.PageCount,
+						"size_bytes":           record.SizeBytes,
+						"compatibility_tier":   strings.TrimSpace(record.CompatibilityTier),
+						"compatibility_reason": strings.TrimSpace(record.CompatibilityReason),
+						"normalization_status": strings.TrimSpace(record.NormalizationStatus),
+						"created_at":           createdAt,
+						"updated_at":           updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "source_fingerprints",
+			columns:  []string{"id", "tenant_id", "org_id", "source_revision_id", "artifact_id", "extract_version", "raw_sha256", "normalized_text_sha256", "simhash64", "minhash_json", "chunk_hashes_json", "token_count", "created_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceFingerprints))
+				for _, record := range sortedMapValues(snapshot.SourceFingerprints) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					rows = append(rows, map[string]any{
+						"id":                     strings.TrimSpace(record.ID),
+						"tenant_id":              strings.TrimSpace(record.TenantID),
+						"org_id":                 strings.TrimSpace(record.OrgID),
+						"source_revision_id":     strings.TrimSpace(record.SourceRevisionID),
+						"artifact_id":            strings.TrimSpace(record.ArtifactID),
+						"extract_version":        strings.TrimSpace(record.ExtractVersion),
+						"raw_sha256":             strings.TrimSpace(record.RawSHA256),
+						"normalized_text_sha256": strings.TrimSpace(record.NormalizedTextSHA256),
+						"simhash64":              strings.TrimSpace(record.SimHash64),
+						"minhash_json":           strings.TrimSpace(record.MinHashJSON),
+						"chunk_hashes_json":      strings.TrimSpace(record.ChunkHashesJSON),
+						"token_count":            record.TokenCount,
+						"created_at":             createdAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "source_relationships",
+			columns:  []string{"id", "tenant_id", "org_id", "left_source_document_id", "right_source_document_id", "relationship_type", "confidence_band", "confidence_score", "status", "evidence_json", "created_by_user_id", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.SourceRelationships))
+				for _, record := range sortedMapValues(snapshot.SourceRelationships) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					rows = append(rows, map[string]any{
+						"id":                       strings.TrimSpace(record.ID),
+						"tenant_id":                strings.TrimSpace(record.TenantID),
+						"org_id":                   strings.TrimSpace(record.OrgID),
+						"left_source_document_id":  strings.TrimSpace(record.LeftSourceDocumentID),
+						"right_source_document_id": strings.TrimSpace(record.RightSourceDocumentID),
+						"relationship_type":        strings.TrimSpace(record.RelationshipType),
+						"confidence_band":          strings.TrimSpace(record.ConfidenceBand),
+						"confidence_score":         record.ConfidenceScore,
+						"status":                   strings.TrimSpace(record.Status),
+						"evidence_json":            strings.TrimSpace(record.EvidenceJSON),
+						"created_by_user_id":       strings.TrimSpace(record.CreatedByUserID),
+						"created_at":               createdAt,
+						"updated_at":               updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
 			table:    "documents",
-			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_original_name", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
+			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_original_name", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "source_document_id", "source_revision_id", "source_artifact_id", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Documents))
@@ -192,6 +363,9 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 						"source_exported_by_user_id": strings.TrimSpace(record.SourceExportedByUserID),
 						"source_mime_type":           strings.TrimSpace(record.SourceMimeType),
 						"source_ingestion_mode":      strings.TrimSpace(record.SourceIngestionMode),
+						"source_document_id":         strings.TrimSpace(record.SourceDocumentID),
+						"source_revision_id":         strings.TrimSpace(record.SourceRevisionID),
+						"source_artifact_id":         strings.TrimSpace(record.SourceArtifactID),
 						"pdf_compatibility_tier":     strings.TrimSpace(record.PDFCompatibilityTier),
 						"pdf_compatibility_reason":   strings.TrimSpace(record.PDFCompatibilityReason),
 						"pdf_normalization_status":   strings.TrimSpace(record.PDFNormalizationStatus),
@@ -204,7 +378,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 		},
 		{
 			table:    "agreements",
-			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode"},
+			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "source_revision_id"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Agreements))
@@ -249,6 +423,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 						"source_exported_by_user_id": strings.TrimSpace(record.SourceExportedByUserID),
 						"source_mime_type":           strings.TrimSpace(record.SourceMimeType),
 						"source_ingestion_mode":      strings.TrimSpace(record.SourceIngestionMode),
+						"source_revision_id":         strings.TrimSpace(record.SourceRevisionID),
 					})
 				}
 				return rows
@@ -837,7 +1012,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 		},
 		{
 			table:    "google_import_runs",
-			columns:  []string{"id", "tenant_id", "org_id", "user_id", "google_file_id", "source_version_hint", "dedupe_key", "document_title", "agreement_title", "created_by_user_id", "correlation_id", "status", "document_id", "agreement_id", "source_mime_type", "ingestion_mode", "error_code", "error_message", "error_details_json", "created_at", "updated_at", "started_at", "completed_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "user_id", "google_file_id", "source_version_hint", "dedupe_key", "document_title", "agreement_title", "created_by_user_id", "correlation_id", "status", "document_id", "agreement_id", "source_document_id", "source_revision_id", "source_artifact_id", "lineage_status", "fingerprint_status", "candidate_status_json", "document_detail_url", "agreement_detail_url", "source_mime_type", "ingestion_mode", "error_code", "error_message", "error_details_json", "created_at", "updated_at", "started_at", "completed_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.GoogleImportRuns))
@@ -845,29 +1020,37 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					rows = append(rows, map[string]any{
-						"id":                  strings.TrimSpace(record.ID),
-						"tenant_id":           strings.TrimSpace(record.TenantID),
-						"org_id":              strings.TrimSpace(record.OrgID),
-						"user_id":             strings.TrimSpace(record.UserID),
-						"google_file_id":      strings.TrimSpace(record.GoogleFileID),
-						"source_version_hint": strings.TrimSpace(record.SourceVersionHint),
-						"dedupe_key":          strings.TrimSpace(record.DedupeKey),
-						"document_title":      strings.TrimSpace(record.DocumentTitle),
-						"agreement_title":     strings.TrimSpace(record.AgreementTitle),
-						"created_by_user_id":  strings.TrimSpace(record.CreatedByUserID),
-						"correlation_id":      strings.TrimSpace(record.CorrelationID),
-						"status":              strings.TrimSpace(record.Status),
-						"document_id":         strings.TrimSpace(record.DocumentID),
-						"agreement_id":        strings.TrimSpace(record.AgreementID),
-						"source_mime_type":    strings.TrimSpace(record.SourceMimeType),
-						"ingestion_mode":      strings.TrimSpace(record.IngestionMode),
-						"error_code":          strings.TrimSpace(record.ErrorCode),
-						"error_message":       strings.TrimSpace(record.ErrorMessage),
-						"error_details_json":  strings.TrimSpace(record.ErrorDetailsJSON),
-						"created_at":          createdAt,
-						"updated_at":          updatedAt,
-						"started_at":          optionalTime(record.StartedAt),
-						"completed_at":        optionalTime(record.CompletedAt),
+						"id":                    strings.TrimSpace(record.ID),
+						"tenant_id":             strings.TrimSpace(record.TenantID),
+						"org_id":                strings.TrimSpace(record.OrgID),
+						"user_id":               strings.TrimSpace(record.UserID),
+						"google_file_id":        strings.TrimSpace(record.GoogleFileID),
+						"source_version_hint":   strings.TrimSpace(record.SourceVersionHint),
+						"dedupe_key":            strings.TrimSpace(record.DedupeKey),
+						"document_title":        strings.TrimSpace(record.DocumentTitle),
+						"agreement_title":       strings.TrimSpace(record.AgreementTitle),
+						"created_by_user_id":    strings.TrimSpace(record.CreatedByUserID),
+						"correlation_id":        strings.TrimSpace(record.CorrelationID),
+						"status":                strings.TrimSpace(record.Status),
+						"document_id":           strings.TrimSpace(record.DocumentID),
+						"agreement_id":          strings.TrimSpace(record.AgreementID),
+						"source_document_id":    strings.TrimSpace(record.SourceDocumentID),
+						"source_revision_id":    strings.TrimSpace(record.SourceRevisionID),
+						"source_artifact_id":    strings.TrimSpace(record.SourceArtifactID),
+						"lineage_status":        strings.TrimSpace(record.LineageStatus),
+						"fingerprint_status":    strings.TrimSpace(record.FingerprintStatus),
+						"candidate_status_json": strings.TrimSpace(record.CandidateStatusJSON),
+						"document_detail_url":   strings.TrimSpace(record.DocumentDetailURL),
+						"agreement_detail_url":  strings.TrimSpace(record.AgreementDetailURL),
+						"source_mime_type":      strings.TrimSpace(record.SourceMimeType),
+						"ingestion_mode":        strings.TrimSpace(record.IngestionMode),
+						"error_code":            strings.TrimSpace(record.ErrorCode),
+						"error_message":         strings.TrimSpace(record.ErrorMessage),
+						"error_details_json":    strings.TrimSpace(record.ErrorDetailsJSON),
+						"created_at":            createdAt,
+						"updated_at":            updatedAt,
+						"started_at":            optionalTime(record.StartedAt),
+						"completed_at":          optionalTime(record.CompletedAt),
 					})
 				}
 				return rows
@@ -1323,6 +1506,13 @@ func requiredTime(value time.Time, fallback time.Time) time.Time {
 			return time.Now().UTC()
 		}
 		return fallback.UTC()
+	}
+	return value.UTC()
+}
+
+func derefTime(value *time.Time) time.Time {
+	if value == nil {
+		return time.Time{}
 	}
 	return value.UTC()
 }

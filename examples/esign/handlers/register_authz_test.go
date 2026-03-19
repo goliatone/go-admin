@@ -2550,7 +2550,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("read first attach response body: %v", err)
 	}
-	firstArtifactID := extractJSONFieldString(firstPayload, []string{"signature", "artifact", "ID"})
+	firstArtifactID := extractJSONFieldString(firstPayload, []string{"signature", "artifact", "id"})
 	if firstArtifactID == "" {
 		t.Fatalf("expected first attach artifact id, got %s", firstPayload)
 	}
@@ -2570,7 +2570,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("read retry attach response body: %v", err)
 	}
-	retryArtifactID := extractJSONFieldString(retryPayload, []string{"signature", "artifact", "ID"})
+	retryArtifactID := extractJSONFieldString(retryPayload, []string{"signature", "artifact", "id"})
 	if retryArtifactID == "" {
 		t.Fatalf("expected retry attach artifact id, got %s", retryPayload)
 	}
@@ -2799,7 +2799,7 @@ func TestRegisterSignerDeclineFlow(t *testing.T) {
 	if !strings.Contains(bodyText, "\"status\":\"ok\"") {
 		t.Fatalf("expected ok decline status payload, got %s", bodyText)
 	}
-	if !strings.Contains(bodyText, "\"DeclineReason\":\"I decline to sign\"") {
+	if !strings.Contains(bodyText, "\"decline_reason\":\"I decline to sign\"") {
 		t.Fatalf("expected decline reason in payload, got %s", bodyText)
 	}
 }

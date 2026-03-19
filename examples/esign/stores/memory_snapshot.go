@@ -9,6 +9,12 @@ import (
 
 type inMemoryStoreSnapshot struct {
 	Documents                   map[string]DocumentRecord                   `json:"documents"`
+	SourceDocuments             map[string]SourceDocumentRecord             `json:"source_documents"`
+	SourceHandles               map[string]SourceHandleRecord               `json:"source_handles"`
+	SourceRevisions             map[string]SourceRevisionRecord             `json:"source_revisions"`
+	SourceArtifacts             map[string]SourceArtifactRecord             `json:"source_artifacts"`
+	SourceFingerprints          map[string]SourceFingerprintRecord          `json:"source_fingerprints"`
+	SourceRelationships         map[string]SourceRelationshipRecord         `json:"source_relationships"`
 	Agreements                  map[string]AgreementRecord                  `json:"agreements"`
 	AgreementRevisionRequests   map[string]AgreementRevisionRequestRecord   `json:"agreement_revision_requests"`
 	AgreementRevisionReqIndex   map[string]string                           `json:"agreement_revision_request_index"`
@@ -65,6 +71,48 @@ type inMemoryStoreSnapshot struct {
 func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {
 	if in == nil {
 		return map[string]DocumentRecord{}
+	}
+	return in
+}
+
+func ensureSourceDocumentMap(in map[string]SourceDocumentRecord) map[string]SourceDocumentRecord {
+	if in == nil {
+		return map[string]SourceDocumentRecord{}
+	}
+	return in
+}
+
+func ensureSourceHandleMap(in map[string]SourceHandleRecord) map[string]SourceHandleRecord {
+	if in == nil {
+		return map[string]SourceHandleRecord{}
+	}
+	return in
+}
+
+func ensureSourceRevisionMap(in map[string]SourceRevisionRecord) map[string]SourceRevisionRecord {
+	if in == nil {
+		return map[string]SourceRevisionRecord{}
+	}
+	return in
+}
+
+func ensureSourceArtifactMap(in map[string]SourceArtifactRecord) map[string]SourceArtifactRecord {
+	if in == nil {
+		return map[string]SourceArtifactRecord{}
+	}
+	return in
+}
+
+func ensureSourceFingerprintMap(in map[string]SourceFingerprintRecord) map[string]SourceFingerprintRecord {
+	if in == nil {
+		return map[string]SourceFingerprintRecord{}
+	}
+	return in
+}
+
+func ensureSourceRelationshipMap(in map[string]SourceRelationshipRecord) map[string]SourceRelationshipRecord {
+	if in == nil {
+		return map[string]SourceRelationshipRecord{}
 	}
 	return in
 }

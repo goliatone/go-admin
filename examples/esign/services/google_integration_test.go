@@ -30,6 +30,14 @@ type resolverAwareGoogleProvider struct {
 	err   error
 }
 
+type failingSourceIdentityService struct {
+	err error
+}
+
+func (s failingSourceIdentityService) ResolveSourceIdentity(context.Context, stores.Scope, SourceIdentityResolutionInput) (SourceIdentityResolution, error) {
+	return SourceIdentityResolution{}, s.err
+}
+
 func (p *resolverAwareGoogleProvider) ResolveAccountEmail(_ context.Context, _ string) (string, error) {
 	if p == nil {
 		return "", nil
@@ -401,6 +409,270 @@ func TestGoogleIntegrationImportDocumentDrivePDFDirect(t *testing.T) {
 	}
 	if imported.Document.SourceIngestionMode != GoogleIngestionModeDrivePDFDirect {
 		t.Fatalf("expected document ingestion mode persisted, got %q", imported.Document.SourceIngestionMode)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentPersistsLineageLinks(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	imported, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		AgreementTitle:    "Imported NDA Agreement",
+		CreatedByUserID:   "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument: %v", err)
+	}
+	if imported.SourceDocumentID == "" || imported.SourceRevisionID == "" || imported.SourceArtifactID == "" {
+		t.Fatalf("expected lineage ids, got %+v", imported)
+	}
+	if imported.Document.SourceDocumentID != imported.SourceDocumentID {
+		t.Fatalf("expected document source_document_id %q, got %q", imported.SourceDocumentID, imported.Document.SourceDocumentID)
+	}
+	if imported.Document.SourceRevisionID != imported.SourceRevisionID {
+		t.Fatalf("expected document source_revision_id %q, got %q", imported.SourceRevisionID, imported.Document.SourceRevisionID)
+	}
+	if imported.Document.SourceArtifactID != imported.SourceArtifactID {
+		t.Fatalf("expected document source_artifact_id %q, got %q", imported.SourceArtifactID, imported.Document.SourceArtifactID)
+	}
+	if imported.Agreement.SourceRevisionID != imported.SourceRevisionID {
+		t.Fatalf("expected agreement source_revision_id %q, got %q", imported.SourceRevisionID, imported.Agreement.SourceRevisionID)
+	}
+	if imported.LineageStatus != LineageImportStatusLinked {
+		t.Fatalf("expected linked lineage status, got %q", imported.LineageStatus)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentPersistsCorrelationAndIdempotencyMetadataOnRevision(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	imported, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-import-1",
+		IdempotencyKey:    "dedupe-google-import-1",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument: %v", err)
+	}
+
+	revision, err := store.GetSourceRevision(ctx, scope, imported.SourceRevisionID)
+	if err != nil {
+		t.Fatalf("GetSourceRevision: %v", err)
+	}
+	if !strings.Contains(revision.MetadataJSON, `"correlation_id":"corr-google-import-1"`) {
+		t.Fatalf("expected correlation id in revision metadata, got %s", revision.MetadataJSON)
+	}
+	if !strings.Contains(revision.MetadataJSON, `"idempotency_key":"dedupe-google-import-1"`) {
+		t.Fatalf("expected idempotency key in revision metadata, got %s", revision.MetadataJSON)
+	}
+	if !strings.Contains(revision.MetadataJSON, `"revision_content_sha256":"`) {
+		t.Fatalf("expected revision content hash in revision metadata, got %s", revision.MetadataJSON)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentReusesRevisionWhenVersionUnchanged(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	first, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument first: %v", err)
+	}
+	second, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument second: %v", err)
+	}
+	if first.SourceDocumentID != second.SourceDocumentID {
+		t.Fatalf("expected same source document, got %q vs %q", first.SourceDocumentID, second.SourceDocumentID)
+	}
+	if first.SourceRevisionID != second.SourceRevisionID {
+		t.Fatalf("expected same source revision, got %q vs %q", first.SourceRevisionID, second.SourceRevisionID)
+	}
+	if first.SourceArtifactID != second.SourceArtifactID {
+		t.Fatalf("expected same source artifact, got %q vs %q", first.SourceArtifactID, second.SourceArtifactID)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentCreatesNewRevisionWhenVersionChanges(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	first, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument first: %v", err)
+	}
+
+	changedAt := time.Date(2026, 2, 11, 10, 0, 0, 0, time.UTC)
+	provider.files["google-file-1"] = GoogleDriveFile{
+		ID:           "google-file-1",
+		Name:         "Imported NDA",
+		MimeType:     GoogleDriveMimeTypeDoc,
+		WebViewURL:   "https://docs.google.com/document/d/google-file-1/edit",
+		OwnerEmail:   "owner@example.com",
+		ParentID:     "root",
+		ModifiedTime: changedAt,
+	}
+	provider.pdfByID["google-file-1"] = GenerateDeterministicPDF(3)
+
+	second, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v2",
+		DocumentTitle:     "Imported NDA",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument second: %v", err)
+	}
+	if first.SourceDocumentID != second.SourceDocumentID {
+		t.Fatalf("expected same source document, got %q vs %q", first.SourceDocumentID, second.SourceDocumentID)
+	}
+	if first.SourceRevisionID == second.SourceRevisionID {
+		t.Fatalf("expected changed import to create new revision, got %q", second.SourceRevisionID)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentFailsBeforeDocumentOrAgreementWriteWhenLineageResolutionFails(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(
+		store,
+		provider,
+		documents,
+		agreements,
+		WithGoogleLineageStore(store),
+		WithGoogleSourceIdentityService(failingSourceIdentityService{err: errors.New("lineage resolution failed")}),
+	)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	if _, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "import-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported NDA",
+		AgreementTitle:    "Imported NDA Agreement",
+		CreatedByUserID:   "ops-user",
+	}); err == nil {
+		t.Fatalf("expected lineage resolution failure")
+	}
+	docs, err := store.List(ctx, scope, stores.DocumentQuery{})
+	if err != nil {
+		t.Fatalf("List documents: %v", err)
+	}
+	if len(docs) != 0 {
+		t.Fatalf("expected zero documents after lineage resolution failure, got %d", len(docs))
+	}
+	agreementsList, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		t.Fatalf("ListAgreements: %v", err)
+	}
+	if len(agreementsList) != 0 {
+		t.Fatalf("expected zero agreements after lineage resolution failure, got %d", len(agreementsList))
 	}
 }
 

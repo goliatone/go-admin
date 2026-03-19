@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -35,6 +36,8 @@ type DocumentUploadInput struct {
 	SourceExportedByUserID string     `json:"source_exported_by_user_id"`
 	SourceMimeType         string     `json:"source_mime_type"`
 	SourceIngestionMode    string     `json:"source_ingestion_mode"`
+	SourceDocumentID       string     `json:"source_document_id"`
+	SourceRevisionID       string     `json:"source_revision_id"`
 }
 
 // DocumentMetadata captures extracted immutable source PDF metadata.
@@ -213,7 +216,7 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		title = "Untitled Document"
 	}
 
-	return s.store.Create(ctx, scope, stores.DocumentRecord{
+	record := stores.DocumentRecord{
 		ID:                     strings.TrimSpace(input.ID),
 		CreatedByUserID:        strings.TrimSpace(input.CreatedBy),
 		Title:                  title,
@@ -229,6 +232,8 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		SourceExportedByUserID: strings.TrimSpace(input.SourceExportedByUserID),
 		SourceMimeType:         strings.TrimSpace(input.SourceMimeType),
 		SourceIngestionMode:    strings.TrimSpace(input.SourceIngestionMode),
+		SourceDocumentID:       strings.TrimSpace(input.SourceDocumentID),
+		SourceRevisionID:       strings.TrimSpace(input.SourceRevisionID),
 		PDFCompatibilityTier:   strings.TrimSpace(string(compatibility.Tier)),
 		PDFCompatibilityReason: strings.TrimSpace(compatibility.Reason),
 		PDFNormalizationStatus: strings.TrimSpace(string(normalizationStatus)),
@@ -238,7 +243,112 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		PageCount:              metadata.PageCount,
 		CreatedAt:              now,
 		UpdatedAt:              now,
+	}
+	if strings.TrimSpace(record.SourceRevisionID) == "" {
+		return s.store.Create(ctx, scope, record)
+	}
+	return s.createLineageBackedDocument(ctx, scope, record)
+}
+
+func (s DocumentService) createLineageBackedDocument(ctx context.Context, scope stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
+	txManager, ok := s.store.(stores.TransactionManager)
+	if !ok {
+		return s.store.Create(ctx, scope, record)
+	}
+
+	created := stores.DocumentRecord{}
+	if err := txManager.WithTx(ctx, func(tx stores.TxStore) error {
+		documentStore, ok := tx.(stores.DocumentStore)
+		if !ok {
+			return domainValidationError("documents", "store", "transaction document store not configured")
+		}
+		lineage, ok := tx.(stores.LineageStore)
+		if !ok {
+			createdRecord, err := documentStore.Create(ctx, scope, record)
+			if err != nil {
+				return err
+			}
+			created = createdRecord
+			return nil
+		}
+
+		artifact, err := ensureSourceArtifactRecord(ctx, scope, lineage, record)
+		if err != nil {
+			return err
+		}
+		record.SourceArtifactID = strings.TrimSpace(artifact.ID)
+		createdRecord, err := documentStore.Create(ctx, scope, record)
+		if err != nil {
+			return err
+		}
+		created = createdRecord
+		return nil
+	}); err != nil {
+		return stores.DocumentRecord{}, err
+	}
+	return created, nil
+}
+
+func ensureSourceArtifactRecord(ctx context.Context, scope stores.Scope, lineage stores.LineageStore, document stores.DocumentRecord) (stores.SourceArtifactRecord, error) {
+	if lineage == nil {
+		return stores.SourceArtifactRecord{}, domainValidationError("documents", "lineage_store", "not configured")
+	}
+	sourceRevisionID := strings.TrimSpace(document.SourceRevisionID)
+	if sourceRevisionID == "" {
+		return stores.SourceArtifactRecord{}, domainValidationError("documents", "source_revision_id", "required")
+	}
+	existing, err := lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
+		SourceRevisionID: sourceRevisionID,
+		ArtifactKind:     stores.SourceArtifactKindSignablePDF,
+		SHA256:           strings.TrimSpace(document.SourceSHA256),
 	})
+	if err != nil {
+		return stores.SourceArtifactRecord{}, err
+	}
+	if len(existing) > 0 {
+		observability.LogOperation(ctx, slog.LevelInfo, "lineage", "source_artifact_reused", "success", "", 0, nil, map[string]any{
+			"source_revision_id": sourceRevisionID,
+			"artifact_id":        strings.TrimSpace(existing[0].ID),
+			"sha256":             strings.TrimSpace(document.SourceSHA256),
+		})
+		return existing[0], nil
+	}
+
+	createdAt := document.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	record := stores.SourceArtifactRecord{
+		SourceRevisionID:    sourceRevisionID,
+		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+		ObjectKey:           strings.TrimSpace(document.SourceObjectKey),
+		SHA256:              strings.TrimSpace(document.SourceSHA256),
+		PageCount:           document.PageCount,
+		SizeBytes:           document.SizeBytes,
+		CompatibilityTier:   strings.TrimSpace(document.PDFCompatibilityTier),
+		CompatibilityReason: strings.TrimSpace(document.PDFCompatibilityReason),
+		NormalizationStatus: strings.TrimSpace(document.PDFNormalizationStatus),
+		CreatedAt:           createdAt,
+		UpdatedAt:           createdAt,
+	}
+	artifact, err := lineage.CreateSourceArtifact(ctx, scope, record)
+	if err == nil {
+		observability.LogOperation(ctx, slog.LevelInfo, "lineage", "source_artifact_created", "success", "", 0, nil, map[string]any{
+			"source_revision_id": sourceRevisionID,
+			"artifact_id":        strings.TrimSpace(artifact.ID),
+			"sha256":             strings.TrimSpace(document.SourceSHA256),
+		})
+		return artifact, nil
+	}
+	existing, listErr := lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
+		SourceRevisionID: sourceRevisionID,
+		ArtifactKind:     stores.SourceArtifactKindSignablePDF,
+		SHA256:           strings.TrimSpace(document.SourceSHA256),
+	})
+	if listErr == nil && len(existing) > 0 {
+		return existing[0], nil
+	}
+	return stores.SourceArtifactRecord{}, err
 }
 
 func normalizedObjectKeyForSource(sourceObjectKey string) string {
