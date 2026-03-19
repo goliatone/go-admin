@@ -127,17 +127,24 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 		if strings.TrimSpace(candidateDocument.ID) == sourceDocumentID {
 			continue
 		}
+		leftID, rightID := orderedRelationshipIDs(sourceDocumentID, strings.TrimSpace(candidateDocument.ID))
+		existing, err := s.findRelationshipPair(ctx, scope, leftID, rightID)
+		if err != nil {
+			return SourceReconciliationResult{}, err
+		}
 		evaluation, err := s.scoreCandidate(ctx, scope, targetDocument, targetRevision, targetArtifact, targetFingerprint, input.Metadata, candidateDocument)
 		if err != nil {
 			return SourceReconciliationResult{}, err
 		}
 		if evaluation.band == stores.LineageConfidenceBandNone {
-			if err := s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocument.ID, "reevaluated_below_threshold", ""); err != nil {
-				return SourceReconciliationResult{}, err
+			if strings.TrimSpace(existing.Status) == stores.SourceRelationshipStatusPendingReview {
+				if err := s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocument.ID, "reevaluated_below_threshold", strings.TrimSpace(input.ActorID)); err != nil {
+					return SourceReconciliationResult{}, err
+				}
 			}
 			continue
 		}
-		relationship, err := s.upsertEvaluatedRelationship(ctx, scope, input, evaluation)
+		relationship, err := s.upsertEvaluatedRelationship(ctx, scope, input, evaluation, existing)
 		if err != nil {
 			return SourceReconciliationResult{}, err
 		}
@@ -299,7 +306,7 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 	accountMatch := strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidate.handle.AccountID))
 	webURLMatch := strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(candidate.handle.WebURL))
 	ownerMatch := strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "owner_email")))
-	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(firstNonEmpty(candidate.handle.DriveID, reconciliationMetadataString(candidate.revision.MetadataJSON, "parent_id"))))
+	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "parent_id")))
 	temporal := reconciliationTemporalProximity(targetRevision, candidate.revision, metadata.ModifiedTime)
 
 	score := 0.0
@@ -364,6 +371,8 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		"candidate_source_document_id": strings.TrimSpace(candidate.document.ID),
 		"candidate_source_revision_id": strings.TrimSpace(candidate.revision.ID),
 		"candidate_source_artifact_id": strings.TrimSpace(candidate.artifact.ID),
+		"evaluated_at":                 s.now().UTC().Format(time.RFC3339Nano),
+		"evaluation_actor_id":          strings.TrimSpace(firstNonEmpty(input.ActorID, "system")),
 	}
 
 	return candidateScoreEvaluation{
@@ -458,25 +467,21 @@ func (s DefaultSourceReconciliationService) latestReadyFingerprint(ctx context.C
 	return fingerprints[0]
 }
 
-func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx context.Context, scope stores.Scope, input SourceReconciliationInput, evaluation candidateScoreEvaluation) (stores.SourceRelationshipRecord, error) {
+func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx context.Context, scope stores.Scope, input SourceReconciliationInput, evaluation candidateScoreEvaluation, existing stores.SourceRelationshipRecord) (stores.SourceRelationshipRecord, error) {
 	leftID, rightID := orderedRelationshipIDs(strings.TrimSpace(input.SourceDocumentID), strings.TrimSpace(evaluation.candidateDocument.ID))
-	existing, err := s.findRelationshipPair(ctx, scope, leftID, rightID)
-	if err != nil {
-		return stores.SourceRelationshipRecord{}, err
-	}
 	now := s.now().UTC()
 	record := existing
 	if strings.TrimSpace(record.ID) == "" {
 		record.ID = "srel_" + hashFingerprintValue(strings.Join([]string{leftID, rightID, strings.TrimSpace(evaluation.relationshipType)}, "|"))[:16]
 		record.LeftSourceDocumentID = leftID
 		record.RightSourceDocumentID = rightID
-		record.CreatedByUserID = strings.TrimSpace(reconciliationMetadataActorID(input.Metadata, "system"))
+		record.CreatedByUserID = strings.TrimSpace(firstNonEmpty(input.ActorID, "system"))
 		record.CreatedAt = now
 	}
 	record.RelationshipType = strings.TrimSpace(evaluation.relationshipType)
 	record.ConfidenceBand = strings.TrimSpace(evaluation.band)
 	record.ConfidenceScore = evaluation.score
-	record.Status = strings.TrimSpace(evaluation.status)
+	record.Status = preservedRelationshipStatus(existing, evaluation)
 	record.UpdatedAt = now
 	encoded, err := json.Marshal(evaluation.evidence)
 	if err != nil {
@@ -488,6 +493,19 @@ func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx cont
 		return s.lineage.CreateSourceRelationship(ctx, scope, record)
 	}
 	return s.lineage.SaveSourceRelationship(ctx, scope, record)
+}
+
+func preservedRelationshipStatus(existing stores.SourceRelationshipRecord, evaluation candidateScoreEvaluation) string {
+	switch strings.TrimSpace(existing.Status) {
+	case stores.SourceRelationshipStatusConfirmed:
+		return stores.SourceRelationshipStatusConfirmed
+	case stores.SourceRelationshipStatusRejected:
+		return stores.SourceRelationshipStatusRejected
+	case stores.SourceRelationshipStatusSuperseded:
+		return stores.SourceRelationshipStatusSuperseded
+	default:
+		return strings.TrimSpace(evaluation.status)
+	}
 }
 
 func (s DefaultSourceReconciliationService) findRelationshipPair(ctx context.Context, scope stores.Scope, leftID, rightID string) (stores.SourceRelationshipRecord, error) {
@@ -704,13 +722,6 @@ func reconciliationCandidateReason(exactArtifact bool, normalizedSimilarity, chu
 
 func reconciliationMetadataString(rawJSON, key string) string {
 	return lineageMetadataString(decodeLineageMetadataJSON(rawJSON), key)
-}
-
-func reconciliationMetadataActorID(metadata SourceMetadataBaseline, fallback string) string {
-	if strings.TrimSpace(metadata.AccountID) != "" {
-		return strings.TrimSpace(metadata.AccountID)
-	}
-	return strings.TrimSpace(fallback)
 }
 
 func tokenJaccard(left, right []string) float64 {
