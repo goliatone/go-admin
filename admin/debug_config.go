@@ -130,7 +130,7 @@ type DebugConfig struct {
 	// When nil, debug secure detection only trusts direct TLS.
 	SecureRequestResolver DebugSecureRequestResolver `json:"secure_request_resolver"`
 	SlowQueryThreshold    time.Duration              `json:"slow_query_threshold"`
-	AllowedIPs            []string                   `json:"allowed_i_ps"`
+	AllowedIPs            []string                   `json:"allowed_ips"`
 	PersistLayout         bool                       `json:"persist_layout"`
 	Repl                  DebugREPLConfig            `json:"repl"`
 	// ToolbarMode injects a debug toolbar at the bottom of all admin pages.
