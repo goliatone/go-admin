@@ -510,17 +510,20 @@ func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previe
 	if !query.IncludeDrafts {
 		return nil
 	}
-	if previewValidated || hasAuthActor(c.Context()) {
+	if previewValidated {
 		return nil
 	}
 	if a != nil && a.config.Site.TrustPrivateNetworkDraftReads && isInternalSiteRequest(c) {
 		return nil
 	}
-	permission := strings.TrimSpace(a.config.Site.DraftReadPermission)
+	permission := "admin.site.read_drafts"
+	if a != nil {
+		permission = strings.TrimSpace(a.config.Site.DraftReadPermission)
+	}
 	if permission == "" {
 		permission = "admin.site.read_drafts"
 	}
-	if a.authorizer != nil && a.authorizer.Can(c.Context(), permission, "site") {
+	if a != nil && a.authorizer != nil && a.authorizer.Can(c.Context(), permission, "site") {
 		return nil
 	}
 	return permissionDenied(permission, "site")
