@@ -53,7 +53,7 @@ type URLConfig struct {
 
 type RootDerivationInput struct {
 	BasePath string    `json:"base_path"`
-	URLs     URLConfig `json:"ur_ls"`
+	URLs     URLConfig `json:"urls"`
 }
 
 func DefaultConfig() Config {
