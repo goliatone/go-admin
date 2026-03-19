@@ -3,6 +3,8 @@
  * Core type definitions for the e-sign frontend module
  */
 
+import type { CandidateWarningSummary, FingerprintStatusSummary } from './lineage-contracts.js';
+
 // Agreement status types
 export type AgreementStatus =
   | 'draft'
@@ -220,26 +222,26 @@ export interface GoogleDriveFile {
 export type GoogleImportRunStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 /**
- * Google import run response with optional lineage information.
- * This is the runtime import response shape. For normalized lineage-aware
- * responses, use GoogleImportResponseWithLineage from lineage-contracts.
+ * Google import run payload returned by the backend import routes.
+ * This is the raw transport shape. For normalized import-run handling,
+ * use GoogleImportRunHandle or GoogleImportRunDetail from lineage-contracts.
  * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
  */
 export interface GoogleImportRun {
   import_run_id: string;
-  status: GoogleImportRunStatus;
-  document?: DocumentSummary;
-  agreement?: AgreementSummary;
+  status: GoogleImportRunStatus | 'imported';
+  status_url?: string;
+  document?: Partial<DocumentSummary> | null;
+  agreement?: Partial<AgreementSummary> | null;
   error?: APIError;
-  // Lineage fields added in Phase 3 - optional for backward compatibility
-  lineage_outcome?: string;
-  provenance?: {
-    source_document_id?: string | null;
-    source_revision_id?: string | null;
-    source_artifact_id?: string | null;
-    revision_reused?: boolean;
-    is_new_source?: boolean;
-  };
+  source_document_id?: string | null;
+  source_revision_id?: string | null;
+  source_artifact_id?: string | null;
+  lineage_status?: string;
+  fingerprint_status?: FingerprintStatusSummary;
+  candidate_status?: CandidateWarningSummary[];
+  source_mime_type?: string | null;
+  ingestion_mode?: string | null;
   source_document_url?: string;
   document_detail_url?: string;
   agreement_detail_url?: string;
@@ -283,10 +285,10 @@ export type {
   DocumentLineageDetail,
   AgreementLineageDetail,
   GoogleImportLineageStatus,
+  GoogleImportRunHandle,
+  GoogleImportRunDetail,
+  GoogleImportRunResource,
+  GoogleImportRedirectRoutes,
   LineagePresentationRules,
   Phase1LineageContractFixtures,
-  // Phase 3 Task 3.9 - Import response contracts
-  ImportProvenanceSummary,
-  ImportLineageOutcome,
-  GoogleImportResponseWithLineage,
 } from './lineage-contracts.js';

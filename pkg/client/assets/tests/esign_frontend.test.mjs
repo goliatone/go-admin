@@ -103,6 +103,10 @@ const documentFormControllerPath = path.resolve(
   testFileDir,
   '../src/esign/pages/document-form.ts',
 );
+const googleDrivePickerSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/google-drive-picker.ts',
+);
 const googleDriveUtilsSourcePath = path.resolve(
   testFileDir,
   '../src/esign/utils/google-drive-utils.ts',
@@ -1966,9 +1970,21 @@ test('Phase 31 module: importability checks are strict MIME matches', () => {
 
 test('Phase 31 module: succeeded import redirects to agreement before document', () => {
   const controllerSource = fs.readFileSync(documentFormControllerPath, 'utf8');
-  assert.match(controllerSource, /if \(data\.agreement\?\.id && this\.config\.routes\.agreements\) \{/);
-  assert.match(controllerSource, /window\.location\.href = `\$\{this\.config\.routes\.agreements\}\/\$\{encodeURIComponent\(data\.agreement\.id\)\}`;/);
-  assert.match(controllerSource, /else if \(data\.document\?\.id\) \{/);
+  assert.match(controllerSource, /const detail = normalizeGoogleImportRunDetail\(payload\);/);
+  assert.match(controllerSource, /const redirectURL = resolveGoogleImportRedirectURL\(detail, \{/);
+  assert.match(controllerSource, /agreements: this\.config\.routes\.agreements,/);
+  assert.match(controllerSource, /documents: this\.config\.routes\.index,/);
+});
+
+test('Phase 31 module: drive picker redirects accepted imports to the document import monitor route', () => {
+  const pickerTemplate = fs.readFileSync(googleDrivePickerTemplatePath, 'utf8');
+  const pickerSource = fs.readFileSync(googleDrivePickerSourcePath, 'utf8');
+
+  assert.match(pickerTemplate, /documentImport: '\{\{ adminURL\("content\/esign_documents\/new"\) \}\}',/);
+  assert.match(pickerSource, /const handle = normalizeGoogleImportRunHandle\(payload\);/);
+  assert.match(pickerSource, /const monitorURL = this\.buildImportMonitorURL\(handle\.import_run_id\);/);
+  assert.match(pickerSource, /url\.searchParams\.set\('source', 'google'\);/);
+  assert.match(pickerSource, /url\.searchParams\.set\('import_run_id', importRunId\);/);
 });
 
 test('Phase 31 module: retry button triggers a new async import submission', () => {

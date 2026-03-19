@@ -23,6 +23,7 @@ test('Phase 1 lineage contracts fixture exposes backend-owned presentation rules
   assert.equal(fixture.presentation_rules.diagnostics_owned_by_backend, true);
   assert.deepEqual(fixture.presentation_rules.warning_precedence, [
     'candidate_warning',
+    'fingerprint_failed',
     'newer_source_exists',
     'fingerprint_pending',
     'empty_state',
@@ -50,6 +51,7 @@ test('Phase 1 lineage contracts normalize explicit empty-state payloads for uplo
 
   assert.equal(documentDetail.source_document, null);
   assert.equal(documentDetail.empty_state.kind, 'no_source');
+  assert.equal(documentDetail.fingerprint_status.status, 'not_applicable');
   assert.equal(documentDetail.fingerprint_status.evidence_available, false);
 
   assert.equal(agreementDetail.source_revision, null);
@@ -72,4 +74,3 @@ test('Phase 1 lineage contracts normalize import status payloads and candidate s
   assert.equal(candidate.confidence_band, 'medium');
   assert.equal(candidate.evidence[0].code, 'normalized_text_match');
 });
-

@@ -10,19 +10,102 @@
 export * from './types.js';
 export {
   normalizeCandidateWarningSummary,
+  normalizeLineagePresentationWarning,
   normalizeDocumentLineageDetail,
   normalizeAgreementLineageDetail,
   normalizeGoogleImportLineageStatus,
+  normalizeGoogleImportRunHandle,
+  normalizeGoogleImportRunDetail,
+  isTerminalGoogleImportStatus,
+  resolveGoogleImportRedirectURL,
   normalizePhase1LineageContractFixtures,
-  // Phase 3 Task 3.9 - Import response adapters
-  normalizeGoogleImportResponseWithLineage,
-  hasLineageResolved,
-  isNewSourceImport,
-  isRevisionReused,
-  type ImportProvenanceSummary,
-  type ImportLineageOutcome,
-  type GoogleImportResponseWithLineage,
+  // Fingerprint status constants (Phase 7 Task 7.7)
+  FINGERPRINT_STATUS,
+  isValidFingerprintStatus,
+  type FingerprintStatus,
+  type GoogleImportRunHandle,
+  type GoogleImportRunDetail,
+  type GoogleImportRunResource,
+  type GoogleImportRedirectRoutes,
+  type LineagePresentationWarning,
 } from './lineage-contracts.js';
+
+// Lineage Presentation Mappers (Phase 5 Task 5.6)
+export {
+  mapDocumentProvenance,
+  mapAgreementProvenance,
+  validateDocumentProvenanceViewModel,
+  validateAgreementProvenanceViewModel,
+  isGoogleSourced,
+  hasActionableWarnings,
+  getWarningSeverityClass,
+  getWarningSeverityIcon,
+  getSourceTypeIcon,
+  getSourceTypeLabel,
+  // Fingerprint status helpers (Phase 7 Task 7.7)
+  getFingerprintStatusClass,
+  getFingerprintStatusIcon,
+  isFingerprintTerminal,
+  isFingerprintSuccessful,
+  hasFingerprintError,
+  getFingerprintStatusMessage,
+  type ProvenanceSourceType,
+  type ProvenanceStatus,
+  type WarningSeverity,
+  type ProvenanceWarning,
+  type ProvenanceSourceReference,
+  type ProvenanceRevisionSummary,
+  type ProvenanceArtifactSummary,
+  type ProvenanceFingerprintStatus,
+  type ProvenanceGoogleSource,
+  type ProvenanceEmptyState,
+  type DocumentProvenanceViewModel,
+  type AgreementProvenanceViewModel,
+} from './lineage-presentation.js';
+
+// Lineage Diagnostics Rendering (Phase 6 Task 6.6)
+export {
+  // State determination
+  determineDiagnosticState,
+  // Display config builders
+  createEmptyDisplayConfig,
+  createNativeDisplayConfig,
+  createFingerprintPendingDisplayConfig,
+  createFingerprintFailedDisplayConfig,
+  createCandidateWarningDisplayConfig,
+  createLoadingDisplayConfig,
+  createErrorDisplayConfig,
+  // Card builders
+  createWarningCard,
+  createWarningCards,
+  createFingerprintCard,
+  createSourceCard,
+  createNewerSourceCard,
+  // Complete view model builders
+  createDocumentDiagnosticViewModel,
+  createAgreementDiagnosticViewModel,
+  // State checks
+  isDiagnosticEmpty,
+  isDiagnosticNative,
+  isDiagnosticFingerprintPending,
+  isDiagnosticFingerprintFailed,
+  isDiagnosticCandidateWarning,
+  getPrimaryWarningCard,
+  hasDiagnosticActionableWarnings,
+  // Validation
+  validateDocumentDiagnosticViewModel,
+  validateAgreementDiagnosticViewModel,
+  // Types
+  type DiagnosticRenderState,
+  type DiagnosticDisplayConfig,
+  type DiagnosticWarningCard,
+  type DiagnosticFingerprintCard,
+  type DiagnosticSourceCard,
+  type DiagnosticNewerSourceCard,
+  type DocumentDiagnosticViewModel,
+  type AgreementDiagnosticViewModel,
+  type DiagnosticFixtureState,
+} from './lineage-diagnostics.js';
 
 // Lineage Fixtures (Phase 2 Task 2.7-2.9)
 export {
@@ -42,6 +125,27 @@ export {
   getImportFixtureStates,
   type ImportResponseFixtures,
   type ImportFixtureState,
+  // Phase 4 Task 4.9 - Document/Agreement detail payload fixtures with lineage
+  documentDetailPayloadFixtures,
+  agreementDetailPayloadFixtures,
+  getDocumentDetailPayloadFixture,
+  getAgreementDetailPayloadFixture,
+  validateDocumentDetailPayloadWithLineage,
+  validateAgreementDetailPayloadWithLineage,
+  hasDocumentLineageLinkage,
+  hasAgreementPinnedProvenance,
+  getDetailPayloadFixtureStates,
+  type DocumentDetailPayloadWithLineage,
+  type AgreementDetailPayloadWithLineage,
+  type DocumentDetailPayloadFixtures,
+  type AgreementDetailPayloadFixtures,
+  type DetailPayloadFixtureState,
+  // Phase 4 Task 4.10 - Seeded Google import QA fixtures
+  seededGoogleImportScenarios,
+  getSeededGoogleImportScenario,
+  getSeededScenarioIds,
+  validateSeededScenarioLineage,
+  type SeededGoogleImportScenario,
 } from './lineage-fixtures.js';
 
 // API Client

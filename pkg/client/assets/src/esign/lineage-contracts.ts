@@ -39,10 +39,62 @@ export interface SourceArtifactSummary {
   normalization_status?: string;
 }
 
+// ============================================================================
+// Fingerprint Status Constants (Phase 7 Task 7.7)
+// ============================================================================
+
+/**
+ * Canonical fingerprint status values.
+ * These constants define the possible states for document fingerprinting.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 7 Task 7.7
+ */
+export const FINGERPRINT_STATUS = {
+  /** Fingerprint status cannot be determined from the available lineage data */
+  UNKNOWN: 'unknown',
+  /** Fingerprint extraction completed successfully; evidence is available */
+  READY: 'ready',
+  /** Fingerprint extraction is in progress; evidence not yet available */
+  PENDING: 'pending',
+  /** Fingerprint extraction failed; error details may be available */
+  FAILED: 'failed',
+  /** Fingerprint extraction not applicable (e.g., upload-only documents) */
+  NOT_APPLICABLE: 'not_applicable',
+} as const;
+
+/**
+ * Type representing valid fingerprint status values.
+ */
+export type FingerprintStatus = (typeof FINGERPRINT_STATUS)[keyof typeof FINGERPRINT_STATUS];
+
+/**
+ * Check if a status string is a valid fingerprint status.
+ */
+export function isValidFingerprintStatus(status: string): status is FingerprintStatus {
+  return Object.values(FINGERPRINT_STATUS).includes(status as FingerprintStatus);
+}
+
+// ============================================================================
+// Fingerprint Status Summary (Phase 7 Task 7.7)
+// ============================================================================
+
+/**
+ * Fingerprint status summary returned by the backend.
+ * Contains fingerprint state, extractor-version metadata, and evidence-availability flags.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 7 Task 7.7
+ */
 export interface FingerprintStatusSummary {
+  /** Current fingerprint status (unknown, ready, pending, failed, not_applicable) */
   status: string;
+  /** Extractor version used for fingerprint generation (e.g., "v1.0") */
   extract_version?: string;
+  /** Whether fingerprint evidence is available for candidate matching */
   evidence_available: boolean;
+  /** Error message if fingerprint extraction failed */
+  error_message?: string;
+  /** Error code if fingerprint extraction failed */
+  error_code?: string;
 }
 
 export interface CandidateEvidenceSummary {
@@ -62,6 +114,18 @@ export interface CandidateWarningSummary {
   review_action_visible?: string;
 }
 
+export interface LineagePresentationWarning {
+  id: string;
+  type: string;
+  severity: string;
+  title: string;
+  description: string;
+  action_label?: string;
+  action_url?: string;
+  review_action_visible?: string;
+  evidence: CandidateEvidenceSummary[];
+}
+
 export interface LineageEmptyState {
   kind: string;
   title?: string;
@@ -76,6 +140,7 @@ export interface DocumentLineageDetail {
   google_source: SourceMetadataBaseline | null;
   fingerprint_status: FingerprintStatusSummary;
   candidate_warning_summary: CandidateWarningSummary[];
+  presentation_warnings: LineagePresentationWarning[];
   diagnostics_url?: string;
   empty_state: LineageEmptyState;
 }
@@ -87,6 +152,7 @@ export interface AgreementLineageDetail {
   google_source: SourceMetadataBaseline | null;
   newer_source_exists: boolean;
   candidate_warning_summary: CandidateWarningSummary[];
+  presentation_warnings: LineagePresentationWarning[];
   diagnostics_url?: string;
   empty_state: LineageEmptyState;
 }
@@ -99,8 +165,48 @@ export interface GoogleImportLineageStatus {
   source_artifact: SourceArtifactSummary | null;
   fingerprint_status: FingerprintStatusSummary;
   candidate_status: CandidateWarningSummary[];
-  document_detail_url?: string;
-  agreement_detail_url?: string;
+  document_detail_url?: string | null;
+  agreement_detail_url?: string | null;
+}
+
+export interface GoogleImportRunResource {
+  id: string;
+  document_id?: string;
+  title?: string;
+  source_type?: string;
+  source_google_file_id?: string;
+  source_google_doc_url?: string;
+  source_modified_time?: string;
+  source_exported_at?: string;
+  source_exported_by_user_id?: string;
+  source_mime_type?: string;
+  source_ingestion_mode?: string;
+  source_document_id?: string;
+  source_revision_id?: string;
+  source_artifact_id?: string;
+}
+
+export interface GoogleImportRunHandle {
+  import_run_id: string;
+  status: string;
+  status_url: string | null;
+}
+
+export interface GoogleImportRunDetail extends GoogleImportLineageStatus {
+  status: string;
+  status_url: string | null;
+  document: GoogleImportRunResource | null;
+  agreement: GoogleImportRunResource | null;
+  source_document_id: string | null;
+  source_revision_id: string | null;
+  source_artifact_id: string | null;
+  source_mime_type: string | null;
+  ingestion_mode: string | null;
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  } | null;
 }
 
 export interface LineagePresentationRules {
@@ -122,6 +228,12 @@ export interface Phase1LineageContractFixtures {
     import_running: GoogleImportLineageStatus;
     import_linked: GoogleImportLineageStatus;
   };
+}
+
+export interface GoogleImportRedirectRoutes {
+  documents: string;
+  fallback: string;
+  agreements?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -151,6 +263,13 @@ function asBoolean(value: unknown): boolean {
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => asString(item)).filter(Boolean) : [];
+}
+
+function asOptionalRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
 }
 
 function normalizeLineageReference(value: unknown): LineageReference | null {
@@ -228,6 +347,8 @@ function normalizeFingerprintStatusSummary(value: unknown): FingerprintStatusSum
     status: asString(record.status),
     extract_version: asOptionalString(record.extract_version),
     evidence_available: asBoolean(record.evidence_available),
+    error_message: asOptionalString(record.error_message),
+    error_code: asOptionalString(record.error_code),
   };
 }
 
@@ -254,6 +375,21 @@ export function normalizeCandidateWarningSummary(value: unknown): CandidateWarni
   };
 }
 
+export function normalizeLineagePresentationWarning(value: unknown): LineagePresentationWarning {
+  const record = asRecord(value);
+  return {
+    id: asString(record.id),
+    type: asString(record.type),
+    severity: asString(record.severity),
+    title: asString(record.title),
+    description: asString(record.description),
+    action_label: asOptionalString(record.action_label),
+    action_url: asOptionalString(record.action_url),
+    review_action_visible: asOptionalString(record.review_action_visible),
+    evidence: Array.isArray(record.evidence) ? record.evidence.map(normalizeCandidateEvidenceSummary) : [],
+  };
+}
+
 function normalizeLineageEmptyState(value: unknown): LineageEmptyState {
   const record = asRecord(value);
   return {
@@ -275,6 +411,9 @@ export function normalizeDocumentLineageDetail(value: unknown): DocumentLineageD
     candidate_warning_summary: Array.isArray(record.candidate_warning_summary)
       ? record.candidate_warning_summary.map(normalizeCandidateWarningSummary)
       : [],
+    presentation_warnings: Array.isArray(record.presentation_warnings)
+      ? record.presentation_warnings.map(normalizeLineagePresentationWarning)
+      : [],
     diagnostics_url: asOptionalString(record.diagnostics_url),
     empty_state: normalizeLineageEmptyState(record.empty_state),
   };
@@ -290,6 +429,9 @@ export function normalizeAgreementLineageDetail(value: unknown): AgreementLineag
     newer_source_exists: asBoolean(record.newer_source_exists),
     candidate_warning_summary: Array.isArray(record.candidate_warning_summary)
       ? record.candidate_warning_summary.map(normalizeCandidateWarningSummary)
+      : [],
+    presentation_warnings: Array.isArray(record.presentation_warnings)
+      ? record.presentation_warnings.map(normalizeLineagePresentationWarning)
       : [],
     diagnostics_url: asOptionalString(record.diagnostics_url),
     empty_state: normalizeLineageEmptyState(record.empty_state),
@@ -308,9 +450,97 @@ export function normalizeGoogleImportLineageStatus(value: unknown): GoogleImport
     candidate_status: Array.isArray(record.candidate_status)
       ? record.candidate_status.map(normalizeCandidateWarningSummary)
       : [],
-    document_detail_url: asOptionalString(record.document_detail_url),
-    agreement_detail_url: asOptionalString(record.agreement_detail_url),
+    document_detail_url: asOptionalString(record.document_detail_url) ?? null,
+    agreement_detail_url: asOptionalString(record.agreement_detail_url) ?? null,
   };
+}
+
+function normalizeGoogleImportRunResource(value: unknown): GoogleImportRunResource | null {
+  const record = asRecord(value);
+  const id = asString(record.id);
+  if (!id) {
+    return null;
+  }
+  return {
+    id,
+    document_id: asOptionalString(record.document_id),
+    title: asOptionalString(record.title),
+    source_type: asOptionalString(record.source_type),
+    source_google_file_id: asOptionalString(record.source_google_file_id),
+    source_google_doc_url: asOptionalString(record.source_google_doc_url),
+    source_modified_time: asOptionalString(record.source_modified_time),
+    source_exported_at: asOptionalString(record.source_exported_at),
+    source_exported_by_user_id: asOptionalString(record.source_exported_by_user_id),
+    source_mime_type: asOptionalString(record.source_mime_type),
+    source_ingestion_mode: asOptionalString(record.source_ingestion_mode),
+    source_document_id: asOptionalString(record.source_document_id),
+    source_revision_id: asOptionalString(record.source_revision_id),
+    source_artifact_id: asOptionalString(record.source_artifact_id),
+  };
+}
+
+export function normalizeGoogleImportRunHandle(value: unknown): GoogleImportRunHandle {
+  const record = asRecord(value);
+  return {
+    import_run_id: asString(record.import_run_id),
+    status: asString(record.status),
+    status_url: asOptionalString(record.status_url) ?? null,
+  };
+}
+
+export function normalizeGoogleImportRunDetail(value: unknown): GoogleImportRunDetail {
+  const record = asRecord(value);
+  const lineage = normalizeGoogleImportLineageStatus(record);
+  const errorRecord = asRecord(record.error);
+  const errorDetails = asOptionalRecord(errorRecord.details);
+  const errorCode = asString(errorRecord.code);
+  const errorMessage = asString(errorRecord.message);
+
+  return {
+    ...lineage,
+    status: asString(record.status),
+    status_url: asOptionalString(record.status_url) ?? null,
+    document: normalizeGoogleImportRunResource(record.document),
+    agreement: normalizeGoogleImportRunResource(record.agreement),
+    source_document_id: asOptionalString(record.source_document_id) ?? null,
+    source_revision_id: asOptionalString(record.source_revision_id) ?? null,
+    source_artifact_id: asOptionalString(record.source_artifact_id) ?? null,
+    source_mime_type: asOptionalString(record.source_mime_type) ?? null,
+    ingestion_mode: asOptionalString(record.ingestion_mode) ?? null,
+    error: errorCode || errorMessage
+      ? {
+          code: errorCode,
+          message: errorMessage,
+          ...(errorDetails ? { details: errorDetails } : {}),
+        }
+      : null,
+  };
+}
+
+export function isTerminalGoogleImportStatus(status: string): boolean {
+  return status === 'succeeded' || status === 'failed';
+}
+
+export function resolveGoogleImportRedirectURL(
+  response: Pick<
+    GoogleImportRunDetail,
+    'agreement_detail_url' | 'document_detail_url' | 'agreement' | 'document'
+  >,
+  routes: GoogleImportRedirectRoutes
+): string {
+  if (response.agreement_detail_url) {
+    return response.agreement_detail_url;
+  }
+  if (response.document_detail_url) {
+    return response.document_detail_url;
+  }
+  if (response.agreement?.id && routes.agreements) {
+    return `${routes.agreements}/${encodeURIComponent(response.agreement.id)}`;
+  }
+  if (response.document?.id) {
+    return `${routes.documents}/${encodeURIComponent(response.document.id)}`;
+  }
+  return routes.fallback;
 }
 
 export function normalizePhase1LineageContractFixtures(value: unknown): Phase1LineageContractFixtures {
@@ -346,128 +576,3 @@ export function normalizePhase1LineageContractFixtures(value: unknown): Phase1Li
     },
   };
 }
-
-/**
- * Import provenance summary included in import responses.
- * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
- */
-export interface ImportProvenanceSummary {
-  source_document_id: string | null;
-  source_revision_id: string | null;
-  source_artifact_id: string | null;
-  revision_reused: boolean;
-  is_new_source: boolean;
-}
-
-/**
- * Import lineage outcome classification.
- */
-export type ImportLineageOutcome =
-  | 'native_import'
-  | 'duplicate_import'
-  | 'unchanged_reimport'
-  | 'changed_source_reimport'
-  | 'import_failure';
-
-/**
- * Stable import response contract with lineage information.
- * This is the canonical backend-owned payload shape for import responses.
- * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
- */
-export interface GoogleImportResponseWithLineage {
-  import_run_id: string;
-  status: string;
-  lineage_outcome: ImportLineageOutcome;
-  provenance: ImportProvenanceSummary;
-  document_id: string | null;
-  agreement_id: string | null;
-  source_document_url: string | null;
-  document_detail_url: string | null;
-  agreement_detail_url: string | null;
-  error: { code: string; message: string } | null;
-}
-
-/**
- * Normalize import provenance summary from backend response.
- */
-function normalizeImportProvenanceSummary(value: unknown): ImportProvenanceSummary {
-  const record = asRecord(value);
-  return {
-    source_document_id: asOptionalString(record.source_document_id) ?? null,
-    source_revision_id: asOptionalString(record.source_revision_id) ?? null,
-    source_artifact_id: asOptionalString(record.source_artifact_id) ?? null,
-    revision_reused: asBoolean(record.revision_reused),
-    is_new_source: asBoolean(record.is_new_source),
-  };
-}
-
-/**
- * Validate and normalize the lineage outcome field.
- */
-function normalizeImportLineageOutcome(value: unknown): ImportLineageOutcome {
-  const outcome = asString(value);
-  const validOutcomes: ImportLineageOutcome[] = [
-    'native_import',
-    'duplicate_import',
-    'unchanged_reimport',
-    'changed_source_reimport',
-    'import_failure',
-  ];
-  if (validOutcomes.includes(outcome as ImportLineageOutcome)) {
-    return outcome as ImportLineageOutcome;
-  }
-  // Default to native_import for unknown values (forward compatibility)
-  return 'native_import';
-}
-
-/**
- * Normalize a Google import response with lineage information.
- * This adapter ensures frontend code consumes a stable, validated payload
- * regardless of backend response variations.
- * @see DOC_LINEAGE_V1_TSK.md Phase 3 Task 3.9
- */
-export function normalizeGoogleImportResponseWithLineage(value: unknown): GoogleImportResponseWithLineage {
-  const record = asRecord(value);
-  const errorRecord = asRecord(record.error);
-
-  return {
-    import_run_id: asString(record.import_run_id),
-    status: asString(record.status),
-    lineage_outcome: normalizeImportLineageOutcome(record.lineage_outcome),
-    provenance: normalizeImportProvenanceSummary(record.provenance),
-    document_id: asOptionalString(record.document_id) ?? null,
-    agreement_id: asOptionalString(record.agreement_id) ?? null,
-    source_document_url: asOptionalString(record.source_document_url) ?? null,
-    document_detail_url: asOptionalString(record.document_detail_url) ?? null,
-    agreement_detail_url: asOptionalString(record.agreement_detail_url) ?? null,
-    error: errorRecord.code ? {
-      code: asString(errorRecord.code),
-      message: asString(errorRecord.message),
-    } : null,
-  };
-}
-
-/**
- * Check if an import response indicates lineage was successfully resolved.
- */
-export function hasLineageResolved(response: GoogleImportResponseWithLineage): boolean {
-  return (
-    response.lineage_outcome !== 'import_failure' &&
-    response.provenance.source_document_id !== null
-  );
-}
-
-/**
- * Check if an import response indicates a new source document was created.
- */
-export function isNewSourceImport(response: GoogleImportResponseWithLineage): boolean {
-  return response.provenance.is_new_source;
-}
-
-/**
- * Check if an import response indicates revision reuse (unchanged content).
- */
-export function isRevisionReused(response: GoogleImportResponseWithLineage): boolean {
-  return response.provenance.revision_reused;
-}
-

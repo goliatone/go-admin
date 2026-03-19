@@ -417,8 +417,9 @@
 
   .review-thread-marker {
     position: absolute;
-    width: 1.75rem;
+    min-width: 1.75rem;
     height: 1.75rem;
+    padding: 0 0.25rem;
     border-radius: 9999px;
     border: 2px solid rgba(15, 23, 42, 0.2);
     background: #2563eb;
@@ -426,8 +427,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
+    letter-spacing: -0.02em;
     box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
     cursor: pointer;
     transform: translate(-50%, -50%);
@@ -441,13 +443,33 @@
   }
 
   .review-thread-marker.resolved {
-    background: #059669;
-    box-shadow: 0 8px 24px rgba(5, 150, 105, 0.3);
+    opacity: 0.8;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
   }
 
   .review-thread-marker.active {
-    background: #f59e0b;
     box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.28);
+  }
+
+  /* Internal comments (for admin/owner views only - not shown on public reviewer page) */
+  .review-thread-marker.internal {
+    border: 2px dashed rgba(124, 58, 237, 0.4);
+    opacity: 0.9;
+  }
+
+  .review-thread-marker.internal::after {
+    content: '🔒';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 10px;
+    background: white;
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .pdf-container.review-anchor-picking {
@@ -1144,14 +1166,12 @@
             <div id="review-thread-composer" class="space-y-3 hidden">
               <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">
-                  Anchor comment to
+                  Comment type
                 </label>
                 <div id="review-anchor-chips" class="flex flex-wrap gap-2">
                   <button type="button" data-anchor-type="agreement" class="review-anchor-chip active rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100">
-                    Agreement
-                  </button>
-                  <button type="button" data-anchor-type="page" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50">
-                    <span id="review-anchor-page-label">Page 1</span>
+                    <i class="iconoir-globe mr-1" aria-hidden="true"></i>
+                    Global Comment
                   </button>
                   <button type="button" data-anchor-type="field" id="review-anchor-field-chip" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors cursor-not-allowed hidden" disabled>
                     <span id="review-anchor-field-label">Select a field</span>
@@ -1176,15 +1196,15 @@
                   </div>
                 </div>
               </div>
-              <p id="review-thread-composer-hint" class="text-xs text-gray-500">Select "Agreement" for general comments, or "Page" to click directly on the document to add a positioned comment.</p>
+              <p id="review-thread-composer-hint" class="text-xs text-gray-500">Add general agreement-level feedback here, or click directly on the document to add a positioned comment.</p>
               <label class="block text-xs font-medium text-gray-700">
-                New comment
-                <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add a comment or review note"></textarea>
+                New global comment
+                <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add general agreement feedback"></textarea>
               </label>
               <div class="flex items-center justify-end">
                 <button type="button" data-esign-action="create-review-thread" class="btn btn-secondary">
                   <i class="iconoir-chat-bubble mr-2" aria-hidden="true"></i>
-                  Add Comment
+                  Add Global Comment
                 </button>
               </div>
             </div>

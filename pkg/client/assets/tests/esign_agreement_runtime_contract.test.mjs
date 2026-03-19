@@ -181,9 +181,27 @@ test('Phase 5 contract: signer review normalizes PascalCase review thread payloa
 test('Phase 5 contract: signer review captures page pin clicks from the shared PDF surface', () => {
   const source = read(signerReviewPath);
   assert.match(source, /const clickSurface = document\.getElementById\('pdf-container'\);/);
-  assert.match(source, /if \(!clickSurface \|\| !pageContainer\) return;/);
+  assert.match(source, /if \(!clickSurface\) return;/);
   assert.match(source, /clickSurface\.addEventListener\('click', \(event\) => \{/);
+  assert.match(source, /if \(!hasReviewContext\(\) \|\| !state\.reviewContext\?\.comments_enabled \|\| !state\.reviewContext\?\.can_comment\) return;/);
+  assert.match(source, /const pageContainer = document\.getElementById\(`pdf-page-\$\{Number\(state\.currentPage \|\| 1\) \|\| 1\}`\);/);
   assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
+});
+
+test('Phase 5 contract: signer review waits for rendered pages before revealing thread markers', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /function waitForRenderedPage\(pageNum, timeoutMs = 4000\)/);
+  assert.match(source, /settlePageRenderWaiters\(pageNum\);/);
+  assert.match(source, /async function highlightReviewThreadMarker\(threadID\)/);
+  assert.match(source, /const anchorType = await jumpToReviewThreadAnchor\(normalizedThreadID\);/);
+  assert.match(source, /const marker = await waitForReviewThreadMarker\(normalizedThreadID\);/);
+});
+
+test('Phase 5 contract: only positioned review threads opt into whole-card marker navigation', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /function reviewThreadHasMarker\(thread\)/);
+  assert.match(source, /const canHighlightMarker = reviewThreadHasMarker\(entry\);/);
+  assert.match(source, /\$\{canHighlightMarker \? 'data-esign-action="highlight-review-marker"' : ''\}/);
 });
 
 test('Phase 5 contract: reviewer sessions stay read-only in the signer review UI', () => {

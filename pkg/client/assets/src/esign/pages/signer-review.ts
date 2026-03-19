@@ -36,12 +36,19 @@ export interface SignerReviewConfig {
     status?: string;
     gate?: string;
     comments_enabled?: boolean;
+    override_active?: boolean;
+    override_reason?: string;
+    override_by_user_id?: string;
+    override_by_display_name?: string;
+    override_at?: string;
     is_reviewer?: boolean;
     can_comment?: boolean;
     can_approve?: boolean;
     can_request_changes?: boolean;
     can_sign?: boolean;
     participant_status?: string;
+    approved_count?: number;
+    total_approvers?: number;
     sign_blocked?: boolean;
     sign_block_reason?: string;
     blockers?: string[];
@@ -52,7 +59,20 @@ export interface SignerReviewConfig {
       email?: string;
       display_name?: string;
       decision_status?: string;
+      effective_decision_status?: string;
+      approved_on_behalf?: boolean;
+      approved_on_behalf_reason?: string;
+      approved_on_behalf_by_user_id?: string;
+      approved_on_behalf_by_display_name?: string;
+      approved_on_behalf_at?: string;
     };
+    actor_map?: Record<string, {
+      name?: string;
+      email?: string;
+      role?: string;
+      actor_type?: string;
+      actor_id?: string;
+    }>;
     threads?: Array<{
       thread?: any;
       messages?: any[];
@@ -485,7 +505,40 @@ function normalizeReviewParticipant(participant) {
     email: String(participant.email || '').trim(),
     display_name: String(participant.display_name || '').trim(),
     decision_status: String(participant.decision_status || '').trim(),
+    effective_decision_status: String(participant.effective_decision_status || participant.decision_status || '').trim(),
+    approved_on_behalf: Boolean(participant.approved_on_behalf),
+    approved_on_behalf_reason: String(participant.approved_on_behalf_reason || '').trim(),
+    approved_on_behalf_by_user_id: String(participant.approved_on_behalf_by_user_id || '').trim(),
+    approved_on_behalf_by_display_name: String(participant.approved_on_behalf_by_display_name || '').trim(),
+    approved_on_behalf_at: String(participant.approved_on_behalf_at || '').trim(),
   };
+}
+
+function normalizeReviewActorInfo(actorKey, actor) {
+  if (!actor || typeof actor !== 'object') return null;
+  const fallbackKey = String(actorKey || '').trim();
+  const fallbackType = fallbackKey.includes(':') ? fallbackKey.split(':', 1)[0] : '';
+  const fallbackID = fallbackKey.includes(':') ? fallbackKey.slice(fallbackKey.indexOf(':') + 1) : '';
+  return {
+    name: String(actor.name || '').trim(),
+    email: String(actor.email || '').trim(),
+    role: String(actor.role || '').trim(),
+    actor_type: String(actor.actor_type || fallbackType).trim(),
+    actor_id: String(actor.actor_id || fallbackID).trim(),
+  };
+}
+
+function normalizeReviewActorMap(actorMap) {
+  if (!actorMap || typeof actorMap !== 'object') return {};
+  const out = {};
+  Object.entries(actorMap).forEach(([key, value]) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey) return;
+    const normalizedValue = normalizeReviewActorInfo(normalizedKey, value);
+    if (!normalizedValue) return;
+    out[normalizedKey] = normalizedValue;
+  });
+  return out;
 }
 
 function readNormalizedRecordValue(record, ...keys) {
@@ -551,6 +604,7 @@ function normalizeReviewContext(review) {
   const threads = Array.isArray(review.threads)
     ? review.threads.map(normalizeReviewThread).filter(Boolean)
     : [];
+  const actorMap = normalizeReviewActorMap(review.actor_map || review.actorMap);
   const blockers = Array.isArray(review.blockers)
     ? review.blockers.map((value) => String(value || '').trim()).filter(Boolean)
     : [];
@@ -559,16 +613,24 @@ function normalizeReviewContext(review) {
     status: String(review.status || '').trim(),
     gate: String(review.gate || '').trim(),
     comments_enabled: Boolean(review.comments_enabled),
+    override_active: Boolean(review.override_active),
+    override_reason: String(review.override_reason || '').trim(),
+    override_by_user_id: String(review.override_by_user_id || '').trim(),
+    override_by_display_name: String(review.override_by_display_name || '').trim(),
+    override_at: String(review.override_at || '').trim(),
     is_reviewer: Boolean(review.is_reviewer),
     can_comment: Boolean(review.can_comment),
     can_approve: Boolean(review.can_approve),
     can_request_changes: Boolean(review.can_request_changes),
     can_sign: review.can_sign !== false,
     participant_status: String(review.participant_status || '').trim(),
+    approved_count: Number(review.approved_count || 0) || 0,
+    total_approvers: Number(review.total_approvers || 0) || 0,
     sign_blocked: Boolean(review.sign_blocked),
     sign_block_reason: String(review.sign_block_reason || '').trim(),
     blockers,
     participant: normalizeReviewParticipant(review.participant),
+    actor_map: actorMap,
     open_thread_count: Number(review.open_thread_count || 0) || 0,
     resolved_thread_count: Number(review.resolved_thread_count || 0) || 0,
     threads,
@@ -587,13 +649,20 @@ function reviewAnchorLabel(thread) {
         ? `Page ${thread.thread.page_number}`
         : 'Page';
     default:
-      return 'Agreement';
+      return 'Global Comment';
   }
 }
 
+function reviewThreadHasMarker(thread) {
+  const anchorType = String(thread?.thread?.anchor_type || '').trim();
+  return anchorType === 'page' || anchorType === 'field';
+}
+
 function reviewStatusLabel(status) {
-  const normalized = String(status || '').trim().toLowerCase();
+  const normalized = normalizeReviewStatus(status);
   switch (normalized) {
+    case 'pending':
+      return 'Pending';
     case 'approved':
       return 'Approved';
     case 'changes_requested':
@@ -605,6 +674,70 @@ function reviewStatusLabel(status) {
     default:
       return normalized ? normalized.replace(/_/g, ' ') : 'Inactive';
   }
+}
+
+function normalizeReviewStatus(status) {
+  return String(status || '').trim().toLowerCase();
+}
+
+function reviewParticipantDecisionStatus(review) {
+  return normalizeReviewStatus(review?.participant_status || review?.participant?.effective_decision_status || review?.participant?.decision_status);
+}
+
+function reviewParticipantDecisionResolved(review) {
+  const decisionStatus = reviewParticipantDecisionStatus(review);
+  return decisionStatus === 'approved' || decisionStatus === 'changes_requested';
+}
+
+function reviewDecisionActionsVisible(review) {
+  if (!review) return false;
+  if (review.override_active) return false;
+  if (!review.can_approve && !review.can_request_changes) return false;
+  return !reviewParticipantDecisionResolved(review);
+}
+
+function reviewPanelSubtitle(review) {
+  if (!review || typeof review !== 'object') {
+    return 'Track review status, comments, and decision actions.';
+  }
+  const reviewStatus = normalizeReviewStatus(review.status);
+  const decisionStatus = reviewParticipantDecisionStatus(review);
+  const approvedCount = Number(review.approved_count || 0) || 0;
+  const totalApprovers = Number(review.total_approvers || 0) || 0;
+  if (review.override_active) {
+    const reason = String(review.override_reason || '').trim();
+    const actorName = String(review.override_by_display_name || review.override_by_user_id || '').trim();
+    return reason
+      ? `Review was finalized by admin override${actorName ? ` by ${actorName}` : ''}. Reason: ${reason}`
+      : `Review was finalized by admin override${actorName ? ` by ${actorName}` : ''}.`;
+  }
+  if (review?.participant?.approved_on_behalf) {
+    const actorName = String(review.participant.approved_on_behalf_by_display_name || review.participant.approved_on_behalf_by_user_id || '').trim();
+    return actorName
+      ? `Your review decision was recorded on your behalf by ${actorName}.`
+      : 'Your review decision was recorded on your behalf by an admin.';
+  }
+  if (decisionStatus === 'approved' && reviewStatus === 'in_review') {
+    if (totalApprovers > 0) {
+      return `Your approval is recorded. ${approvedCount} of ${totalApprovers} approvers have approved so far.`;
+    }
+    return 'Your approval is recorded. Waiting for the remaining reviewers before this document can proceed.';
+  }
+  if (decisionStatus === 'approved' && reviewStatus === 'approved') {
+    if (totalApprovers > 0) {
+      return `All approvers approved (${approvedCount} of ${totalApprovers}). Review is complete.`;
+    }
+    return 'All reviewers approved. Review is complete.';
+  }
+  if (decisionStatus === 'changes_requested') {
+    return 'Your change request is recorded. The sender must resolve it before this document can proceed.';
+  }
+  if (reviewStatus === 'in_review' && totalApprovers > 0) {
+    return `${approvedCount} of ${totalApprovers} approvers have approved so far.`;
+  }
+  return review.gate
+    ? `Gate: ${String(review.gate || '').replace(/_/g, ' ')}`
+    : 'Track review status, comments, and decision actions.';
 }
 
 function toSignerProfileKey(config: Required<SignerReviewConfig>): string {
@@ -938,6 +1071,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     pdfDoc: null,
     pageRendering: false,
     pageNumPending: null,
+    pageRenderWaiters: new Map(),
     fieldState: new Map(),
     activeFieldId: null,
     hasConsented: unifiedConfig.hasConsented,
@@ -980,6 +1114,62 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     state.overlayRenderFrameID = window.requestAnimationFrame(() => {
       state.overlayRenderFrameID = 0;
       renderFieldOverlays();
+    });
+  }
+
+  function hasRenderedPage(pageNum) {
+    const normalizedPageNum = Number(pageNum || 0) || 0;
+    const canvas = document.querySelector('#pdf-page-1 canvas');
+    return normalizedPageNum > 0
+      && Number(state.currentPage || 0) === normalizedPageNum
+      && !state.pageRendering
+      && canvas instanceof HTMLCanvasElement;
+  }
+
+  function settlePageRenderWaiters(pageNum, error = null) {
+    const normalizedPageNum = Number(pageNum || 0) || 0;
+    if (!normalizedPageNum) return;
+    const waiters = state.pageRenderWaiters.get(normalizedPageNum);
+    if (!Array.isArray(waiters) || !waiters.length) return;
+    state.pageRenderWaiters.delete(normalizedPageNum);
+    waiters.forEach((waiter) => {
+      if (waiter?.timer) {
+        window.clearTimeout(waiter.timer);
+      }
+      if (error) {
+        waiter?.reject?.(error);
+        return;
+      }
+      waiter?.resolve?.();
+    });
+  }
+
+  function waitForRenderedPage(pageNum, timeoutMs = 4000) {
+    const normalizedPageNum = Number(pageNum || 0) || 0;
+    if (!normalizedPageNum || hasRenderedPage(normalizedPageNum)) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        const waiters = Array.isArray(state.pageRenderWaiters.get(normalizedPageNum))
+          ? state.pageRenderWaiters.get(normalizedPageNum)
+          : [];
+        const remaining = waiters.filter((waiter) => waiter?.resolve !== resolve);
+        if (remaining.length) {
+          state.pageRenderWaiters.set(normalizedPageNum, remaining);
+        } else {
+          state.pageRenderWaiters.delete(normalizedPageNum);
+        }
+        reject(new Error(`Timed out rendering page ${normalizedPageNum}.`));
+      }, timeoutMs);
+      const waiters = Array.isArray(state.pageRenderWaiters.get(normalizedPageNum))
+        ? state.pageRenderWaiters.get(normalizedPageNum)
+        : [];
+      waiters.push({ resolve, reject, timer });
+      state.pageRenderWaiters.set(normalizedPageNum, waiters);
+      if (hasRenderedPage(normalizedPageNum)) {
+        settlePageRenderWaiters(normalizedPageNum);
+      }
     });
   }
 
@@ -1057,12 +1247,82 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     return (Array.isArray(threads) ? threads : []).filter((entry) => String(entry?.thread?.status || '').trim() === status).length;
   }
 
-  function actorLabelFromMessage(message) {
-    const actorType = String(message?.created_by_type || '').trim();
-    if (actorType === 'user' || actorType === 'sender') return 'Sender';
-    if (actorType === 'reviewer') return 'Reviewer';
-    if (actorType === 'recipient' || actorType === 'signer') return 'Signer';
-    return actorType ? actorType.replace(/_/g, ' ') : 'Participant';
+  function reviewActorKey(actorType, actorID) {
+    const normalizedActorType = String(actorType || '').trim();
+    const normalizedActorID = String(actorID || '').trim();
+    if (!normalizedActorType || !normalizedActorID) return '';
+    return `${normalizedActorType}:${normalizedActorID}`;
+  }
+
+  function humanizeReviewActorRole(actorType) {
+    const normalizedActorType = String(actorType || '').trim();
+    if (normalizedActorType === 'user' || normalizedActorType === 'sender') return 'Sender';
+    if (normalizedActorType === 'reviewer') return 'Reviewer';
+    if (normalizedActorType === 'recipient' || normalizedActorType === 'signer') return 'Signer';
+    return normalizedActorType ? normalizedActorType.replace(/_/g, ' ') : 'Participant';
+  }
+
+  function reviewActorInfo(actorType, actorID) {
+    const actorMap = state.reviewContext?.actor_map || {};
+    const aliases = [];
+    const normalizedActorType = String(actorType || '').trim();
+    if (normalizedActorType === 'recipient' || normalizedActorType === 'signer') {
+      aliases.push(reviewActorKey('recipient', actorID), reviewActorKey('signer', actorID));
+    } else if (normalizedActorType === 'user' || normalizedActorType === 'sender') {
+      aliases.push(reviewActorKey('user', actorID), reviewActorKey('sender', actorID));
+    } else {
+      aliases.push(reviewActorKey(normalizedActorType, actorID));
+    }
+    const found = aliases.map((key) => actorMap[key]).find(Boolean);
+    if (found) {
+      return found;
+    }
+    return {
+      name: String(actorID || '').trim() || humanizeReviewActorRole(normalizedActorType),
+      email: '',
+      role: normalizedActorType,
+      actor_type: normalizedActorType,
+      actor_id: String(actorID || '').trim(),
+    };
+  }
+
+  function actorNameFromMessage(message) {
+    const actor = reviewActorInfo(message?.created_by_type, message?.created_by_id);
+    return String(actor?.name || actor?.email || humanizeReviewActorRole(message?.created_by_type)).trim() || 'Participant';
+  }
+
+  function actorRoleFromMessage(message) {
+    const actor = reviewActorInfo(message?.created_by_type, message?.created_by_id);
+    return String(actor?.role || actor?.actor_type || message?.created_by_type || '').trim() || 'participant';
+  }
+
+  function initialsFromName(name, fallback = 'P') {
+    const normalized = String(name || '').trim();
+    if (!normalized) return String(fallback || 'P').trim().slice(0, 2).toUpperCase() || 'P';
+    const letters = normalized
+      .split(/\s+/)
+      .map((part) => part[0] || '')
+      .join('')
+      .replace(/[^a-z0-9]/ig, '')
+      .toUpperCase();
+    if (letters) return letters.slice(0, 2);
+    return normalized.replace(/[^a-z0-9]/ig, '').slice(0, 2).toUpperCase() || String(fallback || 'P').trim().slice(0, 2).toUpperCase() || 'P';
+  }
+
+  function reviewActorPresentation(actorType, actorID) {
+    const actor = reviewActorInfo(actorType, actorID);
+    const resolvedActorType = String(actor?.actor_type || actorType || '').trim();
+    let color = '#64748b';
+    if (resolvedActorType === 'user' || resolvedActorType === 'sender') color = '#2563eb';
+    if (resolvedActorType === 'reviewer') color = '#7c3aed';
+    if (resolvedActorType === 'recipient' || resolvedActorType === 'signer') color = '#059669';
+    return {
+      actor,
+      name: String(actor?.name || actor?.email || humanizeReviewActorRole(resolvedActorType)).trim() || 'Participant',
+      role: humanizeReviewActorRole(actor?.role || resolvedActorType),
+      initials: initialsFromName(actor?.name || actor?.email || actorID || resolvedActorType, humanizeReviewActorRole(resolvedActorType)),
+      color,
+    };
   }
 
   function reviewParticipantLabel(participant) {
@@ -1258,16 +1518,6 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       </div>
       <div class="inline-composer-body">
         <textarea id="inline-comment-body" rows="3" placeholder="Write your comment..." class="inline-composer-textarea"></textarea>
-        <div class="inline-composer-visibility">
-          <label class="inline-composer-label">
-            <input type="radio" name="inline-visibility" value="shared" checked />
-            <span>Shared</span>
-          </label>
-          <label class="inline-composer-label">
-            <input type="radio" name="inline-visibility" value="internal" />
-            <span>Internal</span>
-          </label>
-        </div>
       </div>
       <div class="inline-composer-footer">
         <button type="button" class="inline-composer-cancel" data-esign-action="cancel-inline-comment">Cancel</button>
@@ -1292,13 +1542,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       return;
     }
 
-    const visibilityRadio = document.querySelector('input[name="inline-visibility"]:checked') as HTMLInputElement;
-    const visibility = visibilityRadio?.value || 'shared';
-
     const payload = {
       thread: {
         review_id: state.reviewContext.review_id,
-        visibility,
+        visibility: 'shared',
         body,
         anchor_type: 'page',
         page_number: state.inlineComposerAnchor.page_number,
@@ -1369,7 +1616,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     }
 
     const review = state.reviewContext;
-    const status = String(review.status || '').trim().toLowerCase();
+    const status = normalizeReviewStatus(review.status);
+    const participantStatus = reviewParticipantDecisionStatus(review);
     indicator.classList.remove('hidden');
 
     // Get step elements
@@ -1412,6 +1660,17 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const decisionIcon = stepDecision?.querySelector('i');
       if (decisionIcon) {
         decisionIcon.className = 'iconoir-warning-circle text-xs';
+      }
+    } else if (participantStatus === 'approved' && status === 'in_review') {
+      // This reviewer has finished their decision, but other reviewers are still pending.
+      stepDraft?.classList.add('completed');
+      stepSent?.classList.add('completed');
+      stepReview?.classList.add('completed');
+      stepDecision?.classList.add('active');
+      lines.forEach((line) => line.classList.add('completed'));
+      const decisionIcon = stepDecision?.querySelector('i');
+      if (decisionIcon) {
+        decisionIcon.className = 'iconoir-check-circle text-xs';
       }
     } else if (status === 'in_review' || status === 'pending') {
       // Draft and sent completed, review is active
@@ -1487,6 +1746,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     const review = state.reviewContext;
     const statusLabel = reviewStatusLabel(review.status);
+    const participantStatus = reviewParticipantDecisionStatus(review);
     reviewPanel.classList.remove('hidden');
     updateReviewProgressIndicator();
     if (reviewStatusChip) {
@@ -1500,44 +1760,65 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       );
     }
     if (reviewSubtitle) {
-      reviewSubtitle.textContent = review.gate
-        ? `Gate: ${String(review.gate || '').replace(/_/g, ' ')}`
-        : 'Track review status, comments, and decision actions.';
+      reviewSubtitle.textContent = reviewPanelSubtitle(review);
     }
     if (reviewParticipantSummary) {
       const participantName = reviewParticipantLabel(review.participant);
-      if (participantName || review.participant_status) {
+      if (participantName || participantStatus) {
         reviewParticipantSummary.classList.remove('hidden');
+        reviewParticipantSummary.className = 'rounded-lg border px-3 py-2 text-xs';
+        if (participantStatus === 'approved') {
+          reviewParticipantSummary.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-800');
+        } else if (participantStatus === 'changes_requested') {
+          reviewParticipantSummary.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-800');
+        } else {
+          reviewParticipantSummary.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-700');
+        }
+        const onBehalfActor = String(review.participant?.approved_on_behalf_by_display_name || review.participant?.approved_on_behalf_by_user_id || '').trim();
+        const onBehalfLabel = review.participant?.approved_on_behalf
+          ? ` • approved on behalf${onBehalfActor ? ` by ${onBehalfActor}` : ''}`
+          : '';
         reviewParticipantSummary.textContent = participantName
-          ? `${participantName} • decision ${reviewStatusLabel(review.participant_status || 'pending')}`
-          : `Decision ${reviewStatusLabel(review.participant_status || 'pending')}`;
+          ? `${participantName} • decision ${reviewStatusLabel(participantStatus || 'pending')}${onBehalfLabel}`
+          : `Decision ${reviewStatusLabel(participantStatus || 'pending')}${onBehalfLabel}`;
       } else {
         reviewParticipantSummary.classList.add('hidden');
       }
     }
     if (reviewDecisionActions) {
-      reviewDecisionActions.classList.toggle('hidden', !(review.can_approve || review.can_request_changes));
+      reviewDecisionActions.classList.toggle('hidden', !reviewDecisionActionsVisible(review));
     }
     if (reviewThreadSummary) {
       reviewThreadSummary.classList.remove('hidden');
-      reviewThreadSummary.textContent = `${review.open_thread_count || 0} open • ${review.resolved_thread_count || 0} resolved`;
+      const summaryParts = [];
+      if ((Number(review.total_approvers || 0) || 0) > 0) {
+        summaryParts.push(`${review.approved_count || 0} of ${review.total_approvers || 0} approvers approved`);
+      }
+      summaryParts.push(`${review.open_thread_count || 0} open`);
+      summaryParts.push(`${review.resolved_thread_count || 0} resolved`);
+      reviewThreadSummary.textContent = summaryParts.join(' • ');
     }
     if (reviewThreadComposer) {
-      const canComment = review.comments_enabled && review.can_comment;
+      const canComment = review.comments_enabled && review.can_comment && !review.override_active;
       reviewThreadComposer.classList.toggle('hidden', !canComment);
       if (reviewThreadComposerHint) {
         const anchorType = currentReviewAnchorType();
-        if (anchorType === 'page') {
-          reviewThreadComposerHint.textContent = 'Click anywhere on the document to add a positioned comment.';
-        } else if (anchorType === 'field' && state.activeFieldId) {
+        if (anchorType === 'field' && state.activeFieldId) {
           reviewThreadComposerHint.textContent = 'Comment will be anchored to the active field.';
         } else {
-          reviewThreadComposerHint.textContent = 'Select "Agreement" for general comments, or "Page" to click on the document.';
+          reviewThreadComposerHint.textContent = 'Click Global Comment for agreement-level feedback, or click directly on the document to add a positioned comment.';
         }
       }
     }
     if (reviewBanner) {
       const bannerMessages = [];
+      if (review.override_active) {
+        const reason = String(review.override_reason || '').trim();
+        const actorName = String(review.override_by_display_name || review.override_by_user_id || '').trim();
+        bannerMessages.push(reason
+          ? `Review finalized by admin override${actorName ? ` by ${actorName}` : ''}. ${reason}`
+          : `Review finalized by admin override${actorName ? ` by ${actorName}` : ''}.`);
+      }
       if (review.sign_blocked && review.sign_block_reason) {
         bannerMessages.push(review.sign_block_reason);
       }
@@ -1641,36 +1922,48 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const statusClass = String(thread.status || '').trim() === 'resolved'
         ? 'bg-emerald-50 border-emerald-200'
         : 'bg-white border-gray-200';
-      const actorType = String(messages[0]?.created_by_type || '').trim();
-      const actorBorderClass = actorType === 'user' || actorType === 'sender'
-        ? 'border-l-blue-400'
-        : actorType === 'reviewer'
-          ? 'border-l-purple-400'
-          : 'border-l-slate-300';
+      const leadActor = reviewActorPresentation(messages[0]?.created_by_type || thread.created_by_type, messages[0]?.created_by_id || thread.created_by_id);
+      let actorBorderClass = 'border-l-slate-300';
+      if (leadActor.color === '#2563eb') actorBorderClass = 'border-l-blue-400';
+      if (leadActor.color === '#7c3aed') actorBorderClass = 'border-l-purple-400';
+      if (leadActor.color === '#059669') actorBorderClass = 'border-l-emerald-400';
       const isHighlighted = String(thread.id || '').trim() === String(state.highlightedReviewThreadID || '').trim();
+      const visibility = String(thread.visibility || 'shared').trim();
+      const isInternal = visibility === 'internal';
+      const visibilityBadge = isInternal
+        ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>'
+        : '';
+      const canHighlightMarker = reviewThreadHasMarker(entry);
       return `
-        <article class="rounded-xl border ${statusClass} border-l-4 ${actorBorderClass} p-4 ${isHighlighted ? 'ring-2 ring-blue-200 shadow-sm' : ''}" data-review-thread-id="${escapeHTML(String(thread.id || ''))}" tabindex="-1">
+        <article
+          class="rounded-xl border ${statusClass} border-l-4 ${actorBorderClass} p-4 ${isHighlighted ? 'ring-2 ring-blue-200 shadow-sm' : ''} ${canHighlightMarker ? 'cursor-pointer' : ''}"
+          data-review-thread-id="${escapeHTML(String(thread.id || ''))}"
+          ${canHighlightMarker ? 'data-esign-action="highlight-review-marker"' : ''}
+          tabindex="-1">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${escapeHTML(anchorLabel)}</button>
                 <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${String(thread.status || '').trim() === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${escapeHTML(reviewStatusLabel(thread.status || 'open'))}</span>
+                ${visibilityBadge}
               </div>
               ${lastActivity ? `<p class="mt-2 text-xs text-gray-500">Last activity ${escapeHTML(lastActivity)}</p>` : ''}
             </div>
           </div>
           <div class="mt-3 space-y-3">
             ${messages.map((message) => {
-              const msgActorType = String(message.created_by_type || '').trim();
-              const msgActorClass = msgActorType === 'user' || msgActorType === 'sender'
-                ? 'bg-blue-50 border-l-2 border-l-blue-300'
-                : msgActorType === 'reviewer'
-                  ? 'bg-purple-50 border-l-2 border-l-purple-300'
-                  : 'bg-slate-50';
+              const actor = reviewActorPresentation(message.created_by_type, message.created_by_id);
+              let msgActorClass = 'bg-slate-50';
+              if (actor.color === '#2563eb') msgActorClass = 'bg-blue-50 border-l-2 border-l-blue-300';
+              if (actor.color === '#7c3aed') msgActorClass = 'bg-purple-50 border-l-2 border-l-purple-300';
+              if (actor.color === '#059669') msgActorClass = 'bg-emerald-50 border-l-2 border-l-emerald-300';
               return `
               <div class="rounded-lg ${msgActorClass} px-3 py-2">
                 <div class="flex items-center justify-between gap-3">
-                  <p class="text-xs font-semibold text-slate-700">${escapeHTML(actorLabelFromMessage(message))}</p>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold text-slate-700">${escapeHTML(actor.name)}</p>
+                    <p class="text-[10px] uppercase tracking-wide text-slate-500">${escapeHTML(actor.role)}</p>
+                  </div>
                   <p class="text-[11px] text-slate-500">${escapeHTML(formatReviewTimestamp(message.created_at || ''))}</p>
                 </div>
                 <p class="mt-1 whitespace-pre-wrap text-sm text-slate-800">${escapeHTML(String(message.body || ''))}</p>
@@ -1737,7 +2030,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         fieldChip.disabled = true;
         fieldChip.classList.add('hidden', 'text-gray-400', 'cursor-not-allowed');
         fieldChip.classList.remove('text-gray-600');
-        // If field was selected but no longer active, reset to agreement
+        // If field was selected but no longer active, reset to global comment
         if (anchorInput && anchorInput.value === 'field') {
           selectReviewAnchorChip('agreement');
         }
@@ -1769,24 +2062,17 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     // Update hint text immediately based on selected anchor type
     if (hint) {
-      if (anchorType === 'page') {
-        hint.textContent = 'Click anywhere on the document to add a positioned comment.';
-      } else if (anchorType === 'field' && state.activeFieldId) {
+      if (anchorType === 'field' && state.activeFieldId) {
         hint.textContent = 'Comment will be anchored to the active field.';
       } else {
-        hint.textContent = 'General comment on the agreement.';
+        hint.textContent = 'Global comment on the agreement. Click directly on the document to place a positioned comment.';
       }
     }
 
-    if (anchorType === 'page') {
-      // Auto-enable picking mode when page anchor is selected
-      setReviewAnchorPicking(true);
-    } else {
-      state.pickingReviewAnchorPoint = false;
-      const pdfContainer = document.getElementById('pdf-container');
-      pdfContainer?.classList.remove('review-anchor-picking');
-      hideInlineComposer();
-    }
+    state.pickingReviewAnchorPoint = false;
+    const pdfContainer = document.getElementById('pdf-container');
+    pdfContainer?.classList.remove('review-anchor-picking');
+    hideInlineComposer();
     updateReviewAnchorPointUI();
   }
 
@@ -1806,12 +2092,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
   function setupReviewAnchorPointCapture() {
     const clickSurface = document.getElementById('pdf-container');
-    const pageContainer = document.getElementById('pdf-page-1');
-    if (!clickSurface || !pageContainer) return;
+    if (!clickSurface) return;
 
     clickSurface.addEventListener('click', (event) => {
-      if (!state.pickingReviewAnchorPoint || currentReviewAnchorType() !== 'page') return;
       if (!(event.target instanceof Element)) return;
+      if (!hasReviewContext() || !state.reviewContext?.comments_enabled || !state.reviewContext?.can_comment) return;
+      if (event.target.closest('.review-thread-marker, .field-overlay')) return;
+      if (event.target.closest('button, textarea, input, select, label, a')) return;
+      const pageContainer = document.getElementById(`pdf-page-${Number(state.currentPage || 1) || 1}`);
+      if (!pageContainer) return;
       event.preventDefault();
       event.stopPropagation();
       const canvas = pageContainer.querySelector('canvas');
@@ -1985,11 +2274,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       announceToScreenReader('Enter a comment before creating a thread.', 'assertive');
       return;
     }
-    const visibilitySelect = document.getElementById('review-thread-visibility');
     const payload = {
       thread: {
         review_id: state.reviewContext.review_id,
-        visibility: String(visibilitySelect?.value || 'shared').trim() || 'shared',
+        visibility: 'shared',
         body,
         ...reviewThreadAnchorPayload(),
       },
@@ -1999,11 +2287,6 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       body: JSON.stringify(payload),
     }, 'Failed to create review thread');
     if (textarea) textarea.value = '';
-    if (currentReviewAnchorType() === 'page') {
-      state.pickingReviewAnchorPoint = false;
-      document.getElementById('pdf-container')?.classList.remove('review-anchor-picking');
-      setReviewAnchorPointDraft(null);
-    }
     await reloadReviewSessionContext();
     announceToScreenReader('Review comment added.');
   }
@@ -2041,7 +2324,26 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const body = action === 'request-changes' && comment ? JSON.stringify({ comment }) : undefined;
     await reviewAPIRequest(suffix, { method: 'POST', body }, fallbackMessage);
     await reloadReviewSessionContext();
-    announceToScreenReader(action === 'approve' ? 'Review approved.' : 'Review changes requested.');
+    let message = action === 'approve' ? 'Review approved.' : 'Review changes requested.';
+    if (hasReviewContext()) {
+      const reviewStatus = normalizeReviewStatus(state.reviewContext.status);
+      const decisionStatus = reviewParticipantDecisionStatus(state.reviewContext);
+      const approvedCount = Number(state.reviewContext.approved_count || 0) || 0;
+      const totalApprovers = Number(state.reviewContext.total_approvers || 0) || 0;
+      if (action === 'approve' && decisionStatus === 'approved' && reviewStatus === 'in_review') {
+        message = totalApprovers > 0
+          ? `Your approval was recorded. ${approvedCount} of ${totalApprovers} approvers have approved so far.`
+          : 'Your approval was recorded. Waiting for the remaining reviewers.';
+      } else if (action === 'approve' && decisionStatus === 'approved') {
+        message = 'Review approved.';
+      } else if (action === 'request-changes' && decisionStatus === 'changes_requested') {
+        message = 'Your change request was recorded.';
+      }
+    }
+    if (window.toastManager) {
+      window.toastManager.success(message);
+    }
+    announceToScreenReader(message);
   }
 
   // Review decision confirmation modal state
@@ -2134,27 +2436,75 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     await handleReviewDecision(action, comment);
   }
 
-  function jumpToReviewThreadAnchor(threadID) {
+  async function jumpToReviewThreadAnchor(threadID) {
     const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
     const found = threads.find((entry) => String(entry?.thread?.id || '') === String(threadID || ''));
-    if (!found) return;
+    if (!found) return '';
     highlightReviewThread(threadID);
     const anchorType = String(found?.thread?.anchor_type || '').trim();
     if (anchorType === 'field' && found.thread.field_id) {
       const field = state.fieldState.get(found.thread.field_id);
-      if (field?.page) {
-        goToPage(Number(field.page || 1) || 1);
+      const pageNumber = Number(field?.page || found.thread.page_number || state.currentPage || 1) || 1;
+      if (pageNumber > 0) {
+        await goToPage(pageNumber);
       }
       focusField(found.thread.field_id, { openEditor: false });
       highlightGuidedTarget(found.thread.field_id);
-      return;
+      return 'field';
     }
     if (anchorType === 'page' && Number(found?.thread?.page_number || 0) > 0) {
-      goToPage(Number(found.thread.page_number || 1) || 1);
-      return;
+      await goToPage(Number(found.thread.page_number || 1) || 1);
+      return 'page';
     }
     const viewerContent = document.getElementById('viewer-content');
     viewerContent?.scrollTo({ top: 0, behavior: 'smooth' });
+    return 'agreement';
+  }
+
+  function getReviewThreadMarkerElement(threadID) {
+    const normalizedThreadID = String(threadID || '').trim();
+    if (!normalizedThreadID) return null;
+    const marker = document.querySelector(`.review-thread-marker[data-thread-id="${CSS.escape(normalizedThreadID)}"]`);
+    return marker instanceof HTMLElement ? marker : null;
+  }
+
+  function waitForReviewThreadMarker(threadID, timeoutMs = 4000) {
+    const normalizedThreadID = String(threadID || '').trim();
+    const existingMarker = getReviewThreadMarkerElement(normalizedThreadID);
+    if (existingMarker) {
+      return Promise.resolve(existingMarker);
+    }
+    return new Promise<HTMLElement>((resolve, reject) => {
+      const startedAt = Date.now();
+      const check = () => {
+        const marker = getReviewThreadMarkerElement(normalizedThreadID);
+        if (marker) {
+          resolve(marker);
+          return;
+        }
+        if (Date.now() - startedAt >= timeoutMs) {
+          reject(new Error(`Timed out locating review marker for thread ${normalizedThreadID}.`));
+          return;
+        }
+        window.requestAnimationFrame(check);
+      };
+      window.requestAnimationFrame(check);
+    });
+  }
+
+  async function highlightReviewThreadMarker(threadID) {
+    const normalizedThreadID = String(threadID || '').trim();
+    if (!normalizedThreadID) return;
+    const anchorType = await jumpToReviewThreadAnchor(normalizedThreadID);
+    if (anchorType !== 'page' && anchorType !== 'field') {
+      return;
+    }
+    try {
+      const marker = await waitForReviewThreadMarker(normalizedThreadID);
+      marker.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    } catch {
+      // Marker rendering is best-effort after navigation has already completed.
+    }
   }
 
   // ============================================
@@ -2711,6 +3061,12 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       if (!target) return;
 
       const action = target.getAttribute('data-esign-action');
+      if (action === 'highlight-review-marker') {
+        const nestedInteractive = clicked.closest('button, textarea, input, select, label, a, [data-esign-action]');
+        if (nestedInteractive && nestedInteractive !== target) {
+          return;
+        }
+      }
       switch (action) {
         case 'prev-page':
           prevPage();
@@ -2810,12 +3166,23 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         }
         case 'go-review-thread-anchor': {
           const threadID = target.getAttribute('data-thread-id');
-          jumpToReviewThreadAnchor(threadID);
+          jumpToReviewThreadAnchor(threadID).catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to navigate to comment anchor');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to navigate to comment anchor'}`, 'assertive');
+          });
           break;
         }
         case 'go-review-thread': {
           const threadID = target.getAttribute('data-thread-id');
           revealReviewThread(threadID);
+          break;
+        }
+        case 'highlight-review-marker': {
+          const threadID = target.getAttribute('data-review-thread-id');
+          highlightReviewThreadMarker(threadID).catch((error) => {
+            if (window.toastManager) window.toastManager.error(error?.message || 'Unable to locate comment marker');
+            announceToScreenReader(`Error: ${error?.message || 'Unable to locate comment marker'}`, 'assertive');
+          });
           break;
         }
         case 'filter-review-threads': {
@@ -3689,6 +4056,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       updatePageNavigation();
       updateReviewAnchorChips();
       renderFieldOverlays();
+      settlePageRenderWaiters(pageNum);
       preloadAdjacentPages(pageNum);
       return;
     }
@@ -3755,6 +4123,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
       // Re-render overlays for current page
       renderFieldOverlays();
+      settlePageRenderWaiters(pageNum);
 
       // Track page view
       telemetry.trackPageView(pageNum);
@@ -3763,6 +4132,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       preloadAdjacentPages(pageNum);
 
     } catch (error) {
+      settlePageRenderWaiters(pageNum, error instanceof Error ? error : new Error('Page render failed.'));
       console.error('Page render error:', error);
     } finally {
       state.pageRendering = false;
@@ -3889,26 +4259,32 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
   function renderReviewThreadMarkers(overlaysContainer, containerEl) {
     const threads = Array.isArray(state.reviewContext?.threads) ? state.reviewContext.threads : [];
-    threads.forEach((entry, index) => {
+    threads.forEach((entry) => {
       const thread = entry?.thread || {};
       const position = resolveThreadMarkerPosition(entry, containerEl);
       if (!position) return;
+      const actor = reviewActorPresentation(thread.created_by_type, thread.created_by_id);
       const marker = document.createElement('button');
       marker.type = 'button';
       marker.className = 'review-thread-marker';
       if (String(thread.status || '').trim() === 'resolved') {
         marker.classList.add('resolved');
       }
+      if (String(thread.visibility || 'shared').trim() === 'internal') {
+        marker.classList.add('internal');
+      }
       if (String(thread.id || '').trim() === String(state.highlightedReviewThreadID || '').trim()) {
-      marker.classList.add('active');
+        marker.classList.add('active');
       }
       marker.dataset.esignAction = 'go-review-thread';
       marker.dataset.threadId = String(thread.id || '').trim();
       marker.style.left = `${Math.round(position.left)}px`;
       marker.style.top = `${Math.round(position.top)}px`;
-      marker.title = `${reviewAnchorLabel(entry)} comment`;
-      marker.setAttribute('aria-label', `${reviewAnchorLabel(entry)} comment ${index + 1}`);
-      marker.textContent = String(index + 1);
+      marker.style.background = actor.color;
+      marker.style.borderColor = actor.color;
+      marker.title = `${reviewAnchorLabel(entry)} comment by ${actor.name}`;
+      marker.setAttribute('aria-label', `${reviewAnchorLabel(entry)} comment by ${actor.name}`);
+      marker.textContent = actor.initials;
       overlaysContainer.appendChild(marker);
     });
 
@@ -4064,8 +4440,13 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function goToPage(pageNum) {
-    if (pageNum < 1 || pageNum > unifiedConfig.pageCount) return;
-    queueRenderPage(pageNum);
+    const normalizedPageNum = Number(pageNum || 0) || 0;
+    if (normalizedPageNum < 1 || normalizedPageNum > unifiedConfig.pageCount) return Promise.resolve();
+    const waitForPage = waitForRenderedPage(normalizedPageNum);
+    if (!hasRenderedPage(normalizedPageNum)) {
+      queueRenderPage(normalizedPageNum);
+    }
+    return waitForPage;
   }
 
   function updatePageNavigation() {

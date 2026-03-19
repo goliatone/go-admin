@@ -11,8 +11,13 @@ import type {
   APIResponse,
   APIError,
   GoogleIntegrationStatus,
-  GoogleImportRun,
+  GoogleImportRunDetail,
+  GoogleImportRunHandle,
 } from './types.js';
+import {
+  normalizeGoogleImportRunDetail,
+  normalizeGoogleImportRunHandle,
+} from './lineage-contracts.js';
 
 export interface ESignAPIClientConfig {
   basePath: string;
@@ -118,12 +123,14 @@ export class ESignAPIClient {
     google_file_id: string;
     document_title?: string;
     agreement_title?: string;
-  }): Promise<GoogleImportRun> {
-    return this.post<GoogleImportRun>('/esign/google-drive/imports', params);
+  }): Promise<GoogleImportRunHandle> {
+    const payload = await this.post<unknown>('/esign/google-drive/imports', params);
+    return normalizeGoogleImportRunHandle(payload);
   }
 
-  async getGoogleImportStatus(importRunId: string): Promise<GoogleImportRun> {
-    return this.get<GoogleImportRun>(`/esign/google-drive/imports/${importRunId}`);
+  async getGoogleImportStatus(importRunId: string): Promise<GoogleImportRunDetail> {
+    const payload = await this.get<unknown>(`/esign/google-drive/imports/${importRunId}`);
+    return normalizeGoogleImportRunDetail(payload);
   }
 
   // Generic HTTP methods

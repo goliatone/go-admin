@@ -7,6 +7,11 @@ import type { ESignPageConfig, GoogleDriveFile } from '../types.js';
 import { qs, qsa, show, hide, onReady, announce, on, setLoading } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatDateTime } from '../utils/formatters.js';
+import {
+  normalizeGoogleImportRunDetail,
+  normalizeGoogleImportRunHandle,
+  resolveGoogleImportRedirectURL,
+} from '../lineage-contracts.js';
 
 export interface GoogleDrivePickerConfig extends ESignPageConfig {
   userId: string;
@@ -16,6 +21,7 @@ export interface GoogleDrivePickerConfig extends ESignPageConfig {
     integrations?: string;
     agreements?: string;
     documents?: string;
+    documentImport?: string;
   };
 }
 
@@ -963,18 +969,30 @@ export class GoogleDrivePickerController {
         throw new Error(errorData.error?.message || 'Import failed');
       }
 
-      const result = await response.json();
+      const payload = await response.json();
+      const handle = normalizeGoogleImportRunHandle(payload);
+      const detail = normalizeGoogleImportRunDetail(payload);
 
       this.showToast('Import started successfully', 'success');
       announce('Import started');
 
       this.hideImportModal();
 
-      // Redirect to document or agreement if created
-      if (result.document?.id && this.config.pickerRoutes?.documents) {
-        window.location.href = `${this.config.pickerRoutes.documents}/${result.document.id}`;
-      } else if (result.agreement?.id && this.config.pickerRoutes?.agreements) {
-        window.location.href = `${this.config.pickerRoutes.agreements}/${result.agreement.id}`;
+      if (
+        detail.status === 'succeeded' &&
+        this.config.pickerRoutes?.documents
+      ) {
+        window.location.href = resolveGoogleImportRedirectURL(detail, {
+          agreements: this.config.pickerRoutes.agreements,
+          documents: this.config.pickerRoutes.documents,
+          fallback: this.config.pickerRoutes.documents,
+        });
+        return;
+      }
+
+      const monitorURL = this.buildImportMonitorURL(handle.import_run_id);
+      if (monitorURL) {
+        window.location.href = monitorURL;
       }
     } catch (error) {
       console.error('Import error:', error);
@@ -1028,7 +1046,26 @@ export class GoogleDrivePickerController {
       } else {
         toastManager.error(message);
       }
+      return;
     }
+
+    if (type === 'success') {
+      window.alert(`Success: ${message}`);
+    } else {
+      window.alert(`Error: ${message}`);
+    }
+  }
+
+  private buildImportMonitorURL(importRunId: string): string | null {
+    const route = this.config.pickerRoutes?.documentImport;
+    if (!route || !importRunId) {
+      return null;
+    }
+
+    const url = new URL(route, window.location.origin);
+    url.searchParams.set('source', 'google');
+    url.searchParams.set('import_run_id', importRunId);
+    return url.toString();
   }
 
   /**
@@ -1065,6 +1102,7 @@ export function bootstrapGoogleDrivePicker(config: {
     integrations?: string;
     agreements?: string;
     documents?: string;
+    documentImport?: string;
   };
 }): void {
   const pageConfig: GoogleDrivePickerConfig = {

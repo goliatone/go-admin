@@ -6,6 +6,11 @@
 import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatFileSize, formatDateTime } from '../utils/formatters.js';
+import {
+  normalizeGoogleImportRunDetail,
+  normalizeGoogleImportRunHandle,
+  resolveGoogleImportRedirectURL,
+} from '../lineage-contracts.js';
 
 export interface DocumentFormConfig {
   basePath: string;
@@ -1651,15 +1656,16 @@ export class DocumentFormController {
         }
       );
 
-      const data = await response.json();
+      const payload = await response.json();
 
       if (!response.ok) {
-        const errorCode = data.error?.code || '';
-        const message = data.error?.message || 'Failed to start import';
+        const errorCode = payload.error?.code || '';
+        const message = payload.error?.message || 'Failed to start import';
         throw { message, code: errorCode };
       }
 
-      this.currentImportRunId = data.import_run_id;
+      const handle = normalizeGoogleImportRunHandle(payload);
+      this.currentImportRunId = handle.import_run_id;
       this.pollAttempts = 0;
 
       // Update URL with import_run_id for resume on refresh
@@ -1714,13 +1720,14 @@ export class DocumentFormController {
         headers: { Accept: 'application/json' },
       });
 
-      const data = await response.json();
+      const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to check import status');
+        throw new Error(payload.error?.message || 'Failed to check import status');
       }
 
-      const status = data.status;
+      const detail = normalizeGoogleImportRunDetail(payload);
+      const status = detail.status;
 
       switch (status) {
         case 'queued':
@@ -1734,20 +1741,19 @@ export class DocumentFormController {
         case 'succeeded':
           this.showImportStatus('succeeded');
           announce('Import complete');
-          // Redirect to created agreement when available; otherwise document
+          // Prefer backend-authored detail links and fall back to route bases.
+          const redirectURL = resolveGoogleImportRedirectURL(detail, {
+            agreements: this.config.routes.agreements,
+            documents: this.config.routes.index,
+            fallback: this.config.routes.index,
+          });
           setTimeout(() => {
-            if (data.agreement?.id && this.config.routes.agreements) {
-              window.location.href = `${this.config.routes.agreements}/${encodeURIComponent(data.agreement.id)}`;
-            } else if (data.document?.id) {
-              window.location.href = `${this.config.routes.index}/${encodeURIComponent(data.document.id)}`;
-            } else {
-              window.location.href = this.config.routes.index;
-            }
+            window.location.href = redirectURL;
           }, 1500);
           break;
         case 'failed': {
-          const errorCode = data.error?.code || '';
-          const message = data.error?.message || 'Import failed';
+          const errorCode = detail.error?.code || '';
+          const message = detail.error?.message || 'Import failed';
           this.showImportError(message, errorCode);
           announce('Import failed');
           break;

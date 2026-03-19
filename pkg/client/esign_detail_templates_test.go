@@ -37,3 +37,34 @@ func TestESignAgreementDetailTemplateShowsNonApplicableArtifactCopy(t *testing.T
 		t.Fatalf("expected non-applicable artifact fragment not found: %q", fragment)
 	}
 }
+
+func TestESignDocumentDetailTemplateIncludesLineagePresentationCard(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/esign-documents/detail.html")
+
+	required := []string{
+		`{% if resource_item.lineage_presentation %}`,
+		`{% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected lineage presentation fragment not found: %q", fragment)
+	}
+}
+
+func TestESignLineageCardTemplateRendersBackendAuthoredWarningActions(t *testing.T) {
+	template := mustReadClientTemplate(t, "partials/esign-lineage-card.html")
+
+	required := []string{
+		`{% if warning.action_label and warning.action_url %}`,
+		`data-lineage-warning-action`,
+		`data-lineage-warning-visibility="{{ warning.review_action_visible|default:'' }}"`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected lineage action fragment not found: %q", fragment)
+	}
+}

@@ -5,6 +5,7 @@
     "diagnostics_owned_by_backend": true,
     "warning_precedence": [
       "candidate_warning",
+      "fingerprint_failed",
       "newer_source_exists",
       "fingerprint_pending",
       "empty_state"
@@ -90,6 +91,30 @@
           "review_action_visible": "admin_debug_only"
         }
       ],
+      "presentation_warnings": [
+        {
+          "id": "rel_candidate_1",
+          "type": "candidate_relationship",
+          "severity": "warning",
+          "title": "Copied From - Pending Review",
+          "description": "Possible continuity with a copied Google document under a different account.",
+          "action_label": "Review in diagnostics",
+          "action_url": "/admin/debug/lineage/documents/doc_001",
+          "review_action_visible": "admin_debug_only",
+          "evidence": [
+            {
+              "code": "normalized_text_match",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "title_similarity",
+              "label": "Title similarity",
+              "details": "Identical canonical title"
+            }
+          ]
+        }
+      ],
       "diagnostics_url": "/admin/debug/lineage/documents/doc_001",
       "empty_state": {
         "kind": "none",
@@ -100,7 +125,7 @@
     "document_empty": {
       "document_id": "doc_upload_only",
       "fingerprint_status": {
-        "status": "unknown",
+        "status": "not_applicable",
         "evidence_available": false
       },
       "diagnostics_url": "/admin/debug/lineage/documents/doc_upload_only",
@@ -164,6 +189,37 @@
             }
           ],
           "review_action_visible": "admin_debug_only"
+        }
+      ],
+      "presentation_warnings": [
+        {
+          "id": "rel_candidate_1",
+          "type": "candidate_relationship",
+          "severity": "warning",
+          "title": "Copied From - Pending Review",
+          "description": "Possible continuity with a copied Google document under a different account.",
+          "action_label": "Review in diagnostics",
+          "action_url": "/admin/debug/lineage/agreements/agr_001",
+          "review_action_visible": "admin_debug_only",
+          "evidence": [
+            {
+              "code": "normalized_text_match",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "title_similarity",
+              "label": "Title similarity",
+              "details": "Identical canonical title"
+            }
+          ]
+        },
+        {
+          "id": "newer_source_warning",
+          "type": "newer_source_exists",
+          "severity": "info",
+          "title": "Newer Source Available",
+          "description": "A newer source revision exists. This agreement remains pinned to the earlier revision used when it was created."
         }
       ],
       "diagnostics_url": "/admin/debug/lineage/agreements/agr_001",
