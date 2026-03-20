@@ -28,6 +28,7 @@ require (
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.53.0
+	github.com/goliatone/go-search v0.0.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -218,5 +219,6 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+replace github.com/goliatone/go-search => ../go-search
 
 replace github.com/goliatone/go-uploader => ../go-uploader
