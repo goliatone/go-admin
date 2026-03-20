@@ -102,3 +102,15 @@ backend_tests: go test ./examples/esign ./examples/esign/handlers ./examples/esi
 frontend_tests: N/A (no frontend contract payload shape change beyond existing object_key response fields)
 contract_hash: 58e3e5c4f45d918b6f7d64435f204bffe0dd86b1b657a5c1aa945ba51a42632f
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-03-19-007
+
+date: 2026-03-19
+owner: backend
+breaking_change_rationale: tighten Track C lineage contracts so panel detail payloads now redact lineage fields when the caller lacks `AdminESignView`, and agreement revision creation stops implicitly backfilling a missing `source_revision_id` from the source document record.
+measurable_gain: lineage detail payloads now follow the same permission boundary as the rest of the admin e-sign surface, and revision lineage persistence is deterministic because the service only carries source revision identifiers explicitly provided by the revision source contract.
+impacted_endpoints: /admin/content/esign_documents/:id lineage payload, /admin/content/esign_agreements/:id lineage payload, agreement revision lineage metadata produced by backend revision flows that feed panel repositories.
+backend_tests: go test ./examples/esign/release ./examples/esign/stores ./examples/esign/modules ./examples/esign/services -count=1
+frontend_tests: go test ./pkg/client -count=1
+contract_hash: 9273181c2b77b016ba29a4b4ed330af65b5c6b6c88032b5bf1d909625fe9bb13
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md

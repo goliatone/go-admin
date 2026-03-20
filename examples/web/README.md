@@ -391,6 +391,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 - The view engine uses `quickstart.DefaultTemplateFuncs`, which includes `singularize`, `pluralize`, `toJSON`, `dict`, `formatNumber`, `adminURL`, and widget title helpers. These are helpers (globals) in Pongo2, so call them like `{{ singularize(resource_label|default:resource)|title }}`.
 - `adminURL` prefixes paths with the configured base path (wired in `examples/web/main.go` via `WithTemplateBasePath(cfg.BasePath)`).
+- Prefer `adminURL(...)` for admin-relative links and admin-hosted assets; keep using `asset_base_path` only where a template intentionally supports a separate asset host/CDN.
 - Example-specific widget title labels are configured in `examples/web/helpers/template_funcs.go` via `helpers.TemplateFuncOptions()`.
 - To add custom template functions while keeping defaults, use `quickstart.MergeTemplateFuncs` and pass the result to `quickstart.WithViewTemplateFuncs` in `examples/web/main.go`.
 

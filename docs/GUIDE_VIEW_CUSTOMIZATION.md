@@ -344,6 +344,12 @@ Important: helpers are globals (functions), not filters. Call them like:
 
 When `WithTemplateFeatureGate` is configured, additional feature gate helpers are registered from go-featuregate (e.g., `featureEnabled`, `featureDisabled`).
 
+Usage guidance:
+
+- `adminURL(...)` is built in and should be the default choice for admin-relative links and admin-hosted assets.
+- Use `asset_base_path` directly only when the template must honor a separate asset host/CDN instead of the admin base path.
+- Avoid hand-building admin URLs with `{{ base_path }}/...` when `adminURL(...)` expresses the intent directly.
+
 Entry-route note:
 
 - `panelURL("profile")` resolves to `/admin/profile`, but the rendered view is
