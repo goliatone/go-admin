@@ -257,38 +257,7 @@
       </div>
     </div>
   </div>
-  <script id="esign-page-config" type="application/json">
-  {
-    "base_path": "{{ base_path }}",
-    "api_base_path": "{{ api_base_path|default:"" }}",
-    "sync": {
-      "base_url": "{{ api_base_path|default:"/admin/api/v1" }}/esign",
-      "bootstrap_path": "{{ api_base_path|default:"/admin/api/v1" }}/esign/sync/bootstrap/agreement-draft",
-      "client_base_path": "{{ base_path|default:"/admin" }}/sync-client/sync-core",
-      "resource_kind": "agreement_draft",
-      "storage_scope": "{{ agreement_form_storage_scope|default:"" }}",
-      "action_operations": ["send", "start_review", "dispose"]
-    },
-    "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
-    "create_success": {{ create_success|default:false|yesno:"true,false" }},
-    "submit_mode": "{% if is_edit %}form{% else %}json{% endif %}",
-    "agreement_id": "{{ resource_item.id|default:""|escapejs }}",
-    "active_agreement_id": "{{ resource_item.active_agreement_id|default:""|escapejs }}",
-    "routes": {
-      "index": "{{ routes.index|default:"" }}",
-      "documents": "{{ routes.documents|default:"" }}",
-      "create": "{{ routes.create|default:"" }}",
-      "documents_upload_url": "{{ adminURL("content/esign_documents/new") }}"
-    },
-    "workflow_kind": "{{ resource_item.workflow_kind|default:"standard"|escapejs }}",
-    "root_agreement_id": "{{ resource_item.root_agreement_id|default:resource_item.id|default:""|escapejs }}",
-    "parent_agreement_id": "{{ resource_item.parent_agreement_id|default:""|escapejs }}",
-    "superseded_by_agreement_id": "{{ resource_item.superseded_by_agreement_id|default:""|escapejs }}",
-    "related_agreements": {% if resource_item.related_agreements %}{{ toJSON(resource_item.related_agreements)|safe }}{% else %}[]{% endif %},
-    "initial_participants": {% if resource_item.participants %}{{ toJSON(resource_item.participants)|safe }}{% else %}[]{% endif %},
-    "initial_field_instances": {% if resource_item.field_instances %}{{ toJSON(resource_item.field_instances)|safe }}{% else %}[]{% endif %}
-  }
-  </script>
+  <script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
 
   {# Live region for form validation announcements #}
   <div id="form-announcements" class="sr-only" role="alert" aria-live="polite"></div>
@@ -1524,6 +1493,6 @@
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>
 {% else %}
-<script type="module" src="{{ base_path|default:"/admin" }}/assets/dist/esign/index.js"></script>
+<script type="module" src="{{ adminURL("assets/dist/esign/index.js") }}"></script>
 {% endif %}
 {% endblock %}

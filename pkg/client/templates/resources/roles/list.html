@@ -4,8 +4,8 @@
 
 {% block datatable_scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
-import { permissionPillsRenderer } from '{{ base_path }}/assets/dist/components/permission-pills.js';
+import { DataGrid, FilterBuilder, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { permissionPillsRenderer } from '{{ adminURL("assets/dist/components/permission-pills.js") }}';
 
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};

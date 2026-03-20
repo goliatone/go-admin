@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Debug Console</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
-  <link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/debug.css">
+  <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/debug.css") }}">
 </head>
 <body>
   <header class="debug-header">
@@ -67,6 +67,6 @@
     <span class="debug-path-badge">{{ debug_path }}</span>
   </footer>
 
-  <script type="module" src="{{ base_path }}/assets/dist/debug/index.js"></script>
+  <script type="module" src="{{ adminURL("assets/dist/debug/index.js") }}"></script>
 </body>
 </html>

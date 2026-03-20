@@ -35,7 +35,7 @@
 
 {% block scripts %}
 <script type="module">
-import { initTranslationEditorPage } from '{{ base_path }}/assets/dist/translation-editor/index.js';
+import { initTranslationEditorPage } from '{{ adminURL("assets/dist/translation-editor/index.js") }}';
 
 const root = document.getElementById('translation-editor-root');
 if (root) {

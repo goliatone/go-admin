@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>{% if title %}{{ title }}{% else %}{{ definition }}{% endif %} Export</title>
-  <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/dist/styles/export.css">
+  <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/export.css") }}">
 </head>
 <body>
   <header>

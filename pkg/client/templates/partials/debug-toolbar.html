@@ -8,7 +8,7 @@
   };
 </script>
 <script type="module">
-  import { initDebugManager } from '{{ base_path }}/assets/dist/debug/toolbar.js';
+  import { initDebugManager } from '{{ adminURL("assets/dist/debug/toolbar.js") }}';
   initDebugManager();
 </script>
 {% endif %}

@@ -33,7 +33,7 @@
 
 {% block scripts %}
 <script type="module">
-import { initTranslationMatrixPage } from '{{ base_path }}/assets/dist/translation-matrix/index.js';
+import { initTranslationMatrixPage } from '{{ adminURL("assets/dist/translation-matrix/index.js") }}';
 
 const root = document.getElementById('translation-matrix-root');
 if (root) {

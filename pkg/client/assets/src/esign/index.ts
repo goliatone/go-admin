@@ -323,6 +323,20 @@ export {
   initDocumentDetailPreview,
   bootstrapDocumentDetailPreview,
   type DocumentDetailPreviewConfig,
+  // Agreement detail page controller
+  AgreementDetailPageController,
+  initAgreementDetailPage,
+  bootstrapAgreementDetailPage,
+  getAgreementDetailController,
+  formatTimestamp,
+  formatTimestampNodes,
+  wireCollapsibleSections,
+  reviewActorKey,
+  reviewActorInfo,
+  applyReviewActorMetadata,
+  findParticipantById,
+  safeParseJSONScript,
+  looksLikeUUID,
   // Datatable bootstrap utilities
   PanelPaginationBehavior,
   PanelSearchBehavior,
@@ -343,6 +357,49 @@ export {
   type CellRenderer,
   type DatatableBootstrapConfig,
 } from './pages/index.js';
+
+// Timeline module
+export {
+  // Event registry
+  TIMELINE_COLOR_CLASSES,
+  DEFAULT_EVENT_CONFIG,
+  EVENT_REGISTRY,
+  CONDENSED_MODE_PRIORITY_THRESHOLD,
+  getEventConfig,
+  generateFallbackLabel,
+  getColorClasses,
+  isVisibleInCondensedMode,
+  isGroupableEvent,
+  // Event resolver
+  buildActorKey,
+  humanizeActorRole,
+  getActorColor,
+  getActorInitials,
+  createResolverContext,
+  resolveActor,
+  resolveMetadata,
+  resolveFieldLabel,
+  resolveParticipantName,
+  // Event grouper
+  processEventsForDisplay,
+  groupItemsByDate,
+  countHiddenEvents,
+  getDateLabel,
+  renderTimeline,
+  renderFilteredState,
+  // Timeline controller
+  TimelineController,
+  createTimelineController,
+  parseTimelineBootstrap,
+  parseMergedTimelineBootstrap,
+  mergeReviewDataIntoTimeline,
+  mergeReviewBootstrapIntoTimeline,
+  // Types
+  type EventResolverContext,
+  type ProcessedTimelineItem,
+  type DateGroup,
+  type FilterStats,
+} from './timeline/index.js';
 
 // Google Drive utilities
 export {

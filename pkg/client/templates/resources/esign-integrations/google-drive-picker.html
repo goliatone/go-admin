@@ -378,7 +378,11 @@
 
 {% block scripts %}
 <script type="module">
-import { bootstrapGoogleDrivePicker } from '{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}';
+{% if esign_module_path %}
+import { bootstrapGoogleDrivePicker } from '{{ esign_module_path }}';
+{% else %}
+import { bootstrapGoogleDrivePicker } from '{{ adminURL("assets/dist/esign/index.js") }}';
+{% endif %}
 
 bootstrapGoogleDrivePicker({
   basePath: '{{ base_path|default:"/admin" }}',

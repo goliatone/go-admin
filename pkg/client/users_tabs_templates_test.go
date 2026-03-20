@@ -59,17 +59,17 @@ func TestUsersDetailTemplateSmokeContract(t *testing.T) {
 	template := mustReadEmbeddedTemplate(t, "resources/users/detail.html")
 	controllerSource := mustReadClientSourceFile(t, filepath.Join("assets", "src", "tabs", "tabs-controller.ts"))
 
-	if got := strings.Count(template, `<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/widgets.css">`); got != 1 {
+	if got := strings.Count(template, `<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/widgets.css") }}">`); got != 1 {
 		t.Fatalf("expected widgets.css include exactly once, got %d", got)
 	}
-	if got := strings.Count(template, `<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/activity.css">`); got != 1 {
+	if got := strings.Count(template, `<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/activity.css") }}">`); got != 1 {
 		t.Fatalf("expected activity.css include exactly once, got %d", got)
 	}
 	if strings.Contains(template, "ActivityManager") {
 		t.Fatalf("users detail template must not bootstrap ActivityManager")
 	}
 	assertContainsAll(t, template,
-		`import { initTabsController } from '{{ base_path }}/assets/dist/tabs/index.js';`,
+		`import { initTabsController } from '{{ adminURL("assets/dist/tabs/index.js") }}';`,
 		`initTabsController();`,
 	)
 

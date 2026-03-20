@@ -148,6 +148,69 @@ export function bootstrapAgreementForm(config: {
   }
 }
 
+function coerceAgreementFormConfig(raw: Record<string, unknown>): AgreementFormConfig | null {
+  const context =
+    raw.context && typeof raw.context === 'object'
+      ? (raw.context as Record<string, unknown>)
+      : {};
+  const rawRoutes =
+    raw.routes && typeof raw.routes === 'object'
+      ? (raw.routes as Record<string, unknown>)
+      : context.routes && typeof context.routes === 'object'
+        ? (context.routes as Record<string, unknown>)
+        : {};
+  const rawSync =
+    raw.sync && typeof raw.sync === 'object'
+      ? (raw.sync as Record<string, unknown>)
+      : context.sync && typeof context.sync === 'object'
+        ? (context.sync as Record<string, unknown>)
+        : undefined;
+
+  const basePath = String(raw.base_path || raw.basePath || '').trim();
+  const indexRoute = String(rawRoutes.index || '').trim();
+  if (!basePath && !indexRoute) {
+    return null;
+  }
+
+  return {
+    sync: rawSync
+      ? {
+        base_url: String(rawSync.base_url || '').trim(),
+        bootstrap_path: String(rawSync.bootstrap_path || '').trim(),
+        client_base_path: String(rawSync.client_base_path || '').trim(),
+        resource_kind: String(rawSync.resource_kind || '').trim(),
+        storage_scope: String(rawSync.storage_scope || '').trim(),
+        action_operations: Array.isArray(rawSync.action_operations)
+          ? rawSync.action_operations.map((value) => String(value || '').trim()).filter(Boolean)
+          : [],
+      }
+      : undefined,
+    base_path: basePath || '/admin',
+    api_base_path: String(raw.api_base_path || raw.apiBasePath || '').trim() || undefined,
+    is_edit: Boolean(raw.is_edit ?? raw.isEditMode ?? context.is_edit),
+    create_success: Boolean(raw.create_success ?? raw.createSuccess ?? context.create_success),
+    submit_mode: String(raw.submit_mode || context.submit_mode || 'json').trim().toLowerCase(),
+    agreement_id: String(raw.agreement_id || context.agreement_id || '').trim(),
+    active_agreement_id: String(raw.active_agreement_id || context.active_agreement_id || '').trim(),
+    routes: {
+      index: indexRoute,
+      documents: String(rawRoutes.documents || '').trim(),
+      create: String(rawRoutes.create || '').trim(),
+      documents_upload_url: String(rawRoutes.documents_upload_url || '').trim(),
+    },
+    initial_participants: Array.isArray(raw.initial_participants)
+      ? raw.initial_participants
+      : Array.isArray(context.initial_participants)
+        ? (context.initial_participants as Array<Record<string, any>>)
+        : [],
+    initial_field_instances: Array.isArray(raw.initial_field_instances)
+      ? raw.initial_field_instances
+      : Array.isArray(context.initial_field_instances)
+        ? (context.initial_field_instances as Array<Record<string, any>>)
+        : [],
+  };
+}
+
 if (typeof document !== 'undefined') {
   onReady(() => {
     const pageEl = document.querySelector('[data-esign-page="agreement-form"]');
@@ -156,20 +219,11 @@ if (typeof document !== 'undefined') {
     if (!configScript) return;
 
     try {
-      const config = JSON.parse(configScript.textContent || '{}');
-      bootstrapAgreementForm({
-        sync: config.sync && typeof config.sync === 'object' ? config.sync : undefined,
-        base_path: config.base_path || config.basePath,
-        api_base_path: config.api_base_path || config.apiBasePath,
-        is_edit: config.is_edit || config.isEditMode || false,
-        create_success: config.create_success || config.createSuccess || false,
-        submit_mode: config.submit_mode || 'json',
-        agreement_id: config.agreement_id || '',
-        active_agreement_id: config.active_agreement_id || '',
-        initial_participants: Array.isArray(config.initial_participants) ? config.initial_participants : [],
-        initial_field_instances: Array.isArray(config.initial_field_instances) ? config.initial_field_instances : [],
-        routes: config.routes || { index: '' },
-      });
+      const rawConfig = JSON.parse(configScript.textContent || '{}') as Record<string, unknown>;
+      const config = coerceAgreementFormConfig(rawConfig);
+      if (config) {
+        bootstrapAgreementForm(config);
+      }
     } catch (error) {
       console.warn('Failed to parse agreement form page config:', error);
     }

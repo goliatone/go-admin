@@ -149,7 +149,7 @@
 
 {% block scripts %}
 <script type="module">
-  import { initPanelDetailActions } from '{{ base_path }}/assets/dist/datatable/index.js';
+  import { initPanelDetailActions } from '{{ adminURL("assets/dist/datatable/index.js") }}';
   initPanelDetailActions();
 </script>
 {% block detail_scripts %}{% endblock %}

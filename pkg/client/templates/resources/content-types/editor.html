@@ -57,10 +57,10 @@
         Add Channel
       </button>
     </div>
-    <a class="btn btn-secondary" href="{{ base_path }}/content/block-library{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">
+    <a class="btn btn-secondary" href="{{ adminURL("content/block-library") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">
       Manage Blocks
     </a>
-    <a class="btn btn-primary" href="{{ base_path }}/content/types{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
+    <a class="btn btn-primary" href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
   </div>
 </header>
 
@@ -79,7 +79,7 @@
         {% set ct_slug = ct.slug|default:ct_id %}
         {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
         <li>
-          <a href="{{ base_path }}/content/types?slug={{ ct_slug|urlencode }}{% if not in_default_channel %}&channel={{ active_channel|urlencode }}{% endif %}"
+          <a href="{{ adminURL("content/types") }}?slug={{ ct_slug|urlencode }}{% if not in_default_channel %}&channel={{ active_channel|urlencode }}{% endif %}"
              class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-gray-200 hover:border-gray-300 text-gray-700{% endif %}">
             <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
             <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
@@ -196,5 +196,5 @@
   }
 })();
 </script>
-<script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
+<script type="module" src="{{ adminURL("assets/dist/content-type-builder/index.js") }}"></script>
 {% endblock %}

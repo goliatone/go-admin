@@ -706,13 +706,17 @@ function reviewPanelSubtitle(review) {
   const totalApprovers = Number(review.total_approvers || 0) || 0;
   if (review.override_active) {
     const reason = String(review.override_reason || '').trim();
-    const actorName = String(review.override_by_display_name || review.override_by_user_id || '').trim();
+    const rawActorName = String(review.override_by_display_name || '').trim();
+    // Never show UUID as actor name
+    const actorName = (rawActorName && !looksLikeUUID(rawActorName)) ? rawActorName : '';
     return reason
       ? `Review was finalized by admin override${actorName ? ` by ${actorName}` : ''}. Reason: ${reason}`
       : `Review was finalized by admin override${actorName ? ` by ${actorName}` : ''}.`;
   }
   if (review?.participant?.approved_on_behalf) {
-    const actorName = String(review.participant.approved_on_behalf_by_display_name || review.participant.approved_on_behalf_by_user_id || '').trim();
+    const rawActorName = String(review.participant.approved_on_behalf_by_display_name || '').trim();
+    // Never show UUID as actor name
+    const actorName = (rawActorName && !looksLikeUUID(rawActorName)) ? rawActorName : '';
     return actorName
       ? `Your review decision was recorded on your behalf by ${actorName}.`
       : 'Your review decision was recorded on your behalf by an admin.';
@@ -1258,31 +1262,113 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const normalizedActorType = String(actorType || '').trim();
     if (normalizedActorType === 'user' || normalizedActorType === 'sender') return 'Sender';
     if (normalizedActorType === 'reviewer') return 'Reviewer';
+    if (normalizedActorType === 'external') return 'External Reviewer';
     if (normalizedActorType === 'recipient' || normalizedActorType === 'signer') return 'Signer';
-    return normalizedActorType ? normalizedActorType.replace(/_/g, ' ') : 'Participant';
+    return normalizedActorType ? normalizedActorType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Participant';
   }
 
+  /**
+   * Check if a string looks like a UUID (to avoid displaying raw IDs in UI)
+   */
+  function looksLikeUUID(str) {
+    if (!str || typeof str !== 'string') return false;
+    const normalized = str.trim();
+    // UUID pattern: 8-4-4-4-12 hex chars, or 24-32 hex chars without dashes
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const hexPattern = /^[0-9a-f]{24,32}$/i;
+    return uuidPattern.test(normalized) || hexPattern.test(normalized);
+  }
+
+  /**
+   * Find participant info from review context by ID
+   */
+  function findParticipantById(actorID) {
+    if (!actorID) return null;
+    const participant = state.reviewContext?.participant;
+    if (!participant) return null;
+    const normalizedID = String(actorID).trim();
+    const pID = String(participant.id || '').trim();
+    const pRecipientID = String(participant.recipient_id || '').trim();
+    if (pID === normalizedID || pRecipientID === normalizedID) {
+      return participant;
+    }
+    return null;
+  }
+
+  /**
+   * Central actor info resolver with proper fallback chain:
+   * 1. actor_map[name]
+   * 2. actor_map[email]
+   * 3. participant display_name/email from context
+   * 4. humanized role label
+   * 5. "Unknown User"
+   *
+   * NEVER returns a raw UUID.
+   */
   function reviewActorInfo(actorType, actorID) {
     const actorMap = state.reviewContext?.actor_map || {};
     const aliases = [];
     const normalizedActorType = String(actorType || '').trim();
+    const normalizedActorID = String(actorID || '').trim();
+
+    // Build alias keys to check in actor_map
     if (normalizedActorType === 'recipient' || normalizedActorType === 'signer') {
       aliases.push(reviewActorKey('recipient', actorID), reviewActorKey('signer', actorID));
     } else if (normalizedActorType === 'user' || normalizedActorType === 'sender') {
       aliases.push(reviewActorKey('user', actorID), reviewActorKey('sender', actorID));
+    } else if (normalizedActorType === 'reviewer' || normalizedActorType === 'external') {
+      aliases.push(reviewActorKey('reviewer', actorID), reviewActorKey('external', actorID));
     } else {
       aliases.push(reviewActorKey(normalizedActorType, actorID));
     }
+
+    // Step 1 & 2: Check actor_map for name/email
     const found = aliases.map((key) => actorMap[key]).find(Boolean);
     if (found) {
-      return found;
+      const actorName = String(found.name || '').trim();
+      const actorEmail = String(found.email || '').trim();
+      // Ensure we don't return a UUID as the name
+      if (actorName && !looksLikeUUID(actorName)) {
+        return found;
+      }
+      if (actorEmail && !looksLikeUUID(actorEmail)) {
+        return { ...found, name: actorEmail };
+      }
     }
+
+    // Step 3: Check participant info from context
+    const participant = findParticipantById(normalizedActorID);
+    if (participant) {
+      const displayName = String(participant.display_name || '').trim();
+      const email = String(participant.email || '').trim();
+      if (displayName && !looksLikeUUID(displayName)) {
+        return {
+          name: displayName,
+          email: email,
+          role: normalizedActorType,
+          actor_type: normalizedActorType,
+          actor_id: normalizedActorID,
+        };
+      }
+      if (email && !looksLikeUUID(email)) {
+        return {
+          name: email,
+          email: email,
+          role: normalizedActorType,
+          actor_type: normalizedActorType,
+          actor_id: normalizedActorID,
+        };
+      }
+    }
+
+    // Step 4 & 5: Humanized role or "Unknown User"
+    const roleLabel = humanizeReviewActorRole(normalizedActorType);
     return {
-      name: String(actorID || '').trim() || humanizeReviewActorRole(normalizedActorType),
+      name: roleLabel || 'Unknown User',
       email: '',
       role: normalizedActorType,
       actor_type: normalizedActorType,
-      actor_id: String(actorID || '').trim(),
+      actor_id: normalizedActorID,
     };
   }
 
@@ -1314,20 +1400,36 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const resolvedActorType = String(actor?.actor_type || actorType || '').trim();
     let color = '#64748b';
     if (resolvedActorType === 'user' || resolvedActorType === 'sender') color = '#2563eb';
-    if (resolvedActorType === 'reviewer') color = '#7c3aed';
+    if (resolvedActorType === 'reviewer' || resolvedActorType === 'external') color = '#7c3aed';
     if (resolvedActorType === 'recipient' || resolvedActorType === 'signer') color = '#059669';
+
+    // Build display name - never show UUID
+    const displayName = String(actor?.name || actor?.email || humanizeReviewActorRole(resolvedActorType)).trim() || 'Participant';
+
+    // Build initials - avoid UUID-based initials
+    const initialsSource = (actor?.name && !looksLikeUUID(actor.name)) ? actor.name
+      : (actor?.email && !looksLikeUUID(actor.email)) ? actor.email
+      : humanizeReviewActorRole(resolvedActorType);
+
     return {
       actor,
-      name: String(actor?.name || actor?.email || humanizeReviewActorRole(resolvedActorType)).trim() || 'Participant',
+      name: displayName,
       role: humanizeReviewActorRole(actor?.role || resolvedActorType),
-      initials: initialsFromName(actor?.name || actor?.email || actorID || resolvedActorType, humanizeReviewActorRole(resolvedActorType)),
+      initials: initialsFromName(initialsSource, humanizeReviewActorRole(resolvedActorType)),
       color,
     };
   }
 
   function reviewParticipantLabel(participant) {
     if (!participant) return '';
-    return String(participant.display_name || participant.email || participant.recipient_id || participant.id || '').trim();
+    // Prefer display_name, then email, then role label - never show raw UUID
+    const displayName = String(participant.display_name || '').trim();
+    const email = String(participant.email || '').trim();
+    if (displayName && !looksLikeUUID(displayName)) return displayName;
+    if (email && !looksLikeUUID(email)) return email;
+    // Fallback to humanized participant type or generic label
+    const participantType = String(participant.participant_type || '').trim();
+    return participantType ? humanizeReviewActorRole(participantType) : 'Participant';
   }
 
   function formatReviewTimestamp(value) {
@@ -1774,7 +1876,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         } else {
           reviewParticipantSummary.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-700');
         }
-        const onBehalfActor = String(review.participant?.approved_on_behalf_by_display_name || review.participant?.approved_on_behalf_by_user_id || '').trim();
+        const rawOnBehalfActor = String(review.participant?.approved_on_behalf_by_display_name || '').trim();
+        // Never show UUID as actor name
+        const onBehalfActor = (rawOnBehalfActor && !looksLikeUUID(rawOnBehalfActor)) ? rawOnBehalfActor : '';
         const onBehalfLabel = review.participant?.approved_on_behalf
           ? ` • approved on behalf${onBehalfActor ? ` by ${onBehalfActor}` : ''}`
           : '';
@@ -1814,7 +1918,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const bannerMessages = [];
       if (review.override_active) {
         const reason = String(review.override_reason || '').trim();
-        const actorName = String(review.override_by_display_name || review.override_by_user_id || '').trim();
+        const rawActorName = String(review.override_by_display_name || '').trim();
+        // Never show UUID as actor name
+        const actorName = (rawActorName && !looksLikeUUID(rawActorName)) ? rawActorName : '';
         bannerMessages.push(reason
           ? `Review finalized by admin override${actorName ? ` by ${actorName}` : ''}. ${reason}`
           : `Review finalized by admin override${actorName ? ` by ${actorName}` : ''}.`);

@@ -153,7 +153,11 @@
   </div>
 
   <script type="module">
-    import { bootstrapGoogleCallback } from '{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}';
+    {% if esign_module_path %}
+    import { bootstrapGoogleCallback } from '{{ esign_module_path }}';
+    {% else %}
+    import { bootstrapGoogleCallback } from '{{ adminURL("assets/dist/esign/index.js") }}';
+    {% endif %}
 
     bootstrapGoogleCallback('{{ base_path|default:"/admin" }}');
   </script>

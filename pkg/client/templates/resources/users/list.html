@@ -535,8 +535,8 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ base_path }}/assets/dist/datatable/index.js';
-import { ImportModal } from '{{ base_path }}/assets/dist/components/import-modal.js';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { ImportModal } from '{{ adminURL("assets/dist/components/import-modal.js") }}';
 
 // Template variables
 const basePath = '{{ base_path }}';

@@ -175,6 +175,16 @@ export {
   type StateSourceIndicatorConfig,
 } from './extension-diagnostics.js';
 
+// Command Runtime (declarative lightweight command/actions layer)
+export {
+  CommandRuntimeController,
+  initCommandRuntime,
+  type CommandTransport,
+  type CommandRuntimeMountConfig,
+  type CommandDispatchDetail,
+  type CommandRefreshDetail,
+} from './command-runtime.js';
+
 // Pages
 export {
   ProvidersCatalogManager,

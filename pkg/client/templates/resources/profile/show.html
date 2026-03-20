@@ -31,7 +31,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="md:col-span-1">
             <div class="flex items-center gap-4">
-              <img src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}{{ base_path }}/assets/avatar-default.svg{% endif %}" alt="Avatar" class="h-14 w-14 rounded-full border border-gray-200 object-cover bg-gray-100" />
+              <img src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}{{ adminURL("assets/avatar-default.svg") }}{% endif %}" alt="Avatar" class="h-14 w-14 rounded-full border border-gray-200 object-cover bg-gray-100" />
               <div class="min-w-0">
                 <div class="text-sm font-medium text-gray-900 truncate">{{ profile.display_name|default:"" }}</div>
                 <div class="text-xs text-gray-500 truncate">{{ profile.email|default:"" }}</div>

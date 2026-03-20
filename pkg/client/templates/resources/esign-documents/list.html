@@ -42,15 +42,15 @@ import {
   ServerColumnVisibilityBehavior,
   SchemaActionBuilder,
   extractSchemaActions
-} from '{{ base_path }}/assets/dist/datatable/index.js';
-import { formatStructuredErrorForDisplay } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
+} from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { formatStructuredErrorForDisplay } from '{{ adminURL("assets/dist/toast/error-helpers.js") }}';
 import {
   PanelPaginationBehavior,
   PanelSearchBehavior,
   normalizeFilterType,
   normalizeFilterOptions,
   normalizeFilterOperators
-} from '{{ base_path }}/assets/dist/esign/index.js';
+} from '{{ adminURL("assets/dist/esign/index.js") }}';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';

@@ -1,6 +1,6 @@
 <aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
-    <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
+    <a href="{{ adminURL("") }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
       <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
     </a>
     <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
@@ -250,7 +250,7 @@
         </div>
 
         <div class="p-2">
-          <a href="{{ base_path }}/logout" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
+          <a href="{{ adminURL("logout") }}" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
             <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
             <span class="flex-1 text-sm">Log out</span>
           </a>

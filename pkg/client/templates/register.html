@@ -111,14 +111,14 @@
     <!-- Sign In Link -->
     <div class="text-center">
       <p class="text-sm text-zinc-600">
-        Already have an account? <a href="{{ base_path }}/login" class="text-admin-dark hover:text-admin-light font-medium no-underline">Sign in</a>
+        Already have an account? <a href="{{ adminURL("login") }}" class="text-admin-dark hover:text-admin-light font-medium no-underline">Sign in</a>
       </p>
     </div>
 
     <!-- Footer Links -->
     <div class="text-center">
       <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-zinc-500">
-        <a href="{{ base_path }}/login" class="hover:text-admin-dark no-underline">Back to Login</a>
+        <a href="{{ adminURL("login") }}" class="hover:text-admin-dark no-underline">Back to Login</a>
       </div>
 
       {% block register_extra %}{% endblock %}

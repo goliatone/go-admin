@@ -80,7 +80,7 @@
 
 {% block scripts %}
 <script type="module">
-import { FeatureFlagsManager } from '{{ base_path }}/assets/dist/feature-flags/index.js';
+import { FeatureFlagsManager } from '{{ adminURL("assets/dist/feature-flags/index.js") }}';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';

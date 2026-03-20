@@ -329,7 +329,7 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ base_path }}/assets/dist/datatable/index.js';
+import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ adminURL("assets/dist/datatable/index.js") }}';
 
 // Template variables
 const basePath = '{{ base_path }}';

@@ -212,7 +212,7 @@
   <div class="bg-white rounded-lg shadow p-4">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-semibold text-gray-900">Recent Activity</h3>
-      <a href="{{ base_path }}/esign/integrations/sync-runs" class="text-sm text-blue-600 hover:underline">
+      <a href="{{ adminURL("esign/integrations/sync-runs") }}" class="text-sm text-blue-600 hover:underline">
         View all runs
       </a>
     </div>
@@ -226,7 +226,11 @@
 
 {% block scripts %}
 <script type="module">
-import { bootstrapIntegrationHealth } from '{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}';
+{% if esign_module_path %}
+import { bootstrapIntegrationHealth } from '{{ esign_module_path }}';
+{% else %}
+import { bootstrapIntegrationHealth } from '{{ adminURL("assets/dist/esign/index.js") }}';
+{% endif %}
 
 bootstrapIntegrationHealth({
   basePath: '{{ base_path|default:"/admin" }}',

@@ -291,7 +291,7 @@
 </style>
 
 <script type="module">
-import { bootstrapSignerCompletePage } from '{{ base_path|default:"" }}/assets/dist/esign/index.js';
+import { bootstrapSignerCompletePage } from '{{ adminURL("assets/dist/esign/index.js") }}';
 
 // Initialize signer complete page with config from template
 bootstrapSignerCompletePage({

@@ -3,7 +3,7 @@
 {% block title %}Activity - {{ title }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/activity.css">
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/activity.css") }}">
 {% endblock %}
 
 {% block content %}
@@ -148,7 +148,7 @@
 
 {% block scripts %}
 <script type="module">
-import { ActivityManager } from '{{ base_path }}/assets/dist/activity/index.js';
+import { ActivityManager } from '{{ adminURL("assets/dist/activity/index.js") }}';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';

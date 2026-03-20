@@ -128,3 +128,21 @@ export {
   type CellRenderer,
   type DatatableBootstrapConfig,
 } from './datatable-bootstrap.js';
+
+export {
+  AgreementDetailPageController,
+  initAgreementDetailPage,
+  bootstrapAgreementDetailPage,
+  getAgreementDetailController,
+  // Utility exports for template compatibility
+  formatTimestamp,
+  formatRelativeTime,
+  formatTimestampNodes,
+  wireCollapsibleSections,
+  reviewActorKey,
+  reviewActorInfo,
+  applyReviewActorMetadata,
+  findParticipantById,
+  safeParseJSONScript,
+  looksLikeUUID,
+} from './agreement-detail.js';

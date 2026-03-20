@@ -527,7 +527,11 @@
 
 {% block scripts %}
 <script type="module">
-import { bootstrapIntegrationMappings } from '{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}';
+{% if esign_module_path %}
+import { bootstrapIntegrationMappings } from '{{ esign_module_path }}';
+{% else %}
+import { bootstrapIntegrationMappings } from '{{ adminURL("assets/dist/esign/index.js") }}';
+{% endif %}
 
 bootstrapIntegrationMappings({
   basePath: '{{ base_path|default:"/admin" }}',

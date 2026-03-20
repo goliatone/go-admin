@@ -155,7 +155,7 @@
 {% block scripts %}
 <script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
 <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
-<script type="module" src="{{ base_path }}/assets/dist/menu-builder/index.js"></script>
+<script type="module" src="{{ adminURL("assets/dist/menu-builder/index.js") }}"></script>
 <script type="module">
   window.addEventListener("DOMContentLoaded", () => {
     // Initialize formgen relationships

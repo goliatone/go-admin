@@ -30,7 +30,7 @@
 
 {% block scripts %}
 <script type="module">
-import { TranslationExchangeManager } from '{{ base_path }}/assets/dist/translation-exchange/index.js';
+import { TranslationExchangeManager } from '{{ adminURL("assets/dist/translation-exchange/index.js") }}';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';

@@ -34,7 +34,7 @@
 
 {% block scripts %}
 <script type="module">
-import { initTranslationFamilyDetailPage } from '{{ base_path }}/assets/dist/translation-family/index.js';
+import { initTranslationFamilyDetailPage } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
 
 const root = document.getElementById('translation-family-detail-root');
 if (root) {

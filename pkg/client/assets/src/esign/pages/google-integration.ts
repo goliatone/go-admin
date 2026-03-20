@@ -1503,3 +1503,58 @@ export function bootstrapGoogleIntegration(config: {
       controller;
   }
 }
+
+function coerceGoogleIntegrationConfig(
+  raw: Record<string, unknown>
+): GoogleIntegrationPageConfig | null {
+  const features =
+    raw.features && typeof raw.features === 'object'
+      ? (raw.features as Record<string, unknown>)
+      : {};
+  const context =
+    raw.context && typeof raw.context === 'object'
+      ? (raw.context as Record<string, unknown>)
+      : {};
+  const basePath = String(raw.basePath || raw.base_path || '').trim();
+  if (!basePath) {
+    return null;
+  }
+
+  return {
+    basePath,
+    apiBasePath: String(raw.apiBasePath || raw.api_base_path || '').trim() || `${basePath}/api`,
+    userId: String(raw.userId || raw.user_id || context.user_id || '').trim(),
+    googleAccountId: String(
+      raw.googleAccountId || raw.google_account_id || context.google_account_id || ''
+    ).trim(),
+    googleRedirectUri: String(
+      raw.googleRedirectUri || raw.google_redirect_uri || context.google_redirect_uri || ''
+    ).trim(),
+    googleClientId: String(
+      raw.googleClientId || raw.google_client_id || context.google_client_id || ''
+    ).trim(),
+    googleEnabled: Boolean(raw.googleEnabled ?? features.google_enabled ?? true),
+  };
+}
+
+if (typeof document !== 'undefined') {
+  onReady(() => {
+    const pageEl = document.querySelector(
+      '[data-esign-page="admin.integrations.google"], [data-esign-page="google-integration"]'
+    );
+    if (!pageEl) return;
+
+    const configScript = document.getElementById('esign-page-config');
+    if (!configScript) return;
+
+    try {
+      const rawConfig = JSON.parse(configScript.textContent || '{}') as Record<string, unknown>;
+      const config = coerceGoogleIntegrationConfig(rawConfig);
+      if (config) {
+        bootstrapGoogleIntegration(config);
+      }
+    } catch (error) {
+      console.warn('Failed to parse Google integration page config:', error);
+    }
+  });
+}

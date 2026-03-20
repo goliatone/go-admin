@@ -34,8 +34,8 @@
 
 {% block scripts %}
 <script type="module">
-import { initTranslationSurfaceShell } from '{{ base_path }}/assets/dist/translation-operations/index.js';
-import { initAssignmentQueueScreen } from '{{ base_path }}/assets/dist/translation-queue/index.js';
+import { initTranslationSurfaceShell } from '{{ adminURL("assets/dist/translation-operations/index.js") }}';
+import { initAssignmentQueueScreen } from '{{ adminURL("assets/dist/translation-queue/index.js") }}';
 
 const root = document.getElementById('translation-shell-root');
 if (root) {

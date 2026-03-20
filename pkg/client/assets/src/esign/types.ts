@@ -292,3 +292,243 @@ export type {
   LineagePresentationRules,
   Phase1LineageContractFixtures,
 } from './lineage-contracts.js';
+
+// =============================================================================
+// Timeline Types
+// =============================================================================
+
+/**
+ * Timeline event from the backend audit log
+ */
+export interface TimelineEvent {
+  id: string;
+  event_type: string;
+  actor_type?: string;
+  actor_id?: string;
+  created_at: string;
+  ip_address?: string;
+  user_agent?: string;
+  metadata?: Record<string, unknown>;
+  metadata_raw?: string;
+}
+
+/**
+ * Actor information for timeline display resolution
+ */
+export interface TimelineActor {
+  actor_type: string;
+  actor_id: string;
+  display_name: string;
+  email?: string;
+  role?: string;
+  name?: string;
+}
+
+/**
+ * Participant information for actor fallback resolution
+ */
+export interface TimelineParticipant {
+  id: string;
+  recipient_id?: string;
+  name?: string;
+  display_name?: string;
+  email: string;
+  role?: string;
+  participant_type?: string;
+}
+
+/**
+ * Review participant data used by the agreement detail review workspace.
+ */
+export interface AgreementReviewParticipant extends TimelineParticipant {
+  can_comment?: boolean;
+  can_approve?: boolean;
+}
+
+/**
+ * Field definition for field-related event resolution
+ */
+export interface TimelineFieldDefinition {
+  id: string;
+  participant_id?: string;
+  recipient_id?: string;
+  type: string;
+  label?: string;
+  required?: boolean;
+  page_number?: number;
+}
+
+/**
+ * Bootstrap data for the agreement timeline
+ */
+export interface AgreementTimelineBootstrap {
+  agreement_id: string;
+  current_user_id?: string;
+  events: TimelineEvent[];
+  actors: Record<string, TimelineActor>;
+  participants: TimelineParticipant[];
+  field_definitions: TimelineFieldDefinition[];
+}
+
+/**
+ * Event category for grouping and filtering
+ */
+export type TimelineEventCategory =
+  | 'lifecycle'
+  | 'review'
+  | 'comment'
+  | 'participant'
+  | 'field'
+  | 'delivery'
+  | 'system';
+
+/**
+ * Event priority for condensed view filtering
+ * 1 = major lifecycle milestones (always visible)
+ * 2 = important user workflow decisions
+ * 3 = meaningful but secondary collaboration events
+ * 4 = repetitive attention or notification events
+ * 5 = technical/system churn (hidden by default)
+ */
+export type TimelineEventPriority = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Event display configuration from the registry
+ */
+export interface TimelineEventConfig {
+  label: string;
+  icon: string;
+  color: TimelineColorKey;
+  category: TimelineEventCategory;
+  priority: TimelineEventPriority;
+  groupable: boolean;
+}
+
+/**
+ * Color keys for timeline event display
+ */
+export type TimelineColorKey =
+  | 'green'
+  | 'blue'
+  | 'red'
+  | 'orange'
+  | 'yellow'
+  | 'purple'
+  | 'gray'
+  | 'indigo'
+  | 'cyan'
+  | 'amber';
+
+/**
+ * CSS class configuration for timeline colors
+ */
+export interface TimelineColorClasses {
+  bg: string;
+  text: string;
+  dot: string;
+}
+
+/**
+ * Resolved actor display information
+ */
+export interface ResolvedActorInfo {
+  name: string;
+  role: string;
+  actor_type: string;
+  email?: string;
+  initials: string;
+  color: string;
+}
+
+/**
+ * Resolved metadata field for display
+ */
+export interface ResolvedMetadataField {
+  key: string;
+  displayKey: string;
+  value: unknown;
+  displayValue: string;
+  isBadge: boolean;
+  isHidden: boolean;
+}
+
+/**
+ * Rendered timeline event with all display-ready data
+ */
+export interface RenderedTimelineEvent {
+  event: TimelineEvent;
+  config: TimelineEventConfig;
+  actor: ResolvedActorInfo;
+  timestamp: string;
+  relativeTime: string;
+  metadata: ResolvedMetadataField[];
+}
+
+/**
+ * A group of consecutive similar events
+ */
+export interface TimelineEventGroup {
+  events: TimelineEvent[];
+  config: TimelineEventConfig;
+  eventType: string;
+  startTime: string;
+  endTime: string;
+  isExpanded: boolean;
+}
+
+/**
+ * Timeline view mode
+ */
+export type TimelineViewMode = 'condensed' | 'all';
+
+/**
+ * Timeline controller configuration
+ */
+export interface TimelineControllerConfig {
+  containerId: string;
+  refreshButtonId?: string;
+  viewToggleId?: string;
+  bootstrap: AgreementTimelineBootstrap;
+  basePath: string;
+  apiBasePath: string;
+  agreementId: string;
+  panelName?: string;
+}
+
+/**
+ * Agreement detail page controller configuration
+ */
+export interface AgreementDetailPageConfig {
+  basePath: string;
+  apiBasePath: string;
+  panelName?: string;
+  agreementId: string;
+  agreementStatus?: string;
+  tenantId?: string;
+  orgId?: string;
+  delivery?: {
+    executed_applicable?: boolean;
+    executed_status?: string;
+    executed_object_key?: string;
+    certificate_applicable?: boolean;
+    certificate_status?: string;
+    certificate_object_key?: string;
+  };
+}
+
+/**
+ * Review bootstrap data (existing format from template)
+ */
+export interface AgreementReviewBootstrap {
+  status: string;
+  gate: string;
+  comments_enabled: boolean;
+  review_id: string;
+  override_active: boolean;
+  override_reason: string;
+  override_by_user_id: string;
+  override_by_display_name: string;
+  override_at: string;
+  actor_map: Record<string, TimelineActor>;
+  participants: AgreementReviewParticipant[];
+}

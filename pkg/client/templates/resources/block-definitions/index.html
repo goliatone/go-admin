@@ -58,7 +58,7 @@
     </div>
     <a class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
        data-back-to-content-types
-       href="{{ base_path }}/content/types">
+       href="{{ adminURL("content/types") }}">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
       </svg>
@@ -195,5 +195,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{{ base_path }}/assets/dist/content-type-builder/index.js"></script>
+<script type="module" src="{{ adminURL("assets/dist/content-type-builder/index.js") }}"></script>
 {% endblock %}

@@ -1142,14 +1142,13 @@ test('agreement detail template renders unavailable download button with warning
   assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
 });
 
-test('agreement detail template JS uses warning icon for runtime unavailable download state', () => {
+test('agreement detail template delegates runtime download state to the agreement detail controller', () => {
   const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
 
-  assert.match(template, /const unavailableDownloadIcon =/);
-  assert.match(template, /markExecutedDownloadUnavailable/);
-  assert.match(template, /btn\.dataset\.downloadState = 'unavailable'/);
-  assert.match(template, /Unable To Download Package/);
-  assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
+  assert.match(template, /bootstrapAgreementDetailPage/);
+  assert.doesNotMatch(template, /const unavailableDownloadIcon =/);
+  assert.doesNotMatch(template, /markExecutedDownloadUnavailable/);
+  assert.doesNotMatch(template, /btn\.dataset\.downloadState = 'unavailable'/);
 });
 
 test('document detail template uses panel-scoped source PDF API path', () => {
@@ -14151,7 +14150,6 @@ test('Phase 32 template contract: document form uses backend page marker and con
 
 test('Phase 32 template contract: integration pages bootstrap via module without legacy inline scripts', () => {
   const contracts = [
-    [googleIntegrationTemplatePath, /bootstrapGoogleIntegration/],
     [googleCallbackTemplatePath, /bootstrapGoogleCallback/],
     [googleDrivePickerTemplatePath, /bootstrapGoogleDrivePicker/],
     [integrationHealthTemplatePath, /bootstrapIntegrationHealth/],
@@ -14167,6 +14165,12 @@ test('Phase 32 template contract: integration pages bootstrap via module without
     assert.doesNotMatch(template, /<script(?![^>]*type="module")(?![^>]*type="application\/json")/);
     assert.doesNotMatch(template, /onclick=/);
   });
+
+  const googleTemplate = fs.readFileSync(googleIntegrationTemplatePath, 'utf8');
+  assert.match(googleTemplate, /data-esign-page="\{\{ esign_page\|default:"admin\.integrations\.google" \}\}"/);
+  assert.match(googleTemplate, /<script id="esign-page-config" type="application\/json">\{\{ esign_page_config_json\|default:"\{\}"\|safe \}\}<\/script>/);
+  assert.match(googleTemplate, /<script type="module" src="\{\{ esign_module_path\|default:base_path \+ "\/assets\/dist\/esign\/index\.js" \}\}"><\/script>/);
+  assert.doesNotMatch(googleTemplate, /bootstrapGoogleIntegration/);
 });
 
 test('Phase 32 template contract: list templates consume shared datatable bootstrap helpers', () => {
@@ -14294,8 +14298,8 @@ test('Phase 0.FE.7: agreement form runtime wrapper stays bootstrap-only and omit
 test('Phase 0.FE.8: agreement form template emits server-authored storage scope for session-scoped persistence', () => {
   const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
 
-  assert.match(template, /"storage_scope": "{{ agreement_form_storage_scope\|default:"" }}"/);
-  assert.match(template, /"action_operations": \["send", "start_review", "dispose"\]/);
+  assert.match(template, /<script id="esign-page-config" type="application\/json">\{\{ esign_page_config_json\|default:"\{\}"\|safe \}\}<\/script>/);
+  assert.doesNotMatch(template, /"storage_scope": "{{ agreement_form_storage_scope\|default:"" }}"/);
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
@@ -14375,4 +14379,357 @@ test('Phase 31.FE.1: automation rule expansion supports terminal signature defau
   assert.equal(expanded[0].page, 7);
   assert.equal(expanded[0].participantId, 'participant-2');
   assert.equal(expanded[0].required, false);
+});
+
+// =============================================================================
+// Agreement Detail Timeline Tests
+// =============================================================================
+
+// Import timeline modules for testing
+const timelineModule = await import('../dist/esign/index.js').catch(() => null);
+
+test('Timeline: event registry contains canonical agreement lifecycle events', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { EVENT_REGISTRY, getEventConfig } = timelineModule;
+
+  // Check key lifecycle events exist
+  assert.ok(EVENT_REGISTRY['agreement.created'], 'agreement.created should be registered');
+  assert.ok(EVENT_REGISTRY['agreement.sent'], 'agreement.sent should be registered');
+  assert.ok(EVENT_REGISTRY['agreement.completed'], 'agreement.completed should be registered');
+  assert.ok(EVENT_REGISTRY['agreement.voided'], 'agreement.voided should be registered');
+  assert.ok(EVENT_REGISTRY['agreement.declined'], 'agreement.declined should be registered');
+
+  // Check config shape
+  const createdConfig = getEventConfig('agreement.created');
+  assert.ok(createdConfig.label, 'Event config should have label');
+  assert.ok(createdConfig.icon, 'Event config should have icon');
+  assert.ok(createdConfig.color, 'Event config should have color');
+  assert.ok(createdConfig.category, 'Event config should have category');
+  assert.ok(typeof createdConfig.priority === 'number', 'Event config should have numeric priority');
+});
+
+test('Timeline: event registry fallback generates readable label for unknown events', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { getEventConfig, generateFallbackLabel } = timelineModule;
+
+  // Unknown event should get fallback config
+  const unknownConfig = getEventConfig('some.unknown.event');
+  assert.ok(unknownConfig.label, 'Unknown event should have fallback label');
+  assert.equal(unknownConfig.category, 'system', 'Unknown event should be categorized as system');
+
+  // Test label generation
+  assert.equal(generateFallbackLabel('agreement.custom_action'), 'Agreement Custom Action');
+  assert.equal(generateFallbackLabel('field_value.updated'), 'Field Value Updated');
+});
+
+test('Timeline: looksLikeUUID correctly identifies UUID patterns', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { looksLikeUUID } = timelineModule;
+
+  // Valid UUIDs
+  assert.equal(looksLikeUUID('550e8400-e29b-41d4-a716-446655440000'), true);
+  assert.equal(looksLikeUUID('123e4567-e89b-12d3-a456-426614174000'), true);
+  assert.equal(looksLikeUUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8'), true);
+
+  // Hex strings (24-32 chars)
+  assert.equal(looksLikeUUID('507f1f77bcf86cd799439011'), true);
+  assert.equal(looksLikeUUID('507f1f77bcf86cd799439011aabb'), true);
+
+  // Not UUIDs
+  assert.equal(looksLikeUUID('john@example.com'), false);
+  assert.equal(looksLikeUUID('John Doe'), false);
+  assert.equal(looksLikeUUID(''), false);
+  assert.equal(looksLikeUUID(null), false);
+  assert.equal(looksLikeUUID(undefined), false);
+  assert.equal(looksLikeUUID('short'), false);
+});
+
+test('Timeline: humanizeActorRole returns readable role labels', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { humanizeActorRole } = timelineModule;
+
+  assert.equal(humanizeActorRole('user'), 'Sender');
+  assert.equal(humanizeActorRole('sender'), 'Sender');
+  assert.equal(humanizeActorRole('reviewer'), 'Reviewer');
+  assert.equal(humanizeActorRole('recipient'), 'Signer');
+  assert.equal(humanizeActorRole('signer'), 'Signer');
+  assert.equal(humanizeActorRole('external'), 'External Reviewer');
+  assert.equal(humanizeActorRole('system'), 'System');
+  assert.equal(humanizeActorRole('custom_role'), 'Custom Role');
+  assert.equal(humanizeActorRole(''), 'Participant');
+});
+
+test('Timeline: getActorInitials extracts initials correctly', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { getActorInitials } = timelineModule;
+
+  assert.equal(getActorInitials('John Doe'), 'JD');
+  assert.equal(getActorInitials('Alice'), 'A');
+  assert.equal(getActorInitials('Jane Mary Smith'), 'JM');
+  assert.equal(getActorInitials(''), 'P');
+  assert.equal(getActorInitials('', 'S'), 'S');
+  assert.equal(getActorInitials(null, 'X'), 'X');
+});
+
+test('Timeline: isVisibleInCondensedMode filters by priority', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { isVisibleInCondensedMode } = timelineModule;
+
+  // High priority events should be visible
+  assert.equal(isVisibleInCondensedMode('agreement.created'), true);
+  assert.equal(isVisibleInCondensedMode('agreement.completed'), true);
+  assert.equal(isVisibleInCondensedMode('agreement.sent'), true);
+
+  // Low priority events should be hidden in condensed mode
+  assert.equal(isVisibleInCondensedMode('agreement.field_definition_upserted'), false);
+  assert.equal(isVisibleInCondensedMode('token.created'), false);
+});
+
+test('Timeline: isGroupableEvent identifies groupable events', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { isGroupableEvent } = timelineModule;
+
+  // Groupable events
+  assert.equal(isGroupableEvent('agreement.updated'), true);
+  assert.equal(isGroupableEvent('field.updated'), true);
+  assert.equal(isGroupableEvent('email.sent'), true);
+
+  // Non-groupable events (major milestones)
+  assert.equal(isGroupableEvent('agreement.created'), false);
+  assert.equal(isGroupableEvent('agreement.completed'), false);
+});
+
+test('Timeline: registry covers emitted backend event types used by activity timeline UX', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { EVENT_REGISTRY } = timelineModule;
+  const requiredEvents = [
+    'agreement.review_viewed',
+    'agreement.review_notification_failed',
+    'agreement.review_participant_approved_on_behalf',
+    'signer.assets.asset_opened',
+    'signer.assets.contract_viewed',
+    'agreement.notification_delivered',
+    'agreement.field_definition_deleted',
+    'agreement.field_instance_deleted',
+    'agreement.field_upserted',
+    'agreement.participant_deleted',
+    'agreement.recipient_removed',
+    'agreement.placement_run_created',
+    'agreement.placement_run_applied',
+    'artifact.executed_generated',
+    'artifact.certificate_generated',
+  ];
+
+  for (const eventType of requiredEvents) {
+    assert.ok(EVENT_REGISTRY[eventType], `${eventType} should be registered`);
+  }
+});
+
+test('Timeline: detail template includes timeline bootstrap JSON node', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.match(template, /id="agreement-timeline-bootstrap"/);
+  assert.match(template, /type="application\/json"/);
+  assert.match(template, /resource_item\.timeline_bootstrap/);
+});
+
+test('Timeline: detail template imports bootstrapAgreementDetailPage', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.match(template, /bootstrapAgreementDetailPage/);
+  assert.doesNotMatch(template, /getAgreementDetailController/);
+  assert.doesNotMatch(template, /assets\/dist\/services\/index\.js/);
+  assert.doesNotMatch(template, /assets\/dist\/toast\/error-helpers\.js/);
+});
+
+test('Timeline: detail template calls bootstrapAgreementDetailPage with config', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.match(template, /bootstrapAgreementDetailPage\(\{/);
+  assert.match(template, /basePath:/);
+  assert.match(template, /apiBasePath:/);
+  assert.match(template, /agreementId:/);
+  assert.match(template, /panelName:/);
+});
+
+test('Timeline: detail template no longer contains legacy inline agreement detail runtime', () => {
+  const template = fs.readFileSync(agreementDetailTemplatePath, 'utf8');
+
+  assert.doesNotMatch(template, /document\.addEventListener\('DOMContentLoaded'/);
+  assert.doesNotMatch(template, /function renderTimelineEntry/);
+  assert.doesNotMatch(template, /const eventConfig = \{/);
+  assert.doesNotMatch(template, /initCommandRuntime\(/);
+});
+
+test('Timeline: processEventsForDisplay sorts events newest first', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { processEventsForDisplay } = timelineModule;
+
+  const events = [
+    { id: '1', event_type: 'agreement.created', created_at: '2024-01-01T10:00:00Z' },
+    { id: '2', event_type: 'agreement.sent', created_at: '2024-01-02T10:00:00Z' },
+    { id: '3', event_type: 'agreement.completed', created_at: '2024-01-03T10:00:00Z' },
+  ];
+
+  const { items } = processEventsForDisplay(events, 'all');
+
+  // Should be sorted newest first
+  assert.equal(items.length, 3);
+  assert.equal(items[0].event?.id, '3');
+  assert.equal(items[1].event?.id, '2');
+  assert.equal(items[2].event?.id, '1');
+});
+
+test('Timeline: processEventsForDisplay filters events in condensed mode', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { processEventsForDisplay } = timelineModule;
+
+  const events = [
+    { id: '1', event_type: 'agreement.created', created_at: '2024-01-01T10:00:00Z' },
+    { id: '2', event_type: 'agreement.field_definition_upserted', created_at: '2024-01-01T10:01:00Z' },
+    { id: '3', event_type: 'agreement.completed', created_at: '2024-01-01T10:02:00Z' },
+  ];
+
+  const { items, stats } = processEventsForDisplay(events, 'condensed');
+
+  // Should only show high priority events
+  assert.equal(stats.visibleEvents, 2);
+  assert.equal(stats.hiddenEvents, 1);
+});
+
+test('Timeline: groupItemsByDate groups events by date', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { groupItemsByDate, processEventsForDisplay } = timelineModule;
+
+  const events = [
+    { id: '1', event_type: 'agreement.created', created_at: '2024-01-01T10:00:00Z' },
+    { id: '2', event_type: 'agreement.sent', created_at: '2024-01-01T11:00:00Z' },
+    { id: '3', event_type: 'agreement.completed', created_at: '2024-01-02T10:00:00Z' },
+  ];
+
+  const { items } = processEventsForDisplay(events, 'all');
+  const dateGroups = groupItemsByDate(items);
+
+  assert.equal(dateGroups.length, 2);
+});
+
+test('Timeline: mergeReviewDataIntoTimeline preserves review-only actor and participant context', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { mergeReviewDataIntoTimeline } = timelineModule;
+  const merged = mergeReviewDataIntoTimeline({
+    agreement_id: 'agr-1',
+    current_user_id: 'admin-1',
+    events: [],
+    actors: {
+      'recipient:recipient-1': {
+        actor_type: 'recipient',
+        actor_id: 'recipient-1',
+        display_name: 'Signer One',
+        email: 'signer@example.com',
+        role: 'signer',
+      },
+    },
+    participants: [{ id: 'recipient-1', email: 'signer@example.com', name: 'Signer One', role: 'signer' }],
+    field_definitions: [],
+  }, {
+    actor_map: {
+      'reviewer:reviewer-1': {
+        actor_type: 'reviewer',
+        actor_id: 'reviewer-1',
+        display_name: 'Rita Reviewer',
+        email: 'rita@example.com',
+        role: 'reviewer',
+      },
+    },
+    participants: [
+      { id: 'reviewer-participant-1', recipient_id: '', email: 'rita@example.com', display_name: 'Rita Reviewer', role: 'reviewer' },
+    ],
+  });
+
+  assert.equal(merged.actors['reviewer:reviewer-1'].display_name, 'Rita Reviewer');
+  assert.equal(merged.actors['recipient:recipient-1'].display_name, 'Signer One');
+  assert.equal(merged.participants.length, 2);
+});
+
+test('Timeline: getDateLabel returns human-readable date labels', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { getDateLabel } = timelineModule;
+
+  const today = new Date();
+  assert.equal(getDateLabel(today), 'Today');
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  assert.equal(getDateLabel(yesterday), 'Yesterday');
+});
+
+test('Timeline: renderTimeline shows filtered state when condensed mode hides all events', () => {
+  if (!timelineModule) {
+    console.log('Skipping timeline test: module not built');
+    return;
+  }
+
+  const { renderTimeline } = timelineModule;
+  const html = renderTimeline([], { actors: {}, participants: [], fieldDefinitions: [] }, {
+    totalEvents: 3,
+    visibleEvents: 0,
+    hiddenEvents: 3,
+    groupCount: 0,
+    groupedEventCount: 0,
+  }, 'condensed');
+
+  assert.match(html, /hidden in condensed view/i);
+  assert.match(html, /Show all activity/);
 });

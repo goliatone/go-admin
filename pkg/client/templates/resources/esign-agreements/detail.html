@@ -26,6 +26,108 @@
   .review-thread-message + .review-thread-message {
     margin-top: 0.75rem;
   }
+
+  /* Review action button styles - reusable compact action buttons */
+  .review-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .review-action-btn:focus {
+    outline: none;
+    ring: 2px;
+    ring-offset: 1px;
+  }
+  .review-action-btn:disabled,
+  .review-action-btn[aria-busy="true"] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .review-action-btn[aria-busy="true"] {
+    position: relative;
+  }
+  .review-action-btn[aria-busy="true"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: inherit;
+    border-radius: inherit;
+  }
+
+  /* Primary action: Approve On Behalf - emerald/green prominent style */
+  .review-action-btn-primary {
+    background-color: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+  }
+  .review-action-btn-primary:hover {
+    background-color: #d1fae5;
+    border-color: #6ee7b7;
+  }
+  .review-action-btn-primary:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #10b981;
+  }
+
+  /* Secondary action: Notify, Send Now - neutral style */
+  .review-action-btn-secondary {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #374151;
+  }
+  .review-action-btn-secondary:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+  }
+  .review-action-btn-secondary:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #6b7280;
+  }
+
+  /* Warning action: Pause - amber style */
+  .review-action-btn-warning {
+    background-color: #fffbeb;
+    border-color: #fcd34d;
+    color: #b45309;
+  }
+  .review-action-btn-warning:hover {
+    background-color: #fef3c7;
+    border-color: #fbbf24;
+  }
+  .review-action-btn-warning:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f59e0b;
+  }
+
+  /* Success action: Resume - green style */
+  .review-action-btn-success {
+    background-color: #f0fdf4;
+    border-color: #86efac;
+    color: #15803d;
+  }
+  .review-action-btn-success:hover {
+    background-color: #dcfce7;
+    border-color: #4ade80;
+  }
+  .review-action-btn-success:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #22c55e;
+  }
+
+  /* Participant actions container busy state */
+  [data-participant-actions][aria-busy="true"] {
+    opacity: 0.7;
+    pointer-events: none;
+  }
 </style>
 {% endblock %}
 
@@ -540,9 +642,9 @@
 
 {# Review & Comments - Collapsible Card #}
 <div class="p-6 border-t border-gray-200">
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+  <div id="agreement-review-command-region" class="bg-white border border-gray-200 rounded-xl overflow-hidden">
     {# Header - Always visible with inline status #}
-    <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
+    <div id="agreement-review-status-panel" class="px-5 py-4 bg-gray-50 border-b border-gray-200">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -585,7 +687,7 @@
 
     {# Review Configuration - Collapsible (draft only) #}
     {% if page_status == "draft" %}
-    <div class="border-b border-gray-200">
+    <div id="agreement-review-configuration-panel" class="border-b border-gray-200">
       <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-configuration">
         <div class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-600">
@@ -656,26 +758,54 @@
         </div>
 
         <div class="rounded-xl border border-gray-200 bg-gray-50 p-5">
-          <div class="flex items-center justify-between gap-3 mb-5">
-            <div>
-              <p class="text-sm font-medium text-gray-700">Review Settings</p>
-              <p class="text-xs text-gray-500 mt-0.5">Configure when approval is required and whether comments are enabled.</p>
-            </div>
-            {% if resource_item.review and resource_item.review.override_active %}
-            <div class="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-              Review finalized by admin override{% if resource_item.review.override_by_display_name or resource_item.review.override_by_user_id %} by {{ resource_item.review.override_by_display_name|default:resource_item.review.override_by_user_id }}{% endif %}{% if resource_item.review.override_reason %}: {{ resource_item.review.override_reason }}{% endif %}
-            </div>
-            {% elif resource_item.review and resource_item.review.status == "in_review" %}
+          {# Admin Action Bar - separated from settings configuration #}
+          {% if resource_item.review and resource_item.review.override_active %}
+          <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 mb-5">
             <div class="flex items-center gap-2">
-              <button type="button" id="agreement-notify-reviewers-btn" class="btn btn-secondary">Notify</button>
-              <button type="button" id="agreement-force-approve-review-btn" class="btn btn-secondary">Force Approve</button>
-              <button type="button" id="agreement-close-review-btn" class="btn btn-secondary">Close Review</button>
+              <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-sm text-emerald-800">
+                Review finalized by admin override{% if resource_item.review.override_by_display_name or resource_item.review.override_by_user_id %} by <span class="font-medium">{{ resource_item.review.override_by_display_name|default:resource_item.review.override_by_user_id }}</span>{% endif %}{% if resource_item.review.override_reason %}: {{ resource_item.review.override_reason }}{% endif %}
+              </p>
             </div>
-            {% elif resource_item.review and resource_item.review.status == "changes_requested" %}
-            <div class="flex items-center gap-2">
-              <button type="button" id="agreement-force-approve-review-btn" class="btn btn-secondary">Force Approve</button>
+          </div>
+          {% elif resource_item.review and (resource_item.review.status == "in_review" or resource_item.review.status == "changes_requested") %}
+          <div class="rounded-lg bg-white border border-gray-200 px-4 py-3 mb-5" id="review-admin-action-bar">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="text-xs font-medium text-gray-500 uppercase tracking-wide flex-shrink-0">Admin Actions</div>
+              <div class="flex flex-wrap items-center gap-2" id="review-admin-actions">
+                {% if resource_item.review.status == "in_review" %}
+                <button type="button" id="agreement-notify-reviewers-btn" class="btn btn-secondary btn-sm whitespace-nowrap flex-shrink-0" data-command-name="notify_reviewers" data-command-transport="rpc" data-command-dispatch="esign.agreements.notify_reviewers" data-command-success="Reviewers notified" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-target="#review-admin-actions">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                  </svg>
+                  Notify
+                </button>
+                {% endif %}
+                <button type="button" id="agreement-force-approve-review-btn" class="btn btn-danger btn-sm whitespace-nowrap flex-shrink-0" data-command-name="force_approve_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.force_approve_review" data-command-success="Review force approved" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-admin-actions" data-command-reason-title="Force approve review" data-command-reason-subject="This will finalize the review cycle using an admin override.">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  Force Approve
+                </button>
+                {% if resource_item.review.status == "in_review" %}
+                <button type="button" id="agreement-close-review-btn" class="btn btn-sm whitespace-nowrap flex-shrink-0 bg-gray-700 text-white hover:bg-gray-800 focus:ring-gray-500" data-command-name="close_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.close_review" data-command-success="Review closed" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-admin-actions">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  Close Review
+                </button>
+                {% endif %}
+              </div>
             </div>
-            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Settings Header - configuration only, no actions #}
+          <div class="mb-5">
+            <p class="text-sm font-medium text-gray-700">Review Settings</p>
+            <p class="text-xs text-gray-500 mt-0.5">Configure when approval is required and whether comments are enabled.</p>
           </div>
 
           <div class="grid gap-4 sm:grid-cols-2 mb-6">
@@ -801,7 +931,7 @@
 
     {# Review Participants - Collapsible #}
     {% if resource_item.review and resource_item.review.participants and resource_item.review.participants|length > 0 %}
-    <div class="border-b border-gray-200">
+    <div id="review-participants-panel" class="border-b border-gray-200">
       <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-participants">
         <span class="text-xs font-medium text-gray-600">Review Participants ({{ resource_item.review.participants|length }})</span>
         <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -811,13 +941,25 @@
       <div id="review-participants" class="collapsible-content px-5 pb-4">
         <div class="grid gap-3 md:grid-cols-2">
           {% for participant in resource_item.review.participants %}
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3" data-review-participant-card data-participant-id="{{ participant.id }}">
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="text-sm font-medium text-gray-900">{{ participant.display_name|default:participant.email|default:participant.recipient_id }}</div>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium text-gray-900 truncate" data-review-participant-name>
+                  {# Prefer display_name, then email, then participant type label (never show raw ID) #}
+                  {% if participant.display_name %}{{ participant.display_name }}{% elif participant.email %}{{ participant.email }}{% else %}{{ participant.participant_type|default:"Participant"|title }}{% endif %}
+                </div>
                 <div class="mt-1 text-xs text-gray-500">
-                  {{ participant.participant_type|default:"recipient"|title }}
-                  {% if participant.email %}• {{ participant.email }}{% endif %}
+                  <span class="inline-flex items-center gap-1">
+                    {% if participant.participant_type == "external" %}
+                    <span class="text-violet-600">External</span>
+                    {% else %}
+                    {{ participant.participant_type|default:"Recipient"|title }}
+                    {% endif %}
+                  </span>
+                  {% if participant.email %}
+                  <span class="mx-1">•</span>
+                  <span class="truncate">{{ participant.email }}</span>
+                  {% endif %}
                 </div>
               </div>
               <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset
@@ -859,27 +1001,50 @@
             </div>
             {% endif %}
             {% if resource_item.review.status == 'in_review' and not resource_item.review.override_active and participant.effective_decision_status == 'pending' %}
-            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium">
+            <div class="mt-3 pt-3 border-t border-gray-200" data-participant-actions data-participant-id="{{ participant.id }}">
+              {# Primary Action: Approve On Behalf - visually separated #}
               {% if participant.can_approve %}
-              <button type="button" class="text-emerald-600 hover:text-emerald-800" data-action="approve-review-on-behalf" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}" data-participant-name="{{ participant.display_name|default:participant.email|default:participant.recipient_id|escapejs }}">
-                Approve On Behalf
-              </button>
+              <div class="mb-2">
+                <button type="button" class="review-action-btn review-action-btn-primary w-full sm:w-auto" data-command-name="approve_review_participant_on_behalf" data-command-transport="rpc" data-command-dispatch="esign.agreements.approve_review_participant_on_behalf" data-command-success="Reviewer approved on behalf" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-reason-title="Approve review on behalf" data-command-reason-subject="Approve on behalf of {{ participant.display_name|default:participant.email|default:'this reviewer'|escapejs }}." data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Approve On Behalf</span>
+                </button>
+              </div>
               {% endif %}
-              <button type="button" class="text-blue-600 hover:text-blue-800" data-action="notify-review-participant" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
-                Notify
-              </button>
-              <button type="button" class="text-indigo-600 hover:text-indigo-800" data-action="send-review-reminder-now" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
-                Send Now
-              </button>
-              {% if participant.paused %}
-              <button type="button" class="text-emerald-600 hover:text-emerald-800" data-action="resume-review-reminder" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
-                Resume
-              </button>
-              {% else %}
-              <button type="button" class="text-amber-600 hover:text-amber-800" data-action="pause-review-reminder" data-participant-id="{{ participant.id }}" data-recipient-id="{{ participant.recipient_id|default:"" }}">
-                Pause
-              </button>
-              {% endif %}
+              {# Operational Controls: Reminder actions grouped together #}
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[10px] uppercase tracking-wide text-gray-400 font-medium mr-1">Reminders:</span>
+                <button type="button" class="review-action-btn review-action-btn-secondary" data-command-name="notify_reviewers" data-command-transport="rpc" data-command-dispatch="esign.agreements.notify_reviewers" data-command-success="Reviewer notified" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                  </svg>
+                  <span>Notify</span>
+                </button>
+                <button type="button" class="review-action-btn review-action-btn-secondary" data-command-name="send_review_reminder_now" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.send_now" data-command-success="Review reminder sent" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  </svg>
+                  <span>Send Now</span>
+                </button>
+                {% if participant.paused %}
+                <button type="button" class="review-action-btn review-action-btn-success" data-command-name="resume_review_reminder" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.resume" data-command-success="Review reminders resumed" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Resume</span>
+                </button>
+                {% else %}
+                <button type="button" class="review-action-btn review-action-btn-warning" data-command-name="pause_review_reminder" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.pause" data-command-success="Review reminders paused" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Pause</span>
+                </button>
+                {% endif %}
+              </div>
             </div>
             {% endif %}
           </div>
@@ -891,7 +1056,7 @@
 
     {# Comment Threads - Collapsible #}
     {% if resource_item.review and resource_item.review.review_id %}
-    <div class="{% if resource_item.review.threads and resource_item.review.threads|length > 0 %}border-b border-gray-200{% endif %}">
+    <div id="review-comment-threads-panel" class="{% if resource_item.review.threads and resource_item.review.threads|length > 0 %}border-b border-gray-200{% endif %}">
       <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-comment-threads">
         <div class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-600">Comment Threads</span>
@@ -907,18 +1072,20 @@
         {# Add Comment Form (if comments enabled) #}
         {% if not resource_item.review.override_active %}
         <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-4">
+          <form id="agreement-create-thread-form" data-command-name="create_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.create_comment_thread" data-command-success="Comment added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
+          <input type="hidden" name="review_id" value="{{ resource_item.review.review_id|default:"" }}">
           <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Add Comment</div>
           <div class="grid gap-3 sm:grid-cols-4">
             <label class="block text-sm">
               <span class="mb-1 block text-xs font-medium text-gray-600">Visibility</span>
-              <select id="agreement-thread-visibility" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <select id="agreement-thread-visibility" name="visibility" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="shared">Shared</option>
                 <option value="internal">Internal</option>
               </select>
             </label>
             <label class="block text-sm">
               <span class="mb-1 block text-xs font-medium text-gray-600">Anchor</span>
-              <select id="agreement-thread-anchor-type" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <select id="agreement-thread-anchor-type" name="anchor_type" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="agreement">Agreement</option>
                 <option value="page">Page</option>
                 <option value="field">Field</option>
@@ -926,11 +1093,11 @@
             </label>
             <label class="block text-sm" id="agreement-thread-page-wrap">
               <span class="mb-1 block text-xs font-medium text-gray-600">Page</span>
-              <input id="agreement-thread-page-number" type="number" min="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="1">
+              <input id="agreement-thread-page-number" name="page_number" type="number" min="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="1">
             </label>
             <label class="block text-sm" id="agreement-thread-field-wrap">
               <span class="mb-1 block text-xs font-medium text-gray-600">Field</span>
-              <select id="agreement-thread-field-id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <select id="agreement-thread-field-id" name="field_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">Select field</option>
                 {% for field in resource_item.fields %}
                 <option value="{{ field.id }}">{{ field.label|default:field.type|title }} • page {{ field.page }}</option>
@@ -940,11 +1107,12 @@
           </div>
           <label class="mt-3 block text-sm">
             <span class="mb-1 block text-xs font-medium text-gray-600">Comment</span>
-            <textarea id="agreement-thread-body" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Add an internal note or shared review comment"></textarea>
+            <textarea id="agreement-thread-body" name="body" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Add an internal note or shared review comment" required></textarea>
           </label>
           <div class="mt-3 flex justify-end">
-            <button type="button" id="agreement-create-thread-btn" class="btn btn-secondary">Add Comment</button>
+            <button type="submit" id="agreement-create-thread-btn" class="btn btn-secondary">Add Comment</button>
           </div>
+          </form>
         </div>
         {% else %}
         <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 mb-4 text-sm text-emerald-800">
@@ -1028,14 +1196,14 @@
                   {# Thread Actions #}
                   <div class="flex items-center gap-2">
                     {% if not resource_item.review.override_active and thread.status == "open" %}
-                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors" data-review-thread-resolve data-thread-id="{{ thread.id }}">
+                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors" data-command-name="resolve_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.resolve_comment_thread" data-command-success="Thread resolved" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                       </svg>
                       Resolve
                     </button>
                     {% elif not resource_item.review.override_active %}
-                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" data-review-thread-reopen data-thread-id="{{ thread.id }}">
+                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" data-command-name="reopen_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reopen_comment_thread" data-command-success="Thread reopened" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                       </svg>
@@ -1067,16 +1235,17 @@
               {# Reply Form #}
               {% if thread.status != 'resolved' and not resource_item.review.override_active %}
               <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-100 rounded-b-lg">
-                <div class="flex gap-3">
+                <form class="flex gap-3" data-command-name="reply_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reply_comment_thread" data-command-success="Reply added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
+                  <input type="hidden" name="thread_id" value="{{ thread.id }}">
                   <div class="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
                     <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                     </svg>
                   </div>
                   <div class="flex-1">
-                    <textarea rows="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-review-thread-reply-input="{{ thread.id }}" placeholder="Write a reply..."></textarea>
+                    <textarea rows="1" name="body" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Write a reply..." required></textarea>
                     <div class="mt-2 flex justify-end">
-                      <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" data-review-thread-reply-submit data-thread-id="{{ thread.id }}">
+                      <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                         </svg>
@@ -1084,7 +1253,7 @@
                       </button>
                     </div>
                   </div>
-                </div>
+                </form>
               </div>
               {% endif %}
             </div>
@@ -1100,42 +1269,40 @@
 </div>
 
 <script id="agreement-review-bootstrap" type="application/json">
+{% if resource_item.review %}
+{{ toJSON(resource_item.review)|safe }}
+{% else %}
 {
-  "status": "{{ resource_item.review.status|default:resource_item.review_status|default:"none"|escapejs }}",
-  "gate": "{{ resource_item.review.gate|default:resource_item.review_gate|default:"none"|escapejs }}",
-  "comments_enabled": {% if resource_item.review.comments_enabled or resource_item.comments_enabled %}true{% else %}false{% endif %},
-  "review_id": "{{ resource_item.review.review_id|default:""|escapejs }}",
-  "override_active": {% if resource_item.review.override_active %}true{% else %}false{% endif %},
-  "override_reason": "{{ resource_item.review.override_reason|default:""|escapejs }}",
-  "override_by_user_id": "{{ resource_item.review.override_by_user_id|default:""|escapejs }}",
-  "override_by_display_name": "{{ resource_item.review.override_by_display_name|default:""|escapejs }}",
-  "override_at": "{{ resource_item.review.override_at|default:""|escapejs }}",
-  "approved_count": {{ resource_item.review.approved_count|default:0 }},
-  "total_approvers": {{ resource_item.review.total_approvers|default:0 }},
-  "actor_map": {% if resource_item.review.actor_map %}{{ toJSON(resource_item.review.actor_map)|safe }}{% else %}{}{% endif %},
-  "participants": [
-    {% if resource_item.review and resource_item.review.participants and resource_item.review.participants|length > 0 %}
-      {% for participant in resource_item.review.participants %}
-      {
-        "id": "{{ participant.id|default:""|escapejs }}",
-        "participant_type": "{{ participant.participant_type|default:"recipient"|escapejs }}",
-        "recipient_id": "{{ participant.recipient_id|default:""|escapejs }}",
-        "email": "{{ participant.email|default:""|escapejs }}",
-        "display_name": "{{ participant.display_name|default:""|escapejs }}",
-        "can_comment": {% if participant.can_comment %}true{% else %}false{% endif %},
-        "can_approve": {% if participant.can_approve %}true{% else %}false{% endif %},
-        "decision_status": "{{ participant.decision_status|default:""|escapejs }}",
-        "effective_decision_status": "{{ participant.effective_decision_status|default:participant.decision_status|default:""|escapejs }}",
-        "approved_on_behalf": {% if participant.approved_on_behalf %}true{% else %}false{% endif %},
-        "approved_on_behalf_reason": "{{ participant.approved_on_behalf_reason|default:""|escapejs }}",
-        "approved_on_behalf_by_user_id": "{{ participant.approved_on_behalf_by_user_id|default:""|escapejs }}",
-        "approved_on_behalf_by_display_name": "{{ participant.approved_on_behalf_by_display_name|default:""|escapejs }}",
-        "approved_on_behalf_at": "{{ participant.approved_on_behalf_at|default:""|escapejs }}"
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    {% endif %}
-  ]
+  "status": "{{ resource_item.review_status|default:"none"|escapejs }}",
+  "gate": "{{ resource_item.review_gate|default:"approve_before_send"|escapejs }}",
+  "comments_enabled": {% if resource_item.comments_enabled %}true{% else %}false{% endif %},
+  "review_id": "",
+  "override_active": false,
+  "override_reason": "",
+  "override_by_user_id": "",
+  "override_by_display_name": "",
+  "override_at": "",
+  "approved_count": 0,
+  "total_approvers": 0,
+  "actor_map": {},
+  "participants": []
 }
+{% endif %}
+</script>
+
+<script id="agreement-timeline-bootstrap" type="application/json">
+{% if resource_item.timeline_bootstrap %}
+{{ toJSON(resource_item.timeline_bootstrap)|safe }}
+{% else %}
+{
+  "agreement_id": "{{ resource_item.id|default:""|escapejs }}",
+  "current_user_id": "{{ resource_item.current_user_id|default:""|escapejs }}",
+  "events": {% if resource_item.timeline %}{{ toJSON(resource_item.timeline)|safe }}{% else %}[]{% endif %},
+  "actors": {},
+  "participants": {% if resource_item.participants %}{{ toJSON(resource_item.participants)|safe }}{% else %}[]{% endif %},
+  "field_definitions": {% if resource_item.field_definitions %}{{ toJSON(resource_item.field_definitions)|safe }}{% else %}[]{% endif %}
+}
+{% endif %}
 </script>
 
 {% if page_executed_applicable and page_status == "completed" and not page_executed_available %}
@@ -1265,13 +1432,18 @@
 <div class="p-6 border-t border-gray-200">
   <div class="flex items-center justify-between mb-4">
     <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Activity Timeline</div>
-    <button type="button" id="timeline-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
-            aria-label="Refresh timeline">
-      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
-      Refresh
-    </button>
+    <div class="flex items-center gap-3">
+      <div id="timeline-view-toggle" class="hidden sm:block">
+        {# View toggle will be rendered by TypeScript controller #}
+      </div>
+      <button type="button" id="timeline-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+              aria-label="Refresh timeline">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
   </div>
   <div id="agreement-timeline" class="relative" role="list" aria-label="Agreement activity timeline">
     <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
@@ -1903,1219 +2075,32 @@
 {% block detail_scripts %}
 <script type="module">
 import {
-  executeActionRequest,
-  formatStructuredErrorForDisplay
-} from '{{ base_path }}/assets/dist/toast/error-helpers.js';
-import { bootstrapProvenanceCards } from '{{ base_path }}/assets/dist/esign/index.js';
+  bootstrapProvenanceCards,
+  bootstrapAgreementDetailPage,
+} from '{{ adminURL("assets/dist/esign/index.js") }}';
 
 // Initialize provenance card interactivity (evidence toggles, etc.)
 bootstrapProvenanceCards();
 
-document.addEventListener('DOMContentLoaded', function() {
-  // Format timestamps
-  function formatTimestamp(ts) {
-    if (!ts) return '-';
-    try {
-      const date = new Date(ts);
-      return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return ts;
-    }
-  }
-
-  // Format relative time
-  function formatRelativeTime(ts) {
-    if (!ts) return '';
-    try {
-      const date = new Date(ts);
-      const now = new Date();
-      const diffMs = now - date;
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return 'just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
-      if (diffDays < 7) return `${diffDays}d ago`;
-      return formatTimestamp(ts);
-    } catch {
-      return ts;
-    }
-  }
-
-  // Format all timestamp elements
-  document.querySelectorAll('[data-timestamp]').forEach(el => {
-    const ts = el.getAttribute('data-timestamp');
-    if (ts) {
-      el.textContent = formatTimestamp(ts);
-    }
-  });
-
-  // Format recipient timestamps
-  document.querySelectorAll('.recipient-timestamp').forEach(el => {
-    const ts = el.getAttribute('data-timestamp');
-    if (ts) {
-      el.textContent = formatRelativeTime(ts);
-    }
-  });
-
-  // Collapsible section handlers
-  document.querySelectorAll('.collapsible-trigger').forEach(trigger => {
-    trigger.addEventListener('click', () => {
-      const targetId = trigger.getAttribute('aria-controls');
-      const content = document.getElementById(targetId);
-      const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
-
-      trigger.setAttribute('aria-expanded', !isExpanded);
-      content.classList.toggle('expanded', !isExpanded);
-    });
-  });
-
-  // Action handlers
-  const basePath = '{{ base_path }}';
-  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
-  const agreementId = '{{ resource_item.id }}';
-  const panelName = '{{ panel_name|default:"esign_agreements" }}';
-  const resourceTenantId = '{{ resource_item.tenant_id|default:"" }}';
-  const resourceOrgId = '{{ resource_item.org_id|default:"" }}';
-  const agreementStatus = '{{ resource_item.status|default:"" }}'.toLowerCase();
-  const executedApplicable = {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %};
-  const executedDeliveryStatus = '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase();
-  const executedObjectKey = '{{ resource_item.delivery.executed_object_key|default:"" }}';
-
-  function resolveScopeParams() {
-    const current = new URLSearchParams(window.location.search || '');
-    const tenantId = (resourceTenantId || current.get('tenant_id') || '').trim();
-    const orgId = (resourceOrgId || current.get('org_id') || '').trim();
-    return { tenantId, orgId };
-  }
-
-  function appendScopeParams(urlObj) {
-    const { tenantId, orgId } = resolveScopeParams();
-    if (tenantId) {
-      urlObj.searchParams.set('tenant_id', tenantId);
-    }
-    if (orgId) {
-      urlObj.searchParams.set('org_id', orgId);
-    }
-    return urlObj;
-  }
-
-  function buildScopedURL(pathname) {
-    const urlObj = new URL(pathname, window.location.origin);
-    appendScopeParams(urlObj);
-    return urlObj.toString();
-  }
-
-  function buildAssetDownloadURL(assetType) {
-    const endpoint = new URL(`${apiBase}/panels/${panelName}/${agreementId}/artifact/${assetType}`, window.location.origin);
-    appendScopeParams(endpoint);
-    endpoint.searchParams.set('disposition', 'attachment');
-    return endpoint.toString();
-  }
-
-  function resolveDownloadFilename(response, fallback) {
-    const contentDisposition = response.headers.get('content-disposition') || '';
-    const simple = contentDisposition.match(/filename="?([^"]+)"?/i);
-    if (simple && simple[1]) {
-      return simple[1];
-    }
-    return fallback;
-  }
-
-  const downloadStatusNotice = document.getElementById('download-status-notice-dynamic');
-  const downloadStatusNoticeStatic = document.getElementById('download-status-notice-static');
-  function showDownloadNotice(message, level = 'warning') {
-    if (!downloadStatusNotice) {
-      return;
-    }
-    if (downloadStatusNoticeStatic) {
-      downloadStatusNoticeStatic.classList.add('hidden');
-    }
-    const levelClass = level === 'success'
-      ? 'border-green-200 bg-green-50 text-green-900'
-      : 'border-amber-200 bg-amber-50 text-amber-900';
-    downloadStatusNotice.className = `mx-6 mt-6 rounded-lg border p-4 text-sm ${levelClass}`;
-    downloadStatusNotice.textContent = message;
-    downloadStatusNotice.classList.remove('hidden');
-  }
-
-  const unavailableDownloadIcon = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
-  const loadingDownloadIcon = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-  const executedDownloadButtons = Array.from(document.querySelectorAll('[data-action="download-executed"]'));
-
-  function markExecutedDownloadUnavailable(message) {
-    executedDownloadButtons.forEach(btn => {
-      btn.dataset.downloadState = 'unavailable';
-      btn.disabled = true;
-      btn.setAttribute('aria-disabled', 'true');
-      btn.classList.remove('btn-primary');
-      if (!btn.classList.contains('btn-warning')) {
-        btn.classList.add('btn-warning');
-      }
-      btn.innerHTML = `${unavailableDownloadIcon}Unable To Download Package`;
-      btn.setAttribute('title', message);
-      btn.setAttribute('aria-label', 'Executed completion package is unavailable');
-    });
-    if (message) {
-      showDownloadNotice(message, 'warning');
-    }
-  }
-
-  function setExecutedDownloadLoading(loading) {
-    executedDownloadButtons.forEach(btn => {
-      const unavailable = (btn.dataset.downloadState || '').toLowerCase() === 'unavailable';
-      if (unavailable) {
-        return;
-      }
-      if (loading) {
-        btn.disabled = true;
-        btn.innerHTML = `${loadingDownloadIcon}Preparing package...`;
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Completion Package';
-      }
-    });
-  }
-
-  async function fetchAndDownloadAsset(assetType, fallbackFilename, assetLabel) {
-    const label = assetLabel || assetType.charAt(0).toUpperCase() + assetType.slice(1) + ' PDF';
-    const url = buildAssetDownloadURL(assetType);
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'same-origin',
-      headers: {
-        Accept: 'application/pdf'
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`${label} is not available (HTTP ${response.status}). Refresh delivery status and try again.`);
-    }
-    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.includes('application/pdf')) {
-      throw new Error(`${label} is unavailable because the response is not a PDF.`);
-    }
-    const blob = await response.blob();
-    if (!blob || blob.size === 0) {
-      throw new Error(`${label} is unavailable because the file is empty.`);
-    }
-    const filename = resolveDownloadFilename(response, fallbackFilename);
-    const objectURL = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectURL;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
-  }
-
-  async function executeAction(action, payload = {}) {
-    const endpoint = buildScopedURL(`${apiBase}/panels/${panelName}/actions/${action}`);
-    try {
-      const result = await executeActionRequest(
-        endpoint,
-        { id: agreementId, ...payload },
-        { credentials: 'same-origin' }
-      );
-      if (!result.success || result.error) {
-        const message = formatStructuredErrorForDisplay(result.error || {
-          textCode: null,
-          message: `${action} failed`,
-          metadata: null,
-          fields: null,
-          validationErrors: null
-        }, `${action} failed`);
-        throw new Error(message);
-      }
-
-      if (window.toastManager) {
-        window.toastManager.success(`${action} completed successfully`);
-      }
-      window.location.reload();
-    } catch (error) {
-      if (window.toastManager) {
-        window.toastManager.error(error.message || `${action} failed`);
-      } else {
-        alert(error.message || `${action} failed`);
-      }
-    }
-  }
-
-  function safeParseJSONScript(id, fallback = null) {
-    const node = document.getElementById(id);
-    if (!node || !node.textContent) {
-      return fallback;
-    }
-    try {
-      return JSON.parse(node.textContent);
-    } catch (error) {
-      console.warn(`Unable to parse ${id}`, error);
-      return fallback;
-    }
-  }
-
-  const reviewBootstrap = safeParseJSONScript('agreement-review-bootstrap', {
-    status: 'none',
-    gate: 'approve_before_send',
-    comments_enabled: false,
-    review_id: '',
-    override_active: false,
-    override_reason: '',
-    override_by_user_id: '',
-    override_by_display_name: '',
-    override_at: '',
-    actor_map: {},
-    participants: [],
-  }) || {
-    status: 'none',
-    gate: 'approve_before_send',
-    comments_enabled: false,
-    review_id: '',
-    override_active: false,
-    override_reason: '',
-    override_by_user_id: '',
-    override_by_display_name: '',
-    override_at: '',
-    actor_map: {},
-    participants: [],
-  };
-
-  const reviewRecipientRows = Array.from(document.querySelectorAll('[data-review-recipient-row]'));
-  const externalReviewersContainer = document.getElementById('agreement-external-reviewers');
-  const externalReviewerTemplate = document.getElementById('agreement-external-reviewer-template');
-  const addExternalReviewerBtn = document.getElementById('agreement-add-external-reviewer-btn');
-  const submitReviewBtn = document.getElementById('agreement-submit-review-btn');
-  const notifyReviewersBtn = document.getElementById('agreement-notify-reviewers-btn');
-  const forceApproveReviewBtn = document.getElementById('agreement-force-approve-review-btn');
-  const closeReviewBtn = document.getElementById('agreement-close-review-btn');
-  const reviewGateSelect = document.getElementById('agreement-review-gate');
-  const reviewCommentsEnabledInput = document.getElementById('agreement-review-comments-enabled');
-  const threadVisibility = document.getElementById('agreement-thread-visibility');
-  const threadAnchorType = document.getElementById('agreement-thread-anchor-type');
-  const threadPageWrap = document.getElementById('agreement-thread-page-wrap');
-  const threadPageNumber = document.getElementById('agreement-thread-page-number');
-  const threadFieldWrap = document.getElementById('agreement-thread-field-wrap');
-  const threadFieldID = document.getElementById('agreement-thread-field-id');
-  const threadBody = document.getElementById('agreement-thread-body');
-  const createThreadBtn = document.getElementById('agreement-create-thread-btn');
-
-  function reviewActorKey(actorType, actorID) {
-    const normalizedActorType = String(actorType || '').trim();
-    const normalizedActorID = String(actorID || '').trim();
-    if (!normalizedActorType || !normalizedActorID) {
-      return '';
-    }
-    return `${normalizedActorType}:${normalizedActorID}`;
-  }
-
-  function humanizeReviewActorRole(actorType) {
-    const normalized = String(actorType || '').trim();
-    if (normalized === 'user' || normalized === 'sender') return 'Sender';
-    if (normalized === 'reviewer') return 'Reviewer';
-    if (normalized === 'recipient' || normalized === 'signer') return 'Signer';
-    return normalized ? normalized.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : 'Participant';
-  }
-
-  function reviewActorInfo(actorType, actorID) {
-    const actorMap = reviewBootstrap.actor_map && typeof reviewBootstrap.actor_map === 'object' ? reviewBootstrap.actor_map : {};
-    const normalizedActorType = String(actorType || '').trim();
-    const aliases = [];
-    if (normalizedActorType === 'recipient' || normalizedActorType === 'signer') {
-      aliases.push(reviewActorKey('recipient', actorID), reviewActorKey('signer', actorID));
-    } else if (normalizedActorType === 'user' || normalizedActorType === 'sender') {
-      aliases.push(reviewActorKey('user', actorID), reviewActorKey('sender', actorID));
-    } else {
-      aliases.push(reviewActorKey(normalizedActorType, actorID));
-    }
-    const actor = aliases.map((key) => actorMap[key]).find(Boolean) || {};
-    return {
-      name: String(actor.name || actor.email || actorID || humanizeReviewActorRole(normalizedActorType)).trim() || 'Participant',
-      role: String(actor.role || actor.actor_type || normalizedActorType || 'participant').trim() || 'participant',
-      actor_type: String(actor.actor_type || normalizedActorType).trim(),
-    };
-  }
-
-  function reviewActorInitials(name, fallback = 'P') {
-    const normalized = String(name || '').trim();
-    if (!normalized) {
-      return String(fallback || 'P').trim().slice(0, 2).toUpperCase() || 'P';
-    }
-    const initials = normalized
-      .split(/\s+/)
-      .map((part) => part[0] || '')
-      .join('')
-      .replace(/[^a-z0-9]/ig, '')
-      .toUpperCase();
-    return initials.slice(0, 2) || String(fallback || 'P').trim().slice(0, 2).toUpperCase() || 'P';
-  }
-
-  function reviewActorColor(actorType) {
-    const normalized = String(actorType || '').trim();
-    if (normalized === 'user' || normalized === 'sender') return '#2563eb';
-    if (normalized === 'reviewer') return '#7c3aed';
-    if (normalized === 'recipient' || normalized === 'signer') return '#059669';
-    return '#64748b';
-  }
-
-  function applyAgreementReviewActorMetadata() {
-    document.querySelectorAll('[data-review-actor-avatar]').forEach((node) => {
-      const actor = reviewActorInfo(node.getAttribute('data-actor-type'), node.getAttribute('data-actor-id'));
-      const color = reviewActorColor(actor.actor_type);
-      node.textContent = reviewActorInitials(actor.name, actor.role);
-      node.style.backgroundColor = color;
-      node.style.color = '#ffffff';
-    });
-    document.querySelectorAll('[data-review-actor-name]').forEach((node) => {
-      const actor = reviewActorInfo(node.getAttribute('data-actor-type'), node.getAttribute('data-actor-id'));
-      node.textContent = actor.name;
-    });
-    document.querySelectorAll('[data-review-actor-role]').forEach((node) => {
-      const actor = reviewActorInfo(node.getAttribute('data-actor-type'), node.getAttribute('data-actor-id'));
-      node.textContent = humanizeReviewActorRole(actor.role || actor.actor_type);
-    });
-  }
-
-  function normalizeParticipantType(value) {
-    const normalized = String(value || '').trim().toLowerCase();
-    return normalized === 'external' ? 'external' : 'recipient';
-  }
-
-  function normalizeRecipientParticipant(row) {
-    const recipientID = String(row.getAttribute('data-recipient-id') || '').trim();
-    const enabled = row.querySelector('[data-review-recipient-enabled]');
-    const canComment = row.querySelector('[data-review-recipient-comment]');
-    const canApprove = row.querySelector('[data-review-recipient-approve]');
-    if (!(enabled instanceof HTMLInputElement) || !enabled.checked || !recipientID) {
-      return null;
-    }
-    const allowComment = !(canComment instanceof HTMLInputElement) || canComment.checked;
-    const allowApprove = !(canApprove instanceof HTMLInputElement) || canApprove.checked;
-    if (!allowComment && !allowApprove) {
-      throw new Error('Each selected reviewer must be allowed to comment or approve.');
-    }
-    return {
-      participant_type: 'recipient',
-      recipient_id: recipientID,
-      can_comment: allowComment,
-      can_approve: allowApprove,
-    };
-  }
-
-  function collectReviewParticipants() {
-    const participants = [];
-
-    reviewRecipientRows.forEach((row) => {
-      const participant = normalizeRecipientParticipant(row);
-      if (participant) {
-        participants.push(participant);
-      }
-    });
-
-    if (externalReviewersContainer) {
-      externalReviewersContainer.querySelectorAll('[data-review-external-row]').forEach((row) => {
-        const nameInput = row.querySelector('[data-review-external-name]');
-        const emailInput = row.querySelector('[data-review-external-email]');
-        const commentInput = row.querySelector('[data-review-external-comment]');
-        const approveInput = row.querySelector('[data-review-external-approve]');
-        const displayName = String(nameInput?.value || '').trim();
-        const email = String(emailInput?.value || '').trim();
-        const canComment = !(commentInput instanceof HTMLInputElement) || commentInput.checked;
-        const canApprove = !(approveInput instanceof HTMLInputElement) || approveInput.checked;
-
-        if (!displayName && !email) {
-          return;
-        }
-        if (!email) {
-          throw new Error('External reviewers require an email address.');
-        }
-        if (!canComment && !canApprove) {
-          throw new Error(`External reviewer ${email} must be allowed to comment or approve.`);
-        }
-        participants.push({
-          participant_type: 'external',
-          email,
-          display_name: displayName,
-          can_comment: canComment,
-          can_approve: canApprove,
-        });
-      });
-    }
-
-    if (!participants.length) {
-      throw new Error('Select at least one review participant before starting review.');
-    }
-
-    return participants;
-  }
-
-  const externalReviewersEmpty = document.getElementById('agreement-external-reviewers-empty');
-
-  function syncExternalReviewersEmptyState() {
-    if (!externalReviewersContainer || !externalReviewersEmpty) {
-      return;
-    }
-    const hasRows = externalReviewersContainer.querySelectorAll('[data-review-external-row]').length > 0;
-    externalReviewersEmpty.classList.toggle('hidden', hasRows);
-  }
-
-  function appendExternalReviewerRow(participant = {}) {
-    if (!externalReviewersContainer || !(externalReviewerTemplate instanceof HTMLTemplateElement)) {
-      return;
-    }
-    const fragment = externalReviewerTemplate.content.cloneNode(true);
-    const row = fragment.querySelector('[data-review-external-row]');
-    if (!row) {
-      return;
-    }
-    const nameInput = row.querySelector('[data-review-external-name]');
-    const emailInput = row.querySelector('[data-review-external-email]');
-    const commentInput = row.querySelector('[data-review-external-comment]');
-    const approveInput = row.querySelector('[data-review-external-approve]');
-    if (nameInput) {
-      nameInput.value = String(participant.display_name || '').trim();
-    }
-    if (emailInput) {
-      emailInput.value = String(participant.email || '').trim();
-    }
-    if (commentInput instanceof HTMLInputElement) {
-      commentInput.checked = participant.can_comment !== false;
-    }
-    if (approveInput instanceof HTMLInputElement) {
-      approveInput.checked = participant.can_approve !== false;
-    }
-    externalReviewersContainer.appendChild(fragment);
-    syncExternalReviewersEmptyState();
-  }
-
-  function initializeReviewWorkspace() {
-    if (reviewGateSelect) {
-      reviewGateSelect.value = String(reviewBootstrap.gate || 'approve_before_send').trim() || 'approve_before_send';
-    }
-    if (reviewCommentsEnabledInput instanceof HTMLInputElement) {
-      reviewCommentsEnabledInput.checked = Boolean(reviewBootstrap.comments_enabled);
-    }
-
-    const existingParticipants = Array.isArray(reviewBootstrap.participants) ? reviewBootstrap.participants : [];
-    reviewRecipientRows.forEach((row) => {
-      const recipientID = String(row.getAttribute('data-recipient-id') || '').trim();
-      const enabled = row.querySelector('[data-review-recipient-enabled]');
-      const canComment = row.querySelector('[data-review-recipient-comment]');
-      const canApprove = row.querySelector('[data-review-recipient-approve]');
-      const match = existingParticipants.find((participant) => normalizeParticipantType(participant?.participant_type) === 'recipient' && String(participant?.recipient_id || '').trim() === recipientID);
-      if (enabled instanceof HTMLInputElement) {
-        enabled.checked = Boolean(match);
-      }
-      if (canComment instanceof HTMLInputElement) {
-        canComment.checked = match ? Boolean(match.can_comment) : true;
-      }
-      if (canApprove instanceof HTMLInputElement) {
-        canApprove.checked = match ? Boolean(match.can_approve) : true;
-      }
-    });
-
-    existingParticipants
-      .filter((participant) => normalizeParticipantType(participant?.participant_type) === 'external')
-      .forEach((participant) => appendExternalReviewerRow(participant));
-  }
-
-  function syncAgreementThreadAnchorFields() {
-    const anchorType = String(threadAnchorType?.value || 'agreement').trim() || 'agreement';
-    threadPageWrap?.classList.toggle('hidden', anchorType !== 'page');
-    threadFieldWrap?.classList.toggle('hidden', anchorType !== 'field');
-  }
-
-  function promptForRequiredReason(title, subject) {
-    const promptLabel = subject
-      ? `${title}\n\n${subject}\n\nEnter a reason:`
-      : `${title}\n\nEnter a reason:`;
-    const value = window.prompt(promptLabel, '');
-    if (value === null) {
-      return null;
-    }
-    const reason = String(value || '').trim();
-    if (!reason) {
-      throw new Error('A reason is required.');
-    }
-    return reason;
-  }
-
-  async function submitAgreementReview() {
-    const participants = collectReviewParticipants();
-    const payload = {
-      gate: String(reviewGateSelect?.value || 'approve_before_send').trim() || 'approve_before_send',
-      comments_enabled: reviewCommentsEnabledInput instanceof HTMLInputElement ? reviewCommentsEnabledInput.checked : false,
-      review_participants: participants,
-    };
-    const normalizedStatus = String(reviewBootstrap.status || '').trim().toLowerCase();
-    const action = normalizedStatus && normalizedStatus !== 'none' && normalizedStatus !== 'in_review'
-      ? 'reopen_review'
-      : 'request_review';
-    await executeAction(action, payload);
-  }
-
-  async function closeAgreementReview() {
-    await executeAction('close_review', {});
-  }
-
-  async function forceApproveAgreementReview() {
-    const reason = promptForRequiredReason('Force approve review', 'This will finalize the review cycle using an admin override.');
-    if (reason === null) {
-      return;
-    }
-    await executeAction('force_approve_review', { reason });
-  }
-
-  async function notifyAgreementReviewers() {
-    await executeAction('notify_reviewers', {});
-  }
-
-  async function approveAgreementReviewOnBehalf(participantID, recipientID, participantName) {
-    const subject = participantName
-      ? `Approve on behalf of ${participantName}.`
-      : 'Approve on behalf of this reviewer.';
-    const reason = promptForRequiredReason('Approve review on behalf', subject);
-    if (reason === null) {
-      return;
-    }
-    await executeAction('approve_review_participant_on_behalf', {
-      participant_id: String(participantID || '').trim(),
-      recipient_id: String(recipientID || '').trim(),
-      reason,
-    });
-  }
-
-  async function notifyAgreementReviewParticipant(participantID, recipientID) {
-    await executeAction('notify_reviewers', {
-      participant_id: String(participantID || '').trim(),
-      recipient_id: String(recipientID || '').trim(),
-    });
-  }
-
-  async function pauseAgreementReviewReminder(participantID, recipientID) {
-    await executeAction('pause_review_reminder', {
-      participant_id: String(participantID || '').trim(),
-      recipient_id: String(recipientID || '').trim(),
-    });
-  }
-
-  async function resumeAgreementReviewReminder(participantID, recipientID) {
-    await executeAction('resume_review_reminder', {
-      participant_id: String(participantID || '').trim(),
-      recipient_id: String(recipientID || '').trim(),
-    });
-  }
-
-  async function sendAgreementReviewReminderNow(participantID, recipientID) {
-    await executeAction('send_review_reminder_now', {
-      participant_id: String(participantID || '').trim(),
-      recipient_id: String(recipientID || '').trim(),
-    });
-  }
-
-  async function createAgreementThread() {
-    if (!reviewBootstrap.review_id) {
-      throw new Error('Review must be active before comments can be created.');
-    }
-    const body = String(threadBody?.value || '').trim();
-    if (!body) {
-      throw new Error('Enter a comment before creating a thread.');
-    }
-    const anchorType = String(threadAnchorType?.value || 'agreement').trim() || 'agreement';
-    const payload = {
-      review_id: String(reviewBootstrap.review_id || '').trim(),
-      visibility: String(threadVisibility?.value || 'shared').trim() || 'shared',
-      anchor_type: anchorType,
-      body,
-    };
-    if (anchorType === 'page') {
-      const pageNumber = Number(threadPageNumber?.value || 0) || 0;
-      if (!pageNumber) {
-        throw new Error('Choose a page number for page-anchored comments.');
-      }
-      payload.page_number = pageNumber;
-    }
-    if (anchorType === 'field') {
-      const fieldID = String(threadFieldID?.value || '').trim();
-      if (!fieldID) {
-        throw new Error('Select a field before adding a field-anchored comment.');
-      }
-      payload.field_id = fieldID;
-    }
-    await executeAction('create_comment_thread', payload);
-  }
-
-  async function replyAgreementThread(threadID, body) {
-    await executeAction('reply_comment_thread', {
-      thread_id: String(threadID || '').trim(),
-      body: String(body || '').trim(),
-    });
-  }
-
-  async function updateAgreementThreadState(threadID, resolve) {
-    await executeAction(resolve ? 'resolve_comment_thread' : 'reopen_comment_thread', {
-      thread_id: String(threadID || '').trim(),
-    });
-  }
-
-  initializeReviewWorkspace();
-  applyAgreementReviewActorMetadata();
-  syncExternalReviewersEmptyState();
-  syncAgreementThreadAnchorFields();
-
-  threadAnchorType?.addEventListener('change', syncAgreementThreadAnchorFields);
-
-  addExternalReviewerBtn?.addEventListener('click', () => {
-    appendExternalReviewerRow();
-  });
-
-  externalReviewersContainer?.addEventListener('click', (event) => {
-    const trigger = event.target instanceof Element ? event.target.closest('[data-review-external-remove]') : null;
-    if (!trigger) {
-      return;
-    }
-    const row = trigger.closest('[data-review-external-row]');
-    row?.remove();
-    syncExternalReviewersEmptyState();
-  });
-
-  submitReviewBtn?.addEventListener('click', async () => {
-    try {
-      await submitAgreementReview();
-    } catch (error) {
-      const message = error?.message || 'Unable to update review configuration.';
-      if (window.toastManager) {
-        window.toastManager.error(message);
-      } else {
-        alert(message);
-      }
-    }
-  });
-
-  closeReviewBtn?.addEventListener('click', async () => {
-    try {
-      await closeAgreementReview();
-    } catch (error) {
-      const message = error?.message || 'Unable to close review.';
-      if (window.toastManager) {
-        window.toastManager.error(message);
-      } else {
-        alert(message);
-      }
-    }
-  });
-
-  notifyReviewersBtn?.addEventListener('click', async () => {
-    try {
-      await notifyAgreementReviewers();
-    } catch (error) {
-      const message = error?.message || 'Unable to notify reviewers.';
-      if (window.toastManager) {
-        window.toastManager.error(message);
-      } else {
-        alert(message);
-      }
-    }
-  });
-
-  forceApproveReviewBtn?.addEventListener('click', async () => {
-    try {
-      await forceApproveAgreementReview();
-    } catch (error) {
-      const message = error?.message || 'Unable to force approve review.';
-      if (window.toastManager) {
-        window.toastManager.error(message);
-      } else {
-        alert(message);
-      }
-    }
-  });
-
-  document.querySelectorAll('[data-action="notify-review-participant"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await notifyAgreementReviewParticipant(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
-      } catch (error) {
-        const message = error?.message || 'Unable to notify reviewer.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-action="approve-review-on-behalf"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await approveAgreementReviewOnBehalf(
-          btn.getAttribute('data-participant-id'),
-          btn.getAttribute('data-recipient-id'),
-          btn.getAttribute('data-participant-name')
-        );
-      } catch (error) {
-        const message = error?.message || 'Unable to approve review on behalf.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-action="pause-review-reminder"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await pauseAgreementReviewReminder(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
-      } catch (error) {
-        const message = error?.message || 'Unable to pause reviewer reminders.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-action="resume-review-reminder"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await resumeAgreementReviewReminder(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
-      } catch (error) {
-        const message = error?.message || 'Unable to resume reviewer reminders.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-action="send-review-reminder-now"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await sendAgreementReviewReminderNow(btn.getAttribute('data-participant-id'), btn.getAttribute('data-recipient-id'));
-      } catch (error) {
-        const message = error?.message || 'Unable to send reviewer reminder now.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  createThreadBtn?.addEventListener('click', async () => {
-    try {
-      await createAgreementThread();
-    } catch (error) {
-      const message = error?.message || 'Unable to add comment.';
-      if (window.toastManager) {
-        window.toastManager.error(message);
-      } else {
-        alert(message);
-      }
-    }
-  });
-
-  document.querySelectorAll('[data-review-thread-reply-submit]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const threadID = btn.getAttribute('data-thread-id');
-      const input = document.querySelector(`[data-review-thread-reply-input="${threadID}"]`);
-      const body = String(input?.value || '').trim();
-      if (!body) {
-        if (window.toastManager) {
-          window.toastManager.error('Enter a reply before submitting.');
-        } else {
-          alert('Enter a reply before submitting.');
-        }
-        return;
-      }
-      try {
-        await replyAgreementThread(threadID, body);
-      } catch (error) {
-        const message = error?.message || 'Unable to reply to thread.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-review-thread-resolve]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await updateAgreementThreadState(btn.getAttribute('data-thread-id'), true);
-      } catch (error) {
-        const message = error?.message || 'Unable to resolve thread.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-review-thread-reopen]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      try {
-        await updateAgreementThreadState(btn.getAttribute('data-thread-id'), false);
-      } catch (error) {
-        const message = error?.message || 'Unable to reopen thread.';
-        if (window.toastManager) {
-          window.toastManager.error(message);
-        } else {
-          alert(message);
-        }
-      }
-    });
-  });
-
-  // Per-recipient resend
-  document.querySelectorAll('[data-action="resend-recipient"], [data-action="resend-participant"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const recipientId = btn.getAttribute('data-recipient-id') || btn.getAttribute('data-participant-id');
-      if (!recipientId) {
-        if (window.toastManager) {
-          window.toastManager.error('Recipient ID is missing');
-        } else {
-          alert('Recipient ID is missing');
-        }
-        return;
-      }
-      await executeAction('resend', { recipient_id: recipientId });
-    });
-  });
-
-  // Rotate token
-  document.querySelectorAll('[data-action="rotate-token"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const recipientId = btn.getAttribute('data-recipient-id') || btn.getAttribute('data-participant-id');
-      if (!recipientId) {
-        if (window.toastManager) {
-          window.toastManager.error('Recipient ID is missing');
-        } else {
-          alert('Recipient ID is missing');
-        }
-        return;
-      }
-      await executeAction('rotate_token', { recipient_id: recipientId });
-    });
-  });
-
-  if (executedApplicable && agreementStatus === 'completed' && executedDeliveryStatus !== 'ready' && !executedObjectKey) {
-    markExecutedDownloadUnavailable('Executed completion package is still unavailable for this agreement. Artifact generation may still be running.');
-  }
-
-  // Download executed PDF
-  document.querySelectorAll('[data-action="download-executed"]').forEach(btn => {
-    btn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      if ((btn.dataset.downloadState || '').toLowerCase() === 'unavailable') {
-        showDownloadNotice('Executed completion package is still unavailable for this agreement. Refresh delivery status and try again.', 'warning');
-        return;
-      }
-      setExecutedDownloadLoading(true);
-      try {
-        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`, 'Executed completion package');
-        showDownloadNotice('Executed completion package downloaded successfully.', 'success');
-      } catch (error) {
-        markExecutedDownloadUnavailable(error.message || 'Unable To Download Package');
-      } finally {
-        setExecutedDownloadLoading(false);
-      }
-    });
-  });
-
-  // Download certificate with preflight validation
-  document.querySelectorAll('[data-action="download-certificate"]').forEach(btn => {
-    btn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = `${loadingDownloadIcon}Preparing...`;
-      try {
-        await fetchAndDownloadAsset('certificate', `${agreementId}-certificate.pdf`, 'Standalone audit certificate');
-        showDownloadNotice('Standalone audit certificate downloaded successfully.', 'success');
-      } catch (error) {
-        showDownloadNotice(error.message || 'Unable to download standalone audit certificate.', 'warning');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-      }
-    });
-  });
-
-  // Retry email action
-  document.querySelectorAll('[data-action="retry-email"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const emailId = btn.getAttribute('data-email-id');
-      const recipientId = btn.getAttribute('data-recipient-id');
-      btn.disabled = true;
-      btn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
-      await executeAction('retry_email', { email_id: emailId, recipient_id: recipientId });
-    });
-  });
-
-  // Retry job action
-  document.querySelectorAll('[data-action="retry-job"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const jobId = btn.getAttribute('data-job-id');
-      const jobType = btn.getAttribute('data-job-type');
-      btn.disabled = true;
-      btn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
-      await executeAction('retry_job', { job_id: jobId, job_type: jobType });
-    });
-  });
-
-  // Retry artifact generation action
-  document.querySelectorAll('[data-action="retry-artifact"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const artifactType = btn.getAttribute('data-artifact-type');
-      btn.disabled = true;
-      btn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
-      await executeAction('retry_artifact', { artifact_type: artifactType });
-    });
-  });
-
-  // Delivery refresh button
-  const deliveryRefreshBtn = document.getElementById('delivery-refresh');
-  if (deliveryRefreshBtn) {
-    deliveryRefreshBtn.addEventListener('click', () => {
-      window.location.reload();
-    });
-  }
-
-  // Timeline rendering
-  const timelineContainer = document.getElementById('agreement-timeline');
-  const timelineRefreshBtn = document.getElementById('timeline-refresh');
-
-  // Event type configuration for display
-  const eventConfig = {
-    'agreement.created': { icon: 'plus', color: 'green', label: 'Agreement Created' },
-    'agreement.updated': { icon: 'edit-pencil', color: 'blue', label: 'Agreement Updated' },
-    'agreement.sent': { icon: 'send', color: 'blue', label: 'Sent for Signature' },
-    'agreement.resent': { icon: 'refresh', color: 'yellow', label: 'Invitation Resent' },
-    'agreement.voided': { icon: 'cancel', color: 'red', label: 'Agreement Voided' },
-    'agreement.declined': { icon: 'xmark', color: 'orange', label: 'Agreement Declined' },
-    'agreement.expired': { icon: 'clock', color: 'purple', label: 'Agreement Expired' },
-    'agreement.completed': { icon: 'check-circle', color: 'green', label: 'Agreement Completed' },
-    'recipient.added': { icon: 'user-plus', color: 'green', label: 'Recipient Added' },
-    'recipient.removed': { icon: 'user-minus', color: 'red', label: 'Recipient Removed' },
-    'recipient.viewed': { icon: 'eye', color: 'purple', label: 'Document Viewed' },
-    'recipient.signed': { icon: 'edit', color: 'green', label: 'Signed' },
-    'recipient.declined': { icon: 'xmark', color: 'orange', label: 'Declined to Sign' },
-    'recipient.consent': { icon: 'check', color: 'blue', label: 'Consent Given' },
-    'recipient.submitted': { icon: 'check-circle', color: 'green', label: 'Submitted Signature' },
-    'field.created': { icon: 'plus', color: 'gray', label: 'Field Added' },
-    'field.updated': { icon: 'edit-pencil', color: 'gray', label: 'Field Updated' },
-    'field.deleted': { icon: 'trash', color: 'gray', label: 'Field Removed' },
-    'field_value.updated': { icon: 'edit-pencil', color: 'blue', label: 'Field Value Set' },
-    'signature.attached': { icon: 'edit', color: 'blue', label: 'Signature Attached' },
-    'token.rotated': { icon: 'refresh', color: 'yellow', label: 'Token Rotated' },
-    'token.revoked': { icon: 'lock', color: 'red', label: 'Token Revoked' },
-    'artifact.generated': { icon: 'document', color: 'green', label: 'Artifact Generated' },
-    'email.sent': { icon: 'mail', color: 'blue', label: 'Email Sent' },
-    'email.failed': { icon: 'warning-triangle', color: 'red', label: 'Email Failed' },
-    'email.delivered': { icon: 'check', color: 'green', label: 'Email Delivered' }
-  };
-
-  const colorClasses = {
-    green: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-    blue: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
-    red: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-    orange: { bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500' },
-    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
-    purple: { bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
-    gray: { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' }
-  };
-
-  function getEventDisplay(eventType) {
-    return eventConfig[eventType] || { icon: 'info-circle', color: 'gray', label: eventType.replace('.', ' ').replace(/_/g, ' ') };
-  }
-
-  function renderTimelineEntry(event) {
-    const display = getEventDisplay(event.event_type || event.action);
-    const colors = colorClasses[display.color] || colorClasses.gray;
-    const timestamp = formatRelativeTime(event.created_at || event.timestamp);
-    const fullTimestamp = formatTimestamp(event.created_at || event.timestamp);
-    const actor = event.actor || event.actor_id || 'System';
-    const actorDisplay = actor.includes('@') ? actor : (actor === 'system' ? 'System' : actor);
-
-    // Build metadata display
-    let metadataHtml = '';
-    if (event.metadata && Object.keys(event.metadata).length > 0) {
-      const metaItems = [];
-      for (const [key, value] of Object.entries(event.metadata)) {
-        if (value && !key.startsWith('_') && key !== 'correlation_id') {
-          const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          // Handle nested objects and arrays properly
-          let displayValue;
-          if (typeof value === 'object') {
-            displayValue = `<code class="text-xs bg-gray-100 px-1 rounded">${JSON.stringify(value)}</code>`;
-          } else {
-            displayValue = String(value);
-          }
-          metaItems.push(`<span class="text-gray-500">${displayKey}:</span> <span class="font-medium">${displayValue}</span>`);
-        }
-      }
-      if (metaItems.length > 0) {
-        metadataHtml = `
-          <button type="button" class="timeline-meta-toggle mt-2 text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
-                  aria-expanded="false" data-event-id="${event.id}">
-            <svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-            Details
-          </button>
-          <div class="timeline-meta-content hidden mt-2 text-xs bg-gray-50 rounded p-2 space-y-1" data-event-content="${event.id}">
-            ${metaItems.map(item => `<div>${item}</div>`).join('')}
-          </div>
-        `;
-      }
-    }
-
-    return `
-      <div class="timeline-entry relative pl-8 pb-6 last:pb-0" role="listitem">
-        <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${colors.dot} ring-4 ring-white" aria-hidden="true"></div>
-        <div class="absolute left-[7px] top-5 bottom-0 w-0.5 bg-gray-200 last:hidden" aria-hidden="true"></div>
-        <div class="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}">
-                  ${display.label}
-                </span>
-              </div>
-              <div class="text-sm text-gray-700">
-                <span class="font-medium">${actorDisplay}</span>
-                ${event.recipient_email ? `<span class="text-gray-500"> · ${event.recipient_email}</span>` : ''}
-              </div>
-              ${metadataHtml}
-            </div>
-            <div class="text-right flex-shrink-0">
-              <div class="text-xs text-gray-500" title="${fullTimestamp}">${timestamp}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderTimeline(events) {
-    if (!events || events.length === 0) {
-      timelineContainer.innerHTML = `
-        <div class="text-center py-8 text-gray-500">
-          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <p class="font-medium">No activity yet</p>
-          <p class="text-sm">Timeline events will appear here as the agreement progresses.</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Sort events by timestamp (newest first)
-    const sortedEvents = [...events].sort((a, b) => {
-      const dateA = new Date(a.created_at || a.timestamp);
-      const dateB = new Date(b.created_at || b.timestamp);
-      return dateB - dateA;
-    });
-
-    // Group by date
-    const groups = {};
-    sortedEvents.forEach(event => {
-      const date = new Date(event.created_at || event.timestamp);
-      const dateKey = date.toLocaleDateString();
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(event);
-    });
-
-    let html = '<div class="relative">';
-
-    for (const [dateKey, dateEvents] of Object.entries(groups)) {
-      const dateLabel = getDateLabel(new Date(dateEvents[0].created_at || dateEvents[0].timestamp));
-      html += `
-        <div class="mb-6">
-          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pl-8">${dateLabel}</div>
-          ${dateEvents.map(event => renderTimelineEntry(event)).join('')}
-        </div>
-      `;
-    }
-
-    html += '</div>';
-    timelineContainer.innerHTML = html;
-
-    // Wire up metadata toggles
-    timelineContainer.querySelectorAll('.timeline-meta-toggle').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const eventId = btn.getAttribute('data-event-id');
-        const content = timelineContainer.querySelector(`[data-event-content="${eventId}"]`);
-        const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-
-        btn.setAttribute('aria-expanded', !isExpanded);
-        content.classList.toggle('hidden', isExpanded);
-        btn.querySelector('svg').style.transform = isExpanded ? '' : 'rotate(180deg)';
-      });
-    });
-  }
-
-  function getDateLabel(date) {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-    }
-  }
-
-  async function loadTimeline() {
-    const inlineTimeline = {% if resource_item.timeline %}{{ toJSON(resource_item.timeline)|safe }}{% else %}[]{% endif %};
-    const inlineAuditEvents = {% if resource_item.audit_events %}{{ toJSON(resource_item.audit_events)|safe }}{% else %}[]{% endif %};
-
-    if (inlineTimeline.length > 0) {
-      renderTimeline(inlineTimeline);
-      return;
-    }
-    if (inlineAuditEvents.length > 0) {
-      renderTimeline(inlineAuditEvents);
-      return;
-    }
-    renderTimeline([]);
-  }
-
-  // Initial load
-  loadTimeline();
-
-  // Refresh button
-  if (timelineRefreshBtn) {
-    timelineRefreshBtn.addEventListener('click', () => {
-      timelineContainer.innerHTML = `
-        <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
-          <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-          <span>Loading timeline...</span>
-        </div>
-      `;
-      loadTimeline();
-    });
-  }
+// Initialize agreement detail page controller
+// This handles timeline rendering, actor resolution, and command runtime integration
+bootstrapAgreementDetailPage({
+  basePath: '{{ base_path }}',
+  apiBasePath: '{{ api_base_path|default:"" }}' || '{{ base_path }}/api',
+  agreementId: '{{ resource_item.id }}',
+  agreementStatus: '{{ resource_item.status|default:"" }}'.toLowerCase(),
+  panelName: '{{ panel_name|default:"esign_agreements" }}',
+  tenantId: '{{ resource_item.tenant_id|default:"" }}',
+  orgId: '{{ resource_item.org_id|default:"" }}',
+  delivery: {
+    executed_applicable: {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %},
+    executed_status: '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase(),
+    executed_object_key: '{{ resource_item.delivery.executed_object_key|default:"" }}',
+    certificate_applicable: {% if resource_item.delivery and resource_item.delivery.certificate_applicable %}true{% else %}false{% endif %},
+    certificate_status: '{{ resource_item.delivery.certificate_status|default:"pending" }}'.toLowerCase(),
+    certificate_object_key: '{{ resource_item.delivery.certificate_object_key|default:"" }}',
+  },
 });
+
 </script>
 {% endblock %}

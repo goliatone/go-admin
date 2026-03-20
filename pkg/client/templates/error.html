@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Error {{ status|default:500 }} - {{ title|default:"Enterprise Admin" }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
-  <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/output.css">
-  <link rel="stylesheet" href="{{ base_path|default:"/admin" }}/assets/dist/styles/error-page.css">
+  <link rel="stylesheet" href="{{ adminURL("assets/output.css") }}">
+  <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/error-page.css") }}">
 </head>
 <body class="error-page{% if dev_mode %} dev-mode{% endif %}">
   <div class="error-container">
@@ -377,7 +377,7 @@
       {# Footer Actions #}
       <div class="dev-error-footer">
         <div class="dev-footer-actions">
-          <a href="{{ base_path|default:"/admin" }}" class="dev-btn dev-btn-primary">
+          <a href="{{ adminURL("") }}" class="dev-btn dev-btn-primary">
             <i class="iconoir-home"></i>
             Dashboard
           </a>
@@ -482,7 +482,7 @@
         {% endif %}
 
         <div class="error-actions">
-          <a href="{{ base_path|default:"/admin" }}" class="btn btn-primary">
+          <a href="{{ adminURL("") }}" class="btn btn-primary">
             <i class="iconoir-home"></i>
             Back to Dashboard
           </a>

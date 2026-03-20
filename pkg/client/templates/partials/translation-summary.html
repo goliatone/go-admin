@@ -262,7 +262,7 @@
 {% endif %}
 {% if summary_family_id %}
 <script type="module">
-  import { initTranslationSummaryCards } from '{{ base_path|default:"/admin" }}/assets/dist/translation-family/index.js';
+  import { initTranslationSummaryCards } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
 
   const bindTranslationSummaryCards = () => initTranslationSummaryCards(document);
   if (document.readyState === 'loading') {

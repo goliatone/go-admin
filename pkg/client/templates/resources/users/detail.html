@@ -3,8 +3,8 @@
 {% set avatar_type = "person" %}
 
 {% block detail_head_extra %}
-<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/widgets.css">
-<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/activity.css">
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/widgets.css") }}">
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/activity.css") }}">
 {% endblock %}
 
 {% block identity_title %}{{ resource_item.username|default:resource_item.display_name|default:resource_item.id }}{% endblock %}
@@ -66,7 +66,7 @@
 
 {% block detail_scripts %}
 <script type="module">
-  import { initTabsController } from '{{ base_path }}/assets/dist/tabs/index.js';
+  import { initTabsController } from '{{ adminURL("assets/dist/tabs/index.js") }}';
   initTabsController();
 </script>
 {% endblock %}

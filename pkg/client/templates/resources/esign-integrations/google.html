@@ -410,35 +410,13 @@
 {% endblock %}
 
 {% block scripts %}
+<div data-esign-page="{{ esign_page|default:"admin.integrations.google" }}" hidden></div>
+
 {# Page configuration for module bootstrapping #}
-<script id="esign-page-config" type="application/json">
-{
-  "basePath": "{{ base_path }}",
-  "apiBasePath": "{{ api_base_path|default:"" }}",
-  "userId": "{{ user_id|default:"" }}",
-  "googleAccountId": "{{ google_account_id|default:"" }}",
-  "googleRedirectUri": "{{ google_redirect_uri|default:"" }}",
-  "googleClientId": "{{ google_client_id|default:"" }}",
-  "googleEnabled": {{ google_enabled|default:false|yesno:"true,false" }}
-}
-</script>
-
-{# Module bootstrapping - uses TypeScript controller from esign module #}
-<script type="module">
-  import { bootstrapGoogleIntegration } from '{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}';
-
-  const configEl = document.getElementById('esign-page-config');
-  let config = {};
-  if (configEl) {
-    try {
-      config = JSON.parse(configEl.textContent || '{}');
-    } catch (e) {
-      console.warn('Failed to parse esign page config:', e);
-    }
-  }
-  if (!config.apiBasePath) {
-    config.apiBasePath = (config.basePath || '/admin') + '/api';
-  }
-  bootstrapGoogleIntegration(config);
-</script>
+<script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
+{% if esign_module_path %}
+<script type="module" src="{{ esign_module_path }}"></script>
+{% else %}
+<script type="module" src="{{ adminURL("assets/dist/esign/index.js") }}"></script>
+{% endif %}
 {% endblock %}

@@ -32,7 +32,7 @@
 
 {% block scripts %}
 <script type="module">
-import { initTranslationDashboardPage } from '{{ base_path }}/assets/dist/translation-dashboard/index.js';
+import { initTranslationDashboardPage } from '{{ adminURL("assets/dist/translation-dashboard/index.js") }}';
 
 const root = document.getElementById('translation-dashboard-root');
 if (root) {

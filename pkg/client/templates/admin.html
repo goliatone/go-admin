@@ -48,7 +48,7 @@
 {% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ base_path }}/assets/dist/styles/widgets.css">
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/widgets.css") }}">
 {% endblock %}
 
 {% block scripts %}
@@ -71,7 +71,7 @@ window.location.replace('{{ dashboard_ssr_path }}');
 
 <!-- Load and bootstrap dashboard -->
 <script type="module">
-import { bootstrapAdminDashboard } from '{{ base_path }}/assets/dist/dashboard/index.js';
+import { bootstrapAdminDashboard } from '{{ adminURL("assets/dist/dashboard/index.js") }}';
 window.addEventListener('DOMContentLoaded', bootstrapAdminDashboard);
 </script>
 {% endif %}

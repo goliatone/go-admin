@@ -504,7 +504,7 @@
 
   /* Side panel */
   .side-panel {
-    width: 360px;
+    width: 520px;
     background: white;
     border-left: 1px solid #e5e7eb;
     display: flex;
@@ -513,7 +513,15 @@
     flex-shrink: 0;
   }
 
-  @media (max-width: 1024px) {
+  /* Tablet breakpoint: narrower sidebar */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .side-panel {
+      width: 380px;
+    }
+  }
+
+  /* Mobile: full width stacked layout */
+  @media (max-width: 768px) {
     .unified-container {
       flex-direction: column;
       height: auto;
@@ -1520,5 +1528,5 @@
 }
 </script>
 
-<script type="module" src="{{ base_path|default:"" }}/assets/dist/esign/index.js"></script>
+<script type="module" src="{{ adminURL("assets/dist/esign/index.js") }}"></script>
 {% endblock %}
