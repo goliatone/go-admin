@@ -291,7 +291,7 @@ func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
 	logCapture := &capturingSlogHandler{}
 	translationObservabilityLogger = slog.New(logCapture)
 	originalMetrics := translationAPIObservabilityMetrics
-	translationAPIObservabilityMetrics = expvar.NewMap("test_translation_api_operation_count")
+	translationAPIObservabilityMetrics = new(expvar.Map).Init()
 	t.Cleanup(func() {
 		translationObservabilityLogger = originalLogger
 		translationAPIObservabilityMetrics = originalMetrics
