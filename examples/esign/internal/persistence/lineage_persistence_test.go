@@ -204,6 +204,49 @@ func TestPhase2SQLiteLineagePersistenceNormalizesDefaultsAndRejectsDuplicateRela
 	}); err == nil {
 		t.Fatalf("expected missing extract_version rejection")
 	}
+	otherDocument, err := lineage.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		CreatedAt:    now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument other: %v", err)
+	}
+	otherHandle, err := lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		SourceDocumentID: otherDocument.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "google-defaults-2",
+		AccountID:        "account-2",
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle other: %v", err)
+	}
+	otherRevision, err := lineage.CreateSourceRevision(ctx, scope, stores.SourceRevisionRecord{
+		SourceDocumentID: otherDocument.ID,
+		SourceHandleID:   otherHandle.ID,
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision other: %v", err)
+	}
+	otherArtifact, err := lineage.CreateSourceArtifact(ctx, scope, stores.SourceArtifactRecord{
+		SourceRevisionID: otherRevision.ID,
+		ArtifactKind:     stores.SourceArtifactKindSignablePDF,
+		ObjectKey:        "fixtures/defaults-other.pdf",
+		SHA256:           strings.Repeat("f", 64),
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceArtifact other: %v", err)
+	}
+	if _, err := lineage.CreateSourceFingerprint(ctx, scope, stores.SourceFingerprintRecord{
+		SourceRevisionID: revision.ID,
+		ArtifactID:       otherArtifact.ID,
+		ExtractVersion:   stores.SourceExtractVersionPDFTextV1,
+		CreatedAt:        now,
+	}); err == nil {
+		t.Fatalf("expected mismatched artifact/source revision rejection")
+	}
 
 	relationship, err := lineage.CreateSourceRelationship(ctx, scope, stores.SourceRelationshipRecord{
 		LeftSourceDocumentID:  document.ID,

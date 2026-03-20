@@ -33,12 +33,16 @@ const (
 	eSignModuleAssetAdminLanding      = "dist/esign/index.js"
 	eSignModuleAssetDocumentIngestion = "dist/esign/index.js"
 	eSignModuleAssetAgreementForm     = "dist/esign/index.js"
+	eSignModuleAssetGoogleIntegration = "dist/esign/index.js"
 )
 
 var eSignMigratedPageModuleAssets = map[string]string{
 	eSignPageAdminLanding:      eSignModuleAssetAdminLanding,
 	eSignPageDocumentIngestion: eSignModuleAssetDocumentIngestion,
 	eSignPageAgreementForm:     eSignModuleAssetAgreementForm,
+	eSignPageGoogleIntegration: eSignModuleAssetGoogleIntegration,
+	eSignPageGoogleCallback:    eSignModuleAssetGoogleIntegration,
+	eSignPageGoogleDrivePicker: eSignModuleAssetGoogleIntegration,
 }
 
 type eSignPageConfig struct {
@@ -138,21 +142,61 @@ func buildESignGoogleIntegrationPageConfig(
 	basePath string,
 	apiBasePath string,
 	userID string,
+	accountID string,
+	redirectURI string,
+	clientID string,
 	googleEnabled bool,
 	routes map[string]string,
 ) eSignPageConfig {
+	resolvedBasePath := normalizeESignBasePath(basePath)
 	return eSignPageConfig{
 		Page:        strings.TrimSpace(page),
-		BasePath:    normalizeESignBasePath(basePath),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetGoogleIntegration),
+		BasePath:    resolvedBasePath,
 		APIBasePath: normalizeAPIBasePath(apiBasePath),
 		Features: map[string]bool{
 			"google_enabled": googleEnabled,
 		},
 		Routes: cloneStringMap(routes),
 		Context: map[string]any{
-			"user_id": strings.TrimSpace(userID),
+			"user_id":             strings.TrimSpace(userID),
+			"google_account_id":   strings.TrimSpace(accountID),
+			"google_redirect_uri": strings.TrimSpace(redirectURI),
+			"google_client_id":    strings.TrimSpace(clientID),
 		},
 	}
+}
+
+func enrichESignAgreementFormPageConfig(cfg eSignPageConfig, ctx router.ViewContext) eSignPageConfig {
+	if cfg.Context == nil {
+		cfg.Context = map[string]any{}
+	}
+	resourceItem := rawToMap(ctx["resource_item"])
+	isEdit := rawToBool(ctx["is_edit"])
+
+	cfg.Context["is_edit"] = isEdit
+	cfg.Context["create_success"] = rawToBool(ctx["create_success"])
+	cfg.Context["submit_mode"] = firstNonEmptyValue(
+		viewContextString(ctx, "submit_mode", ""),
+		map[bool]string{true: "form", false: "json"}[isEdit],
+	)
+	cfg.Context["agreement_id"] = strings.TrimSpace(rawToString(resourceItem["id"]))
+	cfg.Context["active_agreement_id"] = strings.TrimSpace(rawToString(resourceItem["active_agreement_id"]))
+	cfg.Context["workflow_kind"] = firstNonEmptyValue(
+		strings.TrimSpace(rawToString(resourceItem["workflow_kind"])),
+		"standard",
+	)
+	cfg.Context["root_agreement_id"] = firstNonEmptyValue(
+		strings.TrimSpace(rawToString(resourceItem["root_agreement_id"])),
+		strings.TrimSpace(rawToString(resourceItem["id"])),
+	)
+	cfg.Context["parent_agreement_id"] = strings.TrimSpace(rawToString(resourceItem["parent_agreement_id"]))
+	cfg.Context["superseded_by_agreement_id"] = strings.TrimSpace(rawToString(resourceItem["superseded_by_agreement_id"]))
+	cfg.Context["related_agreements"] = rawToSlice(resourceItem["related_agreements"])
+	cfg.Context["initial_participants"] = rawToSlice(resourceItem["participants"])
+	cfg.Context["initial_field_instances"] = rawToSlice(resourceItem["field_instances"])
+
+	return cfg
 }
 
 func buildESignSignerPageConfig(page, basePath, apiBasePath, token string) eSignPageConfig {
@@ -296,6 +340,68 @@ func rawToString(value any) string {
 		return string(typed)
 	default:
 		return strings.TrimSpace(strings.ReplaceAll(fmt.Sprint(typed), "\n", " "))
+	}
+}
+
+func rawToBool(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		normalized := strings.TrimSpace(strings.ToLower(typed))
+		return normalized == "true" || normalized == "1" || normalized == "yes"
+	case []byte:
+		return rawToBool(string(typed))
+	default:
+		return false
+	}
+}
+
+func rawToMap(value any) map[string]any {
+	switch typed := value.(type) {
+	case map[string]any:
+		if len(typed) == 0 {
+			return map[string]any{}
+		}
+		out := make(map[string]any, len(typed))
+		for key, entry := range typed {
+			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
+			out[trimmedKey] = entry
+		}
+		return out
+	case map[string]string:
+		if len(typed) == 0 {
+			return map[string]any{}
+		}
+		out := make(map[string]any, len(typed))
+		for key, entry := range typed {
+			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
+			out[trimmedKey] = strings.TrimSpace(entry)
+		}
+		return out
+	default:
+		return map[string]any{}
+	}
+}
+
+func rawToSlice(value any) []any {
+	switch typed := value.(type) {
+	case []any:
+		return append([]any(nil), typed...)
+	case []map[string]any:
+		out := make([]any, 0, len(typed))
+		for _, entry := range typed {
+			out = append(out, entry)
+		}
+		return out
+	default:
+		return []any{}
 	}
 }
 

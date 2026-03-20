@@ -17,6 +17,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
@@ -365,6 +366,122 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 	}
 	if fields[0].RecipientID != recipients[0].ID {
 		t.Fatalf("expected field recipient_id %q, got %q", recipients[0].ID, fields[0].RecipientID)
+	}
+}
+
+func TestAgreementPanelRepositoryGetIncludesTimelineBootstrapFieldDefinitionsAndCurrentUser(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-detail-bootstrap-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID:        "admin-user-1",
+		Subject:        "admin-user-1",
+		TenantID:       scope.TenantID,
+		OrganizationID: scope.OrgID,
+	})
+
+	created, err := repo.Create(ctx, map[string]any{
+		"document_id": "doc-detail-bootstrap-1",
+		"title":       "Bootstrap Detail",
+		"message":     "Review timeline payload",
+		"recipients[0]": map[string]any{
+			"id":    "recipient-bootstrap-1",
+			"name":  "Alice Reviewer",
+			"email": "alice.bootstrap@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-bootstrap-1",
+			"type":           "signature",
+			"participant_id": "recipient-bootstrap-1",
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatalf("expected agreement id in create response")
+	}
+
+	detail, err := repo.Get(ctx, agreementID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	if got := strings.TrimSpace(toString(detail["current_user_id"])); got != "admin-user-1" {
+		t.Fatalf("expected current_user_id admin-user-1, got %q", got)
+	}
+
+	fieldDefinitions, ok := detail["field_definitions"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected field_definitions payload, got %T", detail["field_definitions"])
+	}
+	if len(fieldDefinitions) != 1 {
+		t.Fatalf("expected 1 field definition, got %d", len(fieldDefinitions))
+	}
+	if got := strings.TrimSpace(toString(fieldDefinitions[0]["label"])); got != "Signature" {
+		t.Fatalf("expected field definition label Signature, got %q", got)
+	}
+
+	timelineBootstrap, ok := detail["timeline_bootstrap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected timeline_bootstrap payload, got %T", detail["timeline_bootstrap"])
+	}
+	if got := strings.TrimSpace(toString(timelineBootstrap["agreement_id"])); got != agreementID {
+		t.Fatalf("expected timeline bootstrap agreement id %q, got %q", agreementID, got)
+	}
+	if got := strings.TrimSpace(toString(timelineBootstrap["current_user_id"])); got != "admin-user-1" {
+		t.Fatalf("expected timeline bootstrap current_user_id admin-user-1, got %q", got)
+	}
+
+	timelineFieldDefinitions, ok := timelineBootstrap["field_definitions"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected timeline field_definitions payload, got %T", timelineBootstrap["field_definitions"])
+	}
+	if len(timelineFieldDefinitions) != 1 {
+		t.Fatalf("expected 1 timeline field definition, got %d", len(timelineFieldDefinitions))
+	}
+	if got := strings.TrimSpace(toString(timelineFieldDefinitions[0]["label"])); got != "Signature" {
+		t.Fatalf("expected timeline field definition label Signature, got %q", got)
+	}
+
+	actors, ok := timelineBootstrap["actors"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected actors payload, got %T", timelineBootstrap["actors"])
+	}
+	recipientActor, ok := actors["recipient:recipient-bootstrap-1"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected recipient actor payload, got %T", actors["recipient:recipient-bootstrap-1"])
+	}
+	if got := strings.TrimSpace(toString(recipientActor["display_name"])); got != "Alice Reviewer" {
+		t.Fatalf("expected recipient actor display_name Alice Reviewer, got %q", got)
+	}
+
+	events, ok := timelineBootstrap["events"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected events payload, got %T", timelineBootstrap["events"])
+	}
+	if len(events) == 0 {
+		t.Fatalf("expected timeline events to be populated")
+	}
+	if got := strings.TrimSpace(toString(events[0]["actor_type"])); got == "" {
+		t.Fatalf("expected timeline event actor_type to be populated")
 	}
 }
 

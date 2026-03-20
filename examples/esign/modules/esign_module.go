@@ -510,6 +510,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	emailOutbox.NotifyScope(m.defaultScope)
 	m.emailOutbox = emailOutbox
+	reviewActorDirectory := newReviewActorDirectory(ctx.Admin)
 	signingWorkflowOutbox, err := jobs.NewSigningWorkflowOutboxDispatcher(
 		m.store,
 		jobs.NewSigningWorkflowOutboxPublisher(jobHandlers, emailWorkflow, emailWorkflow),
@@ -529,6 +530,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 		services.WithAgreementPlacementObjectStore(objectStore),
 		services.WithAgreementPDFService(pdfService),
+		services.WithAgreementReviewActorDirectory(reviewActorDirectory),
 	)
 	m.reminders = services.NewAgreementReminderService(
 		m.store,
@@ -561,6 +563,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
 		services.WithSigningPDFService(pdfService),
+		services.WithSigningReviewActorDirectory(reviewActorDirectory),
 	)
 	profileTTL, persistDrawnSignature := resolveSignerProfilePersistencePolicy()
 	m.signerProfiles = services.NewSignerProfileService(
@@ -892,6 +895,8 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 
 	agreementRepo := newAgreementPanelRepository(m.store, m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
 	agreementRepo.authorizer = adm.Authorizer()
+	agreementRepo.users = adm.UserService()
+	agreementRepo.profiles = adm.ProfileService()
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
 		ListFields(

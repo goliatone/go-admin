@@ -11,12 +11,13 @@ import (
 
 func (s SigningService) reviewWorkflow() AgreementService {
 	return AgreementService{
-		agreements:   s.agreements,
-		documents:    s.documents,
-		audits:       s.audits,
-		tx:           s.tx,
-		now:          s.now,
-		customAudits: !sameInstance(s.audits, s.agreements),
+		agreements:           s.agreements,
+		documents:            s.documents,
+		audits:               s.audits,
+		reviewActorDirectory: s.reviewActorDirectory,
+		tx:                   s.tx,
+		now:                  s.now,
+		customAudits:         !sameInstance(s.audits, s.agreements),
 	}
 }
 

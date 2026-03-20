@@ -47,6 +47,38 @@ type capturingAgreementTokenService struct {
 	rotated []stores.IssuedSigningToken
 }
 
+type stubReviewActorDirectory struct {
+	actors map[string]ReviewActorInfo
+}
+
+func (s stubReviewActorDirectory) ResolveReviewActors(_ context.Context, _ stores.Scope, refs []ReviewActorRef) ([]ReviewActorInfo, error) {
+	if len(refs) == 0 || len(s.actors) == 0 {
+		return nil, nil
+	}
+	out := make([]ReviewActorInfo, 0, len(refs))
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		key := reviewActorKey(ref.ActorType, ref.ActorID)
+		if key == "" {
+			continue
+		}
+		actor, ok := s.actors[key]
+		if !ok {
+			continue
+		}
+		canonicalKey := reviewActorKey(actor.ActorType, actor.ActorID)
+		if canonicalKey == "" {
+			canonicalKey = key
+		}
+		if _, exists := seen[canonicalKey]; exists {
+			continue
+		}
+		seen[canonicalKey] = struct{}{}
+		out = append(out, actor)
+	}
+	return out, nil
+}
+
 func (c *capturingAgreementTokenService) Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error) {
 	issued, err := c.inner.Issue(ctx, scope, agreementID, recipientID)
 	if err == nil {
@@ -3071,6 +3103,65 @@ func TestAgreementServiceReviewSummaryIncludesActorMapAndInternalThreads(t *test
 	}
 	if !foundInternal {
 		t.Fatalf("expected one internal thread in %+v", updated.Threads)
+	}
+}
+
+func TestAgreementServiceReviewSummaryResolvesInternalUserActors(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	svc := NewAgreementService(
+		store,
+		WithAgreementReviewActorDirectory(stubReviewActorDirectory{
+			actors: map[string]ReviewActorInfo{
+				reviewActorKey("user", "ops-user"): {
+					Name:      "Operations Admin",
+					Email:     "ops@example.com",
+					Role:      "sender",
+					ActorType: "user",
+					ActorID:   "ops-user",
+				},
+			},
+		}),
+	)
+
+	summary, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.resolved@example.com",
+				DisplayName:     "Outside Resolved Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityShared,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Resolved actor comment",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	}); err != nil {
+		t.Fatalf("CreateCommentThread: %v", err)
+	}
+
+	updated, err := svc.GetReviewSummary(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetReviewSummary: %v", err)
+	}
+	if got := updated.ActorMap[reviewActorKey("user", "ops-user")]; strings.TrimSpace(got.Name) != "Operations Admin" || strings.TrimSpace(got.Email) != "ops@example.com" {
+		t.Fatalf("expected resolved user actor map entry, got %+v", got)
+	}
+	if got := updated.ActorMap[reviewActorKey("sender", "ops-user")]; strings.TrimSpace(got.Name) != "Operations Admin" || strings.TrimSpace(got.Email) != "ops@example.com" {
+		t.Fatalf("expected resolved sender actor alias, got %+v", got)
 	}
 }
 

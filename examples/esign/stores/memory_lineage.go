@@ -487,6 +487,10 @@ func (s *InMemoryStore) GetSourceArtifact(ctx context.Context, scope Scope, id s
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.getSourceArtifactLocked(scope, id)
+}
+
+func (s *InMemoryStore) getSourceArtifactLocked(scope Scope, id string) (SourceArtifactRecord, error) {
 	record, ok := s.sourceArtifacts[lineageScopedID(scope, id)]
 	if !ok {
 		return SourceArtifactRecord{}, notFoundError("source_artifacts", id)
@@ -567,8 +571,12 @@ func (s *InMemoryStore) CreateSourceFingerprint(ctx context.Context, scope Scope
 	if _, err := s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID); err != nil {
 		return SourceFingerprintRecord{}, err
 	}
-	if _, err := s.GetSourceArtifact(context.Background(), scope, record.ArtifactID); err != nil {
+	artifact, err := s.GetSourceArtifact(context.Background(), scope, record.ArtifactID)
+	if err != nil {
 		return SourceFingerprintRecord{}, err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
 	}
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
@@ -661,6 +669,13 @@ func (s *InMemoryStore) SaveSourceFingerprint(ctx context.Context, scope Scope, 
 	record, err = PrepareSourceFingerprintRecord(record, &current)
 	if err != nil {
 		return SourceFingerprintRecord{}, err
+	}
+	artifact, err := s.getSourceArtifactLocked(scope, record.ArtifactID)
+	if err != nil {
+		return SourceFingerprintRecord{}, err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
 	}
 	s.sourceFingerprints[scopedID] = record
 	return record, nil

@@ -22,6 +22,7 @@ type AgreementService struct {
 	documents             stores.DocumentStore
 	placementRuns         stores.PlacementRunStore
 	reminders             stores.AgreementReminderStore
+	reviewActorDirectory  ReviewActorDirectory
 	tokens                AgreementTokenService
 	reviewTokens          AgreementReviewTokenService
 	audits                stores.AuditEventStore
@@ -139,6 +140,16 @@ func WithAgreementReviewTokenService(tokens AgreementReviewTokenService) Agreeme
 		}
 		s.reviewTokens = tokens
 		s.customReviewTokens = true
+	}
+}
+
+// WithAgreementReviewActorDirectory configures actor resolution used to enrich review/comment summaries.
+func WithAgreementReviewActorDirectory(directory ReviewActorDirectory) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil || directory == nil {
+			return
+		}
+		s.reviewActorDirectory = directory
 	}
 }
 

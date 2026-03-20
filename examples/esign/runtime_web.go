@@ -712,13 +712,12 @@ func registerESignGoogleIntegrationUIRoutes(
 					basePath,
 					apiBasePath,
 					userID,
+					accountID,
+					redirectURI,
+					strings.TrimSpace(appcfg.Active().Google.ClientID),
 					googleEnabled,
 					viewContextRoutes(viewCtx),
 				)
-				if pageCfg.Context == nil {
-					pageCfg.Context = map[string]any{}
-				}
-				pageCfg.Context["google_account_id"] = accountID
 				viewCtx = withESignPageConfig(
 					viewCtx,
 					pageCfg,
@@ -756,13 +755,12 @@ func registerESignGoogleIntegrationUIRoutes(
 					basePath,
 					apiBasePath,
 					userID,
+					accountID,
+					"",
+					"",
 					googleEnabled,
 					viewContextRoutes(viewCtx),
 				)
-				if pageCfg.Context == nil {
-					pageCfg.Context = map[string]any{}
-				}
-				pageCfg.Context["google_account_id"] = accountID
 				viewCtx = withESignPageConfig(
 					viewCtx,
 					pageCfg,
@@ -784,13 +782,12 @@ func registerESignGoogleIntegrationUIRoutes(
 			basePath,
 			apiBasePath,
 			userID,
+			accountID,
+			"",
+			"",
 			googleEnabled,
 			map[string]string{},
 		)
-		if pageCfg.Context == nil {
-			pageCfg.Context = map[string]any{}
-		}
-		pageCfg.Context["google_account_id"] = accountID
 		viewCtx := withESignPageConfig(
 			router.ViewContext{
 				"base_path":         basePath,
@@ -1193,7 +1190,7 @@ func withESignContentEntryViewContext(
 			routes,
 			storageScope,
 		)
-		return withESignPageConfig(ctx, pageCfg)
+		return withESignPageConfig(ctx, enrichESignAgreementFormPageConfig(pageCfg, ctx))
 	default:
 		return ctx
 	}

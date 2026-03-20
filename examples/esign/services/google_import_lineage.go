@@ -16,6 +16,22 @@ import (
 
 const googleImportRunFailureCode = "GOOGLE_IMPORT_FAILED"
 
+type GoogleImportInProgressError struct {
+	RunID  string
+	Status string
+}
+
+func (e *GoogleImportInProgressError) Error() string {
+	if e == nil {
+		return "google import already in progress"
+	}
+	status := strings.TrimSpace(e.Status)
+	if status == "" {
+		return "google import already in progress"
+	}
+	return "google import already in progress: " + status
+}
+
 type googleImportExecutionDeps struct {
 	documents  GoogleDocumentUploader
 	agreements GoogleAgreementCreator
@@ -79,11 +95,20 @@ func executeGoogleImportWithPersistence(
 		if err != nil {
 			return GoogleImportResult{}, err
 		}
-		_ = created
 		if replay, replayed, replayErr := loadCompletedGoogleImportResult(ctx, scope, run, persistence.documentStore, persistence.agreementStore); replayErr != nil {
 			return GoogleImportResult{}, replayErr
 		} else if replayed {
 			return replay, nil
+		}
+		if !created {
+			status := strings.TrimSpace(run.Status)
+			if (status == stores.GoogleImportRunStatusQueued || status == stores.GoogleImportRunStatusRunning) &&
+				strings.TrimSpace(input.ImportRunID) != strings.TrimSpace(run.ID) {
+				return GoogleImportResult{}, &GoogleImportInProgressError{
+					RunID:  strings.TrimSpace(run.ID),
+					Status: status,
+				}
+			}
 		}
 	}
 

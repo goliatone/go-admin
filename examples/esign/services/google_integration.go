@@ -694,6 +694,7 @@ type GoogleDriveQueryInput struct {
 
 // GoogleImportInput captures import request inputs.
 type GoogleImportInput struct {
+	ImportRunID       string `json:"import_run_id,omitempty"`
 	UserID            string `json:"user_id"`
 	AccountID         string `json:"account_id"`
 	GoogleFileID      string `json:"google_file_id"`
@@ -1263,6 +1264,7 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	result, err = executeGoogleImportWithPersistence(ctx, scope, GoogleImportInput{
+		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
 		GoogleFileID:      fileID,
@@ -1287,6 +1289,7 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		return GoogleImportResult{}, err
 	}
 	s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
 		GoogleFileID:      fileID,
@@ -1319,7 +1322,7 @@ func (s GoogleIntegrationService) enqueueLineageProcessing(
 		modifiedTime = now
 	}
 	_ = s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
-		ImportRunID:      "",
+		ImportRunID:      strings.TrimSpace(input.ImportRunID),
 		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
 		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),
 		ArtifactID:       strings.TrimSpace(result.SourceArtifactID),

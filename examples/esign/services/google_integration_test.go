@@ -234,8 +234,26 @@ func TestGoogleIntegrationImportDocumentEnqueuesLineageProcessing(t *testing.T) 
 	}); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
+	run, created, err := store.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "rev-lineage",
+		DedupeKey:         "google-lineage-import-1",
+		DocumentTitle:     "Imported Lineage Contract",
+		AgreementTitle:    "Imported Lineage Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-lineage",
+		RequestedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
+	if !created {
+		t.Fatalf("expected queued import run to be created")
+	}
 
 	result, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		ImportRunID:       run.ID,
 		UserID:            "ops-user",
 		AccountID:         "",
 		GoogleFileID:      "google-file-1",
@@ -256,8 +274,118 @@ func TestGoogleIntegrationImportDocumentEnqueuesLineageProcessing(t *testing.T) 
 	if enqueued.SourceDocumentID != result.SourceDocumentID || enqueued.SourceRevisionID != result.SourceRevisionID || enqueued.ArtifactID != result.SourceArtifactID {
 		t.Fatalf("expected enqueued lineage ids to match import result, enqueued=%+v result=%+v", enqueued, result)
 	}
+	if enqueued.ImportRunID != run.ID {
+		t.Fatalf("expected import run id %q forwarded to lineage trigger, got %+v", run.ID, enqueued)
+	}
 	if enqueued.Metadata.ExternalFileID != "google-file-1" || enqueued.Metadata.TitleHint != "Imported Lineage Contract" {
 		t.Fatalf("expected import metadata forwarded to lineage trigger, got %+v", enqueued.Metadata)
+	}
+}
+
+func TestGoogleServicesIntegrationEnqueueLineageProcessingForwardsImportRunID(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-google-services-lineage", OrgID: "org-google-services-lineage"}
+	trigger := &recordingLineageProcessingTrigger{}
+	service := GoogleServicesIntegrationService{
+		lineageProcessing: trigger,
+		now:               func() time.Time { return time.Date(2026, time.March, 20, 12, 0, 0, 0, time.UTC) },
+	}
+	runID := "gir_services_001"
+	result := GoogleImportResult{
+		SourceDocumentID: "src-doc-1",
+		SourceRevisionID: "src-rev-1",
+		SourceArtifactID: "src-art-1",
+		Document: stores.DocumentRecord{
+			PageCount: 3,
+		},
+	}
+	service.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+		ImportRunID:       runID,
+		UserID:            "ops-user",
+		AccountID:         "acct-1",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "rev-lineage",
+		DocumentTitle:     "Imported Services Lineage Contract",
+		AgreementTitle:    "Imported Services Lineage Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-services-lineage",
+		IdempotencyKey:    "google-services-lineage-import-1",
+	}, GoogleExportSnapshot{
+		File: GoogleDriveFile{
+			ID:           "google-file-1",
+			Name:         "Imported Services Lineage Contract",
+			WebViewURL:   "https://docs.google.com/document/d/google-file-1/edit",
+			DriveID:      "drive-1",
+			ModifiedTime: time.Date(2026, time.March, 20, 11, 0, 0, 0, time.UTC),
+			OwnerEmail:   "owner@example.com",
+			ParentID:     "folder-1",
+		},
+	}, GoogleDriveMimeTypeDoc, GoogleIngestionModeExportPDF)
+	if len(trigger.inputs) != 1 {
+		t.Fatalf("expected one lineage processing trigger call, got %+v", trigger.inputs)
+	}
+	enqueued := trigger.inputs[0]
+	if enqueued.ImportRunID != runID {
+		t.Fatalf("expected import run id %q forwarded to lineage trigger, got %+v", runID, enqueued)
+	}
+	if enqueued.SourceDocumentID != result.SourceDocumentID || enqueued.SourceRevisionID != result.SourceRevisionID || enqueued.ArtifactID != result.SourceArtifactID {
+		t.Fatalf("expected enqueued lineage ids to match import result, enqueued=%+v result=%+v", enqueued, result)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentRejectsInFlightIdempotentReplay(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-google-inflight", OrgID: "org-google-inflight"}
+	store := stores.NewInMemoryStore()
+	service := NewGoogleIntegrationService(
+		store,
+		NewDeterministicGoogleProvider(),
+		NewDocumentService(store),
+		NewAgreementService(store),
+	)
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "ops-user",
+		AuthCode: "google-inflight-import",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	run, created, err := store.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "rev-lineage",
+		DedupeKey:         "google-lineage-import-inflight",
+		DocumentTitle:     "Imported Lineage Contract",
+		AgreementTitle:    "Imported Lineage Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-inflight",
+		RequestedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
+	if !created {
+		t.Fatalf("expected queued import run to be created")
+	}
+
+	_, err = service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "rev-lineage",
+		DocumentTitle:     "Imported Lineage Contract",
+		AgreementTitle:    "Imported Lineage Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "corr-google-inflight",
+		IdempotencyKey:    "google-lineage-import-inflight",
+	})
+	if err == nil {
+		t.Fatal("expected in-flight idempotency conflict")
+	}
+	var inProgress *GoogleImportInProgressError
+	if !errors.As(err, &inProgress) {
+		t.Fatalf("expected GoogleImportInProgressError, got %T", err)
+	}
+	if inProgress.RunID != run.ID || inProgress.Status != stores.GoogleImportRunStatusQueued {
+		t.Fatalf("expected queued run metadata, got %+v", inProgress)
 	}
 }
 

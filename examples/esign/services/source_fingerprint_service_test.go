@@ -126,6 +126,29 @@ func TestDefaultSourceFingerprintServicePersistsFailedExtractionState(t *testing
 	}
 }
 
+func TestDefaultSourceFingerprintServiceRejectsMismatchedArtifactRevisionPairs(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-fingerprint-mismatch", OrgID: "org-fingerprint-mismatch"}
+	store := stores.NewInMemoryStore()
+	left := seedFingerprintLineageFixture(t, store, scope, "artifact-left", makeTextPDF(t, "Left revision"))
+	right := seedFingerprintLineageFixture(t, store, scope, "artifact-right", makeTextPDF(t, "Right revision"))
+	service := NewDefaultSourceFingerprintService(store, &fingerprintObjectStoreStub{
+		files: map[string][]byte{
+			"tenant/" + scope.TenantID + "/lineage/artifact-left.pdf":  append([]byte{}, left.objects.files["tenant/"+scope.TenantID+"/lineage/artifact-left.pdf"]...),
+			"tenant/" + scope.TenantID + "/lineage/artifact-right.pdf": append([]byte{}, right.objects.files["tenant/"+scope.TenantID+"/lineage/artifact-right.pdf"]...),
+		},
+	})
+
+	_, err := service.BuildFingerprint(ctx, scope, SourceFingerprintBuildInput{
+		SourceRevisionID: left.revisionID,
+		ArtifactID:       right.artifactID,
+		Metadata:         SourceMetadataBaseline{TitleHint: "Mismatch"},
+	})
+	if err == nil {
+		t.Fatal("expected mismatched revision/artifact rejection")
+	}
+}
+
 type fingerprintFixtureSeed struct {
 	revisionID string
 	artifactID string

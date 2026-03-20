@@ -847,7 +847,7 @@ func TestUsersDetailsTabRegressionAndToolbarActionsContract(t *testing.T) {
 	templateData, err := fs.ReadFile(client.Templates(), "resources/users/detail.html")
 	require.NoError(t, err)
 	template := string(templateData)
-	require.Contains(t, template, `import { initTabsController } from '{{ base_path }}/assets/dist/tabs/index.js';`)
+	require.Contains(t, template, `import { initTabsController } from '{{ adminURL("assets/dist/tabs/index.js") }}';`)
 	require.Contains(t, template, `initTabsController();`)
 	require.NotContains(t, template, `function renderWidget(widget)`)
 }

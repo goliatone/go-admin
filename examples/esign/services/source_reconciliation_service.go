@@ -265,9 +265,18 @@ func (s DefaultSourceReconciliationService) ListCandidateRelationships(ctx conte
 }
 
 type reconciliationTargetContext struct {
-	document    stores.SourceDocumentRecord
-	handle      stores.SourceHandleRecord
-	revision    stores.SourceRevisionRecord
+	document     stores.SourceDocumentRecord
+	activeHandle stores.SourceHandleRecord
+	revisions    []reconciliationRevisionContext
+}
+
+type reconciliationRevisionContext struct {
+	handle    stores.SourceHandleRecord
+	revision  stores.SourceRevisionRecord
+	artifacts []reconciliationArtifactContext
+}
+
+type reconciliationArtifactContext struct {
 	artifact    stores.SourceArtifactRecord
 	fingerprint stores.SourceFingerprintRecord
 }
@@ -300,16 +309,134 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		return candidateScoreEvaluation{}, err
 	}
 
-	titleSimilarity := reconciliationTitleSimilarity(targetDocument.CanonicalTitle, candidate.document.CanonicalTitle, metadata.TitleHint)
-	chunkOverlap := reconciliationChunkOverlap(targetFingerprint, candidate.fingerprint)
-	normalizedSimilarity := reconciliationNormalizedTextSimilarity(targetFingerprint, candidate.fingerprint)
-	exactArtifactMatch := strings.TrimSpace(targetArtifact.SHA256) != "" && strings.TrimSpace(targetArtifact.SHA256) == strings.TrimSpace(candidate.artifact.SHA256)
-	accountMatch := strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidate.handle.AccountID))
-	driveMatch := strings.TrimSpace(metadata.DriveID) != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidate.handle.DriveID, reconciliationMetadataString(candidate.revision.MetadataJSON, "drive_id"))))
-	webURLMatch := strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(candidate.handle.WebURL))
-	ownerMatch := strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "owner_email")))
-	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidate.revision.MetadataJSON, "parent_id")))
-	temporal := reconciliationTemporalProximity(targetRevision, candidate.revision, metadata.ModifiedTime)
+	best := candidateScoreEvaluation{band: stores.LineageConfidenceBandNone}
+	for _, revisionContext := range candidate.revisions {
+		handle := revisionContext.handle
+		if strings.TrimSpace(handle.ID) == "" {
+			handle = candidate.activeHandle
+		}
+		for _, artifactContext := range revisionContext.artifacts {
+			evaluation := s.evaluateCandidateArtifact(targetDocument, targetRevision, targetArtifact, targetFingerprint, metadata, candidate.document, handle, revisionContext.revision, artifactContext)
+			if preferredCandidateEvaluation(best, evaluation) {
+				best = evaluation
+			}
+		}
+	}
+	if strings.TrimSpace(best.band) == "" || best.band == stores.LineageConfidenceBandNone {
+		return candidateScoreEvaluation{band: stores.LineageConfidenceBandNone}, nil
+	}
+	return best, nil
+}
+
+func (s DefaultSourceReconciliationService) resolveCandidateContext(ctx context.Context, scope stores.Scope, sourceDocumentID string) (reconciliationTargetContext, error) {
+	document, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return reconciliationTargetContext{}, err
+	}
+	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{
+		SourceDocumentID: sourceDocumentID,
+	})
+	if err != nil {
+		return reconciliationTargetContext{}, err
+	}
+	if len(handles) == 0 {
+		return reconciliationTargetContext{}, debugLineageNotFound("source_handles", sourceDocumentID)
+	}
+	handleByID := make(map[string]stores.SourceHandleRecord, len(handles))
+	activeHandles := make([]stores.SourceHandleRecord, 0, len(handles))
+	for _, handle := range handles {
+		handleByID[strings.TrimSpace(handle.ID)] = handle
+		if strings.TrimSpace(handle.HandleStatus) == stores.SourceHandleStatusActive {
+			activeHandles = append(activeHandles, handle)
+		}
+	}
+	sort.SliceStable(activeHandles, func(i, j int) bool {
+		if activeHandles[i].CreatedAt.Equal(activeHandles[j].CreatedAt) {
+			return activeHandles[i].ID < activeHandles[j].ID
+		}
+		return activeHandles[i].CreatedAt.After(activeHandles[j].CreatedAt)
+	})
+	sort.SliceStable(handles, func(i, j int) bool {
+		if handles[i].CreatedAt.Equal(handles[j].CreatedAt) {
+			return handles[i].ID < handles[j].ID
+		}
+		return handles[i].CreatedAt.After(handles[j].CreatedAt)
+	})
+	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
+		SourceDocumentID: sourceDocumentID,
+	})
+	if err != nil {
+		return reconciliationTargetContext{}, err
+	}
+	if len(revisions) == 0 {
+		return reconciliationTargetContext{}, debugLineageNotFound("source_revisions", sourceDocumentID)
+	}
+	sort.SliceStable(revisions, func(i, j int) bool {
+		return sourceRevisionRank(revisions[i]).After(sourceRevisionRank(revisions[j]))
+	})
+	revisionContexts := make([]reconciliationRevisionContext, 0, len(revisions))
+	for _, revision := range revisions {
+		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
+			SourceRevisionID: revision.ID,
+			ArtifactKind:     stores.SourceArtifactKindSignablePDF,
+		})
+		if err != nil {
+			return reconciliationTargetContext{}, err
+		}
+		if len(artifacts) == 0 {
+			continue
+		}
+		sort.SliceStable(artifacts, func(i, j int) bool {
+			if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
+				return artifacts[i].ID < artifacts[j].ID
+			}
+			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+		})
+		artifactContexts := make([]reconciliationArtifactContext, 0, len(artifacts))
+		for _, artifact := range artifacts {
+			artifactContexts = append(artifactContexts, reconciliationArtifactContext{
+				artifact:    artifact,
+				fingerprint: s.latestReadyFingerprint(ctx, scope, revision.ID, artifact.ID),
+			})
+		}
+		revisionContexts = append(revisionContexts, reconciliationRevisionContext{
+			handle:    handleByID[strings.TrimSpace(revision.SourceHandleID)],
+			revision:  revision,
+			artifacts: artifactContexts,
+		})
+	}
+	if len(revisionContexts) == 0 {
+		return reconciliationTargetContext{}, debugLineageNotFound("source_artifacts", sourceDocumentID)
+	}
+
+	return reconciliationTargetContext{
+		document:     document,
+		activeHandle: firstReconciliationHandle(activeHandles, handles),
+		revisions:    revisionContexts,
+	}, nil
+}
+
+func (s DefaultSourceReconciliationService) evaluateCandidateArtifact(
+	targetDocument stores.SourceDocumentRecord,
+	targetRevision stores.SourceRevisionRecord,
+	targetArtifact stores.SourceArtifactRecord,
+	targetFingerprint stores.SourceFingerprintRecord,
+	metadata SourceMetadataBaseline,
+	candidateDocument stores.SourceDocumentRecord,
+	candidateHandle stores.SourceHandleRecord,
+	candidateRevision stores.SourceRevisionRecord,
+	artifactContext reconciliationArtifactContext,
+) candidateScoreEvaluation {
+	titleSimilarity := reconciliationTitleSimilarity(targetDocument.CanonicalTitle, candidateDocument.CanonicalTitle, metadata.TitleHint)
+	chunkOverlap := reconciliationChunkOverlap(targetFingerprint, artifactContext.fingerprint)
+	normalizedSimilarity := reconciliationNormalizedTextSimilarity(targetFingerprint, artifactContext.fingerprint)
+	exactArtifactMatch := strings.TrimSpace(targetArtifact.SHA256) != "" && strings.TrimSpace(targetArtifact.SHA256) == strings.TrimSpace(artifactContext.artifact.SHA256)
+	accountMatch := strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidateHandle.AccountID))
+	driveMatch := strings.TrimSpace(metadata.DriveID) != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidateHandle.DriveID, reconciliationMetadataString(candidateRevision.MetadataJSON, "drive_id"))))
+	webURLMatch := strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(firstNonEmpty(candidateHandle.WebURL, reconciliationMetadataString(candidateRevision.MetadataJSON, "web_url"))))
+	ownerMatch := strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "owner_email")))
+	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "parent_id")))
+	temporal := reconciliationTemporalProximity(targetRevision, candidateRevision, metadata.ModifiedTime)
 
 	score := 0.0
 	if exactArtifactMatch {
@@ -349,7 +476,7 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 	case score >= 0.62:
 		band = stores.LineageConfidenceBandMedium
 	default:
-		return candidateScoreEvaluation{band: stores.LineageConfidenceBandNone}, nil
+		return candidateScoreEvaluation{band: stores.LineageConfidenceBandNone}
 	}
 
 	relationshipType := stores.SourceRelationshipTypeSameLogicalDoc
@@ -371,83 +498,53 @@ func (s DefaultSourceReconciliationService) scoreCandidate(
 		"temporal_proximity":           fmt.Sprintf("%.3f", temporal),
 		"account_match":                fmt.Sprintf("%t", accountMatch),
 		"drive_match":                  fmt.Sprintf("%t", driveMatch),
-		"web_url":                      fmt.Sprintf("%t", webURLMatch),
+		"web_url_match":                fmt.Sprintf("%t", webURLMatch),
 		"owner_match":                  fmt.Sprintf("%t", ownerMatch),
 		"folder_match":                 fmt.Sprintf("%t", folderMatch),
-		"candidate_source_document_id": strings.TrimSpace(candidate.document.ID),
-		"candidate_source_revision_id": strings.TrimSpace(candidate.revision.ID),
-		"candidate_source_artifact_id": strings.TrimSpace(candidate.artifact.ID),
+		"candidate_source_document_id": strings.TrimSpace(candidateDocument.ID),
+		"candidate_source_revision_id": strings.TrimSpace(candidateRevision.ID),
+		"candidate_source_artifact_id": strings.TrimSpace(artifactContext.artifact.ID),
 		"evaluated_at":                 s.now().UTC().Format(time.RFC3339Nano),
 	}
 
 	return candidateScoreEvaluation{
-		candidateDocument:  candidate.document,
+		candidateDocument:  candidateDocument,
 		score:              math.Min(score, 1),
 		band:               band,
 		relationshipType:   relationshipType,
 		status:             status,
 		evidence:           evidence,
 		exactArtifactMatch: exactArtifactMatch,
-	}, nil
+	}
 }
 
-func (s DefaultSourceReconciliationService) resolveCandidateContext(ctx context.Context, scope stores.Scope, sourceDocumentID string) (reconciliationTargetContext, error) {
-	document, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
-	if err != nil {
-		return reconciliationTargetContext{}, err
+func preferredCandidateEvaluation(current, next candidateScoreEvaluation) bool {
+	currentRank := reconciliationConfidenceRank(current.band)
+	nextRank := reconciliationConfidenceRank(next.band)
+	switch {
+	case nextRank > currentRank:
+		return true
+	case nextRank < currentRank:
+		return false
+	case next.exactArtifactMatch && !current.exactArtifactMatch:
+		return true
+	case current.exactArtifactMatch && !next.exactArtifactMatch:
+		return false
+	case next.score > current.score:
+		return true
+	default:
+		return false
 	}
-	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{
-		SourceDocumentID: sourceDocumentID,
-		ActiveOnly:       true,
-	})
-	if err != nil {
-		return reconciliationTargetContext{}, err
-	}
-	if len(handles) == 0 {
-		return reconciliationTargetContext{}, debugLineageNotFound("source_handles", sourceDocumentID)
-	}
-	sort.SliceStable(handles, func(i, j int) bool {
-		if handles[i].CreatedAt.Equal(handles[j].CreatedAt) {
-			return handles[i].ID < handles[j].ID
-		}
-		return handles[i].CreatedAt.After(handles[j].CreatedAt)
-	})
-	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
-		SourceDocumentID: sourceDocumentID,
-	})
-	if err != nil {
-		return reconciliationTargetContext{}, err
-	}
-	if len(revisions) == 0 {
-		return reconciliationTargetContext{}, debugLineageNotFound("source_revisions", sourceDocumentID)
-	}
-	sort.SliceStable(revisions, func(i, j int) bool {
-		return sourceRevisionRank(revisions[i]).After(sourceRevisionRank(revisions[j]))
-	})
-	artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
-		SourceRevisionID: revisions[0].ID,
-		ArtifactKind:     stores.SourceArtifactKindSignablePDF,
-	})
-	if err != nil {
-		return reconciliationTargetContext{}, err
-	}
-	if len(artifacts) == 0 {
-		return reconciliationTargetContext{}, debugLineageNotFound("source_artifacts", revisions[0].ID)
-	}
-	sort.SliceStable(artifacts, func(i, j int) bool {
-		if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
-			return artifacts[i].ID < artifacts[j].ID
-		}
-		return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
-	})
+}
 
-	return reconciliationTargetContext{
-		document:    document,
-		handle:      handles[0],
-		revision:    revisions[0],
-		artifact:    artifacts[0],
-		fingerprint: s.latestReadyFingerprint(ctx, scope, revisions[0].ID, artifacts[0].ID),
-	}, nil
+func firstReconciliationHandle(primary []stores.SourceHandleRecord, fallback []stores.SourceHandleRecord) stores.SourceHandleRecord {
+	if len(primary) > 0 {
+		return primary[0]
+	}
+	if len(fallback) > 0 {
+		return fallback[0]
+	}
+	return stores.SourceHandleRecord{}
 }
 
 func (s DefaultSourceReconciliationService) latestReadyFingerprint(ctx context.Context, scope stores.Scope, sourceRevisionID, artifactID string) stores.SourceFingerprintRecord {

@@ -46,6 +46,12 @@ func TestDefaultSourceReadModelServiceBuildsDocumentDetails(t *testing.T) {
 	if imported.GoogleSource == nil || imported.GoogleSource.ExternalFileID != "fixture-google-file-1" {
 		t.Fatalf("expected imported document google metadata, got %+v", imported.GoogleSource)
 	}
+	if imported.GoogleSource.AccountID != "fixture-account-1" || imported.GoogleSource.WebURL != "https://docs.google.com/document/d/fixture-google-file-1/edit" {
+		t.Fatalf("expected imported document provenance to stay pinned to first handle, got %+v", imported.GoogleSource)
+	}
+	if imported.SourceDocument == nil || imported.SourceDocument.URL != "https://docs.google.com/document/d/fixture-google-file-1/edit" {
+		t.Fatalf("expected imported document source reference URL to use first handle, got %+v", imported.SourceDocument)
+	}
 	if imported.FingerprintStatus.Status != LineageFingerprintStatusPending {
 		t.Fatalf("expected imported document fingerprint pending, got %+v", imported.FingerprintStatus)
 	}
@@ -74,6 +80,9 @@ func TestDefaultSourceReadModelServiceBuildsDocumentDetails(t *testing.T) {
 	}
 	if repeated.SourceArtifact == nil || repeated.SourceArtifact.ID != seeded.secondSourceArtifactID {
 		t.Fatalf("expected repeated import source_artifact_id %q, got %+v", seeded.secondSourceArtifactID, repeated.SourceArtifact)
+	}
+	if repeated.GoogleSource == nil || repeated.GoogleSource.ExternalFileID != "fixture-google-file-2" || repeated.GoogleSource.AccountID != "fixture-account-2" {
+		t.Fatalf("expected repeated import provenance to use second handle, got %+v", repeated.GoogleSource)
 	}
 	if repeated.FingerprintStatus.Status != LineageFingerprintStatusFailed {
 		t.Fatalf("expected repeated import fingerprint failed, got %+v", repeated.FingerprintStatus)
@@ -108,6 +117,9 @@ func TestDefaultSourceReadModelServiceBuildsAgreementDetails(t *testing.T) {
 	}
 	if imported.SourceDocument == nil || imported.SourceDocument.ID != seeded.sourceDocumentID {
 		t.Fatalf("expected imported agreement source_document_id %q, got %+v", seeded.sourceDocumentID, imported.SourceDocument)
+	}
+	if imported.GoogleSource == nil || imported.GoogleSource.ExternalFileID != "fixture-google-file-1" || imported.GoogleSource.AccountID != "fixture-account-1" {
+		t.Fatalf("expected imported agreement provenance to stay pinned to first handle, got %+v", imported.GoogleSource)
 	}
 	if imported.LinkedDocumentArtifact == nil || imported.LinkedDocumentArtifact.ID != seeded.firstSourceArtifactID {
 		t.Fatalf("expected imported agreement artifact %q, got %+v", seeded.firstSourceArtifactID, imported.LinkedDocumentArtifact)
@@ -204,6 +216,39 @@ func TestDefaultSourceReadModelServiceRequiresPinnedAgreementRevision(t *testing
 	}
 }
 
+func TestCandidateWarningSummaryFromRelationshipSupportsCanonicalAndLegacyWebURLEvidenceKeys(t *testing.T) {
+	relationship := stores.SourceRelationshipRecord{
+		ID:             "src-rel-web-url",
+		Status:         stores.SourceRelationshipStatusPendingReview,
+		ConfidenceBand: stores.LineageConfidenceBandMedium,
+		EvidenceJSON:   `{"candidate_reason":"matching_title_with_partial_google_context","web_url_match":"true","drive_match":"false"}`,
+	}
+	summary := candidateWarningSummaryFromRelationship(relationship)
+	if !containsCandidateEvidence(summary.Evidence, lineageEvidenceKeyWebURLMatch, "Source URL history", "true") {
+		t.Fatalf("expected canonical web_url_match evidence, got %+v", summary.Evidence)
+	}
+
+	legacy := stores.SourceRelationshipRecord{
+		ID:             "src-rel-web-url-legacy",
+		Status:         stores.SourceRelationshipStatusPendingReview,
+		ConfidenceBand: stores.LineageConfidenceBandMedium,
+		EvidenceJSON:   `{"candidate_reason":"matching_title_with_partial_google_context","web_url":"true","drive_match":"false"}`,
+	}
+	legacySummary := candidateWarningSummaryFromRelationship(legacy)
+	if !containsCandidateEvidence(legacySummary.Evidence, lineageEvidenceKeyWebURLMatch, "Source URL history", "true") {
+		t.Fatalf("expected legacy web_url evidence to map to canonical summary, got %+v", legacySummary.Evidence)
+	}
+}
+
+func containsCandidateEvidence(evidence []CandidateEvidenceSummary, code, label, details string) bool {
+	for _, entry := range evidence {
+		if entry.Code == code && entry.Label == label && entry.Details == details {
+			return true
+		}
+	}
+	return false
+}
+
 func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Scope, sourceReadModelFixtures) {
 	t.Helper()
 
@@ -219,6 +264,7 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 		importedAgreementID:      "agr-imported-v1",
 		sourceDocumentID:         "src-doc-1",
 		activeSourceHandleID:     "src-handle-1",
+		secondSourceHandleID:     "src-handle-2",
 		firstSourceRevisionID:    "src-rev-1",
 		secondSourceRevisionID:   "src-rev-2",
 		firstSourceArtifactID:    "src-art-1",
@@ -357,16 +403,31 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 	}); err != nil {
 		t.Fatalf("Create imported agreement: %v", err)
 	}
+	if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+		ID:               fixtures.secondSourceHandleID,
+		SourceDocumentID: fixtures.sourceDocumentID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "fixture-google-file-2",
+		AccountID:        "fixture-account-2",
+		DriveID:          "fixture-drive-migrated",
+		WebURL:           "https://docs.google.com/document/d/fixture-google-file-2/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &second,
+		CreatedAt:        second,
+		UpdatedAt:        second,
+	}); err != nil {
+		t.Fatalf("CreateSourceHandle second: %v", err)
+	}
 	if _, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
 		ID:                   fixtures.secondSourceRevisionID,
 		SourceDocumentID:     fixtures.sourceDocumentID,
-		SourceHandleID:       fixtures.activeSourceHandleID,
+		SourceHandleID:       fixtures.secondSourceHandleID,
 		ProviderRevisionHint: "v2",
 		ModifiedTime:         &second,
 		ExportedAt:           &second,
 		ExportedByUserID:     "fixture-user",
 		SourceMimeType:       "application/vnd.google-apps.document",
-		MetadataJSON:         `{"origin":"native_google_import","external_file_id":"fixture-google-file-1","account_id":"fixture-account-1","web_url":"https://docs.google.com/document/d/fixture-google-file-1/edit","title_hint":"Imported Fixture Source","owner_email":"owner@example.com","parent_id":"fixture-folder","source_version_hint":"v2"}`,
+		MetadataJSON:         `{"origin":"native_google_import","external_file_id":"fixture-google-file-2","account_id":"fixture-account-2","web_url":"https://docs.google.com/document/d/fixture-google-file-2/edit","title_hint":"Imported Fixture Source","owner_email":"owner@example.com","parent_id":"fixture-folder","source_version_hint":"v2"}`,
 		CreatedAt:            second,
 		UpdatedAt:            second,
 	}); err != nil {
@@ -395,8 +456,8 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 		NormalizedObjectKey:    "tenant/google-v2.normalized.pdf",
 		SourceSHA256:           strings.Repeat("b", 64),
 		SourceType:             stores.SourceTypeGoogleDrive,
-		SourceGoogleFileID:     "fixture-google-file-1",
-		SourceGoogleDocURL:     "https://docs.google.com/document/d/fixture-google-file-1/edit",
+		SourceGoogleFileID:     "fixture-google-file-2",
+		SourceGoogleDocURL:     "https://docs.google.com/document/d/fixture-google-file-2/edit",
 		SourceModifiedTime:     &second,
 		SourceExportedAt:       &second,
 		SourceExportedByUserID: "fixture-user",
@@ -452,6 +513,7 @@ type sourceReadModelFixtures struct {
 	importedAgreementID      string
 	sourceDocumentID         string
 	activeSourceHandleID     string
+	secondSourceHandleID     string
 	firstSourceRevisionID    string
 	secondSourceRevisionID   string
 	firstSourceArtifactID    string

@@ -115,6 +115,15 @@ type ReviewActorInfo struct {
 	ActorID   string `json:"actor_id,omitempty"`
 }
 
+type ReviewActorRef struct {
+	ActorType string `json:"actor_type"`
+	ActorID   string `json:"actor_id"`
+}
+
+type ReviewActorDirectory interface {
+	ResolveReviewActors(ctx context.Context, scope stores.Scope, refs []ReviewActorRef) ([]ReviewActorInfo, error)
+}
+
 type ReviewSummary struct {
 	AgreementID           string                                    `json:"agreement_id"`
 	Status                string                                    `json:"status"`
@@ -788,7 +797,7 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 		}
 		summary.Threads = append(summary.Threads, ReviewThread{Thread: thread, Messages: messages})
 	}
-	summary.ActorMap = buildReviewActorMap(summary.Review, summary.Participants, recipients, summary.Threads)
+	summary.ActorMap = s.buildReviewActorMap(ctx, scope, summary.Review, summary.Participants, recipients, summary.Threads)
 	return summary, nil
 }
 
@@ -1032,7 +1041,9 @@ func reviewActorKey(actorType, actorID string) string {
 	return normalizedActorType + ":" + normalizedActorID
 }
 
-func buildReviewActorMap(
+func (s AgreementService) buildReviewActorMap(
+	ctx context.Context,
+	scope stores.Scope,
 	review *stores.AgreementReviewRecord,
 	participants []stores.AgreementReviewParticipantRecord,
 	recipients []stores.RecipientRecord,
@@ -1058,7 +1069,7 @@ func buildReviewActorMap(
 				actorMap,
 				[]string{"user", "sender"},
 				approvedBy,
-				firstNonEmptyString(participant.ApprovedOnBehalfByDisplayName, approvedBy),
+				strings.TrimSpace(participant.ApprovedOnBehalfByDisplayName),
 				"",
 				"sender",
 			)
@@ -1080,10 +1091,10 @@ func buildReviewActorMap(
 		}
 	}
 	if review != nil && strings.TrimSpace(review.RequestedByUserID) != "" {
-		registerReviewActor(actorMap, []string{"user", "sender"}, review.RequestedByUserID, review.RequestedByUserID, "", "sender")
+		registerReviewActor(actorMap, []string{"user", "sender"}, review.RequestedByUserID, "", "", "sender")
 	}
 	if review != nil && strings.TrimSpace(review.OverrideByUserID) != "" {
-		registerReviewActor(actorMap, []string{"user", "sender"}, review.OverrideByUserID, firstNonEmptyString(review.OverrideByDisplayName, review.OverrideByUserID), "", "sender")
+		registerReviewActor(actorMap, []string{"user", "sender"}, review.OverrideByUserID, strings.TrimSpace(review.OverrideByDisplayName), "", "sender")
 	}
 	for _, thread := range threads {
 		registerReviewActor(actorMap, reviewActorAliases(thread.Thread.CreatedByType), thread.Thread.CreatedByID, "", "", "")
@@ -1092,10 +1103,79 @@ func buildReviewActorMap(
 			registerReviewActor(actorMap, reviewActorAliases(message.CreatedByType), message.CreatedByID, "", "", "")
 		}
 	}
+	s.enrichReviewActorMap(ctx, scope, actorMap)
+	finalizeReviewActorMap(actorMap)
 	if len(actorMap) == 0 {
 		return nil
 	}
 	return actorMap
+}
+
+func (s AgreementService) enrichReviewActorMap(ctx context.Context, scope stores.Scope, actorMap map[string]ReviewActorInfo) {
+	if len(actorMap) == 0 || s.reviewActorDirectory == nil {
+		return
+	}
+	refs := collectReviewActorRefs(actorMap)
+	if len(refs) == 0 {
+		return
+	}
+	resolved, err := s.reviewActorDirectory.ResolveReviewActors(ctx, scope, refs)
+	if err != nil {
+		return
+	}
+	for _, actor := range resolved {
+		actorID := strings.TrimSpace(actor.ActorID)
+		if actorID == "" {
+			continue
+		}
+		registerReviewActor(
+			actorMap,
+			reviewActorAliases(actor.ActorType),
+			actorID,
+			actor.Name,
+			actor.Email,
+			actor.Role,
+		)
+	}
+}
+
+func collectReviewActorRefs(actorMap map[string]ReviewActorInfo) []ReviewActorRef {
+	if len(actorMap) == 0 {
+		return nil
+	}
+	out := make([]ReviewActorRef, 0, len(actorMap))
+	seen := make(map[string]struct{}, len(actorMap))
+	for _, actor := range actorMap {
+		actorID := strings.TrimSpace(actor.ActorID)
+		if actorID == "" {
+			continue
+		}
+		actorType := canonicalReviewActorType(actor.ActorType)
+		key := reviewActorKey(actorType, actorID)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, ReviewActorRef{
+			ActorType: actorType,
+			ActorID:   actorID,
+		})
+	}
+	return out
+}
+
+func canonicalReviewActorType(actorType string) string {
+	switch normalizeReviewActorType(actorType) {
+	case "sender":
+		return "user"
+	case "signer":
+		return "recipient"
+	default:
+		return normalizeReviewActorType(actorType)
+	}
 }
 
 func reviewActorAliases(actorType string) []string {
@@ -1154,9 +1234,15 @@ func mergeReviewActorInfo(existing, next ReviewActorInfo) ReviewActorInfo {
 	if out.Role == "" {
 		out.Role = strings.TrimSpace(next.Role)
 	}
-	out.Name = firstNonEmptyString(out.Name, out.Email, out.ActorID, humanizeReviewActorLabel(out.Role), humanizeReviewActorLabel(out.ActorType), "Participant")
-	out.Role = firstNonEmptyString(out.Role, out.ActorType)
 	return out
+}
+
+func finalizeReviewActorMap(actorMap map[string]ReviewActorInfo) {
+	for key, actor := range actorMap {
+		actor.Name = firstNonEmptyString(actor.Name, actor.Email, actor.ActorID, humanizeReviewActorLabel(actor.Role), humanizeReviewActorLabel(actor.ActorType), "Participant")
+		actor.Role = firstNonEmptyString(actor.Role, actor.ActorType)
+		actorMap[key] = actor
+	}
 }
 
 func humanizeReviewActorLabel(value string) string {

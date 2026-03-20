@@ -812,8 +812,12 @@ func (s *relationalTxStore) CreateSourceFingerprint(ctx context.Context, scope s
 	if _, err := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID); err != nil {
 		return stores.SourceFingerprintRecord{}, err
 	}
-	if _, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID); err != nil {
+	artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
+	if err != nil {
 		return stores.SourceFingerprintRecord{}, err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return stores.SourceFingerprintRecord{}, relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
 	}
 	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 		return stores.SourceFingerprintRecord{}, err
@@ -843,6 +847,13 @@ func (s *relationalTxStore) SaveSourceFingerprint(ctx context.Context, scope sto
 	record, err = stores.PrepareSourceFingerprintRecord(record, &current)
 	if err != nil {
 		return stores.SourceFingerprintRecord{}, err
+	}
+	artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
+	if err != nil {
+		return stores.SourceFingerprintRecord{}, err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return stores.SourceFingerprintRecord{}, relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
 	}
 	if _, err := s.tx.NewUpdate().
 		Model(&record).

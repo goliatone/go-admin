@@ -599,19 +599,170 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	}
 
 	config := extractESignPageConfigFromHTML(t, markup)
-	initialParticipants, ok := config["initial_participants"].([]any)
+	context, ok := config["context"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected initial_participants array in config, got %#v", config["initial_participants"])
+		t.Fatalf("expected agreement form context object in page config, got %#v", config["context"])
+	}
+	initialParticipants, ok := context["initial_participants"].([]any)
+	if !ok {
+		t.Fatalf("expected initial_participants array in config context, got %#v", context["initial_participants"])
 	}
 	if len(initialParticipants) != 1 {
-		t.Fatalf("expected 1 initial participant in config, got %d (%#v)", len(initialParticipants), config["initial_participants"])
+		t.Fatalf("expected 1 initial participant in config context, got %d (%#v)", len(initialParticipants), context["initial_participants"])
 	}
-	initialFieldInstances, ok := config["initial_field_instances"].([]any)
+	initialFieldInstances, ok := context["initial_field_instances"].([]any)
 	if !ok {
-		t.Fatalf("expected initial_field_instances array in config, got %#v", config["initial_field_instances"])
+		t.Fatalf("expected initial_field_instances array in config context, got %#v", context["initial_field_instances"])
 	}
 	if len(initialFieldInstances) != 2 {
-		t.Fatalf("expected 2 initial field instances in config, got %d (%#v)", len(initialFieldInstances), config["initial_field_instances"])
+		t.Fatalf("expected 2 initial field instances in config context, got %d (%#v)", len(initialFieldInstances), context["initial_field_instances"])
+	}
+}
+
+func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalReviewers(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime fixture: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	documentID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_documents?"+query, map[string]any{
+		"title":                fmt.Sprintf("Review Bootstrap Doc %d", time.Now().UnixNano()),
+		"source_original_name": "review-bootstrap.pdf",
+		"pdf_base64":           base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(2)),
+	})
+
+	agreementID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_agreements?"+query, map[string]any{
+		"document_id": documentID,
+		"title":       fmt.Sprintf("Review Bootstrap Agreement %d", time.Now().UnixNano()),
+		"message":     "Please review this agreement.",
+		"participants": []map[string]any{
+			{
+				"name":          "Bootstrap Reviewer",
+				"email":         "bootstrap.reviewer@example.com",
+				"role":          "signer",
+				"notify":        false,
+				"signing_stage": 1,
+			},
+		},
+	})
+
+	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
+	defer detailResp.Body.Close()
+	if detailResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(detailResp.Body)
+		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	detailPayload := map[string]any{}
+	if err := json.NewDecoder(detailResp.Body).Decode(&detailPayload); err != nil {
+		t.Fatalf("decode agreement detail payload: %v", err)
+	}
+	record, _ := detailPayload["record"].(map[string]any)
+	if record == nil {
+		record, _ = detailPayload["data"].(map[string]any)
+	}
+	if record == nil {
+		record = detailPayload
+	}
+	recipientID := firstNestedID(record, "recipients")
+	if recipientID == "" {
+		t.Fatalf("expected recipient id in agreement detail payload: %+v", detailPayload)
+	}
+
+	requestReviewPayload := map[string]any{
+		"gate":             "approve_before_send",
+		"comments_enabled": true,
+		"review_participants": []map[string]any{
+			{
+				"participant_type": "recipient",
+				"recipient_id":     recipientID,
+				"can_comment":      true,
+				"can_approve":      true,
+			},
+			{
+				"participant_type": "external",
+				"email":            "external.reviewer@example.com",
+				"display_name":     "External Reviewer",
+				"can_comment":      true,
+				"can_approve":      true,
+			},
+		},
+	}
+	requestReviewBody, err := json.Marshal(requestReviewPayload)
+	if err != nil {
+		t.Fatalf("marshal request review payload: %v", err)
+	}
+	requestReviewResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/panels/esign_agreements/actions/request_review?id="+url.QueryEscape(agreementID)+"&"+query,
+		"application/json",
+		bytes.NewReader(requestReviewBody),
+	)
+	defer requestReviewResp.Body.Close()
+	if requestReviewResp.StatusCode != http.StatusAccepted && requestReviewResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(requestReviewResp.Body)
+		t.Fatalf("expected request review action status 200/202, got %d body=%s", requestReviewResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	pageResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/"+agreementID+"?"+query, authCookie)
+	defer pageResp.Body.Close()
+	if pageResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(pageResp.Body)
+		t.Fatalf("expected agreement detail page status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	pageBody, err := io.ReadAll(pageResp.Body)
+	if err != nil {
+		t.Fatalf("read agreement detail page body: %v", err)
+	}
+	reviewBootstrap := extractJSONScriptPayloadFromHTML(t, string(pageBody), "agreement-review-bootstrap")
+	participants, ok := reviewBootstrap["participants"].([]any)
+	if !ok {
+		t.Fatalf("expected participants array in review bootstrap, got %#v", reviewBootstrap["participants"])
+	}
+	if len(participants) != 2 {
+		t.Fatalf("expected 2 review participants in bootstrap payload, got %d (%#v)", len(participants), reviewBootstrap["participants"])
+	}
+
+	var foundRecipient, foundExternal bool
+	for _, entry := range participants {
+		participant, ok := entry.(map[string]any)
+		if !ok {
+			t.Fatalf("expected review participant object, got %#v", entry)
+		}
+		participantType := strings.TrimSpace(fmt.Sprint(participant["participant_type"]))
+		switch participantType {
+		case "recipient":
+			if got := strings.TrimSpace(fmt.Sprint(participant["recipient_id"])); got != recipientID {
+				t.Fatalf("expected recipient reviewer recipient_id %q, got %q (%#v)", recipientID, got, participant)
+			}
+			foundRecipient = true
+		case "external":
+			if got := strings.TrimSpace(fmt.Sprint(participant["email"])); got != "external.reviewer@example.com" {
+				t.Fatalf("expected external reviewer email %q, got %q (%#v)", "external.reviewer@example.com", got, participant)
+			}
+			foundExternal = true
+		}
+	}
+	if !foundRecipient {
+		t.Fatal("expected recipient reviewer in agreement review bootstrap payload")
+	}
+	if !foundExternal {
+		t.Fatal("expected external reviewer in agreement review bootstrap payload")
 	}
 }
 

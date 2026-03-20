@@ -581,6 +581,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 
 	result, err = executeGoogleImportWithPersistence(ctx, scope, GoogleImportInput{
+		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
 		GoogleFileID:      fileID,
@@ -605,6 +606,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		return GoogleImportResult{}, err
 	}
 	s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
 		GoogleFileID:      fileID,
@@ -635,6 +637,7 @@ func (s GoogleServicesIntegrationService) enqueueLineageProcessing(
 		modifiedTime = s.now().UTC()
 	}
 	_ = s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
+		ImportRunID:      strings.TrimSpace(input.ImportRunID),
 		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
 		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),
 		ArtifactID:       strings.TrimSpace(result.SourceArtifactID),

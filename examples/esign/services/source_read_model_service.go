@@ -12,6 +12,15 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 )
 
+const (
+	lineageEvidenceKeyNormalizedTextSimilarity = "normalized_text_similarity"
+	lineageEvidenceKeyTitleSimilarity          = "title_similarity"
+	lineageEvidenceKeyAccountMatch             = "account_match"
+	lineageEvidenceKeyDriveMatch               = "drive_match"
+	lineageEvidenceKeyWebURLMatch              = "web_url_match"
+	lineageEvidenceKeyLegacyWebURL             = "web_url"
+)
+
 type DefaultSourceReadModelService struct {
 	documents           stores.DocumentStore
 	agreements          stores.AgreementStore
@@ -304,6 +313,10 @@ func (s DefaultSourceReadModelService) resolveDocumentLineage(ctx context.Contex
 	if err != nil {
 		return resolvedLineageContext{}, err
 	}
+	revisionHandle, err := s.handleForSourceRevision(ctx, scope, sourceRevision, sourceDocument.ID)
+	if err != nil && !isNotFound(err) {
+		return resolvedLineageContext{}, err
+	}
 	activeHandle, err := s.activeHandleForSourceDocument(ctx, scope, sourceDocument.ID)
 	if err != nil && !isNotFound(err) {
 		return resolvedLineageContext{}, err
@@ -331,6 +344,7 @@ func (s DefaultSourceReadModelService) resolveDocumentLineage(ctx context.Contex
 		sourceRevision:    sourceRevision,
 		latestRevision:    latestRevision,
 		sourceArtifact:    artifact,
+		revisionHandle:    revisionHandle,
 		activeHandle:      activeHandle,
 		fingerprints:      fingerprints,
 		candidateWarnings: warnings,
@@ -353,6 +367,10 @@ func (s DefaultSourceReadModelService) resolveAgreementLineage(
 	if err != nil {
 		return resolvedLineageContext{}, err
 	}
+	revisionHandle, err := s.handleForSourceRevision(ctx, scope, sourceRevision, sourceDocument.ID)
+	if err != nil && !isNotFound(err) {
+		return resolvedLineageContext{}, err
+	}
 	activeHandle, err := s.activeHandleForSourceDocument(ctx, scope, sourceDocument.ID)
 	if err != nil && !isNotFound(err) {
 		return resolvedLineageContext{}, err
@@ -380,11 +398,29 @@ func (s DefaultSourceReadModelService) resolveAgreementLineage(
 		sourceRevision:    sourceRevision,
 		latestRevision:    latestRevision,
 		sourceArtifact:    artifact,
+		revisionHandle:    revisionHandle,
 		activeHandle:      activeHandle,
 		fingerprints:      fingerprints,
 		candidateWarnings: warnings,
 		agreement:         agreement,
 	}, nil
+}
+
+func (s DefaultSourceReadModelService) handleForSourceRevision(ctx context.Context, scope stores.Scope, sourceRevision stores.SourceRevisionRecord, sourceDocumentID string) (stores.SourceHandleRecord, error) {
+	handleID := strings.TrimSpace(sourceRevision.SourceHandleID)
+	if handleID != "" {
+		handle, err := s.lineage.GetSourceHandle(ctx, scope, handleID)
+		if err == nil {
+			return handle, nil
+		}
+		if !isNotFound(err) {
+			return stores.SourceHandleRecord{}, err
+		}
+	}
+	if strings.TrimSpace(sourceDocumentID) == "" {
+		return stores.SourceHandleRecord{}, debugLineageNotFound("source_handles", handleID)
+	}
+	return s.activeHandleForSourceDocument(ctx, scope, sourceDocumentID)
 }
 
 func (s DefaultSourceReadModelService) activeHandleForSourceDocument(ctx context.Context, scope stores.Scope, sourceDocumentID string) (stores.SourceHandleRecord, error) {
@@ -483,6 +519,7 @@ type resolvedLineageContext struct {
 	sourceRevision    stores.SourceRevisionRecord
 	latestRevision    stores.SourceRevisionRecord
 	sourceArtifact    stores.SourceArtifactRecord
+	revisionHandle    stores.SourceHandleRecord
 	activeHandle      stores.SourceHandleRecord
 	fingerprints      []stores.SourceFingerprintRecord
 	candidateWarnings []CandidateWarningSummary
@@ -493,10 +530,11 @@ func (r resolvedLineageContext) sourceDocumentReference() *LineageReference {
 	if strings.TrimSpace(r.sourceDocument.ID) == "" {
 		return nil
 	}
+	handle := r.displayHandle()
 	return &LineageReference{
 		ID:    strings.TrimSpace(r.sourceDocument.ID),
 		Label: strings.TrimSpace(r.sourceDocument.CanonicalTitle),
-		URL:   strings.TrimSpace(r.activeHandle.WebURL),
+		URL:   strings.TrimSpace(handle.WebURL),
 	}
 }
 
@@ -527,6 +565,7 @@ func (r resolvedLineageContext) metadataBaseline(document stores.DocumentRecord)
 	if sourceDocumentTitle == "" {
 		sourceDocumentTitle = strings.TrimSpace(document.Title)
 	}
+	handle := r.displayHandle()
 	metadataHints := decodeLineageMetadataJSON(r.sourceRevision.MetadataJSON)
 	pageCountHint := r.sourceArtifact.PageCount
 	if pageCountHint == 0 {
@@ -541,10 +580,10 @@ func (r resolvedLineageContext) metadataBaseline(document stores.DocumentRecord)
 		lineageNestedMetadataString(metadataHints, "owner", "email"),
 	)
 	return &SourceMetadataBaseline{
-		AccountID:           firstNonEmpty(strings.TrimSpace(r.activeHandle.AccountID), lineageMetadataString(metadataHints, "account_id")),
-		ExternalFileID:      firstNonEmpty(strings.TrimSpace(r.activeHandle.ExternalFileID), lineageMetadataString(metadataHints, "external_file_id"), strings.TrimSpace(document.SourceGoogleFileID)),
-		DriveID:             firstNonEmpty(strings.TrimSpace(r.activeHandle.DriveID), lineageMetadataString(metadataHints, "drive_id")),
-		WebURL:              firstNonEmpty(strings.TrimSpace(r.activeHandle.WebURL), lineageMetadataString(metadataHints, "web_url"), strings.TrimSpace(document.SourceGoogleDocURL)),
+		AccountID:           firstNonEmpty(strings.TrimSpace(handle.AccountID), lineageMetadataString(metadataHints, "account_id")),
+		ExternalFileID:      firstNonEmpty(strings.TrimSpace(handle.ExternalFileID), lineageMetadataString(metadataHints, "external_file_id"), strings.TrimSpace(document.SourceGoogleFileID)),
+		DriveID:             firstNonEmpty(strings.TrimSpace(handle.DriveID), lineageMetadataString(metadataHints, "drive_id")),
+		WebURL:              firstNonEmpty(strings.TrimSpace(handle.WebURL), lineageMetadataString(metadataHints, "web_url"), strings.TrimSpace(document.SourceGoogleDocURL)),
 		ModifiedTime:        cloneSourceTimePtr(firstSourceTimePtr(r.sourceRevision.ModifiedTime, document.SourceModifiedTime)),
 		SourceVersionHint:   firstNonEmpty(strings.TrimSpace(r.sourceRevision.ProviderRevisionHint), lineageMetadataString(metadataHints, "source_version_hint")),
 		SourceMimeType:      firstNonEmpty(strings.TrimSpace(r.sourceRevision.SourceMimeType), strings.TrimSpace(document.SourceMimeType)),
@@ -554,6 +593,13 @@ func (r resolvedLineageContext) metadataBaseline(document stores.DocumentRecord)
 		OwnerEmail:          strings.TrimSpace(ownerEmail),
 		ParentID:            strings.TrimSpace(parentID),
 	}
+}
+
+func (r resolvedLineageContext) displayHandle() stores.SourceHandleRecord {
+	if strings.TrimSpace(r.revisionHandle.ID) != "" {
+		return r.revisionHandle
+	}
+	return r.activeHandle
 }
 
 func (r resolvedLineageContext) fingerprintStatus() FingerprintStatusSummary {
@@ -673,16 +719,43 @@ func candidateWarningSummaryFromRelationship(relationship stores.SourceRelations
 			Label: "Candidate match evidence",
 		})
 	}
-	for _, key := range []string{"normalized_text_similarity", "title_similarity", "account_match", "drive_match", "web_url"} {
-		if value := lineageMetadataString(evidence, key); value != "" {
-			summary.Evidence = append(summary.Evidence, CandidateEvidenceSummary{
-				Code:    key,
-				Label:   humanizeLineageEvidenceKey(key),
-				Details: value,
-			})
+	for _, descriptor := range candidateEvidenceDescriptors() {
+		value := candidateEvidenceValue(evidence, descriptor.key, descriptor.aliases...)
+		if value == "" {
+			continue
 		}
+		summary.Evidence = append(summary.Evidence, CandidateEvidenceSummary{
+			Code:    descriptor.key,
+			Label:   humanizeLineageEvidenceKey(descriptor.key),
+			Details: value,
+		})
 	}
 	return summary
+}
+
+type candidateEvidenceDescriptor struct {
+	key     string
+	aliases []string
+}
+
+func candidateEvidenceDescriptors() []candidateEvidenceDescriptor {
+	return []candidateEvidenceDescriptor{
+		{key: lineageEvidenceKeyNormalizedTextSimilarity},
+		{key: lineageEvidenceKeyTitleSimilarity},
+		{key: lineageEvidenceKeyAccountMatch},
+		{key: lineageEvidenceKeyDriveMatch},
+		{key: lineageEvidenceKeyWebURLMatch, aliases: []string{lineageEvidenceKeyLegacyWebURL}},
+	}
+}
+
+func candidateEvidenceValue(decoded map[string]any, key string, aliases ...string) string {
+	keys := append([]string{key}, aliases...)
+	for _, candidateKey := range keys {
+		if value := lineageMetadataString(decoded, candidateKey); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func relationshipSummary(relationship stores.SourceRelationshipRecord) string {
@@ -702,15 +775,15 @@ func relationshipSummary(relationship stores.SourceRelationshipRecord) string {
 
 func humanizeLineageEvidenceKey(key string) string {
 	switch strings.TrimSpace(key) {
-	case "normalized_text_similarity":
+	case lineageEvidenceKeyNormalizedTextSimilarity:
 		return "Normalized text similarity"
-	case "title_similarity":
+	case lineageEvidenceKeyTitleSimilarity:
 		return "Title similarity"
-	case "account_match":
+	case lineageEvidenceKeyAccountMatch:
 		return "Account corroboration"
-	case "drive_match":
+	case lineageEvidenceKeyDriveMatch:
 		return "Drive corroboration"
-	case "web_url":
+	case lineageEvidenceKeyWebURLMatch, lineageEvidenceKeyLegacyWebURL:
 		return "Source URL history"
 	default:
 		return strings.TrimSpace(key)

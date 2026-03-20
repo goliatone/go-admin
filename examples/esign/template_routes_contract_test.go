@@ -17,7 +17,7 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	if !strings.Contains(template, `<script type="module" src="{{ esign_module_path }}"></script>`) {
 		t.Fatal("expected form template to load the e-sign module script")
 	}
-	if !strings.Contains(template, `<script type="module" src="{{ base_path|default:"/admin" }}/assets/dist/esign/index.js"></script>`) {
+	if !strings.Contains(template, `<script type="module" src="{{ adminURL("assets/dist/esign/index.js") }}"></script>`) {
 		t.Fatal("expected form template to include fallback e-sign module script path")
 	}
 	if strings.Contains(template, "document.addEventListener('DOMContentLoaded'") {
@@ -26,8 +26,11 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	if strings.Contains(template, "draftEndpointWithUserID") {
 		t.Fatal("expected form template to keep draft/sync implementation in TypeScript runtime only")
 	}
-	if !strings.Contains(template, `"storage_scope": "{{ agreement_form_storage_scope|default:"" }}"`) {
-		t.Fatal("expected form template to expose server-authored storage scope")
+	if !strings.Contains(template, `{{ esign_page_config_json|default:"{}"|safe }}`) {
+		t.Fatal("expected form template to expose the server-authored e-sign page config payload")
+	}
+	if strings.Contains(template, `"storage_scope": "{{ agreement_form_storage_scope|default:"" }}"`) {
+		t.Fatal("expected form template to avoid manually assembling storage scope JSON")
 	}
 	if strings.Contains(template, `id="active-tab-take-control-btn"`) || strings.Contains(template, `id="active-tab-reload-btn"`) {
 		t.Fatal("expected form template to remove dead take-control ownership controls")
@@ -49,6 +52,12 @@ func TestESignAgreementDetailTemplateUsesCanonicalPanelActionAndArtifactRoutes(t
 	if !strings.Contains(template, `resource_item.review.status != "none" and resource_item.review.status != "in_review"`) {
 		t.Fatal(`expected review CTA label to treat status "none" as a new request, not a reopen`)
 	}
+	if !strings.Contains(template, `{{ toJSON(resource_item.review)|safe }}`) {
+		t.Fatal("expected agreement review bootstrap payload to serialize the full review object with toJSON")
+	}
+	if strings.Contains(template, `"participant_type": "{{ participant.participant_type|default:"recipient"|escapejs }}"`) {
+		t.Fatal("expected agreement review bootstrap payload to avoid manual participant JSON field assembly")
+	}
 }
 
 func TestESignDocumentDetailTemplateUsesCanonicalPanelSourceRoute(t *testing.T) {
@@ -62,6 +71,23 @@ func TestESignDocumentDetailTemplateUsesCanonicalPanelSourceRoute(t *testing.T) 
 	}
 	if strings.Contains(template, `data-pdf-url="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf"`) {
 		t.Fatal("expected document detail template to avoid non-canonical source endpoint")
+	}
+}
+
+func TestESignGoogleIntegrationTemplateUsesServerAuthoredConfigPayload(t *testing.T) {
+	template := mustReadESignTemplate(t, "resources/esign-integrations/google.html")
+
+	if !strings.Contains(template, `data-esign-page="{{ esign_page|default:"admin.integrations.google" }}"`) {
+		t.Fatal("expected google integration template to expose a page marker for module bootstrap")
+	}
+	if !strings.Contains(template, `{{ esign_page_config_json|default:"{}"|safe }}`) {
+		t.Fatal("expected google integration template to emit the server-authored page config payload")
+	}
+	if strings.Contains(template, `esign_module_path|default:base_path + "/assets/dist/esign/index.js"`) {
+		t.Fatal("expected google integration template to avoid pongo2 default-plus concatenation for the module path")
+	}
+	if strings.Contains(template, `bootstrapGoogleIntegration`) {
+		t.Fatal("expected google integration template to avoid inline bootstrap logic")
 	}
 }
 

@@ -112,6 +112,80 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testin
 	}
 }
 
+func TestEnrichESignAgreementFormPageConfigAddsResourceContext(t *testing.T) {
+	cfg := buildESignAgreementFormPageConfig(
+		"/admin",
+		"/admin/api/v1",
+		map[string]string{
+			"index":                "/admin/content/esign_agreements",
+			"create":               "/admin/content/esign_agreements/new",
+			"documents_upload_url": "/admin/content/esign_documents/new",
+		},
+		"afs_actor_scope_token",
+	)
+	enriched := enrichESignAgreementFormPageConfig(cfg, router.ViewContext{
+		"is_edit":        true,
+		"create_success": false,
+		"resource_item": map[string]any{
+			"id":                         "agreement-123",
+			"active_agreement_id":        "agreement-123",
+			"workflow_kind":              "standard",
+			"root_agreement_id":          "agreement-123",
+			"participants":               []any{map[string]any{"email": "reviewer@example.com"}},
+			"field_instances":            []any{map[string]any{"type": "signature"}},
+			"related_agreements":         []any{map[string]any{"id": "agreement-122"}},
+			"parent_agreement_id":        "",
+			"superseded_by_agreement_id": "",
+		},
+	})
+
+	if got := rawToString(enriched.Context["submit_mode"]); got != "form" {
+		t.Fatalf("expected submit_mode=form, got %q", got)
+	}
+	initialParticipants, ok := enriched.Context["initial_participants"].([]any)
+	if !ok || len(initialParticipants) != 1 {
+		t.Fatalf("expected initial_participants in context, got %#v", enriched.Context["initial_participants"])
+	}
+	initialFieldInstances, ok := enriched.Context["initial_field_instances"].([]any)
+	if !ok || len(initialFieldInstances) != 1 {
+		t.Fatalf("expected initial_field_instances in context, got %#v", enriched.Context["initial_field_instances"])
+	}
+	if got := rawToString(enriched.Context["agreement_id"]); got != "agreement-123" {
+		t.Fatalf("expected agreement_id in context, got %q", got)
+	}
+}
+
+func TestBuildESignGoogleIntegrationPageConfigIncludesOAuthContext(t *testing.T) {
+	cfg := buildESignGoogleIntegrationPageConfig(
+		eSignPageGoogleIntegration,
+		"/admin",
+		"/admin/api/v1",
+		"user-1",
+		"account-1",
+		"http://localhost:8082/admin/esign/integrations/google/callback",
+		"google-client-id",
+		true,
+		map[string]string{
+			"esign_settings": "/admin/esign",
+		},
+	)
+	if cfg.Page != eSignPageGoogleIntegration {
+		t.Fatalf("expected page %q, got %q", eSignPageGoogleIntegration, cfg.Page)
+	}
+	if got := rawToString(cfg.Context["google_account_id"]); got != "account-1" {
+		t.Fatalf("expected google_account_id account-1, got %q", got)
+	}
+	if got := rawToString(cfg.Context["google_redirect_uri"]); got == "" {
+		t.Fatal("expected google_redirect_uri in page config context")
+	}
+	if got := rawToString(cfg.Context["google_client_id"]); got != "google-client-id" {
+		t.Fatalf("expected google_client_id google-client-id, got %q", got)
+	}
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	}
+}
+
 func TestBuildESignAgreementFormStorageScopeIsOpaqueAndStable(t *testing.T) {
 	first := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")
 	second := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")

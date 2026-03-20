@@ -3128,6 +3128,76 @@ func TestSigningServicePublicReviewSessionFiltersInternalThreadsAndCarriesActorM
 	}
 }
 
+func TestSigningServicePublicReviewSessionResolvesInternalUserActors(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	actorDirectory := stubReviewActorDirectory{
+		actors: map[string]ReviewActorInfo{
+			reviewActorKey("user", "ops-user"): {
+				Name:      "Ops Manager",
+				Email:     "ops.manager@example.com",
+				Role:      "sender",
+				ActorType: "user",
+				ActorID:   "ops-user",
+			},
+		},
+	}
+	agreementSvc := NewAgreementService(store, WithAgreementReviewActorDirectory(actorDirectory))
+
+	summary, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSign,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "outside.public.resolved@example.com",
+				DisplayName:     "Outside Resolved Public Reviewer",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if _, err := agreementSvc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+		ReviewID:   summary.Review.ID,
+		Visibility: stores.AgreementCommentVisibilityShared,
+		AnchorType: stores.AgreementCommentAnchorAgreement,
+		Body:       "Shared resolved actor comment",
+		ActorType:  "user",
+		ActorID:    "ops-user",
+	}); err != nil {
+		t.Fatalf("CreateCommentThread: %v", err)
+	}
+
+	reviewTokenService := stores.NewReviewSessionTokenService(store)
+	issued, err := reviewTokenService.Rotate(ctx, scope, agreement.ID, summary.Review.ID, summary.Participants[0].ID)
+	if err != nil {
+		t.Fatalf("Rotate review token: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, WithSigningReviewActorDirectory(actorDirectory))
+	session, err := signingSvc.GetReviewSession(ctx, scope, PublicReviewToken{
+		Kind:        PublicReviewTokenKindReview,
+		ReviewToken: &issued.Record,
+	})
+	if err != nil {
+		t.Fatalf("GetReviewSession: %v", err)
+	}
+	if session.Review == nil {
+		t.Fatal("expected review context in public review session")
+	}
+	if got := session.Review.ActorMap[reviewActorKey("user", "ops-user")]; strings.TrimSpace(got.Name) != "Ops Manager" || strings.TrimSpace(got.Email) != "ops.manager@example.com" {
+		t.Fatalf("expected resolved user actor map in public session, got %+v", got)
+	}
+	if got := session.Review.ActorMap[reviewActorKey("sender", "ops-user")]; strings.TrimSpace(got.Name) != "Ops Manager" || strings.TrimSpace(got.Email) != "ops.manager@example.com" {
+		t.Fatalf("expected resolved sender actor alias in public session, got %+v", got)
+	}
+}
+
 func TestSigningServiceCreatePublicReviewThreadRejectsInternalVisibility(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 

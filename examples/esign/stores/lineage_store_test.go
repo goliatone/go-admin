@@ -179,6 +179,49 @@ func TestInMemoryLineageStoreNormalizesDefaultsAndRejectsInvalidFingerprintCreat
 	}); err == nil {
 		t.Fatalf("expected missing extract version rejection")
 	}
+	otherDocument, err := store.CreateSourceDocument(ctx, scope, SourceDocumentRecord{
+		ProviderKind: SourceProviderKindGoogleDrive,
+		CreatedAt:    now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument other: %v", err)
+	}
+	otherHandle, err := store.CreateSourceHandle(ctx, scope, SourceHandleRecord{
+		SourceDocumentID: otherDocument.ID,
+		ProviderKind:     SourceProviderKindGoogleDrive,
+		ExternalFileID:   "google-defaults-2",
+		AccountID:        "account-2",
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle other: %v", err)
+	}
+	otherRevision, err := store.CreateSourceRevision(ctx, scope, SourceRevisionRecord{
+		SourceDocumentID: otherDocument.ID,
+		SourceHandleID:   otherHandle.ID,
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision other: %v", err)
+	}
+	otherArtifact, err := store.CreateSourceArtifact(ctx, scope, SourceArtifactRecord{
+		SourceRevisionID: otherRevision.ID,
+		ArtifactKind:     SourceArtifactKindSignablePDF,
+		ObjectKey:        "fixtures/defaults-other.pdf",
+		SHA256:           strings.Repeat("e", 64),
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceArtifact other: %v", err)
+	}
+	if _, err := store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
+		SourceRevisionID: revision.ID,
+		ArtifactID:       otherArtifact.ID,
+		ExtractVersion:   SourceExtractVersionPDFTextV1,
+		CreatedAt:        now,
+	}); err == nil {
+		t.Fatalf("expected mismatched artifact/source revision rejection")
+	}
 
 	relationship, err := store.CreateSourceRelationship(ctx, scope, SourceRelationshipRecord{
 		LeftSourceDocumentID:  document.ID,

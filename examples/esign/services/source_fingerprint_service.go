@@ -90,6 +90,9 @@ func (s DefaultSourceFingerprintService) BuildFingerprint(ctx context.Context, s
 	if err != nil {
 		return SourceFingerprintBuildResult{}, err
 	}
+	if err := validateSourceArtifactRevisionLink(sourceRevision, artifact); err != nil {
+		return SourceFingerprintBuildResult{}, err
+	}
 	if strings.TrimSpace(artifact.ObjectKey) == "" {
 		return SourceFingerprintBuildResult{}, domainValidationError("lineage_fingerprints", "object_key", "required")
 	}
@@ -497,6 +500,16 @@ func (s DefaultSourceFingerprintService) saveFingerprintRecord(ctx context.Conte
 	record.ID = existing[0].ID
 	record.CreatedAt = existing[0].CreatedAt
 	return s.lineage.SaveSourceFingerprint(ctx, scope, record)
+}
+
+func validateSourceArtifactRevisionLink(sourceRevision stores.SourceRevisionRecord, artifact stores.SourceArtifactRecord) error {
+	if strings.TrimSpace(sourceRevision.ID) == "" || strings.TrimSpace(artifact.ID) == "" {
+		return domainValidationError("lineage_fingerprints", "source_revision_id|artifact_id", "required")
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(sourceRevision.ID) {
+		return domainValidationError("lineage_fingerprints", "artifact_id", "artifact does not belong to source revision")
+	}
+	return nil
 }
 
 func sourceFingerprintRecordID(sourceRevisionID, artifactID, extractVersion string) string {

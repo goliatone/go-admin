@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/commands"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/fixtures"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
@@ -18,6 +19,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
+	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
@@ -89,6 +91,7 @@ func main() {
 		}()
 	}
 
+	var adminApp *admin.Admin
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
 		quickstart.AdapterHooks{},
@@ -96,10 +99,37 @@ func main() {
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithFeatureDefaults(featureDefaults),
 		quickstart.WithStartupPolicy(resolveESignStartupPolicy(runtimeConfig.Runtime.StartupPolicy)),
+		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
+			Enabled: true,
+			CommandRules: esignReviewRPCCommandRules(),
+			Authorize: func(ctx context.Context, input admin.RPCCommandPolicyInput) error {
+				extraPermissions := esignReviewRPCExtraPermissions(input.CommandName)
+				if len(extraPermissions) == 0 {
+					return nil
+				}
+				resource := strings.TrimSpace(input.Rule.Resource)
+				if resource == "" {
+					resource = "commands"
+				}
+				authorizer := adminApp.Authorizer()
+				for _, permission := range extraPermissions {
+					if admin.CanAll(authorizer, ctx, resource, permission) {
+						continue
+					}
+					return admin.PermissionDeniedError{
+						Permission: permission,
+						Resource:   resource,
+						Hint:       "Grant the missing permission to the current role and reload the page.",
+					}
+				}
+				return nil
+			},
+		}),
 	)
 	if err != nil {
 		log.Fatalf("new admin: %v", err)
 	}
+	adminApp = adm
 	observability.ConfigureLogging(
 		observability.WithLogger(adm.NamedLogger("esign.observability")),
 	)
@@ -467,4 +497,73 @@ func newESignRuntimeStore(bootstrap *esignpersistence.BootstrapResult) (stores.S
 		return nil, nil, err
 	}
 	return adapter, cleanup, nil
+}
+
+func esignReviewRPCCommandRules() map[string]admin.RPCCommandRule {
+	return map[string]admin.RPCCommandRule{
+		commands.CommandAgreementNotifyReviewers: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReviewReminderPause: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReviewReminderResume: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReviewReminderSendNow: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementCloseReview: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementForceApproveReview: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementApproveReviewOnBehalf: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementCreateCommentThread: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReplyCommentThread: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementResolveCommentThread: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReopenCommentThread: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+	}
+}
+
+func esignReviewRPCExtraPermissions(commandName string) []string {
+	switch strings.TrimSpace(commandName) {
+	case commands.CommandAgreementNotifyReviewers,
+		commands.CommandAgreementReviewReminderPause,
+		commands.CommandAgreementReviewReminderResume,
+		commands.CommandAgreementReviewReminderSendNow,
+		commands.CommandAgreementCloseReview,
+		commands.CommandAgreementForceApproveReview,
+		commands.CommandAgreementApproveReviewOnBehalf:
+		return []string{permissions.AdminESignSend}
+	case commands.CommandAgreementCreateCommentThread,
+		commands.CommandAgreementReplyCommentThread,
+		commands.CommandAgreementResolveCommentThread,
+		commands.CommandAgreementReopenCommentThread:
+		return []string{permissions.AdminESignView}
+	default:
+		return nil
+	}
 }

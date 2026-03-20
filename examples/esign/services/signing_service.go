@@ -68,6 +68,7 @@ type SigningService struct {
 	artifacts             stores.SignatureArtifactStore
 	audits                stores.AuditEventStore
 	outbox                stores.OutboxStore
+	reviewActorDirectory  ReviewActorDirectory
 	completionFlow        SigningCompletionWorkflow
 	stageFlow             SigningStageWorkflow
 	workflowDispatch      SigningWorkflowDispatchTrigger
@@ -217,6 +218,16 @@ func WithSigningStageWorkflow(workflow SigningStageWorkflow) SigningServiceOptio
 			return
 		}
 		s.stageFlow = workflow
+	}
+}
+
+// WithSigningReviewActorDirectory configures actor resolution for signer review bootstrap payloads.
+func WithSigningReviewActorDirectory(directory ReviewActorDirectory) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil || directory == nil {
+			return
+		}
+		s.reviewActorDirectory = directory
 	}
 }
 

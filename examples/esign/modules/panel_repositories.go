@@ -369,6 +369,8 @@ type agreementPanelRepository struct {
 	defaultScope stores.Scope
 	settings     RuntimeSettings
 	authorizer   coreadmin.Authorizer
+	users        *coreadmin.UserManagementService
+	profiles     *coreadmin.ProfileService
 }
 
 func newAgreementPanelRepository(
@@ -512,6 +514,14 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	if err != nil {
 		return nil, err
 	}
+	fieldDefinitions, err := r.agreements.ListFieldDefinitions(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	fieldInstances, err := r.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
 	fields, err := r.agreements.ListFields(ctx, scope, agreementID)
 	if err != nil {
 		return nil, err
@@ -534,6 +544,9 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	}
 	reminderStates := r.reminderStateMap(ctx, scope, agreementID, recipients)
 	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
+	currentUserID := strings.TrimSpace(userIDFromContext(ctx))
+	result["current_user_id"] = currentUserID
+	result["field_definitions"] = fieldDefinitionsToMaps(fieldDefinitions, fieldInstances)
 	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
 	if r.readModels != nil {
 		lineage, err := r.readModels.GetAgreementLineageDetail(ctx, scope, agreementID)
@@ -551,6 +564,9 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 		}
 		result["review"] = reviewSummaryToMap(reviewSummary, reviewReminderStates)
 		result["review_override_active"] = reviewSummary.OverrideActive
+		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, events, recipients, fieldDefinitions, fieldInstances, &reviewSummary)
+	} else {
+		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, events, recipients, fieldDefinitions, fieldInstances, nil)
 	}
 	// Fetch document title if document_id exists
 	documentID := strings.TrimSpace(agreement.DocumentID)
@@ -989,6 +1005,308 @@ func agreementRecordToMap(
 		}
 	}
 	return payload
+}
+
+type timelineActorRecord struct {
+	ActorType   string
+	ActorID     string
+	DisplayName string
+	Email       string
+	Role        string
+}
+
+func fieldDefinitionsToMaps(definitions []stores.FieldDefinitionRecord, instances []stores.FieldInstanceRecord) []map[string]any {
+	out := make([]map[string]any, 0, len(definitions))
+	instanceLabels := make(map[string]string, len(instances))
+	for _, instance := range instances {
+		definitionID := strings.TrimSpace(instance.FieldDefinitionID)
+		label := strings.TrimSpace(instance.Label)
+		if definitionID == "" || label == "" {
+			continue
+		}
+		if _, ok := instanceLabels[definitionID]; ok {
+			continue
+		}
+		instanceLabels[definitionID] = label
+	}
+	for _, definition := range definitions {
+		out = append(out, map[string]any{
+			"id":              strings.TrimSpace(definition.ID),
+			"agreement_id":    strings.TrimSpace(definition.AgreementID),
+			"participant_id":  strings.TrimSpace(definition.ParticipantID),
+			"type":            strings.TrimSpace(definition.Type),
+			"required":        definition.Required,
+			"validation_json": strings.TrimSpace(definition.ValidationJSON),
+			"link_group_id":   strings.TrimSpace(definition.LinkGroupID),
+			"label":           resolveFieldDefinitionLabel(definition, instanceLabels),
+			"created_at":      formatTimePtr(&definition.CreatedAt),
+			"updated_at":      formatTimePtr(&definition.UpdatedAt),
+		})
+	}
+	return out
+}
+
+func resolveFieldDefinitionLabel(definition stores.FieldDefinitionRecord, instanceLabels map[string]string) string {
+	if label := extractFieldDefinitionLabel(definition.ValidationJSON); label != "" {
+		return label
+	}
+	if label := strings.TrimSpace(instanceLabels[strings.TrimSpace(definition.ID)]); label != "" {
+		return label
+	}
+	return humanizeFieldDefinitionType(definition.Type)
+}
+
+func extractFieldDefinitionLabel(validationJSON string) string {
+	validationJSON = strings.TrimSpace(validationJSON)
+	if validationJSON == "" {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(validationJSON), &payload); err != nil {
+		return ""
+	}
+	if label, ok := payload["label"].(string); ok && strings.TrimSpace(label) != "" {
+		return strings.TrimSpace(label)
+	}
+	if displayName, ok := payload["display_name"].(string); ok && strings.TrimSpace(displayName) != "" {
+		return strings.TrimSpace(displayName)
+	}
+	return ""
+}
+
+func humanizeFieldDefinitionType(fieldType string) string {
+	switch strings.TrimSpace(fieldType) {
+	case stores.FieldTypeSignature:
+		return "Signature"
+	case stores.FieldTypeInitials:
+		return "Initials"
+	case stores.FieldTypeName:
+		return "Signer Name"
+	case stores.FieldTypeDateSigned:
+		return "Signature Date"
+	case stores.FieldTypeText:
+		return "Text"
+	case stores.FieldTypeCheckbox:
+		return "Checkbox"
+	default:
+		return snakeToTitle(strings.TrimSpace(fieldType))
+	}
+}
+
+func (r *agreementPanelRepository) buildAgreementTimelineBootstrap(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	currentUserID string,
+	events []stores.AuditEventRecord,
+	recipients []stores.RecipientRecord,
+	fieldDefinitions []stores.FieldDefinitionRecord,
+	fieldInstances []stores.FieldInstanceRecord,
+	reviewSummary *services.ReviewSummary,
+) map[string]any {
+	return map[string]any{
+		"agreement_id":    strings.TrimSpace(agreementID),
+		"current_user_id": strings.TrimSpace(currentUserID),
+		"events":          eventsToMaps(events),
+		"actors":          r.buildTimelineActorPayload(ctx, scope, currentUserID, events, recipients, reviewSummary),
+		"participants":    recipientsToMaps(stores.AgreementRecord{}, recipients, nil, 0),
+		"field_definitions": fieldDefinitionsToMaps(
+			fieldDefinitions,
+			fieldInstances,
+		),
+	}
+}
+
+func (r *agreementPanelRepository) buildTimelineActorPayload(
+	ctx context.Context,
+	scope stores.Scope,
+	currentUserID string,
+	events []stores.AuditEventRecord,
+	recipients []stores.RecipientRecord,
+	reviewSummary *services.ReviewSummary,
+) map[string]any {
+	_ = scope
+	actors := map[string]timelineActorRecord{}
+	for _, recipient := range recipients {
+		registerTimelineActor(
+			actors,
+			[]string{"recipient", "signer"},
+			recipient.ID,
+			firstNonEmptyReviewActorValue(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email)),
+			recipient.Email,
+			recipient.Role,
+		)
+	}
+	if reviewSummary != nil {
+		for key, actor := range reviewSummary.ActorMap {
+			normalizedKey := strings.TrimSpace(key)
+			if normalizedKey == "" {
+				continue
+			}
+			aliases := timelineActorAliases(actor.ActorType)
+			if len(aliases) == 0 {
+				aliases = []string{actor.ActorType}
+			}
+			registerTimelineActor(actors, aliases, actor.ActorID, actor.Name, actor.Email, actor.Role)
+		}
+	}
+	userActorIDs := map[string][]string{}
+	for _, event := range events {
+		actorID := strings.TrimSpace(event.ActorID)
+		if actorID == "" {
+			continue
+		}
+		actorType := strings.ToLower(strings.TrimSpace(event.ActorType))
+		switch actorType {
+		case "admin":
+			userActorIDs[actorID] = appendUniqueString(userActorIDs[actorID], "admin")
+		case "user", "sender":
+			userActorIDs[actorID] = appendUniqueString(userActorIDs[actorID], "user", "sender")
+		}
+	}
+	if strings.TrimSpace(currentUserID) != "" {
+		userActorIDs[strings.TrimSpace(currentUserID)] = appendUniqueString(userActorIDs[strings.TrimSpace(currentUserID)], "user")
+	}
+	for actorID, actorTypes := range userActorIDs {
+		displayName, email := r.resolveTimelineUserActor(ctx, actorID)
+		registerTimelineActor(actors, actorTypes, actorID, displayName, email, "sender")
+	}
+	out := make(map[string]any, len(actors))
+	for key, actor := range actors {
+		out[key] = map[string]any{
+			"actor_type":   strings.TrimSpace(actor.ActorType),
+			"actor_id":     strings.TrimSpace(actor.ActorID),
+			"display_name": strings.TrimSpace(actor.DisplayName),
+			"email":        strings.TrimSpace(actor.Email),
+			"role":         strings.TrimSpace(actor.Role),
+		}
+	}
+	return out
+}
+
+func (r *agreementPanelRepository) resolveTimelineUserActor(ctx context.Context, actorID string) (string, string) {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" {
+		return "", ""
+	}
+	name := ""
+	email := ""
+	if r.profiles != nil {
+		if profile, err := r.profiles.Get(ctx, actorID); err == nil {
+			name = firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email)
+			email = strings.TrimSpace(profile.Email)
+		}
+	}
+	if r.users != nil {
+		if user, err := r.users.GetUser(ctx, actorID); err == nil {
+			if name == "" {
+				name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
+			}
+			if email == "" {
+				email = strings.TrimSpace(user.Email)
+			}
+		}
+	}
+	return name, email
+}
+
+func timelineActorAliases(actorType string) []string {
+	switch strings.ToLower(strings.TrimSpace(actorType)) {
+	case "recipient", "signer":
+		return []string{"recipient", "signer"}
+	case "user", "sender":
+		return []string{"user", "sender"}
+	case "admin":
+		return []string{"admin"}
+	case "reviewer":
+		return []string{"reviewer"}
+	default:
+		normalized := strings.TrimSpace(actorType)
+		if normalized == "" {
+			return nil
+		}
+		return []string{normalized}
+	}
+}
+
+func registerTimelineActor(actors map[string]timelineActorRecord, actorTypes []string, actorID, displayName, email, role string) {
+	normalizedActorID := strings.TrimSpace(actorID)
+	if normalizedActorID == "" {
+		return
+	}
+	for _, actorType := range actorTypes {
+		normalizedActorType := strings.ToLower(strings.TrimSpace(actorType))
+		if normalizedActorType == "" {
+			continue
+		}
+		key := normalizedActorType + ":" + normalizedActorID
+		existing := actors[key]
+		if existing.ActorType == "" {
+			existing.ActorType = normalizedActorType
+		}
+		if existing.ActorID == "" {
+			existing.ActorID = normalizedActorID
+		}
+		if existing.DisplayName == "" {
+			existing.DisplayName = strings.TrimSpace(displayName)
+		}
+		if existing.Email == "" {
+			existing.Email = strings.TrimSpace(email)
+		}
+		if existing.Role == "" {
+			existing.Role = strings.TrimSpace(role)
+		}
+		if existing.DisplayName == "" {
+			existing.DisplayName = firstNonEmptyReviewActorValue(existing.Email, snakeToTitle(existing.Role), snakeToTitle(existing.ActorType))
+		}
+		actors[key] = existing
+	}
+}
+
+func appendUniqueString(values []string, additions ...string) []string {
+	if len(additions) == 0 {
+		return values
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values)+len(additions))
+	for _, value := range values {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	for _, value := range additions {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func snakeToTitle(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	parts := strings.Fields(strings.ReplaceAll(strings.ReplaceAll(value, "_", " "), ".", " "))
+	for index, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[index] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+	}
+	return strings.Join(parts, " ")
 }
 
 func reviewSummaryToMap(summary services.ReviewSummary, reminderStates map[string]services.ReviewReminderState) map[string]any {

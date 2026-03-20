@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -415,6 +416,23 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				IdempotencyKey:    idempotencyKey,
 			})
 			if err != nil {
+				var inProgress *services.GoogleImportInProgressError
+				if errors.As(err, &inProgress) && inProgress != nil {
+					statusURL := ""
+					if strings.TrimSpace(inProgress.RunID) != "" {
+						statusURL = strings.Replace(routes.AdminGoogleDriveImportRun, ":import_run_id", strings.TrimSpace(inProgress.RunID), 1)
+					}
+					werr := writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeIntegrationConflict), "google import already in progress", map[string]any{
+						"import_run_id": strings.TrimSpace(inProgress.RunID),
+						"status":        strings.TrimSpace(inProgress.Status),
+						"status_url":    statusURL,
+					})
+					logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, err, map[string]any{
+						"import_run_id": strings.TrimSpace(inProgress.RunID),
+						"status":        strings.TrimSpace(inProgress.Status),
+					})
+					return werr
+				}
 				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGooglePermissionDenied), "google import failed", nil)
 				logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, err, nil)
 				return werr

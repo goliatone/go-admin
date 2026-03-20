@@ -218,6 +218,121 @@ func TestDefaultSourceReconciliationServiceCreatesPendingCrossAccountCandidate(t
 	}
 }
 
+func TestDefaultSourceReconciliationServiceScoresHistoricalRevisions(t *testing.T) {
+	ctx := context.Background()
+	fixture := newReconciliationFixture()
+	originalPDF := makeTextPDF(t,
+		"Master Services Agreement\n\nCommercial terms remain unchanged.",
+		"Appendix A\n\nSupport obligations and pricing remain unchanged.",
+	)
+	updatedPDF := makeTextPDF(t,
+		"Master Services Agreement\n\nCommercial terms now include regional pricing.",
+		"Appendix A\n\nSupport obligations changed for premium tiers.",
+	)
+
+	canonical := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "historical-canonical",
+		title:             "Master Services Agreement",
+		accountID:         "acct-primary",
+		externalFileID:    "google-file-primary",
+		webURL:            "https://docs.google.com/document/d/google-file-primary/edit",
+		ownerEmail:        "owner@example.com",
+		parentID:          "folder-legal",
+		providerRevision:  "v1",
+		lineageConfidence: stores.LineageConfidenceBandExact,
+		pdf:               originalPDF,
+	})
+	target := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "historical-target",
+		title:             "Master Services Agreement",
+		accountID:         "acct-secondary",
+		externalFileID:    "google-file-secondary",
+		webURL:            "https://docs.google.com/document/d/google-file-secondary/edit",
+		ownerEmail:        "owner@example.com",
+		parentID:          "folder-legal",
+		providerRevision:  "v1-copy",
+		lineageConfidence: stores.LineageConfidenceBandMedium,
+		pdf:               originalPDF,
+	})
+
+	secondRevisionAt := fixture.now.Add(3 * time.Hour)
+	secondRevision, err := fixture.store.CreateSourceRevision(ctx, fixture.scope, stores.SourceRevisionRecord{
+		ID:                   canonical.revisionID + "-v2",
+		SourceDocumentID:     canonical.sourceDocumentID,
+		SourceHandleID:       canonical.handleID,
+		ProviderRevisionHint: "v2",
+		ModifiedTime:         &secondRevisionAt,
+		ExportedAt:           &secondRevisionAt,
+		ExportedByUserID:     "ops-user",
+		SourceMimeType:       GoogleDriveMimeTypeDoc,
+		MetadataJSON:         `{"owner_email":"owner@example.com","parent_id":"folder-legal","web_url":"https://docs.google.com/document/d/google-file-primary/edit"}`,
+		CreatedAt:            secondRevisionAt,
+		UpdatedAt:            secondRevisionAt,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision v2: %v", err)
+	}
+	secondArtifactObjectKey := "tenant/" + fixture.scope.TenantID + "/historical-canonical-v2.pdf"
+	secondArtifact, err := fixture.store.CreateSourceArtifact(ctx, fixture.scope, stores.SourceArtifactRecord{
+		ID:                  canonical.artifactID + "-v2",
+		SourceRevisionID:    secondRevision.ID,
+		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+		ObjectKey:           secondArtifactObjectKey,
+		SHA256:              hashFingerprintBytes(updatedPDF),
+		PageCount:           2,
+		SizeBytes:           int64(len(updatedPDF)),
+		CompatibilityTier:   string(PDFCompatibilityTierFull),
+		NormalizationStatus: string(PDFNormalizationStatusCompleted),
+		CreatedAt:           secondRevisionAt,
+		UpdatedAt:           secondRevisionAt,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceArtifact v2: %v", err)
+	}
+	fixture.objects.files[secondArtifactObjectKey] = append([]byte{}, updatedPDF...)
+
+	fixture.buildFingerprint(t, canonical)
+	fixture.buildFingerprint(t, target)
+	if _, err := NewDefaultSourceFingerprintService(fixture.store, fixture.objects).BuildFingerprint(ctx, fixture.scope, SourceFingerprintBuildInput{
+		SourceRevisionID: secondRevision.ID,
+		ArtifactID:       secondArtifact.ID,
+		Metadata:         fixture.metadataBaseline(canonical),
+	}); err != nil {
+		t.Fatalf("BuildFingerprint canonical v2: %v", err)
+	}
+
+	service := NewDefaultSourceReconciliationService(fixture.store, WithSourceReconciliationClock(func() time.Time {
+		return fixture.now.Add(4 * time.Hour)
+	}))
+	result, err := service.EvaluateCandidates(ctx, fixture.scope, SourceReconciliationInput{
+		SourceDocumentID: target.sourceDocumentID,
+		SourceRevisionID: target.revisionID,
+		ArtifactID:       target.artifactID,
+		ActorID:          "ops-user",
+		Metadata:         fixture.metadataBaseline(target),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCandidates historical revisions: %v", err)
+	}
+	if len(result.Candidates) != 0 || result.PrimaryCandidate != nil {
+		t.Fatalf("expected exact historical artifact match to auto-confirm, got %+v", result)
+	}
+
+	relationships, err := service.ListCandidateRelationships(ctx, fixture.scope, target.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListCandidateRelationships historical: %v", err)
+	}
+	if len(relationships) != 1 {
+		t.Fatalf("expected one persisted relationship, got %+v", relationships)
+	}
+	if relationships[0].Status != stores.SourceRelationshipStatusConfirmed || relationships[0].ConfidenceBand != stores.LineageConfidenceBandExact {
+		t.Fatalf("expected confirmed exact relationship from historical revision, got %+v", relationships[0])
+	}
+	if !strings.Contains(relationships[0].EvidenceJSON, canonical.revisionID) || !strings.Contains(relationships[0].EvidenceJSON, canonical.artifactID) {
+		t.Fatalf("expected evidence to reference historical matching revision/artifact, got %s", relationships[0].EvidenceJSON)
+	}
+}
+
 func TestDefaultSourceReconciliationServiceSkipsLowConfidenceMatches(t *testing.T) {
 	ctx := context.Background()
 	fixture := newReconciliationFixture()

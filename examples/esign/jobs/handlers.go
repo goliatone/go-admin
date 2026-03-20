@@ -941,6 +941,7 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	}
 
 	result, err := h.googleImporter.ImportDocument(ctx, msg.Scope, services.GoogleImportInput{
+		ImportRunID:       importRunID,
 		UserID:            strings.TrimSpace(msg.UserID),
 		AccountID:         strings.TrimSpace(msg.GoogleAccountID),
 		GoogleFileID:      strings.TrimSpace(msg.GoogleFileID),
