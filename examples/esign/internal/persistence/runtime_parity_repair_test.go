@@ -184,6 +184,57 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsLineageLinkageColumns(t *testing
 	assertSQLiteLineageColumnsExist(t, sqlDB)
 }
 
+func TestEnsureRuntimeParityColumnsPostgresRepairsJobRunAttemptConstraint(t *testing.T) {
+	dsn := requirePostgresTestDSN(t)
+	sqlDB, bunDialect, driverName, err := openDialectDB(context.Background(), DialectPostgres, dsn)
+	if err != nil {
+		t.Fatalf("openDialectDB: %v", err)
+	}
+	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
+	if err != nil {
+		_ = sqlDB.Close()
+		t.Fatalf("persistence.New: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
+	cfg.Persistence.Postgres.DSN = dsn
+	cfg.Persistence.SQLite.DSN = ""
+	if err := registerOrderedSources(client, cfg); err != nil {
+		t.Fatalf("registerOrderedSources: %v", err)
+	}
+	if err := client.Migrate(context.Background()); err != nil {
+		t.Fatalf("client.Migrate: %v", err)
+	}
+
+	if _, err := sqlDB.ExecContext(context.Background(), `
+		ALTER TABLE job_runs ALTER COLUMN attempt_count SET DEFAULT 1;
+		ALTER TABLE job_runs DROP CONSTRAINT IF EXISTS job_runs_attempt_count_check;
+		ALTER TABLE job_runs ADD CONSTRAINT job_runs_attempt_count_check CHECK (attempt_count > 0);
+	`); err != nil {
+		t.Fatalf("set stale postgres constraint: %v", err)
+	}
+
+	if err := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectPostgres); err != nil {
+		t.Fatalf("ensureRuntimeParityColumns: %v", err)
+	}
+
+	if _, err := sqlDB.ExecContext(context.Background(), `
+		INSERT INTO job_runs (
+			id, tenant_id, org_id, job_name, dedupe_key, agreement_id, correlation_id,
+			status, attempt_count, max_attempts, payload_json, available_at, worker_id,
+			resource_kind, resource_id, last_error_code, last_error, created_at, updated_at
+		) VALUES (
+			'job-run-repair', 'tenant-repair', 'org-repair', 'jobs.esign.drain_email_outbox',
+			'tenant-repair|org-repair', '', '', 'queued', 0, 3, '{}', NOW(), '',
+			'scope', 'tenant-repair|org-repair', '', '', NOW(), NOW()
+		)
+	`); err != nil {
+		t.Fatalf("insert repaired queued job run: %v", err)
+	}
+}
+
 func assertSQLiteLineageColumnsExist(t *testing.T, db *sql.DB) {
 	t.Helper()
 

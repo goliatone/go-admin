@@ -199,6 +199,37 @@ func TestRuntimeRelationalAgreementSendAndReminderState(t *testing.T) {
 	})
 }
 
+func TestRuntimeRelationalEnqueueJobSupportsQueuedAttemptZero(t *testing.T) {
+	runRuntimeAdapterBackends(t, func(t *testing.T, store *StoreAdapter) {
+		ctx := context.Background()
+		scope := runtimeScope()
+		now := time.Date(2026, 3, 21, 3, 0, 0, 0, time.UTC)
+
+		run, queued, err := store.EnqueueJob(ctx, scope, stores.JobRunEnqueueInput{
+			JobName:         "jobs.esign.drain_email_outbox",
+			DedupeKey:       scope.TenantID + "|" + scope.OrgID,
+			PayloadJSON:     `{"scope_key":"` + scope.TenantID + `|` + scope.OrgID + `"}`,
+			AvailableAt:     &now,
+			ResourceKind:    "scope",
+			ResourceID:      scope.TenantID + "|" + scope.OrgID,
+			ReplaceTerminal: true,
+			RequestedAt:     now,
+		})
+		if err != nil {
+			t.Fatalf("EnqueueJob: %v", err)
+		}
+		if !queued {
+			t.Fatalf("expected queued durable job, got %+v", run)
+		}
+		if run.Status != stores.JobRunStatusQueued {
+			t.Fatalf("expected queued status, got %+v", run)
+		}
+		if run.AttemptCount != 0 {
+			t.Fatalf("expected queued attempt_count=0, got %+v", run)
+		}
+	})
+}
+
 func TestRuntimeRelationalAgreementOpenReviewSupportsExternalReviewers(t *testing.T) {
 	runRuntimeAdapterBackends(t, func(t *testing.T, store *StoreAdapter) {
 		ctx := context.Background()

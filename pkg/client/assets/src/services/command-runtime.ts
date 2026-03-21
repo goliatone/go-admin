@@ -46,7 +46,8 @@ export type InlineStatusState =
   | 'accepted'
   | 'completed'
   | 'failed'
-  | 'stale';
+  | 'stale'
+  | 'retry_scheduled';
 
 /**
  * Inline status entry for tracking command progress
@@ -914,6 +915,12 @@ export class CommandRuntimeController {
       } else if (status === 'failed' || status === 'error') {
         this.updateInlineStatusFromDispatch(correlationId, commandName, 'failed', {
           message: event.message || 'Failed',
+          section,
+          participantId,
+        });
+      } else if (status === 'retry' || status === 'retry_scheduled' || status === 'retrying') {
+        this.updateInlineStatusFromDispatch(correlationId, commandName, 'retry_scheduled', {
+          message: event.message || 'Retry scheduled...',
           section,
           participantId,
         });

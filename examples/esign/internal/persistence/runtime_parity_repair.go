@@ -223,6 +223,9 @@ func ensurePostgresRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE IF EXISTS job_runs ADD COLUMN IF NOT EXISTS resource_kind TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS job_runs ADD COLUMN IF NOT EXISTS resource_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE IF EXISTS job_runs ADD COLUMN IF NOT EXISTS last_error_code TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE IF EXISTS job_runs ALTER COLUMN attempt_count SET DEFAULT 0`,
+		`ALTER TABLE IF EXISTS job_runs DROP CONSTRAINT IF EXISTS job_runs_attempt_count_check`,
+		`ALTER TABLE IF EXISTS job_runs ADD CONSTRAINT job_runs_attempt_count_check CHECK (attempt_count >= 0)`,
 
 		`ALTER TABLE IF EXISTS fields ADD COLUMN IF NOT EXISTS field_definition_id TEXT NULL`,
 		`ALTER TABLE IF EXISTS fields ADD COLUMN IF NOT EXISTS placement_source TEXT NOT NULL DEFAULT ''`,

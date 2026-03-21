@@ -149,6 +149,51 @@
     75% { transform: translateX(2px); }
   }
 
+  /* Subtle pulse animation for pending/waiting states */
+  .inline-status-pulse {
+    animation: inline-status-pulse 2s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.85;
+      background-color: rgba(59, 130, 246, 0.08);
+    }
+  }
+
+  /* Retry scheduled state - orange pulse variant */
+  .inline-status[data-status-state="retry_scheduled"] {
+    animation: inline-status-pulse-orange 2s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse-orange {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.85;
+      background-color: rgba(249, 115, 22, 0.08);
+    }
+  }
+
+  /* Stale state - gray pulse variant */
+  .inline-status[data-status-state="stale"] {
+    animation: inline-status-pulse-gray 1.5s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse-gray {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.7;
+      background-color: rgba(107, 114, 128, 0.08);
+    }
+  }
+
   /* Status target containers */
   [data-live-status-target] {
     display: inline-flex;

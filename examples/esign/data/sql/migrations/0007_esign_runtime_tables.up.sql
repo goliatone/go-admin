@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS job_runs (
     recipient_id TEXT NULL,
     correlation_id TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'pending',
-    attempt_count INTEGER NOT NULL DEFAULT 1 CHECK (attempt_count > 0),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     max_attempts INTEGER NOT NULL DEFAULT 1 CHECK (max_attempts > 0),
     last_error TEXT NOT NULL DEFAULT '',
     next_retry_at TIMESTAMP NULL,

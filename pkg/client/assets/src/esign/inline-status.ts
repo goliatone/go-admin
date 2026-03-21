@@ -36,9 +36,22 @@ export interface InlineStatusConfig {
  */
 export interface StatusDisplayConfig {
   text: string;
-  icon: 'spinner' | 'check' | 'error' | 'clock' | 'refresh';
+  icon: 'spinner' | 'check' | 'error' | 'clock' | 'refresh' | 'retry';
   colorClass: string;
   ariaLive: 'polite' | 'assertive' | 'off';
+  pulse?: boolean;
+}
+
+/**
+ * Per-command message customization
+ */
+export interface CommandMessageConfig {
+  submitting?: string;
+  accepted?: string;
+  completed?: string;
+  failed?: string;
+  stale?: string;
+  retry_scheduled?: string;
 }
 
 /**
@@ -106,6 +119,7 @@ export const STATUS_DISPLAY: Record<InlineStatusState, StatusDisplayConfig> = {
     icon: 'clock',
     colorClass: 'text-blue-600',
     ariaLive: 'polite',
+    pulse: true,
   },
   completed: {
     text: 'Done',
@@ -124,8 +138,141 @@ export const STATUS_DISPLAY: Record<InlineStatusState, StatusDisplayConfig> = {
     icon: 'refresh',
     colorClass: 'text-gray-500',
     ariaLive: 'polite',
+    pulse: true,
+  },
+  retry_scheduled: {
+    text: 'Retry scheduled...',
+    icon: 'retry',
+    colorClass: 'text-orange-600',
+    ariaLive: 'polite',
+    pulse: true,
   },
 };
+
+/**
+ * Per-command message customization map.
+ * Keys are command name patterns (exact match or prefix match with *).
+ */
+export const COMMAND_MESSAGES: Record<string, CommandMessageConfig> = {
+  // Review reminder commands
+  'notify_reviewers': {
+    submitting: 'Notifying...',
+    completed: 'Notified',
+  },
+  'send_review_reminder_now': {
+    submitting: 'Sending reminder...',
+    completed: 'Reminder sent',
+  },
+  'review_reminder.send_now': {
+    submitting: 'Sending reminder...',
+    completed: 'Reminder sent',
+  },
+  'review_reminder.pause': {
+    submitting: 'Pausing reminders...',
+    completed: 'Reminders paused',
+  },
+  'review_reminder.resume': {
+    submitting: 'Resuming reminders...',
+    completed: 'Reminders resumed',
+  },
+  // Approval commands
+  'approve_review_participant_on_behalf': {
+    submitting: 'Approving...',
+    completed: 'Approved',
+  },
+  'force_approve_review': {
+    submitting: 'Force approving...',
+    completed: 'Force approved',
+  },
+  // Comment commands
+  'create_comment_thread': {
+    submitting: 'Adding comment...',
+    completed: 'Comment added',
+  },
+  'reply_comment_thread': {
+    submitting: 'Adding reply...',
+    completed: 'Reply added',
+  },
+  'resolve_comment_thread': {
+    submitting: 'Resolving...',
+    completed: 'Resolved',
+  },
+  'reopen_comment_thread': {
+    submitting: 'Reopening...',
+    completed: 'Reopened',
+  },
+  // Delivery commands
+  'resend_signing_request': {
+    submitting: 'Resending...',
+    completed: 'Email sent',
+    retry_scheduled: 'Email queued for retry',
+  },
+  'retry_email': {
+    submitting: 'Retrying email...',
+    completed: 'Email sent',
+    retry_scheduled: 'Email queued for retry',
+  },
+  // Artifact commands
+  'retry_job': {
+    submitting: 'Retrying job...',
+    accepted: 'Job queued...',
+    completed: 'Job completed',
+    retry_scheduled: 'Job retry scheduled',
+  },
+  'generate_certificate': {
+    submitting: 'Generating certificate...',
+    accepted: 'Certificate generation queued...',
+    completed: 'Certificate generated',
+  },
+  'generate_executed_document': {
+    submitting: 'Generating document...',
+    accepted: 'Document generation queued...',
+    completed: 'Document generated',
+  },
+};
+
+/**
+ * Get customized message for a command and state
+ */
+export function getCommandMessage(
+  commandName: string,
+  state: InlineStatusState,
+  fallback?: string
+): string {
+  const normalizedName = String(commandName || '').toLowerCase().trim();
+
+  // Helper to safely get message from config
+  const getMessage = (config: CommandMessageConfig | undefined): string | undefined => {
+    if (!config) return undefined;
+    switch (state) {
+      case 'submitting': return config.submitting;
+      case 'accepted': return config.accepted;
+      case 'completed': return config.completed;
+      case 'failed': return config.failed;
+      case 'stale': return config.stale;
+      case 'retry_scheduled': return config.retry_scheduled;
+      default: return undefined;
+    }
+  };
+
+  // Try exact match first
+  const config = COMMAND_MESSAGES[normalizedName];
+  const exactMessage = getMessage(config);
+  if (exactMessage) {
+    return exactMessage;
+  }
+
+  // Try matching by suffix (e.g., 'esign.agreements.notify_reviewers' -> 'notify_reviewers')
+  const lastPart = normalizedName.split('.').pop() || '';
+  const suffixConfig = COMMAND_MESSAGES[lastPart];
+  const suffixMessage = getMessage(suffixConfig);
+  if (suffixMessage) {
+    return suffixMessage;
+  }
+
+  // Fall back to default status display text or provided fallback
+  return fallback || STATUS_DISPLAY[state]?.text || '';
+}
 
 // =============================================================================
 // Icon Templates
@@ -137,6 +284,7 @@ const ICON_TEMPLATES: Record<StatusDisplayConfig['icon'], string> = {
   error: `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>`,
   clock: `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>`,
   refresh: `<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`,
+  retry: `<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`,
 };
 
 // =============================================================================
@@ -283,12 +431,15 @@ export function createStatusElement(
   correlationId: string
 ): HTMLElement {
   const config = STATUS_DISPLAY[entry.state];
-  const text = entry.message || config.text;
+  // Use custom message for command, or entry message, or default
+  const text = entry.message || getCommandMessage(entry.commandName, entry.state, config.text);
 
   const container = document.createElement('span');
-  container.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${config.colorClass}`;
+  const pulseClass = config.pulse ? 'inline-status-pulse' : '';
+  container.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${config.colorClass} ${pulseClass}`.trim();
   container.setAttribute('data-inline-status', correlationId);
   container.setAttribute('data-status-state', entry.state);
+  container.setAttribute('data-command-name', entry.commandName || '');
   container.setAttribute('role', 'status');
   container.setAttribute('aria-live', config.ariaLive);
 
@@ -306,13 +457,16 @@ export function updateStatusElement(
   entry: InlineStatusEntry
 ): void {
   const config = STATUS_DISPLAY[entry.state];
-  const text = entry.message || config.text;
+  // Use custom message for command, or entry message, or default
+  const text = entry.message || getCommandMessage(entry.commandName, entry.state, config.text);
 
   element.setAttribute('data-status-state', entry.state);
+  element.setAttribute('data-command-name', entry.commandName || '');
   element.setAttribute('aria-live', config.ariaLive);
 
-  // Update classes
-  element.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${config.colorClass}`;
+  // Update classes with pulse
+  const pulseClass = config.pulse ? 'inline-status-pulse' : '';
+  element.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${config.colorClass} ${pulseClass}`.trim();
 
   // Update content
   const iconHtml = ICON_TEMPLATES[config.icon] || '';

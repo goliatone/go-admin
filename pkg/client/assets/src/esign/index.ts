@@ -372,6 +372,9 @@ export {
   removeStatusElement,
   clearAllStatusElements,
   clearStaleStatusElements,
+  // Command message customization
+  getCommandMessage,
+  COMMAND_MESSAGES,
   // Constants
   DEFAULT_INLINE_STATUS_CONFIG,
   SECTION_TARGET_SELECTORS,
@@ -382,6 +385,7 @@ export {
   type InlineStatusConfig,
   type StatusDisplayConfig,
   type StatusTargetResult,
+  type CommandMessageConfig,
 } from './inline-status.js';
 
 // Timeline module
