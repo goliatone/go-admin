@@ -889,6 +889,26 @@ func (h Handlers) ExecuteTokenRotate(ctx context.Context, msg TokenRotateMsg) er
 }
 
 func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveImportMsg) (services.GoogleImportResult, error) {
+	return h.performGoogleDriveImport(ctx, msg, true)
+}
+
+func (h Handlers) HandleGoogleDriveImportJob(ctx context.Context, scope stores.Scope, run stores.JobRunRecord) error {
+	msg := GoogleDriveImportMsg{}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(run.PayloadJSON)), &msg); err != nil {
+		return err
+	}
+	msg.Scope = scope
+	if strings.TrimSpace(msg.CorrelationID) == "" {
+		msg.CorrelationID = strings.TrimSpace(run.CorrelationID)
+	}
+	if strings.TrimSpace(msg.DedupeKey) == "" {
+		msg.DedupeKey = strings.TrimSpace(run.DedupeKey)
+	}
+	_, err := h.performGoogleDriveImport(ctx, msg, false)
+	return err
+}
+
+func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveImportMsg, trackAgreementJob bool) (services.GoogleImportResult, error) {
 	startedAt := h.now()
 	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.GoogleFileID, msg.UserID, msg.GoogleAccountID, JobGoogleDriveImport)
 	if h.googleImporter == nil {
@@ -992,7 +1012,7 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		})
 	}
 
-	if h.jobRuns != nil && strings.TrimSpace(result.Agreement.ID) != "" {
+	if trackAgreementJob && h.jobRuns != nil && strings.TrimSpace(result.Agreement.ID) != "" {
 		run, shouldRun, runErr := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
 			JobName:       JobGoogleDriveImport,
 			DedupeKey:     dedupeKey,
@@ -1057,17 +1077,64 @@ func (h Handlers) ExecuteSourceLineageProcessing(ctx context.Context, msg Source
 		}
 		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, err
 	}
+	fingerprint, reconciliationResult, err := h.performSourceLineageProcessing(ctx, msg, run)
+	if err != nil {
+		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+			"source_document_id": strings.TrimSpace(msg.SourceDocumentID),
+			"source_revision_id": strings.TrimSpace(msg.SourceRevisionID),
+			"artifact_id":        strings.TrimSpace(msg.ArtifactID),
+			"import_run_id":      strings.TrimSpace(msg.ImportRunID),
+		})
+	}
 
+	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
+		return fingerprint, reconciliationResult, err
+	}
+	observability.ObserveJobResult(ctx, JobSourceLineageProcessing, true)
+	observability.LogOperation(ctx, slog.LevelInfo, "job", "source_lineage_processing", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
+		"job_name":           JobSourceLineageProcessing,
+		"dedupe_key":         dedupeKey,
+		"source_document":    strings.TrimSpace(msg.SourceDocumentID),
+		"source_revision":    strings.TrimSpace(msg.SourceRevisionID),
+		"artifact_id":        strings.TrimSpace(msg.ArtifactID),
+		"fingerprint_status": strings.TrimSpace(fingerprint.Status.Status),
+		"candidate_count":    len(reconciliationResult.Candidates),
+		"attempt_count":      run.AttemptCount,
+	})
+	return fingerprint, reconciliationResult, nil
+}
+
+func (h Handlers) HandleSourceLineageProcessingJob(ctx context.Context, scope stores.Scope, run stores.JobRunRecord) error {
+	msg := SourceLineageProcessingMsg{}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(run.PayloadJSON)), &msg); err != nil {
+		return err
+	}
+	msg.Scope = scope
+	if strings.TrimSpace(msg.CorrelationID) == "" {
+		msg.CorrelationID = strings.TrimSpace(run.CorrelationID)
+	}
+	if strings.TrimSpace(msg.DedupeKey) == "" {
+		msg.DedupeKey = strings.TrimSpace(run.DedupeKey)
+	}
+	_, _, err := h.performSourceLineageProcessing(ctx, msg, run)
+	return err
+}
+
+func (h Handlers) performSourceLineageProcessing(ctx context.Context, msg SourceLineageProcessingMsg, run stores.JobRunRecord) (services.SourceFingerprintBuildResult, services.SourceReconciliationResult, error) {
+	startedAt := h.now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.SourceRevisionID, msg.ArtifactID, JobSourceLineageProcessing)
 	fingerprint, err := h.fingerprints.BuildFingerprint(ctx, msg.Scope, services.SourceFingerprintBuildInput{
 		SourceRevisionID: strings.TrimSpace(msg.SourceRevisionID),
 		ArtifactID:       strings.TrimSpace(msg.ArtifactID),
 		Metadata:         msg.Metadata,
 	})
 	if err != nil {
-		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "source_lineage_processing", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name":           JobSourceLineageProcessing,
 			"source_revision_id": strings.TrimSpace(msg.SourceRevisionID),
 			"artifact_id":        strings.TrimSpace(msg.ArtifactID),
 		})
+		return services.SourceFingerprintBuildResult{}, services.SourceReconciliationResult{}, err
 	}
 
 	reconciliationResult := services.SourceReconciliationResult{}
@@ -1084,29 +1151,29 @@ func (h Handlers) ExecuteSourceLineageProcessing(ctx context.Context, msg Source
 			Metadata:         msg.Metadata,
 		})
 		if err != nil {
-			return fingerprint, services.SourceReconciliationResult{}, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+			observability.LogOperation(ctx, slog.LevelWarn, "job", "source_lineage_processing", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+				"job_name":           JobSourceLineageProcessing,
 				"source_document_id": strings.TrimSpace(msg.SourceDocumentID),
 				"source_revision_id": strings.TrimSpace(msg.SourceRevisionID),
 				"artifact_id":        strings.TrimSpace(msg.ArtifactID),
 			})
+			return fingerprint, services.SourceReconciliationResult{}, err
 		}
 	}
 
 	if h.googleImportRuns != nil && strings.TrimSpace(msg.ImportRunID) != "" {
 		if err := h.updateImportRunLineageState(ctx, msg.Scope, msg.ImportRunID, strings.TrimSpace(msg.SourceDocumentID), reconciliationApplied, fingerprint, reconciliationResult); err != nil {
-			return fingerprint, reconciliationResult, h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+			observability.LogOperation(ctx, slog.LevelWarn, "job", "source_lineage_processing", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+				"job_name":      JobSourceLineageProcessing,
 				"import_run_id": strings.TrimSpace(msg.ImportRunID),
 			})
+			return fingerprint, reconciliationResult, err
 		}
-	}
-
-	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
-		return fingerprint, reconciliationResult, err
 	}
 	observability.ObserveJobResult(ctx, JobSourceLineageProcessing, true)
 	observability.LogOperation(ctx, slog.LevelInfo, "job", "source_lineage_processing", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
 		"job_name":           JobSourceLineageProcessing,
-		"dedupe_key":         dedupeKey,
+		"dedupe_key":         strings.TrimSpace(run.DedupeKey),
 		"source_document":    strings.TrimSpace(msg.SourceDocumentID),
 		"source_revision":    strings.TrimSpace(msg.SourceRevisionID),
 		"artifact_id":        strings.TrimSpace(msg.ArtifactID),

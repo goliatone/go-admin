@@ -55,6 +55,9 @@ func TestDefaultSourceReadModelServiceBuildsDocumentDetails(t *testing.T) {
 	if imported.FingerprintStatus.Status != LineageFingerprintStatusPending {
 		t.Fatalf("expected imported document fingerprint pending, got %+v", imported.FingerprintStatus)
 	}
+	if imported.FingerprintProcessing.State != LineageFingerprintProcessingRunning {
+		t.Fatalf("expected imported document fingerprint processing running fallback, got %+v", imported.FingerprintProcessing)
+	}
 	if len(imported.CandidateWarningSummary) != 1 {
 		t.Fatalf("expected imported document candidate warning, got %+v", imported.CandidateWarningSummary)
 	}
@@ -90,11 +93,47 @@ func TestDefaultSourceReadModelServiceBuildsDocumentDetails(t *testing.T) {
 	if repeated.FingerprintStatus.ErrorCode == "" || repeated.FingerprintStatus.ErrorMessage == "" {
 		t.Fatalf("expected repeated import fingerprint failure details, got %+v", repeated.FingerprintStatus)
 	}
+	if repeated.FingerprintProcessing.State != LineageFingerprintProcessingFailed {
+		t.Fatalf("expected repeated import fingerprint processing failed, got %+v", repeated.FingerprintProcessing)
+	}
 	if len(repeated.PresentationWarnings) != 2 {
 		t.Fatalf("expected repeated import candidate and fingerprint failed warnings, got %+v", repeated.PresentationWarnings)
 	}
 	if repeated.PresentationWarnings[0].Type != "candidate_relationship" || repeated.PresentationWarnings[1].Type != "fingerprint_failed" {
 		t.Fatalf("expected repeated import warning order to preserve candidate precedence, got %+v", repeated.PresentationWarnings)
+	}
+}
+
+func TestDefaultSourceReadModelServiceBuildsFingerprintProcessingFromDurableJobRuns(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	now := time.Now().UTC()
+	if _, _, err := store.EnqueueJob(context.Background(), scope, stores.JobRunEnqueueInput{
+		JobName:      "jobs.esign.source_lineage_processing",
+		DedupeKey:    "source-lineage|" + seeded.firstSourceRevisionID,
+		RequestedAt:  now,
+		AvailableAt:  &now,
+		ResourceKind: "source_revision",
+		ResourceID:   seeded.firstSourceRevisionID,
+	}); err != nil {
+		t.Fatalf("EnqueueJob: %v", err)
+	}
+
+	service := NewDefaultSourceReadModelService(
+		store,
+		store,
+		store,
+		WithSourceReadModelJobRuns(store),
+	)
+
+	imported, err := service.GetDocumentLineageDetail(context.Background(), scope, seeded.importedDocumentID)
+	if err != nil {
+		t.Fatalf("GetDocumentLineageDetail imported: %v", err)
+	}
+	if imported.FingerprintProcessing.State != LineageFingerprintProcessingQueued {
+		t.Fatalf("expected imported document fingerprint processing queued, got %+v", imported.FingerprintProcessing)
+	}
+	if imported.FingerprintStatus.Status != LineageFingerprintStatusPending {
+		t.Fatalf("expected queued fingerprint processing to map to pending fingerprint status, got %+v", imported.FingerprintStatus)
 	}
 }
 

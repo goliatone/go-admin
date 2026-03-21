@@ -1288,7 +1288,7 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
-	s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+	if err := s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
 		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
@@ -1299,7 +1299,9 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
 		CorrelationID:     strings.TrimSpace(input.CorrelationID),
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-	}, snapshot, sourceMimeType, ingestionMode, userID)
+	}, snapshot, sourceMimeType, ingestionMode, userID); err != nil {
+		return GoogleImportResult{}, err
+	}
 	return result, nil
 }
 
@@ -1312,16 +1314,16 @@ func (s GoogleIntegrationService) enqueueLineageProcessing(
 	sourceMimeType string,
 	ingestionMode string,
 	resolvedUserID string,
-) {
+) error {
 	if s.lineageProcessing == nil || strings.TrimSpace(result.SourceRevisionID) == "" || strings.TrimSpace(result.SourceArtifactID) == "" {
-		return
+		return nil
 	}
 	modifiedTime := snapshot.File.ModifiedTime
 	if modifiedTime.IsZero() {
 		now := s.now().UTC()
 		modifiedTime = now
 	}
-	_ = s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
+	err := s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
 		ImportRunID:      strings.TrimSpace(input.ImportRunID),
 		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
 		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),
@@ -1345,6 +1347,7 @@ func (s GoogleIntegrationService) enqueueLineageProcessing(
 		},
 	})
 	_ = resolvedUserID
+	return err
 }
 
 func resolveGoogleImportSnapshot(ctx context.Context, provider GoogleProvider, accessToken, fileID string) (GoogleExportSnapshot, string, string, error) {

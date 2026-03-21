@@ -19,6 +19,8 @@ const (
 	lineageEvidenceKeyDriveMatch               = "drive_match"
 	lineageEvidenceKeyWebURLMatch              = "web_url_match"
 	lineageEvidenceKeyLegacyWebURL             = "web_url"
+	lineageJobResourceKindSourceRevision       = "source_revision"
+	lineageJobNameSourceLineageProcessing      = "jobs.esign.source_lineage_processing"
 )
 
 type DefaultSourceReadModelService struct {
@@ -26,6 +28,7 @@ type DefaultSourceReadModelService struct {
 	agreements          stores.AgreementStore
 	lineage             stores.LineageStore
 	importRuns          stores.GoogleImportRunStore
+	jobRuns             stores.JobRunStore
 	diagnosticsBasePath string
 }
 
@@ -37,6 +40,15 @@ func WithSourceReadModelImportRuns(store stores.GoogleImportRunStore) SourceRead
 			return
 		}
 		s.importRuns = store
+	}
+}
+
+func WithSourceReadModelJobRuns(store stores.JobRunStore) SourceReadModelServiceOption {
+	return func(s *DefaultSourceReadModelService) {
+		if s == nil || store == nil {
+			return
+		}
+		s.jobRuns = store
 	}
 }
 
@@ -143,6 +155,10 @@ func (s DefaultSourceReadModelService) buildDocumentLineageDetail(ctx context.Co
 			Status:            LineageFingerprintStatusNotApplicable,
 			EvidenceAvailable: false,
 		},
+		FingerprintProcessing: FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingNotApplicable,
+			StatusLabel: "Not applicable",
+		},
 		DiagnosticsURL: s.diagnosticsURL("documents", document.ID),
 		EmptyState:     noSourceDocumentEmptyState(),
 	}
@@ -156,6 +172,10 @@ func (s DefaultSourceReadModelService) buildDocumentLineageDetail(ctx context.Co
 		detail.FingerprintStatus = FingerprintStatusSummary{
 			Status:            LineageFingerprintStatusUnknown,
 			EvidenceAvailable: false,
+		}
+		detail.FingerprintProcessing = FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingUnknown,
+			StatusLabel: "Unknown",
 		}
 		detail.EmptyState = LineageEmptyState{Kind: LineageEmptyStateNone}
 		detail.PresentationWarnings = BuildDocumentPresentationWarnings(detail)
@@ -172,6 +192,7 @@ func (s DefaultSourceReadModelService) buildDocumentLineageDetail(ctx context.Co
 	detail.SourceArtifact = resolved.documentArtifactSummary()
 	detail.GoogleSource = resolved.metadataBaseline(document)
 	detail.FingerprintStatus = resolved.fingerprintStatus()
+	detail.FingerprintProcessing = resolved.fingerprintProcessing()
 	detail.CandidateWarningSummary = resolved.candidateWarnings
 	detail.EmptyState = LineageEmptyState{Kind: LineageEmptyStateNone}
 	detail.PresentationWarnings = BuildDocumentPresentationWarnings(detail)
@@ -183,6 +204,10 @@ func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.C
 		AgreementID:            strings.TrimSpace(agreement.ID),
 		PinnedSourceRevisionID: strings.TrimSpace(agreement.SourceRevisionID),
 		DiagnosticsURL:         s.diagnosticsURL("agreements", agreement.ID),
+		FingerprintProcessing: FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingNotApplicable,
+			StatusLabel: "Not applicable",
+		},
 		EmptyState: LineageEmptyState{
 			Kind:        LineageEmptyStateNoSource,
 			Title:       "No source lineage",
@@ -220,6 +245,7 @@ func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.C
 	detail.SourceRevision = resolved.sourceRevisionSummary()
 	detail.LinkedDocumentArtifact = resolved.agreementArtifactSummary(document)
 	detail.GoogleSource = resolved.metadataBaseline(document)
+	detail.FingerprintProcessing = resolved.fingerprintProcessing()
 	detail.NewerSourceExists = resolved.newerSourceExists()
 	detail.NewerSourceSummary = resolved.newerSourceSummary()
 	detail.CandidateWarningSummary = resolved.candidateWarnings
@@ -230,11 +256,12 @@ func (s DefaultSourceReadModelService) buildAgreementLineageDetail(ctx context.C
 
 func (s DefaultSourceReadModelService) buildGoogleImportLineageStatus(ctx context.Context, scope stores.Scope, run stores.GoogleImportRunRecord) (GoogleImportLineageStatus, error) {
 	status := GoogleImportLineageStatus{
-		ImportRunID:        strings.TrimSpace(run.ID),
-		LineageStatus:      normalizeImportLineageStatus(run),
-		FingerprintStatus:  FingerprintStatusSummary{Status: firstNonEmpty(strings.TrimSpace(run.FingerprintStatus), LineageFingerprintStatusUnknown), EvidenceAvailable: false},
-		DocumentDetailURL:  strings.TrimSpace(run.DocumentDetailURL),
-		AgreementDetailURL: strings.TrimSpace(run.AgreementDetailURL),
+		ImportRunID:           strings.TrimSpace(run.ID),
+		LineageStatus:         normalizeImportLineageStatus(run),
+		FingerprintStatus:     FingerprintStatusSummary{Status: firstNonEmpty(strings.TrimSpace(run.FingerprintStatus), LineageFingerprintStatusUnknown), EvidenceAvailable: false},
+		FingerprintProcessing: fingerprintProcessingFromImportRun(run),
+		DocumentDetailURL:     strings.TrimSpace(run.DocumentDetailURL),
+		AgreementDetailURL:    strings.TrimSpace(run.AgreementDetailURL),
 	}
 	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
 		_ = json.Unmarshal([]byte(strings.TrimSpace(run.CandidateStatusJSON)), &status.CandidateStatus)
@@ -285,7 +312,7 @@ func (s DefaultSourceReadModelService) buildGoogleImportLineageStatus(ctx contex
 			return GoogleImportLineageStatus{}, err
 		}
 		status.SourceRevision = sourceRevisionSummaryFromRecord(sourceRevision)
-		status.FingerprintStatus = s.fingerprintStatusForRevision(ctx, scope, sourceRevision)
+		status.FingerprintStatus, status.FingerprintProcessing = s.fingerprintStateForRevision(ctx, scope, sourceRevision)
 	}
 	if sourceArtifactID != "" {
 		sourceArtifact, err := s.lineage.GetSourceArtifact(ctx, scope, sourceArtifactID)
@@ -339,6 +366,10 @@ func (s DefaultSourceReadModelService) resolveDocumentLineage(ctx context.Contex
 	if err != nil {
 		return resolvedLineageContext{}, err
 	}
+	jobRuns, err := s.listLineageJobRuns(ctx, scope, sourceRevision.ID)
+	if err != nil {
+		return resolvedLineageContext{}, err
+	}
 	return resolvedLineageContext{
 		sourceDocument:    sourceDocument,
 		sourceRevision:    sourceRevision,
@@ -347,6 +378,7 @@ func (s DefaultSourceReadModelService) resolveDocumentLineage(ctx context.Contex
 		revisionHandle:    revisionHandle,
 		activeHandle:      activeHandle,
 		fingerprints:      fingerprints,
+		lineageJobs:       jobRuns,
 		candidateWarnings: warnings,
 	}, nil
 }
@@ -393,6 +425,10 @@ func (s DefaultSourceReadModelService) resolveAgreementLineage(
 	if err != nil {
 		return resolvedLineageContext{}, err
 	}
+	jobRuns, err := s.listLineageJobRuns(ctx, scope, sourceRevision.ID)
+	if err != nil {
+		return resolvedLineageContext{}, err
+	}
 	return resolvedLineageContext{
 		sourceDocument:    sourceDocument,
 		sourceRevision:    sourceRevision,
@@ -401,6 +437,7 @@ func (s DefaultSourceReadModelService) resolveAgreementLineage(
 		revisionHandle:    revisionHandle,
 		activeHandle:      activeHandle,
 		fingerprints:      fingerprints,
+		lineageJobs:       jobRuns,
 		candidateWarnings: warnings,
 		agreement:         agreement,
 	}, nil
@@ -482,27 +519,63 @@ func (s DefaultSourceReadModelService) documentArtifact(ctx context.Context, sco
 	return artifacts[0], nil
 }
 
-func (s DefaultSourceReadModelService) fingerprintStatusForRevision(ctx context.Context, scope stores.Scope, sourceRevision stores.SourceRevisionRecord) FingerprintStatusSummary {
+func (s DefaultSourceReadModelService) listLineageJobRuns(ctx context.Context, scope stores.Scope, sourceRevisionID string) ([]stores.JobRunRecord, error) {
+	if s.jobRuns == nil || strings.TrimSpace(sourceRevisionID) == "" {
+		return nil, nil
+	}
+	runs, err := s.jobRuns.ListJobRunsByResource(ctx, scope, lineageJobResourceKindSourceRevision, strings.TrimSpace(sourceRevisionID))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]stores.JobRunRecord, 0, len(runs))
+	for _, run := range runs {
+		if strings.TrimSpace(run.JobName) != lineageJobNameSourceLineageProcessing {
+			continue
+		}
+		out = append(out, run)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return jobRunSortTime(out[i]).After(jobRunSortTime(out[j]))
+	})
+	return out, nil
+}
+
+func (s DefaultSourceReadModelService) fingerprintStateForRevision(ctx context.Context, scope stores.Scope, sourceRevision stores.SourceRevisionRecord) (FingerprintStatusSummary, FingerprintProcessingSummary) {
 	if s.lineage == nil || strings.TrimSpace(sourceRevision.ID) == "" {
-		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}, FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingUnknown,
+			StatusLabel: "Unknown",
+		}
 	}
 	fingerprints, err := s.lineage.ListSourceFingerprints(ctx, scope, stores.SourceFingerprintQuery{
 		SourceRevisionID: sourceRevision.ID,
 	})
 	if err != nil {
-		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}
-	}
-	if len(fingerprints) == 0 {
-		return FingerprintStatusSummary{Status: LineageFingerprintStatusPending, EvidenceAvailable: false}
-	}
-	sort.SliceStable(fingerprints, func(i, j int) bool {
-		if fingerprints[i].CreatedAt.Equal(fingerprints[j].CreatedAt) {
-			return fingerprints[i].ID < fingerprints[j].ID
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}, FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingUnknown,
+			StatusLabel: "Unknown",
 		}
-		return fingerprints[i].CreatedAt.After(fingerprints[j].CreatedAt)
-	})
-	latest := fingerprints[0]
-	return fingerprintStatusSummaryFromRecord(latest)
+	}
+	jobRuns, err := s.listLineageJobRuns(ctx, scope, sourceRevision.ID)
+	if err != nil {
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}, FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingUnknown,
+			StatusLabel: "Unknown",
+		}
+	}
+	if s.jobRuns == nil && len(fingerprints) == 0 {
+		processing := FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingRunning,
+			StatusLabel: fingerprintProcessingLabel(LineageFingerprintProcessingRunning),
+		}
+		return fingerprintStatusFromProcessing(processing), processing
+	}
+	return fingerprintStateFromRecords(sourceRevision, fingerprints, jobRuns)
+}
+
+func (s DefaultSourceReadModelService) fingerprintStatusForRevision(ctx context.Context, scope stores.Scope, sourceRevision stores.SourceRevisionRecord) FingerprintStatusSummary {
+	status, _ := s.fingerprintStateForRevision(ctx, scope, sourceRevision)
+	return status
 }
 
 func (s DefaultSourceReadModelService) diagnosticsURL(resource, id string) string {
@@ -522,6 +595,7 @@ type resolvedLineageContext struct {
 	revisionHandle    stores.SourceHandleRecord
 	activeHandle      stores.SourceHandleRecord
 	fingerprints      []stores.SourceFingerprintRecord
+	lineageJobs       []stores.JobRunRecord
 	candidateWarnings []CandidateWarningSummary
 	agreement         stores.AgreementRecord
 }
@@ -603,20 +677,13 @@ func (r resolvedLineageContext) displayHandle() stores.SourceHandleRecord {
 }
 
 func (r resolvedLineageContext) fingerprintStatus() FingerprintStatusSummary {
-	if len(r.fingerprints) == 0 {
-		if strings.TrimSpace(r.sourceRevision.ID) == "" {
-			return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}
-		}
-		return FingerprintStatusSummary{Status: LineageFingerprintStatusPending, EvidenceAvailable: false}
-	}
-	sort.SliceStable(r.fingerprints, func(i, j int) bool {
-		if r.fingerprints[i].CreatedAt.Equal(r.fingerprints[j].CreatedAt) {
-			return r.fingerprints[i].ID < r.fingerprints[j].ID
-		}
-		return r.fingerprints[i].CreatedAt.After(r.fingerprints[j].CreatedAt)
-	})
-	latest := r.fingerprints[0]
-	return fingerprintStatusSummaryFromRecord(latest)
+	status, _ := fingerprintStateFromRecords(r.sourceRevision, r.fingerprints, r.lineageJobs)
+	return status
+}
+
+func (r resolvedLineageContext) fingerprintProcessing() FingerprintProcessingSummary {
+	_, processing := fingerprintStateFromRecords(r.sourceRevision, r.fingerprints, r.lineageJobs)
+	return processing
 }
 
 func (r resolvedLineageContext) newerSourceExists() bool {
@@ -645,6 +712,201 @@ func (r resolvedLineageContext) newerSourceSummary() *NewerSourceSummary {
 		summary.Summary = "This agreement remains pinned to the latest known source revision."
 	}
 	return summary
+}
+
+func fingerprintStateFromRecords(
+	sourceRevision stores.SourceRevisionRecord,
+	fingerprints []stores.SourceFingerprintRecord,
+	jobRuns []stores.JobRunRecord,
+) (FingerprintStatusSummary, FingerprintProcessingSummary) {
+	if len(fingerprints) > 0 {
+		sort.SliceStable(fingerprints, func(i, j int) bool {
+			if fingerprints[i].CreatedAt.Equal(fingerprints[j].CreatedAt) {
+				return fingerprints[i].ID < fingerprints[j].ID
+			}
+			return fingerprints[i].CreatedAt.After(fingerprints[j].CreatedAt)
+		})
+		latest := fingerprints[0]
+		status := fingerprintStatusSummaryFromRecord(latest)
+		state := LineageFingerprintProcessingReady
+		statusLabel := "Ready"
+		if strings.TrimSpace(status.Status) == LineageFingerprintStatusFailed {
+			state = LineageFingerprintProcessingFailed
+			statusLabel = "Failed"
+		}
+		return status, FingerprintProcessingSummary{
+			State:            state,
+			StatusLabel:      statusLabel,
+			StartedAt:        cloneSourceTimePtr(&latest.CreatedAt),
+			CompletedAt:      cloneSourceTimePtr(&latest.CreatedAt),
+			LastAttemptAt:    cloneSourceTimePtr(&latest.CreatedAt),
+			AttemptCount:     1,
+			LastErrorCode:    strings.TrimSpace(status.ErrorCode),
+			LastErrorMessage: strings.TrimSpace(status.ErrorMessage),
+			Retryable:        state == LineageFingerprintProcessingFailed,
+			Stale:            false,
+		}
+	}
+	if len(jobRuns) > 0 {
+		run := latestLineageJobRun(jobRuns)
+		processing := fingerprintProcessingFromJobRun(run)
+		return fingerprintStatusFromProcessing(processing), processing
+	}
+	if jobRuns == nil && strings.TrimSpace(sourceRevision.ID) != "" {
+		processing := FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingRunning,
+			StatusLabel: fingerprintProcessingLabel(LineageFingerprintProcessingRunning),
+		}
+		return fingerprintStatusFromProcessing(processing), processing
+	}
+	if strings.TrimSpace(sourceRevision.ID) == "" {
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}, FingerprintProcessingSummary{
+			State:       LineageFingerprintProcessingUnknown,
+			StatusLabel: "Unknown",
+		}
+	}
+	processing := FingerprintProcessingSummary{
+		State:       LineageFingerprintProcessingStale,
+		StatusLabel: "Stale",
+		Stale:       true,
+	}
+	return fingerprintStatusFromProcessing(processing), processing
+}
+
+func latestLineageJobRun(jobRuns []stores.JobRunRecord) stores.JobRunRecord {
+	if len(jobRuns) == 0 {
+		return stores.JobRunRecord{}
+	}
+	sort.SliceStable(jobRuns, func(i, j int) bool {
+		return jobRunSortTime(jobRuns[i]).After(jobRunSortTime(jobRuns[j]))
+	})
+	return jobRuns[0]
+}
+
+func fingerprintProcessingFromImportRun(run stores.GoogleImportRunRecord) FingerprintProcessingSummary {
+	state := LineageFingerprintProcessingUnknown
+	switch strings.TrimSpace(run.Status) {
+	case stores.GoogleImportRunStatusQueued:
+		state = LineageFingerprintProcessingQueued
+	case stores.GoogleImportRunStatusRunning:
+		state = LineageFingerprintProcessingRunning
+	case stores.GoogleImportRunStatusFailed:
+		state = LineageFingerprintProcessingFailed
+	case stores.GoogleImportRunStatusSucceeded:
+		switch strings.TrimSpace(run.FingerprintStatus) {
+		case LineageFingerprintStatusReady:
+			state = LineageFingerprintProcessingReady
+		case LineageFingerprintStatusFailed:
+			state = LineageFingerprintProcessingFailed
+		case LineageFingerprintStatusPending:
+			state = LineageFingerprintProcessingStale
+		default:
+			state = LineageFingerprintProcessingUnknown
+		}
+	}
+	return FingerprintProcessingSummary{
+		State:            state,
+		StatusLabel:      fingerprintProcessingLabel(state),
+		StartedAt:        cloneSourceTimePtr(run.StartedAt),
+		CompletedAt:      cloneSourceTimePtr(run.CompletedAt),
+		LastAttemptAt:    cloneSourceTimePtr(firstSourceTimePtr(run.CompletedAt, run.StartedAt)),
+		AttemptCount:     1,
+		LastErrorCode:    strings.TrimSpace(run.ErrorCode),
+		LastErrorMessage: strings.TrimSpace(run.ErrorMessage),
+		Retryable:        state == LineageFingerprintProcessingFailed,
+		Stale:            state == LineageFingerprintProcessingStale,
+	}
+}
+
+func fingerprintProcessingFromJobRun(run stores.JobRunRecord) FingerprintProcessingSummary {
+	state := LineageFingerprintProcessingUnknown
+	switch strings.TrimSpace(run.Status) {
+	case stores.JobRunStatusQueued:
+		state = LineageFingerprintProcessingQueued
+	case stores.JobRunStatusRunning:
+		if run.LeaseExpiresAt != nil && run.LeaseExpiresAt.Before(time.Now().UTC()) {
+			state = LineageFingerprintProcessingStale
+		} else {
+			state = LineageFingerprintProcessingRunning
+		}
+	case stores.JobRunStatusRetrying:
+		state = LineageFingerprintProcessingRetrying
+	case stores.JobRunStatusFailed:
+		state = LineageFingerprintProcessingFailed
+	case stores.JobRunStatusStale, stores.JobRunStatusSucceeded:
+		state = LineageFingerprintProcessingStale
+	}
+	return FingerprintProcessingSummary{
+		State:            state,
+		StatusLabel:      fingerprintProcessingLabel(state),
+		StartedAt:        cloneSourceTimePtr(firstSourceTimePtr(run.StartedAt, run.ClaimedAt)),
+		CompletedAt:      cloneSourceTimePtr(run.CompletedAt),
+		LastAttemptAt:    cloneSourceTimePtr(firstSourceTimePtr(run.CompletedAt, run.StartedAt, run.ClaimedAt, &run.UpdatedAt)),
+		AttemptCount:     run.AttemptCount,
+		LastErrorCode:    strings.TrimSpace(run.LastErrorCode),
+		LastErrorMessage: strings.TrimSpace(run.LastError),
+		Retryable:        run.MaxAttempts <= 0 || run.AttemptCount < run.MaxAttempts,
+		Stale:            state == LineageFingerprintProcessingStale,
+	}
+}
+
+func fingerprintStatusFromProcessing(processing FingerprintProcessingSummary) FingerprintStatusSummary {
+	switch strings.TrimSpace(processing.State) {
+	case LineageFingerprintProcessingNotApplicable:
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusNotApplicable, EvidenceAvailable: false}
+	case LineageFingerprintProcessingReady:
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusReady, EvidenceAvailable: true}
+	case LineageFingerprintProcessingFailed:
+		return FingerprintStatusSummary{
+			Status:            LineageFingerprintStatusFailed,
+			EvidenceAvailable: false,
+			ErrorCode:         strings.TrimSpace(processing.LastErrorCode),
+			ErrorMessage:      strings.TrimSpace(processing.LastErrorMessage),
+		}
+	case LineageFingerprintProcessingQueued, LineageFingerprintProcessingRunning, LineageFingerprintProcessingRetrying:
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusPending, EvidenceAvailable: false}
+	case LineageFingerprintProcessingStale, LineageFingerprintProcessingUnknown:
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}
+	default:
+		return FingerprintStatusSummary{Status: LineageFingerprintStatusUnknown, EvidenceAvailable: false}
+	}
+}
+
+func fingerprintProcessingLabel(state string) string {
+	switch strings.TrimSpace(state) {
+	case LineageFingerprintProcessingNotApplicable:
+		return "Not applicable"
+	case LineageFingerprintProcessingQueued:
+		return "Queued"
+	case LineageFingerprintProcessingRunning:
+		return "Running"
+	case LineageFingerprintProcessingRetrying:
+		return "Retrying"
+	case LineageFingerprintProcessingReady:
+		return "Ready"
+	case LineageFingerprintProcessingFailed:
+		return "Failed"
+	case LineageFingerprintProcessingStale:
+		return "Stale"
+	default:
+		return "Unknown"
+	}
+}
+
+func jobRunSortTime(run stores.JobRunRecord) time.Time {
+	if run.CompletedAt != nil {
+		return run.CompletedAt.UTC()
+	}
+	if run.StartedAt != nil {
+		return run.StartedAt.UTC()
+	}
+	if run.ClaimedAt != nil {
+		return run.ClaimedAt.UTC()
+	}
+	if run.AvailableAt != nil {
+		return run.AvailableAt.UTC()
+	}
+	return run.UpdatedAt.UTC()
 }
 
 func sourceRevisionSummaryFromRecord(record stores.SourceRevisionRecord) *SourceRevisionSummary {

@@ -1981,6 +1981,12 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("new activity dependencies: %w", err)
 	}
+	authBundle, err := newESignAuthBundle(cfg)
+	if err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("new auth bundle: %w", err)
+	}
+	adminDeps.Authenticator = authBundle.Authenticator
+	adminDeps.Authorizer = authBundle.Authorizer
 
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
@@ -2016,10 +2022,12 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 		}
 	}
 
-	authn, auther, cookieName, err := configureESignAuth(adm, cfg)
-	if err != nil {
-		return eSignRuntimeWebFixture{}, fmt.Errorf("configure auth: %w", err)
+	if err := authBundle.Apply(adm); err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("apply auth bundle: %w", err)
 	}
+	authn := authBundle.Authenticator
+	auther := authBundle.Auther
+	cookieName := authBundle.CookieName
 
 	viewEngine, err := newESignViewEngine(cfg, adm)
 	if err != nil {

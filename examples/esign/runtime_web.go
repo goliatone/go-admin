@@ -191,6 +191,14 @@ type eSignAuthConfig struct {
 	contextKey string
 }
 
+type eSignAuthBundle struct {
+	Authenticator *coreadmin.GoAuthAuthenticator
+	Authorizer    coreadmin.Authorizer
+	Auther        *auth.Auther
+	CookieName    string
+	AdminConfig   coreadmin.AuthConfig
+}
+
 func (c eSignAuthConfig) GetSigningKey() string         { return c.signingKey }
 func (c eSignAuthConfig) GetSigningMethod() string      { return "HS256" }
 func (c eSignAuthConfig) GetContextKey() string         { return c.contextKey }
@@ -265,11 +273,7 @@ func loadESignAuthSeed(runtimeCfg appcfg.Config) (appcfg.AuthConfig, error) {
 	return flatAuth, nil
 }
 
-func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.GoAuthAuthenticator, *auth.Auther, string, error) {
-	if adm == nil {
-		return nil, nil, "", fmt.Errorf("admin is required")
-	}
-
+func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 	basePath := strings.TrimSpace(cfg.BasePath)
 	if basePath == "" {
 		basePath = "/admin"
@@ -277,7 +281,7 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 	runtimeCfg := appcfg.Active()
 	seedAuth, err := loadESignAuthSeed(runtimeCfg)
 	if err != nil {
-		return nil, nil, "", err
+		return eSignAuthBundle{}, err
 	}
 	identity := eSignDemoIdentity{
 		id: firstNonEmptyValue(
@@ -331,7 +335,7 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 		}))
 	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
 	if err != nil {
-		return nil, nil, "", err
+		return eSignAuthBundle{}, err
 	}
 
 	authn := coreadmin.NewGoAuthAuthenticator(
@@ -339,18 +343,44 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 		authCfg,
 		coreadmin.WithAuthErrorHandler(makeESignAuthErrorHandler(authCfg)),
 	)
-	adm.WithAuth(authn, &coreadmin.AuthConfig{
+	adminAuthCfg := coreadmin.AuthConfig{
 		LoginPath:    path.Join(basePath, "login"),
 		LogoutPath:   path.Join(basePath, "logout"),
 		RedirectPath: basePath,
-	})
-	adm.WithAuthorizer(coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
+	}
+	authorizer := coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
 		DefaultResource: "admin",
 		ResolvePermissions: func(context.Context) ([]string, error) {
 			return append([]string{}, provider.permissions...), nil
 		},
-	}))
-	return authn, auther, authCfg.GetContextKey(), nil
+	})
+	return eSignAuthBundle{
+		Authenticator: authn,
+		Authorizer:    authorizer,
+		Auther:        auther,
+		CookieName:    authCfg.GetContextKey(),
+		AdminConfig:   adminAuthCfg,
+	}, nil
+}
+
+func (b eSignAuthBundle) Apply(adm *coreadmin.Admin) error {
+	if adm == nil {
+		return fmt.Errorf("admin is required")
+	}
+	adm.WithAuth(b.Authenticator, &b.AdminConfig)
+	adm.WithAuthorizer(b.Authorizer)
+	return nil
+}
+
+func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.GoAuthAuthenticator, *auth.Auther, string, error) {
+	bundle, err := newESignAuthBundle(cfg)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if err := bundle.Apply(adm); err != nil {
+		return nil, nil, "", err
+	}
+	return bundle.Authenticator, bundle.Auther, bundle.CookieName, nil
 }
 
 func makeESignAuthErrorHandler(cfg eSignAuthConfig) func(router.Context, error) error {

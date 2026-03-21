@@ -75,6 +75,7 @@ type registerConfig struct {
 	guardedEffectRecovery GuardedEffectRecoveryService
 	google                GoogleIntegrationService
 	googleImportRuns      stores.GoogleImportRunStore
+	googleImportJobs      stores.JobRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
 	sourceReadModels      services.SourceReadModelService
 	sourceReconciliation  services.SourceReconciliationService
@@ -320,6 +321,7 @@ type GoogleRuntimeConfig struct {
 	Enabled       bool                        `json:"enabled"`
 	Integration   GoogleIntegrationService    `json:"integration"`
 	ImportRuns    stores.GoogleImportRunStore `json:"import_runs"`
+	ImportJobs    stores.JobRunStore          `json:"import_jobs"`
 	ImportEnqueue GoogleImportEnqueueFunc     `json:"import_enqueue"`
 }
 
@@ -611,6 +613,7 @@ func WithGoogleRuntime(runtime GoogleRuntimeConfig) RegisterOption {
 		cfg.googleEnabled = runtime.Enabled
 		cfg.google = runtime.Integration
 		cfg.googleImportRuns = runtime.ImportRuns
+		cfg.googleImportJobs = runtime.ImportJobs
 		cfg.googleImportEnqueue = runtime.ImportEnqueue
 	}
 }
@@ -819,6 +822,7 @@ func (cfg registerConfig) googleRuntimeConfig() GoogleRuntimeConfig {
 		Enabled:       cfg.googleEnabled,
 		Integration:   cfg.google,
 		ImportRuns:    cfg.googleImportRuns,
+		ImportJobs:    cfg.googleImportJobs,
 		ImportEnqueue: cfg.googleImportEnqueue,
 	}
 }

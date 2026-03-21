@@ -605,7 +605,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
-	s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+	if err := s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
 		ImportRunID:       strings.TrimSpace(input.ImportRunID),
 		UserID:            strings.TrimSpace(input.UserID),
 		AccountID:         strings.TrimSpace(input.AccountID),
@@ -616,7 +616,9 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
 		CorrelationID:     strings.TrimSpace(input.CorrelationID),
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-	}, snapshot, sourceMimeType, ingestionMode)
+	}, snapshot, sourceMimeType, ingestionMode); err != nil {
+		return GoogleImportResult{}, err
+	}
 	return result, nil
 }
 
@@ -628,15 +630,15 @@ func (s GoogleServicesIntegrationService) enqueueLineageProcessing(
 	snapshot GoogleExportSnapshot,
 	sourceMimeType string,
 	ingestionMode string,
-) {
+) error {
 	if s.lineageProcessing == nil || strings.TrimSpace(result.SourceRevisionID) == "" || strings.TrimSpace(result.SourceArtifactID) == "" {
-		return
+		return nil
 	}
 	modifiedTime := snapshot.File.ModifiedTime
 	if modifiedTime.IsZero() {
 		modifiedTime = s.now().UTC()
 	}
-	_ = s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
+	return s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
 		ImportRunID:      strings.TrimSpace(input.ImportRunID),
 		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
 		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),

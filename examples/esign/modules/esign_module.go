@@ -54,6 +54,11 @@ type eSignStore interface {
 	stores.Store
 }
 
+type scopedAsyncTrigger interface {
+	NotifyScope(scope stores.Scope)
+	Close()
+}
+
 type googleIntegrationService interface {
 	Connect(ctx context.Context, scope stores.Scope, input services.GoogleConnectInput) (services.GoogleOAuthStatus, error)
 	Disconnect(ctx context.Context, scope stores.Scope, userID string) error
@@ -95,13 +100,12 @@ type ESignModule struct {
 	savedSignatures    services.SignerSavedSignatureService
 	artifacts          services.ArtifactPipelineService
 	google             googleIntegrationService
-	sourceLineageQueue *jobs.SourceLineageQueue
-	googleImportQueue  *jobs.GoogleDriveImportQueue
+	durableJobs        *jobs.DurableJobRuntime
 	sourceReadModels   services.SourceReadModelService
 	sourceDiagnostics  services.LineageDiagnosticsService
 	reconciliation     services.SourceReconciliationService
-	emailOutbox        *jobs.EmailOutboxDispatcher
-	signingWorkflows   *jobs.SigningWorkflowOutboxDispatcher
+	emailOutbox        scopedAsyncTrigger
+	signingWorkflows   scopedAsyncTrigger
 	integrations       services.IntegrationFoundationService
 	activityMap        *AuditActivityProjector
 	uploadProvider     uploader.Uploader
@@ -225,13 +229,9 @@ func (m *ESignModule) Close() {
 	if m == nil {
 		return
 	}
-	if m.googleImportQueue != nil {
-		m.googleImportQueue.Close()
-		m.googleImportQueue = nil
-	}
-	if m.sourceLineageQueue != nil {
-		m.sourceLineageQueue.Close()
-		m.sourceLineageQueue = nil
+	if m.durableJobs != nil {
+		m.durableJobs.Close()
+		m.durableJobs = nil
 	}
 	if m.emailOutbox != nil {
 		m.emailOutbox.Close()
@@ -482,13 +482,18 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Transactions:     m.store,
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
+	durableJobs, err := jobs.NewDurableJobRuntime(m.store, jobs.DefaultRetryPolicy())
+	if err != nil {
+		return fmt.Errorf("esign module: durable job runtime: %w", err)
+	}
+	durableJobs.RegisterScope(m.defaultScope)
+	m.durableJobs = durableJobs
 	var lineageStore stores.LineageStore
 	if resolved, ok := any(m.store).(stores.LineageStore); ok {
 		lineageStore = resolved
 	}
 	var sourceReconciliation services.SourceReconciliationService
 	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
-	m.sourceLineageQueue = nil
 	if lineageStore != nil {
 		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
 		reconciliationService := services.NewDefaultSourceReconciliationService(lineageStore)
@@ -496,27 +501,34 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		lineageJobDeps := jobHandlerDeps
 		lineageJobDeps.Fingerprints = fingerprintService
 		lineageJobDeps.Reconciliation = reconciliationService
-		lineageQueue, queueErr := jobs.NewSourceLineageQueue(jobs.NewHandlers(lineageJobDeps))
-		if queueErr != nil {
-			return fmt.Errorf("esign module: source lineage queue: %w", queueErr)
-		}
-		m.sourceLineageQueue = lineageQueue
-		lineageProcessingTrigger = jobs.NewSourceLineageProcessingEnqueuer(lineageQueue.Enqueue)
+		lineageHandlers := jobs.NewHandlers(lineageJobDeps)
+		durableJobs.RegisterHandler(jobs.JobSourceLineageProcessing, lineageHandlers.HandleSourceLineageProcessingJob)
+		lineageProcessingTrigger = jobs.NewDurableSourceLineageProcessingEnqueuer(durableJobs)
 	}
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
-	emailOutbox, err := jobs.NewEmailOutboxDispatcher(m.store, jobs.NewEmailOutboxPublisher(jobHandlers))
+	emailOutboxPublisher := jobs.NewEmailOutboxPublisher(jobHandlers)
+	durableJobs.RegisterHandler(jobs.JobDrainEmailOutbox, func(ctx context.Context, scope stores.Scope, _ stores.JobRunRecord) error {
+		return drainScopedOutbox(ctx, scope, m.store, emailOutboxPublisher, "esign-email-outbox", []string{
+			services.NotificationOutboxTopicEmailSendSigningRequest,
+		})
+	})
+	emailOutbox, err := jobs.NewDurableOutboxDrainTrigger(durableJobs, jobs.JobDrainEmailOutbox, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("esign module: email outbox dispatcher: %w", err)
+		return fmt.Errorf("esign module: email outbox trigger: %w", err)
 	}
 	emailOutbox.NotifyScope(m.defaultScope)
 	m.emailOutbox = emailOutbox
 	reviewActorDirectory := newReviewActorDirectory(ctx.Admin)
-	signingWorkflowOutbox, err := jobs.NewSigningWorkflowOutboxDispatcher(
-		m.store,
-		jobs.NewSigningWorkflowOutboxPublisher(jobHandlers, emailWorkflow, emailWorkflow),
-	)
+	signingWorkflowPublisher := jobs.NewSigningWorkflowOutboxPublisher(jobHandlers, emailWorkflow, emailWorkflow)
+	durableJobs.RegisterHandler(jobs.JobDrainSigningWorkflowOutbox, func(ctx context.Context, scope stores.Scope, _ stores.JobRunRecord) error {
+		return drainScopedOutbox(ctx, scope, m.store, signingWorkflowPublisher, "esign-signing-workflow-outbox", []string{
+			services.SigningWorkflowOutboxTopicStageActivation,
+			services.SigningWorkflowOutboxTopicCompletion,
+		})
+	})
+	signingWorkflowOutbox, err := jobs.NewDurableOutboxDrainTrigger(durableJobs, jobs.JobDrainSigningWorkflowOutbox, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("esign module: signing workflow outbox dispatcher: %w", err)
+		return fmt.Errorf("esign module: signing workflow outbox trigger: %w", err)
 	}
 	signingWorkflowOutbox.NotifyScope(m.defaultScope)
 	m.signingWorkflows = signingWorkflowOutbox
@@ -618,7 +630,6 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store,
 		services.WithIntegrationAuditStore(m.store),
 	)
-	m.googleImportQueue = nil
 	if m.googleEnabled {
 		googleProvider, providerMode, err := services.NewGoogleProviderFromEnv()
 		if err != nil {
@@ -666,11 +677,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}
 		googleImportJobDeps := jobHandlerDeps
 		googleImportJobDeps.GoogleImporter = m.google
-		googleImportQueue, queueErr := jobs.NewGoogleDriveImportQueue(jobs.NewHandlers(googleImportJobDeps))
-		if queueErr != nil {
-			return fmt.Errorf("esign module: google import queue: %w", queueErr)
-		}
-		m.googleImportQueue = googleImportQueue
+		durableJobs.RegisterHandler(jobs.JobGoogleDriveImport, jobs.NewHandlers(googleImportJobDeps).HandleGoogleDriveImportJob)
 	}
 	if err := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); err != nil {
 		return err
@@ -736,12 +743,14 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			m.store,
 			lineageStore,
 			services.WithSourceReadModelImportRuns(m.store),
+			services.WithSourceReadModelJobRuns(m.store),
 		)
 		lineageDiagnostics = services.NewDefaultLineageDiagnosticsService(
 			m.store,
 			m.store,
 			lineageStore,
 			services.WithSourceReadModelImportRuns(m.store),
+			services.WithSourceReadModelJobRuns(m.store),
 		)
 	}
 	m.sourceReadModels = sourceReadModels
@@ -751,11 +760,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Enabled:     m.googleEnabled,
 		Integration: m.google,
 	}
-	if m.googleImportQueue != nil {
+	if m.durableJobs != nil {
 		googleRuntime.ImportRuns = m.store
-		googleRuntime.ImportEnqueue = func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
-			return m.googleImportQueue.Enqueue(ctx, msg)
-		}
+		googleRuntime.ImportJobs = m.store
+		googleRuntime.ImportEnqueue = jobs.NewDurableGoogleDriveImportEnqueue(m.durableJobs)
 	}
 	rateLimitRules := resolveRateLimitRulesFromConfig()
 	requestTrustPolicy := resolveRequestTrustPolicyFromConfig()
@@ -1435,6 +1443,48 @@ func buildPDFRemediationCommandService(
 	return service, nil
 }
 
+func drainScopedOutbox(
+	ctx context.Context,
+	scope stores.Scope,
+	store stores.OutboxStore,
+	publisher stores.OutboxPublisher,
+	consumer string,
+	topics []string,
+) error {
+	scope = stores.Scope{
+		TenantID: strings.TrimSpace(scope.TenantID),
+		OrgID:    strings.TrimSpace(scope.OrgID),
+	}
+	if scope.TenantID == "" || scope.OrgID == "" {
+		return nil
+	}
+	if store == nil || publisher == nil {
+		return fmt.Errorf("outbox drain runtime is not configured")
+	}
+	for _, topic := range topics {
+		topic = strings.TrimSpace(topic)
+		if topic == "" {
+			continue
+		}
+		for {
+			result, err := stores.DispatchOutboxBatch(ctx, store, scope, publisher, stores.OutboxDispatchInput{
+				Consumer:   strings.TrimSpace(consumer),
+				Topic:      topic,
+				Limit:      25,
+				Now:        time.Now().UTC(),
+				RetryDelay: jobs.DefaultRetryPolicy().BaseDelay,
+			})
+			if err != nil {
+				return err
+			}
+			if result.Claimed == 0 {
+				break
+			}
+		}
+	}
+	return nil
+}
+
 func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bool) error {
 	if m == nil || !m.googleEnabled {
 		return nil
@@ -1445,8 +1495,8 @@ func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bo
 	if m.google == nil {
 		return fmt.Errorf("esign module: google integration service is required when esign_google is enabled")
 	}
-	if m.googleImportQueue == nil {
-		return fmt.Errorf("esign module: google import queue is required when esign_google is enabled")
+	if m.durableJobs == nil {
+		return fmt.Errorf("esign module: durable job runtime is required when esign_google is enabled")
 	}
 	health := m.google.ProviderHealth(ctx)
 	if health.Healthy {
@@ -1475,8 +1525,8 @@ func (m *ESignModule) validateLineageRuntimeWiring(ctx context.Context) error {
 	if m.sourceDiagnostics == nil {
 		return fmt.Errorf("esign module: lineage diagnostics service is required when lineage store is enabled")
 	}
-	if m.googleEnabled && m.sourceLineageQueue == nil {
-		return fmt.Errorf("esign module: source lineage queue is required when esign_google is enabled")
+	if m.googleEnabled && m.durableJobs == nil {
+		return fmt.Errorf("esign module: durable job runtime is required when esign_google is enabled")
 	}
 	return nil
 }

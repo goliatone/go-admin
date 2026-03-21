@@ -8,24 +8,32 @@ import (
 )
 
 const (
-	DefaultLineageDiagnosticsBasePath     = "/admin/debug/lineage"
-	LineageEmptyStateNone                 = "none"
-	LineageEmptyStateNoSource             = "no_source"
-	LineageFingerprintStatusNotApplicable = "not_applicable"
-	LineageFingerprintStatusUnknown       = "unknown"
-	LineageFingerprintStatusPending       = "pending"
-	LineageFingerprintStatusReady         = "ready"
-	LineageFingerprintStatusFailed        = "failed"
-	LineageWarningSeverityCritical        = "critical"
-	LineageWarningSeverityWarning         = "warning"
-	LineageWarningSeverityInfo            = "info"
-	LineageWarningSeverityNone            = "none"
-	LineageImportStatusQueued             = "queued"
-	LineageImportStatusRunning            = "running"
-	LineageImportStatusLinked             = "linked"
-	LineageImportStatusNeedsReview        = "needs_review"
-	LineageReviewVisibilityHidden         = "hidden"
-	LineageReviewVisibilityAdminOnly      = "admin_debug_only"
+	DefaultLineageDiagnosticsBasePath         = "/admin/debug/lineage"
+	LineageEmptyStateNone                     = "none"
+	LineageEmptyStateNoSource                 = "no_source"
+	LineageFingerprintStatusNotApplicable     = "not_applicable"
+	LineageFingerprintStatusUnknown           = "unknown"
+	LineageFingerprintStatusPending           = "pending"
+	LineageFingerprintStatusReady             = "ready"
+	LineageFingerprintStatusFailed            = "failed"
+	LineageFingerprintProcessingNotApplicable = "not_applicable"
+	LineageFingerprintProcessingQueued        = "queued"
+	LineageFingerprintProcessingRunning       = "running"
+	LineageFingerprintProcessingRetrying      = "retrying"
+	LineageFingerprintProcessingReady         = "ready"
+	LineageFingerprintProcessingFailed        = "failed"
+	LineageFingerprintProcessingStale         = "stale"
+	LineageFingerprintProcessingUnknown       = "unknown"
+	LineageWarningSeverityCritical            = "critical"
+	LineageWarningSeverityWarning             = "warning"
+	LineageWarningSeverityInfo                = "info"
+	LineageWarningSeverityNone                = "none"
+	LineageImportStatusQueued                 = "queued"
+	LineageImportStatusRunning                = "running"
+	LineageImportStatusLinked                 = "linked"
+	LineageImportStatusNeedsReview            = "needs_review"
+	LineageReviewVisibilityHidden             = "hidden"
+	LineageReviewVisibilityAdminOnly          = "admin_debug_only"
 )
 
 const (
@@ -86,6 +94,19 @@ type FingerprintStatusSummary struct {
 	ErrorCode         string `json:"error_code,omitempty"`
 }
 
+type FingerprintProcessingSummary struct {
+	State            string     `json:"state"`
+	StatusLabel      string     `json:"status_label,omitempty"`
+	StartedAt        *time.Time `json:"started_at,omitempty"`
+	CompletedAt      *time.Time `json:"completed_at,omitempty"`
+	LastAttemptAt    *time.Time `json:"last_attempt_at,omitempty"`
+	AttemptCount     int        `json:"attempt_count,omitempty"`
+	LastErrorCode    string     `json:"last_error_code,omitempty"`
+	LastErrorMessage string     `json:"last_error_message,omitempty"`
+	Retryable        bool       `json:"retryable"`
+	Stale            bool       `json:"stale"`
+}
+
 type CandidateEvidenceSummary struct {
 	Code    string `json:"code"`
 	Label   string `json:"label"`
@@ -136,6 +157,7 @@ type DocumentLineageDetail struct {
 	SourceArtifact          *SourceArtifactSummary       `json:"source_artifact,omitempty"`
 	GoogleSource            *SourceMetadataBaseline      `json:"google_source,omitempty"`
 	FingerprintStatus       FingerprintStatusSummary     `json:"fingerprint_status"`
+	FingerprintProcessing   FingerprintProcessingSummary `json:"fingerprint_processing"`
 	CandidateWarningSummary []CandidateWarningSummary    `json:"candidate_warning_summary,omitempty"`
 	PresentationWarnings    []LineagePresentationWarning `json:"presentation_warnings,omitempty"`
 	DiagnosticsURL          string                       `json:"diagnostics_url,omitempty"`
@@ -150,6 +172,7 @@ type AgreementLineageDetail struct {
 	SourceRevision          *SourceRevisionSummary       `json:"source_revision,omitempty"`
 	LinkedDocumentArtifact  *SourceArtifactSummary       `json:"linked_document_artifact,omitempty"`
 	GoogleSource            *SourceMetadataBaseline      `json:"google_source,omitempty"`
+	FingerprintProcessing   FingerprintProcessingSummary `json:"fingerprint_processing"`
 	NewerSourceExists       bool                         `json:"newer_source_exists"`
 	NewerSourceSummary      *NewerSourceSummary          `json:"newer_source_summary,omitempty"`
 	CandidateWarningSummary []CandidateWarningSummary    `json:"candidate_warning_summary,omitempty"`
@@ -160,15 +183,16 @@ type AgreementLineageDetail struct {
 
 // GoogleImportLineageStatus is the canonical backend-owned status payload for async imports.
 type GoogleImportLineageStatus struct {
-	ImportRunID        string                    `json:"import_run_id"`
-	LineageStatus      string                    `json:"lineage_status"`
-	SourceDocument     *LineageReference         `json:"source_document,omitempty"`
-	SourceRevision     *SourceRevisionSummary    `json:"source_revision,omitempty"`
-	SourceArtifact     *SourceArtifactSummary    `json:"source_artifact,omitempty"`
-	FingerprintStatus  FingerprintStatusSummary  `json:"fingerprint_status"`
-	CandidateStatus    []CandidateWarningSummary `json:"candidate_status,omitempty"`
-	DocumentDetailURL  string                    `json:"document_detail_url,omitempty"`
-	AgreementDetailURL string                    `json:"agreement_detail_url,omitempty"`
+	ImportRunID           string                       `json:"import_run_id"`
+	LineageStatus         string                       `json:"lineage_status"`
+	SourceDocument        *LineageReference            `json:"source_document,omitempty"`
+	SourceRevision        *SourceRevisionSummary       `json:"source_revision,omitempty"`
+	SourceArtifact        *SourceArtifactSummary       `json:"source_artifact,omitempty"`
+	FingerprintStatus     FingerprintStatusSummary     `json:"fingerprint_status"`
+	FingerprintProcessing FingerprintProcessingSummary `json:"fingerprint_processing"`
+	CandidateStatus       []CandidateWarningSummary    `json:"candidate_status,omitempty"`
+	DocumentDetailURL     string                       `json:"document_detail_url,omitempty"`
+	AgreementDetailURL    string                       `json:"agreement_detail_url,omitempty"`
 }
 
 // LineagePresentationRules records backend-owned presentation decisions for current e-sign lineage surfaces.

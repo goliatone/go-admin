@@ -63,6 +63,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("init activity sqlite dependencies: %v", err)
 	}
+	authBundle, err := newESignAuthBundle(cfg)
+	if err != nil {
+		log.Fatalf("build auth bundle: %v", err)
+	}
+	adminDeps.Authenticator = authBundle.Authenticator
+	adminDeps.Authorizer = authBundle.Authorizer
 	if err := validateRuntimeSecurityBaseline(runtimeConfig); err != nil {
 		log.Fatalf("runtime security baseline: %v", err)
 	}
@@ -100,7 +106,7 @@ func main() {
 		quickstart.WithFeatureDefaults(featureDefaults),
 		quickstart.WithStartupPolicy(resolveESignStartupPolicy(runtimeConfig.Runtime.StartupPolicy)),
 		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
-			Enabled: true,
+			Enabled:      true,
 			CommandRules: esignReviewRPCCommandRules(),
 			Authorize: func(ctx context.Context, input admin.RPCCommandPolicyInput) error {
 				extraPermissions := esignReviewRPCExtraPermissions(input.CommandName)
@@ -175,10 +181,12 @@ func main() {
 		)
 	}
 
-	authn, auther, authCookieName, err := configureESignAuth(adm, cfg)
-	if err != nil {
-		log.Fatalf("configure auth: %v", err)
+	if err := authBundle.Apply(adm); err != nil {
+		log.Fatalf("apply auth bundle: %v", err)
 	}
+	authn := authBundle.Authenticator
+	auther := authBundle.Auther
+	authCookieName := authBundle.CookieName
 
 	viewEngine, err := newESignViewEngine(cfg, adm)
 	if err != nil {

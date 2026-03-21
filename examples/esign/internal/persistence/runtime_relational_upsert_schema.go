@@ -986,7 +986,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 		},
 		{
 			table:    "job_runs",
-			columns:  []string{"id", "tenant_id", "org_id", "job_name", "dedupe_key", "agreement_id", "recipient_id", "correlation_id", "status", "attempt_count", "max_attempts", "last_error", "next_retry_at", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "job_name", "dedupe_key", "agreement_id", "recipient_id", "correlation_id", "status", "attempt_count", "max_attempts", "payload_json", "available_at", "started_at", "completed_at", "claimed_at", "lease_expires_at", "worker_id", "resource_kind", "resource_id", "last_error_code", "last_error", "next_retry_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.JobRuns))
@@ -994,21 +994,31 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					rows = append(rows, map[string]any{
-						"id":             strings.TrimSpace(record.ID),
-						"tenant_id":      strings.TrimSpace(record.TenantID),
-						"org_id":         strings.TrimSpace(record.OrgID),
-						"job_name":       strings.TrimSpace(record.JobName),
-						"dedupe_key":     strings.TrimSpace(record.DedupeKey),
-						"agreement_id":   strings.TrimSpace(record.AgreementID),
-						"recipient_id":   nullableString(record.RecipientID),
-						"correlation_id": strings.TrimSpace(record.CorrelationID),
-						"status":         strings.TrimSpace(record.Status),
-						"attempt_count":  record.AttemptCount,
-						"max_attempts":   record.MaxAttempts,
-						"last_error":     strings.TrimSpace(record.LastError),
-						"next_retry_at":  optionalTime(record.NextRetryAt),
-						"created_at":     createdAt,
-						"updated_at":     updatedAt,
+						"id":               strings.TrimSpace(record.ID),
+						"tenant_id":        strings.TrimSpace(record.TenantID),
+						"org_id":           strings.TrimSpace(record.OrgID),
+						"job_name":         strings.TrimSpace(record.JobName),
+						"dedupe_key":       strings.TrimSpace(record.DedupeKey),
+						"agreement_id":     strings.TrimSpace(record.AgreementID),
+						"recipient_id":     nullableString(record.RecipientID),
+						"correlation_id":   strings.TrimSpace(record.CorrelationID),
+						"status":           strings.TrimSpace(record.Status),
+						"attempt_count":    record.AttemptCount,
+						"max_attempts":     record.MaxAttempts,
+						"payload_json":     strings.TrimSpace(record.PayloadJSON),
+						"available_at":     optionalTime(record.AvailableAt),
+						"started_at":       optionalTime(record.StartedAt),
+						"completed_at":     optionalTime(record.CompletedAt),
+						"claimed_at":       optionalTime(record.ClaimedAt),
+						"lease_expires_at": optionalTime(record.LeaseExpiresAt),
+						"worker_id":        strings.TrimSpace(record.WorkerID),
+						"resource_kind":    strings.TrimSpace(record.ResourceKind),
+						"resource_id":      strings.TrimSpace(record.ResourceID),
+						"last_error_code":  strings.TrimSpace(record.LastErrorCode),
+						"last_error":       strings.TrimSpace(record.LastError),
+						"next_retry_at":    optionalTime(record.NextRetryAt),
+						"created_at":       createdAt,
+						"updated_at":       updatedAt,
 					})
 				}
 				return rows

@@ -16,7 +16,9 @@ type LineageDiagnostics struct {
 	SourceArtifact         *stores.SourceArtifactRecord      `json:"source_artifact,omitempty"`
 	ActiveHandle           *stores.SourceHandleRecord        `json:"active_handle,omitempty"`
 	FingerprintStatus      FingerprintStatusSummary          `json:"fingerprint_status"`
+	FingerprintProcessing  FingerprintProcessingSummary      `json:"fingerprint_processing"`
 	Fingerprints           []stores.SourceFingerprintRecord  `json:"fingerprints,omitempty"`
+	JobRuns                []stores.JobRunRecord             `json:"job_runs,omitempty"`
 	CandidateWarnings      []CandidateWarningSummary         `json:"candidate_warnings,omitempty"`
 	CandidateRelationships []stores.SourceRelationshipRecord `json:"candidate_relationships,omitempty"`
 	EmptyState             LineageEmptyState                 `json:"empty_state"`
@@ -52,10 +54,11 @@ func (s DefaultLineageDiagnosticsService) GetDocumentLineageDiagnostics(ctx cont
 		return LineageDiagnostics{}, err
 	}
 	diagnostics := LineageDiagnostics{
-		ResourceKind:      "document",
-		ResourceID:        strings.TrimSpace(document.ID),
-		FingerprintStatus: detail.FingerprintStatus,
-		EmptyState:        detail.EmptyState,
+		ResourceKind:          "document",
+		ResourceID:            strings.TrimSpace(document.ID),
+		FingerprintStatus:     detail.FingerprintStatus,
+		FingerprintProcessing: detail.FingerprintProcessing,
+		EmptyState:            detail.EmptyState,
 	}
 	if s.readModels.lineage == nil || strings.TrimSpace(document.SourceDocumentID) == "" || strings.TrimSpace(document.SourceRevisionID) == "" {
 		return diagnostics, nil
@@ -70,6 +73,7 @@ func (s DefaultLineageDiagnosticsService) GetDocumentLineageDiagnostics(ctx cont
 	diagnostics.SourceArtifact = cloneSourceArtifactRecord(resolved.sourceArtifact)
 	diagnostics.ActiveHandle = cloneSourceHandleRecord(resolved.activeHandle)
 	diagnostics.Fingerprints = append([]stores.SourceFingerprintRecord{}, resolved.fingerprints...)
+	diagnostics.JobRuns = append([]stores.JobRunRecord{}, resolved.lineageJobs...)
 	diagnostics.CandidateWarnings = append([]CandidateWarningSummary{}, resolved.candidateWarnings...)
 	relationships, err := s.readModels.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{
 		SourceDocumentID: resolved.sourceDocument.ID,
@@ -91,9 +95,10 @@ func (s DefaultLineageDiagnosticsService) GetAgreementLineageDiagnostics(ctx con
 		return LineageDiagnostics{}, err
 	}
 	diagnostics := LineageDiagnostics{
-		ResourceKind: "agreement",
-		ResourceID:   strings.TrimSpace(agreement.ID),
-		EmptyState:   detail.EmptyState,
+		ResourceKind:          "agreement",
+		ResourceID:            strings.TrimSpace(agreement.ID),
+		FingerprintProcessing: detail.FingerprintProcessing,
+		EmptyState:            detail.EmptyState,
 	}
 	pinnedRevisionID := strings.TrimSpace(agreement.SourceRevisionID)
 	if s.readModels.lineage == nil || pinnedRevisionID == "" {
@@ -118,7 +123,9 @@ func (s DefaultLineageDiagnosticsService) GetAgreementLineageDiagnostics(ctx con
 	diagnostics.SourceArtifact = cloneSourceArtifactRecord(resolved.sourceArtifact)
 	diagnostics.ActiveHandle = cloneSourceHandleRecord(resolved.activeHandle)
 	diagnostics.FingerprintStatus = resolved.fingerprintStatus()
+	diagnostics.FingerprintProcessing = resolved.fingerprintProcessing()
 	diagnostics.Fingerprints = append([]stores.SourceFingerprintRecord{}, resolved.fingerprints...)
+	diagnostics.JobRuns = append([]stores.JobRunRecord{}, resolved.lineageJobs...)
 	diagnostics.CandidateWarnings = append([]CandidateWarningSummary{}, resolved.candidateWarnings...)
 	relationships, err := s.readModels.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{
 		SourceDocumentID: resolved.sourceDocument.ID,
@@ -488,6 +495,11 @@ func (s DefaultLineageRepairService) sourceDocumentDiagnostics(ctx context.Conte
 	if err != nil {
 		return LineageDiagnostics{}, err
 	}
+	fingerprintStatus, fingerprintProcessing := s.readModels.fingerprintStateForRevision(ctx, scope, latestRevision)
+	jobRuns, err := s.readModels.listLineageJobRuns(ctx, scope, latestRevision.ID)
+	if err != nil {
+		return LineageDiagnostics{}, err
+	}
 	return LineageDiagnostics{
 		ResourceKind:           "source_document",
 		ResourceID:             strings.TrimSpace(sourceDocument.ID),
@@ -496,8 +508,10 @@ func (s DefaultLineageRepairService) sourceDocumentDiagnostics(ctx context.Conte
 		LatestSourceRevision:   cloneSourceRevisionRecord(latestRevision),
 		SourceArtifact:         cloneSourceArtifactRecord(sourceArtifact),
 		ActiveHandle:           cloneSourceHandleRecord(activeHandle),
-		FingerprintStatus:      s.readModels.fingerprintStatusForRevision(ctx, scope, latestRevision),
+		FingerprintStatus:      fingerprintStatus,
+		FingerprintProcessing:  fingerprintProcessing,
 		Fingerprints:           append([]stores.SourceFingerprintRecord{}, fingerprints...),
+		JobRuns:                append([]stores.JobRunRecord{}, jobRuns...),
 		CandidateWarnings:      append([]CandidateWarningSummary{}, warnings...),
 		CandidateRelationships: append([]stores.SourceRelationshipRecord{}, relationships...),
 		EmptyState:             LineageEmptyState{Kind: LineageEmptyStateNone},

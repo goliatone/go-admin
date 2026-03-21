@@ -623,6 +623,71 @@ func (s *StoreAdapter) ListJobRuns(ctx context.Context, scope stores.Scope, agre
 	return listJobRunRecords(ctx, idb, scope, agreementID)
 }
 
+func (s *StoreAdapter) EnqueueJob(ctx context.Context, scope stores.Scope, input stores.JobRunEnqueueInput) (stores.JobRunRecord, bool, error) {
+	var (
+		out    stores.JobRunRecord
+		queued bool
+	)
+	err := s.WithTx(ctx, func(tx stores.TxStore) error {
+		var innerErr error
+		out, queued, innerErr = tx.EnqueueJob(ctx, scope, input)
+		return innerErr
+	})
+	return out, queued, err
+}
+
+func (s *StoreAdapter) ClaimDueJobs(ctx context.Context, scope stores.Scope, input stores.JobRunClaimInput) ([]stores.JobRunRecord, error) {
+	var out []stores.JobRunRecord
+	err := s.WithTx(ctx, func(tx stores.TxStore) error {
+		var innerErr error
+		out, innerErr = tx.ClaimDueJobs(ctx, scope, input)
+		return innerErr
+	})
+	return out, err
+}
+
+func (s *StoreAdapter) RenewJobLease(ctx context.Context, scope stores.Scope, id string, input stores.JobRunLeaseRenewInput) (stores.JobRunRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.JobRunRecord, error) {
+		return tx.RenewJobLease(ctx, scope, id, input)
+	})
+}
+
+func (s *StoreAdapter) MarkJobSucceeded(ctx context.Context, scope stores.Scope, id string, completedAt time.Time) (stores.JobRunRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.JobRunRecord, error) {
+		return tx.MarkJobSucceeded(ctx, scope, id, completedAt)
+	})
+}
+
+func (s *StoreAdapter) MarkJobFailed(ctx context.Context, scope stores.Scope, id string, input stores.JobRunFailureInput) (stores.JobRunRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.JobRunRecord, error) {
+		return tx.MarkJobFailed(ctx, scope, id, input)
+	})
+}
+
+func (s *StoreAdapter) MarkJobStale(ctx context.Context, scope stores.Scope, id, reason string, staleAt time.Time) (stores.JobRunRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.JobRunRecord, error) {
+		return tx.MarkJobStale(ctx, scope, id, reason, staleAt)
+	})
+}
+
+func (s *StoreAdapter) RequeueStaleJobs(ctx context.Context, scope stores.Scope, input stores.JobRunRequeueInput) (int, error) {
+	var out int
+	err := s.WithTx(ctx, func(tx stores.TxStore) error {
+		var innerErr error
+		out, innerErr = tx.RequeueStaleJobs(ctx, scope, input)
+		return innerErr
+	})
+	return out, err
+}
+
+func (s *StoreAdapter) ListJobRunsByResource(ctx context.Context, scope stores.Scope, resourceKind, resourceID string) ([]stores.JobRunRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listJobRunRecordsByResource(ctx, idb, scope, resourceKind, resourceID)
+}
+
 func (s *StoreAdapter) BeginGoogleImportRun(ctx context.Context, scope stores.Scope, input stores.GoogleImportRunInput) (stores.GoogleImportRunRecord, bool, error) {
 	var (
 		out    stores.GoogleImportRunRecord

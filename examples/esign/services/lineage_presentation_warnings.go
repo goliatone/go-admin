@@ -9,9 +9,9 @@ func BuildDocumentPresentationWarnings(detail DocumentLineageDetail) []LineagePr
 	if detail.EmptyState.Kind != LineageEmptyStateNone {
 		return warnings
 	}
-	switch detail.FingerprintStatus.Status {
-	case LineageFingerprintStatusFailed:
-		description := strings.TrimSpace(detail.FingerprintStatus.ErrorMessage)
+	switch detail.FingerprintProcessing.State {
+	case LineageFingerprintProcessingFailed:
+		description := firstNonEmpty(strings.TrimSpace(detail.FingerprintProcessing.LastErrorMessage), strings.TrimSpace(detail.FingerprintStatus.ErrorMessage))
 		if description == "" {
 			description = "Document fingerprinting failed. Candidate detection may be unavailable until fingerprint extraction succeeds."
 		}
@@ -22,13 +22,21 @@ func BuildDocumentPresentationWarnings(detail DocumentLineageDetail) []LineagePr
 			Title:       "Fingerprint Extraction Failed",
 			Description: description,
 		})
-	case LineageFingerprintStatusPending:
+	case LineageFingerprintProcessingQueued, LineageFingerprintProcessingRunning, LineageFingerprintProcessingRetrying:
 		warnings = append(warnings, LineagePresentationWarning{
 			ID:          "fingerprint_pending_warning",
 			Type:        "fingerprint_pending",
 			Severity:    LineageWarningSeverityInfo,
 			Title:       "Fingerprint Processing",
-			Description: "Document fingerprinting is in progress. Candidate detection may be incomplete.",
+			Description: "Document fingerprinting is queued or in progress. Candidate detection may be incomplete.",
+		})
+	case LineageFingerprintProcessingStale:
+		warnings = append(warnings, LineagePresentationWarning{
+			ID:          "fingerprint_stale_warning",
+			Type:        "fingerprint_stale",
+			Severity:    LineageWarningSeverityWarning,
+			Title:       "Fingerprint Processing Stalled",
+			Description: "Fingerprint processing did not reach a terminal state and likely needs retry or repair.",
 		})
 	}
 	return warnings

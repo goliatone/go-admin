@@ -3956,49 +3956,344 @@ func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope,
 }
 
 func (s *relationalTxStore) MarkJobRunSucceeded(ctx context.Context, scope stores.Scope, id string, completedAt time.Time) (stores.JobRunRecord, error) {
-	if completedAt.IsZero() {
-		completedAt = time.Now().UTC()
+	return s.MarkJobSucceeded(ctx, scope, id, completedAt)
+}
+
+func (s *relationalTxStore) MarkJobRunFailed(ctx context.Context, scope stores.Scope, id, failureReason string, nextRetryAt *time.Time, failedAt time.Time) (stores.JobRunRecord, error) {
+	return s.MarkJobFailed(ctx, scope, id, stores.JobRunFailureInput{
+		FailureReason:   failureReason,
+		NextAvailableAt: nextRetryAt,
+		FailedAt:        failedAt,
+	})
+}
+
+func (s *relationalTxStore) EnqueueJob(ctx context.Context, scope stores.Scope, input stores.JobRunEnqueueInput) (stores.JobRunRecord, bool, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
 	}
+	input.JobName = strings.TrimSpace(input.JobName)
+	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
+	input.AgreementID = normalizeRelationalID(input.AgreementID)
+	input.RecipientID = normalizeRelationalID(input.RecipientID)
+	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
+	input.PayloadJSON = strings.TrimSpace(input.PayloadJSON)
+	input.ResourceKind = strings.TrimSpace(input.ResourceKind)
+	input.ResourceID = strings.TrimSpace(input.ResourceID)
+	if input.JobName == "" {
+		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "job_name", "required")
+	}
+	if input.DedupeKey == "" {
+		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "dedupe_key", "required")
+	}
+	if input.MaxAttempts <= 0 {
+		input.MaxAttempts = 3
+	}
+	requestedAt := relationalTimeOrNow(input.RequestedAt)
+	availableAt := cloneRelationalTimePtr(input.AvailableAt)
+	if availableAt == nil {
+		availableAt = &requestedAt
+	} else {
+		ts := availableAt.UTC()
+		availableAt = &ts
+	}
+	if input.AgreementID != "" {
+		if _, err := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID); err != nil {
+			return stores.JobRunRecord{}, false, err
+		}
+	}
+	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
+	if err == nil {
+		terminal := record.Status == stores.JobRunStatusSucceeded || record.Status == stores.JobRunStatusFailed || record.Status == stores.JobRunStatusStale
+		if !input.ReplaceTerminal || !terminal {
+			return record, false, nil
+		}
+		record.Status = stores.JobRunStatusQueued
+		record.AttemptCount = 0
+		record.PayloadJSON = input.PayloadJSON
+		record.AvailableAt = availableAt
+		record.StartedAt = nil
+		record.CompletedAt = nil
+		record.ClaimedAt = nil
+		record.LeaseExpiresAt = nil
+		record.WorkerID = ""
+		record.ResourceKind = input.ResourceKind
+		record.ResourceID = input.ResourceID
+		record.LastErrorCode = ""
+		record.LastError = ""
+		record.NextRetryAt = nil
+		if input.CorrelationID != "" {
+			record.CorrelationID = input.CorrelationID
+		}
+		record.UpdatedAt = requestedAt
+		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+			return stores.JobRunRecord{}, false, err
+		}
+		return record, true, nil
+	}
+	if !strings.Contains(err.Error(), "NOT_FOUND") {
+		return stores.JobRunRecord{}, false, err
+	}
+	record = stores.JobRunRecord{
+		ID:            uuid.NewString(),
+		TenantID:      scope.TenantID,
+		OrgID:         scope.OrgID,
+		JobName:       input.JobName,
+		DedupeKey:     input.DedupeKey,
+		AgreementID:   input.AgreementID,
+		RecipientID:   input.RecipientID,
+		CorrelationID: input.CorrelationID,
+		Status:        stores.JobRunStatusQueued,
+		AttemptCount:  0,
+		MaxAttempts:   input.MaxAttempts,
+		PayloadJSON:   input.PayloadJSON,
+		AvailableAt:   availableAt,
+		ResourceKind:  input.ResourceKind,
+		ResourceID:    input.ResourceID,
+		CreatedAt:     requestedAt,
+		UpdatedAt:     requestedAt,
+	}
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		if relationalUniqueConstraintError(err, "job_runs", "dedupe_key") != err {
+			reloaded, reloadErr := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
+			if reloadErr == nil {
+				return reloaded, false, nil
+			}
+		}
+		return stores.JobRunRecord{}, false, relationalUniqueConstraintError(err, "job_runs", "id|dedupe_key")
+	}
+	return record, true, nil
+}
+
+func (s *relationalTxStore) ClaimDueJobs(ctx context.Context, scope stores.Scope, input stores.JobRunClaimInput) ([]stores.JobRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	if input.Limit <= 0 {
+		input.Limit = 25
+	}
+	now := relationalTimeOrNow(input.Now)
+	if input.LeaseDuration <= 0 {
+		input.LeaseDuration = 30 * time.Second
+	}
+	workerID := strings.TrimSpace(input.WorkerID)
+	if workerID == "" {
+		return nil, relationalInvalidRecordError("job_runs", "worker_id", "required")
+	}
+	jobNames := make([]string, 0, len(input.JobNames))
+	for _, name := range input.JobNames {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			jobNames = append(jobNames, name)
+		}
+	}
+	records := make([]stores.JobRunRecord, 0)
+	query := s.tx.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("status IN (?)", bun.In([]string{stores.JobRunStatusQueued, stores.JobRunStatusRetrying})).
+		Where("COALESCE(available_at, next_retry_at, created_at) <= ?", now).
+		OrderExpr("COALESCE(available_at, next_retry_at, created_at) ASC, updated_at ASC, id ASC").
+		Limit(input.Limit)
+	if len(jobNames) > 0 {
+		query = query.Where("job_name IN (?)", bun.In(jobNames))
+	}
+	if err := query.Scan(ctx); err != nil {
+		return nil, err
+	}
+	claimed := make([]stores.JobRunRecord, 0, len(records))
+	for _, record := range records {
+		record.AttemptCount++
+		record.Status = stores.JobRunStatusRunning
+		record.StartedAt = cloneRelationalTimePtr(&now)
+		record.ClaimedAt = cloneRelationalTimePtr(&now)
+		leaseExpiresAt := now.Add(input.LeaseDuration)
+		record.LeaseExpiresAt = cloneRelationalTimePtr(&leaseExpiresAt)
+		record.WorkerID = workerID
+		record.UpdatedAt = now
+		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+			return nil, err
+		}
+		claimed = append(claimed, record)
+	}
+	return claimed, nil
+}
+
+func (s *relationalTxStore) RenewJobLease(ctx context.Context, scope stores.Scope, id string, input stores.JobRunLeaseRenewInput) (stores.JobRunRecord, error) {
 	record, err := loadJobRunRecord(ctx, s.tx, scope, id)
 	if err != nil {
 		return stores.JobRunRecord{}, err
 	}
-	record.Status = stores.JobRunStatusSucceeded
-	record.LastError = ""
-	record.NextRetryAt = nil
-	record.UpdatedAt = completedAt.UTC()
+	workerID := strings.TrimSpace(input.WorkerID)
+	if workerID == "" {
+		return stores.JobRunRecord{}, relationalInvalidRecordError("job_runs", "worker_id", "required")
+	}
+	if strings.TrimSpace(record.Status) != stores.JobRunStatusRunning {
+		return stores.JobRunRecord{}, relationalInvalidRecordError("job_runs", "status", "lease renewal requires running job")
+	}
+	if strings.TrimSpace(record.WorkerID) != "" && strings.TrimSpace(record.WorkerID) != workerID {
+		return stores.JobRunRecord{}, relationalInvalidRecordError("job_runs", "worker_id", "lease held by another worker")
+	}
+	renewedAt := relationalTimeOrNow(input.RenewedAt)
+	if input.LeaseDuration <= 0 {
+		input.LeaseDuration = 30 * time.Second
+	}
+	record.WorkerID = workerID
+	record.ClaimedAt = cloneRelationalTimePtr(&renewedAt)
+	leaseExpiresAt := renewedAt.Add(input.LeaseDuration)
+	record.LeaseExpiresAt = cloneRelationalTimePtr(&leaseExpiresAt)
+	record.UpdatedAt = renewedAt
 	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
 		return stores.JobRunRecord{}, err
 	}
 	return record, nil
 }
 
-func (s *relationalTxStore) MarkJobRunFailed(ctx context.Context, scope stores.Scope, id, failureReason string, nextRetryAt *time.Time, failedAt time.Time) (stores.JobRunRecord, error) {
-	if failedAt.IsZero() {
-		failedAt = time.Now().UTC()
-	}
+func (s *relationalTxStore) MarkJobSucceeded(ctx context.Context, scope stores.Scope, id string, completedAt time.Time) (stores.JobRunRecord, error) {
 	record, err := loadJobRunRecord(ctx, s.tx, scope, id)
 	if err != nil {
 		return stores.JobRunRecord{}, err
 	}
-	failureReason = strings.TrimSpace(failureReason)
-	if failureReason == "" {
-		failureReason = "job failed"
-	}
-	record.LastError = failureReason
-	if nextRetryAt != nil && record.AttemptCount < record.MaxAttempts {
-		next := nextRetryAt.UTC()
-		record.Status = stores.JobRunStatusRetrying
-		record.NextRetryAt = &next
-	} else {
-		record.Status = stores.JobRunStatusFailed
-		record.NextRetryAt = nil
-	}
-	record.UpdatedAt = failedAt.UTC()
+	completedAt = relationalTimeOrNow(completedAt)
+	record.Status = stores.JobRunStatusSucceeded
+	record.CompletedAt = cloneRelationalTimePtr(&completedAt)
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	record.LastErrorCode = ""
+	record.LastError = ""
+	record.NextRetryAt = nil
+	record.AvailableAt = nil
+	record.UpdatedAt = completedAt
 	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
 		return stores.JobRunRecord{}, err
 	}
 	return record, nil
+}
+
+func (s *relationalTxStore) MarkJobFailed(ctx context.Context, scope stores.Scope, id string, input stores.JobRunFailureInput) (stores.JobRunRecord, error) {
+	record, err := loadJobRunRecord(ctx, s.tx, scope, id)
+	if err != nil {
+		return stores.JobRunRecord{}, err
+	}
+	failedAt := relationalTimeOrNow(input.FailedAt)
+	failureReason := strings.TrimSpace(input.FailureReason)
+	if failureReason == "" {
+		failureReason = "job failed"
+	}
+	record.LastErrorCode = strings.TrimSpace(input.ErrorCode)
+	record.LastError = failureReason
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	if input.NextAvailableAt != nil && record.AttemptCount < record.MaxAttempts {
+		next := input.NextAvailableAt.UTC()
+		record.Status = stores.JobRunStatusRetrying
+		record.NextRetryAt = &next
+		record.AvailableAt = &next
+		record.CompletedAt = nil
+	} else {
+		record.Status = stores.JobRunStatusFailed
+		record.NextRetryAt = nil
+		record.AvailableAt = nil
+		record.CompletedAt = cloneRelationalTimePtr(&failedAt)
+	}
+	record.UpdatedAt = failedAt
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.JobRunRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) MarkJobStale(ctx context.Context, scope stores.Scope, id, reason string, staleAt time.Time) (stores.JobRunRecord, error) {
+	record, err := loadJobRunRecord(ctx, s.tx, scope, id)
+	if err != nil {
+		return stores.JobRunRecord{}, err
+	}
+	staleAt = relationalTimeOrNow(staleAt)
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "job marked stale"
+	}
+	record.Status = stores.JobRunStatusStale
+	if strings.TrimSpace(record.LastErrorCode) == "" {
+		record.LastErrorCode = "STALE"
+	}
+	record.LastError = reason
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	record.NextRetryAt = nil
+	record.AvailableAt = nil
+	record.CompletedAt = cloneRelationalTimePtr(&staleAt)
+	record.UpdatedAt = staleAt
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.JobRunRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) RequeueStaleJobs(ctx context.Context, scope stores.Scope, input stores.JobRunRequeueInput) (int, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	now := relationalTimeOrNow(input.Now)
+	jobNames := make([]string, 0, len(input.JobNames))
+	for _, name := range input.JobNames {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			jobNames = append(jobNames, name)
+		}
+	}
+	records := make([]stores.JobRunRecord, 0)
+	query := s.tx.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("status = ?", stores.JobRunStatusRunning).
+		Where("lease_expires_at IS NOT NULL").
+		Where("lease_expires_at <= ?", now).
+		OrderExpr("lease_expires_at ASC, id ASC")
+	if input.Limit > 0 {
+		query = query.Limit(input.Limit)
+	}
+	if len(jobNames) > 0 {
+		query = query.Where("job_name IN (?)", bun.In(jobNames))
+	}
+	if err := query.Scan(ctx); err != nil {
+		return 0, err
+	}
+	updated := 0
+	for _, record := range records {
+		record.LastErrorCode = "LEASE_EXPIRED"
+		record.LastError = "job lease expired"
+		record.ClaimedAt = nil
+		record.LeaseExpiresAt = nil
+		record.WorkerID = ""
+		if record.AttemptCount < record.MaxAttempts {
+			record.Status = stores.JobRunStatusRetrying
+			record.NextRetryAt = cloneRelationalTimePtr(&now)
+			record.AvailableAt = cloneRelationalTimePtr(&now)
+		} else {
+			record.Status = stores.JobRunStatusStale
+			record.NextRetryAt = nil
+			record.AvailableAt = nil
+			record.CompletedAt = cloneRelationalTimePtr(&now)
+		}
+		record.UpdatedAt = now
+		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+			return updated, err
+		}
+		updated++
+	}
+	return updated, nil
+}
+
+func (s *relationalTxStore) ListJobRunsByResource(ctx context.Context, scope stores.Scope, resourceKind, resourceID string) ([]stores.JobRunRecord, error) {
+	return listJobRunRecordsByResource(ctx, s.tx, scope, resourceKind, resourceID)
 }
 
 func (s *relationalTxStore) BeginGoogleImportRun(ctx context.Context, scope stores.Scope, input stores.GoogleImportRunInput) (stores.GoogleImportRunRecord, bool, error) {

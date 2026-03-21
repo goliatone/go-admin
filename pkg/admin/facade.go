@@ -649,7 +649,20 @@ type (
 	SchemaValidator                           = core.SchemaValidator
 	SearchAdapter                             = core.SearchAdapter
 	SearchEngine                              = core.SearchEngine
+	SearchFacet                               = core.SearchFacet
+	SearchFacetTerm                           = core.SearchFacetTerm
+	SearchHit                                 = core.SearchHit
+	SearchProvider                            = core.SearchProvider
+	SearchRequest                             = core.SearchRequest
 	SearchResult                              = core.SearchResult
+	SearchResultPage                          = core.SearchResultPage
+	SuggestRequest                            = core.SuggestRequest
+	SuggestResult                             = core.SuggestResult
+	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
+	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
+	GoSearchOperations                        = core.GoSearchOperations
+	GoSearchSiteProvider                      = core.GoSearchSiteProvider
+	GoSearchSiteProviderConfig                = core.GoSearchSiteProviderConfig
 	SettingDefinition                         = core.SettingDefinition
 	SettingFieldEnricher                      = core.SettingFieldEnricher
 	SettingOption                             = core.SettingOption
@@ -1423,6 +1436,14 @@ func NewSchemaToFieldsConverter() *SchemaToFieldsConverter {
 
 func NewSearchEngine(authorizer Authorizer) *SearchEngine {
 	return core.NewSearchEngine(authorizer)
+}
+
+func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
+	return core.NewGoSearchGlobalAdapter(cfg)
+}
+
+func NewGoSearchSiteProvider(cfg GoSearchSiteProviderConfig) *GoSearchSiteProvider {
+	return core.NewGoSearchSiteProvider(cfg)
 }
 
 func NewSettingsFormAdapter(service *SettingsService, theme string, tokens map[string]string) *SettingsFormAdapter {

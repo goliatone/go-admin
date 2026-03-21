@@ -27,7 +27,7 @@ func TestValidateGoogleRuntimeWiringRequiresGoogleServiceWhenEnabled(t *testing.
 	}
 }
 
-func TestValidateGoogleRuntimeWiringRequiresQueueWhenEnabled(t *testing.T) {
+func TestValidateGoogleRuntimeWiringRequiresRuntimeWhenEnabled(t *testing.T) {
 	module := &ESignModule{
 		googleEnabled: true,
 		google: startupGoogleIntegrationStub{
@@ -36,17 +36,17 @@ func TestValidateGoogleRuntimeWiringRequiresQueueWhenEnabled(t *testing.T) {
 	}
 	err := module.validateGoogleRuntimeWiring(context.Background(), true)
 	if err == nil {
-		t.Fatal("expected validation error when google import queue is missing")
+		t.Fatal("expected validation error when durable job runtime is missing")
 	}
-	if !strings.Contains(err.Error(), "google import queue is required") {
+	if !strings.Contains(err.Error(), "durable job runtime is required") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestValidateGoogleRuntimeWiringWarnModeAllowsDegradedProvider(t *testing.T) {
 	module := &ESignModule{
-		googleEnabled:     true,
-		googleImportQueue: &jobs.GoogleDriveImportQueue{},
+		googleEnabled: true,
+		durableJobs:   &jobs.DurableJobRuntime{},
 		google: startupGoogleIntegrationStub{
 			health: services.GoogleProviderHealthStatus{
 				Healthy: false,
@@ -62,8 +62,8 @@ func TestValidateGoogleRuntimeWiringWarnModeAllowsDegradedProvider(t *testing.T)
 
 func TestValidateGoogleRuntimeWiringStrictModeFailsOnDegradedProvider(t *testing.T) {
 	module := &ESignModule{
-		googleEnabled:     true,
-		googleImportQueue: &jobs.GoogleDriveImportQueue{},
+		googleEnabled: true,
+		durableJobs:   &jobs.DurableJobRuntime{},
 		google: startupGoogleIntegrationStub{
 			health: services.GoogleProviderHealthStatus{
 				Healthy: false,
@@ -109,7 +109,7 @@ func TestValidateLineageRuntimeWiringRequiresDiagnosticsWhenLineageEnabled(t *te
 	}
 }
 
-func TestValidateLineageRuntimeWiringRequiresQueueWhenGoogleAndLineageEnabled(t *testing.T) {
+func TestValidateLineageRuntimeWiringRequiresRuntimeWhenGoogleAndLineageEnabled(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	module := &ESignModule{
 		store:             store,
@@ -119,9 +119,9 @@ func TestValidateLineageRuntimeWiringRequiresQueueWhenGoogleAndLineageEnabled(t 
 	}
 	err := module.validateLineageRuntimeWiring(context.Background())
 	if err == nil {
-		t.Fatal("expected validation error when lineage queue is missing")
+		t.Fatal("expected validation error when durable runtime is missing")
 	}
-	if !strings.Contains(err.Error(), "source lineage queue is required") {
+	if !strings.Contains(err.Error(), "durable job runtime is required") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -644,6 +644,30 @@ func listJobRunRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agr
 	return records, nil
 }
 
+func listJobRunRecordsByResource(ctx context.Context, idb bun.IDB, scope stores.Scope, resourceKind, resourceID string) ([]stores.JobRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	resourceKind = strings.TrimSpace(resourceKind)
+	resourceID = strings.TrimSpace(resourceID)
+	if resourceKind == "" || resourceID == "" {
+		return nil, relationalInvalidRecordError("job_runs", "resource_kind|resource_id", "required")
+	}
+	records := make([]stores.JobRunRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("resource_kind = ?", resourceKind).
+		Where("resource_id = ?", resourceID).
+		OrderExpr("updated_at DESC, id DESC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func listFieldValueRecordsByRecipient(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, recipientID string) ([]stores.FieldValueRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

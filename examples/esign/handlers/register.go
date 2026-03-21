@@ -568,22 +568,28 @@ func googleImportRunDedupeKey(userID, accountID, googleFileID, sourceVersionHint
 
 func googleImportRunRecordToMap(record stores.GoogleImportRunRecord) map[string]any {
 	out := map[string]any{
-		"import_run_id":        strings.TrimSpace(record.ID),
-		"id":                   strings.TrimSpace(record.ID),
-		"status":               strings.TrimSpace(record.Status),
-		"user_id":              strings.TrimSpace(record.UserID),
-		"google_file_id":       strings.TrimSpace(record.GoogleFileID),
-		"source_version_hint":  strings.TrimSpace(record.SourceVersionHint),
-		"dedupe_key":           strings.TrimSpace(record.DedupeKey),
-		"document_title":       strings.TrimSpace(record.DocumentTitle),
-		"agreement_title":      strings.TrimSpace(record.AgreementTitle),
-		"created_by_user_id":   strings.TrimSpace(record.CreatedByUserID),
-		"correlation_id":       strings.TrimSpace(record.CorrelationID),
-		"source_document_id":   strings.TrimSpace(record.SourceDocumentID),
-		"source_revision_id":   strings.TrimSpace(record.SourceRevisionID),
-		"source_artifact_id":   strings.TrimSpace(record.SourceArtifactID),
-		"lineage_status":       strings.TrimSpace(record.LineageStatus),
-		"fingerprint_status":   map[string]any{"status": strings.TrimSpace(record.FingerprintStatus), "evidence_available": false},
+		"import_run_id":       strings.TrimSpace(record.ID),
+		"id":                  strings.TrimSpace(record.ID),
+		"status":              strings.TrimSpace(record.Status),
+		"user_id":             strings.TrimSpace(record.UserID),
+		"google_file_id":      strings.TrimSpace(record.GoogleFileID),
+		"source_version_hint": strings.TrimSpace(record.SourceVersionHint),
+		"dedupe_key":          strings.TrimSpace(record.DedupeKey),
+		"document_title":      strings.TrimSpace(record.DocumentTitle),
+		"agreement_title":     strings.TrimSpace(record.AgreementTitle),
+		"created_by_user_id":  strings.TrimSpace(record.CreatedByUserID),
+		"correlation_id":      strings.TrimSpace(record.CorrelationID),
+		"source_document_id":  strings.TrimSpace(record.SourceDocumentID),
+		"source_revision_id":  strings.TrimSpace(record.SourceRevisionID),
+		"source_artifact_id":  strings.TrimSpace(record.SourceArtifactID),
+		"lineage_status":      strings.TrimSpace(record.LineageStatus),
+		"fingerprint_status":  map[string]any{"status": strings.TrimSpace(record.FingerprintStatus), "evidence_available": false},
+		"fingerprint_processing": map[string]any{
+			"state":        strings.TrimSpace(record.Status),
+			"status_label": strings.TrimSpace(record.Status),
+			"started_at":   formatTime(record.StartedAt),
+			"completed_at": formatTime(record.CompletedAt),
+		},
 		"source_mime_type":     strings.TrimSpace(record.SourceMimeType),
 		"ingestion_mode":       strings.TrimSpace(record.IngestionMode),
 		"document_detail_url":  strings.TrimSpace(record.DocumentDetailURL),
@@ -625,6 +631,7 @@ func applyGoogleImportLineageStatus(out map[string]any, status services.GoogleIm
 	out["id"] = strings.TrimSpace(status.ImportRunID)
 	out["lineage_status"] = strings.TrimSpace(status.LineageStatus)
 	out["fingerprint_status"] = status.FingerprintStatus
+	out["fingerprint_processing"] = status.FingerprintProcessing
 	out["source_document"] = status.SourceDocument
 	out["source_revision"] = status.SourceRevision
 	out["source_artifact"] = status.SourceArtifact

@@ -63,11 +63,16 @@ const (
 )
 
 const (
-	JobRunStatusPending   = "pending"
+	JobRunStatusQueued    = "queued"
+	JobRunStatusRunning   = "running"
 	JobRunStatusRetrying  = "retrying"
 	JobRunStatusSucceeded = "succeeded"
 	JobRunStatusFailed    = "failed"
+	JobRunStatusStale     = "stale"
 )
+
+// JobRunStatusPending is kept as a legacy alias for queued job state.
+const JobRunStatusPending = JobRunStatusQueued
 
 const (
 	GoogleImportRunStatusQueued    = "queued"
@@ -590,22 +595,32 @@ type AgreementArtifactRecord struct {
 
 // JobRunRecord stores async execution state with dedupe and retry metadata.
 type JobRunRecord struct {
-	bun.BaseModel `bun:"table:job_runs,alias:jrun"`
-	ID            string     `json:"id"`
-	TenantID      string     `json:"tenant_id"`
-	OrgID         string     `json:"org_id"`
-	JobName       string     `json:"job_name"`
-	DedupeKey     string     `json:"dedupe_key"`
-	AgreementID   string     `json:"agreement_id"`
-	RecipientID   string     `json:"recipient_id"`
-	CorrelationID string     `json:"correlation_id"`
-	Status        string     `json:"status"`
-	AttemptCount  int        `json:"attempt_count"`
-	MaxAttempts   int        `json:"max_attempts"`
-	LastError     string     `json:"last_error"`
-	NextRetryAt   *time.Time `json:"next_retry_at"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	bun.BaseModel  `bun:"table:job_runs,alias:jrun"`
+	ID             string     `json:"id"`
+	TenantID       string     `json:"tenant_id"`
+	OrgID          string     `json:"org_id"`
+	JobName        string     `json:"job_name"`
+	DedupeKey      string     `json:"dedupe_key"`
+	AgreementID    string     `json:"agreement_id"`
+	RecipientID    string     `json:"recipient_id"`
+	CorrelationID  string     `json:"correlation_id"`
+	Status         string     `json:"status"`
+	AttemptCount   int        `json:"attempt_count"`
+	MaxAttempts    int        `json:"max_attempts"`
+	PayloadJSON    string     `json:"payload_json"`
+	AvailableAt    *time.Time `json:"available_at"`
+	StartedAt      *time.Time `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+	ClaimedAt      *time.Time `json:"claimed_at"`
+	LeaseExpiresAt *time.Time `json:"lease_expires_at"`
+	WorkerID       string     `json:"worker_id"`
+	ResourceKind   string     `json:"resource_kind"`
+	ResourceID     string     `json:"resource_id"`
+	LastErrorCode  string     `json:"last_error_code"`
+	LastError      string     `json:"last_error"`
+	NextRetryAt    *time.Time `json:"next_retry_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // JobRunInput captures parameters for dedupe-aware async job execution.
@@ -617,6 +632,49 @@ type JobRunInput struct {
 	CorrelationID string    `json:"correlation_id"`
 	MaxAttempts   int       `json:"max_attempts"`
 	AttemptedAt   time.Time `json:"attempted_at"`
+}
+
+type JobRunEnqueueInput struct {
+	JobName         string     `json:"job_name"`
+	DedupeKey       string     `json:"dedupe_key"`
+	AgreementID     string     `json:"agreement_id"`
+	RecipientID     string     `json:"recipient_id"`
+	CorrelationID   string     `json:"correlation_id"`
+	MaxAttempts     int        `json:"max_attempts"`
+	PayloadJSON     string     `json:"payload_json"`
+	AvailableAt     *time.Time `json:"available_at"`
+	ResourceKind    string     `json:"resource_kind"`
+	ResourceID      string     `json:"resource_id"`
+	ReplaceTerminal bool       `json:"replace_terminal"`
+	RequestedAt     time.Time  `json:"requested_at"`
+}
+
+type JobRunClaimInput struct {
+	JobNames      []string      `json:"job_names"`
+	Limit         int           `json:"limit"`
+	Now           time.Time     `json:"now"`
+	LeaseDuration time.Duration `json:"lease_duration"`
+	WorkerID      string        `json:"worker_id"`
+}
+
+type JobRunLeaseRenewInput struct {
+	LeaseDuration time.Duration `json:"lease_duration"`
+	WorkerID      string        `json:"worker_id"`
+	RenewedAt     time.Time     `json:"renewed_at"`
+}
+
+type JobRunFailureInput struct {
+	ErrorCode       string     `json:"error_code"`
+	FailureReason   string     `json:"failure_reason"`
+	NextAvailableAt *time.Time `json:"next_available_at"`
+	FailedAt        time.Time  `json:"failed_at"`
+}
+
+type JobRunRequeueInput struct {
+	JobNames      []string      `json:"job_names"`
+	Now           time.Time     `json:"now"`
+	LeaseDuration time.Duration `json:"lease_duration"`
+	Limit         int           `json:"limit"`
 }
 
 // GoogleImportRunRecord stores async Google Drive import execution state and result payload.

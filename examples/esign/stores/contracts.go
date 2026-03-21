@@ -175,6 +175,14 @@ type JobRunStore interface {
 	MarkJobRunFailed(ctx context.Context, scope Scope, id, failureReason string, nextRetryAt *time.Time, failedAt time.Time) (JobRunRecord, error)
 	GetJobRunByDedupe(ctx context.Context, scope Scope, jobName, dedupeKey string) (JobRunRecord, error)
 	ListJobRuns(ctx context.Context, scope Scope, agreementID string) ([]JobRunRecord, error)
+	EnqueueJob(ctx context.Context, scope Scope, input JobRunEnqueueInput) (JobRunRecord, bool, error)
+	ClaimDueJobs(ctx context.Context, scope Scope, input JobRunClaimInput) ([]JobRunRecord, error)
+	RenewJobLease(ctx context.Context, scope Scope, id string, input JobRunLeaseRenewInput) (JobRunRecord, error)
+	MarkJobSucceeded(ctx context.Context, scope Scope, id string, completedAt time.Time) (JobRunRecord, error)
+	MarkJobFailed(ctx context.Context, scope Scope, id string, input JobRunFailureInput) (JobRunRecord, error)
+	MarkJobStale(ctx context.Context, scope Scope, id, reason string, staleAt time.Time) (JobRunRecord, error)
+	RequeueStaleJobs(ctx context.Context, scope Scope, input JobRunRequeueInput) (int, error)
+	ListJobRunsByResource(ctx context.Context, scope Scope, resourceKind, resourceID string) ([]JobRunRecord, error)
 }
 
 // GoogleImportRunStore defines async Google import lifecycle persistence with scoped idempotent dedupe.
