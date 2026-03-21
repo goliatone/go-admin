@@ -109,6 +109,10 @@ type activityAware interface {
 	WithActivitySink(ActivitySink)
 }
 
+type adminLocaleCatalog interface {
+	ActiveLocales(ctx context.Context) ([]string, error)
+}
+
 // New constructs an Admin orchestrator with explicit dependencies.
 func New(cfg Config, deps Dependencies) (*Admin, error) {
 	cfg = applyConfigDefaults(cfg)
@@ -873,7 +877,34 @@ func (a *Admin) withTheme(ctx AdminContext) AdminContext {
 	return ctx
 }
 
+// ResolveLocaleFromRequest resolves the effective request locale using explicit
+// query parameters first and Accept-Language against the active CMS locale
+// catalog when one is available.
+func (a *Admin) ResolveLocaleFromRequest(c router.Context, fallback string) string {
+	ctx := context.Background()
+	if c != nil {
+		ctx = c.Context()
+	}
+	return resolveAdminLocaleFromRouter(c, fallback, a.activeLocales(ctx))
+}
+
+func (a *Admin) activeLocales(ctx context.Context) []string {
+	if a == nil || a.cms == nil {
+		return nil
+	}
+	provider, ok := a.cms.(adminLocaleCatalog)
+	if !ok || provider == nil {
+		return nil
+	}
+	locales, err := provider.ActiveLocales(ctx)
+	if err != nil {
+		return nil
+	}
+	return normalizeLocaleCandidates(locales...)
+}
+
 func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminContext {
+	locale = a.ResolveLocaleFromRequest(c, locale)
 	ctx := newAdminContextFromRouter(c, locale)
 	ctx.Translator = a.translator
 	selector := selectorFromRequest(c)

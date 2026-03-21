@@ -17,8 +17,9 @@ type RPCTransportConfig struct {
 
 	InvokePath string `json:"invoke_path,omitempty"`
 
-	RequireAuth      bool `json:"require_auth,omitempty"`
-	DiscoveryEnabled bool `json:"discovery_enabled,omitempty"`
+	RequireAuth          bool `json:"require_auth,omitempty"`
+	AllowUnauthenticated bool `json:"allow_unauthenticated,omitempty"`
+	DiscoveryEnabled     bool `json:"discovery_enabled,omitempty"`
 
 	CommandRules map[string]admin.RPCCommandRule `json:"command_rules,omitempty"`
 	Authorize    admin.RPCCommandPolicyHook      `json:"-"`
@@ -73,13 +74,13 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		return fmt.Errorf("rpc transport enabled but rpc server is not configured")
 	}
 	cfg := normalizeRPCTransportConfig(adm, config)
-	if cfg.RequireAuth && opts.rpcTransportConfigSet && !adm.HasAuthenticator() {
-		return fmt.Errorf("rpc transport requires authenticator")
-	}
 
 	mount := func(r admin.AdminRouter) error {
 		if r == nil {
 			return nil
+		}
+		if cfg.RequireAuth && !adm.HasAuthenticator() {
+			return fmt.Errorf("rpc transport requires authenticator")
 		}
 		rt, ok := r.(router.Router[*fiber.App])
 		if !ok {
@@ -139,11 +140,19 @@ func normalizeRPCTransportConfig(adm *admin.Admin, cfg RPCTransportConfig) RPCTr
 		apiBase = "/api"
 	}
 	cfg.InvokePath = normalizeRPCPath(cfg.InvokePath, path.Join(apiBase, "rpc"))
-	if !cfg.RequireAuth {
-		cfg.RequireAuth = true
-	}
+	cfg.RequireAuth = resolveRPCTransportRequireAuth(cfg)
 	cfg.CommandRules = cloneQuickstartRPCCommandRules(cfg.CommandRules)
 	return cfg
+}
+
+func resolveRPCTransportRequireAuth(cfg RPCTransportConfig) bool {
+	if cfg.AllowUnauthenticated {
+		return false
+	}
+	if cfg.RequireAuth {
+		return true
+	}
+	return true
 }
 
 func cloneQuickstartRPCCommandRules(in map[string]admin.RPCCommandRule) map[string]admin.RPCCommandRule {

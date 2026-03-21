@@ -60,15 +60,17 @@ type GoCMSContainerAdapter struct {
 	widgetSvc      CMSWidgetService
 	contentSvc     CMSContentService
 	contentTypeSvc CMSContentTypeService
+	localeResolver goCMSLocaleResolver
 }
 
 // NewGoCMSContainerAdapter inspects a go-cms module or container and wraps available services.
 func NewGoCMSContainerAdapter(container any) *GoCMSContainerAdapter {
+	localeResolver := resolveGoCMSLocaleResolver(container)
 	menuSvc := resolveGoCMSMenuService(container)
 	widgetSvc := resolveGoCMSWidgetService(container)
 	contentSvc := resolveGoCMSContentService(container)
 	contentTypeSvc := resolveGoCMSContentTypeService(container)
-	if menuSvc == nil && widgetSvc == nil && contentSvc == nil && contentTypeSvc == nil {
+	if menuSvc == nil && widgetSvc == nil && contentSvc == nil && contentTypeSvc == nil && localeResolver == nil {
 		return nil
 	}
 	return &GoCMSContainerAdapter{
@@ -76,6 +78,7 @@ func NewGoCMSContainerAdapter(container any) *GoCMSContainerAdapter {
 		widgetSvc:      widgetSvc,
 		contentSvc:     contentSvc,
 		contentTypeSvc: contentTypeSvc,
+		localeResolver: localeResolver,
 	}
 }
 
@@ -84,6 +87,13 @@ func (c *GoCMSContainerAdapter) MenuService() CMSMenuService       { return c.me
 func (c *GoCMSContainerAdapter) ContentService() CMSContentService { return c.contentSvc }
 func (c *GoCMSContainerAdapter) ContentTypeService() CMSContentTypeService {
 	return c.contentTypeSvc
+}
+
+func (c *GoCMSContainerAdapter) ActiveLocales(ctx context.Context) ([]string, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return resolveActiveGoCMSLocaleCodes(ctx, c.localeResolver)
 }
 
 func resolveGoCMSMenuService(container any) CMSMenuService {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
+	i18n "github.com/goliatone/go-i18n"
 	router "github.com/goliatone/go-router"
 )
 
@@ -33,7 +34,7 @@ func (a *Admin) registerContentNavigationOverrideRoute() {
 			return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
 		}
 
-		locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("locale"), a.config.DefaultLocale))
+		locale := i18n.NormalizeLocale(primitives.FirstNonEmptyRaw(c.Query("locale"), a.config.DefaultLocale))
 		adminCtx := a.adminContextFromRequest(c, locale)
 		panelName, panel, err := a.resolveContentNavigationPanel(adminCtx.Context, typeKey)
 		if err != nil {

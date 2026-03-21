@@ -129,7 +129,7 @@ func (h *contentEntryHandlers) Detail(c router.Context) error {
 func (h *contentEntryHandlers) entryForPanel(c router.Context, panelSlug string, entryMode admin.PanelEntryMode) error {
 	switch entryMode {
 	case admin.PanelEntryModeDetailCurrentUser:
-		adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+		adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 		userID := strings.TrimSpace(adminCtx.UserID)
 		if userID == "" {
 			return admin.ErrForbidden
@@ -218,7 +218,7 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug s
 	if name == "" {
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	panel, panelName, err := h.panelFor(name, adminCtx.Channel)
 	if err != nil {
 		return nil, "", nil, adminCtx, err

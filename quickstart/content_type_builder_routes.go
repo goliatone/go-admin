@@ -17,6 +17,7 @@ import (
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
+	i18n "github.com/goliatone/go-i18n"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -478,7 +479,7 @@ func (h *contentTypeBuilderHandlers) CloneContentType(c router.Context) error {
 			WithCode(http.StatusBadRequest).
 			WithTextCode("ID_REQUIRED")
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
 		return err
@@ -532,7 +533,7 @@ func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) 
 			WithTextCode("SCHEMA_REQUIRED")
 	}
 
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	record, recordErr := panel.Get(adminCtx, id)
 	if recordErr != nil && !errors.Is(recordErr, admin.ErrNotFound) {
 		return recordErr
@@ -601,7 +602,7 @@ func (h *contentTypeBuilderHandlers) ContentTypeVersions(c router.Context) error
 			WithCode(http.StatusBadRequest).
 			WithTextCode("ID_REQUIRED")
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
 		return err
@@ -660,7 +661,7 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 			WithCode(http.StatusBadRequest).
 			WithTextCode("ID_REQUIRED")
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
 		return err
@@ -705,7 +706,7 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionVersions(c router.Context) e
 			WithCode(http.StatusInternalServerError).
 			WithTextCode("CONTENT_SERVICE_UNAVAILABLE")
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
 		return err
@@ -877,7 +878,7 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	if status := strings.TrimSpace(c.Query("status")); status != "" {
 		filters["status"] = status
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	channel := resolveContentChannel(c)
 	if strings.EqualFold(strings.TrimSpace(panelName), "block_definitions") ||
 		strings.EqualFold(strings.TrimSpace(panelName), "content_types") {
@@ -996,7 +997,7 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 		return err
 	}
 	allowBreaking := req.Force || req.AllowBreakingChanges
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 
 	record, recordErr := panel.Get(adminCtx, id)
 	if recordErr != nil && !errors.Is(recordErr, admin.ErrNotFound) {
@@ -1122,7 +1123,7 @@ func (h *contentTypeBuilderHandlers) updateBlockDefinitionStatus(c router.Contex
 			WithCode(http.StatusBadRequest).
 			WithTextCode("ID_REQUIRED")
 	}
-	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
+	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)
 	payload := map[string]any{
 		"status": status,
 	}
@@ -2325,29 +2326,32 @@ func resolveContentChannel(c router.Context) string {
 	return ""
 }
 
-func resolveLocaleFromRequest(c router.Context, fallback string) string {
-	fallback = strings.TrimSpace(fallback)
+func resolveLocaleFromRequest(adm *admin.Admin, c router.Context, fallback string) string {
+	if adm != nil {
+		return adm.ResolveLocaleFromRequest(c, fallback)
+	}
+	fallback = i18n.NormalizeLocale(fallback)
 	if c == nil {
 		return fallback
 	}
-	if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
+	if locale := i18n.NormalizeLocale(c.Query("locale")); locale != "" {
 		return locale
 	}
-	if locale := strings.TrimSpace(c.Query("requested_locale")); locale != "" {
+	if locale := i18n.NormalizeLocale(c.Query("requested_locale")); locale != "" {
 		return locale
 	}
-	if locale := strings.TrimSpace(admin.LocaleFromContext(c.Context())); locale != "" {
+	if locale := i18n.NormalizeLocale(admin.LocaleFromContext(c.Context())); locale != "" {
 		return locale
 	}
 	return fallback
 }
 
-func adminContextFromRequest(c router.Context, locale string) admin.AdminContext {
+func adminContextFromRequest(adm *admin.Admin, c router.Context, locale string) admin.AdminContext {
 	if c == nil {
-		return admin.AdminContext{Locale: strings.TrimSpace(locale)}
+		return admin.AdminContext{Locale: i18n.NormalizeLocale(locale)}
 	}
 	ctx := c.Context()
-	locale = resolveLocaleFromRequest(c, locale)
+	locale = resolveLocaleFromRequest(adm, c, locale)
 	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""

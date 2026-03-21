@@ -2,10 +2,11 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	auth "github.com/goliatone/go-auth"
+	i18n "github.com/goliatone/go-i18n"
 	router "github.com/goliatone/go-router"
 	usersactivity "github.com/goliatone/go-users/activity"
 )
@@ -128,6 +129,80 @@ func resolveContentChannelFromRouter(c router.Context) string {
 	return ""
 }
 
+func resolveAdminLocaleFromRouter(c router.Context, fallback string, activeLocales []string) string {
+	fallback = i18n.NormalizeLocale(fallback)
+	if c == nil {
+		return fallback
+	}
+	if requested := i18n.NormalizeLocale(c.Query("locale")); requested != "" {
+		return requested
+	}
+	if requested := i18n.NormalizeLocale(c.Query("requested_locale")); requested != "" {
+		return requested
+	}
+	contextLocale := i18n.NormalizeLocale(localeFromContext(c.Context()))
+	headerCandidates := normalizeLocaleCandidates(activeLocales...)
+	if len(headerCandidates) == 0 {
+		headerCandidates = normalizeLocaleCandidates(contextLocale, fallback)
+	}
+	headerLocale := resolveAcceptLanguageLocale(c.Header("Accept-Language"), headerCandidates...)
+	if headerLocale != "" {
+		return headerLocale
+	}
+	if contextLocale != "" {
+		return contextLocale
+	}
+	return fallback
+}
+
+func normalizeLocaleCandidates(values ...string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := i18n.NormalizeLocale(value)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func resolveAcceptLanguageLocale(header string, candidates ...string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return ""
+	}
+	normalized := i18n.NormalizeLocales(candidates)
+	if len(normalized) == 0 {
+		return ""
+	}
+	catalog, err := i18n.NewLocaleCatalogFromLocales(normalized[0], normalized)
+	if err != nil {
+		return ""
+	}
+	if catalog == nil {
+		return ""
+	}
+	if meta, ok := catalog.MatchAcceptLanguageWithOptions(header, i18n.MatchOptions{
+		Scope: i18n.ScopeActiveOnly,
+	}); ok {
+		return meta.Code
+	}
+	return ""
+}
+
 // newAdminContext builds an AdminContext from an HTTP request.
 func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	ctx := c.Context()
@@ -222,6 +297,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if requestIP != "" {
 		ctx = WithRequestIP(ctx, requestIP)
 	}
+	locale = i18n.NormalizeLocale(locale)
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
 	}
@@ -271,7 +347,7 @@ func localeFromContext(ctx context.Context) string {
 		return ""
 	}
 	if locale, ok := ctx.Value(localeContextKey).(string); ok && locale != "" {
-		return locale
+		return i18n.NormalizeLocale(locale)
 	}
 	return ""
 }
@@ -311,7 +387,7 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 	if ctx == nil {
 		return ctx
 	}
-	locale = strings.TrimSpace(locale)
+	locale = i18n.NormalizeLocale(locale)
 	if locale == "" {
 		return ctx
 	}

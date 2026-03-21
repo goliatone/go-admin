@@ -35,6 +35,7 @@ type adminOptions struct {
 	commandQueueRoutingSet       bool
 	rpcTransportConfig           RPCTransportConfig
 	rpcTransportConfigSet        bool
+	featureSet                   map[string]bool
 	featureDefaults              map[string]bool
 	workflowConfig               WorkflowConfig
 	workflowConfigSet            bool
@@ -111,14 +112,35 @@ func WithAdapterFlags(flags AdapterFlags) AdminOption {
 	}
 }
 
-// WithFeatureDefaults overrides or extends the feature defaults used to build the gate.
+// WithFeatureDefaults applies compatibility feature overrides used to build the gate.
+// It preserves legacy merge semantics against DefaultAdminFeatures.
 func WithFeatureDefaults(defaults map[string]bool) AdminOption {
+	return WithFeatureOverrides(defaults)
+}
+
+// WithFeatureOverrides merges feature overrides into the base defaults used to build the gate.
+func WithFeatureOverrides(defaults map[string]bool) AdminOption {
 	return func(opts *adminOptions) {
 		if opts == nil || len(defaults) == 0 {
 			return
 		}
 		opts.featureDefaults = cloneFeatureDefaults(defaults)
 	}
+}
+
+// WithFeatureSet replaces the base feature defaults used to build the quickstart feature gate.
+func WithFeatureSet(defaults map[string]bool) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.featureSet = cloneFeatureDefaults(defaults)
+	}
+}
+
+// WithMinimalFeatures replaces the quickstart feature defaults with DefaultMinimalFeatures.
+func WithMinimalFeatures() AdminOption {
+	return WithFeatureSet(DefaultMinimalFeatures())
 }
 
 // WithTraitWorkflowDefaults sets trait->workflow defaults applied to the admin instance.
@@ -306,6 +328,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	}
 	if options.deps.FeatureGate == nil {
 		defaults := DefaultAdminFeatures()
+		if len(options.featureSet) > 0 {
+			defaults = cloneFeatureDefaults(options.featureSet)
+		}
 		if len(options.featureDefaults) > 0 {
 			defaults = mergeFeatureDefaults(defaults, options.featureDefaults)
 		}
