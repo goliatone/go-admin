@@ -183,6 +183,13 @@ export {
   type CommandRuntimeMountConfig,
   type CommandDispatchDetail,
   type CommandRefreshDetail,
+  type CommandDispatchReceipt,
+  type CommandFeedbackEvent,
+  type CommandFeedbackAdapter,
+  type CommandFeedbackPendingDetail,
+  type CommandFeedbackReconcileDetail,
+  type CommandFeedbackConfig,
+  type CommandManualDispatchConfig,
 } from './command-runtime.js';
 
 // Pages

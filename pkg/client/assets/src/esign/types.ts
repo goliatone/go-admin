@@ -514,6 +514,32 @@ export interface AgreementDetailPageConfig {
     certificate_status?: string;
     certificate_object_key?: string;
   };
+  feedback?: {
+    sseEndpoint?: string;
+  };
+}
+
+export type AgreementLiveSection =
+  | 'review_status'
+  | 'review_config'
+  | 'participants'
+  | 'comments'
+  | 'delivery'
+  | 'artifacts'
+  | 'timeline';
+
+export interface ESignAgreementChangedEvent {
+  type: 'esign.agreement.changed';
+  resource_type: 'esign_agreement';
+  resource_id: string;
+  tenant_id?: string;
+  org_id?: string;
+  correlation_id?: string;
+  sections: AgreementLiveSection[];
+  occurred_at: string;
+  status?: 'accepted' | 'completed' | 'failed';
+  message?: string;
+  metadata?: Record<string, unknown>;
 }
 
 /**

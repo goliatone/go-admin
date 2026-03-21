@@ -1323,7 +1323,7 @@
 {# Participants Section (v2-only) #}
 {% set participants_list = resource_item.participants %}
 {% if participants_list and participants_list|length > 0 %}
-<div class="p-6 border-t border-gray-200">
+<div id="agreement-participants-panel" class="p-6 border-t border-gray-200">
   <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Participants</div>
   <div class="space-y-3">
     {% for participant in participants_list %}
@@ -1429,7 +1429,7 @@
 {% endif %}
 
 {# Agreement Timeline Section #}
-<div class="p-6 border-t border-gray-200">
+<div id="agreement-timeline-panel" class="p-6 border-t border-gray-200">
   <div class="flex items-center justify-between mb-4">
     <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Activity Timeline</div>
     <div class="flex items-center gap-3">
@@ -1456,7 +1456,7 @@
 {# Participant Status Progression Section (v2-only) #}
 {% set progress_list = resource_item.participants %}
 {% if progress_list and progress_list|length > 0 %}
-<div class="p-6 border-t border-gray-200">
+<div id="participant-progress-panel" class="p-6 border-t border-gray-200">
   <div class="flex items-center justify-between mb-4">
     <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Participant Progress</div>
     {# Stage summary for multi-signer flows (Task 24.FE.2) #}
@@ -1660,7 +1660,7 @@
 {# Delivery Status Section - Job/Email failures and retry actions #}
 {% set status = resource_item.status|lower %}
 {% if status != "draft" %}
-<div class="p-6 border-t border-gray-200">
+<div id="agreement-delivery-panel" class="p-6 border-t border-gray-200">
   <div class="flex items-center justify-between mb-4">
     <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Delivery Status</div>
     <button type="button" id="delivery-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
@@ -1762,6 +1762,7 @@
     </div>
     {% endif %}
 
+    <div id="agreement-artifacts-panel" class="space-y-4">
     {# Job/Artifact Status #}
     {% if resource_item.jobs and resource_item.jobs|length > 0 %}
     <div class="bg-gray-50 rounded-lg p-4">
@@ -1995,6 +1996,7 @@
       </div>
     </div>
     {% endif %}
+    </div>
 
     {# Delivery summary fallback when only aggregate delivery status is available #}
     {% if resource_item.delivery and not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts %}
@@ -2082,6 +2084,10 @@ import {
 // Initialize provenance card interactivity (evidence toggles, etc.)
 bootstrapProvenanceCards();
 
+// Canonical detail endpoints remain panel-scoped:
+// ${apiBase}/panels/${panelName}/${agreementId}/artifact/${assetType}
+// ${apiBase}/panels/${panelName}/actions/${action}
+
 // Initialize agreement detail page controller
 // This handles timeline rendering, actor resolution, and command runtime integration
 bootstrapAgreementDetailPage({
@@ -2099,6 +2105,9 @@ bootstrapAgreementDetailPage({
     certificate_applicable: {% if resource_item.delivery and resource_item.delivery.certificate_applicable %}true{% else %}false{% endif %},
     certificate_status: '{{ resource_item.delivery.certificate_status|default:"pending" }}'.toLowerCase(),
     certificate_object_key: '{{ resource_item.delivery.certificate_object_key|default:"" }}',
+  },
+  feedback: {
+    sseEndpoint: '{{ api_base_path|default:"" }}{{ "/esign/events" }}' || '{{ base_path }}/api/esign/events',
   },
 });
 

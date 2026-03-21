@@ -9,6 +9,57 @@ import type { ToastNotifier } from '../toast/types.js';
 
 export type CommandTransport = 'action' | 'rpc';
 
+export interface CommandDispatchReceipt {
+  accepted?: boolean;
+  mode?: string;
+  commandId?: string;
+  dispatchId?: string;
+  enqueuedAt?: string;
+  correlationId?: string;
+}
+
+export interface CommandFeedbackEvent {
+  type: string;
+  resourceType?: string;
+  resourceId?: string;
+  tenantId?: string;
+  orgId?: string;
+  correlationId?: string;
+  status?: string;
+  message?: string;
+  sections?: string[];
+  metadata?: Record<string, unknown>;
+  reason?: string;
+  lastEventId?: string;
+  requiresGapReconcile?: boolean;
+}
+
+export interface CommandFeedbackAdapter {
+  subscribe(listener: (event: CommandFeedbackEvent) => void): () => void;
+}
+
+export interface CommandFeedbackPendingDetail {
+  correlationId: string;
+  commandName: string;
+  transport: CommandTransport;
+  responseMode?: string;
+  receipt?: CommandDispatchReceipt;
+  refreshSelectors: string[];
+  trigger: HTMLElement;
+}
+
+export interface CommandFeedbackReconcileDetail {
+  controller: CommandRuntimeController;
+  event: CommandFeedbackEvent;
+  pending: CommandFeedbackPendingDetail | null;
+}
+
+export interface CommandFeedbackConfig {
+  adapter: CommandFeedbackAdapter;
+  onEvent?: (detail: CommandFeedbackReconcileDetail) => void | Promise<void>;
+  onStreamGap?: (detail: CommandFeedbackReconcileDetail) => void | Promise<void>;
+}
+
 export interface CommandRuntimeMountConfig {
   mount: HTMLElement;
   apiBasePath: string;
@@ -20,6 +71,7 @@ export interface CommandRuntimeMountConfig {
   notifier?: ToastNotifier;
   fetchImpl?: typeof fetch;
   defaultRefreshSelectors?: string[];
+  feedback?: CommandFeedbackConfig;
   onBeforeDispatch?: (detail: CommandDispatchDetail) => void;
   onAfterDispatch?: (detail: CommandDispatchDetail) => void;
   onAfterRefresh?: (detail: CommandRefreshDetail) => void;
@@ -31,9 +83,12 @@ export interface CommandDispatchDetail {
   commandName: string;
   transport: CommandTransport;
   payload: Record<string, unknown>;
+  correlationId: string;
   success: boolean;
   data?: Record<string, unknown>;
   error?: StructuredError;
+  receipt?: CommandDispatchReceipt;
+  responseMode?: string;
 }
 
 export interface CommandRefreshDetail {
@@ -41,6 +96,24 @@ export interface CommandRefreshDetail {
   trigger: HTMLElement;
   selectors: string[];
   sourceDocument: Document;
+}
+
+export interface CommandManualDispatchConfig {
+  trigger?: HTMLElement | null;
+  form?: HTMLFormElement | null;
+  submitter?: HTMLElement | null;
+  commandName: string;
+  dispatchName?: string;
+  transport?: CommandTransport;
+  payload?: Record<string, unknown>;
+  successMessage?: string;
+  fallbackMessage?: string;
+  refreshSelectors?: string[];
+  confirmMessage?: string;
+  confirmTitle?: string;
+  reasonTitle?: string;
+  reasonSubject?: string;
+  busyTarget?: HTMLElement | null;
 }
 
 interface CommandSpec {
@@ -65,6 +138,9 @@ interface TransportResult {
   success: boolean;
   data?: Record<string, unknown>;
   error?: StructuredError;
+  correlationId?: string;
+  receipt?: CommandDispatchReceipt;
+  responseMode?: string;
 }
 
 function resolveDefaultNotifier(): ToastNotifier {
@@ -92,6 +168,31 @@ function csvToList(value: string): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeMode(value: unknown): string | undefined {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized || undefined;
+}
+
+function generateCorrelationId(): string {
+  const cryptoAPI = globalThis.crypto as ({ randomUUID?: () => string } | undefined);
+  if (cryptoAPI?.randomUUID) {
+    return cryptoAPI.randomUUID();
+  }
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 12);
+  return `cmd_${timestamp}_${random}`;
+}
+
+function resolveCorrelationId(payload: Record<string, unknown>): string {
+  const existing = String(payload.correlation_id || '').trim();
+  if (existing) {
+    return existing;
+  }
+  const generated = generateCorrelationId();
+  payload.correlation_id = generated;
+  return generated;
 }
 
 function normalizeStructuredError(error: unknown, fallbackMessage: string): StructuredError {
@@ -201,7 +302,12 @@ function setElementBusy(node: HTMLElement | null, busy: boolean): void {
   if (!node) {
     return;
   }
-  if (node instanceof HTMLButtonElement || node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) {
+  if (
+    node instanceof HTMLButtonElement ||
+    node instanceof HTMLInputElement ||
+    node instanceof HTMLTextAreaElement ||
+    node instanceof HTMLSelectElement
+  ) {
     node.disabled = busy;
   }
   if (busy) {
@@ -254,6 +360,38 @@ function applyCollapsibleState(root: Element, state: Map<string, boolean>): void
   });
 }
 
+function toCommandDispatchReceipt(value: unknown): CommandDispatchReceipt | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const receipt = value as Record<string, unknown>;
+  const accepted = typeof receipt.accepted === 'boolean' ? receipt.accepted : undefined;
+  const mode = normalizeMode(receipt.mode);
+  const commandId = String(receipt.command_id || receipt.commandId || '').trim() || undefined;
+  const dispatchId = String(receipt.dispatch_id || receipt.dispatchId || '').trim() || undefined;
+  const correlationId = String(receipt.correlation_id || receipt.correlationId || '').trim() || undefined;
+  const rawEnqueuedAt = receipt.enqueued_at || receipt.enqueuedAt;
+  const enqueuedAt = rawEnqueuedAt == null ? undefined : String(rawEnqueuedAt).trim() || undefined;
+  if (
+    accepted === undefined &&
+    !mode &&
+    !commandId &&
+    !dispatchId &&
+    !correlationId &&
+    !enqueuedAt
+  ) {
+    return undefined;
+  }
+  return {
+    accepted,
+    mode,
+    commandId,
+    dispatchId,
+    correlationId,
+    enqueuedAt,
+  };
+}
+
 export class CommandRuntimeController {
   private readonly mount: HTMLElement;
   private readonly apiBasePath: string;
@@ -265,11 +403,14 @@ export class CommandRuntimeController {
   private readonly notifier: ToastNotifier;
   private readonly fetchImpl: typeof fetch;
   private readonly defaultRefreshSelectors: string[];
+  private readonly feedback?: CommandFeedbackConfig;
   private readonly onBeforeDispatch?: (detail: CommandDispatchDetail) => void;
   private readonly onAfterDispatch?: (detail: CommandDispatchDetail) => void;
   private readonly onAfterRefresh?: (detail: CommandRefreshDetail) => void;
   private submitHandler: ((event: Event) => void) | null = null;
   private clickHandler: ((event: Event) => void) | null = null;
+  private feedbackUnsubscribe: (() => void) | null = null;
+  private readonly pendingFeedback = new Map<string, CommandFeedbackPendingDetail>();
 
   constructor(config: CommandRuntimeMountConfig) {
     this.mount = config.mount;
@@ -284,6 +425,7 @@ export class CommandRuntimeController {
     this.defaultRefreshSelectors = Array.isArray(config.defaultRefreshSelectors)
       ? config.defaultRefreshSelectors.filter(Boolean)
       : [];
+    this.feedback = config.feedback;
     this.onBeforeDispatch = config.onBeforeDispatch;
     this.onAfterDispatch = config.onAfterDispatch;
     this.onAfterRefresh = config.onAfterRefresh;
@@ -321,6 +463,11 @@ export class CommandRuntimeController {
     };
     document.addEventListener('submit', this.submitHandler);
     document.addEventListener('click', this.clickHandler);
+    if (this.feedback?.adapter && !this.feedbackUnsubscribe) {
+      this.feedbackUnsubscribe = this.feedback.adapter.subscribe((event) => {
+        void this.handleFeedbackEvent(event);
+      });
+    }
   }
 
   destroy(): void {
@@ -332,6 +479,11 @@ export class CommandRuntimeController {
       document.removeEventListener('click', this.clickHandler);
       this.clickHandler = null;
     }
+    if (this.feedbackUnsubscribe) {
+      this.feedbackUnsubscribe();
+      this.feedbackUnsubscribe = null;
+    }
+    this.pendingFeedback.clear();
   }
 
   private scopePayload(): Record<string, unknown> {
@@ -380,14 +532,59 @@ export class CommandRuntimeController {
     };
   }
 
+  private buildManualSpec(config: CommandManualDispatchConfig): CommandSpec {
+    const trigger = config.trigger || this.mount;
+    const payload = {
+      ...this.scopePayload(),
+      ...(config.payload || {}),
+    };
+    const refreshSelectors = Array.isArray(config.refreshSelectors) && config.refreshSelectors.length > 0
+      ? config.refreshSelectors.filter(Boolean)
+      : this.defaultRefreshSelectors;
+    return {
+      trigger,
+      form: config.form || null,
+      commandName: String(config.commandName || '').trim(),
+      dispatchName: String(config.dispatchName || config.commandName || '').trim(),
+      transport: (config.transport || 'action') as CommandTransport,
+      payload,
+      successMessage: String(config.successMessage || '').trim() || `${String(config.commandName || '').trim()} completed successfully`,
+      fallbackMessage: String(config.fallbackMessage || '').trim() || `${String(config.commandName || '').trim()} failed`,
+      refreshSelectors,
+      confirmMessage: String(config.confirmMessage || '').trim(),
+      confirmTitle: String(config.confirmTitle || '').trim(),
+      reasonTitle: String(config.reasonTitle || '').trim(),
+      reasonSubject: String(config.reasonSubject || '').trim(),
+      busyTarget: config.busyTarget || null,
+      submitter: config.submitter || null,
+    };
+  }
+
+  async dispatch(config: CommandManualDispatchConfig): Promise<CommandDispatchDetail> {
+    return this.executeSpec(this.buildManualSpec(config));
+  }
+
   private async handleCommand(trigger: HTMLElement, form: HTMLFormElement | null, submitter: HTMLElement | null): Promise<void> {
     const spec = this.buildSpec(trigger, form, submitter);
     if (!spec.commandName || !spec.dispatchName) {
       return;
     }
+    await this.executeSpec(spec);
+  }
+
+  private async executeSpec(spec: CommandSpec): Promise<CommandDispatchDetail> {
+    const emptyDetail = (): CommandDispatchDetail => ({
+      trigger: spec.trigger,
+      form: spec.form,
+      commandName: spec.commandName,
+      transport: spec.transport,
+      payload: { ...spec.payload },
+      correlationId: String(spec.payload.correlation_id || '').trim(),
+      success: false,
+    });
 
     if (spec.submitter && spec.submitter.getAttribute('aria-busy') === 'true') {
-      return;
+      return emptyDetail();
     }
 
     if (spec.confirmMessage) {
@@ -395,7 +592,7 @@ export class CommandRuntimeController {
         title: spec.confirmTitle || undefined,
       });
       if (!confirmed) {
-        return;
+        return emptyDetail();
       }
     }
 
@@ -405,22 +602,24 @@ export class CommandRuntimeController {
         : `${spec.reasonTitle}\n\nEnter a reason:`;
       const value = globalThis.window?.prompt(promptLabel, '') ?? null;
       if (value === null) {
-        return;
+        return emptyDetail();
       }
       const reason = String(value || '').trim();
       if (!reason) {
         this.notifier.error('A reason is required.');
-        return;
+        return emptyDetail();
       }
       spec.payload.reason = reason;
     }
 
+    const correlationId = resolveCorrelationId(spec.payload);
     const pendingDetail: CommandDispatchDetail = {
       trigger: spec.trigger,
       form: spec.form,
       commandName: spec.commandName,
       transport: spec.transport,
       payload: { ...spec.payload },
+      correlationId,
       success: false,
     };
     this.onBeforeDispatch?.(pendingDetail);
@@ -438,6 +637,9 @@ export class CommandRuntimeController {
         success: result.success,
         data: result.data,
         error: result.error,
+        correlationId: result.correlationId || correlationId,
+        receipt: result.receipt,
+        responseMode: result.responseMode,
       };
 
       if (!result.success || result.error) {
@@ -447,34 +649,65 @@ export class CommandRuntimeController {
         );
         this.notifier.error(message);
         this.onAfterDispatch?.(detail);
-        return;
+        return detail;
       }
 
       this.notifier.success(spec.successMessage);
-      if (spec.refreshSelectors.length > 0) {
-        const sourceDocument = await this.refreshFragments(spec.refreshSelectors);
-        if (sourceDocument) {
-          this.onAfterRefresh?.({
-            mount: this.mount,
-            trigger: spec.trigger,
-            selectors: spec.refreshSelectors,
-            sourceDocument,
-          });
-        }
+      if (this.shouldWaitForFeedback(detail)) {
+        this.pendingFeedback.set(detail.correlationId, {
+          correlationId: detail.correlationId,
+          commandName: detail.commandName,
+          transport: detail.transport,
+          responseMode: detail.responseMode,
+          receipt: detail.receipt,
+          refreshSelectors: [...spec.refreshSelectors],
+          trigger: spec.trigger,
+        });
+      } else if (spec.refreshSelectors.length > 0) {
+        await this.refreshSelectors(spec.refreshSelectors, spec.trigger);
       }
       this.onAfterDispatch?.(detail);
+      return detail;
     } catch (error) {
       const structured = normalizeStructuredError(error, spec.fallbackMessage);
-      this.notifier.error(formatStructuredErrorForDisplay(structured, spec.fallbackMessage));
-      this.onAfterDispatch?.({
+      const detail: CommandDispatchDetail = {
         ...pendingDetail,
         success: false,
         error: structured,
-      });
+      };
+      this.notifier.error(formatStructuredErrorForDisplay(structured, spec.fallbackMessage));
+      this.onAfterDispatch?.(detail);
+      return detail;
     } finally {
       setElementBusy(spec.submitter, false);
       setContainerBusy(spec.busyTarget, false);
     }
+  }
+
+  private shouldWaitForFeedback(detail: CommandDispatchDetail): boolean {
+    if (!this.feedback?.adapter) {
+      return false;
+    }
+    const mode = normalizeMode(detail.responseMode || detail.receipt?.mode);
+    return mode === 'queued';
+  }
+
+  private async handleFeedbackEvent(event: CommandFeedbackEvent): Promise<void> {
+    const correlationId = String(event.correlationId || '').trim();
+    const pending = correlationId ? this.pendingFeedback.get(correlationId) || null : null;
+    if (pending) {
+      this.pendingFeedback.delete(correlationId);
+    }
+    const detail: CommandFeedbackReconcileDetail = {
+      controller: this,
+      event,
+      pending,
+    };
+    if (event.type === 'stream_gap') {
+      await this.feedback?.onStreamGap?.(detail);
+      return;
+    }
+    await this.feedback?.onEvent?.(detail);
   }
 
   private async dispatchAction(spec: CommandSpec): Promise<TransportResult> {
@@ -507,10 +740,14 @@ export class CommandRuntimeController {
     }
 
     const body = await response.json().catch(() => null);
-    return parseResponseEnvelope(body, spec.fallbackMessage);
+    return {
+      ...parseResponseEnvelope(body, spec.fallbackMessage),
+      correlationId: String(spec.payload.correlation_id || '').trim() || undefined,
+    };
   }
 
   private async dispatchRPC(spec: CommandSpec): Promise<TransportResult> {
+    const correlationId = String(spec.payload.correlation_id || '').trim() || undefined;
     const payload = {
       method: 'admin.commands.dispatch',
       params: {
@@ -518,6 +755,12 @@ export class CommandRuntimeController {
           name: spec.dispatchName,
           ids: this.recordId ? [this.recordId] : [],
           payload: spec.payload,
+          options: {
+            correlation_id: correlationId,
+            metadata: {
+              correlation_id: correlationId,
+            },
+          },
         },
       },
     };
@@ -535,23 +778,46 @@ export class CommandRuntimeController {
       return {
         success: false,
         error: await extractStructuredError(response),
+        correlationId,
       };
     }
 
     const body = await response.json().catch(() => null);
     if (body && typeof body === 'object' && 'error' in body) {
-      return parseResponseEnvelope(body, spec.fallbackMessage);
+      return {
+        ...parseResponseEnvelope(body, spec.fallbackMessage),
+        correlationId,
+      };
     }
     if (body && typeof body === 'object' && 'data' in body && typeof (body as Record<string, unknown>).data === 'object') {
+      const data = (body as Record<string, unknown>).data as Record<string, unknown>;
+      const receipt = toCommandDispatchReceipt(data.receipt);
       return {
         success: true,
-        data: (body as Record<string, unknown>).data as Record<string, unknown>,
+        data,
+        correlationId: receipt?.correlationId || correlationId,
+        receipt,
+        responseMode: normalizeMode(data.response_mode || receipt?.mode),
       };
     }
     return {
       success: true,
       data: body && typeof body === 'object' ? body as Record<string, unknown> : undefined,
+      correlationId,
     };
+  }
+
+  async refreshSelectors(selectors: string[], trigger: HTMLElement | null = null): Promise<Document | null> {
+    const sourceDocument = await this.refreshFragments(selectors);
+    if (sourceDocument) {
+      this.onAfterRefresh?.({
+        mount: this.mount,
+        trigger: trigger || this.mount,
+        selectors,
+        sourceDocument,
+      });
+    }
+    return sourceDocument;
   }
 
   private async refreshFragments(selectors: string[]): Promise<Document | null> {

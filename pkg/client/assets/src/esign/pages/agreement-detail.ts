@@ -15,12 +15,15 @@
 
 import type {
   AgreementDetailPageConfig,
+  AgreementLiveSection,
   AgreementReviewParticipant,
   AgreementTimelineBootstrap,
   AgreementReviewBootstrap,
+  ESignAgreementChangedEvent,
   TimelineParticipant,
   TimelineActor,
 } from '../types.js';
+import { AgreementDetailFeedbackAdapter } from '../live-feedback.js';
 
 import {
   TimelineController,
@@ -35,6 +38,8 @@ import {
 import {
   initCommandRuntime,
   type CommandRuntimeController,
+  type CommandFeedbackReconcileDetail,
+  type CommandManualDispatchConfig,
 } from '../../services/index.js';
 import {
   executeActionRequest,
@@ -300,6 +305,16 @@ const DEFAULT_REVIEW_BOOTSTRAP: AgreementReviewBootstrap = {
   participants: [],
 };
 
+const AGREEMENT_DETAIL_LIVE_SELECTORS: Record<AgreementLiveSection, string[]> = {
+  review_status: ['#agreement-review-status-panel'],
+  review_config: ['#agreement-review-configuration-panel', '#agreement-review-bootstrap'],
+  participants: ['#review-participants-panel', '#agreement-participants-panel', '#participant-progress-panel'],
+  comments: ['#review-comment-threads-panel', '#agreement-review-bootstrap'],
+  delivery: ['#agreement-delivery-panel'],
+  artifacts: ['#agreement-artifacts-panel', '#download-status-notice-static'],
+  timeline: ['#agreement-timeline-bootstrap'],
+};
+
 /**
  * Agreement detail page controller
  */
@@ -307,6 +322,7 @@ export class AgreementDetailPageController {
   private readonly config: AgreementDetailPageConfig;
   private timelineController: TimelineController | null = null;
   private commandRuntimeController: CommandRuntimeController | null = null;
+  private feedbackAdapter: AgreementDetailFeedbackAdapter | null = null;
   private reviewBootstrap: AgreementReviewBootstrap;
   private initialized = false;
   private readonly clickHandler = (event: Event) => {
@@ -345,7 +361,9 @@ export class AgreementDetailPageController {
     this.initializeReviewWorkspace();
     this.syncAgreementThreadAnchorFields();
     this.initializeDeliveryState();
+    this.initFeedbackAdapter();
     this.initCommandRuntime();
+    this.feedbackAdapter?.start();
     document.addEventListener('click', this.clickHandler);
     document.addEventListener('change', this.changeHandler);
 
@@ -693,6 +711,88 @@ export class AgreementDetailPageController {
     }
   }
 
+  private initFeedbackAdapter(): void {
+    const endpoint = String(this.config.feedback?.sseEndpoint || '').trim();
+    this.feedbackAdapter?.stop();
+    this.feedbackAdapter = endpoint ? new AgreementDetailFeedbackAdapter(endpoint) : null;
+  }
+
+  private resolveLiveSelectors(sections: AgreementLiveSection[]): string[] {
+    const selectors = new Set<string>();
+    sections.forEach((section) => {
+      (AGREEMENT_DETAIL_LIVE_SELECTORS[section] || []).forEach((selector) => {
+        selectors.add(selector);
+      });
+    });
+    return Array.from(selectors);
+  }
+
+  private allLiveSelectors(): string[] {
+    return Array.from(new Set([
+      ...this.resolveLiveSelectors([
+        'review_status',
+        'review_config',
+        'participants',
+        'comments',
+        'delivery',
+        'artifacts',
+        'timeline',
+      ]),
+      '#agreement-review-bootstrap',
+      '#agreement-timeline-bootstrap',
+    ]));
+  }
+
+  private matchesAgreementFeedback(event: CommandFeedbackReconcileDetail['event']): event is ESignAgreementChangedEvent & CommandFeedbackReconcileDetail['event'] {
+    if (event.type !== 'esign.agreement.changed') {
+      return false;
+    }
+    if (event.resourceType !== 'esign_agreement') {
+      return false;
+    }
+    if (String(event.resourceId || '').trim() !== this.config.agreementId) {
+      return false;
+    }
+    const { tenantId, orgId } = this.resolveScopeParams();
+    if (tenantId && String(event.tenantId || '').trim() && String(event.tenantId || '').trim() !== tenantId) {
+      return false;
+    }
+    if (orgId && String(event.orgId || '').trim() && String(event.orgId || '').trim() !== orgId) {
+      return false;
+    }
+    return true;
+  }
+
+  private async reconcileAgreementFeedback(detail: CommandFeedbackReconcileDetail): Promise<void> {
+    if (!this.matchesAgreementFeedback(detail.event)) {
+      return;
+    }
+    const eventSections = Array.isArray(detail.event.sections) ? detail.event.sections : [];
+    const selectors = new Set<string>(detail.pending?.refreshSelectors || []);
+    this.resolveLiveSelectors(eventSections as AgreementLiveSection[]).forEach((selector) => {
+      selectors.add(selector);
+    });
+    selectors.add('#agreement-review-bootstrap');
+    selectors.add('#agreement-timeline-bootstrap');
+    if (selectors.size === 0) {
+      return;
+    }
+    await detail.controller.refreshSelectors(Array.from(selectors));
+  }
+
+  private async reconcileAgreementStreamGap(detail: CommandFeedbackReconcileDetail): Promise<void> {
+    await detail.controller.refreshSelectors(this.allLiveSelectors());
+    this.feedbackAdapter?.attemptRecovery();
+  }
+
+  private async dispatchAgreementCommand(config: CommandManualDispatchConfig): Promise<boolean> {
+    if (this.commandRuntimeController) {
+      const detail = await this.commandRuntimeController.dispatch(config);
+      return detail.success;
+    }
+    return false;
+  }
+
   private initCommandRuntime(): void {
     const mount = document.getElementById('agreement-review-command-region');
     if (!mount) {
@@ -707,6 +807,11 @@ export class AgreementDetailPageController {
       rpcEndpoint: `${this.config.apiBasePath}/rpc`,
       tenantId: this.config.tenantId,
       orgId: this.config.orgId,
+      feedback: this.feedbackAdapter ? {
+        adapter: this.feedbackAdapter,
+        onEvent: (detail) => this.reconcileAgreementFeedback(detail),
+        onStreamGap: (detail) => this.reconcileAgreementStreamGap(detail),
+      } : undefined,
       onAfterRefresh: ({ sourceDocument }) => {
         this.syncBootstrapScriptContent('agreement-review-bootstrap', sourceDocument);
         this.syncBootstrapScriptContent('agreement-timeline-bootstrap', sourceDocument);
@@ -780,9 +885,24 @@ export class AgreementDetailPageController {
 
     this.setElementBusy(trigger, true);
     try {
-      await this.executeActionAndReload(action, payload, action === 'reopen_review' ? 'Review reopened' : 'Review requested');
-    } catch (error) {
-      this.notifyError(error instanceof Error ? error.message : 'Unable to submit review');
+      await this.dispatchAgreementCommand({
+        trigger: trigger || undefined,
+        submitter: trigger || undefined,
+        commandName: action,
+        dispatchName: `esign.agreements.${action}`,
+        transport: 'rpc',
+        payload,
+        successMessage: action === 'reopen_review' ? 'Review reopened' : 'Review requested',
+        fallbackMessage: 'Unable to submit review',
+        refreshSelectors: [
+          '#agreement-review-status-panel',
+          '#agreement-review-configuration-panel',
+          '#review-participants-panel',
+          '#review-comment-threads-panel',
+          '#agreement-review-bootstrap',
+          '#agreement-timeline-bootstrap',
+        ],
+      });
     } finally {
       this.setElementBusy(trigger, false);
     }
@@ -930,9 +1050,19 @@ export class AgreementDetailPageController {
         return;
       }
       try {
-        await this.executeActionAndReload('resend', { recipient_id: recipientId }, 'Recipient notification resent');
-      } catch (error) {
-        this.notifyError(error instanceof Error ? error.message : 'Unable to resend recipient notification');
+        await this.dispatchAgreementCommand({
+          trigger: resendBtn,
+          submitter: resendBtn,
+          commandName: 'resend',
+          dispatchName: 'esign.agreements.resend',
+          transport: 'rpc',
+          payload: { recipient_id: recipientId },
+          successMessage: 'Recipient notification resent',
+          fallbackMessage: 'Unable to resend recipient notification',
+          refreshSelectors: ['#agreement-delivery-panel', '#agreement-artifacts-panel', '#agreement-participants-panel'],
+        });
+      } finally {
+        resendBtn.removeAttribute('aria-busy');
       }
       return;
     }
@@ -946,9 +1076,19 @@ export class AgreementDetailPageController {
         return;
       }
       try {
-        await this.executeActionAndReload('rotate_token', { recipient_id: recipientId }, 'Recipient token rotated');
-      } catch (error) {
-        this.notifyError(error instanceof Error ? error.message : 'Unable to rotate token');
+        await this.dispatchAgreementCommand({
+          trigger: rotateTokenBtn,
+          submitter: rotateTokenBtn,
+          commandName: 'rotate_token',
+          dispatchName: 'esign.tokens.rotate',
+          transport: 'rpc',
+          payload: { recipient_id: recipientId },
+          successMessage: 'Recipient token rotated',
+          fallbackMessage: 'Unable to rotate token',
+          refreshSelectors: ['#agreement-delivery-panel', '#agreement-artifacts-panel', '#agreement-participants-panel'],
+        });
+      } finally {
+        rotateTokenBtn.removeAttribute('aria-busy');
       }
       return;
     }
@@ -1013,14 +1153,22 @@ export class AgreementDetailPageController {
       retryEmailBtn.disabled = true;
       retryEmailBtn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
       try {
-        await this.executeActionAndReload('retry_email', {
+        await this.dispatchAgreementCommand({
+          trigger: retryEmailBtn,
+          submitter: retryEmailBtn,
+          transport: 'action',
+          commandName: 'retry_email',
+          payload: {
           email_id: retryEmailBtn.getAttribute('data-email-id') || '',
           recipient_id: retryEmailBtn.getAttribute('data-recipient-id') || '',
-        }, 'Email retry queued');
-      } catch (error) {
+          },
+          successMessage: 'Email retry queued',
+          fallbackMessage: 'Unable to retry email',
+          refreshSelectors: ['#agreement-delivery-panel', '#agreement-artifacts-panel'],
+        });
+      } finally {
         retryEmailBtn.disabled = false;
         retryEmailBtn.innerHTML = originalHtml;
-        this.notifyError(error instanceof Error ? error.message : 'Unable to retry email');
       }
       return;
     }
@@ -1032,14 +1180,22 @@ export class AgreementDetailPageController {
       retryJobBtn.disabled = true;
       retryJobBtn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
       try {
-        await this.executeActionAndReload('retry_job', {
+        await this.dispatchAgreementCommand({
+          trigger: retryJobBtn,
+          submitter: retryJobBtn,
+          transport: 'action',
+          commandName: 'retry_job',
+          payload: {
           job_id: retryJobBtn.getAttribute('data-job-id') || '',
           job_type: retryJobBtn.getAttribute('data-job-type') || '',
-        }, 'Job retry queued');
-      } catch (error) {
+          },
+          successMessage: 'Job retry queued',
+          fallbackMessage: 'Unable to retry job',
+          refreshSelectors: ['#agreement-delivery-panel', '#agreement-artifacts-panel'],
+        });
+      } finally {
         retryJobBtn.disabled = false;
         retryJobBtn.innerHTML = originalHtml;
-        this.notifyError(error instanceof Error ? error.message : 'Unable to retry job');
       }
       return;
     }
@@ -1051,13 +1207,21 @@ export class AgreementDetailPageController {
       retryArtifactBtn.disabled = true;
       retryArtifactBtn.innerHTML = '<svg class="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Retrying...';
       try {
-        await this.executeActionAndReload('retry_artifact', {
+        await this.dispatchAgreementCommand({
+          trigger: retryArtifactBtn,
+          submitter: retryArtifactBtn,
+          transport: 'action',
+          commandName: 'retry_artifact',
+          payload: {
           artifact_type: retryArtifactBtn.getAttribute('data-artifact-type') || '',
-        }, 'Artifact retry queued');
-      } catch (error) {
+          },
+          successMessage: 'Artifact retry queued',
+          fallbackMessage: 'Unable to retry artifact generation',
+          refreshSelectors: ['#agreement-delivery-panel', '#agreement-artifacts-panel'],
+        });
+      } finally {
         retryArtifactBtn.disabled = false;
         retryArtifactBtn.innerHTML = originalHtml;
-        this.notifyError(error instanceof Error ? error.message : 'Unable to retry artifact generation');
       }
       return;
     }
@@ -1065,7 +1229,8 @@ export class AgreementDetailPageController {
     const deliveryRefreshBtn = target.closest<HTMLElement>('#delivery-refresh');
     if (deliveryRefreshBtn) {
       event.preventDefault();
-      window.location.reload();
+      await this.commandRuntimeController?.refreshSelectors(this.allLiveSelectors(), deliveryRefreshBtn);
+      this.feedbackAdapter?.attemptRecovery();
     }
   }
 
@@ -1087,6 +1252,8 @@ export class AgreementDetailPageController {
     document.removeEventListener('change', this.changeHandler);
     this.commandRuntimeController?.destroy();
     this.commandRuntimeController = null;
+    this.feedbackAdapter?.stop();
+    this.feedbackAdapter = null;
     if (this.timelineController) {
       this.timelineController.dispose();
       this.timelineController = null;
