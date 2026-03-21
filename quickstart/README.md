@@ -10,7 +10,7 @@ Each helper is optional and composable.
 - `StorageBundleConfig` reuses `go-uploader` provider config so host apps can select `fs`, `s3`, or `multi` without embedding backend-specific construction logic into app modules.
 
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
-- `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`).
+- `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`) intended for `WithFeatureSet(...)` or custom feature-gate construction.
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
 - `WithDebugOptions(opt DebugOption) AdminConfigOption` - Inputs: explicit debug option overrides; outputs: option that applies targeted debug fields.
 - `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
@@ -24,11 +24,14 @@ Each helper is optional and composable.
 - `WithScopeFromEnv() AdminConfigOption` - Deprecated compatibility shim; applies default scope config without env reads.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that applies explicit adapter toggles.
-- `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
+- `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature override map; outputs: compatibility option that merges overrides into `DefaultAdminFeatures()`.
+- `WithFeatureOverrides(defaults map[string]bool) AdminOption` - Inputs: feature override map; outputs: explicit merge-style option for quickstart feature defaults.
+- `WithFeatureSet(defaults map[string]bool) AdminOption` - Inputs: full feature default map; outputs: option that replaces `DefaultAdminFeatures()` as the base set used by `NewAdmin`.
+- `WithMinimalFeatures() AdminOption` - Outputs: option that replaces the default quickstart feature set with `DefaultMinimalFeatures()`.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithCommandExecutionPolicy(policy admin.CommandExecutionPolicy) AdminOption` - Inputs: command execution policy (global default + per-command overrides); outputs: option that injects command routing policy into bootstrap.
 - `WithCommandQueueRouting(cfg CommandQueueRoutingConfig) AdminOption` - Inputs: queue routing config (`enabled`, `enqueuer`, optional command registry + dedupe store); outputs: option that attaches the queued dispatcher executor.
-- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults.
+- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, explicit `allow_unauthenticated` opt-out, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults.
 - `TranslationExchangeCommandIDs() []string` - Outputs: canonical translation-exchange command ids for policy configuration.
 - `TranslationQueueCommandIDs() []string` - Outputs: canonical translation-queue command ids for policy configuration.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
@@ -190,7 +193,8 @@ Quickstart defaults to inline command execution. To opt into queued execution, c
 
 ## RPC transport hardening defaults
 - RPC transport is opt-in (`WithRPCTransport`).
-- When enabled, quickstart requires an authenticator by default and fails startup if missing.
+- When enabled, quickstart requires an authenticator by default and fails startup when RPC routes are mounted if missing.
+- Unauthenticated RPC transport must be opted into explicitly with `allow_unauthenticated=true`.
 - Discovery route mounting is disabled by default (`discovery_enabled=false`).
 - Admin command RPC dispatch is deny-by-default until command rules are configured (`command_rules` / `commands.rpc.commands`).
 
@@ -634,6 +638,8 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
 The go-router Pongo2 engine treats these helpers as functions (globals), not filters, so call them like `{{ singularize(resource_label|default:resource)|title }}` instead of `{{ resource_label|singularize }}`.
+
+`adminURL` is available by default. Use it for admin-relative links and admin-hosted assets such as `{{ adminURL("login") }}` or `{{ adminURL("assets/dist/dashboard/index.js") }}`. When a template intentionally supports a separate asset host or CDN, prefer `asset_base_path` instead of `adminURL`.
 
 Template function options let you override widget title labels without touching the core map:
 - `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
@@ -1186,7 +1192,7 @@ adm, adapters, err := quickstart.NewAdmin(
 	cfg,
 	hooks,
 	quickstart.WithAdapterFlags(flags),
-	quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+	quickstart.WithMinimalFeatures(),
 )
 if err != nil {
 	return err
@@ -1343,7 +1349,7 @@ r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.Sc
 ```
 
 ## Preferences quickstart
-- `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or supply `WithFeatureDefaults(map[string]bool{"preferences": true})` when building the admin gate.
+- `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or supply `WithFeatureOverrides(map[string]bool{"preferences": true})` when building the admin gate.
 - A 403 on `/admin/api/panels/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
 - Read query params: `levels`, `keys`, `include_traces`, `include_versions`, `tenant_id`, `org_id`.
 - Clear/delete semantics: send `clear_raw_keys` or `clear: true` (for all raw keys), plus empty values for known keys to delete user-level overrides.
@@ -1411,7 +1417,7 @@ if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 ```
 
 ## Stage 1 minimal flow
-- Build config with `NewAdminConfig(...)` and pass `WithFeatureDefaults(DefaultMinimalFeatures())` to `NewAdmin`.
+- Build config with `NewAdminConfig(...)` and pass `WithMinimalFeatures()` or `WithFeatureSet(DefaultMinimalFeatures())` to `NewAdmin`.
 - Resolve adapter flags from config and pass via `WithAdapterFlags(...)`.
 - Register modules with `NewModuleRegistrar` (uses `adm.FeatureGate()` by default).
 - Wire auth with `WithGoAuth(...)` (include `*admin.AuthConfig` when needed).
