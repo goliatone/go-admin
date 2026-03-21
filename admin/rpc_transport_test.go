@@ -179,6 +179,7 @@ func TestAdminRPCDispatchEndpointRunsBusinessRuleHook(t *testing.T) {
 
 func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 	var captured command.DispatchOptions
+	var capturedPayload map[string]any
 	adm := mustNewAdmin(t, Config{
 		Commands: CommandConfig{
 			RPC: RPCCommandConfig{
@@ -199,7 +200,8 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 		t.Fatalf("expected command bus")
 	}
 	bus.mu.Lock()
-	bus.dispatchers["rpc.meta.test"] = func(_ context.Context, _ map[string]any, _ []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
+	bus.dispatchers["rpc.meta.test"] = func(_ context.Context, payload map[string]any, _ []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
+		capturedPayload = copyRPCMap(payload)
 		captured = opts
 		return command.DispatchReceipt{Accepted: true, Mode: command.ExecutionModeInline}, nil
 	}
@@ -218,6 +220,13 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{
 			Name: "rpc.meta.test",
+			Payload: map[string]any{
+				"actor_id":        "spoofed-payload",
+				"user_id":         "spoofed-user",
+				"tenant_id":       "tenant-payload",
+				"org_id":          "org-payload",
+				"organization_id": "org-payload-alt",
+			},
 			Options: command.DispatchOptions{
 				CorrelationID: "corr-client",
 				Metadata: map[string]any{
@@ -264,6 +273,21 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 	}
 	if got := captured.CorrelationID; got != "corr-context" {
 		t.Fatalf("expected correlation id from trusted context, got %q", got)
+	}
+	if capturedPayload["actor_id"] != "actor-context" {
+		t.Fatalf("expected trusted actor_id payload, got %v", capturedPayload["actor_id"])
+	}
+	if capturedPayload["user_id"] != "actor-context" {
+		t.Fatalf("expected trusted user_id payload, got %v", capturedPayload["user_id"])
+	}
+	if capturedPayload["tenant_id"] != "tenant-context" {
+		t.Fatalf("expected trusted tenant_id payload, got %v", capturedPayload["tenant_id"])
+	}
+	if capturedPayload["org_id"] != "org-context" {
+		t.Fatalf("expected trusted org_id payload, got %v", capturedPayload["org_id"])
+	}
+	if capturedPayload["organization_id"] != "org-context" {
+		t.Fatalf("expected trusted organization_id payload, got %v", capturedPayload["organization_id"])
 	}
 }
 

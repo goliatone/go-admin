@@ -129,6 +129,7 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			}
 
 			identity := trustedRPCIdentityFromContext(ctx, req.Meta, req.Data.Options)
+			payload = enrichRPCDispatchPayload(identity, payload)
 			opts := sanitizeRPCDispatchOptions(identity, req.Data.Options, adm.config.Commands.RPC.MetadataAllowlist)
 			policyInput := RPCCommandPolicyInput{
 				Method:         RPCMethodCommandDispatch,
@@ -255,6 +256,30 @@ func trustedRPCIdentityFromContext(ctx context.Context, meta cmdrpc.RequestMeta,
 		identity.Subject = identity.ActorID
 	}
 	return identity
+}
+
+func enrichRPCDispatchPayload(identity rpcTrustedIdentity, payload map[string]any) map[string]any {
+	enriched := copyRPCMap(payload)
+
+	if identity.ActorID != "" {
+		enriched["actor_id"] = identity.ActorID
+		enriched["actorId"] = identity.ActorID
+		enriched["user_id"] = identity.ActorID
+		enriched["userId"] = identity.ActorID
+	}
+	if identity.TenantID != "" {
+		enriched["tenant"] = identity.TenantID
+		enriched["tenant_id"] = identity.TenantID
+		enriched["tenantId"] = identity.TenantID
+	}
+	if identity.OrganizationID != "" {
+		enriched["org_id"] = identity.OrganizationID
+		enriched["orgId"] = identity.OrganizationID
+		enriched["organization_id"] = identity.OrganizationID
+		enriched["organizationId"] = identity.OrganizationID
+	}
+
+	return enriched
 }
 
 func sanitizeRPCDispatchOptions(identity rpcTrustedIdentity, opts command.DispatchOptions, allowlist []string) command.DispatchOptions {
