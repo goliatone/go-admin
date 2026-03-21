@@ -69,14 +69,49 @@ func (a rpcTestAuthorizer) Can(_ context.Context, action string, resource string
 	return a.allow[action+"|"+resource]
 }
 
-func TestWithRPCTransportRequiresAuthenticatorByDefault(t *testing.T) {
+func TestWithRPCTransportRequiresAuthenticatorByDefaultAtInitialize(t *testing.T) {
 	resetCommandRegistryForTest(t)
 	t.Cleanup(func() { resetCommandRegistryForTest(t) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
-	_, _, err := NewAdmin(cfg, AdapterHooks{}, WithRPCTransport(RPCTransportConfig{Enabled: true}))
+	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithRPCTransport(RPCTransportConfig{Enabled: true}))
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	server := router.NewFiberAdapter()
+	err = adm.Initialize(server.Router())
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "authenticator") {
-		t.Fatalf("expected authenticator startup failure, got %v", err)
+		t.Fatalf("expected authenticator startup failure during initialize, got %v", err)
+	}
+}
+
+func TestWithRPCTransportAllowsAuthConfiguredAfterNewAdmin(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	authn := &rpcTestAuthenticator{}
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithRPCTransport(RPCTransportConfig{Enabled: true}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	adm.WithAuth(authn, nil)
+	adm.WithAuthorizer(rpcTestAuthorizer{allow: map[string]bool{
+		"admin.commands.dispatch|commands": true,
+	}})
+
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize admin: %v", err)
+	}
+
+	invokePath := path.Join(adm.AdminAPIBasePath(), "rpc")
+	if !hasRoute(server.Router().Routes(), router.POST, invokePath) {
+		t.Fatalf("expected rpc invoke route %q", invokePath)
 	}
 }
 
@@ -153,6 +188,33 @@ func TestWithRPCTransportCanEnableDiscoveryRoute(t *testing.T) {
 	endpointsPath := path.Join(invokePath, "endpoints")
 	if !hasRoute(server.Router().Routes(), router.GET, endpointsPath) {
 		t.Fatalf("expected rpc endpoints route %q", endpointsPath)
+	}
+}
+
+func TestWithRPCTransportCanExplicitlyAllowUnauthenticatedRoutes(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithRPCTransport(RPCTransportConfig{
+			Enabled:              true,
+			AllowUnauthenticated: true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize admin: %v", err)
+	}
+
+	invokePath := path.Join(adm.AdminAPIBasePath(), "rpc")
+	if !hasRoute(server.Router().Routes(), router.POST, invokePath) {
+		t.Fatalf("expected rpc invoke route %q", invokePath)
 	}
 }
 

@@ -755,3 +755,133 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 		t.Fatalf("expected GOOGLE_PERMISSION_DENIED typed error response, got %s", string(importBody))
 	}
 }
+
+func TestRegisterGoogleImportCreateAtomicallyPersistsRunAndDurableJob(t *testing.T) {
+	scope := defaultTestScope()
+	store := &transactionalGoogleImportTestStore{InMemoryStore: stores.NewInMemoryStore()}
+	google := services.NewGoogleIntegrationService(
+		store,
+		services.NewDeterministicGoogleProvider(),
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+	)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminCreate, DefaultPermissions.AdminView, DefaultPermissions.AdminSettings)),
+		WithGoogleRuntime(GoogleRuntimeConfig{
+			Enabled:       true,
+			Integration:   google,
+			ImportRuns:    store,
+			ImportJobs:    store,
+			ImportEnqueue: func(context.Context, jobs.GoogleDriveImportMsg) error { return nil },
+		}),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected create 202, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	body := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	runID := strings.TrimSpace(fmt.Sprint(body["import_run_id"]))
+	if runID == "" {
+		t.Fatalf("expected import_run_id in response, got %+v", body)
+	}
+	run, err := store.GetGoogleImportRun(context.Background(), scope, runID)
+	if err != nil {
+		t.Fatalf("GetGoogleImportRun: %v", err)
+	}
+	if strings.TrimSpace(run.Status) != stores.GoogleImportRunStatusQueued {
+		t.Fatalf("expected queued import run, got %+v", run)
+	}
+	jobRuns, err := store.ListJobRunsByResource(context.Background(), scope, jobs.JobResourceKindGoogleImportRun, runID)
+	if err != nil {
+		t.Fatalf("ListJobRunsByResource: %v", err)
+	}
+	if len(jobRuns) != 1 || strings.TrimSpace(jobRuns[0].JobName) != jobs.JobGoogleDriveImport {
+		t.Fatalf("expected durable google import job for run %q, got %+v", runID, jobRuns)
+	}
+}
+
+func TestRegisterGoogleImportCreateRollsBackRunWhenDurableEnqueueFails(t *testing.T) {
+	scope := defaultTestScope()
+	store := &transactionalGoogleImportTestStore{
+		InMemoryStore: stores.NewInMemoryStore(),
+		failEnqueue:   true,
+	}
+	google := services.NewGoogleIntegrationService(
+		store,
+		services.NewDeterministicGoogleProvider(),
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+	)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminCreate, DefaultPermissions.AdminView, DefaultPermissions.AdminSettings)),
+		WithGoogleRuntime(GoogleRuntimeConfig{
+			Enabled:       true,
+			Integration:   google,
+			ImportRuns:    store,
+			ImportJobs:    store,
+			ImportEnqueue: func(context.Context, jobs.GoogleDriveImportMsg) error { return nil },
+		}),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-fail","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected create 503 on enqueue failure, got %d body=%s", resp.StatusCode, string(body))
+	}
+	runs, _, err := store.ListGoogleImportRuns(context.Background(), scope, stores.GoogleImportRunQuery{UserID: "ops-user", Limit: 10})
+	if err != nil {
+		t.Fatalf("ListGoogleImportRuns: %v", err)
+	}
+	if len(runs) != 0 {
+		t.Fatalf("expected import run insert to roll back on enqueue failure, got %+v", runs)
+	}
+}
+
+type transactionalGoogleImportTestStore struct {
+	*stores.InMemoryStore
+	failEnqueue bool
+}
+
+func (s *transactionalGoogleImportTestStore) WithTx(ctx context.Context, fn func(tx stores.TxStore) error) error {
+	if s == nil || s.InMemoryStore == nil {
+		return fmt.Errorf("transactional google import test store is not configured")
+	}
+	snapshot, err := s.SnapshotPayload()
+	if err != nil {
+		return err
+	}
+	if err := fn(s); err != nil {
+		if restoreErr := s.ApplySnapshotPayload(snapshot); restoreErr != nil {
+			return fmt.Errorf("%w (rollback=%v)", err, restoreErr)
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *transactionalGoogleImportTestStore) EnqueueJob(ctx context.Context, scope stores.Scope, input stores.JobRunEnqueueInput) (stores.JobRunRecord, bool, error) {
+	if s != nil && s.failEnqueue {
+		return stores.JobRunRecord{}, false, fmt.Errorf("enqueue sentinel")
+	}
+	return s.InMemoryStore.EnqueueJob(ctx, scope, input)
+}

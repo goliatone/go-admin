@@ -18,6 +18,19 @@ func TestGoogleRuntimeConfigValidateRejectsPartialAsyncWiring(t *testing.T) {
 	}
 }
 
+func TestGoogleRuntimeConfigValidateRejectsNonTransactionalJobStore(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	cfg := GoogleRuntimeConfig{
+		Integration:   services.NewGoogleIntegrationService(store, services.NewDeterministicGoogleProvider(), services.NewDocumentService(store), services.NewAgreementService(store)),
+		ImportRuns:    store,
+		ImportJobs:    nonTransactionalJobRunStore{JobRunStore: store},
+		ImportEnqueue: func(context.Context, jobs.GoogleDriveImportMsg) error { return nil },
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for non-transactional job store")
+	}
+}
+
 func TestBuildRegisterConfigRejectsEnabledGoogleWithoutService(t *testing.T) {
 	_, err := buildRegisterConfig([]RegisterOption{
 		WithGoogleRuntime(GoogleRuntimeConfig{
@@ -42,6 +55,7 @@ func TestBuildRegisterConfigAcceptsCompleteGoogleRuntimeBundle(t *testing.T) {
 			Enabled:     true,
 			Integration: google,
 			ImportRuns:  store,
+			ImportJobs:  store,
 			ImportEnqueue: func(context.Context, jobs.GoogleDriveImportMsg) error {
 				return nil
 			},
@@ -53,4 +67,8 @@ func TestBuildRegisterConfigAcceptsCompleteGoogleRuntimeBundle(t *testing.T) {
 	if !cfg.googleEnabled || cfg.google == nil || cfg.googleImportRuns == nil || cfg.googleImportEnqueue == nil {
 		t.Fatalf("expected google runtime config to be applied, got %+v", cfg)
 	}
+}
+
+type nonTransactionalJobRunStore struct {
+	stores.JobRunStore
 }

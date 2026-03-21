@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	cms "github.com/goliatone/go-cms"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -1720,13 +1721,13 @@ func TestUpdateForPanelBlocksFallbackLocaleEdits(t *testing.T) {
 func TestAdminContextFromRequestResolvesLocaleFromQuery(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
-	ctx.QueriesM["locale"] = "fr"
+	ctx.QueriesM["locale"] = " FR_ca "
 
-	adminCtx := adminContextFromRequest(ctx, "en")
-	if adminCtx.Locale != "fr" {
+	adminCtx := adminContextFromRequest(nil, ctx, "en")
+	if adminCtx.Locale != "fr-CA" {
 		t.Fatalf("expected locale from query, got %q", adminCtx.Locale)
 	}
-	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "fr" {
+	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "fr-CA" {
 		t.Fatalf("expected locale in context, got %q", got)
 	}
 }
@@ -1734,13 +1735,46 @@ func TestAdminContextFromRequestResolvesLocaleFromQuery(t *testing.T) {
 func TestAdminContextFromRequestFallsBackToRequestedLocaleQuery(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
-	ctx.QueriesM["requested_locale"] = "es"
+	ctx.QueriesM["requested_locale"] = " ES_mx "
 
-	adminCtx := adminContextFromRequest(ctx, "en")
-	if adminCtx.Locale != "es" {
+	adminCtx := adminContextFromRequest(nil, ctx, "en")
+	if adminCtx.Locale != "es-MX" {
 		t.Fatalf("expected locale from requested_locale query, got %q", adminCtx.Locale)
 	}
-	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "es" {
+	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "es-MX" {
+		t.Fatalf("expected locale in context, got %q", got)
+	}
+}
+
+func TestAdminContextFromRequestMatchesAcceptLanguageAgainstAdminLocaleCatalog(t *testing.T) {
+	cfg := cms.DefaultConfig()
+	cfg.DefaultLocale = "en"
+	cfg.I18N.Locales = []string{"en", "es-MX"}
+
+	module, err := cms.New(cfg)
+	if err != nil {
+		t.Fatalf("new cms module: %v", err)
+	}
+
+	adm, err := admin.New(admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}, admin.Dependencies{
+		CMSContainer: admin.NewGoCMSContainerAdapter(module),
+	})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.HeadersM["Accept-Language"] = "ES_mx,es;q=0.9"
+
+	adminCtx := adminContextFromRequest(adm, ctx, "en")
+	if adminCtx.Locale != "es-MX" {
+		t.Fatalf("expected locale from Accept-Language, got %q", adminCtx.Locale)
+	}
+	if got := strings.TrimSpace(admin.LocaleFromContext(adminCtx.Context)); got != "es-MX" {
 		t.Fatalf("expected locale in context, got %q", got)
 	}
 }

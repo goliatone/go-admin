@@ -2050,6 +2050,9 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, cookieName, routes, esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register web routes: %w", err)
 	}
+	if err := registerESignAgreementEventsRoute(server.Router(), adm, authn, esignModule, nil); err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("register agreement events route: %w", err)
+	}
 	server.Init()
 	return eSignRuntimeWebFixture{
 		App:       server.WrappedRouter(),

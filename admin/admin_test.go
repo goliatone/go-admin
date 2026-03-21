@@ -11,6 +11,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/routing"
 	auth "github.com/goliatone/go-auth"
+	cms "github.com/goliatone/go-cms"
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
@@ -124,6 +125,45 @@ func TestNewAdminContextCapturesRequestAndCorrelationIDs(t *testing.T) {
 		t.Fatalf("expected request ip 203.0.113.10, got %q", got)
 	}
 	mockCtx.AssertExpectations(t)
+}
+
+func TestNewAdminContextNormalizesLocaleFromQuery(t *testing.T) {
+	mockCtx := router.NewMockContext()
+	mockCtx.QueriesM["locale"] = " ES_mx "
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("")
+
+	locale := resolveAdminLocaleFromRouter(mockCtx, "en", nil)
+	result := newAdminContextFromRouter(mockCtx, locale)
+	if result.Locale != "es-MX" {
+		t.Fatalf("expected canonical locale es-MX, got %q", result.Locale)
+	}
+	if got := LocaleFromContext(result.Context); got != "es-MX" {
+		t.Fatalf("expected canonical locale in context, got %q", got)
+	}
+}
+
+func TestAdminResolveLocaleFromRequestMatchesAcceptLanguageAgainstActiveCMSLocales(t *testing.T) {
+	cfg := cms.DefaultConfig()
+	cfg.DefaultLocale = "en"
+	cfg.I18N.Locales = []string{"en", "es-MX"}
+
+	module, err := cms.New(cfg)
+	if err != nil {
+		t.Fatalf("new cms module: %v", err)
+	}
+
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{
+		CMSContainer: NewGoCMSContainerAdapter(module),
+	})
+
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["Accept-Language"] = "ES_mx,es;q=0.9"
+	mockCtx.On("Context").Return(context.Background())
+
+	if locale := adm.ResolveLocaleFromRequest(mockCtx, "en"); locale != "es-MX" {
+		t.Fatalf("expected Accept-Language match es-MX, got %q", locale)
+	}
 }
 
 func TestInitializeRegistersHealth(t *testing.T) {
