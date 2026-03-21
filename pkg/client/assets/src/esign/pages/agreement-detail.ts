@@ -24,6 +24,11 @@ import type {
   TimelineActor,
 } from '../types.js';
 import { AgreementDetailFeedbackAdapter } from '../live-feedback.js';
+import {
+  InlineStatusManager,
+  createInlineStatusManager,
+  commandToSection,
+} from '../inline-status.js';
 
 import {
   TimelineController,
@@ -323,6 +328,8 @@ export class AgreementDetailPageController {
   private timelineController: TimelineController | null = null;
   private commandRuntimeController: CommandRuntimeController | null = null;
   private feedbackAdapter: AgreementDetailFeedbackAdapter | null = null;
+  private inlineStatusManager: InlineStatusManager | null = null;
+  private inlineStatusUnsubscribe: (() => void) | null = null;
   private reviewBootstrap: AgreementReviewBootstrap;
   private initialized = false;
   private readonly clickHandler = (event: Event) => {
@@ -361,6 +368,7 @@ export class AgreementDetailPageController {
     this.initializeReviewWorkspace();
     this.syncAgreementThreadAnchorFields();
     this.initializeDeliveryState();
+    this.initInlineStatusManager();
     this.initFeedbackAdapter();
     this.initCommandRuntime();
     this.feedbackAdapter?.start();
@@ -711,6 +719,14 @@ export class AgreementDetailPageController {
     }
   }
 
+  private initInlineStatusManager(): void {
+    this.inlineStatusManager = createInlineStatusManager({
+      completedClearDelay: 3000,
+      failedClearDelay: 8000,
+      usePageFallback: true,
+    });
+  }
+
   private initFeedbackAdapter(): void {
     const endpoint = String(this.config.feedback?.sseEndpoint || '').trim();
     this.feedbackAdapter?.stop();
@@ -798,6 +814,7 @@ export class AgreementDetailPageController {
     if (!mount) {
       return;
     }
+    this.inlineStatusUnsubscribe?.();
     this.commandRuntimeController?.destroy();
     this.commandRuntimeController = initCommandRuntime({
       mount,
@@ -815,9 +832,18 @@ export class AgreementDetailPageController {
       onAfterRefresh: ({ sourceDocument }) => {
         this.syncBootstrapScriptContent('agreement-review-bootstrap', sourceDocument);
         this.syncBootstrapScriptContent('agreement-timeline-bootstrap', sourceDocument);
+        // Clean up inline statuses after fragment refresh
+        this.inlineStatusManager?.reconcileAfterRefresh();
         this.onCommandRuntimeRefresh(document);
       },
     });
+
+    // Subscribe to inline status changes
+    if (this.commandRuntimeController && this.inlineStatusManager) {
+      this.inlineStatusUnsubscribe = this.commandRuntimeController.subscribeToInlineStatus(
+        (event) => this.inlineStatusManager?.handleStatusChange(event)
+      );
+    }
   }
 
   private async executeAction(action: string, payload: Record<string, unknown> = {}): Promise<void> {
@@ -1250,6 +1276,10 @@ export class AgreementDetailPageController {
   dispose(): void {
     document.removeEventListener('click', this.clickHandler);
     document.removeEventListener('change', this.changeHandler);
+    this.inlineStatusUnsubscribe?.();
+    this.inlineStatusUnsubscribe = null;
+    this.inlineStatusManager?.clear();
+    this.inlineStatusManager = null;
     this.commandRuntimeController?.destroy();
     this.commandRuntimeController = null;
     this.feedbackAdapter?.stop();

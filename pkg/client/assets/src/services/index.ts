@@ -190,6 +190,11 @@ export {
   type CommandFeedbackReconcileDetail,
   type CommandFeedbackConfig,
   type CommandManualDispatchConfig,
+  // Inline status types
+  type InlineStatusState,
+  type InlineStatusEntry,
+  type InlineStatusChangeEvent,
+  type InlineStatusListener,
 } from './command-runtime.js';
 
 // Pages

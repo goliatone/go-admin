@@ -612,6 +612,9 @@ export function formatStructuredErrorForDisplay(
   fallbackMessage = 'Request failed'
 ): string {
   const baseMessage = (error.message || '').trim() || fallbackMessage;
+  const rpcCause = typeof error.metadata?.cause === 'string'
+    ? String(error.metadata.cause || '').trim()
+    : '';
   const fieldMessages: string[] = [];
   const seen = new Set<string>();
   const appendFieldMessage = (field: string, detail: string): void => {
@@ -640,6 +643,9 @@ export function formatStructuredErrorForDisplay(
   }
 
   const suffix = fieldMessages.length > 0 ? `: ${fieldMessages.join('; ')}` : '';
+  if (rpcCause && /^rpc invocation failed$/i.test(baseMessage)) {
+    return `${baseMessage}: ${rpcCause}${suffix}`;
+  }
   if (error.textCode && !baseMessage.includes(error.textCode)) {
     return `${error.textCode}: ${baseMessage}${suffix}`;
   }

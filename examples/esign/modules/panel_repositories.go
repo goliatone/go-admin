@@ -546,6 +546,7 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
 	currentUserID := strings.TrimSpace(userIDFromContext(ctx))
 	result["current_user_id"] = currentUserID
+	result["review_permissions"] = buildAgreementReviewPermissionPayload(ctx, r.authorizer)
 	result["field_definitions"] = fieldDefinitionsToMaps(fieldDefinitions, fieldInstances)
 	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
 	if r.readModels != nil {
@@ -577,6 +578,20 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 	}
 	success = true
 	return result, nil
+}
+
+func buildAgreementReviewPermissionPayload(ctx context.Context, authorizer coreadmin.Authorizer) map[string]any {
+	return map[string]any{
+		"can_admin_review":    agreementReviewPermissionAllowed(ctx, authorizer, permissions.AdminESignEdit, permissions.AdminESignSend),
+		"can_manage_comments": agreementReviewPermissionAllowed(ctx, authorizer, permissions.AdminESignEdit, permissions.AdminESignView),
+	}
+}
+
+func agreementReviewPermissionAllowed(ctx context.Context, authorizer coreadmin.Authorizer, required ...string) bool {
+	if authorizer == nil {
+		return true
+	}
+	return coreadmin.CanAll(authorizer, ctx, eSignAuthorizerResource, required...)
 }
 
 func (r *agreementPanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {

@@ -38,6 +38,43 @@ export interface CommandFeedbackAdapter {
   subscribe(listener: (event: CommandFeedbackEvent) => void): () => void;
 }
 
+/**
+ * Inline status states for command feedback display
+ */
+export type InlineStatusState =
+  | 'submitting'
+  | 'accepted'
+  | 'completed'
+  | 'failed'
+  | 'stale';
+
+/**
+ * Inline status entry for tracking command progress
+ */
+export interface InlineStatusEntry {
+  correlationId: string;
+  commandName: string;
+  state: InlineStatusState;
+  message?: string;
+  section?: string;
+  targetSelector?: string;
+  participantId?: string;
+  timestamp: number;
+}
+
+/**
+ * Inline status change event
+ */
+export interface InlineStatusChangeEvent {
+  entry: InlineStatusEntry;
+  previousState: InlineStatusState | null;
+}
+
+/**
+ * Inline status listener callback
+ */
+export type InlineStatusListener = (event: InlineStatusChangeEvent) => void;
+
 export interface CommandFeedbackPendingDetail {
   correlationId: string;
   commandName: string;
@@ -46,6 +83,8 @@ export interface CommandFeedbackPendingDetail {
   receipt?: CommandDispatchReceipt;
   refreshSelectors: string[];
   trigger: HTMLElement;
+  section?: string;
+  participantId?: string;
 }
 
 export interface CommandFeedbackReconcileDetail {
@@ -114,6 +153,8 @@ export interface CommandManualDispatchConfig {
   reasonTitle?: string;
   reasonSubject?: string;
   busyTarget?: HTMLElement | null;
+  section?: string;
+  participantId?: string;
 }
 
 interface CommandSpec {
@@ -411,6 +452,8 @@ export class CommandRuntimeController {
   private clickHandler: ((event: Event) => void) | null = null;
   private feedbackUnsubscribe: (() => void) | null = null;
   private readonly pendingFeedback = new Map<string, CommandFeedbackPendingDetail>();
+  private readonly inlineStatus = new Map<string, InlineStatusEntry>();
+  private readonly inlineStatusListeners = new Set<InlineStatusListener>();
 
   constructor(config: CommandRuntimeMountConfig) {
     this.mount = config.mount;
@@ -484,6 +527,112 @@ export class CommandRuntimeController {
       this.feedbackUnsubscribe = null;
     }
     this.pendingFeedback.clear();
+    this.inlineStatus.clear();
+    this.inlineStatusListeners.clear();
+  }
+
+  /**
+   * Subscribe to inline status changes.
+   * Returns an unsubscribe function.
+   */
+  subscribeToInlineStatus(listener: InlineStatusListener): () => void {
+    this.inlineStatusListeners.add(listener);
+    return () => {
+      this.inlineStatusListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Get current inline status for a correlation ID
+   */
+  getInlineStatus(correlationId: string): InlineStatusEntry | null {
+    return this.inlineStatus.get(correlationId) || null;
+  }
+
+  /**
+   * Get all current inline status entries
+   */
+  getAllInlineStatus(): InlineStatusEntry[] {
+    return Array.from(this.inlineStatus.values());
+  }
+
+  /**
+   * Clear inline status for a correlation ID
+   */
+  clearInlineStatus(correlationId: string): void {
+    this.inlineStatus.delete(correlationId);
+  }
+
+  /**
+   * Clear all inline statuses
+   */
+  clearAllInlineStatus(): void {
+    this.inlineStatus.clear();
+  }
+
+  /**
+   * Mark stale statuses (e.g., after stream gap)
+   */
+  markStaleStatuses(): void {
+    const now = Date.now();
+    this.inlineStatus.forEach((entry, correlationId) => {
+      if (entry.state !== 'completed' && entry.state !== 'failed') {
+        this.setInlineStatus(correlationId, {
+          ...entry,
+          state: 'stale',
+          message: 'Refreshing status...',
+          timestamp: now,
+        });
+      }
+    });
+  }
+
+  private setInlineStatus(correlationId: string, entry: InlineStatusEntry): void {
+    const previous = this.inlineStatus.get(correlationId) || null;
+    const previousState = previous?.state || null;
+    this.inlineStatus.set(correlationId, entry);
+    this.emitInlineStatusChange({ entry, previousState });
+  }
+
+  private emitInlineStatusChange(event: InlineStatusChangeEvent): void {
+    this.inlineStatusListeners.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.warn('Inline status listener error:', error);
+      }
+    });
+  }
+
+  private updateInlineStatusFromDispatch(
+    correlationId: string,
+    commandName: string,
+    state: InlineStatusState,
+    options: { message?: string; section?: string; participantId?: string } = {}
+  ): void {
+    this.setInlineStatus(correlationId, {
+      correlationId,
+      commandName,
+      state,
+      message: options.message,
+      section: options.section,
+      participantId: options.participantId,
+      timestamp: Date.now(),
+    });
+  }
+
+  private resolveSection(trigger: HTMLElement): string | undefined {
+    const section = trigger.closest('[data-live-status-section]');
+    return section?.getAttribute('data-live-status-section') || undefined;
+  }
+
+  private resolveParticipantId(trigger: HTMLElement, payload: Record<string, unknown>): string | undefined {
+    const participantId = String(payload.participant_id || payload.recipient_id || '').trim();
+    if (participantId) {
+      return participantId;
+    }
+    const card = trigger.closest('[data-participant-id]');
+    return card?.getAttribute('data-participant-id') || undefined;
   }
 
   private scopePayload(): Record<string, unknown> {
@@ -613,6 +762,8 @@ export class CommandRuntimeController {
     }
 
     const correlationId = resolveCorrelationId(spec.payload);
+    const section = this.resolveSection(spec.trigger);
+    const participantId = this.resolveParticipantId(spec.trigger, spec.payload);
     const pendingDetail: CommandDispatchDetail = {
       trigger: spec.trigger,
       form: spec.form,
@@ -626,6 +777,13 @@ export class CommandRuntimeController {
 
     setElementBusy(spec.submitter, true);
     setContainerBusy(spec.busyTarget, true);
+
+    // Set submitting state
+    this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'submitting', {
+      message: 'Sending...',
+      section,
+      participantId,
+    });
 
     try {
       const result = spec.transport === 'rpc'
@@ -648,12 +806,24 @@ export class CommandRuntimeController {
           spec.fallbackMessage,
         );
         this.notifier.error(message);
+        // Update inline status to failed
+        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'failed', {
+          message: message || 'Failed',
+          section,
+          participantId,
+        });
         this.onAfterDispatch?.(detail);
         return detail;
       }
 
       this.notifier.success(spec.successMessage);
       if (this.shouldWaitForFeedback(detail)) {
+        // Async/queued mode - set to accepted and wait for SSE feedback
+        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'accepted', {
+          message: 'Queued...',
+          section,
+          participantId,
+        });
         this.pendingFeedback.set(detail.correlationId, {
           correlationId: detail.correlationId,
           commandName: detail.commandName,
@@ -662,9 +832,19 @@ export class CommandRuntimeController {
           receipt: detail.receipt,
           refreshSelectors: [...spec.refreshSelectors],
           trigger: spec.trigger,
+          section,
+          participantId,
         });
-      } else if (spec.refreshSelectors.length > 0) {
-        await this.refreshSelectors(spec.refreshSelectors, spec.trigger);
+      } else {
+        // Sync mode - immediately completed
+        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'completed', {
+          message: spec.successMessage || 'Done',
+          section,
+          participantId,
+        });
+        if (spec.refreshSelectors.length > 0) {
+          await this.refreshSelectors(spec.refreshSelectors, spec.trigger);
+        }
       }
       this.onAfterDispatch?.(detail);
       return detail;
@@ -676,6 +856,12 @@ export class CommandRuntimeController {
         error: structured,
       };
       this.notifier.error(formatStructuredErrorForDisplay(structured, spec.fallbackMessage));
+      // Update inline status to failed
+      this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'failed', {
+        message: structured.message || 'Failed',
+        section,
+        participantId,
+      });
       this.onAfterDispatch?.(detail);
       return detail;
     } finally {
@@ -703,10 +889,43 @@ export class CommandRuntimeController {
       event,
       pending,
     };
+
+    // Handle stream gap - mark pending statuses as stale
     if (event.type === 'stream_gap') {
+      this.markStaleStatuses();
       await this.feedback?.onStreamGap?.(detail);
       return;
     }
+
+    // Update inline status based on feedback event
+    if (correlationId) {
+      const status = String(event.status || '').toLowerCase();
+      const sections = Array.isArray(event.sections) ? event.sections : [];
+      const section = sections[0] || pending?.section;
+      const participantId = pending?.participantId;
+      const commandName = pending?.commandName || '';
+
+      if (status === 'completed' || status === 'success') {
+        this.updateInlineStatusFromDispatch(correlationId, commandName, 'completed', {
+          message: event.message || 'Done',
+          section,
+          participantId,
+        });
+      } else if (status === 'failed' || status === 'error') {
+        this.updateInlineStatusFromDispatch(correlationId, commandName, 'failed', {
+          message: event.message || 'Failed',
+          section,
+          participantId,
+        });
+      } else if (status === 'accepted' || status === 'queued' || status === 'processing') {
+        this.updateInlineStatusFromDispatch(correlationId, commandName, 'accepted', {
+          message: event.message || 'Processing...',
+          section,
+          participantId,
+        });
+      }
+    }
+
     await this.feedback?.onEvent?.(detail);
   }
 

@@ -127,7 +127,19 @@ type HandlerDependencies struct {
 	Transactions     stores.TransactionManager            `json:"transactions"`
 	RetryPolicy      RetryPolicy                          `json:"retry_policy"`
 	Now              func() time.Time                     `json:"now"`
+	AgreementChanges AgreementChangeNotifier              `json:"-"`
 }
+
+type AgreementChangeNotification struct {
+	AgreementID   string         `json:"agreement_id"`
+	CorrelationID string         `json:"correlation_id,omitempty"`
+	Sections      []string       `json:"sections,omitempty"`
+	Status        string         `json:"status,omitempty"`
+	Message       string         `json:"message,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+type AgreementChangeNotifier func(ctx context.Context, scope stores.Scope, notification AgreementChangeNotification) error
 
 type Handlers struct {
 	agreements       stores.AgreementStore
@@ -149,6 +161,7 @@ type Handlers struct {
 	tx               stores.TransactionManager
 	retryPolicy      RetryPolicy
 	now              func() time.Time
+	agreementChanges AgreementChangeNotifier
 }
 
 type uploaderStore interface {
@@ -192,6 +205,7 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		tx:               deps.Transactions,
 		retryPolicy:      retryPolicy,
 		now:              now,
+		agreementChanges: deps.AgreementChanges,
 	}
 }
 
@@ -246,6 +260,7 @@ type agreementNotificationEffectHandler struct {
 	tokens     stores.SigningTokenStore
 	audits     stores.AuditEventStore
 	now        func() time.Time
+	notify     AgreementChangeNotifier
 }
 
 func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect guardedeffects.Record, _ guardedeffects.DispatchResult) error {
@@ -282,6 +297,14 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 			CreatedAt:    now,
 		})
 	}
+	notifyAgreementChange(ctx, h.notify, h.scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(payload.AgreementID),
+		Sections:      sectionsForNotification(payload.Notification),
+		Status:        "completed",
+		Message:       "Notification delivered",
+		Metadata:      map[string]any{"notification": strings.TrimSpace(payload.Notification), "effect_id": strings.TrimSpace(effect.EffectID)},
+		CorrelationID: extractCorrelationIDFromDispatchPayload(effect.DispatchPayloadJSON),
+	})
 	return nil
 }
 
@@ -295,6 +318,14 @@ func (h agreementNotificationEffectHandler) Pending(ctx context.Context, effect 
 			return err
 		}
 	}
+	notifyAgreementChange(ctx, h.notify, h.scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(payload.AgreementID),
+		Sections:      sectionsForNotification(payload.Notification),
+		Status:        "accepted",
+		Message:       "Notification delivery pending",
+		Metadata:      map[string]any{"notification": strings.TrimSpace(payload.Notification), "effect_id": strings.TrimSpace(effect.EffectID)},
+		CorrelationID: extractCorrelationIDFromDispatchPayload(effect.DispatchPayloadJSON),
+	})
 	return nil
 }
 
@@ -314,7 +345,64 @@ func (h agreementNotificationEffectHandler) Fail(ctx context.Context, effect gua
 			return err
 		}
 	}
+	status := "failed"
+	message := "Notification delivery failed"
+	metadata := map[string]any{
+		"notification": strings.TrimSpace(payload.Notification),
+		"effect_id":    strings.TrimSpace(effect.EffectID),
+		"last_error":   strings.TrimSpace(result.MetadataJSON),
+	}
+	if nextRetryAt != nil {
+		status = "accepted"
+		message = "Notification retry scheduled"
+		metadata["retrying"] = true
+		metadata["next_retry_at"] = nextRetryAt.UTC().Format(time.RFC3339Nano)
+	}
+	notifyAgreementChange(ctx, h.notify, h.scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(payload.AgreementID),
+		Sections:      sectionsForNotification(payload.Notification),
+		Status:        status,
+		Message:       message,
+		Metadata:      metadata,
+		CorrelationID: extractCorrelationIDFromDispatchPayload(effect.DispatchPayloadJSON),
+	})
 	return nil
+}
+
+func notifyAgreementChange(ctx context.Context, notify AgreementChangeNotifier, scope stores.Scope, notification AgreementChangeNotification) {
+	if notify == nil {
+		return
+	}
+	notification.AgreementID = strings.TrimSpace(notification.AgreementID)
+	if notification.AgreementID == "" {
+		return
+	}
+	if err := notify(ctx, scope, notification); err != nil {
+		slog.WarnContext(ctx, "agreement change notification failed",
+			"agreement_id", notification.AgreementID,
+			"correlation_id", strings.TrimSpace(notification.CorrelationID),
+			"error", err,
+		)
+	}
+}
+
+func extractCorrelationIDFromDispatchPayload(raw string) string {
+	payload, err := decodeNotificationDispatchPayload(raw)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.CorrelationID)
+}
+
+func sectionsForNotification(notification string) []string {
+	switch strings.TrimSpace(notification) {
+	case string(services.NotificationReviewInvitation):
+		return []string{"review_status", "participants", "timeline"}
+	case string(services.NotificationCompletionPackage):
+		return []string{"delivery", "participants", "artifacts", "timeline"}
+	default:
+		return []string{"delivery", "participants", "timeline"}
+	}
 }
 
 func isNotificationEffectTerminal(status string) bool {
@@ -562,6 +650,21 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	if err := h.markNotificationEffectDispatching(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run); err != nil {
 		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
 	}
+	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(msg.AgreementID),
+		CorrelationID: strings.TrimSpace(run.CorrelationID),
+		Sections:      sectionsForNotification(notification),
+		Status:        "accepted",
+		Message:       "Notification dispatching",
+		Metadata: map[string]any{
+			"job_name":       JobEmailSendSigningRequest,
+			"notification":   strings.TrimSpace(notification),
+			"template_code":  strings.TrimSpace(templateCode),
+			"effect_id":      strings.TrimSpace(msg.EffectID),
+			"recipient_id":   strings.TrimSpace(msg.RecipientID),
+			"participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+		},
+	})
 
 	providerMessageID, sendErr := h.emailProvider.Send(ctx, emailInput)
 	if sendErr != nil {
@@ -609,6 +712,23 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		"notification":  notification,
 		"attempt_count": run.AttemptCount,
 	})
+	if strings.TrimSpace(msg.EffectID) == "" {
+		notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
+			AgreementID:   strings.TrimSpace(msg.AgreementID),
+			CorrelationID: strings.TrimSpace(run.CorrelationID),
+			Sections:      sectionsForNotification(notification),
+			Status:        "completed",
+			Message:       "Notification sent",
+			Metadata: map[string]any{
+				"job_name":            JobEmailSendSigningRequest,
+				"notification":        strings.TrimSpace(notification),
+				"template_code":       strings.TrimSpace(templateCode),
+				"provider_message_id": strings.TrimSpace(providerMessageID),
+				"recipient_id":        strings.TrimSpace(msg.RecipientID),
+				"participant_id":      strings.TrimSpace(msg.ReviewParticipantID),
+			},
+		})
+	}
 	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
 		"job_name":       JobEmailSendSigningRequest,
 		"dedupe_key":     dedupeKey,
@@ -700,6 +820,14 @@ func (h Handlers) ExecutePDFGenerateExecuted(ctx context.Context, msg PDFGenerat
 		"agreement_id":  strings.TrimSpace(msg.AgreementID),
 		"attempt_count": run.AttemptCount,
 	})
+	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(msg.AgreementID),
+		CorrelationID: strings.TrimSpace(run.CorrelationID),
+		Sections:      []string{"delivery", "artifacts", "timeline"},
+		Status:        "completed",
+		Message:       "Executed artifact generated",
+		Metadata:      map[string]any{"job_name": JobPDFGenerateExecuted, "artifact_type": "executed"},
+	})
 	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
 		"job_name":       JobPDFGenerateExecuted,
 		"dedupe_key":     dedupeKey,
@@ -743,6 +871,14 @@ func (h Handlers) ExecutePDFGenerateCertificate(ctx context.Context, msg PDFGene
 		"dedupe_key":    dedupeKey,
 		"agreement_id":  strings.TrimSpace(msg.AgreementID),
 		"attempt_count": run.AttemptCount,
+	})
+	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(msg.AgreementID),
+		CorrelationID: strings.TrimSpace(run.CorrelationID),
+		Sections:      []string{"delivery", "artifacts", "timeline"},
+		Status:        "completed",
+		Message:       "Certificate artifact generated",
+		Metadata:      map[string]any{"job_name": JobPDFGenerateCertificate, "artifact_type": "certificate"},
 	})
 	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
 		"job_name":       JobPDFGenerateCertificate,
@@ -1535,6 +1671,7 @@ func (h Handlers) finalizeNotificationEffect(
 				tokens:     tokenStore,
 				audits:     audits,
 				now:        h.now,
+				notify:     h.agreementChanges,
 			},
 		)
 		return err
@@ -1583,6 +1720,7 @@ func (h Handlers) failNotificationEffect(
 				tokens:     tokenStore,
 				audits:     audits,
 				now:        h.now,
+				notify:     h.agreementChanges,
 			},
 		)
 		return err
@@ -1679,9 +1817,44 @@ func (h Handlers) failJob(
 	if nextRetry != nil {
 		jobMetadata["next_retry_at"] = nextRetry.UTC().Format(time.RFC3339)
 	}
+	notification := strings.TrimSpace(fmt.Sprint(jobMetadata["notification"]))
+	sections := sectionsForJob(run.JobName, notification)
+	if len(sections) > 0 && strings.TrimSpace(agreementID) != "" {
+		if strings.TrimSpace(run.JobName) == JobEmailSendSigningRequest && strings.TrimSpace(fmt.Sprint(jobMetadata["effect_id"])) != "" {
+			sections = nil
+		}
+	}
+	if len(sections) > 0 && strings.TrimSpace(agreementID) != "" {
+		status := "failed"
+		message := "Background job failed"
+		if nextRetry != nil {
+			status = "accepted"
+			message = "Background job retry scheduled"
+			jobMetadata["retrying"] = true
+		}
+		notifyAgreementChange(ctx, h.agreementChanges, scope, AgreementChangeNotification{
+			AgreementID:   strings.TrimSpace(agreementID),
+			CorrelationID: strings.TrimSpace(run.CorrelationID),
+			Sections:      sections,
+			Status:        status,
+			Message:       message,
+			Metadata:      jobMetadata,
+		})
+	}
 	observability.LogOperation(ctx, slog.LevelWarn, "job", "execution", "error", run.CorrelationID, 0, cause, jobMetadata)
 	_ = h.appendJobAudit(ctx, scope, agreementID, "job.failed", jobMetadata)
 	return cause
+}
+
+func sectionsForJob(jobName, notification string) []string {
+	switch strings.TrimSpace(jobName) {
+	case JobEmailSendSigningRequest:
+		return sectionsForNotification(notification)
+	case JobPDFGenerateExecuted, JobPDFGenerateCertificate:
+		return []string{"delivery", "artifacts", "timeline"}
+	default:
+		return nil
+	}
 }
 
 func (h Handlers) appendJobAudit(ctx context.Context, scope stores.Scope, agreementID, eventType string, metadata map[string]any) error {

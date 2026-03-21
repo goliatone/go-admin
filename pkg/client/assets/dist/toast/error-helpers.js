@@ -75,7 +75,7 @@ function R(t) {
 function O(t) {
   return t.textCode === "TRANSLATION_MISSING";
 }
-function y(t) {
+function m(t) {
   if (!t || typeof t != "object")
     return {
       success: !1,
@@ -123,7 +123,7 @@ function y(t) {
     }
   };
 }
-function m(t) {
+function y(t) {
   return {
     textCode: null,
     message: t instanceof Error ? t.message : "Network error",
@@ -149,7 +149,7 @@ async function _(t, e, r) {
   } catch (s) {
     return {
       success: !1,
-      error: m(s),
+      error: y(s),
       status: 0
     };
   }
@@ -176,10 +176,10 @@ async function C(t, e, r) {
     },
     ...r,
     body: JSON.stringify(e)
-  }, async (i) => y(await i.json()));
+  }, async (i) => m(await i.json()));
   return s.success ? { success: !0, data: s.data } : { success: !1, error: s.error };
 }
-async function N(t) {
+async function $(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
     if (r || s.trim().startsWith("{"))
@@ -220,24 +220,24 @@ async function N(t) {
   }
   return `Request failed (${t.status})`;
 }
-function $(t) {
+function N(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
 function h(t, e = "Request failed") {
-  const r = (t.message || "").trim() || e, s = [], i = /* @__PURE__ */ new Set(), n = (a, c) => {
-    const l = a.trim(), f = c.trim();
-    if (!l || !f) return;
-    const u = `${l}: ${f}`;
-    i.has(u) || (i.add(u), s.push(u));
+  const r = (t.message || "").trim() || e, s = typeof t.metadata?.cause == "string" ? String(t.metadata.cause || "").trim() : "", i = [], n = /* @__PURE__ */ new Set(), o = (c, l) => {
+    const f = c.trim(), u = l.trim();
+    if (!f || !u) return;
+    const d = `${f}: ${u}`;
+    n.has(d) || (n.add(d), i.push(d));
   };
   if (t.fields)
-    for (const [a, c] of Object.entries(t.fields))
-      typeof c == "string" && n(a, c);
+    for (const [c, l] of Object.entries(t.fields))
+      typeof l == "string" && o(c, l);
   if (t.metadata?.fields && typeof t.metadata.fields == "object" && !Array.isArray(t.metadata.fields))
-    for (const [a, c] of Object.entries(t.metadata.fields))
-      typeof c == "string" && n(a, c);
-  const o = s.length > 0 ? `: ${s.join("; ")}` : "";
-  return t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${o}` : `${r}${o}`;
+    for (const [c, l] of Object.entries(t.metadata.fields))
+      typeof l == "string" && o(c, l);
+  const a = i.length > 0 ? `: ${i.join("; ")}` : "";
+  return s && /^rpc invocation failed$/i.test(r) ? `${r}: ${s}${a}` : t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${a}` : `${r}${a}`;
 }
 function b(t) {
   const e = [
@@ -251,7 +251,7 @@ function b(t) {
   ];
   return t.textCode !== null && e.includes(t.textCode);
 }
-function k(t) {
+function v(t) {
   if (!b(t))
     return null;
   const e = t.metadata || {}, r = {
@@ -317,7 +317,7 @@ function E(t) {
 function A(t) {
   return t === "stale_source" || t === "missing_linkage" || t === "duplicate" || t === "invalid_locale" ? t : "missing_linkage";
 }
-function v(t) {
+function k(t) {
   return {
     success: t.filter((e) => e.status === "success"),
     error: t.filter((e) => e.status === "error"),
@@ -351,19 +351,19 @@ export {
   S as createStructuredActionError,
   C as executeActionRequest,
   _ as executeStructuredRequest,
-  N as extractErrorMessage,
-  k as extractExchangeError,
+  $ as extractErrorMessage,
+  v as extractExchangeError,
   p as extractStructuredError,
   R as extractTranslationBlocker,
   h as formatStructuredErrorForDisplay,
   M as generateExchangeReport,
-  $ as getErrorMessage,
+  N as getErrorMessage,
   I as getStructuredActionError,
-  v as groupRowResultsByStatus,
+  k as groupRowResultsByStatus,
   b as isExchangeError,
   T as isHandledActionError,
   O as isTranslationBlocker,
-  y as parseActionResponse,
+  m as parseActionResponse,
   j as parseImportResult
 };
 //# sourceMappingURL=error-helpers.js.map

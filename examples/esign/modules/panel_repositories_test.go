@@ -15,6 +15,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	auth "github.com/goliatone/go-auth"
@@ -427,6 +428,16 @@ func TestAgreementPanelRepositoryGetIncludesTimelineBootstrapFieldDefinitionsAnd
 	if got := strings.TrimSpace(toString(detail["current_user_id"])); got != "admin-user-1" {
 		t.Fatalf("expected current_user_id admin-user-1, got %q", got)
 	}
+	reviewPermissions, ok := detail["review_permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected review_permissions payload, got %T", detail["review_permissions"])
+	}
+	if got := toBool(reviewPermissions["can_admin_review"]); !got {
+		t.Fatalf("expected can_admin_review true, got %+v", reviewPermissions)
+	}
+	if got := toBool(reviewPermissions["can_manage_comments"]); !got {
+		t.Fatalf("expected can_manage_comments true, got %+v", reviewPermissions)
+	}
 
 	fieldDefinitions, ok := detail["field_definitions"].([]map[string]any)
 	if !ok {
@@ -482,6 +493,57 @@ func TestAgreementPanelRepositoryGetIncludesTimelineBootstrapFieldDefinitionsAnd
 	}
 	if got := strings.TrimSpace(toString(events[0]["actor_type"])); got == "" {
 		t.Fatalf("expected timeline event actor_type to be populated")
+	}
+}
+
+func TestAgreementPanelRepositoryGetReviewPermissionsHonorAuthorizer(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-detail-bootstrap-2")
+
+	repo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+	repo.authorizer = panelLineageAuthorizer{allowed: map[string]bool{
+		permissions.AdminESignEdit: true,
+	}}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID:        "admin-user-1",
+		Subject:        "admin-user-1",
+		TenantID:       scope.TenantID,
+		OrganizationID: scope.OrgID,
+	})
+
+	created, err := repo.Create(ctx, map[string]any{
+		"document_id": "doc-detail-bootstrap-2",
+		"title":       "Bootstrap Detail Restricted",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	detail, err := repo.Get(ctx, strings.TrimSpace(toString(created["id"])))
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	reviewPermissions, ok := detail["review_permissions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected review_permissions payload, got %T", detail["review_permissions"])
+	}
+	if got := toBool(reviewPermissions["can_admin_review"]); got {
+		t.Fatalf("expected can_admin_review false without send permission, got %+v", reviewPermissions)
+	}
+	if got := toBool(reviewPermissions["can_manage_comments"]); got {
+		t.Fatalf("expected can_manage_comments false without view permission, got %+v", reviewPermissions)
 	}
 }
 

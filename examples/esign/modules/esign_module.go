@@ -469,6 +469,30 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		objectStore,
 		services.WithReadableArtifactRendererPDFService(pdfService),
 	)
+	jobAgreementChanges := jobs.AgreementChangeNotifier(nil)
+	signingAgreementChanges := services.AgreementChangeNotifier(nil)
+	if m.agreementEvents != nil {
+		jobAgreementChanges = func(ctx context.Context, scope stores.Scope, notification jobs.AgreementChangeNotification) error {
+			return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
+				AgreementID:   strings.TrimSpace(notification.AgreementID),
+				CorrelationID: strings.TrimSpace(notification.CorrelationID),
+				Sections:      append([]string{}, notification.Sections...),
+				Status:        strings.TrimSpace(notification.Status),
+				Message:       strings.TrimSpace(notification.Message),
+				Metadata:      maps.Clone(notification.Metadata),
+			})
+		}
+		signingAgreementChanges = func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
+			return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
+				AgreementID:   strings.TrimSpace(notification.AgreementID),
+				CorrelationID: strings.TrimSpace(notification.CorrelationID),
+				Sections:      append([]string{}, notification.Sections...),
+				Status:        strings.TrimSpace(notification.Status),
+				Message:       strings.TrimSpace(notification.Message),
+				Metadata:      maps.Clone(notification.Metadata),
+			})
+		}
+	}
 	m.artifacts = services.NewArtifactPipelineService(m.store,
 		artifactRenderer,
 		services.WithArtifactObjectStore(objectStore),
@@ -489,6 +513,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		PDFService:       pdfService,
 		EmailProvider:    emailProvider,
 		Transactions:     m.store,
+		AgreementChanges: jobAgreementChanges,
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
 	durableJobs, err := jobs.NewDurableJobRuntime(m.store, jobs.DefaultRetryPolicy())
@@ -581,6 +606,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSigningWorkflowDispatchTrigger(signingWorkflowOutbox),
 		services.WithSigningCompletionWorkflow(emailWorkflow),
 		services.WithSigningStageWorkflow(emailWorkflow),
+		services.WithSigningAgreementChangeNotifier(signingAgreementChanges),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
 		services.WithSigningPDFService(pdfService),

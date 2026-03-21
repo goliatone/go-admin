@@ -358,6 +358,32 @@ export {
   type DatatableBootstrapConfig,
 } from './pages/index.js';
 
+// Inline Status module (agreement detail live feedback)
+export {
+  // Manager
+  InlineStatusManager,
+  createInlineStatusManager,
+  // Target resolution
+  resolveStatusTarget,
+  commandToSection,
+  // Rendering
+  createStatusElement,
+  updateStatusElement,
+  removeStatusElement,
+  clearAllStatusElements,
+  clearStaleStatusElements,
+  // Constants
+  DEFAULT_INLINE_STATUS_CONFIG,
+  SECTION_TARGET_SELECTORS,
+  SECTION_FALLBACK_SELECTORS,
+  PAGE_STATUS_TARGET,
+  STATUS_DISPLAY,
+  // Types
+  type InlineStatusConfig,
+  type StatusDisplayConfig,
+  type StatusTargetResult,
+} from './inline-status.js';
+
 // Timeline module
 export {
   // Event registry

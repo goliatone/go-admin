@@ -72,6 +72,7 @@ type SigningService struct {
 	completionFlow        SigningCompletionWorkflow
 	stageFlow             SigningStageWorkflow
 	workflowDispatch      SigningWorkflowDispatchTrigger
+	agreementChanges      AgreementChangeNotifier
 	tx                    stores.TransactionManager
 	customDocuments       bool
 	customArtifacts       bool
@@ -113,6 +114,17 @@ type SigningStageWorkflow interface {
 type SigningWorkflowDispatchTrigger interface {
 	NotifyScope(scope stores.Scope)
 }
+
+type AgreementChangeNotification struct {
+	AgreementID   string         `json:"agreement_id"`
+	CorrelationID string         `json:"correlation_id,omitempty"`
+	Sections      []string       `json:"sections,omitempty"`
+	Status        string         `json:"status,omitempty"`
+	Message       string         `json:"message,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+type AgreementChangeNotifier func(ctx context.Context, scope stores.Scope, notification AgreementChangeNotification) error
 
 // SigningServiceOption customizes SigningService.
 type SigningServiceOption func(*SigningService)
@@ -218,6 +230,16 @@ func WithSigningStageWorkflow(workflow SigningStageWorkflow) SigningServiceOptio
 			return
 		}
 		s.stageFlow = workflow
+	}
+}
+
+// WithSigningAgreementChangeNotifier configures best-effort admin live-update notifications.
+func WithSigningAgreementChangeNotifier(notifier AgreementChangeNotifier) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.agreementChanges = notifier
 	}
 }
 
@@ -329,6 +351,19 @@ func (s SigningService) withWriteTx(ctx context.Context, fn func(SigningService)
 	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
 		return fn(s.forTx(tx))
 	})
+}
+
+func (s SigningService) notifyAgreementChanged(ctx context.Context, scope stores.Scope, notification AgreementChangeNotification) {
+	if s.agreementChanges == nil {
+		return
+	}
+	notification.AgreementID = strings.TrimSpace(notification.AgreementID)
+	if notification.AgreementID == "" {
+		return
+	}
+	if err := s.agreementChanges(ctx, scope, notification); err != nil {
+		log.Printf("signing agreement change notify failed: agreement_id=%s correlation_id=%s err=%v", notification.AgreementID, strings.TrimSpace(notification.CorrelationID), err)
+	}
 }
 
 func (s SigningService) withWriteTxHooks(ctx context.Context, fn func(SigningService, *stores.TxHooks) error) error {
@@ -1738,6 +1773,25 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 	}); err != nil {
 		return SignerSubmitResult{}, err
 	}
+	submitSections := []string{"participants", "delivery", "timeline"}
+	if result.Completed {
+		submitSections = []string{"participants", "delivery", "artifacts", "timeline"}
+	}
+	s.notifyAgreementChanged(ctx, scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(result.Agreement.ID),
+		CorrelationID: strings.TrimSpace(idempotencyKey),
+		Sections:      submitSections,
+		Status:        "completed",
+		Message:       "Signer submitted",
+		Metadata: map[string]any{
+			"recipient_id":       strings.TrimSpace(result.Recipient.ID),
+			"agreement_status":   strings.TrimSpace(result.Agreement.Status),
+			"completed":          result.Completed,
+			"next_stage":         result.NextStage,
+			"next_recipient_id":  strings.TrimSpace(result.NextRecipientID),
+			"next_recipient_ids": append([]string{}, result.NextRecipientIDs...),
+		},
+	})
 	s.setSubmitByKey(submitKey, result)
 	return result, nil
 }
@@ -1775,6 +1829,17 @@ func (s SigningService) Decline(ctx context.Context, scope stores.Scope, token s
 	}); err != nil {
 		return SignerDeclineResult{}, err
 	}
+	s.notifyAgreementChanged(ctx, scope, AgreementChangeNotification{
+		AgreementID: strings.TrimSpace(declinedAgreement.ID),
+		Sections:    []string{"participants", "delivery", "timeline"},
+		Status:      "completed",
+		Message:     "Signer declined",
+		Metadata: map[string]any{
+			"recipient_id":     strings.TrimSpace(declinedRecipient.ID),
+			"agreement_status": strings.TrimSpace(declinedAgreement.Status),
+			"decline_reason":   reason,
+		},
+	})
 	return SignerDeclineResult{
 		Agreement: declinedAgreement,
 		Recipient: declinedRecipient,
