@@ -71,6 +71,19 @@ type AgreementActivityProjector interface {
 	ProjectAgreement(ctx context.Context, scope stores.Scope, agreementID string) error
 }
 
+type AgreementChangedEvent struct {
+	AgreementID   string
+	CorrelationID string
+	Sections      []string
+	Status        string
+	Message       string
+	Metadata      map[string]any
+}
+
+type AgreementEventPublisher interface {
+	PublishAgreementChanged(ctx context.Context, scope stores.Scope, input AgreementChangedEvent) error
+}
+
 // PDFRemediationCommandService captures document remediation workflow execution.
 type PDFRemediationCommandService interface {
 	Remediate(ctx context.Context, scope stores.Scope, input services.PDFRemediationRequest) (services.PDFRemediationResult, error)
@@ -84,6 +97,7 @@ type GuardedEffectRecoveryService interface {
 type registerOptions struct {
 	remediation    PDFRemediationCommandService
 	effectRecovery GuardedEffectRecoveryService
+	events         AgreementEventPublisher
 }
 
 // RegisterOption customizes command registration behavior.
@@ -108,6 +122,15 @@ func WithGuardedEffectRecoveryService(service GuardedEffectRecoveryService) Regi
 	}
 }
 
+func WithAgreementEventPublisher(publisher AgreementEventPublisher) RegisterOption {
+	return func(opts *registerOptions) {
+		if opts == nil {
+			return
+		}
+		opts.events = publisher
+	}
+}
+
 // Register wires typed command handlers and panel payload factories for e-sign actions.
 func Register(
 	bus *coreadmin.CommandBus,
@@ -129,64 +152,64 @@ func Register(
 	if err := RegisterCommandFactories(bus); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementSendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementSendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementVoidCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementVoidCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementResendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementResendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestCorrectionCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestCorrectionCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestAmendmentCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestAmendmentCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementNotifyReviewersCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementNotifyReviewersCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderPauseCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderPauseCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderResumeCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderResumeCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderSendNowCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderSendNowCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementForceApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementForceApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewOnBehalfCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewOnBehalfCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewChangesCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewChangesCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementCreateCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementCreateCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReplyCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReplyCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementResolveCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementResolveCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
 	if opts.effectRecovery != nil {
@@ -194,6 +217,7 @@ func Register(
 			recovery:     opts.effectRecovery,
 			defaultScope: defaultScope,
 			projector:    projector,
+			publisher:    opts.events,
 		}); err != nil {
 			return err
 		}
@@ -204,7 +228,7 @@ func Register(
 			return err
 		}
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
 		return err
 	}
 	if drafts != nil {
@@ -252,6 +276,7 @@ type AgreementSendCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementSendInput] = (*AgreementSendCommand)(nil)
@@ -302,6 +327,9 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 		})
 		return err
 	}
+	if err := publishAgreementChanged(ctx, c.publisher, scope, agreement.ID, correlationID, "accepted", "Agreement send accepted", "delivery", "participants", "artifacts", "timeline"); err != nil {
+		return err
+	}
 	storeAgreementQueuedResponse(ctx, agreement, correlationID, agreementNotificationEffects(ctx, c.agreements, scope, agreement.ID))
 	observability.ObserveSend(ctx, time.Since(startedAt), true)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_send", "success", correlationID, time.Since(startedAt), nil, map[string]any{
@@ -335,6 +363,7 @@ type AgreementVoidCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementVoidInput] = (*AgreementVoidCommand)(nil)
@@ -379,6 +408,9 @@ func (c *AgreementVoidCommand) Execute(ctx context.Context, msg AgreementVoidInp
 		})
 		return err
 	}
+	if err := publishAgreementChanged(ctx, c.publisher, scope, agreement.ID, correlationID, "completed", "Agreement void completed", "delivery", "participants", "timeline"); err != nil {
+		return err
+	}
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_void", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementVoid,
 		"agreement_id": strings.TrimSpace(agreement.ID),
@@ -391,6 +423,7 @@ type AgreementResendCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementResendInput] = (*AgreementResendCommand)(nil)
@@ -433,6 +466,9 @@ func (c *AgreementResendCommand) Execute(ctx context.Context, msg AgreementResen
 			"command_name": CommandAgreementResend,
 			"agreement_id": strings.TrimSpace(result.Agreement.ID),
 		})
+		return err
+	}
+	if err := publishAgreementChanged(ctx, c.publisher, scope, result.Agreement.ID, correlationID, "accepted", "Agreement resend accepted", "delivery", "participants", "artifacts", "timeline"); err != nil {
 		return err
 	}
 	effects := append([]services.AgreementNotificationEffectDetail{}, result.Effects...)
@@ -539,24 +575,26 @@ type AgreementRequestCorrectionCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementRequestCorrectionInput] = (*AgreementRequestCorrectionCommand)(nil)
 
 func (c *AgreementRequestCorrectionCommand) Execute(ctx context.Context, msg AgreementRequestCorrectionInput) error {
-	return executeAgreementRevisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ActorID, msg.IdempotencyKey, msg.CorrelationID, services.AgreementRevisionKindCorrection, CommandAgreementRequestCorrection)
+	return executeAgreementRevisionCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ActorID, msg.IdempotencyKey, msg.CorrelationID, services.AgreementRevisionKindCorrection, CommandAgreementRequestCorrection)
 }
 
 type AgreementRequestAmendmentCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementRequestAmendmentInput] = (*AgreementRequestAmendmentCommand)(nil)
 
 func (c *AgreementRequestAmendmentCommand) Execute(ctx context.Context, msg AgreementRequestAmendmentInput) error {
-	return executeAgreementRevisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ActorID, msg.IdempotencyKey, msg.CorrelationID, services.AgreementRevisionKindAmendment, CommandAgreementRequestAmendment)
+	return executeAgreementRevisionCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ActorID, msg.IdempotencyKey, msg.CorrelationID, services.AgreementRevisionKindAmendment, CommandAgreementRequestAmendment)
 }
 
 func executeAgreementRevisionCommand(
@@ -564,6 +602,7 @@ func executeAgreementRevisionCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	agreementID,
 	actorID,
 	idempotencyKey,
@@ -626,180 +665,195 @@ type AgreementRequestReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementRequestReviewInput] = (*AgreementRequestReviewCommand)(nil)
 
 func (c *AgreementRequestReviewCommand) Execute(ctx context.Context, msg AgreementRequestReviewInput) error {
-	return executeAgreementReviewOpenCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ActorID, msg.CorrelationID, msg.AgreementReviewInput, true)
+	return executeAgreementReviewOpenCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ActorID, msg.CorrelationID, msg.AgreementReviewInput, true)
 }
 
 type AgreementReopenReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReopenReviewInput] = (*AgreementReopenReviewCommand)(nil)
 
 func (c *AgreementReopenReviewCommand) Execute(ctx context.Context, msg AgreementReopenReviewInput) error {
-	return executeAgreementReviewOpenCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ActorID, msg.CorrelationID, msg.AgreementReviewInput, false)
+	return executeAgreementReviewOpenCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ActorID, msg.CorrelationID, msg.AgreementReviewInput, false)
 }
 
 type AgreementCloseReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementCloseReviewInput] = (*AgreementCloseReviewCommand)(nil)
 
 func (c *AgreementCloseReviewCommand) Execute(ctx context.Context, msg AgreementCloseReviewInput) error {
-	return executeAgreementCloseReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementCloseReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementNotifyReviewersCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementNotifyReviewersInput] = (*AgreementNotifyReviewersCommand)(nil)
 
 func (c *AgreementNotifyReviewersCommand) Execute(ctx context.Context, msg AgreementNotifyReviewersInput) error {
-	return executeAgreementNotifyReviewersCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementNotifyReviewersCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementReviewReminderPauseCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReviewReminderPauseInput] = (*AgreementReviewReminderPauseCommand)(nil)
 
 func (c *AgreementReviewReminderPauseCommand) Execute(ctx context.Context, msg AgreementReviewReminderPauseInput) error {
-	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderPause)
+	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderPause)
 }
 
 type AgreementReviewReminderResumeCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReviewReminderResumeInput] = (*AgreementReviewReminderResumeCommand)(nil)
 
 func (c *AgreementReviewReminderResumeCommand) Execute(ctx context.Context, msg AgreementReviewReminderResumeInput) error {
-	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderResume)
+	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderResume)
 }
 
 type AgreementReviewReminderSendNowCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReviewReminderSendNowInput] = (*AgreementReviewReminderSendNowCommand)(nil)
 
 func (c *AgreementReviewReminderSendNowCommand) Execute(ctx context.Context, msg AgreementReviewReminderSendNowInput) error {
-	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderSendNow)
+	return executeAgreementReviewReminderControlCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementReviewReminderControlInput, CommandAgreementReviewReminderSendNow)
 }
 
 type AgreementForceApproveReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementForceApproveReviewInput] = (*AgreementForceApproveReviewCommand)(nil)
 
 func (c *AgreementForceApproveReviewCommand) Execute(ctx context.Context, msg AgreementForceApproveReviewInput) error {
-	return executeAgreementForceApproveReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementForceApproveReviewCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementApproveReviewOnBehalfCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementApproveReviewOnBehalfInput] = (*AgreementApproveReviewOnBehalfCommand)(nil)
 
 func (c *AgreementApproveReviewOnBehalfCommand) Execute(ctx context.Context, msg AgreementApproveReviewOnBehalfInput) error {
-	return executeAgreementApproveReviewOnBehalfCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementApproveReviewOnBehalfCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementApproveReviewCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementApproveReviewInput] = (*AgreementApproveReviewCommand)(nil)
 
 func (c *AgreementApproveReviewCommand) Execute(ctx context.Context, msg AgreementApproveReviewInput) error {
-	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, true)
+	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, true)
 }
 
 type AgreementRequestReviewChangesCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementRequestReviewChangesInput] = (*AgreementRequestReviewChangesCommand)(nil)
 
 func (c *AgreementRequestReviewChangesCommand) Execute(ctx context.Context, msg AgreementRequestReviewChangesInput) error {
-	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, false)
+	return executeAgreementReviewDecisionCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ParticipantID, msg.RecipientID, msg.Comment, msg.ActorID, msg.CorrelationID, false)
 }
 
 type AgreementCreateCommentThreadCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementCreateCommentThreadInput] = (*AgreementCreateCommentThreadCommand)(nil)
 
 func (c *AgreementCreateCommentThreadCommand) Execute(ctx context.Context, msg AgreementCreateCommentThreadInput) error {
-	return executeAgreementCommentThreadCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementCommentThreadCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementReplyCommentThreadCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReplyCommentThreadInput] = (*AgreementReplyCommentThreadCommand)(nil)
 
 func (c *AgreementReplyCommentThreadCommand) Execute(ctx context.Context, msg AgreementReplyCommentThreadInput) error {
-	return executeAgreementCommentReplyCommand(ctx, c.agreements, c.defaultScope, c.projector, msg)
+	return executeAgreementCommentReplyCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg)
 }
 
 type AgreementResolveCommentThreadCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementResolveCommentThreadInput] = (*AgreementResolveCommentThreadCommand)(nil)
 
 func (c *AgreementResolveCommentThreadCommand) Execute(ctx context.Context, msg AgreementResolveCommentThreadInput) error {
-	return executeAgreementCommentStateCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ThreadID, msg.ActorID, msg.CorrelationID, true)
+	return executeAgreementCommentStateCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ThreadID, msg.ActorID, msg.CorrelationID, true)
 }
 
 type AgreementReopenCommentThreadCommand struct {
 	agreements   AgreementLifecycleService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReopenCommentThreadInput] = (*AgreementReopenCommentThreadCommand)(nil)
 
 func (c *AgreementReopenCommentThreadCommand) Execute(ctx context.Context, msg AgreementReopenCommentThreadInput) error {
-	return executeAgreementCommentStateCommand(ctx, c.agreements, c.defaultScope, c.projector, msg.AgreementID, msg.ThreadID, msg.ActorID, msg.CorrelationID, false)
+	return executeAgreementCommentStateCommand(ctx, c.agreements, c.defaultScope, c.projector, c.publisher, msg.AgreementID, msg.ThreadID, msg.ActorID, msg.CorrelationID, false)
 }
 
 func executeAgreementReviewOpenCommand(
@@ -807,6 +861,7 @@ func executeAgreementReviewOpenCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	agreementID, actorID, correlationID string,
 	input AgreementReviewInput,
 	open bool,
@@ -850,7 +905,20 @@ func executeAgreementReviewOpenCommand(
 	if err := projectAgreementActivity(ctx, projector, scope, agreementID); err != nil {
 		return err
 	}
-	return nil
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		agreementID,
+		correlationID,
+		"completed",
+		"Agreement review state updated",
+		"review_status",
+		"review_config",
+		"participants",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementCloseReviewCommand(
@@ -858,6 +926,7 @@ func executeAgreementCloseReviewCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementCloseReviewInput,
 ) error {
 	if agreements == nil {
@@ -870,7 +939,23 @@ func executeAgreementCloseReviewCommand(
 	if _, err := agreements.CloseReview(ctx, scope, strings.TrimSpace(msg.AgreementID), "user", strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))), resolveCommandRequestIP(ctx)); err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"completed",
+		"Agreement review closed",
+		"review_status",
+		"review_config",
+		"participants",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementForceApproveReviewCommand(
@@ -878,6 +963,7 @@ func executeAgreementForceApproveReviewCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementForceApproveReviewInput,
 ) error {
 	if agreements == nil {
@@ -900,7 +986,23 @@ func executeAgreementForceApproveReviewCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"completed",
+		"Agreement review force approved",
+		"review_status",
+		"review_config",
+		"participants",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementApproveReviewOnBehalfCommand(
@@ -908,6 +1010,7 @@ func executeAgreementApproveReviewOnBehalfCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementApproveReviewOnBehalfInput,
 ) error {
 	if agreements == nil {
@@ -932,7 +1035,21 @@ func executeAgreementApproveReviewOnBehalfCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"completed",
+		"Review participant approved on behalf",
+		"review_status",
+		"participants",
+		"timeline",
+	)
 }
 
 func executeAgreementNotifyReviewersCommand(
@@ -940,6 +1057,7 @@ func executeAgreementNotifyReviewersCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementNotifyReviewersInput,
 ) error {
 	if agreements == nil {
@@ -961,7 +1079,21 @@ func executeAgreementNotifyReviewersCommand(
 	if _, err := agreements.NotifyReviewers(ctx, scope, strings.TrimSpace(msg.AgreementID), notifyInput); err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"accepted",
+		"Reviewer notification accepted",
+		"review_status",
+		"participants",
+		"timeline",
+	)
 }
 
 func executeAgreementReviewReminderControlCommand(
@@ -969,6 +1101,7 @@ func executeAgreementReviewReminderControlCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementReviewReminderControlInput,
 	commandName string,
 ) error {
@@ -1003,7 +1136,21 @@ func executeAgreementReviewReminderControlCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"accepted",
+		"Review reminder control accepted",
+		"review_status",
+		"participants",
+		"timeline",
+	)
 }
 
 func executeAgreementReviewDecisionCommand(
@@ -1011,6 +1158,7 @@ func executeAgreementReviewDecisionCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	agreementID, participantID, recipientID, comment, actorID, correlationID string,
 	approve bool,
 ) error {
@@ -1042,7 +1190,26 @@ func executeAgreementReviewDecisionCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, agreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, agreementID); err != nil {
+		return err
+	}
+	message := "Review changes requested"
+	if approve {
+		message = "Review approved"
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		agreementID,
+		correlationID,
+		"completed",
+		message,
+		"review_status",
+		"participants",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementCommentThreadCommand(
@@ -1050,6 +1217,7 @@ func executeAgreementCommentThreadCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementCreateCommentThreadInput,
 ) error {
 	if agreements == nil {
@@ -1074,7 +1242,21 @@ func executeAgreementCommentThreadCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"completed",
+		"Comment thread created",
+		"review_status",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementCommentReplyCommand(
@@ -1082,6 +1264,7 @@ func executeAgreementCommentReplyCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	msg AgreementReplyCommentThreadInput,
 ) error {
 	if agreements == nil {
@@ -1100,7 +1283,21 @@ func executeAgreementCommentReplyCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, msg.AgreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
+		return err
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		msg.AgreementID,
+		strings.TrimSpace(msg.CorrelationID),
+		"completed",
+		"Comment reply created",
+		"review_status",
+		"comments",
+		"timeline",
+	)
 }
 
 func executeAgreementCommentStateCommand(
@@ -1108,6 +1305,7 @@ func executeAgreementCommentStateCommand(
 	agreements AgreementLifecycleService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
 	agreementID, threadID, actorID, correlationID string,
 	resolve bool,
 ) error {
@@ -1115,7 +1313,7 @@ func executeAgreementCommentStateCommand(
 	if !resolve {
 		commandName = CommandAgreementReopenCommentThread
 	}
-	_ = observability.ResolveCorrelationID(correlationID, agreementID, threadID, commandName)
+	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, threadID, commandName)
 	if agreements == nil {
 		return fmt.Errorf("%s command not configured", commandName)
 	}
@@ -1136,13 +1334,32 @@ func executeAgreementCommentStateCommand(
 	if err != nil {
 		return err
 	}
-	return projectAgreementActivity(ctx, projector, scope, agreementID)
+	if err := projectAgreementActivity(ctx, projector, scope, agreementID); err != nil {
+		return err
+	}
+	message := "Comment thread reopened"
+	if resolve {
+		message = "Comment thread resolved"
+	}
+	return publishAgreementChanged(
+		ctx,
+		publisher,
+		scope,
+		agreementID,
+		correlationID,
+		"completed",
+		message,
+		"review_status",
+		"comments",
+		"timeline",
+	)
 }
 
 type AgreementDeliveryResumeCommand struct {
 	recovery     GuardedEffectRecoveryService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementDeliveryResumeInput] = (*AgreementDeliveryResumeCommand)(nil)
@@ -1172,6 +1389,9 @@ func (c *AgreementDeliveryResumeCommand) Execute(ctx context.Context, msg Agreem
 		return err
 	}
 	if err := projectAgreementActivity(ctx, c.projector, scope, result.Agreement.ID); err != nil {
+		return err
+	}
+	if err := publishAgreementChanged(ctx, c.publisher, scope, result.Agreement.ID, correlationID, "accepted", "Agreement delivery resume accepted", "delivery", "artifacts", "timeline"); err != nil {
 		return err
 	}
 	storeAgreementQueuedResponse(ctx, result.Agreement, correlationID, result.Effects)
@@ -1225,6 +1445,7 @@ type TokenRotateCommand struct {
 	tokens       TokenRotator
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[TokenRotateInput] = (*TokenRotateCommand)(nil)
@@ -1266,6 +1487,9 @@ func (c *TokenRotateCommand) Execute(ctx context.Context, msg TokenRotateInput) 
 			"agreement_id": strings.TrimSpace(msg.AgreementID),
 			"recipient_id": strings.TrimSpace(msg.RecipientID),
 		})
+		return err
+	}
+	if err := publishAgreementChanged(ctx, c.publisher, scope, msg.AgreementID, correlationID, "accepted", "Recipient token rotation accepted", "delivery", "participants", "timeline"); err != nil {
 		return err
 	}
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "token_rotate", "success", correlationID, time.Since(startedAt), nil, map[string]any{
@@ -1583,6 +1807,7 @@ type AgreementReminderSendNowCommand struct {
 	reminders    AgreementReminderService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
+	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReminderSendNowInput] = (*AgreementReminderSendNowCommand)(nil)
@@ -1687,6 +1912,40 @@ func projectAgreementActivity(ctx context.Context, projector AgreementActivityPr
 		return nil
 	}
 	return projector.ProjectAgreement(ctx, scope, agreementID)
+}
+
+func publishAgreementChanged(
+	ctx context.Context,
+	publisher AgreementEventPublisher,
+	scope stores.Scope,
+	agreementID string,
+	correlationID string,
+	status string,
+	message string,
+	sections ...string,
+) error {
+	if publisher == nil {
+		return nil
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		return nil
+	}
+	filtered := make([]string, 0, len(sections))
+	for _, section := range sections {
+		section = strings.TrimSpace(section)
+		if section == "" {
+			continue
+		}
+		filtered = append(filtered, section)
+	}
+	return publisher.PublishAgreementChanged(ctx, scope, AgreementChangedEvent{
+		AgreementID:   agreementID,
+		CorrelationID: strings.TrimSpace(correlationID),
+		Sections:      filtered,
+		Status:        strings.TrimSpace(status),
+		Message:       strings.TrimSpace(message),
+	})
 }
 
 func resolveCommandRequestIP(ctx context.Context) string {

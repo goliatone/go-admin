@@ -331,11 +331,17 @@ func (cfg GoogleRuntimeConfig) Validate() error {
 		return fmt.Errorf("google runtime requires integration service when enabled")
 	}
 	hasRuns := cfg.ImportRuns != nil
+	hasJobs := cfg.ImportJobs != nil
 	hasEnqueue := cfg.ImportEnqueue != nil
-	if hasRuns != hasEnqueue {
-		return fmt.Errorf("google runtime requires import run store and enqueue function together")
+	if hasRuns || hasJobs || hasEnqueue {
+		if !hasRuns || !hasJobs || !hasEnqueue {
+			return fmt.Errorf("google runtime requires import run store, job store, and enqueue function together")
+		}
+		if _, ok := any(cfg.ImportJobs).(stores.TransactionManager); !ok {
+			return fmt.Errorf("google runtime requires transactional import job store")
+		}
 	}
-	if (hasRuns || hasEnqueue) && cfg.Integration == nil {
+	if (hasRuns || hasJobs || hasEnqueue) && cfg.Integration == nil {
 		return fmt.Errorf("google runtime requires integration service when async imports are configured")
 	}
 	return nil

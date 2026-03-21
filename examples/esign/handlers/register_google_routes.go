@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -192,7 +194,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
 				return asHandlerError(err)
 			}
-			if cfg.googleImportRuns == nil || cfg.googleImportEnqueue == nil {
+			if cfg.googleImportRuns == nil || cfg.googleImportJobs == nil || cfg.googleImportEnqueue == nil {
 				err := writeAPIError(c, nil, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "google import async runtime unavailable", nil)
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
 				return err
@@ -219,7 +221,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			accountID := stableString(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			scope := cfg.resolveScope(c)
 			dedupeKey := googleImportRunDedupeKey(userID, accountID, payload.GoogleFileID, payload.SourceVersionHint)
-			run, created, err := cfg.googleImportRuns.BeginGoogleImportRun(c.Context(), scope, stores.GoogleImportRunInput{
+			runInput := stores.GoogleImportRunInput{
 				UserID:            userID,
 				GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
 				SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
@@ -229,36 +231,33 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
 				CorrelationID:     correlationID,
 				RequestedAt:       time.Now().UTC(),
-			})
+			}
+			jobMsg := jobs.GoogleDriveImportMsg{
+				Scope:             scope,
+				UserID:            userID,
+				GoogleAccountID:   accountID,
+				GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
+				SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
+				DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
+				AgreementTitle:    strings.TrimSpace(payload.AgreementTitle),
+				CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
+				CorrelationID:     correlationID,
+				DedupeKey:         dedupeKey,
+			}
+			run, created, err := beginGoogleImportSubmission(c.Context(), cfg, scope, runInput, jobMsg)
 			if err != nil {
-				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to queue google import", nil)
+				statusCode := http.StatusBadRequest
+				errorCode := string(services.ErrorCodeMissingRequiredFields)
+				message := "unable to queue google import"
+				var enqueueErr *googleImportEnqueueError
+				if errors.As(err, &enqueueErr) {
+					statusCode = http.StatusServiceUnavailable
+					errorCode = string(services.ErrorCodeGoogleProviderDegraded)
+					message = "unable to enqueue google import"
+				}
+				werr := writeAPIError(c, err, statusCode, errorCode, message, nil)
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
 				return werr
-			}
-			if created {
-				enqueueErr := cfg.googleImportEnqueue(c.Context(), jobs.GoogleDriveImportMsg{
-					Scope:             scope,
-					ImportRunID:       strings.TrimSpace(run.ID),
-					UserID:            userID,
-					GoogleAccountID:   accountID,
-					GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
-					SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
-					DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
-					AgreementTitle:    strings.TrimSpace(payload.AgreementTitle),
-					CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
-					CorrelationID:     correlationID,
-					DedupeKey:         strings.TrimSpace(run.DedupeKey),
-				})
-				if enqueueErr != nil {
-					_, _ = cfg.googleImportRuns.MarkGoogleImportRunFailed(c.Context(), scope, run.ID, stores.GoogleImportRunFailureInput{
-						ErrorCode:    string(services.ErrorCodeGoogleProviderDegraded),
-						ErrorMessage: strings.TrimSpace(enqueueErr.Error()),
-						CompletedAt:  time.Now().UTC(),
-					})
-					werr := writeAPIError(c, enqueueErr, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "unable to enqueue google import", nil)
-					logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, enqueueErr, nil)
-					return werr
-				}
 			}
 			statusURL := strings.Replace(routes.AdminGoogleDriveImportRun, ":import_run_id", strings.TrimSpace(run.ID), 1)
 			respErr := c.JSON(http.StatusAccepted, map[string]any{
@@ -487,6 +486,100 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 			return respErr
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 	}
+}
+
+type googleImportEnqueueError struct {
+	err error
+}
+
+func (e *googleImportEnqueueError) Error() string {
+	if e == nil || e.err == nil {
+		return "google import enqueue failed"
+	}
+	return e.err.Error()
+}
+
+func (e *googleImportEnqueueError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func beginGoogleImportSubmission(
+	ctx context.Context,
+	cfg registerConfig,
+	scope stores.Scope,
+	runInput stores.GoogleImportRunInput,
+	jobMsg jobs.GoogleDriveImportMsg,
+) (stores.GoogleImportRunRecord, bool, error) {
+	if cfg.googleImportRuns == nil {
+		return stores.GoogleImportRunRecord{}, false, fmt.Errorf("google import run store is not configured")
+	}
+	if cfg.googleImportJobs == nil {
+		return stores.GoogleImportRunRecord{}, false, fmt.Errorf("google import job store is not configured")
+	}
+	if cfg.googleImportEnqueue == nil {
+		return stores.GoogleImportRunRecord{}, false, fmt.Errorf("google import enqueue is not configured")
+	}
+	txManager, ok := any(cfg.googleImportJobs).(stores.TransactionManager)
+	if !ok {
+		return stores.GoogleImportRunRecord{}, false, fmt.Errorf("google import job store must support transactions")
+	}
+	var run stores.GoogleImportRunRecord
+	var created bool
+	err := txManager.WithTx(ctx, func(tx stores.TxStore) error {
+		txImportRuns, ok := any(tx).(stores.GoogleImportRunStore)
+		if !ok {
+			return fmt.Errorf("google import tx store does not implement import run store")
+		}
+		txJobRuns, ok := any(tx).(stores.JobRunStore)
+		if !ok {
+			return fmt.Errorf("google import tx store does not implement job run store")
+		}
+		var err error
+		run, created, err = txImportRuns.BeginGoogleImportRun(ctx, scope, runInput)
+		if err != nil {
+			return err
+		}
+		if !created {
+			return nil
+		}
+		jobMsg.ImportRunID = strings.TrimSpace(run.ID)
+		jobMsg.DedupeKey = strings.TrimSpace(run.DedupeKey)
+		if err := enqueueGoogleImportJobRecord(ctx, txJobRuns, scope, jobMsg); err != nil {
+			return &googleImportEnqueueError{err: err}
+		}
+		return nil
+	})
+	return run, created, err
+}
+
+func enqueueGoogleImportJobRecord(ctx context.Context, store stores.JobRunStore, scope stores.Scope, msg jobs.GoogleDriveImportMsg) error {
+	if store == nil {
+		return fmt.Errorf("google import job store is not configured")
+	}
+	payloadJSON, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("marshal google import job payload: %w", err)
+	}
+	enqueuedAt := time.Now().UTC()
+	resourceID := strings.TrimSpace(msg.ImportRunID)
+	if resourceID == "" {
+		resourceID = strings.TrimSpace(msg.GoogleFileID)
+	}
+	_, _, err = store.EnqueueJob(ctx, scope, stores.JobRunEnqueueInput{
+		JobName:         jobs.JobGoogleDriveImport,
+		DedupeKey:       strings.TrimSpace(msg.DedupeKey),
+		CorrelationID:   strings.TrimSpace(msg.CorrelationID),
+		PayloadJSON:     string(payloadJSON),
+		AvailableAt:     &enqueuedAt,
+		ResourceKind:    jobs.JobResourceKindGoogleImportRun,
+		ResourceID:      resourceID,
+		ReplaceTerminal: true,
+		RequestedAt:     enqueuedAt,
+	})
+	return err
 }
 
 func resolveGoogleAdminUserID(c router.Context) string {

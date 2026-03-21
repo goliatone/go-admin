@@ -108,6 +108,7 @@ type ESignModule struct {
 	signingWorkflows   scopedAsyncTrigger
 	integrations       services.IntegrationFoundationService
 	activityMap        *AuditActivityProjector
+	agreementEvents    commands.AgreementEventPublisher
 	uploadProvider     uploader.Uploader
 	uploadManager      *uploader.Manager
 	remediationStatus  jobqueue.DispatchStatusReader
@@ -177,6 +178,14 @@ func (m *ESignModule) WithServicesModule(module *servicesmodule.Module) *ESignMo
 		return nil
 	}
 	m.services = module
+	return m
+}
+
+func (m *ESignModule) WithAgreementEventPublisher(publisher commands.AgreementEventPublisher) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.agreementEvents = publisher
 	return m
 }
 
@@ -706,6 +715,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		registerOptions = append(registerOptions, commands.WithPDFRemediationService(remediationService))
 	}
 	registerOptions = append(registerOptions, commands.WithGuardedEffectRecoveryService(notificationRecovery))
+	if m.agreementEvents != nil {
+		registerOptions = append(registerOptions, commands.WithAgreementEventPublisher(m.agreementEvents))
+	}
 	if err := commands.Register(
 		ctx.Admin.Commands(),
 		m.agreements,

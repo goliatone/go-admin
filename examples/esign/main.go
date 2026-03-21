@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/commands"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignevents "github.com/goliatone/go-admin/examples/esign/events"
 	"github.com/goliatone/go-admin/examples/esign/fixtures"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
@@ -23,6 +24,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	"github.com/goliatone/go-router/eventstream"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -96,6 +98,10 @@ func main() {
 			}
 		}()
 	}
+	agreementStream := eventstream.New(
+		eventstream.WithMatcher(eventstream.SubsetMatch),
+	)
+	agreementPublisher := esignevents.NewAgreementEventPublisher(agreementStream)
 
 	var adminApp *admin.Admin
 	adm, _, err := quickstart.NewAdmin(
@@ -159,6 +165,7 @@ func main() {
 		WithPlacements(quickstart.DefaultPlacements(admin.Config{NavMenuCode: cfg.NavMenuCode})).
 		WithUploadManager(storageBundle.Manager).
 		WithServicesModule(servicesModule).
+		WithAgreementEventPublisher(agreementPublisher).
 		WithStore(store)
 	if err := adm.RegisterModule(esignModule); err != nil {
 		log.Fatalf("register module: %v", err)
@@ -205,6 +212,9 @@ func main() {
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
 	if err := registerESignWebRoutes(r, cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
 		log.Fatalf("register web routes: %v", err)
+	}
+	if err := registerESignAgreementEventsRoute(r, adm, authn, esignModule, agreementStream); err != nil {
+		log.Fatalf("register agreement events route: %v", err)
 	}
 	if debugEnabled {
 		if runtimeConfig.Admin.Debug.EnableSlog {
@@ -509,6 +519,14 @@ func newESignRuntimeStore(bootstrap *esignpersistence.BootstrapResult) (stores.S
 
 func esignReviewRPCCommandRules() map[string]admin.RPCCommandRule {
 	return map[string]admin.RPCCommandRule{
+		commands.CommandAgreementRequestReview: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandAgreementReopenReview: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
 		commands.CommandAgreementNotifyReviewers: {
 			Permission: permissions.AdminESignEdit,
 			Resource:   "commands",
@@ -553,18 +571,30 @@ func esignReviewRPCCommandRules() map[string]admin.RPCCommandRule {
 			Permission: permissions.AdminESignEdit,
 			Resource:   "commands",
 		},
+		commands.CommandAgreementResend: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
+		commands.CommandTokenRotate: {
+			Permission: permissions.AdminESignEdit,
+			Resource:   "commands",
+		},
 	}
 }
 
 func esignReviewRPCExtraPermissions(commandName string) []string {
 	switch strings.TrimSpace(commandName) {
-	case commands.CommandAgreementNotifyReviewers,
+	case commands.CommandAgreementRequestReview,
+		commands.CommandAgreementReopenReview,
+		commands.CommandAgreementNotifyReviewers,
 		commands.CommandAgreementReviewReminderPause,
 		commands.CommandAgreementReviewReminderResume,
 		commands.CommandAgreementReviewReminderSendNow,
 		commands.CommandAgreementCloseReview,
 		commands.CommandAgreementForceApproveReview,
-		commands.CommandAgreementApproveReviewOnBehalf:
+		commands.CommandAgreementApproveReviewOnBehalf,
+		commands.CommandAgreementResend,
+		commands.CommandTokenRotate:
 		return []string{permissions.AdminESignSend}
 	case commands.CommandAgreementCreateCommentThread,
 		commands.CommandAgreementReplyCommentThread,

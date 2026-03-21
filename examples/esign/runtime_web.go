@@ -34,6 +34,8 @@ import (
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-masker"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-router/eventstream"
+	"github.com/goliatone/go-router/ssefiber"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -665,6 +667,67 @@ func registerESignWebRoutes(
 		}
 	}
 
+	return nil
+}
+
+func registerESignAgreementEventsRoute(
+	r router.Router[*fiber.App],
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	esignModule *modules.ESignModule,
+	stream eventstream.Stream,
+) error {
+	if r == nil {
+		return fmt.Errorf("router is required")
+	}
+	if adm == nil {
+		return fmt.Errorf("admin is required")
+	}
+	if authn == nil {
+		return fmt.Errorf("authenticator is required")
+	}
+	if stream == nil {
+		return nil
+	}
+	defaultScope := stores.Scope{}
+	if esignModule != nil {
+		defaultScope = esignModule.DefaultScope()
+	}
+	sseHandler := ssefiber.Handler(
+		ssefiber.WithStream(stream),
+		ssefiber.WithScopeResolver(func(c router.Context) (eventstream.Scope, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			streamScope := eventstream.Scope{}
+			if tenantID := strings.TrimSpace(scope.TenantID); tenantID != "" {
+				streamScope["tenant_id"] = tenantID
+			}
+			if orgID := strings.TrimSpace(scope.OrgID); orgID != "" {
+				streamScope["org_id"] = orgID
+			}
+			return streamScope, nil
+		}),
+	)
+	eventsPath := path.Join(strings.TrimSpace(adm.AdminAPIBasePath()), "esign", "events")
+	r.Get(eventsPath, authn.WrapHandler(func(c router.Context) error {
+		if !coreadmin.CanAll(adm.Authorizer(), c.Context(), "esign", permissions.AdminESignView) {
+			return c.Status(http.StatusForbidden).JSON(http.StatusForbidden, map[string]any{
+				"error": map[string]any{
+					"code":       string(services.ErrorCodeScopeDenied),
+					"message":    "permission denied",
+					"permission": permissions.AdminESignView,
+				},
+			})
+		}
+		if err := enforceESignUploadScopeBoundary(c, defaultScope); err != nil {
+			return c.Status(http.StatusForbidden).JSON(http.StatusForbidden, map[string]any{
+				"error": map[string]any{
+					"code":    string(services.ErrorCodeScopeDenied),
+					"message": "scope denied",
+				},
+			})
+		}
+		return sseHandler(c)
+	}))
 	return nil
 }
 
