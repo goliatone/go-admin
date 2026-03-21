@@ -43,6 +43,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+replace github.com/goliatone/go-i18n => ../../go-i18n
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	dario.cat/mergo v1.0.2 // indirect
