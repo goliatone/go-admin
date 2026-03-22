@@ -13,6 +13,7 @@ type SiteOption func(*siteRegisterOptions)
 
 type siteRegisterOptions struct {
 	searchProvider    admin.SearchProvider
+	searchOperations  *admin.GoSearchOperations
 	contentService    admin.CMSContentService
 	contentTypeSvc    admin.CMSContentTypeService
 	contentHandler    router.HandlerFunc
@@ -28,6 +29,16 @@ func WithSearchProvider(provider admin.SearchProvider) SiteOption {
 			return
 		}
 		opts.searchProvider = provider
+	}
+}
+
+// WithSearchOperations exposes optional search operations to site modules.
+func WithSearchOperations(ops *admin.GoSearchOperations) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.searchOperations = ops
 	}
 }
 
@@ -120,16 +131,18 @@ func RegisterSiteRoutes[T any](
 		options.contentHandler = defaultNotFoundHandler
 	}
 
+	var searchRuntime *searchRuntime
 	if options.searchProvider != nil {
 		if runtime := newSearchRuntime(resolved, options.searchProvider, modules); runtime != nil {
+			searchRuntime = runtime
 			if options.searchHandler == nil {
-				options.searchHandler = runtime.PageHandler()
+				options.searchHandler = searchRuntime.PageHandler()
 			}
 			if options.searchAPIHandler == nil {
-				options.searchAPIHandler = runtime.APIHandler()
+				options.searchAPIHandler = searchRuntime.APIHandler()
 			}
 			if options.suggestAPIHandler == nil {
-				options.suggestAPIHandler = runtime.SuggestAPIHandler()
+				options.suggestAPIHandler = searchRuntime.SuggestAPIHandler()
 			}
 		}
 	}
@@ -152,6 +165,7 @@ func RegisterSiteRoutes[T any](
 		DefaultLocale:  resolved.DefaultLocale,
 		ThemeEnabled:   resolved.Features.EnableTheme,
 		SearchProvider: options.searchProvider,
+		SearchOps:      options.searchOperations,
 	}
 	for _, module := range modules {
 		if module == nil {
@@ -168,9 +182,13 @@ func RegisterSiteRoutes[T any](
 
 	if resolved.Features.EnableSearch && options.searchProvider != nil {
 		searchPath := prefixedRoutePath(resolved.BasePath, resolved.Search.Route)
+		searchTopicPath := strings.TrimSuffix(searchPath, "/") + "/topics/:topic_slug"
 		searchAPIPath := prefixedRoutePath("", resolved.Search.Endpoint)
 		suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(resolved.Search.Endpoint))
 		r.Get(searchPath, options.searchHandler)
+		if searchRuntime != nil {
+			r.Get(searchTopicPath, searchRuntime.TopicPageHandler())
+		}
 		r.Get(searchAPIPath, options.searchAPIHandler)
 		r.Get(suggestAPIPath, options.suggestAPIHandler)
 	}
