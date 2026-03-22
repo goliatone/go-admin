@@ -29,6 +29,7 @@ type SiteSearchFilterRequest struct {
 	Query     string              `json:"query"`
 	Locale    string              `json:"locale"`
 	Filters   map[string][]string `json:"filters"`
+	Ranges    []admin.SearchRange `json:"ranges,omitempty"`
 	IsSuggest bool                `json:"is_suggest"`
 }
 
@@ -40,10 +41,11 @@ type SiteSearchFilterInjector interface {
 
 // SiteModuleContext contains stable dependencies for module route registration.
 type SiteModuleContext struct {
-	Admin          *admin.Admin         `json:"admin"`
-	Router         SiteRouter           `json:"router"`
-	BasePath       string               `json:"base_path"`
-	DefaultLocale  string               `json:"default_locale"`
-	ThemeEnabled   bool                 `json:"theme_enabled"`
-	SearchProvider admin.SearchProvider `json:"search_provider"`
+	Admin          *admin.Admin              `json:"admin"`
+	Router         SiteRouter                `json:"router"`
+	BasePath       string                    `json:"base_path"`
+	DefaultLocale  string                    `json:"default_locale"`
+	ThemeEnabled   bool                      `json:"theme_enabled"`
+	SearchProvider admin.SearchProvider      `json:"search_provider"`
+	SearchOps      *admin.GoSearchOperations `json:"search_ops"`
 }
