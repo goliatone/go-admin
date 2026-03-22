@@ -112,5 +112,5 @@ measurable_gain: lineage detail payloads now follow the same permission boundary
 impacted_endpoints: /admin/content/esign_documents/:id lineage payload, /admin/content/esign_agreements/:id lineage payload, agreement revision lineage metadata produced by backend revision flows that feed panel repositories.
 backend_tests: go test ./examples/esign/release ./examples/esign/stores ./examples/esign/modules ./examples/esign/services -count=1
 frontend_tests: go test ./pkg/client -count=1
-contract_hash: 9273181c2b77b016ba29a4b4ed330af65b5c6b6c88032b5bf1d909625fe9bb13
+contract_hash: a0b5d9fec1bf4b862d6dabb2f3bd28efe496923dd3717b1119d438ee624a6ba5
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
