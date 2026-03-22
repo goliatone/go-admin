@@ -119,11 +119,19 @@ export interface SignerSession {
   agreement_id: string;
   agreement_title: string;
   document_name: string;
+  session_kind?: 'signer' | 'reviewer' | string;
+  ui_mode?: 'sign' | 'review' | 'sign_and_review' | string;
+  default_tab?: 'sign' | 'review' | string;
+  viewer_mode?: 'review' | 'sign' | 'complete' | 'read_only' | string;
+  viewer_banner?: 'sender_review' | 'sender_progress' | 'sender_complete' | 'sender_read_only' | string;
   recipient_id: string;
   recipient_name: string;
   recipient_email: string;
   status: string;
   consent_given: boolean;
+  can_sign?: boolean;
+  review_markers_visible?: boolean;
+  review_markers_interactive?: boolean;
   fields: Field[];
   page_count: number;
 }
@@ -291,6 +299,37 @@ export type {
   GoogleImportRedirectRoutes,
   LineagePresentationRules,
   Phase1LineageContractFixtures,
+  // Phase 11 Source-Management Types
+  FingerprintProcessingSummary,
+  SourceManagementLinks,
+  SourceManagementPermissions,
+  SourceProviderExtensionEnvelope,
+  SourceProviderSummary,
+  SourceManagementPageInfo,
+  SourceHandleSummary,
+  SourceRevisionListItem,
+  SourceRelationshipSummary,
+  SourceCommentAnchorSummary,
+  SourceCommentThreadSummary,
+  SourceSearchResultSummary,
+  SourceListItem,
+  SourceListQuery,
+  SourceRevisionListQuery,
+  SourceRelationshipListQuery,
+  SourceSearchQuery,
+  SourceListPage,
+  SourceDetail,
+  SourceRevisionPage,
+  SourceRelationshipPage,
+  SourceHandlePage,
+  SourceRevisionDetail,
+  SourceArtifactPage,
+  SourceCommentPage,
+  SourceSearchResults,
+  SourceManagementContractRules,
+  Phase11SourceManagementQueryFixtures,
+  Phase11SourceManagementFixtureStates,
+  Phase11SourceManagementContractFixtures,
 } from './lineage-contracts.js';
 
 // =============================================================================

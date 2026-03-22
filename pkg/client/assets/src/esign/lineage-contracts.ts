@@ -686,3 +686,421 @@ export function normalizePhase1LineageContractFixtures(value: unknown): Phase1Li
     },
   };
 }
+
+// ============================================================================
+// Phase 11 Source-Management Contract Types (Task 11.7)
+// ============================================================================
+
+/**
+ * Source-management contract types that mirror backend-owned DTOs.
+ * These types provide provider-neutral, source-centric contracts for Version 2 landing-zone work.
+ *
+ * IMPORTANT: Frontend must NOT add semantic fields for lineage meaning, warning precedence,
+ * or source continuity. All business logic lives in backend-owned read models.
+ *
+ * @see DOC_LINEAGE_V1_TSK.md Phase 11 Task 11.7
+ * @see examples/esign/services/lineage_contracts.go (backend source of truth)
+ */
+
+/**
+ * Fingerprint processing state summary.
+ * Extends basic fingerprint status with processing lifecycle metadata.
+ */
+export interface FingerprintProcessingSummary {
+  state: string;
+  status_label?: string;
+  started_at?: string;
+  completed_at?: string;
+  last_attempt_at?: string;
+  attempt_count: number;
+  last_error_code?: string;
+  last_error_message?: string;
+  retryable: boolean;
+  stale: boolean;
+}
+
+/**
+ * Navigation and action links for source-management resources.
+ */
+export interface SourceManagementLinks {
+  self?: string;
+  source?: string;
+  revisions?: string;
+  relationships?: string;
+  handles?: string;
+  diagnostics?: string;
+  provider?: string;
+  artifacts?: string;
+  comments?: string;
+}
+
+/**
+ * Permission-aware visibility flags for source-management surfaces.
+ */
+export interface SourceManagementPermissions {
+  can_view_diagnostics: boolean;
+  can_open_provider_links: boolean;
+  can_review_candidates: boolean;
+  can_view_comments: boolean;
+}
+
+/**
+ * Provider-specific metadata envelope for extensibility.
+ */
+export interface SourceProviderExtensionEnvelope {
+  schema: string;
+  values?: Record<string, unknown>;
+}
+
+/**
+ * Provider-neutral source summary.
+ * Replaces direct Google-specific naming in Version 2 source-management contracts.
+ */
+export interface SourceProviderSummary {
+  kind: string;
+  label: string;
+  external_file_id?: string;
+  account_id?: string;
+  drive_id?: string;
+  web_url?: string;
+  extension?: SourceProviderExtensionEnvelope;
+}
+
+/**
+ * Pagination metadata for source-management list endpoints.
+ */
+export interface SourceManagementPageInfo {
+  mode: string;
+  page: number;
+  page_size: number;
+  total_count: number;
+  has_more: boolean;
+  sort?: string;
+}
+
+/**
+ * Source handle summary for multi-handle scenarios.
+ */
+export interface SourceHandleSummary {
+  id: string;
+  provider_kind: string;
+  external_file_id: string;
+  account_id?: string;
+  drive_id?: string;
+  web_url?: string;
+  handle_status: string;
+  valid_from?: string;
+  valid_to?: string;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source revision list item for revision timeline displays.
+ */
+export interface SourceRevisionListItem {
+  revision: SourceRevisionSummary | null;
+  provider: SourceProviderSummary | null;
+  primary_artifact: SourceArtifactSummary | null;
+  fingerprint_status: FingerprintStatusSummary;
+  fingerprint_processing: FingerprintProcessingSummary;
+  is_latest: boolean;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source relationship summary for candidate review and graph displays.
+ */
+export interface SourceRelationshipSummary {
+  id: string;
+  relationship_type: string;
+  status: string;
+  confidence_band: string;
+  confidence_score?: number;
+  summary: string;
+  left_source: LineageReference | null;
+  right_source: LineageReference | null;
+  counterpart_source: LineageReference | null;
+  review_action_visible?: string;
+  evidence: CandidateEvidenceSummary[];
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source comment anchor summary for comment thread positioning.
+ */
+export interface SourceCommentAnchorSummary {
+  kind?: string;
+  label?: string;
+}
+
+/**
+ * Source comment thread summary for source-level comments.
+ */
+export interface SourceCommentThreadSummary {
+  id: string;
+  provider_comment_id?: string;
+  thread_id?: string;
+  status?: string;
+  anchor: SourceCommentAnchorSummary | null;
+  author_name?: string;
+  body_preview?: string;
+  message_count: number;
+  reply_count: number;
+  resolved_at?: string;
+  last_synced_at?: string;
+  sync_status?: string;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source search result summary.
+ */
+export interface SourceSearchResultSummary {
+  result_kind: string;
+  source: LineageReference | null;
+  revision: SourceRevisionSummary | null;
+  provider: SourceProviderSummary | null;
+  matched_fields: string[];
+  summary?: string;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source list item for source browser display.
+ */
+export interface SourceListItem {
+  source: LineageReference | null;
+  status: string;
+  lineage_confidence: string;
+  provider: SourceProviderSummary | null;
+  latest_revision: SourceRevisionSummary | null;
+  active_handle: SourceHandleSummary | null;
+  revision_count: number;
+  handle_count: number;
+  relationship_count: number;
+  pending_candidate_count: number;
+  permissions: SourceManagementPermissions;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source list query parameters.
+ */
+export interface SourceListQuery {
+  query?: string;
+  provider_kind?: string;
+  status?: string;
+  has_pending_candidates?: boolean;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Source revision list query parameters.
+ */
+export interface SourceRevisionListQuery {
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Source relationship list query parameters.
+ */
+export interface SourceRelationshipListQuery {
+  status?: string;
+  relationship_type?: string;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Source search query parameters.
+ */
+export interface SourceSearchQuery {
+  query: string;
+  provider_kind?: string;
+  status?: string;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Source list page response.
+ */
+export interface SourceListPage {
+  items: SourceListItem[];
+  page_info: SourceManagementPageInfo;
+  applied_query: SourceListQuery;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source detail response.
+ */
+export interface SourceDetail {
+  source: LineageReference | null;
+  status: string;
+  lineage_confidence: string;
+  provider: SourceProviderSummary | null;
+  active_handle: SourceHandleSummary | null;
+  latest_revision: SourceRevisionSummary | null;
+  revision_count: number;
+  handle_count: number;
+  relationship_count: number;
+  pending_candidate_count: number;
+  permissions: SourceManagementPermissions;
+  links: SourceManagementLinks;
+  empty_state: LineageEmptyState;
+}
+
+/**
+ * Source revision page response.
+ */
+export interface SourceRevisionPage {
+  source: LineageReference | null;
+  items: SourceRevisionListItem[];
+  page_info: SourceManagementPageInfo;
+  applied_query: SourceRevisionListQuery;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source relationship page response.
+ */
+export interface SourceRelationshipPage {
+  source: LineageReference | null;
+  items: SourceRelationshipSummary[];
+  page_info: SourceManagementPageInfo;
+  applied_query: SourceRelationshipListQuery;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source handle page response.
+ */
+export interface SourceHandlePage {
+  source: LineageReference | null;
+  items: SourceHandleSummary[];
+  page_info: SourceManagementPageInfo;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source revision detail response.
+ */
+export interface SourceRevisionDetail {
+  source: LineageReference | null;
+  revision: SourceRevisionSummary | null;
+  provider: SourceProviderSummary | null;
+  fingerprint_status: FingerprintStatusSummary;
+  fingerprint_processing: FingerprintProcessingSummary;
+  permissions: SourceManagementPermissions;
+  links: SourceManagementLinks;
+  empty_state: LineageEmptyState;
+}
+
+/**
+ * Source artifact page response.
+ */
+export interface SourceArtifactPage {
+  revision: SourceRevisionSummary | null;
+  items: SourceArtifactSummary[];
+  page_info: SourceManagementPageInfo;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source comment page response.
+ */
+export interface SourceCommentPage {
+  revision: SourceRevisionSummary | null;
+  items: SourceCommentThreadSummary[];
+  page_info: SourceManagementPageInfo;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  sync_status: string;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source search results response.
+ */
+export interface SourceSearchResults {
+  items: SourceSearchResultSummary[];
+  page_info: SourceManagementPageInfo;
+  applied_query: SourceSearchQuery;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source-management contract rules.
+ * Defines pagination mode, page sizes, sort options, and visibility rules.
+ */
+export interface SourceManagementContractRules {
+  frontend_presentation_only: boolean;
+  pagination_mode: string;
+  default_page_size: number;
+  max_page_size: number;
+  supported_source_sorts: string[];
+  supported_revision_sorts: string[];
+  supported_relationship_sorts: string[];
+  supported_search_sorts: string[];
+  provider_link_visibility: string;
+  diagnostics_visibility: string;
+  candidate_review_visibility: string;
+}
+
+/**
+ * Phase 11 source-management query fixtures.
+ */
+export interface Phase11SourceManagementQueryFixtures {
+  list_sources: SourceListQuery;
+  list_revisions: SourceRevisionListQuery;
+  list_relationships: SourceRelationshipListQuery;
+  search: SourceSearchQuery;
+}
+
+/**
+ * Phase 11 source-management fixture states.
+ */
+export interface Phase11SourceManagementFixtureStates {
+  source_list_empty: SourceListPage;
+  source_list_single: SourceListPage;
+  source_detail_repeated: SourceDetail;
+  source_handles_multi: SourceHandlePage;
+  source_revisions_repeated: SourceRevisionPage;
+  source_relationships_review: SourceRelationshipPage;
+  source_revision_detail: SourceRevisionDetail;
+  source_artifacts: SourceArtifactPage;
+  source_comments_empty: SourceCommentPage;
+  source_search_results: SourceSearchResults;
+  source_detail_merged: SourceDetail;
+  source_detail_archived: SourceDetail;
+}
+
+/**
+ * Phase 11 source-management contract fixtures.
+ * Backend-owned example payloads for contract validation and UI development.
+ */
+export interface Phase11SourceManagementContractFixtures {
+  schema_version: number;
+  rules: SourceManagementContractRules;
+  queries: Phase11SourceManagementQueryFixtures;
+  states: Phase11SourceManagementFixtureStates;
+}

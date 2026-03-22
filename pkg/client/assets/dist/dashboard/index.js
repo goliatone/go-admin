@@ -1,11 +1,11 @@
-import { S as $ } from "../chunks/sortable.esm-DOKudrbz.js";
-class S {
+import { t as w } from "../chunks/sortable.esm-G5PYYtV9.js";
+var $ = class {
   constructor() {
     this.sortableInstances = [];
   }
   enable(t, s) {
-    t.querySelectorAll("[data-widgets-grid]").forEach((n) => {
-      const a = $.create(n, {
+    t.querySelectorAll("[data-widgets-grid]").forEach((e) => {
+      const o = w.create(e, {
         handle: ".widget-drag-handle",
         draggable: "[data-widget]",
         animation: 150,
@@ -17,7 +17,7 @@ class S {
           s();
         }
       });
-      this.sortableInstances.push(a);
+      this.sortableInstances.push(o);
     });
   }
   disable() {
@@ -25,36 +25,30 @@ class S {
       t.destroy();
     }), this.sortableInstances = [];
   }
-}
-class _ {
+}, S = class {
   toggleWidth(t, s, e) {
-    const n = s === e ? e / 2 : e;
-    return this.applyWidth(t, n), n;
+    const o = s === e ? e / 2 : e;
+    return this.applyWidth(t, o), o;
   }
   applyWidth(t, s) {
     t.dataset.span = s.toString(), t.style.setProperty("--span", s.toString());
   }
-}
-class k {
+}, _ = class {
   toggle(t) {
-    const e = !(t.dataset.hidden === "true");
-    return this.applyVisibility(t, e), e;
+    const s = t.dataset.hidden !== "true";
+    return this.applyVisibility(t, s), s;
   }
   applyVisibility(t, s) {
     s ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-}
-class C {
+}, k = class {
   async save(t, s) {
     const e = await fetch(t, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(s)
     });
-    if (!e.ok)
-      throw new Error(`Failed to save layout: ${e.statusText}`);
+    if (!e.ok) throw new Error(`Failed to save layout: ${e.statusText}`);
   }
   async load(t) {
     try {
@@ -64,8 +58,7 @@ class C {
       return console.warn("Failed to load layout preferences:", s), null;
     }
   }
-}
-class A {
+}, C = class {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -87,31 +80,24 @@ class A {
       }),
       onError: t.onError || ((s) => console.error("WidgetGrid error:", s))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new S(),
-      resize: t.behaviors?.resize || new _(),
-      visibility: t.behaviors?.visibility || new k(),
-      persistence: t.behaviors?.persistence || new C()
+      dragDrop: t.behaviors?.dragDrop || new $(),
+      resize: t.behaviors?.resize || new S(),
+      visibility: t.behaviors?.visibility || new _(),
+      persistence: t.behaviors?.persistence || new k()
     };
   }
   async init(t) {
-    if (this.container = document.querySelector("[data-widget-grid]"), this.statusElement = document.getElementById("save-status"), !this.container)
-      throw new Error("Widget grid container not found");
+    if (this.container = document.querySelector("[data-widget-grid]"), this.statusElement = document.getElementById("save-status"), !this.container) throw new Error("Widget grid container not found");
     const s = this.normalizePanelDetailState(t);
     s.schema && (this.panelSchema = s.schema, this.panelTabs = s.schema.tabs || []), this.normalizeRenderedWidgetSpans(), this.attachEventListeners(), this.initializeDragDrop(), s.data && this.validateHydration(s.data);
   }
   validateHydration(t) {
-    if (!Array.isArray(t?.areas) || !this.container)
-      return;
-    const s = Array.from(
-      this.container.querySelectorAll("[data-widgets-grid][data-area-grid]")
-    ).map((a) => a.dataset.areaGrid || a.dataset.areaCode || "").filter((a) => !!a);
-    if (s.length === 0)
-      return;
-    const e = new Set(
-      t.areas.map((a) => a?.code || a?.area_code || a?.id || "").filter((a) => typeof a == "string" && a.length > 0)
-    ), n = s.filter((a) => !e.has(a));
-    n.length > 0 && console.warn("Hydration mismatch: rendered area(s) missing from server state", {
-      missing: n,
+    if (!Array.isArray(t?.areas) || !this.container) return;
+    const s = Array.from(this.container.querySelectorAll("[data-widgets-grid][data-area-grid]")).map((a) => a.dataset.areaGrid || a.dataset.areaCode || "").filter((a) => !!a);
+    if (s.length === 0) return;
+    const e = new Set(t.areas.map((a) => a?.code || a?.area_code || a?.id || "").filter((a) => typeof a == "string" && a.length > 0)), o = s.filter((a) => !e.has(a));
+    o.length > 0 && console.warn("Hydration mismatch: rendered area(s) missing from server state", {
+      missing: o,
       server: Array.from(e),
       dom: s
     });
@@ -123,8 +109,7 @@ class A {
     return this.panelTabs;
   }
   normalizePanelDetailState(t) {
-    if (!t)
-      return {};
+    if (!t) return {};
     if (t && typeof t == "object" && "data" in t) {
       const s = t;
       return {
@@ -151,25 +136,25 @@ class A {
   }
   attachEventListeners() {
     this.container && (this.container.addEventListener("click", (t) => {
-      const e = t.target.closest(this.config.selectors.hideBtn);
-      if (e) {
-        const n = e.closest("[data-widget]");
-        n && (this.behaviors.visibility.toggle(n), this.saveLayout());
+      const s = t.target.closest(this.config.selectors.hideBtn);
+      if (s) {
+        const e = s.closest("[data-widget]");
+        e && (this.behaviors.visibility.toggle(e), this.saveLayout());
       }
     }), this.container.addEventListener("click", (t) => {
-      const e = t.target.closest(this.config.selectors.resizeBtn);
-      if (e) {
-        const n = e.closest("[data-widget]");
-        if (n) {
-          const a = this.normalizeSpan(n.dataset.span), o = this.behaviors.resize.toggleWidth(n, a, this.config.maxColumns) === this.config.maxColumns ? "Half Width" : "Full Width", r = Array.from(e.childNodes).find((d) => d.nodeType === Node.TEXT_NODE);
-          r && (r.textContent = o), this.saveLayout();
+      const s = t.target.closest(this.config.selectors.resizeBtn);
+      if (s) {
+        const e = s.closest("[data-widget]");
+        if (e) {
+          const o = this.normalizeSpan(e.dataset.span), a = this.behaviors.resize.toggleWidth(e, o, this.config.maxColumns) === this.config.maxColumns ? "Half Width" : "Full Width", i = Array.from(s.childNodes).find((n) => n.nodeType === Node.TEXT_NODE);
+          i && (i.textContent = a), this.saveLayout();
         }
       }
     }), this.container.querySelectorAll(this.config.selectors.resizeBtn).forEach((t) => {
       const s = t.closest("[data-widget]");
       if (s) {
-        const n = this.normalizeSpan(s.dataset.span) === this.config.maxColumns ? "Half Width" : "Full Width", a = Array.from(t.childNodes).find((i) => i.nodeType === Node.TEXT_NODE);
-        a && (a.textContent = n);
+        const e = this.normalizeSpan(s.dataset.span) === this.config.maxColumns ? "Half Width" : "Full Width", o = Array.from(t.childNodes).find((a) => a.nodeType === Node.TEXT_NODE);
+        o && (o.textContent = e);
       }
     }));
   }
@@ -190,23 +175,24 @@ class A {
       layout_rows: {}
     };
     if (!this.container) return t;
-    this.container.querySelectorAll(this.config.selectors.areas).forEach((n) => {
-      const a = n.dataset.areaGrid || n.dataset.areaCode;
-      if (!a) return;
-      const i = Array.from(
-        n.querySelectorAll('[data-widget]:not([data-hidden="true"])')
-      );
-      t.area_order[a] = i.map((o) => o.dataset.widget), t.layout_rows[a] = this.serializeRows(i);
+    this.container.querySelectorAll(this.config.selectors.areas).forEach((e) => {
+      const o = e.dataset.areaGrid || e.dataset.areaCode;
+      if (!o) return;
+      const a = Array.from(e.querySelectorAll('[data-widget]:not([data-hidden="true"])'));
+      t.area_order[o] = a.map((i) => i.dataset.widget), t.layout_rows[o] = this.serializeRows(a);
     });
-    const e = this.container.querySelectorAll('[data-widget][data-hidden="true"]');
-    return t.hidden_widget_ids = Array.from(e).map((n) => n.dataset.widget), t;
+    const s = this.container.querySelectorAll('[data-widget][data-hidden="true"]');
+    return t.hidden_widget_ids = Array.from(s).map((e) => e.dataset.widget), t;
   }
   serializeRows(t) {
     const s = [];
-    let e = [], n = 0;
+    let e = [], o = 0;
     return t.forEach((a) => {
-      const i = a.dataset.widget, o = this.normalizeSpan(a.dataset.span);
-      n + o > this.config.maxColumns && n > 0 && (s.push({ widgets: e }), e = [], n = 0), e.push({ id: i, width: o }), n += o, n >= this.config.maxColumns && (s.push({ widgets: e }), e = [], n = 0);
+      const i = a.dataset.widget, n = this.normalizeSpan(a.dataset.span);
+      o + n > this.config.maxColumns && o > 0 && (s.push({ widgets: e }), e = [], o = 0), e.push({
+        id: i,
+        width: n
+      }), o += n, o >= this.config.maxColumns && (s.push({ widgets: e }), e = [], o = 0);
     }), e.length > 0 && s.push({ widgets: e }), s;
   }
   updateStatus(t) {
@@ -215,8 +201,7 @@ class A {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}
-const N = {
+}, A = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -235,31 +220,27 @@ const N = {
   "esign.widget.signing_activity": "E-Sign Signing Activity",
   "esign.widget.delivery_health": "E-Sign Delivery Health",
   "esign.widget.pending_signatures": "E-Sign Pending Signatures"
-}, j = /* @__PURE__ */ new Set([
+}, N = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
-]);
-class E {
+]), j = class {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
-  /**
-   * Render a complete widget with wrapper and toolbar
-   */
   render(t, s) {
-    const e = s === "admin.dashboard.main" || s === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), a = t.hidden || !1, i = t.data?.title || t.config?.title || this.getTitle(t.definition), o = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, r = this.renderContent(t);
+    const e = s === "admin.dashboard.main" || s === "admin.dashboard.footer", o = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), a = t.hidden || !1, i = t.data?.title || t.config?.title || this.getTitle(t.definition), n = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, r = this.renderContent(t);
     let d = '<div class="widget__toolbar">';
     return d += '<button type="button" class="hide-widget">Toggle Hide</button>', e ? d += '<button type="button" class="resize-widget">Half Width</button>' : d += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', d += "</div>", `
       <article class="widget"
-               data-widget="${o}"
-               data-span="${n}"
+               data-widget="${n}"
+               data-span="${o}"
                data-area-code="${s}"
                data-resizable="${e}"
                ${a ? 'data-hidden="true"' : ""}
-               style="--span: ${n}">
+               style="--span: ${o}">
         ${d}
         <div class="widget__header mb-4">
           
@@ -277,11 +258,8 @@ class E {
       </article>
     `;
   }
-  /**
-   * Render widget content based on definition type
-   */
   renderContent(t) {
-    const s = t.definition || "", e = t.data || {}, n = t.config || {};
+    const s = t.definition || "", e = t.data || {}, o = t.config || {};
     if (s === "admin.widget.user_stats") {
       const a = {
         Total: e.total ?? 0,
@@ -290,10 +268,10 @@ class E {
       };
       return e.trend && (a.Trend = e.trend), `
         <div class="metrics">
-          ${Object.entries(a).map(([i, o]) => `
+          ${Object.entries(a).map(([i, n]) => `
             <div class="metric">
               <small>${i}</small>
-              <span>${this.formatNumber(o)}</span>
+              <span>${this.formatNumber(n)}</span>
             </div>
           `).join("")}
         </div>
@@ -303,9 +281,9 @@ class E {
       const a = e.values || {}, i = Object.entries(a);
       return i.length === 0 ? '<p class="text-gray-500">No profile data to display</p>' : `
         <dl class="space-y-2">
-          ${i.map(([o, r]) => `
+          ${i.map(([n, r]) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-600">${o}</dt>
+              <dt class="text-sm text-gray-600">${n}</dt>
               <dd class="text-sm font-semibold text-gray-900">${r ?? "—"}</dd>
             </div>
           `).join("")}
@@ -316,15 +294,12 @@ class E {
       const a = e.values || {}, i = Object.entries(a);
       return i.length === 0 ? '<p class="text-gray-500">No settings to display</p>' : `
         <dl class="space-y-2">
-          ${i.map(([o, r]) => {
-        const d = typeof r == "object" && r !== null ? r.value ?? r : r;
-        return `
+          ${i.map(([n, r]) => `
               <div class="flex items-start justify-between gap-4">
-                <dt class="text-sm text-gray-600">${o}</dt>
-                <dd class="text-sm font-semibold text-gray-900">${d ?? "—"}</dd>
+                <dt class="text-sm text-gray-600">${n}</dt>
+                <dd class="text-sm font-semibold text-gray-900">${(typeof r == "object" && r !== null ? r.value ?? r : r) ?? "—"}</dd>
               </div>
-            `;
-      }).join("")}
+            `).join("")}
         </dl>
       `;
     }
@@ -333,11 +308,11 @@ class E {
       return a.length === 0 ? '<p class="text-gray-500">No recent activity</p>' : `
         <ul class="space-y-3">
           ${a.map((i) => {
-        const o = String(i?.actor || i?.metadata?.actor || "system").trim() || "system", r = String(i?.action || "").trim(), d = this.activityActionLabels?.[r] || r || "updated", c = String(i?.object || "").trim();
+        const n = String(i?.actor || i?.metadata?.actor || "system").trim() || "system", r = String(i?.action || "").trim(), d = this.activityActionLabels?.[r] || r || "updated", l = String(i?.object || "").trim();
         return `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
-              <div class="font-semibold text-gray-900 text-sm">${o}</div>
-              <div class="text-gray-600 text-sm mt-1">${d}${c ? ` ${c}` : ""}</div>
+              <div class="font-semibold text-gray-900 text-sm">${n}</div>
+              <div class="text-gray-600 text-sm mt-1">${d}${l ? ` ${l}` : ""}</div>
             </li>
           `;
       }).join("")}
@@ -362,8 +337,7 @@ class E {
     }
     if (s === "admin.widget.chart_sample")
       return e.disabled ? '<p class="text-gray-500 text-sm italic">This legacy chart widget has been disabled.</p>' : '<p class="text-gray-500 text-sm italic">Legacy chart widgets are not supported in the canonical dashboard contract.</p>';
-    if (s === "admin.widget.system_health")
-      return `
+    if (s === "admin.widget.system_health") return `
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-600">Status:</span>
@@ -383,8 +357,7 @@ class E {
           </div>
         </div>
       `;
-    if (s === "admin.widget.content_stats")
-      return `
+    if (s === "admin.widget.content_stats") return `
         <div class="metrics">
           <div class="metric">
             <small>Published</small>
@@ -400,8 +373,7 @@ class E {
           </div>
         </div>
       `;
-    if (s === "admin.widget.storage_stats")
-      return `
+    if (s === "admin.widget.storage_stats") return `
         <div class="metrics">
           <div class="metric">
             <small>Used</small>
@@ -438,7 +410,7 @@ class E {
       `;
     }
     if (s === "esign.widget.agreement_stats") {
-      const a = Number(e.total || 0), i = Number(e.pending || 0), o = Number(e.completed || 0), r = Number(e.voided || 0) + Number(e.declined || 0) + Number(e.expired || 0), d = a > 0 ? Math.round(o * 100 / a) : 0, c = String(e.list_url || "").trim();
+      const a = Number(e.total || 0), i = Number(e.pending || 0), n = Number(e.completed || 0), r = Number(e.voided || 0) + Number(e.declined || 0) + Number(e.expired || 0), d = a > 0 ? Math.round(n * 100 / a) : 0, l = String(e.list_url || "").trim();
       return `
         <div>
           <div class="grid grid-cols-2 gap-4">
@@ -451,7 +423,7 @@ class E {
               <div class="text-xs text-blue-600 uppercase tracking-wide">In Progress</div>
             </div>
             <div class="bg-green-50 rounded-lg p-3 text-center">
-              <div class="text-2xl font-bold text-green-700">${this.formatNumber(o)}</div>
+              <div class="text-2xl font-bold text-green-700">${this.formatNumber(n)}</div>
               <div class="text-xs text-green-600 uppercase tracking-wide">Completed</div>
             </div>
             <div class="bg-red-50 rounded-lg p-3 text-center">
@@ -470,9 +442,9 @@ class E {
               </div>
             </div>
           ` : ""}
-          ${c ? `
+          ${l ? `
             <div class="mt-4 pt-3 border-t border-gray-100 text-center">
-              <a href="${c}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+              <a href="${l}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
                 View All Agreements
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -485,8 +457,7 @@ class E {
     }
     if (s === "esign.widget.signing_activity") {
       const a = Array.isArray(e.activities) ? e.activities : [], i = String(e.activity_url || "").trim();
-      if (a.length === 0)
-        return `
+      if (a.length === 0) return `
           <div class="text-center py-4 text-gray-500">
             <svg class="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -504,7 +475,7 @@ class E {
             </div>
           ` : ""}
         `;
-      const o = (r) => {
+      const n = (r) => {
         const d = String(r || "").toLowerCase();
         return d === "signed" || d === "completed" ? "bg-green-500" : d === "viewed" ? "bg-purple-500" : d === "sent" ? "bg-blue-500" : d === "declined" ? "bg-orange-500" : d === "voided" || d === "expired" ? "bg-red-500" : "bg-gray-400";
       };
@@ -513,7 +484,7 @@ class E {
           ${a.map((r) => `
             <li class="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
               <div class="flex-shrink-0 mt-0.5">
-                <span class="w-2 h-2 inline-block rounded-full ${o(r.type)}" aria-hidden="true"></span>
+                <span class="w-2 h-2 inline-block rounded-full ${n(r.type)}" aria-hidden="true"></span>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium text-gray-900 truncate">
@@ -545,7 +516,16 @@ class E {
       `;
     }
     if (s === "esign.widget.delivery_health") {
-      const a = Math.max(0, Math.min(100, Number(e.email_success_rate ?? 100))), i = Math.max(0, Math.min(100, Number(e.job_success_rate ?? 100))), o = Number(e.pending_retries || 0), r = String(e.period || "").trim(), d = (g) => g >= 95 ? { text: "text-green-600", bar: "bg-green-500" } : g >= 80 ? { text: "text-yellow-600", bar: "bg-yellow-500" } : { text: "text-red-600", bar: "bg-red-500" }, c = d(a), u = d(i);
+      const a = Math.max(0, Math.min(100, Number(e.email_success_rate ?? 100))), i = Math.max(0, Math.min(100, Number(e.job_success_rate ?? 100))), n = Number(e.pending_retries || 0), r = String(e.period || "").trim(), d = (c) => c >= 95 ? {
+        text: "text-green-600",
+        bar: "bg-green-500"
+      } : c >= 80 ? {
+        text: "text-yellow-600",
+        bar: "bg-yellow-500"
+      } : {
+        text: "text-red-600",
+        bar: "bg-red-500"
+      }, l = d(a), h = d(i);
       return `
         <div class="space-y-4">
           <div>
@@ -556,10 +536,10 @@ class E {
                 </svg>
                 <span class="text-sm text-gray-600">Email Delivery</span>
               </div>
-              <span class="text-sm font-semibold ${c.text}">${a}%</span>
+              <span class="text-sm font-semibold ${l.text}">${a}%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="h-2 rounded-full ${c.bar}" style="width: ${a}%"></div>
+              <div class="h-2 rounded-full ${l.bar}" style="width: ${a}%"></div>
             </div>
             <div class="flex justify-between mt-1 text-xs text-gray-400">
               <span>${this.formatNumber(e.emails_sent || 0)} sent</span>
@@ -574,23 +554,23 @@ class E {
                 </svg>
                 <span class="text-sm text-gray-600">Job Processing</span>
               </div>
-              <span class="text-sm font-semibold ${u.text}">${i}%</span>
+              <span class="text-sm font-semibold ${h.text}">${i}%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="h-2 rounded-full ${u.bar}" style="width: ${i}%"></div>
+              <div class="h-2 rounded-full ${h.bar}" style="width: ${i}%"></div>
             </div>
             <div class="flex justify-between mt-1 text-xs text-gray-400">
               <span>${this.formatNumber(e.jobs_completed || 0)} completed</span>
               <span>${this.formatNumber(e.jobs_failed || 0)} failed</span>
             </div>
           </div>
-          ${o > 0 ? `
+          ${n > 0 ? `
             <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div class="flex items-center gap-2 text-sm text-yellow-800">
                 <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
-                <span>${this.formatNumber(o)} items pending retry</span>
+                <span>${this.formatNumber(n)} items pending retry</span>
               </div>
             </div>
           ` : ""}
@@ -620,17 +600,17 @@ class E {
           ` : ""}
         ` : `
         <ul class="space-y-2">
-          ${a.map((o) => {
-        const r = Array.isArray(o.pending_recipients) ? o.pending_recipients : [];
+          ${a.map((n) => {
+        const r = Array.isArray(n.pending_recipients) ? n.pending_recipients : [];
         return `
               <li class="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
                 <div class="flex items-center justify-between">
                   <div class="min-w-0 flex-1">
                     <div class="text-sm font-medium text-gray-900 truncate">
-                      ${o.url ? `<a href="${o.url}" class="hover:text-blue-600">${o.title || "Untitled"}</a>` : `${o.title || "Untitled"}`}
+                      ${n.url ? `<a href="${n.url}" class="hover:text-blue-600">${n.title || "Untitled"}</a>` : `${n.title || "Untitled"}`}
                     </div>
                     <div class="text-xs text-gray-500 mt-0.5">
-                      ${this.formatNumber(o.pending_count || 0)} of ${this.formatNumber(o.total_recipients || 0)} signatures pending
+                      ${this.formatNumber(n.pending_count || 0)} of ${this.formatNumber(n.total_recipients || 0)} signatures pending
                     </div>
                   </div>
                 </div>
@@ -665,15 +645,15 @@ class E {
       `;
     }
     if (s === "admin.widget.translation_progress") {
-      const a = e.summary || {}, i = e.status_counts || {}, o = e.locale_counts || {}, r = Array.isArray(e.links) ? e.links : [], d = Number(a.overdue || 0), c = e.updated_at ? String(e.updated_at) : "", u = (g, v) => {
-        const p = String(g || "").trim().toLowerCase();
-        let m = "bg-gray-100 text-gray-800", h = "bg-gray-500";
-        p === "pending" ? (m = "bg-yellow-100 text-yellow-800", h = "bg-yellow-500") : p === "in_progress" ? (m = "bg-blue-100 text-blue-800", h = "bg-blue-500") : p === "review" ? (m = "bg-purple-100 text-purple-800", h = "bg-purple-500") : p === "approved" || p === "completed" ? (m = "bg-green-100 text-green-800", h = "bg-green-500") : p === "rejected" && (m = "bg-red-100 text-red-800", h = "bg-red-500");
-        const w = this.formatStatusLabel(g);
+      const a = e.summary || {}, i = e.status_counts || {}, n = e.locale_counts || {}, r = Array.isArray(e.links) ? e.links : [], d = Number(a.overdue || 0), l = e.updated_at ? String(e.updated_at) : "", h = (c, m) => {
+        const g = String(c || "").trim().toLowerCase();
+        let u = "bg-gray-100 text-gray-800", p = "bg-gray-500";
+        g === "pending" ? (u = "bg-yellow-100 text-yellow-800", p = "bg-yellow-500") : g === "in_progress" ? (u = "bg-blue-100 text-blue-800", p = "bg-blue-500") : g === "review" ? (u = "bg-purple-100 text-purple-800", p = "bg-purple-500") : g === "approved" || g === "completed" ? (u = "bg-green-100 text-green-800", p = "bg-green-500") : g === "rejected" && (u = "bg-red-100 text-red-800", p = "bg-red-500");
+        const y = this.formatStatusLabel(c);
         return `
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${m}">
-            <span class="w-1.5 h-1.5 rounded-full ${h}"></span>
-            ${w}: ${this.formatNumber(v)}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${u}">
+            <span class="w-1.5 h-1.5 rounded-full ${p}"></span>
+            ${y}: ${this.formatNumber(m)}
           </span>
         `;
       };
@@ -710,19 +690,19 @@ class E {
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(i).map(([g, v]) => u(g, v)).join("")}
+              ${Object.entries(i).map(([c, m]) => h(c, m)).join("")}
             </div>
           </div>
         ` : ""}
 
-        ${Object.keys(o).length > 0 ? `
+        ${Object.keys(n).length > 0 ? `
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(o).map(([g, v]) => `
+              ${Object.entries(n).map(([c, m]) => `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
-                  <span class="uppercase font-semibold">${g}</span>
-                  <span class="text-indigo-500">${this.formatNumber(v)}</span>
+                  <span class="uppercase font-semibold">${c}</span>
+                  <span class="text-indigo-500">${this.formatNumber(m)}</span>
                 </span>
               `).join("")}
             </div>
@@ -733,10 +713,10 @@ class E {
           <div class="pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
             <div class="flex flex-wrap gap-2">
-              ${r.map((g) => `
-                <a href="${g.url || "#"}"
+              ${r.map((c) => `
+                <a href="${c.url || "#"}"
                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
-                  ${g.label || "Open"}
+                  ${c.label || "Open"}
                   <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
@@ -746,20 +726,20 @@ class E {
           </div>
         ` : ""}
 
-        ${c ? `
+        ${l ? `
           <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-            Updated <time data-relative-time="${c}">${c}</time>
+            Updated <time data-relative-time="${l}">${l}</time>
           </div>
         ` : ""}
       `;
     }
-    if (j.has(s)) {
-      const a = e.subtitle || n.subtitle || "", i = String(e.theme || "westeros"), o = String(e.chart_assets_host || "/dashboard/assets/echarts/"), r = e.chart_options ? JSON.stringify(e.chart_options) : "", d = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
+    if (N.has(s)) {
+      const a = e.subtitle || o.subtitle || "", i = String(e.theme || "westeros"), n = String(e.chart_assets_host || "/dashboard/assets/echarts/"), r = e.chart_options ? JSON.stringify(e.chart_options) : "", d = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
           ${a ? `<p class="text-sm text-gray-500 mb-3">${a}</p>` : ""}
           ${r ? `
-            <div class="chart-container" data-echart-widget data-chart-id="${d}" data-chart-theme="${i}" data-chart-assets-host="${o}">
+            <div class="chart-container" data-echart-widget data-chart-id="${d}" data-chart-theme="${i}" data-chart-assets-host="${n}">
               <div id="${d}" class="w-full" style="height: 360px;"></div>
               <script type="application/json" data-chart-options>${r}<\/script>
             </div>
@@ -770,15 +750,9 @@ class E {
     }
     return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(e, null, 2)}</pre>`;
   }
-  /**
-   * Get display title for widget definition
-   */
   getTitle(t) {
-    return N[t] || t;
+    return A[t] || t;
   }
-  /**
-   * Format number with locale
-   */
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
   }
@@ -790,123 +764,122 @@ class E {
     const s = Number.parseInt(String(t ?? ""), 10);
     return !Number.isFinite(s) || s < 1 || s > 12 ? 12 : s;
   }
-}
-const b = /* @__PURE__ */ new Map(), f = /* @__PURE__ */ new WeakMap();
-async function T(l) {
-  const t = new E(l), s = l.apiBasePath ? `${l.apiBasePath}/dashboard` : `${l.basePath}/api/dashboard`, e = document.getElementById("dashboard-export");
-  e && e.addEventListener("click", () => window.open(s));
-  const a = await (await fetch(s)).json(), i = z(a.widgets || []);
-  for (const [r, d] of Object.entries(i)) {
-    const c = document.querySelector(`[data-area-grid="${r}"]`);
-    c && (c.innerHTML = d.map((u) => t.render(u, r)).join(""));
+}, v = /* @__PURE__ */ new Map(), b = /* @__PURE__ */ new WeakMap();
+async function E(t) {
+  const s = new j(t), e = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, o = document.getElementById("dashboard-export");
+  o && o.addEventListener("click", () => window.open(e));
+  const a = T((await (await fetch(e)).json()).widgets || []);
+  for (const [i, n] of Object.entries(a)) {
+    const r = document.querySelector(`[data-area-grid="${i}"]`);
+    r && (r.innerHTML = n.map((d) => s.render(d, i)).join(""));
   }
-  await y(), await new A({
-    apiEndpoint: s,
-    preferencesEndpoint: `${s}/preferences`,
-    areas: ["admin.dashboard.main", "admin.dashboard.sidebar", "admin.dashboard.footer"],
+  await x(), await new C({
+    apiEndpoint: e,
+    preferencesEndpoint: `${e}/preferences`,
+    areas: [
+      "admin.dashboard.main",
+      "admin.dashboard.sidebar",
+      "admin.dashboard.footer"
+    ],
     selectors: {
       hideBtn: ".hide-widget",
       resizeBtn: ".resize-widget"
     },
-    onSave: (r) => {
-      console.log("Layout saved:", r);
+    onSave: (i) => {
+      console.log("Layout saved:", i);
     },
-    onError: (r) => {
-      console.error("Widget grid error:", r);
-      const d = document.getElementById("save-status");
-      d && (d.textContent = "Failed to save layout");
+    onError: (i) => {
+      console.error("Widget grid error:", i);
+      const n = document.getElementById("save-status");
+      n && (n.textContent = "Failed to save layout");
     }
-  }).init(), await y();
+  }).init(), await x();
 }
-function z(l) {
-  return l.reduce((t, s) => {
-    const e = s.area || "admin.dashboard.main";
-    return t[e] || (t[e] = []), t[e].push(s), t;
+function T(t) {
+  return t.reduce((s, e) => {
+    const o = e.area || "admin.dashboard.main";
+    return s[o] || (s[o] = []), s[o].push(e), s;
   }, {});
 }
-function B(l) {
-  const t = (l || "").trim();
-  return t ? t.endsWith("/") ? t : `${t}/` : "/dashboard/assets/echarts/";
+function z(t) {
+  const s = (t || "").trim();
+  return s ? s.endsWith("/") ? s : `${s}/` : "/dashboard/assets/echarts/";
 }
-function x(l) {
-  if (!l)
-    return Promise.resolve();
-  if (b.has(l))
-    return b.get(l);
-  if (document.querySelector(`script[src="${l}"]`)) {
+function f(t) {
+  if (!t) return Promise.resolve();
+  if (v.has(t)) return v.get(t);
+  if (document.querySelector(`script[src="${t}"]`)) {
     const e = Promise.resolve();
-    return b.set(l, e), e;
+    return v.set(t, e), e;
   }
-  const s = new Promise((e, n) => {
+  const s = new Promise((e, o) => {
     const a = document.createElement("script");
-    a.src = l, a.async = !0, a.onload = () => e(), a.onerror = () => n(new Error(`Failed to load chart asset: ${l}`)), document.head.appendChild(a);
+    a.src = t, a.async = !0, a.onload = () => e(), a.onerror = () => o(/* @__PURE__ */ new Error(`Failed to load chart asset: ${t}`)), document.head.appendChild(a);
   });
-  return b.set(l, s), s;
+  return v.set(t, s), s;
 }
-async function L(l, t) {
-  const s = B(t);
-  await x(`${s}echarts.min.js`), l && l !== "default" && await x(`${s}themes/${l}.js`);
+async function B(t, s) {
+  const e = z(s);
+  await f(`${e}echarts.min.js`), t && t !== "default" && await f(`${e}themes/${t}.js`);
 }
-function D(l) {
-  const t = l.querySelector("script[data-chart-options]");
-  if (!t?.textContent)
-    return null;
+function L(t) {
+  const s = t.querySelector("script[data-chart-options]");
+  if (!s?.textContent) return null;
   try {
-    return JSON.parse(t.textContent);
-  } catch (s) {
-    return console.error("[admin-dashboard] Failed to parse chart options", s), null;
+    return JSON.parse(s.textContent);
+  } catch (e) {
+    return console.error("[admin-dashboard] Failed to parse chart options", e), null;
   }
 }
-function M(l) {
-  const t = (l.dataset.chartId || "").trim(), s = (l.dataset.chartTheme || "westeros").trim(), e = D(l), n = t ? document.getElementById(t) : null, a = window.echarts;
-  if (!n || !e || !a)
-    return;
-  const i = a.getInstanceByDom(n) || a.init(n, s, { renderer: "canvas" });
-  if (i.setOption(e, !0), !f.has(l) && window.ResizeObserver) {
-    const o = new ResizeObserver(() => {
+function D(t) {
+  const s = (t.dataset.chartId || "").trim(), e = (t.dataset.chartTheme || "westeros").trim(), o = L(t), a = s ? document.getElementById(s) : null, i = window.echarts;
+  if (!a || !o || !i) return;
+  const n = i.getInstanceByDom(a) || i.init(a, e, { renderer: "canvas" });
+  if (n.setOption(o, !0), !b.has(t) && window.ResizeObserver) {
+    const r = new ResizeObserver(() => {
       try {
-        i.resize();
-      } catch (r) {
-        console.warn("[admin-dashboard] Chart resize failed", r);
+        n.resize();
+      } catch (d) {
+        console.warn("[admin-dashboard] Chart resize failed", d);
       }
     });
-    o.observe(n), f.set(l, o);
+    r.observe(a), b.set(t, r);
   }
 }
-async function y() {
-  const l = Array.from(document.querySelectorAll("[data-echart-widget]"));
-  for (const t of l) {
-    const s = (t.dataset.chartTheme || "westeros").trim(), e = t.dataset.chartAssetsHost || "";
+async function x() {
+  const t = Array.from(document.querySelectorAll("[data-echart-widget]"));
+  for (const s of t) {
+    const e = (s.dataset.chartTheme || "westeros").trim(), o = s.dataset.chartAssetsHost || "";
     try {
-      await L(s, e), M(t);
-    } catch (n) {
-      console.error("[admin-dashboard] Failed to hydrate chart widget", n);
+      await B(e, o), D(s);
+    } catch (a) {
+      console.error("[admin-dashboard] Failed to hydrate chart widget", a);
     }
   }
 }
-function I() {
-  const l = document.getElementById("admin-dashboard-config");
-  if (!l?.textContent) {
+function O() {
+  const t = document.getElementById("admin-dashboard-config");
+  if (!t?.textContent) {
     console.error("[admin-dashboard] Missing #admin-dashboard-config element");
     return;
   }
   try {
-    const t = JSON.parse(l.textContent);
-    T(t).catch((s) => {
+    E(JSON.parse(t.textContent)).catch((s) => {
       console.error("[admin-dashboard] Failed to initialize:", s);
     });
-  } catch (t) {
-    console.error("[admin-dashboard] Invalid config JSON:", t);
+  } catch (s) {
+    console.error("[admin-dashboard] Invalid config JSON:", s);
   }
 }
 export {
-  S as DefaultDragDropBehavior,
-  C as DefaultPersistenceBehavior,
-  _ as DefaultResizeBehavior,
-  k as DefaultVisibilityBehavior,
-  A as WidgetGrid,
-  E as WidgetRenderer,
-  I as bootstrapAdminDashboard,
-  T as initAdminDashboard
+  $ as DefaultDragDropBehavior,
+  k as DefaultPersistenceBehavior,
+  S as DefaultResizeBehavior,
+  _ as DefaultVisibilityBehavior,
+  C as WidgetGrid,
+  j as WidgetRenderer,
+  O as bootstrapAdminDashboard,
+  E as initAdminDashboard
 };
+
 //# sourceMappingURL=index.js.map

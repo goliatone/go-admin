@@ -5990,6 +5990,8 @@ function resolveArtifacts(assets) {
   return hasAny ? artifacts : null;
 }
 
+const signerCompleteUtils = await import('../dist/esign/index.js');
+
 /**
  * Determine the artifact display state based on assets and completion status.
  *
@@ -6063,6 +6065,61 @@ test('Phase 20.FE.3: resolveArtifacts ignores contract_url', () => {
 test('Phase 20.FE.3: resolveArtifacts handles null/undefined input', () => {
   assert.equal(resolveArtifacts(null), null);
   assert.equal(resolveArtifacts(undefined), null);
+});
+
+test('Phase 20.FE.3: signer complete payload treats source-only completion as not ready', () => {
+  const resolved = signerCompleteUtils.resolveSignerCompletePayloadState({
+    contract: { agreement_status: 'completed' },
+    assets: {
+      source_url: '/assets/source.pdf',
+    },
+  }, true);
+
+  assert.deepEqual(resolved.artifacts, {
+    executed: null,
+    source: '/assets/source.pdf',
+    certificate: null,
+  });
+  assert.equal(resolved.agreementCompleted, true);
+  assert.equal(resolved.completionPackageReady, false);
+});
+
+test('Phase 20.FE.3: signer complete payload treats executed plus certificate as ready', () => {
+  const resolved = signerCompleteUtils.resolveSignerCompletePayloadState({
+    contract: { agreement_status: 'completed' },
+    assets: {
+      executed_url: '/assets/executed.pdf',
+      certificate_url: '/assets/certificate.pdf',
+    },
+  }, true);
+
+  assert.deepEqual(resolved.artifacts, {
+    executed: '/assets/executed.pdf',
+    source: null,
+    certificate: '/assets/certificate.pdf',
+  });
+  assert.equal(resolved.agreementCompleted, true);
+  assert.equal(resolved.completionPackageReady, true);
+});
+
+test('Phase 20.FE.3: signer complete poll delay backs off for completed agreements', () => {
+  const firstDelay = signerCompleteUtils.getSignerCompletionPollDelayMs(1, true);
+  const thirdDelay = signerCompleteUtils.getSignerCompletionPollDelayMs(3, true);
+  const laterDelay = signerCompleteUtils.getSignerCompletionPollDelayMs(20, true);
+
+  assert.equal(firstDelay, 2000);
+  assert.ok(thirdDelay > firstDelay, 'completed agreement delay should back off');
+  assert.ok(laterDelay <= 15000, 'completed agreement delay should cap');
+});
+
+test('Phase 20.FE.3: signer complete poll delay is slower for pending agreements', () => {
+  const completedDelay = signerCompleteUtils.getSignerCompletionPollDelayMs(1, true);
+  const pendingDelay = signerCompleteUtils.getSignerCompletionPollDelayMs(1, false);
+
+  assert.ok(
+    pendingDelay > completedDelay,
+    'pending agreement polling should be slower than completed agreement polling',
+  );
 });
 
 test('Phase 20.FE.3: determineArtifactState returns "available" when artifacts exist', () => {

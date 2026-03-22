@@ -9,7 +9,14 @@
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Search</p>
         <h1 class="mt-1 text-3xl font-semibold text-slate-900">Site Search</h1>
-        <p class="mt-2 text-sm text-slate-600">Facets, filter chips, and mixed result cards powered by the site search provider.</p>
+        <p class="mt-2 text-sm text-slate-600">Canonical site search backed by the configured search provider.</p>
+        {% if search_landing and search_landing.title %}
+          <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800">
+            <span>{{ search_landing.breadcrumb|default:"Topic" }}</span>
+            <span>·</span>
+            <span>{{ search_landing.title }}</span>
+          </div>
+        {% endif %}
       </div>
       <button
         type="button"
@@ -23,15 +30,28 @@
       </button>
     </div>
 
-    <form method="get" action="{{ search_route|default:'/search' }}" class="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto]">
+    <form method="get" action="{{ search_route|default:'/search' }}" class="mt-4 grid gap-3 md:grid-cols-[1fr_180px_160px_auto]">
       <label class="sr-only" for="site-search-query">Search query</label>
+      <div class="relative">
+        <input
+          id="site-search-query"
+          type="text"
+          name="q"
+          value="{{ search_query|default:search.query }}"
+          placeholder="Search content"
+          autocomplete="off"
+          data-site-search-input
+          data-site-search-suggest-endpoint="{{ search_suggest_endpoint|default:'/api/v1/site/search/suggest' }}"
+          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
+        >
+        <div data-site-search-suggestions class="absolute left-0 right-0 top-full z-10 mt-2 hidden rounded-xl border border-slate-200 bg-white shadow-lg"></div>
+      </div>
       <input
-        id="site-search-query"
         type="text"
-        name="q"
-        value="{{ search_query|default:search.query }}"
-        placeholder="Search content"
-        class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
+        name="locale"
+        value="{{ search.locale|default:locale|default:default_locale|default:'en' }}"
+        placeholder="Locale"
+        class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"
       >
       <select name="sort" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm">
         {% for option in search_sort_options %}
@@ -51,37 +71,77 @@
             <span aria-hidden="true">×</span>
           </a>
         {% endfor %}
+        <a href="{{ search_clear_url|default:'#' }}" class="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700 hover:border-rose-300">
+          Clear all
+        </a>
       </div>
     {% endif %}
   </header>
 
-  <div class="grid gap-6 md:grid-cols-[minmax(0,260px)_1fr]">
+  <div class="grid gap-6 md:grid-cols-[minmax(0,300px)_1fr]">
     <aside id="site-search-facets" class="hidden space-y-4 md:block" data-site-search-panel>
-      <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Facets</h2>
+      <form method="get" action="{{ search_route|default:'/search' }}" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <input type="hidden" name="q" value="{{ search_query|default:search.query }}">
+        <input type="hidden" name="locale" value="{{ search.locale|default:locale|default:default_locale|default:'en' }}">
+        <input type="hidden" name="sort" value="{{ search.sort|default:'' }}">
+
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Filters</h2>
+          <a href="{{ search_clear_url|default:'#' }}" class="text-xs font-medium text-slate-500 hover:text-slate-800">Reset</a>
+        </div>
+
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ranges</h3>
+          <div class="mt-3 grid gap-3">
+            <div class="grid gap-2">
+              <label class="text-xs font-medium text-slate-600">Published year</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="published_year_gte" value="{{ search_range_values.published_year.gte|default:'' }}" placeholder="From" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <input type="number" name="published_year_lte" value="{{ search_range_values.published_year.lte|default:'' }}" placeholder="To" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <label class="text-xs font-medium text-slate-600">Duration seconds</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="duration_seconds_gte" value="{{ search_range_values.duration_seconds.gte|default:'' }}" placeholder="Min" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <input type="number" name="duration_seconds_lte" value="{{ search_range_values.duration_seconds.lte|default:'' }}" placeholder="Max" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+              </div>
+            </div>
+          </div>
+        </article>
+
         {% if search_facets %}
-          <div class="mt-3 space-y-3">
+          <div class="space-y-3">
             {% for facet in search_facets %}
               <article class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ facet.name }}</h3>
-                <ul class="mt-2 space-y-1">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ facet.name }}</h3>
+                  {% if facet.kind %}
+                    <span class="rounded-full bg-white px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">{{ facet.kind }}</span>
+                  {% endif %}
+                </div>
+                <ul class="mt-2 space-y-2">
                   {% for bucket in facet.buckets %}
                     <li>
-                      <a href="{{ bucket.url|default:'#' }}"
-                         class="flex items-center justify-between rounded-lg px-2 py-1 text-sm transition-colors {% if bucket.active %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-white{% endif %}">
-                        <span>{{ bucket.value }}</span>
-                        <span class="text-xs opacity-80">{{ bucket.count }}</span>
-                      </a>
+                      <label class="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1 text-sm transition-colors hover:bg-white">
+                        <input type="checkbox" name="facet_{{ facet.name }}" value="{{ bucket.value }}" {% if bucket.active or bucket.selected %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-sky-600">
+                        <span class="flex-1 text-slate-700" style="padding-left: {{ bucket.indent_px|default:0 }}px;">
+                          {{ bucket.label|default:bucket.value }}
+                        </span>
+                        <span class="rounded-full bg-white px-2 py-1 text-[10px] font-medium text-slate-500">{{ bucket.count }}</span>
+                      </label>
                     </li>
                   {% endfor %}
                 </ul>
               </article>
             {% endfor %}
           </div>
-        {% else %}
-          <p class="mt-3 text-sm text-slate-500">No facets available for this query.</p>
         {% endif %}
-      </section>
+
+        <button type="submit" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800">
+          Apply filters
+        </button>
+      </form>
 
       <section class="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Runtime</h2>
@@ -93,6 +153,7 @@
           <li>active_path: {{ active_path|default:"/" }}</li>
           <li>locale: {{ locale|default:default_locale|default:"en" }}</li>
           <li>supported_locales: {{ supported_locales|join:", " }}</li>
+          <li>indexes: {{ search_indexes|join:", " }}</li>
         </ul>
       </section>
     </aside>
@@ -107,12 +168,45 @@
         <div class="space-y-3">
           {% for hit in search_results %}
             <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p class="text-xs uppercase tracking-wide text-slate-500">{{ hit.type|default:"content" }}</p>
-              <h2 class="mt-1 text-xl font-semibold text-slate-900">{{ hit.title|default:hit.id }}</h2>
-              {% if hit.summary %}
-                <p class="mt-2 text-sm text-slate-600">{{ hit.summary }}</p>
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+                    <span>{{ hit.type|default:"content" }}</span>
+                    {% if hit.badge %}
+                      <span class="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800">{{ hit.badge }}</span>
+                    {% endif %}
+                    {% if hit.locale %}
+                      <span class="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-semibold text-sky-800">{{ hit.locale }}</span>
+                    {% endif %}
+                  </div>
+                  <h2 class="mt-2 text-xl font-semibold text-slate-900">{{ hit.title|default:hit.id }}</h2>
+                  {% if hit.parent_title %}
+                    <p class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-400">Parent · {{ hit.parent_title }}</p>
+                  {% endif %}
+                </div>
+                {% if hit.anchor and hit.anchor.url %}
+                  <a href="{{ hit.anchor.url }}" class="text-xs font-medium text-sky-700 hover:text-sky-900">Jump to segment</a>
+                {% endif %}
+              </div>
+
+              {% if hit.highlighted %}
+                <p class="mt-3 text-sm leading-6 text-slate-700">{{ hit.highlighted|safe }}</p>
+              {% elif hit.snippet %}
+                <p class="mt-3 text-sm leading-6 text-slate-700">{{ hit.snippet }}</p>
+              {% elif hit.summary %}
+                <p class="mt-3 text-sm leading-6 text-slate-600">{{ hit.summary }}</p>
               {% endif %}
-              <a href="{{ hit.url|default:'#' }}" class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-900">
+
+              <div class="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                {% if hit.parent_summary %}
+                  <span>{{ hit.parent_summary }}</span>
+                {% endif %}
+                {% if hit.score %}
+                  <span>Score {{ hit.score }}</span>
+                {% endif %}
+              </div>
+
+              <a href="{{ hit.url|default:'#' }}" class="mt-4 inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-900">
                 Open result
                 <i class="iconoir-arrow-right" aria-hidden="true"></i>
               </a>
@@ -148,4 +242,65 @@
     </div>
   </div>
 </section>
+
+<script>
+(function () {
+  const input = document.querySelector('[data-site-search-input]');
+  const box = document.querySelector('[data-site-search-suggestions]');
+  if (!input || !box) return;
+  let timer;
+
+  function hideBox() {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  }
+
+  async function fetchSuggestions(query) {
+    const endpoint = input.dataset.siteSearchSuggestEndpoint || '/api/v1/site/search/suggest';
+    const params = new URLSearchParams();
+    params.set('q', query);
+    const localeInput = document.querySelector('input[name="locale"]');
+    if (localeInput && localeInput.value.trim()) params.set('locale', localeInput.value.trim());
+    const response = await fetch(endpoint + '?' + params.toString(), {
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) {
+      hideBox();
+      return;
+    }
+    const payload = await response.json();
+    const suggestions = (((payload || {}).data || {}).suggestions) || [];
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      hideBox();
+      return;
+    }
+    box.innerHTML = suggestions.map(function (item) {
+      return '<button type="button" class="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50">' + item + '</button>';
+    }).join('');
+    box.querySelectorAll('button').forEach(function (button) {
+      button.addEventListener('click', function () {
+        input.value = button.textContent || '';
+        input.form.submit();
+      });
+    });
+    box.classList.remove('hidden');
+  }
+
+  input.addEventListener('input', function () {
+    const query = input.value.trim();
+    clearTimeout(timer);
+    if (query.length < 2) {
+      hideBox();
+      return;
+    }
+    timer = setTimeout(function () {
+      fetchSuggestions(query).catch(hideBox);
+    }, 180);
+  });
+
+  input.addEventListener('blur', function () {
+    setTimeout(hideBox, 150);
+  });
+})();
+</script>
 {% endblock %}

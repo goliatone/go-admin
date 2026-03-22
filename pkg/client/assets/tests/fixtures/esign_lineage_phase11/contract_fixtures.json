@@ -1,0 +1,988 @@
+{
+  "schema_version": 1,
+  "rules": {
+    "frontend_presentation_only": true,
+    "pagination_mode": "page",
+    "default_page_size": 25,
+    "max_page_size": 100,
+    "supported_source_sorts": [
+      "updated_desc",
+      "title_asc",
+      "title_desc",
+      "pending_candidates_desc"
+    ],
+    "supported_revision_sorts": [
+      "latest_desc",
+      "oldest_asc"
+    ],
+    "supported_relationship_sorts": [
+      "confidence_desc",
+      "created_desc"
+    ],
+    "supported_search_sorts": [
+      "relevance",
+      "title_asc"
+    ],
+    "provider_link_visibility": "admin_view",
+    "diagnostics_visibility": "admin_view",
+    "candidate_review_visibility": "admin_debug_only"
+  },
+  "queries": {
+    "list_sources": {
+      "query": "fixture-google-file-2",
+      "has_pending_candidates": true,
+      "sort": "pending_candidates_desc",
+      "page": 1,
+      "page_size": 10
+    },
+    "list_revisions": {
+      "sort": "latest_desc",
+      "page": 1,
+      "page_size": 10
+    },
+    "list_relationships": {
+      "status": "pending_review",
+      "sort": "confidence_desc",
+      "page": 1,
+      "page_size": 10
+    },
+    "search": {
+      "query": "fixture-google-file-2",
+      "sort": "relevance",
+      "page": 1,
+      "page_size": 10
+    }
+  },
+  "states": {
+    "source_list_empty": {
+      "items": [],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 0,
+        "has_more": false,
+        "sort": "pending_candidates_desc"
+      },
+      "applied_query": {
+        "query": "missing-source",
+        "sort": "pending_candidates_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "no_results",
+        "title": "No sources",
+        "description": "No canonical source documents match the current filters."
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources"
+      }
+    },
+    "source_list_single": {
+      "items": [
+        {
+          "source": {
+            "id": "src-doc-1",
+            "label": "Imported Fixture Source",
+            "url": "/admin/api/v1/esign/sources/src-doc-1"
+          },
+          "status": "active",
+          "lineage_confidence": "exact",
+          "provider": {
+            "kind": "google_drive",
+            "label": "Google Drive",
+            "external_file_id": "fixture-google-file-2",
+            "account_id": "fixture-account-2",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+            "extension": {
+              "schema": "google_drive.v1",
+              "values": {
+                "owner_email": "owner@example.com",
+                "parent_id": "fixture-folder",
+                "source_mime_type": "application/vnd.google-apps.document",
+                "source_version_hint": "v2",
+                "title_hint": "Imported Fixture Source"
+              }
+            }
+          },
+          "latest_revision": {
+            "id": "src-rev-2",
+            "provider_revision_hint": "v2",
+            "modified_time": "2026-03-18T20:00:00Z",
+            "exported_at": "2026-03-18T20:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "latest",
+              "pinned"
+            ],
+            "pinned_document_count": 1
+          },
+          "active_handle": {
+            "id": "src-handle-2",
+            "provider_kind": "google_drive",
+            "external_file_id": "fixture-google-file-2",
+            "account_id": "fixture-account-2",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+            "handle_status": "active",
+            "valid_from": "2026-03-18T20:00:00Z",
+            "links": {
+              "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+            }
+          },
+          "revision_count": 2,
+          "handle_count": 2,
+          "relationship_count": 1,
+          "pending_candidate_count": 1,
+          "permissions": {
+            "can_view_diagnostics": true,
+            "can_open_provider_links": true,
+            "can_review_candidates": true,
+            "can_view_comments": false
+          },
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 1,
+        "has_more": false,
+        "sort": "pending_candidates_desc"
+      },
+      "applied_query": {
+        "query": "fixture-google-file-2",
+        "has_pending_candidates": true,
+        "sort": "pending_candidates_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources"
+      }
+    },
+    "source_detail_repeated": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "status": "active",
+      "lineage_confidence": "exact",
+      "provider": {
+        "kind": "google_drive",
+        "label": "Google Drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "extension": {
+          "schema": "google_drive.v1",
+          "values": {
+            "owner_email": "owner@example.com",
+            "parent_id": "fixture-folder",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "source_version_hint": "v2",
+            "title_hint": "Imported Fixture Source"
+          }
+        }
+      },
+      "active_handle": {
+        "id": "src-handle-2",
+        "provider_kind": "google_drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "handle_status": "active",
+        "valid_from": "2026-03-18T20:00:00Z",
+        "links": {
+          "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+        }
+      },
+      "latest_revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "revision_count": 2,
+      "handle_count": 2,
+      "relationship_count": 1,
+      "pending_candidate_count": 1,
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "source_handles_multi": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "items": [
+        {
+          "id": "src-handle-2",
+          "provider_kind": "google_drive",
+          "external_file_id": "fixture-google-file-2",
+          "account_id": "fixture-account-2",
+          "drive_id": "fixture-drive-root",
+          "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+          "handle_status": "active",
+          "valid_from": "2026-03-18T20:00:00Z",
+          "links": {
+            "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+          }
+        },
+        {
+          "id": "src-handle-1",
+          "provider_kind": "google_drive",
+          "external_file_id": "fixture-google-file-1",
+          "account_id": "fixture-account-1",
+          "drive_id": "fixture-drive-root",
+          "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit",
+          "handle_status": "active",
+          "valid_from": "2026-03-18T18:00:00Z",
+          "links": {
+            "provider": "https://docs.google.com/document/d/fixture-google-file-1/edit"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 2,
+        "total_count": 2,
+        "has_more": false,
+        "sort": "updated_desc"
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+      }
+    },
+    "source_revisions_repeated": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "items": [
+        {
+          "revision": {
+            "id": "src-rev-2",
+            "provider_revision_hint": "v2",
+            "modified_time": "2026-03-18T20:00:00Z",
+            "exported_at": "2026-03-18T20:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "latest",
+              "pinned"
+            ],
+            "pinned_document_count": 1
+          },
+          "provider": {
+            "kind": "google_drive",
+            "label": "Google Drive",
+            "external_file_id": "fixture-google-file-2",
+            "account_id": "fixture-account-2",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+            "extension": {
+              "schema": "google_drive.v1",
+              "values": {
+                "owner_email": "owner@example.com",
+                "parent_id": "fixture-folder",
+                "source_mime_type": "application/vnd.google-apps.document",
+                "source_version_hint": "v2",
+                "title_hint": "Imported Fixture Source"
+              }
+            }
+          },
+          "primary_artifact": {
+            "id": "src-art-2",
+            "artifact_kind": "signable_pdf",
+            "object_key": "tenant/google-v2.pdf",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "page_count": 4,
+            "size_bytes": 8192,
+            "compatibility_tier": "supported",
+            "normalization_status": "completed"
+          },
+          "fingerprint_status": {
+            "status": "failed",
+            "evidence_available": false,
+            "error_message": "text extraction exceeded retry budget",
+            "error_code": "OCR_TIMEOUT"
+          },
+          "fingerprint_processing": {
+            "state": "failed",
+            "attempt_count": 3,
+            "last_error_code": "OCR_TIMEOUT",
+            "last_error_message": "text extraction exceeded retry budget",
+            "retryable": false,
+            "stale": false
+          },
+          "is_latest": true,
+          "links": {
+            "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+          }
+        },
+        {
+          "revision": {
+            "id": "src-rev-1",
+            "provider_revision_hint": "v1",
+            "modified_time": "2026-03-18T18:00:00Z",
+            "exported_at": "2026-03-18T18:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "pinned",
+              "superseded"
+            ],
+            "pinned_document_count": 1,
+            "pinned_agreement_count": 1
+          },
+          "provider": {
+            "kind": "google_drive",
+            "label": "Google Drive",
+            "external_file_id": "fixture-google-file-1",
+            "account_id": "fixture-account-1",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit"
+          },
+          "primary_artifact": {
+            "id": "src-art-1",
+            "artifact_kind": "signable_pdf",
+            "object_key": "tenant/google-v1.pdf",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "page_count": 3,
+            "size_bytes": 4096,
+            "compatibility_tier": "supported",
+            "normalization_status": "completed"
+          },
+          "fingerprint_status": {
+            "status": "pending",
+            "evidence_available": false
+          },
+          "fingerprint_processing": {
+            "state": "running",
+            "status_label": "In progress",
+            "retryable": true,
+            "stale": false
+          },
+          "is_latest": false,
+          "links": {
+            "self": "/admin/api/v1/esign/source-revisions/src-rev-1",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-1/artifacts",
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 2,
+        "has_more": false,
+        "sort": "latest_desc"
+      },
+      "applied_query": {
+        "sort": "latest_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+      }
+    },
+    "source_relationships_review": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "items": [
+        {
+          "id": "src-rel-1",
+          "relationship_type": "copied_from",
+          "relationship_kind": "copy",
+          "status": "pending_review",
+          "counterpart_role": "predecessor",
+          "confidence_band": "medium",
+          "confidence_score": 0.82,
+          "summary": "Pending review predecessor copy lineage",
+          "left_source": {
+            "id": "src-doc-1",
+            "label": "Imported Fixture Source",
+            "url": "/admin/api/v1/esign/sources/src-doc-1"
+          },
+          "right_source": {
+            "id": "src-doc-candidate",
+            "label": "Imported Fixture Source",
+            "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+          },
+          "counterpart_source": {
+            "id": "src-doc-candidate",
+            "label": "Imported Fixture Source",
+            "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+          },
+          "review_action_visible": "admin_debug_only",
+          "evidence": [
+            {
+              "code": "normalized_text_similarity",
+              "label": "Normalized text match",
+              "details": "0.91 similarity"
+            },
+            {
+              "code": "account_match",
+              "label": "Account history",
+              "details": "fixture-account-2"
+            }
+          ],
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "source": "/admin/api/v1/esign/sources/src-doc-candidate"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 1,
+        "has_more": false,
+        "sort": "confidence_desc"
+      },
+      "applied_query": {
+        "status": "pending_review",
+        "sort": "confidence_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+      }
+    },
+    "source_revision_detail": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "provider": {
+        "kind": "google_drive",
+        "label": "Google Drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "extension": {
+          "schema": "google_drive.v1",
+          "values": {
+            "owner_email": "owner@example.com",
+            "parent_id": "fixture-folder",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "source_version_hint": "v2",
+            "title_hint": "Imported Fixture Source"
+          }
+        }
+      },
+      "fingerprint_status": {
+        "status": "failed",
+        "evidence_available": false,
+        "error_message": "text extraction exceeded retry budget",
+        "error_code": "OCR_TIMEOUT"
+      },
+      "fingerprint_processing": {
+        "state": "failed",
+        "attempt_count": 3,
+        "last_error_code": "OCR_TIMEOUT",
+        "last_error_message": "text extraction exceeded retry budget",
+        "retryable": false,
+        "stale": false
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "source_artifacts": {
+      "revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "items": [
+        {
+          "id": "src-art-2",
+          "artifact_kind": "signable_pdf",
+          "object_key": "tenant/google-v2.pdf",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "page_count": 4,
+          "size_bytes": 8192,
+          "compatibility_tier": "supported",
+          "normalization_status": "completed"
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 1,
+        "total_count": 1,
+        "has_more": false,
+        "sort": "latest_desc"
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+      }
+    },
+    "source_comments_empty": {
+      "revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "items": [],
+      "applied_query": {},
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 0,
+        "total_count": 0,
+        "has_more": false,
+        "sort": "latest_desc"
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "no_comments",
+        "title": "No comments",
+        "description": "Source-level comment sync is not configured yet for this revision."
+      },
+      "sync_status": "not_configured",
+      "links": {
+        "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+      }
+    },
+    "source_search_results": {
+      "items": [
+        {
+          "result_kind": "source_revision",
+          "source": {
+            "id": "src-doc-1",
+            "label": "Imported Fixture Source",
+            "url": "/admin/api/v1/esign/sources/src-doc-1"
+          },
+          "revision": {
+            "id": "src-rev-2",
+            "provider_revision_hint": "v2",
+            "modified_time": "2026-03-18T20:00:00Z",
+            "exported_at": "2026-03-18T20:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "latest",
+              "pinned"
+            ],
+            "pinned_document_count": 1
+          },
+          "provider": {
+            "kind": "google_drive",
+            "label": "Google Drive",
+            "external_file_id": "fixture-google-file-2",
+            "account_id": "fixture-account-2",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+            "extension": {
+              "schema": "google_drive.v1",
+              "values": {
+                "owner_email": "owner@example.com",
+                "parent_id": "fixture-folder",
+                "source_mime_type": "application/vnd.google-apps.document",
+                "source_version_hint": "v2",
+                "title_hint": "Imported Fixture Source"
+              }
+            }
+          },
+          "has_comments": false,
+          "matched_fields": [
+            "external_file_id",
+            "provider_revision_hint"
+          ],
+          "summary": "Matched external_file_id, provider_revision_hint across canonical source metadata.",
+          "links": {
+            "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 1,
+        "has_more": false,
+        "sort": "relevance"
+      },
+      "applied_query": {
+        "query": "fixture-google-file-2",
+        "sort": "relevance",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/source-search"
+      }
+    },
+    "source_detail_merged": {
+      "source": {
+        "id": "src-doc-merged",
+        "label": "Merged Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-merged"
+      },
+      "status": "merged",
+      "lineage_confidence": "medium",
+      "provider": {
+        "kind": "google_drive",
+        "label": "Google Drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "extension": {
+          "schema": "google_drive.v1",
+          "values": {
+            "owner_email": "owner@example.com",
+            "parent_id": "fixture-folder",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "source_version_hint": "v2",
+            "title_hint": "Imported Fixture Source"
+          }
+        }
+      },
+      "active_handle": {
+        "id": "src-handle-2",
+        "provider_kind": "google_drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "handle_status": "active",
+        "valid_from": "2026-03-18T20:00:00Z",
+        "links": {
+          "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+        }
+      },
+      "latest_revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "revision_count": 2,
+      "handle_count": 2,
+      "relationship_count": 1,
+      "pending_candidate_count": 0,
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-merged",
+        "source": "/admin/api/v1/esign/sources/src-doc-merged",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-merged/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-merged/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-merged/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-merged/comments"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "source_detail_archived": {
+      "source": {
+        "id": "src-doc-archived",
+        "label": "Archived Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-archived"
+      },
+      "status": "archived",
+      "lineage_confidence": "exact",
+      "provider": {
+        "kind": "google_drive",
+        "label": "Google Drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "extension": {
+          "schema": "google_drive.v1",
+          "values": {
+            "owner_email": "owner@example.com",
+            "parent_id": "fixture-folder",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "source_version_hint": "v2",
+            "title_hint": "Imported Fixture Source"
+          }
+        }
+      },
+      "active_handle": {
+        "id": "src-handle-2",
+        "provider_kind": "google_drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "handle_status": "active",
+        "valid_from": "2026-03-18T20:00:00Z",
+        "links": {
+          "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+        }
+      },
+      "latest_revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "revision_count": 2,
+      "handle_count": 2,
+      "relationship_count": 1,
+      "pending_candidate_count": 0,
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-archived",
+        "source": "/admin/api/v1/esign/sources/src-doc-archived",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-archived/revisions",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-archived/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-archived/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-archived/comments"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    }
+  }
+}

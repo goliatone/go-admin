@@ -1,4 +1,4 @@
-{% extends "resources/shared/detail-base.html" %}
+{% extends "resources/shared/detail-base-with-sidebar.html" %}
 
 {% set avatar_type = "agreement" %}
 
@@ -361,11 +361,6 @@
   </div>
 </div>
 {% endif %}
-{% if resource_item.lineage_presentation %}
-<div class="mx-6 mt-4 -mb-2">
-  {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}
-</div>
-{% endif %}
 {% endblock %}
 
 {% block fields_section %}
@@ -453,6 +448,13 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block sidebar %}
+  {# Source Provenance Card - Pinned to sidebar #}
+  {% if resource_item.lineage_presentation %}
+    {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}
+  {% endif %}
 {% endblock %}
 
 {% block extra_sections %}
@@ -734,6 +736,14 @@
         <div class="flex items-center gap-2">
           {# Inline status target for review actions #}
           <span data-live-status-target aria-live="polite"></span>
+          {% if resource_item.sender_view and resource_item.sender_view.enabled %}
+          <a href="{{ resource_item.sender_view.url }}" class="btn btn-sm btn-secondary">
+            Open Document
+          </a>
+          <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+            {{ resource_item.sender_view.mode|default:"read_only"|split:"_"|join:" "|title }}
+          </span>
+          {% endif %}
           {# Inline status indicators #}
           <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset
             {% if resource_item.review and resource_item.review.status == 'approved' %}bg-green-50 text-green-700 ring-green-200
@@ -1276,24 +1286,6 @@
                       </div>
                     </div>
                   </div>
-                  {# Thread Actions #}
-                  <div class="flex items-center gap-2">
-                    {% if not resource_item.review.override_active and thread.status == "open" %}
-                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors" data-command-name="resolve_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.resolve_comment_thread" data-command-success="Thread resolved" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                      </svg>
-                      Resolve
-                    </button>
-                    {% elif not resource_item.review.override_active %}
-                    <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" data-command-name="reopen_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reopen_comment_thread" data-command-success="Thread reopened" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                      </svg>
-                      Reopen
-                    </button>
-                    {% endif %}
-                  </div>
                 </div>
               </div>
               {# Messages #}
@@ -1315,29 +1307,48 @@
                 </div>
                 {% endfor %}
               </div>
-              {# Reply Form #}
-              {% if thread.status != 'resolved' and not resource_item.review.override_active %}
-              <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-100 rounded-b-lg">
-                <form class="flex gap-3" data-command-name="reply_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reply_comment_thread" data-command-success="Reply added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
-                  <input type="hidden" name="thread_id" value="{{ thread.id }}">
-                  <div class="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
-                    </svg>
-                  </div>
-                  <div class="flex-1">
-                    <textarea rows="1" name="body" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Write a reply..." required></textarea>
-                    <div class="mt-2 flex justify-end">
-                      <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                        </svg>
-                        Reply
-                      </button>
+              {# Thread actions #}
+              {% if not resource_item.review.override_active %}
+                {% if thread.status == "open" %}
+                <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-100 rounded-b-lg">
+                  <form class="flex gap-3" data-command-name="reply_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reply_comment_thread" data-command-success="Reply added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
+                    <input type="hidden" name="thread_id" value="{{ thread.id }}">
+                    <div class="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                      <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                      </svg>
                     </div>
+                    <div class="flex-1">
+                      <textarea rows="1" name="body" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Write a reply..." required></textarea>
+                      <div class="mt-2 flex justify-end gap-2">
+                        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors" data-command-name="resolve_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.resolve_comment_thread" data-command-success="Thread resolved" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                          </svg>
+                          Resolve
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                          </svg>
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+                {% else %}
+                <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-100 rounded-b-lg">
+                  <div class="flex justify-end">
+                    <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" data-command-name="reopen_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reopen_comment_thread" data-command-success="Thread reopened" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                      </svg>
+                      Reopen
+                    </button>
                   </div>
-                </form>
-              </div>
+                </div>
+                {% endif %}
               {% endif %}
             </div>
             {% endfor %}
@@ -1510,31 +1521,6 @@
   </div>
 </div>
 {% endif %}
-
-{# Agreement Timeline Section #}
-<div id="agreement-timeline-panel" class="p-6 border-t border-gray-200">
-  <div class="flex items-center justify-between mb-4">
-    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Activity Timeline</div>
-    <div class="flex items-center gap-3">
-      <div id="timeline-view-toggle" class="hidden sm:block">
-        {# View toggle will be rendered by TypeScript controller #}
-      </div>
-      <button type="button" id="timeline-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
-              aria-label="Refresh timeline">
-        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-        </svg>
-        Refresh
-      </button>
-    </div>
-  </div>
-  <div id="agreement-timeline" class="relative" role="list" aria-label="Agreement activity timeline">
-    <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
-      <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-      <span>Loading timeline...</span>
-    </div>
-  </div>
-</div>
 
 {# Participant Status Progression Section (v2-only) #}
 {% set progress_list = resource_item.participants %}
@@ -1739,6 +1725,31 @@
   </div>
 </div>
 {% endif %}
+
+{# Agreement Timeline Section #}
+<div id="agreement-timeline-panel" class="p-6 border-t border-gray-200">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Activity Timeline</div>
+    <div class="flex items-center gap-3">
+      <div id="timeline-view-toggle" class="hidden sm:block">
+        {# View toggle will be rendered by TypeScript controller #}
+      </div>
+      <button type="button" id="timeline-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+              aria-label="Refresh timeline">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+  <div id="agreement-timeline" class="relative" role="list" aria-label="Agreement activity timeline">
+    <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
+      <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+      <span>Loading timeline...</span>
+    </div>
+  </div>
+</div>
 
 {# Delivery Status Section - Job/Email failures and retry actions #}
 {% set status = resource_item.status|lower %}

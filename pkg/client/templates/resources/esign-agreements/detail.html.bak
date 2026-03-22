@@ -1,0 +1,2208 @@
+{% extends "resources/shared/detail-base-with-sidebar.html" %}
+
+{% set avatar_type = "agreement" %}
+
+{% block detail_head_extra %}
+<style>
+  /* Collapsible section styles */
+  .collapsible-trigger {
+    cursor: pointer;
+    user-select: none;
+  }
+  .collapsible-content {
+    display: none;
+  }
+  .collapsible-content.expanded {
+    display: block;
+  }
+  .collapsible-icon {
+    transition: transform 0.2s ease;
+  }
+  .collapsible-trigger[aria-expanded="true"] .collapsible-icon {
+    transform: rotate(180deg);
+  }
+
+  /* Review thread styles */
+  .review-thread-message + .review-thread-message {
+    margin-top: 0.75rem;
+  }
+
+  /* Review action button styles - reusable compact action buttons */
+  .review-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .review-action-btn:focus {
+    outline: none;
+    ring: 2px;
+    ring-offset: 1px;
+  }
+  .review-action-btn:disabled,
+  .review-action-btn[aria-busy="true"] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .review-action-btn[aria-busy="true"] {
+    position: relative;
+  }
+  .review-action-btn[aria-busy="true"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: inherit;
+    border-radius: inherit;
+  }
+
+  /* Primary action: Approve On Behalf - emerald/green prominent style */
+  .review-action-btn-primary {
+    background-color: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+  }
+  .review-action-btn-primary:hover {
+    background-color: #d1fae5;
+    border-color: #6ee7b7;
+  }
+  .review-action-btn-primary:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #10b981;
+  }
+
+  /* Secondary action: Notify, Send Now - neutral style */
+  .review-action-btn-secondary {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #374151;
+  }
+  .review-action-btn-secondary:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+  }
+  .review-action-btn-secondary:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #6b7280;
+  }
+
+  /* Warning action: Pause - amber style */
+  .review-action-btn-warning {
+    background-color: #fffbeb;
+    border-color: #fcd34d;
+    color: #b45309;
+  }
+  .review-action-btn-warning:hover {
+    background-color: #fef3c7;
+    border-color: #fbbf24;
+  }
+  .review-action-btn-warning:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f59e0b;
+  }
+
+  /* Success action: Resume - green style */
+  .review-action-btn-success {
+    background-color: #f0fdf4;
+    border-color: #86efac;
+    color: #15803d;
+  }
+  .review-action-btn-success:hover {
+    background-color: #dcfce7;
+    border-color: #4ade80;
+  }
+  .review-action-btn-success:focus {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #22c55e;
+  }
+
+  /* Participant actions container busy state */
+  [data-participant-actions][aria-busy="true"] {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  /* Inline status styles */
+  .inline-status {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .inline-status[data-status-state="completed"] {
+    animation: inline-status-fade-in 0.2s ease;
+  }
+  .inline-status[data-status-state="failed"] {
+    animation: inline-status-shake 0.3s ease;
+  }
+  @keyframes inline-status-fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes inline-status-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+
+  /* Subtle pulse animation for pending/waiting states */
+  .inline-status-pulse {
+    animation: inline-status-pulse 2s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.85;
+      background-color: rgba(59, 130, 246, 0.08);
+    }
+  }
+
+  /* Retry scheduled state - orange pulse variant */
+  .inline-status[data-status-state="retry_scheduled"] {
+    animation: inline-status-pulse-orange 2s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse-orange {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.85;
+      background-color: rgba(249, 115, 22, 0.08);
+    }
+  }
+
+  /* Stale state - gray pulse variant */
+  .inline-status[data-status-state="stale"] {
+    animation: inline-status-pulse-gray 1.5s ease-in-out infinite;
+  }
+  @keyframes inline-status-pulse-gray {
+    0%, 100% {
+      opacity: 1;
+      background-color: transparent;
+    }
+    50% {
+      opacity: 0.7;
+      background-color: rgba(107, 114, 128, 0.08);
+    }
+  }
+
+  /* Status target containers */
+  [data-live-status-target] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block header_pretitle %}
+  <p class="text-sm text-gray-500 mb-1">E-Sign Agreement</p>
+{% endblock %}
+
+{% block header_title %}{{ resource_item.title|default:"Agreement" }}{% endblock %}
+
+{% block identity_avatar %}
+  {% set status = resource_item.status|lower %}
+  {% if status == "completed" %}
+  <div class="w-14 h-14 rounded-lg bg-green-100 flex items-center justify-center">
+    <svg class="w-8 h-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  {% elif status == "voided" or status == "declined" %}
+  <div class="w-14 h-14 rounded-lg bg-red-100 flex items-center justify-center">
+    <svg class="w-8 h-8 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  {% elif status == "expired" %}
+  <div class="w-14 h-14 rounded-lg bg-purple-100 flex items-center justify-center">
+    <svg class="w-8 h-8 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  {% elif status == "sent" or status == "in_progress" %}
+  <div class="w-14 h-14 rounded-lg bg-blue-100 flex items-center justify-center">
+    <svg class="w-8 h-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+    </svg>
+  </div>
+  {% else %}
+  <div class="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center">
+    <svg class="w-8 h-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block identity_title %}{{ resource_item.title|default:"Untitled Agreement" }}{% endblock %}
+
+{% block identity_subtitle %}
+  <div class="flex items-center gap-3 text-sm text-gray-500">
+    {% if resource_item.recipient_count %}
+      <span class="inline-flex items-center gap-1">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        {{ resource_item.recipient_count }} recipient{% if resource_item.recipient_count != 1 %}s{% endif %}
+      </span>
+    {% endif %}
+    {% if resource_item.document_id %}
+      <span class="inline-flex items-center gap-1">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        <span class="truncate max-w-[150px]">{{ resource_item.document_title|default:"Linked Document" }}</span>
+      </span>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block identity_status %}
+  {% set status = resource_item.status|lower %}
+  {% if status == "draft" %}
+    <span role="status" aria-label="Agreement status: Draft" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400" aria-hidden="true"></span>
+      Draft
+    </span>
+  {% elif status == "sent" %}
+    <span role="status" aria-label="Agreement status: Sent" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-blue-500" aria-hidden="true"></span>
+      Sent
+    </span>
+  {% elif status == "in_progress" %}
+    <span role="status" aria-label="Agreement status: In Progress" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-yellow-500" aria-hidden="true"></span>
+      In Progress
+    </span>
+  {% elif status == "completed" %}
+    <span role="status" aria-label="Agreement status: Completed" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true"></span>
+      Completed
+    </span>
+  {% elif status == "voided" %}
+    <span role="status" aria-label="Agreement status: Voided" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true"></span>
+      Voided
+    </span>
+  {% elif status == "declined" %}
+    <span role="status" aria-label="Agreement status: Declined" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-orange-500" aria-hidden="true"></span>
+      Declined
+    </span>
+  {% elif status == "expired" %}
+    <span role="status" aria-label="Agreement status: Expired" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-purple-500" aria-hidden="true"></span>
+      Expired
+    </span>
+  {% else %}
+    <span role="status" aria-label="Agreement status: {{ resource_item.status|title }}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400" aria-hidden="true"></span>
+      {{ resource_item.status|title }}
+    </span>
+  {% endif %}
+{% endblock %}
+
+{% block detail_content_pre %}
+{% if resource_item.workflow_kind and resource_item.workflow_kind != "standard" %}
+<div class="mx-6 mt-4 -mb-2 rounded-lg border {% if resource_item.workflow_kind == 'correction' %}border-amber-200 bg-amber-50{% else %}border-purple-200 bg-purple-50{% endif %} p-4">
+  <div class="flex items-start gap-3">
+    {% if resource_item.workflow_kind == "correction" %}
+    <i class="iconoir-edit-pencil mt-0.5 {% if resource_item.workflow_kind == 'correction' %}text-amber-600{% else %}text-purple-600{% endif %}" aria-hidden="true"></i>
+    {% else %}
+    <i class="iconoir-plus mt-0.5 text-purple-600" aria-hidden="true"></i>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold {% if resource_item.workflow_kind == 'correction' %}text-amber-900{% else %}text-purple-900{% endif %}">
+        {% if resource_item.workflow_kind == "correction" %}
+          Correction of Previous Agreement
+        {% else %}
+          Amendment to Completed Agreement
+        {% endif %}
+      </p>
+      <p class="mt-1 text-xs {% if resource_item.workflow_kind == 'correction' %}text-amber-800{% else %}text-purple-800{% endif %}">
+        {% if resource_item.workflow_kind == "correction" %}
+          This draft supersedes an in-flight agreement. Once sent, this version will replace the original.
+        {% else %}
+          This draft is a follow-on to a completed agreement. It inherits context from the parent version.
+        {% endif %}
+        {% if resource_item.parent_agreement_id %}
+        <a href="{{ panelDetailURL('esign_agreements', resource_item.parent_agreement_id) }}" class="font-medium underline underline-offset-2 {% if resource_item.workflow_kind == 'correction' %}text-amber-700 hover:text-amber-900{% else %}text-purple-700 hover:text-purple-900{% endif %}">
+          View parent agreement
+        </a>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% if resource_item.superseded_by_agreement_id %}
+<div class="mx-6 mt-4 -mb-2 rounded-lg border border-red-200 bg-red-50 p-4">
+  <div class="flex items-start gap-3">
+    <i class="iconoir-warning-circle mt-0.5 text-red-600" aria-hidden="true"></i>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold text-red-900">This Agreement Was Superseded</p>
+      <p class="mt-1 text-xs text-red-800">
+        A newer version of this agreement exists.
+        <a href="{{ panelDetailURL('esign_agreements', resource_item.superseded_by_agreement_id) }}" class="font-medium underline underline-offset-2 text-red-700 hover:text-red-900">
+          View the replacement
+        </a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block fields_section %}
+<div class="p-6">
+  <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Agreement Details</div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Agreement ID</div>
+      <div class="text-base font-mono text-gray-900 break-all">{{ resource_item.id|default:"-" }}</div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Document</div>
+      <div class="text-base text-gray-900">
+        {% if resource_item.document_id %}
+          {% set document_link = resource_item.document_url %}
+          {% if not document_link %}
+            {% set document_link = panelDetailURL("esign_documents", resource_item.document_id) %}
+          {% endif %}
+          <a href="{{ document_link }}" class="text-blue-600 hover:underline">
+            {{ resource_item.document_title|default:resource_item.document_id }}
+          </a>
+        {% else %}
+          -
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Created</div>
+      <div class="text-base text-gray-900" id="agreement-created-at" data-timestamp="{{ resource_item.created_at }}">
+        {{ resource_item.created_at|default:"-" }}
+      </div>
+    </div>
+
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Last Updated</div>
+      <div class="text-base text-gray-900" id="agreement-updated-at" data-timestamp="{{ resource_item.updated_at }}">
+        {{ resource_item.updated_at|default:"-" }}
+      </div>
+    </div>
+
+    {% if resource_item.sent_at %}
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Sent</div>
+      <div class="text-base text-gray-900" id="agreement-sent-at" data-timestamp="{{ resource_item.sent_at }}">
+        {{ resource_item.sent_at }}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if resource_item.completed_at %}
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Completed</div>
+      <div class="text-base text-gray-900" id="agreement-completed-at" data-timestamp="{{ resource_item.completed_at }}">
+        {{ resource_item.completed_at }}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if resource_item.voided_at %}
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Voided</div>
+      <div class="text-base text-gray-900" id="agreement-voided-at" data-timestamp="{{ resource_item.voided_at }}">
+        {{ resource_item.voided_at }}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if resource_item.declined_at %}
+    <div class="flex flex-col">
+      <div class="text-sm text-gray-500 mb-1">Declined</div>
+      <div class="text-base text-gray-900" id="agreement-declined-at" data-timestamp="{{ resource_item.declined_at }}">
+        {{ resource_item.declined_at }}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if resource_item.message %}
+  <div class="mt-6 pt-6 border-t border-gray-100">
+    <div class="text-sm text-gray-500 mb-2">Message to Recipients</div>
+    <div class="text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">{{ resource_item.message }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+  {# Source Provenance Card - Pinned to sidebar #}
+  {% if resource_item.lineage_presentation %}
+    {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_sections %}
+{% set page_status = resource_item.status|lower %}
+{% set page_executed_status = resource_item.delivery.executed_status|lower %}
+{% set page_executed_applicable = resource_item.delivery and resource_item.delivery.executed_applicable %}
+{% set page_certificate_applicable = resource_item.delivery and resource_item.delivery.certificate_applicable %}
+{% set page_executed_available = resource_item.delivery and (resource_item.delivery.executed_object_key or page_executed_status == "ready") %}
+
+{# Workflow & Lineage - Collapsible Card #}
+<div class="p-6 border-t border-gray-200">
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    {# Header - Always visible #}
+    <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+            <svg class="w-4 h-4 text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">Workflow & Lineage</h3>
+            <p class="text-xs text-gray-500 mt-0.5">
+              {% if resource_item.workflow_kind == "correction" %}
+                Correction draft superseding earlier version
+              {% elif resource_item.workflow_kind == "amendment" %}
+                Amendment extending executed parent
+              {% else %}
+                Standard agreement workflow
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+            {{ resource_item.workflow_kind|default:"standard"|title }}
+          </span>
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset
+            {% if resource_item.review_status == 'approved' %}bg-green-50 text-green-700 ring-green-200
+            {% elif resource_item.review_status == 'changes_requested' %}bg-amber-50 text-amber-700 ring-amber-200
+            {% elif resource_item.review_status == 'in_review' %}bg-blue-50 text-blue-700 ring-blue-200
+            {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+            Review: {{ resource_item.review_status|default:"none"|title }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# Status Summary - At-a-glance view #}
+    <div class="px-5 py-4 border-b border-gray-200 bg-white">
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {# Agreement Status #}
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0 w-2.5 h-2.5 rounded-full
+            {% if page_status == 'completed' %}bg-green-500
+            {% elif page_status == 'sent' or page_status == 'in_progress' %}bg-blue-500
+            {% elif page_status == 'voided' or page_status == 'declined' %}bg-red-500
+            {% elif page_status == 'expired' %}bg-purple-500
+            {% else %}bg-gray-400{% endif %}"></div>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Status</div>
+            <div class="text-sm font-semibold text-gray-900">{{ resource_item.status|default:"Draft"|title }}</div>
+          </div>
+        </div>
+        {# Review Status #}
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0 w-2.5 h-2.5 rounded-full
+            {% if resource_item.review_status == 'approved' %}bg-green-500
+            {% elif resource_item.review_status == 'changes_requested' %}bg-amber-500
+            {% elif resource_item.review_status == 'in_review' %}bg-blue-500
+            {% else %}bg-gray-300{% endif %}"></div>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Review</div>
+            <div class="text-sm font-semibold text-gray-900">
+              {% if resource_item.review_status == 'approved' %}Approved
+              {% elif resource_item.review_status == 'changes_requested' %}Changes Requested
+              {% elif resource_item.review_status == 'in_review' %}In Review
+              {% elif resource_item.review_status == 'closed' %}Closed
+              {% else %}Not Started{% endif %}
+            </div>
+          </div>
+        </div>
+        {# Supersedes #}
+        <div class="flex items-center gap-3">
+          {% if resource_item.parent_agreement_id %}
+          <svg class="flex-shrink-0 w-4 h-4 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Supersedes</div>
+            <a href="{{ panelDetailURL('esign_agreements', resource_item.parent_agreement_id) }}" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">View Parent</a>
+          </div>
+          {% else %}
+          <svg class="flex-shrink-0 w-4 h-4 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Supersedes</div>
+            <div class="text-sm text-gray-400">None</div>
+          </div>
+          {% endif %}
+        </div>
+        {# Superseded By #}
+        <div class="flex items-center gap-3">
+          {% if resource_item.superseded_by_agreement_id %}
+          <svg class="flex-shrink-0 w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Superseded By</div>
+            <a href="{{ panelDetailURL('esign_agreements', resource_item.superseded_by_agreement_id) }}" class="text-sm font-medium text-red-600 hover:text-red-800 hover:underline">View Replacement</a>
+          </div>
+          {% else %}
+          <svg class="flex-shrink-0 w-4 h-4 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <div>
+            <div class="text-xs font-medium text-gray-500">Superseded By</div>
+            <div class="text-sm text-gray-400">None (Current)</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Technical Details - Collapsible #}
+    <div class="border-b border-gray-200">
+      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="workflow-technical-details">
+        <span class="text-xs font-medium text-gray-600">Technical Details</span>
+        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="workflow-technical-details" class="collapsible-content px-5 pb-4">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+            <div class="text-xs font-medium text-gray-500">Root Agreement</div>
+            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.root_agreement_id|default:resource_item.id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+            <div class="text-xs font-medium text-gray-500">Parent Agreement</div>
+            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_agreement_id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+            <div class="text-xs font-medium text-gray-500">Superseded By</div>
+            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.superseded_by_agreement_id|default:"-" }}</div>
+          </div>
+          <div class="rounded-lg bg-gray-50 px-3 py-2.5 border border-gray-100">
+            <div class="text-xs font-medium text-gray-500">Parent Hash</div>
+            <div class="mt-1 break-all font-mono text-xs text-gray-900">{{ resource_item.parent_executed_sha256|default:"-" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Agreement Lineage Timeline - Collapsible (if present) #}
+    {% if resource_item.related_agreements and resource_item.related_agreements|length > 0 %}
+    <div>
+      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="true" aria-controls="workflow-related-agreements">
+        <span class="text-xs font-medium text-gray-600">Agreement Lineage ({{ resource_item.related_agreements|length }} related)</span>
+        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="workflow-related-agreements" class="collapsible-content expanded px-5 pb-4">
+        {# Visual Timeline #}
+        <div class="relative">
+          {# Timeline connector line #}
+          <div class="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-200" aria-hidden="true"></div>
+          <div class="space-y-3">
+            {% for agreement in resource_item.related_agreements %}
+            {% set is_current = agreement.id == resource_item.id %}
+            {% set is_parent = agreement.id == resource_item.parent_agreement_id %}
+            {% set is_superseded_by = agreement.id == resource_item.superseded_by_agreement_id %}
+            {% set agreement_status = agreement.status|default:"unknown"|lower %}
+            <div class="relative flex items-start gap-4 pl-8">
+              {# Timeline node #}
+              <div class="absolute left-0 w-6 h-6 rounded-full flex items-center justify-center
+                {% if is_current %}bg-blue-600 ring-4 ring-blue-100
+                {% elif agreement_status == 'completed' %}bg-green-500
+                {% elif agreement_status == 'sent' or agreement_status == 'in_progress' %}bg-blue-500
+                {% elif agreement_status == 'voided' or agreement_status == 'declined' %}bg-red-500
+                {% else %}bg-gray-300{% endif %}">
+                {% if is_current %}
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <circle cx="10" cy="10" r="4"/>
+                </svg>
+                {% elif agreement_status == 'completed' %}
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                {% elif agreement_status == 'voided' or agreement_status == 'declined' %}
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+                {% else %}
+                <span class="w-2 h-2 bg-white rounded-full"></span>
+                {% endif %}
+              </div>
+              {# Agreement card #}
+              <div class="flex-1 rounded-lg px-4 py-3 border
+                {% if is_current %}bg-blue-50 border-blue-200 ring-1 ring-blue-300
+                {% elif is_superseded_by %}bg-red-50 border-red-200
+                {% elif is_parent %}bg-amber-50 border-amber-200
+                {% else %}bg-gray-50 border-gray-100{% endif %}">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-sm font-medium {% if is_current %}text-blue-900{% else %}text-gray-900{% endif %} truncate">
+                        {{ agreement.title|default:agreement.id }}
+                      </span>
+                      {# Relationship label #}
+                      {% if is_current %}
+                      <span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">Current</span>
+                      {% elif is_parent %}
+                      <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">Parent</span>
+                      {% elif is_superseded_by %}
+                      <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 ring-1 ring-inset ring-red-200">Replacement</span>
+                      {% endif %}
+                    </div>
+                    <div class="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                      {# Workflow kind badge #}
+                      <span class="inline-flex items-center rounded-full bg-white px-2 py-0.5 font-medium ring-1 ring-inset
+                        {% if agreement.workflow_kind == 'correction' %}text-amber-700 ring-amber-200
+                        {% elif agreement.workflow_kind == 'amendment' %}text-purple-700 ring-purple-200
+                        {% else %}text-slate-600 ring-slate-200{% endif %}">
+                        {{ agreement.workflow_kind|default:"standard"|title }}
+                      </span>
+                      {# Status badge #}
+                      <span class="inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset
+                        {% if agreement_status == 'completed' %}bg-green-50 text-green-700 ring-green-200
+                        {% elif agreement_status == 'sent' or agreement_status == 'in_progress' %}bg-blue-50 text-blue-700 ring-blue-200
+                        {% elif agreement_status == 'voided' or agreement_status == 'declined' %}bg-red-50 text-red-700 ring-red-200
+                        {% elif agreement_status == 'draft' %}bg-gray-50 text-gray-600 ring-gray-200
+                        {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+                        {{ agreement.status|default:"Unknown"|title }}
+                      </span>
+                      {# Created date if available #}
+                      {% if agreement.created_at %}
+                      <span class="text-gray-500" data-timestamp="{{ agreement.created_at }}">{{ agreement.created_at }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% if not is_current %}
+                  <a href="{{ panelDetailURL('esign_agreements', agreement.id) }}" class="flex-shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">View</a>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# Review & Comments - Collapsible Card #}
+<div class="p-6 border-t border-gray-200">
+  {# Page-level status fallback target - hidden container for status when no specific target available #}
+  <div id="agreement-page-status-target" class="mb-2 empty:hidden" aria-live="polite"></div>
+  <div id="agreement-review-command-region" class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    {# Header - Always visible with inline status #}
+    <div id="agreement-review-status-panel" class="px-5 py-4 bg-gray-50 border-b border-gray-200" data-live-status-section="review_status">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">Review & Comments</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Configure reviewers and manage shared comments alongside internal notes</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          {# Inline status target for review actions #}
+          <span data-live-status-target aria-live="polite"></span>
+          {% if resource_item.sender_view and resource_item.sender_view.enabled %}
+          <a href="{{ resource_item.sender_view.url }}" class="btn btn-sm btn-secondary">
+            Open Document
+          </a>
+          <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+            {{ resource_item.sender_view.mode|default:"read_only"|split:"_"|join:" "|title }}
+          </span>
+          {% endif %}
+          {# Inline status indicators #}
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset
+            {% if resource_item.review and resource_item.review.status == 'approved' %}bg-green-50 text-green-700 ring-green-200
+            {% elif resource_item.review and resource_item.review.status == 'changes_requested' %}bg-amber-50 text-amber-700 ring-amber-200
+            {% elif resource_item.review and resource_item.review.status == 'in_review' %}bg-blue-50 text-blue-700 ring-blue-200
+            {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+            {{ resource_item.review.status|default:resource_item.review_status|default:"none"|split:"_"|join:" "|title }}
+          </span>
+          {% if resource_item.review and resource_item.review.total_approvers %}
+          <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+            {{ resource_item.review.approved_count|default:0 }} of {{ resource_item.review.total_approvers }} approvers
+          </span>
+          {% endif %}
+          {% if resource_item.review and resource_item.review.override_active %}
+          <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+            Admin Override
+          </span>
+          {% endif %}
+          {% if resource_item.review and resource_item.review.open_thread_count %}
+          <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
+            {{ resource_item.review.open_thread_count }} open
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Review Configuration - Collapsible (draft only) #}
+    {% if page_status == "draft" %}
+    <div id="agreement-review-configuration-panel" class="border-b border-gray-200" data-live-status-section="review_config">
+      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-configuration">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-gray-600">
+            {% if resource_item.review and resource_item.review.status == "in_review" %}
+              Review Configuration (Active)
+            {% elif resource_item.review and resource_item.review.status %}
+              Review Configuration (Reopen)
+            {% else %}
+              Review Configuration
+            {% endif %}
+          </span>
+          {% if resource_item.review and resource_item.review.status == "in_review" %}
+          <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">Active</span>
+          {% endif %}
+        </div>
+        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="review-configuration" class="collapsible-content px-5 pb-4">
+        {# Review State Progression Indicator #}
+        {% set review_status = resource_item.review.status|default:resource_item.review_status|default:"none"|lower %}
+        <div class="mb-5 p-4 bg-white rounded-lg border border-gray-200">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Review State</div>
+          <div class="flex items-center gap-2">
+            {# Not Started #}
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                {% if review_status == 'none' or not review_status %}bg-blue-600 text-white ring-2 ring-blue-200
+                {% else %}bg-gray-200 text-gray-500{% endif %}">1</div>
+              <span class="text-xs font-medium {% if review_status == 'none' or not review_status %}text-blue-700{% else %}text-gray-500{% endif %}">Configure</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-200 {% if review_status == 'in_review' or review_status == 'changes_requested' or review_status == 'approved' %}bg-blue-400{% endif %}"></div>
+            {# In Review #}
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                {% if review_status == 'in_review' %}bg-blue-600 text-white ring-2 ring-blue-200
+                {% elif review_status == 'changes_requested' or review_status == 'approved' %}bg-blue-400 text-white
+                {% else %}bg-gray-200 text-gray-500{% endif %}">2</div>
+              <span class="text-xs font-medium {% if review_status == 'in_review' %}text-blue-700{% else %}text-gray-500{% endif %}">In Review</span>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-200 {% if review_status == 'changes_requested' or review_status == 'approved' %}bg-amber-400{% endif %}"></div>
+            {# Decision #}
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                {% if review_status == 'changes_requested' %}bg-amber-500 text-white ring-2 ring-amber-200
+                {% elif review_status == 'approved' %}bg-green-500 text-white ring-2 ring-green-200
+                {% else %}bg-gray-200 text-gray-500{% endif %}">3</div>
+              <span class="text-xs font-medium
+                {% if review_status == 'changes_requested' %}text-amber-700
+                {% elif review_status == 'approved' %}text-green-700
+                {% else %}text-gray-500{% endif %}">
+                {% if review_status == 'changes_requested' %}Changes Requested
+                {% elif review_status == 'approved' %}Approved
+                {% else %}Decision{% endif %}
+              </span>
+            </div>
+          </div>
+          {% if resource_item.review and resource_item.review.override_active %}
+          <p class="mt-3 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">Review finalized by admin override{% if resource_item.review.override_by_display_name or resource_item.review.override_by_user_id %} by {{ resource_item.review.override_by_display_name|default:resource_item.review.override_by_user_id }}{% endif %}. Agreement can proceed using the override decision.{% if resource_item.review.override_reason %} Reason: {{ resource_item.review.override_reason }}.{% endif %}</p>
+          {% elif review_status == 'in_review' %}
+          <p class="mt-3 text-xs text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">Review is active. Reviewers can comment and submit their decisions.{% if resource_item.review and resource_item.review.total_approvers %} {{ resource_item.review.approved_count|default:0 }} of {{ resource_item.review.total_approvers }} approvers have approved so far.{% endif %}</p>
+          {% elif review_status == 'changes_requested' %}
+          <p class="mt-3 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">Changes have been requested. Address feedback and reopen review when ready.</p>
+          {% elif review_status == 'approved' %}
+          <p class="mt-3 text-xs text-green-700 bg-green-50 px-3 py-2 rounded-lg">Review approved. Agreement can be sent for signing.{% if resource_item.review and resource_item.review.total_approvers %} {{ resource_item.review.approved_count|default:0 }} of {{ resource_item.review.total_approvers }} approvers approved.{% endif %}</p>
+          {% endif %}
+        </div>
+
+        <div class="rounded-xl border border-gray-200 bg-gray-50 p-5">
+          {# Admin Action Bar - separated from settings configuration #}
+          {% if resource_item.review and resource_item.review.override_active %}
+          <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 mb-5">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-sm text-emerald-800">
+                Review finalized by admin override{% if resource_item.review.override_by_display_name or resource_item.review.override_by_user_id %} by <span class="font-medium">{{ resource_item.review.override_by_display_name|default:resource_item.review.override_by_user_id }}</span>{% endif %}{% if resource_item.review.override_reason %}: {{ resource_item.review.override_reason }}{% endif %}
+              </p>
+            </div>
+          </div>
+          {% elif resource_item.review and resource_item.review_permissions.can_admin_review and (resource_item.review.status == "in_review" or resource_item.review.status == "changes_requested") %}
+          <div class="rounded-lg bg-white border border-gray-200 px-4 py-3 mb-5" id="review-admin-action-bar">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="text-xs font-medium text-gray-500 uppercase tracking-wide flex-shrink-0">Admin Actions</div>
+              <div class="flex flex-wrap items-center gap-2" id="review-admin-actions">
+                {% if resource_item.review.status == "in_review" %}
+                <button type="button" id="agreement-notify-reviewers-btn" class="btn btn-secondary btn-sm whitespace-nowrap flex-shrink-0" data-command-name="notify_reviewers" data-command-transport="rpc" data-command-dispatch="esign.agreements.notify_reviewers" data-command-success="Reviewers notified" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-target="#review-admin-actions">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                  </svg>
+                  Notify
+                </button>
+                {% endif %}
+                <button type="button" id="agreement-force-approve-review-btn" class="btn btn-danger btn-sm whitespace-nowrap flex-shrink-0" data-command-name="force_approve_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.force_approve_review" data-command-success="Review force approved" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-admin-actions" data-command-reason-title="Force approve review" data-command-reason-subject="This will finalize the review cycle using an admin override.">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  Force Approve
+                </button>
+                {% if resource_item.review.status == "in_review" %}
+                <button type="button" id="agreement-close-review-btn" class="btn btn-sm whitespace-nowrap flex-shrink-0 bg-gray-700 text-white hover:bg-gray-800 focus:ring-gray-500" data-command-name="close_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.close_review" data-command-success="Review closed" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-admin-actions">
+                  <svg class="w-3.5 h-3.5 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  Close Review
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          {# Settings Header - configuration only, no actions #}
+          <div class="mb-5">
+            <p class="text-sm font-medium text-gray-700">Review Settings</p>
+            <p class="text-xs text-gray-500 mt-0.5">Configure when approval is required and whether comments are enabled.</p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2 mb-6">
+            <label class="block text-sm">
+              <span class="mb-1 block font-medium text-gray-700">Review Gate</span>
+              <select id="agreement-review-gate" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="approve_before_send" {% if resource_item.review_gate == "approve_before_send" %}selected{% endif %}>Approve before send</option>
+                <option value="approve_before_sign" {% if resource_item.review_gate == "approve_before_sign" %}selected{% endif %}>Approve before sign</option>
+              </select>
+              <p class="mt-1 text-xs text-gray-500">When must approval be obtained?</p>
+            </label>
+            <div>
+              <div class="mb-1 font-medium text-gray-700 text-sm">Comments</div>
+              <label class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 cursor-pointer">
+                <input id="agreement-review-comments-enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600" {% if resource_item.review.comments_enabled or resource_item.comments_enabled %}checked{% endif %}>
+                <span>Enable reviewer comment threads</span>
+              </label>
+              <p class="mt-1 text-xs text-gray-500">Allow reviewers to add and reply to shared comments. Internal notes remain owner-only.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            {# Recipient Reviewers Section #}
+            <div class="space-y-3">
+              <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <div class="text-sm font-semibold text-gray-700">Recipient Reviewers</div>
+              </div>
+              <p class="text-xs text-gray-500">Select agreement participants who should review before signing.</p>
+              <div class="space-y-2">
+                {% for participant in resource_item.participants %}
+                  {% if participant.role != "cc" %}
+                  <div class="rounded-lg border border-gray-200 bg-white p-3" data-review-recipient-row data-recipient-id="{{ participant.id }}" data-email="{{ participant.email|default:""|escapejs }}" data-name="{{ participant.name|default:participant.email|escapejs }}">
+                    <div class="flex items-start justify-between gap-3">
+                      <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600" data-review-recipient-enabled>
+                        <span>
+                          <span class="block text-sm font-medium text-gray-900">{{ participant.name|default:participant.email }}</span>
+                          <span class="block text-xs text-gray-500">{{ participant.email }}</span>
+                        </span>
+                      </label>
+                      <div class="flex flex-col gap-1.5 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer" title="Allow this reviewer to add comments">
+                          <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-recipient-comment checked>
+                          <span class="text-gray-600">Comment</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" title="Allow this reviewer to approve or request changes">
+                          <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-recipient-approve checked>
+                          <span class="text-gray-600">Approve</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+
+            {# External Reviewers Section #}
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-2 pb-2 border-b border-gray-200">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                  </svg>
+                  <div class="text-sm font-semibold text-gray-700">External Reviewers</div>
+                </div>
+                <button type="button" id="agreement-add-external-reviewer-btn" class="text-xs font-medium text-blue-600 hover:text-blue-800">+ Add</button>
+              </div>
+              <p class="text-xs text-gray-500">Add reviewers who are not agreement participants.</p>
+              <div id="agreement-external-reviewers" class="space-y-2"></div>
+              <template id="agreement-external-reviewer-template">
+                <div class="rounded-lg border border-gray-200 bg-white p-3" data-review-external-row>
+                  <div class="flex items-center justify-between gap-3 mb-2">
+                    <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide">External Reviewer</div>
+                    <button type="button" class="text-xs text-red-600 hover:text-red-700" data-review-external-remove>Remove</button>
+                  </div>
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <label class="block text-sm">
+                      <span class="mb-1 block text-xs font-medium text-gray-600">Name</span>
+                      <input type="text" class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" data-review-external-name placeholder="Jane Doe">
+                    </label>
+                    <label class="block text-sm">
+                      <span class="mb-1 block text-xs font-medium text-gray-600">Email *</span>
+                      <input type="email" class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" data-review-external-email placeholder="jane@example.com" required>
+                    </label>
+                  </div>
+                  <div class="mt-2 flex items-center gap-4 text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-external-comment checked>
+                      <span class="text-gray-600">Comment</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-external-approve checked>
+                      <span class="text-gray-600">Approve</span>
+                    </label>
+                  </div>
+                </div>
+              </template>
+              {# Empty state for external reviewers #}
+              <div id="agreement-external-reviewers-empty" class="text-center py-4 text-xs text-gray-500 border border-dashed border-gray-200 rounded-lg">
+                No external reviewers added yet
+              </div>
+            </div>
+          </div>
+
+          {# Action buttons #}
+          <div class="mt-6 pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+            <button type="button" id="agreement-submit-review-btn" class="btn btn-primary">
+              {% if resource_item.review and resource_item.review.status and resource_item.review.status != "none" and resource_item.review.status != "in_review" %}
+                Reopen Review
+              {% else %}
+                Request Review
+              {% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Review Participants - Collapsible #}
+    {% if resource_item.review and resource_item.review.participants and resource_item.review.participants|length > 0 %}
+    <div id="review-participants-panel" class="border-b border-gray-200" data-live-status-section="participants">
+      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-participants">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-gray-600">Review Participants ({{ resource_item.review.participants|length }})</span>
+          <span data-live-status-target aria-live="polite"></span>
+        </div>
+        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="review-participants" class="collapsible-content px-5 pb-4">
+        <div class="grid gap-3 md:grid-cols-2">
+          {% for participant in resource_item.review.participants %}
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3" data-review-participant-card data-participant-id="{{ participant.id }}">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-900 truncate" data-review-participant-name>
+                    {# Prefer display_name, then email, then participant type label (never show raw ID) #}
+                    {% if participant.display_name %}{{ participant.display_name }}{% elif participant.email %}{{ participant.email }}{% else %}{{ participant.participant_type|default:"Participant"|title }}{% endif %}
+                  </span>
+                  <span data-live-status-target aria-live="polite"></span>
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  <span class="inline-flex items-center gap-1">
+                    {% if participant.participant_type == "external" %}
+                    <span class="text-violet-600">External</span>
+                    {% else %}
+                    {{ participant.participant_type|default:"Recipient"|title }}
+                    {% endif %}
+                  </span>
+                  {% if participant.email %}
+                  <span class="mx-1">•</span>
+                  <span class="truncate">{{ participant.email }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset
+                {% if participant.effective_decision_status == 'approved' %}bg-green-50 text-green-700 ring-green-200
+                {% elif participant.effective_decision_status == 'changes_requested' %}bg-amber-50 text-amber-700 ring-amber-200
+                {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+                {{ participant.effective_decision_status|default:participant.decision_status|default:"pending"|split:"_"|join:" "|title }}
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if participant.can_comment %}bg-blue-50 text-blue-700 ring-blue-200{% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">Comment {% if participant.can_comment %}On{% else %}Off{% endif %}</span>
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if participant.can_approve %}bg-indigo-50 text-indigo-700 ring-indigo-200{% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">Approve {% if participant.can_approve %}On{% else %}Off{% endif %}</span>
+              {% if participant.approved_on_behalf %}
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-200">Approved On Behalf</span>
+              {% endif %}
+            </div>
+            {% if participant.approved_on_behalf %}
+            <p class="mt-2 text-xs text-emerald-700">Approved on behalf{% if participant.approved_on_behalf_by_display_name or participant.approved_on_behalf_by_user_id %} by {{ participant.approved_on_behalf_by_display_name|default:participant.approved_on_behalf_by_user_id }}{% endif %}{% if participant.approved_on_behalf_reason %}. Reason: {{ participant.approved_on_behalf_reason }}{% endif %}</p>
+            {% endif %}
+            {% if participant.reminder_status or participant.last_sent_at or participant.next_due_at %}
+            <div class="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset
+                  {% if participant.paused %}bg-amber-50 text-amber-700 ring-amber-200
+                  {% elif participant.reminder_status == 'active' %}bg-emerald-50 text-emerald-700 ring-emerald-200
+                  {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
+                  Reminder {{ participant.reminder_status|default:"inactive"|title }}
+                </span>
+                {% if participant.reminder_count %}
+                <span class="text-gray-500">{{ participant.reminder_count }} sent</span>
+                {% endif %}
+                {% if participant.last_sent_at %}
+                <span class="text-gray-500">Last sent <span class="recipient-timestamp" data-timestamp="{{ participant.last_sent_at }}">{{ participant.last_sent_at }}</span></span>
+                {% endif %}
+                {% if participant.next_due_at and not participant.paused %}
+                <span class="text-gray-500">Next due <span class="recipient-timestamp" data-timestamp="{{ participant.next_due_at }}">{{ participant.next_due_at }}</span></span>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+            {% if resource_item.review_permissions.can_admin_review and resource_item.review.status == 'in_review' and not resource_item.review.override_active and participant.effective_decision_status == 'pending' %}
+            <div class="mt-3 pt-3 border-t border-gray-200" data-participant-actions data-participant-id="{{ participant.id }}">
+              {# Primary Action: Approve On Behalf - visually separated #}
+              {% if participant.can_approve %}
+              <div class="mb-2">
+                <button type="button" class="review-action-btn review-action-btn-primary w-full sm:w-auto" data-command-name="approve_review_participant_on_behalf" data-command-transport="rpc" data-command-dispatch="esign.agreements.approve_review_participant_on_behalf" data-command-success="Reviewer approved on behalf" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-reason-title="Approve review on behalf" data-command-reason-subject="Approve on behalf of {{ participant.display_name|default:participant.email|default:'this reviewer'|escapejs }}." data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Approve On Behalf</span>
+                </button>
+              </div>
+              {% endif %}
+              {# Operational Controls: Reminder actions grouped together #}
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[10px] uppercase tracking-wide text-gray-400 font-medium mr-1">Reminders:</span>
+                <button type="button" class="review-action-btn review-action-btn-secondary" data-command-name="notify_reviewers" data-command-transport="rpc" data-command-dispatch="esign.agreements.notify_reviewers" data-command-success="Reviewer notified" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                  </svg>
+                  <span>Notify</span>
+                </button>
+                <button type="button" class="review-action-btn review-action-btn-secondary" data-command-name="send_review_reminder_now" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.send_now" data-command-success="Review reminder sent" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  </svg>
+                  <span>Send Now</span>
+                </button>
+                {% if participant.paused %}
+                <button type="button" class="review-action-btn review-action-btn-success" data-command-name="resume_review_reminder" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.resume" data-command-success="Review reminders resumed" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Resume</span>
+                </button>
+                {% else %}
+                <button type="button" class="review-action-btn review-action-btn-warning" data-command-name="pause_review_reminder" data-command-transport="rpc" data-command-dispatch="esign.agreements.review_reminder.pause" data-command-success="Review reminders paused" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-closest="[data-participant-actions]" data-command-payload-participant-id="{{ participant.id }}" data-command-payload-recipient-id="{{ participant.recipient_id|default:"" }}">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Pause</span>
+                </button>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Comment Threads - Collapsible #}
+    {% if resource_item.review and resource_item.review.review_id %}
+    <div id="review-comment-threads-panel" class="{% if resource_item.review.threads and resource_item.review.threads|length > 0 %}border-b border-gray-200{% endif %}" data-live-status-section="comments">
+      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-comment-threads">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-gray-600">Comment Threads</span>
+          {% if resource_item.review.threads and resource_item.review.threads|length > 0 %}
+          <span class="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{{ resource_item.review.threads|length }}</span>
+          {% endif %}
+          <span data-live-status-target aria-live="polite"></span>
+        </div>
+        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="review-comment-threads" class="collapsible-content px-5 pb-4">
+        {# Add Comment Form (if comments enabled) #}
+        {% if not resource_item.review.override_active %}
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-4">
+          <form id="agreement-create-thread-form" data-command-name="create_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.create_comment_thread" data-command-success="Comment added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
+          <input type="hidden" name="review_id" value="{{ resource_item.review.review_id|default:"" }}">
+          <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Add Comment</div>
+          <div class="grid gap-3 sm:grid-cols-4">
+            <label class="block text-sm">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Visibility</span>
+              <select id="agreement-thread-visibility" name="visibility" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="shared">Shared</option>
+                <option value="internal">Internal</option>
+              </select>
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Anchor</span>
+              <select id="agreement-thread-anchor-type" name="anchor_type" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="agreement">Agreement</option>
+                <option value="page">Page</option>
+                <option value="field">Field</option>
+              </select>
+            </label>
+            <label class="block text-sm" id="agreement-thread-page-wrap">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Page</span>
+              <input id="agreement-thread-page-number" name="page_number" type="number" min="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="1">
+            </label>
+            <label class="block text-sm" id="agreement-thread-field-wrap">
+              <span class="mb-1 block text-xs font-medium text-gray-600">Field</span>
+              <select id="agreement-thread-field-id" name="field_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">Select field</option>
+                {% for field in resource_item.fields %}
+                <option value="{{ field.id }}">{{ field.label|default:field.type|title }} • page {{ field.page }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <label class="mt-3 block text-sm">
+            <span class="mb-1 block text-xs font-medium text-gray-600">Comment</span>
+            <textarea id="agreement-thread-body" name="body" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Add an internal note or shared review comment" required></textarea>
+          </label>
+          <div class="mt-3 flex justify-end">
+            <button type="submit" id="agreement-create-thread-btn" class="btn btn-secondary">Add Comment</button>
+          </div>
+          </form>
+        </div>
+        {% else %}
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 mb-4 text-sm text-emerald-800">
+          Review comments are read-only because this review was finalized by admin override.
+        </div>
+        {% endif %}
+
+        {# Thread List #}
+        <div class="space-y-4">
+          {% if resource_item.review.threads and resource_item.review.threads|length > 0 %}
+            {% for thread_entry in resource_item.review.threads %}
+            {% set thread = thread_entry.thread %}
+            {% set thread_anchor = thread.anchor_type|default:"agreement"|lower %}
+            {% set thread_visibility = thread.visibility|default:"shared"|lower %}
+            <div class="rounded-lg border-l-4 {% if thread_visibility == 'internal' %}{% if thread.status == 'resolved' %}border-l-violet-500 border-violet-200 bg-violet-50/70{% else %}border-l-violet-500 border-violet-200 bg-violet-50/40{% endif %}{% else %}{% if thread.status == 'resolved' %}border-l-green-500 border-green-200 bg-green-50/50{% else %}border-l-blue-500 border-gray-200 bg-white{% endif %}{% endif %} border shadow-sm" data-thread-id="{{ thread.id }}">
+              {# Thread Header #}
+              <div class="px-4 py-3 {% if thread.status != 'resolved' %}border-b border-gray-100{% endif %}">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-3">
+                    {# Anchor Type Icon #}
+                    <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
+                      {% if thread_anchor == 'page' %}bg-purple-100
+                      {% elif thread_anchor == 'field' %}bg-orange-100
+                      {% else %}bg-slate-100{% endif %}">
+                      {% if thread_anchor == 'page' %}
+                      <svg class="w-4 h-4 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      {% elif thread_anchor == 'field' %}
+                      <svg class="w-4 h-4 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+                      </svg>
+                      {% else %}
+                      <svg class="w-4 h-4 text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                      </svg>
+                      {% endif %}
+                    </div>
+                    <div>
+                      {# Anchor Info #}
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-sm font-medium text-gray-900">
+                          {% if thread_anchor == 'page' %}Page {{ thread.page_number|default:"?" }}
+                          {% elif thread_anchor == 'field' %}Field: {{ thread.field_id|default:"Unknown" }}
+                          {% else %}Global Comment{% endif %}
+                        </span>
+                        {% if thread_visibility == 'internal' %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2h-1V9a5 5 0 10-10 0v2H6a2 2 0 00-2 2v6a2 2 0 002 2zm3-10V9a3 3 0 116 0v2H9z"/>
+                          </svg>
+                          Internal
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          Shared
+                        </span>
+                        {% endif %}
+                        {# Status Badge #}
+                        {% if thread.status == 'resolved' %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                          </svg>
+                          Resolved
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          Open
+                        </span>
+                        {% endif %}
+                      </div>
+                      <div class="mt-1 text-xs text-gray-500">
+                        {{ thread_entry.messages|length }} message{% if thread_entry.messages|length != 1 %}s{% endif %}
+                        · Last activity <span data-timestamp="{{ thread.last_activity_at }}">{{ thread.last_activity_at|default:"-" }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {# Messages #}
+              <div class="px-4 py-3 space-y-3 {% if thread.status == 'resolved' %}opacity-75{% endif %}">
+                {% for message in thread_entry.messages %}
+                <div class="review-thread-message flex gap-3">
+                  {# Author Avatar #}
+                  <div class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600" data-review-actor-avatar data-actor-type="{{ message.created_by_type|default:"" }}" data-actor-id="{{ message.created_by_id|default:"" }}">
+                    {{ message.created_by_type|default:"P"|slice:"0:1"|upper }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="font-medium text-gray-700" data-review-actor-name data-actor-type="{{ message.created_by_type|default:"" }}" data-actor-id="{{ message.created_by_id|default:"" }}">{{ message.created_by_type|default:"participant"|split:"_"|join:" "|title }}</span>
+                      <span class="text-[10px] uppercase tracking-wide text-gray-400" data-review-actor-role data-actor-type="{{ message.created_by_type|default:"" }}" data-actor-id="{{ message.created_by_id|default:"" }}">{{ message.created_by_type|default:"participant"|split:"_"|join:" "|title }}</span>
+                      <span class="text-gray-400" data-timestamp="{{ message.created_at }}">{{ message.created_at|default:"-" }}</span>
+                    </div>
+                    <div class="mt-1 whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">{{ message.body }}</div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {# Reply Form #}
+              {% if not resource_item.review.override_active %}
+              <div class="px-4 py-3 bg-gray-50/50 border-t border-gray-100 rounded-b-lg">
+                <form class="flex gap-3" data-command-name="reply_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reply_comment_thread" data-command-success="Reply added" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel">
+                  <input type="hidden" name="thread_id" value="{{ thread.id }}">
+                  <div class="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <textarea rows="1" name="body" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Write a reply..." required></textarea>
+                    <div class="mt-2 flex justify-end gap-2">
+                      {% if not resource_item.review.override_active and thread.status == "open" %}
+                      <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors" data-command-name="resolve_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.resolve_comment_thread" data-command-success="Thread resolved" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Resolve
+                      </button>
+                      {% elif not resource_item.review.override_active %}
+                      <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors" data-command-name="reopen_comment_thread" data-command-transport="rpc" data-command-dispatch="esign.agreements.reopen_comment_thread" data-command-success="Thread reopened" data-command-refresh="#agreement-review-status-panel,#review-comment-threads-panel" data-command-payload-thread-id="{{ thread.id }}">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Reopen
+                      </button>
+                      {% endif %}
+                      <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                        Reply
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">No comment threads yet</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script id="agreement-review-bootstrap" type="application/json">
+{% if resource_item.review %}
+{{ toJSON(resource_item.review)|safe }}
+{% else %}
+{
+  "status": "{{ resource_item.review_status|default:"none"|escapejs }}",
+  "gate": "{{ resource_item.review_gate|default:"approve_before_send"|escapejs }}",
+  "comments_enabled": {% if resource_item.comments_enabled %}true{% else %}false{% endif %},
+  "review_id": "",
+  "override_active": false,
+  "override_reason": "",
+  "override_by_user_id": "",
+  "override_by_display_name": "",
+  "override_at": "",
+  "approved_count": 0,
+  "total_approvers": 0,
+  "actor_map": {},
+  "participants": []
+}
+{% endif %}
+</script>
+
+<script id="agreement-timeline-bootstrap" type="application/json">
+{% if resource_item.timeline_bootstrap %}
+{{ toJSON(resource_item.timeline_bootstrap)|safe }}
+{% else %}
+{
+  "agreement_id": "{{ resource_item.id|default:""|escapejs }}",
+  "current_user_id": "{{ resource_item.current_user_id|default:""|escapejs }}",
+  "events": {% if resource_item.timeline %}{{ toJSON(resource_item.timeline)|safe }}{% else %}[]{% endif %},
+  "actors": {},
+  "participants": {% if resource_item.participants %}{{ toJSON(resource_item.participants)|safe }}{% else %}[]{% endif %},
+  "field_definitions": {% if resource_item.field_definitions %}{{ toJSON(resource_item.field_definitions)|safe }}{% else %}[]{% endif %}
+}
+{% endif %}
+</script>
+
+{% if page_executed_applicable and page_status == "completed" and not page_executed_available %}
+<div id="download-status-notice-static" class="mx-6 mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+  <div class="flex items-start gap-2">
+    <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <div>
+      <p class="font-medium">Executed completion package is not available yet.</p>
+      <p class="text-sm mt-1">The agreement is completed, but completion package generation or storage is still pending. Refresh the delivery status and try again.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+<div id="download-status-notice-dynamic" class="hidden mx-6 mt-6 mb-8 rounded-lg border p-4 text-sm" role="status" aria-live="polite"></div>
+
+{# Participants Section (v2-only) #}
+{% set participants_list = resource_item.participants %}
+{% if participants_list and participants_list|length > 0 %}
+<div id="agreement-participants-panel" class="p-6 border-t border-gray-200">
+  <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Participants</div>
+  <div class="space-y-3">
+    {% for participant in participants_list %}
+    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
+          {{ participant.name|default:participant.email|slice:"0:1"|upper }}
+        </div>
+        <div>
+          <div class="font-medium text-gray-900">{{ participant.name|default:participant.email }}</div>
+          <div class="text-sm text-gray-500">{{ participant.email }}</div>
+        </div>
+        {% if participant.role == "cc" %}
+        <span class="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">CC</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2">
+        {% set pstatus = participant.status|lower %}
+        {% if pstatus == "pending" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+            Pending
+          </span>
+        {% elif pstatus == "signed" or pstatus == "completed" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            Signed
+          </span>
+        {% elif pstatus == "declined" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+            Declined
+          </span>
+        {% elif pstatus == "delivered" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            Delivered
+          </span>
+        {% else %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            {{ participant.status|default:"Pending"|title }}
+          </span>
+        {% endif %}
+        {# Action buttons for active participants #}
+        {% set status = resource_item.status|lower %}
+        {% if (status == "sent" or status == "in_progress") and participant.role != "cc" %}
+          <button type="button" class="text-sm text-blue-600 hover:text-blue-800"
+                  data-action="resend-recipient" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
+                  aria-label="Resend signing invitation to {{ participant.name|default:participant.email }}"
+                  title="Resend signing request to this participant">
+            Resend
+          </button>
+          <button type="button" class="text-sm text-gray-600 hover:text-gray-800"
+                  data-action="rotate-token" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
+                  aria-label="Rotate signing token for {{ participant.name|default:participant.email }}"
+                  title="Generate a new signing link for this participant">
+            Rotate Token
+          </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# Void Reason (if voided) #}
+{% set status = resource_item.status|lower %}
+{% if status == "voided" and resource_item.void_reason %}
+<div class="p-6 border-t border-gray-200 bg-red-50">
+  <div class="flex items-start gap-3">
+    <div class="flex-shrink-0">
+      <svg class="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+    </div>
+    <div>
+      <h4 class="text-sm font-medium text-red-800">Void Reason</h4>
+      <p class="text-sm text-red-700 mt-1">{{ resource_item.void_reason }}</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Decline Reason (if declined) #}
+{% if status == "declined" and resource_item.decline_reason %}
+<div class="p-6 border-t border-gray-200 bg-orange-50">
+  <div class="flex items-start gap-3">
+    <div class="flex-shrink-0">
+      <svg class="w-5 h-5 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+    </div>
+    <div>
+      <h4 class="text-sm font-medium text-orange-800">Decline Reason</h4>
+      <p class="text-sm text-orange-700 mt-1">{{ resource_item.decline_reason }}</p>
+      {% if resource_item.declined_by %}
+        <p class="text-xs text-orange-600 mt-1">Declined by: {{ resource_item.declined_by }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Participant Status Progression Section (v2-only) #}
+{% set progress_list = resource_item.participants %}
+{% if progress_list and progress_list|length > 0 %}
+<div id="participant-progress-panel" class="p-6 border-t border-gray-200">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Participant Progress</div>
+    {# Stage summary for multi-signer flows (Task 24.FE.2) #}
+    {% if resource_item.active_stage or resource_item.stage_count %}
+    <div class="flex items-center gap-2">
+      {% if resource_item.stage_count and resource_item.stage_count > 1 %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700" title="Total signing stages">
+        <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        {{ resource_item.stage_count }} stages
+      </span>
+      {% endif %}
+      {% if resource_item.active_stage %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700" title="Currently active signing stage">
+        <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        Stage {{ resource_item.active_stage }} active
+      </span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4" id="participant-progress" role="list" aria-label="Participant signing progress">
+    {% for participant in progress_list %}
+    <div class="bg-gray-50 rounded-lg p-4" role="listitem">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
+            {{ participant.name|default:participant.email|slice:"0:1"|upper }}
+          </div>
+          <div>
+            <div class="font-medium text-gray-900 text-sm">{{ participant.name|default:participant.email }}</div>
+            <div class="text-xs text-gray-500">{{ participant.email }}</div>
+          </div>
+          {% if participant.role == "cc" %}
+          <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">CC</span>
+          {% endif %}
+          {# Stage indicator for multi-signer flows (Task 24.FE.2) #}
+          {% if participant.signing_stage and resource_item.stage_count and resource_item.stage_count > 1 %}
+            {% if resource_item.active_stage == participant.signing_stage %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700" title="Active stage">
+              Stage {{ participant.signing_stage }}
+            </span>
+            {% elif participant.status|lower == "signed" or participant.status|lower == "completed" %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700" title="Completed stage">
+              Stage {{ participant.signing_stage }}
+            </span>
+            {% elif participant.signing_stage > resource_item.active_stage %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500" title="Waiting for previous stages">
+              Stage {{ participant.signing_stage }}
+            </span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+              Stage {{ participant.signing_stage }}
+            </span>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% set pstatus = participant.status|lower %}
+        {% if pstatus == "pending" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" role="status">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-400" aria-hidden="true"></span>
+            Pending
+          </span>
+        {% elif pstatus == "signed" or pstatus == "completed" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700" role="status">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true"></span>
+            Signed
+          </span>
+        {% elif pstatus == "declined" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700" role="status">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true"></span>
+            Declined
+          </span>
+        {% elif pstatus == "delivered" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700" role="status">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-500" aria-hidden="true"></span>
+            Delivered
+          </span>
+        {% elif pstatus == "viewed" %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700" role="status">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-500" aria-hidden="true"></span>
+            Viewed
+          </span>
+        {% else %}
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" role="status">
+            {{ participant.status|default:"Pending"|title }}
+          </span>
+        {% endif %}
+      </div>
+      {# Participant timeline milestones #}
+      <div class="flex items-center gap-1 mt-2" role="list" aria-label="Participant milestones for {{ participant.name|default:participant.email }}">
+        {# Sent milestone #}
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            {% if participant.sent_at or resource_item.sent_at %}
+            <div class="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center" aria-hidden="true">
+              <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% else %}
+            <div class="w-4 h-4 rounded-full bg-gray-200" aria-hidden="true"></div>
+            {% endif %}
+            <div class="h-0.5 flex-1 {% if participant.sent_at or resource_item.sent_at %}bg-blue-500{% else %}bg-gray-200{% endif %}"></div>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <div class="font-medium">Sent</div>
+            {% if participant.sent_at %}
+            <div data-timestamp="{{ participant.sent_at }}" class="participant-timestamp">{{ participant.sent_at }}</div>
+            {% elif resource_item.sent_at %}
+            <div data-timestamp="{{ resource_item.sent_at }}" class="participant-timestamp">{{ resource_item.sent_at }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {# Viewed milestone (only for signers) #}
+        {% if participant.role != "cc" %}
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            {% if participant.first_view_at %}
+            <div class="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center" aria-hidden="true">
+              <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% else %}
+            <div class="w-4 h-4 rounded-full bg-gray-200" aria-hidden="true"></div>
+            {% endif %}
+            <div class="h-0.5 flex-1 {% if participant.first_view_at %}bg-purple-500{% else %}bg-gray-200{% endif %}"></div>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <div class="font-medium">Viewed</div>
+            {% if participant.first_view_at %}
+            <div data-timestamp="{{ participant.first_view_at }}" class="participant-timestamp">{{ participant.first_view_at }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {# Signed milestone #}
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            {% if participant.signed_at or participant.status|lower == "signed" or participant.status|lower == "completed" %}
+            <div class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
+              <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% elif participant.status|lower == "declined" %}
+            <div class="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center" aria-hidden="true">
+              <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% else %}
+            <div class="w-4 h-4 rounded-full bg-gray-200" aria-hidden="true"></div>
+            {% endif %}
+            <div class="h-0.5 flex-1 {% if participant.signed_at or participant.status|lower == "signed" or participant.status|lower == "completed" %}bg-green-500{% elif participant.status|lower == "declined" %}bg-red-500{% else %}bg-gray-200{% endif %}"></div>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <div class="font-medium">{% if participant.status|lower == "declined" %}Declined{% else %}Signed{% endif %}</div>
+            {% if participant.signed_at %}
+            <div data-timestamp="{{ participant.signed_at }}" class="participant-timestamp">{{ participant.signed_at }}</div>
+            {% elif participant.declined_at %}
+            <div data-timestamp="{{ participant.declined_at }}" class="participant-timestamp">{{ participant.declined_at }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {# Delivered milestone (for CC participants) #}
+        {% if participant.role == "cc" %}
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            {% if participant.delivered_at or participant.status|lower == "delivered" %}
+            <div class="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
+              <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% else %}
+            <div class="w-4 h-4 rounded-full bg-gray-200" aria-hidden="true"></div>
+            {% endif %}
+            <div class="h-0.5 flex-1 bg-transparent"></div>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <div class="font-medium">Delivered</div>
+            {% if participant.delivered_at %}
+            <div data-timestamp="{{ participant.delivered_at }}" class="participant-timestamp">{{ participant.delivered_at }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# Agreement Timeline Section #}
+<div id="agreement-timeline-panel" class="p-6 border-t border-gray-200">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Activity Timeline</div>
+    <div class="flex items-center gap-3">
+      <div id="timeline-view-toggle" class="hidden sm:block">
+        {# View toggle will be rendered by TypeScript controller #}
+      </div>
+      <button type="button" id="timeline-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+              aria-label="Refresh timeline">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+  <div id="agreement-timeline" class="relative" role="list" aria-label="Agreement activity timeline">
+    <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
+      <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+      <span>Loading timeline...</span>
+    </div>
+  </div>
+</div>
+
+{# Delivery Status Section - Job/Email failures and retry actions #}
+{% set status = resource_item.status|lower %}
+{% if status != "draft" %}
+<div id="agreement-delivery-panel" class="p-6 border-t border-gray-200" data-live-status-section="delivery">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-2">
+      <span class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Delivery Status</span>
+      <span data-live-status-target aria-live="polite"></span>
+    </div>
+    <button type="button" id="delivery-refresh" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+            aria-label="Refresh delivery status">
+      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <div id="delivery-status-container" class="space-y-4" role="list" aria-label="Delivery status and job information">
+    {# Email Delivery Status #}
+    {% if resource_item.email_logs and resource_item.email_logs|length > 0 %}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <span class="font-medium text-gray-700">Email Notifications</span>
+      </div>
+      <div class="space-y-2">
+        {% for email in resource_item.email_logs %}
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="flex items-center gap-3">
+            {% set email_status = email.status|lower %}
+            {% if email_status == "sent" or email_status == "delivered" %}
+            <span class="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+            {% elif email_status == "failed" or email_status == "bounced" %}
+            <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
+            {% elif email_status == "pending" or email_status == "queued" %}
+            <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true"></span>
+            {% elif email_status == "retrying" %}
+            <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse" aria-hidden="true"></span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+            {% endif %}
+            <div>
+              <div class="text-sm font-medium text-gray-900">{{ email.recipient_email|default:email.to }}</div>
+              <div class="text-xs text-gray-500">
+                {{ email.type|default:"Signing Request"|title }}
+                {% if email.sent_at %}
+                <span class="ml-1" data-timestamp="{{ email.sent_at }}">{{ email.sent_at }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if email_status == "sent" or email_status == "delivered" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              {{ email_status|title }}
+            </span>
+            {% elif email_status == "failed" or email_status == "bounced" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+              Failed
+            </span>
+            <button type="button" class="btn btn-sm btn-warning" data-action="retry-email" data-email-id="{{ email.id }}" data-recipient-id="{{ email.recipient_id }}"
+                    aria-label="Retry sending email to {{ email.recipient_email|default:email.to }}" title="Retry sending this email">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Retry
+            </button>
+            {% elif email_status == "retrying" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Retrying ({{ email.retry_count|default:0 }}/{{ email.max_retries|default:3 }})
+            </span>
+            {% elif email_status == "pending" or email_status == "queued" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+              </svg>
+              Pending
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">
+              {{ email_status|title }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% if email.error_message %}
+        <div class="ml-5 text-xs text-red-600 bg-red-50 rounded p-2 border border-red-100">
+          <span class="font-medium">Error:</span> {{ email.error_message }}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div id="agreement-artifacts-panel" class="space-y-4" data-live-status-section="artifacts">
+    {# Job/Artifact Status #}
+    {% if resource_item.jobs and resource_item.jobs|length > 0 %}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+        </svg>
+        <span class="font-medium text-gray-700">Processing Jobs</span>
+      </div>
+      <div class="space-y-2">
+        {% for job in resource_item.jobs %}
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="flex items-center gap-3">
+            {% set job_status = job.status|lower %}
+            {% if job_status == "completed" or job_status == "success" %}
+            <span class="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+            {% elif job_status == "failed" or job_status == "error" %}
+            <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
+            {% elif job_status == "running" or job_status == "processing" %}
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" aria-hidden="true"></span>
+            {% elif job_status == "pending" or job_status == "queued" %}
+            <span class="w-2 h-2 rounded-full bg-yellow-500" aria-hidden="true"></span>
+            {% elif job_status == "retrying" %}
+            <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse" aria-hidden="true"></span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+            {% endif %}
+            <div>
+              <div class="text-sm font-medium text-gray-900">{{ job.name|default:job.type|title }}</div>
+              <div class="text-xs text-gray-500">
+                {% if job.completed_at %}
+                Completed <span data-timestamp="{{ job.completed_at }}">{{ job.completed_at }}</span>
+                {% elif job.started_at %}
+                Started <span data-timestamp="{{ job.started_at }}">{{ job.started_at }}</span>
+                {% elif job.created_at %}
+                Created <span data-timestamp="{{ job.created_at }}">{{ job.created_at }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if job_status == "completed" or job_status == "success" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              Completed
+            </span>
+            {% elif job_status == "failed" or job_status == "error" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+              Failed
+            </span>
+            <button type="button" class="btn btn-sm btn-warning" data-action="retry-job" data-job-id="{{ job.id }}" data-job-type="{{ job.type }}"
+                    aria-label="Retry {{ job.name|default:job.type|title }}" title="Retry this job">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Retry
+            </button>
+            {% elif job_status == "running" or job_status == "processing" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700" role="status">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing
+            </span>
+            {% elif job_status == "retrying" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Retrying ({{ job.retry_count|default:0 }}/{{ job.max_retries|default:3 }})
+            </span>
+            {% elif job_status == "pending" or job_status == "queued" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+              </svg>
+              Pending
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">
+              {{ job_status|title }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% if job.error_message %}
+        <div class="ml-5 text-xs text-red-600 bg-red-50 rounded p-2 border border-red-100">
+          <span class="font-medium">Error:</span> {{ job.error_message }}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Artifact Generation Status #}
+    {% if resource_item.artifacts %}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <span class="font-medium text-gray-700">Generated Artifacts</span>
+      </div>
+      <div class="space-y-2">
+        {# Executed PDF #}
+        {% if resource_item.artifacts.executed %}
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="flex items-center gap-3">
+            {% set executed = resource_item.artifacts.executed %}
+            {% if executed.status|lower == "ready" or executed.object_key %}
+            <span class="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+            {% elif executed.status|lower == "failed" %}
+            <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
+            {% elif executed.status|lower == "pending" or executed.status|lower == "generating" %}
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" aria-hidden="true"></span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+            {% endif %}
+            <div>
+              <div class="text-sm font-medium text-gray-900">Executed PDF (Completion Package)</div>
+              <div class="text-xs text-gray-500">Signed document with appended audit trail</div>
+              <div class="text-xs text-gray-500">
+                {% if executed.sha256 %}
+                SHA256: <span class="font-mono">{{ executed.sha256|slice:"0:16" }}...</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if executed.status|lower == "ready" or executed.object_key %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">
+              Ready
+            </span>
+            <button type="button" class="btn btn-sm btn-primary" data-action="download-executed" data-agreement-id="{{ resource_item.id }}"
+                    aria-label="Download executed PDF" title="Download signed document with appended audit trail">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Download
+            </button>
+            {% elif executed.status|lower == "failed" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">
+              Failed
+            </span>
+            <button type="button" class="btn btn-sm btn-warning" data-action="retry-artifact" data-artifact-type="executed"
+                    aria-label="Retry generating executed PDF" title="Retry artifact generation">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Retry
+            </button>
+            {% elif executed.status|lower == "pending" or executed.status|lower == "generating" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700" role="status">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Generating
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {# Certificate #}
+        {% if resource_item.artifacts.certificate %}
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="flex items-center gap-3">
+            {% set cert = resource_item.artifacts.certificate %}
+            {% if cert.status|lower == "ready" or cert.object_key %}
+            <span class="w-2 h-2 rounded-full bg-green-500" aria-hidden="true"></span>
+            {% elif cert.status|lower == "failed" %}
+            <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
+            {% elif cert.status|lower == "pending" or cert.status|lower == "generating" %}
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" aria-hidden="true"></span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+            {% endif %}
+            <div>
+              <div class="text-sm font-medium text-gray-900">Certificate of Completion</div>
+              <div class="text-xs text-gray-500">Standalone audit certificate</div>
+              <div class="text-xs text-gray-500">
+                {% if cert.timeline_hash %}
+                Hash: <span class="font-mono">{{ cert.timeline_hash|slice:"0:16" }}...</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            {% if cert.status|lower == "ready" or cert.object_key %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">
+              Ready
+            </span>
+            <button type="button" class="btn btn-sm btn-secondary" data-action="download-certificate" data-agreement-id="{{ resource_item.id }}"
+                    aria-label="Download completion certificate" title="Download standalone audit certificate">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Download
+            </button>
+            {% elif cert.status|lower == "failed" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">
+              Failed
+            </span>
+            <button type="button" class="btn btn-sm btn-warning" data-action="retry-artifact" data-artifact-type="certificate"
+                    aria-label="Retry generating certificate" title="Retry certificate generation">
+              <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Retry
+            </button>
+            {% elif cert.status|lower == "pending" or cert.status|lower == "generating" %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700" role="status">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Generating
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    </div>
+
+    {# Delivery summary fallback when only aggregate delivery status is available #}
+    {% if resource_item.delivery and not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts %}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m-9 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <span class="font-medium text-gray-700">Delivery Overview</span>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Executed PDF (Completion Package)</div>
+          {% set executed_status = resource_item.delivery.executed_status|lower %}
+          {% if not page_executed_applicable %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">Not Available Until Completion</span>
+          {% elif executed_status == "ready" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
+          {% elif executed_status == "failed" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
+          {% elif executed_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.executed_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Certificate of Completion</div>
+          {% set certificate_status = resource_item.delivery.certificate_status|lower %}
+          {% if not page_certificate_applicable %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600" role="status">Not Available Until Completion</span>
+          {% elif certificate_status == "ready" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
+          {% elif certificate_status == "failed" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">Failed</span>
+          {% elif certificate_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.certificate_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
+          <div class="text-sm font-medium text-gray-900">Distribution</div>
+          {% set distribution_status = resource_item.delivery.distribution_status|lower %}
+          {% if distribution_status == "sent" or distribution_status == "delivered" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">{{ resource_item.delivery.distribution_status|title }}</span>
+          {% elif distribution_status == "failed" or distribution_status == "bounced" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700" role="status">{{ resource_item.delivery.distribution_status|title }}</span>
+          {% elif distribution_status == "retrying" %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700" role="status">Retrying</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700" role="status">{{ resource_item.delivery.distribution_status|default:"pending"|title }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if resource_item.delivery.last_error %}
+      <div class="mt-3 text-xs text-red-600 bg-red-50 rounded p-2 border border-red-100">
+        <span class="font-medium">Last error:</span> {{ resource_item.delivery.last_error }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Empty state when no delivery data available #}
+    {% if not resource_item.email_logs and not resource_item.jobs and not resource_item.artifacts and not resource_item.delivery %}
+    <div class="text-center py-6 text-gray-500">
+      <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p class="text-sm">No delivery information available</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block detail_scripts %}
+<script type="module">
+import {
+  bootstrapProvenanceCards,
+  bootstrapAgreementDetailPage,
+} from '{{ adminURL("assets/dist/esign/index.js") }}';
+
+// Initialize provenance card interactivity (evidence toggles, etc.)
+bootstrapProvenanceCards();
+
+// Canonical detail endpoints remain panel-scoped:
+// ${apiBase}/panels/${panelName}/${agreementId}/artifact/${assetType}
+// ${apiBase}/panels/${panelName}/actions/${action}
+
+// Initialize agreement detail page controller
+// This handles timeline rendering, actor resolution, and command runtime integration
+bootstrapAgreementDetailPage({
+  basePath: '{{ base_path }}',
+  apiBasePath: '{{ api_base_path|default:"" }}' || '{{ base_path }}/api',
+  agreementId: '{{ resource_item.id }}',
+  agreementStatus: '{{ resource_item.status|default:"" }}'.toLowerCase(),
+  panelName: '{{ panel_name|default:"esign_agreements" }}',
+  tenantId: '{{ resource_item.tenant_id|default:"" }}',
+  orgId: '{{ resource_item.org_id|default:"" }}',
+  delivery: {
+    executed_applicable: {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %},
+    executed_status: '{{ resource_item.delivery.executed_status|default:"pending" }}'.toLowerCase(),
+    executed_object_key: '{{ resource_item.delivery.executed_object_key|default:"" }}',
+    certificate_applicable: {% if resource_item.delivery and resource_item.delivery.certificate_applicable %}true{% else %}false{% endif %},
+    certificate_status: '{{ resource_item.delivery.certificate_status|default:"pending" }}'.toLowerCase(),
+    certificate_object_key: '{{ resource_item.delivery.certificate_object_key|default:"" }}',
+  },
+  feedback: {
+    sseEndpoint: '{{ api_base_path|default:"" }}{{ "/esign/events" }}' || '{{ base_path }}/api/esign/events',
+  },
+});
+
+</script>
+{% endblock %}

@@ -1,58 +1,67 @@
 (() => {
   const b = (t) => t.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "block", L = (t) => {
     const e = t.closest("form");
-    if (!e)
-      return "block@v1.0.0";
-    const n = [
+    if (!e) return "block@v1.0.0";
+    for (const n of [
       'input[name="name"]',
       'input[name="type"]',
       'input[name="slug"]'
-    ];
-    for (const s of n) {
-      const c = e.querySelector(s)?.value?.trim();
-      if (c)
-        return `${b(c)}@v1.0.0`;
+    ]) {
+      const s = e.querySelector(n)?.value?.trim();
+      if (s) return `${b(s)}@v1.0.0`;
     }
     return "block@v1.0.0";
   }, m = (t) => {
     const e = t.trim();
-    if (!e)
-      return { value: {} };
+    if (!e) return { value: {} };
     try {
       return { value: JSON.parse(e) };
     } catch (n) {
-      const s = n instanceof Error ? n.message : "Invalid JSON", i = s.match(/position (\d+)/i) || s.match(/line (\d+)/i), c = i ? parseInt(i[1], 10) : void 0;
-      return { value: null, error: s, errorLine: c };
+      const s = n instanceof Error ? n.message : "Invalid JSON", i = s.match(/position (\d+)/i) || s.match(/line (\d+)/i);
+      return {
+        value: null,
+        error: s,
+        errorLine: i ? parseInt(i[1], 10) : void 0
+      };
     }
   }, S = (t) => JSON.stringify(t, null, 2), q = (t, e) => {
     const n = t && typeof t == "object" ? t : {}, s = n.metadata && typeof n.metadata == "object" && !Array.isArray(n.metadata) ? n.metadata : {};
     return s.schema_version || (s.schema_version = e), n.metadata = s, n;
   }, T = (t) => {
-    if (!t || typeof t != "object")
-      return { properties: 0, required: 0, depth: 0, types: [] };
+    if (!t || typeof t != "object") return {
+      properties: 0,
+      required: 0,
+      depth: 0,
+      types: []
+    };
     let e = 0, n = 0, s = 0;
-    const i = /* @__PURE__ */ new Set(), c = (a, u) => {
+    const i = /* @__PURE__ */ new Set(), p = (a, l) => {
       if (!(!a || typeof a != "object")) {
-        if (s = Math.max(s, u), a.type && i.add(String(a.type)), a.properties && typeof a.properties == "object") {
-          const p = Object.keys(a.properties);
-          e += p.length, p.forEach((r) => c(a.properties[r], u + 1));
+        if (s = Math.max(s, l), a.type && i.add(String(a.type)), a.properties && typeof a.properties == "object") {
+          const d = Object.keys(a.properties);
+          e += d.length, d.forEach((r) => p(a.properties[r], l + 1));
         }
-        if (Array.isArray(a.required) && (n += a.required.length), a.items && c(a.items, u + 1), a.allOf || a.anyOf || a.oneOf) {
-          const p = a.allOf || a.anyOf || a.oneOf;
-          Array.isArray(p) && p.forEach((r) => c(r, u + 1));
+        if (Array.isArray(a.required) && (n += a.required.length), a.items && p(a.items, l + 1), a.allOf || a.anyOf || a.oneOf) {
+          const d = a.allOf || a.anyOf || a.oneOf;
+          Array.isArray(d) && d.forEach((r) => p(r, l + 1));
         }
       }
     };
-    return c(t, 0), { properties: e, required: n, depth: s, types: Array.from(i) };
-  }, l = (t, e, n) => {
+    return p(t, 0), {
+      properties: e,
+      required: n,
+      depth: s,
+      types: Array.from(i)
+    };
+  }, o = (t, e, n) => {
     const s = t.querySelector("[data-schema-status]");
     s && (s.textContent = e, s.dataset.state = n, s.classList.remove("text-green-600", "text-red-600", "text-blue-600"), n === "ok" ? s.classList.add("text-green-600") : n === "error" ? s.classList.add("text-red-600") : n === "info" && s.classList.add("text-blue-600"));
   }, h = (t, e) => {
     if (!e) return;
     const n = t.value.split(`
 `), s = n.length, i = String(s).length;
-    e.innerHTML = n.map((c, a) => `<span class="block text-right pr-2">${String(a + 1).padStart(i, " ")}</span>`).join("");
-  }, C = (t, e) => {
+    e.innerHTML = n.map((p, a) => `<span class="block text-right pr-2">${String(a + 1).padStart(i, " ")}</span>`).join("");
+  }, O = (t, e) => {
     e && (e.scrollTop = t.scrollTop);
   }, v = (t, e) => {
     const n = t.querySelector("[data-schema-stats]");
@@ -66,7 +75,7 @@
         ${s.types.length > 0 ? ` · types: ${s.types.join(", ")}` : ""}
       </span>
     `;
-  }, O = async (t) => {
+  }, x = async (t) => {
     try {
       return await navigator.clipboard.writeText(t), !0;
     } catch {
@@ -75,7 +84,7 @@
       const n = document.execCommand("copy");
       return document.body.removeChild(e), n;
     }
-  }, x = (t, e) => {
+  }, C = (t, e) => {
     const n = t.selectionStart, s = t.selectionEnd, i = t.value;
     t.value = i.substring(0, n) + e + i.substring(s), t.selectionStart = t.selectionEnd = n + e.length, t.focus(), t.dispatchEvent(new Event("input", { bubbles: !0 }));
   }, E = {
@@ -105,41 +114,40 @@
   }, k = () => {
     document.querySelectorAll("[data-schema-editor]").forEach((t) => {
       const e = t.querySelector("[data-schema-input]");
-      if (!e)
-        return;
-      const n = t.querySelector("[data-schema-format]"), s = t.querySelector("[data-schema-validate]"), i = t.querySelector("[data-schema-metadata]"), c = t.querySelector("[data-schema-copy]"), a = t.querySelector("[data-schema-line-numbers]"), u = t.querySelector("[data-schema-stats]");
+      if (!e) return;
+      const n = t.querySelector("[data-schema-format]"), s = t.querySelector("[data-schema-validate]"), i = t.querySelector("[data-schema-metadata]"), p = t.querySelector("[data-schema-copy]"), a = t.querySelector("[data-schema-line-numbers]"), l = t.querySelector("[data-schema-stats]");
       t.querySelectorAll("[data-schema-template]").forEach((r) => {
-        const d = r.dataset.schemaTemplate;
-        d && E[d] && r.addEventListener("click", () => {
-          x(e, E[d]), l(t, `Inserted ${d} template`, "info");
+        const u = r.dataset.schemaTemplate;
+        u && E[u] && r.addEventListener("click", () => {
+          C(e, E[u]), o(t, `Inserted ${u} template`, "info");
         });
-      }), a && (h(e, a), e.addEventListener("input", () => h(e, a)), e.addEventListener("scroll", () => C(e, a))), n?.addEventListener("click", () => {
+      }), a && (h(e, a), e.addEventListener("input", () => h(e, a)), e.addEventListener("scroll", () => O(e, a))), n?.addEventListener("click", () => {
         const r = m(e.value);
         if (r.error) {
-          l(t, r.error, "error");
+          o(t, r.error, "error");
           return;
         }
-        e.value = S(r.value), a && h(e, a), u && v(t, r.value), l(t, "Formatted", "ok");
+        e.value = S(r.value), a && h(e, a), l && v(t, r.value), o(t, "Formatted", "ok");
       }), s?.addEventListener("click", () => {
         const r = m(e.value);
         if (r.error) {
-          l(t, r.error, "error");
+          o(t, r.error, "error");
           return;
         }
-        u && v(t, r.value), l(t, "Valid JSON", "ok");
+        l && v(t, r.value), o(t, "Valid JSON", "ok");
       }), i?.addEventListener("click", () => {
         const r = m(e.value);
         if (r.error) {
-          l(t, r.error, "error");
+          o(t, r.error, "error");
           return;
         }
-        const d = L(t), o = q(r.value, d);
-        e.value = S(o), a && h(e, a), u && v(t, o), l(t, "Metadata inserted", "ok");
-      }), c?.addEventListener("click", async () => {
-        const r = await O(e.value);
-        l(t, r ? "Copied to clipboard" : "Copy failed", r ? "ok" : "error");
+        const u = L(t), c = q(r.value, u);
+        e.value = S(c), a && h(e, a), l && v(t, c), o(t, "Metadata inserted", "ok");
+      }), p?.addEventListener("click", async () => {
+        const r = await x(e.value);
+        o(t, r ? "Copied to clipboard" : "Copy failed", r ? "ok" : "error");
       }), e.addEventListener("input", () => {
-        l(t, "", "");
+        o(t, "", "");
       }), e.addEventListener("keydown", (r) => {
         if ((r.ctrlKey || r.metaKey) && r.shiftKey && r.key === "f") {
           r.preventDefault(), n?.click();
@@ -155,29 +163,34 @@
         }
         if (r.key === "Tab") {
           r.preventDefault();
-          const o = e.selectionStart, g = e.selectionEnd;
+          const c = e.selectionStart, g = e.selectionEnd;
           if (r.shiftKey) {
             const y = e.value, f = y.lastIndexOf(`
-`, o - 1) + 1;
-            y.substring(f, o).match(/^  /) && (e.value = y.substring(0, f) + y.substring(f + 2), e.selectionStart = e.selectionEnd = o - 2);
+`, c - 1) + 1;
+            y.substring(f, c).match(/^  /) && (e.value = y.substring(0, f) + y.substring(f + 2), e.selectionStart = e.selectionEnd = c - 2);
           } else
-            e.value = e.value.substring(0, o) + "  " + e.value.substring(g), e.selectionStart = e.selectionEnd = o + 2;
+            e.value = e.value.substring(0, c) + "  " + e.value.substring(g), e.selectionStart = e.selectionEnd = c + 2;
           e.dispatchEvent(new Event("input", { bubbles: !0 }));
         }
-        const d = { "{": "}", "[": "]", '"': '"' };
-        if (d[r.key]) {
-          const o = e.selectionStart, g = e.selectionEnd;
-          if (o === g) {
+        const u = {
+          "{": "}",
+          "[": "]",
+          '"': '"'
+        };
+        if (u[r.key]) {
+          const c = e.selectionStart, g = e.selectionEnd;
+          if (c === g) {
             r.preventDefault();
-            const y = r.key, f = d[y];
-            e.value = e.value.substring(0, o) + y + f + e.value.substring(g), e.selectionStart = e.selectionEnd = o + 1, e.dispatchEvent(new Event("input", { bubbles: !0 }));
+            const y = r.key, f = u[y];
+            e.value = e.value.substring(0, c) + y + f + e.value.substring(g), e.selectionStart = e.selectionEnd = c + 1, e.dispatchEvent(new Event("input", { bubbles: !0 }));
           }
         }
       });
-      const p = m(e.value);
-      !p.error && u && v(t, p.value);
+      const d = m(e.value);
+      !d.error && l && v(t, d.value);
     });
   };
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", k) : k();
 })();
+
 //# sourceMappingURL=schema_editor.js.map

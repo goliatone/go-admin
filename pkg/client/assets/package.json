@@ -42,9 +42,10 @@
     "@types/sortablejs": "^1.15.9",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.2",
+    "esbuild": "^0.27.4",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.3.3",
-    "vite": "^5.4.11"
+    "vite": "^8.0.1"
   },
   "dependencies": {
     "jsonpath-plus": "^10.3.0",

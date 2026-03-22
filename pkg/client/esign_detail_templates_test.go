@@ -11,8 +11,8 @@ func TestESignAgreementDetailTemplateGatesExecutedWarningsByApplicability(t *tes
 	required := []string{
 		`{% set page_executed_applicable = resource_item.delivery and resource_item.delivery.executed_applicable %}`,
 		`{% if page_executed_applicable and page_status == "completed" and not page_executed_available %}`,
-		`const executedApplicable = {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %};`,
-		`if (executedApplicable && agreementStatus === 'completed' && executedDeliveryStatus !== 'ready' && !executedObjectKey) {`,
+		`delivery: {`,
+		`executed_applicable: {% if resource_item.delivery and resource_item.delivery.executed_applicable %}true{% else %}false{% endif %},`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(template, fragment) {

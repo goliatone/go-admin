@@ -6,15 +6,13 @@
       if (f.forEach((e) => {
         const t = e.dataset.permission;
         t && (p[t] = e);
-      }), !c || f.length === 0)
-        return;
+      }), !c || f.length === 0) return;
       const k = () => {
         if (i) {
           const n = [], a = {};
           return Array.from(i.selectedOptions).forEach((S) => {
             const l = m(S.value);
-            if (!l)
-              return;
+            if (!l) return;
             const y = p[l];
             if (y) {
               y.checked = !0;
@@ -44,8 +42,7 @@
 `);
       }, g = (e) => {
         const t = m(e);
-        if (!t)
-          return;
+        if (!t) return;
         const s = p[t];
         if (s) {
           s.checked = !0, d();
@@ -62,8 +59,7 @@
 `)), o.dispatchEvent(new Event("input", { bubbles: !0 }));
         }
       }, v = () => {
-        if (!u)
-          return;
+        if (!u) return;
         const e = u.value;
         g(e), u.value = "";
       };
@@ -76,4 +72,5 @@
   };
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", x) : x();
 })();
+
 //# sourceMappingURL=permission_matrix.js.map

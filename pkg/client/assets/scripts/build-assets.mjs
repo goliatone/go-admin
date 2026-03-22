@@ -20,8 +20,17 @@ const distStagingDir = resolve(root, '.dist-staging');
 const distPrevDir = resolve(root, '.dist-prev');
 const distTypesDir = resolve(root, 'dist-types');
 
+function resolveLocalBinary(command) {
+  const executableName = process.platform === 'win32' ? `${command}.cmd` : command;
+  const binaryPath = resolve(root, 'node_modules', '.bin', executableName);
+  if (existsSync(binaryPath)) {
+    return binaryPath;
+  }
+  return command;
+}
+
 function run(command, args) {
-  const result = spawnSync(command, args, {
+  const result = spawnSync(resolveLocalBinary(command), args, {
     cwd: root,
     stdio: 'inherit',
     shell: process.platform === 'win32',

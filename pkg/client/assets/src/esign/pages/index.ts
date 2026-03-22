@@ -16,6 +16,10 @@ export {
   bootstrapSignerCompletePage,
   type SignerCompleteConfig,
   type ArtifactUrls,
+  type SignerCompletePayloadState,
+  resolveSignerCompleteArtifacts,
+  resolveSignerCompletePayloadState,
+  getSignerCompletionPollDelayMs,
 } from './signer-complete.js';
 
 export {

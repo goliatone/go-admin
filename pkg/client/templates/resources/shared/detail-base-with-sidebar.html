@@ -1,0 +1,119 @@
+{% extends "resources/shared/detail-base.html" %}
+
+{# Sidebar-aware detail template that adds a right sidebar column #}
+
+{% block detail_content %}
+  {% block detail_content_pre %}{% endblock %}
+
+  {# Two-column layout: main content + sidebar #}
+  <div class="flex flex-col lg:flex-row gap-6 items-start">
+    {# Main content column #}
+    <div class="w-full lg:flex-1 min-w-0">
+      {% block identity_card %}
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {% block identity_header %}
+            <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
+              {% block identity_avatar %}
+                {% set avatar_type = avatar_type|default:"person" %}
+                {% set initial = resource_item.name|default:resource_item.username|default:resource_item.display_name|default:resource_item.title|default:resource_item.id|slice:"0:1"|upper %}
+                {% if avatar_type == "person" %}
+                  <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">
+                    {{ initial }}
+                  </div>
+                {% elif avatar_type == "organization" %}
+                  <div class="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-xl font-semibold text-slate-700">
+                    {{ initial }}
+                  </div>
+                {% elif avatar_type == "role" %}
+                  <div class="w-14 h-14 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <i class="iconoir-shield text-2xl text-purple-700"></i>
+                  </div>
+                {% elif avatar_type == "content" %}
+                  <div class="w-14 h-14 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <i class="iconoir-page text-2xl text-emerald-700"></i>
+                  </div>
+                {% elif avatar_type == "agreement" %}
+                  <div class="w-14 h-14 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                {% else %}
+                  <div class="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl font-semibold text-gray-700">
+                    {{ initial }}
+                  </div>
+                {% endif %}
+              {% endblock %}
+              <div class="flex-1 min-w-0">
+                {% block identity_info %}
+                  <h2 class="text-xl font-semibold text-gray-900 truncate">
+                    {% block identity_title %}{{ resource_item.name|default:resource_item.username|default:resource_item.display_name|default:resource_item.title|default:resource_item.id }}{% endblock %}
+                  </h2>
+                  {% block identity_subtitle %}
+                    {% if resource_item.email %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.email }}</p>
+                    {% elif resource_item.description %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.description }}</p>
+                    {% elif resource_item.domain %}
+                      <p class="text-sm text-gray-500 truncate">{{ resource_item.domain }}</p>
+                    {% endif %}
+                  {% endblock %}
+                {% endblock %}
+              </div>
+              {% block identity_status %}
+                {% if resource_item.status %}
+                  {% set status = resource_item.status|lower %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                    {% if status == 'active' %}bg-green-100 text-green-800
+                    {% elif status == 'inactive' %}bg-gray-100 text-gray-800
+                    {% elif status == 'suspended' %}bg-red-100 text-red-800
+                    {% elif status == 'pending' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    <span class="w-1.5 h-1.5 rounded-full
+                      {% if status == 'active' %}bg-green-500
+                      {% elif status == 'inactive' %}bg-gray-400
+                      {% elif status == 'suspended' %}bg-red-500
+                      {% elif status == 'pending' %}bg-yellow-500
+                      {% else %}bg-gray-400{% endif %}"></span>
+                    {{ resource_item.status|title }}
+                  </span>
+                {% endif %}
+              {% endblock %}
+            </div>
+          {% endblock %}
+
+          {% block fields_section %}
+            <div class="p-6">
+              <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">{% block fields_title %}Details{% endblock %}</div>
+              <div class="grid grid-cols-2 gap-6">
+                {% for field in fields %}
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-500 mb-1">{{ field.label }}</div>
+                    <div class="text-base font-medium text-gray-900">{{ field.value|default:"-" }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endblock %}
+
+          {% block extra_sections %}{% endblock %}
+        </div>
+      {% endblock %}
+
+      {% block after_card %}{% endblock %}
+    </div>
+
+    {# Sidebar column - sticky on large screens #}
+    {% block sidebar_container %}
+      {% if self.sidebar() %}
+      <aside class="w-full lg:w-80 xl:w-96 flex-shrink-0">
+        <div class="lg:sticky lg:top-6 space-y-6">
+          {% block sidebar %}{% endblock %}
+        </div>
+      </aside>
+      {% endif %}
+    {% endblock %}
+  </div>
+
+  {% block detail_content_post %}{% endblock %}
+{% endblock %}

@@ -790,6 +790,90 @@
     background: linear-gradient(90deg, #10b981 50%, #e5e7eb 50%);
   }
 
+  /* Panel tabs for combined signer+review sessions */
+  .panel-tabs {
+    display: none;
+    border-bottom: 1px solid #e5e7eb;
+    margin: -1rem -1rem 1rem -1rem;
+    padding: 0 1rem;
+    background: #f9fafb;
+  }
+
+  .panel-tabs.active {
+    display: flex;
+  }
+
+  .panel-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    margin-bottom: -1px;
+    min-height: 44px;
+  }
+
+  .panel-tab:hover {
+    color: #374151;
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .panel-tab:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+  }
+
+  .panel-tab[aria-selected="true"] {
+    color: #1d4ed8;
+    border-bottom-color: #3b82f6;
+    background: white;
+  }
+
+  .panel-tab[aria-selected="true"] i {
+    color: #3b82f6;
+  }
+
+  /* Tab content visibility */
+  .panel-tab-content {
+    display: none;
+  }
+
+  .panel-tab-content.active {
+    display: block;
+  }
+
+  /* Sign tab content wrapper */
+  .sign-tab-content .review-only-visible {
+    display: none !important;
+  }
+
+  /* Review tab content wrapper */
+  .review-tab-content .sign-only-visible {
+    display: none !important;
+  }
+
+  /* Combined session mode adjustments */
+  .side-panel.combined-mode .panel-header {
+    padding-bottom: 0;
+  }
+
+  /* Mobile: stack tabs */
+  @media (max-width: 768px) {
+    .panel-tab {
+      font-size: 0.8125rem;
+      padding: 0.625rem 0.75rem;
+    }
+  }
+
   /* Inline Comment Composer */
   .inline-comment-composer {
     position: fixed;
@@ -1077,14 +1161,47 @@
   <div class="side-panel">
     <!-- Panel Header -->
     <div class="panel-header">
-      <div class="flex items-center justify-between mb-3">
+      <!-- Title row (hidden in combined mode when tabs are shown) -->
+      <div id="panel-title-row" class="panel-title-row flex items-center justify-between mb-3">
         <h2 id="panel-title" class="text-lg font-semibold text-gray-900">Complete & Sign</h2>
         <span id="fields-status" class="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
           0 remaining
         </span>
       </div>
 
-      <!-- Quick progress bar for mobile -->
+      <!-- Tab strip for combined signer+review sessions (hidden by default) -->
+      <div id="panel-tabs" class="panel-tabs" role="tablist" aria-label="Panel view">
+        <button
+          id="panel-tab-sign"
+          class="panel-tab"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-sign-content"
+          aria-label="Show signing panel"
+          data-esign-action="switch-panel-tab"
+          data-tab="sign"
+          tabindex="0"
+        >
+          <i class="iconoir-signature" aria-hidden="true"></i>
+          <span>Sign</span>
+        </button>
+        <button
+          id="panel-tab-review"
+          class="panel-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-review-content"
+          aria-label="Show review and comment panel"
+          data-esign-action="switch-panel-tab"
+          data-tab="review"
+          tabindex="-1"
+        >
+          <i class="iconoir-chat-bubble" aria-hidden="true"></i>
+          <span>Review</span>
+        </button>
+      </div>
+
+      <!-- Quick progress bar for mobile (sign tab only) -->
       <div id="panel-mobile-progress" class="h-1.5 bg-gray-200 rounded-full overflow-hidden md:hidden">
         <div id="mobile-progress" class="h-full bg-blue-600 rounded-full transition-all" style="width: 0%"></div>
       </div>
@@ -1102,254 +1219,252 @@
         </div>
       </div>
 
-      <div id="stage-state-banner" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4" role="status" aria-live="polite">
-        <div class="flex items-start gap-3">
-          <i id="stage-state-icon" class="iconoir-info-circle text-blue-600 mt-0.5" aria-hidden="true"></i>
-          <div class="min-w-0">
-            <p id="stage-state-title" class="text-sm font-semibold text-blue-900">Signing stage status</p>
-            <p id="stage-state-message" class="text-xs text-blue-800 mt-1">Loading stage details...</p>
-            <div id="stage-state-meta" class="mt-2 flex flex-wrap gap-2"></div>
+      <div id="panel-sign-content" role="tabpanel" aria-labelledby="panel-tab-sign">
+        <div id="stage-state-banner" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4" role="status" aria-live="polite">
+          <div class="flex items-start gap-3">
+            <i id="stage-state-icon" class="iconoir-info-circle text-blue-600 mt-0.5" aria-hidden="true"></i>
+            <div class="min-w-0">
+              <p id="stage-state-title" class="text-sm font-semibold text-blue-900">Signing stage status</p>
+              <p id="stage-state-message" class="text-xs text-blue-800 mt-1">Loading stage details...</p>
+              <div id="stage-state-meta" class="mt-2 flex flex-wrap gap-2"></div>
+            </div>
           </div>
+        </div>
+
+        <div id="consent-notice" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg {% if session.has_consented %}hidden{% endif %}">
+          <div class="flex items-start gap-3">
+            <i class="iconoir-warning-circle text-amber-600 mt-0.5"></i>
+            <div>
+              <p class="text-sm font-medium text-amber-800">Consent Required</p>
+              <p class="text-xs text-amber-700 mt-1">Please review and accept the electronic signature consent before completing fields.</p>
+              <button type="button" data-esign-action="show-consent-modal" class="mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
+                Review & Accept
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="fields-list" class="space-y-2" role="list" aria-label="Fields to complete" aria-describedby="a11y-status">
+          {% if session.fields and session.fields|length > 0 %}
+          {% for field in session.fields %}
+          <button
+            type="button"
+            class="field-list-item w-full text-left flex items-center gap-3 {% if field.value_text or field.value_bool %}completed{% endif %}"
+            data-field-id="{{ field.id }}"
+            data-field-type="{{ field.type }}"
+            data-field-required="{{ field.required }}"
+            data-field-page="{{ field.page }}"
+            data-esign-action="activate-field"
+            data-field-id="{{ field.id }}"
+            role="listitem"
+            aria-pressed="false"
+            aria-describedby="field-desc-{{ field.id }}"
+            tabindex="0"
+          >
+            <span id="field-desc-{{ field.id }}" class="sr-only">
+              {% if field.required %}Required{% else %}Optional{% endif %} {{ field.type }} field on page {{ field.page }}.
+              {% if field.value_text or field.value_bool %}Completed.{% else %}Not completed.{% endif %}
+            </span>
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 {% if field.value_text or field.value_bool %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-500{% endif %}">
+              {% if field.value_text or field.value_bool %}
+              <i class="iconoir-check"></i>
+              {% else %}
+              {% if field.type == "signature" %}
+              <i class="iconoir-signature"></i>
+              {% elif field.type == "initials" %}
+              <i class="iconoir-text"></i>
+              {% elif field.type == "name" %}
+              <i class="iconoir-user"></i>
+              {% elif field.type == "date_signed" %}
+              <i class="iconoir-calendar"></i>
+              {% elif field.type == "checkbox" %}
+              <i class="iconoir-check-square"></i>
+              {% else %}
+              <i class="iconoir-edit-pencil"></i>
+              {% endif %}
+              {% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900">
+                {% if field.type == "signature" %}Signature{% elif field.type == "initials" %}Initials{% elif field.type == "name" %}Full Name{% elif field.type == "date_signed" %}Date{% elif field.type == "checkbox" %}Checkbox{% elif field.type == "text" %}{{ field.label|default:"Text" }}{% else %}{{ field.type|title }}{% endif %}
+                {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+              </p>
+              <p class="text-xs text-gray-500">
+                {% if field.value_text %}
+                <span class="truncate block max-w-[180px]">{{ field.value_text }}</span>
+                {% elif field.value_bool %}
+                Checked
+                {% elif field.type == "date_signed" %}
+                Auto-filled on submit
+                {% else %}
+                Page {{ field.page }}
+                {% endif %}
+              </p>
+            </div>
+            <i class="iconoir-nav-arrow-right text-gray-400 flex-shrink-0" aria-hidden="true"></i>
+          </button>
+          {% endfor %}
+          {% else %}
+          <div class="text-center py-8 text-gray-500">
+            <i class="iconoir-check-circle text-2xl mb-2"></i>
+            <p class="text-sm">No fields to complete</p>
+          </div>
+          {% endif %}
         </div>
       </div>
 
-      <div id="review-banner" class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 hidden" role="status" aria-live="polite"></div>
+      <div id="panel-review-content" role="tabpanel" aria-labelledby="panel-tab-review" hidden>
+        <div id="review-banner" class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 hidden" role="status" aria-live="polite"></div>
 
-      <section id="review-panel" class="mb-4 hidden" aria-labelledby="review-panel-title">
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div class="border-b border-gray-100 px-4 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p id="review-panel-title" class="text-sm font-semibold text-gray-900">Review & Comments</p>
-                <p id="review-panel-subtitle" class="mt-1 text-xs text-gray-500">Track review status, comments, and decision actions.</p>
+        <section id="review-panel" class="mb-4 hidden" aria-labelledby="review-panel-title">
+          <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p id="review-panel-title" class="text-sm font-semibold text-gray-900">Review & Comments</p>
+                  <p id="review-panel-subtitle" class="mt-1 text-xs text-gray-500">Track review status, comments, and decision actions.</p>
+                </div>
+                <span id="review-status-chip" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">Inactive</span>
               </div>
-              <span id="review-status-chip" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">Inactive</span>
+              <div id="review-progress-indicator" class="mt-3 hidden">
+                <div class="flex items-center justify-between gap-1">
+                  <div id="review-step-draft" class="review-progress-step flex-1 flex flex-col items-center">
+                    <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                      <i class="iconoir-edit-pencil text-xs"></i>
+                    </div>
+                    <span class="mt-1 text-[10px] font-medium text-gray-400">Draft</span>
+                  </div>
+                  <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                  <div id="review-step-sent" class="review-progress-step flex-1 flex flex-col items-center">
+                    <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                      <i class="iconoir-send text-xs"></i>
+                    </div>
+                    <span class="mt-1 text-[10px] font-medium text-gray-400">Sent</span>
+                  </div>
+                  <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                  <div id="review-step-review" class="review-progress-step flex-1 flex flex-col items-center">
+                    <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                      <i class="iconoir-eye text-xs"></i>
+                    </div>
+                    <span class="mt-1 text-[10px] font-medium text-gray-400">Review</span>
+                  </div>
+                  <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
+                  <div id="review-step-decision" class="review-progress-step flex-1 flex flex-col items-center">
+                    <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
+                      <i class="iconoir-check-circle text-xs"></i>
+                    </div>
+                    <span class="mt-1 text-[10px] font-medium text-gray-400">Decision</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <!-- Review Status Progression Indicator -->
-            <div id="review-progress-indicator" class="mt-3 hidden">
-              <div class="flex items-center justify-between gap-1">
-                <div id="review-step-draft" class="review-progress-step flex-1 flex flex-col items-center">
-                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
-                    <i class="iconoir-edit-pencil text-xs"></i>
-                  </div>
-                  <span class="mt-1 text-[10px] font-medium text-gray-400">Draft</span>
-                </div>
-                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
-                <div id="review-step-sent" class="review-progress-step flex-1 flex flex-col items-center">
-                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
-                    <i class="iconoir-send text-xs"></i>
-                  </div>
-                  <span class="mt-1 text-[10px] font-medium text-gray-400">Sent</span>
-                </div>
-                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
-                <div id="review-step-review" class="review-progress-step flex-1 flex flex-col items-center">
-                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
-                    <i class="iconoir-eye text-xs"></i>
-                  </div>
-                  <span class="mt-1 text-[10px] font-medium text-gray-400">Review</span>
-                </div>
-                <div class="review-progress-line flex-shrink-0 w-6 h-0.5 bg-gray-200 -mt-4"></div>
-                <div id="review-step-decision" class="review-progress-step flex-1 flex flex-col items-center">
-                  <div class="review-progress-dot w-6 h-6 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-gray-400 transition-all">
-                    <i class="iconoir-check-circle text-xs"></i>
-                  </div>
-                  <span class="mt-1 text-[10px] font-medium text-gray-400">Decision</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="space-y-4 px-4 py-4">
-            <div id="review-participant-summary" class="hidden text-xs text-gray-600"></div>
-            <div id="review-decision-actions" class="hidden flex flex-wrap gap-2">
-              <button type="button" data-esign-action="approve-review" class="btn btn-primary">
-                <i class="iconoir-check-circle mr-2" aria-hidden="true"></i>
-                Approve Review
-              </button>
-              <button type="button" data-esign-action="request-review-changes" class="btn btn-secondary">
-                <i class="iconoir-warning-circle mr-2" aria-hidden="true"></i>
-                Request Changes
-              </button>
-            </div>
-            <div id="review-thread-summary" class="text-xs text-gray-500 hidden"></div>
-            <div id="review-thread-composer" class="space-y-3 hidden">
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">
-                  Comment type
-                </label>
-                <div id="review-anchor-chips" class="flex flex-wrap gap-2">
-                  <button type="button" data-anchor-type="agreement" class="review-anchor-chip active rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100">
-                    <i class="iconoir-globe mr-1" aria-hidden="true"></i>
-                    Global Comment
-                  </button>
-                  <button type="button" data-anchor-type="field" id="review-anchor-field-chip" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors cursor-not-allowed hidden" disabled>
-                    <span id="review-anchor-field-label">Select a field</span>
-                  </button>
-                </div>
-                <input type="hidden" id="review-thread-anchor" value="agreement" />
-              </div>
-              <!-- Pick location controls hidden - auto-enabled on Page anchor selection -->
-              <div id="review-anchor-point-controls" class="review-anchor-point-controls hidden rounded-lg px-3 py-3" style="display: none;">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinned location</p>
-                    <p id="review-anchor-point-status" class="mt-1 text-xs text-slate-600">Attach this thread to a specific point on the current page.</p>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button type="button" data-esign-action="pick-review-anchor-point" class="btn btn-secondary px-3 py-2 text-xs">
-                      Pick location
-                    </button>
-                    <button type="button" data-esign-action="clear-review-anchor-point" class="text-xs font-medium text-slate-600 hover:text-slate-800 underline underline-offset-2">
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <p id="review-thread-composer-hint" class="text-xs text-gray-500">Add general agreement-level feedback here, or click directly on the document to add a positioned comment.</p>
-              <label class="block text-xs font-medium text-gray-700">
-                New global comment
-                <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add general agreement feedback"></textarea>
-              </label>
-              <div class="flex items-center justify-end">
-                <button type="button" data-esign-action="create-review-thread" class="btn btn-secondary">
-                  <i class="iconoir-chat-bubble mr-2" aria-hidden="true"></i>
-                  Add Global Comment
+            <div class="space-y-4 px-4 py-4">
+              <div id="review-participant-summary" class="hidden text-xs text-gray-600"></div>
+              <div id="review-decision-actions" class="hidden flex flex-wrap gap-2">
+                <button type="button" data-esign-action="approve-review" class="btn btn-primary">
+                  <i class="iconoir-check-circle mr-2" aria-hidden="true"></i>
+                  Approve Review
+                </button>
+                <button type="button" data-esign-action="request-review-changes" class="btn btn-secondary">
+                  <i class="iconoir-warning-circle mr-2" aria-hidden="true"></i>
+                  Request Changes
                 </button>
               </div>
+              <div id="review-thread-summary" class="text-xs text-gray-500 hidden"></div>
+              <div id="review-thread-composer" class="space-y-3 hidden">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">
+                    Comment type
+                  </label>
+                  <div id="review-anchor-chips" class="flex flex-wrap gap-2">
+                    <button type="button" data-anchor-type="agreement" class="review-anchor-chip active rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100">
+                      <i class="iconoir-globe mr-1" aria-hidden="true"></i>
+                      Global Comment
+                    </button>
+                    <button type="button" data-anchor-type="field" id="review-anchor-field-chip" class="review-anchor-chip rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors cursor-not-allowed hidden" disabled>
+                      <span id="review-anchor-field-label">Select a field</span>
+                    </button>
+                  </div>
+                  <input type="hidden" id="review-thread-anchor" value="agreement" />
+                </div>
+                <div id="review-anchor-point-controls" class="review-anchor-point-controls hidden rounded-lg px-3 py-3" style="display: none;">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinned location</p>
+                      <p id="review-anchor-point-status" class="mt-1 text-xs text-slate-600">Attach this thread to a specific point on the current page.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button type="button" data-esign-action="pick-review-anchor-point" class="btn btn-secondary px-3 py-2 text-xs">
+                        Pick location
+                      </button>
+                      <button type="button" data-esign-action="clear-review-anchor-point" class="text-xs font-medium text-slate-600 hover:text-slate-800 underline underline-offset-2">
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p id="review-thread-composer-hint" class="text-xs text-gray-500">Add general agreement-level feedback here, or click directly on the document to add a positioned comment.</p>
+                <label class="block text-xs font-medium text-gray-700">
+                  New global comment
+                  <textarea id="review-thread-body" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y" placeholder="Add general agreement feedback"></textarea>
+                </label>
+                <div class="flex items-center justify-end">
+                  <button type="button" data-esign-action="create-review-thread" class="btn btn-secondary">
+                    <i class="iconoir-chat-bubble mr-2" aria-hidden="true"></i>
+                    Add Global Comment
+                  </button>
+                </div>
+              </div>
+              <div id="review-thread-list" class="space-y-3"></div>
             </div>
-            <div id="review-thread-list" class="space-y-3"></div>
           </div>
-        </div>
-      </section>
-
-      <!-- Consent notice if not yet consented -->
-      <div id="consent-notice" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg {% if session.has_consented %}hidden{% endif %}">
-        <div class="flex items-start gap-3">
-          <i class="iconoir-warning-circle text-amber-600 mt-0.5"></i>
-          <div>
-            <p class="text-sm font-medium text-amber-800">Consent Required</p>
-            <p class="text-xs text-amber-700 mt-1">Please review and accept the electronic signature consent before completing fields.</p>
-            <button type="button" data-esign-action="show-consent-modal" class="mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
-              Review & Accept
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Fields list -->
-      <div id="fields-list" class="space-y-2" role="list" aria-label="Fields to complete" aria-describedby="a11y-status">
-        {% for field in session.fields %}
-        <button
-          type="button"
-          class="field-list-item w-full text-left flex items-center gap-3 {% if field.value_text or field.value_bool %}completed{% endif %}"
-          data-field-id="{{ field.id }}"
-          data-field-type="{{ field.type }}"
-          data-field-required="{{ field.required }}"
-          data-field-page="{{ field.page }}"
-          data-esign-action="activate-field"
-          data-field-id="{{ field.id }}"
-          role="listitem"
-          aria-pressed="false"
-          aria-describedby="field-desc-{{ field.id }}"
-          tabindex="0"
-        >
-          <span id="field-desc-{{ field.id }}" class="sr-only">
-            {% if field.required %}Required{% else %}Optional{% endif %} {{ field.type }} field on page {{ field.page }}.
-            {% if field.value_text or field.value_bool %}Completed.{% else %}Not completed.{% endif %}
-          </span>
-          <!-- Status icon -->
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 {% if field.value_text or field.value_bool %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-500{% endif %}">
-            {% if field.value_text or field.value_bool %}
-            <i class="iconoir-check"></i>
-            {% else %}
-            {% if field.type == "signature" %}
-            <i class="iconoir-signature"></i>
-            {% elif field.type == "initials" %}
-            <i class="iconoir-text"></i>
-            {% elif field.type == "name" %}
-            <i class="iconoir-user"></i>
-            {% elif field.type == "date_signed" %}
-            <i class="iconoir-calendar"></i>
-            {% elif field.type == "checkbox" %}
-            <i class="iconoir-check-square"></i>
-            {% else %}
-            <i class="iconoir-edit-pencil"></i>
-            {% endif %}
-            {% endif %}
-          </div>
-
-          <!-- Field info -->
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900">
-              {% if field.type == "signature" %}Signature{% elif field.type == "initials" %}Initials{% elif field.type == "name" %}Full Name{% elif field.type == "date_signed" %}Date{% elif field.type == "checkbox" %}Checkbox{% elif field.type == "text" %}{{ field.label|default:"Text" }}{% else %}{{ field.type|title }}{% endif %}
-              {% if field.required %}<span class="text-red-500">*</span>{% endif %}
-            </p>
-            <p class="text-xs text-gray-500">
-              {% if field.value_text %}
-              <span class="truncate block max-w-[180px]">{{ field.value_text }}</span>
-              {% elif field.value_bool %}
-              Checked
-              {% elif field.type == "date_signed" %}
-              Auto-filled on submit
-              {% else %}
-              Page {{ field.page }}
-              {% endif %}
-            </p>
-          </div>
-
-          <!-- Arrow/edit indicator -->
-          <i class="iconoir-nav-arrow-right text-gray-400 flex-shrink-0" aria-hidden="true"></i>
-        </button>
-        {% empty %}
-        <div class="text-center py-8 text-gray-500">
-          <i class="iconoir-check-circle text-2xl mb-2"></i>
-          <p class="text-sm">No fields to complete</p>
-        </div>
-        {% endfor %}
+        </section>
       </div>
     </div>
 
     <!-- Panel Footer: Actions -->
-    <div class="panel-footer">
-      <!-- Incomplete fields warning -->
-      <div id="incomplete-warning" class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg hidden">
-        <p class="text-xs text-amber-800">
-          <i class="iconoir-warning-circle mr-1"></i>
-          <span id="incomplete-message">Complete all required fields to submit</span>
-        </p>
-      </div>
+    <div class="panel-footer" id="panel-footer">
+      <div id="panel-footer-sign">
+        <div id="incomplete-warning" class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg hidden">
+          <p class="text-xs text-amber-800">
+            <i class="iconoir-warning-circle mr-1"></i>
+            <span id="incomplete-message">Complete all required fields to submit</span>
+          </p>
+        </div>
 
-      <div id="review-submit-warning" class="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 hidden">
-        <p class="text-xs text-slate-700">
-          <i class="iconoir-info-circle mr-1" aria-hidden="true"></i>
-          <span id="review-submit-message">Review actions are available above.</span>
-        </p>
-      </div>
-
-      <!-- Submit button -->
-      <button
-        type="button"
-        id="submit-btn"
-        class="btn btn-primary w-full justify-center py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-        data-esign-action="submit-signature"
-        disabled
-        aria-disabled="true"
-        aria-describedby="submit-status"
-      >
-        <i class="iconoir-send mr-2" aria-hidden="true"></i>
-        Submit Signature
-      </button>
-      <span id="submit-status" class="sr-only">Complete all required fields to enable submission.</span>
-
-      <!-- Decline option -->
-      <div class="text-center mt-3">
         <button
           type="button"
-          id="decline-btn"
-          data-esign-action="show-decline-modal"
-          class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
+          id="submit-btn"
+          class="btn btn-primary w-full justify-center py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+          data-esign-action="submit-signature"
+          disabled
+          aria-disabled="true"
+          aria-describedby="submit-status"
         >
-          Decline to sign
+          <i class="iconoir-send mr-2" aria-hidden="true"></i>
+          Submit Signature
         </button>
+        <span id="submit-status" class="sr-only">Complete all required fields to enable submission.</span>
+
+        <div class="text-center mt-3" id="decline-container">
+          <button
+            type="button"
+            id="decline-btn"
+            data-esign-action="show-decline-modal"
+            class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
+          >
+            Decline to sign
+          </button>
+        </div>
+      </div>
+
+      <div id="panel-footer-review" hidden>
+        <div id="review-submit-warning" class="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3 hidden">
+          <p class="text-xs text-slate-700">
+            <i class="iconoir-info-circle mr-1" aria-hidden="true"></i>
+            <span id="review-submit-message">Review actions are available above.</span>
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -1488,9 +1603,14 @@
 {
   "token": "{{ token|escapejs }}",
   "apiBasePath": "{{ api_base_path|default:"/api/v1/esign/signing"|escapejs }}",
-  "signerBasePath": "{{ signer_base_path|default:"/esign/sign"|escapejs }}",
+  "signerBasePath": "{{ signer_base_path|default:"/sign"|escapejs }}",
+  "resourceBasePath": "{{ resource_base_path|default:""|escapejs }}",
   "agreementId": "{{ session.agreement_id|escapejs }}",
   "sessionKind": "{{ session.session_kind|default:"signer"|escapejs }}",
+  "uiMode": "{{ session.ui_mode|default:"sign"|escapejs }}",
+  "defaultTab": "{{ session.default_tab|default:"sign"|escapejs }}",
+  "viewerMode": "{{ session.viewer_mode|default:""|escapejs }}",
+  "viewerBanner": "{{ session.viewer_banner|default:""|escapejs }}",
   "recipientId": "{{ session.recipient_id|escapejs }}",
   "recipientEmail": "{{ session.recipient_email|default:""|escapejs }}",
   "recipientName": "{{ session.recipient_name|default:""|escapejs }}",
@@ -1498,6 +1618,8 @@
   "pageCount": {{ agreement.page_count|default:"1" }},
   "hasConsented": {{ session.has_consented|default:"false"|lower }},
   "canSign": {{ session.can_sign|default:"true"|lower }},
+  "reviewMarkersVisible": {{ session.review_markers_visible|default:"false"|lower }},
+  "reviewMarkersInteractive": {{ session.review_markers_interactive|default:"false"|lower }},
   "fields": {{ session.fields_json|default:"[]"|safe }},
   "review": {{ session.review_json|default:"null"|safe }},
   "flowMode": "{{ flow_mode|default:"unified"|escapejs }}",

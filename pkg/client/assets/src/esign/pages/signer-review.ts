@@ -21,8 +21,13 @@ export interface SignerReviewConfig {
   token: string;
   apiBasePath?: string;
   signerBasePath?: string;
+  resourceBasePath?: string;
   agreementId: string;
   sessionKind?: 'signer' | 'reviewer' | string;
+  uiMode?: 'sign' | 'review' | 'sign_and_review' | string;
+  defaultTab?: 'sign' | 'review' | string;
+  viewerMode?: 'review' | 'sign' | 'complete' | 'read_only' | string;
+  viewerBanner?: 'sender_review' | 'sender_progress' | 'sender_complete' | 'sender_read_only' | string;
   recipientId: string;
   recipientEmail?: string;
   recipientName?: string;
@@ -30,6 +35,8 @@ export interface SignerReviewConfig {
   pageCount?: number;
   hasConsented?: boolean;
   canSign?: boolean;
+  reviewMarkersVisible?: boolean;
+  reviewMarkersInteractive?: boolean;
   fields?: any[];
   review?: {
     review_id?: string;
@@ -453,12 +460,21 @@ class SignerProfileRepository {
 
 function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<SignerReviewConfig> {
   const profileMode = (config.profile?.mode || 'local_only') as SignerProfileMode;
+  const normalizedUIMode = String(config.uiMode || '').trim().toLowerCase();
+  const normalizedDefaultTab = String(config.defaultTab || '').trim().toLowerCase();
+  const normalizedViewerMode = String(config.viewerMode || '').trim().toLowerCase();
+  const normalizedViewerBanner = String(config.viewerBanner || '').trim().toLowerCase();
   return {
     token: String(config.token || '').trim(),
     apiBasePath: String(config.apiBasePath || '/api/v1/esign/signing').trim(),
-    signerBasePath: String(config.signerBasePath || '/esign/sign').trim(),
+    signerBasePath: String(config.signerBasePath || '/sign').trim(),
+    resourceBasePath: String(config.resourceBasePath || '').trim(),
     agreementId: String(config.agreementId || '').trim(),
     sessionKind: String(config.sessionKind || 'signer').trim() || 'signer',
+    uiMode: normalizedUIMode || 'sign',
+    defaultTab: normalizedDefaultTab || 'sign',
+    viewerMode: normalizedViewerMode,
+    viewerBanner: normalizedViewerBanner,
     recipientId: String(config.recipientId || '').trim(),
     recipientEmail: String(config.recipientEmail || '').trim(),
     recipientName: String(config.recipientName || '').trim(),
@@ -466,6 +482,8 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
     pageCount: Number(config.pageCount || 1) || 1,
     hasConsented: Boolean(config.hasConsented),
     canSign: config.canSign !== false,
+    reviewMarkersVisible: config.reviewMarkersVisible !== false,
+    reviewMarkersInteractive: config.reviewMarkersInteractive !== false,
     fields: Array.isArray(config.fields) ? config.fields : [],
     review: normalizeReviewContext(config.review),
     flowMode: (config.flowMode || 'unified') as any,
@@ -1111,6 +1129,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     inlineComposerVisible: false,
     inlineComposerPosition: { x: 0, y: 0 },
     inlineComposerAnchor: null,
+    activePanelTab: String(unifiedConfig.defaultTab || '').trim().toLowerCase() === 'review' ? 'review' as const : 'sign' as const,
   };
 
   function requestOverlayRender() {
@@ -1231,20 +1250,134 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     return Boolean(state.reviewContext && typeof state.reviewContext === 'object');
   }
 
+  function resolvedSessionUIMode(): 'sign' | 'review' | 'sign_and_review' {
+    const explicitMode = String(unifiedConfig.uiMode || '').trim().toLowerCase();
+    if (explicitMode === 'sign' || explicitMode === 'review' || explicitMode === 'sign_and_review') {
+      return explicitMode;
+    }
+    if (String(unifiedConfig.sessionKind || '').trim().toLowerCase() === 'reviewer') {
+      return 'review';
+    }
+    if (hasReviewContext()) {
+      return 'sign_and_review';
+    }
+    return 'sign';
+  }
+
+  function resolvedDefaultPanelTab(): 'sign' | 'review' {
+    const explicitTab = String(unifiedConfig.defaultTab || '').trim().toLowerCase();
+    if (explicitTab === 'sign' || explicitTab === 'review') {
+      if (resolvedSessionUIMode() === 'review' && explicitTab === 'sign') return 'review';
+      if (resolvedSessionUIMode() === 'sign' && explicitTab === 'review') return 'sign';
+      return explicitTab;
+    }
+    return resolvedSessionUIMode() === 'review' ? 'review' : 'sign';
+  }
+
   function isReviewOnlySession() {
-    return String(unifiedConfig.sessionKind || '').trim().toLowerCase() === 'reviewer';
+    return resolvedSessionUIMode() === 'review';
+  }
+
+  function isCombinedSignerReviewSession() {
+    return resolvedSessionUIMode() === 'sign_and_review';
+  }
+
+  function activePanelTab(): 'sign' | 'review' {
+    if (isReviewOnlySession()) return 'review';
+    if (!isCombinedSignerReviewSession()) return 'sign';
+    return state.activePanelTab === 'review' ? 'review' : 'sign';
+  }
+
+  function signTabVisible() {
+    return !isReviewOnlySession() && activePanelTab() === 'sign';
+  }
+
+  function reviewTabVisible() {
+    return hasReviewContext() && (isReviewOnlySession() || activePanelTab() === 'review');
+  }
+
+  function reviewMarkersVisible() {
+    if (!hasReviewContext() || !unifiedConfig.reviewMarkersVisible) return false;
+    return reviewTabVisible();
+  }
+
+  function reviewMarkersInteractive() {
+    if (!reviewMarkersVisible() || !unifiedConfig.reviewMarkersInteractive) return false;
+    return reviewInteractionsEnabled();
+  }
+
+  function reviewInteractionsEnabled() {
+    return hasReviewContext() &&
+      state.reviewContext?.comments_enabled &&
+      state.reviewContext?.can_comment &&
+      reviewTabVisible();
+  }
+
+  function isSenderSession() {
+    return String(unifiedConfig.sessionKind || '').trim().toLowerCase() === 'sender';
+  }
+
+  function senderViewerMode() {
+    const mode = String(unifiedConfig.viewerMode || '').trim().toLowerCase();
+    if (mode === 'review' || mode === 'sign' || mode === 'complete' || mode === 'read_only') {
+      return mode;
+    }
+    return 'read_only';
+  }
+
+  function senderViewerBanner() {
+    const banner = String(unifiedConfig.viewerBanner || '').trim().toLowerCase();
+    switch (banner) {
+      case 'sender_review':
+      case 'sender_progress':
+      case 'sender_complete':
+      case 'sender_read_only':
+        return banner;
+      default:
+        switch (senderViewerMode()) {
+          case 'review':
+            return 'sender_review';
+          case 'sign':
+            return 'sender_progress';
+          case 'complete':
+            return 'sender_complete';
+          default:
+            return 'sender_read_only';
+        }
+    }
   }
 
   function signingInteractionsEnabled() {
-    return !isReviewOnlySession();
+    return !isSenderSession() && !isReviewOnlySession() && signTabVisible();
+  }
+
+  function resolvedResourceBasePath() {
+    const configured = String(unifiedConfig.resourceBasePath || '').trim();
+    if (configured) return configured;
+    return `${unifiedConfig.apiBasePath}/session/${encodeURIComponent(unifiedConfig.token)}`;
   }
 
   function reviewSessionPath() {
-    return `${unifiedConfig.apiBasePath}/session/${encodeURIComponent(unifiedConfig.token)}`;
+    return resolvedResourceBasePath();
   }
 
   function reviewBasePath() {
     return `${reviewSessionPath()}/review`;
+  }
+
+  function assetsContractPath() {
+    return `${resolvedResourceBasePath()}/assets`;
+  }
+
+  function resolveBinaryAssetUrl(assets) {
+    if (!assets || typeof assets !== 'object') return '';
+    return String(
+      assets.preview_url ||
+      assets.source_url ||
+      assets.executed_url ||
+      assets.certificate_url ||
+      ''
+    ).trim();
   }
 
   function countReviewThreadsByStatus(threads, status) {
@@ -1448,6 +1581,13 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       }
       state.reviewContext.open_thread_count = countReviewThreadsByStatus(state.reviewContext.threads, 'open');
       state.reviewContext.resolved_thread_count = countReviewThreadsByStatus(state.reviewContext.threads, 'resolved');
+    }
+    if (isReviewOnlySession()) {
+      state.activePanelTab = 'review';
+    } else if (!hasReviewContext()) {
+      state.activePanelTab = 'sign';
+    } else if (!isCombinedSignerReviewSession()) {
+      state.activePanelTab = resolvedDefaultPanelTab();
     }
     renderReviewPanel();
     requestOverlayRender();
@@ -1849,6 +1989,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const review = state.reviewContext;
     const statusLabel = reviewStatusLabel(review.status);
     const participantStatus = reviewParticipantDecisionStatus(review);
+
+    // In combined mode, only show review panel when review tab is active
+    if (!reviewTabVisible()) {
+      reviewPanel.classList.add('hidden');
+      reviewBanner?.classList.add('hidden');
+      updateReviewProgressIndicator();
+      return;
+    }
     reviewPanel.classList.remove('hidden');
     updateReviewProgressIndicator();
     if (reviewStatusChip) {
@@ -2202,7 +2350,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     clickSurface.addEventListener('click', (event) => {
       if (!(event.target instanceof Element)) return;
-      if (!hasReviewContext() || !state.reviewContext?.comments_enabled || !state.reviewContext?.can_comment) return;
+      if (!reviewInteractionsEnabled()) return;
       if (event.target.closest('.review-thread-marker, .field-overlay')) return;
       if (event.target.closest('button, textarea, input, select, label, a')) return;
       const pageContainer = document.getElementById(`pdf-page-${Number(state.currentPage || 1) || 1}`);
@@ -2303,6 +2451,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       state.reviewThreadPage = allIndex >= 0 ? Math.floor(allIndex / 5) + 1 : 1;
     }
 
+    if (isCombinedSignerReviewSession() && activePanelTab() !== 'review') {
+      switchPanelTab('review');
+    }
+
     highlightReviewThread(normalizedThreadID);
     renderReviewPanel();
 
@@ -2314,54 +2466,122 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     });
   }
 
+  function switchPanelTab(tab: 'sign' | 'review') {
+    if (tab !== 'sign' && tab !== 'review') return;
+    if (!isCombinedSignerReviewSession()) return;
+    if (tab === 'review' && !hasReviewContext()) return;
+
+    state.activePanelTab = tab;
+    renderReviewPanel();
+    requestOverlayRender();
+    updateSessionChrome();
+    updateSubmitButton();
+    announceToScreenReader(`${tab === 'sign' ? 'Sign' : 'Review'} tab selected.`);
+  }
+
   function updateSessionChrome() {
     const sidePanel = document.querySelector('.side-panel');
+    const panelTitleRow = document.getElementById('panel-title-row');
     const panelTitle = document.getElementById('panel-title');
+    const panelTabs = document.getElementById('panel-tabs');
     const fieldsStatus = document.getElementById('fields-status');
     const fieldsList = document.getElementById('fields-list');
     const consentNotice = document.getElementById('consent-notice');
     const submitBtn = document.getElementById('submit-btn');
     const declineBtn = document.getElementById('decline-btn');
-    const panelFooter = document.querySelector('.panel-footer');
+    const declineContainer = document.getElementById('decline-container');
+    const panelFooter = document.getElementById('panel-footer');
     const mobileProgress = document.getElementById('panel-mobile-progress');
     const submitWarning = document.getElementById('review-submit-warning');
     const submitMessage = document.getElementById('review-submit-message');
     const stageBanner = document.getElementById('stage-state-banner');
     const headerProgressGroup = document.getElementById('header-progress-group');
     const identityLabel = document.getElementById('session-identity-label');
+    const panelSignContent = document.getElementById('panel-sign-content');
+    const panelReviewContent = document.getElementById('panel-review-content');
+    const panelFooterSign = document.getElementById('panel-footer-sign');
+    const panelFooterReview = document.getElementById('panel-footer-review');
+    const signTab = document.getElementById('panel-tab-sign');
+    const reviewTab = document.getElementById('panel-tab-review');
     const isReviewOnly = isReviewOnlySession();
+    const isCombined = isCombinedSignerReviewSession();
+    const isSender = isSenderSession();
+    const showSignPanel = signTabVisible();
+    const showReviewPanel = reviewTabVisible();
+    const allowSignActions = signingInteractionsEnabled();
+    const activeTabName = activePanelTab();
 
-    // Toggle review-only mode class on side panel for styling
+    // Toggle mode classes on side panel for styling
     sidePanel?.classList.toggle('review-only-mode', isReviewOnly);
+    sidePanel?.classList.toggle('combined-mode', isCombined);
+
+    if (signTab && reviewTab) {
+      const isSignActive = isCombined ? activeTabName === 'sign' : !isReviewOnly;
+      const signSelected = isSignActive && !isReviewOnly;
+      const reviewSelected = isReviewOnly || (isCombined && activeTabName === 'review');
+      signTab.setAttribute('aria-selected', String(signSelected));
+      signTab.setAttribute('tabindex', signSelected ? '0' : '-1');
+      reviewTab.setAttribute('aria-selected', String(reviewSelected));
+      reviewTab.setAttribute('tabindex', reviewSelected ? '0' : '-1');
+      signTab.hidden = isReviewOnly;
+      reviewTab.hidden = !hasReviewContext();
+    }
+
+    if (panelSignContent) {
+      panelSignContent.hidden = !showSignPanel;
+      panelSignContent.classList.toggle('hidden', !showSignPanel);
+    }
+    if (panelReviewContent) {
+      panelReviewContent.hidden = !showReviewPanel;
+      panelReviewContent.classList.toggle('hidden', !showReviewPanel);
+    }
+    if (panelFooterSign) {
+      panelFooterSign.hidden = !showSignPanel;
+      panelFooterSign.classList.toggle('hidden', !showSignPanel);
+    }
+    if (panelFooterReview) {
+      panelFooterReview.hidden = !showReviewPanel;
+      panelFooterReview.classList.toggle('hidden', !showReviewPanel);
+    }
+
+    panelTabs?.classList.toggle('active', isCombined);
+    panelTitleRow?.classList.remove('hidden');
 
     if (identityLabel) {
-      identityLabel.textContent = isReviewOnly ? 'Reviewing as' : 'Signing as';
+      if (isSender) {
+        identityLabel.textContent = 'Viewing as';
+      } else {
+        identityLabel.textContent = showReviewPanel && !showSignPanel ? 'Reviewing as' : 'Signing as';
+      }
     }
 
-    headerProgressGroup?.classList.toggle('review-only-hidden', isReviewOnly);
+    headerProgressGroup?.classList.toggle('review-only-hidden', !showSignPanel);
 
     if (panelTitle) {
-      panelTitle.textContent = isReviewOnly ? 'Review & Comment' : (hasReviewContext() ? 'Review, Complete & Sign' : 'Complete & Sign');
+      if (isSender) {
+        panelTitle.textContent = showReviewPanel && !showSignPanel ? 'Review & Comment' : 'Document Preview';
+      } else {
+        panelTitle.textContent = showReviewPanel && !showSignPanel ? 'Review & Comment' : 'Complete & Sign';
+      }
     }
 
-    // In review-only mode, hide signing-related elements completely
-    fieldsList?.classList.toggle('hidden', isReviewOnly);
-    fieldsStatus?.classList.toggle('hidden', isReviewOnly);
-    mobileProgress?.classList.toggle('hidden', isReviewOnly);
-    consentNotice?.classList.toggle('hidden', isReviewOnly || state.hasConsented);
-    stageBanner?.classList.toggle('hidden', isReviewOnly);
-
-    // Hide the entire footer in review-only mode (no submit/decline buttons needed)
-    if (isReviewOnly) {
-      panelFooter?.classList.add('hidden');
-    } else {
-      panelFooter?.classList.remove('hidden');
-      submitBtn?.classList.remove('hidden');
-      declineBtn?.classList.remove('hidden');
-    }
+    fieldsList?.classList.toggle('hidden', !showSignPanel);
+    fieldsStatus?.classList.toggle('hidden', !showSignPanel);
+    mobileProgress?.classList.toggle('hidden', !showSignPanel);
+    consentNotice?.classList.toggle('hidden', !allowSignActions || state.hasConsented);
+    stageBanner?.classList.toggle('hidden', !showSignPanel);
+    panelFooter?.classList.toggle('hidden', !showSignPanel && !showReviewPanel);
+    submitBtn?.classList.toggle('hidden', !allowSignActions);
+    declineBtn?.classList.toggle('hidden', !allowSignActions);
+    declineContainer?.classList.toggle('hidden', !allowSignActions);
 
     if (submitWarning && submitMessage) {
-      if (isReviewOnly) {
+      if (showReviewPanel) {
+        submitWarning.classList.remove('hidden');
+        submitMessage.textContent = showSignPanel
+          ? 'Switch to the Sign tab to submit your signature.'
+          : 'Review actions are available above.';
+      } else if (!showSignPanel) {
         submitWarning.classList.add('hidden');
       } else if (hasReviewContext() && state.reviewContext.sign_blocked) {
         submitWarning.classList.remove('hidden');
@@ -3381,6 +3601,13 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         case 'clear-signer-profile':
           clearPersistedSignerProfile().catch(() => {});
           break;
+        case 'switch-panel-tab': {
+          const tab = target.getAttribute('data-tab');
+          if (tab === 'sign' || tab === 'review') {
+            switchPanelTab(tab);
+          }
+          break;
+        }
         case 'debug-toggle-panel':
           debugMode.togglePanel();
           break;
@@ -3591,6 +3818,91 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const meta = document.getElementById('stage-state-meta');
 
     if (!banner || !icon || !title || !message || !meta) return;
+
+    if (isSenderSession()) {
+      const senderBanner = senderViewerBanner();
+      let bannerConfig = {
+        hidden: false,
+        bgClass: 'bg-slate-50',
+        borderClass: 'border-slate-200',
+        iconClass: 'iconoir-eye text-slate-600',
+        titleClass: 'text-slate-900',
+        messageClass: 'text-slate-800',
+        title: 'Document Preview',
+        message: 'This document is available in read-only mode.',
+        badges: []
+      };
+
+      switch (senderBanner) {
+        case 'sender_review':
+          bannerConfig = {
+            hidden: false,
+            bgClass: 'bg-blue-50',
+            borderClass: 'border-blue-200',
+            iconClass: 'iconoir-chat-bubble text-blue-600',
+            titleClass: 'text-blue-900',
+            messageClass: 'text-blue-800',
+            title: 'Review & Comment',
+            message: 'Review the current document state and collaborate through shared comments.',
+            badges: [
+              { icon: 'iconoir-chat-bubble', text: 'Shared comments', variant: 'blue' }
+            ]
+          };
+          break;
+        case 'sender_progress':
+          bannerConfig = {
+            hidden: false,
+            bgClass: 'bg-amber-50',
+            borderClass: 'border-amber-200',
+            iconClass: 'iconoir-hourglass text-amber-600',
+            titleClass: 'text-amber-900',
+            messageClass: 'text-amber-800',
+            title: 'Signing In Progress',
+            message: 'Signing is underway. You can monitor progress and participate in shared review threads.',
+            badges: [
+              { icon: 'iconoir-clock', text: 'Read-only document', variant: 'amber' }
+            ]
+          };
+          break;
+        case 'sender_complete':
+          bannerConfig = {
+            hidden: false,
+            bgClass: 'bg-green-50',
+            borderClass: 'border-green-200',
+            iconClass: 'iconoir-check-circle text-green-600',
+            titleClass: 'text-green-900',
+            messageClass: 'text-green-800',
+            title: 'Completed Document',
+            message: 'This agreement is complete. The document is read-only.',
+            badges: [
+              { icon: 'iconoir-check', text: 'Completed', variant: 'green' }
+            ]
+          };
+          break;
+      }
+
+      banner.classList.remove('hidden');
+      banner.className = `mb-4 rounded-lg border p-4 ${bannerConfig.bgClass} ${bannerConfig.borderClass}`;
+      icon.className = `${bannerConfig.iconClass} mt-0.5`;
+      title.className = `text-sm font-semibold ${bannerConfig.titleClass}`;
+      title.textContent = bannerConfig.title;
+      message.className = `text-xs ${bannerConfig.messageClass} mt-1`;
+      message.textContent = bannerConfig.message;
+      meta.innerHTML = '';
+      bannerConfig.badges.forEach(badge => {
+        const badgeEl = document.createElement('span');
+        const variantClasses = {
+          blue: 'bg-blue-100 text-blue-800',
+          amber: 'bg-amber-100 text-amber-800',
+          green: 'bg-green-100 text-green-800',
+          slate: 'bg-slate-100 text-slate-800'
+        };
+        badgeEl.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variantClasses[badge.variant] || variantClasses.slate}`;
+        badgeEl.innerHTML = `<i class="${badge.icon} mr-1"></i>${badge.text}`;
+        meta.appendChild(badgeEl);
+      });
+      return;
+    }
 
     const signerState = unifiedConfig.signerState || 'active';
     const recipientStage = unifiedConfig.recipientStage || 1;
@@ -4083,7 +4395,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     try {
       // Fetch document URL from assets endpoint
-      const assetsResponse = await fetch(`${unifiedConfig.apiBasePath}/assets/${unifiedConfig.token}`);
+      const assetsResponse = await fetch(assetsContractPath());
       if (!assetsResponse.ok) {
         throw new Error('Failed to load document');
       }
@@ -4092,12 +4404,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-      documentUrl =
-        assets.preview_url ||
-        assets.source_url ||
-        assets.executed_url ||
-        assets.certificate_url ||
-        unifiedConfig.documentUrl;
+      documentUrl = resolveBinaryAssetUrl(assets);
 
       if (!documentUrl) {
         throw new Error('Document preview is not available yet. The document may still be processing.');
@@ -4370,8 +4677,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const position = resolveThreadMarkerPosition(entry, containerEl);
       if (!position) return;
       const actor = reviewActorPresentation(thread.created_by_type, thread.created_by_id);
-      const marker = document.createElement('button');
-      marker.type = 'button';
+      const interactive = reviewMarkersInteractive();
+      const marker = document.createElement(interactive ? 'button' : 'div');
+      if (interactive && marker instanceof HTMLButtonElement) {
+        marker.type = 'button';
+      }
       marker.className = 'review-thread-marker';
       if (String(thread.status || '').trim() === 'resolved') {
         marker.classList.add('resolved');
@@ -4382,14 +4692,21 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       if (String(thread.id || '').trim() === String(state.highlightedReviewThreadID || '').trim()) {
         marker.classList.add('active');
       }
-      marker.dataset.esignAction = 'go-review-thread';
+      if (interactive) {
+        marker.dataset.esignAction = 'go-review-thread';
+      } else {
+        marker.setAttribute('aria-hidden', 'true');
+        marker.style.pointerEvents = 'none';
+      }
       marker.dataset.threadId = String(thread.id || '').trim();
       marker.style.left = `${Math.round(position.left)}px`;
       marker.style.top = `${Math.round(position.top)}px`;
       marker.style.background = actor.color;
       marker.style.borderColor = actor.color;
-      marker.title = `${reviewAnchorLabel(entry)} comment by ${actor.name}`;
-      marker.setAttribute('aria-label', `${reviewAnchorLabel(entry)} comment by ${actor.name}`);
+      if (interactive) {
+        marker.title = `${reviewAnchorLabel(entry)} comment by ${actor.name}`;
+        marker.setAttribute('aria-label', `${reviewAnchorLabel(entry)} comment by ${actor.name}`);
+      }
       marker.textContent = actor.initials;
       overlaysContainer.appendChild(marker);
     });
@@ -4423,7 +4740,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     if (!pdfContainer) return;
 
     if (!signingInteractionsEnabled()) {
-      renderReviewThreadMarkers(overlaysContainer, pdfContainer);
+      if (reviewMarkersVisible()) {
+        renderReviewThreadMarkers(overlaysContainer, pdfContainer);
+      }
       return;
     }
 
@@ -4515,7 +4834,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       overlaysContainer.appendChild(overlay);
     });
 
-    if (pdfContainer) {
+    // Only render review thread markers when:
+    // - Not in combined mode, OR
+    // - In combined mode and review tab is active
+    if (pdfContainer && reviewMarkersVisible()) {
       renderReviewThreadMarkers(overlaysContainer, pdfContainer);
     }
   }
@@ -6085,14 +6407,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // Download document - only use binary asset URLs, never contract_url (which returns JSON)
   async function downloadDocument() {
     try {
-      const assetsResponse = await fetch(`${unifiedConfig.apiBasePath}/assets/${unifiedConfig.token}`);
+      const assetsResponse = await fetch(assetsContractPath());
       if (!assetsResponse.ok) throw new Error('Document unavailable');
 
       const assetsData = await assetsResponse.json();
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-      const downloadUrl = assets.preview_url || assets.source_url || assets.executed_url || assets.certificate_url;
+      const downloadUrl = resolveBinaryAssetUrl(assets);
 
       if (downloadUrl) {
         window.open(downloadUrl, '_blank');
@@ -6538,6 +6860,29 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           const fieldId = nextTab.getAttribute('data-field-id');
           if (fieldId) {
             switchSignatureTab(tabName, fieldId);
+          }
+          nextTab.focus();
+          return;
+        }
+      }
+    }
+
+    // Arrow key navigation for panel tabs (combined signer+review mode)
+    if (e.target instanceof HTMLElement && e.target.classList.contains('panel-tab')) {
+      const tabs = Array.from(document.querySelectorAll('.panel-tab'));
+      const currentIndex = tabs.indexOf(e.target);
+      if (currentIndex !== -1) {
+        let nextIndex = currentIndex;
+        if (e.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+        if (e.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        if (e.key === 'Home') nextIndex = 0;
+        if (e.key === 'End') nextIndex = tabs.length - 1;
+        if (nextIndex !== currentIndex) {
+          e.preventDefault();
+          const nextTab = tabs[nextIndex];
+          const tabName = nextTab.getAttribute('data-tab');
+          if (tabName === 'sign' || tabName === 'review') {
+            switchPanelTab(tabName);
           }
           nextTab.focus();
           return;

@@ -64,14 +64,17 @@ test('Phase 5 contract: document preview card uses canonical PDF route with stal
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
-test('Phase 5 contract: agreement form template uses conditional submit modes without CDN PDF.js bootstrap', () => {
-  const source = read(templatePath);
-  assert.match(source, /"submit_mode": "\{% if is_edit %\}form\{% else %\}json\{% endif %\}"/);
-  assert.match(source, /"agreement_id": "\{\{ resource_item\.id\|default:""\|escapejs \}\}"/);
-  assert.match(source, /"sync": \{/);
-  assert.match(source, /"client_base_path": "\{\{ base_path\|default:"\/admin" \}\}\/sync-client\/sync-core"/);
-  assert.match(source, /"bootstrap_path": "\{\{ api_base_path\|default:"\/admin\/api\/v1" \}\}\/esign\/sync\/bootstrap\/agreement-draft"/);
-  assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
+test('Phase 5 contract: agreement form bootstraps server-authored page config without CDN PDF.js bootstrap', () => {
+  const templateSource = read(templatePath);
+  const runtimeSource = read(path.resolve(testFileDir, '../src/esign/pages/agreement-form.ts'));
+  assert.match(templateSource, /<script id="esign-page-config" type="application\/json">\{\{ esign_page_config_json\|default:"\{\}"\|safe \}\}<\/script>/);
+  assert.match(runtimeSource, /submit_mode: String\(raw\.submit_mode \|\| context\.submit_mode \|\| 'json'\)\.trim\(\)\.toLowerCase\(\),/);
+  assert.match(runtimeSource, /agreement_id: String\(raw\.agreement_id \|\| context\.agreement_id \|\| ''\)\.trim\(\),/);
+  assert.match(runtimeSource, /active_agreement_id: String\(raw\.active_agreement_id \|\| context\.active_agreement_id \|\| ''\)\.trim\(\),/);
+  assert.match(runtimeSource, /raw\.sync && typeof raw\.sync === 'object'/);
+  assert.match(runtimeSource, /context\.sync && typeof context\.sync === 'object'/);
+  assert.doesNotMatch(templateSource, /"submit_mode": "\{% if is_edit %\}form\{% else %\}json\{% endif %\}"/);
+  assert.doesNotMatch(templateSource, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
 });
 
 test('Phase 5 contract: runtime removes indexed placement fallback writes', () => {
@@ -96,11 +99,12 @@ test('Phase 5 contract: signer review uses shared PDF runtime and prefers previe
   const template = read(signerReviewTemplatePath);
   assert.match(source, /loadPdfDocument as loadPdfSourceDocument/);
   assert.match(source, /logPdfLoadError/);
-  assert.match(source, /assets\.preview_url \|\|/);
+  assert.match(source, /function resolveBinaryAssetUrl\(assets\)/);
   assert.doesNotMatch(source, /pdfjs-dist\/build\/pdf\.min\.mjs/);
   assert.doesNotMatch(source, /pdf\.worker\.min\.mjs\?url/);
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
   assert.doesNotMatch(template, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
+  assert.doesNotMatch(source, /\|\| unifiedConfig\.documentUrl/);
 });
 
 test('Phase 5 contract: e-sign PDF runtime owns worker configuration and worker asset path', () => {
@@ -149,7 +153,11 @@ test('Phase 5 contract: signer review exposes unified review state and actions',
   const source = read(signerReviewPath);
   const template = read(signerReviewTemplatePath);
   assert.match(source, /sessionKind:\s*String\(config\.sessionKind \|\| 'signer'\)/);
+  assert.match(source, /uiMode:\s*normalizedUIMode \|\| 'sign'/);
+  assert.match(source, /defaultTab:\s*normalizedDefaultTab \|\| 'sign'/);
   assert.match(source, /review:\s*normalizeReviewContext\(config\.review\)/);
+  assert.match(source, /function resolvedSessionUIMode\(\): 'sign' \| 'review' \| 'sign_and_review'/);
+  assert.match(source, /function resolvedDefaultPanelTab\(\): 'sign' \| 'review'/);
   assert.match(source, /function renderReviewPanel\(\)/);
   assert.match(source, /function syncReviewContext\(reviewContext\)\s*{[\s\S]*renderReviewPanel\(\);\s*requestOverlayRender\(\);\s*updateSessionChrome\(\);\s*updateSubmitButton\(\);/);
   assert.match(source, /reviewAPIRequest\(suffix,\s*\{\s*method:\s*'POST'/);
@@ -183,7 +191,7 @@ test('Phase 5 contract: signer review captures page pin clicks from the shared P
   assert.match(source, /const clickSurface = document\.getElementById\('pdf-container'\);/);
   assert.match(source, /if \(!clickSurface\) return;/);
   assert.match(source, /clickSurface\.addEventListener\('click', \(event\) => \{/);
-  assert.match(source, /if \(!hasReviewContext\(\) \|\| !state\.reviewContext\?\.comments_enabled \|\| !state\.reviewContext\?\.can_comment\) return;/);
+  assert.match(source, /if \(!reviewInteractionsEnabled\(\)\) return;/);
   assert.match(source, /const pageContainer = document\.getElementById\(`pdf-page-\$\{Number\(state\.currentPage \|\| 1\) \|\| 1\}`\);/);
   assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
 });
@@ -206,9 +214,23 @@ test('Phase 5 contract: only positioned review threads opt into whole-card marke
 
 test('Phase 5 contract: reviewer sessions stay read-only in the signer review UI', () => {
   const source = read(signerReviewPath);
-  assert.match(source, /function signingInteractionsEnabled\(\)\s*{\s*return !isReviewOnlySession\(\);/);
-  assert.match(source, /if \(!signingInteractionsEnabled\(\)\) {\s*renderReviewThreadMarkers\(overlaysContainer, pdfContainer\);\s*return;\s*}/);
+  assert.match(source, /function signingInteractionsEnabled\(\)\s*{\s*return !isSenderSession\(\) && !isReviewOnlySession\(\) && signTabVisible\(\);/);
+  assert.match(source, /if \(!signingInteractionsEnabled\(\)\) {\s*if \(reviewMarkersVisible\(\)\) {\s*renderReviewThreadMarkers\(overlaysContainer, pdfContainer\);/);
   assert.match(source, /function activateField\(fieldId\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
   assert.match(source, /async function saveFieldFromEditor\(\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
   assert.match(source, /async function acceptConsent\(\)\s*{\s*if \(!signingInteractionsEnabled\(\)\)/);
+});
+
+test('Phase 5 contract: mixed signer review sessions use backend UI hints and valid tab panels', () => {
+  const source = read(signerReviewPath);
+  const template = read(signerReviewTemplatePath);
+  assert.match(source, /activePanelTab:\s*String\(unifiedConfig\.defaultTab \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'review' \? 'review' as const : 'sign' as const/);
+  assert.match(source, /function isCombinedSignerReviewSession\(\)\s*{\s*return resolvedSessionUIMode\(\) === 'sign_and_review';/);
+  assert.match(source, /function reviewInteractionsEnabled\(\)\s*{\s*return hasReviewContext\(\) &&[\s\S]*reviewTabVisible\(\);/);
+  assert.match(source, /function reviewMarkersVisible\(\)\s*{\s*if \(!hasReviewContext\(\) \|\| !unifiedConfig\.reviewMarkersVisible\) return false;\s*return reviewTabVisible\(\);/);
+  assert.match(source, /function renderReviewThreadMarkers\(overlaysContainer, containerEl\)[\s\S]*const interactive = reviewMarkersInteractive\(\);[\s\S]*document\.createElement\(interactive \? 'button' : 'div'\)/);
+  assert.match(template, /id="panel-sign-content" role="tabpanel" aria-labelledby="panel-tab-sign"/);
+  assert.match(template, /id="panel-review-content" role="tabpanel" aria-labelledby="panel-tab-review" hidden/);
+  assert.match(template, /aria-controls="panel-sign-content"/);
+  assert.match(template, /aria-controls="panel-review-content"/);
 });

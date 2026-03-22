@@ -1,22 +1,20 @@
-import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
-import { r as z } from "../chunks/http-client-Dm229xuF.js";
-import { extractStructuredError as F } from "../toast/error-helpers.js";
-import { E as R, i as I, j as S, L as P, d as $, k as j, l as A, m as v, H, h as B, a as K, f as L, q as U, p as D } from "../chunks/style-constants-i2xRoO1L.js";
-class b extends Error {
-  constructor(t) {
-    super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
+import { n as i, t as u } from "../chunks/html-Cx1oHGAm.js";
+import { extractStructuredError as z } from "../toast/error-helpers.js";
+import { n as F } from "../chunks/http-client-DiXyH5DW.js";
+import { $ as R, C as P, E as H, S as B, _ as v, d as $, g as I, h as S, i as K, m as A, p as j, s as D, v as L, x as U } from "../chunks/translation-shared-BSLmw_rJ.js";
+var m = class extends Error {
+  constructor(e) {
+    super(e.message), this.name = "TranslationDashboardRequestError", this.status = e.status, this.code = e.code ?? null, this.requestId = e.requestId, this.traceId = e.traceId, this.metadata = e.metadata ?? null;
   }
-}
+};
 function r(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function h(e, t = 0) {
-  if (typeof e == "number" && Number.isFinite(e))
-    return e;
+function p(e, t = 0) {
+  if (typeof e == "number" && Number.isFinite(e)) return e;
   if (typeof e == "string" && e.trim() !== "") {
     const s = Number(e);
-    if (Number.isFinite(s))
-      return s;
+    if (Number.isFinite(s)) return s;
   }
   return t;
 }
@@ -33,13 +31,11 @@ function x(e) {
 }
 function T(e) {
   const t = {};
-  for (const [s, a] of Object.entries(l(e)))
-    t[s] = h(a);
+  for (const [s, a] of Object.entries(l(e))) t[s] = p(a);
   return t;
 }
-function d(e, t) {
-  if (!Array.isArray(e))
-    return [];
+function c(e, t) {
+  if (!Array.isArray(e)) return [];
   const s = [];
   for (const a of e) {
     const n = t(a);
@@ -59,8 +55,7 @@ function w(e) {
   }
 }
 function M(e) {
-  if (!e || typeof e != "object")
-    return null;
+  if (!e || typeof e != "object") return null;
   const t = e;
   return {
     href: r(t.href),
@@ -93,14 +88,13 @@ function X(e) {
 }
 function G(e) {
   const t = l(e), s = r(t.id);
-  if (!s)
-    return null;
+  if (!s) return null;
   const a = l(t.alert);
   return {
     id: s,
     label: r(t.label),
     description: r(t.description),
-    count: h(t.count),
+    count: p(t.count),
     breakdown: T(t.breakdown),
     alert: {
       state: w(a.state),
@@ -113,8 +107,7 @@ function G(e) {
 }
 function Y(e) {
   const t = l(e);
-  if (Object.keys(t).length === 0)
-    return null;
+  if (Object.keys(t).length === 0) return null;
   const s = {};
   for (const [a, n] of Object.entries(l(t.links))) {
     const o = M(n);
@@ -126,16 +119,16 @@ function Y(e) {
   };
 }
 function Q(e, t = "") {
-  const s = l(e), a = d(s.rows, Y);
+  const s = l(e), a = c(s.rows, Y);
   return {
     id: r(s.id) || t,
     label: r(s.label) || t,
-    total: h(s.total, a.length),
-    limit: h(s.limit, a.length),
+    total: p(s.total, a.length),
+    limit: p(s.limit, a.length),
     rows: a
   };
 }
-function q(e) {
+function C(e) {
   const t = l(e), s = r(t.id);
   return s ? {
     id: s,
@@ -147,43 +140,42 @@ function q(e) {
     query: x(t.query)
   } : null;
 }
-function C(e) {
+function q(e) {
   const t = l(e), s = r(t.id);
-  if (!s)
-    return null;
+  if (!s) return null;
   const a = {};
   for (const [n, o] of Object.entries(l(t.drilldown_links))) {
-    const c = X(o);
-    c && (a[n] = c);
+    const d = X(o);
+    d && (a[n] = d);
   }
   return {
     id: s,
     description: r(t.description),
-    scopeFields: d(t.scope_fields, (n) => r(n) || null),
-    stableSortKeys: d(t.stable_sort_keys, (n) => r(n) || null),
-    indexHints: d(t.index_hints, (n) => r(n) || null),
-    supportedFilters: d(t.supported_filters, (n) => r(n) || null),
-    defaultLimit: h(t.default_limit),
+    scopeFields: c(t.scope_fields, (n) => r(n) || null),
+    stableSortKeys: c(t.stable_sort_keys, (n) => r(n) || null),
+    indexHints: c(t.index_hints, (n) => r(n) || null),
+    supportedFilters: c(t.supported_filters, (n) => r(n) || null),
+    defaultLimit: p(t.default_limit),
     drilldownRoute: r(t.drilldown_route),
     queueRoute: r(t.queue_route),
     apiRoute: r(t.api_route),
-    resolverKeys: d(t.resolver_keys, (n) => r(n) || null),
+    resolverKeys: c(t.resolver_keys, (n) => r(n) || null),
     drilldownLinks: a
   };
 }
 function W(e) {
   const t = l(e), s = {};
   for (const [a, n] of Object.entries(l(t.query_models))) {
-    const o = C(n);
+    const o = q(n);
     o && (s[a] = o);
   }
   return {
-    cardIds: d(t.card_ids, (a) => r(a) || null),
-    tableIds: d(t.table_ids, (a) => r(a) || null),
-    alertStates: d(t.alert_states, (a) => w(a)),
+    cardIds: c(t.card_ids, (a) => r(a) || null),
+    tableIds: c(t.table_ids, (a) => r(a) || null),
+    alertStates: c(t.alert_states, (a) => w(a)),
     defaultLimits: T(t.default_limits),
     queryModels: s,
-    runbooks: d(t.runbooks, q)
+    runbooks: c(t.runbooks, C)
   };
 }
 function J(e) {
@@ -197,63 +189,60 @@ function J(e) {
   } : null;
 }
 function V(e, t) {
-  if (t.cardIds.length === 0)
-    return e;
+  if (t.cardIds.length === 0) return e;
   const s = /* @__PURE__ */ new Map();
   return t.cardIds.forEach((a, n) => s.set(a, n)), [...e].sort((a, n) => (s.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (s.get(n.id) ?? Number.MAX_SAFE_INTEGER));
 }
 function Z(e) {
-  const t = l(e), s = l(t.data), a = l(t.meta), n = W(a.contracts), o = V(
-    d(s.cards, G),
-    n
-  ), c = {};
-  for (const [g, f] of Object.entries(l(s.tables)))
-    c[g] = Q(f, g);
-  const u = { ...n.queryModels };
-  for (const [g, f] of Object.entries(l(a.query_models))) {
-    const m = C(f);
-    m && (u[g] = m);
+  const t = l(e), s = l(t.data), a = l(t.meta), n = W(a.contracts), o = V(c(s.cards, G), n), d = {};
+  for (const [f, h] of Object.entries(l(s.tables))) d[f] = Q(h, f);
+  const b = { ...n.queryModels };
+  for (const [f, h] of Object.entries(l(a.query_models))) {
+    const g = q(h);
+    g && (b[f] = g);
   }
   return {
     data: {
       cards: o,
-      tables: c,
-      alerts: d(s.alerts, J),
-      runbooks: d(s.runbooks, q),
+      tables: d,
+      alerts: c(s.alerts, J),
+      runbooks: c(s.runbooks, C),
       summary: T(s.summary)
     },
     meta: {
       channel: r(a.channel),
       generatedAt: r(a.generated_at),
-      refreshIntervalMs: h(a.refresh_interval_ms, 3e4),
-      latencyTargetMs: h(a.latency_target_ms, 0),
+      refreshIntervalMs: p(a.refresh_interval_ms, 3e4),
+      latencyTargetMs: p(a.latency_target_ms, 0),
       degraded: a.degraded === !0,
-      degradedReasons: d(a.degraded_reasons, (g) => {
-        const f = l(g), m = r(f.component), k = r(f.message);
-        return !m && !k ? null : { component: m, message: k };
+      degradedReasons: c(a.degraded_reasons, (f) => {
+        const h = l(f), g = r(h.component), k = r(h.message);
+        return !g && !k ? null : {
+          component: g,
+          message: k
+        };
       }),
       familyReport: l(a.family_report),
       scope: x(a.scope),
-      metrics: d(a.metrics, (g) => {
-        const f = l(g), m = r(f.key);
-        return m ? {
-          key: m,
-          unit: r(f.unit),
-          sloP95Ms: f.slo_p95_ms === void 0 ? null : h(f.slo_p95_ms)
+      metrics: c(a.metrics, (f) => {
+        const h = l(f), g = r(h.key);
+        return g ? {
+          key: g,
+          unit: r(h.unit),
+          sloP95Ms: h.slo_p95_ms === void 0 ? null : p(h.slo_p95_ms)
         } : null;
       }),
-      queryModels: u,
+      queryModels: b,
       contracts: {
         ...n,
-        queryModels: u
+        queryModels: b
       }
     }
   };
 }
 function tt(e, t = {}) {
   const s = r(e);
-  if (!s)
-    return "";
+  if (!s) return "";
   const a = s.startsWith("http://") || s.startsWith("https://") ? void 0 : "http://localhost", n = new URL(s, a), o = [
     ["channel", r(t.channel)],
     ["tenant_id", r(t.tenantId)],
@@ -261,46 +250,37 @@ function tt(e, t = {}) {
     ["overdue_limit", t.overdueLimit != null ? String(t.overdueLimit) : ""],
     ["blocked_limit", t.blockedLimit != null ? String(t.blockedLimit) : ""]
   ];
-  for (const [c, u] of o)
-    u && n.searchParams.set(c, u);
+  for (const [d, b] of o) b && n.searchParams.set(d, b);
   return a ? `${n.pathname}${n.search}` : n.toString();
 }
 function et(e) {
   const t = r(e.endpoint), s = e.fetch ?? globalThis.fetch?.bind(globalThis);
-  return {
-    async fetchDashboard(a = {}) {
-      if (!t)
-        throw new b({
-          message: "Translation dashboard endpoint is not configured",
-          status: 0,
-          code: "MISSING_CONTEXT"
-        });
-      const n = tt(t, a);
-      if (!s)
-        throw new b({
-          message: "Fetch implementation is not available",
-          status: 0,
-          code: "MISSING_CONTEXT"
-        });
-      const o = await s(n, {
-        headers: {
-          Accept: "application/json"
-        }
+  return { async fetchDashboard(a = {}) {
+    if (!t) throw new m({
+      message: "Translation dashboard endpoint is not configured",
+      status: 0,
+      code: "MISSING_CONTEXT"
+    });
+    const n = tt(t, a);
+    if (!s) throw new m({
+      message: "Fetch implementation is not available",
+      status: 0,
+      code: "MISSING_CONTEXT"
+    });
+    const o = await s(n, { headers: { Accept: "application/json" } });
+    if (!o.ok) {
+      const d = await z(o.clone());
+      throw new m({
+        message: d.message || await F(o, "Failed to load translation dashboard"),
+        status: o.status,
+        code: d.textCode,
+        requestId: o.headers.get("x-request-id") ?? o.headers.get("X-Request-ID") ?? void 0,
+        traceId: o.headers.get("x-trace-id") ?? o.headers.get("x-correlation-id") ?? void 0,
+        metadata: d.metadata
       });
-      if (!o.ok) {
-        const c = await F(o.clone());
-        throw new b({
-          message: c.message || await z(o, "Failed to load translation dashboard"),
-          status: o.status,
-          code: c.textCode,
-          requestId: o.headers.get("x-request-id") ?? o.headers.get("X-Request-ID") ?? void 0,
-          traceId: o.headers.get("x-trace-id") ?? o.headers.get("x-correlation-id") ?? void 0,
-          metadata: c.metadata
-        });
-      }
-      return Z(await o.json());
     }
-  };
+    return Z(await o.json());
+  } };
 }
 function st(e) {
   const t = Math.max(0, e.intervalMs ?? 3e4);
@@ -336,7 +316,7 @@ function y(e) {
 }
 function _(e, t, s = "") {
   const a = i(e);
-  return t?.href ? `<a class="${p(s)} text-sky-700 hover:text-sky-900 hover:underline" href="${p(t.href)}">${a}</a>` : `<span class="${p(s)}">${a}</span>`;
+  return t?.href ? `<a class="${u(s)} text-sky-700 hover:text-sky-900 hover:underline" href="${u(t.href)}">${a}</a>` : `<span class="${u(s)}">${a}</span>`;
 }
 function at(e) {
   return [...e].sort((t, s) => {
@@ -347,7 +327,7 @@ function at(e) {
 function O(e, t = "No drill-downs") {
   return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : at(e).map((s) => {
     const a = s.label || "Open";
-    return s.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${p(s.key || a.toLowerCase())}" href="${p(s.href)}">${i(a)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(a)}</span>`;
+    return s.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${u(s.key || a.toLowerCase())}" href="${u(s.href)}">${i(a)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(a)}</span>`;
   }).join("");
 }
 function rt(e) {
@@ -358,13 +338,13 @@ function rt(e) {
       </li>
     `).join("");
   return `
-    <article class="${$} p-4 shadow-sm" data-dashboard-card="${p(e.id)}">
+    <article class="${$} p-4 shadow-sm" data-dashboard-card="${u(e.id)}">
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${i(e.label)}</p>
           <p class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${i(String(e.count))}</p>
         </div>
-        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${p(ct(e.alert.state))}">
+        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${u(ct(e.alert.state))}">
           ${i(e.alert.message || e.alert.state)}
         </span>
       </div>
@@ -381,7 +361,7 @@ function nt(e) {
   return e.length === 0 ? "" : `
     <section class="space-y-3" data-dashboard-alerts="true">
       ${e.map((t) => `
-        <div class="rounded-xl border px-4 py-3 text-sm ${p(ut(t.state))}" role="${p(t.state === "critical" ? "alert" : "status")}">
+        <div class="rounded-xl border px-4 py-3 text-sm ${u(ut(t.state))}" role="${u(t.state === "critical" ? "alert" : "status")}">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p class="font-semibold">${i(t.code)}</p>
@@ -418,7 +398,7 @@ function it(e) {
             <td class="px-4 py-3 text-gray-600">${i(`${r(t.source_locale).toUpperCase()} -> ${r(t.target_locale).toUpperCase()}`)}</td>
             <td class="px-4 py-3 text-gray-600">${i(y(r(t.priority)))}</td>
             <td class="px-4 py-3 text-gray-600">${i(y(r(t.status)))}</td>
-            <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${h(t.overdue_minutes)}m`)}</td>
+            <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${p(t.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${O(Object.values(t.links || {}))}</div>
             </td>
@@ -449,8 +429,8 @@ function ot(e) {
               <div class="mt-1 text-xs text-gray-500">${i(r(t.content_type))}</div>
             </td>
             <td class="px-4 py-3 text-gray-600">${i(y(r(t.readiness_state)))}</td>
-            <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(h(t.missing_required_locale_count)))}</td>
-            <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(h(t.pending_review_count)))}</td>
+            <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(p(t.missing_required_locale_count)))}</td>
+            <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(p(t.pending_review_count)))}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${O(Object.values(t.links || {}))}</div>
             </td>
@@ -463,7 +443,7 @@ function ot(e) {
 function lt(e) {
   const t = e.id === "top_overdue_assignments" ? it(e) : ot(e);
   return `
-    <section class="overflow-hidden ${$} shadow-sm" data-dashboard-table="${p(e.id)}">
+    <section class="overflow-hidden ${$} shadow-sm" data-dashboard-table="${u(e.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${i(e.label)}</h2>
@@ -481,7 +461,7 @@ function dt(e) {
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         ${e.map((t) => `
           <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h3 class="text-sm font-semibold text-gray-900">${t.href ? `<a class="hover:underline" href="${p(t.href)}">${i(t.title)}</a>` : i(t.title)}</h3>
+            <h3 class="text-sm font-semibold text-gray-900">${t.href ? `<a class="hover:underline" href="${u(t.href)}">${i(t.title)}</a>` : i(t.title)}</h3>
             <p class="mt-2 text-sm leading-6 text-gray-600">${i(t.description)}</p>
           </article>
         `).join("")}
@@ -502,10 +482,10 @@ function N(e) {
   }
 }
 function ct(e) {
-  return D(N(e));
+  return R(N(e));
 }
 function ut(e) {
-  return `border ${D(N(e))}`;
+  return `border ${R(N(e))}`;
 }
 function pt(e) {
   const t = Object.entries(e.meta.scope).filter(([, s]) => s).map(([s, a]) => `${y(s)}: ${a}`);
@@ -526,15 +506,15 @@ function ht(e, t = !1) {
     <section class="${$} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="${H}">Manager Monitoring</p>
-          <h2 class="${B} text-xl mt-2">Queue health and publish blockers</h2>
-          <p class="${K} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+          <p class="${B}">Manager Monitoring</p>
+          <h2 class="${P} text-xl mt-2">Queue health and publish blockers</h2>
+          <p class="${U} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
             ${i(t ? "Refreshing dashboard…" : `Last updated ${s}`)}
           </span>
-          <button type="button" class="${L}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${t ? "disabled" : ""}>
+          <button type="button" class="${D}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${t ? "disabled" : ""}>
             ${i(t ? "Refreshing…" : "Refresh dashboard")}
           </button>
         </div>
@@ -543,83 +523,83 @@ function ht(e, t = !1) {
   `;
 }
 function ft(e) {
-  const t = e.data.runbooks[0], s = t?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${p(t.href)}">${i(t.title || "Open runbook")}</a>` : "";
+  const t = e.data.runbooks[0];
   return `
-    <section class="${R} p-6 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
-      <p class="${I}">No active pressure</p>
+    <section class="${j} p-6 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
+      <p class="${S}">No active pressure</p>
       <h3 class="mt-2 text-xl font-semibold text-gray-900">This scope is clear right now.</h3>
-      <p class="${S} mt-3 max-w-2xl leading-6">Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.</p>
+      <p class="${A} mt-3 max-w-2xl leading-6">Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.</p>
       <div class="mt-5 flex flex-wrap gap-3">
-        <button type="button" class="${L}" data-dashboard-refresh-button="true">Refresh dashboard</button>
-        ${s}
+        <button type="button" class="${D}" data-dashboard-refresh-button="true">Refresh dashboard</button>
+        ${t?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${u(t.href)}">${i(t.title || "Open runbook")}</a>` : ""}
       </div>
     </section>
   `;
 }
 function gt(e) {
-  const t = e instanceof b ? e.requestId : void 0, s = e instanceof b ? e.traceId : void 0, a = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
+  const t = e instanceof m ? e.requestId : void 0, s = e instanceof m ? e.traceId : void 0, a = [t ? `Request ${t}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${j} p-4" data-dashboard-inline-error="true" role="alert">
-      <p class="${A}">Latest refresh failed</p>
+    <section class="${I} p-4" data-dashboard-inline-error="true" role="alert">
+      <p class="${L}">Latest refresh failed</p>
       <p class="${v} mt-2">${i(e instanceof Error ? e.message : "Failed to load translation dashboard")}</p>
       ${a ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(a)}</p>` : ""}
     </section>
   `;
 }
 function mt(e) {
-  const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof b ? e.requestId : void 0, a = e instanceof b ? e.traceId : void 0, n = [s ? `Request ${s}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
+  const t = e instanceof Error ? e.message : "Failed to load translation dashboard", s = e instanceof m ? e.requestId : void 0, a = e instanceof m ? e.traceId : void 0, n = [s ? `Request ${s}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return `
-    <section class="${j} p-4" data-dashboard-error="true" role="alert">
-      <p class="${A}">Translation dashboard unavailable</p>
+    <section class="${I} p-4" data-dashboard-error="true" role="alert">
+      <p class="${L}">Translation dashboard unavailable</p>
       <p class="${v} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
       <p class="${v} mt-2">${i(t)}</p>
       ${n ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${i(n)}</p>` : ""}
       <div class="mt-4">
-        <button type="button" class="${U}" data-dashboard-refresh-button="true">Retry dashboard</button>
+        <button type="button" class="${K}" data-dashboard-refresh-button="true">Retry dashboard</button>
       </div>
     </section>
   `;
 }
 function bt() {
   return `
-    <section class="${R} p-5" data-dashboard-empty="true">
-      <p class="${I}">Dashboard contract route is not wired.</p>
-      <p class="${S} mt-2">Set a dashboard aggregate endpoint before initializing the dashboard client.</p>
+    <section class="${j} p-5" data-dashboard-empty="true">
+      <p class="${S}">Dashboard contract route is not wired.</p>
+      <p class="${A} mt-2">Set a dashboard aggregate endpoint before initializing the dashboard client.</p>
     </section>
   `;
 }
 function E() {
   return `
-    <section class="${P} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
+    <section class="${H} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
       Loading translation dashboard aggregates...
     </section>
   `;
 }
-class yt {
-  constructor(t) {
+var yt = class {
+  constructor(e) {
     this.refreshController = null, this.container = null, this.state = "idle", this.payload = null, this.refreshing = !1, this.lastError = null, this.config = {
       refreshInterval: 3e4,
       title: "Translation Dashboard",
-      ...t
-    }, this.client = et(t);
+      ...e
+    }, this.client = et(e);
   }
-  mount(t) {
-    if (this.container = t, !r(this.config.endpoint)) {
-      this.state = "error", t.innerHTML = bt();
+  mount(e) {
+    if (this.container = e, !r(this.config.endpoint)) {
+      this.state = "error", e.innerHTML = bt();
       return;
     }
-    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = E(), this.refreshController = st({
+    this.state = "loading", this.refreshing = !1, this.lastError = null, e.innerHTML = E(), this.refreshController = st({
       intervalMs: this.config.refreshInterval,
       load: () => this.client.fetchDashboard(),
-      onData: (s) => {
-        this.payload = s, this.state = "ready", this.refreshing = !1, this.lastError = null, this.render();
+      onData: (t) => {
+        this.payload = t, this.state = "ready", this.refreshing = !1, this.lastError = null, this.render();
       },
-      onError: (s) => {
-        if (this.refreshing = !1, this.lastError = s, this.payload) {
+      onError: (t) => {
+        if (this.refreshing = !1, this.lastError = t, this.payload) {
           this.state = "ready", this.render();
           return;
         }
-        this.state = "error", this.container && (this.container.innerHTML = mt(s), this.bindActions());
+        this.state = "error", this.container && (this.container.innerHTML = mt(t), this.bindActions());
       }
     }), this.refreshController.start().catch(() => {
     });
@@ -635,8 +615,8 @@ class yt {
   }
   async refresh() {
     if (this.lastError = null, this.refreshing = !0, this.payload ? this.render() : this.container && (this.state = "loading", this.container.innerHTML = E()), !this.refreshController) {
-      const t = await this.client.fetchDashboard();
-      return this.payload = t, this.state = "ready", this.refreshing = !1, this.render(), t;
+      const e = await this.client.fetchDashboard();
+      return this.payload = e, this.state = "ready", this.refreshing = !1, this.render(), e;
     }
     try {
       return await this.refreshController.refresh();
@@ -645,49 +625,45 @@ class yt {
     }
   }
   render() {
-    if (!this.container || !this.payload)
-      return;
-    const t = this.payload, s = t.data.cards.map(rt).join(""), a = Object.values(t.data.tables).map(lt).join(""), n = Object.values(t.data.summary).every((u) => u === 0) && Object.values(t.data.tables).every((u) => u.rows.length === 0), o = t.meta.degraded ? `
+    if (!this.container || !this.payload) return;
+    const e = this.payload, t = e.data.cards.map(rt).join(""), s = Object.values(e.data.tables).map(lt).join(""), a = Object.values(e.data.summary).every((d) => d === 0) && Object.values(e.data.tables).every((d) => d.rows.length === 0), n = e.meta.degraded ? `
         <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
-          <p class="mt-2">${i(t.meta.degradedReasons.map((u) => `${u.component}: ${u.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
+          <p class="mt-2">${i(e.meta.degradedReasons.map((d) => `${d.component}: ${d.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
         </section>
-      ` : "", c = this.lastError ? gt(this.lastError) : "";
+      ` : "", o = this.lastError ? gt(this.lastError) : "";
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${ht(t, this.refreshing)}
-        ${pt(t)}
-        ${c}
+        ${ht(e, this.refreshing)}
+        ${pt(e)}
         ${o}
-        ${nt(t.data.alerts)}
-        ${n ? ft(t) : `
-            <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${s}</section>
-            <section class="grid gap-4 xl:grid-cols-2">${a}</section>
+        ${n}
+        ${nt(e.data.alerts)}
+        ${a ? ft(e) : `
+            <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${t}</section>
+            <section class="grid gap-4 xl:grid-cols-2">${s}</section>
           `}
-        ${dt(t.data.runbooks)}
+        ${dt(e.data.runbooks)}
       </div>
     `, this.bindActions();
   }
   bindActions() {
-    if (!this.container || typeof this.container.querySelectorAll != "function")
-      return;
-    this.container.querySelectorAll("[data-dashboard-refresh-button]").forEach((s) => {
-      s.addEventListener("click", () => {
+    !this.container || typeof this.container.querySelectorAll != "function" || this.container.querySelectorAll("[data-dashboard-refresh-button]").forEach((e) => {
+      e.addEventListener("click", () => {
         this.refresh().catch(() => {
         });
       });
     });
   }
-}
+};
 function wt(e, t = {}) {
-  if (!e)
-    return null;
+  if (!e) return null;
   const s = new yt({
     endpoint: t.endpoint ?? e.dataset.endpoint ?? "",
     queueEndpoint: t.queueEndpoint ?? e.dataset.queueEndpoint ?? "",
     familiesEndpoint: t.familiesEndpoint ?? e.dataset.familiesEndpoint ?? "",
-    refreshInterval: t.refreshInterval ?? h(e.dataset.refreshInterval, 3e4),
+    refreshInterval: t.refreshInterval ?? p(e.dataset.refreshInterval, 3e4),
     title: t.title ?? e.dataset.title ?? "Translation Dashboard",
     fetch: t.fetch
   });
@@ -695,17 +671,18 @@ function wt(e, t = {}) {
 }
 export {
   yt as TranslationDashboardPage,
-  b as TranslationDashboardRequestError,
+  m as TranslationDashboardRequestError,
   tt as buildTranslationDashboardURL,
   et as createTranslationDashboardClient,
   st as createTranslationDashboardRefreshController,
   wt as initTranslationDashboardPage,
   G as normalizeTranslationDashboardCard,
   M as normalizeTranslationDashboardLink,
-  C as normalizeTranslationDashboardQueryModel,
+  q as normalizeTranslationDashboardQueryModel,
   Z as normalizeTranslationDashboardResponse,
-  q as normalizeTranslationDashboardRunbook,
+  C as normalizeTranslationDashboardRunbook,
   Q as normalizeTranslationDashboardTable,
   Y as normalizeTranslationDashboardTableRow
 };
+
 //# sourceMappingURL=index.js.map
