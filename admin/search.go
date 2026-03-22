@@ -24,6 +24,7 @@ type SearchAdapter interface {
 // SearchEngine aggregates adapters and executes queries across them.
 type SearchEngine struct {
 	adapters   map[string]SearchAdapter
+	primary    SearchAdapter
 	authorizer Authorizer
 	enabled    bool
 }
@@ -49,6 +50,16 @@ func (s *SearchEngine) Register(key string, adapter SearchAdapter) {
 	s.adapters[key] = adapter
 }
 
+// SetPrimary installs the canonical search adapter. When configured, Query
+// routes all requests through the primary adapter instead of fanout across the
+// legacy registry.
+func (s *SearchEngine) SetPrimary(adapter SearchAdapter) {
+	if s == nil {
+		return
+	}
+	s.primary = adapter
+}
+
 // Query searches all adapters respecting permissions.
 func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]SearchResult, error) {
 	if s == nil || !s.enabled {
@@ -56,6 +67,18 @@ func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]Searc
 	}
 	if limit <= 0 {
 		limit = 10
+	}
+	if s.primary != nil {
+		if perm := s.primary.Permission(); perm != "" && s.authorizer != nil {
+			if !s.authorizer.Can(ctx.Context, perm, "search") {
+				return []SearchResult{}, nil
+			}
+		}
+		hits, err := s.primary.Search(ctx.Context, query, limit)
+		if err != nil {
+			return nil, err
+		}
+		return hits, nil
 	}
 	results := []SearchResult{}
 	for key, adapter := range s.adapters {
