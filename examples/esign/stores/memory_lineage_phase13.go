@@ -87,6 +87,9 @@ func (s *InMemoryStore) ListSourceCommentThreads(ctx context.Context, scope Scop
 		if query.Status != "" && strings.TrimSpace(record.Status) != strings.TrimSpace(query.Status) {
 			continue
 		}
+		if query.Status == "" && !query.IncludeDeleted && strings.EqualFold(strings.TrimSpace(record.Status), SourceCommentThreadStatusDeleted) {
+			continue
+		}
 		out = append(out, record)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -216,6 +219,32 @@ func (s *InMemoryStore) ListSourceCommentMessages(ctx context.Context, scope Sco
 		return leftAt.Before(rightAt)
 	})
 	return out, nil
+}
+
+func (s *InMemoryStore) DeleteSourceCommentMessages(ctx context.Context, scope Scope, query SourceCommentMessageQuery) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for scopedID, record := range s.sourceCommentMessages {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if query.SourceCommentThreadID != "" && strings.TrimSpace(record.SourceCommentThreadID) != strings.TrimSpace(query.SourceCommentThreadID) {
+			continue
+		}
+		if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
+			continue
+		}
+		if query.ProviderMessageID != "" && strings.TrimSpace(record.ProviderMessageID) != strings.TrimSpace(query.ProviderMessageID) {
+			continue
+		}
+		delete(s.sourceCommentMessages, scopedID)
+	}
+	return nil
 }
 
 func (s *InMemoryStore) SaveSourceCommentMessage(ctx context.Context, scope Scope, record SourceCommentMessageRecord) (SourceCommentMessageRecord, error) {

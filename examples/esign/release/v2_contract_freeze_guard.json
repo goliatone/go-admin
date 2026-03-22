@@ -1,15 +1,13 @@
 {
   "tracked_files": [
-    "examples/esign/handlers/routes.go",
-    "examples/esign/handlers/security.go",
-    "examples/esign/handlers/register.go",
-    "examples/esign/services/agreement_service.go",
-    "examples/esign/services/signing_service.go",
-    "examples/esign/services/signer_asset_contract.go"
+    "examples/esign/release/v2_source_management_contract_manifest.json",
+    "pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json"
   ],
-  "contract_hash": "cd547113669d36216049df6aee8a83f1cce39229d26a89806b212b7e9928543f",
+  "contract_hash": "276d5ad0c8a6296b8459667f69badae06d8c1f0d6e0dcc1fa994ca17044a00af",
   "freeze_date": "2026-02-16",
   "release_owner": "backend-release-owner",
-  "exception_approval_ref": "REL-2026-03-18-ESIGN-STORAGE-001",
-  "exception_approved_by": "backend-release-owner"
+  "ledger_path": "examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md",
+  "required_ledger_entry_id": "V2-SM-2026-03-22-001",
+  "exception_approval_ref": "",
+  "exception_approved_by": ""
 }

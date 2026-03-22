@@ -70,6 +70,7 @@ type SourceCommentMessageStore interface {
 	GetSourceCommentMessage(ctx context.Context, scope Scope, id string) (SourceCommentMessageRecord, error)
 	ListSourceCommentMessages(ctx context.Context, scope Scope, query SourceCommentMessageQuery) ([]SourceCommentMessageRecord, error)
 	SaveSourceCommentMessage(ctx context.Context, scope Scope, record SourceCommentMessageRecord) (SourceCommentMessageRecord, error)
+	DeleteSourceCommentMessages(ctx context.Context, scope Scope, query SourceCommentMessageQuery) error
 }
 
 // SourceCommentSyncStateStore defines comment sync-state persistence per source revision.
@@ -163,6 +164,7 @@ type SourceCommentThreadQuery struct {
 	ProviderKind     string `json:"provider_kind"`
 	SyncStatus       string `json:"sync_status"`
 	Status           string `json:"status"`
+	IncludeDeleted   bool   `json:"include_deleted"`
 }
 
 type SourceCommentMessageQuery struct {

@@ -100,12 +100,16 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("seed source-management qa fixtures: %w", err)
 	}
+	lineageStore, ok := store.(stores.LineageStore)
+	if !ok {
+		return SourceManagementValidationResult{}, fmt.Errorf("source-management validation store does not implement lineage store contracts")
+	}
 	urls, err := fixtures.BuildLineageFixtureURLs("/admin", scope, fixtureSet)
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("build source-management qa fixture urls: %w", err)
 	}
 
-	readModels := services.NewDefaultSourceReadModelService(store, store, store)
+	readModels := services.NewDefaultSourceReadModelService(store, store, lineageStore)
 	listPage, err := readModels.ListSources(ctx, scope, services.SourceListQuery{Page: 1, PageSize: 10})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("list sources: %w", err)

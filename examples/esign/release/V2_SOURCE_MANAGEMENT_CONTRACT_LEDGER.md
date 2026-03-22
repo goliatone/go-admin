@@ -2,7 +2,7 @@
 
 ## V2-SM-2026-03-22-001
 
-reviewed_contract_hash: PENDING
+reviewed_contract_hash: 276d5ad0c8a6296b8459667f69badae06d8c1f0d6e0dcc1fa994ca17044a00af
 freeze_date: 2026-02-16
 approved_by: backend-release-owner
 approval_ref: SM-V2-2026-03-22-001

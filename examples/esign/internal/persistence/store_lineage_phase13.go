@@ -57,6 +57,8 @@ func listSourceCommentThreadRecords(ctx context.Context, idb bun.IDB, scope stor
 	}
 	if query.Status != "" {
 		sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
+	} else if !query.IncludeDeleted {
+		sel = sel.Where("status <> ?", stores.SourceCommentThreadStatusDeleted)
 	}
 	sel = sel.OrderExpr("updated_at ASC, id ASC")
 	if err := sel.Scan(ctx, &records); err != nil {
@@ -280,6 +282,16 @@ func (s *StoreAdapter) SaveSourceCommentMessage(ctx context.Context, scope store
 	})
 }
 
+func (s *StoreAdapter) DeleteSourceCommentMessages(ctx context.Context, scope stores.Scope, query stores.SourceCommentMessageQuery) error {
+	return s.WithTx(ctx, func(tx stores.TxStore) error {
+		lineage, err := lineageStoreForTx(tx)
+		if err != nil {
+			return err
+		}
+		return lineage.DeleteSourceCommentMessages(ctx, scope, query)
+	})
+}
+
 func (s *StoreAdapter) CreateSourceCommentSyncState(ctx context.Context, scope stores.Scope, record stores.SourceCommentSyncStateRecord) (stores.SourceCommentSyncStateRecord, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.SourceCommentSyncStateRecord, error) {
 		lineage, err := lineageStoreForTx(tx)
@@ -471,6 +483,28 @@ func (s *relationalTxStore) SaveSourceCommentMessage(ctx context.Context, scope 
 		return stores.SourceCommentMessageRecord{}, err
 	}
 	return record, nil
+}
+
+func (s *relationalTxStore) DeleteSourceCommentMessages(ctx context.Context, scope stores.Scope, query stores.SourceCommentMessageQuery) error {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return err
+	}
+	del := s.tx.NewDelete().
+		Model((*stores.SourceCommentMessageRecord)(nil)).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if query.SourceCommentThreadID != "" {
+		del = del.Where("source_comment_thread_id = ?", strings.TrimSpace(query.SourceCommentThreadID))
+	}
+	if query.SourceRevisionID != "" {
+		del = del.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
+	}
+	if query.ProviderMessageID != "" {
+		del = del.Where("provider_message_id = ?", strings.TrimSpace(query.ProviderMessageID))
+	}
+	_, err = del.Exec(ctx)
+	return err
 }
 
 func (s *relationalTxStore) CreateSourceCommentSyncState(ctx context.Context, scope stores.Scope, record stores.SourceCommentSyncStateRecord) (stores.SourceCommentSyncStateRecord, error) {

@@ -1,0 +1,1699 @@
+{
+  "schema_version": 1,
+  "contract_set": "v2_source_management",
+  "generated_from": [
+    "examples/esign/services/lineage_contracts.go",
+    "examples/esign/handlers/register_lineage_routes.go"
+  ],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources",
+      "query_schema": "SourceListQuery",
+      "response_schema": "SourceListPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id",
+      "path_params": [
+        "source_document_id"
+      ],
+      "response_schema": "SourceDetail"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/revisions",
+      "path_params": [
+        "source_document_id"
+      ],
+      "query_schema": "SourceRevisionListQuery",
+      "response_schema": "SourceRevisionPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/relationships",
+      "path_params": [
+        "source_document_id"
+      ],
+      "query_schema": "SourceRelationshipListQuery",
+      "response_schema": "SourceRelationshipPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/handles",
+      "path_params": [
+        "source_document_id"
+      ],
+      "response_schema": "SourceHandlePage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/comments",
+      "path_params": [
+        "source_document_id"
+      ],
+      "query_schema": "SourceCommentListQuery",
+      "response_schema": "SourceCommentPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/source-revisions/:source_revision_id",
+      "path_params": [
+        "source_revision_id"
+      ],
+      "response_schema": "SourceRevisionDetail"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/source-revisions/:source_revision_id/artifacts",
+      "path_params": [
+        "source_revision_id"
+      ],
+      "response_schema": "SourceArtifactPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/source-revisions/:source_revision_id/comments",
+      "path_params": [
+        "source_revision_id"
+      ],
+      "query_schema": "SourceCommentListQuery",
+      "response_schema": "SourceCommentPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/source-search",
+      "query_schema": "SourceSearchQuery",
+      "response_schema": "SourceSearchResults"
+    }
+  ],
+  "schemas": [
+    {
+      "name": "CandidateEvidenceSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "code",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "details",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "FingerprintProcessingSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "state",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "status_label",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "started_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "completed_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "last_attempt_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "attempt_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "last_error_code",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "last_error_message",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "retryable",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "stale",
+          "optional": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "FingerprintStatusSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "extract_version",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "evidence_available",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "error_message",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "error_code",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "LineageEmptyState",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "kind",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "optional": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "LineageReference",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceArtifactPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceArtifactSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceArtifactSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "artifact_kind",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "object_key",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sha256",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "size_bytes",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "compatibility_tier",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "compatibility_reason",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "normalization_status",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentAnchorSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentAuthorSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "display_name",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentListQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sync_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentMessageSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider_message_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "message_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "body_preview",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "author",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceCommentAuthorSummary"
+        },
+        {
+          "name": "created_at",
+          "optional": true,
+          "type": "datetime"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceCommentThreadSummary"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceCommentListQuery"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "sync_status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "sync",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceCommentSyncSummary"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentSyncSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "thread_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "message_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "last_attempt_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "last_synced_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "error_code",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "error_message",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceCommentThreadSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider_comment_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "thread_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "anchor",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceCommentAnchorSummary"
+        },
+        {
+          "name": "author_name",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "author",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceCommentAuthorSummary"
+        },
+        {
+          "name": "body_preview",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "message_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "reply_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "messages",
+          "optional": true,
+          "type": "array",
+          "ref": "SourceCommentMessageSummary"
+        },
+        {
+          "name": "resolved_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "last_synced_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "sync_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceDetail",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "lineage_confidence",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "active_handle",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "latest_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "revision_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "handle_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "relationship_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "pending_candidate_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        }
+      ]
+    },
+    {
+      "name": "SourceHandlePage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceHandleSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider_kind",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "external_file_id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "account_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "drive_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "web_url",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "handle_status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "valid_from",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "valid_to",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceListItem",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "lineage_confidence",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "latest_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "active_handle",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "revision_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "handle_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "relationship_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "pending_candidate_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceListPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceListItem"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceListQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceListQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "query",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "provider_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "has_pending_candidates",
+          "optional": true,
+          "type": "bool"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceManagementLinks",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "self",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "revisions",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "relationships",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "handles",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "diagnostics",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "artifacts",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "comments",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceManagementPageInfo",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "mode",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "total_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "has_more",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceManagementPermissions",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "can_view_diagnostics",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "can_open_provider_links",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "can_review_candidates",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "can_view_comments",
+          "optional": false,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "SourceProviderExtensionEnvelope",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "schema",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "values",
+          "optional": true,
+          "type": "map",
+          "key": "string",
+          "value": "any"
+        }
+      ]
+    },
+    {
+      "name": "SourceProviderSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "kind",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "external_file_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "account_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "drive_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "web_url",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "extension",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderExtensionEnvelope"
+        }
+      ]
+    },
+    {
+      "name": "SourceRelationshipListQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "relationship_type",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceRelationshipPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceRelationshipSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceRelationshipListQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceRelationshipSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "relationship_type",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "relationship_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "counterpart_role",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "confidence_band",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "confidence_score",
+          "optional": true,
+          "type": "number"
+        },
+        {
+          "name": "summary",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "left_source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "right_source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "counterpart_source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "review_action_visible",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "evidence",
+          "optional": true,
+          "type": "array",
+          "ref": "CandidateEvidenceSummary"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionDetail",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "fingerprint_status",
+          "optional": false,
+          "type": "object",
+          "ref": "FingerprintStatusSummary"
+        },
+        {
+          "name": "fingerprint_processing",
+          "optional": false,
+          "type": "object",
+          "ref": "FingerprintProcessingSummary"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionListItem",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "primary_artifact",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceArtifactSummary"
+        },
+        {
+          "name": "fingerprint_status",
+          "optional": false,
+          "type": "object",
+          "ref": "FingerprintStatusSummary"
+        },
+        {
+          "name": "fingerprint_processing",
+          "optional": false,
+          "type": "object",
+          "ref": "FingerprintProcessingSummary"
+        },
+        {
+          "name": "is_latest",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionListQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceRevisionListItem"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceRevisionListQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider_revision_hint",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "modified_time",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "exported_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "exported_by_user_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "source_mime_type",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "history_labels",
+          "optional": true,
+          "type": "array",
+          "ref": "string"
+        },
+        {
+          "name": "pinned_document_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "pinned_agreement_count",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceSearchQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "query",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "result_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "relationship_state",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "comment_sync_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "revision_hint",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "has_comments",
+          "optional": true,
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "SourceSearchResultSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "result_kind",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "relationship_state",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "comment_sync_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "comment_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "has_comments",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "artifact_hash",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "matched_fields",
+          "optional": true,
+          "type": "array",
+          "ref": "string"
+        },
+        {
+          "name": "summary",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceSearchResults",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceSearchResultSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceSearchQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    }
+  ]
+}
