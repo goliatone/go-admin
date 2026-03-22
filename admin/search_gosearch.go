@@ -65,7 +65,7 @@ func (a *GoSearchGlobalAdapter) Search(ctx context.Context, query string, limit 
 		Query:   query,
 		PerPage: limit,
 		Metadata: map[string]any{
-			"collections": append([]string(nil), a.indexes...),
+			"indexes": append([]string(nil), a.indexes...),
 		},
 	}))
 	if err != nil {
@@ -128,6 +128,7 @@ func (p *GoSearchSiteProvider) Search(ctx context.Context, req SearchRequest) (S
 		PerPage:  req.PerPage,
 		Sort:     req.Sort,
 		Filters:  req.Filters,
+		Ranges:   toAdapterSearchRanges(req.Ranges),
 		Actor:    req.Actor,
 		Request:  req.Request,
 		Metadata: req.Metadata,
@@ -209,15 +210,46 @@ func toAdminSearchHits(hits []searchadapter.SiteSearchHit) []SearchHit {
 	out := make([]SearchHit, 0, len(hits))
 	for _, hit := range hits {
 		out = append(out, SearchHit{
-			ID:      hit.ID,
-			Type:    hit.Type,
-			Title:   hit.Title,
-			Summary: hit.Summary,
-			URL:     hit.URL,
-			Locale:  hit.Locale,
-			Score:   hit.Score,
-			Fields:  hit.Fields,
+			ID:              hit.ID,
+			Type:            hit.Type,
+			Title:           hit.Title,
+			Summary:         hit.Summary,
+			URL:             hit.URL,
+			Locale:          hit.Locale,
+			Score:           hit.Score,
+			Fields:          hit.Fields,
+			Snippet:         hit.Snippet,
+			Highlighted:     hit.Highlighted,
+			ParentID:        hit.ParentID,
+			ParentTitle:     hit.ParentTitle,
+			ParentURL:       hit.ParentURL,
+			ParentThumbnail: hit.ParentThumbnail,
+			ParentSummary:   hit.ParentSummary,
+			Anchor:          hit.Anchor,
+			Metadata:        hit.Metadata,
 		})
+	}
+	return out
+}
+
+func toAdapterSearchRanges(ranges []SearchRange) []searchadapter.SiteSearchRange {
+	if len(ranges) == 0 {
+		return nil
+	}
+	out := make([]searchadapter.SiteSearchRange, 0, len(ranges))
+	for _, item := range ranges {
+		field := item.Field
+		if field == "" || (item.GTE == nil && item.LTE == nil) {
+			continue
+		}
+		out = append(out, searchadapter.SiteSearchRange{
+			Field: field,
+			GTE:   item.GTE,
+			LTE:   item.LTE,
+		})
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
@@ -225,9 +257,24 @@ func toAdminSearchHits(hits []searchadapter.SiteSearchHit) []SearchHit {
 func toAdminSearchFacets(facets []searchadapter.SiteSearchFacet) []SearchFacet {
 	out := make([]SearchFacet, 0, len(facets))
 	for _, facet := range facets {
-		item := SearchFacet{Name: facet.Name, Buckets: make([]SearchFacetTerm, 0, len(facet.Buckets))}
+		item := SearchFacet{
+			Name:        facet.Name,
+			Kind:        facet.Kind,
+			Disjunctive: facet.Disjunctive,
+			Buckets:     make([]SearchFacetTerm, 0, len(facet.Buckets)),
+			Metadata:    facet.Metadata,
+		}
 		for _, bucket := range facet.Buckets {
-			item.Buckets = append(item.Buckets, SearchFacetTerm{Value: bucket.Value, Count: bucket.Count})
+			item.Buckets = append(item.Buckets, SearchFacetTerm{
+				Value:       bucket.Value,
+				Label:       bucket.Label,
+				Count:       bucket.Count,
+				Selected:    bucket.Selected,
+				Path:        append([]string(nil), bucket.Path...),
+				Level:       bucket.Level,
+				ParentValue: bucket.ParentValue,
+				Metadata:    bucket.Metadata,
+			})
 		}
 		out = append(out, item)
 	}
