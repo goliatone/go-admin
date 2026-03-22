@@ -68,7 +68,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
 	)
 	require.NoError(t, err)
-	adm.WithAuth(nil, nil)
+	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
 	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
 
 	require.NoError(t, seedExampleTranslationQueueFixture(ctx, queueRepo, contentSvc, "", "", "runtime-user"))
@@ -244,4 +244,17 @@ type translationRuntimeHarnessAllowAllAuthorizer struct{}
 
 func (translationRuntimeHarnessAllowAllAuthorizer) Can(context.Context, string, string) bool {
 	return true
+}
+
+type translationRuntimeHarnessPassthroughAuthenticator struct{}
+
+func (translationRuntimeHarnessPassthroughAuthenticator) Wrap(router.Context) error {
+	return nil
+}
+
+func (translationRuntimeHarnessPassthroughAuthenticator) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
+	if handler == nil {
+		return func(router.Context) error { return nil }
+	}
+	return handler
 }

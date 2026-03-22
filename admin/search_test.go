@@ -81,6 +81,40 @@ func TestSearchAggregatesAdapters(t *testing.T) {
 	}
 }
 
+func TestSearchPrimaryAdapterTakesPrecedenceOverRegistry(t *testing.T) {
+	engine := NewSearchEngine(allowAll{})
+	engine.Register("users", &stubSearchAdapter{
+		results: []SearchResult{{ID: "legacy-1", Title: "Alice"}},
+	})
+	engine.SetPrimary(&stubSearchAdapter{
+		results: []SearchResult{{ID: "primary-1", Type: "media", Title: "Alice"}},
+	})
+
+	results, err := engine.Query(AdminContext{Context: context.Background()}, "Alice", 10)
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != "primary-1" {
+		t.Fatalf("expected primary adapter result only, got %+v", results)
+	}
+}
+
+func TestSearchPrimaryAdapterStillRespectsPermission(t *testing.T) {
+	engine := NewSearchEngine(denyAll{})
+	engine.SetPrimary(&stubSearchAdapter{
+		permission: "search.media",
+		results:    []SearchResult{{ID: "primary-1", Type: "media", Title: "Alice"}},
+	})
+
+	results, err := engine.Query(AdminContext{Context: context.Background()}, "Alice", 10)
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected zero primary results due to permission, got %+v", results)
+	}
+}
+
 type searchAuthorizer struct {
 	allowed map[string]bool
 }

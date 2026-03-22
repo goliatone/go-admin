@@ -107,11 +107,14 @@ func TestSiteSearchPageAndAPIRequestTranslation(t *testing.T) {
 	)
 	if err := RegisterSiteRoutes(server.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
+		Search: SiteSearchConfig{
+			Collections: []string{"media"},
+		},
 	}, WithSearchProvider(provider)); err != nil {
 		t.Fatalf("register site routes: %v", err)
 	}
 
-	pagePayload := performSiteRequest(t, server, "/search?q=hola&page=2&per_page=5&sort=published_at:desc&locale=es&facet=content_type&facet=category&content_type=post&tag=go&category=news&date_from=2024-01-01&date_to=2024-12-31&filter.visibility=public&filter.visibility=authenticated&format=json")
+	pagePayload := performSiteRequest(t, server, "/search?q=hola&page=2&per_page=5&sort=published_at:desc&locale=es&facet=content_type&facet=category&collection=media&content_type=post&tag=go&category=news&date_from=2024-01-01&date_to=2024-12-31&filter.visibility=public&filter.visibility=authenticated&format=json")
 	if got := nestedString(pagePayload, "template"); got != searchTemplate {
 		t.Fatalf("expected search template %q, got %q", searchTemplate, got)
 	}
@@ -150,6 +153,10 @@ func TestSiteSearchPageAndAPIRequestTranslation(t *testing.T) {
 	if !ok || len(facets) != 2 || facets[0] != "content_type" || facets[1] != "category" {
 		t.Fatalf("expected facets metadata [content_type category], got %+v", metadata["facets"])
 	}
+	indexes, ok := metadata["indexes"].([]string)
+	if !ok || len(indexes) != 1 || indexes[0] != "media" {
+		t.Fatalf("expected indexes metadata [media], got %+v", metadata["indexes"])
+	}
 	pageHits := menuItemsFromContext(t, nestedAny(pagePayload, "context", "search_results"))
 	if len(pageHits) != 2 {
 		t.Fatalf("expected two search results in page context, got %+v", pageHits)
@@ -177,6 +184,58 @@ func TestSiteSearchPageAndAPIRequestTranslation(t *testing.T) {
 	}
 	if got := anyString(nestedAny(apiPayload, "meta", "locale")); got != "es" {
 		t.Fatalf("expected API meta locale es, got %q", got)
+	}
+	apiIndexes, ok := nestedAny(apiPayload, "meta", "indexes").([]any)
+	if !ok || len(apiIndexes) != 1 || anyString(apiIndexes[0]) != "media" {
+		t.Fatalf("expected API meta indexes [media], got %+v", nestedAny(apiPayload, "meta", "indexes"))
+	}
+}
+
+func TestSiteSearchParsesRangeQueriesIntoRanges(t *testing.T) {
+	provider := &recordingSiteSearchProvider{
+		searchResult: admin.SearchResultPage{Hits: []admin.SearchHit{}, Page: 1, PerPage: 10, Total: 0},
+	}
+	server := router.NewHTTPServer(
+		router.WithHTTPRouterConflictPolicy(router.HTTPRouterConflictLogAndSkip),
+	)
+	if err := RegisterSiteRoutes(server.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}, WithSearchProvider(provider)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	payload := performSiteRequest(t, server, "/api/v1/site/search?q=archive&content_type=post&published_year_gte=2024&duration_seconds_lte=3600")
+	if len(provider.lastSearch.Ranges) != 2 {
+		t.Fatalf("expected two range filters, got %+v", provider.lastSearch.Ranges)
+	}
+	if _, ok := provider.lastSearch.Filters["published_year_gte"]; ok {
+		t.Fatalf("expected published_year_gte to be parsed as a range, got %+v", provider.lastSearch.Filters)
+	}
+	if _, ok := provider.lastSearch.Filters["duration_seconds_lte"]; ok {
+		t.Fatalf("expected duration_seconds_lte to be parsed as a range, got %+v", provider.lastSearch.Filters)
+	}
+	rangesByField := map[string]admin.SearchRange{}
+	for _, item := range provider.lastSearch.Ranges {
+		rangesByField[item.Field] = item
+	}
+	if rangesByField["published_year"].GTE != 2024 {
+		t.Fatalf("expected published_year.gte=2024, got %+v", rangesByField["published_year"])
+	}
+	if rangesByField["duration_seconds"].LTE != 3600 {
+		t.Fatalf("expected duration_seconds.lte=3600, got %+v", rangesByField["duration_seconds"])
+	}
+	metaRanges, ok := nestedAny(payload, "meta", "ranges").([]any)
+	if !ok || len(metaRanges) != 2 {
+		t.Fatalf("expected meta ranges payload, got %+v", nestedAny(payload, "meta", "ranges"))
+	}
+	metaByField := map[string]map[string]any{}
+	for _, item := range metaRanges {
+		entry := nestedMapFromAny(item)
+		metaByField[stringsTrimSpace(anyString(entry["field"]))] = entry
+	}
+	if intFromAny(metaByField["published_year"]["gte"]) != 2024 {
+		t.Fatalf("expected published_year.gte in meta payload, got %+v", metaByField["published_year"])
+	}
+	if intFromAny(metaByField["duration_seconds"]["lte"]) != 3600 {
+		t.Fatalf("expected duration_seconds.lte in meta payload, got %+v", metaByField["duration_seconds"])
 	}
 }
 
@@ -213,7 +272,7 @@ func TestSiteSearchSuggestEndpointWiring(t *testing.T) {
 		t.Fatalf("register site routes: %v", err)
 	}
 
-	payload := performSiteRequest(t, server, "/api/v1/site/search/suggest?q=hel&limit=7&locale=en&content_type=post")
+	payload := performSiteRequest(t, server, "/api/v1/site/search/suggest?q=hel&limit=7&locale=en&facet_content_type=post")
 	if provider.suggestCalls != 1 {
 		t.Fatalf("expected one suggest call, got %d", provider.suggestCalls)
 	}
@@ -224,11 +283,95 @@ func TestSiteSearchSuggestEndpointWiring(t *testing.T) {
 		t.Fatalf("expected suggest locale en, got %q", provider.lastSuggest.Locale)
 	}
 	if got := provider.lastSuggest.Filters["content_type"]; len(got) != 1 || got[0] != "post" {
-		t.Fatalf("expected content_type filter forwarded to suggest request, got %+v", got)
+		t.Fatalf("expected content_type facet alias forwarded to suggest request, got %+v", got)
 	}
 	suggestions, ok := nestedAny(payload, "data", "suggestions").([]any)
 	if !ok || len(suggestions) != 3 {
 		t.Fatalf("expected suggest payload with 3 suggestions, got %+v", nestedAny(payload, "data"))
+	}
+}
+
+func TestSiteSearchTopicLandingRouteAppliesPresetFilters(t *testing.T) {
+	provider := &recordingSiteSearchProvider{
+		searchResult: admin.SearchResultPage{Hits: []admin.SearchHit{}, Page: 1, PerPage: 10, Total: 0},
+	}
+	server := router.NewHTTPServer(
+		router.WithHTTPRouterConflictPolicy(router.HTTPRouterConflictLogAndSkip),
+	)
+	if err := RegisterSiteRoutes(server.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}, WithSearchProvider(provider)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	payload := performSiteRequest(t, server, "/search/topics/architecture?q=archive&format=json")
+	values := provider.lastSearch.Filters["topic_hierarchy"]
+	if len(values) != 1 || values[0] != "Teaching Topics > Architecture" {
+		t.Fatalf("expected landing preset topic_hierarchy filter, got %+v", values)
+	}
+	landing := nestedMapFromAny(nestedAny(payload, "context", "search_landing"))
+	if anyString(landing["title"]) != "Architecture" {
+		t.Fatalf("expected landing title Architecture, got %+v", landing)
+	}
+}
+
+func TestSiteSearchNormalizesRicherFacetAndHitPayloads(t *testing.T) {
+	provider := &recordingSiteSearchProvider{
+		searchResult: admin.SearchResultPage{
+			Hits: []admin.SearchHit{
+				{
+					ID:          "segment-1",
+					Type:        "transcript_segment",
+					Title:       "Ocean Wind",
+					Locale:      "en",
+					URL:         "/media/ocean",
+					Snippet:     "archive chant",
+					Highlighted: "<mark>archive</mark> chant",
+					ParentTitle: "Ocean Wind Parent",
+					Fields: map[string]any{
+						"result_badge": "Featured",
+					},
+				},
+			},
+			Facets: []admin.SearchFacet{
+				{
+					Name:        "topic_hierarchy",
+					Kind:        "hierarchical",
+					Disjunctive: true,
+					Buckets: []admin.SearchFacetTerm{
+						{
+							Value:    "Teaching Topics > Architecture",
+							Label:    "Architecture",
+							Count:    2,
+							Selected: true,
+							Path:     []string{"Teaching Topics", "Architecture"},
+							Level:    1,
+						},
+					},
+				},
+			},
+			Page:    1,
+			PerPage: 10,
+			Total:   1,
+		},
+	}
+	server := router.NewHTTPServer(
+		router.WithHTTPRouterConflictPolicy(router.HTTPRouterConflictLogAndSkip),
+	)
+	if err := RegisterSiteRoutes(server.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}, WithSearchProvider(provider)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	payload := performSiteRequest(t, server, "/search?q=archive&format=json")
+	hits := menuItemsFromContext(t, nestedAny(payload, "context", "search_results"))
+	if len(hits) != 1 || anyString(hits[0]["highlighted"]) != "<mark>archive</mark> chant" || anyString(hits[0]["badge"]) != "Featured" {
+		t.Fatalf("expected richer hit payload, got %+v", hits)
+	}
+	facets := menuItemsFromContext(t, nestedAny(payload, "context", "search_facets"))
+	if len(facets) != 1 || anyString(facets[0]["kind"]) != "hierarchical" {
+		t.Fatalf("expected hierarchical facet payload, got %+v", facets)
+	}
+	buckets := menuItemsFromContext(t, facets[0]["buckets"])
+	if len(buckets) != 1 || !anyBool(buckets[0]["selected"]) || anyString(buckets[0]["label"]) != "Architecture" {
+		t.Fatalf("expected rich facet bucket payload, got %+v", buckets)
 	}
 }
 
@@ -344,4 +487,21 @@ func performSiteRequestWithContext[T interface {
 		t.Fatalf("request %q returned status %d body=%s", path, rec.Code, rec.Body.String())
 	}
 	return decodeSitePayload(t, path, rec)
+}
+
+func intFromAny(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int32:
+		return int(typed)
+	case int64:
+		return int(typed)
+	case float32:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
 }

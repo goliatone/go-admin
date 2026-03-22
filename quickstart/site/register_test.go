@@ -227,6 +227,9 @@ func TestRegisterSiteRoutesFeatureFlagGating(t *testing.T) {
 	if indexOfRoute(routerEnabled.routes, "GET", "/search") == -1 {
 		t.Fatalf("expected search page route when search feature enabled")
 	}
+	if indexOfRoute(routerEnabled.routes, "GET", "/search/topics/:topic_slug") == -1 {
+		t.Fatalf("expected topic landing route when search feature enabled")
+	}
 	if indexOfRoute(routerEnabled.routes, "GET", "/api/v1/site/search") == -1 {
 		t.Fatalf("expected search API route when search feature enabled")
 	}

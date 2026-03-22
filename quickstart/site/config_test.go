@@ -200,6 +200,39 @@ func TestResolveSiteConfigPreservesExplicitDefaultContentChannel(t *testing.T) {
 	}
 }
 
+func TestResolveSiteConfigPrefersIndexesAndBackfillsCollectionsAlias(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en"}
+	resolved := ResolveSiteConfig(cfg, SiteConfig{
+		Search: SiteSearchConfig{
+			Indexes:     []string{"media", "archive"},
+			Collections: []string{"legacy"},
+		},
+	})
+
+	if got, want := resolved.Search.Indexes, []string{"media", "archive"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("expected canonical search indexes %v, got %v", want, got)
+	}
+	if got, want := resolved.Search.Collections, []string{"media", "archive"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("expected collections alias to mirror canonical indexes %v, got %v", want, got)
+	}
+}
+
+func TestResolveSiteConfigFallsBackToCollectionsWhenIndexesUnset(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en"}
+	resolved := ResolveSiteConfig(cfg, SiteConfig{
+		Search: SiteSearchConfig{
+			Collections: []string{"page", "post"},
+		},
+	})
+
+	if got, want := resolved.Search.Indexes, []string{"page", "post"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("expected indexes to fall back to collections %v, got %v", want, got)
+	}
+	if got, want := resolved.Search.Collections, []string{"page", "post"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("expected collections to remain available %v, got %v", want, got)
+	}
+}
+
 func boolPtr(value bool) *bool {
 	return &value
 }
