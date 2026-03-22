@@ -11,6 +11,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
+	"github.com/goliatone/go-search/adapters/media"
 )
 
 const (
@@ -23,6 +24,12 @@ type searchRuntime struct {
 	provider  admin.SearchProvider
 	modules   []SiteModule
 	baseRoute string
+}
+
+type searchLandingState struct {
+	Slug       string
+	Title      string
+	Breadcrumb string
 }
 
 func newSearchRuntime(siteCfg ResolvedSiteConfig, provider admin.SearchProvider, modules []SiteModule) *searchRuntime {
@@ -45,49 +52,65 @@ func (r *searchRuntime) PageHandler() router.HandlerFunc {
 		if c == nil {
 			return nil
 		}
-		state := fallbackRequestState(c, r.siteCfg)
-		req, facets, collections := r.translateSearchRequest(c, state)
-		result, searchErr := r.executeSearch(c, req)
-		ctx := r.searchViewContext(c, state, req, result, facets, collections, searchErr)
-		if searchErr != nil {
-			if wantsJSONResponse(c) {
-				return c.JSON(502, map[string]any{
-					"error": map[string]any{
-						"code":    searchUnavailableErrorCode,
-						"status":  502,
-						"message": strings.TrimSpace(searchErr.Error()),
-					},
-					"template": searchTemplate,
-					"context":  ctx,
-				})
-			}
-			c.Status(502)
-			if err := renderSiteTemplate(c, searchTemplate, ctx); err == nil {
-				return nil
-			}
-			return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{
-				Code:            searchUnavailableErrorCode,
-				Status:          502,
-				Message:         "search service unavailable",
-				RequestedLocale: strings.TrimSpace(req.Locale),
-			})
-		}
+		return r.renderPage(c, "")
+	}
+}
 
+func (r *searchRuntime) TopicPageHandler() router.HandlerFunc {
+	if r == nil || r.provider == nil {
+		return defaultNotFoundHandler
+	}
+	return func(c router.Context) error {
+		if c == nil {
+			return nil
+		}
+		return r.renderPage(c, strings.TrimSpace(c.Param("topic_slug")))
+	}
+}
+
+func (r *searchRuntime) renderPage(c router.Context, topicSlug string) error {
+	state := fallbackRequestState(c, r.siteCfg)
+	req, facets, indexes, landing := r.translateSearchRequest(c, state, topicSlug)
+	result, searchErr := r.executeSearch(c, req)
+	ctx := r.searchViewContext(c, state, req, result, facets, indexes, landing, searchErr)
+	if searchErr != nil {
 		if wantsJSONResponse(c) {
-			return c.JSON(200, map[string]any{
+			return c.JSON(502, map[string]any{
+				"error": map[string]any{
+					"code":    searchUnavailableErrorCode,
+					"status":  502,
+					"message": strings.TrimSpace(searchErr.Error()),
+				},
 				"template": searchTemplate,
 				"context":  ctx,
 			})
 		}
+		c.Status(502)
 		if err := renderSiteTemplate(c, searchTemplate, ctx); err == nil {
 			return nil
 		}
 		return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{
-			Status:          500,
-			Message:         "no site template could render the search page",
+			Code:            searchUnavailableErrorCode,
+			Status:          502,
+			Message:         "search service unavailable",
 			RequestedLocale: strings.TrimSpace(req.Locale),
 		})
 	}
+
+	if wantsJSONResponse(c) {
+		return c.JSON(200, map[string]any{
+			"template": searchTemplate,
+			"context":  ctx,
+		})
+	}
+	if err := renderSiteTemplate(c, searchTemplate, ctx); err == nil {
+		return nil
+	}
+	return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{
+		Status:          500,
+		Message:         "no site template could render the search page",
+		RequestedLocale: strings.TrimSpace(req.Locale),
+	})
 }
 
 func (r *searchRuntime) APIHandler() router.HandlerFunc {
@@ -99,7 +122,7 @@ func (r *searchRuntime) APIHandler() router.HandlerFunc {
 			return nil
 		}
 		state := fallbackRequestState(c, r.siteCfg)
-		req, facets, collections := r.translateSearchRequest(c, state)
+		req, facets, indexes, landing := r.translateSearchRequest(c, state, "")
 		result, searchErr := r.executeSearch(c, req)
 		if searchErr != nil {
 			return c.JSON(502, map[string]any{
@@ -113,7 +136,7 @@ func (r *searchRuntime) APIHandler() router.HandlerFunc {
 
 		page := searchPositiveOrFallback(result.Page, req.Page)
 		perPage := searchPositiveOrFallback(result.PerPage, req.PerPage)
-		data := normalizeSearchResults(result, req.Filters, r.baseRoute, searchCurrentQueryValues(c))
+		data := normalizeSearchResults(result, req.Filters, requestSearchRoute(c, r.baseRoute), searchCurrentQueryValues(c))
 
 		return c.JSON(200, map[string]any{
 			"data": map[string]any{
@@ -129,8 +152,11 @@ func (r *searchRuntime) APIHandler() router.HandlerFunc {
 				"locale":      req.Locale,
 				"sort":        req.Sort,
 				"filters":     cloneSearchFilters(req.Filters),
+				"ranges":      cloneSearchRanges(req.Ranges),
 				"facets":      cloneStrings(facets),
-				"collections": cloneStrings(collections),
+				"indexes":     cloneStrings(indexes),
+				"collections": cloneStrings(indexes),
+				"landing":     landingMetadata(landing),
 			},
 		})
 	}
@@ -145,7 +171,7 @@ func (r *searchRuntime) SuggestAPIHandler() router.HandlerFunc {
 			return nil
 		}
 		state := fallbackRequestState(c, r.siteCfg)
-		req, collections := r.translateSuggestRequest(c, state)
+		req, indexes := r.translateSuggestRequest(c, state)
 		result := admin.SuggestResult{Suggestions: []string{}}
 		var suggestErr error
 		if strings.TrimSpace(req.Query) != "" {
@@ -168,7 +194,8 @@ func (r *searchRuntime) SuggestAPIHandler() router.HandlerFunc {
 				"query":       strings.TrimSpace(req.Query),
 				"locale":      strings.TrimSpace(req.Locale),
 				"filters":     cloneSearchFilters(req.Filters),
-				"collections": cloneStrings(collections),
+				"indexes":     cloneStrings(indexes),
+				"collections": cloneStrings(indexes),
 			},
 		})
 	}
@@ -202,20 +229,30 @@ func (r *searchRuntime) executeSearch(c router.Context, req admin.SearchRequest)
 	return result, nil
 }
 
-func (r *searchRuntime) translateSearchRequest(c router.Context, state RequestState) (admin.SearchRequest, []string, []string) {
+func (r *searchRuntime) translateSearchRequest(c router.Context, state RequestState, topicSlug string) (admin.SearchRequest, []string, []string, *searchLandingState) {
 	locale := strings.TrimSpace(firstNonEmpty(c.Query("locale"), state.Locale))
 	query := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("query"), c.Query("search")))
 	page := searchPositiveOrFallback(searchIntQuery(c, "page", 1), 1)
 	perPage := searchPositiveOrFallback(searchIntQuery(c, "per_page", searchIntQuery(c, "limit", 10)), 10)
 	sortBy := strings.TrimSpace(firstNonEmpty(c.Query("sort"), c.Query("order")))
 	facets := searchFacetValues(c)
-	collections := searchCollectionValues(c, r.siteCfg.Search.Collections)
+	indexes := searchIndexValues(c, r.siteCfg.Search.Indexes)
 
+	ranges := searchBaseRanges(c)
 	filters := searchBaseFilters(c)
+	landing := topicLandingState(topicSlug)
+	if landing != nil {
+		if preset, ok := media.TopicLandingPreset(landing.Slug); ok {
+			for field, values := range preset.FacetFilter {
+				searchAddFilterValue(filters, field, values...)
+			}
+		}
+	}
 	filters = r.injectModuleFilters(requestContext(c), c, SiteSearchFilterRequest{
 		Query:     query,
 		Locale:    locale,
 		Filters:   cloneSearchFilters(filters),
+		Ranges:    cloneSearchRanges(ranges),
 		IsSuggest: false,
 	}, filters)
 
@@ -226,21 +263,25 @@ func (r *searchRuntime) translateSearchRequest(c router.Context, state RequestSt
 		PerPage: perPage,
 		Sort:    sortBy,
 		Filters: filters,
+		Ranges:  cloneSearchRanges(ranges),
 		Actor:   searchActorPayload(c),
 		Request: searchRequestPayload(c),
 		Metadata: map[string]any{
-			"facets":      cloneStrings(facets),
-			"collections": cloneStrings(collections),
+			"facets":          cloneStrings(facets),
+			"indexes":         cloneStrings(indexes),
+			"collections":     cloneStrings(indexes),
+			"accept_language": searchAcceptLanguage(c),
+			"landing":         landingMetadata(landing),
 		},
 	}
-	return req, facets, collections
+	return req, facets, indexes, landing
 }
 
 func (r *searchRuntime) translateSuggestRequest(c router.Context, state RequestState) (admin.SuggestRequest, []string) {
 	locale := strings.TrimSpace(firstNonEmpty(c.Query("locale"), state.Locale))
 	query := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("query"), c.Query("search")))
 	limit := searchPositiveOrFallback(searchIntQuery(c, "limit", 8), 8)
-	collections := searchCollectionValues(c, r.siteCfg.Search.Collections)
+	indexes := searchIndexValues(c, r.siteCfg.Search.Indexes)
 
 	filters := searchBaseFilters(c)
 	filters = r.injectModuleFilters(requestContext(c), c, SiteSearchFilterRequest{
@@ -258,10 +299,12 @@ func (r *searchRuntime) translateSuggestRequest(c router.Context, state RequestS
 		Actor:   searchActorPayload(c),
 		Request: searchRequestPayload(c),
 		Metadata: map[string]any{
-			"collections": cloneStrings(collections),
+			"indexes":         cloneStrings(indexes),
+			"collections":     cloneStrings(indexes),
+			"accept_language": searchAcceptLanguage(c),
 		},
 	}
-	return req, collections
+	return req, indexes
 }
 
 func (r *searchRuntime) injectModuleFilters(
@@ -291,13 +334,16 @@ func (r *searchRuntime) searchViewContext(
 	req admin.SearchRequest,
 	result admin.SearchResultPage,
 	facets []string,
-	collections []string,
+	indexes []string,
+	landing *searchLandingState,
 	searchErr error,
 ) router.ViewContext {
 	view := cloneViewContext(state.ViewContext)
 	queryValues := searchCurrentQueryValues(c)
-	normalized := normalizeSearchResults(result, req.Filters, r.baseRoute, queryValues)
+	activeRoute := requestSearchRoute(c, r.baseRoute)
+	normalized := normalizeSearchResults(result, req.Filters, activeRoute, queryValues)
 	sortOptions := searchSortOptions(req.Sort)
+	rangeValues := searchRangeValues(req.Ranges)
 	errorPayload := map[string]any{}
 	if searchErr != nil {
 		errorPayload = map[string]any{
@@ -306,8 +352,9 @@ func (r *searchRuntime) searchViewContext(
 		}
 	}
 
-	view["search_route"] = r.baseRoute
+	view["search_route"] = activeRoute
 	view["search_endpoint"] = strings.TrimSpace(r.siteCfg.Search.Endpoint)
+	view["search_suggest_endpoint"] = strings.TrimSpace(searchSuggestRoute(r.siteCfg.Search.Endpoint))
 	view["search_query"] = strings.TrimSpace(req.Query)
 	view["search_results"] = normalized.Hits
 	view["search_facets"] = normalized.Facets
@@ -315,7 +362,12 @@ func (r *searchRuntime) searchViewContext(
 	view["search_pagination"] = normalized.Pagination
 	view["search_sort_options"] = sortOptions
 	view["search_filters"] = cloneSearchFilters(req.Filters)
-	view["search_collections"] = cloneStrings(collections)
+	view["search_ranges"] = cloneSearchRanges(req.Ranges)
+	view["search_range_values"] = rangeValues
+	view["search_indexes"] = cloneStrings(indexes)
+	view["search_collections"] = cloneStrings(indexes)
+	view["search_clear_url"] = searchClearURL(activeRoute, queryValues)
+	view["search_landing"] = landingMetadata(landing)
 	view["search_state"] = map[string]any{
 		"has_query":    strings.TrimSpace(req.Query) != "",
 		"has_results":  len(normalized.Hits) > 0,
@@ -329,15 +381,20 @@ func (r *searchRuntime) searchViewContext(
 		"facets":        normalized.Facets,
 		"filter_chips":  normalized.FilterChips,
 		"filters":       cloneSearchFilters(req.Filters),
+		"ranges":        cloneSearchRanges(req.Ranges),
+		"range_values":  rangeValues,
 		"pagination":    normalized.Pagination,
 		"sort_options":  sortOptions,
 		"sort":          strings.TrimSpace(req.Sort),
 		"page":          searchPositiveOrFallback(result.Page, req.Page),
 		"per_page":      searchPositiveOrFallback(result.PerPage, req.PerPage),
 		"total":         result.Total,
-		"collections":   cloneStrings(collections),
+		"indexes":       cloneStrings(indexes),
+		"collections":   cloneStrings(indexes),
 		"facets_active": cloneStrings(facets),
 		"error":         errorPayload,
+		"clear_url":     view["search_clear_url"],
+		"landing":       view["search_landing"],
 		"state":         view["search_state"],
 	}
 	return view
@@ -373,7 +430,7 @@ func normalizeSearchResults(
 			if value == "" {
 				continue
 			}
-			active := searchFilterContains(activeFilters[facetName], value)
+			active := bucket.Selected || searchFilterContains(activeFilters[facetName], value)
 			nextQuery := cloneSearchFilters(currentQuery)
 			if active {
 				searchRemoveFilterValue(nextQuery, facetName, value)
@@ -381,18 +438,28 @@ func normalizeSearchResults(
 				searchAddFilterValue(nextQuery, facetName, value)
 			}
 			buckets = append(buckets, map[string]any{
-				"value":  value,
-				"count":  bucket.Count,
-				"active": active,
-				"url":    searchURLWithQuery(baseRoute, nextQuery),
+				"value":        value,
+				"label":        strings.TrimSpace(firstNonEmpty(bucket.Label, value)),
+				"count":        bucket.Count,
+				"active":       active,
+				"selected":     active,
+				"path":         append([]string{}, bucket.Path...),
+				"level":        bucket.Level,
+				"indent_px":    bucket.Level * 12,
+				"parent_value": bucket.ParentValue,
+				"metadata":     cloneAnyMap(bucket.Metadata),
+				"url":          searchURLWithQuery(baseRoute, nextQuery),
 			})
 		}
 		if len(buckets) == 0 {
 			continue
 		}
 		facets = append(facets, map[string]any{
-			"name":    facetName,
-			"buckets": buckets,
+			"name":        facetName,
+			"kind":        strings.TrimSpace(facet.Kind),
+			"disjunctive": facet.Disjunctive,
+			"metadata":    cloneAnyMap(facet.Metadata),
+			"buckets":     buckets,
 		})
 	}
 
@@ -431,14 +498,24 @@ func normalizeSearchResults(
 }
 
 func normalizeSearchHit(hit admin.SearchHit) map[string]any {
+	fields := cloneAnyMap(hit.Fields)
 	out := map[string]any{
-		"id":      strings.TrimSpace(hit.ID),
-		"type":    strings.TrimSpace(hit.Type),
-		"title":   strings.TrimSpace(hit.Title),
-		"summary": strings.TrimSpace(hit.Summary),
-		"locale":  strings.TrimSpace(hit.Locale),
-		"score":   hit.Score,
-		"fields":  cloneAnyMap(hit.Fields),
+		"id":               strings.TrimSpace(hit.ID),
+		"type":             strings.TrimSpace(hit.Type),
+		"title":            strings.TrimSpace(hit.Title),
+		"summary":          strings.TrimSpace(hit.Summary),
+		"locale":           strings.TrimSpace(hit.Locale),
+		"score":            hit.Score,
+		"fields":           fields,
+		"snippet":          strings.TrimSpace(hit.Snippet),
+		"highlighted":      strings.TrimSpace(hit.Highlighted),
+		"parent_id":        strings.TrimSpace(hit.ParentID),
+		"parent_title":     strings.TrimSpace(hit.ParentTitle),
+		"parent_url":       strings.TrimSpace(hit.ParentURL),
+		"parent_thumbnail": strings.TrimSpace(hit.ParentThumbnail),
+		"parent_summary":   strings.TrimSpace(hit.ParentSummary),
+		"anchor":           hit.Anchor,
+		"metadata":         cloneAnyMap(hit.Metadata),
 	}
 	if out["title"] == "" {
 		out["title"] = strings.TrimSpace(anyString(hit.Fields["title"]))
@@ -449,6 +526,12 @@ func normalizeSearchHit(hit admin.SearchHit) map[string]any {
 	out["url"] = searchNormalizedHitURL(hit)
 	if hit.PublishedAt != nil {
 		out["published_at"] = hit.PublishedAt.UTC().Format(time.RFC3339)
+	}
+	if out["summary"] == "" {
+		out["summary"] = strings.TrimSpace(hit.Snippet)
+	}
+	if badge := strings.TrimSpace(anyString(fields["result_badge"])); badge != "" {
+		out["badge"] = badge
 	}
 	return out
 }
@@ -490,6 +573,10 @@ func searchSortOptions(active string) []map[string]any {
 	active = strings.TrimSpace(strings.ToLower(active))
 	options := []map[string]any{
 		{"value": "", "label": "Relevance"},
+		{"value": "published_year:desc", "label": "Newest"},
+		{"value": "published_year:asc", "label": "Oldest"},
+		{"value": "duration_seconds:asc", "label": "Shortest"},
+		{"value": "duration_seconds:desc", "label": "Longest"},
 		{"value": "published_at:desc", "label": "Newest"},
 		{"value": "published_at:asc", "label": "Oldest"},
 		{"value": "title:asc", "label": "Title A-Z"},
@@ -558,12 +645,13 @@ func searchRequestPayload(c router.Context) map[string]any {
 		return map[string]any{}
 	}
 	return map[string]any{
-		"method":       strings.TrimSpace(c.Method()),
-		"path":         strings.TrimSpace(c.Path()),
-		"ip":           strings.TrimSpace(c.IP()),
-		"user_agent":   strings.TrimSpace(c.Header("User-Agent")),
-		"query":        c.Queries(),
-		"query_values": searchCurrentQueryValues(c),
+		"method":          strings.TrimSpace(c.Method()),
+		"path":            strings.TrimSpace(c.Path()),
+		"ip":              strings.TrimSpace(c.IP()),
+		"user_agent":      strings.TrimSpace(c.Header("User-Agent")),
+		"accept_language": searchAcceptLanguage(c),
+		"query":           c.Queries(),
+		"query_values":    searchCurrentQueryValues(c),
 	}
 }
 
@@ -599,13 +687,20 @@ func searchFacetValues(c router.Context) []string {
 	return searchDedupeStrings(values)
 }
 
-func searchCollectionValues(c router.Context, fallback []string) []string {
-	values := append(searchQueryValues(c, "collection"), searchQueryValues(c, "collections")...)
+func searchIndexValues(c router.Context, fallback []string) []string {
+	values := append(searchQueryValues(c, "index"), searchQueryValues(c, "indexes")...)
+	if len(values) == 0 {
+		values = append(searchQueryValues(c, "collection"), searchQueryValues(c, "collections")...)
+	}
 	values = searchDedupeStrings(values)
 	if len(values) > 0 {
 		return values
 	}
 	return cloneStrings(fallback)
+}
+
+func searchCollectionValues(c router.Context, fallback []string) []string {
+	return searchIndexValues(c, fallback)
 }
 
 func searchBaseFilters(c router.Context) map[string][]string {
@@ -614,24 +709,27 @@ func searchBaseFilters(c router.Context) map[string][]string {
 		return out
 	}
 	reserved := map[string]struct{}{
-		"q":             {},
-		"query":         {},
-		"search":        {},
-		"page":          {},
-		"per_page":      {},
-		"limit":         {},
-		"offset":        {},
-		"sort":          {},
-		"order":         {},
-		"facet":         {},
-		"facets":        {},
-		"format":        {},
-		"collection":    {},
-		"collections":   {},
-		"env":           {},
-		"environment":   {},
-		"preview_token": {},
-		"view_profile":  {},
+		"q":               {},
+		"query":           {},
+		"search":          {},
+		"page":            {},
+		"per_page":        {},
+		"limit":           {},
+		"offset":          {},
+		"sort":            {},
+		"order":           {},
+		"facet":           {},
+		"facets":          {},
+		"index":           {},
+		"indexes":         {},
+		"format":          {},
+		"collection":      {},
+		"collections":     {},
+		"accept_language": {},
+		"env":             {},
+		"environment":     {},
+		"preview_token":   {},
+		"view_profile":    {},
 	}
 	for key := range c.Queries() {
 		normalizedKey := strings.TrimSpace(key)
@@ -639,6 +737,9 @@ func searchBaseFilters(c router.Context) map[string][]string {
 			continue
 		}
 		if _, skip := reserved[normalizedKey]; skip {
+			continue
+		}
+		if _, _, ok := searchRangeKeyParts(normalizedKey); ok {
 			continue
 		}
 		values := searchQueryValues(c, normalizedKey)
@@ -652,6 +753,8 @@ func searchBaseFilters(c router.Context) map[string][]string {
 			normalizedKey = strings.TrimPrefix(normalizedKey, "filter_")
 		case strings.HasPrefix(normalizedKey, "filters."):
 			normalizedKey = strings.TrimPrefix(normalizedKey, "filters.")
+		case strings.HasPrefix(normalizedKey, "facet_"):
+			normalizedKey = strings.TrimPrefix(normalizedKey, "facet_")
 		}
 		searchAddFilterValue(out, normalizedKey, values...)
 	}
@@ -664,6 +767,91 @@ func searchBaseFilters(c router.Context) map[string][]string {
 	searchForwardFilterAlias(out, c, "date_to", "date_to", "to", "end_date")
 
 	return out
+}
+
+func searchBaseRanges(c router.Context) []admin.SearchRange {
+	if c == nil {
+		return nil
+	}
+	acc := map[string]*admin.SearchRange{}
+	keys := make([]string, 0, len(c.Queries()))
+	for key := range c.Queries() {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		field, bound, ok := searchRangeKeyParts(strings.TrimSpace(key))
+		if !ok {
+			continue
+		}
+		values := searchQueryValues(c, key)
+		if len(values) == 0 {
+			continue
+		}
+		entry := acc[field]
+		if entry == nil {
+			entry = &admin.SearchRange{Field: field}
+			acc[field] = entry
+		}
+		value := searchParseRangeValue(values[len(values)-1])
+		if value == nil {
+			continue
+		}
+		switch bound {
+		case "gte":
+			entry.GTE = value
+		case "lte":
+			entry.LTE = value
+		}
+	}
+	if len(acc) == 0 {
+		return nil
+	}
+	fields := make([]string, 0, len(acc))
+	for field := range acc {
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	out := make([]admin.SearchRange, 0, len(fields))
+	for _, field := range fields {
+		entry := acc[field]
+		if entry == nil || (entry.GTE == nil && entry.LTE == nil) {
+			continue
+		}
+		out = append(out, *entry)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func searchRangeKeyParts(key string) (string, string, bool) {
+	key = strings.TrimSpace(key)
+	switch {
+	case strings.HasSuffix(key, "_gte"):
+		field := strings.TrimSpace(strings.TrimSuffix(key, "_gte"))
+		return field, "gte", field != ""
+	case strings.HasSuffix(key, "_lte"):
+		field := strings.TrimSpace(strings.TrimSuffix(key, "_lte"))
+		return field, "lte", field != ""
+	default:
+		return "", "", false
+	}
+}
+
+func searchParseRangeValue(raw string) any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	if parsed, err := strconv.Atoi(raw); err == nil {
+		return parsed
+	}
+	if parsed, err := strconv.ParseFloat(raw, 64); err == nil {
+		return parsed
+	}
+	return raw
 }
 
 func searchForwardFilterAlias(target map[string][]string, c router.Context, canonical string, aliases ...string) {
@@ -725,6 +913,94 @@ func searchDedupeStrings(values []string) []string {
 	return out
 }
 
+func searchAcceptLanguage(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	if value := strings.TrimSpace(firstNonEmpty(c.Query("accept_language"), c.Header("Accept-Language"))); value != "" {
+		return value
+	}
+	return ""
+}
+
+func requestSearchRoute(c router.Context, fallback string) string {
+	if c == nil {
+		return fallback
+	}
+	if path := strings.TrimSpace(c.Path()); path != "" {
+		return path
+	}
+	return fallback
+}
+
+func searchClearURL(baseRoute string, currentQuery map[string][]string) string {
+	next := cloneSearchFilters(currentQuery)
+	for key := range next {
+		switch {
+		case key == "page":
+			delete(next, key)
+		case strings.HasPrefix(key, "facet_"):
+			delete(next, key)
+		case strings.HasPrefix(key, "filter_"):
+			delete(next, key)
+		case strings.HasPrefix(key, "filter."):
+			delete(next, key)
+		case strings.HasPrefix(key, "filters."):
+			delete(next, key)
+		case strings.HasSuffix(key, "_gte"):
+			delete(next, key)
+		case strings.HasSuffix(key, "_lte"):
+			delete(next, key)
+		}
+		if key == "content_type" || key == "tag" || key == "category" || key == "date_from" || key == "date_to" {
+			delete(next, key)
+		}
+	}
+	return searchURLWithQuery(baseRoute, next)
+}
+
+func topicLandingState(slug string) *searchLandingState {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil
+	}
+	preset, ok := media.TopicLandingPreset(slug)
+	if !ok {
+		return &searchLandingState{Slug: slug}
+	}
+	return &searchLandingState{
+		Slug:       preset.Slug,
+		Title:      preset.Title,
+		Breadcrumb: preset.Breadcrumb,
+	}
+}
+
+func landingMetadata(landing *searchLandingState) map[string]any {
+	if landing == nil {
+		return nil
+	}
+	return map[string]any{
+		"slug":       strings.TrimSpace(landing.Slug),
+		"title":      strings.TrimSpace(landing.Title),
+		"breadcrumb": strings.TrimSpace(landing.Breadcrumb),
+	}
+}
+
+func searchRangeValues(ranges []admin.SearchRange) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	for _, item := range ranges {
+		field := strings.TrimSpace(item.Field)
+		if field == "" {
+			continue
+		}
+		out[field] = map[string]any{
+			"gte": item.GTE,
+			"lte": item.LTE,
+		}
+	}
+	return out
+}
+
 func cloneSearchFilters(input map[string][]string) map[string][]string {
 	if len(input) == 0 {
 		return map[string][]string{}
@@ -736,6 +1012,28 @@ func cloneSearchFilters(input map[string][]string) map[string][]string {
 			continue
 		}
 		out[key] = append([]string{}, values...)
+	}
+	return out
+}
+
+func cloneSearchRanges(input []admin.SearchRange) []admin.SearchRange {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make([]admin.SearchRange, 0, len(input))
+	for _, item := range input {
+		field := strings.TrimSpace(item.Field)
+		if field == "" || (item.GTE == nil && item.LTE == nil) {
+			continue
+		}
+		out = append(out, admin.SearchRange{
+			Field: field,
+			GTE:   item.GTE,
+			LTE:   item.LTE,
+		})
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
