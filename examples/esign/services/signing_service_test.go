@@ -2783,6 +2783,15 @@ func TestSigningServiceGetSessionIncludesReviewContext(t *testing.T) {
 	if !session.Review.CanComment || !session.Review.CanApprove {
 		t.Fatalf("expected comment and approve capabilities, got %+v", session.Review)
 	}
+	if session.UIMode != SignerSessionUIModeSignAndReview {
+		t.Fatalf("expected ui_mode %q, got %+v", SignerSessionUIModeSignAndReview, session)
+	}
+	if session.DefaultTab != SignerSessionDefaultTabSign {
+		t.Fatalf("expected default_tab %q, got %+v", SignerSessionDefaultTabSign, session)
+	}
+	if !session.ReviewMarkersVisible || !session.ReviewMarkersInteractive {
+		t.Fatalf("expected review marker hints enabled, got %+v", session)
+	}
 	if !session.Review.SignBlocked {
 		t.Fatalf("expected approve_before_sign review gate to block signing, got %+v", session.Review)
 	}
@@ -2861,6 +2870,15 @@ func TestSigningServiceGetReviewSessionSupportsExternalReviewerToken(t *testing.
 	}
 	if session.CanSign {
 		t.Fatalf("expected review-only session to be read-only, got %+v", session)
+	}
+	if session.UIMode != SignerSessionUIModeReview {
+		t.Fatalf("expected ui_mode %q, got %+v", SignerSessionUIModeReview, session)
+	}
+	if session.DefaultTab != SignerSessionDefaultTabReview {
+		t.Fatalf("expected default_tab %q, got %+v", SignerSessionDefaultTabReview, session)
+	}
+	if !session.ReviewMarkersVisible || !session.ReviewMarkersInteractive {
+		t.Fatalf("expected review marker hints enabled for review-only session, got %+v", session)
 	}
 	if session.Review == nil || !session.Review.IsReviewer {
 		t.Fatalf("expected reviewer context, got %+v", session.Review)

@@ -275,6 +275,7 @@ func TestRegisterGoogleImportRunDetailUsesSourceReadModelService(t *testing.T) {
 		WithGoogleIntegrationEnabled(true),
 		WithGoogleIntegrationService(google),
 		WithGoogleImportRunStore(store),
+		WithGoogleImportJobStore(store),
 		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error { return nil }),
 		WithSourceReadModelService(readModels),
 		WithDefaultScope(scope),

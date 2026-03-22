@@ -33,6 +33,10 @@ type InMemoryStore struct {
 	sourceArtifacts             map[string]SourceArtifactRecord
 	sourceFingerprints          map[string]SourceFingerprintRecord
 	sourceRelationships         map[string]SourceRelationshipRecord
+	sourceCommentThreads        map[string]SourceCommentThreadRecord
+	sourceCommentMessages       map[string]SourceCommentMessageRecord
+	sourceCommentSyncStates     map[string]SourceCommentSyncStateRecord
+	sourceSearchDocuments       map[string]SourceSearchDocumentRecord
 	agreements                  map[string]AgreementRecord
 	agreementRevisionRequests   map[string]AgreementRevisionRequestRecord
 	agreementRevisionReqIndex   map[string]string
@@ -95,6 +99,10 @@ func NewInMemoryStore() *InMemoryStore {
 		sourceArtifacts:             map[string]SourceArtifactRecord{},
 		sourceFingerprints:          map[string]SourceFingerprintRecord{},
 		sourceRelationships:         map[string]SourceRelationshipRecord{},
+		sourceCommentThreads:        map[string]SourceCommentThreadRecord{},
+		sourceCommentMessages:       map[string]SourceCommentMessageRecord{},
+		sourceCommentSyncStates:     map[string]SourceCommentSyncStateRecord{},
+		sourceSearchDocuments:       map[string]SourceSearchDocumentRecord{},
 		agreements:                  map[string]AgreementRecord{},
 		agreementRevisionRequests:   map[string]AgreementRevisionRequestRecord{},
 		agreementRevisionReqIndex:   map[string]string{},
@@ -211,6 +219,10 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 		SourceArtifacts:             s.sourceArtifacts,
 		SourceFingerprints:          s.sourceFingerprints,
 		SourceRelationships:         s.sourceRelationships,
+		SourceCommentThreads:        s.sourceCommentThreads,
+		SourceCommentMessages:       s.sourceCommentMessages,
+		SourceCommentSyncStates:     s.sourceCommentSyncStates,
+		SourceSearchDocuments:       s.sourceSearchDocuments,
 		Agreements:                  s.agreements,
 		AgreementRevisionRequests:   s.agreementRevisionRequests,
 		AgreementRevisionReqIndex:   s.agreementRevisionReqIndex,
@@ -282,6 +294,10 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.sourceArtifacts = ensureSourceArtifactMap(snapshot.SourceArtifacts)
 	s.sourceFingerprints = ensureSourceFingerprintMap(snapshot.SourceFingerprints)
 	s.sourceRelationships = ensureSourceRelationshipMap(snapshot.SourceRelationships)
+	s.sourceCommentThreads = ensureSourceCommentThreadMap(snapshot.SourceCommentThreads)
+	s.sourceCommentMessages = ensureSourceCommentMessageMap(snapshot.SourceCommentMessages)
+	s.sourceCommentSyncStates = ensureSourceCommentSyncStateMap(snapshot.SourceCommentSyncStates)
+	s.sourceSearchDocuments = ensureSourceSearchDocumentMap(snapshot.SourceSearchDocuments)
 	s.agreements = ensureAgreementMap(snapshot.Agreements)
 	s.agreementRevisionRequests = ensureAgreementRevisionRequestMap(snapshot.AgreementRevisionRequests)
 	s.agreementRevisionReqIndex = ensureStringMap(snapshot.AgreementRevisionReqIndex)
@@ -1520,6 +1536,99 @@ func (s *InMemoryStore) ListAgreements(ctx context.Context, scope Scope, query A
 	}
 
 	return out[start:end], nil
+}
+
+func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope, query SourceRevisionUsageQuery) ([]SourceRevisionUsageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+
+	documentIDs := normalizedLineageQueryIDs("", query.SourceDocumentIDs)
+	revisionIDs := normalizedLineageQueryIDs("", query.SourceRevisionIDs)
+	revisionToDocument := map[string]string{}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	scopePrefix := scope.key() + "|"
+	for key, record := range s.sourceRevisions {
+		if !strings.HasPrefix(key, scopePrefix) {
+			continue
+		}
+		revisionID := strings.TrimSpace(record.ID)
+		if len(revisionIDs) > 0 && !lineageQueryIDMatches(revisionID, revisionIDs) {
+			continue
+		}
+		if len(documentIDs) > 0 && !lineageQueryIDMatches(record.SourceDocumentID, documentIDs) {
+			continue
+		}
+		revisionToDocument[revisionID] = strings.TrimSpace(record.SourceDocumentID)
+	}
+
+	usage := map[string]SourceRevisionUsageRecord{}
+	for key, record := range s.documents {
+		if !strings.HasPrefix(key, scopePrefix) {
+			continue
+		}
+		revisionID := strings.TrimSpace(record.SourceRevisionID)
+		sourceDocumentID := strings.TrimSpace(record.SourceDocumentID)
+		if revisionID == "" || sourceDocumentID == "" {
+			continue
+		}
+		if len(revisionIDs) > 0 && !lineageQueryIDMatches(revisionID, revisionIDs) {
+			continue
+		}
+		if len(documentIDs) > 0 && !lineageQueryIDMatches(sourceDocumentID, documentIDs) {
+			continue
+		}
+		current := usage[revisionID]
+		current.SourceDocumentID = sourceDocumentID
+		current.SourceRevisionID = revisionID
+		current.PinnedDocumentCount++
+		usage[revisionID] = current
+		if _, ok := revisionToDocument[revisionID]; !ok {
+			revisionToDocument[revisionID] = sourceDocumentID
+		}
+	}
+
+	for key, record := range s.agreements {
+		if !strings.HasPrefix(key, scopePrefix) {
+			continue
+		}
+		revisionID := strings.TrimSpace(record.SourceRevisionID)
+		if revisionID == "" {
+			continue
+		}
+		if len(revisionIDs) > 0 && !lineageQueryIDMatches(revisionID, revisionIDs) {
+			continue
+		}
+		sourceDocumentID := strings.TrimSpace(revisionToDocument[revisionID])
+		if sourceDocumentID == "" {
+			continue
+		}
+		if len(documentIDs) > 0 && !lineageQueryIDMatches(sourceDocumentID, documentIDs) {
+			continue
+		}
+		current := usage[revisionID]
+		current.SourceDocumentID = sourceDocumentID
+		current.SourceRevisionID = revisionID
+		current.PinnedAgreementCount++
+		usage[revisionID] = current
+	}
+
+	out := make([]SourceRevisionUsageRecord, 0, len(usage))
+	for _, record := range usage {
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SourceDocumentID == out[j].SourceDocumentID {
+			return out[i].SourceRevisionID < out[j].SourceRevisionID
+		}
+		return out[i].SourceDocumentID < out[j].SourceDocumentID
+	})
+	return out, nil
 }
 
 func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, record DraftRecord) (DraftRecord, bool, error) {

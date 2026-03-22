@@ -48,6 +48,8 @@ const (
 	defaultESignAuthContextKey    = "esign_admin_user"
 	esignUploadFormField          = "file"
 	signerFlowModeUnified         = "unified"
+	publicSignBasePath            = "/sign"
+	publicReviewBasePath          = "/review"
 )
 
 var (
@@ -642,6 +644,9 @@ func registerESignWebRoutes(
 		}))
 	}
 	if err := registerESignGoogleIntegrationUIRoutes(r, cfg, adm, authn, routes, esignModule); err != nil {
+		return err
+	}
+	if err := registerESignSenderAgreementViewerWebRoutes(r, adm, authn, routes, basePath, esignModule); err != nil {
 		return err
 	}
 
@@ -1268,6 +1273,19 @@ func withESignContentEntryViewContext(
 			pageCfg,
 		)
 	case "esign_agreements":
+		if resourceItem, ok := ctx["resource_item"].(map[string]any); ok && resourceItem != nil {
+			agreementID := strings.TrimSpace(rawToString(resourceItem["id"]))
+			if agreementID != "" {
+				basePath := viewContextString(ctx, "base_path", "/admin")
+				mode := agreementDetailSenderViewMode(resourceItem)
+				resourceItem["sender_view"] = map[string]any{
+					"url":     path.Join(normalizeESignBasePath(basePath), "esign", "agreements", agreementID, "view"),
+					"mode":    mode,
+					"enabled": true,
+					"label":   "Open Document",
+				}
+			}
+		}
 		identity := coreadmin.ResolveAuthenticatedRequestIdentity(c, coreadmin.AuthenticatedRequestScopeDefaults{})
 		routes := viewContextRoutes(ctx)
 		storageScope := buildESignAgreementFormStorageScope(
@@ -1287,6 +1305,29 @@ func withESignContentEntryViewContext(
 	default:
 		return ctx
 	}
+}
+
+func agreementDetailSenderViewMode(record map[string]any) string {
+	if record == nil {
+		return "read_only"
+	}
+	status := strings.ToLower(strings.TrimSpace(rawToString(record["status"])))
+	switch status {
+	case stores.AgreementStatusCompleted:
+		return "complete"
+	case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
+		return "sign"
+	}
+	reviewStatus := strings.ToLower(strings.TrimSpace(rawToString(record["review_status"])))
+	if review, ok := record["review"].(map[string]any); ok {
+		if value := strings.ToLower(strings.TrimSpace(rawToString(review["status"]))); value != "" {
+			reviewStatus = value
+		}
+	}
+	if reviewStatus != "" && reviewStatus != stores.AgreementReviewStatusNone {
+		return "review"
+	}
+	return "read_only"
 }
 
 func guardESignAgreementEditRoute(c router.Context, panelName string, record map[string]any, basePath string) (bool, error) {
@@ -1379,18 +1420,26 @@ func registerESignPublicSignerWebRoutes(
 		apiBasePath = "/api/v1/esign/signing"
 	}
 
-	// GET /sign/:token - Unified signer entrypoint.
-	r.Get("/sign/:token", func(c router.Context) error {
+	// GET /sign/:token - Public signer entrypoint.
+	r.Get(publicSignBasePath+"/:token", func(c router.Context) error {
 		return renderSignerReviewPage(c, signerCfg, apiBasePath)
 	})
 
-	// Alias: /esign/sign/:token (template compatibility).
+	// GET /review/:token - Public review entrypoint.
+	r.Get(publicReviewBasePath+"/:token", func(c router.Context) error {
+		return renderSignerReviewPage(c, signerCfg, apiBasePath)
+	})
+
+	// Legacy aliases preserved for compatibility; valid tokens redirect to the canonical path.
 	r.Get("/esign/sign/:token", func(c router.Context) error {
 		return renderSignerReviewPage(c, signerCfg, apiBasePath)
 	})
+	r.Get("/esign/review/:token", func(c router.Context) error {
+		return renderSignerReviewPage(c, signerCfg, apiBasePath)
+	})
 
-	// GET /sign/:token/review - Unified signer page
-	r.Get("/sign/:token/review", func(c router.Context) error {
+	// Legacy unified review aliases.
+	r.Get(publicSignBasePath+"/:token/review", func(c router.Context) error {
 		return renderSignerReviewPage(c, signerCfg, apiBasePath)
 	})
 	r.Get("/esign/sign/:token/review", func(c router.Context) error {
@@ -1416,6 +1465,79 @@ func registerESignPublicSignerWebRoutes(
 	return nil
 }
 
+func registerESignSenderAgreementViewerWebRoutes(
+	r router.Router[*fiber.App],
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routes handlers.RouteSet,
+	basePath string,
+	esignModule *modules.ESignModule,
+) error {
+	if r == nil {
+		return fmt.Errorf("router is required")
+	}
+	if adm == nil {
+		return fmt.Errorf("admin is required")
+	}
+	if authn == nil {
+		return fmt.Errorf("authenticator is required")
+	}
+	if esignModule == nil {
+		return nil
+	}
+
+	apiBasePath := strings.TrimSpace(routes.AdminAPIBase)
+	if apiBasePath == "" {
+		apiBasePath = path.Join(strings.TrimSpace(adm.AdminAPIBasePath()), "esign")
+	}
+	assetBasePath := strings.TrimSpace(basePath)
+	if assetBasePath == "" {
+		assetBasePath = "/admin"
+	}
+	viewerCfg := SignerWebRouteConfig{
+		AssetBasePath: assetBasePath,
+	}
+
+	r.Get(routes.AdminAgreementView, authn.WrapHandler(func(c router.Context) error {
+		applySignerSecurityHeaders(c, true)
+		policy := services.ResolveSenderViewerPolicy()
+		if !policy.CanOpenSenderViewer(adm.Authorizer(), c.Context()) {
+			return renderSignerErrorPage(c, viewerCfg, apiBasePath, "VIEWER_FORBIDDEN", "Viewer Unavailable", "You do not have permission to open this agreement viewer.")
+		}
+		if err := enforceESignUploadScopeBoundary(c, esignModule.DefaultScope()); err != nil {
+			return renderSignerErrorPage(c, viewerCfg, apiBasePath, "VIEWER_SCOPE_DENIED", "Viewer Unavailable", "This agreement viewer is not available in the current scope.")
+		}
+		agreementID := strings.TrimSpace(c.Param("agreement_id"))
+		if agreementID == "" {
+			return renderSignerErrorPage(c, viewerCfg, apiBasePath, "INVALID_AGREEMENT", "Agreement Not Found", "The agreement viewer link is missing an agreement id.")
+		}
+		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+		canComment := policy.CanWriteSenderComments(adm.Authorizer(), c.Context())
+		session, err := esignModule.AgreementViewService().GetSenderSession(c.Context(), scope, agreementID, services.AgreementViewActor{
+			ActorID:    resolveESignAdminUserID(c),
+			CanComment: canComment,
+		})
+		if err != nil {
+			var coded *goerrors.Error
+			if errors.As(err, &coded) && strings.TrimSpace(coded.TextCode) == string(services.ErrorCodePDFUnsupported) {
+				return renderSignerErrorPage(c, viewerCfg, apiBasePath, "PDF_UNSUPPORTED", "Document Requires Remediation", "This document cannot be displayed online due to PDF compatibility restrictions.")
+			}
+			return renderSignerErrorPage(c, viewerCfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load this agreement viewer right now.")
+		}
+		if !canRenderUnifiedSession(session) {
+			return renderSignerErrorPage(c, viewerCfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load this agreement viewer right now.")
+		}
+		resourceBasePath := strings.Replace(routes.AdminAgreementViewerSession, ":agreement_id", url.PathEscape(agreementID), 1)
+		viewCtx := withESignPageConfig(
+			buildSignerReviewViewContext("", apiBasePath, path.Join(normalizeESignBasePath(assetBasePath), "esign", "agreements"), resourceBasePath, session),
+			buildESignSignerPageConfig(eSignPageSignerReview, assetBasePath, apiBasePath, ""),
+		)
+		return templateview.RenderTemplateView(c, "esign-signer/review", signerTemplateViewContext(viewerCfg, apiBasePath, viewCtx))
+	}))
+
+	return nil
+}
+
 func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
 	startedAt := time.Now()
 	applySignerSecurityHeaders(c, true)
@@ -1430,6 +1552,9 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 	if err != nil {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
+	}
+	if redirected := redirectToCanonicalSignerRoute(c, token, publicToken); redirected {
+		return nil
 	}
 
 	if cfg.PublicReviewSession == nil {
@@ -1453,11 +1578,38 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 
 	observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), true)
 	observability.ObserveSignerLinkOpen(c.Context(), true)
+	resourceBasePath := strings.TrimRight(strings.TrimSpace(apiBasePath), "/") + "/session/" + url.PathEscape(token)
 	viewCtx := withESignPageConfig(
-		buildSignerReviewViewContext(token, apiBasePath, session),
+		buildSignerReviewViewContext(token, apiBasePath, canonicalSignerBasePath(publicToken), resourceBasePath, session),
 		buildESignSignerPageConfig(eSignPageSignerReview, cfg.AssetBasePath, apiBasePath, token),
 	)
 	return templateview.RenderTemplateView(c, "esign-signer/review", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+}
+
+func canonicalSignerBasePath(token services.PublicReviewToken) string {
+	if strings.EqualFold(strings.TrimSpace(token.Kind), services.PublicReviewTokenKindReview) {
+		return publicReviewBasePath
+	}
+	return publicSignBasePath
+}
+
+func canonicalSignerRoutePath(rawToken string, token services.PublicReviewToken) string {
+	return canonicalSignerBasePath(token) + "/" + url.PathEscape(strings.TrimSpace(rawToken))
+}
+
+func redirectToCanonicalSignerRoute(c router.Context, rawToken string, token services.PublicReviewToken) bool {
+	if c == nil {
+		return false
+	}
+	target := canonicalSignerRoutePath(rawToken, token)
+	if strings.TrimSpace(c.Path()) == target {
+		return false
+	}
+	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
+		target += "?" + rawQuery
+	}
+	_ = c.Redirect(target, http.StatusFound)
+	return true
 }
 
 func canRenderUnifiedSession(session services.SignerSessionContext) bool {
@@ -1682,7 +1834,7 @@ func signerTemplateViewContext(cfg SignerWebRouteConfig, apiBasePath string, vie
 	})
 }
 
-func buildSignerReviewViewContext(token, apiBasePath string, session services.SignerSessionContext) router.ViewContext {
+func buildSignerReviewViewContext(token, apiBasePath, signerBasePath, resourceBasePath string, session services.SignerSessionContext) router.ViewContext {
 	fieldsJSON := "[]"
 	if len(session.Fields) > 0 {
 		if encoded, err := encodeFieldsJSON(session.Fields); err == nil {
@@ -1730,11 +1882,14 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 	return router.ViewContext{
 		"token":                           token,
 		"api_base_path":                   apiBasePath,
+		"signer_base_path":                signerBasePath,
+		"resource_base_path":              resourceBasePath,
 		"flow_mode":                       signerFlowModeUnified,
 		"profile_mode":                    resolveSignerProfileMode(),
 		"profile_ttl_days":                profileTTLDays,
 		"profile_persist_drawn_signature": runtimeCfg.Signer.ProfilePersistDrawnSignature,
 		"profile_endpoint_base_path":      apiBasePath,
+		"document_url":                    strings.TrimRight(strings.TrimSpace(resourceBasePath), "/") + "/assets?asset=preview",
 		"session":                         sessionCtx,
 		"viewer":                          viewerCtx,
 		"agreement": map[string]any{
@@ -1824,6 +1979,10 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 
 	return router.ViewContext{
 		"session_kind":                   session.SessionKind,
+		"ui_mode":                        session.UIMode,
+		"default_tab":                    session.DefaultTab,
+		"viewer_mode":                    session.ViewerMode,
+		"viewer_banner":                  session.ViewerBanner,
 		"agreement_id":                   session.AgreementID,
 		"agreement_status":               session.AgreementStatus,
 		"document_name":                  firstNonEmptyValue(session.DocumentName, "Document.pdf"),
@@ -1846,6 +2005,8 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 		"waiting_recipient":              session.WaitingForRecipient,
 		"waiting_for_recipient_ids":      session.WaitingForRecipientIDs,
 		"waiting_for_recipient_ids_json": waitingForRecipientIDsJSON,
+		"review_markers_visible":         session.ReviewMarkersVisible,
+		"review_markers_interactive":     session.ReviewMarkersInteractive,
 		"review":                         session.Review,
 	}
 }

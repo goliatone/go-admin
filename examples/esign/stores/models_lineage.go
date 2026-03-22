@@ -159,18 +159,20 @@ type SourceFingerprintRecord struct {
 
 // SourceRelationshipRecord stores inferred or confirmed lineage relationships.
 type SourceRelationshipRecord struct {
-	bun.BaseModel         `bun:"table:source_relationships,alias:srel"`
-	ID                    string    `json:"id"`
-	TenantID              string    `json:"tenant_id"`
-	OrgID                 string    `json:"org_id"`
-	LeftSourceDocumentID  string    `json:"left_source_document_id"`
-	RightSourceDocumentID string    `json:"right_source_document_id"`
-	RelationshipType      string    `json:"relationship_type"`
-	ConfidenceBand        string    `json:"confidence_band"`
-	ConfidenceScore       float64   `json:"confidence_score"`
-	Status                string    `json:"status"`
-	EvidenceJSON          string    `json:"evidence_json"`
-	CreatedByUserID       string    `json:"created_by_user_id"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	bun.BaseModel               `bun:"table:source_relationships,alias:srel"`
+	ID                          string    `json:"id"`
+	TenantID                    string    `json:"tenant_id"`
+	OrgID                       string    `json:"org_id"`
+	LeftSourceDocumentID        string    `json:"left_source_document_id"`
+	RightSourceDocumentID       string    `json:"right_source_document_id"`
+	PredecessorSourceDocumentID string    `json:"predecessor_source_document_id"`
+	SuccessorSourceDocumentID   string    `json:"successor_source_document_id"`
+	RelationshipType            string    `json:"relationship_type"`
+	ConfidenceBand              string    `json:"confidence_band"`
+	ConfidenceScore             float64   `json:"confidence_score"`
+	Status                      string    `json:"status"`
+	EvidenceJSON                string    `json:"evidence_json"`
+	CreatedByUserID             string    `json:"created_by_user_id"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }

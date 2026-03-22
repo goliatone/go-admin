@@ -233,9 +233,24 @@ func PrepareSourceRelationshipRecord(record SourceRelationshipRecord, current *S
 	if record.LeftSourceDocumentID == "" || record.RightSourceDocumentID == "" {
 		return SourceRelationshipRecord{}, invalidRecordError("source_relationships", "left_source_document_id|right_source_document_id", "required")
 	}
+	record.PredecessorSourceDocumentID = strings.TrimSpace(coalesceLineageString(record.PredecessorSourceDocumentID, currentString(current, func(v SourceRelationshipRecord) string { return v.PredecessorSourceDocumentID })))
+	record.SuccessorSourceDocumentID = strings.TrimSpace(coalesceLineageString(record.SuccessorSourceDocumentID, currentString(current, func(v SourceRelationshipRecord) string { return v.SuccessorSourceDocumentID })))
 	record.RelationshipType = normalizeLineageEnum(coalesceLineageString(record.RelationshipType, currentString(current, func(v SourceRelationshipRecord) string { return v.RelationshipType })), validSourceRelationshipTypes)
 	if record.RelationshipType == "" {
 		return SourceRelationshipRecord{}, invalidRecordError("source_relationships", "relationship_type", "unsupported relationship type")
+	}
+	if record.PredecessorSourceDocumentID == "" && record.SuccessorSourceDocumentID == "" && sourceRelationshipTypeRequiresDirection(record.RelationshipType) {
+		record.PredecessorSourceDocumentID = record.LeftSourceDocumentID
+		record.SuccessorSourceDocumentID = record.RightSourceDocumentID
+	}
+	if (record.PredecessorSourceDocumentID == "") != (record.SuccessorSourceDocumentID == "") {
+		return SourceRelationshipRecord{}, invalidRecordError("source_relationships", "predecessor_source_document_id|successor_source_document_id", "must both be set or both be empty")
+	}
+	if record.PredecessorSourceDocumentID != "" && !sourceRelationshipEndpointInPair(record.PredecessorSourceDocumentID, record.LeftSourceDocumentID, record.RightSourceDocumentID) {
+		return SourceRelationshipRecord{}, invalidRecordError("source_relationships", "predecessor_source_document_id", "must reference one of the relationship endpoints")
+	}
+	if record.SuccessorSourceDocumentID != "" && !sourceRelationshipEndpointInPair(record.SuccessorSourceDocumentID, record.LeftSourceDocumentID, record.RightSourceDocumentID) {
+		return SourceRelationshipRecord{}, invalidRecordError("source_relationships", "successor_source_document_id", "must reference one of the relationship endpoints")
 	}
 	record.ConfidenceBand = normalizeLineageEnum(coalesceLineageString(record.ConfidenceBand, currentString(current, func(v SourceRelationshipRecord) string { return v.ConfidenceBand })), validLineageConfidenceBands)
 	if record.ConfidenceBand == "" {
@@ -256,6 +271,22 @@ func PrepareSourceRelationshipRecord(record SourceRelationshipRecord, current *S
 	record.CreatedAt = normalizeLineageRecordCreatedAt(record.CreatedAt, currentTime(current, func(v SourceRelationshipRecord) time.Time { return v.CreatedAt }))
 	record.UpdatedAt = normalizeLineageRecordUpdatedAt(record.UpdatedAt, record.CreatedAt)
 	return record, nil
+}
+
+func sourceRelationshipTypeRequiresDirection(relationshipType string) bool {
+	switch strings.TrimSpace(relationshipType) {
+	case SourceRelationshipTypeCopiedFrom, SourceRelationshipTypeTransferredFrom, SourceRelationshipTypeForkedFrom:
+		return true
+	default:
+		return false
+	}
+}
+
+func sourceRelationshipEndpointInPair(candidate, leftID, rightID string) bool {
+	candidate = strings.TrimSpace(candidate)
+	leftID = strings.TrimSpace(leftID)
+	rightID = strings.TrimSpace(rightID)
+	return candidate != "" && (candidate == leftID || candidate == rightID)
 }
 
 func normalizeLineageRecordCreatedAt(createdAt, existing time.Time) time.Time {

@@ -44,11 +44,13 @@ type FeatureConfig = Features
 type RuntimeConfig = Runtime
 type ReminderConfig = Reminders
 type StorageConfig = Storage
-type StorageFSConfig = StorageFS
-type StorageS3Config = StorageS3
+type StorageFSConfig = Fs
+type StorageS3Config = S3
 type EmailConfig = Email
 type EmailSMTPConfig = SMTP
 type SignerConfig = Signer
+type SenderViewerConfig = SenderViewer
+type SenderViewerAssetPermissionsConfig = AssetPermissions
 type SignerPDFConfig = Pdf
 type SignerPDFRemediationConfig = Remediation
 type SignerPDFRemediationCommandConfig = Command
@@ -240,15 +242,15 @@ func Defaults() Config {
 		Storage: StorageConfig{
 			Backend:             "fs",
 			EncryptionAlgorithm: "aws:kms",
-			KMSKeyID:            "",
-			FS: StorageFS{
+			KmsKeyID:            "",
+			Fs: Fs{
 				BasePath: "",
 			},
-			S3: StorageS3{
+			S3: S3{
 				AccessKeyID:     "",
 				BasePath:        "",
 				Bucket:          "",
-				DisableSSL:      false,
+				DisableSsl:      false,
 				EndpointURL:     "",
 				Profile:         "",
 				Region:          "",
@@ -275,6 +277,17 @@ func Defaults() Config {
 			ProfilePersistDrawnSignature: true,
 			ProfileMode:                  "hybrid",
 			SavedSignaturesLimitPerType:  10,
+			SenderViewer: SenderViewerConfig{
+				PagePermissionsAll:    []string{"admin.esign.view"},
+				CommentPermissionsAll: []string{"admin.esign.edit", "admin.esign.view"},
+				AssetPermissions: SenderViewerAssetPermissionsConfig{
+					Preview:     []string{"admin.esign.view"},
+					Source:      []string{"admin.esign.view"},
+					Executed:    []string{"admin.esign.download"},
+					Certificate: []string{"admin.esign.download"},
+				},
+				ShowInProgressFieldValues: false,
+			},
 			PDF: SignerPDFConfig{
 				MaxSourceBytes:         10 * 1024 * 1024,
 				MaxPages:               200,
@@ -376,6 +389,10 @@ func configNormalizers() []goconfig.Normalizer[*Config] {
 	return []goconfig.Normalizer[*Config]{
 		func(c *Config) error {
 			c.applyPersistenceDefaults()
+			return nil
+		},
+		func(c *Config) error {
+			c.applySenderViewerDefaults()
 			return nil
 		},
 		func(c *Config) error {
@@ -847,6 +864,51 @@ func (c *Config) applySignerPDFDefaults() {
 	if c.Signer.PDF.Remediation.Command.MaxLogBytes <= 0 {
 		c.Signer.PDF.Remediation.Command.MaxLogBytes = remediationDefaults.Command.MaxLogBytes
 	}
+}
+
+func (c *Config) applySenderViewerDefaults() {
+	if c == nil {
+		return
+	}
+	defaults := Defaults().Signer.SenderViewer
+	c.Signer.SenderViewer.PagePermissionsAll = normalizePermissionListWithDefault(c.Signer.SenderViewer.PagePermissionsAll, defaults.PagePermissionsAll)
+	c.Signer.SenderViewer.CommentPermissionsAll = normalizePermissionListWithDefault(c.Signer.SenderViewer.CommentPermissionsAll, defaults.CommentPermissionsAll)
+	c.Signer.SenderViewer.AssetPermissions.Preview = normalizePermissionListWithDefault(c.Signer.SenderViewer.AssetPermissions.Preview, defaults.AssetPermissions.Preview)
+	c.Signer.SenderViewer.AssetPermissions.Source = normalizePermissionListWithDefault(c.Signer.SenderViewer.AssetPermissions.Source, defaults.AssetPermissions.Source)
+	c.Signer.SenderViewer.AssetPermissions.Executed = normalizePermissionListWithDefault(c.Signer.SenderViewer.AssetPermissions.Executed, defaults.AssetPermissions.Executed)
+	c.Signer.SenderViewer.AssetPermissions.Certificate = normalizePermissionListWithDefault(c.Signer.SenderViewer.AssetPermissions.Certificate, defaults.AssetPermissions.Certificate)
+}
+
+func normalizePermissionListWithDefault(raw []string, defaults []string) []string {
+	seen := map[string]struct{}{}
+	normalized := make([]string, 0, len(raw))
+	for _, permission := range raw {
+		permission = strings.TrimSpace(permission)
+		if permission == "" {
+			continue
+		}
+		if _, ok := seen[permission]; ok {
+			continue
+		}
+		seen[permission] = struct{}{}
+		normalized = append(normalized, permission)
+	}
+	if len(normalized) > 0 {
+		return normalized
+	}
+	fallback := make([]string, 0, len(defaults))
+	for _, permission := range defaults {
+		permission = strings.TrimSpace(permission)
+		if permission == "" {
+			continue
+		}
+		if _, ok := seen[permission]; ok {
+			continue
+		}
+		seen[permission] = struct{}{}
+		fallback = append(fallback, permission)
+	}
+	return fallback
 }
 
 func normalizeRemediationReasons(raw []string) []string {

@@ -444,16 +444,18 @@ func (s DefaultSourceIdentityService) createCandidateRelationship(ctx context.Co
 	}
 	now := s.now().UTC()
 	return s.store.CreateSourceRelationship(ctx, scope, stores.SourceRelationshipRecord{
-		LeftSourceDocumentID:  orderedLeft,
-		RightSourceDocumentID: orderedRight,
-		RelationshipType:      stores.SourceRelationshipTypeSameLogicalDoc,
-		ConfidenceBand:        strings.TrimSpace(band),
-		ConfidenceScore:       score,
-		Status:                stores.SourceRelationshipStatusPendingReview,
-		EvidenceJSON:          string(evidenceJSON),
-		CreatedByUserID:       strings.TrimSpace(actorID),
-		CreatedAt:             now,
-		UpdatedAt:             now,
+		LeftSourceDocumentID:        orderedLeft,
+		RightSourceDocumentID:       orderedRight,
+		PredecessorSourceDocumentID: strings.TrimSpace(rightID),
+		SuccessorSourceDocumentID:   strings.TrimSpace(leftID),
+		RelationshipType:            stores.SourceRelationshipTypeSameLogicalDoc,
+		ConfidenceBand:              strings.TrimSpace(band),
+		ConfidenceScore:             score,
+		Status:                      stores.SourceRelationshipStatusPendingReview,
+		EvidenceJSON:                string(evidenceJSON),
+		CreatedByUserID:             strings.TrimSpace(actorID),
+		CreatedAt:                   now,
+		UpdatedAt:                   now,
 	})
 }
 

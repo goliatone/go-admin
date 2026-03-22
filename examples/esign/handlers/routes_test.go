@@ -69,6 +69,9 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminAPIStatus != "/suite/api/v9/esign/status" {
 		t.Fatalf("expected admin api route /suite/api/v9/esign/status, got %q", routes.AdminAPIStatus)
 	}
+	if routes.AdminAgreementView != "/suite/esign/agreements/:agreement_id/view" {
+		t.Fatalf("expected admin agreement view route /suite/esign/agreements/:agreement_id/view, got %q", routes.AdminAgreementView)
+	}
 	if routes.AdminDrafts != "/suite/api/v9/esign/drafts" {
 		t.Fatalf("expected drafts route /suite/api/v9/esign/drafts, got %q", routes.AdminDrafts)
 	}
@@ -131,6 +134,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	}
 	if routes.AdminRemediationDispatchStatus != "/suite/api/v9/esign/dispatches/:dispatch_id" {
 		t.Fatalf("expected admin remediation dispatch status route /suite/api/v9/esign/dispatches/:dispatch_id, got %q", routes.AdminRemediationDispatchStatus)
+	}
+	if routes.AdminAgreementViewerSession != "/suite/api/v9/esign/agreements/:agreement_id/viewer" {
+		t.Fatalf("expected admin agreement viewer session route /suite/api/v9/esign/agreements/:agreement_id/viewer, got %q", routes.AdminAgreementViewerSession)
+	}
+	if routes.AdminAgreementViewerAssets != "/suite/api/v9/esign/agreements/:agreement_id/viewer/assets" {
+		t.Fatalf("expected admin agreement viewer assets route /suite/api/v9/esign/agreements/:agreement_id/viewer/assets, got %q", routes.AdminAgreementViewerAssets)
+	}
+	if routes.AdminAgreementViewerThreads != "/suite/api/v9/esign/agreements/:agreement_id/viewer/review/threads" {
+		t.Fatalf("expected admin agreement viewer threads route /suite/api/v9/esign/agreements/:agreement_id/viewer/review/threads, got %q", routes.AdminAgreementViewerThreads)
 	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected signer route fallback /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
@@ -221,6 +233,9 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	if routes.AdminAPIStatus != "/admin/api/v1/esign/status" {
 		t.Fatalf("expected /admin/api/v1/esign/status, got %q", routes.AdminAPIStatus)
 	}
+	if routes.AdminAgreementView != "/admin/esign/agreements/:agreement_id/view" {
+		t.Fatalf("expected /admin/esign/agreements/:agreement_id/view, got %q", routes.AdminAgreementView)
+	}
 	if routes.AdminDrafts != "/admin/api/v1/esign/drafts" {
 		t.Fatalf("expected /admin/api/v1/esign/drafts, got %q", routes.AdminDrafts)
 	}
@@ -283,6 +298,15 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminRemediationDispatchStatus != "/admin/api/v1/esign/dispatches/:dispatch_id" {
 		t.Fatalf("expected /admin/api/v1/esign/dispatches/:dispatch_id, got %q", routes.AdminRemediationDispatchStatus)
+	}
+	if routes.AdminAgreementViewerSession != "/admin/api/v1/esign/agreements/:agreement_id/viewer" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/viewer, got %q", routes.AdminAgreementViewerSession)
+	}
+	if routes.AdminAgreementViewerAssets != "/admin/api/v1/esign/agreements/:agreement_id/viewer/assets" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/viewer/assets, got %q", routes.AdminAgreementViewerAssets)
+	}
+	if routes.AdminAgreementViewerThreads != "/admin/api/v1/esign/agreements/:agreement_id/viewer/review/threads" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/viewer/review/threads, got %q", routes.AdminAgreementViewerThreads)
 	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)

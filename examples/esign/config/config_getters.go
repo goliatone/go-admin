@@ -108,6 +108,24 @@ func (a App) GetName() string {
 	return a.Name
 }
 
+// AssetPermissions Getters
+
+func (a AssetPermissions) GetCertificate() []string {
+	return a.Certificate
+}
+
+func (a AssetPermissions) GetExecuted() []string {
+	return a.Executed
+}
+
+func (a AssetPermissions) GetPreview() []string {
+	return a.Preview
+}
+
+func (a AssetPermissions) GetSource() []string {
+	return a.Source
+}
+
 // Auth Getters
 
 func (a Auth) GetAdminEmail() string {
@@ -188,6 +206,12 @@ func (f Features) GetESign() bool {
 
 func (f Features) GetESignGoogle() bool {
 	return f.ESignGoogle
+}
+
+// Fs Getters
+
+func (f Fs) GetBasePath() string {
+	return f.BasePath
 }
 
 // Google Getters
@@ -460,6 +484,48 @@ func (r Runtime) GetStrictStartup() bool {
 	return r.StrictStartup
 }
 
+// S3 Getters
+
+func (s S3) GetAccessKeyID() string {
+	return s.AccessKeyID
+}
+
+func (s S3) GetBasePath() string {
+	return s.BasePath
+}
+
+func (s S3) GetBucket() string {
+	return s.Bucket
+}
+
+func (s S3) GetDisableSsl() bool {
+	return s.DisableSsl
+}
+
+func (s S3) GetEndpointURL() string {
+	return s.EndpointURL
+}
+
+func (s S3) GetProfile() string {
+	return s.Profile
+}
+
+func (s S3) GetRegion() string {
+	return s.Region
+}
+
+func (s S3) GetSecretAccessKey() string {
+	return s.SecretAccessKey
+}
+
+func (s S3) GetSessionToken() string {
+	return s.SessionToken
+}
+
+func (s S3) GetUsePathStyle() bool {
+	return s.UsePathStyle
+}
+
 // SMTP Getters
 
 func (s SMTP) GetDisableSTARTTLS() bool {
@@ -496,6 +562,24 @@ func (s SMTP) GetTimeoutSeconds() int {
 
 func (s SMTP) GetUsername() string {
 	return s.Username
+}
+
+// SenderViewer Getters
+
+func (s SenderViewer) GetAssetPermissions() AssetPermissions {
+	return s.AssetPermissions
+}
+
+func (s SenderViewer) GetCommentPermissionsAll() []string {
+	return s.CommentPermissionsAll
+}
+
+func (s SenderViewer) GetPagePermissionsAll() []string {
+	return s.PagePermissionsAll
+}
+
+func (s SenderViewer) GetShowInProgressFieldValues() bool {
+	return s.ShowInProgressFieldValues
 }
 
 // Server Getters
@@ -540,6 +624,10 @@ func (s Signer) GetSavedSignaturesLimitPerType() int {
 	return s.SavedSignaturesLimitPerType
 }
 
+func (s Signer) GetSenderViewer() SenderViewer {
+	return s.SenderViewer
+}
+
 func (s Signer) GetUploadSigningKey() string {
 	return s.UploadSigningKey
 }
@@ -574,62 +662,14 @@ func (s Storage) GetEncryptionAlgorithm() string {
 	return s.EncryptionAlgorithm
 }
 
-func (s Storage) GetFS() StorageFS {
-	return s.FS
+func (s Storage) GetFs() Fs {
+	return s.Fs
 }
 
-func (s Storage) GetKMSKeyID() string {
-	return s.KMSKeyID
+func (s Storage) GetKmsKeyID() string {
+	return s.KmsKeyID
 }
 
-func (s Storage) GetS3() StorageS3 {
+func (s Storage) GetS3() S3 {
 	return s.S3
-}
-
-// StorageFS Getters
-
-func (s StorageFS) GetBasePath() string {
-	return s.BasePath
-}
-
-// StorageS3 Getters
-
-func (s StorageS3) GetAccessKeyID() string {
-	return s.AccessKeyID
-}
-
-func (s StorageS3) GetBasePath() string {
-	return s.BasePath
-}
-
-func (s StorageS3) GetBucket() string {
-	return s.Bucket
-}
-
-func (s StorageS3) GetDisableSSL() bool {
-	return s.DisableSSL
-}
-
-func (s StorageS3) GetEndpointURL() string {
-	return s.EndpointURL
-}
-
-func (s StorageS3) GetProfile() string {
-	return s.Profile
-}
-
-func (s StorageS3) GetRegion() string {
-	return s.Region
-}
-
-func (s StorageS3) GetSecretAccessKey() string {
-	return s.SecretAccessKey
-}
-
-func (s StorageS3) GetSessionToken() string {
-	return s.SessionToken
-}
-
-func (s StorageS3) GetUsePathStyle() bool {
-	return s.UsePathStyle
 }

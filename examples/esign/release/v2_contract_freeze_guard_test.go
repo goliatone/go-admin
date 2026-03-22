@@ -8,9 +8,9 @@ import (
 )
 
 func TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := DefaultRepoRoot()
 	if err != nil {
-		t.Fatalf("Abs repoRoot: %v", err)
+		t.Fatalf("DefaultRepoRoot: %v", err)
 	}
 	guardPath := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
 	guard, err := LoadV2ContractFreezeGuard(guardPath)
@@ -27,9 +27,9 @@ func TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot(t *testing.T) {
 }
 
 func TestValidateV2ContractFreezeGuardBlocksPostFreezeMismatchWithoutApproval(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := DefaultRepoRoot()
 	if err != nil {
-		t.Fatalf("Abs repoRoot: %v", err)
+		t.Fatalf("DefaultRepoRoot: %v", err)
 	}
 	guardPath := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
 	guard, err := LoadV2ContractFreezeGuard(guardPath)
@@ -54,9 +54,9 @@ func TestValidateV2ContractFreezeGuardBlocksPostFreezeMismatchWithoutApproval(t 
 }
 
 func TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := DefaultRepoRoot()
 	if err != nil {
-		t.Fatalf("Abs repoRoot: %v", err)
+		t.Fatalf("DefaultRepoRoot: %v", err)
 	}
 	guardPath := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
 	guard, err := LoadV2ContractFreezeGuard(guardPath)
@@ -73,5 +73,30 @@ func TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException(t *testi
 	}
 	if len(issues) != 0 {
 		t.Fatalf("expected approved post-freeze exception to pass, got %+v", issues)
+	}
+}
+
+func TestValidateV2ContractFreezeGuardRequiresSourceManagementCoverage(t *testing.T) {
+	repoRoot, err := DefaultRepoRoot()
+	if err != nil {
+		t.Fatalf("DefaultRepoRoot: %v", err)
+	}
+	guardPath := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
+	guard, err := LoadV2ContractFreezeGuard(guardPath)
+	if err != nil {
+		t.Fatalf("LoadV2ContractFreezeGuard: %v", err)
+	}
+	guard.TrackedFiles = []string{"examples/esign/release/v2_source_management_contract_manifest.json"}
+
+	issues, err := ValidateV2ContractFreezeGuard(repoRoot, guard, time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("ValidateV2ContractFreezeGuard: %v", err)
+	}
+	if len(issues) == 0 {
+		t.Fatal("expected tracked file coverage issue")
+	}
+	joined := strings.Join(issues, " | ")
+	if !strings.Contains(joined, "tracked_files missing required v2 source-management contract snapshot") {
+		t.Fatalf("expected tracked file coverage issue, got %s", joined)
 	}
 }

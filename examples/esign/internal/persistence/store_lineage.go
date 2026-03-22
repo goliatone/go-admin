@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -119,13 +120,19 @@ func listSourceHandleRecords(ctx context.Context, idb bun.IDB, scope stores.Scop
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	records := make([]stores.SourceHandleRecord, 0)
 	sel := idb.NewSelect().
 		Model(&records).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+	if len(documentIDs) == 1 {
+		for id := range documentIDs {
+			sel = sel.Where("source_document_id = ?", id)
+		}
+	} else if len(documentIDs) > 1 {
+		ids := relationalLineageIDList(documentIDs)
+		sel = sel.Where("source_document_id IN (?)", bun.In(ids))
 	}
 	if query.ProviderKind != "" {
 		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
@@ -172,13 +179,19 @@ func listSourceRevisionRecords(ctx context.Context, idb bun.IDB, scope stores.Sc
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	records := make([]stores.SourceRevisionRecord, 0)
 	sel := idb.NewSelect().
 		Model(&records).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+	if len(documentIDs) == 1 {
+		for id := range documentIDs {
+			sel = sel.Where("source_document_id = ?", id)
+		}
+	} else if len(documentIDs) > 1 {
+		ids := relationalLineageIDList(documentIDs)
+		sel = sel.Where("source_document_id IN (?)", bun.In(ids))
 	}
 	if query.SourceHandleID != "" {
 		sel = sel.Where("source_handle_id = ?", strings.TrimSpace(query.SourceHandleID))
@@ -313,15 +326,17 @@ func listSourceRelationshipRecords(ctx context.Context, idb bun.IDB, scope store
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	records := make([]stores.SourceRelationshipRecord, 0)
 	sel := idb.NewSelect().
 		Model(&records).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
+	if len(documentIDs) > 0 {
+		ids := relationalLineageIDList(documentIDs)
 		sel = sel.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("left_source_document_id = ?", strings.TrimSpace(query.SourceDocumentID)).
-				WhereOr("right_source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+			return q.Where("left_source_document_id IN (?)", bun.In(ids)).
+				WhereOr("right_source_document_id IN (?)", bun.In(ids))
 		})
 	}
 	if query.RelationshipType != "" {
@@ -358,6 +373,119 @@ func findSourceRelationshipRecordByTuple(ctx context.Context, idb bun.IDB, scope
 		return stores.SourceRelationshipRecord{}, mapSQLNotFound(err, "source_relationships", strings.TrimSpace(leftID)+"|"+strings.TrimSpace(rightID))
 	}
 	return record, nil
+}
+
+func listSourceRevisionUsageRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceRevisionUsageQuery) ([]stores.SourceRevisionUsageRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	documentIDs := relationalNormalizedLineageIDs("", query.SourceDocumentIDs)
+	revisionIDs := relationalNormalizedLineageIDs("", query.SourceRevisionIDs)
+	usage := map[string]stores.SourceRevisionUsageRecord{}
+
+	type documentUsageRow struct {
+		SourceDocumentID string `bun:"source_document_id"`
+		SourceRevisionID string `bun:"source_revision_id"`
+		PinnedCount      int    `bun:"pinned_count"`
+	}
+	documentRows := make([]documentUsageRow, 0)
+	documentSel := idb.NewSelect().
+		Table("documents").
+		Column("source_document_id", "source_revision_id").
+		ColumnExpr("COUNT(*) AS pinned_count").
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("source_document_id <> ''").
+		Where("source_revision_id <> ''")
+	if len(documentIDs) > 0 {
+		documentSel = documentSel.Where("source_document_id IN (?)", bun.In(relationalLineageIDList(documentIDs)))
+	}
+	if len(revisionIDs) > 0 {
+		documentSel = documentSel.Where("source_revision_id IN (?)", bun.In(relationalLineageIDList(revisionIDs)))
+	}
+	documentSel = documentSel.Group("source_document_id", "source_revision_id")
+	if err := documentSel.Scan(ctx, &documentRows); err != nil {
+		return nil, err
+	}
+	for _, row := range documentRows {
+		revisionID := strings.TrimSpace(row.SourceRevisionID)
+		current := usage[revisionID]
+		current.SourceDocumentID = strings.TrimSpace(row.SourceDocumentID)
+		current.SourceRevisionID = revisionID
+		current.PinnedDocumentCount = row.PinnedCount
+		usage[revisionID] = current
+	}
+
+	type agreementUsageRow struct {
+		SourceDocumentID string `bun:"source_document_id"`
+		SourceRevisionID string `bun:"source_revision_id"`
+		PinnedCount      int    `bun:"pinned_count"`
+	}
+	agreementRows := make([]agreementUsageRow, 0)
+	agreementSel := idb.NewSelect().
+		TableExpr("agreements AS agr").
+		Join("JOIN source_revisions AS srv ON srv.tenant_id = agr.tenant_id AND srv.org_id = agr.org_id AND srv.id = agr.source_revision_id").
+		ColumnExpr("srv.source_document_id AS source_document_id").
+		ColumnExpr("agr.source_revision_id AS source_revision_id").
+		ColumnExpr("COUNT(*) AS pinned_count").
+		Where("agr.tenant_id = ?", scope.TenantID).
+		Where("agr.org_id = ?", scope.OrgID).
+		Where("agr.source_revision_id <> ''")
+	if len(documentIDs) > 0 {
+		agreementSel = agreementSel.Where("srv.source_document_id IN (?)", bun.In(relationalLineageIDList(documentIDs)))
+	}
+	if len(revisionIDs) > 0 {
+		agreementSel = agreementSel.Where("agr.source_revision_id IN (?)", bun.In(relationalLineageIDList(revisionIDs)))
+	}
+	agreementSel = agreementSel.Group("srv.source_document_id", "agr.source_revision_id")
+	if err := agreementSel.Scan(ctx, &agreementRows); err != nil {
+		return nil, err
+	}
+	for _, row := range agreementRows {
+		revisionID := strings.TrimSpace(row.SourceRevisionID)
+		current := usage[revisionID]
+		current.SourceDocumentID = strings.TrimSpace(row.SourceDocumentID)
+		current.SourceRevisionID = revisionID
+		current.PinnedAgreementCount = row.PinnedCount
+		usage[revisionID] = current
+	}
+
+	out := make([]stores.SourceRevisionUsageRecord, 0, len(usage))
+	for _, record := range usage {
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].SourceDocumentID == out[j].SourceDocumentID {
+			return out[i].SourceRevisionID < out[j].SourceRevisionID
+		}
+		return out[i].SourceDocumentID < out[j].SourceDocumentID
+	})
+	return out, nil
+}
+
+func relationalNormalizedLineageIDs(primary string, values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values)+1)
+	if value := strings.TrimSpace(primary); value != "" {
+		set[value] = struct{}{}
+	}
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			set[value] = struct{}{}
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
+}
+
+func relationalLineageIDList(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	return out
 }
 
 func lineageStoreForTx(tx stores.TxStore) (stores.LineageStore, error) {
@@ -528,6 +656,10 @@ func (s *StoreAdapter) GetSourceRelationship(ctx context.Context, scope stores.S
 
 func (s *StoreAdapter) ListSourceRelationships(ctx context.Context, scope stores.Scope, query stores.SourceRelationshipQuery) ([]stores.SourceRelationshipRecord, error) {
 	return listSourceRelationshipRecords(ctx, idbOrDB(nil, s.bunDB), scope, query)
+}
+
+func (s *StoreAdapter) ListSourceRevisionUsage(ctx context.Context, scope stores.Scope, query stores.SourceRevisionUsageQuery) ([]stores.SourceRevisionUsageRecord, error) {
+	return listSourceRevisionUsageRecords(ctx, idbOrDB(nil, s.bunDB), scope, query)
 }
 
 func (s *StoreAdapter) SaveSourceRelationship(ctx context.Context, scope stores.Scope, record stores.SourceRelationshipRecord) (stores.SourceRelationshipRecord, error) {

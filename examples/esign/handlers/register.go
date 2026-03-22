@@ -93,6 +93,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	registerDraftRoutes(adminRoutes, routes, cfg)
 	registerSyncRoutes(adminRoutes, routes, cfg)
 	registerAgreementAuthoringRoutes(adminRoutes, routes, cfg)
+	registerAgreementViewerRoutes(adminRoutes, routes, cfg)
 	registerGoogleRoutes(adminRoutes, routes, cfg)
 	registerIntegrationRoutes(adminRoutes, routes, cfg)
 	registerSignerRoutes(r, routes, cfg)

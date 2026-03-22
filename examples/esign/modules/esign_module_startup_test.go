@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -128,6 +129,14 @@ func TestValidateLineageRuntimeWiringRequiresRuntimeWhenGoogleAndLineageEnabled(
 
 func TestValidateLineageRuntimeWiringPassesWhenLineageServicesAreConfigured(t *testing.T) {
 	store := stores.NewInMemoryStore()
+	restoreRepoRoot := resolveV2SourceManagementRepoRoot
+	restoreValidate := validateV2SourceManagementRuntime
+	resolveV2SourceManagementRepoRoot = func() (string, error) { return t.TempDir(), nil }
+	validateV2SourceManagementRuntime = func(context.Context, string, stores.Scope, any, services.SourceReadModelService) error { return nil }
+	t.Cleanup(func() {
+		resolveV2SourceManagementRepoRoot = restoreRepoRoot
+		validateV2SourceManagementRuntime = restoreValidate
+	})
 	module := &ESignModule{
 		store:             store,
 		sourceReadModels:  services.NewDefaultSourceReadModelService(store, store, store),
@@ -135,6 +144,33 @@ func TestValidateLineageRuntimeWiringPassesWhenLineageServicesAreConfigured(t *t
 	}
 	if err := module.validateLineageRuntimeWiring(context.Background()); err != nil {
 		t.Fatalf("expected lineage startup validation to pass, got %v", err)
+	}
+}
+
+func TestValidateLineageRuntimeWiringFailsWhenV2SourceManagementStartupValidationFails(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	restoreRepoRoot := resolveV2SourceManagementRepoRoot
+	restoreValidate := validateV2SourceManagementRuntime
+	resolveV2SourceManagementRepoRoot = func() (string, error) { return t.TempDir(), nil }
+	validateV2SourceManagementRuntime = func(context.Context, string, stores.Scope, any, services.SourceReadModelService) error {
+		return fmt.Errorf("missing v2 guard snapshot")
+	}
+	t.Cleanup(func() {
+		resolveV2SourceManagementRepoRoot = restoreRepoRoot
+		validateV2SourceManagementRuntime = restoreValidate
+	})
+
+	module := &ESignModule{
+		store:             store,
+		sourceReadModels:  services.NewDefaultSourceReadModelService(store, store, store),
+		sourceDiagnostics: services.NewDefaultLineageDiagnosticsService(store, store, store),
+	}
+	err := module.validateLineageRuntimeWiring(context.Background())
+	if err == nil {
+		t.Fatal("expected v2 source-management startup validation failure")
+	}
+	if !strings.Contains(err.Error(), "missing v2 guard snapshot") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

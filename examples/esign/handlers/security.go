@@ -63,6 +63,7 @@ type registerConfig struct {
 	signerProfile         SignerProfileService
 	signerSavedSignatures SignerSavedSignatureService
 	signerAssets          SignerAssetContractService
+	agreementViewer       AgreementViewerService
 	agreementDelivery     AgreementDeliveryService
 	agreementAuthoring    AgreementAuthoringService
 	drafts                DraftWorkflowService
@@ -195,6 +196,16 @@ type SignerSavedSignatureService interface {
 // SignerAssetContractService resolves token-scoped signer asset contract metadata.
 type SignerAssetContractService interface {
 	Resolve(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (services.SignerAssetContract, error)
+}
+
+// AgreementViewerService resolves sender-authenticated agreement viewer sessions and shared comment actions.
+type AgreementViewerService interface {
+	GetSenderSession(ctx context.Context, scope stores.Scope, agreementID string, actor services.AgreementViewActor) (services.SignerSessionContext, error)
+	ResolveSenderAssets(ctx context.Context, scope stores.Scope, agreementID string) (services.SignerAssetContract, error)
+	CreateSenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor services.AgreementViewActor, input services.ReviewCommentThreadInput) (services.ReviewThread, error)
+	ReplySenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor services.AgreementViewActor, input services.ReviewCommentReplyInput) (services.ReviewThread, error)
+	ResolveSenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor services.AgreementViewActor, input services.ReviewCommentStateInput) (services.ReviewThread, error)
+	ReopenSenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor services.AgreementViewActor, input services.ReviewCommentStateInput) (services.ReviewThread, error)
 }
 
 // AgreementDeliveryService resolves agreement-level artifact delivery metadata for admin downloads.
@@ -476,6 +487,16 @@ func WithSignerAssetContractService(service SignerAssetContractService) Register
 	}
 }
 
+// WithAgreementViewerService configures sender-authenticated agreement viewer APIs.
+func WithAgreementViewerService(service AgreementViewerService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.agreementViewer = service
+	}
+}
+
 // WithAgreementDeliveryService configures agreement-level artifact delivery resolution for admin artifact downloads.
 func WithAgreementDeliveryService(service AgreementDeliveryService) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -631,6 +652,16 @@ func WithGoogleImportRunStore(store stores.GoogleImportRunStore) RegisterOption 
 			return
 		}
 		cfg.googleImportRuns = store
+	}
+}
+
+// WithGoogleImportJobStore configures durable async import job persistence.
+func WithGoogleImportJobStore(store stores.JobRunStore) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.googleImportJobs = store
 	}
 }
 
@@ -850,6 +881,34 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 				"ip":         resolveAuditRequestIP(c, cfg),
 			})
 			return writePermissionDenied(c, required)
+		}
+	}
+}
+
+func requireAdminPermissions(cfg registerConfig, permissions ...string) router.MiddlewareFunc {
+	required := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		if trimmed := strings.TrimSpace(permission); trimmed != "" {
+			required = append(required, trimmed)
+		}
+	}
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			for _, permission := range required {
+				if cfg.authorizer != nil && !authorizerAllows(c, cfg.authorizer, permission) {
+					cfg.logSecurityEvent("admin.authz.denied", map[string]any{
+						"permission": permission,
+						"path":       c.Path(),
+						"method":     c.Method(),
+						"ip":         resolveAuditRequestIP(c, cfg),
+					})
+					return writePermissionDenied(c, permission)
+				}
+			}
+			if err := enforceScopeBoundary(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			return next(c)
 		}
 	}
 }

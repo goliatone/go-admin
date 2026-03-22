@@ -30,8 +30,18 @@ func TestDefaultLineageDiagnosticsServiceExposesResolvedEntitiesAndStates(t *tes
 	if documentDiagnostics.LatestSourceRevision == nil || documentDiagnostics.LatestSourceRevision.ID != seeded.secondSourceRevisionID {
 		t.Fatalf("expected latest source revision %q, got %+v", seeded.secondSourceRevisionID, documentDiagnostics.LatestSourceRevision)
 	}
-	if len(documentDiagnostics.CandidateRelationships) != 1 {
+	if len(documentDiagnostics.CandidateRelationships) == 0 {
 		t.Fatalf("expected candidate relationship state, got %+v", documentDiagnostics.CandidateRelationships)
+	}
+	foundCandidate := false
+	for _, relationship := range documentDiagnostics.CandidateRelationships {
+		if relationship.ID == seeded.candidateRelationshipID && relationship.Status == stores.SourceRelationshipStatusPendingReview {
+			foundCandidate = true
+			break
+		}
+	}
+	if !foundCandidate {
+		t.Fatalf("expected pending candidate relationship %q, got %+v", seeded.candidateRelationshipID, documentDiagnostics.CandidateRelationships)
 	}
 	if documentDiagnostics.FingerprintStatus.Status != LineageFingerprintStatusPending {
 		t.Fatalf("expected fingerprint status pending, got %+v", documentDiagnostics.FingerprintStatus)

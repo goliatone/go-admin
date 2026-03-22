@@ -552,7 +552,18 @@ func beginGoogleImportSubmission(
 		}
 		return nil
 	})
-	return run, created, err
+	if err != nil {
+		return run, created, err
+	}
+	if !created {
+		return run, created, nil
+	}
+	jobMsg.ImportRunID = strings.TrimSpace(run.ID)
+	jobMsg.DedupeKey = strings.TrimSpace(run.DedupeKey)
+	if err := cfg.googleImportEnqueue(ctx, jobMsg); err != nil {
+		return run, created, &googleImportEnqueueError{err: err}
+	}
+	return run, created, nil
 }
 
 func enqueueGoogleImportJobRecord(ctx context.Context, store stores.JobRunStore, scope stores.Scope, msg jobs.GoogleDriveImportMsg) error {

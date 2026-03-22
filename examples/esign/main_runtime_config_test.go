@@ -187,7 +187,7 @@ func TestResolveESignStartupPolicySupportsWarnAliases(t *testing.T) {
 func TestNewESignStorageBundleDefaultsToFSBackend(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Storage.Backend = ""
-	cfg.Storage.FS.BasePath = t.TempDir()
+	cfg.Storage.Fs.BasePath = t.TempDir()
 
 	bundle, err := newESignStorageBundle(nil, cfg)
 	if err != nil {
@@ -205,7 +205,7 @@ func TestNewESignStorageBundleBuildsS3ProviderConfig(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Storage.Backend = "s3"
 	cfg.Storage.EncryptionAlgorithm = "aws:kms"
-	cfg.Storage.KMSKeyID = "kms-key-1"
+	cfg.Storage.KmsKeyID = "kms-key-1"
 	cfg.Storage.S3.Bucket = "esign-test"
 	cfg.Storage.S3.Region = "us-east-1"
 	cfg.Storage.S3.EndpointURL = "http://localhost:4566"

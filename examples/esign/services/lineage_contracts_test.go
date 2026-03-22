@@ -98,10 +98,104 @@ func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
 		"GetAgreementLineageDetail",
 		"GetGoogleImportLineageStatus",
 		"ListCandidateWarnings",
+		"ListSources",
+		"GetSourceDetail",
+		"ListSourceRevisions",
+		"ListSourceRelationships",
+		"ListSourceHandles",
+		"GetSourceRevisionDetail",
+		"ListSourceRevisionArtifacts",
+		"ListSourceRevisionComments",
+		"SearchSources",
 	} {
 		if _, ok := readModels.MethodByName(method); !ok {
 			t.Fatalf("expected SourceReadModelService.%s", method)
 		}
+	}
+}
+
+func TestPhase11SourceManagementContractFixtureSnapshot(t *testing.T) {
+	fixture := buildPhase11SourceManagementContractFixture(t)
+	data, err := json.MarshalIndent(fixture, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal phase 11 source management fixture: %v", err)
+	}
+
+	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "esign_lineage_phase11", "contract_fixtures.json")
+	if os.Getenv("UPDATE_FIXTURES") == "1" {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir fixture dir: %v", err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatalf("write fixture: %v", err)
+		}
+	}
+
+	expected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if strings.TrimSpace(string(expected)) != strings.TrimSpace(string(data)) {
+		t.Fatalf("phase 11 source management fixture drifted from snapshot")
+	}
+}
+
+func TestPhase11SourceManagementContractFixtureCoversCanonicalStates(t *testing.T) {
+	fixture := buildPhase11SourceManagementContractFixture(t)
+
+	if fixture.SchemaVersion != 1 {
+		t.Fatalf("expected schema version 1, got %d", fixture.SchemaVersion)
+	}
+	if !fixture.Rules.FrontendPresentationOnly {
+		t.Fatalf("expected presentation-only frontend source-management contract")
+	}
+	if fixture.Rules.PaginationMode != SourceManagementPaginationModePage {
+		t.Fatalf("expected page-based pagination semantics, got %+v", fixture.Rules)
+	}
+	if len(fixture.States.SourceListEmpty.Items) != 0 || fixture.States.SourceListEmpty.EmptyState.Kind != LineageEmptyStateNoResults {
+		t.Fatalf("expected empty source list state, got %+v", fixture.States.SourceListEmpty)
+	}
+	if len(fixture.States.SourceListSingle.Items) != 1 {
+		t.Fatalf("expected single-source list state, got %+v", fixture.States.SourceListSingle)
+	}
+	if fixture.States.SourceDetailRepeated.LatestRevision == nil || fixture.States.SourceDetailRepeated.ActiveHandle == nil {
+		t.Fatalf("expected repeated source detail to expose latest revision and active handle, got %+v", fixture.States.SourceDetailRepeated)
+	}
+	if !containsString(fixture.States.SourceDetailRepeated.LatestRevision.HistoryLabels, SourceRevisionHistoryLabelLatest) {
+		t.Fatalf("expected repeated source detail latest revision history label, got %+v", fixture.States.SourceDetailRepeated.LatestRevision)
+	}
+	if len(fixture.States.SourceHandlesMulti.Items) < 2 {
+		t.Fatalf("expected multi-handle state, got %+v", fixture.States.SourceHandlesMulti)
+	}
+	if len(fixture.States.SourceRelationshipsReview.Items) == 0 || fixture.States.SourceRelationshipsReview.Items[0].ReviewActionVisible != LineageReviewVisibilityAdminOnly {
+		t.Fatalf("expected candidate-review relationship state, got %+v", fixture.States.SourceRelationshipsReview)
+	}
+	if fixture.States.SourceRelationshipsReview.Items[0].RelationshipKind == "" || fixture.States.SourceRelationshipsReview.Items[0].CounterpartRole == "" {
+		t.Fatalf("expected source relationship review semantics, got %+v", fixture.States.SourceRelationshipsReview.Items[0])
+	}
+	if fixture.States.SourceRevisionDetail.Provider == nil || fixture.States.SourceRevisionDetail.Provider.Extension == nil {
+		t.Fatalf("expected provider-neutral extension envelope, got %+v", fixture.States.SourceRevisionDetail)
+	}
+	if !containsString(fixture.States.SourceRevisionDetail.Revision.HistoryLabels, SourceRevisionHistoryLabelLatest) {
+		t.Fatalf("expected source revision detail history labels, got %+v", fixture.States.SourceRevisionDetail.Revision)
+	}
+	if fixture.States.SourceCommentsEmpty.SyncStatus != SourceManagementCommentSyncNotConfigured {
+		t.Fatalf("expected no-comment sync state to be explicit, got %+v", fixture.States.SourceCommentsEmpty)
+	}
+	if fixture.States.SourceCommentsEmpty.Permissions.CanViewComments {
+		t.Fatalf("expected source-comments fixture to keep comments unavailable until configured, got %+v", fixture.States.SourceCommentsEmpty.Permissions)
+	}
+	if len(fixture.States.SourceSearchResults.Items) != 1 || fixture.States.SourceSearchResults.Items[0].Revision == nil {
+		t.Fatalf("expected source-search fixture to expose a revision-scoped result, got %+v", fixture.States.SourceSearchResults)
+	}
+	if got := strings.TrimSpace(fixture.States.SourceSearchResults.Items[0].Links.Self); got != sourceManagementRevisionPath("src-rev-2") {
+		t.Fatalf("expected source-search fixture to link to matched revision detail, got %+v", fixture.States.SourceSearchResults.Items[0].Links)
+	}
+	if fixture.States.SourceDetailMerged.Status != stores.SourceDocumentStatusMerged {
+		t.Fatalf("expected merged source state, got %+v", fixture.States.SourceDetailMerged)
+	}
+	if fixture.States.SourceDetailArchived.Status != stores.SourceDocumentStatusArchived {
+		t.Fatalf("expected archived source state, got %+v", fixture.States.SourceDetailArchived)
 	}
 }
 
@@ -333,4 +427,357 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 func metadataPtr(value SourceMetadataBaseline) *SourceMetadataBaseline {
 	copy := value
 	return &copy
+}
+
+func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceManagementContractFixtures {
+	t.Helper()
+
+	modifiedAtV1 := time.Date(2026, time.March, 18, 18, 0, 0, 0, time.UTC)
+	modifiedAtV2 := time.Date(2026, time.March, 18, 20, 0, 0, 0, time.UTC)
+	exportedAtV1 := modifiedAtV1.Add(5 * time.Minute)
+	exportedAtV2 := modifiedAtV2.Add(5 * time.Minute)
+	validFromV1 := modifiedAtV1
+	validFromV2 := modifiedAtV2
+	pendingOnly := true
+	permissions := SourceManagementPermissions{
+		CanViewDiagnostics:   true,
+		CanOpenProviderLinks: true,
+		CanReviewCandidates:  true,
+		CanViewComments:      false,
+	}
+	sourceRef := &LineageReference{
+		ID:    "src-doc-1",
+		Label: "Imported Fixture Source",
+		URL:   sourceManagementSourcePath("src-doc-1"),
+	}
+	candidateRef := &LineageReference{
+		ID:    "src-doc-candidate",
+		Label: "Imported Fixture Source",
+		URL:   sourceManagementSourcePath("src-doc-candidate"),
+	}
+	firstRevision := &SourceRevisionSummary{
+		ID:                   "src-rev-1",
+		ProviderRevisionHint: "v1",
+		ModifiedTime:         &modifiedAtV1,
+		ExportedAt:           &exportedAtV1,
+		ExportedByUserID:     "fixture-user",
+		SourceMimeType:       "application/vnd.google-apps.document",
+		HistoryLabels:        []string{SourceRevisionHistoryLabelPinned, SourceRevisionHistoryLabelSuperseded},
+		PinnedDocumentCount:  1,
+		PinnedAgreementCount: 1,
+	}
+	secondRevision := &SourceRevisionSummary{
+		ID:                   "src-rev-2",
+		ProviderRevisionHint: "v2",
+		ModifiedTime:         &modifiedAtV2,
+		ExportedAt:           &exportedAtV2,
+		ExportedByUserID:     "fixture-user",
+		SourceMimeType:       "application/vnd.google-apps.document",
+		HistoryLabels:        []string{SourceRevisionHistoryLabelLatest, SourceRevisionHistoryLabelPinned},
+		PinnedDocumentCount:  1,
+	}
+	firstHandle := SourceHandleSummary{
+		ID:             "src-handle-1",
+		ProviderKind:   stores.SourceProviderKindGoogleDrive,
+		ExternalFileID: "fixture-google-file-1",
+		AccountID:      "fixture-account-1",
+		DriveID:        "fixture-drive-root",
+		WebURL:         "https://docs.google.com/document/d/fixture-google-file-1/edit",
+		HandleStatus:   stores.SourceHandleStatusActive,
+		ValidFrom:      &validFromV1,
+		Links:          SourceManagementLinks{Provider: "https://docs.google.com/document/d/fixture-google-file-1/edit"},
+	}
+	secondHandle := SourceHandleSummary{
+		ID:             "src-handle-2",
+		ProviderKind:   stores.SourceProviderKindGoogleDrive,
+		ExternalFileID: "fixture-google-file-2",
+		AccountID:      "fixture-account-2",
+		DriveID:        "fixture-drive-root",
+		WebURL:         "https://docs.google.com/document/d/fixture-google-file-2/edit",
+		HandleStatus:   stores.SourceHandleStatusActive,
+		ValidFrom:      &validFromV2,
+		Links:          SourceManagementLinks{Provider: "https://docs.google.com/document/d/fixture-google-file-2/edit"},
+	}
+	providerV2 := &SourceProviderSummary{
+		Kind:           stores.SourceProviderKindGoogleDrive,
+		Label:          "Google Drive",
+		ExternalFileID: "fixture-google-file-2",
+		AccountID:      "fixture-account-2",
+		DriveID:        "fixture-drive-root",
+		WebURL:         "https://docs.google.com/document/d/fixture-google-file-2/edit",
+		Extension: &SourceProviderExtensionEnvelope{
+			Schema: "google_drive.v1",
+			Values: map[string]any{
+				"owner_email":         "owner@example.com",
+				"parent_id":           "fixture-folder",
+				"source_version_hint": "v2",
+				"source_mime_type":    "application/vnd.google-apps.document",
+				"title_hint":          "Imported Fixture Source",
+			},
+		},
+	}
+	secondArtifact := SourceArtifactSummary{
+		ID:                  "src-art-2",
+		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+		ObjectKey:           "tenant/google-v2.pdf",
+		SHA256:              strings.Repeat("b", 64),
+		PageCount:           4,
+		SizeBytes:           8192,
+		CompatibilityTier:   "supported",
+		NormalizationStatus: "completed",
+	}
+	sourceListEmpty := SourceListPage{
+		Items:        []SourceListItem{},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 0, HasMore: false, Sort: sourceListSortPendingDesc},
+		AppliedQuery: SourceListQuery{Query: "missing-source", Sort: sourceListSortPendingDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNoResults, Title: "No sources", Description: "No canonical source documents match the current filters."},
+		Links:        SourceManagementLinks{Self: sourceManagementSourcesPath()},
+	}
+	sourceListSingle := SourceListPage{
+		Items: []SourceListItem{{
+			Source:                sourceRef,
+			Status:                stores.SourceDocumentStatusActive,
+			LineageConfidence:     stores.LineageConfidenceBandExact,
+			Provider:              providerV2,
+			LatestRevision:        secondRevision,
+			ActiveHandle:          &secondHandle,
+			RevisionCount:         2,
+			HandleCount:           2,
+			RelationshipCount:     1,
+			PendingCandidateCount: 1,
+			Permissions:           permissions,
+			Links:                 sourceLinksForDocument("src-doc-1"),
+		}},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 1, HasMore: false, Sort: sourceListSortPendingDesc},
+		AppliedQuery: SourceListQuery{Query: "fixture-google-file-2", HasPendingCandidates: &pendingOnly, Sort: sourceListSortPendingDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        SourceManagementLinks{Self: sourceManagementSourcesPath()},
+	}
+	sourceDetailRepeated := SourceDetail{
+		Source:                sourceRef,
+		Status:                stores.SourceDocumentStatusActive,
+		LineageConfidence:     stores.LineageConfidenceBandExact,
+		Provider:              providerV2,
+		ActiveHandle:          &secondHandle,
+		LatestRevision:        secondRevision,
+		RevisionCount:         2,
+		HandleCount:           2,
+		RelationshipCount:     1,
+		PendingCandidateCount: 1,
+		Permissions:           permissions,
+		Links:                 sourceLinksForDocument("src-doc-1"),
+		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+	sourceHandlesMulti := SourceHandlePage{
+		Source:      sourceRef,
+		Items:       []SourceHandleSummary{secondHandle, firstHandle},
+		PageInfo:    SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 2, TotalCount: 2, HasMore: false, Sort: sourceListSortUpdatedDesc},
+		Permissions: permissions,
+		EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:       sourceLinksForDocument("src-doc-1"),
+	}
+	sourceRevisionsRepeated := SourceRevisionPage{
+		Source: sourceRef,
+		Items: []SourceRevisionListItem{
+			{
+				Revision:              secondRevision,
+				Provider:              providerV2,
+				PrimaryArtifact:       &secondArtifact,
+				FingerprintStatus:     FingerprintStatusSummary{Status: LineageFingerprintStatusFailed, EvidenceAvailable: false, ErrorCode: "OCR_TIMEOUT", ErrorMessage: "text extraction exceeded retry budget"},
+				FingerprintProcessing: FingerprintProcessingSummary{State: LineageFingerprintProcessingFailed, LastErrorCode: "OCR_TIMEOUT", LastErrorMessage: "text extraction exceeded retry budget", AttemptCount: 3},
+				IsLatest:              true,
+				Links:                 sourceRevisionLinks("src-rev-2", "src-doc-1"),
+			},
+			{
+				Revision: firstRevision,
+				Provider: &SourceProviderSummary{
+					Kind:           stores.SourceProviderKindGoogleDrive,
+					Label:          "Google Drive",
+					ExternalFileID: "fixture-google-file-1",
+					AccountID:      "fixture-account-1",
+					DriveID:        "fixture-drive-root",
+					WebURL:         "https://docs.google.com/document/d/fixture-google-file-1/edit",
+				},
+				PrimaryArtifact: &SourceArtifactSummary{
+					ID:                  "src-art-1",
+					ArtifactKind:        stores.SourceArtifactKindSignablePDF,
+					ObjectKey:           "tenant/google-v1.pdf",
+					SHA256:              strings.Repeat("a", 64),
+					PageCount:           3,
+					SizeBytes:           4096,
+					CompatibilityTier:   "supported",
+					NormalizationStatus: "completed",
+				},
+				FingerprintStatus:     FingerprintStatusSummary{Status: LineageFingerprintStatusPending, EvidenceAvailable: false},
+				FingerprintProcessing: FingerprintProcessingSummary{State: LineageFingerprintProcessingRunning, StatusLabel: "In progress", Retryable: true},
+				IsLatest:              false,
+				Links:                 sourceRevisionLinks("src-rev-1", "src-doc-1"),
+			},
+		},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 2, HasMore: false, Sort: sourceRevisionSortLatestDesc},
+		AppliedQuery: SourceRevisionListQuery{Sort: sourceRevisionSortLatestDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        sourceLinksForDocument("src-doc-1"),
+	}
+	sourceRelationshipsReview := SourceRelationshipPage{
+		Source: sourceRef,
+		Items: []SourceRelationshipSummary{{
+			ID:                  "src-rel-1",
+			RelationshipType:    stores.SourceRelationshipTypeCopiedFrom,
+			RelationshipKind:    SourceRelationshipKindCopy,
+			Status:              stores.SourceRelationshipStatusPendingReview,
+			CounterpartRole:     SourceRelationshipRolePredecessor,
+			ConfidenceBand:      stores.LineageConfidenceBandMedium,
+			ConfidenceScore:     0.82,
+			Summary:             "Pending review predecessor copy lineage",
+			LeftSource:          sourceRef,
+			RightSource:         candidateRef,
+			CounterpartSource:   candidateRef,
+			ReviewActionVisible: LineageReviewVisibilityAdminOnly,
+			Evidence: []CandidateEvidenceSummary{
+				{Code: lineageEvidenceKeyNormalizedTextSimilarity, Label: "Normalized text match", Details: "0.91 similarity"},
+				{Code: lineageEvidenceKeyAccountMatch, Label: "Account history", Details: "fixture-account-2"},
+			},
+			Links: SourceManagementLinks{
+				Self:   sourceManagementSourceRelationshipsPath("src-doc-1"),
+				Source: sourceManagementSourcePath("src-doc-candidate"),
+			},
+		}},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 1, HasMore: false, Sort: sourceRelationshipSortConfidence},
+		AppliedQuery: SourceRelationshipListQuery{Status: stores.SourceRelationshipStatusPendingReview, Sort: sourceRelationshipSortConfidence, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        sourceLinksForDocument("src-doc-1"),
+	}
+	sourceRevisionDetail := SourceRevisionDetail{
+		Source:                sourceRef,
+		Revision:              secondRevision,
+		Provider:              providerV2,
+		FingerprintStatus:     FingerprintStatusSummary{Status: LineageFingerprintStatusFailed, EvidenceAvailable: false, ErrorCode: "OCR_TIMEOUT", ErrorMessage: "text extraction exceeded retry budget"},
+		FingerprintProcessing: FingerprintProcessingSummary{State: LineageFingerprintProcessingFailed, LastErrorCode: "OCR_TIMEOUT", LastErrorMessage: "text extraction exceeded retry budget", AttemptCount: 3},
+		Permissions:           permissions,
+		Links:                 sourceRevisionLinks("src-rev-2", "src-doc-1"),
+		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+	sourceArtifacts := SourceArtifactPage{
+		Revision:    secondRevision,
+		Items:       []SourceArtifactSummary{secondArtifact},
+		PageInfo:    SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 1, TotalCount: 1, HasMore: false, Sort: sourceRevisionSortLatestDesc},
+		Permissions: permissions,
+		EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:       sourceRevisionLinks("src-rev-2", "src-doc-1"),
+	}
+	sourceCommentsEmpty := SourceCommentPage{
+		Revision:    secondRevision,
+		Items:       []SourceCommentThreadSummary{},
+		PageInfo:    SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 0, TotalCount: 0, HasMore: false, Sort: sourceRevisionSortLatestDesc},
+		Permissions: permissions,
+		EmptyState: LineageEmptyState{
+			Kind:        LineageEmptyStateNoComments,
+			Title:       "No comments",
+			Description: "Source-level comment sync is not configured yet for this revision.",
+		},
+		SyncStatus: SourceManagementCommentSyncNotConfigured,
+		Links:      sourceRevisionLinks("src-rev-2", "src-doc-1"),
+	}
+	sourceSearchResults := SourceSearchResults{
+		Items: []SourceSearchResultSummary{{
+			ResultKind:    SourceManagementSearchResultSourceRevision,
+			Source:        sourceRef,
+			Revision:      secondRevision,
+			Provider:      providerV2,
+			MatchedFields: []string{"external_file_id", "provider_revision_hint"},
+			Summary:       "Matched external_file_id, provider_revision_hint across canonical source metadata.",
+			Links:         sourceRevisionLinks("src-rev-2", "src-doc-1"),
+		}},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 1, HasMore: false, Sort: sourceSearchSortRelevance},
+		AppliedQuery: SourceSearchQuery{Query: "fixture-google-file-2", Sort: sourceSearchSortRelevance, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        SourceManagementLinks{Self: sourceManagementSearchPath()},
+	}
+	sourceDetailMerged := SourceDetail{
+		Source:                &LineageReference{ID: "src-doc-merged", Label: "Merged Fixture Source", URL: sourceManagementSourcePath("src-doc-merged")},
+		Status:                stores.SourceDocumentStatusMerged,
+		LineageConfidence:     stores.LineageConfidenceBandMedium,
+		Provider:              providerV2,
+		ActiveHandle:          &secondHandle,
+		LatestRevision:        secondRevision,
+		RevisionCount:         2,
+		HandleCount:           2,
+		RelationshipCount:     1,
+		PendingCandidateCount: 0,
+		Permissions:           permissions,
+		Links:                 sourceLinksForDocument("src-doc-merged"),
+		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+	sourceDetailArchived := SourceDetail{
+		Source:                &LineageReference{ID: "src-doc-archived", Label: "Archived Fixture Source", URL: sourceManagementSourcePath("src-doc-archived")},
+		Status:                stores.SourceDocumentStatusArchived,
+		LineageConfidence:     stores.LineageConfidenceBandExact,
+		Provider:              providerV2,
+		ActiveHandle:          &secondHandle,
+		LatestRevision:        secondRevision,
+		RevisionCount:         2,
+		HandleCount:           2,
+		RelationshipCount:     1,
+		PendingCandidateCount: 0,
+		Permissions:           permissions,
+		Links:                 sourceLinksForDocument("src-doc-archived"),
+		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+
+	return Phase11SourceManagementContractFixtures{
+		SchemaVersion: 1,
+		Rules: SourceManagementContractRules{
+			FrontendPresentationOnly:   true,
+			PaginationMode:             SourceManagementPaginationModePage,
+			DefaultPageSize:            defaultSourceManagementPageSize,
+			MaxPageSize:                maxSourceManagementPageSize,
+			SupportedSourceSorts:       []string{sourceListSortUpdatedDesc, sourceListSortTitleAsc, sourceListSortTitleDesc, sourceListSortPendingDesc},
+			SupportedRevisionSorts:     []string{sourceRevisionSortLatestDesc, sourceRevisionSortOldestAsc},
+			SupportedRelationshipSorts: []string{sourceRelationshipSortConfidence, sourceRelationshipSortCreated},
+			SupportedSearchSorts:       []string{sourceSearchSortRelevance, sourceSearchSortTitleAsc},
+			ProviderLinkVisibility:     SourceManagementLinkVisibilityAdminView,
+			DiagnosticsVisibility:      SourceManagementLinkVisibilityAdminView,
+			CandidateReviewVisibility:  LineageReviewVisibilityAdminOnly,
+		},
+		Queries: Phase11SourceManagementQueryFixtures{
+			ListSources: SourceListQuery{Query: "fixture-google-file-2", HasPendingCandidates: &pendingOnly, Sort: sourceListSortPendingDesc, Page: 1, PageSize: 10},
+			ListRevisions: SourceRevisionListQuery{
+				Sort:     sourceRevisionSortLatestDesc,
+				Page:     1,
+				PageSize: 10,
+			},
+			ListRelationships: SourceRelationshipListQuery{
+				Status:   stores.SourceRelationshipStatusPendingReview,
+				Sort:     sourceRelationshipSortConfidence,
+				Page:     1,
+				PageSize: 10,
+			},
+			Search: SourceSearchQuery{
+				Query:    "fixture-google-file-2",
+				Sort:     sourceSearchSortRelevance,
+				Page:     1,
+				PageSize: 10,
+			},
+		},
+		States: Phase11SourceManagementFixtureStates{
+			SourceListEmpty:           sourceListEmpty,
+			SourceListSingle:          sourceListSingle,
+			SourceDetailRepeated:      sourceDetailRepeated,
+			SourceHandlesMulti:        sourceHandlesMulti,
+			SourceRevisionsRepeated:   sourceRevisionsRepeated,
+			SourceRelationshipsReview: sourceRelationshipsReview,
+			SourceRevisionDetail:      sourceRevisionDetail,
+			SourceArtifacts:           sourceArtifacts,
+			SourceCommentsEmpty:       sourceCommentsEmpty,
+			SourceSearchResults:       sourceSearchResults,
+			SourceDetailMerged:        sourceDetailMerged,
+			SourceDetailArchived:      sourceDetailArchived,
+		},
+	}
 }

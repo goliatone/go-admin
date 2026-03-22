@@ -332,3 +332,325 @@ func TestPhase2SQLiteLineagePersistenceRejectsRevisionWhenHandleBelongsToDiffere
 		t.Fatalf("expected mismatched handle/document revision rejection")
 	}
 }
+
+func TestPhase12SQLiteLineagePersistenceStoresDirectionalRelationshipEndpointsAndUsageAggregates(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-phase12-lineage", OrgID: "org-phase12-lineage"}
+	bootstrap := newSQLiteBootstrapForStoreAdapterTests(t)
+	adapter, cleanup, err := NewStoreAdapter(bootstrap)
+	if err != nil {
+		t.Fatalf("NewStoreAdapter: %v", err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+
+	lineage, ok := any(adapter).(stores.LineageStore)
+	if !ok {
+		t.Fatalf("expected store adapter to implement LineageStore")
+	}
+	usageStore, ok := any(adapter).(stores.SourceRevisionUsageStore)
+	if !ok {
+		t.Fatalf("expected store adapter to implement SourceRevisionUsageStore")
+	}
+
+	now := time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC)
+	predecessor, err := lineage.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-predecessor",
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Predecessor",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument predecessor: %v", err)
+	}
+	successor, err := lineage.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-successor",
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Successor",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument successor: %v", err)
+	}
+	predecessorHandle, err := lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		ID:               "src-handle-predecessor",
+		SourceDocumentID: predecessor.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "file-predecessor",
+		AccountID:        "acct-1",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle predecessor: %v", err)
+	}
+	successorHandle, err := lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		ID:               "src-handle-successor",
+		SourceDocumentID: successor.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "file-successor",
+		AccountID:        "acct-2",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle successor: %v", err)
+	}
+	predecessorRevision, err := lineage.CreateSourceRevision(ctx, scope, stores.SourceRevisionRecord{
+		ID:               "src-rev-predecessor",
+		SourceDocumentID: predecessor.ID,
+		SourceHandleID:   predecessorHandle.ID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision predecessor: %v", err)
+	}
+	successorRevision, err := lineage.CreateSourceRevision(ctx, scope, stores.SourceRevisionRecord{
+		ID:               "src-rev-successor",
+		SourceDocumentID: successor.ID,
+		SourceHandleID:   successorHandle.ID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision successor: %v", err)
+	}
+
+	relationship, err := lineage.CreateSourceRelationship(ctx, scope, stores.SourceRelationshipRecord{
+		ID:                          "src-rel-directional",
+		LeftSourceDocumentID:        predecessor.ID,
+		RightSourceDocumentID:       successor.ID,
+		PredecessorSourceDocumentID: predecessor.ID,
+		SuccessorSourceDocumentID:   successor.ID,
+		RelationshipType:            stores.SourceRelationshipTypeCopiedFrom,
+		ConfidenceBand:              stores.LineageConfidenceBandHigh,
+		ConfidenceScore:             0.9,
+		Status:                      stores.SourceRelationshipStatusConfirmed,
+		CreatedAt:                   now,
+		UpdatedAt:                   now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRelationship directional: %v", err)
+	}
+	if relationship.PredecessorSourceDocumentID != predecessor.ID || relationship.SuccessorSourceDocumentID != successor.ID {
+		t.Fatalf("expected persisted directional endpoints, got %+v", relationship)
+	}
+
+	if _, err := adapter.Create(ctx, scope, stores.DocumentRecord{
+		ID:                 "doc-pinned-successor",
+		Title:              "Pinned Successor",
+		SourceOriginalName: "pinned-successor.pdf",
+		SourceObjectKey:    "fixtures/pinned-successor.pdf",
+		SourceSHA256:       strings.Repeat("c", 64),
+		SizeBytes:          2048,
+		PageCount:          2,
+		SourceDocumentID:   successor.ID,
+		SourceRevisionID:   successorRevision.ID,
+		CreatedByUserID:    "fixture-user",
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}); err != nil {
+		t.Fatalf("Create pinned document: %v", err)
+	}
+	if _, err := adapter.CreateDraft(ctx, scope, stores.AgreementRecord{
+		ID:               "agr-pinned-successor",
+		DocumentID:       "doc-pinned-successor",
+		Title:            "Pinned Successor Agreement",
+		Status:           stores.AgreementStatusDraft,
+		Version:          1,
+		SourceRevisionID: successorRevision.ID,
+		CreatedByUserID:  "fixture-user",
+		UpdatedByUserID:  "fixture-user",
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}); err != nil {
+		t.Fatalf("CreateDraft pinned agreement: %v", err)
+	}
+
+	usage, err := usageStore.ListSourceRevisionUsage(ctx, scope, stores.SourceRevisionUsageQuery{
+		SourceDocumentIDs: []string{successor.ID},
+		SourceRevisionIDs: []string{predecessorRevision.ID, successorRevision.ID},
+	})
+	if err != nil {
+		t.Fatalf("ListSourceRevisionUsage: %v", err)
+	}
+	if len(usage) != 1 {
+		t.Fatalf("expected one usage aggregate, got %+v", usage)
+	}
+	if usage[0].SourceRevisionID != successorRevision.ID || usage[0].PinnedDocumentCount != 1 || usage[0].PinnedAgreementCount != 1 {
+		t.Fatalf("expected successor revision aggregate counts, got %+v", usage[0])
+	}
+}
+
+func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-phase13-lineage", OrgID: "org-phase13-lineage"}
+	bootstrap := newSQLiteBootstrapForStoreAdapterTests(t)
+	adapter, cleanup, err := NewStoreAdapter(bootstrap)
+	if err != nil {
+		t.Fatalf("NewStoreAdapter: %v", err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+
+	lineage, ok := any(adapter).(stores.LineageStore)
+	if !ok {
+		t.Fatalf("expected store adapter to implement LineageStore")
+	}
+
+	now := time.Date(2026, 3, 21, 14, 0, 0, 0, time.UTC)
+	document, err := lineage.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
+		ID:                "src-doc-phase13",
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    "Phase 13 Source",
+		Status:            stores.SourceDocumentStatusActive,
+		LineageConfidence: stores.LineageConfidenceBandExact,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceDocument: %v", err)
+	}
+	handle, err := lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		ID:               "src-handle-phase13",
+		SourceDocumentID: document.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "phase13-file",
+		AccountID:        "acct-phase13",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceHandle: %v", err)
+	}
+	revision, err := lineage.CreateSourceRevision(ctx, scope, stores.SourceRevisionRecord{
+		ID:                   "src-rev-phase13",
+		SourceDocumentID:     document.ID,
+		SourceHandleID:       handle.ID,
+		ProviderRevisionHint: "v-phase13",
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceRevision: %v", err)
+	}
+
+	thread, err := lineage.CreateSourceCommentThread(ctx, scope, stores.SourceCommentThreadRecord{
+		ID:                "src-comment-thread-1",
+		SourceDocumentID:  document.ID,
+		SourceRevisionID:  revision.ID,
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		ProviderCommentID: "provider-comment-1",
+		ThreadID:          "provider-thread-1",
+		Status:            stores.SourceCommentThreadStatusOpen,
+		AnchorKind:        stores.SourceCommentAnchorKindDocument,
+		AnchorJSON:        `{"kind":"document","label":"Document"}`,
+		AuthorJSON:        `{"display_name":"Reviewer","email":"reviewer@example.com","type":"user"}`,
+		BodyPreview:       "First comment body",
+		MessageCount:      1,
+		ReplyCount:        0,
+		SyncStatus:        stores.SourceCommentSyncStatusSynced,
+		LastSyncedAt:      &now,
+		LastActivityAt:    &now,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceCommentThread: %v", err)
+	}
+	if _, err := lineage.CreateSourceCommentMessage(ctx, scope, stores.SourceCommentMessageRecord{
+		ID:                    "src-comment-message-1",
+		SourceCommentThreadID: thread.ID,
+		SourceRevisionID:      revision.ID,
+		ProviderMessageID:     "provider-message-1",
+		MessageKind:           stores.SourceCommentMessageKindComment,
+		BodyText:              "First comment body",
+		BodyPreview:           "First comment body",
+		AuthorJSON:            `{"display_name":"Reviewer","email":"reviewer@example.com","type":"user"}`,
+		CreatedAt:             now,
+		UpdatedAt:             now,
+	}); err != nil {
+		t.Fatalf("CreateSourceCommentMessage: %v", err)
+	}
+	if _, err := lineage.CreateSourceCommentSyncState(ctx, scope, stores.SourceCommentSyncStateRecord{
+		ID:               "src-comment-sync-1",
+		SourceDocumentID: document.ID,
+		SourceRevisionID: revision.ID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		SyncStatus:       stores.SourceCommentSyncStatusSynced,
+		ThreadCount:      1,
+		MessageCount:     1,
+		PayloadSHA256:    strings.Repeat("a", 64),
+		PayloadJSON:      `{"source_revision_id":"src-rev-phase13"}`,
+		LastAttemptAt:    &now,
+		LastSyncedAt:     &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}); err != nil {
+		t.Fatalf("CreateSourceCommentSyncState: %v", err)
+	}
+	searchDoc, err := lineage.CreateSourceSearchDocument(ctx, scope, stores.SourceSearchDocumentRecord{
+		ID:                "src-search-doc-1",
+		SourceDocumentID:  document.ID,
+		SourceRevisionID:  revision.ID,
+		ResultKind:        stores.SourceSearchResultKindSourceRevision,
+		ProviderKind:      stores.SourceProviderKindGoogleDrive,
+		CanonicalTitle:    document.CanonicalTitle,
+		RelationshipState: stores.SourceRelationshipStatusConfirmed,
+		CommentSyncStatus: stores.SourceCommentSyncStatusSynced,
+		CommentCount:      1,
+		HasComments:       true,
+		SearchText:        "Phase 13 Source First comment body",
+		MetadataJSON:      `{"revision_hints":["v-phase13"]}`,
+		IndexedAt:         now,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSourceSearchDocument: %v", err)
+	}
+
+	threads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{SourceDocumentID: document.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentThreads: %v", err)
+	}
+	if len(threads) != 1 || threads[0].ID != thread.ID {
+		t.Fatalf("expected thread %q, got %+v", thread.ID, threads)
+	}
+	states, err := lineage.ListSourceCommentSyncStates(ctx, scope, stores.SourceCommentSyncStateQuery{SourceRevisionID: revision.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentSyncStates: %v", err)
+	}
+	if len(states) != 1 || states[0].SyncStatus != stores.SourceCommentSyncStatusSynced {
+		t.Fatalf("expected synced state, got %+v", states)
+	}
+	searchDocs, err := lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{
+		SourceRevisionID: revision.ID,
+		ResultKind:       stores.SourceSearchResultKindSourceRevision,
+		HasComments:      boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("ListSourceSearchDocuments: %v", err)
+	}
+	if len(searchDocs) != 1 || searchDocs[0].ID != searchDoc.ID {
+		t.Fatalf("expected search document %q, got %+v", searchDoc.ID, searchDocs)
+	}
+
+	if err := lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID}); err != nil {
+		t.Fatalf("DeleteSourceSearchDocuments: %v", err)
+	}
+	deletedSearchDocs, err := lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID})
+	if err != nil {
+		t.Fatalf("ListSourceSearchDocuments after delete: %v", err)
+	}
+	if len(deletedSearchDocs) != 0 {
+		t.Fatalf("expected deleted search documents, got %+v", deletedSearchDocs)
+	}
+}

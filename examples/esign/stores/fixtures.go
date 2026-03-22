@@ -32,6 +32,7 @@ type LineageFixtureSet struct {
 	ImportedDocumentID        string `json:"imported_document_id"`
 	ImportedAgreementID       string `json:"imported_agreement_id"`
 	SourceDocumentID          string `json:"source_document_id"`
+	LegacySourceHandleID      string `json:"legacy_source_handle_id"`
 	ActiveSourceHandleID      string `json:"active_source_handle_id"`
 	FirstSourceRevisionID     string `json:"first_source_revision_id"`
 	FirstSourceArtifactID     string `json:"first_source_artifact_id"`
@@ -190,11 +191,13 @@ func SeedLineageFixtures(ctx context.Context, db bun.IDB, scope Scope) (LineageF
 	}
 
 	now := time.Now().UTC()
+	secondNow := now.Add(2 * time.Hour)
 	fx := LineageFixtureSet{
 		UploadOnlyDocumentID:      uuid.NewString(),
 		ImportedDocumentID:        uuid.NewString(),
 		ImportedAgreementID:       uuid.NewString(),
 		SourceDocumentID:          uuid.NewString(),
+		LegacySourceHandleID:      uuid.NewString(),
 		ActiveSourceHandleID:      uuid.NewString(),
 		FirstSourceRevisionID:     uuid.NewString(),
 		FirstSourceArtifactID:     uuid.NewString(),
@@ -217,6 +220,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 INSERT INTO source_documents (id, tenant_id, org_id, provider_kind, canonical_title, status, lineage_confidence, created_at, updated_at)
 VALUES (?, ?, ?, 'google_drive', ?, 'active', 'exact', ?, ?)
 `, fx.SourceDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", now, now); err != nil {
+		return LineageFixtureSet{}, err
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_handles (id, tenant_id, org_id, source_document_id, provider_kind, external_file_id, account_id, drive_id, web_url, handle_status, valid_from, valid_to, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, 'superseded', ?, ?, ?, ?)
+`, fx.LegacySourceHandleID, scope.TenantID, scope.OrgID, fx.SourceDocumentID, "google-file-legacy", "account-legacy", "drive-root", "https://docs.google.com/document/d/google-file-legacy/edit", now, secondNow, now, secondNow); err != nil {
 		return LineageFixtureSet{}, err
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -250,7 +259,6 @@ VALUES (?, ?, ?, ?, 'draft', ?, ?, 1, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		return LineageFixtureSet{}, err
 	}
 
-	secondNow := now.Add(2 * time.Hour)
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO source_revisions (id, tenant_id, org_id, source_document_id, source_handle_id, provider_revision_hint, modified_time, exported_at, exported_by_user_id, source_mime_type, metadata_json, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

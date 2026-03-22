@@ -72,6 +72,18 @@ WHERE id IN (?)
 		t.Fatalf("expected 3 seeded documents, got %d", documents)
 	}
 
+	var handles int
+	if err := bootstrap.BunDB.NewRaw(`
+SELECT COUNT(1)
+FROM source_handles
+WHERE source_document_id = ?
+`, first.SourceDocumentID).Scan(ctx, &handles); err != nil {
+		t.Fatalf("count seeded source handles: %v", err)
+	}
+	if handles != 2 {
+		t.Fatalf("expected 2 seeded source handles for multi-handle continuity, got %d", handles)
+	}
+
 	urls, err := BuildLineageFixtureURLs("/admin", scope, first)
 	if err != nil {
 		t.Fatalf("BuildLineageFixtureURLs: %v", err)

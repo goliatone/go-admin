@@ -29,6 +29,7 @@ type DefaultSourceReadModelService struct {
 	lineage             stores.LineageStore
 	importRuns          stores.GoogleImportRunStore
 	jobRuns             stores.JobRunStore
+	sourceSearch        SourceSearchService
 	diagnosticsBasePath string
 }
 
@@ -76,6 +77,10 @@ func NewDefaultSourceReadModelService(
 		agreements:          agreements,
 		lineage:             lineage,
 		diagnosticsBasePath: DefaultLineageDiagnosticsBasePath,
+	}
+	if lineage != nil {
+		search := NewDefaultSourceSearchService(lineage)
+		svc.sourceSearch = search
 	}
 	for _, opt := range opts {
 		if opt != nil {

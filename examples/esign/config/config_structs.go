@@ -36,6 +36,13 @@ type App struct {
 	Name string `json:"name" koanf:"name"`
 }
 
+type AssetPermissions struct {
+	Certificate []string `json:"certificate" koanf:"certificate"`
+	Executed    []string `json:"executed" koanf:"executed"`
+	Preview     []string `json:"preview" koanf:"preview"`
+	Source      []string `json:"source" koanf:"source"`
+}
+
 type Auth struct {
 	AdminEmail    string `json:"admin_email" koanf:"admin_email"`
 	AdminID       string `json:"admin_id" koanf:"admin_id"`
@@ -67,6 +74,10 @@ type Features struct {
 	Activity    bool `json:"activity" koanf:"activity"`
 	ESign       bool `json:"esign" koanf:"esign"`
 	ESignGoogle bool `json:"esign_google" koanf:"esign_google"`
+}
+
+type Fs struct {
+	BasePath string `json:"base_path" koanf:"base_path"`
 }
 
 type Google struct {
@@ -164,6 +175,19 @@ type Runtime struct {
 	StrictStartup     bool   `json:"strict_startup" koanf:"strict_startup"`
 }
 
+type S3 struct {
+	AccessKeyID     string `json:"access_key_id" koanf:"access_key_id"`
+	BasePath        string `json:"base_path" koanf:"base_path"`
+	Bucket          string `json:"bucket" koanf:"bucket"`
+	DisableSsl      bool   `json:"disable_ssl" koanf:"disable_ssl"`
+	EndpointURL     string `json:"endpoint_url" koanf:"endpoint_url"`
+	Profile         string `json:"profile" koanf:"profile"`
+	Region          string `json:"region" koanf:"region"`
+	SecretAccessKey string `json:"secret_access_key" koanf:"secret_access_key"`
+	SessionToken    string `json:"session_token" koanf:"session_token"`
+	UsePathStyle    bool   `json:"use_path_style" koanf:"use_path_style"`
+}
+
 type SMTP struct {
 	DisableSTARTTLS bool   `json:"disable_starttls" koanf:"disable_starttls"`
 	FromAddress     string `json:"from_address" koanf:"from_address"`
@@ -174,6 +198,13 @@ type SMTP struct {
 	Port            int    `json:"port" koanf:"port"`
 	TimeoutSeconds  int    `json:"timeout_seconds" koanf:"timeout_seconds"`
 	Username        string `json:"username" koanf:"username"`
+}
+
+type SenderViewer struct {
+	AssetPermissions          AssetPermissions `json:"asset_permissions" koanf:"asset_permissions"`
+	CommentPermissionsAll     []string         `json:"comment_permissions_all" koanf:"comment_permissions_all"`
+	PagePermissionsAll        []string         `json:"page_permissions_all" koanf:"page_permissions_all"`
+	ShowInProgressFieldValues bool             `json:"show_in_progress_field_values" koanf:"show_in_progress_field_values"`
 }
 
 type Server struct {
@@ -187,13 +218,14 @@ type Services struct {
 }
 
 type Signer struct {
-	PDF                          Pdf    `json:"pdf" koanf:"pdf"`
-	ProfileMode                  string `json:"profile_mode" koanf:"profile_mode"`
-	ProfilePersistDrawnSignature bool   `json:"profile_persist_drawn_signature" koanf:"profile_persist_drawn_signature"`
-	ProfileTTLDays               int    `json:"profile_ttl_days" koanf:"profile_ttl_days"`
-	SavedSignaturesLimitPerType  int    `json:"saved_signatures_limit_per_type" koanf:"saved_signatures_limit_per_type"`
-	UploadSigningKey             string `json:"upload_signing_key" koanf:"upload_signing_key"`
-	UploadTTLSeconds             int    `json:"upload_ttl_seconds" koanf:"upload_ttl_seconds"`
+	PDF                          Pdf          `json:"pdf" koanf:"pdf"`
+	ProfileMode                  string       `json:"profile_mode" koanf:"profile_mode"`
+	ProfilePersistDrawnSignature bool         `json:"profile_persist_drawn_signature" koanf:"profile_persist_drawn_signature"`
+	ProfileTTLDays               int          `json:"profile_ttl_days" koanf:"profile_ttl_days"`
+	SavedSignaturesLimitPerType  int          `json:"saved_signatures_limit_per_type" koanf:"saved_signatures_limit_per_type"`
+	SenderViewer                 SenderViewer `json:"sender_viewer" koanf:"sender_viewer"`
+	UploadSigningKey             string       `json:"upload_signing_key" koanf:"upload_signing_key"`
+	UploadTTLSeconds             int          `json:"upload_ttl_seconds" koanf:"upload_ttl_seconds"`
 }
 
 type SignerSession struct {
@@ -206,26 +238,9 @@ type Sqlite struct {
 }
 
 type Storage struct {
-	Backend             string    `json:"backend" koanf:"backend"`
-	EncryptionAlgorithm string    `json:"encryption_algorithm" koanf:"encryption_algorithm"`
-	KMSKeyID            string    `json:"kms_key_id" koanf:"kms_key_id"`
-	FS                  StorageFS `json:"fs" koanf:"fs"`
-	S3                  StorageS3 `json:"s3" koanf:"s3"`
-}
-
-type StorageFS struct {
-	BasePath string `json:"base_path" koanf:"base_path"`
-}
-
-type StorageS3 struct {
-	AccessKeyID     string `json:"access_key_id" koanf:"access_key_id"`
-	BasePath        string `json:"base_path" koanf:"base_path"`
-	Bucket          string `json:"bucket" koanf:"bucket"`
-	DisableSSL      bool   `json:"disable_ssl" koanf:"disable_ssl"`
-	EndpointURL     string `json:"endpoint_url" koanf:"endpoint_url"`
-	Profile         string `json:"profile" koanf:"profile"`
-	Region          string `json:"region" koanf:"region"`
-	SecretAccessKey string `json:"secret_access_key" koanf:"secret_access_key"`
-	SessionToken    string `json:"session_token" koanf:"session_token"`
-	UsePathStyle    bool   `json:"use_path_style" koanf:"use_path_style"`
+	Backend             string `json:"backend" koanf:"backend"`
+	EncryptionAlgorithm string `json:"encryption_algorithm" koanf:"encryption_algorithm"`
+	Fs                  Fs     `json:"fs" koanf:"fs"`
+	KmsKeyID            string `json:"kms_key_id" koanf:"kms_key_id"`
+	S3                  S3     `json:"s3" koanf:"s3"`
 }

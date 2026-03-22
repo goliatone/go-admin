@@ -25,7 +25,7 @@ func TestBuildReviewLinkUsesPublicBaseURL(t *testing.T) {
 	appcfg.SetActive(cfg)
 	t.Cleanup(appcfg.ResetActive)
 	got := buildReviewLink("review-token-123")
-	want := "https://esign.example.com/sign/review-token-123"
+	want := "https://esign.example.com/review/review-token-123"
 	if got != want {
 		t.Fatalf("expected review link %q, got %q", want, got)
 	}

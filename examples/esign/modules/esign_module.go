@@ -21,6 +21,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/permissions"
+	"github.com/goliatone/go-admin/examples/esign/release"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
@@ -41,6 +42,8 @@ const (
 
 var (
 	defaultPDFRemediationExecutableAllowlist = []string{"gs"}
+	resolveV2SourceManagementRepoRoot        = release.DefaultRepoRoot
+	validateV2SourceManagementRuntime        = release.ValidateV2SourceManagementStartup
 
 	allowedESignDocumentMimeTypes = map[string]bool{
 		"application/pdf": true,
@@ -297,6 +300,16 @@ func (m *ESignModule) SignerAssetContractService() services.SignerAssetContractS
 		return services.SignerAssetContractService{}
 	}
 	return services.NewSignerAssetContractService(m.store,
+		services.WithSignerAssetObjectStore(m.documentUploadManager()),
+	)
+}
+
+// AgreementViewService returns sender-authenticated agreement viewer composition used by admin routes.
+func (m *ESignModule) AgreementViewService() services.AgreementViewService {
+	if m == nil || m.store == nil {
+		return services.AgreementViewService{}
+	}
+	return services.NewAgreementViewService(m.signing, m.store,
 		services.WithSignerAssetObjectStore(m.documentUploadManager()),
 	)
 }
@@ -798,7 +811,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Enabled:     m.googleEnabled,
 		Integration: m.google,
 	}
-	if m.durableJobs != nil {
+	if m.googleEnabled && m.durableJobs != nil {
 		googleRuntime.ImportRuns = m.store
 		googleRuntime.ImportJobs = m.store
 		googleRuntime.ImportEnqueue = jobs.NewDurableGoogleDriveImportEnqueue(m.durableJobs)
@@ -830,6 +843,11 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerSavedSignatureService(m.savedSignatures),
 		handlers.WithSignerAssetContractService(
 			services.NewSignerAssetContractService(m.store,
+				services.WithSignerAssetObjectStore(objectStore),
+			),
+		),
+		handlers.WithAgreementViewerService(
+			services.NewAgreementViewService(m.signing, m.store,
 				services.WithSignerAssetObjectStore(objectStore),
 			),
 		),
@@ -1565,6 +1583,13 @@ func (m *ESignModule) validateLineageRuntimeWiring(ctx context.Context) error {
 	}
 	if m.googleEnabled && m.durableJobs == nil {
 		return fmt.Errorf("esign module: durable job runtime is required when esign_google is enabled")
+	}
+	repoRoot, err := resolveV2SourceManagementRepoRoot()
+	if err != nil {
+		return fmt.Errorf("esign module: resolve v2 source-management repo root: %w", err)
+	}
+	if err := validateV2SourceManagementRuntime(ctx, repoRoot, m.defaultScope, m.store, m.sourceReadModels); err != nil {
+		return fmt.Errorf("esign module: v2 source-management startup validation failed: %w", err)
 	}
 	return nil
 }

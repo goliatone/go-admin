@@ -466,29 +466,56 @@ type ReviewSessionParticipant struct {
 	ApprovedOnBehalfAt            *time.Time `json:"approved_on_behalf_at,omitempty"`
 }
 
+const (
+	SignerSessionUIModeSign          = "sign"
+	SignerSessionUIModeReview        = "review"
+	SignerSessionUIModeSignAndReview = "sign_and_review"
+	SignerSessionDefaultTabSign      = "sign"
+	SignerSessionDefaultTabReview    = "review"
+)
+
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
 type SignerSessionContext struct {
-	SessionKind            string                      `json:"session_kind,omitempty"`
-	AgreementID            string                      `json:"agreement_id"`
-	AgreementStatus        string                      `json:"agreement_status"`
-	DocumentName           string                      `json:"document_name"`
-	PageCount              int                         `json:"page_count"`
-	Viewer                 SignerSessionViewerContext  `json:"viewer"`
-	RecipientID            string                      `json:"recipient_id"`
-	RecipientRole          string                      `json:"recipient_role"`
-	RecipientEmail         string                      `json:"recipient_email"`
-	RecipientName          string                      `json:"recipient_name"`
-	RecipientOrder         int                         `json:"recipient_order"`
-	RecipientStage         int                         `json:"recipient_stage,omitempty"`
-	ActiveStage            int                         `json:"active_stage,omitempty"`
-	State                  string                      `json:"state"`
-	ActiveRecipientID      string                      `json:"active_recipient_id,omitempty"`
-	ActiveRecipientIDs     []string                    `json:"active_recipient_ids,omitempty"`
-	WaitingForRecipient    string                      `json:"waiting_for_recipient_id,omitempty"`
-	WaitingForRecipientIDs []string                    `json:"waiting_for_recipient_ids,omitempty"`
-	Review                 *SignerSessionReviewContext `json:"review,omitempty"`
-	CanSign                bool                        `json:"can_sign"`
-	Fields                 []SignerSessionField        `json:"fields"`
+	SessionKind              string                      `json:"session_kind,omitempty"`
+	UIMode                   string                      `json:"ui_mode,omitempty"`
+	DefaultTab               string                      `json:"default_tab,omitempty"`
+	ViewerMode               string                      `json:"viewer_mode,omitempty"`
+	ViewerBanner             string                      `json:"viewer_banner,omitempty"`
+	ReviewMarkersVisible     bool                        `json:"review_markers_visible"`
+	ReviewMarkersInteractive bool                        `json:"review_markers_interactive"`
+	AgreementID              string                      `json:"agreement_id"`
+	AgreementStatus          string                      `json:"agreement_status"`
+	DocumentName             string                      `json:"document_name"`
+	PageCount                int                         `json:"page_count"`
+	Viewer                   SignerSessionViewerContext  `json:"viewer"`
+	RecipientID              string                      `json:"recipient_id"`
+	RecipientRole            string                      `json:"recipient_role"`
+	RecipientEmail           string                      `json:"recipient_email"`
+	RecipientName            string                      `json:"recipient_name"`
+	RecipientOrder           int                         `json:"recipient_order"`
+	RecipientStage           int                         `json:"recipient_stage,omitempty"`
+	ActiveStage              int                         `json:"active_stage,omitempty"`
+	State                    string                      `json:"state"`
+	ActiveRecipientID        string                      `json:"active_recipient_id,omitempty"`
+	ActiveRecipientIDs       []string                    `json:"active_recipient_ids,omitempty"`
+	WaitingForRecipient      string                      `json:"waiting_for_recipient_id,omitempty"`
+	WaitingForRecipientIDs   []string                    `json:"waiting_for_recipient_ids,omitempty"`
+	Review                   *SignerSessionReviewContext `json:"review,omitempty"`
+	CanSign                  bool                        `json:"can_sign"`
+	Fields                   []SignerSessionField        `json:"fields"`
+}
+
+func deriveSignerSessionUIPresentation(sessionKind string, review *SignerSessionReviewContext) (string, string, bool, bool) {
+	hasReview := review != nil
+	switch strings.TrimSpace(sessionKind) {
+	case "reviewer":
+		return SignerSessionUIModeReview, SignerSessionDefaultTabReview, hasReview, hasReview
+	case "signer":
+		if hasReview {
+			return SignerSessionUIModeSignAndReview, SignerSessionDefaultTabSign, true, true
+		}
+	}
+	return SignerSessionUIModeSign, SignerSessionDefaultTabSign, false, false
 }
 
 // SignerConsentInput captures signer consent payload.
@@ -736,28 +763,34 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		return SignerSessionContext{}, err
 	}
 
+	uiMode, defaultTab, reviewMarkersVisible, reviewMarkersInteractive := deriveSignerSessionUIPresentation("signer", review)
+
 	return SignerSessionContext{
-		SessionKind:            "signer",
-		AgreementID:            agreement.ID,
-		AgreementStatus:        agreement.Status,
-		DocumentName:           documentName,
-		PageCount:              pageCount,
-		Viewer:                 viewer,
-		RecipientID:            recipient.ID,
-		RecipientRole:          recipient.Role,
-		RecipientEmail:         recipient.Email,
-		RecipientName:          recipient.Name,
-		RecipientOrder:         recipient.SigningOrder,
-		RecipientStage:         normalizeSigningStage(recipient.SigningOrder),
-		ActiveStage:            activeStage,
-		State:                  state,
-		ActiveRecipientID:      coalesceFirst(activeRecipientIDs),
-		ActiveRecipientIDs:     activeRecipientIDs,
-		WaitingForRecipient:    waitingFor,
-		WaitingForRecipientIDs: waitingForIDs,
-		Review:                 review,
-		CanSign:                review == nil || review.CanSign,
-		Fields:                 sessionFields,
+		SessionKind:              "signer",
+		UIMode:                   uiMode,
+		DefaultTab:               defaultTab,
+		ReviewMarkersVisible:     reviewMarkersVisible,
+		ReviewMarkersInteractive: reviewMarkersInteractive,
+		AgreementID:              agreement.ID,
+		AgreementStatus:          agreement.Status,
+		DocumentName:             documentName,
+		PageCount:                pageCount,
+		Viewer:                   viewer,
+		RecipientID:              recipient.ID,
+		RecipientRole:            recipient.Role,
+		RecipientEmail:           recipient.Email,
+		RecipientName:            recipient.Name,
+		RecipientOrder:           recipient.SigningOrder,
+		RecipientStage:           normalizeSigningStage(recipient.SigningOrder),
+		ActiveStage:              activeStage,
+		State:                    state,
+		ActiveRecipientID:        coalesceFirst(activeRecipientIDs),
+		ActiveRecipientIDs:       activeRecipientIDs,
+		WaitingForRecipient:      waitingFor,
+		WaitingForRecipientIDs:   waitingForIDs,
+		Review:                   review,
+		CanSign:                  review == nil || review.CanSign,
+		Fields:                   sessionFields,
 	}, nil
 }
 

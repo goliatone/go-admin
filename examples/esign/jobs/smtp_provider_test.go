@@ -154,9 +154,9 @@ func TestReviewInvitationTemplateUsesReviewLink(t *testing.T) {
 			Name:  "Jordan",
 			Email: "jordan@example.test",
 		},
-		ReviewURL: "https://example.test/sign/review-token-1",
+		ReviewURL: "https://example.test/review/review-token-1",
 	})
-	if !strings.Contains(body, "Review Agreement: https://example.test/sign/review-token-1") {
+	if !strings.Contains(body, "Review Agreement: https://example.test/review/review-token-1") {
 		t.Fatalf("expected review link in body, got %q", body)
 	}
 }

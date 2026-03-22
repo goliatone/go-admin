@@ -2,10 +2,14 @@ package services
 
 import (
 	"context"
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -279,6 +283,395 @@ func TestCandidateWarningSummaryFromRelationshipSupportsCanonicalAndLegacyWebURL
 	}
 }
 
+func TestDefaultSourceReadModelServiceBuildsSourceManagementReadModels(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(store, store, store)
+
+	sources, err := service.ListSources(context.Background(), scope, SourceListQuery{})
+	if err != nil {
+		t.Fatalf("ListSources: %v", err)
+	}
+	if len(sources.Items) < 1 {
+		t.Fatalf("expected at least one source list item, got %+v", sources)
+	}
+	if sources.Items[0].Source == nil || strings.TrimSpace(sources.Items[0].Source.ID) == "" {
+		t.Fatalf("expected source list item source reference, got %+v", sources.Items[0])
+	}
+	if sources.Items[0].Provider == nil || strings.TrimSpace(sources.Items[0].Provider.Kind) == "" {
+		t.Fatalf("expected source list provider summary, got %+v", sources.Items[0])
+	}
+	if sources.Items[0].Permissions.CanViewDiagnostics || sources.Items[0].Permissions.CanOpenProviderLinks || sources.Items[0].Permissions.CanReviewCandidates || sources.Items[0].Permissions.CanViewComments {
+		t.Fatalf("expected direct source list service permissions to remain transport-neutral, got %+v", sources.Items[0].Permissions)
+	}
+	if sources.PageInfo.Mode != SourceManagementPaginationModePage {
+		t.Fatalf("expected page mode pagination, got %+v", sources.PageInfo)
+	}
+
+	detail, err := service.GetSourceDetail(context.Background(), scope, seeded.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("GetSourceDetail: %v", err)
+	}
+	if detail.Source == nil || detail.Source.ID != seeded.sourceDocumentID {
+		t.Fatalf("expected source detail for %q, got %+v", seeded.sourceDocumentID, detail)
+	}
+	if detail.ActiveHandle == nil || detail.ActiveHandle.ID != seeded.secondSourceHandleID {
+		t.Fatalf("expected source detail active handle %q, got %+v", seeded.secondSourceHandleID, detail.ActiveHandle)
+	}
+	if detail.LatestRevision == nil || detail.LatestRevision.ID != seeded.secondSourceRevisionID {
+		t.Fatalf("expected source detail latest revision %q, got %+v", seeded.secondSourceRevisionID, detail.LatestRevision)
+	}
+	if !containsString(detail.LatestRevision.HistoryLabels, SourceRevisionHistoryLabelLatest) || !containsString(detail.LatestRevision.HistoryLabels, SourceRevisionHistoryLabelPinned) {
+		t.Fatalf("expected source detail latest revision labels to include latest and pinned, got %+v", detail.LatestRevision)
+	}
+	if detail.Permissions.CanViewDiagnostics || detail.Permissions.CanOpenProviderLinks || detail.Permissions.CanReviewCandidates || detail.Permissions.CanViewComments {
+		t.Fatalf("expected direct source detail permissions to remain transport-neutral, got %+v", detail.Permissions)
+	}
+
+	revisions, err := service.ListSourceRevisions(context.Background(), scope, seeded.sourceDocumentID, SourceRevisionListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRevisions: %v", err)
+	}
+	if len(revisions.Items) != 2 {
+		t.Fatalf("expected two revisions, got %+v", revisions)
+	}
+	if !revisions.Items[0].IsLatest || revisions.Items[0].Revision == nil || revisions.Items[0].Revision.ID != seeded.secondSourceRevisionID {
+		t.Fatalf("expected latest revision first, got %+v", revisions.Items)
+	}
+	if !containsString(revisions.Items[0].Revision.HistoryLabels, SourceRevisionHistoryLabelLatest) || !containsString(revisions.Items[0].Revision.HistoryLabels, SourceRevisionHistoryLabelPinned) {
+		t.Fatalf("expected latest revision labels to include latest and pinned, got %+v", revisions.Items[0].Revision)
+	}
+	if revisions.Items[1].Revision == nil || revisions.Items[1].Revision.ID != seeded.firstSourceRevisionID {
+		t.Fatalf("expected earlier revision second, got %+v", revisions.Items)
+	}
+	if !containsString(revisions.Items[1].Revision.HistoryLabels, SourceRevisionHistoryLabelPinned) || !containsString(revisions.Items[1].Revision.HistoryLabels, SourceRevisionHistoryLabelSuperseded) {
+		t.Fatalf("expected earlier revision labels to include pinned and superseded, got %+v", revisions.Items[1].Revision)
+	}
+	if revisions.Items[1].Revision.PinnedDocumentCount != 1 || revisions.Items[1].Revision.PinnedAgreementCount != 1 {
+		t.Fatalf("expected earlier revision pin counts to reflect document/agreement provenance, got %+v", revisions.Items[1].Revision)
+	}
+
+	relationships, err := service.ListSourceRelationships(context.Background(), scope, seeded.sourceDocumentID, SourceRelationshipListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships: %v", err)
+	}
+	if len(relationships.Items) != 4 {
+		t.Fatalf("expected four relationships, got %+v", relationships)
+	}
+	relationshipByID := make(map[string]SourceRelationshipSummary, len(relationships.Items))
+	for _, item := range relationships.Items {
+		relationshipByID[item.ID] = item
+	}
+	if candidate := relationshipByID[seeded.candidateRelationshipID]; candidate.CounterpartSource == nil || candidate.CounterpartSource.ID != "src-doc-candidate" || candidate.RelationshipKind != SourceRelationshipKindContinuity || candidate.CounterpartRole != SourceRelationshipRolePredecessor {
+		t.Fatalf("expected continuity predecessor relationship summary, got %+v", candidate)
+	}
+	if copied := relationshipByID[seeded.copyRelationshipID]; copied.RelationshipKind != SourceRelationshipKindCopy || copied.CounterpartRole != SourceRelationshipRolePredecessor {
+		t.Fatalf("expected copy predecessor relationship summary, got %+v", copied)
+	}
+	if transferred := relationshipByID[seeded.transferRelationshipID]; transferred.RelationshipKind != SourceRelationshipKindTransfer || transferred.CounterpartRole != SourceRelationshipRoleSuccessor {
+		t.Fatalf("expected transfer successor relationship summary, got %+v", transferred)
+	}
+	if forked := relationshipByID[seeded.forkRelationshipID]; forked.RelationshipKind != SourceRelationshipKindFork || forked.CounterpartRole != SourceRelationshipRoleSuccessor {
+		t.Fatalf("expected fork successor relationship summary, got %+v", forked)
+	}
+
+	handles, err := service.ListSourceHandles(context.Background(), scope, seeded.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListSourceHandles: %v", err)
+	}
+	if len(handles.Items) != 2 {
+		t.Fatalf("expected two handles, got %+v", handles)
+	}
+
+	revisionDetail, err := service.GetSourceRevisionDetail(context.Background(), scope, seeded.secondSourceRevisionID)
+	if err != nil {
+		t.Fatalf("GetSourceRevisionDetail: %v", err)
+	}
+	if revisionDetail.Revision == nil || revisionDetail.Revision.ID != seeded.secondSourceRevisionID {
+		t.Fatalf("expected revision detail for %q, got %+v", seeded.secondSourceRevisionID, revisionDetail)
+	}
+	if revisionDetail.Provider == nil || revisionDetail.Provider.Extension == nil {
+		t.Fatalf("expected provider-neutral extension envelope, got %+v", revisionDetail.Provider)
+	}
+	if !containsString(revisionDetail.Revision.HistoryLabels, SourceRevisionHistoryLabelLatest) || !containsString(revisionDetail.Revision.HistoryLabels, SourceRevisionHistoryLabelPinned) {
+		t.Fatalf("expected revision detail labels to include latest and pinned, got %+v", revisionDetail.Revision)
+	}
+
+	artifacts, err := service.ListSourceRevisionArtifacts(context.Background(), scope, seeded.secondSourceRevisionID)
+	if err != nil {
+		t.Fatalf("ListSourceRevisionArtifacts: %v", err)
+	}
+	if len(artifacts.Items) != 1 || artifacts.Items[0].ID != seeded.secondSourceArtifactID {
+		t.Fatalf("expected artifact list to expose %q, got %+v", seeded.secondSourceArtifactID, artifacts.Items)
+	}
+
+	comments, err := service.ListSourceRevisionComments(context.Background(), scope, seeded.secondSourceRevisionID, SourceCommentListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRevisionComments: %v", err)
+	}
+	if comments.SyncStatus != SourceManagementCommentSyncNotConfigured {
+		t.Fatalf("expected source comments not_configured, got %+v", comments)
+	}
+	if comments.EmptyState.Kind != LineageEmptyStateNoComments {
+		t.Fatalf("expected no-comments empty state, got %+v", comments.EmptyState)
+	}
+	if comments.Permissions.CanViewDiagnostics || comments.Permissions.CanOpenProviderLinks || comments.Permissions.CanReviewCandidates || comments.Permissions.CanViewComments {
+		t.Fatalf("expected direct source comment permissions to remain transport-neutral, got %+v", comments.Permissions)
+	}
+
+	searchResults, err := service.SearchSources(context.Background(), scope, SourceSearchQuery{Query: "fixture-google-file-2"})
+	if err != nil {
+		t.Fatalf("SearchSources: %v", err)
+	}
+	if len(searchResults.Items) == 0 {
+		t.Fatalf("expected at least one search result, got %+v", searchResults)
+	}
+	foundPrimarySource := false
+	for _, item := range searchResults.Items {
+		if item.Source != nil && item.Source.ID == seeded.sourceDocumentID {
+			foundPrimarySource = true
+			break
+		}
+	}
+	if !foundPrimarySource {
+		t.Fatalf("expected search results to include source %q, got %+v", seeded.sourceDocumentID, searchResults.Items)
+	}
+
+	revisionSearchResults, err := service.SearchSources(context.Background(), scope, SourceSearchQuery{Query: "candidate-v1"})
+	if err != nil {
+		t.Fatalf("SearchSources revision match: %v", err)
+	}
+	var revisionResult *SourceSearchResultSummary
+	for i := range revisionSearchResults.Items {
+		if revisionSearchResults.Items[i].ResultKind == SourceManagementSearchResultSourceRevision {
+			revisionResult = &revisionSearchResults.Items[i]
+			break
+		}
+	}
+	if revisionResult == nil {
+		t.Fatalf("expected a revision-scoped search result, got %+v", revisionSearchResults)
+	}
+	if revisionResult.Revision == nil || revisionResult.Revision.ID != "src-rev-candidate" {
+		t.Fatalf("expected revision search result to reference matched revision %q, got %+v", "src-rev-candidate", revisionResult)
+	}
+	if got := strings.TrimSpace(revisionResult.Links.Self); got != sourceManagementRevisionPath("src-rev-candidate") {
+		t.Fatalf("expected revision search self link %q, got %+v", sourceManagementRevisionPath("src-rev-candidate"), revisionResult.Links)
+	}
+}
+
+func TestSourceRelationshipSummariesUsePersistedDirectionInsteadOfLatestRevisionTime(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(store, store, store)
+
+	relationships, err := service.ListSourceRelationships(context.Background(), scope, seeded.sourceDocumentID, SourceRelationshipListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships before newer counterpart revision: %v", err)
+	}
+	relationshipByID := make(map[string]SourceRelationshipSummary, len(relationships.Items))
+	for _, item := range relationships.Items {
+		relationshipByID[item.ID] = item
+	}
+	if relationshipByID[seeded.copyRelationshipID].CounterpartRole != SourceRelationshipRolePredecessor {
+		t.Fatalf("expected copy relationship predecessor role before counterpart changes, got %+v", relationshipByID[seeded.copyRelationshipID])
+	}
+
+	newer := time.Date(2026, time.March, 21, 20, 0, 0, 0, time.UTC)
+	if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+		ID:               "src-handle-copy-newer",
+		SourceDocumentID: "src-doc-copy",
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		ExternalFileID:   "fixture-google-file-copy-newer",
+		AccountID:        "fixture-account-copy",
+		DriveID:          "fixture-drive-copy",
+		WebURL:           "https://docs.google.com/document/d/fixture-google-file-copy-newer/edit",
+		HandleStatus:     stores.SourceHandleStatusActive,
+		ValidFrom:        &newer,
+		CreatedAt:        newer,
+		UpdatedAt:        newer,
+	}); err != nil {
+		t.Fatalf("CreateSourceHandle newer counterpart: %v", err)
+	}
+	if _, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
+		ID:                   "src-rev-copy-newer",
+		SourceDocumentID:     "src-doc-copy",
+		SourceHandleID:       "src-handle-copy-newer",
+		ProviderRevisionHint: "copy-v2",
+		ModifiedTime:         &newer,
+		ExportedAt:           &newer,
+		ExportedByUserID:     "fixture-user",
+		SourceMimeType:       "application/vnd.google-apps.document",
+		MetadataJSON:         `{"external_file_id":"fixture-google-file-copy-newer","account_id":"fixture-account-copy","title_hint":"Imported Fixture Source Copy","source_version_hint":"copy-v2"}`,
+		CreatedAt:            newer,
+		UpdatedAt:            newer,
+	}); err != nil {
+		t.Fatalf("CreateSourceRevision newer counterpart: %v", err)
+	}
+
+	relationships, err = service.ListSourceRelationships(context.Background(), scope, seeded.sourceDocumentID, SourceRelationshipListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships after newer counterpart revision: %v", err)
+	}
+	relationshipByID = make(map[string]SourceRelationshipSummary, len(relationships.Items))
+	for _, item := range relationships.Items {
+		relationshipByID[item.ID] = item
+	}
+	if relationshipByID[seeded.copyRelationshipID].CounterpartRole != SourceRelationshipRolePredecessor {
+		t.Fatalf("expected persisted predecessor role to remain stable after newer counterpart revision, got %+v", relationshipByID[seeded.copyRelationshipID])
+	}
+}
+
+func TestDefaultSourceReadModelServiceAppliesSourceManagementFiltersAndPagination(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(store, store, store)
+
+	trueValue := true
+	filtered, err := service.ListSources(context.Background(), scope, SourceListQuery{
+		Query:                "fixture-google-file-2",
+		HasPendingCandidates: &trueValue,
+		Page:                 1,
+		PageSize:             1,
+		Sort:                 sourceListSortPendingDesc,
+	})
+	if err != nil {
+		t.Fatalf("ListSources filtered: %v", err)
+	}
+	if len(filtered.Items) != 1 {
+		t.Fatalf("expected one filtered source, got %+v", filtered)
+	}
+	if filtered.Items[0].Source == nil || filtered.Items[0].Source.ID != seeded.sourceDocumentID {
+		t.Fatalf("expected filtered source %q, got %+v", seeded.sourceDocumentID, filtered.Items[0])
+	}
+	if filtered.PageInfo.TotalCount != 1 || filtered.PageInfo.PageSize != 1 {
+		t.Fatalf("expected filtered page info to honor pagination, got %+v", filtered.PageInfo)
+	}
+
+	revisions, err := service.ListSourceRevisions(context.Background(), scope, seeded.sourceDocumentID, SourceRevisionListQuery{
+		Sort:     sourceRevisionSortOldestAsc,
+		Page:     1,
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceRevisions sorted: %v", err)
+	}
+	if len(revisions.Items) != 1 || revisions.Items[0].Revision == nil || revisions.Items[0].Revision.ID != seeded.firstSourceRevisionID {
+		t.Fatalf("expected oldest revision first under oldest_asc, got %+v", revisions.Items)
+	}
+
+	relationships, err := service.ListSourceRelationships(context.Background(), scope, seeded.sourceDocumentID, SourceRelationshipListQuery{
+		Status:           stores.SourceRelationshipStatusPendingReview,
+		RelationshipType: stores.SourceRelationshipTypeSameLogicalDoc,
+		Page:             1,
+		PageSize:         1,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships filtered: %v", err)
+	}
+	if len(relationships.Items) != 1 || relationships.Items[0].Status != stores.SourceRelationshipStatusPendingReview || relationships.Items[0].RelationshipKind != SourceRelationshipKindContinuity {
+		t.Fatalf("expected pending-review relationship, got %+v", relationships.Items)
+	}
+
+	searchResults, err := service.SearchSources(context.Background(), scope, SourceSearchQuery{
+		Query:    "Imported Fixture Source",
+		Sort:     sourceSearchSortTitleAsc,
+		Page:     1,
+		PageSize: 5,
+	})
+	if err != nil {
+		t.Fatalf("SearchSources sorted: %v", err)
+	}
+	if searchResults.PageInfo.Mode != SourceManagementPaginationModePage {
+		t.Fatalf("expected paged search semantics, got %+v", searchResults.PageInfo)
+	}
+}
+
+func TestPhase12SourceManagementRemainsConsistentWithDocumentAndAgreementProvenanceReads(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(store, store, store)
+
+	documentDetail, err := service.GetDocumentLineageDetail(context.Background(), scope, seeded.importedDocumentID)
+	if err != nil {
+		t.Fatalf("GetDocumentLineageDetail: %v", err)
+	}
+	agreementDetail, err := service.GetAgreementLineageDetail(context.Background(), scope, seeded.importedAgreementID)
+	if err != nil {
+		t.Fatalf("GetAgreementLineageDetail: %v", err)
+	}
+	sourceDetail, err := service.GetSourceDetail(context.Background(), scope, seeded.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("GetSourceDetail: %v", err)
+	}
+	revisions, err := service.ListSourceRevisions(context.Background(), scope, seeded.sourceDocumentID, SourceRevisionListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRevisions: %v", err)
+	}
+	relationships, err := service.ListSourceRelationships(context.Background(), scope, seeded.sourceDocumentID, SourceRelationshipListQuery{})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships: %v", err)
+	}
+
+	if documentDetail.SourceDocument == nil || documentDetail.SourceDocument.ID != sourceDetail.Source.ID {
+		t.Fatalf("expected document provenance source %q to match source detail, got %+v", sourceDetail.Source.ID, documentDetail.SourceDocument)
+	}
+	if agreementDetail.SourceDocument == nil || agreementDetail.SourceDocument.ID != sourceDetail.Source.ID {
+		t.Fatalf("expected agreement provenance source %q to match source detail, got %+v", sourceDetail.Source.ID, agreementDetail.SourceDocument)
+	}
+
+	revisionByID := make(map[string]SourceRevisionListItem, len(revisions.Items))
+	for _, item := range revisions.Items {
+		if item.Revision != nil {
+			revisionByID[item.Revision.ID] = item
+		}
+	}
+	if documentRevision := revisionByID[documentDetail.SourceRevision.ID]; !containsString(documentRevision.Revision.HistoryLabels, SourceRevisionHistoryLabelPinned) || !containsString(documentRevision.Revision.HistoryLabels, SourceRevisionHistoryLabelSuperseded) {
+		t.Fatalf("expected document provenance revision to remain visible in revision history as pinned+superseded, got %+v", documentRevision)
+	}
+	if agreementRevision := revisionByID[agreementDetail.SourceRevision.ID]; agreementRevision.Revision.PinnedAgreementCount != 1 {
+		t.Fatalf("expected agreement provenance revision to report agreement pin count, got %+v", agreementRevision)
+	}
+	if latestRevision := revisionByID[sourceDetail.LatestRevision.ID]; !containsString(latestRevision.Revision.HistoryLabels, SourceRevisionHistoryLabelLatest) {
+		t.Fatalf("expected source detail latest revision to match revision history ordering, got %+v", latestRevision)
+	}
+
+	relationshipByID := make(map[string]SourceRelationshipSummary, len(relationships.Items))
+	for _, item := range relationships.Items {
+		relationshipByID[item.ID] = item
+	}
+	if candidate := relationshipByID[documentDetail.CandidateWarningSummary[0].ID]; candidate.Status != documentDetail.CandidateWarningSummary[0].Status || candidate.RelationshipKind != SourceRelationshipKindContinuity {
+		t.Fatalf("expected document candidate warning to remain consistent with source relationship summary, got %+v", candidate)
+	}
+	if candidate := relationshipByID[agreementDetail.CandidateWarningSummary[0].ID]; candidate.Status != agreementDetail.CandidateWarningSummary[0].Status || candidate.CounterpartRole != SourceRelationshipRolePredecessor {
+		t.Fatalf("expected agreement candidate warning to remain consistent with source relationship summary, got %+v", candidate)
+	}
+}
+
+func TestPhase12SourceManagementReadModelsMatchInMemoryAndSQLiteStores(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-lineage-phase12", OrgID: "org-lineage-phase12"}
+
+	inMemoryStore := stores.NewInMemoryStore()
+	inMemoryFixtures := seedSourceReadModelFixturesInStore(t, inMemoryStore, scope)
+	inMemoryService := NewDefaultSourceReadModelService(inMemoryStore, inMemoryStore, inMemoryStore)
+
+	relationalStore, cleanup := openSQLiteSourceReadModelFixtureStore(t)
+	defer cleanup()
+	relationalFixtures := seedSourceReadModelFixturesInStore(t, relationalStore, scope)
+	relationalService := NewDefaultSourceReadModelService(relationalStore, relationalStore, relationalStore)
+
+	inMemorySnapshot := buildSourceManagementParitySnapshot(t, ctx, scope, inMemoryService, inMemoryFixtures)
+	relationalSnapshot := buildSourceManagementParitySnapshot(t, ctx, scope, relationalService, relationalFixtures)
+
+	inMemoryJSON, err := json.Marshal(inMemorySnapshot)
+	if err != nil {
+		t.Fatalf("marshal in-memory snapshot: %v", err)
+	}
+	relationalJSON, err := json.Marshal(relationalSnapshot)
+	if err != nil {
+		t.Fatalf("marshal relational snapshot: %v", err)
+	}
+	if string(inMemoryJSON) != string(relationalJSON) {
+		t.Fatalf("expected in-memory and sqlite source-management snapshots to match\nin-memory: %s\nsqlite: %s", string(inMemoryJSON), string(relationalJSON))
+	}
+}
+
 func containsCandidateEvidence(evidence []CandidateEvidenceSummary, code, label, details string) bool {
 	for _, entry := range evidence {
 		if entry.Code == code && entry.Label == label && entry.Details == details {
@@ -288,13 +681,96 @@ func containsCandidateEvidence(evidence []CandidateEvidenceSummary, code, label,
 	return false
 }
 
+type sourceManagementParitySnapshot struct {
+	ListSources        SourceListPage         `json:"list_sources"`
+	SourceDetail       SourceDetail           `json:"source_detail"`
+	RevisionHistory    SourceRevisionPage     `json:"revision_history"`
+	RelationshipList   SourceRelationshipPage `json:"relationship_list"`
+	ProviderHandleList SourceHandlePage       `json:"provider_handle_list"`
+}
+
+func buildSourceManagementParitySnapshot(t *testing.T, ctx context.Context, scope stores.Scope, service DefaultSourceReadModelService, fixtures sourceReadModelFixtures) sourceManagementParitySnapshot {
+	t.Helper()
+
+	listSources, err := service.ListSources(ctx, scope, SourceListQuery{Sort: sourceListSortUpdatedDesc, Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListSources snapshot: %v", err)
+	}
+	sourceDetail, err := service.GetSourceDetail(ctx, scope, fixtures.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("GetSourceDetail snapshot: %v", err)
+	}
+	revisionHistory, err := service.ListSourceRevisions(ctx, scope, fixtures.sourceDocumentID, SourceRevisionListQuery{Sort: sourceRevisionSortLatestDesc, Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListSourceRevisions snapshot: %v", err)
+	}
+	relationshipList, err := service.ListSourceRelationships(ctx, scope, fixtures.sourceDocumentID, SourceRelationshipListQuery{Sort: sourceRelationshipSortConfidence, Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListSourceRelationships snapshot: %v", err)
+	}
+	providerHandleList, err := service.ListSourceHandles(ctx, scope, fixtures.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListSourceHandles snapshot: %v", err)
+	}
+	return sourceManagementParitySnapshot{
+		ListSources:        listSources,
+		SourceDetail:       sourceDetail,
+		RevisionHistory:    revisionHistory,
+		RelationshipList:   relationshipList,
+		ProviderHandleList: providerHandleList,
+	}
+}
+
+func openSQLiteSourceReadModelFixtureStore(t *testing.T) (sourceReadModelFixtureStore, func()) {
+	t.Helper()
+
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.Postgres.DSN = ""
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "source_read_model_phase12.db") + "?_busy_timeout=5000&_foreign_keys=on"
+
+	store, cleanup, err := esignpersistence.OpenStore(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("OpenStore sqlite: %v", err)
+	}
+	fixtureStore, ok := store.(sourceReadModelFixtureStore)
+	if !ok {
+		if cleanup != nil {
+			_ = cleanup()
+		}
+		t.Fatalf("expected sqlite store to satisfy sourceReadModelFixtureStore")
+	}
+	return fixtureStore, func() {
+		if cleanup != nil {
+			_ = cleanup()
+		}
+	}
+}
+
+type sourceReadModelFixtureStore interface {
+	stores.DocumentStore
+	stores.AgreementStore
+	stores.LineageStore
+	stores.JobRunStore
+}
+
 func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Scope, sourceReadModelFixtures) {
 	t.Helper()
 
 	store := stores.NewInMemoryStore()
 	scope := stores.Scope{TenantID: "tenant-lineage-read", OrgID: "org-lineage-read"}
+	fixtures := seedSourceReadModelFixturesInStore(t, store, scope)
+	return store, scope, fixtures
+}
+
+func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtureStore, scope stores.Scope) sourceReadModelFixtures {
+	t.Helper()
+
 	now := time.Date(2026, time.March, 18, 18, 0, 0, 0, time.UTC)
 	second := now.Add(2 * time.Hour)
+	earlier := now.Add(-2 * time.Hour)
+	later := second.Add(2 * time.Hour)
 
 	fixtures := sourceReadModelFixtures{
 		uploadOnlyDocumentID:     "doc-upload-only",
@@ -309,6 +785,54 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 		firstSourceArtifactID:    "src-art-1",
 		secondSourceArtifactID:   "src-art-2",
 		candidateRelationshipID:  "src-rel-1",
+		copyRelationshipID:       "src-rel-copy",
+		transferRelationshipID:   "src-rel-transfer",
+		forkRelationshipID:       "src-rel-fork",
+	}
+
+	createSourceFamily := func(sourceDocumentID, handleID, revisionID, title, externalFileID, accountID, driveID, revisionHint string, modifiedAt time.Time) {
+		t.Helper()
+		if _, err := store.CreateSourceDocument(context.Background(), scope, stores.SourceDocumentRecord{
+			ID:                sourceDocumentID,
+			ProviderKind:      stores.SourceProviderKindGoogleDrive,
+			CanonicalTitle:    title,
+			Status:            stores.SourceDocumentStatusActive,
+			LineageConfidence: stores.LineageConfidenceBandMedium,
+			CreatedAt:         modifiedAt,
+			UpdatedAt:         modifiedAt,
+		}); err != nil {
+			t.Fatalf("CreateSourceDocument %s: %v", sourceDocumentID, err)
+		}
+		if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+			ID:               handleID,
+			SourceDocumentID: sourceDocumentID,
+			ProviderKind:     stores.SourceProviderKindGoogleDrive,
+			ExternalFileID:   externalFileID,
+			AccountID:        accountID,
+			DriveID:          driveID,
+			WebURL:           "https://docs.google.com/document/d/" + externalFileID + "/edit",
+			HandleStatus:     stores.SourceHandleStatusActive,
+			ValidFrom:        &modifiedAt,
+			CreatedAt:        modifiedAt,
+			UpdatedAt:        modifiedAt,
+		}); err != nil {
+			t.Fatalf("CreateSourceHandle %s: %v", handleID, err)
+		}
+		if _, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
+			ID:                   revisionID,
+			SourceDocumentID:     sourceDocumentID,
+			SourceHandleID:       handleID,
+			ProviderRevisionHint: revisionHint,
+			ModifiedTime:         &modifiedAt,
+			ExportedAt:           &modifiedAt,
+			ExportedByUserID:     "fixture-user",
+			SourceMimeType:       "application/vnd.google-apps.document",
+			MetadataJSON:         `{"external_file_id":"` + externalFileID + `","account_id":"` + accountID + `","web_url":"https://docs.google.com/document/d/` + externalFileID + `/edit","title_hint":"` + title + `","source_version_hint":"` + revisionHint + `"}`,
+			CreatedAt:            modifiedAt,
+			UpdatedAt:            modifiedAt,
+		}); err != nil {
+			t.Fatalf("CreateSourceRevision %s: %v", revisionID, err)
+		}
 	}
 
 	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
@@ -337,17 +861,11 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 	}); err != nil {
 		t.Fatalf("CreateSourceDocument: %v", err)
 	}
-	if _, err := store.CreateSourceDocument(context.Background(), scope, stores.SourceDocumentRecord{
-		ID:                "src-doc-candidate",
-		ProviderKind:      stores.SourceProviderKindGoogleDrive,
-		CanonicalTitle:    "Imported Fixture Source",
-		Status:            stores.SourceDocumentStatusActive,
-		LineageConfidence: stores.LineageConfidenceBandMedium,
-		CreatedAt:         second,
-		UpdatedAt:         second,
-	}); err != nil {
-		t.Fatalf("CreateSourceDocument candidate: %v", err)
-	}
+	createSourceFamily("src-doc-candidate", "src-handle-candidate", "src-rev-candidate", "Imported Fixture Source", "fixture-google-file-candidate", "fixture-account-candidate", "fixture-drive-candidate", "candidate-v1", earlier)
+	createSourceFamily("src-doc-copy", "src-handle-copy", "src-rev-copy", "Imported Fixture Source Copy", "fixture-google-file-copy", "fixture-account-copy", "fixture-drive-copy", "copy-v1", earlier.Add(30*time.Minute))
+	createSourceFamily("src-doc-transfer", "src-handle-transfer", "src-rev-transfer", "Imported Fixture Source Transfer", "fixture-google-file-transfer", "fixture-account-transfer", "fixture-drive-transfer", "transfer-v3", later)
+	createSourceFamily("src-doc-fork", "src-handle-fork", "src-rev-fork", "Imported Fixture Source Fork", "fixture-google-file-fork", "fixture-account-fork", "fixture-drive-fork", "fork-v2", later.Add(30*time.Minute))
+
 	validFrom := now
 	if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
 		ID:               fixtures.activeSourceHandleID,
@@ -526,23 +1044,74 @@ func seedSourceReadModelFixtures(t *testing.T) (*stores.InMemoryStore, stores.Sc
 	}); err != nil {
 		t.Fatalf("CreateSourceFingerprint failed: %v", err)
 	}
-	if _, err := store.CreateSourceRelationship(context.Background(), scope, stores.SourceRelationshipRecord{
-		ID:                    fixtures.candidateRelationshipID,
-		LeftSourceDocumentID:  "src-doc-candidate",
-		RightSourceDocumentID: fixtures.sourceDocumentID,
-		RelationshipType:      stores.SourceRelationshipTypeSameLogicalDoc,
-		ConfidenceBand:        stores.LineageConfidenceBandMedium,
-		ConfidenceScore:       0.72,
-		Status:                stores.SourceRelationshipStatusPendingReview,
-		EvidenceJSON:          `{"candidate_reason":"matching_title_with_partial_google_context"}`,
-		CreatedByUserID:       "fixture-user",
-		CreatedAt:             second,
-		UpdatedAt:             second,
-	}); err != nil {
-		t.Fatalf("CreateSourceRelationship: %v", err)
+	for _, relationship := range []stores.SourceRelationshipRecord{
+		{
+			ID:                          fixtures.candidateRelationshipID,
+			LeftSourceDocumentID:        "src-doc-candidate",
+			RightSourceDocumentID:       fixtures.sourceDocumentID,
+			PredecessorSourceDocumentID: "src-doc-candidate",
+			SuccessorSourceDocumentID:   fixtures.sourceDocumentID,
+			RelationshipType:            stores.SourceRelationshipTypeSameLogicalDoc,
+			ConfidenceBand:              stores.LineageConfidenceBandMedium,
+			ConfidenceScore:             0.72,
+			Status:                      stores.SourceRelationshipStatusPendingReview,
+			EvidenceJSON:                `{"candidate_reason":"matching_title_with_partial_google_context"}`,
+			CreatedByUserID:             "fixture-user",
+			CreatedAt:                   second,
+			UpdatedAt:                   second,
+		},
+		{
+			ID:                          fixtures.copyRelationshipID,
+			LeftSourceDocumentID:        "src-doc-copy",
+			RightSourceDocumentID:       fixtures.sourceDocumentID,
+			PredecessorSourceDocumentID: "src-doc-copy",
+			SuccessorSourceDocumentID:   fixtures.sourceDocumentID,
+			RelationshipType:            stores.SourceRelationshipTypeCopiedFrom,
+			ConfidenceBand:              stores.LineageConfidenceBandHigh,
+			ConfidenceScore:             0.68,
+			Status:                      stores.SourceRelationshipStatusConfirmed,
+			EvidenceJSON:                `{"candidate_reason":"copy_lineage_match"}`,
+			CreatedByUserID:             "fixture-user",
+			CreatedAt:                   second,
+			UpdatedAt:                   second,
+		},
+		{
+			ID:                          fixtures.transferRelationshipID,
+			LeftSourceDocumentID:        fixtures.sourceDocumentID,
+			RightSourceDocumentID:       "src-doc-transfer",
+			PredecessorSourceDocumentID: fixtures.sourceDocumentID,
+			SuccessorSourceDocumentID:   "src-doc-transfer",
+			RelationshipType:            stores.SourceRelationshipTypeTransferredFrom,
+			ConfidenceBand:              stores.LineageConfidenceBandHigh,
+			ConfidenceScore:             0.67,
+			Status:                      stores.SourceRelationshipStatusConfirmed,
+			EvidenceJSON:                `{"candidate_reason":"transfer_lineage_match"}`,
+			CreatedByUserID:             "fixture-user",
+			CreatedAt:                   later,
+			UpdatedAt:                   later,
+		},
+		{
+			ID:                          fixtures.forkRelationshipID,
+			LeftSourceDocumentID:        fixtures.sourceDocumentID,
+			RightSourceDocumentID:       "src-doc-fork",
+			PredecessorSourceDocumentID: fixtures.sourceDocumentID,
+			SuccessorSourceDocumentID:   "src-doc-fork",
+			RelationshipType:            stores.SourceRelationshipTypeForkedFrom,
+			ConfidenceBand:              stores.LineageConfidenceBandHigh,
+			ConfidenceScore:             0.66,
+			Status:                      stores.SourceRelationshipStatusConfirmed,
+			EvidenceJSON:                `{"candidate_reason":"fork_lineage_match"}`,
+			CreatedByUserID:             "fixture-user",
+			CreatedAt:                   later.Add(30 * time.Minute),
+			UpdatedAt:                   later.Add(30 * time.Minute),
+		},
+	} {
+		if _, err := store.CreateSourceRelationship(context.Background(), scope, relationship); err != nil {
+			t.Fatalf("CreateSourceRelationship %s: %v", relationship.ID, err)
+		}
 	}
 
-	return store, scope, fixtures
+	return fixtures
 }
 
 type sourceReadModelFixtures struct {
@@ -558,4 +1127,7 @@ type sourceReadModelFixtures struct {
 	firstSourceArtifactID    string
 	secondSourceArtifactID   string
 	candidateRelationshipID  string
+	copyRelationshipID       string
+	transferRelationshipID   string
+	forkRelationshipID       string
 }

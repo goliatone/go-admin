@@ -44,6 +44,23 @@ var (
 	esignRuntimeDSNSeq  uint64
 )
 
+type runtimeWebTestAuthorizer struct {
+	allowed map[string]bool
+}
+
+func (a runtimeWebTestAuthorizer) Can(_ context.Context, action string, _ string) bool {
+	return a.allowed[action]
+}
+
+type runtimeWebTestPassthroughAuthenticator struct{}
+
+func (runtimeWebTestPassthroughAuthenticator) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
+	if handler == nil {
+		return func(c router.Context) error { return nil }
+	}
+	return handler
+}
+
 func TestRuntimeRegistersWebEntrypointAndAuthRoutes(t *testing.T) {
 	app := setupESignRuntimeWebApp(t)
 
@@ -70,6 +87,7 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 	assertRedirect(t, app, http.MethodGet, "/admin", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/esign/documents", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/esign/agreements", "/admin/login")
+	assertRedirect(t, app, http.MethodGet, "/admin/esign/agreements/agreement-1/view", "/admin/login")
 	assertRedirect(t, app, http.MethodGet, "/admin/content/esign_documents", "/admin/login")
 
 	signerResp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/session/public-token", "", nil)
@@ -109,10 +127,16 @@ func TestRuntimeSignerRoutesExposeUnifiedSurfaceOnly(t *testing.T) {
 		t.Fatalf("expected no flow-mode query redirects for alias, got %q", location)
 	}
 
-	reviewResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/review", "", nil)
+	reviewResp := doRequest(t, app, http.MethodGet, "/review/token-mode-1", "", nil)
 	defer reviewResp.Body.Close()
 	if reviewResp.StatusCode == http.StatusNotFound {
-		t.Fatalf("expected unified review route to be registered, got 404")
+		t.Fatalf("expected /review/:token route to be registered, got 404")
+	}
+
+	legacyReviewResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/review", "", nil)
+	defer legacyReviewResp.Body.Close()
+	if legacyReviewResp.StatusCode == http.StatusNotFound {
+		t.Fatalf("expected legacy /sign/:token/review route to stay registered for compatibility, got 404")
 	}
 
 	legacyFieldsResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/fields", "", nil)
@@ -137,7 +161,7 @@ func TestRuntimeUnifiedReviewFailureEmitsViewerTelemetry(t *testing.T) {
 		t.Fatalf("setup e-sign runtime app: %v", err)
 	}
 
-	resp := doRequest(t, app, http.MethodGet, "/sign/token-missing/review", "", nil)
+	resp := doRequest(t, app, http.MethodGet, "/review/token-missing", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected review error page status 200, got %d", resp.StatusCode)
@@ -155,7 +179,7 @@ func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
 		t.Fatalf("setup e-sign runtime app: %v", err)
 	}
 
-	resp := doRequest(t, app, http.MethodGet, "/sign/token-csp/review", "", nil)
+	resp := doRequest(t, app, http.MethodGet, "/review/token-csp", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected review response status 200, got %d", resp.StatusCode)
@@ -167,6 +191,117 @@ func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
 		t.Fatalf("expected csp header on unified review route")
 	} else if !strings.Contains(csp, "https://cdn.jsdelivr.net") || !strings.Contains(csp, "https://cdnjs.cloudflare.com") {
 		t.Fatalf("expected unified review csp to preserve external asset allowances, got %q", csp)
+	}
+}
+
+func TestRuntimeSignerReviewRoutesRedirectToCanonicalTokenKindPath(t *testing.T) {
+	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{
+			StrictRouting:     false,
+			EnablePrintRoutes: false,
+		})
+	})
+	err := registerESignPublicSignerWebRoutes(server.Router(), SignerWebRouteConfig{
+		PublicTokenValidator: runtimeWebTestPublicTokenValidator{
+			tokens: map[string]services.PublicReviewToken{
+				"sign-token": {
+					Kind:         services.PublicReviewTokenKindSigning,
+					SigningToken: &stores.SigningTokenRecord{ID: "sign-token"},
+				},
+				"review-token": {
+					Kind:        services.PublicReviewTokenKindReview,
+					ReviewToken: &stores.ReviewSessionTokenRecord{ID: "review-token"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("register signer web routes: %v", err)
+	}
+	server.Init()
+	app := server.WrappedRouter()
+
+	reviewRedirectResp := doRequest(t, app, http.MethodGet, "/sign/review-token", "", nil)
+	defer reviewRedirectResp.Body.Close()
+	if reviewRedirectResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected review token on /sign/:token to redirect, got %d", reviewRedirectResp.StatusCode)
+	}
+	if location := strings.TrimSpace(reviewRedirectResp.Header.Get("Location")); location != "/review/review-token" {
+		t.Fatalf("expected review token redirect to /review/:token, got %q", location)
+	}
+
+	signRedirectResp := doRequest(t, app, http.MethodGet, "/review/sign-token", "", nil)
+	defer signRedirectResp.Body.Close()
+	if signRedirectResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected signing token on /review/:token to redirect, got %d", signRedirectResp.StatusCode)
+	}
+	if location := strings.TrimSpace(signRedirectResp.Header.Get("Location")); location != "/sign/sign-token" {
+		t.Fatalf("expected signing token redirect to /sign/:token, got %q", location)
+	}
+
+	legacyRedirectResp := doRequest(t, app, http.MethodGet, "/sign/sign-token/review?mode=legacy", "", nil)
+	defer legacyRedirectResp.Body.Close()
+	if legacyRedirectResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected legacy review path to redirect, got %d", legacyRedirectResp.StatusCode)
+	}
+	if location := strings.TrimSpace(legacyRedirectResp.Header.Get("Location")); location != "/sign/sign-token?mode=legacy" {
+		t.Fatalf("expected legacy route redirect to preserve query string, got %q", location)
+	}
+}
+
+func TestRuntimeSenderAgreementViewerPermissionDeniedRendersHTMLPage(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
+	applyESignRuntimeDefaults(&cfg)
+	adm, _, err := quickstart.NewAdmin(
+		cfg,
+		quickstart.AdapterHooks{},
+		quickstart.WithAdminContext(context.Background()),
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			Authorizer: runtimeWebTestAuthorizer{allowed: map[string]bool{}},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	viewEngine, err := newESignViewEngine(cfg, adm)
+	if err != nil {
+		t.Fatalf("new e-sign view engine: %v", err)
+	}
+	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{
+			StrictRouting:     false,
+			EnablePrintRoutes: false,
+			Views:             viewEngine,
+		})
+	})
+
+	routes := handlers.BuildRouteSet(nil, "/admin", "admin.api.v1")
+	module := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).WithStore(stores.NewInMemoryStore())
+	if err := registerESignSenderAgreementViewerWebRoutes(server.Router(), adm, runtimeWebTestPassthroughAuthenticator{}, routes, cfg.BasePath, module); err != nil {
+		t.Fatalf("register sender agreement viewer routes: %v", err)
+	}
+	server.Init()
+	app := server.WrappedRouter()
+
+	resp := doRequest(t, app, http.MethodGet, "/admin/esign/agreements/agreement-1/view", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected sender viewer permission error page status 200, got %d body=%s", resp.StatusCode, body)
+	}
+	if contentType := strings.TrimSpace(resp.Header.Get("Content-Type")); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected html content type, got %q", contentType)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	if !strings.Contains(bodyText, "Viewer Unavailable") || !strings.Contains(bodyText, "VIEWER_FORBIDDEN") {
+		t.Fatalf("expected rendered sender viewer error page, got %s", bodyText)
+	}
+	if strings.HasPrefix(strings.TrimSpace(bodyText), "{") {
+		t.Fatalf("expected html error page, got json payload %s", bodyText)
 	}
 }
 
@@ -1779,6 +1914,18 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["flowMode"])); got != "unified" {
 		t.Fatalf("expected unified flow mode in signer review config, got %q payload=%+v", got, reviewConfig)
 	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["uiMode"])); got != services.SignerSessionUIModeSign {
+		t.Fatalf("expected uiMode %q in signer review config, got %q payload=%+v", services.SignerSessionUIModeSign, got, reviewConfig)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["defaultTab"])); got != services.SignerSessionDefaultTabSign {
+		t.Fatalf("expected defaultTab %q in signer review config, got %q payload=%+v", services.SignerSessionDefaultTabSign, got, reviewConfig)
+	}
+	if got, ok := reviewConfig["reviewMarkersVisible"].(bool); !ok || got {
+		t.Fatalf("expected reviewMarkersVisible=false in signer review config, got %+v payload=%+v", reviewConfig["reviewMarkersVisible"], reviewConfig)
+	}
+	if got, ok := reviewConfig["reviewMarkersInteractive"].(bool); !ok || got {
+		t.Fatalf("expected reviewMarkersInteractive=false in signer review config, got %+v payload=%+v", reviewConfig["reviewMarkersInteractive"], reviewConfig)
+	}
 	viewerCfg, ok := reviewConfig["viewer"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected viewer config object, got %+v", reviewConfig["viewer"])
@@ -1808,7 +1955,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("read signer session payload: %v", err)
 	}
 	sessionBody := string(sessionPayload)
-	for _, key := range []string{"\"document_name\":", "\"page_count\":", "\"viewer\":", "\"recipient_id\":", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":"} {
+	for _, key := range []string{"\"document_name\":", "\"page_count\":", "\"viewer\":", "\"recipient_id\":", "\"ui_mode\":\"sign\"", "\"default_tab\":\"sign\"", "\"review_markers_visible\":false", "\"review_markers_interactive\":false", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":"} {
 		if !strings.Contains(sessionBody, key) {
 			t.Fatalf("expected key %s in signer session payload, got %s", key, sessionBody)
 		}
@@ -2109,6 +2256,17 @@ func signerTokenFromLink(t *testing.T, raw string) string {
 	}
 	t.Fatalf("expected /sign/:token path in %q", link)
 	return ""
+}
+
+type runtimeWebTestPublicTokenValidator struct {
+	tokens map[string]services.PublicReviewToken
+}
+
+func (v runtimeWebTestPublicTokenValidator) Validate(_ context.Context, _ stores.Scope, rawToken string) (services.PublicReviewToken, error) {
+	if token, ok := v.tokens[strings.TrimSpace(rawToken)]; ok {
+		return token, nil
+	}
+	return services.PublicReviewToken{}, fmt.Errorf("token not found")
 }
 
 func extractESignPageConfigFromHTML(t *testing.T, html string) map[string]any {

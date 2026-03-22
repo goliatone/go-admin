@@ -103,12 +103,13 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		t.Fatalf("expected routes map in envelope, got %+v", payload)
 	}
 	for _, key := range []string{
-		"admin", "admin_legacy", "admin_api", "admin_drafts", "admin_draft", "admin_draft_send",
+		"admin", "admin_legacy", "admin_api", "admin_agreement_view", "admin_drafts", "admin_draft", "admin_draft_send",
 		"admin_agreement_auto_place", "admin_agreement_placement_runs", "admin_agreement_placement_run", "admin_agreement_placement_apply",
 		"admin_smoke_recipient_links",
 		"admin_documents_upload",
 		"admin_document_remediate",
 		"admin_remediation_dispatch_status",
+		"admin_agreement_viewer_session", "admin_agreement_viewer_assets", "admin_agreement_viewer_threads", "admin_agreement_viewer_thread_replies", "admin_agreement_viewer_thread_resolve", "admin_agreement_viewer_thread_reopen",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
 		"signer_profile", "signer_saved_signatures", "signer_saved_signature",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",
@@ -303,7 +304,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedReviewLink(t *testing.T) {
 		},
 		TemplateCode:  "esign.review_invitation",
 		Notification:  "review_invitation",
-		ReviewURL:     "https://esign.test/sign/review-token-1",
+		ReviewURL:     "https://esign.test/review/review-token-1",
 		CorrelationID: "corr-review-smoke-1",
 	})
 
@@ -327,7 +328,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedReviewLink(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected link payload, got %+v", payload["link"])
 	}
-	if link["review_url"] != "https://esign.test/sign/review-token-1" {
+	if link["review_url"] != "https://esign.test/review/review-token-1" {
 		t.Fatalf("expected captured review_url, got %+v", link["review_url"])
 	}
 	if link["notification"] != "review_invitation" {
@@ -470,6 +471,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		WithGoogleIntegrationEnabled(true),
 		WithGoogleIntegrationService(google),
 		WithGoogleImportRunStore(store),
+		WithGoogleImportJobStore(store),
 		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
 			return queue.Enqueue(ctx, msg)
 		}),
@@ -590,6 +592,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 		WithGoogleIntegrationEnabled(true),
 		WithGoogleIntegrationService(google),
 		WithGoogleImportRunStore(store),
+		WithGoogleImportJobStore(store),
 		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
 			return queue.Enqueue(ctx, msg)
 		}),
@@ -1007,11 +1010,27 @@ func TestSignerSessionV2FieldIdentityContract(t *testing.T) {
 	assertMapHasRequiredKeys(t, session,
 		"agreement_id",
 		"agreement_status",
+		"ui_mode",
+		"default_tab",
 		"recipient_id",
 		"recipient_role",
+		"review_markers_visible",
+		"review_markers_interactive",
 		"state",
 		"fields",
 	)
+	if got := strings.TrimSpace(toString(session["ui_mode"])); got != services.SignerSessionUIModeSign {
+		t.Fatalf("expected ui_mode=%q, got %+v", services.SignerSessionUIModeSign, session["ui_mode"])
+	}
+	if got := strings.TrimSpace(toString(session["default_tab"])); got != services.SignerSessionDefaultTabSign {
+		t.Fatalf("expected default_tab=%q, got %+v", services.SignerSessionDefaultTabSign, session["default_tab"])
+	}
+	if got, ok := session["review_markers_visible"].(bool); !ok || got {
+		t.Fatalf("expected review_markers_visible=false, got %+v", session["review_markers_visible"])
+	}
+	if got, ok := session["review_markers_interactive"].(bool); !ok || got {
+		t.Fatalf("expected review_markers_interactive=false, got %+v", session["review_markers_interactive"])
+	}
 	fields, ok := session["fields"].([]any)
 	if !ok || len(fields) == 0 {
 		t.Fatalf("expected non-empty fields in legacy-compatible session payload, got %+v", session)

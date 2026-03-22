@@ -148,6 +148,12 @@ VALUES (?, ?, ?, 'google_drive', ?, 'active', 'exact', ?, ?)
 	}
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO source_handles (id, tenant_id, org_id, source_document_id, provider_kind, external_file_id, account_id, drive_id, web_url, handle_status, valid_from, valid_to, created_at, updated_at)
+VALUES (?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, 'superseded', ?, ?, ?, ?)
+`, ids.LegacySourceHandleID, scope.TenantID, scope.OrgID, ids.SourceDocumentID, "fixture-google-file-legacy", "fixture-account-legacy", "fixture-drive-root", "https://docs.google.com/document/d/fixture-google-file-legacy/edit", firstNow, secondNow, firstNow, secondNow); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert legacy continuity handle: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_handles (id, tenant_id, org_id, source_document_id, provider_kind, external_file_id, account_id, drive_id, web_url, handle_status, valid_from, valid_to, created_at, updated_at)
 VALUES (?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, 'active', ?, NULL, ?, ?)
 `, ids.ActiveSourceHandleID, scope.TenantID, scope.OrgID, ids.SourceDocumentID, "fixture-google-file-1", "fixture-account-1", "fixture-drive-root", "https://docs.google.com/document/d/fixture-google-file-1/edit", firstNow, firstNow, firstNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert active handle: %w", err)
@@ -195,6 +201,26 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?,
 `, ids.RepeatedImportDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source Rev 2", "Imported Fixture Source Rev 2.pdf", keys.ImportedV2SourceObjectKey, keys.ImportedV2NormalizedObjectKey, importedV2PDF.sha256, importedV2PDF.sizeBytes, importedV2PDF.pageCount, "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", secondNow, secondNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SourceDocumentID, ids.SecondSourceRevisionID, ids.SecondSourceArtifactID, "fixture-user", secondNow, secondNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert repeated-import document: %w", err)
 	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_comment_threads (id, tenant_id, org_id, source_document_id, source_revision_id, provider_kind, provider_comment_id, thread_id, status, anchor_kind, anchor_json, author_json, body_preview, message_count, reply_count, sync_status, last_synced_at, last_activity_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, 'google_drive', ?, ?, 'open', 'page', ?, ?, ?, 2, 1, 'synced', ?, ?, ?, ?)
+`, fixtureID(scope, "source-comment-thread"), scope.TenantID, scope.OrgID, ids.SourceDocumentID, ids.SecondSourceRevisionID, "fixture-provider-comment-1", "fixture-thread-1", `{"kind":"page","label":"Page 2"}`, `{"display_name":"Fixture Reviewer","email":"reviewer@example.com","type":"user"}`, "Need legal approval", secondNow, secondNow, secondNow, secondNow); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert source comment thread: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_comment_messages (id, tenant_id, org_id, source_comment_thread_id, source_revision_id, provider_message_id, provider_parent_message_id, message_kind, body_text, body_preview, author_json, created_at, updated_at)
+VALUES
+    (?, ?, ?, ?, ?, ?, '', 'comment', ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, 'reply', ?, ?, ?, ?, ?)
+`, fixtureID(scope, "source-comment-message-1"), scope.TenantID, scope.OrgID, fixtureID(scope, "source-comment-thread"), ids.SecondSourceRevisionID, "fixture-provider-message-1", "Need legal approval", "Need legal approval", `{"display_name":"Fixture Reviewer","email":"reviewer@example.com","type":"user"}`, secondNow, secondNow, fixtureID(scope, "source-comment-message-2"), scope.TenantID, scope.OrgID, fixtureID(scope, "source-comment-thread"), ids.SecondSourceRevisionID, "fixture-provider-message-2", "fixture-provider-message-1", "Acknowledged by ops", "Acknowledged by ops", `{"display_name":"Fixture Ops","email":"ops@example.com","type":"user"}`, secondNow.Add(5*time.Minute), secondNow.Add(5*time.Minute)); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert source comment messages: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_comment_sync_states (id, tenant_id, org_id, source_document_id, source_revision_id, provider_kind, sync_status, thread_count, message_count, payload_sha256, payload_json, last_attempt_at, last_synced_at, error_code, error_message, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, 'google_drive', 'synced', 1, 2, ?, ?, ?, ?, '', '', ?, ?)
+`, fixtureID(scope, "source-comment-sync-state"), scope.TenantID, scope.OrgID, ids.SourceDocumentID, ids.SecondSourceRevisionID, strings.Repeat("a", 64), `{"source_revision_id":"`+ids.SecondSourceRevisionID+`","thread_count":1}`, secondNow, secondNow, secondNow, secondNow); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert source comment sync state: %w", err)
+	}
 
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO source_documents (id, tenant_id, org_id, provider_kind, canonical_title, status, lineage_confidence, created_at, updated_at)
@@ -233,6 +259,7 @@ func buildLineageFixtureSet(scope stores.Scope) stores.LineageFixtureSet {
 		ImportedDocumentID:        fixtureID(scope, "imported-document"),
 		ImportedAgreementID:       fixtureID(scope, "imported-agreement"),
 		SourceDocumentID:          fixtureID(scope, "source-document"),
+		LegacySourceHandleID:      fixtureID(scope, "legacy-source-handle"),
 		ActiveSourceHandleID:      fixtureID(scope, "active-source-handle"),
 		FirstSourceRevisionID:     fixtureID(scope, "first-source-revision"),
 		FirstSourceArtifactID:     fixtureID(scope, "first-source-artifact"),
@@ -255,6 +282,10 @@ func deleteFixtureRecords(ctx context.Context, db bun.IDB, ids stores.LineageFix
 		args  []any
 	}{
 		{query: `DELETE FROM source_relationships WHERE id IN (?)`, args: []any{bun.In([]string{ids.CandidateRelationshipID})}},
+		{query: `DELETE FROM source_comment_messages WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_comment_threads WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_comment_sync_states WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_search_documents WHERE source_document_id IN (?)`, args: []any{bun.In([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
 		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.In([]string{ids.ImportedAgreementID})}},
 		{query: `DELETE FROM documents WHERE id IN (?)`, args: []any{bun.In([]string{ids.UploadOnlyDocumentID, ids.ImportedDocumentID, ids.RepeatedImportDocumentID})}},
 		{query: `DELETE FROM source_artifacts WHERE id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceArtifactID, ids.SecondSourceArtifactID})}},

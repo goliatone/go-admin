@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
@@ -16,6 +17,16 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 	agreementRoute := services.DefaultLineageDiagnosticsBasePath + "/" + agreementsSegment + "/:agreement_id"
 	documentCandidatesRoute := documentRoute + "/candidates"
 	reviewRoute := services.DefaultLineageDiagnosticsBasePath + "/relationships/:relationship_id/review"
+	sourcesRoute := services.DefaultSourceManagementBasePath + "/sources"
+	sourceRoute := sourcesRoute + "/:source_document_id"
+	sourceRevisionsRoute := sourceRoute + "/revisions"
+	sourceRelationshipsRoute := sourceRoute + "/relationships"
+	sourceHandlesRoute := sourceRoute + "/handles"
+	sourceCommentsRoute := sourceRoute + "/comments"
+	sourceRevisionRoute := services.DefaultSourceManagementBasePath + "/source-revisions/:source_revision_id"
+	sourceRevisionArtifactsRoute := sourceRevisionRoute + "/artifacts"
+	sourceRevisionCommentsRoute := sourceRevisionRoute + "/comments"
+	sourceSearchRoute := services.DefaultSourceManagementBasePath + "/source-search"
 
 	adminRoutes.Get(documentRoute, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -138,6 +149,431 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			"candidate": summary,
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+	adminRoutes.Get(sourcesRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		query := services.SourceListQuery{
+			Query:        strings.TrimSpace(c.Query("q")),
+			ProviderKind: strings.TrimSpace(c.Query("provider_kind")),
+			Status:       strings.TrimSpace(c.Query("status")),
+			Sort:         strings.TrimSpace(c.Query("sort")),
+			Page:         parsePageSize(c.Query("page")),
+			PageSize:     parsePageSize(c.Query("page_size")),
+		}
+		query.HasPendingCandidates = parseOptionalBoolQuery(c.Query("has_pending_candidates"))
+		page, err := cfg.sourceReadModels.ListSources(c.Context(), cfg.resolveScope(c), query)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCES_NOT_FOUND", "LINEAGE_SOURCES_UNAVAILABLE", "source documents not found", "unable to list source documents", nil)
+		}
+		page = authorizeSourceListPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		detail, err := cfg.sourceReadModels.GetSourceDetail(c.Context(), cfg.resolveScope(c), sourceDocumentID)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_NOT_FOUND", "LINEAGE_SOURCE_UNAVAILABLE", "source detail not found", "unable to load source detail", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		detail = authorizeSourceDetail(c, cfg, detail)
+		return c.JSON(http.StatusOK, detail)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRevisionsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceRevisions(c.Context(), cfg.resolveScope(c), sourceDocumentID, services.SourceRevisionListQuery{
+			Sort:     strings.TrimSpace(c.Query("sort")),
+			Page:     parsePageSize(c.Query("page")),
+			PageSize: parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_REVISIONS_NOT_FOUND", "LINEAGE_SOURCE_REVISIONS_UNAVAILABLE", "source revisions not found", "unable to list source revisions", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		page = authorizeSourceRevisionPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRelationshipsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceRelationships(c.Context(), cfg.resolveScope(c), sourceDocumentID, services.SourceRelationshipListQuery{
+			Status:           strings.TrimSpace(c.Query("status")),
+			RelationshipType: strings.TrimSpace(c.Query("relationship_type")),
+			Sort:             strings.TrimSpace(c.Query("sort")),
+			Page:             parsePageSize(c.Query("page")),
+			PageSize:         parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_RELATIONSHIPS_NOT_FOUND", "LINEAGE_SOURCE_RELATIONSHIPS_UNAVAILABLE", "source relationships not found", "unable to list source relationships", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		page = authorizeSourceRelationshipPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceHandlesRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceHandles(c.Context(), cfg.resolveScope(c), sourceDocumentID)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_HANDLES_NOT_FOUND", "LINEAGE_SOURCE_HANDLES_UNAVAILABLE", "source handles not found", "unable to list source handles", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		page = authorizeSourceHandlePage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceCommentsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceComments(c.Context(), cfg.resolveScope(c), sourceDocumentID, services.SourceCommentListQuery{
+			Status:     strings.TrimSpace(c.Query("status")),
+			SyncStatus: strings.TrimSpace(c.Query("sync_status")),
+			Page:       parsePageSize(c.Query("page")),
+			PageSize:   parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_COMMENTS_NOT_FOUND", "LINEAGE_SOURCE_COMMENTS_UNAVAILABLE", "source comments not found", "unable to list source comments", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		page = authorizeSourceCommentPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRevisionRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+		if sourceRevisionID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_revision_id is required", nil)
+		}
+		detail, err := cfg.sourceReadModels.GetSourceRevisionDetail(c.Context(), cfg.resolveScope(c), sourceRevisionID)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_REVISION_NOT_FOUND", "LINEAGE_SOURCE_REVISION_UNAVAILABLE", "source revision detail not found", "unable to load source revision detail", map[string]any{
+				"source_revision_id": sourceRevisionID,
+			})
+		}
+		detail = authorizeSourceRevisionDetail(c, cfg, detail)
+		return c.JSON(http.StatusOK, detail)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRevisionArtifactsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+		if sourceRevisionID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_revision_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceRevisionArtifacts(c.Context(), cfg.resolveScope(c), sourceRevisionID)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_ARTIFACTS_NOT_FOUND", "LINEAGE_SOURCE_ARTIFACTS_UNAVAILABLE", "source revision artifacts not found", "unable to list source revision artifacts", map[string]any{
+				"source_revision_id": sourceRevisionID,
+			})
+		}
+		page = authorizeSourceArtifactPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceRevisionCommentsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+		if sourceRevisionID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_revision_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceRevisionComments(c.Context(), cfg.resolveScope(c), sourceRevisionID, services.SourceCommentListQuery{
+			Status:     strings.TrimSpace(c.Query("status")),
+			SyncStatus: strings.TrimSpace(c.Query("sync_status")),
+			Page:       parsePageSize(c.Query("page")),
+			PageSize:   parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_COMMENTS_NOT_FOUND", "LINEAGE_SOURCE_COMMENTS_UNAVAILABLE", "source revision comments not found", "unable to list source revision comments", map[string]any{
+				"source_revision_id": sourceRevisionID,
+			})
+		}
+		page = authorizeSourceCommentPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceSearchRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		query := services.SourceSearchQuery{
+			Query:             strings.TrimSpace(c.Query("q")),
+			ProviderKind:      strings.TrimSpace(c.Query("provider_kind")),
+			Status:            strings.TrimSpace(c.Query("status")),
+			ResultKind:        strings.TrimSpace(c.Query("result_kind")),
+			RelationshipState: strings.TrimSpace(c.Query("relationship_state")),
+			CommentSyncStatus: strings.TrimSpace(c.Query("comment_sync_status")),
+			RevisionHint:      strings.TrimSpace(c.Query("revision_hint")),
+			Sort:              strings.TrimSpace(c.Query("sort")),
+			Page:              parsePageSize(c.Query("page")),
+			PageSize:          parsePageSize(c.Query("page_size")),
+			HasComments:       parseOptionalBoolQuery(c.Query("has_comments")),
+		}
+		results, err := cfg.sourceReadModels.SearchSources(c.Context(), cfg.resolveScope(c), query)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_SEARCH_NOT_FOUND", "LINEAGE_SOURCE_SEARCH_UNAVAILABLE", "source search target not found", "unable to search sources", nil)
+		}
+		results = authorizeSourceSearchResults(c, cfg, results)
+		return c.JSON(http.StatusOK, results)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
+
+func writeSourceManagementReadModelError(c router.Context, err error, notFoundCode, unavailableCode, notFoundMessage, unavailableMessage string, metadata map[string]any) error {
+	status := http.StatusUnprocessableEntity
+	code := strings.TrimSpace(unavailableCode)
+	message := strings.TrimSpace(unavailableMessage)
+	if isNotFound(err) {
+		status = http.StatusNotFound
+		code = strings.TrimSpace(notFoundCode)
+		message = strings.TrimSpace(notFoundMessage)
+	}
+	return writeAPIError(c, err, status, code, message, metadata)
+}
+
+func sourceManagementPermissionsForRequest(c router.Context, cfg registerConfig) services.SourceManagementPermissions {
+	canView := adminPermissionGranted(c, cfg, cfg.permissions.AdminView)
+	return services.SourceManagementPermissions{
+		CanViewDiagnostics:   canView,
+		CanOpenProviderLinks: canView,
+		CanReviewCandidates:  adminPermissionGranted(c, cfg, cfg.permissions.AdminEdit),
+		CanViewComments:      canView,
+	}
+}
+
+func adminPermissionGranted(c router.Context, cfg registerConfig, permission string) bool {
+	required := strings.TrimSpace(permission)
+	return required == "" || cfg.authorizer == nil || authorizerAllows(c, cfg.authorizer, required)
+}
+
+func authorizeSourceListPage(c router.Context, cfg registerConfig, page services.SourceListPage) services.SourceListPage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i] = authorizeSourceListItem(page.Items[i], permissions)
+	}
+	return page
+}
+
+func authorizeSourceDetail(c router.Context, cfg registerConfig, detail services.SourceDetail) services.SourceDetail {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	detail.Permissions = permissions
+	detail.Links = redactSourceManagementLinks(detail.Links, permissions)
+	if detail.Provider != nil {
+		detail.Provider = authorizeSourceProviderSummary(detail.Provider, permissions)
+	}
+	if detail.ActiveHandle != nil {
+		handle := authorizeSourceHandleSummary(*detail.ActiveHandle, permissions)
+		detail.ActiveHandle = &handle
+	}
+	return detail
+}
+
+func authorizeSourceRevisionPage(c router.Context, cfg registerConfig, page services.SourceRevisionPage) services.SourceRevisionPage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i] = authorizeSourceRevisionListItem(page.Items[i], permissions)
+	}
+	return page
+}
+
+func authorizeSourceRelationshipPage(c router.Context, cfg registerConfig, page services.SourceRelationshipPage) services.SourceRelationshipPage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i] = authorizeSourceRelationshipSummary(page.Items[i], permissions)
+	}
+	return page
+}
+
+func authorizeSourceHandlePage(c router.Context, cfg registerConfig, page services.SourceHandlePage) services.SourceHandlePage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i] = authorizeSourceHandleSummary(page.Items[i], permissions)
+	}
+	return page
+}
+
+func authorizeSourceRevisionDetail(c router.Context, cfg registerConfig, detail services.SourceRevisionDetail) services.SourceRevisionDetail {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	detail.Permissions = permissions
+	detail.Links = redactSourceManagementLinks(detail.Links, permissions)
+	if detail.Provider != nil {
+		detail.Provider = authorizeSourceProviderSummary(detail.Provider, permissions)
+	}
+	return detail
+}
+
+func authorizeSourceArtifactPage(c router.Context, cfg registerConfig, page services.SourceArtifactPage) services.SourceArtifactPage {
+	page.Permissions = sourceManagementPermissionsForRequest(c, cfg)
+	page.Links = redactSourceManagementLinks(page.Links, page.Permissions)
+	return page
+}
+
+func authorizeSourceCommentPage(c router.Context, cfg registerConfig, page services.SourceCommentPage) services.SourceCommentPage {
+	page.Permissions = sourceManagementPermissionsForRequest(c, cfg)
+	page.Links = redactSourceManagementLinks(page.Links, page.Permissions)
+	for i := range page.Items {
+		page.Items[i].Links = redactSourceManagementLinks(page.Items[i].Links, page.Permissions)
+	}
+	return page
+}
+
+func authorizeSourceSearchResults(c router.Context, cfg registerConfig, results services.SourceSearchResults) services.SourceSearchResults {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	results.Permissions = permissions
+	results.Links = redactSourceManagementLinks(results.Links, permissions)
+	for i := range results.Items {
+		results.Items[i] = authorizeSourceSearchResultSummary(results.Items[i], permissions)
+	}
+	return results
+}
+
+func authorizeSourceListItem(item services.SourceListItem, permissions services.SourceManagementPermissions) services.SourceListItem {
+	item.Permissions = permissions
+	item.Links = redactSourceManagementLinks(item.Links, permissions)
+	if item.Provider != nil {
+		item.Provider = authorizeSourceProviderSummary(item.Provider, permissions)
+	}
+	if item.ActiveHandle != nil {
+		handle := authorizeSourceHandleSummary(*item.ActiveHandle, permissions)
+		item.ActiveHandle = &handle
+	}
+	return item
+}
+
+func authorizeSourceRevisionListItem(item services.SourceRevisionListItem, permissions services.SourceManagementPermissions) services.SourceRevisionListItem {
+	if item.Provider != nil {
+		item.Provider = authorizeSourceProviderSummary(item.Provider, permissions)
+	}
+	item.Links = redactSourceManagementLinks(item.Links, permissions)
+	return item
+}
+
+func authorizeSourceRelationshipSummary(item services.SourceRelationshipSummary, permissions services.SourceManagementPermissions) services.SourceRelationshipSummary {
+	item.Links = redactSourceManagementLinks(item.Links, permissions)
+	if !permissions.CanReviewCandidates {
+		item.ReviewActionVisible = ""
+	}
+	return item
+}
+
+func authorizeSourceHandleSummary(item services.SourceHandleSummary, permissions services.SourceManagementPermissions) services.SourceHandleSummary {
+	item.Links = redactSourceManagementLinks(item.Links, permissions)
+	if !permissions.CanOpenProviderLinks {
+		item.WebURL = ""
+	}
+	return item
+}
+
+func authorizeSourceSearchResultSummary(item services.SourceSearchResultSummary, permissions services.SourceManagementPermissions) services.SourceSearchResultSummary {
+	item.Links = redactSourceManagementLinks(item.Links, permissions)
+	if item.Provider != nil {
+		item.Provider = authorizeSourceProviderSummary(item.Provider, permissions)
+	}
+	return item
+}
+
+func authorizeSourceProviderSummary(provider *services.SourceProviderSummary, permissions services.SourceManagementPermissions) *services.SourceProviderSummary {
+	if provider == nil {
+		return nil
+	}
+	copy := *provider
+	if !permissions.CanOpenProviderLinks {
+		copy.WebURL = ""
+	}
+	return &copy
+}
+
+func redactSourceManagementLinks(links services.SourceManagementLinks, permissions services.SourceManagementPermissions) services.SourceManagementLinks {
+	if !permissions.CanOpenProviderLinks {
+		links.Provider = ""
+	}
+	if !permissions.CanViewDiagnostics {
+		links.Diagnostics = ""
+	}
+	if !permissions.CanViewComments {
+		links.Comments = ""
+	}
+	return links
 }
 
 func lineageSourceDocumentID(detail services.DocumentLineageDetail) string {
@@ -157,6 +593,18 @@ func relationshipStatusCounts(relationships []stores.SourceRelationshipRecord) m
 		counts[status]++
 	}
 	return counts
+}
+
+func parseOptionalBoolQuery(raw string) *bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return nil
+	}
+	return &parsed
 }
 
 func isNotFound(err error) bool {

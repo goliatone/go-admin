@@ -92,6 +92,17 @@
     "profile_persist_drawn_signature": true,
     "profile_mode": "hybrid",
     "saved_signatures_limit_per_type": 10,
+    "sender_viewer": {
+      "page_permissions_all": ["admin.esign.view"],
+      "comment_permissions_all": ["admin.esign.edit", "admin.esign.view"],
+      "asset_permissions": {
+        "preview": ["admin.esign.view"],
+        "source": ["admin.esign.view"],
+        "executed": ["admin.esign.download"],
+        "certificate": ["admin.esign.download"]
+      },
+      "show_in_progress_field_values": false
+    },
     "pdf": {
       "max_source_bytes": 10485760,
       "max_pages": 200,

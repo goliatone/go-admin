@@ -246,6 +246,7 @@ func (s *InMemoryStore) ListSourceHandles(ctx context.Context, scope Scope, quer
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := normalizedLineageQueryIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]SourceHandleRecord, 0)
@@ -253,7 +254,7 @@ func (s *InMemoryStore) ListSourceHandles(ctx context.Context, scope Scope, quer
 		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 			continue
 		}
-		if query.SourceDocumentID != "" && strings.TrimSpace(record.SourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
+		if len(documentIDs) > 0 && !lineageQueryIDMatches(record.SourceDocumentID, documentIDs) {
 			continue
 		}
 		if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
@@ -382,6 +383,7 @@ func (s *InMemoryStore) ListSourceRevisions(ctx context.Context, scope Scope, qu
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := normalizedLineageQueryIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]SourceRevisionRecord, 0)
@@ -389,7 +391,7 @@ func (s *InMemoryStore) ListSourceRevisions(ctx context.Context, scope Scope, qu
 		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 			continue
 		}
-		if query.SourceDocumentID != "" && strings.TrimSpace(record.SourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
+		if len(documentIDs) > 0 && !lineageQueryIDMatches(record.SourceDocumentID, documentIDs) {
 			continue
 		}
 		if query.SourceHandleID != "" && strings.TrimSpace(record.SourceHandleID) != strings.TrimSpace(query.SourceHandleID) {
@@ -750,6 +752,7 @@ func (s *InMemoryStore) ListSourceRelationships(ctx context.Context, scope Scope
 	if err != nil {
 		return nil, err
 	}
+	documentIDs := normalizedLineageQueryIDs(query.SourceDocumentID, query.SourceDocumentIDs)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]SourceRelationshipRecord, 0)
@@ -757,9 +760,9 @@ func (s *InMemoryStore) ListSourceRelationships(ctx context.Context, scope Scope
 		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 			continue
 		}
-		if query.SourceDocumentID != "" &&
-			strings.TrimSpace(record.LeftSourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) &&
-			strings.TrimSpace(record.RightSourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
+		if len(documentIDs) > 0 &&
+			!lineageQueryIDMatches(record.LeftSourceDocumentID, documentIDs) &&
+			!lineageQueryIDMatches(record.RightSourceDocumentID, documentIDs) {
 			continue
 		}
 		if query.RelationshipType != "" && strings.TrimSpace(record.RelationshipType) != strings.TrimSpace(query.RelationshipType) {
@@ -777,6 +780,30 @@ func (s *InMemoryStore) ListSourceRelationships(ctx context.Context, scope Scope
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
 	return out, nil
+}
+
+func normalizedLineageQueryIDs(primary string, values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values)+1)
+	if value := strings.TrimSpace(primary); value != "" {
+		set[value] = struct{}{}
+	}
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			set[value] = struct{}{}
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
+}
+
+func lineageQueryIDMatches(candidate string, values map[string]struct{}) bool {
+	if len(values) == 0 {
+		return true
+	}
+	_, ok := values[strings.TrimSpace(candidate)]
+	return ok
 }
 
 func (s *InMemoryStore) SaveSourceRelationship(ctx context.Context, scope Scope, record SourceRelationshipRecord) (SourceRelationshipRecord, error) {

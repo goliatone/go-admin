@@ -192,6 +192,58 @@ func TestPhase8AppLocalLineageTablesMigrationDefinesRelationshipUniqueness(t *te
 	}
 }
 
+func TestPhase12AppLocalRelationshipDirectionMigrationDefinesDirectionalColumns(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := "0035_esign_source_relationship_directionality.up.sql"
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+	for _, stmt := range []string{
+		"ALTER TABLE source_relationships",
+		"ADD COLUMN predecessor_source_document_id TEXT NOT NULL DEFAULT ''",
+		"ADD COLUMN successor_source_document_id TEXT NOT NULL DEFAULT ''",
+	} {
+		if !strings.Contains(upText, stmt) {
+			t.Fatalf("expected relationship direction migration to contain %q", stmt)
+		}
+	}
+}
+
+func TestPhase13AppLocalSourceCommentsAndSearchMigrationDefinesCanonicalTables(t *testing.T) {
+	roots := orderedSourceRootsForPhase8(t)
+	root, ok := roots[migrationSourceLabelAppLocal]
+	if !ok || root == nil {
+		t.Fatalf("expected %s migration root", migrationSourceLabelAppLocal)
+	}
+
+	upPath := "0034_esign_source_management_search_comments.up.sql"
+	upSQL, err := fs.ReadFile(root, upPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", upPath, err)
+	}
+	upText := string(upSQL)
+	for _, stmt := range []string{
+		"CREATE TABLE IF NOT EXISTS source_comment_threads",
+		"CREATE TABLE IF NOT EXISTS source_comment_messages",
+		"CREATE TABLE IF NOT EXISTS source_comment_sync_states",
+		"CREATE TABLE IF NOT EXISTS source_search_documents",
+		"uq_source_comment_threads_provider_comment",
+		"uq_source_comment_sync_states_revision_provider",
+		"uq_source_search_documents_scope_tuple",
+	} {
+		if !strings.Contains(upText, stmt) {
+			t.Fatalf("expected source comments/search migration to contain %q", stmt)
+		}
+	}
+}
+
 func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

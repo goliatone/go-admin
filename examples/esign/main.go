@@ -459,7 +459,7 @@ func newESignStorageBundle(logger uploader.Logger, runtimeConfig appcfg.Config) 
 		Backend: uploader.Backend(strings.TrimSpace(runtimeConfig.Storage.Backend)),
 		FS: uploader.FSConfig{
 			BasePath: firstNonEmptyString(
-				strings.TrimSpace(runtimeConfig.Storage.FS.BasePath),
+				strings.TrimSpace(runtimeConfig.Storage.Fs.BasePath),
 				resolveESignDiskAssetsDir(),
 			),
 			URLPrefix: resolveESignAssetsURLPrefix(runtimeConfig.Admin.BasePath),
@@ -474,9 +474,9 @@ func newESignStorageBundle(logger uploader.Logger, runtimeConfig appcfg.Config) 
 			SecretAccessKey:      strings.TrimSpace(runtimeConfig.Storage.S3.SecretAccessKey),
 			SessionToken:         strings.TrimSpace(runtimeConfig.Storage.S3.SessionToken),
 			UsePathStyle:         runtimeConfig.Storage.S3.UsePathStyle,
-			DisableSSL:           runtimeConfig.Storage.S3.DisableSSL,
+			DisableSSL:           runtimeConfig.Storage.S3.DisableSsl,
 			ServerSideEncryption: strings.TrimSpace(runtimeConfig.Storage.EncryptionAlgorithm),
-			KMSKeyID:             strings.TrimSpace(runtimeConfig.Storage.KMSKeyID),
+			KMSKeyID:             strings.TrimSpace(runtimeConfig.Storage.KmsKeyID),
 		},
 	}
 	validator := uploader.NewValidator(

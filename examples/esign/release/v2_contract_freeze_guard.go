@@ -13,12 +13,14 @@ const v2ContractFreezeDateLayout = "2006-01-02"
 
 // V2ContractFreezeGuard defines v2 GA contract freeze guardrails.
 type V2ContractFreezeGuard struct {
-	TrackedFiles         []string `json:"tracked_files"`
-	ContractHash         string   `json:"contract_hash"`
-	FreezeDate           string   `json:"freeze_date"`
-	ReleaseOwner         string   `json:"release_owner"`
-	ExceptionApprovalRef string   `json:"exception_approval_ref"`
-	ExceptionApprovedBy  string   `json:"exception_approved_by"`
+	TrackedFiles          []string `json:"tracked_files"`
+	ContractHash          string   `json:"contract_hash"`
+	FreezeDate            string   `json:"freeze_date"`
+	ReleaseOwner          string   `json:"release_owner"`
+	LedgerPath            string   `json:"ledger_path"`
+	RequiredLedgerEntryID string   `json:"required_ledger_entry_id"`
+	ExceptionApprovalRef  string   `json:"exception_approval_ref"`
+	ExceptionApprovedBy   string   `json:"exception_approved_by"`
 }
 
 // LoadV2ContractFreezeGuard reads and decodes a v2 contract freeze guard configuration file.
@@ -50,6 +52,17 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 	if strings.TrimSpace(guard.ReleaseOwner) == "" {
 		issues = append(issues, "release_owner is required")
 	}
+	if strings.TrimSpace(guard.LedgerPath) == "" {
+		issues = append(issues, "ledger_path is required")
+	}
+	if strings.TrimSpace(guard.RequiredLedgerEntryID) == "" {
+		issues = append(issues, "required_ledger_entry_id is required")
+	}
+	for _, requiredPath := range requiredV2SourceManagementTrackedFiles(repoRoot) {
+		if !containsTrackedFile(guard.TrackedFiles, requiredPath) {
+			issues = append(issues, "tracked_files missing required v2 source-management contract snapshot: "+requiredPath)
+		}
+	}
 
 	freezeDate, err := time.Parse(v2ContractFreezeDateLayout, strings.TrimSpace(guard.FreezeDate))
 	if err != nil {
@@ -78,6 +91,31 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 	if strings.TrimSpace(guard.ExceptionApprovedBy) != "" && strings.TrimSpace(guard.ExceptionApprovalRef) == "" {
 		issues = append(issues, "exception_approval_ref is required when exception_approved_by is set")
 	}
+
+	ledgerAbsPath := filepath.Join(repoRoot, filepath.FromSlash(strings.TrimSpace(guard.LedgerPath)))
+	ledgerRaw, err := os.ReadFile(ledgerAbsPath)
+	if err != nil {
+		return issues, err
+	}
+	section := resolveLedgerSection(string(ledgerRaw), strings.TrimSpace(guard.RequiredLedgerEntryID))
+	if strings.TrimSpace(section) == "" {
+		issues = append(issues, "required v2 source-management ledger entry is missing")
+		return issues, nil
+	}
+	requiredMarkers := []string{
+		"reviewed_contract_hash: " + computedHash,
+		"contract_scope:",
+		"impacted_endpoints:",
+		"backend_tests:",
+		"fixtures:",
+		"runbook:",
+	}
+	for _, marker := range requiredMarkers {
+		if strings.Contains(section, marker) {
+			continue
+		}
+		issues = append(issues, "ledger entry missing required marker: "+marker)
+	}
 	return issues, nil
 }
 
@@ -93,4 +131,21 @@ func FormatV2FreezeDate(value string) (string, error) {
 		return "", fmt.Errorf("invalid freeze date: %w", err)
 	}
 	return parsed.Format(v2ContractFreezeDateLayout), nil
+}
+
+func requiredV2SourceManagementTrackedFiles(repoRoot string) []string {
+	return []string{
+		filepath.ToSlash(strings.TrimPrefix(DefaultV2SourceManagementContractManifestPath(repoRoot), strings.TrimRight(repoRoot, string(filepath.Separator))+string(filepath.Separator))),
+		filepath.ToSlash(strings.TrimPrefix(DefaultV2SourceManagementFixtureSnapshotPath(repoRoot), strings.TrimRight(repoRoot, string(filepath.Separator))+string(filepath.Separator))),
+	}
+}
+
+func containsTrackedFile(trackedFiles []string, target string) bool {
+	target = filepath.ToSlash(strings.TrimSpace(target))
+	for _, candidate := range trackedFiles {
+		if filepath.ToSlash(strings.TrimSpace(candidate)) == target {
+			return true
+		}
+	}
+	return false
 }

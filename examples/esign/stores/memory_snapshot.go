@@ -15,6 +15,10 @@ type inMemoryStoreSnapshot struct {
 	SourceArtifacts             map[string]SourceArtifactRecord             `json:"source_artifacts"`
 	SourceFingerprints          map[string]SourceFingerprintRecord          `json:"source_fingerprints"`
 	SourceRelationships         map[string]SourceRelationshipRecord         `json:"source_relationships"`
+	SourceCommentThreads        map[string]SourceCommentThreadRecord        `json:"source_comment_threads"`
+	SourceCommentMessages       map[string]SourceCommentMessageRecord       `json:"source_comment_messages"`
+	SourceCommentSyncStates     map[string]SourceCommentSyncStateRecord     `json:"source_comment_sync_states"`
+	SourceSearchDocuments       map[string]SourceSearchDocumentRecord       `json:"source_search_documents"`
 	Agreements                  map[string]AgreementRecord                  `json:"agreements"`
 	AgreementRevisionRequests   map[string]AgreementRevisionRequestRecord   `json:"agreement_revision_requests"`
 	AgreementRevisionReqIndex   map[string]string                           `json:"agreement_revision_request_index"`
@@ -113,6 +117,34 @@ func ensureSourceFingerprintMap(in map[string]SourceFingerprintRecord) map[strin
 func ensureSourceRelationshipMap(in map[string]SourceRelationshipRecord) map[string]SourceRelationshipRecord {
 	if in == nil {
 		return map[string]SourceRelationshipRecord{}
+	}
+	return in
+}
+
+func ensureSourceCommentThreadMap(in map[string]SourceCommentThreadRecord) map[string]SourceCommentThreadRecord {
+	if in == nil {
+		return map[string]SourceCommentThreadRecord{}
+	}
+	return in
+}
+
+func ensureSourceCommentMessageMap(in map[string]SourceCommentMessageRecord) map[string]SourceCommentMessageRecord {
+	if in == nil {
+		return map[string]SourceCommentMessageRecord{}
+	}
+	return in
+}
+
+func ensureSourceCommentSyncStateMap(in map[string]SourceCommentSyncStateRecord) map[string]SourceCommentSyncStateRecord {
+	if in == nil {
+		return map[string]SourceCommentSyncStateRecord{}
+	}
+	return in
+}
+
+func ensureSourceSearchDocumentMap(in map[string]SourceSearchDocumentRecord) map[string]SourceSearchDocumentRecord {
+	if in == nil {
+		return map[string]SourceSearchDocumentRecord{}
 	}
 	return in
 }

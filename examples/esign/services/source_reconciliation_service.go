@@ -570,7 +570,10 @@ func (s DefaultSourceReconciliationService) latestReadyFingerprint(ctx context.C
 }
 
 func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx context.Context, scope stores.Scope, input SourceReconciliationInput, evaluation candidateScoreEvaluation, existing stores.SourceRelationshipRecord) (stores.SourceRelationshipRecord, error) {
-	leftID, rightID := orderedRelationshipIDs(strings.TrimSpace(input.SourceDocumentID), strings.TrimSpace(evaluation.candidateDocument.ID))
+	currentSourceDocumentID := strings.TrimSpace(input.SourceDocumentID)
+	candidateSourceDocumentID := strings.TrimSpace(evaluation.candidateDocument.ID)
+	leftID, rightID := orderedRelationshipIDs(currentSourceDocumentID, candidateSourceDocumentID)
+	predecessorID, successorID := sourceRelationshipDirectionalEndpoints(strings.TrimSpace(evaluation.relationshipType), currentSourceDocumentID, candidateSourceDocumentID)
 	now := s.now().UTC()
 	record := existing
 	if strings.TrimSpace(record.ID) == "" {
@@ -580,6 +583,8 @@ func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx cont
 		record.CreatedByUserID = strings.TrimSpace(firstNonEmpty(input.ActorID, "system"))
 		record.CreatedAt = now
 	}
+	record.PredecessorSourceDocumentID = predecessorID
+	record.SuccessorSourceDocumentID = successorID
 	record.RelationshipType = strings.TrimSpace(evaluation.relationshipType)
 	record.ConfidenceBand = strings.TrimSpace(evaluation.band)
 	record.ConfidenceScore = evaluation.score
@@ -596,6 +601,20 @@ func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx cont
 		return s.lineage.CreateSourceRelationship(ctx, scope, record)
 	}
 	return s.lineage.SaveSourceRelationship(ctx, scope, record)
+}
+
+func sourceRelationshipDirectionalEndpoints(relationshipType, currentSourceDocumentID, counterpartSourceDocumentID string) (string, string) {
+	currentSourceDocumentID = strings.TrimSpace(currentSourceDocumentID)
+	counterpartSourceDocumentID = strings.TrimSpace(counterpartSourceDocumentID)
+	switch strings.TrimSpace(relationshipType) {
+	case stores.SourceRelationshipTypeCopiedFrom,
+		stores.SourceRelationshipTypeTransferredFrom,
+		stores.SourceRelationshipTypeForkedFrom,
+		stores.SourceRelationshipTypeSameLogicalDoc:
+		return counterpartSourceDocumentID, currentSourceDocumentID
+	default:
+		return "", ""
+	}
 }
 
 func preservedRelationshipStatus(existing stores.SourceRelationshipRecord, evaluation candidateScoreEvaluation) string {

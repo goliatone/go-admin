@@ -306,7 +306,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 		},
 		{
 			table:    "source_relationships",
-			columns:  []string{"id", "tenant_id", "org_id", "left_source_document_id", "right_source_document_id", "relationship_type", "confidence_band", "confidence_score", "status", "evidence_json", "created_by_user_id", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "left_source_document_id", "right_source_document_id", "predecessor_source_document_id", "successor_source_document_id", "relationship_type", "confidence_band", "confidence_score", "status", "evidence_json", "created_by_user_id", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SourceRelationships))
@@ -314,19 +314,21 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					rows = append(rows, map[string]any{
-						"id":                       strings.TrimSpace(record.ID),
-						"tenant_id":                strings.TrimSpace(record.TenantID),
-						"org_id":                   strings.TrimSpace(record.OrgID),
-						"left_source_document_id":  strings.TrimSpace(record.LeftSourceDocumentID),
-						"right_source_document_id": strings.TrimSpace(record.RightSourceDocumentID),
-						"relationship_type":        strings.TrimSpace(record.RelationshipType),
-						"confidence_band":          strings.TrimSpace(record.ConfidenceBand),
-						"confidence_score":         record.ConfidenceScore,
-						"status":                   strings.TrimSpace(record.Status),
-						"evidence_json":            strings.TrimSpace(record.EvidenceJSON),
-						"created_by_user_id":       strings.TrimSpace(record.CreatedByUserID),
-						"created_at":               createdAt,
-						"updated_at":               updatedAt,
+						"id":                             strings.TrimSpace(record.ID),
+						"tenant_id":                      strings.TrimSpace(record.TenantID),
+						"org_id":                         strings.TrimSpace(record.OrgID),
+						"left_source_document_id":        strings.TrimSpace(record.LeftSourceDocumentID),
+						"right_source_document_id":       strings.TrimSpace(record.RightSourceDocumentID),
+						"predecessor_source_document_id": strings.TrimSpace(record.PredecessorSourceDocumentID),
+						"successor_source_document_id":   strings.TrimSpace(record.SuccessorSourceDocumentID),
+						"relationship_type":              strings.TrimSpace(record.RelationshipType),
+						"confidence_band":                strings.TrimSpace(record.ConfidenceBand),
+						"confidence_score":               record.ConfidenceScore,
+						"status":                         strings.TrimSpace(record.Status),
+						"evidence_json":                  strings.TrimSpace(record.EvidenceJSON),
+						"created_by_user_id":             strings.TrimSpace(record.CreatedByUserID),
+						"created_at":                     createdAt,
+						"updated_at":                     updatedAt,
 					})
 				}
 				return rows

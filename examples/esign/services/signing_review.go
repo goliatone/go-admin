@@ -458,21 +458,27 @@ func (s SigningService) getReviewOnlySession(ctx context.Context, scope stores.S
 		})
 		tabIndex++
 	}
+	uiMode, defaultTab, reviewMarkersVisible, reviewMarkersInteractive := deriveSignerSessionUIPresentation("reviewer", reviewCtx)
+
 	return SignerSessionContext{
-		SessionKind:     "reviewer",
-		AgreementID:     agreement.ID,
-		AgreementStatus: agreement.Status,
-		DocumentName:    documentName,
-		PageCount:       pageCount,
-		Viewer:          viewer,
-		RecipientID:     participant.ID,
-		RecipientRole:   stores.AgreementReviewParticipantRoleReviewer,
-		RecipientEmail:  participant.Email,
-		RecipientName:   firstNonEmptyString(participant.DisplayName, participant.Email),
-		State:           SignerSessionStateObserver,
-		Review:          reviewCtx,
-		CanSign:         false,
-		Fields:          sessionFields,
+		SessionKind:              "reviewer",
+		UIMode:                   uiMode,
+		DefaultTab:               defaultTab,
+		ReviewMarkersVisible:     reviewMarkersVisible,
+		ReviewMarkersInteractive: reviewMarkersInteractive,
+		AgreementID:              agreement.ID,
+		AgreementStatus:          agreement.Status,
+		DocumentName:             documentName,
+		PageCount:                pageCount,
+		Viewer:                   viewer,
+		RecipientID:              participant.ID,
+		RecipientRole:            stores.AgreementReviewParticipantRoleReviewer,
+		RecipientEmail:           participant.Email,
+		RecipientName:            firstNonEmptyString(participant.DisplayName, participant.Email),
+		State:                    SignerSessionStateObserver,
+		Review:                   reviewCtx,
+		CanSign:                  false,
+		Fields:                   sessionFields,
 	}, nil
 }
 

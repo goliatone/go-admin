@@ -158,6 +158,10 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 		"agreement_comment_threads",
 		"agreement_comment_messages",
 		"review_session_tokens",
+		"source_comment_threads",
+		"source_comment_messages",
+		"source_comment_sync_states",
+		"source_search_documents",
 	} {
 		exists, err := tableExists(ctx, client.DB(), table)
 		if err != nil {
@@ -192,6 +196,46 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 	}
 	if exists {
 		t.Fatalf("expected documents table to be removed after rollback")
+	}
+}
+
+func TestPhase13MigrationsExposeSourceCommentsAndSearchColumnsSQLite(t *testing.T) {
+	client, cleanup := newSQLiteMigrationClient(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	threadCols, err := tableColumnNames(ctx, client.DB(), "source_comment_threads")
+	if err != nil {
+		t.Fatalf("tableColumnNames(source_comment_threads): %v", err)
+	}
+	for _, col := range []string{"provider_comment_id", "thread_id", "sync_status", "last_activity_at"} {
+		if !contains(threadCols, col) {
+			t.Fatalf("expected source_comment_threads.%s column", col)
+		}
+	}
+
+	stateCols, err := tableColumnNames(ctx, client.DB(), "source_comment_sync_states")
+	if err != nil {
+		t.Fatalf("tableColumnNames(source_comment_sync_states): %v", err)
+	}
+	for _, col := range []string{"payload_sha256", "payload_json", "last_attempt_at", "error_code"} {
+		if !contains(stateCols, col) {
+			t.Fatalf("expected source_comment_sync_states.%s column", col)
+		}
+	}
+
+	searchCols, err := tableColumnNames(ctx, client.DB(), "source_search_documents")
+	if err != nil {
+		t.Fatalf("tableColumnNames(source_search_documents): %v", err)
+	}
+	for _, col := range []string{"result_kind", "comment_sync_status", "comment_count", "has_comments", "search_text"} {
+		if !contains(searchCols, col) {
+			t.Fatalf("expected source_search_documents.%s column", col)
+		}
 	}
 }
 

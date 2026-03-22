@@ -130,6 +130,13 @@ type sharedDriveEdgeProvider struct {
 	denyExport map[string]bool
 }
 
+type senderAgreementViewerRouteFixture struct {
+	app         *fiber.App
+	store       *stores.InMemoryStore
+	scope       stores.Scope
+	agreementID string
+}
+
 func newSharedDriveEdgeProvider() *sharedDriveEdgeProvider {
 	now := time.Date(2026, 2, 10, 9, 0, 0, 0, time.UTC)
 	return &sharedDriveEdgeProvider{
@@ -1724,8 +1731,12 @@ func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 	bodyText := string(body)
 	for _, fragment := range []string{
 		`"session_kind":"reviewer"`,
+		`"ui_mode":"review"`,
+		`"default_tab":"review"`,
 		`"recipient_email":"route.reviewer@example.com"`,
 		`"can_sign":false`,
+		`"review_markers_visible":true`,
+		`"review_markers_interactive":true`,
 	} {
 		if !strings.Contains(bodyText, fragment) {
 			t.Fatalf("expected %s in session payload, got %s", fragment, bodyText)
@@ -1835,6 +1846,122 @@ func setupExternalReviewRouteApp(t *testing.T) externalReviewRouteFixture {
 	}
 }
 
+func setupSenderAgreementViewerRouteApp(t *testing.T, grantedPerms []string, claimPerms []string, commentsEnabled bool) senderAgreementViewerRouteFixture {
+	t.Helper()
+
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-sender-viewer", OrgID: "org-sender-viewer"}
+	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
+
+	docSvc := services.NewDocumentService(store, services.WithDocumentObjectStore(objectStore))
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "Sender Viewer",
+		SourceOriginalName: "sender-viewer.pdf",
+		ObjectKey:          "tenant/tenant-sender-viewer/org/org-sender-viewer/docs/sender-viewer/source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Sender Viewer",
+		CreatedByUserID: "sender-owner",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerRole := stores.RecipientRoleSigner
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("sender.viewer.signer@example.com"),
+		Name:         new("Sender Viewer Signer"),
+		Role:         &signerRole,
+		SigningOrder: new(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	fieldType := stores.FieldTypeText
+	required := true
+	page := 1
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, services.ReviewOpenInput{
+		Gate:              stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled:   commentsEnabled,
+		ReviewerIDs:       []string{signer.ID},
+		RequestedByUserID: "sender-owner",
+		ActorType:         "user",
+		ActorID:           "sender-owner",
+	}); err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+
+	executedKey := "tenant/tenant-sender-viewer/org/org-sender-viewer/agreements/sender-viewer/executed.pdf"
+	certificateKey := "tenant/tenant-sender-viewer/org/org-sender-viewer/agreements/sender-viewer/certificate.pdf"
+	if _, err := objectStore.UploadFile(ctx, executedKey, services.GenerateDeterministicPDF(1)); err != nil {
+		t.Fatalf("UploadFile executed: %v", err)
+	}
+	if _, err := objectStore.UploadFile(ctx, certificateKey, services.GenerateDeterministicPDF(1)); err != nil {
+		t.Fatalf("UploadFile certificate: %v", err)
+	}
+	if _, err := store.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+		AgreementID:       agreement.ID,
+		ExecutedObjectKey: executedKey,
+		ExecutedSHA256:    "sender-viewer-executed",
+		CorrelationID:     "sender-viewer-executed",
+	}); err != nil {
+		t.Fatalf("SaveAgreementArtifacts executed: %v", err)
+	}
+	if _, err := store.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+		AgreementID:          agreement.ID,
+		CertificateObjectKey: certificateKey,
+		CertificateSHA256:    "sender-viewer-certificate",
+		CorrelationID:        "sender-viewer-certificate",
+	}); err != nil {
+		t.Fatalf("SaveAgreementArtifacts certificate: %v", err)
+	}
+
+	allowed := map[string]bool{}
+	for _, permission := range grantedPerms {
+		permission = strings.TrimSpace(permission)
+		if permission != "" {
+			allowed[permission] = true
+		}
+	}
+	if len(claimPerms) == 0 {
+		claimPerms = append([]string{}, grantedPerms...)
+	}
+
+	viewerSvc := services.NewAgreementViewService(
+		services.NewSigningService(store, services.WithSigningObjectStore(objectStore)),
+		store,
+		services.WithSignerAssetObjectStore(objectStore),
+	)
+	app := setupRegisterTestApp(t,
+		WithAgreementViewerService(viewerSvc),
+		WithSignerObjectStore(objectStore),
+		WithAuditEventStore(store),
+		WithAuthorizer(mapAuthorizer{allowed: allowed}),
+		WithAdminRouteMiddleware(withClaimsUserPermissions("sender-viewer-user", claimPerms...)),
+		WithDefaultScope(scope),
+	)
+	return senderAgreementViewerRouteFixture{
+		app:         app,
+		store:       store,
+		scope:       scope,
+		agreementID: agreement.ID,
+	}
+}
+
 func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testing.T) {
 	fixture := setupExternalReviewRouteApp(t)
 
@@ -1893,6 +2020,157 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 	}
 	if opened.ActorType != "review_token" {
 		t.Fatalf("expected actor type review_token, got %q", opened.ActorType)
+	}
+}
+
+func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testing.T) {
+	fixture := setupSenderAgreementViewerRouteApp(t,
+		[]string{DefaultPermissions.AdminView},
+		[]string{DefaultPermissions.AdminView},
+		true,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets", nil)
+	resp, err := fixture.app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	for _, expected := range []string{`"preview_url"`, `"source_url"`} {
+		if !strings.Contains(bodyText, expected) {
+			t.Fatalf("expected %s in sender asset response, got %s", expected, bodyText)
+		}
+	}
+	for _, forbidden := range []string{`"executed_url"`, `"certificate_url"`} {
+		if strings.Contains(bodyText, forbidden) {
+			t.Fatalf("did not expect %s without download permission, got %s", forbidden, bodyText)
+		}
+	}
+
+	executedReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets?asset=executed", nil)
+	executedResp, err := fixture.app.Test(executedReq, -1)
+	if err != nil {
+		t.Fatalf("executed asset request failed: %v", err)
+	}
+	defer executedResp.Body.Close()
+	if executedResp.StatusCode != http.StatusForbidden {
+		body, _ := io.ReadAll(executedResp.Body)
+		t.Fatalf("expected status 403 for executed asset without download permission, got %d body=%s", executedResp.StatusCode, body)
+	}
+}
+
+func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
+	fixture := setupSenderAgreementViewerRouteApp(t,
+		[]string{DefaultPermissions.AdminView},
+		[]string{DefaultPermissions.AdminView},
+		true,
+	)
+
+	sessionReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
+	sessionResp, err := fixture.app.Test(sessionReq, -1)
+	if err != nil {
+		t.Fatalf("session request failed: %v", err)
+	}
+	defer sessionResp.Body.Close()
+	if sessionResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(sessionResp.Body)
+		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
+	}
+	sessionBody, err := io.ReadAll(sessionResp.Body)
+	if err != nil {
+		t.Fatalf("read session body: %v", err)
+	}
+	if !strings.Contains(string(sessionBody), `"can_comment":false`) {
+		t.Fatalf("expected sender session to stay read-only for comments, got %s", string(sessionBody))
+	}
+
+	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
+	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq.Header.Set("Content-Type", "application/json")
+	threadResp, err := fixture.app.Test(threadReq, -1)
+	if err != nil {
+		t.Fatalf("thread create request failed: %v", err)
+	}
+	defer threadResp.Body.Close()
+	if threadResp.StatusCode != http.StatusForbidden {
+		body, _ := io.ReadAll(threadResp.Body)
+		t.Fatalf("expected status 403 without edit+view comment policy, got %d body=%s", threadResp.StatusCode, body)
+	}
+}
+
+func TestRegisterAgreementViewerThreadsAllowEditAndViewPolicy(t *testing.T) {
+	fixture := setupSenderAgreementViewerRouteApp(t,
+		[]string{DefaultPermissions.AdminView, DefaultPermissions.AdminEdit},
+		[]string{DefaultPermissions.AdminView, DefaultPermissions.AdminEdit},
+		true,
+	)
+
+	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
+	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq.Header.Set("Content-Type", "application/json")
+	threadResp, err := fixture.app.Test(threadReq, -1)
+	if err != nil {
+		t.Fatalf("thread create request failed: %v", err)
+	}
+	defer threadResp.Body.Close()
+	if threadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(threadResp.Body)
+		t.Fatalf("expected status 200 with edit+view policy, got %d body=%s", threadResp.StatusCode, body)
+	}
+	body, err := io.ReadAll(threadResp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), `"status":"ok"`) || !strings.Contains(string(body), `"visibility":"shared"`) {
+		t.Fatalf("expected successful shared sender thread creation, got %s", string(body))
+	}
+}
+
+func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
+	fixture := setupSenderAgreementViewerRouteApp(t,
+		[]string{DefaultPermissions.AdminView, DefaultPermissions.AdminEdit},
+		[]string{DefaultPermissions.AdminView, DefaultPermissions.AdminEdit},
+		false,
+	)
+
+	sessionReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
+	sessionResp, err := fixture.app.Test(sessionReq, -1)
+	if err != nil {
+		t.Fatalf("session request failed: %v", err)
+	}
+	defer sessionResp.Body.Close()
+	if sessionResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(sessionResp.Body)
+		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
+	}
+	sessionBody, err := io.ReadAll(sessionResp.Body)
+	if err != nil {
+		t.Fatalf("read session body: %v", err)
+	}
+	if !strings.Contains(string(sessionBody), `"can_comment":false`) {
+		t.Fatalf("expected sender session comments disabled when review comments are off, got %s", string(sessionBody))
+	}
+
+	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
+	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq.Header.Set("Content-Type", "application/json")
+	threadResp, err := fixture.app.Test(threadReq, -1)
+	if err != nil {
+		t.Fatalf("thread create request failed: %v", err)
+	}
+	defer threadResp.Body.Close()
+	if threadResp.StatusCode != http.StatusForbidden {
+		body, _ := io.ReadAll(threadResp.Body)
+		t.Fatalf("expected status 403 when review comments are disabled, got %d body=%s", threadResp.StatusCode, body)
 	}
 }
 

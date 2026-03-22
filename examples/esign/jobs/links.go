@@ -33,7 +33,7 @@ func buildReviewLink(rawToken string) string {
 	if token == "" {
 		return ""
 	}
-	return resolvePublicBaseURL() + "/sign/" + url.PathEscape(token)
+	return resolvePublicBaseURL() + "/review/" + url.PathEscape(token)
 }
 
 func buildCompletionLink(rawToken string) string {

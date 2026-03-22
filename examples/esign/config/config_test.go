@@ -258,6 +258,63 @@ func TestLoadSupportsSignerPDFOverrides(t *testing.T) {
 	}
 }
 
+func TestDefaultsIncludeSenderViewerPolicy(t *testing.T) {
+	cfg := Defaults()
+	if got := cfg.Signer.SenderViewer.PagePermissionsAll; len(got) != 1 || got[0] != "admin.esign.view" {
+		t.Fatalf("expected default sender viewer page permissions, got %+v", got)
+	}
+	if got := cfg.Signer.SenderViewer.CommentPermissionsAll; len(got) != 2 || got[0] != "admin.esign.edit" || got[1] != "admin.esign.view" {
+		t.Fatalf("expected default sender viewer comment permissions, got %+v", got)
+	}
+	if got := cfg.Signer.SenderViewer.AssetPermissions.Preview; len(got) != 1 || got[0] != "admin.esign.view" {
+		t.Fatalf("expected preview asset permissions to default to admin.esign.view, got %+v", got)
+	}
+	if got := cfg.Signer.SenderViewer.AssetPermissions.Executed; len(got) != 1 || got[0] != "admin.esign.download" {
+		t.Fatalf("expected executed asset permissions to default to admin.esign.download, got %+v", got)
+	}
+	if cfg.Signer.SenderViewer.ShowInProgressFieldValues {
+		t.Fatalf("expected in-progress field values hidden by default")
+	}
+}
+
+func TestLoadSupportsSenderViewerOverrides(t *testing.T) {
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "development"
+  },
+  "signer": {
+    "sender_viewer": {
+      "page_permissions_all": ["admin.esign.custom_view"],
+      "comment_permissions_all": ["admin.esign.comment"],
+      "asset_permissions": {
+        "preview": ["admin.esign.preview"],
+        "source": ["admin.esign.source"],
+        "executed": ["admin.esign.executed"],
+        "certificate": ["admin.esign.certificate"]
+      },
+      "show_in_progress_field_values": true
+    }
+  }
+}`)
+
+	cfg, err := Load(basePath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if got := cfg.Signer.SenderViewer.PagePermissionsAll; len(got) != 1 || got[0] != "admin.esign.custom_view" {
+		t.Fatalf("expected sender viewer page permissions override, got %+v", got)
+	}
+	if got := cfg.Signer.SenderViewer.CommentPermissionsAll; len(got) != 1 || got[0] != "admin.esign.comment" {
+		t.Fatalf("expected sender viewer comment permissions override, got %+v", got)
+	}
+	if got := cfg.Signer.SenderViewer.AssetPermissions.Certificate; len(got) != 1 || got[0] != "admin.esign.certificate" {
+		t.Fatalf("expected sender viewer certificate permission override, got %+v", got)
+	}
+	if !cfg.Signer.SenderViewer.ShowInProgressFieldValues {
+		t.Fatalf("expected sender viewer show_in_progress_field_values override=true")
+	}
+}
+
 func TestLoadSanitizesInvalidSignerPDFValues(t *testing.T) {
 	t.Setenv("APP_SIGNER__PDF__MAX_SOURCE_BYTES", "-1")
 	t.Setenv("APP_SIGNER__PDF__MAX_PAGES", "0")
