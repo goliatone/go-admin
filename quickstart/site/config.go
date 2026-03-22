@@ -92,6 +92,7 @@ type SiteViewConfig struct {
 type SiteSearchConfig struct {
 	Route       string   `json:"route"`
 	Endpoint    string   `json:"endpoint"`
+	Indexes     []string `json:"indexes,omitempty"`
 	Collections []string `json:"collections"`
 }
 
@@ -226,7 +227,8 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 	search := SiteSearchConfig{
 		Route:       normalizePathOrDefault(input.Search.Route, DefaultSearchRoute),
 		Endpoint:    normalizePathOrDefault(input.Search.Endpoint, DefaultSearchEndpoint),
-		Collections: cloneStrings(input.Search.Collections),
+		Indexes:     normalizedSearchIndexes(input.Search),
+		Collections: normalizedSearchIndexes(input.Search),
 	}
 
 	features := ResolvedSiteFeatures{
@@ -260,6 +262,13 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		Features:            features,
 		Theme:               theme,
 	}
+}
+
+func normalizedSearchIndexes(cfg SiteSearchConfig) []string {
+	if len(cfg.Indexes) > 0 {
+		return cloneStrings(cfg.Indexes)
+	}
+	return cloneStrings(cfg.Collections)
 }
 
 func compactFS(items []fs.FS) []fs.FS {
