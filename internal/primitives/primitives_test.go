@@ -59,6 +59,9 @@ func TestCloneStringMapVariants(t *testing.T) {
 	if CloneStringMapNilOnEmpty(empty) != nil {
 		t.Fatalf("CloneStringMapNilOnEmpty(empty) should be nil")
 	}
+	if got := CloneStringMapEmptyOnEmpty(nil); got == nil || len(got) != 0 {
+		t.Fatalf("CloneStringMapEmptyOnEmpty(nil) should be empty map")
+	}
 
 	source := map[string]string{"a": "1"}
 	copied := CloneStringMap(source)
@@ -72,8 +75,25 @@ func TestCloneStringMapVariants(t *testing.T) {
 }
 
 func TestInt(t *testing.T) {
-	v := new(7)
+	v := Int(7)
 	if v == nil || *v != 7 {
 		t.Fatalf("Int helper mismatch")
+	}
+}
+
+func TestBool(t *testing.T) {
+	v := Bool(true)
+	if v == nil || !*v {
+		t.Fatalf("Bool helper mismatch")
+	}
+}
+
+func TestStringOrNil(t *testing.T) {
+	if got := StringOrNil("  "); got != nil {
+		t.Fatalf("StringOrNil should return nil for blank input")
+	}
+	got := StringOrNil("  value ")
+	if got == nil || *got != "value" {
+		t.Fatalf("StringOrNil mismatch: got %#v", got)
 	}
 }

@@ -69,6 +69,31 @@ func (a rpcTestAuthorizer) Can(_ context.Context, action string, resource string
 	return a.allow[action+"|"+resource]
 }
 
+func TestNewAdminWithoutRPCTransportDoesNotMountRPCRoutes(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize admin: %v", err)
+	}
+
+	invokePath := path.Join(adm.AdminAPIBasePath(), "rpc")
+	endpointsPath := path.Join(invokePath, "endpoints")
+	if hasRoute(server.Router().Routes(), router.POST, invokePath) {
+		t.Fatalf("did not expect rpc invoke route %q", invokePath)
+	}
+	if hasRoute(server.Router().Routes(), router.GET, endpointsPath) {
+		t.Fatalf("did not expect rpc discovery route %q", endpointsPath)
+	}
+}
+
 func TestWithRPCTransportRequiresAuthenticatorByDefaultAtInitialize(t *testing.T) {
 	resetCommandRegistryForTest(t)
 	t.Cleanup(func() { resetCommandRegistryForTest(t) })

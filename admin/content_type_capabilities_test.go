@@ -60,6 +60,26 @@ func TestValidateAndNormalizeContentTypeCapabilitiesRejectsInvalidBooleanTypes(t
 	}
 }
 
+func TestNormalizeContentTypeCapabilitiesUsesCMSCanonicalSearchIndex(t *testing.T) {
+	normalized, validation := NormalizeContentTypeCapabilities(map[string]any{
+		"search_collection": "legacy_articles",
+		"search_index":      "documents",
+	})
+	if len(validation) > 0 {
+		t.Fatalf("expected no validation errors, got %+v", validation)
+	}
+	search, _ := normalized["search"].(map[string]any)
+	if search == nil {
+		t.Fatalf("expected search capability")
+	}
+	if search["index"] != "documents" {
+		t.Fatalf("expected canonical search.index=document, got %+v", search["index"])
+	}
+	if _, ok := search["collection"]; ok {
+		t.Fatalf("expected collection alias removed, got %+v", search)
+	}
+}
+
 func TestBackfillContentTypeNavigationDefaults(t *testing.T) {
 	svc := NewInMemoryContentService()
 	svc.types[cmsScopedKey("", "ctype-1")] = CMSContentType{
