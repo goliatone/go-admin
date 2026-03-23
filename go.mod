@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.36.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
-	github.com/goliatone/go-cms v0.42.0
+	github.com/goliatone/go-cms v0.43.0
 	github.com/goliatone/go-command v0.18.0
 	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-crud/gql v0.23.0
@@ -19,7 +19,7 @@ require (
 	github.com/goliatone/go-export v0.7.0
 	github.com/goliatone/go-featuregate v0.6.0
 	github.com/goliatone/go-formgen v0.18.0
-	github.com/goliatone/go-i18n v0.4.0
+	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-masker v0.1.0
@@ -28,8 +28,8 @@ require (
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.54.0
-	github.com/goliatone/go-search v0.0.0
-	github.com/goliatone/go-search/adapters/goadmin v0.0.0
+	github.com/goliatone/go-search v0.1.0
+	github.com/goliatone/go-search/adapters/goadmin v0.1.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
