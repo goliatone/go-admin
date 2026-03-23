@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -585,7 +586,7 @@ func compileWorkflowMachineDefinition(definition WorkflowDefinition) (*flow.Mach
 	return &flow.MachineDefinition{
 		ID:          entityType,
 		Name:        entityType,
-		Version:     strings.TrimSpace(firstNonEmpty(definition.MachineVersion, "1")),
+		Version:     strings.TrimSpace(primitives.FirstNonEmpty(definition.MachineVersion, "1")),
 		States:      stateDefs,
 		Transitions: transitions,
 	}, nil
@@ -618,9 +619,9 @@ func normalizeWorkflowMessage(
 	expectedState string,
 	metadata map[string]any,
 ) WorkflowMessage {
-	msg.EntityID = strings.TrimSpace(firstNonEmpty(msg.EntityID, entityID))
-	msg.EntityType = strings.TrimSpace(firstNonEmpty(msg.EntityType, machineID))
-	msg.Event = normalizeWorkflowEvent(firstNonEmpty(msg.Event, event))
+	msg.EntityID = strings.TrimSpace(primitives.FirstNonEmpty(msg.EntityID, entityID))
+	msg.EntityType = strings.TrimSpace(primitives.FirstNonEmpty(msg.EntityType, machineID))
+	msg.Event = normalizeWorkflowEvent(primitives.FirstNonEmpty(msg.Event, event))
 	if msg.CurrentState == "" {
 		msg.CurrentState = normalizeWorkflowState(expectedState)
 	}
@@ -683,16 +684,6 @@ func normalizeWorkflowEvent(value string) string {
 
 func normalizeWorkflowState(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func cloneWorkflowTransitionMetadata(in map[string]any) map[string]any {
