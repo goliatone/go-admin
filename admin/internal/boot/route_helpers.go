@@ -5,6 +5,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/internal/listquery"
 	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/pathutil"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -127,7 +128,7 @@ func routePath(ctx BootCtx, groupPath, route string) string {
 	if err != nil {
 		return ""
 	}
-	return prefixBasePath(ctx.BasePath(), path)
+	return pathutil.PrefixBasePath(ctx.BasePath(), path)
 }
 
 func routePathWithParams(ctx BootCtx, groupPath, route string, params map[string]string) string {
@@ -150,7 +151,7 @@ func adminBasePath(ctx BootCtx) string {
 	}
 	path := routePath(ctx, ctx.AdminUIGroup(), "dashboard")
 	if path == "" {
-		return normalizeBasePath(ctx.BasePath())
+		return pathutil.NormalizeBasePath(ctx.BasePath())
 	}
 	if path == "/" {
 		return ""
@@ -179,52 +180,6 @@ func moduleRoutePath(ctx BootCtx, slug, surface, route string) string {
 		return ""
 	}
 	return routePath(ctx, group, route)
-}
-
-func prefixBasePath(basePath, path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return ""
-	}
-	path = ensureLeadingSlash(path)
-	basePath = normalizeBasePath(basePath)
-	if basePath == "" || basePath == "/" {
-		return path
-	}
-	if path == basePath || strings.HasPrefix(path, basePath+"/") {
-		return path
-	}
-	return joinBasePath(basePath, path)
-}
-
-func joinBasePath(basePath, routePath string) string {
-	basePath = normalizeBasePath(basePath)
-	if basePath == "" || basePath == "/" {
-		return ensureLeadingSlash(routePath)
-	}
-	trimmed := strings.TrimPrefix(strings.TrimSpace(routePath), "/")
-	if trimmed == "" {
-		return basePath
-	}
-	return basePath + "/" + trimmed
-}
-
-func normalizeBasePath(basePath string) string {
-	trimmed := strings.TrimSpace(basePath)
-	if trimmed == "" {
-		return ""
-	}
-	return "/" + strings.Trim(trimmed, "/")
-}
-
-func ensureLeadingSlash(path string) string {
-	if path == "" {
-		return ""
-	}
-	if strings.HasPrefix(path, "/") {
-		return path
-	}
-	return "/" + path
 }
 
 func parseListOptions(c router.Context) ListOptions {

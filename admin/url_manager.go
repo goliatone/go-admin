@@ -60,14 +60,6 @@ func normalizeAPIVersion(version string) string {
 	return strings.Trim(trimmed, "/")
 }
 
-func normalizeBasePath(basePath string) string {
-	trimmed := strings.TrimSpace(basePath)
-	if trimmed == "" {
-		return ""
-	}
-	return "/" + strings.Trim(trimmed, "/")
-}
-
 func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
 	if cfg.URLs.URLKit != nil {
 		manager, err := urlkit.NewRouteManagerFromConfig(cfg.URLs.URLKit)

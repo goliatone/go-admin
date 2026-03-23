@@ -2,9 +2,10 @@ package navigation
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/navigationutil"
+	"github.com/goliatone/go-admin/internal/primitives"
 	cms "github.com/goliatone/go-cms"
 )
 
@@ -181,15 +182,7 @@ func canonicalMenuCode(code string) string {
 }
 
 func canonicalMenuItemPath(menuCode, raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	path, err := cms.CanonicalMenuItemPath(menuCode, trimmed)
-	if err != nil {
-		return ""
-	}
-	return path
+	return navigationutil.CanonicalMenuItemPath(menuCode, raw)
 }
 
 // MapMenuIDs normalizes ID and ParentID to menu item paths.
