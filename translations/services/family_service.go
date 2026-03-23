@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
@@ -483,7 +483,7 @@ func recomputeLocaleBlockers(family FamilyRecord, policy FamilyPolicy, source Fa
 				Locale:      locale,
 			}
 			if existing, ok := existingMissingLocaleBlockers[locale]; ok && len(existing.Details) > 0 {
-				blocker.Details = cloneAnyMap(existing.Details)
+				blocker.Details = primitives.CloneAnyMapNilOnEmpty(existing.Details)
 			}
 			blockers = append(blockers, blocker)
 			continue
@@ -763,9 +763,9 @@ func cloneFamilyVariants(items []FamilyVariant) []FamilyVariant {
 	out := make([]FamilyVariant, 0, len(items))
 	for _, item := range items {
 		clone := item
-		clone.Fields = cloneStringMap(item.Fields)
+		clone.Fields = primitives.CloneStringMapNilOnEmpty(item.Fields)
 		if len(item.Metadata) > 0 {
-			clone.Metadata = cloneAnyMap(item.Metadata)
+			clone.Metadata = primitives.CloneAnyMapNilOnEmpty(item.Metadata)
 		}
 		out = append(out, clone)
 	}
@@ -791,7 +791,7 @@ func cloneFamilyBlockers(items []FamilyBlocker) []FamilyBlocker {
 	for _, item := range items {
 		clone := item
 		if len(item.Details) > 0 {
-			clone.Details = cloneAnyMap(item.Details)
+			clone.Details = primitives.CloneAnyMapNilOnEmpty(item.Details)
 		}
 		out = append(out, clone)
 	}
@@ -806,24 +806,6 @@ func cloneFamilies(items []FamilyRecord) []FamilyRecord {
 	for _, item := range items {
 		out = append(out, cloneFamilyRecord(item))
 	}
-	return out
-}
-
-func cloneStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(input))
-	maps.Copy(out, input)
-	return out
-}
-
-func cloneAnyMap(input map[string]any) map[string]any {
-	if len(input) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(input))
-	maps.Copy(out, input)
 	return out
 }
 
