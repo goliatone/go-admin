@@ -13,15 +13,12 @@ Each helper is optional and composable.
 - `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`) intended for `WithFeatureSet(...)` or custom feature-gate construction.
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
 - `WithDebugOptions(opt DebugOption) AdminConfigOption` - Inputs: explicit debug option overrides; outputs: option that applies targeted debug fields.
-- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
 - `WithErrorOptions(opt ErrorOption) AdminConfigOption` - Inputs: explicit error option overrides; outputs: option that applies targeted error fields.
-- `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
 - `WithRoutingConfig(cfg routing.Config) AdminConfigOption` - Inputs: routing roots/module mount overrides; outputs: option that applies explicit routing policy overrides during quickstart config assembly.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
 - `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
 - `WithDefaultScope(tenantID, orgID string) AdminConfigOption` - Inputs: default tenant/org IDs; outputs: option that sets defaults for single-tenant mode.
-- `WithScopeFromEnv() AdminConfigOption` - Deprecated compatibility shim; applies default scope config without env reads.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that applies explicit adapter toggles.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature override map; outputs: compatibility option that merges overrides into `DefaultAdminFeatures()`.
@@ -106,7 +103,6 @@ Each helper is optional and composable.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
 
 - `DefaultSecureLinkConfig(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink defaults.
-- `SecureLinkConfigFromEnv(basePath string) SecureLinkConfig` - Deprecated compatibility shim; returns defaults and does not read environment.
 - `DefaultSecureLinkRoutes(basePath string) map[string]string` - Inputs: base path; outputs: securelink routes map.
 - `NewSecureLinkManager(cfg SecureLinkConfig) (types.SecureLinkManager, error)` - Inputs: securelink config; outputs: go-users securelink manager.
 - `NewNotificationsSecureLinkManager(cfg SecureLinkConfig) (links.SecureLinkManager, error)` - Inputs: securelink config; outputs: go-notifications securelink manager (delegates to `go-notifications/adapters/securelink.NewManager`).
@@ -632,8 +628,6 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
 	}),
 )
 ```
-
-`WithScopeFromEnv()` remains available for compatibility, but it no longer reads process environment and only applies normalized defaults.
 
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
@@ -1269,7 +1263,6 @@ Debug is opt-in and requires module registration plus middleware/log wiring. Con
 Use explicit option structs:
 - `quickstart.WithDebugOptions(quickstart.DebugOption{...})` for debug fields.
 - `quickstart.WithErrorOptions(quickstart.ErrorOption{...})` for error presentation fields.
-- `quickstart.WithDebugFromEnv(...)` / `quickstart.WithErrorsFromEnv(...)` remain compatibility shims and no longer read process environment.
 
 ```go
 cfg := quickstart.NewAdminConfig(

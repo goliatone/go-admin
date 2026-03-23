@@ -263,11 +263,6 @@ func translationCapabilityRoutes(adm *admin.Admin) (map[string]string, []string)
 	return translationRoutesToStrings(caps["routes"]), translationStringSlice(caps["resolver_keys"])
 }
 
-func translationCapabilityPanels(adm *admin.Admin) []string {
-	caps := translationCapabilitiesForAdmin(adm)
-	return translationStringSlice(caps["panels"])
-}
-
 func effectiveTranslationModuleEnabled(featureEnabled, overlayEnabled bool) bool {
 	return featureEnabled && overlayEnabled
 }

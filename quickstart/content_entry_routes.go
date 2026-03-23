@@ -222,12 +222,8 @@ func RegisterContentEntryUIRoutes[T any](
 			opt(&options)
 		}
 	}
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
-	if options.viewContext == nil {
-		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
 	if options.formRenderer == nil {
 		apiBase := ""
 		if adm != nil {
@@ -240,12 +236,7 @@ func RegisterContentEntryUIRoutes[T any](
 		options.formRenderer = renderer
 	}
 
-	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
-		if auth != nil {
-			return auth.WrapHandler(handler)
-		}
-		return handler
-	}
+	wrap := wrapQuickstartRouteAuth(auth)
 
 	handlers := newContentEntryHandlers(adm, cfg, options.viewContext, options)
 	// TODO: Make configurable, use URLKit and url manager

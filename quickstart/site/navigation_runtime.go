@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -132,8 +133,8 @@ func (r *navigationRuntime) resolveReadOptions(c router.Context, state RequestSt
 	opts := navigationReadOptions{
 		Locale:               strings.TrimSpace(state.Locale),
 		IncludeContributions: queryBoolValue(c, "include_contributions", true),
-		DedupPolicy:          normalizeDedupPolicy(strings.TrimSpace(primitivesFirstNonEmpty(queryValue(c, "menu_dedupe_policy"), queryValue(c, "dedupe_policy"), queryValue(c, "contribution_duplicate_policy")))),
-		ContributionLocalePolicy: normalizeContributionLocalePolicy(strings.TrimSpace(primitivesFirstNonEmpty(
+		DedupPolicy:          normalizeDedupPolicy(strings.TrimSpace(primitives.FirstNonEmpty(queryValue(c, "menu_dedupe_policy"), queryValue(c, "dedupe_policy"), queryValue(c, "contribution_duplicate_policy")))),
+		ContributionLocalePolicy: normalizeContributionLocalePolicy(strings.TrimSpace(primitives.FirstNonEmpty(
 			queryValue(c, "contribution_locale_policy"),
 			r.siteCfg.Navigation.ContributionLocalePolicy,
 		))),
@@ -198,8 +199,8 @@ func (r *navigationRuntime) resolveMenuForLocation(
 	projected := r.projectMenuItems(filtered, activePath, opts.Locale, opts.DedupPolicy, debugMode)
 
 	return map[string]any{
-		"location":           strings.TrimSpace(primitivesFirstNonEmpty(menu.Location, location)),
-		"code":               strings.TrimSpace(primitivesFirstNonEmpty(menu.Code, r.siteCfg.Navigation.FallbackMenuCode)),
+		"location":           strings.TrimSpace(primitives.FirstNonEmpty(menu.Location, location)),
+		"code":               strings.TrimSpace(primitives.FirstNonEmpty(menu.Code, r.siteCfg.Navigation.FallbackMenuCode)),
 		"source":             strings.TrimSpace(source),
 		"active_path":        normalizeLocalePath(activePath),
 		"items":              projected,
@@ -724,7 +725,7 @@ func (r *navigationRuntime) projectMenuItem(item admin.MenuItem, activePath, loc
 	origin := strings.TrimSpace(anyString(target["origin"]))
 	if origin == "" {
 		if contribution {
-			origin = primitivesFirstNonEmpty(contributionOrigin, "contribution")
+			origin = primitives.FirstNonEmpty(contributionOrigin, "contribution")
 		} else {
 			origin = "manual"
 		}
@@ -951,7 +952,7 @@ func contributionInfoFromTarget(target map[string]any) (bool, string) {
 	if len(target) == 0 {
 		return false, ""
 	}
-	origin := strings.TrimSpace(primitivesFirstNonEmpty(
+	origin := strings.TrimSpace(primitives.FirstNonEmpty(
 		anyString(target["contribution_origin"]),
 		anyString(target["origin"]),
 	))
@@ -1017,7 +1018,7 @@ func menuItemMatchesRequestedLocale(ctx context.Context, contentSvc admin.CMSCon
 		cache[contentID] = false
 		return false
 	}
-	resolvedLocale := strings.ToLower(strings.TrimSpace(primitivesFirstNonEmpty(
+	resolvedLocale := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(
 		record.ResolvedLocale,
 		record.Locale,
 		anyString(record.Data["resolved_locale"]),
@@ -1093,7 +1094,7 @@ func menuItemActive(activePath, href, mode, pattern string) bool {
 		}
 		return activePath == href || strings.HasPrefix(activePath, href+"/")
 	case "pattern":
-		pattern = strings.TrimSpace(primitivesFirstNonEmpty(pattern, href))
+		pattern = strings.TrimSpace(primitives.FirstNonEmpty(pattern, href))
 		if pattern == "" {
 			return activePath == href
 		}
@@ -1154,17 +1155,6 @@ func targetBool(target map[string]any, key string) bool {
 		}
 	}
 	return false
-}
-
-func cloneStringMap(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
-	return out
 }
 
 func normalizeNavigationPath(path string) string {
@@ -1234,14 +1224,4 @@ func toMenuItemsContract(raw any) []map[string]any {
 		return []map[string]any{}
 	}
 	return items
-}
-
-func primitivesFirstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

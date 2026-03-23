@@ -163,7 +163,9 @@ func (r *dashboardTemplateRenderer) RenderLayout(layout *admin.DashboardLayout) 
 	return r.Render("dashboard_ssr.html", layout)
 }
 
-func normalizeDashboardTemplateData(data any) (map[string]any, error) {
+// NormalizeDashboardTemplateData converts a dashboard payload into the
+// serialized template context used by the default dashboard renderer.
+func NormalizeDashboardTemplateData(data any) (map[string]any, error) {
 	renderer := &dashboardTemplateRenderer{}
 	normalized, err := renderer.normalizeData(data)
 	if err != nil {
@@ -175,6 +177,10 @@ func normalizeDashboardTemplateData(data any) (map[string]any, error) {
 	}
 	templateview.NormalizeContextNumbers(serialized)
 	return serialized, nil
+}
+
+func normalizeDashboardTemplateData(data any) (map[string]any, error) {
+	return NormalizeDashboardTemplateData(data)
 }
 
 func (r *dashboardTemplateRenderer) normalizeData(data any) (map[string]any, error) {

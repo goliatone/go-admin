@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
-	templateview "github.com/goliatone/go-admin/internal/templateview"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -440,9 +439,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		options.registerTranslationExchange = false
 	}
 
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 	if options.dashboardPath == "" {
 		options.dashboardPath = options.basePath
 	}
@@ -473,31 +470,14 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if options.translationExchangePath == "" {
 		options.translationExchangePath = path.Join(options.basePath, "translations", "exchange")
 	}
-	if options.viewContext == nil {
-		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
-	}
+	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
 
-	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
-		if auth != nil {
-			return auth.WrapHandler(handler)
-		}
-		return handler
-	}
+	wrap := wrapQuickstartRouteAuth(auth)
 	renderView := func(c router.Context, template, title, active string, extra router.ViewContext) error {
-		viewCtx := router.ViewContext{
-			"title":     title,
-			"base_path": options.basePath,
-		}
-		viewCtx = mergeViewContext(viewCtx, extra)
-		viewCtx = options.viewContext(viewCtx, active, c)
-		return templateview.RenderTemplateView(c, template, viewCtx)
+		return renderQuickstartUIView(c, template, title, active, options.basePath, options.viewContext, extra)
 	}
 	resolveAPIBase := func() string {
-		var urls urlkit.Resolver
-		if adm != nil {
-			urls = adm.URLs()
-		}
-		return resolveAdminAPIBasePath(urls, cfg, options.basePath)
+		return resolveQuickstartAdminAPIBase(adm, cfg, options.basePath)
 	}
 
 	if options.registerDashboard {

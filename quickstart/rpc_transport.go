@@ -55,17 +55,10 @@ func applyRPCTransportPolicyConfig(cfg *admin.Config, opts *adminOptions) {
 }
 
 func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
-	if adm == nil {
+	if adm == nil || !opts.rpcTransportConfigSet {
 		return nil
 	}
 	config := opts.rpcTransportConfig
-	if !opts.rpcTransportConfigSet {
-		config = RPCTransportConfig{
-			Enabled:          true,
-			RequireAuth:      true,
-			DiscoveryEnabled: true,
-		}
-	}
 	if !config.Enabled {
 		return nil
 	}

@@ -699,10 +699,6 @@ func searchIndexValues(c router.Context, fallback []string) []string {
 	return cloneStrings(fallback)
 }
 
-func searchCollectionValues(c router.Context, fallback []string) []string {
-	return searchIndexValues(c, fallback)
-}
-
 func searchBaseFilters(c router.Context) map[string][]string {
 	out := map[string][]string{}
 	if c == nil {

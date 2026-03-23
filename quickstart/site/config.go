@@ -507,16 +507,6 @@ func cloneStrings(values []string) []string {
 	return out
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func boolValue(value *bool, fallback bool) bool {
 	if value == nil {
 		return fallback

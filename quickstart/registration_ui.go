@@ -151,9 +151,7 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 		}
 	}
 
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 	if options.registerPath == "" {
 		options.registerPath = path.Join(options.basePath, "register")
 	}
@@ -163,9 +161,7 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 	if options.title == "" {
 		options.title = "Register"
 	}
-	if options.viewContext == nil {
-		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
-	}
+	options.viewContext = resolveQuickstartRegistrationUIViewContextBuilder(options.viewContext)
 
 	registrationMode := ""
 	if options.registrationMode != nil {
@@ -188,16 +184,13 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: path.Join(options.passwordResetPath, "confirm"),
 			RegisterPath:             options.registerPath,
-		})
-		viewCtx["title"] = options.title
+		}, options.title, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
 		viewCtx["registration_mode"] = registrationMode
-		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
-		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.template, viewCtx)
 	})

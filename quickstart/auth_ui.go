@@ -265,9 +265,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		}
 	}
 
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 	if options.loginPath == "" {
 		options.loginPath = path.Join(options.basePath, "login")
 	}
@@ -299,9 +297,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 	if options.logoutRedirectPath == "" {
 		options.logoutRedirectPath = options.loginPath
 	}
-	if options.viewContext == nil {
-		options.viewContext = func(ctx router.ViewContext, _ router.Context) router.ViewContext { return ctx }
-	}
+	options.viewContext = resolveQuickstartAuthUIViewContextBuilder(options.viewContext)
 
 	authScope := fggate.ScopeChain{{Kind: fggate.ScopeSystem}}
 	resolvePasswordReset := func(c router.Context) bool {
@@ -331,12 +327,12 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 			SelfRegistrationEnabled: resolveSelfRegistration(c),
 		}
 		authSnapshot := authUISnapshot(authState)
-		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		})
+		}, options.loginTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
 		if key := strings.TrimSpace(options.loginErrorQueryKey); key != "" {
 			if code := strings.TrimSpace(c.Query(key)); code != "" {
 				viewCtx["login_error_code"] = code
@@ -353,9 +349,6 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 				viewCtx["login_remember"] = parseLoginRemember(remember)
 			}
 		}
-		viewCtx["title"] = options.loginTitle
-		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
-		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.loginTemplate, viewCtx)
 	})
@@ -404,15 +397,12 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		})
-		viewCtx["title"] = options.passwordResetTitle
-		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
-		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
+		}, options.passwordResetTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.passwordResetTemplate, viewCtx)
 	})
@@ -429,18 +419,15 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := AuthUIViewContext(cfg, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		})
+		}, options.passwordResetConfirmTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
 		if token := strings.TrimSpace(c.Param("token")); token != "" {
 			viewCtx["password_reset_token"] = token
 		}
-		viewCtx["title"] = options.passwordResetConfirmTitle
-		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
-		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.passwordResetConfirmTemplate, viewCtx)
 	}

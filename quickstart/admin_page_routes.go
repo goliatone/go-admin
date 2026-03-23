@@ -114,6 +114,7 @@ func RegisterAdminPageRoutes[T any](
 			handler = auth.WrapHandler(handler)
 		}
 		r.Get(routePath, handler)
+		r.Head(routePath, handler)
 	}
 
 	return nil

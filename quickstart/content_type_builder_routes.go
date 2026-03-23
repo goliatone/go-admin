@@ -110,19 +110,10 @@ func RegisterContentTypeBuilderUIRoutes[T any](
 			opt(&options)
 		}
 	}
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
-	if options.viewContext == nil {
-		options.viewContext = defaultUIViewContextBuilder(adm, cfg)
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
 
-	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
-		if auth != nil {
-			return auth.WrapHandler(handler)
-		}
-		return handler
-	}
+	wrap := wrapQuickstartRouteAuth(auth)
 
 	handlers := newContentTypeBuilderHandlers(adm, cfg, options.viewContext, options.permission, options.authResource)
 	handlers.contentTypesTemplate = options.contentTypesTemplate
@@ -199,16 +190,9 @@ func RegisterContentTypeBuilderAPIRoutes[T any](
 			opt(&options)
 		}
 	}
-	if options.basePath == "" {
-		options.basePath = "/"
-	}
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 
-	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
-		if auth != nil {
-			return auth.WrapHandler(handler)
-		}
-		return handler
-	}
+	wrap := wrapQuickstartRouteAuth(auth)
 
 	handlers := newContentTypeBuilderHandlers(adm, cfg, nil, options.permission, options.authResource)
 	apiBase := adminAPIBasePathFromConfig(options.basePath, cfg)

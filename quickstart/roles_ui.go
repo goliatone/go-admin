@@ -89,7 +89,7 @@ func RegisterRolesUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		listTemplate:   "resources/roles/list",
 		formTemplate:   "resources/roles/form",
 		detailTemplate: "resources/roles/detail",
-		viewContext:    defaultUIViewContextBuilder(adm, cfg),
+		viewContext:    resolveQuickstartUIViewContextBuilder(adm, cfg, nil),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -102,6 +102,8 @@ func RegisterRolesUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	}
 	if resolved := resolveAdminBasePath(options.urls, options.basePath); resolved != "" {
 		options.basePath = resolved
+	} else {
+		options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 	}
 	if options.formGenerator == nil {
 		formGen, err := admin.NewRoleFormGenerator(cfg)
@@ -141,18 +143,6 @@ type roleHandlers struct {
 	basePath       string
 	rolesRoot      string
 	urls           urlkit.Resolver
-}
-
-func newRoleHandlers(adm *admin.Admin, cfg admin.Config, formGen *formgenorchestrator.Orchestrator, viewCtx UIViewContextBuilder, formTemplate string, listTemplate string, detailTemplate string) *roleHandlers {
-	basePath := cfg.BasePath
-	var urls urlkit.Resolver
-	if adm != nil {
-		urls = adm.URLs()
-	}
-	if resolved := resolveAdminBasePath(urls, basePath); resolved != "" {
-		basePath = resolved
-	}
-	return newRoleHandlersWithRoutes(adm, cfg, formGen, viewCtx, formTemplate, listTemplate, detailTemplate, basePath, urls)
 }
 
 func newRoleHandlersWithRoutes(adm *admin.Admin, cfg admin.Config, formGen *formgenorchestrator.Orchestrator, viewCtx UIViewContextBuilder, formTemplate string, listTemplate string, detailTemplate string, basePath string, urls urlkit.Resolver) *roleHandlers {
