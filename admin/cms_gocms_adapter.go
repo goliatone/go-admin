@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/navigationutil"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
@@ -402,15 +403,7 @@ func (a *GoCMSMenuAdapter) String() string {
 }
 
 func canonicalMenuItemPath(menuCode, raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	path, err := cms.CanonicalMenuItemPath(menuCode, trimmed)
-	if err != nil {
-		return ""
-	}
-	return path
+	return navigationutil.CanonicalMenuItemPath(menuCode, raw)
 }
 
 func normalizeMenuItemType(raw string) string {

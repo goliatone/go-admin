@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"reflect"
+	"sort"
+	"strings"
 
 	cmscontent "github.com/goliatone/go-cms/content"
 )
@@ -81,4 +83,55 @@ func convertCapabilityContracts(in cmscontent.ContentTypeCapabilityContracts) Co
 		Validation:           in.Validation,
 		MigratedDeliveryMenu: in.MigratedDeliveryMenu,
 	}
+}
+
+func normalizeContentTypeCapabilitiesInternal(capabilities map[string]any) (map[string]any, map[string]string, bool) {
+	contracts := cmscontent.ParseContentTypeCapabilityContracts(capabilities)
+	return contracts.Normalized, contracts.Validation, contracts.MigratedDeliveryMenu
+}
+
+func normalizeStringListAny(raw any) []string {
+	switch typed := raw.(type) {
+	case nil:
+		return nil
+	case []string:
+		return dedupeAndSortStrings(typed)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, value := range typed {
+			if item := strings.TrimSpace(toString(value)); item != "" {
+				out = append(out, item)
+			}
+		}
+		return dedupeAndSortStrings(out)
+	default:
+		if item := strings.TrimSpace(toString(raw)); item != "" {
+			return []string{item}
+		}
+		return nil
+	}
+}
+
+func dedupeAndSortStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		item := strings.TrimSpace(value)
+		if item == "" {
+			continue
+		}
+		if _, ok := set[item]; ok {
+			continue
+		}
+		set[item] = struct{}{}
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
