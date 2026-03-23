@@ -147,6 +147,51 @@ func TestDefaultSourceReconciliationServiceAutoConfirmsExactArtifactMatches(t *t
 	}
 }
 
+func TestDefaultSourceReconciliationServiceApplyReviewActionReindexesAfterCommitOnSQLite(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-lineage-review-sqlite", OrgID: "org-lineage-review-sqlite"}
+	relationalStore, cleanup := openSQLiteSourceReadModelFixtureStore(t)
+	defer cleanup()
+	fixtures := seedSourceReadModelFixturesInStore(t, relationalStore, scope)
+	search, err := NewGoSearchSourceSearchService(GoSearchSourceSearchConfig{
+		Lineage:    relationalStore,
+		Agreements: relationalStore,
+	})
+	if err != nil {
+		t.Fatalf("NewGoSearchSourceSearchService: %v", err)
+	}
+	service := NewDefaultSourceReconciliationService(
+		relationalStore,
+		WithSourceReconciliationSearchService(search),
+	)
+
+	summary, err := service.ApplyReviewAction(ctx, scope, SourceRelationshipReviewInput{
+		RelationshipID:  fixtures.candidateRelationshipID,
+		Action:          SourceRelationshipActionConfirm,
+		ConfirmBehavior: SourceRelationshipActionRelated,
+		ActorID:         "ops-user",
+		Reason:          "sqlite_post_commit_refresh",
+	})
+	if err != nil {
+		t.Fatalf("ApplyReviewAction: %v", err)
+	}
+	if summary.Status != stores.SourceRelationshipStatusConfirmed {
+		t.Fatalf("expected confirmed relationship after review, got %+v", summary)
+	}
+
+	results, err := search.Search(ctx, scope, SourceSearchQuery{
+		Query:    "fixture-google-file-2",
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Search after review refresh: %v", err)
+	}
+	if len(results.Items) == 0 || results.Items[0].Source == nil || results.Items[0].Source.ID != fixtures.sourceDocumentID {
+		t.Fatalf("expected post-commit search refresh to keep canonical source discoverable, got %+v", results.Items)
+	}
+}
+
 func TestDefaultSourceReconciliationServiceCreatesPendingCrossAccountCandidate(t *testing.T) {
 	ctx := context.Background()
 	fixture := newReconciliationFixture()

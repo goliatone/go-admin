@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -100,28 +101,28 @@ func (s *sourceManagementMetricsState) snapshot() SourceManagementMetricsSnapsho
 	defer s.mu.Unlock()
 
 	return SourceManagementMetricsSnapshot{
-		CommentSyncAttemptTotal:       s.commentSyncAttemptTotal,
-		CommentSyncSuccessTotal:       s.commentSyncSuccessTotal,
-		CommentSyncFailureTotal:       s.commentSyncFailureTotal,
-		CommentSyncReplayTotal:        s.commentSyncReplayTotal,
-		CommentSyncReplayFailureTotal: s.commentSyncReplayFailureTotal,
-		CommentSyncByProvider:         cloneInt64Map(s.commentSyncByProvider),
-		CommentSyncFailureByCode:      cloneInt64Map(s.commentSyncFailureByCode),
-		QueueBacklog:                  s.queueBacklog,
-		QueueBacklogByBand:            cloneInt64Map(s.queueBacklogByBand),
-		SearchReindexTotal:            s.searchReindexTotal,
-		SearchReindexFailureTotal:     s.searchReindexFailureTotal,
-		SearchReindexByTargetKind:     cloneInt64Map(s.searchReindexByTargetKind),
-		SearchProvider:                s.searchProvider,
-		SearchHealthy:                 s.searchHealthy,
-		SearchCheckedAt:               cloneSourceManagementTimePtr(s.searchCheckedAt),
-		SearchIndexReadyCount:         s.searchIndexReadyCount,
-		SearchIndexDocumentTotal:      s.searchIndexDocumentTotal,
-		SearchProviderStatusByIdx:     cloneStringMap(s.searchProviderStatusByIdx),
-		SearchFreshnessSuccessTotal:   s.searchFreshnessSuccessTotal,
-		SearchFreshnessFailureTotal:   s.searchFreshnessFailureTotal,
-		SearchFreshnessByTrigger:      cloneInt64Map(s.searchFreshnessByTrigger),
-		AgreementTitleRefreshTotal:    s.agreementTitleRefreshTotal,
+		CommentSyncAttemptTotal:           s.commentSyncAttemptTotal,
+		CommentSyncSuccessTotal:           s.commentSyncSuccessTotal,
+		CommentSyncFailureTotal:           s.commentSyncFailureTotal,
+		CommentSyncReplayTotal:            s.commentSyncReplayTotal,
+		CommentSyncReplayFailureTotal:     s.commentSyncReplayFailureTotal,
+		CommentSyncByProvider:             cloneInt64Map(s.commentSyncByProvider),
+		CommentSyncFailureByCode:          cloneInt64Map(s.commentSyncFailureByCode),
+		QueueBacklog:                      s.queueBacklog,
+		QueueBacklogByBand:                cloneInt64Map(s.queueBacklogByBand),
+		SearchReindexTotal:                s.searchReindexTotal,
+		SearchReindexFailureTotal:         s.searchReindexFailureTotal,
+		SearchReindexByTargetKind:         cloneInt64Map(s.searchReindexByTargetKind),
+		SearchProvider:                    s.searchProvider,
+		SearchHealthy:                     s.searchHealthy,
+		SearchCheckedAt:                   cloneSourceManagementTimePtr(s.searchCheckedAt),
+		SearchIndexReadyCount:             s.searchIndexReadyCount,
+		SearchIndexDocumentTotal:          s.searchIndexDocumentTotal,
+		SearchProviderStatusByIdx:         cloneStringMap(s.searchProviderStatusByIdx),
+		SearchFreshnessSuccessTotal:       s.searchFreshnessSuccessTotal,
+		SearchFreshnessFailureTotal:       s.searchFreshnessFailureTotal,
+		SearchFreshnessByTrigger:          cloneInt64Map(s.searchFreshnessByTrigger),
+		AgreementTitleRefreshTotal:        s.agreementTitleRefreshTotal,
 		AgreementTitleRefreshFailureTotal: s.agreementTitleRefreshFailureTotal,
 		ReviewActionTotal:                 s.reviewActionTotal,
 		ReviewActionFailureTotal:          s.reviewActionFailureTotal,
@@ -266,9 +267,7 @@ func cloneStringMap(values map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	out := make(map[string]string, len(values))
-	for key, value := range values {
-		out[key] = value
-	}
+	maps.Copy(out, values)
 	return out
 }
 

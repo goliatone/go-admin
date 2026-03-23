@@ -36,11 +36,13 @@ const (
 	eSignPageSignerDeclined    = "signer.declined"
 	eSignPageSignerError       = "signer.error"
 
-	eSignModuleAssetAdminLanding      = "dist/esign/index.js"
-	eSignModuleAssetDocumentIngestion = "dist/esign/index.js"
-	eSignModuleAssetAgreementForm     = "dist/esign/index.js"
-	eSignModuleAssetGoogleIntegration = "dist/esign/index.js"
-	eSignModuleAssetSourceManagement  = "dist/esign/index.js"
+	eSignModuleAssetAdminLanding      = "dist/esign/admin-landing.js"
+	eSignModuleAssetDocumentIngestion = "dist/esign/document-form.js"
+	eSignModuleAssetAgreementForm     = "dist/esign/agreement-form.js"
+	eSignModuleAssetGoogleIntegration = "dist/esign/google-integration.js"
+	eSignModuleAssetGoogleCallback    = "dist/esign/google-callback.js"
+	eSignModuleAssetGoogleDrivePicker = "dist/esign/google-drive-picker.js"
+	eSignModuleAssetSourceManagement  = "dist/esign/source-management-runtime.js"
 )
 
 var eSignMigratedPageModuleAssets = map[string]string{
@@ -48,14 +50,21 @@ var eSignMigratedPageModuleAssets = map[string]string{
 	eSignPageDocumentIngestion: eSignModuleAssetDocumentIngestion,
 	eSignPageAgreementForm:     eSignModuleAssetAgreementForm,
 	eSignPageGoogleIntegration: eSignModuleAssetGoogleIntegration,
-	eSignPageGoogleCallback:    eSignModuleAssetGoogleIntegration,
-	eSignPageGoogleDrivePicker: eSignModuleAssetGoogleIntegration,
+	eSignPageGoogleCallback:    eSignModuleAssetGoogleCallback,
+	eSignPageGoogleDrivePicker: eSignModuleAssetGoogleDrivePicker,
 	eSignPageSourceBrowser:     eSignModuleAssetSourceManagement,
 	eSignPageSourceDetail:      eSignModuleAssetSourceManagement,
 	eSignPageSourceRevision:    eSignModuleAssetSourceManagement,
 	eSignPageSourceComments:    eSignModuleAssetSourceManagement,
 	eSignPageSourceArtifacts:   eSignModuleAssetSourceManagement,
 	eSignPageSourceSearch:      eSignModuleAssetSourceManagement,
+}
+
+func resolveESignPageModuleAsset(page string, fallback string) string {
+	if asset := strings.TrimSpace(eSignMigratedPageModuleAssets[strings.TrimSpace(page)]); asset != "" {
+		return asset
+	}
+	return strings.TrimSpace(fallback)
 }
 
 type eSignPageConfig struct {
@@ -73,7 +82,7 @@ func buildESignAdminLandingPageConfig(basePath, apiBasePath string, googleEnable
 	resolvedBasePath := normalizeESignBasePath(basePath)
 	return eSignPageConfig{
 		Page:        eSignPageAdminLanding,
-		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetAdminLanding),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, resolveESignPageModuleAsset(eSignPageAdminLanding, eSignModuleAssetAdminLanding)),
 		BasePath:    resolvedBasePath,
 		APIBasePath: normalizeAPIBasePath(apiBasePath),
 		Features: map[string]bool{
@@ -98,7 +107,7 @@ func buildESignDocumentIngestionPageConfig(
 ) eSignPageConfig {
 	return eSignPageConfig{
 		Page:        eSignPageDocumentIngestion,
-		ModulePath:  resolveESignModulePath(basePath, eSignModuleAssetDocumentIngestion),
+		ModulePath:  resolveESignModulePath(basePath, resolveESignPageModuleAsset(eSignPageDocumentIngestion, eSignModuleAssetDocumentIngestion)),
 		BasePath:    normalizeESignBasePath(basePath),
 		APIBasePath: normalizeAPIBasePath(apiBasePath),
 		Features: map[string]bool{
@@ -123,7 +132,7 @@ func buildESignAgreementFormPageConfig(
 	syncBaseURL := path.Join(resolvedAPIBase, "esign")
 	return eSignPageConfig{
 		Page:        eSignPageAgreementForm,
-		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetAgreementForm),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, resolveESignPageModuleAsset(eSignPageAgreementForm, eSignModuleAssetAgreementForm)),
 		BasePath:    resolvedBasePath,
 		APIBasePath: resolvedAPIBase,
 		Routes:      cloneStringMap(routes),
@@ -166,7 +175,7 @@ func buildESignGoogleIntegrationPageConfig(
 	resolvedBasePath := normalizeESignBasePath(basePath)
 	return eSignPageConfig{
 		Page:        strings.TrimSpace(page),
-		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetGoogleIntegration),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, resolveESignPageModuleAsset(page, eSignModuleAssetGoogleIntegration)),
 		BasePath:    resolvedBasePath,
 		APIBasePath: normalizeAPIBasePath(apiBasePath),
 		Features: map[string]bool{
@@ -192,7 +201,7 @@ func buildESignSourceManagementPageConfig(
 	resolvedBasePath := normalizeESignBasePath(basePath)
 	return eSignPageConfig{
 		Page:        strings.TrimSpace(page),
-		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetSourceManagement),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, resolveESignPageModuleAsset(page, eSignModuleAssetSourceManagement)),
 		BasePath:    resolvedBasePath,
 		APIBasePath: normalizeAPIBasePath(apiBasePath),
 		Routes:      cloneStringMap(routes),

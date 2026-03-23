@@ -381,7 +381,7 @@
 {% if esign_module_path %}
 import { bootstrapGoogleDrivePicker } from '{{ esign_module_path }}';
 {% else %}
-import { bootstrapGoogleDrivePicker } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { bootstrapGoogleDrivePicker } from '{{ adminURL("assets/dist/esign/google-drive-picker.js") }}';
 {% endif %}
 
 bootstrapGoogleDrivePicker({

@@ -238,7 +238,7 @@
 
 {% block detail_scripts %}
 <script type="module">
-import { initDetailFormatters, bootstrapProvenanceCards } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { initDetailFormatters, bootstrapProvenanceCards } from '{{ adminURL("assets/dist/esign/document-detail.js") }}';
 
 // Apply formatters to detail page elements (data-size-bytes, data-timestamp)
 initDetailFormatters();

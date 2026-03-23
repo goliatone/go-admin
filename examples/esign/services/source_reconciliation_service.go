@@ -192,43 +192,54 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 	}
 	if txManager, ok := any(s.lineage).(stores.TransactionManager); ok {
 		summary := CandidateWarningSummary{}
-		err := txManager.WithTx(ctx, func(tx stores.TxStore) error {
-			updated, err := s.forTx(tx).applyReviewAction(ctx, scope, input)
+		err := stores.WithTxHooksContext(ctx, txManager, func(txCtx context.Context, tx stores.TxStore, hooks *stores.TxHooks) error {
+			updated, impactedSourceIDs, err := s.forTx(tx).applyReviewAction(txCtx, scope, input)
 			if err != nil {
 				return err
 			}
 			summary = updated
+			impacted := append([]string(nil), impactedSourceIDs...)
+			if hooks != nil {
+				hooks.AfterCommit(func() error {
+					return s.refreshSearchAfterReview(ctx, scope, impacted...)
+				})
+			} else if err := s.refreshSearchAfterReview(ctx, scope, impacted...); err != nil {
+				return err
+			}
 			return nil
 		})
 		observability.ObserveSourceReviewAction(ctx, normalizedAction, err == nil)
 		return summary, err
 	}
-	summary, err := s.applyReviewAction(ctx, scope, input)
+	summary, impactedSourceIDs, err := s.applyReviewAction(ctx, scope, input)
+	if err == nil {
+		err = s.refreshSearchAfterReview(ctx, scope, impactedSourceIDs...)
+	}
 	observability.ObserveSourceReviewAction(ctx, normalizedAction, err == nil)
 	return summary, err
 }
 
-func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
+func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, []string, error) {
 	relationshipID := strings.TrimSpace(input.RelationshipID)
 	action := strings.TrimSpace(strings.ToLower(input.Action))
 	actorID := strings.TrimSpace(input.ActorID)
 	if relationshipID == "" || action == "" || actorID == "" {
-		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
+		return CandidateWarningSummary{}, nil, domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
 	}
 	effectiveAction, err := normalizeSourceRelationshipReviewAction(action, input.ConfirmBehavior)
 	if err != nil {
-		return CandidateWarningSummary{}, err
+		return CandidateWarningSummary{}, nil, err
 	}
 	relationship, err := s.lineage.GetSourceRelationship(ctx, scope, relationshipID)
 	if err != nil {
-		return CandidateWarningSummary{}, err
+		return CandidateWarningSummary{}, nil, err
 	}
 	currentStatus := strings.TrimSpace(relationship.Status)
 	if currentStatus == stores.SourceRelationshipStatusSuperseded && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, lineageReviewConflictError("relationship", "superseded candidates are immutable")
+		return CandidateWarningSummary{}, nil, lineageReviewConflictError("relationship", "superseded candidates are immutable")
 	}
 	if currentStatus != stores.SourceRelationshipStatusPendingReview && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, lineageReviewConflictError("relationship", "candidate is no longer pending review")
+		return CandidateWarningSummary{}, nil, lineageReviewConflictError("relationship", "candidate is no longer pending review")
 	}
 
 	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
@@ -246,7 +257,7 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 		if s.policy.AttachHandlesOnConfirm {
 			canonicalID, attachedHandles, err := s.attachHandlesForRelationship(ctx, scope, relationship)
 			if err != nil {
-				return CandidateWarningSummary{}, err
+				return CandidateWarningSummary{}, nil, err
 			}
 			if canonicalID != "" {
 				evidence["canonical_source_document_id"] = canonicalID
@@ -257,7 +268,7 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 		relationship.Status = stores.SourceRelationshipStatusConfirmed
 		canonicalID, mergedID, attachedHandles, err := s.mergeSourceDocumentsForRelationship(ctx, scope, relationship)
 		if err != nil {
-			return CandidateWarningSummary{}, err
+			return CandidateWarningSummary{}, nil, err
 		}
 		if canonicalID != "" {
 			evidence["canonical_source_document_id"] = canonicalID
@@ -281,7 +292,7 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 	case SourceRelationshipActionSupersede:
 		relationship.Status = stores.SourceRelationshipStatusSuperseded
 	default:
-		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "action", "unsupported")
+		return CandidateWarningSummary{}, nil, domainValidationError("lineage_reconciliation", "action", "unsupported")
 	}
 	evidence = appendReconciliationAuditEntry(evidence, reconciliationAuditEntryInput{
 		ID:         "audit_" + hashFingerprintValue(strings.Join([]string{relationship.ID, effectiveAction, actorID, s.now().UTC().Format(time.RFC3339Nano)}, "|"))[:16],
@@ -296,16 +307,15 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 
 	encoded, err := json.Marshal(evidence)
 	if err != nil {
-		return CandidateWarningSummary{}, err
+		return CandidateWarningSummary{}, nil, err
 	}
 	relationship.EvidenceJSON = string(encoded)
 	relationship.UpdatedAt = s.now().UTC()
 	relationship, err = s.lineage.SaveSourceRelationship(ctx, scope, relationship)
 	if err != nil {
-		return CandidateWarningSummary{}, err
+		return CandidateWarningSummary{}, nil, err
 	}
-	s.refreshSearchAfterReview(ctx, scope, impactedSourceIDs...)
-	return candidateWarningSummaryFromRelationship(relationship), nil
+	return candidateWarningSummaryFromRelationship(relationship), impactedSourceIDs, nil
 }
 
 func (s DefaultSourceReconciliationService) ListCandidateRelationships(ctx context.Context, scope stores.Scope, sourceDocumentID string) ([]stores.SourceRelationshipRecord, error) {
@@ -957,11 +967,12 @@ func (s DefaultSourceReconciliationService) mergeSourceDocumentsForRelationship(
 	return firstNonEmpty(canonicalID, canonical.ID), duplicate.ID, attachedHandles, nil
 }
 
-func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context.Context, scope stores.Scope, sourceDocumentIDs ...string) {
+func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context.Context, scope stores.Scope, sourceDocumentIDs ...string) error {
 	if s.search == nil {
-		return
+		return nil
 	}
 	success := true
+	var firstErr error
 	seen := map[string]struct{}{}
 	for _, sourceDocumentID := range sourceDocumentIDs {
 		sourceDocumentID = strings.TrimSpace(sourceDocumentID)
@@ -974,9 +985,13 @@ func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context
 		seen[sourceDocumentID] = struct{}{}
 		if _, err := s.search.ReindexSourceDocument(ctx, scope, sourceDocumentID); err != nil {
 			success = false
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	observability.ObserveSourceSearchFreshness(ctx, "reconciliation_review", success)
+	return firstErr
 }
 
 func preferredCanonicalSourceDocument(left, right stores.SourceDocumentRecord) (stores.SourceDocumentRecord, stores.SourceDocumentRecord) {

@@ -530,7 +530,7 @@
 {% if esign_module_path %}
 import { bootstrapIntegrationMappings } from '{{ esign_module_path }}';
 {% else %}
-import { bootstrapIntegrationMappings } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { bootstrapIntegrationMappings } from '{{ adminURL("assets/dist/esign/integration-mappings.js") }}';
 {% endif %}
 
 bootstrapIntegrationMappings({

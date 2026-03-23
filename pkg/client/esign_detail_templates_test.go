@@ -43,7 +43,7 @@ func TestESignDocumentDetailTemplateIncludesLineagePresentationCard(t *testing.T
 
 	required := []string{
 		`{% if resource_item.lineage_presentation %}`,
-		`{% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}`,
+		`{% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation resource=resource_item %}`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(template, fragment) {

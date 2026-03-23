@@ -61,8 +61,8 @@ func TestBuildESignDocumentIngestionPageConfigIncludesFeatureFlagsAndRoutes(t *t
 	if got := rawToString(cfg.Context["user_id"]); got != "user-1" {
 		t.Fatalf("expected context.user_id=user-1, got %q", got)
 	}
-	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
-		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/document-form.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/document-form.js, got %q", got)
 	}
 }
 
@@ -107,8 +107,8 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testin
 	if !ok || len(ops) != 3 || ops[0] != "send" || ops[1] != "start_review" || ops[2] != "dispose" {
 		t.Fatalf("expected sync.action_operations=[send start_review dispose], got %+v", syncCfg["action_operations"])
 	}
-	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
-		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/agreement-form.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/agreement-form.js, got %q", got)
 	}
 }
 
@@ -181,8 +181,8 @@ func TestBuildESignGoogleIntegrationPageConfigIncludesOAuthContext(t *testing.T)
 	if got := rawToString(cfg.Context["google_client_id"]); got != "google-client-id" {
 		t.Fatalf("expected google_client_id google-client-id, got %q", got)
 	}
-	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
-		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/google-integration.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/google-integration.js, got %q", got)
 	}
 }
 
@@ -215,8 +215,8 @@ func TestBuildESignSourceManagementPageConfigIncludesRuntimeRoutesAndContext(t *
 	if got := rawToString(cfg.Context["source_document_id"]); got != "src-123" {
 		t.Fatalf("expected source_document_id context src-123, got %q", got)
 	}
-	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
-		t.Fatalf("expected source-management module path /admin/assets/dist/esign/index.js, got %q", got)
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/source-management-runtime.js" {
+		t.Fatalf("expected source-management module path /admin/assets/dist/esign/source-management-runtime.js, got %q", got)
 	}
 }
 
@@ -253,12 +253,14 @@ func TestViewContextRoutesExtractsMapAny(t *testing.T) {
 
 func TestValidateESignRuntimeAssetContractsWithFSPasses(t *testing.T) {
 	assetsFS := fstest.MapFS{
-		"dist/esign/index.js": {Data: []byte("export function bootstrapLandingPage() {}")},
+		"dist/esign/admin-landing.js":  {Data: []byte("export function bootstrapLandingPage() {}")},
+		"dist/esign/document-form.js":  {Data: []byte("export function bootstrapDocumentForm() {}")},
+		"dist/esign/agreement-form.js": {Data: []byte("export function bootstrapAgreementForm() {}")},
 	}
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
-		eSignPageAdminLanding:      "dist/esign/index.js",
-		eSignPageDocumentIngestion: "dist/esign/index.js",
-		eSignPageAgreementForm:     "dist/esign/index.js",
+		eSignPageAdminLanding:      "dist/esign/admin-landing.js",
+		eSignPageDocumentIngestion: "dist/esign/document-form.js",
+		eSignPageAgreementForm:     "dist/esign/agreement-form.js",
 	})
 	if err != nil {
 		t.Fatalf("expected asset contract validation to pass, got %v", err)
@@ -267,7 +269,7 @@ func TestValidateESignRuntimeAssetContractsWithFSPasses(t *testing.T) {
 
 func TestValidateESignRuntimeAssetContractsWithFSRejectsInvalidModulePrefix(t *testing.T) {
 	assetsFS := fstest.MapFS{
-		"dist/esign/index.js": {Data: []byte("export function bootstrapLandingPage() {}")},
+		"dist/esign/admin-landing.js": {Data: []byte("export function bootstrapLandingPage() {}")},
 	}
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
 		eSignPageAdminLanding: "dist/other/index.js",
@@ -279,7 +281,7 @@ func TestValidateESignRuntimeAssetContractsWithFSRejectsInvalidModulePrefix(t *t
 
 func TestResolveESignRuntimeAssetsFSWithDiskPrefersDiskAssets(t *testing.T) {
 	tmpDir := t.TempDir()
-	assetPath := filepath.Join(tmpDir, "dist", "esign", "index.js")
+	assetPath := filepath.Join(tmpDir, "dist", "esign", "agreement-form.js")
 	if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
 		t.Fatalf("mkdir asset dir: %v", err)
 	}
@@ -289,7 +291,7 @@ func TestResolveESignRuntimeAssetsFSWithDiskPrefersDiskAssets(t *testing.T) {
 
 	assetsFS := resolveESignRuntimeAssetsFSWithDisk(fstest.MapFS{}, tmpDir)
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
-		eSignPageAgreementForm: "dist/esign/index.js",
+		eSignPageAgreementForm: "dist/esign/agreement-form.js",
 	})
 	if err != nil {
 		t.Fatalf("expected disk-backed asset contract validation to pass, got %v", err)

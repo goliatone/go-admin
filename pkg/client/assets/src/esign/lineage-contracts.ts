@@ -725,13 +725,20 @@ export interface FingerprintProcessingSummary {
 export interface SourceManagementLinks {
   self?: string;
   source?: string;
+  workspace?: string;
+  queue?: string;
   revisions?: string;
+  timeline?: string;
   relationships?: string;
+  review?: string;
   handles?: string;
   diagnostics?: string;
   provider?: string;
   artifacts?: string;
   comments?: string;
+  agreements?: string;
+  agreement?: string;
+  anchor?: string;
 }
 
 /**
@@ -863,6 +870,12 @@ export interface SourceSearchResultSummary {
   matched_fields: string[];
   summary?: string;
   links: SourceManagementLinks;
+}
+
+export interface SourceWorkspaceDrillIn {
+  panel: string;
+  anchor?: string;
+  href: string;
 }
 
 /**
@@ -1197,6 +1210,8 @@ export interface Phase13SourceSearchResultSummary extends SourceSearchResultSumm
   has_comments?: boolean;
   /** SHA256 hash of primary artifact (for fingerprint matching) */
   artifact_hash?: string;
+  /** Backend-authored canonical workspace drill-in for the matched result */
+  drill_in?: SourceWorkspaceDrillIn;
 }
 
 /**
@@ -1473,7 +1488,22 @@ export function normalizePhase13SourceSearchResultSummary(
     comment_count: asOptionalNumber(record.comment_count),
     has_comments: typeof record.has_comments === 'boolean' ? record.has_comments : undefined,
     artifact_hash: asOptionalString(record.artifact_hash),
+    drill_in: normalizeSourceWorkspaceDrillIn(record.drill_in),
     links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+function normalizeSourceWorkspaceDrillIn(value: unknown): SourceWorkspaceDrillIn | undefined {
+  const record = asRecord(value);
+  const href = asOptionalString(record.href);
+  const panel = asOptionalString(record.panel);
+  if (!href || !panel) {
+    return undefined;
+  }
+  return {
+    panel,
+    anchor: asOptionalString(record.anchor),
+    href,
   };
 }
 

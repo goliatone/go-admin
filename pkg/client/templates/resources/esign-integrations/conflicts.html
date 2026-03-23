@@ -339,7 +339,7 @@
 {% if esign_module_path %}
 import { bootstrapIntegrationConflicts } from '{{ esign_module_path }}';
 {% else %}
-import { bootstrapIntegrationConflicts } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { bootstrapIntegrationConflicts } from '{{ adminURL("assets/dist/esign/integration-conflicts.js") }}';
 {% endif %}
 
 bootstrapIntegrationConflicts({

@@ -96,7 +96,7 @@ func registerESignSourceManagementUIRoutes(
 				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
 					RootLabel:    "Dashboard",
 					RootHref:     normalizeESignBasePath(basePath),
-					CurrentLabel: "Source Browser",
+					CurrentLabel: "Sources",
 				})
 				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
 				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
@@ -327,7 +327,7 @@ func registerESignSourceManagementUIRoutes(
 				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
 					RootLabel:    "Dashboard",
 					RootHref:     normalizeESignBasePath(basePath),
-					CurrentLabel: "Source Search",
+					CurrentLabel: "Search",
 				})
 				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
 				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
@@ -376,7 +376,7 @@ func buildSourceBrowserRuntimePageModel(scope stores.Scope, routes map[string]st
 	}
 	return eSignSourceManagementPageModel{
 		Surface: "source_browser",
-		Title:   "Sources",
+		Title:   "Source Browser",
 		Summary: "",
 		Scope:   scope,
 		Highlights: compactRuntimeHighlights(
@@ -419,7 +419,7 @@ func buildSourceDetailRuntimePageModel(scope stores.Scope, routes map[string]str
 			runtimeHighlight("Status", firstNonEmptyValue(detail.Status, "-")),
 			runtimeHighlight("Confidence", firstNonEmptyValue(detail.LineageConfidence, "-")),
 			runtimeHighlight("Revisions", strconvString(detail.RevisionCount)),
-			runtimeHighlight("Pending", strconvString(detail.PendingCandidateCount)),
+			runtimeHighlight("Pending Candidates", strconvString(detail.PendingCandidateCount)),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: detail,
@@ -433,8 +433,8 @@ func buildSourceRevisionRuntimePageModel(scope stores.Scope, routes map[string]s
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
 		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Comments", routes["source_comment_inspector"], "primary"),
-		sourceManagementRuntimeLink("Artifacts", routes["source_artifact_inspector"], "secondary"),
+		sourceManagementRuntimeLink("Comment Inspector", routes["source_comment_inspector"], "primary"),
+		sourceManagementRuntimeLink("Artifact Inspector", routes["source_artifact_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
 		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "secondary"))
@@ -447,7 +447,7 @@ func buildSourceRevisionRuntimePageModel(scope stores.Scope, routes map[string]s
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_revision",
-		Title:      revisionInspectorLabel(detail.Revision),
+		Title:      "Revision Inspector",
 		Summary:    "",
 		ResourceID: revisionID,
 		Scope:      scope,
@@ -468,15 +468,15 @@ func buildSourceCommentInspectorRuntimePageModel(scope stores.Scope, routes map[
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
 		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Revision", routes["source_revision"], "secondary"),
-		sourceManagementRuntimeLink("Artifacts", routes["source_artifact_inspector"], "secondary"),
+		sourceManagementRuntimeLink("Revision Inspector", routes["source_revision"], "secondary"),
+		sourceManagementRuntimeLink("Artifact Inspector", routes["source_artifact_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
 		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "primary"))
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_comments",
-		Title:      "Comments",
+		Title:      "Comment Inspector",
 		Summary:    "",
 		ResourceID: revisionSummaryID(page.Revision),
 		Scope:      scope,
@@ -497,16 +497,16 @@ func buildSourceArtifactInspectorRuntimePageModel(scope stores.Scope, routes map
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
 		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Revision", routes["source_revision"], "primary"),
-		sourceManagementRuntimeLink("Comments", routes["source_comment_inspector"], "secondary"),
+		sourceManagementRuntimeLink("Revision Inspector", routes["source_revision"], "primary"),
+		sourceManagementRuntimeLink("Comment Inspector", routes["source_comment_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
 		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "secondary"))
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_artifacts",
-		Title:      "Artifacts",
-		Summary:    "",
+		Title:      "Artifact Inspector",
+		Summary:    "Artifacts",
 		ResourceID: revisionSummaryID(page.Revision),
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
@@ -529,8 +529,8 @@ func buildSourceSearchRuntimePageModel(basePath, queryString string, scope store
 	}
 	return eSignSourceManagementPageModel{
 		Surface: "source_search",
-		Title:   "Search",
-		Summary: "",
+		Title:   "Source Search",
+		Summary: "Search Drill-Ins",
 		Scope:   scope,
 		Highlights: compactRuntimeHighlights(
 			runtimeHighlight("Results", strconvString(len(results.Items))),
@@ -549,7 +549,7 @@ func buildSourceManagementBreadcrumbSpec(basePath string, routes map[string]stri
 		RootLabel: "Dashboard",
 		RootHref:  normalizeESignBasePath(basePath),
 		Trail: []quickstart.BreadcrumbItem{
-			quickstart.Breadcrumb("Source Browser", routes["source_browser"]),
+			quickstart.Breadcrumb("Sources", routes["source_browser"]),
 		},
 		CurrentLabel: currentLabel,
 	}
@@ -732,22 +732,57 @@ func sourceSearchQueryFromRequest(c router.Context) services.SourceSearchQuery {
 }
 
 func sourceSearchResultRuntimeLink(basePath, queryString string, result services.SourceSearchResultSummary) eSignSourceManagementRuntimeLink {
-	target := ""
-	switch {
-	case matchedFieldIncludes(result.MatchedFields, "comment"), result.HasComments:
-		if result.Revision != nil && strings.TrimSpace(result.Revision.ID) != "" {
-			target = eSignSourceCommentsPath(basePath, result.Revision.ID)
+	target := sourceManagementRuntimePathFromLinks(basePath, queryString, result.DrillIn, result.Links)
+	if target == "" {
+		switch {
+		case result.Revision != nil && strings.TrimSpace(result.Revision.ID) != "":
+			target = appendQueryString(eSignSourceRevisionPath(basePath, result.Revision.ID), queryString)
+		case result.Source != nil && strings.TrimSpace(result.Source.ID) != "":
+			target = appendQueryString(eSignSourceDetailPath(basePath, result.Source.ID), queryString)
 		}
-	case matchedFieldIncludes(result.MatchedFields, "artifact"):
-		if result.Revision != nil && strings.TrimSpace(result.Revision.ID) != "" {
-			target = eSignSourceArtifactsPath(basePath, result.Revision.ID)
-		}
-	case result.Revision != nil && strings.TrimSpace(result.Revision.ID) != "":
-		target = eSignSourceRevisionPath(basePath, result.Revision.ID)
-	case result.Source != nil && strings.TrimSpace(result.Source.ID) != "":
-		target = eSignSourceDetailPath(basePath, result.Source.ID)
 	}
-	return sourceManagementRuntimeLink(firstNonEmptyValue(result.Summary, sourceSearchResultLabel(result)), appendQueryString(target, queryString), "secondary")
+	return sourceManagementRuntimeLink(firstNonEmptyValue(result.Summary, sourceSearchResultLabel(result)), target, "secondary")
+}
+
+func sourceManagementRuntimePathFromLinks(
+	basePath, queryString string,
+	drillIn *services.SourceWorkspaceDrillIn,
+	links services.SourceManagementLinks,
+) string {
+	for _, candidate := range []string{
+		sourceWorkspaceDrillInHref(drillIn),
+		links.Anchor,
+		links.Workspace,
+		links.Comments,
+		links.Artifacts,
+		links.Source,
+		links.Self,
+	} {
+		target := translateSourceManagementAPIPathToRuntimePath(basePath, strings.TrimSpace(candidate))
+		if target != "" {
+			return appendQueryString(target, queryString)
+		}
+	}
+	return ""
+}
+
+func sourceWorkspaceDrillInHref(drillIn *services.SourceWorkspaceDrillIn) string {
+	if drillIn == nil {
+		return ""
+	}
+	return strings.TrimSpace(drillIn.Href)
+}
+
+func translateSourceManagementAPIPathToRuntimePath(basePath, target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ""
+	}
+	if !strings.HasPrefix(target, services.DefaultSourceManagementBasePath) {
+		return target
+	}
+	uiBase := path.Join(normalizeESignBasePath(basePath), "esign")
+	return uiBase + strings.TrimPrefix(target, services.DefaultSourceManagementBasePath)
 }
 
 func sourceSearchResultLabel(result services.SourceSearchResultSummary) string {

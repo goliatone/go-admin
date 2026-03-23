@@ -168,7 +168,7 @@ import {
   resolveSourceListRenderingState,
   adaptSourceListPage,
   registerPageController
-} from '{{ adminURL("assets/dist/esign/index.js") }}';
+} from '{{ adminURL("assets/dist/esign/source-browser.js") }}';
 
 const apiBase = '{{ api_base|default:"/admin/api/v1/esign" }}';
 const bootstrap = JSON.parse(document.getElementById('source-browser-bootstrap')?.textContent || '{}');

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -124,9 +125,10 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 				t.Fatalf("read %s body: %v", tc.name, err)
 			}
 			html := string(body)
+			visibleHTML := stripScriptsFromHTML(html)
 			for _, snippet := range tc.expectedText {
-				if !strings.Contains(html, snippet) {
-					t.Fatalf("expected %s html to contain %q", tc.name, snippet)
+				if !strings.Contains(visibleHTML, snippet) {
+					t.Fatalf("expected %s rendered html to contain %q", tc.name, snippet)
 				}
 			}
 
@@ -147,6 +149,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 
 			pageModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
 			tc.assertModel(t, pageModel)
+			assertSourceManagementShellMatchesModel(t, html, pageModel)
 		})
 	}
 }
@@ -241,4 +244,72 @@ type legacySourceSearchFailingRuntimeStore struct {
 
 func (s legacySourceSearchFailingRuntimeStore) ListSourceSearchDocuments(context.Context, stores.Scope, stores.SourceSearchDocumentQuery) ([]stores.SourceSearchDocumentRecord, error) {
 	return nil, fmt.Errorf("legacy source_search_documents should not be used by runtime search")
+}
+
+func stripScriptsFromHTML(html string) string {
+	re := regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script>`)
+	return re.ReplaceAllString(html, "")
+}
+
+func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageModel map[string]any) {
+	t.Helper()
+
+	rendered := stripScriptsFromHTML(html)
+	surface := strings.TrimSpace(rawToString(pageModel["surface"]))
+
+	if navLinks, ok := pageModel["nav_links"].([]any); ok {
+		for _, raw := range navLinks {
+			link, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			label := strings.TrimSpace(rawToString(link["label"]))
+			href := strings.TrimSpace(rawToString(link["href"]))
+			if label != "" && !strings.Contains(rendered, label) {
+				t.Fatalf("expected rendered source-management shell to include nav label %q for surface %q", label, surface)
+			}
+			hrefPath := strings.TrimSpace(strings.SplitN(href, "?", 2)[0])
+			if hrefPath != "" && !strings.Contains(rendered, `href="`+hrefPath) {
+				t.Fatalf("expected rendered source-management shell to include nav href path %q for surface %q", hrefPath, surface)
+			}
+		}
+	}
+
+	switch surface {
+	case "source_detail", "source_revision", "source_comments", "source_artifacts":
+		if highlights, ok := pageModel["highlights"].([]any); ok {
+			for _, raw := range highlights {
+				highlight, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				label := strings.TrimSpace(rawToString(highlight["label"]))
+				value := strings.TrimSpace(rawToString(highlight["value"]))
+				if label != "" && !strings.Contains(rendered, label) {
+					t.Fatalf("expected rendered source-management shell to include highlight label %q for surface %q", label, surface)
+				}
+				if value != "" && !strings.Contains(rendered, value) {
+					t.Fatalf("expected rendered source-management shell to include highlight value %q for surface %q", value, surface)
+				}
+			}
+		}
+
+		if resultLinks, ok := pageModel["result_links"].([]any); ok {
+			for _, raw := range resultLinks {
+				link, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				label := strings.TrimSpace(rawToString(link["label"]))
+				href := strings.TrimSpace(rawToString(link["href"]))
+				if label != "" && !strings.Contains(rendered, label) {
+					t.Fatalf("expected rendered source-management shell to include result label %q for surface %q", label, surface)
+				}
+				hrefPath := strings.TrimSpace(strings.SplitN(href, "?", 2)[0])
+				if hrefPath != "" && !strings.Contains(rendered, `href="`+hrefPath) {
+					t.Fatalf("expected rendered source-management shell to include result href path %q for surface %q", hrefPath, surface)
+				}
+			}
+		}
+	}
 }

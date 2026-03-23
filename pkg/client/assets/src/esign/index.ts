@@ -310,6 +310,15 @@ export {
 export {
   SourceManagementRuntimeController,
   initSourceManagementRuntimePage,
+  translateSourceManagementHrefToRuntime,
+  resolveBrowserItemRuntimeHref,
+  resolveSearchResultRuntimeHref,
+  SOURCE_SEARCH_RESULT_KIND_OPTIONS,
+  // Phase 18 V2 runtime initialization (Task 18.7)
+  initV2SourceManagementRuntime,
+  assertV2RuntimeInitialization,
+  logV2RuntimeInitResult,
+  type V2RuntimeInitResult,
 } from './source-management-runtime.js';
 
 export {
@@ -460,6 +469,20 @@ export {
   runPhase16RuntimeSmokeCoverage,
   logPhase16SmokeTestResults,
   runPhase16ComprehensiveSmokeCoverage,
+  // Phase 17 reconciliation queue smoke tests
+  runPhase17ReconciliationQueueSmokeTests,
+  assertPhase17ReconciliationQueueSmokeTests,
+  logPhase17SmokeTestResults,
+  runPhase17ComprehensiveSmokeCoverage,
+  // Phase 18 V2 operator journey smoke tests
+  V2_OPERATOR_JOURNEY_STEPS,
+  runPhase18V2JourneySmokeTests,
+  assertPhase18V2JourneySmokeTests,
+  logPhase18SmokeTestResults,
+  runPhase18ComprehensiveSmokeCoverage,
+  assertPhase18ComprehensiveSmokeCoverage,
+  runV2ExitCriteriaValidation,
+  logV2ExitCriteriaResults,
   type SmokeTestRuntimeOptions,
   type FixtureRouteValidationResult,
   type SmokeSurfaceResult,
@@ -470,6 +493,11 @@ export {
   type Phase15PageId,
   type Phase16WorkspacePanelResult,
   type Phase16WorkspaceSmokeResult,
+  type Phase17QueueSmokeTestResult,
+  type Phase17ReconciliationQueueSmokeResult,
+  type Phase18JourneyStep,
+  type Phase18JourneyStepResult,
+  type Phase18V2JourneySmokeResult,
 } from './source-management-smoke-tests.js';
 
 // Source Detail Workspace (Phase 16)

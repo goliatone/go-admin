@@ -363,7 +363,7 @@
 {% if esign_module_path %}
 import { bootstrapIntegrationSyncRuns } from '{{ esign_module_path }}';
 {% else %}
-import { bootstrapIntegrationSyncRuns } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { bootstrapIntegrationSyncRuns } from '{{ adminURL("assets/dist/esign/integration-sync-runs.js") }}';
 {% endif %}
 
 bootstrapIntegrationSyncRuns({

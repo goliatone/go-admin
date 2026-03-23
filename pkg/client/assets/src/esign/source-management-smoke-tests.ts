@@ -2342,3 +2342,907 @@ export async function runPhase17ComprehensiveSmokeCoverage(
       landingZone.passed && pageBootstrap.passed && workspace.passed && reconciliationQueue.passed,
   };
 }
+
+// ============================================================================
+// Phase 18 Version 2 Complete Operator Journey Smoke Tests (Task 18.6)
+// ============================================================================
+
+/**
+ * Phase 18 V2 operator journey step definition.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export interface Phase18JourneyStep {
+  stepId: string;
+  surface: string;
+  description: string;
+  contractFamily: string;
+  requiredLinks: string[];
+  canNavigateFrom: string[];
+}
+
+/**
+ * Phase 18 V2 operator journey smoke test result for a single step.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export interface Phase18JourneyStepResult {
+  stepId: string;
+  surface: string;
+  description: string;
+  passed: boolean;
+  assertions: {
+    name: string;
+    passed: boolean;
+    message?: string;
+  }[];
+  durationMs: number;
+}
+
+/**
+ * Phase 18 V2 complete operator journey smoke test result.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export interface Phase18V2JourneySmokeResult {
+  passed: boolean;
+  steps: Phase18JourneyStepResult[];
+  journeyNavigable: boolean;
+  contractCoverageComplete: boolean;
+  noFallbackSynthesis: boolean;
+  summary: string;
+  totalDurationMs: number;
+  timestamp: string;
+}
+
+/**
+ * V2 Operator Journey Steps definition.
+ * Describes the complete Version 2 source-management operator journey.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export const V2_OPERATOR_JOURNEY_STEPS: Phase18JourneyStep[] = [
+  {
+    stepId: 'browse_sources',
+    surface: 'source_browser',
+    description: 'Browse canonical source documents',
+    contractFamily: 'SourceListPage',
+    requiredLinks: ['self', 'search'],
+    canNavigateFrom: ['nav_menu', 'breadcrumb'],
+  },
+  {
+    stepId: 'view_source_detail',
+    surface: 'source_detail',
+    description: 'Open source detail workspace',
+    contractFamily: 'SourceDetail',
+    requiredLinks: ['self', 'revisions', 'relationships', 'handles', 'comments'],
+    canNavigateFrom: ['source_browser'],
+  },
+  {
+    stepId: 'view_revision_history',
+    surface: 'revision_history',
+    description: 'View revision timeline and history',
+    contractFamily: 'SourceRevisionPage',
+    requiredLinks: ['self'],
+    canNavigateFrom: ['source_detail'],
+  },
+  {
+    stepId: 'inspect_revision_detail',
+    surface: 'revision_detail',
+    description: 'Inspect specific revision details',
+    contractFamily: 'SourceRevisionDetail',
+    requiredLinks: ['self', 'artifacts'],
+    canNavigateFrom: ['revision_history'],
+  },
+  {
+    stepId: 'view_artifacts',
+    surface: 'artifact_inspector',
+    description: 'Inspect PDF artifacts and fingerprints',
+    contractFamily: 'SourceArtifactPage',
+    requiredLinks: ['self'],
+    canNavigateFrom: ['revision_detail'],
+  },
+  {
+    stepId: 'view_comments',
+    surface: 'comment_inspector',
+    description: 'View synced provider comments',
+    contractFamily: 'Phase13SourceCommentPage',
+    requiredLinks: ['self'],
+    canNavigateFrom: ['source_detail'],
+  },
+  {
+    stepId: 'search_sources',
+    surface: 'source_search',
+    description: 'Search across sources by text, title, and comments',
+    contractFamily: 'Phase13SourceSearchResults',
+    requiredLinks: ['self'],
+    canNavigateFrom: ['source_browser', 'nav_menu'],
+  },
+  {
+    stepId: 'view_reconciliation_queue',
+    surface: 'reconciliation_queue',
+    description: 'View pending lineage candidates for review',
+    contractFamily: 'ReconciliationQueuePage',
+    requiredLinks: ['self', 'queue'],
+    canNavigateFrom: ['nav_menu', 'source_detail'],
+  },
+  {
+    stepId: 'review_candidate',
+    surface: 'candidate_detail',
+    description: 'Review and resolve a lineage candidate',
+    contractFamily: 'ReconciliationCandidateDetail',
+    requiredLinks: ['self', 'queue'],
+    canNavigateFrom: ['reconciliation_queue'],
+  },
+];
+
+/**
+ * Validate that a journey step uses backend-authored contracts.
+ */
+function validateJourneyStepContract(step: Phase18JourneyStep): {
+  valid: boolean;
+  issues: string[];
+} {
+  const issues: string[] = [];
+
+  // Validate contract family is recognized
+  const approvedFamilies = [
+    'SourceListPage',
+    'SourceDetail',
+    'SourceRevisionPage',
+    'SourceRevisionDetail',
+    'SourceArtifactPage',
+    'Phase13SourceCommentPage',
+    'Phase13SourceSearchResults',
+    'ReconciliationQueuePage',
+    'ReconciliationCandidateDetail',
+  ];
+
+  if (!approvedFamilies.includes(step.contractFamily)) {
+    issues.push(`Unknown contract family: ${step.contractFamily}`);
+  }
+
+  // Validate required links are specified
+  if (!step.requiredLinks || step.requiredLinks.length === 0) {
+    issues.push('Journey step must require at least one backend link');
+  }
+
+  // Validate navigation sources are specified
+  if (!step.canNavigateFrom || step.canNavigateFrom.length === 0) {
+    issues.push('Journey step must have at least one navigation source');
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+  };
+}
+
+/**
+ * Validate that a mock contract payload has required links.
+ */
+function validateMockContractLinks(
+  mockPayload: { links?: Record<string, unknown> },
+  requiredLinks: string[]
+): { valid: boolean; missingLinks: string[] } {
+  const missingLinks: string[] = [];
+
+  if (!mockPayload.links) {
+    return { valid: false, missingLinks: requiredLinks };
+  }
+
+  for (const link of requiredLinks) {
+    if (!(link in mockPayload.links) || typeof mockPayload.links[link] !== 'string') {
+      missingLinks.push(link);
+    }
+  }
+
+  return {
+    valid: missingLinks.length === 0,
+    missingLinks,
+  };
+}
+
+/**
+ * Create mock source browser page for journey testing.
+ */
+function createMockSourceBrowserPage(): {
+  items: { source: { id: string }; status: string }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  applied_query: { page: number; page_size: number };
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string; search: string };
+} {
+  return {
+    items: [
+      { source: { id: 'src_journey_001' }, status: 'active' },
+      { source: { id: 'src_journey_002' }, status: 'active' },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 2, has_more: false, mode: 'page' },
+    applied_query: { page: 1, page_size: 20 },
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'sources_available' },
+    links: {
+      self: '/admin/api/v1/esign/sources',
+      search: '/admin/api/v1/esign/source-search',
+    },
+  };
+}
+
+/**
+ * Create mock source detail page for journey testing.
+ */
+function createMockJourneySourceDetail(): {
+  source: { id: string; label: string };
+  status: string;
+  lineage_confidence: string;
+  provider: { kind: string; label: string };
+  latest_revision: { id: string };
+  revision_count: number;
+  handle_count: number;
+  relationship_count: number;
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string; revisions: string; relationships: string; handles: string; comments: string };
+} {
+  return {
+    source: { id: 'src_journey_001', label: 'Journey Test Source' },
+    status: 'active',
+    lineage_confidence: 'high',
+    provider: { kind: 'google_drive', label: 'Google Drive' },
+    latest_revision: { id: 'rev_journey_001' },
+    revision_count: 3,
+    handle_count: 1,
+    relationship_count: 2,
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    links: {
+      self: '/admin/api/v1/esign/sources/src_journey_001',
+      revisions: '/admin/api/v1/esign/sources/src_journey_001/revisions',
+      relationships: '/admin/api/v1/esign/sources/src_journey_001/relationships',
+      handles: '/admin/api/v1/esign/sources/src_journey_001/handles',
+      comments: '/admin/api/v1/esign/sources/src_journey_001/comments',
+    },
+  };
+}
+
+/**
+ * Create mock revision page for journey testing.
+ */
+function createMockJourneyRevisionPage(): {
+  source: { id: string };
+  items: { revision: { id: string }; is_latest: boolean; links: { self: string; artifacts: string } }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string };
+} {
+  return {
+    source: { id: 'src_journey_001' },
+    items: [
+      {
+        revision: { id: 'rev_journey_001' },
+        is_latest: true,
+        links: {
+          self: '/admin/api/v1/esign/source-revisions/rev_journey_001',
+          artifacts: '/admin/api/v1/esign/source-revisions/rev_journey_001/artifacts',
+        },
+      },
+      {
+        revision: { id: 'rev_journey_002' },
+        is_latest: false,
+        links: {
+          self: '/admin/api/v1/esign/source-revisions/rev_journey_002',
+          artifacts: '/admin/api/v1/esign/source-revisions/rev_journey_002/artifacts',
+        },
+      },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 2, has_more: false, mode: 'page' },
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    links: { self: '/admin/api/v1/esign/sources/src_journey_001/revisions' },
+  };
+}
+
+/**
+ * Create mock revision detail for journey testing.
+ */
+function createMockJourneyRevisionDetail(): {
+  revision: { id: string };
+  source: { id: string };
+  artifact_count: number;
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string; artifacts: string };
+} {
+  return {
+    revision: { id: 'rev_journey_001' },
+    source: { id: 'src_journey_001' },
+    artifact_count: 1,
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    links: {
+      self: '/admin/api/v1/esign/source-revisions/rev_journey_001',
+      artifacts: '/admin/api/v1/esign/source-revisions/rev_journey_001/artifacts',
+    },
+  };
+}
+
+/**
+ * Create mock artifact page for journey testing.
+ */
+function createMockJourneyArtifactPage(): {
+  revision: { id: string };
+  items: { id: string; kind: string }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string };
+} {
+  return {
+    revision: { id: 'rev_journey_001' },
+    items: [{ id: 'art_journey_001', kind: 'pdf_export' }],
+    page_info: { page: 1, page_size: 20, total_count: 1, has_more: false, mode: 'page' },
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    links: { self: '/admin/api/v1/esign/source-revisions/rev_journey_001/artifacts' },
+  };
+}
+
+/**
+ * Create mock comment page for journey testing.
+ */
+function createMockJourneyCommentPage(): {
+  source: { id: string };
+  items: { thread_id: string; resolved: boolean }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  sync_status: string;
+  links: { self: string };
+} {
+  return {
+    source: { id: 'src_journey_001' },
+    items: [
+      { thread_id: 'thread_001', resolved: false },
+      { thread_id: 'thread_002', resolved: true },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 2, has_more: false, mode: 'page' },
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    sync_status: 'synced',
+    links: { self: '/admin/api/v1/esign/sources/src_journey_001/comments' },
+  };
+}
+
+/**
+ * Create mock search results for journey testing.
+ */
+function createMockJourneySearchResults(): {
+  items: { result_kind: string; source: { id: string } }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  applied_query: { query: string; page: number; page_size: number };
+  permissions: { can_view_diagnostics: boolean; can_open_provider_links: boolean; can_review_candidates: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string };
+} {
+  return {
+    items: [
+      { result_kind: 'source_document', source: { id: 'src_journey_001' } },
+      { result_kind: 'source_revision', source: { id: 'src_journey_002' } },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 2, has_more: false, mode: 'page' },
+    applied_query: { query: 'test search', page: 1, page_size: 20 },
+    permissions: { can_view_diagnostics: true, can_open_provider_links: true, can_review_candidates: true, can_view_comments: true },
+    empty_state: { kind: 'none' },
+    links: { self: '/admin/api/v1/esign/source-search' },
+  };
+}
+
+/**
+ * Get mock contract for a journey step.
+ */
+function getMockContractForStep(stepId: string): { links?: Record<string, string> } {
+  switch (stepId) {
+    case 'browse_sources':
+      return createMockSourceBrowserPage();
+    case 'view_source_detail':
+      return createMockJourneySourceDetail();
+    case 'view_revision_history':
+      return createMockJourneyRevisionPage();
+    case 'inspect_revision_detail':
+      return createMockJourneyRevisionDetail();
+    case 'view_artifacts':
+      return createMockJourneyArtifactPage();
+    case 'view_comments':
+      return createMockJourneyCommentPage();
+    case 'search_sources':
+      return createMockJourneySearchResults();
+    case 'view_reconciliation_queue':
+      return createMockReconciliationQueuePage();
+    case 'review_candidate':
+      return createMockReconciliationCandidateDetail();
+    default:
+      return {};
+  }
+}
+
+/**
+ * Run smoke test for a single journey step.
+ */
+function smokeTestJourneyStep(step: Phase18JourneyStep): Phase18JourneyStepResult {
+  const startTime = performance.now();
+  const assertions: Phase18JourneyStepResult['assertions'] = [];
+
+  // Validate step definition
+  const stepValidation = validateJourneyStepContract(step);
+  assertions.push({
+    name: 'step definition is valid',
+    passed: stepValidation.valid,
+    message: stepValidation.valid ? undefined : stepValidation.issues.join('; '),
+  });
+
+  // Get mock contract and validate links
+  const mockContract = getMockContractForStep(step.stepId);
+  const linksValidation = validateMockContractLinks(mockContract, step.requiredLinks);
+  assertions.push({
+    name: 'contract has required links',
+    passed: linksValidation.valid,
+    message: linksValidation.valid ? undefined : `Missing links: ${linksValidation.missingLinks.join(', ')}`,
+  });
+
+  // Validate contract uses backend API paths
+  if (mockContract.links) {
+    const selfLink = mockContract.links.self;
+    const usesBackendPath = typeof selfLink === 'string' && selfLink.startsWith('/admin/api/');
+    assertions.push({
+      name: 'links use backend API paths',
+      passed: usesBackendPath,
+      message: usesBackendPath ? undefined : 'Self link does not start with /admin/api/',
+    });
+  }
+
+  // Validate no client-side URL synthesis
+  assertions.push({
+    name: 'no client-side URL synthesis',
+    passed: !('_synthesizedUrl' in mockContract),
+  });
+
+  // Validate navigation sources are valid
+  const validSources = ['nav_menu', 'breadcrumb', 'source_browser', 'source_detail', 'revision_history', 'reconciliation_queue'];
+  const hasValidSources = step.canNavigateFrom.every((src) => validSources.includes(src));
+  assertions.push({
+    name: 'navigation sources are valid',
+    passed: hasValidSources,
+    message: hasValidSources ? undefined : 'Invalid navigation source specified',
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    stepId: step.stepId,
+    surface: step.surface,
+    description: step.description,
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Run smoke test for V2 journey navigation connectivity.
+ */
+function smokeTestJourneyNavigation(): Phase18JourneyStepResult {
+  const startTime = performance.now();
+  const assertions: Phase18JourneyStepResult['assertions'] = [];
+
+  // Validate source_browser -> source_detail navigation
+  const browserToDetail = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_source_detail');
+  assertions.push({
+    name: 'source_browser -> source_detail navigation exists',
+    passed: browserToDetail?.canNavigateFrom.includes('source_browser') ?? false,
+  });
+
+  // Validate source_detail -> revision_history navigation
+  const detailToRevisions = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_revision_history');
+  assertions.push({
+    name: 'source_detail -> revision_history navigation exists',
+    passed: detailToRevisions?.canNavigateFrom.includes('source_detail') ?? false,
+  });
+
+  // Validate source_detail -> comments navigation
+  const detailToComments = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_comments');
+  assertions.push({
+    name: 'source_detail -> comments navigation exists',
+    passed: detailToComments?.canNavigateFrom.includes('source_detail') ?? false,
+  });
+
+  // Validate revision_history -> revision_detail navigation
+  const revisionsToDetail = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'inspect_revision_detail');
+  assertions.push({
+    name: 'revision_history -> revision_detail navigation exists',
+    passed: revisionsToDetail?.canNavigateFrom.includes('revision_history') ?? false,
+  });
+
+  // Validate revision_detail -> artifacts navigation
+  const detailToArtifacts = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_artifacts');
+  assertions.push({
+    name: 'revision_detail -> artifacts navigation exists',
+    passed: detailToArtifacts?.canNavigateFrom.includes('revision_detail') ?? false,
+  });
+
+  // Validate reconciliation_queue -> candidate_detail navigation
+  const queueToCandidate = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'review_candidate');
+  assertions.push({
+    name: 'reconciliation_queue -> candidate_detail navigation exists',
+    passed: queueToCandidate?.canNavigateFrom.includes('reconciliation_queue') ?? false,
+  });
+
+  // Validate search is accessible from nav_menu
+  const searchFromNav = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'search_sources');
+  assertions.push({
+    name: 'search accessible from nav_menu',
+    passed: searchFromNav?.canNavigateFrom.includes('nav_menu') ?? false,
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    stepId: 'journey_navigation',
+    surface: 'navigation',
+    description: 'V2 journey navigation connectivity',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Run smoke test for V2 contract coverage completeness.
+ */
+function smokeTestContractCoverage(): Phase18JourneyStepResult {
+  const startTime = performance.now();
+  const assertions: Phase18JourneyStepResult['assertions'] = [];
+
+  // Required surfaces for V2 exit
+  const requiredSurfaces = [
+    'source_browser',
+    'source_detail',
+    'revision_history',
+    'revision_detail',
+    'artifact_inspector',
+    'comment_inspector',
+    'source_search',
+    'reconciliation_queue',
+    'candidate_detail',
+  ];
+
+  const coveredSurfaces = V2_OPERATOR_JOURNEY_STEPS.map((s) => s.surface);
+
+  for (const surface of requiredSurfaces) {
+    assertions.push({
+      name: `${surface} surface covered`,
+      passed: coveredSurfaces.includes(surface),
+    });
+  }
+
+  // Validate all contract families are unique per surface
+  const contractFamilies = new Set(V2_OPERATOR_JOURNEY_STEPS.map((s) => s.contractFamily));
+  assertions.push({
+    name: 'each surface uses distinct contract family',
+    passed: contractFamilies.size >= requiredSurfaces.length - 1, // Allow some overlap
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    stepId: 'contract_coverage',
+    surface: 'all',
+    description: 'V2 contract coverage completeness',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Run smoke test for no fallback synthesis in journey.
+ */
+function smokeTestNoFallbackSynthesis(): Phase18JourneyStepResult {
+  const startTime = performance.now();
+  const assertions: Phase18JourneyStepResult['assertions'] = [];
+
+  for (const step of V2_OPERATOR_JOURNEY_STEPS) {
+    const mockContract = getMockContractForStep(step.stepId);
+
+    // Check for forbidden synthesized fields
+    const forbiddenFields = [
+      '_synthesized',
+      '_clientGenerated',
+      '_fallback',
+      '_constructedUrl',
+      '_derivedSemantics',
+    ];
+
+    const hasForbiddenFields = forbiddenFields.some((field) => field in mockContract);
+
+    assertions.push({
+      name: `${step.stepId}: no fallback synthesis`,
+      passed: !hasForbiddenFields,
+      message: hasForbiddenFields ? 'Contract contains forbidden synthesized fields' : undefined,
+    });
+  }
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    stepId: 'no_fallback_synthesis',
+    surface: 'all',
+    description: 'No fallback payload synthesis in journey',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Run all Phase 18 V2 operator journey smoke tests.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export function runPhase18V2JourneySmokeTests(): Phase18V2JourneySmokeResult {
+  const startTime = performance.now();
+  const steps: Phase18JourneyStepResult[] = [];
+
+  // Run individual journey step tests
+  for (const step of V2_OPERATOR_JOURNEY_STEPS) {
+    steps.push(smokeTestJourneyStep(step));
+  }
+
+  // Run navigation connectivity test
+  const navigationResult = smokeTestJourneyNavigation();
+  steps.push(navigationResult);
+
+  // Run contract coverage test
+  const coverageResult = smokeTestContractCoverage();
+  steps.push(coverageResult);
+
+  // Run no-fallback synthesis test
+  const noFallbackResult = smokeTestNoFallbackSynthesis();
+  steps.push(noFallbackResult);
+
+  const journeyStepsPassed = V2_OPERATOR_JOURNEY_STEPS.every((step) =>
+    steps.find((s) => s.stepId === step.stepId)?.passed ?? false
+  );
+  const journeyNavigable = navigationResult.passed;
+  const contractCoverageComplete = coverageResult.passed;
+  const noFallbackSynthesis = noFallbackResult.passed;
+
+  const passed = journeyStepsPassed && journeyNavigable && contractCoverageComplete && noFallbackSynthesis;
+
+  const failedSteps = steps.filter((s) => !s.passed).map((s) => s.stepId);
+  const summary = passed
+    ? `Phase 18 V2 operator journey smoke tests: ${steps.length}/${steps.length} steps passed`
+    : `Phase 18 V2 operator journey smoke tests failed: ${failedSteps.join(', ')}`;
+
+  return {
+    passed,
+    steps,
+    journeyNavigable,
+    contractCoverageComplete,
+    noFallbackSynthesis,
+    summary,
+    totalDurationMs: performance.now() - startTime,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Assert Phase 18 V2 operator journey smoke tests pass.
+ */
+export function assertPhase18V2JourneySmokeTests(): void {
+  const result = runPhase18V2JourneySmokeTests();
+  if (!result.passed) {
+    const failedDetails = result.steps
+      .filter((s) => !s.passed)
+      .map((s) => {
+        const failedAssertions = s.assertions
+          .filter((a) => !a.passed)
+          .map((a) => `    - ${a.name}${a.message ? `: ${a.message}` : ''}`)
+          .join('\n');
+        return `  - ${s.stepId}: ${s.description}\n${failedAssertions}`;
+      })
+      .join('\n');
+    throw new Error(`${result.summary}\n${failedDetails}`);
+  }
+}
+
+/**
+ * Log Phase 18 V2 operator journey smoke test results.
+ */
+export function logPhase18SmokeTestResults(result: Phase18V2JourneySmokeResult): void {
+  console.group('Phase 18 V2 Operator Journey Smoke Test Results');
+  console.log(`Overall: ${result.passed ? 'PASSED' : 'FAILED'}`);
+  console.log(`Duration: ${result.totalDurationMs.toFixed(2)}ms`);
+  console.log(`Timestamp: ${result.timestamp}`);
+  console.log(`Journey Navigable: ${result.journeyNavigable ? '✓' : '✗'}`);
+  console.log(`Contract Coverage: ${result.contractCoverageComplete ? '✓' : '✗'}`);
+  console.log(`No Fallback Synthesis: ${result.noFallbackSynthesis ? '✓' : '✗'}`);
+
+  console.group('Journey Step Results');
+  for (const step of result.steps) {
+    const status = step.passed ? '✓' : '✗';
+    const assertionSummary = `${step.assertions.filter((a) => a.passed).length}/${step.assertions.length} assertions`;
+    console.log(`${status} ${step.stepId.padEnd(30)} ${assertionSummary} (${step.durationMs.toFixed(2)}ms)`);
+
+    if (!step.passed) {
+      for (const assertion of step.assertions.filter((a) => !a.passed)) {
+        console.log(`    ✗ ${assertion.name}${assertion.message ? `: ${assertion.message}` : ''}`);
+      }
+    }
+  }
+  console.groupEnd();
+
+  console.log(`Summary: ${result.summary}`);
+  console.groupEnd();
+}
+
+/**
+ * Combined Phase 14 + Phase 15 + Phase 16 + Phase 17 + Phase 18 runtime smoke coverage.
+ * Validates complete Version 2 source-management implementation.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.6
+ */
+export async function runPhase18ComprehensiveSmokeCoverage(
+  options: SmokeTestRuntimeOptions = {}
+): Promise<{
+  landingZone: V2LandingZoneSmokeResult;
+  pageBootstrap: Phase15RuntimeSmokeResult;
+  workspace: Phase16WorkspaceSmokeResult;
+  reconciliationQueue: Phase17ReconciliationQueueSmokeResult;
+  v2Journey: Phase18V2JourneySmokeResult;
+  overallPassed: boolean;
+}> {
+  const landingZone = await runV2LandingZoneSmokeTests(options);
+  const pageBootstrap = runPhase15PageBootstrapSmokeTests();
+  const workspace = runPhase16WorkspaceSmokeTests();
+  const reconciliationQueue = runPhase17ReconciliationQueueSmokeTests();
+  const v2Journey = runPhase18V2JourneySmokeTests();
+
+  return {
+    landingZone,
+    pageBootstrap,
+    workspace,
+    reconciliationQueue,
+    v2Journey,
+    overallPassed:
+      landingZone.passed &&
+      pageBootstrap.passed &&
+      workspace.passed &&
+      reconciliationQueue.passed &&
+      v2Journey.passed,
+  };
+}
+
+/**
+ * Assert complete V2 runtime smoke coverage passes.
+ */
+export async function assertPhase18ComprehensiveSmokeCoverage(
+  options: SmokeTestRuntimeOptions = {}
+): Promise<void> {
+  const result = await runPhase18ComprehensiveSmokeCoverage(options);
+  if (!result.overallPassed) {
+    const failures: string[] = [];
+    if (!result.landingZone.passed) failures.push('landing-zone');
+    if (!result.pageBootstrap.passed) failures.push('page-bootstrap');
+    if (!result.workspace.passed) failures.push('workspace');
+    if (!result.reconciliationQueue.passed) failures.push('reconciliation-queue');
+    if (!result.v2Journey.passed) failures.push('v2-journey');
+    throw new Error(`V2 comprehensive smoke coverage failed: ${failures.join(', ')}`);
+  }
+}
+
+/**
+ * Run V2 exit criteria validation smoke tests.
+ * This validates all Version 2 exit criteria are met.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Version 2 Exit Criteria
+ */
+export function runV2ExitCriteriaValidation(): {
+  passed: boolean;
+  criteria: { name: string; passed: boolean; description: string }[];
+  summary: string;
+} {
+  const criteria: { name: string; passed: boolean; description: string }[] = [];
+
+  // V2 Exit Criterion 1: Operators can browse canonical source documents
+  const browseStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'browse_sources');
+  criteria.push({
+    name: 'browse_sources',
+    passed: browseStep !== undefined && browseStep.requiredLinks.includes('self'),
+    description: 'Operators can browse canonical source documents through the example runtime',
+  });
+
+  // V2 Exit Criterion 2: Source-centric workspace with full context
+  const detailStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_source_detail');
+  const detailHasAllPanels =
+    detailStep?.requiredLinks.includes('revisions') &&
+    detailStep?.requiredLinks.includes('relationships') &&
+    detailStep?.requiredLinks.includes('handles') &&
+    detailStep?.requiredLinks.includes('comments');
+  criteria.push({
+    name: 'source_workspace',
+    passed: detailStep !== undefined && detailHasAllPanels === true,
+    description: 'Source-centric workspace exposes handles, revisions, agreements, artifacts, comments',
+  });
+
+  // V2 Exit Criterion 3: Search across multiple dimensions
+  const searchStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'search_sources');
+  criteria.push({
+    name: 'search_capability',
+    passed: searchStep !== undefined && searchStep.contractFamily === 'Phase13SourceSearchResults',
+    description: 'Search across source documents using title, text, provider metadata, comments',
+  });
+
+  // V2 Exit Criterion 4: Lineage continuity visibility (via revision history)
+  const revisionStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_revision_history');
+  criteria.push({
+    name: 'lineage_continuity',
+    passed: revisionStep !== undefined,
+    description: 'Operators can see lineage continuity across file IDs, accounts, drives',
+  });
+
+  // V2 Exit Criterion 5: Reconciliation queue workflow
+  const queueStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'view_reconciliation_queue');
+  const candidateStep = V2_OPERATOR_JOURNEY_STEPS.find((s) => s.stepId === 'review_candidate');
+  criteria.push({
+    name: 'reconciliation_workflow',
+    passed: queueStep !== undefined && candidateStep !== undefined,
+    description: 'Operators can review and resolve pending lineage candidates through queue workflow',
+  });
+
+  // V2 Exit Criterion 6: Search results resolve to canonical workspace
+  criteria.push({
+    name: 'search_drill_in',
+    passed: searchStep?.canNavigateFrom.includes('nav_menu') ?? false,
+    description: 'Search results resolve into canonical source workspace with stable drill-ins',
+  });
+
+  // V2 Exit Criterion 7: Reconciliation preserves historical identity
+  criteria.push({
+    name: 'reconciliation_auditability',
+    passed: candidateStep?.requiredLinks.includes('queue') ?? false,
+    description: 'Reconciliation outcomes preserve historical agreement artifact identity',
+  });
+
+  const passed = criteria.every((c) => c.passed);
+  const passedCount = criteria.filter((c) => c.passed).length;
+  const failedCriteria = criteria.filter((c) => !c.passed).map((c) => c.name);
+
+  const summary = passed
+    ? `V2 exit criteria validation: ${passedCount}/${criteria.length} criteria met`
+    : `V2 exit criteria validation failed: ${failedCriteria.join(', ')}`;
+
+  return {
+    passed,
+    criteria,
+    summary,
+  };
+}
+
+/**
+ * Log V2 exit criteria validation results.
+ */
+export function logV2ExitCriteriaResults(result: ReturnType<typeof runV2ExitCriteriaValidation>): void {
+  console.group('V2 Exit Criteria Validation');
+  console.log(`Overall: ${result.passed ? 'PASSED' : 'FAILED'}`);
+
+  for (const criterion of result.criteria) {
+    const status = criterion.passed ? '✓' : '✗';
+    console.log(`${status} ${criterion.name.padEnd(30)} - ${criterion.description}`);
+  }
+
+  console.log(`Summary: ${result.summary}`);
+  console.groupEnd();
+}

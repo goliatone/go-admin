@@ -462,28 +462,28 @@ type GoogleDriveQuotedFileContent struct {
 }
 
 type GoogleDriveReply struct {
-	ID           string                  `json:"id"`
-	Content      string                  `json:"content,omitempty"`
-	HTMLContent  string                  `json:"html_content,omitempty"`
-	Action       string                  `json:"action,omitempty"`
-	Deleted      bool                    `json:"deleted,omitempty"`
-	CreatedTime  time.Time               `json:"created_time"`
-	ModifiedTime time.Time               `json:"modified_time"`
+	ID           string                   `json:"id"`
+	Content      string                   `json:"content,omitempty"`
+	HTMLContent  string                   `json:"html_content,omitempty"`
+	Action       string                   `json:"action,omitempty"`
+	Deleted      bool                     `json:"deleted,omitempty"`
+	CreatedTime  time.Time                `json:"created_time"`
+	ModifiedTime time.Time                `json:"modified_time"`
 	Author       GoogleDriveCommentAuthor `json:"author"`
 }
 
 type GoogleDriveComment struct {
-	ID                string                    `json:"id"`
-	Content           string                    `json:"content,omitempty"`
-	HTMLContent       string                    `json:"html_content,omitempty"`
-	Anchor            string                    `json:"anchor,omitempty"`
-	Deleted           bool                      `json:"deleted,omitempty"`
-	Resolved          bool                      `json:"resolved,omitempty"`
-	CreatedTime       time.Time                 `json:"created_time"`
-	ModifiedTime      time.Time                 `json:"modified_time"`
-	Author            GoogleDriveCommentAuthor  `json:"author"`
-	QuotedFileContent GoogleDriveQuotedFileContent `json:"quoted_file_content,omitempty"`
-	Replies           []GoogleDriveReply        `json:"replies,omitempty"`
+	ID                string                       `json:"id"`
+	Content           string                       `json:"content,omitempty"`
+	HTMLContent       string                       `json:"html_content,omitempty"`
+	Anchor            string                       `json:"anchor,omitempty"`
+	Deleted           bool                         `json:"deleted,omitempty"`
+	Resolved          bool                         `json:"resolved,omitempty"`
+	CreatedTime       time.Time                    `json:"created_time"`
+	ModifiedTime      time.Time                    `json:"modified_time"`
+	Author            GoogleDriveCommentAuthor     `json:"author"`
+	QuotedFileContent GoogleDriveQuotedFileContent `json:"quoted_file_content"`
+	Replies           []GoogleDriveReply           `json:"replies,omitempty"`
 }
 
 // GoogleDriveListResult captures search/browse pagination results.
@@ -516,11 +516,11 @@ type googleProviderHealthChecker interface {
 
 // DeterministicGoogleProvider is a no-network test/local provider implementation.
 type DeterministicGoogleProvider struct {
-	now       func() time.Time
-	files     map[string]GoogleDriveFile
-	pdfByID   map[string][]byte
+	now          func() time.Time
+	files        map[string]GoogleDriveFile
+	pdfByID      map[string][]byte
 	commentsByID map[string][]GoogleDriveComment
-	errorByOp map[string]error
+	errorByOp    map[string]error
 }
 
 // NewDeterministicGoogleProvider creates a deterministic provider with optional fixture data.

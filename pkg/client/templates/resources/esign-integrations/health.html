@@ -229,7 +229,7 @@
 {% if esign_module_path %}
 import { bootstrapIntegrationHealth } from '{{ esign_module_path }}';
 {% else %}
-import { bootstrapIntegrationHealth } from '{{ adminURL("assets/dist/esign/index.js") }}';
+import { bootstrapIntegrationHealth } from '{{ adminURL("assets/dist/esign/integration-health.js") }}';
 {% endif %}
 
 bootstrapIntegrationHealth({

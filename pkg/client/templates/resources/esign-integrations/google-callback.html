@@ -156,7 +156,7 @@
     {% if esign_module_path %}
     import { bootstrapGoogleCallback } from '{{ esign_module_path }}';
     {% else %}
-    import { bootstrapGoogleCallback } from '{{ adminURL("assets/dist/esign/index.js") }}';
+    import { bootstrapGoogleCallback } from '{{ adminURL("assets/dist/esign/google-callback.js") }}';
     {% endif %}
 
     bootstrapGoogleCallback('{{ base_path|default:"/admin" }}');

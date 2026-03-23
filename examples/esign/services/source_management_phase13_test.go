@@ -2,12 +2,33 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
+
+type recordingSyncSearchService struct {
+	reindexRevisionCalls int
+	reindexDocumentCalls int
+	reindexErr           error
+}
+
+func (s *recordingSyncSearchService) Search(context.Context, stores.Scope, SourceSearchQuery) (SourceSearchResults, error) {
+	return SourceSearchResults{}, nil
+}
+
+func (s *recordingSyncSearchService) ReindexSourceDocument(context.Context, stores.Scope, string) (SourceSearchIndexResult, error) {
+	s.reindexDocumentCalls++
+	return SourceSearchIndexResult{}, s.reindexErr
+}
+
+func (s *recordingSyncSearchService) ReindexSourceRevision(_ context.Context, _ stores.Scope, sourceRevisionID string) (SourceSearchIndexResult, error) {
+	s.reindexRevisionCalls++
+	return SourceSearchIndexResult{TargetKind: SourceManagementSearchResultSourceRevision, TargetID: sourceRevisionID}, s.reindexErr
+}
 
 func TestPhase13SourceCommentSyncSearchAndReadModelsRemainDistinctFromAgreementComments(t *testing.T) {
 	store, scope, fixtures := seedSourceReadModelFixtures(t)
@@ -274,6 +295,124 @@ func TestPhase13SourceManagementReplayReplaysCommentSyncAndReindexesWithoutDupli
 	}
 	if len(searchResults.Items) != 1 || searchResults.Items[0].Revision == nil || searchResults.Items[0].Revision.ID != fixtures.secondSourceRevisionID {
 		t.Fatalf("expected replayed search result for %q, got %+v", fixtures.secondSourceRevisionID, searchResults.Items)
+	}
+}
+
+func TestPhase13SourceCommentSyncReindexesOnceAndReturnsSearchRefreshErrors(t *testing.T) {
+	store, scope, fixtures := seedSourceReadModelFixtures(t)
+	search := &recordingSyncSearchService{reindexErr: fmt.Errorf("search refresh failed")}
+	sync := NewDefaultSourceCommentSyncService(store, WithSourceCommentSyncSearchService(search))
+	now := time.Date(2026, 3, 21, 17, 30, 0, 0, time.UTC)
+
+	result, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+		SourceDocumentID: fixtures.sourceDocumentID,
+		SourceRevisionID: fixtures.secondSourceRevisionID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		SyncStatus:       SourceManagementCommentSyncSynced,
+		AttemptedAt:      new(now),
+		SyncedAt:         new(now),
+		Threads: []SourceCommentProviderThread{{
+			ProviderCommentID: "provider-comment-1",
+			ThreadID:          "thread-1",
+			Status:            stores.SourceCommentThreadStatusOpen,
+			BodyText:          "Search refresh failure fixture",
+			Messages: []SourceCommentProviderMessage{{
+				ProviderMessageID: "provider-message-1",
+				MessageKind:       stores.SourceCommentMessageKindComment,
+				BodyText:          "Search refresh failure fixture",
+				CreatedAt:         new(now),
+				UpdatedAt:         new(now),
+			}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected sync to surface search refresh failure")
+	}
+	if result.SourceRevisionID != fixtures.secondSourceRevisionID || result.Sync.Status != SourceManagementCommentSyncSynced {
+		t.Fatalf("expected persisted sync result alongside search error, got result=%+v err=%v", result, err)
+	}
+	if search.reindexRevisionCalls != 1 || search.reindexDocumentCalls != 0 {
+		t.Fatalf("expected exactly one revision reindex attempt, got revision=%d document=%d", search.reindexRevisionCalls, search.reindexDocumentCalls)
+	}
+}
+
+func TestPhase13SourceCommentSyncFailurePreservesReplayablePayloadAndReplayRecovers(t *testing.T) {
+	store, scope, fixtures := seedSourceReadModelFixtures(t)
+	sync := NewDefaultSourceCommentSyncService(store)
+	now := time.Date(2026, 3, 21, 18, 30, 0, 0, time.UTC)
+
+	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+		SourceDocumentID: fixtures.sourceDocumentID,
+		SourceRevisionID: fixtures.secondSourceRevisionID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		SyncStatus:       SourceManagementCommentSyncSynced,
+		AttemptedAt:      new(now),
+		SyncedAt:         new(now),
+		Threads: []SourceCommentProviderThread{{
+			ProviderCommentID: "provider-comment-1",
+			ThreadID:          "thread-1",
+			Status:            stores.SourceCommentThreadStatusResolved,
+			BodyText:          "Replay preserved source comment",
+			Messages: []SourceCommentProviderMessage{{
+				ProviderMessageID: "provider-message-1",
+				MessageKind:       stores.SourceCommentMessageKindComment,
+				BodyText:          "Replay preserved source comment",
+				CreatedAt:         new(now),
+				UpdatedAt:         new(now),
+			}},
+		}},
+	}); err != nil {
+		t.Fatalf("initial SyncSourceRevisionComments: %v", err)
+	}
+
+	if _, err := sync.RecordSourceRevisionCommentSyncFailure(context.Background(), scope, SourceCommentSyncFailureInput{
+		SourceDocumentID: fixtures.sourceDocumentID,
+		SourceRevisionID: fixtures.secondSourceRevisionID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		AttemptedAt:      new(now.Add(30 * time.Minute)),
+		ErrorCode:        "google_comment_sync_failed",
+		ErrorMessage:     "provider temporarily unavailable",
+	}); err != nil {
+		t.Fatalf("RecordSourceRevisionCommentSyncFailure: %v", err)
+	}
+
+	states, err := store.ListSourceCommentSyncStates(context.Background(), scope, stores.SourceCommentSyncStateQuery{
+		SourceRevisionID: fixtures.secondSourceRevisionID,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceCommentSyncStates: %v", err)
+	}
+	if len(states) != 1 || states[0].SyncStatus != SourceManagementCommentSyncFailed || !sourceCommentSyncPayloadReplayable(states[0].PayloadJSON) {
+		t.Fatalf("expected failed sync state to preserve replayable payload, got %+v", states)
+	}
+
+	replayed, err := sync.ReplaySourceRevisionCommentSync(context.Background(), scope, fixtures.secondSourceRevisionID)
+	if err != nil {
+		t.Fatalf("ReplaySourceRevisionCommentSync: %v", err)
+	}
+	if replayed.Sync.Status != SourceManagementCommentSyncSynced || len(replayed.Threads) != 1 {
+		t.Fatalf("expected replay to recover from preserved payload, got %+v", replayed)
+	}
+}
+
+func TestPhase13SourceCommentSyncReplayFailsWhenOnlyFailurePayloadExists(t *testing.T) {
+	store, scope, fixtures := seedSourceReadModelFixtures(t)
+	sync := NewDefaultSourceCommentSyncService(store)
+	now := time.Date(2026, 3, 21, 19, 0, 0, 0, time.UTC)
+
+	if _, err := sync.RecordSourceRevisionCommentSyncFailure(context.Background(), scope, SourceCommentSyncFailureInput{
+		SourceDocumentID: fixtures.sourceDocumentID,
+		SourceRevisionID: fixtures.secondSourceRevisionID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		AttemptedAt:      new(now),
+		ErrorCode:        "google_comment_sync_failed",
+		ErrorMessage:     "provider temporarily unavailable",
+	}); err != nil {
+		t.Fatalf("RecordSourceRevisionCommentSyncFailure: %v", err)
+	}
+
+	if _, err := sync.ReplaySourceRevisionCommentSync(context.Background(), scope, fixtures.secondSourceRevisionID); err == nil {
+		t.Fatal("expected replay to fail when no replayable payload exists")
 	}
 }
 

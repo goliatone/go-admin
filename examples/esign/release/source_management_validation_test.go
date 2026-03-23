@@ -10,7 +10,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
-func TestRunSourceManagementValidationProfileCoversPhase14LandingZone(t *testing.T) {
+func TestRunSourceManagementValidationProfileCoversPhase18ExitProfile(t *testing.T) {
 	result, err := RunSourceManagementValidationProfile(context.Background(), SourceManagementValidationConfig{})
 	if err != nil {
 		t.Fatalf("RunSourceManagementValidationProfile: %v", err)
@@ -24,13 +24,13 @@ func TestRunSourceManagementValidationProfileCoversPhase14LandingZone(t *testing
 	if !result.RevisionHistoryReadable || !result.RevisionTimelineReadable || !result.MultiHandleContinuityVisible || !result.RelationshipSummariesReadable {
 		t.Fatalf("expected revision, timeline, handle continuity, and relationship coverage, got %+v", result)
 	}
-	if !result.SourceAgreementsReadable || !result.SourceArtifactsReadable || !result.SourceSearchCorrect || !result.SourceCommentsReadable || !result.ProviderNeutralContractsStable {
-		t.Fatalf("expected agreements, artifacts, search, comments, and provider-neutral contract coverage, got %+v", result)
+	if !result.SourceAgreementsReadable || !result.SourceArtifactsReadable || !result.SourceSearchCorrect || !result.SearchIndexReady || !result.SearchProviderMetadataVisible || !result.SearchNormalizedTextCorrect || !result.SearchAgreementTitleCorrect || !result.SourceCommentsReadable || !result.QueueReadable || !result.QueueActionSucceeded || !result.ProviderNeutralContractsStable {
+		t.Fatalf("expected agreements, artifacts, go-search, comments, queue action, and provider-neutral contract coverage, got %+v", result)
 	}
 	if result.Scenario.SourceDocumentID == "" || result.Scenario.SecondSourceRevisionID == "" || result.Scenario.CandidateRelationshipID == "" {
 		t.Fatalf("expected seeded scenario ids, got %+v", result.Scenario)
 	}
-	if result.URLs.ImportedDocumentURL == "" || result.URLs.ImportedAgreementURL == "" {
+	if result.URLs.ImportedDocumentURL == "" || result.URLs.ImportedAgreementURL == "" || result.URLs.SourceSearchNormalizedURL == "" || result.URLs.ReconciliationQueueURL == "" || result.URLs.ReconciliationCandidateURL == "" {
 		t.Fatalf("expected seeded QA urls, got %+v", result.URLs)
 	}
 }

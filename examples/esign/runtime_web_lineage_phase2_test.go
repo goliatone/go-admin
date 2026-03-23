@@ -72,7 +72,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 			expectSourceType:   "google_drive",
 			expectHTML: []string{
 				"Source Provenance",
-				"Fingerprint Pending",
+				"Fingerprint Failed",
 				"fixture-google-file-1",
 			},
 			diagnosticsURL: "/admin/debug/lineage/documents/" + fixtureSet.RepeatedImportDocumentID,

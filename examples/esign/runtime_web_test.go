@@ -250,6 +250,9 @@ func TestRuntimeSignerReviewRoutesRedirectToCanonicalTokenKindPath(t *testing.T)
 }
 
 func TestRuntimeSenderAgreementViewerPermissionDeniedRendersHTMLPage(t *testing.T) {
+	_ = commandregistry.Stop(context.Background())
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
 	applyESignRuntimeDefaults(&cfg)
 	adm, _, err := quickstart.NewAdmin(
@@ -578,7 +581,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	}
 	landingConfig := extractESignPageConfigFromHTML(t, landingMarkup)
 	landingModulePath := getESignConfigModulePath(landingConfig)
-	if landingModulePath != "/admin/assets/dist/esign/index.js" {
+	if landingModulePath != "/admin/assets/dist/esign/admin-landing.js" {
 		t.Fatalf("expected landing module path contract, got %q", landingModulePath)
 	}
 	if !strings.Contains(landingMarkup, `src="`+landingModulePath+`"`) {
@@ -598,7 +601,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	docMarkup := string(docBody)
 	docConfig := extractESignPageConfigFromHTML(t, docMarkup)
 	docModulePath := getESignConfigModulePath(docConfig)
-	if docModulePath != "/admin/assets/dist/esign/index.js" {
+	if docModulePath != "/admin/assets/dist/esign/document-form.js" {
 		t.Fatalf("expected document ingestion module path contract, got %q", docModulePath)
 	}
 	if !strings.Contains(docMarkup, `src="`+docModulePath+`"`) {
@@ -619,8 +622,13 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	if !strings.Contains(agreementMarkup, `data-esign-page="agreement-form"`) {
 		t.Fatalf("expected agreement form marker in response")
 	}
-	if !strings.Contains(agreementMarkup, `src="/admin/assets/dist/esign/index.js"`) {
-		t.Fatalf("expected agreement form module script src %q in markup", "/admin/assets/dist/esign/index.js")
+	agreementConfig := extractESignPageConfigFromHTML(t, agreementMarkup)
+	agreementModulePath := getESignConfigModulePath(agreementConfig)
+	if agreementModulePath != "/admin/assets/dist/esign/agreement-form.js" {
+		t.Fatalf("expected agreement form module path contract, got %q", agreementModulePath)
+	}
+	if !strings.Contains(agreementMarkup, `src="`+agreementModulePath+`"`) {
+		t.Fatalf("expected agreement form module script src %q in markup", agreementModulePath)
 	}
 
 	landingAssetResp := doRequest(t, app, http.MethodGet, landingModulePath, "", nil)
@@ -635,7 +643,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 		body, _ := io.ReadAll(docAssetResp.Body)
 		t.Fatalf("expected document-ingestion module asset status 200, got %d body=%s", docAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	agreementAssetResp := doRequest(t, app, http.MethodGet, "/admin/assets/dist/esign/index.js", "", nil)
+	agreementAssetResp := doRequest(t, app, http.MethodGet, agreementModulePath, "", nil)
 	defer agreementAssetResp.Body.Close()
 	if agreementAssetResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(agreementAssetResp.Body)
@@ -2235,6 +2243,10 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithUploadDir(resolveESignDiskAssetsDir()).
 		WithStore(bootstrapStore)
+	if t != nil {
+		t.Cleanup(func() { esignModule.Close() })
+		t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+	}
 	if err := adm.RegisterModule(esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register module: %w", err)
 	}

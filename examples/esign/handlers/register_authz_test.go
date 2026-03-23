@@ -228,6 +228,14 @@ func (p *sharedDriveEdgeProvider) GetFile(_ context.Context, _ string, fileID st
 	return file, nil
 }
 
+func (p *sharedDriveEdgeProvider) ListComments(_ context.Context, _ string, fileID string) ([]services.GoogleDriveComment, error) {
+	fileID = strings.TrimSpace(fileID)
+	if _, ok := p.files[fileID]; !ok {
+		return nil, services.NewGoogleProviderError(services.GoogleProviderErrorPermissionDenied, "google file not found", map[string]any{"file_id": fileID})
+	}
+	return []services.GoogleDriveComment{}, nil
+}
+
 func (p *sharedDriveEdgeProvider) ExportFilePDF(_ context.Context, _ string, fileID string) (services.GoogleExportSnapshot, error) {
 	fileID = strings.TrimSpace(fileID)
 	file, ok := p.files[fileID]

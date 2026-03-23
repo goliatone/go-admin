@@ -3,13 +3,15 @@ import type {
   SourceCommentPage,
   SourceCommentThreadSummary,
   SourceDetail,
+  SourceManagementLinks,
   SourceListItem,
   SourceListPage,
   SourceRevisionDetail,
-  SourceSearchResultSummary,
-  SourceSearchResults,
   Phase13SourceSearchQuery,
+  Phase13SourceSearchResultSummary,
+  Phase13SourceSearchResults,
 } from './lineage-contracts.js';
+import { SEARCH_RESULT_KIND } from './lineage-contracts.js';
 
 import type { SourceManagementPageState } from './source-management-composition.js';
 
@@ -114,47 +116,62 @@ function formatDateTime(value: string | undefined): string {
   return escapeHtml(parsed.toLocaleString());
 }
 
+function formatRelativeTime(value: string | undefined): string {
+  const input = String(value ?? '').trim();
+  if (!input) {
+    return '';
+  }
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  const now = Date.now();
+  const diff = now - parsed.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return parsed.toLocaleDateString();
+}
+
 function badgeClass(value: string): string {
   switch (value) {
     case 'active':
     case 'ready':
     case 'synced':
     case 'high':
-      return 'bg-emerald-100 text-emerald-800';
+    case 'confirmed':
+      return 'bg-green-100 text-green-800';
     case 'pending':
     case 'pending_review':
     case 'stale':
     case 'medium':
+    case 'processing':
       return 'bg-amber-100 text-amber-800';
     case 'failed':
     case 'archived':
     case 'rejected':
     case 'low':
-      return 'bg-rose-100 text-rose-800';
+    case 'error':
+      return 'bg-red-100 text-red-800';
+    case 'google_docs':
+    case 'google_drive':
+      return 'bg-blue-100 text-blue-800';
     default:
-      return 'bg-slate-100 text-slate-700';
+      return 'bg-gray-100 text-gray-700';
   }
-}
-
-function pill(label: string, value: string | number | undefined): string {
-  return `
-    <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
-      <span class="text-slate-500">${escapeHtml(label)}</span>
-      <span>${escapeHtml(value ?? '-')}</span>
-    </span>
-  `;
 }
 
 function statusBadge(value: string | undefined, fallback = '-'): string {
   const normalized = String(value ?? '').trim();
   if (!normalized) {
-    return escapeHtml(fallback);
+    return `<span class="text-gray-400">${escapeHtml(fallback)}</span>`;
   }
-  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass(normalized)}">${escapeHtml(normalized.replace(/_/g, ' '))}</span>`;
-}
-
-function booleanToChecked(value: boolean | undefined): string {
-  return value ? ' checked' : '';
+  return `<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${badgeClass(normalized)}">${escapeHtml(normalized.replace(/_/g, ' '))}</span>`;
 }
 
 function routeWithID(route: string | undefined, id: string | undefined): string {
@@ -170,336 +187,599 @@ function routeWithID(route: string | undefined, id: string | undefined): string 
     .replace(new RegExp(encodeURIComponent(':source_revision_id'), 'g'), encodeURIComponent(resourceID));
 }
 
-function renderEmptyState(title: string, description: string): string {
+function appendQueryString(target: string, queryString: string): string {
+  const normalizedTarget = String(target ?? '').trim();
+  const normalizedQuery = String(queryString ?? '').trim().replace(/^\?+/, '');
+  if (!normalizedTarget || !normalizedQuery) {
+    return normalizedTarget;
+  }
+  return normalizedTarget.includes('?')
+    ? `${normalizedTarget}&${normalizedQuery}`
+    : `${normalizedTarget}?${normalizedQuery}`;
+}
+
+function currentRuntimeQueryString(): string {
+  if (typeof window === 'undefined' || typeof window.location?.search !== 'string') {
+    return '';
+  }
+  return window.location.search.replace(/^\?+/, '').trim();
+}
+
+function runtimeUIBasePath(config: SourceManagementRuntimePageConfig): string {
+  const basePath = String(config.base_path ?? '').trim().replace(/\/+$/, '');
+  return `${basePath || ''}/esign`;
+}
+
+/**
+ * Translate backend-authored source-management API links into runtime UI routes
+ * while preserving the active runtime query context.
+ */
+export function translateSourceManagementHrefToRuntime(
+  href: string | undefined,
+  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path'>,
+  queryString = currentRuntimeQueryString()
+): string {
+  const normalizedHref = String(href ?? '').trim();
+  const apiBasePath = String(config.api_base_path ?? '').trim().replace(/\/+$/, '');
+  if (!normalizedHref) {
+    return '';
+  }
+  if (!apiBasePath || !normalizedHref.startsWith(apiBasePath)) {
+    return normalizedHref;
+  }
+
+  const translated = `${runtimeUIBasePath(config as SourceManagementRuntimePageConfig)}${normalizedHref.slice(apiBasePath.length)}`;
+  return appendQueryString(translated, queryString);
+}
+
+function firstRuntimeLink(
+  links: SourceManagementLinks | undefined,
+  config: SourceManagementRuntimePageConfig,
+  ...keys: Array<keyof SourceManagementLinks>
+): string {
+  for (const key of keys) {
+    const href = translateSourceManagementHrefToRuntime(links?.[key], config);
+    if (href) {
+      return href;
+    }
+  }
+  return '';
+}
+
+export const SOURCE_SEARCH_RESULT_KIND_OPTIONS = [
+  SEARCH_RESULT_KIND.SOURCE_DOCUMENT,
+  SEARCH_RESULT_KIND.SOURCE_REVISION,
+] as const;
+
+export function resolveBrowserItemRuntimeHref(
+  item: SourceListItem,
+  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path' | 'routes'>
+): string {
+  const contractHref = firstRuntimeLink(item.links, config as SourceManagementRuntimePageConfig, 'workspace', 'anchor', 'source', 'self');
+  if (contractHref) {
+    return contractHref;
+  }
+  return routeWithID(config.routes?.source_detail, item.source?.id ?? '');
+}
+
+export function resolveSearchResultRuntimeHref(
+  item: Phase13SourceSearchResultSummary,
+  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path' | 'routes'>
+): string {
+  const contractHref =
+    translateSourceManagementHrefToRuntime(item.drill_in?.href, config) ||
+    firstRuntimeLink(item.links, config as SourceManagementRuntimePageConfig, 'anchor', 'workspace', 'comments', 'artifacts', 'source', 'self');
+  if (contractHref) {
+    return contractHref;
+  }
+
+  if (item.result_kind === SEARCH_RESULT_KIND.SOURCE_REVISION && item.revision?.id) {
+    return routeWithID(config.routes?.source_revision, item.revision.id);
+  }
+  if (item.source?.id) {
+    return routeWithID(config.routes?.source_detail, item.source.id);
+  }
+  return '';
+}
+
+function renderEmptyState(title: string, description: string, showRetry = false): string {
   return `
-    <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-      <p class="font-semibold text-slate-900">${escapeHtml(title)}</p>
-      <p class="mt-2">${escapeHtml(description)}</p>
+    <div class="flex flex-col items-center justify-center py-12 text-center">
+      <div class="rounded-full bg-gray-100 p-3 mb-4">
+        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <h3 class="text-sm font-medium text-gray-900">${escapeHtml(title)}</h3>
+      <p class="mt-1 text-sm text-gray-500">${escapeHtml(description)}</p>
+      ${showRetry ? '<button type="button" data-runtime-action="refresh" class="mt-4 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Try again</button>' : ''}
     </div>
   `;
 }
 
-function renderLoadingState(message: string): string {
+function renderLoadingState(): string {
   return `
-    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-      <p class="font-semibold text-slate-900">Loading</p>
-      <p class="mt-2">${escapeHtml(message)}</p>
+    <div class="flex items-center justify-center py-12">
+      <div class="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
+      <span class="ml-3 text-sm text-gray-500">Loading...</span>
     </div>
   `;
 }
 
 function renderErrorState(error: Error): string {
   return `
-    <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-800">
-      <p class="font-semibold">Unable to load runtime workspace</p>
-      <p class="mt-2">${escapeHtml(error.message)}</p>
+    <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">Something went wrong</h3>
+          <p class="mt-1 text-sm text-red-700">${escapeHtml(error.message)}</p>
+          <button type="button" data-runtime-action="refresh" class="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+            Try again
+          </button>
+        </div>
+      </div>
     </div>
   `;
 }
 
-function renderBrowserTable(page: SourceListPage, routes: Record<string, string>): string {
-  if ((page.items ?? []).length === 0) {
+function renderBrowserToolbar(page: SourceListPage): string {
+  const appliedQuery = page.applied_query ?? {};
+  return `
+    <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+      <form data-runtime-form="source-browser" class="space-y-3">
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[200px]">
+            <label class="sr-only" for="browser-search">Search</label>
+            <div class="relative">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <input type="search" id="browser-search" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources..." class="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div class="w-40">
+            <label class="sr-only" for="browser-provider">Provider</label>
+            <select id="browser-provider" name="provider_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="">All providers</option>
+              <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
+              <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
+            </select>
+          </div>
+          <div class="w-36">
+            <label class="sr-only" for="browser-status">Status</label>
+            <select id="browser-status" name="status" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="">All statuses</option>
+              <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
+              <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
+              <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+          </div>
+          <label class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">
+            <input type="checkbox" name="has_pending_candidates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_pending_candidates ? 'checked' : ''} />
+            <span>Pending review</span>
+          </label>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit" class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            Apply
+          </button>
+          <button type="button" data-runtime-action="clear-browser-filters" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Clear
+          </button>
+          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderBrowserTable(
+  page: SourceListPage,
+  routes: Record<string, string>,
+  config: SourceManagementRuntimePageConfig
+): string {
+  const toolbar = renderBrowserToolbar(page);
+  const items = page.items ?? [];
+
+  if (items.length === 0) {
     const emptyState = page.empty_state;
-    return renderEmptyState(
-      emptyState?.title ?? 'No sources available',
-      emptyState?.description ?? 'No canonical source documents matched the current filters.'
-    );
+    return `
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        ${toolbar}
+        ${renderEmptyState(
+          emptyState?.title ?? 'No sources found',
+          emptyState?.description ?? 'Try adjusting your filters or search terms.',
+          true
+        )}
+      </div>
+    `;
   }
 
-  const rows = (page.items ?? [])
+  const rows = items
     .map((item: SourceListItem) => {
       const sourceID = item.source?.id ?? '';
-      const detailHref = routeWithID(routes.source_detail, sourceID);
+      const detailHref = resolveBrowserItemRuntimeHref(item, {
+        base_path: config.base_path,
+        api_base_path: config.api_base_path,
+        routes,
+      });
+      const providerKind = item.provider?.kind ?? '';
       return `
-        <tr class="border-t border-slate-200">
-          <td class="px-4 py-3 align-top">
-            <a href="${escapeHtml(detailHref)}" class="font-medium text-slate-900 hover:text-slate-700">${escapeHtml(item.source?.label ?? sourceID ?? 'Untitled Source')}</a>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(sourceID || '-')}</p>
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <a href="${escapeHtml(detailHref)}" class="font-medium text-gray-900 hover:text-blue-600">${escapeHtml(item.source?.label ?? 'Untitled')}</a>
+            <p class="mt-0.5 text-xs text-gray-500 font-mono">${escapeHtml(sourceID.substring(0, 12))}...</p>
           </td>
-          <td class="px-4 py-3 align-top text-sm text-slate-700">
-            <p>${escapeHtml(item.provider?.label ?? item.provider?.kind ?? '-')}</p>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.provider?.external_file_id ?? '-')}</p>
+          <td class="px-4 py-3">
+            ${statusBadge(providerKind)}
+            <p class="mt-0.5 text-xs text-gray-500">${escapeHtml(item.provider?.external_file_id ?? '-')}</p>
           </td>
-          <td class="px-4 py-3 align-top text-sm text-slate-700">
-            <p>${escapeHtml(item.latest_revision?.provider_revision_hint ?? item.latest_revision?.id ?? '-')}</p>
-            <p class="mt-1 text-xs text-slate-500">${formatDateTime(item.latest_revision?.modified_time)}</p>
+          <td class="px-4 py-3 text-sm text-gray-700">
+            <p>${escapeHtml(item.latest_revision?.provider_revision_hint ?? '-')}</p>
+            <p class="mt-0.5 text-xs text-gray-500">${formatRelativeTime(item.latest_revision?.modified_time)}</p>
           </td>
-          <td class="px-4 py-3 align-top">${statusBadge(item.status)}</td>
-          <td class="px-4 py-3 align-top text-sm text-slate-700">${escapeHtml(String(item.pending_candidate_count ?? 0))}</td>
+          <td class="px-4 py-3">${statusBadge(item.status)}</td>
+          <td class="px-4 py-3 text-sm">
+            ${(item.pending_candidate_count ?? 0) > 0
+              ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">${item.pending_candidate_count} pending</span>`
+              : '<span class="text-gray-400">-</span>'}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="${escapeHtml(detailHref)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View</a>
+          </td>
         </tr>
       `;
     })
     .join('');
 
   return `
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div class="border-b border-slate-200 px-4 py-3">
-        <form data-runtime-form="source-browser" class="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
-          <input type="search" name="q" value="${escapeHtml(page.applied_query?.query ?? '')}" placeholder="Search sources" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <input type="text" name="provider_kind" value="${escapeHtml(page.applied_query?.provider_kind ?? '')}" placeholder="Provider" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <input type="text" name="status" value="${escapeHtml(page.applied_query?.status ?? '')}" placeholder="Status" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <label class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700">
-            <input type="checkbox" name="has_pending_candidates"${booleanToChecked(page.applied_query?.has_pending_candidates)} />
-            Pending candidates
-          </label>
-          <div class="md:col-span-4 flex flex-wrap items-center gap-2">
-            <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white">Apply Filters</button>
-            <button type="button" data-runtime-action="clear-browser-filters" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Clear</button>
-            <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
-          </div>
-        </form>
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      ${toolbar}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Revision</th>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
+              <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">${rows}</tbody>
+        </table>
       </div>
-      <table class="min-w-full divide-y divide-slate-200 text-left">
-        <thead class="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-500">
-          <tr>
-            <th class="px-4 py-3">Source</th>
-            <th class="px-4 py-3">Provider</th>
-            <th class="px-4 py-3">Latest Revision</th>
-            <th class="px-4 py-3">Status</th>
-            <th class="px-4 py-3">Pending</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
       ${renderPagination(page.page_info, 'source-browser-page')}
     </div>
   `;
 }
 
-function renderDetailPanel(detail: SourceDetail, routes: Record<string, string>): string {
+function renderDetailPanel(detail: SourceDetail): string {
   if (detail.empty_state?.kind && detail.empty_state.kind !== 'none') {
-    return renderEmptyState(detail.empty_state.title ?? 'Source unavailable', detail.empty_state.description ?? '');
+    return renderEmptyState(detail.empty_state.title ?? 'Source unavailable', detail.empty_state.description ?? '', true);
   }
 
-  const latestRevisionHref = routeWithID(routes.source_revision, detail.latest_revision?.id ?? '');
-  const commentHref = routeWithID(routes.source_comment_inspector, detail.latest_revision?.id ?? '');
-  const artifactHref = routeWithID(routes.source_artifact_inspector, detail.latest_revision?.id ?? '');
-
   return `
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
-      <section class="rounded-2xl border border-slate-200 bg-white p-5">
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(detail.source?.label ?? detail.source?.id ?? 'Source Detail')}</h3>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(detail.source?.id ?? '-')}</p>
-          </div>
-          <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
+    <div class="space-y-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">${escapeHtml(detail.source?.label ?? 'Source')}</h2>
+          <p class="mt-1 text-sm text-gray-500 font-mono">${escapeHtml(detail.source?.id ?? '-')}</p>
         </div>
-        <div class="mt-4 flex flex-wrap gap-2">
-          ${pill('Status', detail.status)}
-          ${pill('Lineage', detail.lineage_confidence)}
-          ${pill('Revisions', detail.revision_count)}
-          ${pill('Handles', detail.handle_count)}
-          ${pill('Relationships', detail.relationship_count)}
+        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        ${statusBadge(detail.status)}
+        ${detail.lineage_confidence ? `<span class="inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800">Confidence: ${escapeHtml(detail.lineage_confidence)}</span>` : ''}
+        <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">${detail.revision_count ?? 0} revisions</span>
+        ${(detail.pending_candidate_count ?? 0) > 0 ? `<span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">${detail.pending_candidate_count} pending</span>` : ''}
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</h3>
+          <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(detail.provider?.label ?? detail.provider?.kind ?? '-')}</p>
+          <p class="mt-1 text-xs text-gray-500">${escapeHtml(detail.provider?.external_file_id ?? '-')}</p>
         </div>
-        <dl class="mt-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Provider</dt>
-            <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.provider?.label ?? detail.provider?.kind ?? '-')}</dd>
-          </div>
-          <div>
-            <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">External File ID</dt>
-            <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.provider?.external_file_id ?? '-')}</dd>
-          </div>
-          <div>
-            <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest Revision</dt>
-            <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.latest_revision?.provider_revision_hint ?? detail.latest_revision?.id ?? '-')}</dd>
-          </div>
-          <div>
-            <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Modified</dt>
-            <dd class="mt-2 text-sm text-slate-900">${formatDateTime(detail.latest_revision?.modified_time)}</dd>
-          </div>
-        </dl>
-      </section>
-      <aside class="rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 class="text-lg font-semibold text-slate-900">Drill-Ins</h3>
-        <div class="mt-4 space-y-2 text-sm">
-          <a href="${escapeHtml(latestRevisionHref)}" class="block rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-50">Latest Revision</a>
-          <a href="${escapeHtml(commentHref)}" class="block rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-50">Comment Inspector</a>
-          <a href="${escapeHtml(artifactHref)}" class="block rounded-xl border border-slate-200 px-3 py-2 text-slate-700 hover:bg-slate-50">Artifact Inspector</a>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Latest Revision</h3>
+          <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(detail.latest_revision?.provider_revision_hint ?? detail.latest_revision?.id ?? '-')}</p>
+          <p class="mt-1 text-xs text-gray-500">${formatDateTime(detail.latest_revision?.modified_time)}</p>
         </div>
-      </aside>
+      </div>
     </div>
   `;
 }
 
 function renderRevisionInspector(detail: SourceRevisionDetail): string {
   if (detail.empty_state?.kind && detail.empty_state.kind !== 'none') {
-    return renderEmptyState(detail.empty_state.title ?? 'Revision unavailable', detail.empty_state.description ?? '');
+    return renderEmptyState(detail.empty_state.title ?? 'Revision unavailable', detail.empty_state.description ?? '', true);
   }
 
   return `
-    <section class="rounded-2xl border border-slate-200 bg-white p-5">
-      <div class="flex items-center justify-between gap-4">
+    <div class="space-y-6">
+      <div class="flex items-start justify-between">
         <div>
-          <h3 class="text-lg font-semibold text-slate-900">${escapeHtml(detail.revision?.provider_revision_hint ?? detail.revision?.id ?? 'Revision Inspector')}</h3>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(detail.revision?.id ?? '-')}</p>
+          <h2 class="text-lg font-semibold text-gray-900">${escapeHtml(detail.revision?.provider_revision_hint ?? 'Revision')}</h2>
+          <p class="mt-1 text-sm text-gray-500 font-mono">${escapeHtml(detail.revision?.id ?? '-')}</p>
         </div>
-        <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
+        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
       </div>
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Fingerprint Status</p>
-          <div class="mt-3">${statusBadge(detail.fingerprint_status?.status)}</div>
-          <p class="mt-2 text-sm text-slate-600">${escapeHtml(detail.fingerprint_status?.error_message ?? '')}</p>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Fingerprint Status</h3>
+          <div class="mt-2">${statusBadge(detail.fingerprint_status?.status)}</div>
+          ${detail.fingerprint_status?.error_message ? `<p class="mt-2 text-sm text-red-600">${escapeHtml(detail.fingerprint_status.error_message)}</p>` : ''}
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Processing State</p>
-          <div class="mt-3">${statusBadge(detail.fingerprint_processing?.state)}</div>
-          <p class="mt-2 text-sm text-slate-600">${escapeHtml(detail.fingerprint_processing?.status_label ?? '')}</p>
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Processing</h3>
+          <div class="mt-2">${statusBadge(detail.fingerprint_processing?.state)}</div>
+          ${detail.fingerprint_processing?.status_label ? `<p class="mt-2 text-sm text-gray-600">${escapeHtml(detail.fingerprint_processing.status_label)}</p>` : ''}
         </div>
       </div>
-      <dl class="mt-6 grid gap-4 md:grid-cols-2">
+
+      <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Source</dt>
-          <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.source?.label ?? detail.source?.id ?? '-')}</dd>
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Source</h3>
+          <p class="mt-1 text-sm text-gray-900">${escapeHtml(detail.source?.label ?? detail.source?.id ?? '-')}</p>
         </div>
         <div>
-          <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Provider</dt>
-          <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.provider?.label ?? detail.provider?.kind ?? '-')}</dd>
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</h3>
+          <p class="mt-1 text-sm text-gray-900">${escapeHtml(detail.provider?.label ?? detail.provider?.kind ?? '-')}</p>
         </div>
         <div>
-          <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Modified</dt>
-          <dd class="mt-2 text-sm text-slate-900">${formatDateTime(detail.revision?.modified_time)}</dd>
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Modified</h3>
+          <p class="mt-1 text-sm text-gray-900">${formatDateTime(detail.revision?.modified_time)}</p>
         </div>
         <div>
-          <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Evidence Available</dt>
-          <dd class="mt-2 text-sm text-slate-900">${escapeHtml(detail.fingerprint_status?.evidence_available ? 'Yes' : 'No')}</dd>
+          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Evidence</h3>
+          <p class="mt-1 text-sm text-gray-900">${detail.fingerprint_status?.evidence_available ? 'Available' : 'Not available'}</p>
         </div>
-      </dl>
-    </section>
+      </div>
+    </div>
   `;
 }
 
 function renderArtifactInspector(page: SourceArtifactPage): string {
-  if ((page.items ?? []).length === 0) {
-    return renderEmptyState(page.empty_state?.title ?? 'No artifacts', page.empty_state?.description ?? '');
+  const items = page.items ?? [];
+
+  if (items.length === 0) {
+    return renderEmptyState(page.empty_state?.title ?? 'No artifacts', page.empty_state?.description ?? 'No artifacts have been generated for this revision.', true);
   }
 
-  const items = page.items
+  const cards = items
     .map((item) => {
       return `
-        <article class="rounded-2xl border border-slate-200 bg-white p-5">
-          <div class="flex flex-wrap items-center gap-2">
-            ${statusBadge(item.artifact_kind)}
-            ${statusBadge(item.compatibility_tier)}
+        <div class="rounded-lg border border-gray-200 bg-white p-4">
+          <div class="flex items-start justify-between">
+            <div class="flex flex-wrap gap-2">
+              ${statusBadge(item.artifact_kind)}
+              ${statusBadge(item.compatibility_tier)}
+            </div>
             ${statusBadge(item.normalization_status)}
           </div>
-          <dl class="mt-4 grid gap-3 md:grid-cols-2 text-sm text-slate-700">
-            <div><dt class="text-slate-500">Artifact ID</dt><dd class="mt-1 font-medium text-slate-900">${escapeHtml(item.id)}</dd></div>
-            <div><dt class="text-slate-500">Object Key</dt><dd class="mt-1 font-medium text-slate-900">${escapeHtml(item.object_key ?? '-')}</dd></div>
-            <div><dt class="text-slate-500">SHA256</dt><dd class="mt-1 font-medium text-slate-900">${escapeHtml(item.sha256 ?? '-')}</dd></div>
-            <div><dt class="text-slate-500">Pages</dt><dd class="mt-1 font-medium text-slate-900">${escapeHtml(item.page_count ?? '-')}</dd></div>
+          <dl class="mt-4 grid gap-2 sm:grid-cols-2 text-sm">
+            <div>
+              <dt class="text-gray-500">Object Key</dt>
+              <dd class="mt-0.5 font-medium text-gray-900 font-mono text-xs truncate">${escapeHtml(item.object_key ?? '-')}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Pages</dt>
+              <dd class="mt-0.5 font-medium text-gray-900">${escapeHtml(item.page_count ?? '-')}</dd>
+            </div>
+            <div class="sm:col-span-2">
+              <dt class="text-gray-500">SHA256</dt>
+              <dd class="mt-0.5 font-mono text-xs text-gray-700 truncate">${escapeHtml(item.sha256 ?? '-')}</dd>
+            </div>
           </dl>
-        </article>
+        </div>
       `;
     })
     .join('');
 
   return `
     <div class="space-y-4">
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-semibold text-slate-900">Artifact Inspector</h3>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(page.revision?.id ?? '-')}</p>
+          <h2 class="text-lg font-semibold text-gray-900">Artifacts</h2>
+          <p class="mt-1 text-sm text-gray-500">${items.length} artifact${items.length !== 1 ? 's' : ''}</p>
         </div>
-        <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
+        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
       </div>
-      ${items}
+      <div class="grid gap-4">${cards}</div>
     </div>
   `;
 }
 
 function renderCommentThread(thread: SourceCommentThreadSummary): string {
   return `
-    <article class="rounded-2xl border border-slate-200 bg-white p-5">
-      <div class="flex flex-wrap items-center gap-2">
-        ${statusBadge(thread.status)}
-        ${thread.sync_status ? statusBadge(thread.sync_status) : ''}
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="flex items-start justify-between">
+        <div class="flex flex-wrap gap-2">
+          ${statusBadge(thread.status)}
+          ${thread.sync_status ? statusBadge(thread.sync_status) : ''}
+        </div>
+        <span class="text-xs text-gray-500">${formatRelativeTime(thread.last_synced_at)}</span>
       </div>
-      <p class="mt-3 text-sm font-medium text-slate-900">${escapeHtml(thread.anchor?.label ?? thread.provider_comment_id ?? 'Comment Thread')}</p>
-      <p class="mt-1 text-sm text-slate-600">${escapeHtml(thread.body_preview ?? 'No comment preview is available for this thread.')}</p>
-      <div class="mt-4 flex flex-wrap gap-2">
-        ${pill('Author', thread.author_name ?? '-')}
-        ${pill('Messages', thread.message_count)}
-        ${pill('Replies', thread.reply_count)}
-        ${pill('Last Synced', thread.last_synced_at ? new Date(thread.last_synced_at).toLocaleDateString() : '-')}
+      <p class="mt-3 text-sm font-medium text-gray-900">${escapeHtml(thread.anchor?.label ?? 'Comment Thread')}</p>
+      <p class="mt-1 text-sm text-gray-600 line-clamp-2">${escapeHtml(thread.body_preview ?? '')}</p>
+      <div class="mt-3 flex items-center gap-4 text-xs text-gray-500">
+        <span class="flex items-center gap-1">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          ${escapeHtml(thread.author_name ?? 'Unknown')}
+        </span>
+        <span class="flex items-center gap-1">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          ${thread.message_count ?? 0} messages
+        </span>
+        ${(thread.reply_count ?? 0) > 0 ? `<span>${thread.reply_count} replies</span>` : ''}
       </div>
-    </article>
+    </div>
   `;
 }
 
 function renderCommentInspector(page: SourceCommentPage): string {
-  if ((page.items ?? []).length === 0) {
-    return renderEmptyState(page.empty_state?.title ?? 'No comments', page.empty_state?.description ?? '');
+  const items = page.items ?? [];
+
+  if (items.length === 0) {
+    return renderEmptyState(page.empty_state?.title ?? 'No comments', page.empty_state?.description ?? 'No comments have been synced for this revision.', true);
   }
 
   return `
     <div class="space-y-4">
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex flex-wrap items-center gap-2">
-          ${pill('Revision', page.revision?.id ?? '-')}
-          ${pill('Sync Status', page.sync_status ?? '-')}
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold text-gray-900">Comments</h2>
+          ${statusBadge(page.sync_status ?? 'unknown')}
         </div>
-        <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
+        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
       </div>
-      ${page.items.map(renderCommentThread).join('')}
+      <div class="space-y-3">${items.map(renderCommentThread).join('')}</div>
       ${renderPagination(page.page_info, 'source-comment-page')}
     </div>
   `;
 }
 
-function renderSearchResults(page: SourceSearchResults, resultLinks: SourceManagementRuntimeLink[], routes: Record<string, string>): string {
+function renderSearchToolbar(page: Phase13SourceSearchResults): string {
   const appliedQuery = (page.applied_query ?? {}) as Phase13SourceSearchQuery;
-  if ((page.items ?? []).length === 0) {
-    return renderEmptyState(page.empty_state?.title ?? 'No search results', page.empty_state?.description ?? '');
+  return `
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-4">
+      <form data-runtime-form="source-search" class="space-y-3">
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[240px]">
+            <label class="sr-only" for="search-query">Search</label>
+            <div class="relative">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <input type="search" id="search-query" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources, revisions, comments..." class="block w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+          </div>
+          <button type="submit" class="inline-flex items-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Search
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <div class="w-40">
+            <select name="provider_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="">All providers</option>
+              <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
+              <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
+            </select>
+          </div>
+          <div class="w-32">
+            <select name="status" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="">All statuses</option>
+              <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
+              <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
+              <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+          </div>
+          <div class="w-36">
+            <select name="result_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+              <option value="">All types</option>
+              <option value="${SEARCH_RESULT_KIND.SOURCE_DOCUMENT}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_DOCUMENT ? 'selected' : ''}>Sources</option>
+              <option value="${SEARCH_RESULT_KIND.SOURCE_REVISION}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_REVISION ? 'selected' : ''}>Revisions</option>
+            </select>
+          </div>
+          <label class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">
+            <input type="checkbox" name="has_comments" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_comments ? 'checked' : ''} />
+            <span>Has comments</span>
+          </label>
+          <button type="button" data-runtime-action="clear-search-filters" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Clear
+          </button>
+          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderSearchResults(
+  page: Phase13SourceSearchResults,
+  routes: Record<string, string>,
+  config: SourceManagementRuntimePageConfig
+): string {
+  const toolbar = renderSearchToolbar(page);
+  const items = page.items ?? [];
+
+  if (items.length === 0) {
+    const emptyState = page.empty_state;
+    return `
+      ${toolbar}
+      ${renderEmptyState(
+        emptyState?.title ?? 'No results found',
+        emptyState?.description ?? 'Try adjusting your search terms or filters.',
+        false
+      )}
+    `;
   }
 
-  const items = page.items
-    .map((item: SourceSearchResultSummary, index: number) => {
-      const runtimeLink = resultLinks[index]?.href?.trim();
-      const fallbackLink = item.revision?.id
-        ? routeWithID(routes.source_revision, item.revision.id)
-        : routeWithID(routes.source_detail, item.source?.id ?? '');
-      const href = runtimeLink || fallbackLink;
+  const resultCards = items
+    .map((item: Phase13SourceSearchResultSummary) => {
+      const href = resolveSearchResultRuntimeHref(item, {
+        base_path: config.base_path,
+        api_base_path: config.api_base_path,
+        routes,
+      });
+      const matchedFields = item.matched_fields ?? [];
+      const commentCount = item.comment_count;
+      const hasComments = commentCount !== undefined && commentCount > 0;
+
       return `
-        <article class="rounded-2xl border border-slate-200 bg-white p-5">
-          <div class="flex flex-wrap items-center gap-2">
-            ${statusBadge(item.result_kind)}
-            ${statusBadge(item.provider?.kind)}
+        <a href="${escapeHtml(href)}" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-sm transition-all">
+          <div class="flex items-start justify-between">
+            <div class="flex flex-wrap gap-2">
+              ${statusBadge(item.result_kind)}
+              ${statusBadge(item.provider?.kind)}
+            </div>
+            ${hasComments ? `<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">${commentCount} comment${commentCount !== 1 ? 's' : ''}</span>` : ''}
           </div>
-          <a href="${escapeHtml(href)}" class="mt-3 block text-base font-semibold text-slate-900 hover:text-slate-700">${escapeHtml(item.summary ?? item.source?.label ?? 'Search Result')}</a>
-          <p class="mt-1 text-sm text-slate-600">${escapeHtml(item.source?.label ?? item.source?.id ?? '-')}</p>
-          <div class="mt-3 flex flex-wrap gap-2 text-xs">
-            ${(item.matched_fields ?? []).map((field) => pill('Match', field)).join('')}
-          </div>
-        </article>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(item.summary ?? item.source?.label ?? 'Result')}</h3>
+          <p class="mt-1 text-sm text-gray-500">${escapeHtml(item.source?.id ?? '')}</p>
+          ${matchedFields.length > 0 ? `
+            <div class="mt-2 flex flex-wrap gap-1">
+              ${matchedFields.map((field: string) => `<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Matched: ${escapeHtml(field)}</span>`).join('')}
+            </div>
+          ` : ''}
+        </a>
       `;
     })
     .join('');
 
   return `
-    <div class="space-y-4">
-      <form data-runtime-form="source-search" class="rounded-2xl border border-slate-200 bg-white p-4">
-        <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
-          <input type="search" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <input type="text" name="provider_kind" value="${escapeHtml(appliedQuery.provider_kind ?? '')}" placeholder="Provider" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <input type="text" name="status" value="${escapeHtml(appliedQuery.status ?? '')}" placeholder="Status" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <input type="text" name="result_kind" value="${escapeHtml(appliedQuery.result_kind ?? '')}" placeholder="Result kind" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-          <label class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700">
-            <input type="checkbox" name="has_comments"${booleanToChecked(appliedQuery.has_comments)} />
-            Has comments
-          </label>
-        </div>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="submit" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white">Search</button>
-          <button type="button" data-runtime-action="clear-search-filters" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Clear</button>
-          <button type="button" data-runtime-action="refresh" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">Refresh</button>
-        </div>
-      </form>
-      ${items}
-      ${renderPagination(page.page_info, 'source-search-page')}
+    ${toolbar}
+    <div class="mb-4 flex items-center justify-between">
+      <p class="text-sm text-gray-500">${page.page_info?.total_count ?? items.length} result${(page.page_info?.total_count ?? items.length) !== 1 ? 's' : ''}</p>
     </div>
+    <div class="grid gap-3">${resultCards}</div>
+    ${renderPagination(page.page_info, 'source-search-page')}
   `;
 }
 
@@ -510,16 +790,40 @@ function renderPagination(
   const page = Number(pageInfo?.page ?? 1);
   const totalCount = Number(pageInfo?.total_count ?? 0);
   const pageSize = Number(pageInfo?.page_size ?? 20);
-  if (totalCount <= 0) {
+  if (totalCount <= 0 || totalCount <= pageSize) {
     return '';
   }
   const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalCount);
+
   return `
-    <div class="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
-      <p>Page ${escapeHtml(page)} of ${escapeHtml(totalPages)}</p>
+    <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 mt-4 rounded-b-xl">
+      <div class="text-sm text-gray-500">
+        Showing <span class="font-medium">${start}</span> to <span class="font-medium">${end}</span> of <span class="font-medium">${totalCount}</span>
+      </div>
       <div class="flex gap-2">
-        <button type="button" data-runtime-action="${escapeHtml(action)}" data-page="${escapeHtml(page - 1)}" class="rounded-full border border-slate-300 px-3 py-1.5 ${page <= 1 ? 'cursor-not-allowed opacity-50' : ''}" ${page <= 1 ? 'disabled' : ''}>Previous</button>
-        <button type="button" data-runtime-action="${escapeHtml(action)}" data-page="${escapeHtml(page + 1)}" class="rounded-full border border-slate-300 px-3 py-1.5 ${page >= totalPages ? 'cursor-not-allowed opacity-50' : ''}" ${page >= totalPages ? 'disabled' : ''}>Next</button>
+        <button
+          type="button"
+          data-runtime-action="${escapeHtml(action)}"
+          data-page="${page - 1}"
+          class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          ${page <= 1 ? 'disabled' : ''}
+        >
+          Previous
+        </button>
+        <span class="inline-flex items-center px-3 py-1.5 text-sm text-gray-500">
+          Page ${page} of ${totalPages}
+        </span>
+        <button
+          type="button"
+          data-runtime-action="${escapeHtml(action)}"
+          data-page="${page + 1}"
+          class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          ${page >= totalPages ? 'disabled' : ''}
+        >
+          Next
+        </button>
       </div>
     </div>
   `;
@@ -576,12 +880,12 @@ export class SourceManagementRuntimeController {
         }
         if (action === 'clear-browser-filters') {
           event.preventDefault();
-          void this.applyBrowserFilters({});
+          void this.clearBrowserFilters();
           return;
         }
         if (action === 'clear-search-filters') {
           event.preventDefault();
-          void this.applySearchFilters({});
+          void this.clearSearchFilters();
           return;
         }
         if (action === 'source-browser-page' || action === 'source-comment-page' || action === 'source-search-page') {
@@ -711,10 +1015,10 @@ export class SourceManagementRuntimeController {
     const contract = this.model.contract;
     switch (this.page) {
       case 'admin.sources.browser':
-        this.root.innerHTML = renderBrowserTable(contract as SourceListPage, this.config.routes ?? {});
+        this.root.innerHTML = renderBrowserTable(contract as SourceListPage, this.config.routes ?? {}, this.config);
         return;
       case 'admin.sources.detail':
-        this.root.innerHTML = renderDetailPanel(contract as SourceDetail, this.config.routes ?? {});
+        this.root.innerHTML = renderDetailPanel(contract as SourceDetail);
         return;
       case 'admin.sources.revision_inspector':
         this.root.innerHTML = renderRevisionInspector(contract as SourceRevisionDetail);
@@ -726,11 +1030,7 @@ export class SourceManagementRuntimeController {
         this.root.innerHTML = renderArtifactInspector(contract as SourceArtifactPage);
         return;
       case 'admin.sources.search':
-        this.root.innerHTML = renderSearchResults(
-          contract as SourceSearchResults,
-          this.model.result_links ?? [],
-          this.config.routes ?? {}
-        );
+        this.root.innerHTML = renderSearchResults(contract as Phase13SourceSearchResults, this.config.routes ?? {}, this.config);
         return;
     }
   }
@@ -740,7 +1040,7 @@ export class SourceManagementRuntimeController {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading source browser...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -749,7 +1049,7 @@ export class SourceManagementRuntimeController {
     }
     if (state.contracts?.listSources) {
       this.hasLiveContract = true;
-      this.root.innerHTML = renderBrowserTable(state.contracts.listSources, this.config.routes ?? {});
+      this.root.innerHTML = renderBrowserTable(state.contracts.listSources, this.config.routes ?? {}, this.config);
     }
   }
 
@@ -758,7 +1058,7 @@ export class SourceManagementRuntimeController {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading source detail...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -767,7 +1067,7 @@ export class SourceManagementRuntimeController {
     }
     if (state.contracts?.sourceDetail) {
       this.hasLiveContract = true;
-      this.root.innerHTML = renderDetailPanel(state.contracts.sourceDetail, this.config.routes ?? {});
+      this.root.innerHTML = renderDetailPanel(state.contracts.sourceDetail);
     }
   }
 
@@ -776,7 +1076,7 @@ export class SourceManagementRuntimeController {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading revision inspector...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -794,7 +1094,7 @@ export class SourceManagementRuntimeController {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading comments...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -812,7 +1112,7 @@ export class SourceManagementRuntimeController {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading artifacts...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -825,12 +1125,12 @@ export class SourceManagementRuntimeController {
     }
   }
 
-  private renderSearchState(state: SourceManagementPageState<{ searchResults: SourceSearchResults }>): void {
+  private renderSearchState(state: SourceManagementPageState<{ searchResults: Phase13SourceSearchResults }>): void {
     if (state.loading && !this.hasLiveContract && this.model.contract) {
       return;
     }
     if (state.loading) {
-      this.root.innerHTML = renderLoadingState('Loading search results...');
+      this.root.innerHTML = renderLoadingState();
       return;
     }
     if (state.error) {
@@ -839,11 +1139,7 @@ export class SourceManagementRuntimeController {
     }
     if (state.contracts?.searchResults) {
       this.hasLiveContract = true;
-      this.root.innerHTML = renderSearchResults(
-        state.contracts.searchResults,
-        this.model.result_links ?? [],
-        this.config.routes ?? {}
-      );
+      this.root.innerHTML = renderSearchResults(state.contracts.searchResults, this.config.routes ?? {}, this.config);
     }
   }
 
@@ -872,6 +1168,46 @@ export class SourceManagementRuntimeController {
     if (action === 'source-search-page' && this.liveController instanceof SourceSearchPageController) {
       await this.liveController.goToPage(page);
     }
+  }
+
+  /**
+   * Clear all browser filters - explicitly sets all filter values to undefined
+   * to ensure they are removed from the URL and reset.
+   */
+  private async clearBrowserFilters(): Promise<void> {
+    if (!(this.liveController instanceof SourceBrowserPageController)) {
+      return;
+    }
+    // Explicitly set all filter fields to undefined to clear them
+    await this.liveController.applyFilters({
+      query: undefined,
+      provider_kind: undefined,
+      status: undefined,
+      has_pending_candidates: undefined,
+      sort: undefined,
+    });
+  }
+
+  /**
+   * Clear all search filters - explicitly sets all filter values to undefined
+   * to ensure they are removed from the URL and reset.
+   */
+  private async clearSearchFilters(): Promise<void> {
+    if (!(this.liveController instanceof SourceSearchPageController)) {
+      return;
+    }
+    // Explicitly set all filter fields to undefined to clear them
+    await this.liveController.applyFilters({
+      query: undefined,
+      provider_kind: undefined,
+      status: undefined,
+      result_kind: undefined,
+      relationship_state: undefined,
+      comment_sync_status: undefined,
+      revision_hint: undefined,
+      has_comments: undefined,
+      sort: undefined,
+    });
   }
 
   private async applyBrowserFilters(filters: {
@@ -922,6 +1258,160 @@ export function initSourceManagementRuntimePage(): SourceManagementRuntimeContro
   });
   void controller.init();
   return controller;
+}
+
+/**
+ * V2 runtime initialization result.
+ * Reports success/failure of runtime mounting from backend config.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.7
+ */
+export interface V2RuntimeInitResult {
+  success: boolean;
+  page: string | null;
+  surface: string | null;
+  hasBackendConfig: boolean;
+  hasBackendPageModel: boolean;
+  hasBackendRoutes: boolean;
+  controllerMounted: boolean;
+  issues: string[];
+}
+
+/**
+ * Initialize V2 source-management runtime with validation.
+ * Validates that runtime mounts from backend-owned config only.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.7
+ */
+export function initV2SourceManagementRuntime(): V2RuntimeInitResult {
+  const result: V2RuntimeInitResult = {
+    success: false,
+    page: null,
+    surface: null,
+    hasBackendConfig: false,
+    hasBackendPageModel: false,
+    hasBackendRoutes: false,
+    controllerMounted: false,
+    issues: [],
+  };
+
+  // Check for required DOM elements
+  const marker = document.querySelector<HTMLElement>('[data-esign-page^="admin.sources."]');
+  const root = document.querySelector<HTMLElement>('[data-source-management-runtime-root]');
+
+  if (!marker) {
+    result.issues.push('Missing page marker element [data-esign-page]');
+    return result;
+  }
+
+  if (!root) {
+    result.issues.push('Missing runtime root element [data-source-management-runtime-root]');
+    return result;
+  }
+
+  // Parse backend-provided configuration
+  const config = parseJSONScript<SourceManagementRuntimePageConfig>('esign-page-config');
+  const model = parseJSONScript<SourceManagementRuntimePageModel>('source-management-page-model');
+
+  // Validate backend config is present
+  result.hasBackendConfig = config !== null && typeof config.api_base_path === 'string';
+  if (!result.hasBackendConfig) {
+    result.issues.push('Backend config missing or invalid - no api_base_path');
+  }
+
+  // Validate backend page model is present
+  result.hasBackendPageModel = model !== null && typeof model.surface === 'string';
+  if (!result.hasBackendPageModel) {
+    result.issues.push('Backend page model missing or invalid - no surface');
+  }
+
+  // Validate backend routes are present
+  result.hasBackendRoutes = config?.routes !== undefined && typeof config.routes === 'object';
+  if (!result.hasBackendRoutes) {
+    result.issues.push('Backend routes missing from config');
+  }
+
+  // Extract page identifier
+  const page = String(config?.page ?? marker.dataset.esignPage ?? '').trim();
+  result.page = page || null;
+  result.surface = model?.surface ?? marker.dataset.sourceManagementSurface ?? null;
+
+  if (!page) {
+    result.issues.push('Page identifier not found in config or marker');
+    return result;
+  }
+
+  // Check for forbidden client-side bootstrap shims
+  const forbiddenShims = [
+    '_clientBootstrap',
+    '_fallbackConfig',
+    '_synthesizedRoutes',
+    '_generatedApiPath',
+  ];
+
+  for (const shim of forbiddenShims) {
+    if (config && shim in config) {
+      result.issues.push(`Forbidden client-side bootstrap shim detected: ${shim}`);
+    }
+    if (model && shim in model) {
+      result.issues.push(`Forbidden client-side bootstrap shim detected: ${shim}`);
+    }
+  }
+
+  // Initialize the runtime controller
+  const controller = initSourceManagementRuntimePage();
+  result.controllerMounted = controller !== null;
+
+  if (!result.controllerMounted) {
+    result.issues.push('Runtime controller failed to mount');
+  }
+
+  // Determine overall success
+  result.success =
+    result.hasBackendConfig &&
+    result.hasBackendPageModel &&
+    result.hasBackendRoutes &&
+    result.controllerMounted &&
+    result.issues.length === 0;
+
+  return result;
+}
+
+/**
+ * Assert V2 runtime initialization succeeds.
+ * Throws if runtime cannot be mounted from backend config.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 18 Task 18.7
+ */
+export function assertV2RuntimeInitialization(): void {
+  const result = initV2SourceManagementRuntime();
+  if (!result.success) {
+    throw new Error(`V2 runtime initialization failed: ${result.issues.join('; ')}`);
+  }
+}
+
+/**
+ * Log V2 runtime initialization result.
+ */
+export function logV2RuntimeInitResult(result: V2RuntimeInitResult): void {
+  console.group('V2 Source-Management Runtime Initialization');
+  console.log(`Success: ${result.success ? 'YES' : 'NO'}`);
+  console.log(`Page: ${result.page ?? 'unknown'}`);
+  console.log(`Surface: ${result.surface ?? 'unknown'}`);
+  console.log(`Backend Config: ${result.hasBackendConfig ? '✓' : '✗'}`);
+  console.log(`Backend Page Model: ${result.hasBackendPageModel ? '✓' : '✗'}`);
+  console.log(`Backend Routes: ${result.hasBackendRoutes ? '✓' : '✗'}`);
+  console.log(`Controller Mounted: ${result.controllerMounted ? '✓' : '✗'}`);
+
+  if (result.issues.length > 0) {
+    console.group('Issues');
+    for (const issue of result.issues) {
+      console.log(`- ${issue}`);
+    }
+    console.groupEnd();
+  }
+
+  console.groupEnd();
 }
 
 if (typeof document !== 'undefined') {

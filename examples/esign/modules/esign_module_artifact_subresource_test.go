@@ -317,6 +317,7 @@ func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Autho
 		quickstart.AdapterHooks{},
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithFeatureDefaults(map[string]bool{"esign": true}),
+		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: false}),
 	)
 	if err != nil {
 		t.Fatalf("quickstart.NewAdmin: %v", err)

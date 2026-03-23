@@ -49,10 +49,12 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 			"esign":        true,
 			"esign_google": true,
 		}),
+		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: false}),
 	)
 	if err != nil {
 		t.Fatalf("quickstart.NewAdmin: %v", err)
 	}
+	adm.WithAuth(allowAllAuthenticator{}, nil)
 	adm.WithAuthorizer(allowAllAuthorizer{})
 
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).

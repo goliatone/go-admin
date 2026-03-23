@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	searchtypes "github.com/goliatone/go-search/pkg/types"
+
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/fixtures"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
@@ -35,10 +37,21 @@ type SourceManagementValidationResult struct {
 	SourceAgreementsReadable       bool                          `json:"source_agreements_readable"`
 	SourceArtifactsReadable        bool                          `json:"source_artifacts_readable"`
 	SourceSearchCorrect            bool                          `json:"source_search_correct"`
+	SearchIndexReady               bool                          `json:"search_index_ready"`
+	SearchProviderMetadataVisible  bool                          `json:"search_provider_metadata_visible"`
+	SearchNormalizedTextCorrect    bool                          `json:"search_normalized_text_correct"`
+	SearchAgreementTitleCorrect    bool                          `json:"search_agreement_title_correct"`
 	SourceCommentsReadable         bool                          `json:"source_comments_readable"`
+	QueueReadable                  bool                          `json:"queue_readable"`
+	QueueActionSucceeded           bool                          `json:"queue_action_succeeded"`
 	ProviderNeutralContractsStable bool                          `json:"provider_neutral_contracts_stable"`
 	Scenario                       stores.LineageFixtureSet      `json:"scenario"`
 	URLs                           fixtures.LineageFixtureURLSet `json:"urls"`
+}
+
+type sourceSearchOperationalStatus interface {
+	HealthStatus(ctx context.Context, scope stores.Scope) (searchtypes.HealthStatus, error)
+	StatsSnapshot(ctx context.Context, scope stores.Scope) (searchtypes.StatsResult, error)
 }
 
 func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagementValidationConfig) (SourceManagementValidationResult, error) {
@@ -168,6 +181,15 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("search sources by legacy handle: %w", err)
 	}
+	searchByNormalizedText, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{
+		Query:      "fixture normalized text for repeated revision",
+		ResultKind: services.SourceManagementSearchResultSourceRevision,
+		Page:       1,
+		PageSize:   10,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("search sources by normalized text: %w", err)
+	}
 	searchByComment, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{
 		Query:       "Need legal approval",
 		ResultKind:  services.SourceManagementSearchResultSourceRevision,
@@ -192,6 +214,54 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("list source revision comments: %w", err)
+	}
+	queue, err := readModels.ListReconciliationQueue(ctx, scope, services.ReconciliationQueueQuery{
+		Sort:     "confidence_desc",
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("list reconciliation queue: %w", err)
+	}
+	queueCandidate, err := readModels.GetReconciliationCandidate(ctx, scope, fixtureSet.CandidateRelationshipID)
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("get reconciliation candidate: %w", err)
+	}
+
+	searchHealth := searchtypes.HealthStatus{}
+	searchStats := searchtypes.StatsResult{}
+	if operational, ok := any(sourceSearch).(sourceSearchOperationalStatus); ok {
+		searchHealth, err = operational.HealthStatus(ctx, scope)
+		if err != nil {
+			return SourceManagementValidationResult{}, fmt.Errorf("query source-management go-search health: %w", err)
+		}
+		searchStats, err = operational.StatsSnapshot(ctx, scope)
+		if err != nil {
+			return SourceManagementValidationResult{}, fmt.Errorf("query source-management go-search stats: %w", err)
+		}
+	}
+
+	reconciliation := services.NewDefaultSourceReconciliationService(
+		lineageStore,
+		services.WithSourceReconciliationSearchService(sourceSearch),
+	)
+	reviewed, err := reconciliation.ApplyReviewAction(ctx, scope, services.SourceRelationshipReviewInput{
+		RelationshipID:  fixtureSet.CandidateRelationshipID,
+		Action:          services.SourceRelationshipActionConfirm,
+		ConfirmBehavior: services.SourceRelationshipActionRelated,
+		ActorID:         "fixture-reviewer",
+		Reason:          "phase18_validation_related_confirmation",
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("apply reconciliation review action: %w", err)
+	}
+	queueAfterReview, err := readModels.ListReconciliationQueue(ctx, scope, services.ReconciliationQueueQuery{
+		Sort:     "confidence_desc",
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("list reconciliation queue after review: %w", err)
 	}
 
 	if len(listPage.Items) < 2 {
@@ -247,6 +317,9 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if len(searchByLegacyHandle.Items) == 0 || searchByLegacyHandle.Items[0].Source == nil || strings.TrimSpace(searchByLegacyHandle.Items[0].Source.ID) != strings.TrimSpace(fixtureSet.SourceDocumentID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("search by legacy handle did not discover canonical source")
 	}
+	if len(searchByNormalizedText.Items) == 0 || searchByNormalizedText.Items[0].Revision == nil || strings.TrimSpace(searchByNormalizedText.Items[0].Revision.ID) != strings.TrimSpace(fixtureSet.SecondSourceRevisionID) {
+		return SourceManagementValidationResult{}, fmt.Errorf("search by normalized text did not discover revision-scoped source result")
+	}
 	if len(searchByComment.Items) == 0 || searchByComment.Items[0].Revision == nil || strings.TrimSpace(searchByComment.Items[0].Revision.ID) != strings.TrimSpace(fixtureSet.SecondSourceRevisionID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("search by comment text did not discover revision-scoped source result")
 	}
@@ -256,10 +329,37 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if len(comments.Items) == 0 || len(comments.Items[0].Messages) != 2 {
 		return SourceManagementValidationResult{}, fmt.Errorf("source comment read did not expose seeded synced thread")
 	}
+	if len(queue.Items) == 0 || queue.Items[0].Candidate == nil || strings.TrimSpace(queue.Items[0].Candidate.ID) != strings.TrimSpace(fixtureSet.CandidateRelationshipID) {
+		return SourceManagementValidationResult{}, fmt.Errorf("reconciliation queue did not expose seeded candidate backlog")
+	}
+	if queueCandidate.Candidate == nil || strings.TrimSpace(queueCandidate.Candidate.ID) != strings.TrimSpace(fixtureSet.CandidateRelationshipID) {
+		return SourceManagementValidationResult{}, fmt.Errorf("reconciliation queue detail did not expose seeded candidate")
+	}
+	if strings.TrimSpace(reviewed.Status) != stores.SourceRelationshipStatusConfirmed {
+		return SourceManagementValidationResult{}, fmt.Errorf("reconciliation review action did not confirm candidate, got %+v", reviewed)
+	}
+	if len(queueAfterReview.Items) != 0 {
+		return SourceManagementValidationResult{}, fmt.Errorf("reconciliation queue still contains reviewed candidate after action success")
+	}
+	if !searchHealth.Healthy {
+		return SourceManagementValidationResult{}, fmt.Errorf("source-management go-search health is not ready: %+v", searchHealth)
+	}
+	if searchStats.Provider == "" || len(searchStats.Indexes) == 0 {
+		return SourceManagementValidationResult{}, fmt.Errorf("source-management go-search stats did not expose provider/index snapshot: %+v", searchStats)
+	}
+	if !hasReadySearchIndex(searchHealth, searchStats) {
+		return SourceManagementValidationResult{}, fmt.Errorf("source-management go-search index is not ready: health=%+v stats=%+v", searchHealth, searchStats)
+	}
 	if err := rejectGoogleSpecificJSONKeys(workspace, "source_workspace"); err != nil {
 		return SourceManagementValidationResult{}, err
 	}
 	if err := rejectGoogleSpecificJSONKeys(detail, "source_detail"); err != nil {
+		return SourceManagementValidationResult{}, err
+	}
+	if err := rejectGoogleSpecificJSONKeys(queue, "reconciliation_queue"); err != nil {
+		return SourceManagementValidationResult{}, err
+	}
+	if err := rejectGoogleSpecificJSONKeys(queueCandidate, "reconciliation_candidate"); err != nil {
 		return SourceManagementValidationResult{}, err
 	}
 	if err := rejectGoogleSpecificJSONKeys(searchByComment, "source_search"); err != nil {
@@ -283,8 +383,14 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 		RelationshipSummariesReadable:  len(relationships.Items) >= 1,
 		SourceAgreementsReadable:       len(agreements.Items) >= 1,
 		SourceArtifactsReadable:        len(workspace.Artifacts.Items) >= 1,
-		SourceSearchCorrect:            len(searchByLegacyHandle.Items) >= 1 && len(searchByComment.Items) >= 1 && len(searchByAgreementTitle.Items) >= 1,
+		SourceSearchCorrect:            len(searchByLegacyHandle.Items) >= 1 && len(searchByNormalizedText.Items) >= 1 && len(searchByComment.Items) >= 1 && len(searchByAgreementTitle.Items) >= 1,
+		SearchIndexReady:               hasReadySearchIndex(searchHealth, searchStats),
+		SearchProviderMetadataVisible:  len(searchByLegacyHandle.Items) >= 1 && searchByLegacyHandle.Items[0].Provider != nil && strings.TrimSpace(searchByLegacyHandle.Items[0].Provider.Kind) == stores.SourceProviderKindGoogleDrive,
+		SearchNormalizedTextCorrect:    len(searchByNormalizedText.Items) >= 1,
+		SearchAgreementTitleCorrect:    len(searchByAgreementTitle.Items) >= 1,
 		SourceCommentsReadable:         len(comments.Items) >= 1 && comments.SyncStatus == services.SourceManagementCommentSyncSynced,
+		QueueReadable:                  len(queue.Items) >= 1 && queueCandidate.Candidate != nil,
+		QueueActionSucceeded:           strings.TrimSpace(reviewed.Status) == stores.SourceRelationshipStatusConfirmed && len(queueAfterReview.Items) == 0,
 		ProviderNeutralContractsStable: true,
 		Scenario:                       fixtureSet,
 		URLs:                           urls,
@@ -399,6 +505,20 @@ func contains(values []string, target string) bool {
 	target = strings.TrimSpace(target)
 	for _, value := range values {
 		if strings.TrimSpace(value) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReadySearchIndex(health searchtypes.HealthStatus, stats searchtypes.StatsResult) bool {
+	for _, idx := range health.Indexes {
+		if idx.Ready && strings.TrimSpace(idx.Name) != "" {
+			return true
+		}
+	}
+	for _, idx := range stats.Indexes {
+		if strings.EqualFold(strings.TrimSpace(idx.ProviderStatus), "ready") && strings.TrimSpace(idx.Name) != "" {
 			return true
 		}
 	}

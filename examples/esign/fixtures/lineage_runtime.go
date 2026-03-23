@@ -3,8 +3,8 @@ package fixtures
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -27,20 +27,20 @@ type LineageFixtureAssetKeys struct {
 }
 
 type LineageFixtureURLSet struct {
-	UploadOnlyDocumentURL     string `json:"upload_only_document_url"`
-	ImportedDocumentURL       string `json:"imported_document_url"`
-	RepeatedImportDocumentURL string `json:"repeated_import_document_url"`
-	ImportedAgreementURL      string `json:"imported_agreement_url"`
-	SourceBrowserURL          string `json:"source_browser_url"`
-	SourceDetailURL           string `json:"source_detail_url"`
-	SourceRevisionURL         string `json:"source_revision_url"`
-	SourceCommentsURL         string `json:"source_comments_url"`
-	SourceArtifactsURL        string `json:"source_artifacts_url"`
-	SourceSearchURL           string `json:"source_search_url"`
-	SourceSearchNormalizedURL string `json:"source_search_normalized_url"`
-	SourceSearchAgreementURL  string `json:"source_search_agreement_url"`
-	SourceSearchCommentsURL   string `json:"source_search_comments_url"`
-	ReconciliationQueueURL    string `json:"reconciliation_queue_url"`
+	UploadOnlyDocumentURL      string `json:"upload_only_document_url"`
+	ImportedDocumentURL        string `json:"imported_document_url"`
+	RepeatedImportDocumentURL  string `json:"repeated_import_document_url"`
+	ImportedAgreementURL       string `json:"imported_agreement_url"`
+	SourceBrowserURL           string `json:"source_browser_url"`
+	SourceDetailURL            string `json:"source_detail_url"`
+	SourceRevisionURL          string `json:"source_revision_url"`
+	SourceCommentsURL          string `json:"source_comments_url"`
+	SourceArtifactsURL         string `json:"source_artifacts_url"`
+	SourceSearchURL            string `json:"source_search_url"`
+	SourceSearchNormalizedURL  string `json:"source_search_normalized_url"`
+	SourceSearchAgreementURL   string `json:"source_search_agreement_url"`
+	SourceSearchCommentsURL    string `json:"source_search_comments_url"`
+	ReconciliationQueueURL     string `json:"reconciliation_queue_url"`
 	ReconciliationCandidateURL string `json:"reconciliation_candidate_url"`
 }
 
@@ -86,20 +86,20 @@ func BuildLineageFixtureURLs(basePath string, scope stores.Scope, set stores.Lin
 	}
 
 	return LineageFixtureURLSet{
-		UploadOnlyDocumentURL:     withQuery("esign_documents", set.UploadOnlyDocumentID),
-		ImportedDocumentURL:       withQuery("esign_documents", set.ImportedDocumentID),
-		RepeatedImportDocumentURL: withQuery("esign_documents", set.RepeatedImportDocumentID),
-		ImportedAgreementURL:      withQuery("esign_agreements", set.ImportedAgreementID),
-		SourceBrowserURL:          path.Join(basePath, "esign", "sources") + "?" + query,
-		SourceDetailURL:           path.Join(basePath, "esign", "sources", set.SourceDocumentID) + "?" + query,
-		SourceRevisionURL:         path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID) + "?" + query,
-		SourceCommentsURL:         path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "comments") + "?" + query,
-		SourceArtifactsURL:        path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "artifacts") + "?" + query,
-		SourceSearchURL:           path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture-google-file-legacy",
-		SourceSearchNormalizedURL: path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture+normalized+text+for+repeated+revision",
-		SourceSearchAgreementURL:  path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Imported+Fixture+Agreement+Rev+2",
-		SourceSearchCommentsURL:   path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Need+legal+approval",
-		ReconciliationQueueURL:    path.Join(basePath, "esign", "reconciliation-queue") + "?" + query,
+		UploadOnlyDocumentURL:      withQuery("esign_documents", set.UploadOnlyDocumentID),
+		ImportedDocumentURL:        withQuery("esign_documents", set.ImportedDocumentID),
+		RepeatedImportDocumentURL:  withQuery("esign_documents", set.RepeatedImportDocumentID),
+		ImportedAgreementURL:       withQuery("esign_agreements", set.ImportedAgreementID),
+		SourceBrowserURL:           path.Join(basePath, "esign", "sources") + "?" + query,
+		SourceDetailURL:            path.Join(basePath, "esign", "sources", set.SourceDocumentID) + "?" + query,
+		SourceRevisionURL:          path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID) + "?" + query,
+		SourceCommentsURL:          path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "comments") + "?" + query,
+		SourceArtifactsURL:         path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "artifacts") + "?" + query,
+		SourceSearchURL:            path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture-google-file-legacy",
+		SourceSearchNormalizedURL:  path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture+normalized+text+for+repeated+revision",
+		SourceSearchAgreementURL:   path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Imported+Fixture+Agreement+Rev+2",
+		SourceSearchCommentsURL:    path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Need+legal+approval",
+		ReconciliationQueueURL:     path.Join(basePath, "esign", "reconciliation-queue") + "?" + query,
 		ReconciliationCandidateURL: path.Join(basePath, "esign", "reconciliation-queue", set.CandidateRelationshipID) + "?" + query,
 	}, nil
 }

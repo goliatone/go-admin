@@ -3,110 +3,110 @@
 {% block title %}{{ source_management_page_title|default:"Source Management" }} - {{ title|default:"E-Sign" }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-6xl px-6 py-8">
-  <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-200 px-6 py-5">
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{{ source_management_surface|default:"source_management"|title }}</p>
-          <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ source_management_page_title|default:"Source Management" }}</h1>
-          <p class="mt-2 max-w-3xl text-sm text-slate-600">{{ source_management_page_summary|default:"Backend-authored source-management runtime shell." }}</p>
-        </div>
-        {% if source_management_nav_links %}
-        <div class="flex flex-wrap gap-2 lg:max-w-xl lg:justify-end">
-          {% for link in source_management_nav_links %}
-          <a
-            href="{{ link.Href }}"
-            class="inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium {% if link.Kind == 'primary' %}border-slate-900 bg-slate-900 text-white{% elif link.Kind == 'external' %}border-amber-300 bg-amber-50 text-amber-900{% else %}border-slate-300 bg-white text-slate-700{% endif %}"
-          >
-            {{ link.Label }}
-          </a>
-          {% endfor %}
-        </div>
+<header class="px-8 py-6 bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto">
+    {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mt-2">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">{{ source_management_page_title|default:"Source Management" }}</h1>
+        {% if source_management_page_summary %}
+        <p class="mt-1 text-sm text-gray-500">{{ source_management_page_summary }}</p>
         {% endif %}
       </div>
+      {% if source_management_nav_links %}
+      <div class="flex flex-wrap gap-2">
+        {% for link in source_management_nav_links %}
+        <a
+          href="{{ link.href }}"
+          class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors {% if link.kind == 'primary' %}border-blue-600 bg-blue-600 text-white hover:bg-blue-700{% elif link.kind == 'external' %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %}"
+          {% if link.kind == 'external' %}target="_blank" rel="noopener noreferrer"{% endif %}
+        >
+          {{ link.label }}
+          {% if link.kind == 'external' %}
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
+  </div>
+</header>
 
-    <div class="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+<div class="flex-1 p-8 overflow-y-auto">
+  <div class="max-w-7xl mx-auto">
+    {% if source_management_surface == "source_browser" or source_management_surface == "source_search" %}
+    {# Full-width layout for list/search surfaces #}
+    <div data-source-management-runtime-root>
+      <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-center py-8">
+          <div class="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
+          <span class="ml-3 text-sm text-gray-500">Loading...</span>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    {# Two-column layout for detail surfaces #}
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
       <div class="space-y-6">
-        <section class="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-slate-900">Contract Shell</h2>
-              <p class="mt-1 text-sm text-slate-600">The example runtime is exposing the frozen source-management contract family directly to this page shell.</p>
-            </div>
+        {% if source_management_highlights %}
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Overview</h2>
             {% if source_management_resource_id %}
-            <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300">{{ source_management_resource_id }}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{{ source_management_resource_id }}</span>
             {% endif %}
           </div>
-
-          <div class="mt-5 grid gap-3 sm:grid-cols-2">
-            {% if source_management_highlights %}
-              {% for item in source_management_highlights %}
-              <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ item.Label }}</p>
-                <p class="mt-2 text-base font-semibold text-slate-900">{{ item.Value }}</p>
-              </div>
-              {% endfor %}
-            {% else %}
-            <div class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600 sm:col-span-2">
-              No server-authored highlights were published for this shell.
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {% for item in source_management_highlights %}
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ item.label }}</p>
+              <p class="mt-1 text-base font-semibold text-gray-900">{{ item.value }}</p>
             </div>
-            {% endif %}
+            {% endfor %}
           </div>
-        </section>
+        </div>
+        {% endif %}
 
-	        <section class="rounded-2xl border border-slate-200 bg-white p-5">
-	          <div class="flex items-center justify-between gap-4">
-	            <div>
-	              <h2 class="text-lg font-semibold text-slate-900">Live Workspace</h2>
-	              <p class="mt-1 text-sm text-slate-600">This region is hydrated from the backend-authored page model and the runtime page controllers.</p>
-	            </div>
-	          </div>
-	          <div class="mt-5" data-source-management-runtime-root>
-	            <div class="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500">
-	              Runtime workspace bootstrapping...
-	            </div>
-	          </div>
-	        </section>
-	      </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden" data-source-management-runtime-root>
+          <div class="p-6">
+            <div class="flex items-center justify-center py-8">
+              <div class="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
+              <span class="ml-3 text-sm text-gray-500">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <aside class="space-y-6">
-        <section class="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 class="text-lg font-semibold text-slate-900">Scope</h2>
-          <dl class="mt-4 space-y-3 text-sm">
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500">Tenant</dt>
-              <dd class="font-medium text-slate-900">{{ source_management_page_model.Scope.TenantID|default:"-" }}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500">Org</dt>
-              <dd class="font-medium text-slate-900">{{ source_management_page_model.Scope.OrgID|default:"-" }}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <dt class="text-slate-500">Surface</dt>
-              <dd class="font-medium text-slate-900">{{ source_management_surface|default:"-" }}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section class="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 class="text-lg font-semibold text-slate-900">Search Drill-Ins</h2>
+        {% if source_management_result_links %}
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Related</h2>
           <div class="mt-4 space-y-2">
-            {% if source_management_result_links %}
-              {% for link in source_management_result_links %}
-              <a href="{{ link.Href }}" class="block rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                {{ link.Label }}
-              </a>
-              {% endfor %}
-            {% else %}
-            <p class="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">No drill-in links are published for this surface.</p>
-            {% endif %}
+            {% for link in source_management_result_links %}
+            <a href="{{ link.href }}" class="block rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+              {{ link.label }}
+            </a>
+            {% endfor %}
           </div>
-        </section>
+        </div>
+        {% endif %}
+
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Quick Actions</h2>
+          <div class="mt-4 space-y-2">
+            {% for link in source_management_nav_links %}
+            {% if link.kind != 'external' %}
+            <a href="{{ link.href }}" class="block rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+              {{ link.label }}
+            </a>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
       </aside>
     </div>
+    {% endif %}
   </div>
 </div>
 

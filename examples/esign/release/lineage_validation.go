@@ -404,6 +404,16 @@ func (p *lineageValidationGoogleProvider) GetFile(_ context.Context, _ string, f
 	return entry.file, nil
 }
 
+func (p *lineageValidationGoogleProvider) ListComments(_ context.Context, _ string, fileID string) ([]services.GoogleDriveComment, error) {
+	if p == nil {
+		return nil, errors.New("google provider not configured")
+	}
+	if _, ok := p.files[strings.TrimSpace(fileID)]; !ok {
+		return nil, errors.New("google file not found")
+	}
+	return []services.GoogleDriveComment{}, nil
+}
+
 func (p *lineageValidationGoogleProvider) ExportFilePDF(_ context.Context, _ string, fileID string) (services.GoogleExportSnapshot, error) {
 	entry, err := p.resolveFile(fileID)
 	if err != nil {

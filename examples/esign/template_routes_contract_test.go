@@ -17,8 +17,8 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	if !strings.Contains(template, `<script type="module" src="{{ esign_module_path }}"></script>`) {
 		t.Fatal("expected form template to load the e-sign module script")
 	}
-	if !strings.Contains(template, `<script type="module" src="{{ adminURL("assets/dist/esign/index.js") }}"></script>`) {
-		t.Fatal("expected form template to include fallback e-sign module script path")
+	if !strings.Contains(template, `<script type="module" src="{{ adminURL("assets/dist/esign/agreement-form.js") }}"></script>`) {
+		t.Fatal("expected form template to include fallback agreement-form module script path")
 	}
 	if strings.Contains(template, "document.addEventListener('DOMContentLoaded'") {
 		t.Fatal("expected form template to avoid legacy inline wizard bootstrap")

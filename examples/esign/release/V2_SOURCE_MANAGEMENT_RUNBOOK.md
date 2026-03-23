@@ -1,31 +1,52 @@
 # V2 Source Management Runbook
 
-## Diagnose Source-Browser Read Failures
+## Baseline Validation
 
-1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunSourceManagementValidationProfileCoversPhase14LandingZone -count=1` to confirm the fresh-environment source-management landing zone still boots and reads correctly.
-2. If the validation fails before fixture seeding, inspect persistence bootstrap and verify the canonical lineage tables (`source_documents`, `source_handles`, `source_revisions`, `source_relationships`, and `source_comment_*`) exist in the target database.
-3. If source list or source detail reads fail after bootstrapping, query the canonical source ids from the seeded QA scenario and confirm `tenant_id` and `org_id` match the current runtime scope.
+1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunSourceManagementValidationProfileCoversPhase18ExitProfile -count=1`.
+2. Treat that profile as the release gate for the fresh-environment QA path: it seeds the canonical source scenario, verifies go-search readiness, checks legacy-handle/normalized-text/agreement-title/comment search, reads the reconciliation queue, and applies one queue review action.
+3. In long-lived environments, run the same profile first. If it fails only because existing data drifts from the seeded scenario, continue with the targeted procedures below instead of updating fixtures or guards.
 
-## Diagnose Contract Mismatches
+## Source-Browser Routing Issues
+
+1. Confirm the runtime routes still publish `/admin/esign/sources`, `/admin/esign/source-search`, and `/admin/esign/reconciliation-queue`.
+2. Re-run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign -run 'TestRuntimeSourceManagementPagesBootWithSeededContracts|TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable' -count=1`.
+3. If list/detail routes fail after bootstrap, verify the active `tenant_id` and `org_id` match the canonical source seeded by `examples/esign/fixtures/lineage_runtime.go`.
+
+## Go-Search Provider Drift
+
+1. Query go-search health/stats through the release validator or by exercising the source-search page until the provider snapshot is emitted.
+2. Confirm the index for `esign_source_management` is `ready` and carries documents for both canonical source and revision-scoped records.
+3. If health is degraded in a fresh environment, rebuild by rerunning the validation profile. In long-lived environments, reindex the affected source document or revision after checking provider storage and registration wiring.
+4. Validate the four operator probes after reindex: `fixture-google-file-legacy`, `fixture normalized text for repeated revision`, `Imported Fixture Agreement Rev 2`, and `Need legal approval`.
+
+## Queue Drift
+
+1. Read `/admin/esign/reconciliation-queue` and the candidate detail endpoint for the affected `relationship_id`.
+2. If backlog counts drift, compare `source_relationships.status`, `confidence_band`, and review audit metadata against the queue filters the operator used.
+3. If a candidate should have left the queue but is still visible, inspect the most recent review audit entry and confirm the relationship was persisted as `confirmed`, `rejected`, or `superseded`.
+4. In long-lived environments, prefer replaying the exact review action through the review endpoint instead of mutating queue state directly in SQL.
+
+## Comment-Sync Replay
+
+1. Inspect `source_comment_sync_states` for the target `source_revision_id`.
+2. Confirm `payload_json` contains a replayable provider-neutral `SourceCommentSyncInput` payload, not just counters or placeholders.
+3. If the latest state is failed or stale, replay through the source-management replay service and verify comments, messages, and search documents converge in place.
+4. If credential lookup fails, refresh the Google integration credential for the account bound to the active source handle before retrying replay.
+
+## Reconciliation-Driven Reindex
+
+1. Review actions must trigger go-search freshness for every impacted canonical source.
+2. After `attach_handle_to_existing_source`, `merge_source_documents`, or `confirm_related_but_distinct`, re-run the search probes for the canonical source and confirm the reviewed candidate no longer appears in queue backlog results.
+3. If queue review succeeds but search is stale, reindex the impacted source documents first, then verify the reconciliation queue is empty or updated before investigating UI behavior.
+
+## Agreement-Title Refresh
+
+1. Agreement-title refresh is required whenever a revision-pinned agreement title changes and the source document remains canonical.
+2. Reindex the owning source document after the agreement update and validate `Imported Fixture Agreement Rev 2`-style title search still resolves to the canonical source workspace.
+3. In fresh environments, the Phase 18 validation profile is enough. In long-lived environments, also confirm the agreement still points at the expected `source_revision_id` and `source_document_id`.
+
+## Contract Drift
 
 1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run 'TestV2SourceManagementContractManifest|TestValidateV2ContractFreezeGuard' -count=1`.
-2. If the manifest snapshot drifts, review `examples/esign/services/lineage_contracts.go`, `examples/esign/handlers/register_lineage_routes.go`, and `pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json` together before changing the frozen hash.
-3. Do not update `examples/esign/release/v2_contract_freeze_guard.json` without adding a matching review entry to `examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md`.
-
-## Diagnose Comment Sync Drift
-
-1. Check `source_comment_sync_states` for the affected `source_revision_id` and confirm `sync_status`, `thread_count`, `message_count`, `last_attempt_at`, and `last_synced_at` match the expected provider sync event.
-2. If source comments are present but the page is empty, re-run the release validation profile and compare `source_comment_threads` and `source_comment_messages` against the revision-scoped comments payload.
-3. If the sync state is stale or failed, replay the revision sync through the source-management replay service before investigating frontend rendering.
-
-## Diagnose Search Indexing Regressions
-
-1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign -run 'TestRuntimeSourceManagementPagesBootWithSeededContracts|TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable' -count=1` to confirm the live runtime search page still boots through `../go-search`.
-2. Verify search still finds the seeded continuity handle (`fixture-google-file-legacy`) and the seeded comment body (`Need legal approval`); those two probes cover handle-driven and comment-driven discovery through the go-search-backed runtime path.
-3. If either probe fails, rebuild the source-management go-search index by rerunning the runtime or validation profile, then repeat the probes before investigating template or frontend behavior.
-
-## Diagnose Provider-Neutral Metadata Degradation
-
-1. Source-management payloads must expose provider data only through `provider.kind`, `provider.label`, and `provider.extension`; they must not reintroduce `google_*` transport fields.
-2. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run 'TestRunSourceManagementValidationProfileCoversPhase14LandingZone|TestV2SourceManagementContractManifestJSONRemainsProviderNeutral' -count=1`.
-3. If a response introduces provider-specific keys, treat it as a contract regression and update the manifest, fixtures, guard, and ledger only after backend review.
+2. If provider-specific keys reappear, treat it as a backend contract regression. Do not patch the frontend around it.
+3. Update the freeze guard and `examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md` only after the backend contract review is complete.

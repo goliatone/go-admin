@@ -183,7 +183,8 @@ func TestRuntimeAgreementSyncClientUsesEmbeddedPkgArtifactRoute(t *testing.T) {
 		t.Fatalf("read agreement form markup: %v", err)
 	}
 	pageConfig := extractESignPageConfigFromHTML(t, string(markup))
-	syncCfg := mustMapFieldRuntime(t, pageConfig, "sync")
+	pageContext := mustMapFieldRuntime(t, pageConfig, "context")
+	syncCfg := mustMapFieldRuntime(t, pageContext, "sync")
 	if got := strings.TrimSpace(fmt.Sprint(syncCfg["client_base_path"])); got != "/admin/sync-client/sync-core" {
 		t.Fatalf("expected sync.client_base_path /admin/sync-client/sync-core, got %q", got)
 	}

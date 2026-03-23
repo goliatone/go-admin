@@ -58,8 +58,10 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 		return SourceCommentSyncResult{}, err
 	}
 	if s.search != nil {
-		_, _ = s.search.ReindexSourceRevision(ctx, scope, result.SourceRevisionID)
-		_, _ = s.search.ReindexSourceDocument(ctx, scope, result.SourceDocumentID)
+		if _, err := s.search.ReindexSourceRevision(ctx, scope, result.SourceRevisionID); err != nil {
+			observability.ObserveSourceCommentSync(ctx, providerKind, false, sourceCommentSyncFailureCode(err))
+			return result, err
+		}
 	}
 	observability.ObserveSourceCommentSync(ctx, providerKind, true, "")
 	return result, nil
@@ -325,6 +327,10 @@ func (s DefaultSourceCommentSyncService) upsertSyncState(
 		stateRecord.LastSyncedAt = &now
 	}
 	if existing, err := lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID); err == nil {
+		if !sourceCommentSyncInputReplayable(input) && sourceCommentSyncPayloadReplayable(existing.PayloadJSON) {
+			stateRecord.PayloadSHA256 = strings.TrimSpace(existing.PayloadSHA256)
+			stateRecord.PayloadJSON = strings.TrimSpace(existing.PayloadJSON)
+		}
 		if stateRecord.LastSyncedAt == nil && existing.LastSyncedAt != nil {
 			stateRecord.LastSyncedAt = cloneSourceTimePtr(existing.LastSyncedAt)
 		}
@@ -523,12 +529,19 @@ func replayableSourceCommentSyncInput(states []stores.SourceCommentSyncStateReco
 		}
 		return state, input, nil
 	}
-	state := states[len(states)-1]
+	return stores.SourceCommentSyncStateRecord{}, SourceCommentSyncInput{}, domainValidationError("source_comment_sync", "payload_json", "no replayable sync payload available")
+}
+
+func sourceCommentSyncInputReplayable(input SourceCommentSyncInput) bool {
+	return len(input.Threads) > 0
+}
+
+func sourceCommentSyncPayloadReplayable(payload string) bool {
 	input := SourceCommentSyncInput{}
-	if err := json.Unmarshal([]byte(strings.TrimSpace(state.PayloadJSON)), &input); err != nil {
-		return stores.SourceCommentSyncStateRecord{}, SourceCommentSyncInput{}, err
+	if err := json.Unmarshal([]byte(strings.TrimSpace(payload)), &input); err != nil {
+		return false
 	}
-	return state, input, nil
+	return sourceCommentSyncInputReplayable(input)
 }
 
 func sourceCommentRevisionCounts(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, sourceRevisionID string) (int, int, error) {

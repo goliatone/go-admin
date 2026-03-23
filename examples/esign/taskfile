@@ -130,7 +130,11 @@ function dev:serve {
     if [ "$needs_build" -eq 0 ]; then
         local expected_outputs=(
             "${assets_dir}/dist/datatable/index.js"
-            "${assets_dir}/dist/esign/index.js"
+            "${assets_dir}/dist/esign/admin-landing.js"
+            "${assets_dir}/dist/esign/document-form.js"
+            "${assets_dir}/dist/esign/agreement-form.js"
+            "${assets_dir}/dist/esign/google-integration.js"
+            "${assets_dir}/dist/esign/source-management-runtime.js"
             "${assets_dir}/dist/output.css"
             "${assets_dir}/dist/styles/datatable-actions.css"
         )

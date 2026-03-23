@@ -198,7 +198,7 @@
 import {
   resolvePhase13SearchRenderingState,
   registerPageController
-} from '{{ adminURL("assets/dist/esign/index.js") }}';
+} from '{{ adminURL("assets/dist/esign/source-search.js") }}';
 
 const apiBase = '{{ api_base|default:"/admin/api/v1/esign" }}';
 const bootstrap = JSON.parse(document.getElementById('search-bootstrap')?.textContent || '{}');

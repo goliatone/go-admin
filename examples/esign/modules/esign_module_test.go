@@ -28,6 +28,10 @@ type allowAllAuthorizer struct{}
 
 func (allowAllAuthorizer) Can(context.Context, string, string) bool { return true }
 
+type allowAllAuthenticator struct{}
+
+func (allowAllAuthenticator) Wrap(router.Context) error { return nil }
+
 func TestMain(m *testing.M) {
 	cfg := appcfg.Defaults()
 	cfg.Auth.SigningKey = "module-test-auth-signing-key"
@@ -73,10 +77,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		quickstart.AdapterHooks{},
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithFeatureDefaults(map[string]bool{"esign": true}),
+		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: false}),
 	)
 	if err != nil {
 		t.Fatalf("quickstart.NewAdmin: %v", err)
 	}
+	adm.WithAuth(allowAllAuthenticator{}, nil)
 	adm.WithAuthorizer(allowAllAuthorizer{})
 
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
