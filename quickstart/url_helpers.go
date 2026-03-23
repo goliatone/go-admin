@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/pathutil"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -178,20 +179,12 @@ func resolveAdminPanelAPICollectionURL(urls urlkit.Resolver, cfg admin.Config, f
 	return resolveAdminPanelAPICollectionPath(urls, cfg, fallback, panel)
 }
 
-func resolveAdminPanelAPIDetailURL(urls urlkit.Resolver, cfg admin.Config, fallback, panel, id string) string {
-	return resolveAdminPanelAPIDetailPath(urls, cfg, fallback, panel, id)
-}
-
 func normalizeBasePathValue(basePath string) string {
 	return admin.NormalizeBasePath(basePath)
 }
 
 func trimTrailingSlash(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" || trimmed == "/" {
-		return trimmed
-	}
-	return strings.TrimSuffix(trimmed, "/")
+	return pathutil.TrimTrailingSlash(path)
 }
 
 func prefixBasePath(basePath, suffix string) string {
@@ -199,19 +192,16 @@ func prefixBasePath(basePath, suffix string) string {
 	if trimmed == "" {
 		return strings.TrimSpace(basePath)
 	}
-	if isAbsoluteURL(trimmed) {
+	if pathutil.IsAbsoluteURL(trimmed) {
 		return trimmed
 	}
 
 	basePath = strings.TrimSpace(basePath)
 	if basePath == "" || basePath == "/" {
-		if strings.HasPrefix(trimmed, "/") {
-			return trimmed
-		}
-		return "/" + trimmed
+		return pathutil.EnsureLeadingSlash(trimmed)
 	}
 
-	if isAbsoluteURL(basePath) {
+	if pathutil.IsAbsoluteURL(basePath) {
 		basePath = strings.TrimSuffix(basePath, "/")
 		return basePath + "/" + strings.TrimPrefix(trimmed, "/")
 	}
@@ -221,7 +211,5 @@ func prefixBasePath(basePath, suffix string) string {
 }
 
 func isAbsoluteURL(path string) bool {
-	return strings.HasPrefix(path, "http://") ||
-		strings.HasPrefix(path, "https://") ||
-		strings.HasPrefix(path, "//")
+	return pathutil.IsAbsoluteURL(path)
 }
