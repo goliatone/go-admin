@@ -51,3 +51,13 @@ func CloneStringMapNilOnEmpty(in map[string]string) map[string]string {
 	maps.Copy(out, in)
 	return out
 }
+
+// CloneStringMapEmptyOnEmpty returns an empty map when input is nil or empty.
+func CloneStringMapEmptyOnEmpty(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(in))
+	maps.Copy(out, in)
+	return out
+}
