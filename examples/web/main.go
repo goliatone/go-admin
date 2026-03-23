@@ -1366,9 +1366,9 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			ReloadInDevelopment: new(isDev),
 		},
 		Search: quicksite.SiteSearchConfig{
-			Route:       "/search",
-			Endpoint:    "/api/v1/site/search",
-			Collections: []string{"page", "post", "news"},
+			Route:    "/search",
+			Endpoint: "/api/v1/site/search",
+			Indexes:  []string{"page", "post", "news"},
 		},
 		Features: quicksite.SiteFeatures{
 			EnablePreview:           new(true),
