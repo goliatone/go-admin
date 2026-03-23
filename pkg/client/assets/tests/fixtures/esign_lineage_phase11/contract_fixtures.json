@@ -1900,6 +1900,501 @@
         "title": "",
         "description": ""
       }
+    },
+    "reconciliation_queue_backlog": {
+      "items": [
+        {
+          "candidate": {
+            "id": "src-rel-1",
+            "relationship_type": "same_logical_doc",
+            "relationship_kind": "continuity",
+            "status": "pending_review",
+            "counterpart_role": "related",
+            "confidence_band": "medium",
+            "confidence_score": 0.72,
+            "summary": "Pending continuity candidate ready for queue review.",
+            "left_source": {
+              "id": "src-doc-candidate",
+              "label": "Candidate Fixture Source",
+              "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+            },
+            "right_source": {
+              "id": "src-doc-1",
+              "label": "Imported Fixture Source",
+              "url": "/admin/api/v1/esign/sources/src-doc-1"
+            },
+            "review_action_visible": "admin_debug_only",
+            "evidence": [
+              {
+                "code": "candidate_reason",
+                "label": "Candidate match evidence"
+              }
+            ],
+            "links": {
+              "self": "/admin/api/v1/esign/reconciliation-queue/src-rel-1",
+              "queue": "/admin/api/v1/esign/reconciliation-queue",
+              "review": "/admin/api/v1/esign/reconciliation-queue/src-rel-1/review"
+            }
+          },
+          "left_source": {
+            "source": {
+              "id": "src-doc-candidate",
+              "label": "Candidate Fixture Source",
+              "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+            },
+            "status": "active",
+            "lineage_confidence": "medium",
+            "provider": {
+              "kind": "google_drive",
+              "label": "Google Drive",
+              "external_file_id": "fixture-google-file-1",
+              "account_id": "fixture-account-1",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit",
+              "extension": {
+                "schema": "google_drive.v1",
+                "values": {
+                  "owner_email": "owner@example.com",
+                  "parent_id": "fixture-folder",
+                  "source_mime_type": "application/vnd.google-apps.document",
+                  "source_version_hint": "v1",
+                  "title_hint": "Imported Fixture Source"
+                }
+              }
+            },
+            "latest_revision": {
+              "id": "src-rev-1",
+              "provider_revision_hint": "v1",
+              "modified_time": "2026-03-18T18:00:00Z",
+              "exported_at": "2026-03-18T18:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "pinned",
+                "superseded"
+              ],
+              "pinned_document_count": 1,
+              "pinned_agreement_count": 1
+            },
+            "permissions": {
+              "can_view_diagnostics": true,
+              "can_open_provider_links": true,
+              "can_review_candidates": true,
+              "can_view_comments": false
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/sources/src-doc-candidate",
+              "queue": "/admin/api/v1/esign/reconciliation-queue"
+            }
+          },
+          "right_source": {
+            "source": {
+              "id": "src-doc-1",
+              "label": "Imported Fixture Source",
+              "url": "/admin/api/v1/esign/sources/src-doc-1"
+            },
+            "status": "active",
+            "lineage_confidence": "exact",
+            "provider": {
+              "kind": "google_drive",
+              "label": "Google Drive",
+              "external_file_id": "fixture-google-file-2",
+              "account_id": "fixture-account-2",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+              "extension": {
+                "schema": "google_drive.v1",
+                "values": {
+                  "owner_email": "owner@example.com",
+                  "parent_id": "fixture-folder",
+                  "source_mime_type": "application/vnd.google-apps.document",
+                  "source_version_hint": "v2",
+                  "title_hint": "Imported Fixture Source"
+                }
+              }
+            },
+            "active_handle": {
+              "id": "src-handle-2",
+              "provider_kind": "google_drive",
+              "external_file_id": "fixture-google-file-2",
+              "account_id": "fixture-account-2",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+              "handle_status": "active",
+              "valid_from": "2026-03-18T20:00:00Z",
+              "links": {
+                "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+              }
+            },
+            "latest_revision": {
+              "id": "src-rev-2",
+              "provider_revision_hint": "v2",
+              "modified_time": "2026-03-18T20:00:00Z",
+              "exported_at": "2026-03-18T20:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "latest",
+                "pinned"
+              ],
+              "pinned_document_count": 1
+            },
+            "permissions": {
+              "can_view_diagnostics": true,
+              "can_open_provider_links": true,
+              "can_review_candidates": true,
+              "can_view_comments": false
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/sources/src-doc-1",
+              "queue": "/admin/api/v1/esign/reconciliation-queue"
+            }
+          },
+          "queue_age_band": "lt_7d",
+          "queue_age_days": 4,
+          "updated_at": "2026-03-18T20:00:00Z",
+          "actions": [
+            {
+              "id": "attach_handle_to_existing_source",
+              "label": "Attach Handle",
+              "requires_reason": true,
+              "available": true,
+              "tone": "confirm"
+            },
+            {
+              "id": "merge_source_documents",
+              "label": "Merge Sources",
+              "requires_reason": true,
+              "available": true,
+              "tone": "warn"
+            },
+            {
+              "id": "confirm_related_but_distinct",
+              "label": "Confirm Related",
+              "requires_reason": true,
+              "available": true,
+              "tone": "confirm"
+            },
+            {
+              "id": "reject",
+              "label": "Reject",
+              "requires_reason": true,
+              "available": true,
+              "tone": "danger"
+            },
+            {
+              "id": "supersede",
+              "label": "Supersede",
+              "requires_reason": true,
+              "available": true,
+              "tone": "secondary"
+            }
+          ],
+          "links": {
+            "self": "/admin/api/v1/esign/reconciliation-queue/src-rel-1",
+            "queue": "/admin/api/v1/esign/reconciliation-queue",
+            "review": "/admin/api/v1/esign/reconciliation-queue/src-rel-1/review"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 1,
+        "has_more": false,
+        "sort": "confidence_desc"
+      },
+      "applied_query": {
+        "confidence_band": "medium",
+        "sort": "confidence_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/reconciliation-queue",
+        "queue": "/admin/api/v1/esign/reconciliation-queue"
+      }
+    },
+    "reconciliation_queue_empty": {
+      "items": [],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 0,
+        "has_more": false,
+        "sort": "confidence_desc"
+      },
+      "applied_query": {
+        "provider_kind": "google_drive",
+        "sort": "confidence_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "no_results",
+        "title": "No queue candidates",
+        "description": "There are no pending reconciliation candidates for the current filters."
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/reconciliation-queue",
+        "queue": "/admin/api/v1/esign/reconciliation-queue"
+      }
+    },
+    "reconciliation_candidate": {
+      "candidate": {
+        "id": "src-rel-1",
+        "relationship_type": "same_logical_doc",
+        "relationship_kind": "continuity",
+        "status": "pending_review",
+        "counterpart_role": "related",
+        "confidence_band": "medium",
+        "confidence_score": 0.72,
+        "summary": "Pending continuity candidate ready for queue review.",
+        "left_source": {
+          "id": "src-doc-candidate",
+          "label": "Candidate Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+        },
+        "right_source": {
+          "id": "src-doc-1",
+          "label": "Imported Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-1"
+        },
+        "review_action_visible": "admin_debug_only",
+        "evidence": [
+          {
+            "code": "candidate_reason",
+            "label": "Candidate match evidence"
+          }
+        ],
+        "links": {
+          "self": "/admin/api/v1/esign/reconciliation-queue/src-rel-1",
+          "queue": "/admin/api/v1/esign/reconciliation-queue",
+          "review": "/admin/api/v1/esign/reconciliation-queue/src-rel-1/review"
+        }
+      },
+      "left_source": {
+        "source": {
+          "id": "src-doc-candidate",
+          "label": "Candidate Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-candidate"
+        },
+        "status": "active",
+        "lineage_confidence": "medium",
+        "provider": {
+          "kind": "google_drive",
+          "label": "Google Drive",
+          "external_file_id": "fixture-google-file-1",
+          "account_id": "fixture-account-1",
+          "drive_id": "fixture-drive-root",
+          "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit",
+          "extension": {
+            "schema": "google_drive.v1",
+            "values": {
+              "owner_email": "owner@example.com",
+              "parent_id": "fixture-folder",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "source_version_hint": "v1",
+              "title_hint": "Imported Fixture Source"
+            }
+          }
+        },
+        "latest_revision": {
+          "id": "src-rev-1",
+          "provider_revision_hint": "v1",
+          "modified_time": "2026-03-18T18:00:00Z",
+          "exported_at": "2026-03-18T18:05:00Z",
+          "exported_by_user_id": "fixture-user",
+          "source_mime_type": "application/vnd.google-apps.document",
+          "history_labels": [
+            "pinned",
+            "superseded"
+          ],
+          "pinned_document_count": 1,
+          "pinned_agreement_count": 1
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-candidate",
+          "queue": "/admin/api/v1/esign/reconciliation-queue"
+        }
+      },
+      "right_source": {
+        "source": {
+          "id": "src-doc-1",
+          "label": "Imported Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-1"
+        },
+        "status": "active",
+        "lineage_confidence": "exact",
+        "provider": {
+          "kind": "google_drive",
+          "label": "Google Drive",
+          "external_file_id": "fixture-google-file-2",
+          "account_id": "fixture-account-2",
+          "drive_id": "fixture-drive-root",
+          "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+          "extension": {
+            "schema": "google_drive.v1",
+            "values": {
+              "owner_email": "owner@example.com",
+              "parent_id": "fixture-folder",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "source_version_hint": "v2",
+              "title_hint": "Imported Fixture Source"
+            }
+          }
+        },
+        "active_handle": {
+          "id": "src-handle-2",
+          "provider_kind": "google_drive",
+          "external_file_id": "fixture-google-file-2",
+          "account_id": "fixture-account-2",
+          "drive_id": "fixture-drive-root",
+          "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+          "handle_status": "active",
+          "valid_from": "2026-03-18T20:00:00Z",
+          "links": {
+            "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+          }
+        },
+        "latest_revision": {
+          "id": "src-rev-2",
+          "provider_revision_hint": "v2",
+          "modified_time": "2026-03-18T20:00:00Z",
+          "exported_at": "2026-03-18T20:05:00Z",
+          "exported_by_user_id": "fixture-user",
+          "source_mime_type": "application/vnd.google-apps.document",
+          "history_labels": [
+            "latest",
+            "pinned"
+          ],
+          "pinned_document_count": 1
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "queue": "/admin/api/v1/esign/reconciliation-queue"
+        }
+      },
+      "matched_source_revision": {
+        "id": "src-rev-1",
+        "provider_revision_hint": "v1",
+        "modified_time": "2026-03-18T18:00:00Z",
+        "exported_at": "2026-03-18T18:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "pinned",
+          "superseded"
+        ],
+        "pinned_document_count": 1,
+        "pinned_agreement_count": 1
+      },
+      "evidence": [
+        {
+          "code": "candidate_reason",
+          "label": "Candidate match evidence"
+        },
+        {
+          "code": "title_similarity",
+          "label": "Title similarity",
+          "details": "1.000"
+        }
+      ],
+      "audit_trail": [
+        {
+          "id": "audit-src-rel-1",
+          "action": "candidate_created",
+          "actor_id": "fixture-user",
+          "reason": "initial queue seeding",
+          "to_status": "pending_review",
+          "summary": "Candidate entered the reconciliation queue.",
+          "created_at": "2026-03-18T20:00:00Z"
+        }
+      ],
+      "actions": [
+        {
+          "id": "attach_handle_to_existing_source",
+          "label": "Attach Handle",
+          "requires_reason": true,
+          "available": true,
+          "tone": "confirm"
+        },
+        {
+          "id": "merge_source_documents",
+          "label": "Merge Sources",
+          "requires_reason": true,
+          "available": true,
+          "tone": "warn"
+        },
+        {
+          "id": "confirm_related_but_distinct",
+          "label": "Confirm Related",
+          "requires_reason": true,
+          "available": true,
+          "tone": "confirm"
+        },
+        {
+          "id": "reject",
+          "label": "Reject",
+          "requires_reason": true,
+          "available": true,
+          "tone": "danger"
+        },
+        {
+          "id": "supersede",
+          "label": "Supersede",
+          "requires_reason": true,
+          "available": true,
+          "tone": "secondary"
+        }
+      ],
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/reconciliation-queue/src-rel-1",
+        "queue": "/admin/api/v1/esign/reconciliation-queue",
+        "review": "/admin/api/v1/esign/reconciliation-queue/src-rel-1/review"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
     }
   }
 }

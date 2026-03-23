@@ -77,6 +77,8 @@ func BuildV2SourceManagementContractManifest() V2SourceManagementContractManifes
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/source-revisions/:source_revision_id/artifacts", PathParams: []string{"source_revision_id"}, ResponseSchema: "SourceArtifactPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/source-revisions/:source_revision_id/comments", PathParams: []string{"source_revision_id"}, QuerySchema: "SourceCommentListQuery", ResponseSchema: "SourceCommentPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/source-search", QuerySchema: "SourceSearchQuery", ResponseSchema: "SourceSearchResults"},
+			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/reconciliation-queue", QuerySchema: "ReconciliationQueueQuery", ResponseSchema: "ReconciliationQueuePage"},
+			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/reconciliation-queue/:relationship_id", PathParams: []string{"relationship_id"}, ResponseSchema: "ReconciliationCandidateDetail"},
 		},
 		Schemas: schemas,
 	}
@@ -124,6 +126,7 @@ func collectV2SourceManagementSchemaTypes() []reflect.Type {
 		typeOf[services.SourceCommentListQuery](),
 		typeOf[services.SourceWorkspaceQuery](),
 		typeOf[services.SourceSearchQuery](),
+		typeOf[services.ReconciliationQueueQuery](),
 		typeOf[services.SourceListPage](),
 		typeOf[services.SourceDetail](),
 		typeOf[services.SourceWorkspace](),
@@ -135,6 +138,8 @@ func collectV2SourceManagementSchemaTypes() []reflect.Type {
 		typeOf[services.SourceArtifactPage](),
 		typeOf[services.SourceCommentPage](),
 		typeOf[services.SourceSearchResults](),
+		typeOf[services.ReconciliationQueuePage](),
+		typeOf[services.ReconciliationCandidateDetail](),
 	}
 	seen := make(map[reflect.Type]struct{})
 	for _, rootType := range rootTypes {

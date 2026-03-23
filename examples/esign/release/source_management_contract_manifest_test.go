@@ -53,6 +53,8 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 		"GET /admin/api/v1/esign/sources/:source_document_id/comments":          "SourceCommentPage",
 		"GET /admin/api/v1/esign/source-revisions/:source_revision_id/comments": "SourceCommentPage",
 		"GET /admin/api/v1/esign/source-search":                                 "SourceSearchResults",
+		"GET /admin/api/v1/esign/reconciliation-queue":                          "ReconciliationQueuePage",
+		"GET /admin/api/v1/esign/reconciliation-queue/:relationship_id":         "ReconciliationCandidateDetail",
 	}
 	seenEndpoints := make(map[string]string, len(manifest.Endpoints))
 	for _, endpoint := range manifest.Endpoints {
@@ -65,12 +67,14 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 	}
 
 	requiredSchemas := map[string][]string{
-		"SourceDetail":          {"provider", "active_handle", "latest_revision", "permissions", "links"},
-		"SourceWorkspace":       {"timeline", "agreements", "artifacts", "comments", "handles", "continuity"},
-		"SourceAgreementPage":   {"items", "applied_query", "permissions", "links"},
-		"SourceCommentPage":     {"items", "sync_status", "sync", "permissions", "links"},
-		"SourceSearchResults":   {"items", "applied_query", "permissions", "links"},
-		"SourceProviderSummary": {"kind", "label", "extension"},
+		"SourceDetail":                  {"provider", "active_handle", "latest_revision", "permissions", "links"},
+		"SourceWorkspace":               {"timeline", "agreements", "artifacts", "comments", "handles", "continuity"},
+		"SourceAgreementPage":           {"items", "applied_query", "permissions", "links"},
+		"SourceCommentPage":             {"items", "sync_status", "sync", "permissions", "links"},
+		"SourceSearchResults":           {"items", "applied_query", "permissions", "links"},
+		"ReconciliationQueuePage":       {"items", "applied_query", "permissions", "links"},
+		"ReconciliationCandidateDetail": {"candidate", "actions", "audit_trail", "permissions", "links"},
+		"SourceProviderSummary":         {"kind", "label", "extension"},
 	}
 	manifestByName := make(map[string]V2SourceManagementContractSchema, len(manifest.Schemas))
 	for _, schema := range manifest.Schemas {

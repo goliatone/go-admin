@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 type SourceReconciliationPolicy struct {
@@ -217,10 +219,10 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 	}
 	currentStatus := strings.TrimSpace(relationship.Status)
 	if currentStatus == stores.SourceRelationshipStatusSuperseded && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship", "superseded candidates are immutable")
+		return CandidateWarningSummary{}, lineageReviewConflictError("relationship", "superseded candidates are immutable")
 	}
 	if currentStatus != stores.SourceRelationshipStatusPendingReview && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship", "candidate is no longer pending review")
+		return CandidateWarningSummary{}, lineageReviewConflictError("relationship", "candidate is no longer pending review")
 	}
 
 	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
@@ -782,12 +784,31 @@ func preservedRelationshipStatus(existing stores.SourceRelationshipRecord, evalu
 
 func shouldPreserveRejectedRelationship(existing stores.SourceRelationshipRecord, evaluation candidateScoreEvaluation) bool {
 	evidence := decodeLineageMetadataJSON(existing.EvidenceJSON)
+	if lineageMetadataString(evidence, "target_extract_version") != lineageMetadataString(evaluation.evidence, "target_extract_version") {
+		return false
+	}
+	if lineageMetadataString(evidence, "candidate_extract_version") != lineageMetadataString(evaluation.evidence, "candidate_extract_version") {
+		return false
+	}
 	suppressedSignature := firstNonEmpty(
 		lineageMetadataString(evidence, "suppression_evidence_signature"),
 		lineageMetadataString(evidence, "evidence_signature"),
 	)
 	nextSignature := lineageMetadataString(evaluation.evidence, "evidence_signature")
 	return suppressedSignature != "" && suppressedSignature == nextSignature
+}
+
+func lineageReviewConflictError(field, reason string) error {
+	meta := map[string]any{
+		"entity": "lineage_reconciliation",
+		"field":  strings.TrimSpace(field),
+	}
+	if strings.TrimSpace(reason) != "" {
+		meta["reason"] = strings.TrimSpace(reason)
+	}
+	return goerrors.New("review conflict", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithMetadata(meta)
 }
 
 func mergeRelationshipEvidence(existing, next map[string]any) map[string]any {

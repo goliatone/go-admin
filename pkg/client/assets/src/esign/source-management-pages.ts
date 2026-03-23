@@ -28,6 +28,11 @@ import type {
   SourceCommentListQuery,
   SourceRevisionListQuery,
   Phase13SourceSearchQuery,
+  ReconciliationQueuePage,
+  ReconciliationCandidateDetail,
+  ReconciliationQueueQuery,
+  ReconciliationReviewInput,
+  ReconciliationReviewResponse,
 } from './lineage-contracts.js';
 
 import type {
@@ -40,6 +45,8 @@ import type {
   SourceSearchPageContracts,
   SourceManagementPageState,
   SourceManagementPageMetadata,
+  ReconciliationQueuePageContracts,
+  ReconciliationCandidateDetailPageContracts,
 } from './source-management-composition.js';
 
 import { validatePageComposition } from './source-management-composition.js';
@@ -277,6 +284,65 @@ function buildSourceSearchQueryString(query: Phase13SourceSearchQuery): string {
   if (query.comment_sync_status) params.set('comment_sync_status', query.comment_sync_status);
   if (query.revision_hint) params.set('revision_hint', query.revision_hint);
   if (query.has_comments !== undefined) params.set('has_comments', String(query.has_comments));
+  if (query.sort) params.set('sort', query.sort);
+  if (query.page && query.page !== 1) params.set('page', String(query.page));
+  if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
+
+  return params.toString();
+}
+
+// ============================================================================
+// Reconciliation Queue URL State (Phase 17 - Task 17.6)
+// ============================================================================
+
+/**
+ * Extracts ReconciliationQueueQuery from URL params.
+ */
+function extractReconciliationQueueQuery(params: URLSearchParams): ReconciliationQueueQuery {
+  const page = Number.parseInt(params.get('page') ?? '1', 10);
+  const pageSize = Number.parseInt(params.get('page_size') ?? '20', 10);
+
+  return {
+    confidence_band: params.get('confidence_band') ?? undefined,
+    relationship_type: params.get('relationship_type') ?? undefined,
+    provider_kind: params.get('provider_kind') ?? undefined,
+    source_status: params.get('source_status') ?? undefined,
+    age_band: params.get('age_band') ?? undefined,
+    sort: params.get('sort') ?? undefined,
+    page: page > 0 ? page : 1,
+    page_size: pageSize > 0 ? pageSize : 20,
+  };
+}
+
+/**
+ * Builds URL param updates from ReconciliationQueueQuery.
+ */
+function buildReconciliationQueueQueryParamUpdates(
+  query: Partial<ReconciliationQueueQuery>
+): Record<string, string | number | boolean | undefined> {
+  return {
+    confidence_band: query.confidence_band,
+    relationship_type: query.relationship_type,
+    provider_kind: query.provider_kind,
+    source_status: query.source_status,
+    age_band: query.age_band,
+    sort: query.sort,
+    page: query.page,
+    page_size: query.page_size,
+  };
+}
+
+/**
+ * Builds query string from ReconciliationQueueQuery.
+ */
+function buildReconciliationQueueQueryString(query: ReconciliationQueueQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.confidence_band) params.set('confidence_band', query.confidence_band);
+  if (query.relationship_type) params.set('relationship_type', query.relationship_type);
+  if (query.provider_kind) params.set('provider_kind', query.provider_kind);
+  if (query.source_status) params.set('source_status', query.source_status);
+  if (query.age_band) params.set('age_band', query.age_band);
   if (query.sort) params.set('sort', query.sort);
   if (query.page && query.page !== 1) params.set('page', String(query.page));
   if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
@@ -1077,6 +1143,360 @@ export function bootstrapSourceSearchPage(
 }
 
 // ============================================================================
+// Reconciliation Queue Page (Phase 17 - Task 17.6)
+// ============================================================================
+
+/**
+ * Configuration for reconciliation queue page.
+ */
+export interface ReconciliationQueuePageConfig {
+  /** Base API path (e.g., "/admin/api/v1/esign") */
+  apiBasePath: string;
+  /** Container element selector for rendering */
+  containerSelector?: string;
+  /** Initial query parameters */
+  initialQuery?: Partial<ReconciliationQueueQuery>;
+  /** Callback when page state changes */
+  onStateChange?: (state: SourceManagementPageState<ReconciliationQueuePageContracts>) => void;
+}
+
+/**
+ * Reconciliation Queue Page Controller.
+ * Manages URL state, data fetching, and page lifecycle for reconciliation queue.
+ *
+ * CRITICAL: Frontend must NOT derive candidate ranking, action availability,
+ * confirm semantics, or review outcomes from backend implementation code.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export class ReconciliationQueuePageController {
+  private readonly config: ReconciliationQueuePageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<ReconciliationQueuePageContracts>;
+
+  constructor(config: ReconciliationQueuePageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'reconciliation-queue',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'reconciliation-queue',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['reconciliation-queue']);
+    if (!validation.valid) {
+      console.error('[ReconciliationQueuePage] Composition validation failed:', validation.errors);
+    }
+    if (validation.warnings.length > 0) {
+      console.warn('[ReconciliationQueuePage] Composition warnings:', validation.warnings);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  /**
+   * Initialize page from current URL state.
+   */
+  async init(): Promise<void> {
+    const params = parseQueryParams();
+    const query = extractReconciliationQueueQuery(params);
+    await this.fetchQueue(query);
+  }
+
+  /**
+   * Fetch reconciliation queue from backend.
+   */
+  async fetchQueue(query: ReconciliationQueueQuery): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const queryString = buildReconciliationQueueQueryString(query);
+      const url = `${this.config.apiBasePath}/reconciliation-queue?${queryString}`;
+
+      const queuePage = await fetchJSON<ReconciliationQueuePage>(url);
+
+      const contracts: ReconciliationQueuePageContracts = {
+        queuePage,
+        query,
+        permissions: queuePage.permissions,
+        links: queuePage.links,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  /**
+   * Navigate to a specific page.
+   */
+  async goToPage(page: number): Promise<void> {
+    const currentQuery = this.state.contracts?.query ?? {};
+    const newQuery = { ...currentQuery, page };
+    updateQueryParams(buildReconciliationQueueQueryParamUpdates(newQuery));
+    await this.fetchQueue(newQuery);
+  }
+
+  /**
+   * Apply filters and reset to page 1.
+   */
+  async applyFilters(filters: Partial<ReconciliationQueueQuery>): Promise<void> {
+    const currentQuery = this.state.contracts?.query ?? {};
+    const newQuery = { ...currentQuery, ...filters, page: 1 };
+    updateQueryParams(buildReconciliationQueueQueryParamUpdates(newQuery));
+    await this.fetchQueue(newQuery);
+  }
+
+  /**
+   * Clear all filters and reset to page 1.
+   */
+  async clearFilters(): Promise<void> {
+    const newQuery: ReconciliationQueueQuery = { page: 1, page_size: 20 };
+    updateQueryParams(buildReconciliationQueueQueryParamUpdates(newQuery));
+    await this.fetchQueue(newQuery);
+  }
+
+  /**
+   * Refresh the queue with current query.
+   */
+  async refresh(): Promise<void> {
+    const query = this.state.contracts?.query ?? extractReconciliationQueueQuery(parseQueryParams());
+    await this.fetchQueue(query);
+  }
+
+  /**
+   * Get current page state.
+   */
+  getState(): SourceManagementPageState<ReconciliationQueuePageContracts> {
+    return this.state;
+  }
+
+  /**
+   * Update page state and trigger callbacks.
+   */
+  private setState(state: SourceManagementPageState<ReconciliationQueuePageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+/**
+ * Bootstrap reconciliation queue page.
+ * Initializes controller and returns instance for further interaction.
+ */
+export function bootstrapReconciliationQueuePage(
+  config: ReconciliationQueuePageConfig
+): ReconciliationQueuePageController {
+  const controller = new ReconciliationQueuePageController(config);
+  controller.init().catch((error) => {
+    console.error('[ReconciliationQueuePage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
+// Reconciliation Candidate Detail Page (Phase 17 - Task 17.6/17.7)
+// ============================================================================
+
+/**
+ * Configuration for reconciliation candidate detail page.
+ */
+export interface ReconciliationCandidateDetailPageConfig {
+  /** Base API path (e.g., "/admin/api/v1/esign") */
+  apiBasePath: string;
+  /** Relationship ID (candidate ID) */
+  relationshipId: string;
+  /** Container element selector for rendering */
+  containerSelector?: string;
+  /** Callback when page state changes */
+  onStateChange?: (state: SourceManagementPageState<ReconciliationCandidateDetailPageContracts>) => void;
+  /** Callback when review action completes */
+  onReviewComplete?: (response: ReconciliationReviewResponse) => void;
+}
+
+/**
+ * Reconciliation Candidate Detail Page Controller.
+ * Manages data fetching and review action submission for candidate detail.
+ *
+ * CRITICAL: Frontend must use backend-provided action metadata, evidence summaries,
+ * permissions, links, validation errors, and conflict responses only.
+ * Frontend owns copy hierarchy, affordance design, and safety presentation,
+ * NOT action contract design or fallback state machines.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6, 17.7
+ */
+export class ReconciliationCandidateDetailPageController {
+  private readonly config: ReconciliationCandidateDetailPageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<ReconciliationCandidateDetailPageContracts>;
+  private reviewInProgress: boolean = false;
+
+  constructor(config: ReconciliationCandidateDetailPageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'reconciliation-candidate-detail',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'reconciliation-queue/:id',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['reconciliation-queue/:id']);
+    if (!validation.valid) {
+      console.error('[ReconciliationCandidateDetailPage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  /**
+   * Initialize page.
+   */
+  async init(): Promise<void> {
+    await this.fetchCandidate();
+  }
+
+  /**
+   * Fetch candidate detail from backend.
+   */
+  async fetchCandidate(): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const url = `${this.config.apiBasePath}/reconciliation-queue/${encodeURIComponent(this.config.relationshipId)}`;
+      const candidateDetail = await fetchJSON<ReconciliationCandidateDetail>(url);
+
+      const contracts: ReconciliationCandidateDetailPageContracts = {
+        candidateDetail,
+        permissions: candidateDetail.permissions,
+        links: candidateDetail.links,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  /**
+   * Submit a review action for the candidate.
+   *
+   * CRITICAL: Uses backend-provided action metadata only.
+   * Frontend must NOT compute action availability or semantics.
+   *
+   * @param input - Review action input (action, optional confirm_behavior, optional reason)
+   * @returns Review response with updated candidate detail
+   */
+  async submitReview(input: ReconciliationReviewInput): Promise<ReconciliationReviewResponse> {
+    if (this.reviewInProgress) {
+      throw new Error('Review action already in progress');
+    }
+
+    this.reviewInProgress = true;
+
+    try {
+      const url = `${this.config.apiBasePath}/reconciliation-queue/${encodeURIComponent(this.config.relationshipId)}/review`;
+      const response = await fetchJSON<ReconciliationReviewResponse>(url, {
+        method: 'POST',
+        body: input,
+      });
+
+      // Update state with refreshed candidate detail if available
+      if (response.candidate) {
+        const contracts: ReconciliationCandidateDetailPageContracts = {
+          candidateDetail: response.candidate,
+          permissions: response.candidate.permissions,
+          links: response.candidate.links,
+        };
+        this.setState({ loading: false, error: null, contracts });
+      }
+
+      // Notify callback if configured
+      if (this.config.onReviewComplete) {
+        this.config.onReviewComplete(response);
+      }
+
+      return response;
+    } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      // Don't update state error for review failures - let UI handle error display
+      return {
+        status: 'error',
+        error: {
+          code: 'REVIEW_SUBMIT_ERROR',
+          message: errorObj.message,
+        },
+      };
+    } finally {
+      this.reviewInProgress = false;
+    }
+  }
+
+  /**
+   * Refresh candidate detail.
+   */
+  async refresh(): Promise<void> {
+    await this.fetchCandidate();
+  }
+
+  /**
+   * Check if a review action is currently in progress.
+   */
+  isReviewInProgress(): boolean {
+    return this.reviewInProgress;
+  }
+
+  /**
+   * Get current page state.
+   */
+  getState(): SourceManagementPageState<ReconciliationCandidateDetailPageContracts> {
+    return this.state;
+  }
+
+  /**
+   * Update page state and trigger callbacks.
+   */
+  private setState(state: SourceManagementPageState<ReconciliationCandidateDetailPageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+/**
+ * Bootstrap reconciliation candidate detail page.
+ * Initializes controller and returns instance for further interaction.
+ */
+export function bootstrapReconciliationCandidateDetailPage(
+  config: ReconciliationCandidateDetailPageConfig
+): ReconciliationCandidateDetailPageController {
+  const controller = new ReconciliationCandidateDetailPageController(config);
+  controller.init().catch((error) => {
+    console.error('[ReconciliationCandidateDetailPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
 // Page Registry
 // ============================================================================
 
@@ -1099,6 +1519,8 @@ export function registerPageController(
     | SourceCommentInspectorPageController
     | SourceArtifactInspectorPageController
     | SourceSearchPageController
+    | ReconciliationQueuePageController
+    | ReconciliationCandidateDetailPageController
     | unknown
 ): void {
   PAGE_REGISTRY.set(pageId, controller);

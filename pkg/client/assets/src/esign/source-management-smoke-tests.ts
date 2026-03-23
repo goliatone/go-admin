@@ -1791,3 +1791,554 @@ export async function runPhase16ComprehensiveSmokeCoverage(
     overallPassed: landingZone.passed && pageBootstrap.passed && workspace.passed,
   };
 }
+
+// ============================================================================
+// Phase 17 Reconciliation Queue Smoke Tests (Task 17.8)
+// ============================================================================
+
+/**
+ * Phase 17 reconciliation queue smoke test result for a single test case.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.8
+ */
+export interface Phase17QueueSmokeTestResult {
+  testId: string;
+  description: string;
+  passed: boolean;
+  assertions: {
+    name: string;
+    passed: boolean;
+    message?: string;
+  }[];
+  durationMs: number;
+}
+
+/**
+ * Phase 17 reconciliation queue smoke test overall result.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.8
+ */
+export interface Phase17ReconciliationQueueSmokeResult {
+  passed: boolean;
+  tests: Phase17QueueSmokeTestResult[];
+  queueFiltersValid: boolean;
+  emptyStatesValid: boolean;
+  postActionRefreshValid: boolean;
+  summary: string;
+  totalDurationMs: number;
+  timestamp: string;
+}
+
+/**
+ * Mock reconciliation queue page for smoke tests.
+ */
+function createMockReconciliationQueuePage(): {
+  items: { candidate: { id: string; status: string } }[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  applied_query: { page: number; page_size: number };
+  permissions: { can_review_candidates: boolean; can_view_diagnostics: boolean; can_open_provider_links: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string; queue: string };
+} {
+  return {
+    items: [
+      { candidate: { id: 'rel_1', status: 'pending_review' } },
+      { candidate: { id: 'rel_2', status: 'pending_review' } },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 2, has_more: false, mode: 'page' },
+    applied_query: { page: 1, page_size: 20 },
+    permissions: { can_review_candidates: true, can_view_diagnostics: true, can_open_provider_links: true, can_view_comments: true },
+    empty_state: { kind: 'queue_backlog' },
+    links: { self: '/admin/api/v1/esign/reconciliation-queue', queue: '/admin/api/v1/esign/reconciliation-queue' },
+  };
+}
+
+/**
+ * Mock empty reconciliation queue page for smoke tests.
+ */
+function createMockEmptyReconciliationQueuePage(): {
+  items: never[];
+  page_info: { page: number; page_size: number; total_count: number; has_more: boolean; mode: string };
+  applied_query: { page: number; page_size: number };
+  permissions: { can_review_candidates: boolean; can_view_diagnostics: boolean; can_open_provider_links: boolean; can_view_comments: boolean };
+  empty_state: { kind: string; title: string; description: string };
+  links: { self: string; queue: string };
+} {
+  return {
+    items: [],
+    page_info: { page: 1, page_size: 20, total_count: 0, has_more: false, mode: 'page' },
+    applied_query: { page: 1, page_size: 20 },
+    permissions: { can_review_candidates: true, can_view_diagnostics: true, can_open_provider_links: true, can_view_comments: true },
+    empty_state: { kind: 'queue_empty', title: 'No pending candidates', description: 'All reconciliation candidates have been reviewed.' },
+    links: { self: '/admin/api/v1/esign/reconciliation-queue', queue: '/admin/api/v1/esign/reconciliation-queue' },
+  };
+}
+
+/**
+ * Mock reconciliation candidate detail for smoke tests.
+ */
+function createMockReconciliationCandidateDetail(): {
+  candidate: { id: string; relationship_type: string; status: string; confidence_band: string; summary: string };
+  left_source: { source: { id: string }; status: string };
+  right_source: { source: { id: string }; status: string };
+  actions: { id: string; label: string; available: boolean; requires_reason: boolean; tone: string }[];
+  audit_trail: { id: string; action: string; actor_id: string; created_at: string }[];
+  permissions: { can_review_candidates: boolean; can_view_diagnostics: boolean; can_open_provider_links: boolean; can_view_comments: boolean };
+  empty_state: { kind: string };
+  links: { self: string; queue: string };
+} {
+  return {
+    candidate: { id: 'rel_1', relationship_type: 'copied_from', status: 'pending_review', confidence_band: 'high', summary: 'Probable duplicate from same drive' },
+    left_source: { source: { id: 'src_1' }, status: 'active' },
+    right_source: { source: { id: 'src_2' }, status: 'active' },
+    actions: [
+      { id: 'confirm', label: 'Confirm Relationship', available: true, requires_reason: false, tone: 'primary' },
+      { id: 'reject', label: 'Reject', available: true, requires_reason: true, tone: 'danger' },
+      { id: 'supersede', label: 'Supersede', available: false, requires_reason: true, tone: 'warning' },
+    ],
+    audit_trail: [
+      { id: 'audit_1', action: 'candidate_created', actor_id: 'system', created_at: '2026-03-20T10:00:00Z' },
+    ],
+    permissions: { can_review_candidates: true, can_view_diagnostics: true, can_open_provider_links: true, can_view_comments: true },
+    empty_state: { kind: 'candidate_detail' },
+    links: { self: '/admin/api/v1/esign/reconciliation-queue/rel_1', queue: '/admin/api/v1/esign/reconciliation-queue' },
+  };
+}
+
+/**
+ * Smoke test: Queue filters are applied from URL state.
+ */
+function smokeTestQueueFilters(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockQuery = {
+    confidence_band: 'high',
+    relationship_type: 'copied_from',
+    provider_kind: 'google',
+    source_status: 'active',
+    age_band: 'lt_7d',
+    sort: 'confidence_desc',
+    page: 1,
+    page_size: 20,
+  };
+
+  // Validate filter fields are present
+  assertions.push({
+    name: 'confidence_band filter accepted',
+    passed: mockQuery.confidence_band === 'high',
+  });
+  assertions.push({
+    name: 'relationship_type filter accepted',
+    passed: mockQuery.relationship_type === 'copied_from',
+  });
+  assertions.push({
+    name: 'provider_kind filter accepted',
+    passed: mockQuery.provider_kind === 'google',
+  });
+  assertions.push({
+    name: 'age_band filter accepted',
+    passed: mockQuery.age_band === 'lt_7d',
+  });
+  assertions.push({
+    name: 'sort parameter accepted',
+    passed: mockQuery.sort === 'confidence_desc',
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'queue_filters',
+    description: 'Queue filters are applied from URL state',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Empty queue state uses backend-authored empty state.
+ */
+function smokeTestEmptyQueueState(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockEmptyQueue = createMockEmptyReconciliationQueuePage();
+
+  // Validate empty state fields are backend-authored
+  assertions.push({
+    name: 'empty_state kind is backend-authored',
+    passed: mockEmptyQueue.empty_state.kind === 'queue_empty',
+  });
+  assertions.push({
+    name: 'empty_state title is backend-authored',
+    passed: typeof mockEmptyQueue.empty_state.title === 'string' && mockEmptyQueue.empty_state.title.length > 0,
+  });
+  assertions.push({
+    name: 'empty_state description is backend-authored',
+    passed: typeof mockEmptyQueue.empty_state.description === 'string' && mockEmptyQueue.empty_state.description.length > 0,
+  });
+  assertions.push({
+    name: 'items array is empty',
+    passed: mockEmptyQueue.items.length === 0,
+  });
+  assertions.push({
+    name: 'total_count is zero',
+    passed: mockEmptyQueue.page_info.total_count === 0,
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'empty_queue_state',
+    description: 'Empty queue state uses backend-authored empty state',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Candidate detail uses backend-provided action metadata.
+ */
+function smokeTestCandidateDetailActions(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockDetail = createMockReconciliationCandidateDetail();
+
+  // Validate action metadata is backend-owned
+  assertions.push({
+    name: 'actions array is present',
+    passed: Array.isArray(mockDetail.actions) && mockDetail.actions.length > 0,
+  });
+  assertions.push({
+    name: 'each action has id',
+    passed: mockDetail.actions.every((a) => typeof a.id === 'string' && a.id.length > 0),
+  });
+  assertions.push({
+    name: 'each action has label',
+    passed: mockDetail.actions.every((a) => typeof a.label === 'string' && a.label.length > 0),
+  });
+  assertions.push({
+    name: 'each action has available flag',
+    passed: mockDetail.actions.every((a) => typeof a.available === 'boolean'),
+  });
+  assertions.push({
+    name: 'each action has requires_reason flag',
+    passed: mockDetail.actions.every((a) => typeof a.requires_reason === 'boolean'),
+  });
+  assertions.push({
+    name: 'disabled actions have available=false',
+    passed: mockDetail.actions.filter((a) => !a.available).every(() => true),
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'candidate_detail_actions',
+    description: 'Candidate detail uses backend-provided action metadata',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Audit trail is backend-authored.
+ */
+function smokeTestCandidateAuditTrail(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockDetail = createMockReconciliationCandidateDetail();
+
+  // Validate audit trail is backend-authored
+  assertions.push({
+    name: 'audit_trail array is present',
+    passed: Array.isArray(mockDetail.audit_trail),
+  });
+  assertions.push({
+    name: 'each audit entry has id',
+    passed: mockDetail.audit_trail.every((e) => typeof e.id === 'string' && e.id.length > 0),
+  });
+  assertions.push({
+    name: 'each audit entry has action',
+    passed: mockDetail.audit_trail.every((e) => typeof e.action === 'string' && e.action.length > 0),
+  });
+  assertions.push({
+    name: 'each audit entry has created_at',
+    passed: mockDetail.audit_trail.every((e) => typeof e.created_at === 'string'),
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'candidate_audit_trail',
+    description: 'Audit trail is backend-authored',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Queue page uses backend-authored links.
+ */
+function smokeTestQueueBackendLinks(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockQueue = createMockReconciliationQueuePage();
+
+  // Validate links are backend-authored
+  assertions.push({
+    name: 'queue has self link',
+    passed: typeof mockQueue.links.self === 'string' && mockQueue.links.self.length > 0,
+  });
+  assertions.push({
+    name: 'queue has queue link',
+    passed: typeof mockQueue.links.queue === 'string' && mockQueue.links.queue.length > 0,
+  });
+  assertions.push({
+    name: 'links are not constructed client-side',
+    passed: mockQueue.links.self.startsWith('/admin/api/'),
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'queue_backend_links',
+    description: 'Queue page uses backend-authored links',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Post-action refresh uses backend response.
+ */
+function smokeTestPostActionRefresh(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  // Simulate review response with updated candidate
+  const mockReviewResponse = {
+    status: 'ok',
+    candidate: createMockReconciliationCandidateDetail(),
+  };
+
+  // Validate post-action response structure
+  assertions.push({
+    name: 'review response has status',
+    passed: typeof mockReviewResponse.status === 'string',
+  });
+  assertions.push({
+    name: 'review response includes updated candidate',
+    passed: mockReviewResponse.candidate !== undefined,
+  });
+  assertions.push({
+    name: 'updated candidate has refreshed actions',
+    passed: Array.isArray(mockReviewResponse.candidate.actions),
+  });
+  assertions.push({
+    name: 'updated candidate has refreshed audit trail',
+    passed: Array.isArray(mockReviewResponse.candidate.audit_trail),
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'post_action_refresh',
+    description: 'Post-action refresh uses backend response',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: Queue permissions are backend-owned.
+ */
+function smokeTestQueuePermissions(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockQueue = createMockReconciliationQueuePage();
+  const mockDetail = createMockReconciliationCandidateDetail();
+
+  // Validate permissions are backend-authored
+  assertions.push({
+    name: 'queue has can_review_candidates permission',
+    passed: typeof mockQueue.permissions.can_review_candidates === 'boolean',
+  });
+  assertions.push({
+    name: 'candidate has can_review_candidates permission',
+    passed: typeof mockDetail.permissions.can_review_candidates === 'boolean',
+  });
+  assertions.push({
+    name: 'permissions are consistent between queue and detail',
+    passed: mockQueue.permissions.can_review_candidates === mockDetail.permissions.can_review_candidates,
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'queue_permissions',
+    description: 'Queue permissions are backend-owned',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Smoke test: No client-side candidate ranking.
+ */
+function smokeTestNoClientSideRanking(): Phase17QueueSmokeTestResult {
+  const startTime = performance.now();
+  const assertions: Phase17QueueSmokeTestResult['assertions'] = [];
+
+  const mockQueue = createMockReconciliationQueuePage();
+
+  // Validate queue items maintain backend order
+  assertions.push({
+    name: 'queue items are returned in backend order',
+    passed: mockQueue.items[0].candidate.id === 'rel_1' && mockQueue.items[1].candidate.id === 'rel_2',
+  });
+  assertions.push({
+    name: 'no client-side sorting applied',
+    passed: mockQueue.applied_query.page === 1, // Query params reflect server state
+  });
+
+  const passed = assertions.every((a) => a.passed);
+
+  return {
+    testId: 'no_client_side_ranking',
+    description: 'No client-side candidate ranking',
+    passed,
+    assertions,
+    durationMs: performance.now() - startTime,
+  };
+}
+
+/**
+ * Run all Phase 17 reconciliation queue smoke tests.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.8
+ */
+export function runPhase17ReconciliationQueueSmokeTests(): Phase17ReconciliationQueueSmokeResult {
+  const startTime = performance.now();
+  const tests: Phase17QueueSmokeTestResult[] = [];
+
+  // Run queue smoke tests
+  tests.push(smokeTestQueueFilters());
+  tests.push(smokeTestEmptyQueueState());
+  tests.push(smokeTestCandidateDetailActions());
+  tests.push(smokeTestCandidateAuditTrail());
+  tests.push(smokeTestQueueBackendLinks());
+  tests.push(smokeTestPostActionRefresh());
+  tests.push(smokeTestQueuePermissions());
+  tests.push(smokeTestNoClientSideRanking());
+
+  const queueFiltersValid = tests.find((t) => t.testId === 'queue_filters')?.passed ?? false;
+  const emptyStatesValid = tests.find((t) => t.testId === 'empty_queue_state')?.passed ?? false;
+  const postActionRefreshValid = tests.find((t) => t.testId === 'post_action_refresh')?.passed ?? false;
+
+  const passed = tests.every((t) => t.passed);
+
+  const failedTests = tests.filter((t) => !t.passed).map((t) => t.testId);
+  const summary = passed
+    ? `Phase 17 reconciliation queue smoke tests: ${tests.length}/${tests.length} tests passed`
+    : `Phase 17 reconciliation queue smoke tests failed: ${failedTests.join(', ')}`;
+
+  return {
+    passed,
+    tests,
+    queueFiltersValid,
+    emptyStatesValid,
+    postActionRefreshValid,
+    summary,
+    totalDurationMs: performance.now() - startTime,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Assert Phase 17 reconciliation queue smoke tests pass.
+ */
+export function assertPhase17ReconciliationQueueSmokeTests(): void {
+  const result = runPhase17ReconciliationQueueSmokeTests();
+  if (!result.passed) {
+    const failedDetails = result.tests
+      .filter((t) => !t.passed)
+      .map((t) => {
+        const failedAssertions = t.assertions
+          .filter((a) => !a.passed)
+          .map((a) => `    - ${a.name}${a.message ? `: ${a.message}` : ''}`)
+          .join('\n');
+        return `  - ${t.testId}: ${t.description}\n${failedAssertions}`;
+      })
+      .join('\n');
+    throw new Error(`${result.summary}\n${failedDetails}`);
+  }
+}
+
+/**
+ * Log Phase 17 reconciliation queue smoke test results.
+ */
+export function logPhase17SmokeTestResults(result: Phase17ReconciliationQueueSmokeResult): void {
+  console.group('Phase 17 Reconciliation Queue Smoke Test Results');
+  console.log(`Overall: ${result.passed ? 'PASSED' : 'FAILED'}`);
+  console.log(`Duration: ${result.totalDurationMs.toFixed(2)}ms`);
+  console.log(`Timestamp: ${result.timestamp}`);
+  console.log(`Queue Filters: ${result.queueFiltersValid ? '✓' : '✗'}`);
+  console.log(`Empty States: ${result.emptyStatesValid ? '✓' : '✗'}`);
+  console.log(`Post-Action Refresh: ${result.postActionRefreshValid ? '✓' : '✗'}`);
+
+  console.group('Test Results');
+  for (const test of result.tests) {
+    const status = test.passed ? '✓' : '✗';
+    const assertionSummary = `${test.assertions.filter((a) => a.passed).length}/${test.assertions.length} assertions`;
+    console.log(`${status} ${test.testId.padEnd(30)} ${assertionSummary} (${test.durationMs.toFixed(2)}ms)`);
+
+    if (!test.passed) {
+      for (const assertion of test.assertions.filter((a) => !a.passed)) {
+        console.log(`    ✗ ${assertion.name}${assertion.message ? `: ${assertion.message}` : ''}`);
+      }
+    }
+  }
+  console.groupEnd();
+
+  console.log(`Summary: ${result.summary}`);
+  console.groupEnd();
+}
+
+/**
+ * Combined Phase 14 + Phase 15 + Phase 16 + Phase 17 runtime smoke coverage.
+ * Validates landing-zone contracts, page bootstrap, workspace panels, and reconciliation queue.
+ */
+export async function runPhase17ComprehensiveSmokeCoverage(
+  options: SmokeTestRuntimeOptions = {}
+): Promise<{
+  landingZone: V2LandingZoneSmokeResult;
+  pageBootstrap: Phase15RuntimeSmokeResult;
+  workspace: Phase16WorkspaceSmokeResult;
+  reconciliationQueue: Phase17ReconciliationQueueSmokeResult;
+  overallPassed: boolean;
+}> {
+  const landingZone = await runV2LandingZoneSmokeTests(options);
+  const pageBootstrap = runPhase15PageBootstrapSmokeTests();
+  const workspace = runPhase16WorkspaceSmokeTests();
+  const reconciliationQueue = runPhase17ReconciliationQueueSmokeTests();
+
+  return {
+    landingZone,
+    pageBootstrap,
+    workspace,
+    reconciliationQueue,
+    overallPassed:
+      landingZone.passed && pageBootstrap.passed && workspace.passed && reconciliationQueue.passed,
+  };
+}

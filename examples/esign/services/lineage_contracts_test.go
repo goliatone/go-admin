@@ -109,6 +109,8 @@ func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
 		"ListSourceRevisionArtifacts",
 		"ListSourceRevisionComments",
 		"SearchSources",
+		"ListReconciliationQueue",
+		"GetReconciliationCandidate",
 	} {
 		if _, ok := readModels.MethodByName(method); !ok {
 			t.Fatalf("expected SourceReadModelService.%s", method)
@@ -204,6 +206,15 @@ func TestPhase11SourceManagementContractFixtureCoversCanonicalStates(t *testing.
 	}
 	if fixture.States.SourceDetailArchived.Status != stores.SourceDocumentStatusArchived {
 		t.Fatalf("expected archived source state, got %+v", fixture.States.SourceDetailArchived)
+	}
+	if len(fixture.States.ReconciliationQueueBacklog.Items) != 1 || fixture.States.ReconciliationQueueBacklog.Items[0].Candidate == nil {
+		t.Fatalf("expected reconciliation queue backlog state, got %+v", fixture.States.ReconciliationQueueBacklog)
+	}
+	if fixture.States.ReconciliationQueueEmpty.EmptyState.Kind != LineageEmptyStateNoResults {
+		t.Fatalf("expected reconciliation queue empty state, got %+v", fixture.States.ReconciliationQueueEmpty)
+	}
+	if fixture.States.ReconciliationCandidate.Candidate == nil || len(fixture.States.ReconciliationCandidate.Actions) < 5 {
+		t.Fatalf("expected reconciliation candidate detail with action metadata, got %+v", fixture.States.ReconciliationCandidate)
 	}
 }
 
@@ -519,6 +530,24 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 				"owner_email":         "owner@example.com",
 				"parent_id":           "fixture-folder",
 				"source_version_hint": "v2",
+				"source_mime_type":    "application/vnd.google-apps.document",
+				"title_hint":          "Imported Fixture Source",
+			},
+		},
+	}
+	providerV1 := &SourceProviderSummary{
+		Kind:           stores.SourceProviderKindGoogleDrive,
+		Label:          "Google Drive",
+		ExternalFileID: "fixture-google-file-1",
+		AccountID:      "fixture-account-1",
+		DriveID:        "fixture-drive-root",
+		WebURL:         "https://docs.google.com/document/d/fixture-google-file-1/edit",
+		Extension: &SourceProviderExtensionEnvelope{
+			Schema: "google_drive.v1",
+			Values: map[string]any{
+				"owner_email":         "owner@example.com",
+				"parent_id":           "fixture-folder",
+				"source_version_hint": "v1",
 				"source_mime_type":    "application/vnd.google-apps.document",
 				"title_hint":          "Imported Fixture Source",
 			},
@@ -847,6 +876,93 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 		Links:                 sourceLinksForDocument("src-doc-archived"),
 		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
 	}
+	reconciliationActions := []ReconciliationReviewAction{
+		{ID: SourceRelationshipActionAttach, Label: "Attach Handle", RequiresReason: true, Available: true, Tone: "confirm"},
+		{ID: SourceRelationshipActionMerge, Label: "Merge Sources", RequiresReason: true, Available: true, Tone: "warn"},
+		{ID: SourceRelationshipActionRelated, Label: "Confirm Related", RequiresReason: true, Available: true, Tone: "confirm"},
+		{ID: SourceRelationshipActionReject, Label: "Reject", RequiresReason: true, Available: true, Tone: "danger"},
+		{ID: SourceRelationshipActionSupersede, Label: "Supersede", RequiresReason: true, Available: true, Tone: "secondary"},
+	}
+	reconciliationQueueBacklog := ReconciliationQueuePage{
+		Items: []ReconciliationQueueItem{{
+			Candidate: &SourceRelationshipSummary{
+				ID:                  "src-rel-1",
+				RelationshipType:    stores.SourceRelationshipTypeSameLogicalDoc,
+				RelationshipKind:    SourceRelationshipKindContinuity,
+				Status:              stores.SourceRelationshipStatusPendingReview,
+				CounterpartRole:     SourceRelationshipRoleRelated,
+				ConfidenceBand:      stores.LineageConfidenceBandMedium,
+				ConfidenceScore:     0.72,
+				Summary:             "Pending continuity candidate ready for queue review.",
+				LeftSource:          &LineageReference{ID: "src-doc-candidate", Label: "Candidate Fixture Source", URL: sourceManagementSourcePath("src-doc-candidate")},
+				RightSource:         sourceRef,
+				ReviewActionVisible: LineageReviewVisibilityAdminOnly,
+				Evidence:            []CandidateEvidenceSummary{{Code: "candidate_reason", Label: "Candidate match evidence"}},
+				Links:               SourceManagementLinks{Self: sourceManagementReconciliationCandidatePath("src-rel-1"), Queue: sourceManagementReconciliationQueuePath(), Review: sourceManagementReconciliationCandidateReviewPath("src-rel-1")},
+			},
+			LeftSource: &ReconciliationQueueSourceSummary{
+				Source:            &LineageReference{ID: "src-doc-candidate", Label: "Candidate Fixture Source", URL: sourceManagementSourcePath("src-doc-candidate")},
+				Status:            stores.SourceDocumentStatusActive,
+				LineageConfidence: stores.LineageConfidenceBandMedium,
+				Provider:          providerV1,
+				LatestRevision:    firstRevision,
+				Permissions:       permissions,
+				Links:             SourceManagementLinks{Self: sourceManagementSourcePath("src-doc-candidate"), Queue: sourceManagementReconciliationQueuePath()},
+			},
+			RightSource: &ReconciliationQueueSourceSummary{
+				Source:            sourceRef,
+				Status:            stores.SourceDocumentStatusActive,
+				LineageConfidence: stores.LineageConfidenceBandExact,
+				Provider:          providerV2,
+				LatestRevision:    secondRevision,
+				ActiveHandle:      &secondHandle,
+				Permissions:       permissions,
+				Links:             SourceManagementLinks{Self: sourceManagementSourcePath("src-doc-1"), Queue: sourceManagementReconciliationQueuePath()},
+			},
+			QueueAgeBand: ReconciliationQueueAgeBandLT7D,
+			QueueAgeDays: 4,
+			UpdatedAt:    timePtr(time.Date(2026, time.March, 18, 20, 0, 0, 0, time.UTC)),
+			Actions:      reconciliationActions,
+			Links:        SourceManagementLinks{Self: sourceManagementReconciliationCandidatePath("src-rel-1"), Queue: sourceManagementReconciliationQueuePath(), Review: sourceManagementReconciliationCandidateReviewPath("src-rel-1")},
+		}},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 1, HasMore: false, Sort: reconciliationQueueSortConfidenceDesc},
+		AppliedQuery: ReconciliationQueueQuery{ConfidenceBand: stores.LineageConfidenceBandMedium, Sort: reconciliationQueueSortConfidenceDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        SourceManagementLinks{Self: sourceManagementReconciliationQueuePath(), Queue: sourceManagementReconciliationQueuePath()},
+	}
+	reconciliationQueueEmpty := ReconciliationQueuePage{
+		Items:        []ReconciliationQueueItem{},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 0, HasMore: false, Sort: reconciliationQueueSortConfidenceDesc},
+		AppliedQuery: ReconciliationQueueQuery{ProviderKind: stores.SourceProviderKindGoogleDrive, Sort: reconciliationQueueSortConfidenceDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNoResults, Title: "No queue candidates", Description: "There are no pending reconciliation candidates for the current filters."},
+		Links:        SourceManagementLinks{Self: sourceManagementReconciliationQueuePath(), Queue: sourceManagementReconciliationQueuePath()},
+	}
+	reconciliationCandidate := ReconciliationCandidateDetail{
+		Candidate:             reconciliationQueueBacklog.Items[0].Candidate,
+		LeftSource:            reconciliationQueueBacklog.Items[0].LeftSource,
+		RightSource:           reconciliationQueueBacklog.Items[0].RightSource,
+		MatchedSourceRevision: firstRevision,
+		Evidence: []CandidateEvidenceSummary{
+			{Code: "candidate_reason", Label: "Candidate match evidence"},
+			{Code: lineageEvidenceKeyTitleSimilarity, Label: "Title similarity", Details: "1.000"},
+		},
+		AuditTrail: []ReconciliationAuditEntry{{
+			ID:         "audit-src-rel-1",
+			Action:     "candidate_created",
+			ActorID:    "fixture-user",
+			Reason:     "initial queue seeding",
+			FromStatus: "",
+			ToStatus:   stores.SourceRelationshipStatusPendingReview,
+			Summary:    "Candidate entered the reconciliation queue.",
+			CreatedAt:  timePtr(time.Date(2026, time.March, 18, 20, 0, 0, 0, time.UTC)),
+		}},
+		Actions:     reconciliationActions,
+		Permissions: permissions,
+		Links:       SourceManagementLinks{Self: sourceManagementReconciliationCandidatePath("src-rel-1"), Queue: sourceManagementReconciliationQueuePath(), Review: sourceManagementReconciliationCandidateReviewPath("src-rel-1")},
+		EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
 
 	return Phase11SourceManagementContractFixtures{
 		SchemaVersion: 1,
@@ -884,20 +1000,28 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 			},
 		},
 		States: Phase11SourceManagementFixtureStates{
-			SourceListEmpty:           sourceListEmpty,
-			SourceListSingle:          sourceListSingle,
-			SourceDetailRepeated:      sourceDetailRepeated,
-			SourceWorkspaceRepeated:   sourceWorkspaceRepeated,
-			SourceHandlesMulti:        sourceHandlesMulti,
-			SourceRevisionsRepeated:   sourceRevisionsRepeated,
-			SourceRelationshipsReview: sourceRelationshipsReview,
-			SourceAgreementsRepeated:  sourceAgreementsRepeated,
-			SourceRevisionDetail:      sourceRevisionDetail,
-			SourceArtifacts:           sourceArtifacts,
-			SourceCommentsEmpty:       sourceCommentsEmpty,
-			SourceSearchResults:       sourceSearchResults,
-			SourceDetailMerged:        sourceDetailMerged,
-			SourceDetailArchived:      sourceDetailArchived,
+			SourceListEmpty:            sourceListEmpty,
+			SourceListSingle:           sourceListSingle,
+			SourceDetailRepeated:       sourceDetailRepeated,
+			SourceWorkspaceRepeated:    sourceWorkspaceRepeated,
+			SourceHandlesMulti:         sourceHandlesMulti,
+			SourceRevisionsRepeated:    sourceRevisionsRepeated,
+			SourceRelationshipsReview:  sourceRelationshipsReview,
+			SourceAgreementsRepeated:   sourceAgreementsRepeated,
+			SourceRevisionDetail:       sourceRevisionDetail,
+			SourceArtifacts:            sourceArtifacts,
+			SourceCommentsEmpty:        sourceCommentsEmpty,
+			SourceSearchResults:        sourceSearchResults,
+			SourceDetailMerged:         sourceDetailMerged,
+			SourceDetailArchived:       sourceDetailArchived,
+			ReconciliationQueueBacklog: reconciliationQueueBacklog,
+			ReconciliationQueueEmpty:   reconciliationQueueEmpty,
+			ReconciliationCandidate:    reconciliationCandidate,
 		},
 	}
+}
+
+func timePtr(value time.Time) *time.Time {
+	cloned := value.UTC()
+	return &cloned
 }

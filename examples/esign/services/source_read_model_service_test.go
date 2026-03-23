@@ -620,13 +620,13 @@ func TestDefaultSourceReadModelServiceBuildsReconciliationQueueReadModels(t *tes
 	)
 
 	queue, err := service.ListReconciliationQueue(context.Background(), scope, ReconciliationQueueQuery{
-		ConfidenceBand: stores.LineageConfidenceBandMedium,
+		ConfidenceBand:   stores.LineageConfidenceBandMedium,
 		RelationshipType: stores.SourceRelationshipTypeSameLogicalDoc,
-		ProviderKind: stores.SourceProviderKindGoogleDrive,
-		SourceStatus: stores.SourceDocumentStatusActive,
-		AgeBand: ReconciliationQueueAgeBandLT7D,
-		Page: 1,
-		PageSize: 10,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		SourceStatus:     stores.SourceDocumentStatusActive,
+		AgeBand:          ReconciliationQueueAgeBandLT7D,
+		Page:             1,
+		PageSize:         10,
 	})
 	if err != nil {
 		t.Fatalf("ListReconciliationQueue: %v", err)
@@ -764,14 +764,14 @@ func containsCandidateEvidence(evidence []CandidateEvidenceSummary, code, label,
 }
 
 type sourceManagementParitySnapshot struct {
-	ListSources        SourceListPage         `json:"list_sources"`
-	SourceDetail       SourceDetail           `json:"source_detail"`
-	SourceWorkspace    SourceWorkspace        `json:"source_workspace"`
-	RevisionHistory    SourceRevisionPage     `json:"revision_history"`
-	RelationshipList   SourceRelationshipPage `json:"relationship_list"`
-	AgreementList      SourceAgreementPage    `json:"agreement_list"`
-	ProviderHandleList SourceHandlePage       `json:"provider_handle_list"`
-	QueuePage          ReconciliationQueuePage `json:"queue_page"`
+	ListSources        SourceListPage                `json:"list_sources"`
+	SourceDetail       SourceDetail                  `json:"source_detail"`
+	SourceWorkspace    SourceWorkspace               `json:"source_workspace"`
+	RevisionHistory    SourceRevisionPage            `json:"revision_history"`
+	RelationshipList   SourceRelationshipPage        `json:"relationship_list"`
+	AgreementList      SourceAgreementPage           `json:"agreement_list"`
+	ProviderHandleList SourceHandlePage              `json:"provider_handle_list"`
+	QueuePage          ReconciliationQueuePage       `json:"queue_page"`
 	QueueDetail        ReconciliationCandidateDetail `json:"queue_detail"`
 }
 

@@ -103,6 +103,20 @@
       "path": "/admin/api/v1/esign/source-search",
       "query_schema": "SourceSearchQuery",
       "response_schema": "SourceSearchResults"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/reconciliation-queue",
+      "query_schema": "ReconciliationQueueQuery",
+      "response_schema": "ReconciliationQueuePage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/reconciliation-queue/:relationship_id",
+      "path_params": [
+        "relationship_id"
+      ],
+      "response_schema": "ReconciliationCandidateDetail"
     }
   ],
   "schemas": [
@@ -251,6 +265,356 @@
         },
         {
           "name": "url",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationAuditEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "action",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "actor_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "from_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "to_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "summary",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "optional": true,
+          "type": "datetime"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationCandidateDetail",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "candidate",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRelationshipSummary"
+        },
+        {
+          "name": "left_source",
+          "optional": true,
+          "type": "object",
+          "ref": "ReconciliationQueueSourceSummary"
+        },
+        {
+          "name": "right_source",
+          "optional": true,
+          "type": "object",
+          "ref": "ReconciliationQueueSourceSummary"
+        },
+        {
+          "name": "matched_source_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "matched_source_artifact",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceArtifactSummary"
+        },
+        {
+          "name": "evidence",
+          "optional": true,
+          "type": "array",
+          "ref": "CandidateEvidenceSummary"
+        },
+        {
+          "name": "audit_trail",
+          "optional": true,
+          "type": "array",
+          "ref": "ReconciliationAuditEntry"
+        },
+        {
+          "name": "actions",
+          "optional": true,
+          "type": "array",
+          "ref": "ReconciliationReviewAction"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationQueueItem",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "candidate",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRelationshipSummary"
+        },
+        {
+          "name": "left_source",
+          "optional": true,
+          "type": "object",
+          "ref": "ReconciliationQueueSourceSummary"
+        },
+        {
+          "name": "right_source",
+          "optional": true,
+          "type": "object",
+          "ref": "ReconciliationQueueSourceSummary"
+        },
+        {
+          "name": "queue_age_band",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "queue_age_days",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "updated_at",
+          "optional": true,
+          "type": "datetime"
+        },
+        {
+          "name": "actions",
+          "optional": true,
+          "type": "array",
+          "ref": "ReconciliationReviewAction"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationQueuePage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "ReconciliationQueueItem"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "ReconciliationQueueQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationQueueQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "confidence_band",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "relationship_type",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "provider_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "source_status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "age_band",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationQueueSourceSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "lineage_confidence",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "active_handle",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "latest_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "pending_candidate_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationReviewAction",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "requires_reason",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "available",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "disabled_reason",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "tone",
           "optional": true,
           "type": "string"
         }
@@ -1168,6 +1532,11 @@
           "type": "string"
         },
         {
+          "name": "queue",
+          "optional": true,
+          "type": "string"
+        },
+        {
           "name": "revisions",
           "optional": true,
           "type": "string"
@@ -1179,6 +1548,11 @@
         },
         {
           "name": "relationships",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "review",
           "optional": true,
           "type": "string"
         },

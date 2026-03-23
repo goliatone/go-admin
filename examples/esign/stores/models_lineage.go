@@ -58,6 +58,7 @@ const (
 
 const (
 	SourceExtractVersionPDFTextV1 = "v1_pdf_text"
+	SourceExtractVersionPDFTextV2 = "v2_pdf_text"
 )
 
 const (

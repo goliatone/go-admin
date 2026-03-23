@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -177,6 +178,120 @@ func TestRegisterLineageDiagnosticsReviewActionRequiresAuthenticatedAdminActor(t
 	}
 	if relationship.Status != stores.SourceRelationshipStatusPendingReview {
 		t.Fatalf("expected relationship status to remain pending_review, got %+v", relationship)
+	}
+}
+
+func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *testing.T) {
+	_, scope, store := newScopeStoreFixture()
+	_ = seedGoogleImportRunLineageFixture(t, store, scope)
+
+	readModels := services.NewDefaultSourceReadModelService(
+		store,
+		store,
+		store,
+		services.WithSourceReadModelImportRuns(store),
+		services.WithSourceReadModelClock(func() time.Time {
+			return time.Date(2026, time.March, 22, 12, 0, 0, 0, time.UTC)
+		}),
+	)
+	reconciliation := services.NewDefaultSourceReconciliationService(store)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminView, DefaultPermissions.AdminEdit)),
+		WithAdminRouteMiddleware(withClaimsUserPermissions("ops-reviewer", DefaultPermissions.AdminView, DefaultPermissions.AdminEdit)),
+		WithSourceReadModelService(readModels),
+		WithSourceReconciliationService(reconciliation),
+		WithDefaultScope(scope),
+	)
+
+	queueReq := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue?user_id=ops-user&confidence_band=medium", nil)
+	queueResp, err := app.Test(queueReq, -1)
+	if err != nil {
+		t.Fatalf("queue request failed: %v", err)
+	}
+	defer queueResp.Body.Close()
+	if queueResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected queue status 200, got %d", queueResp.StatusCode)
+	}
+	queuePayload := decodeBodyMap(t, queueResp.Body)
+	items, ok := queuePayload["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one queue item, got %+v", queuePayload)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1?user_id=ops-user", nil)
+	detailResp, err := app.Test(detailReq, -1)
+	if err != nil {
+		t.Fatalf("detail request failed: %v", err)
+	}
+	defer detailResp.Body.Close()
+	if detailResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected queue detail 200, got %d", detailResp.StatusCode)
+	}
+	detailPayload := decodeBodyMap(t, detailResp.Body)
+	candidate, ok := detailPayload["candidate"].(map[string]any)
+	if !ok || strings.TrimSpace(toString(candidate["id"])) != "src-rel-lineage-1" {
+		t.Fatalf("expected queue detail candidate, got %+v", detailPayload)
+	}
+
+	reviewReq := httptest.NewRequest(
+		http.MethodPost,
+		services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1/review",
+		bytes.NewBufferString(`{"action":"attach_handle_to_existing_source","reason":"validated queue-driven continuity"}`),
+	)
+	reviewReq.Header.Set("Content-Type", "application/json")
+	reviewResp, err := app.Test(reviewReq, -1)
+	if err != nil {
+		t.Fatalf("queue review request failed: %v", err)
+	}
+	defer reviewResp.Body.Close()
+	if reviewResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected queue review 200, got %d", reviewResp.StatusCode)
+	}
+	reviewPayload := decodeBodyMap(t, reviewResp.Body)
+	refreshed, ok := reviewPayload["candidate"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected refreshed queue candidate payload, got %+v", reviewPayload)
+	}
+	refreshedCandidate, ok := refreshed["candidate"].(map[string]any)
+	if !ok || strings.TrimSpace(toString(refreshedCandidate["status"])) != stores.SourceRelationshipStatusConfirmed {
+		t.Fatalf("expected confirmed queue candidate detail, got %+v", reviewPayload)
+	}
+}
+
+func TestRegisterReconciliationQueueReviewReturnsConflictForResolvedCandidate(t *testing.T) {
+	_, scope, store := newScopeStoreFixture()
+	_ = seedGoogleImportRunLineageFixture(t, store, scope)
+
+	readModels := services.NewDefaultSourceReadModelService(store, store, store, services.WithSourceReadModelImportRuns(store))
+	reconciliation := services.NewDefaultSourceReconciliationService(store)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminView, DefaultPermissions.AdminEdit)),
+		WithAdminRouteMiddleware(withClaimsUserPermissions("ops-reviewer", DefaultPermissions.AdminView, DefaultPermissions.AdminEdit)),
+		WithSourceReadModelService(readModels),
+		WithSourceReconciliationService(reconciliation),
+		WithDefaultScope(scope),
+	)
+
+	for _, body := range []string{
+		`{"action":"reject","reason":"first review"}`,
+		`{"action":"reject","reason":"duplicate review"}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1/review", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("queue conflict request failed: %v", err)
+		}
+		if strings.Contains(body, "duplicate review") {
+			if resp.StatusCode != http.StatusConflict {
+				resp.Body.Close()
+				t.Fatalf("expected duplicate queue review to conflict, got %d", resp.StatusCode)
+			}
+		} else if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			t.Fatalf("expected initial queue review to succeed, got %d", resp.StatusCode)
+		}
+		resp.Body.Close()
 	}
 }
 

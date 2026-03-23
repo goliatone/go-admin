@@ -36,6 +36,11 @@ import type {
   Phase13SourceSearchResults,
   Phase13SourceCommentPage,
   SourceCommentListQuery,
+  ReconciliationQueuePage,
+  ReconciliationCandidateDetail,
+  ReconciliationQueueQuery,
+  ReconciliationReviewInput,
+  ReconciliationReviewResponse,
 } from './lineage-contracts.js';
 
 // ============================================================================
@@ -187,6 +192,75 @@ export interface SourceSearchPageContracts {
   query: SourceSearchQuery;
   /** Navigation links to sources and diagnostics */
   links: SourceManagementLinks;
+}
+
+// ============================================================================
+// Phase 17 Reconciliation Queue Composition Boundaries (Task 17.6)
+// ============================================================================
+
+/**
+ * Reconciliation Queue Page Contract Family
+ *
+ * Consumes: GET /admin/api/v1/esign/reconciliation-queue
+ * Purpose: Display paginated list of pending reconciliation candidates
+ * State: URL query params (filters, sort, pagination)
+ * Data boundary: ReconciliationQueuePage only; no ad hoc source or relationship reads
+ *
+ * CRITICAL: Frontend must NOT compute candidate ranking, action availability,
+ * confirm semantics, or review outcomes from backend implementation code.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationQueuePageContracts {
+  /** Primary contract: queue page with candidate items */
+  queuePage: ReconciliationQueuePage;
+  /** Applied query from URL state */
+  query: ReconciliationQueueQuery;
+  /** Permission flags for UI affordances */
+  permissions: SourceManagementPermissions;
+  /** Navigation links to queue and candidates */
+  links: SourceManagementLinks;
+}
+
+/**
+ * Reconciliation Candidate Detail Page Contract Family
+ *
+ * Consumes: GET /admin/api/v1/esign/reconciliation-queue/:relationship_id
+ * Purpose: Display detailed candidate information for review workflow
+ * State: relationship_id from URL
+ * Data boundary: ReconciliationCandidateDetail only; no ad hoc evidence reconstruction
+ *
+ * CRITICAL: Frontend must use backend-provided action metadata, evidence summaries,
+ * permissions, links, validation errors, and conflict responses only.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationCandidateDetailPageContracts {
+  /** Primary contract: candidate detail with actions and audit trail */
+  candidateDetail: ReconciliationCandidateDetail;
+  /** Permission flags for UI affordances */
+  permissions: SourceManagementPermissions;
+  /** Navigation links to queue and sources */
+  links: SourceManagementLinks;
+}
+
+/**
+ * Reconciliation Review Action Contract
+ *
+ * Used for: POST /admin/api/v1/esign/reconciliation-queue/:relationship_id/review
+ * Purpose: Submit review action for a reconciliation candidate
+ * Data boundary: ReconciliationReviewInput/Response only
+ *
+ * CRITICAL: Frontend owns copy hierarchy, affordance design, and safety presentation,
+ * NOT action contract design or fallback state machines.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.7
+ */
+export interface ReconciliationReviewActionContracts {
+  /** Input payload for review action */
+  input: ReconciliationReviewInput;
+  /** Response from review action */
+  response: ReconciliationReviewResponse;
 }
 
 // ============================================================================

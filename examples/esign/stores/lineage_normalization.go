@@ -57,6 +57,7 @@ var validLineageConfidenceBands = map[string]struct{}{
 
 var validSourceExtractVersions = map[string]struct{}{
 	SourceExtractVersionPDFTextV1: {},
+	SourceExtractVersionPDFTextV2: {},
 }
 
 var validSourceFingerprintStatuses = map[string]struct{}{

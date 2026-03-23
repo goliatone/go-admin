@@ -736,6 +736,9 @@ type Phase11SourceManagementFixtureStates struct {
 	SourceSearchResults       SourceSearchResults    `json:"source_search_results"`
 	SourceDetailMerged        SourceDetail           `json:"source_detail_merged"`
 	SourceDetailArchived      SourceDetail           `json:"source_detail_archived"`
+	ReconciliationQueueBacklog ReconciliationQueuePage      `json:"reconciliation_queue_backlog"`
+	ReconciliationQueueEmpty   ReconciliationQueuePage      `json:"reconciliation_queue_empty"`
+	ReconciliationCandidate    ReconciliationCandidateDetail `json:"reconciliation_candidate"`
 }
 
 type Phase11SourceManagementContractFixtures struct {

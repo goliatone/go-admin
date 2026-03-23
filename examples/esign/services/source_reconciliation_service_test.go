@@ -517,7 +517,7 @@ func TestDefaultSourceReconciliationServiceConfirmKeepsAgreementHistoryAndSuppre
 
 	summary, err := service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
 		RelationshipID: relationships[0].ID,
-		Action:         SourceRelationshipActionConfirm,
+		Action:         SourceRelationshipActionAttach,
 		ActorID:        "ops-approver",
 		Reason:         "validated copied-file migration",
 	})
@@ -551,6 +551,111 @@ func TestDefaultSourceReconciliationServiceConfirmKeepsAgreementHistoryAndSuppre
 	}
 	if agreementDetail.SourceRevision == nil || agreementDetail.SourceRevision.ID != duplicate.revisionID {
 		t.Fatalf("expected agreement provenance to remain pinned to historical duplicate revision %q, got %+v", duplicate.revisionID, agreementDetail.SourceRevision)
+	}
+}
+
+func TestDefaultSourceReconciliationServiceMergeActionMarksDuplicateMergedAndPreservesAgreementHistory(t *testing.T) {
+	ctx := context.Background()
+	fixture := newReconciliationFixture()
+
+	canonical := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "merge-canonical",
+		title:             "Vendor MSA",
+		accountID:         "acct-a",
+		externalFileID:    "google-file-a-merge",
+		webURL:            "https://docs.google.com/document/d/google-file-a-merge/edit",
+		ownerEmail:        "legal@example.com",
+		parentID:          "folder-legal",
+		providerRevision:  "v1",
+		lineageConfidence: stores.LineageConfidenceBandExact,
+		pdf: makeTextPDF(t,
+			"Vendor MSA\n\nCore terms and conditions.",
+			"Appendix\n\nSupport and pricing.",
+		),
+	})
+	duplicate := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "merge-duplicate",
+		title:             "Vendor MSA",
+		accountID:         "acct-b",
+		externalFileID:    "google-file-b-merge",
+		webURL:            "https://docs.google.com/document/d/google-file-b-merge/edit",
+		ownerEmail:        "legal@example.com",
+		parentID:          "folder-legal",
+		providerRevision:  "v2",
+		lineageConfidence: stores.LineageConfidenceBandMedium,
+		createDocument:    true,
+		documentID:        "doc-merge-duplicate",
+		documentTitle:     "Vendor MSA Copy",
+		createAgreement:   true,
+		agreementID:       "agr-merge-duplicate",
+		agreementTitle:    "Agreement From Merge Candidate",
+		pdf: makeTextPDF(t,
+			"VENDOR MSA\n\nCORE TERMS AND CONDITIONS.",
+			"APPENDIX\n\nSUPPORT AND PRICING.",
+		),
+	})
+
+	fixture.buildFingerprint(t, canonical)
+	fixture.buildFingerprint(t, duplicate)
+
+	service := NewDefaultSourceReconciliationService(fixture.store)
+	result, err := service.EvaluateCandidates(ctx, fixture.scope, SourceReconciliationInput{
+		SourceDocumentID: duplicate.sourceDocumentID,
+		SourceRevisionID: duplicate.revisionID,
+		ArtifactID:       duplicate.artifactID,
+		ActorID:          "ops-user",
+		Metadata:         fixture.metadataBaseline(duplicate),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCandidates merge seed: %v", err)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("expected pending merge candidate, got %+v", result)
+	}
+
+	relationships, err := service.ListCandidateRelationships(ctx, fixture.scope, duplicate.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListCandidateRelationships merge: %v", err)
+	}
+	if len(relationships) != 1 {
+		t.Fatalf("expected one merge relationship, got %+v", relationships)
+	}
+
+	summary, err := service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
+		RelationshipID: relationships[0].ID,
+		Action:         SourceRelationshipActionMerge,
+		ActorID:        "ops-approver",
+		Reason:         "validated same canonical source after operator review",
+	})
+	if err != nil {
+		t.Fatalf("ApplyReviewAction merge: %v", err)
+	}
+	if summary.Status != stores.SourceRelationshipStatusConfirmed {
+		t.Fatalf("expected confirmed merge summary, got %+v", summary)
+	}
+
+	mergedSource, err := fixture.store.GetSourceDocument(ctx, fixture.scope, duplicate.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("GetSourceDocument merged duplicate: %v", err)
+	}
+	if mergedSource.Status != stores.SourceDocumentStatusMerged {
+		t.Fatalf("expected duplicate source to be marked merged, got %+v", mergedSource)
+	}
+
+	reattached, err := fixture.store.GetActiveSourceHandle(ctx, fixture.scope, stores.SourceProviderKindGoogleDrive, duplicate.externalFileID, duplicate.accountID)
+	if err != nil {
+		t.Fatalf("GetActiveSourceHandle after merge: %v", err)
+	}
+	if reattached.SourceDocumentID != canonical.sourceDocumentID {
+		t.Fatalf("expected merged review to attach duplicate handle to canonical source, got %+v", reattached)
+	}
+
+	agreement, err := fixture.store.GetAgreement(ctx, fixture.scope, duplicate.agreementID)
+	if err != nil {
+		t.Fatalf("GetAgreement after merge: %v", err)
+	}
+	if agreement.SourceRevisionID != duplicate.revisionID {
+		t.Fatalf("expected merged agreement to remain pinned to duplicate revision %q, got %+v", duplicate.revisionID, agreement)
 	}
 }
 
@@ -737,6 +842,128 @@ func TestDefaultSourceReconciliationServiceReviewActionsRequireTrustedActorID(t 
 		Reason:         "actor missing",
 	}); err == nil {
 		t.Fatal("expected review action without actor id to fail")
+	}
+}
+
+func TestDefaultSourceReconciliationServiceRejectedCandidateReopensWhenExtractorVersionChanges(t *testing.T) {
+	ctx := context.Background()
+	fixture := newReconciliationFixture()
+
+	reference := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "reopen-reference",
+		title:             "SOW",
+		accountID:         "acct-a",
+		externalFileID:    "google-file-a-reopen",
+		webURL:            "https://docs.google.com/document/d/google-file-a-reopen/edit",
+		ownerEmail:        "owner@example.com",
+		parentID:          "folder-sow",
+		providerRevision:  "v1",
+		lineageConfidence: stores.LineageConfidenceBandExact,
+		pdf:               makeTextPDF(t, "Statement of Work\n\nMilestones and services remain aligned."),
+	})
+	target := fixture.seedSource(t, reconciliationSeedConfig{
+		suffix:            "reopen-target",
+		title:             "SOW",
+		accountID:         "acct-b",
+		externalFileID:    "google-file-b-reopen",
+		webURL:            "https://docs.google.com/document/d/google-file-b-reopen/edit",
+		ownerEmail:        "owner@example.com",
+		parentID:          "folder-sow",
+		providerRevision:  "v2",
+		lineageConfidence: stores.LineageConfidenceBandMedium,
+		pdf:               makeTextPDF(t, "STATEMENT OF WORK\n\nMILESTONES AND SERVICES REMAIN ALIGNED."),
+	})
+
+	fixture.buildFingerprint(t, reference)
+	fixture.buildFingerprint(t, target)
+
+	service := NewDefaultSourceReconciliationService(fixture.store)
+	initial, err := service.EvaluateCandidates(ctx, fixture.scope, SourceReconciliationInput{
+		SourceDocumentID: target.sourceDocumentID,
+		SourceRevisionID: target.revisionID,
+		ArtifactID:       target.artifactID,
+		ActorID:          "ops-user",
+		Metadata:         fixture.metadataBaseline(target),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCandidates initial: %v", err)
+	}
+	if len(initial.Candidates) != 1 {
+		t.Fatalf("expected initial pending candidate, got %+v", initial)
+	}
+
+	relationships, err := service.ListCandidateRelationships(ctx, fixture.scope, target.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListCandidateRelationships initial: %v", err)
+	}
+	if len(relationships) != 1 {
+		t.Fatalf("expected one relationship before rejection, got %+v", relationships)
+	}
+	if _, err := service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
+		RelationshipID: relationships[0].ID,
+		Action:         SourceRelationshipActionReject,
+		ActorID:        "ops-reviewer",
+		Reason:         "not enough evidence yet",
+	}); err != nil {
+		t.Fatalf("ApplyReviewAction reject: %v", err)
+	}
+
+	replayed, err := service.EvaluateCandidates(ctx, fixture.scope, SourceReconciliationInput{
+		SourceDocumentID: target.sourceDocumentID,
+		SourceRevisionID: target.revisionID,
+		ArtifactID:       target.artifactID,
+		ActorID:          "ops-user",
+		Metadata:         fixture.metadataBaseline(target),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCandidates replay same evidence: %v", err)
+	}
+	if len(replayed.Candidates) != 0 {
+		t.Fatalf("expected rejected candidate suppression to persist, got %+v", replayed)
+	}
+
+	existingFingerprints, err := fixture.store.ListSourceFingerprints(ctx, fixture.scope, stores.SourceFingerprintQuery{
+		SourceRevisionID: target.revisionID,
+		ArtifactID:       target.artifactID,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceFingerprints before reopen: %v", err)
+	}
+	if len(existingFingerprints) == 0 {
+		t.Fatal("expected target fingerprint before extractor-version reopen test")
+	}
+	now := existingFingerprints[len(existingFingerprints)-1].CreatedAt.Add(6 * time.Hour)
+	nextFingerprint := existingFingerprints[0]
+	nextFingerprint.ID = "src-fp-reopen-v2"
+	nextFingerprint.ExtractVersion = stores.SourceExtractVersionPDFTextV2
+	nextFingerprint.ExtractionMetadataJSON = `{"extract_version":"` + stores.SourceExtractVersionPDFTextV2 + `"}`
+	nextFingerprint.CreatedAt = now
+	if _, err := fixture.store.CreateSourceFingerprint(ctx, fixture.scope, nextFingerprint); err != nil {
+		t.Fatalf("CreateSourceFingerprint v2: %v", err)
+	}
+
+	reopened, err := service.EvaluateCandidates(ctx, fixture.scope, SourceReconciliationInput{
+		SourceDocumentID: target.sourceDocumentID,
+		SourceRevisionID: target.revisionID,
+		ArtifactID:       target.artifactID,
+		ActorID:          "ops-user",
+		Metadata:         fixture.metadataBaseline(target),
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCandidates reopened: %v", err)
+	}
+	if len(reopened.Candidates) != 1 {
+		t.Fatalf("expected new extractor version to reopen the candidate, got %+v", reopened)
+	}
+	updated, err := service.ListCandidateRelationships(ctx, fixture.scope, target.sourceDocumentID)
+	if err != nil {
+		t.Fatalf("ListCandidateRelationships reopened: %v", err)
+	}
+	if len(updated) != 1 || updated[0].Status != stores.SourceRelationshipStatusPendingReview {
+		t.Fatalf("expected relationship to return to pending_review after extractor version change, got %+v", updated)
+	}
+	if !strings.Contains(updated[0].EvidenceJSON, stores.SourceExtractVersionPDFTextV2) {
+		t.Fatalf("expected reopened relationship evidence to capture new extractor version, got %s", updated[0].EvidenceJSON)
 	}
 }
 

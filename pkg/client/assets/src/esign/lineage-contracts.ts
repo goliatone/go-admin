@@ -1623,3 +1623,527 @@ export interface Phase13SourceManagementContractFixtures {
   queries: Phase13SourceManagementQueryFixtures;
   states: Phase13SourceManagementFixtureStates;
 }
+
+// ============================================================================
+// Phase 17 Reconciliation Queue Contract Types (Task 17.6)
+// ============================================================================
+
+/**
+ * Reconciliation queue age band constants.
+ * Backend-owned categorization for queue item age filtering.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export const RECONCILIATION_QUEUE_AGE_BAND = {
+  /** Queue item is less than 7 days old */
+  LT_7D: 'lt_7d',
+  /** Queue item is between 7 and 30 days old */
+  DAYS_7_TO_30: '7d_to_30d',
+  /** Queue item is greater than 30 days old */
+  GT_30D: 'gt_30d',
+} as const;
+
+/**
+ * Type representing valid reconciliation queue age band values.
+ */
+export type ReconciliationQueueAgeBand =
+  (typeof RECONCILIATION_QUEUE_AGE_BAND)[keyof typeof RECONCILIATION_QUEUE_AGE_BAND];
+
+/**
+ * Reconciliation review action tone constants.
+ * Controls the visual presentation of review action buttons.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.7
+ */
+export const RECONCILIATION_REVIEW_ACTION_TONE = {
+  /** Default/neutral tone */
+  DEFAULT: 'default',
+  /** Primary/confirm tone */
+  PRIMARY: 'primary',
+  /** Danger/destructive tone */
+  DANGER: 'danger',
+  /** Warning tone */
+  WARNING: 'warning',
+} as const;
+
+/**
+ * Type representing valid reconciliation review action tone values.
+ */
+export type ReconciliationReviewActionTone =
+  (typeof RECONCILIATION_REVIEW_ACTION_TONE)[keyof typeof RECONCILIATION_REVIEW_ACTION_TONE];
+
+/**
+ * Reconciliation queue query parameters.
+ * Backend-owned filters for queue list requests.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationQueueQuery {
+  /** Filter by confidence band: 'high', 'medium', 'low', 'exact' */
+  confidence_band?: string;
+  /** Filter by relationship type: 'copied_from', 'predecessor_of', etc. */
+  relationship_type?: string;
+  /** Filter by provider kind: 'google', etc. */
+  provider_kind?: string;
+  /** Filter by source status: 'active', 'merged', 'archived' */
+  source_status?: string;
+  /** Filter by age band: 'lt_7d', '7d_to_30d', 'gt_30d' */
+  age_band?: string;
+  /** Sort order: 'confidence_desc', 'age_asc', 'age_desc' */
+  sort?: string;
+  /** Page number (1-indexed) */
+  page?: number;
+  /** Page size */
+  page_size?: number;
+}
+
+/**
+ * Reconciliation queue source summary.
+ * Compact source representation for queue list items.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationQueueSourceSummary {
+  /** Source reference */
+  source?: LineageReference;
+  /** Source status */
+  status: string;
+  /** Lineage confidence level */
+  lineage_confidence: string;
+  /** Provider metadata */
+  provider?: SourceProviderSummary;
+  /** Active handle summary */
+  active_handle?: SourceHandleSummary;
+  /** Latest revision summary */
+  latest_revision?: SourceRevisionSummary;
+  /** Number of pending candidates */
+  pending_candidate_count?: number;
+  /** Permission flags */
+  permissions: SourceManagementPermissions;
+  /** Navigation links */
+  links: SourceManagementLinks;
+}
+
+/**
+ * Reconciliation review action metadata.
+ * Backend-provided action availability and presentation.
+ *
+ * IMPORTANT: Frontend must NOT compute action availability or semantics.
+ * All action availability, disabled states, and labels are backend-owned.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.7
+ */
+export interface ReconciliationReviewAction {
+  /** Action identifier */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Whether the action requires a reason input */
+  requires_reason: boolean;
+  /** Whether the action is currently available */
+  available: boolean;
+  /** Reason the action is disabled (if not available) */
+  disabled_reason?: string;
+  /** Visual tone: 'default', 'primary', 'danger', 'warning' */
+  tone?: string;
+}
+
+/**
+ * Reconciliation audit trail entry.
+ * Backend-owned record of review actions taken.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationAuditEntry {
+  /** Audit entry ID */
+  id: string;
+  /** Action taken */
+  action: string;
+  /** Actor who performed the action */
+  actor_id?: string;
+  /** Reason provided for the action */
+  reason?: string;
+  /** Previous status before action */
+  from_status?: string;
+  /** New status after action */
+  to_status?: string;
+  /** Human-readable summary */
+  summary?: string;
+  /** When the action was taken */
+  created_at?: string;
+}
+
+/**
+ * Reconciliation queue list item.
+ * Represents a pending candidate in the queue list view.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationQueueItem {
+  /** Candidate relationship summary */
+  candidate?: SourceRelationshipSummary;
+  /** Left source in the relationship */
+  left_source?: ReconciliationQueueSourceSummary;
+  /** Right source in the relationship */
+  right_source?: ReconciliationQueueSourceSummary;
+  /** Age band for filtering: 'lt_7d', '7d_to_30d', 'gt_30d' */
+  queue_age_band?: string;
+  /** Age in days since candidate was created */
+  queue_age_days?: number;
+  /** When the candidate was last updated */
+  updated_at?: string;
+  /** Available review actions */
+  actions?: ReconciliationReviewAction[];
+  /** Navigation links */
+  links: SourceManagementLinks;
+}
+
+/**
+ * Reconciliation queue page response.
+ * Backend-owned paginated list of queue items.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationQueuePage {
+  /** Queue items */
+  items: ReconciliationQueueItem[];
+  /** Pagination metadata */
+  page_info: SourceManagementPageInfo;
+  /** Applied query parameters */
+  applied_query: ReconciliationQueueQuery;
+  /** Permission flags */
+  permissions: SourceManagementPermissions;
+  /** Empty state info */
+  empty_state: LineageEmptyState;
+  /** Navigation links */
+  links: SourceManagementLinks;
+}
+
+/**
+ * Reconciliation candidate detail response.
+ * Full candidate information for the review workflow.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
+ */
+export interface ReconciliationCandidateDetail {
+  /** Candidate relationship summary */
+  candidate?: SourceRelationshipSummary;
+  /** Left source in the relationship */
+  left_source?: ReconciliationQueueSourceSummary;
+  /** Right source in the relationship */
+  right_source?: ReconciliationQueueSourceSummary;
+  /** Matched source revision (evidence) */
+  matched_source_revision?: SourceRevisionSummary;
+  /** Matched source artifact (evidence) */
+  matched_source_artifact?: SourceArtifactSummary;
+  /** Evidence details */
+  evidence?: CandidateEvidenceSummary[];
+  /** Audit trail of review actions */
+  audit_trail?: ReconciliationAuditEntry[];
+  /** Available review actions */
+  actions?: ReconciliationReviewAction[];
+  /** Permission flags */
+  permissions: SourceManagementPermissions;
+  /** Navigation links */
+  links: SourceManagementLinks;
+  /** Empty state info */
+  empty_state: LineageEmptyState;
+}
+
+/**
+ * Reconciliation review input payload.
+ * Frontend-to-backend request for applying a review action.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.7
+ */
+export interface ReconciliationReviewInput {
+  /** Action to apply: 'confirm', 'reject', 'supersede' */
+  action: string;
+  /** Confirm behavior: 'attach_handle_to_existing_source', 'merge_source_documents', 'confirm_related_but_distinct' */
+  confirm_behavior?: string;
+  /** Reason for the action (required for some actions) */
+  reason?: string;
+}
+
+/**
+ * Reconciliation review response.
+ * Backend response after applying a review action.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.7
+ */
+export interface ReconciliationReviewResponse {
+  /** Status of the operation */
+  status: string;
+  /** Updated candidate detail */
+  candidate?: ReconciliationCandidateDetail;
+  /** Error details if operation failed */
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}
+
+// ============================================================================
+// Phase 17 Contract Normalization Helpers (Task 17.6)
+// ============================================================================
+
+/**
+ * Normalize reconciliation queue query from raw transport.
+ */
+export function normalizeReconciliationQueueQuery(value: unknown): ReconciliationQueueQuery {
+  const record = asRecord(value);
+  return {
+    confidence_band: asOptionalString(record.confidence_band),
+    relationship_type: asOptionalString(record.relationship_type),
+    provider_kind: asOptionalString(record.provider_kind),
+    source_status: asOptionalString(record.source_status),
+    age_band: asOptionalString(record.age_band),
+    sort: asOptionalString(record.sort),
+    page: asOptionalNumber(record.page),
+    page_size: asOptionalNumber(record.page_size),
+  };
+}
+
+/**
+ * Normalize reconciliation queue source summary from raw transport.
+ */
+export function normalizeReconciliationQueueSourceSummary(
+  value: unknown
+): ReconciliationQueueSourceSummary | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = asRecord(value);
+  return {
+    source: normalizeLineageReference(record.source) ?? undefined,
+    status: asString(record.status),
+    lineage_confidence: asString(record.lineage_confidence),
+    provider: normalizeSourceProviderSummary(record.provider) ?? undefined,
+    active_handle: normalizeSourceHandleSummary(record.active_handle),
+    latest_revision: normalizeSourceRevisionSummary(record.latest_revision) ?? undefined,
+    pending_candidate_count: asOptionalNumber(record.pending_candidate_count),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+/**
+ * Normalize reconciliation review action from raw transport.
+ */
+export function normalizeReconciliationReviewAction(
+  value: unknown
+): ReconciliationReviewAction {
+  const record = asRecord(value);
+  return {
+    id: asString(record.id),
+    label: asString(record.label),
+    requires_reason: asBoolean(record.requires_reason),
+    available: asBoolean(record.available),
+    disabled_reason: asOptionalString(record.disabled_reason),
+    tone: asOptionalString(record.tone),
+  };
+}
+
+/**
+ * Normalize reconciliation audit entry from raw transport.
+ */
+export function normalizeReconciliationAuditEntry(
+  value: unknown
+): ReconciliationAuditEntry {
+  const record = asRecord(value);
+  return {
+    id: asString(record.id),
+    action: asString(record.action),
+    actor_id: asOptionalString(record.actor_id),
+    reason: asOptionalString(record.reason),
+    from_status: asOptionalString(record.from_status),
+    to_status: asOptionalString(record.to_status),
+    summary: asOptionalString(record.summary),
+    created_at: asOptionalString(record.created_at),
+  };
+}
+
+/**
+ * Normalize reconciliation queue item from raw transport.
+ */
+export function normalizeReconciliationQueueItem(
+  value: unknown
+): ReconciliationQueueItem {
+  const record = asRecord(value);
+  return {
+    candidate: normalizeSourceRelationshipSummary(record.candidate),
+    left_source: normalizeReconciliationQueueSourceSummary(record.left_source),
+    right_source: normalizeReconciliationQueueSourceSummary(record.right_source),
+    queue_age_band: asOptionalString(record.queue_age_band),
+    queue_age_days: asOptionalNumber(record.queue_age_days),
+    updated_at: asOptionalString(record.updated_at),
+    actions: Array.isArray(record.actions)
+      ? record.actions.map(normalizeReconciliationReviewAction)
+      : undefined,
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+/**
+ * Normalize reconciliation queue page from raw transport.
+ */
+export function normalizeReconciliationQueuePage(
+  value: unknown
+): ReconciliationQueuePage {
+  const record = asRecord(value);
+  return {
+    items: Array.isArray(record.items)
+      ? record.items.map(normalizeReconciliationQueueItem)
+      : [],
+    page_info: normalizeSourceManagementPageInfo(record.page_info),
+    applied_query: normalizeReconciliationQueueQuery(record.applied_query),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+/**
+ * Normalize reconciliation candidate detail from raw transport.
+ */
+export function normalizeReconciliationCandidateDetail(
+  value: unknown
+): ReconciliationCandidateDetail {
+  const record = asRecord(value);
+  return {
+    candidate: normalizeSourceRelationshipSummary(record.candidate),
+    left_source: normalizeReconciliationQueueSourceSummary(record.left_source),
+    right_source: normalizeReconciliationQueueSourceSummary(record.right_source),
+    matched_source_revision: normalizeSourceRevisionSummary(record.matched_source_revision) ?? undefined,
+    matched_source_artifact: normalizeSourceArtifactSummary(record.matched_source_artifact) ?? undefined,
+    evidence: Array.isArray(record.evidence)
+      ? record.evidence.map(normalizeCandidateEvidenceSummary)
+      : undefined,
+    audit_trail: Array.isArray(record.audit_trail)
+      ? record.audit_trail.map(normalizeReconciliationAuditEntry)
+      : undefined,
+    actions: Array.isArray(record.actions)
+      ? record.actions.map(normalizeReconciliationReviewAction)
+      : undefined,
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    links: asRecord(record.links) as SourceManagementLinks,
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+  };
+}
+
+/**
+ * Normalize reconciliation review response from raw transport.
+ */
+export function normalizeReconciliationReviewResponse(
+  value: unknown
+): ReconciliationReviewResponse {
+  const record = asRecord(value);
+  const errorRecord = asRecord(record.error);
+  const errorCode = asString(errorRecord.code);
+  const errorMessage = asString(errorRecord.message);
+
+  return {
+    status: asString(record.status),
+    candidate: record.candidate
+      ? normalizeReconciliationCandidateDetail(record.candidate)
+      : undefined,
+    error: errorCode || errorMessage
+      ? {
+          code: errorCode,
+          message: errorMessage,
+          ...(asOptionalRecord(errorRecord.details)
+            ? { details: asOptionalRecord(errorRecord.details) }
+            : {}),
+        }
+      : undefined,
+  };
+}
+
+// Internal helper for source handle summary normalization
+function normalizeSourceHandleSummary(value: unknown): SourceHandleSummary | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = asRecord(value);
+  const id = asString(record.id);
+  if (!id) {
+    return undefined;
+  }
+  return {
+    id,
+    provider_kind: asString(record.provider_kind),
+    external_file_id: asString(record.external_file_id),
+    account_id: asOptionalString(record.account_id),
+    drive_id: asOptionalString(record.drive_id),
+    web_url: asOptionalString(record.web_url),
+    handle_status: asString(record.handle_status),
+    valid_from: asOptionalString(record.valid_from),
+    valid_to: asOptionalString(record.valid_to),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+// Internal helper for source relationship summary normalization
+function normalizeSourceRelationshipSummary(
+  value: unknown
+): SourceRelationshipSummary | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = asRecord(value);
+  const id = asString(record.id);
+  if (!id) {
+    return undefined;
+  }
+  return {
+    id,
+    relationship_type: asString(record.relationship_type),
+    status: asString(record.status),
+    confidence_band: asString(record.confidence_band),
+    confidence_score: asOptionalNumber(record.confidence_score),
+    summary: asString(record.summary),
+    left_source: normalizeLineageReference(record.left_source),
+    right_source: normalizeLineageReference(record.right_source),
+    counterpart_source: normalizeLineageReference(record.counterpart_source),
+    review_action_visible: asOptionalString(record.review_action_visible),
+    evidence: Array.isArray(record.evidence)
+      ? record.evidence.map(normalizeCandidateEvidenceSummary)
+      : [],
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+// ============================================================================
+// Phase 17 Fixture Types (Task 17.8)
+// ============================================================================
+
+/**
+ * Phase 17 reconciliation queue query fixtures.
+ */
+export interface Phase17ReconciliationQueueQueryFixtures {
+  queue_default: ReconciliationQueueQuery;
+  queue_high_confidence: ReconciliationQueueQuery;
+  queue_aged_30d: ReconciliationQueueQuery;
+}
+
+/**
+ * Phase 17 reconciliation queue fixture states.
+ */
+export interface Phase17ReconciliationQueueFixtureStates {
+  queue_empty: ReconciliationQueuePage;
+  queue_backlog: ReconciliationQueuePage;
+  candidate_detail: ReconciliationCandidateDetail;
+  candidate_with_audit: ReconciliationCandidateDetail;
+}
+
+/**
+ * Phase 17 reconciliation queue contract fixtures.
+ * Backend-owned example payloads for Phase 17 contract validation.
+ */
+export interface Phase17ReconciliationQueueContractFixtures {
+  schema_version: number;
+  rules: SourceManagementContractRules;
+  queries: Phase17ReconciliationQueueQueryFixtures;
+  states: Phase17ReconciliationQueueFixtureStates;
+}
