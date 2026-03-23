@@ -123,11 +123,7 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 		if relationshipID == "" {
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "relationship_id is required", nil)
 		}
-		var payload struct {
-			Action          string `json:"action"`
-			ConfirmBehavior string `json:"confirm_behavior"`
-			Reason          string `json:"reason"`
-		}
+		var payload services.ReconciliationReviewRequest
 		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid lineage review payload"); err != nil {
 			return err
 		}
@@ -504,11 +500,7 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 		if relationshipID == "" {
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "relationship_id is required", nil)
 		}
-		var payload struct {
-			Action          string `json:"action"`
-			ConfirmBehavior string `json:"confirm_behavior"`
-			Reason          string `json:"reason"`
-		}
+		var payload services.ReconciliationReviewRequest
 		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid reconciliation review payload"); err != nil {
 			return err
 		}
@@ -538,9 +530,9 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			})
 		}
 		detail = authorizeReconciliationCandidateDetail(c, cfg, detail)
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":    "ok",
-			"candidate": detail,
+		return c.JSON(http.StatusOK, services.ReconciliationReviewResponse{
+			Status:    "ok",
+			Candidate: detail,
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 }

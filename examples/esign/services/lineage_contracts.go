@@ -608,6 +608,17 @@ type ReconciliationCandidateDetail struct {
 	EmptyState            LineageEmptyState                 `json:"empty_state"`
 }
 
+type ReconciliationReviewRequest struct {
+	Action          string `json:"action"`
+	ConfirmBehavior string `json:"confirm_behavior,omitempty"`
+	Reason          string `json:"reason,omitempty"`
+}
+
+type ReconciliationReviewResponse struct {
+	Status    string                        `json:"status"`
+	Candidate ReconciliationCandidateDetail `json:"candidate"`
+}
+
 type SourceWorkspaceDrillIn struct {
 	Panel  string `json:"panel"`
 	Anchor string `json:"anchor,omitempty"`
@@ -722,22 +733,22 @@ type Phase11SourceManagementQueryFixtures struct {
 }
 
 type Phase11SourceManagementFixtureStates struct {
-	SourceListEmpty           SourceListPage         `json:"source_list_empty"`
-	SourceListSingle          SourceListPage         `json:"source_list_single"`
-	SourceDetailRepeated      SourceDetail           `json:"source_detail_repeated"`
-	SourceWorkspaceRepeated   SourceWorkspace        `json:"source_workspace_repeated"`
-	SourceHandlesMulti        SourceHandlePage       `json:"source_handles_multi"`
-	SourceRevisionsRepeated   SourceRevisionPage     `json:"source_revisions_repeated"`
-	SourceRelationshipsReview SourceRelationshipPage `json:"source_relationships_review"`
-	SourceAgreementsRepeated  SourceAgreementPage    `json:"source_agreements_repeated"`
-	SourceRevisionDetail      SourceRevisionDetail   `json:"source_revision_detail"`
-	SourceArtifacts           SourceArtifactPage     `json:"source_artifacts"`
-	SourceCommentsEmpty       SourceCommentPage      `json:"source_comments_empty"`
-	SourceSearchResults       SourceSearchResults    `json:"source_search_results"`
-	SourceDetailMerged        SourceDetail           `json:"source_detail_merged"`
-	SourceDetailArchived      SourceDetail           `json:"source_detail_archived"`
-	ReconciliationQueueBacklog ReconciliationQueuePage      `json:"reconciliation_queue_backlog"`
-	ReconciliationQueueEmpty   ReconciliationQueuePage      `json:"reconciliation_queue_empty"`
+	SourceListEmpty            SourceListPage                `json:"source_list_empty"`
+	SourceListSingle           SourceListPage                `json:"source_list_single"`
+	SourceDetailRepeated       SourceDetail                  `json:"source_detail_repeated"`
+	SourceWorkspaceRepeated    SourceWorkspace               `json:"source_workspace_repeated"`
+	SourceHandlesMulti         SourceHandlePage              `json:"source_handles_multi"`
+	SourceRevisionsRepeated    SourceRevisionPage            `json:"source_revisions_repeated"`
+	SourceRelationshipsReview  SourceRelationshipPage        `json:"source_relationships_review"`
+	SourceAgreementsRepeated   SourceAgreementPage           `json:"source_agreements_repeated"`
+	SourceRevisionDetail       SourceRevisionDetail          `json:"source_revision_detail"`
+	SourceArtifacts            SourceArtifactPage            `json:"source_artifacts"`
+	SourceCommentsEmpty        SourceCommentPage             `json:"source_comments_empty"`
+	SourceSearchResults        SourceSearchResults           `json:"source_search_results"`
+	SourceDetailMerged         SourceDetail                  `json:"source_detail_merged"`
+	SourceDetailArchived       SourceDetail                  `json:"source_detail_archived"`
+	ReconciliationQueueBacklog ReconciliationQueuePage       `json:"reconciliation_queue_backlog"`
+	ReconciliationQueueEmpty   ReconciliationQueuePage       `json:"reconciliation_queue_empty"`
 	ReconciliationCandidate    ReconciliationCandidateDetail `json:"reconciliation_candidate"`
 }
 
@@ -911,6 +922,15 @@ type SourceCommentSyncInput struct {
 	Threads          []SourceCommentProviderThread `json:"threads,omitempty"`
 }
 
+type SourceCommentSyncFailureInput struct {
+	SourceDocumentID string     `json:"source_document_id,omitempty"`
+	SourceRevisionID string     `json:"source_revision_id"`
+	ProviderKind     string     `json:"provider_kind,omitempty"`
+	AttemptedAt      *time.Time `json:"attempted_at,omitempty"`
+	ErrorCode        string     `json:"error_code,omitempty"`
+	ErrorMessage     string     `json:"error_message,omitempty"`
+}
+
 type SourceCommentSyncResult struct {
 	SourceDocumentID string                       `json:"source_document_id"`
 	SourceRevisionID string                       `json:"source_revision_id"`
@@ -930,6 +950,7 @@ type SourceSearchIndexResult struct {
 type SourceCommentSyncService interface {
 	SyncSourceRevisionComments(ctx context.Context, scope stores.Scope, input SourceCommentSyncInput) (SourceCommentSyncResult, error)
 	ReplaySourceRevisionCommentSync(ctx context.Context, scope stores.Scope, sourceRevisionID string) (SourceCommentSyncResult, error)
+	RecordSourceRevisionCommentSyncFailure(ctx context.Context, scope stores.Scope, input SourceCommentSyncFailureInput) (SourceCommentSyncResult, error)
 }
 
 type SourceSearchService interface {

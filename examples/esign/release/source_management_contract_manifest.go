@@ -29,6 +29,7 @@ type V2SourceManagementContractRoute struct {
 	Path           string   `json:"path"`
 	PathParams     []string `json:"path_params,omitempty"`
 	QuerySchema    string   `json:"query_schema,omitempty"`
+	RequestSchema  string   `json:"request_schema,omitempty"`
 	ResponseSchema string   `json:"response_schema"`
 }
 
@@ -79,6 +80,7 @@ func BuildV2SourceManagementContractManifest() V2SourceManagementContractManifes
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/source-search", QuerySchema: "SourceSearchQuery", ResponseSchema: "SourceSearchResults"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/reconciliation-queue", QuerySchema: "ReconciliationQueueQuery", ResponseSchema: "ReconciliationQueuePage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/reconciliation-queue/:relationship_id", PathParams: []string{"relationship_id"}, ResponseSchema: "ReconciliationCandidateDetail"},
+			{Method: "POST", Path: services.DefaultSourceManagementBasePath + "/reconciliation-queue/:relationship_id/review", PathParams: []string{"relationship_id"}, RequestSchema: "ReconciliationReviewRequest", ResponseSchema: "ReconciliationReviewResponse"},
 		},
 		Schemas: schemas,
 	}
@@ -140,6 +142,8 @@ func collectV2SourceManagementSchemaTypes() []reflect.Type {
 		typeOf[services.SourceSearchResults](),
 		typeOf[services.ReconciliationQueuePage](),
 		typeOf[services.ReconciliationCandidateDetail](),
+		typeOf[services.ReconciliationReviewRequest](),
+		typeOf[services.ReconciliationReviewResponse](),
 	}
 	seen := make(map[reflect.Type]struct{})
 	for _, rootType := range rootTypes {

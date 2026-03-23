@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -34,6 +35,7 @@ func (s DefaultSourceReadModelService) ListReconciliationQueue(ctx context.Conte
 		return page, err
 	}
 	if len(relationships) == 0 {
+		observability.ObserveSourceQueueBacklog(ctx, 0, map[string]int{})
 		page.PageInfo = fixedSourceManagementPageInfo(0, 0, normalized.Sort)
 		page.EmptyState = sourceCollectionEmptyState(true, "No queue candidates", "There are no pending reconciliation candidates for the current filters.")
 		return page, nil
@@ -53,6 +55,7 @@ func (s DefaultSourceReadModelService) ListReconciliationQueue(ctx context.Conte
 		}
 		filtered = append(filtered, relationship)
 	}
+	observability.ObserveSourceQueueBacklog(ctx, len(filtered), reconciliationQueueBandCounts(filtered))
 	sortReconciliationQueueRelationships(filtered, normalized.Sort)
 
 	paged, pageInfo := paginateSourceManagement(filtered, normalized.Page, normalized.PageSize, normalized.Sort)
@@ -68,6 +71,18 @@ func (s DefaultSourceReadModelService) ListReconciliationQueue(ctx context.Conte
 	page.PageInfo = pageInfo
 	page.EmptyState = sourceCollectionEmptyState(len(items) == 0, "No queue candidates", "There are no pending reconciliation candidates for the current filters.")
 	return page, nil
+}
+
+func reconciliationQueueBandCounts(relationships []stores.SourceRelationshipRecord) map[string]int {
+	counts := map[string]int{}
+	for _, relationship := range relationships {
+		band := strings.TrimSpace(relationship.ConfidenceBand)
+		if band == "" {
+			band = "unknown"
+		}
+		counts[band]++
+	}
+	return counts
 }
 
 func (s DefaultSourceReadModelService) GetReconciliationCandidate(ctx context.Context, scope stores.Scope, relationshipID string) (ReconciliationCandidateDetail, error) {

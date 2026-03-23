@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -49,6 +50,7 @@ type GoogleServicesIntegrationService struct {
 	documentStore     stores.DocumentStore
 	agreementStore    stores.AgreementStore
 	lineage           stores.LineageStore
+	sourceComments    SourceCommentSyncService
 	identity          SourceIdentityService
 	lineageProcessing SourceLineageProcessingTrigger
 	importRuns        stores.GoogleImportRunStore
@@ -74,6 +76,15 @@ func WithGoogleServicesSourceIdentityService(identity SourceIdentityService) Goo
 			return
 		}
 		s.identity = identity
+	}
+}
+
+func WithGoogleServicesSourceCommentSyncService(service SourceCommentSyncService) GoogleServicesIntegrationOption {
+	return func(s *GoogleServicesIntegrationService) {
+		if s == nil || service == nil {
+			return
+		}
+		s.sourceComments = service
 	}
 }
 
@@ -618,6 +629,15 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
 	}, snapshot, sourceMimeType, ingestionMode); err != nil {
 		return GoogleImportResult{}, err
+	}
+	if s.sourceComments != nil && strings.TrimSpace(result.SourceRevisionID) != "" {
+		if _, syncErr := s.SyncSourceRevisionComments(ctx, scope, result.SourceRevisionID); syncErr != nil {
+			observability.LogOperation(ctx, slog.LevelWarn, "google", "source_comment_sync", "error", strings.TrimSpace(input.CorrelationID), 0, syncErr, map[string]any{
+				"source_revision_id": strings.TrimSpace(result.SourceRevisionID),
+				"source_document_id": strings.TrimSpace(result.SourceDocumentID),
+				"google_file_id":     fileID,
+			})
+		}
 	}
 	return result, nil
 }

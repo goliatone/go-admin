@@ -108,6 +108,10 @@ func (scopeViolatingProvider) DownloadFilePDF(context.Context, string, string) (
 	return GoogleExportSnapshot{}, nil
 }
 
+func (scopeViolatingProvider) ListComments(context.Context, string, string) ([]GoogleDriveComment, error) {
+	return nil, nil
+}
+
 func TestMapGoogleProviderErrorMapsTypedFailures(t *testing.T) {
 	cases := []struct {
 		name       string

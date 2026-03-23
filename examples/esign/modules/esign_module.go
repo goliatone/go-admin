@@ -550,6 +550,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	var sourceReconciliation services.SourceReconciliationService
 	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
 	var sourceSearch services.SourceSearchService
+	var sourceCommentSync services.SourceCommentSyncService
 	if lineageStore != nil {
 		searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
 			Lineage: lineageStore,
@@ -558,6 +559,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			return err
 		}
 		sourceSearch = searchService
+		sourceCommentSync = services.NewDefaultSourceCommentSyncService(
+			lineageStore,
+			services.WithSourceCommentSyncSearchService(sourceSearch),
+		)
 		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
 		reconciliationService := services.NewDefaultSourceReconciliationService(
 			lineageStore,
@@ -570,6 +575,31 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		lineageHandlers := jobs.NewHandlers(lineageJobDeps)
 		durableJobs.RegisterHandler(jobs.JobSourceLineageProcessing, lineageHandlers.HandleSourceLineageProcessingJob)
 		lineageProcessingTrigger = jobs.NewDurableSourceLineageProcessingEnqueuer(durableJobs)
+	}
+	if sourceSearch != nil && lineageStore != nil {
+		agreementSearchRefresh := services.NewSourceSearchAgreementRefreshService(m.store, m.store, lineageStore, sourceSearch)
+		baseJobAgreementChanges := jobAgreementChanges
+		jobAgreementChanges = func(ctx context.Context, scope stores.Scope, notification jobs.AgreementChangeNotification) error {
+			var firstErr error
+			if baseJobAgreementChanges != nil {
+				firstErr = baseJobAgreementChanges(ctx, scope, notification)
+			}
+			if refreshErr := agreementSearchRefresh.RefreshAgreement(ctx, scope, notification.AgreementID); firstErr == nil && refreshErr != nil {
+				firstErr = refreshErr
+			}
+			return firstErr
+		}
+		baseSigningAgreementChanges := signingAgreementChanges
+		signingAgreementChanges = func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
+			var firstErr error
+			if baseSigningAgreementChanges != nil {
+				firstErr = baseSigningAgreementChanges(ctx, scope, notification)
+			}
+			if refreshErr := agreementSearchRefresh.RefreshAgreement(ctx, scope, notification.AgreementID); firstErr == nil && refreshErr != nil {
+				firstErr = refreshErr
+			}
+			return firstErr
+		}
 	}
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
 	emailOutboxPublisher := jobs.NewEmailOutboxPublisher(jobHandlers)
@@ -707,6 +737,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			if lineageStore != nil {
 				opts = append(opts, services.WithGoogleServicesLineageStore(lineageStore))
 			}
+			if sourceCommentSync != nil {
+				opts = append(opts, services.WithGoogleServicesSourceCommentSyncService(sourceCommentSync))
+			}
 			if lineageProcessingTrigger != nil {
 				opts = append(opts, services.WithGoogleServicesLineageProcessingTrigger(lineageProcessingTrigger))
 			}
@@ -730,6 +763,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			}
 			if lineageStore != nil {
 				opts = append(opts, services.WithGoogleLineageStore(lineageStore))
+			}
+			if sourceCommentSync != nil {
+				opts = append(opts, services.WithGoogleSourceCommentSyncService(sourceCommentSync))
 			}
 			if lineageProcessingTrigger != nil {
 				opts = append(opts, services.WithGoogleLineageProcessingTrigger(lineageProcessingTrigger))

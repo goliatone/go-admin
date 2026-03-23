@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	searchcommand "github.com/goliatone/go-search/command"
 	searchindexing "github.com/goliatone/go-search/indexing"
@@ -14,8 +15,10 @@ import (
 	searchplanner "github.com/goliatone/go-search/planner"
 	searchproviders "github.com/goliatone/go-search/providers"
 	searchmemory "github.com/goliatone/go-search/providers/memory"
+	searchhealth "github.com/goliatone/go-search/query"
 	searchquery "github.com/goliatone/go-search/query"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -51,6 +54,8 @@ type goSearchSourceSearchBundle struct {
 	indexer         *searchindexing.Indexer
 	search          *searchquery.Search
 	reindex         *searchcommand.ReindexIndex
+	health          *searchhealth.Health
+	stats           *searchhealth.Stats
 
 	bootstrapMu  sync.Mutex
 	bootstrapped bool
@@ -164,6 +169,7 @@ func (s *GoSearchSourceSearchService) ReindexSourceDocument(ctx context.Context,
 	}
 	docs, err := bundle.indexer.IndexRecord(ctx, s.indexName, s.registrationKey, sourceDocumentID)
 	if err != nil {
+		observability.ObserveSourceSearchReindex(ctx, SourceManagementSearchResultSourceDocument, false)
 		return SourceSearchIndexResult{}, err
 	}
 	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
@@ -180,7 +186,8 @@ func (s *GoSearchSourceSearchService) ReindexSourceDocument(ctx context.Context,
 		IndexedCount:      len(docs),
 		DeletedCount:      0,
 		CommentSyncStatus: commentStatus,
-	}, nil
+		IndexedAt:         sourceSearchIndexedAtPtr(),
+	}, observeSourceSearchReindexSuccess(ctx, SourceManagementSearchResultSourceDocument)
 }
 
 func (s *GoSearchSourceSearchService) ReindexSourceRevision(ctx context.Context, scope stores.Scope, sourceRevisionID string) (SourceSearchIndexResult, error) {
@@ -198,11 +205,53 @@ func (s *GoSearchSourceSearchService) ReindexSourceRevision(ctx context.Context,
 	}
 	result, err := s.ReindexSourceDocument(ctx, scope, revision.SourceDocumentID)
 	if err != nil {
+		observability.ObserveSourceSearchReindex(ctx, SourceManagementSearchResultSourceRevision, false)
 		return SourceSearchIndexResult{}, err
 	}
 	result.TargetKind = SourceManagementSearchResultSourceRevision
 	result.TargetID = sourceRevisionID
+	observability.ObserveSourceSearchReindex(ctx, SourceManagementSearchResultSourceRevision, true)
 	return result, nil
+}
+
+func (s *GoSearchSourceSearchService) HealthStatus(ctx context.Context, scope stores.Scope) (searchtypes.HealthStatus, error) {
+	scope, err := validateGoSearchScope(scope)
+	if err != nil {
+		return searchtypes.HealthStatus{}, err
+	}
+	bundle, err := s.bundleForScope(ctx, scope)
+	if err != nil {
+		return searchtypes.HealthStatus{}, err
+	}
+	if bundle.health == nil {
+		return searchtypes.HealthStatus{}, fmt.Errorf("source-management go-search health query is not configured")
+	}
+	health, err := bundle.health.Query(ctx, searchtypes.HealthRequest{Indexes: []string{s.indexName}})
+	if err == nil {
+		stats, _ := s.StatsSnapshot(ctx, scope)
+		observability.ObserveSourceSearchProviderSnapshot(ctx, health, stats)
+	}
+	return health, err
+}
+
+func (s *GoSearchSourceSearchService) StatsSnapshot(ctx context.Context, scope stores.Scope) (searchtypes.StatsResult, error) {
+	scope, err := validateGoSearchScope(scope)
+	if err != nil {
+		return searchtypes.StatsResult{}, err
+	}
+	bundle, err := s.bundleForScope(ctx, scope)
+	if err != nil {
+		return searchtypes.StatsResult{}, err
+	}
+	if bundle.stats == nil {
+		return searchtypes.StatsResult{}, fmt.Errorf("source-management go-search stats query is not configured")
+	}
+	stats, err := bundle.stats.Query(ctx, searchtypes.StatsRequest{Indexes: []string{s.indexName}})
+	if err == nil {
+		health, _ := bundle.health.Query(ctx, searchtypes.HealthRequest{Indexes: []string{s.indexName}})
+		observability.ObserveSourceSearchProviderSnapshot(ctx, health, stats)
+	}
+	return stats, err
 }
 
 func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope stores.Scope) (*goSearchSourceSearchBundle, error) {
@@ -273,6 +322,17 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 	if err != nil {
 		return nil, err
 	}
+	health, err := searchhealth.NewHealth(searchhealth.HealthConfig{Provider: provider})
+	if err != nil {
+		return nil, err
+	}
+	stats, err := searchhealth.NewStats(searchhealth.StatsConfig{
+		Provider: provider,
+		Registry: registry,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	bundle := &goSearchSourceSearchBundle{
 		indexName:       s.indexName,
@@ -281,6 +341,8 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 		indexer:         indexer,
 		search:          search,
 		reindex:         reindex,
+		health:          health,
+		stats:           stats,
 	}
 	s.bundles[scopeKey] = bundle
 	return bundle, nil
@@ -615,5 +677,15 @@ func firstAgreementStore(primary stores.AgreementStore, fallback any) stores.Agr
 	if store, ok := fallback.(stores.AgreementStore); ok {
 		return store
 	}
+	return nil
+}
+
+func sourceSearchIndexedAtPtr() *time.Time {
+	now := time.Now().UTC()
+	return &now
+}
+
+func observeSourceSearchReindexSuccess(ctx context.Context, targetKind string) error {
+	observability.ObserveSourceSearchReindex(ctx, targetKind, true)
 	return nil
 }

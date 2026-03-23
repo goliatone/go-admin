@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/google/uuid"
 )
@@ -45,6 +46,7 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 	if s.lineage == nil {
 		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "lineage", "not configured")
 	}
+	providerKind := firstNonEmpty(strings.TrimSpace(input.ProviderKind), stores.SourceProviderKindGoogleDrive)
 	result := SourceCommentSyncResult{}
 	err := s.withLineageWriteTx(ctx, func(lineage stores.LineageStore) error {
 		var innerErr error
@@ -52,12 +54,14 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 		return innerErr
 	})
 	if err != nil {
+		observability.ObserveSourceCommentSync(ctx, providerKind, false, sourceCommentSyncFailureCode(err))
 		return SourceCommentSyncResult{}, err
 	}
 	if s.search != nil {
 		_, _ = s.search.ReindexSourceRevision(ctx, scope, result.SourceRevisionID)
 		_, _ = s.search.ReindexSourceDocument(ctx, scope, result.SourceDocumentID)
 	}
+	observability.ObserveSourceCommentSync(ctx, providerKind, true, "")
 	return result, nil
 }
 
@@ -163,9 +167,9 @@ func (s DefaultSourceCommentSyncService) ReplaySourceRevisionCommentSync(ctx con
 		return SourceCommentSyncResult{}, debugLineageNotFound("source_comment_sync_states", sourceRevisionID)
 	}
 	sortSourceCommentSyncStates(states)
-	state := states[len(states)-1]
-	input := SourceCommentSyncInput{}
-	if err := json.Unmarshal([]byte(strings.TrimSpace(state.PayloadJSON)), &input); err != nil {
+	state, input, err := replayableSourceCommentSyncInput(states)
+	if err != nil {
+		observability.ObserveSourceCommentReplay(ctx, stores.SourceProviderKindGoogleDrive, false)
 		return SourceCommentSyncResult{}, err
 	}
 	input.SourceDocumentID = firstNonEmpty(strings.TrimSpace(input.SourceDocumentID), strings.TrimSpace(state.SourceDocumentID))
@@ -176,7 +180,24 @@ func (s DefaultSourceCommentSyncService) ReplaySourceRevisionCommentSync(ctx con
 	input.SyncedAt = cloneSourceTimePtr(state.LastSyncedAt)
 	input.ErrorCode = firstNonEmpty(strings.TrimSpace(input.ErrorCode), strings.TrimSpace(state.ErrorCode))
 	input.ErrorMessage = firstNonEmpty(strings.TrimSpace(input.ErrorMessage), strings.TrimSpace(state.ErrorMessage))
-	return s.SyncSourceRevisionComments(ctx, scope, input)
+	result, replayErr := s.SyncSourceRevisionComments(ctx, scope, input)
+	observability.ObserveSourceCommentReplay(ctx, firstNonEmpty(strings.TrimSpace(input.ProviderKind), strings.TrimSpace(state.ProviderKind), stores.SourceProviderKindGoogleDrive), replayErr == nil)
+	return result, replayErr
+}
+
+func (s DefaultSourceCommentSyncService) RecordSourceRevisionCommentSyncFailure(ctx context.Context, scope stores.Scope, input SourceCommentSyncFailureInput) (SourceCommentSyncResult, error) {
+	if s.lineage == nil {
+		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "lineage", "not configured")
+	}
+	providerKind := firstNonEmpty(strings.TrimSpace(input.ProviderKind), stores.SourceProviderKindGoogleDrive)
+	result := SourceCommentSyncResult{}
+	err := s.withLineageWriteTx(ctx, func(lineage stores.LineageStore) error {
+		var innerErr error
+		result, innerErr = s.recordSourceRevisionCommentSyncFailureWithLineage(ctx, lineage, scope, input)
+		return innerErr
+	})
+	observability.ObserveSourceCommentSync(ctx, providerKind, false, firstNonEmpty(strings.TrimSpace(input.ErrorCode), sourceCommentSyncFailureCode(err)))
+	return result, err
 }
 
 func (s DefaultSourceCommentSyncService) upsertThread(
@@ -304,6 +325,9 @@ func (s DefaultSourceCommentSyncService) upsertSyncState(
 		stateRecord.LastSyncedAt = &now
 	}
 	if existing, err := lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID); err == nil {
+		if stateRecord.LastSyncedAt == nil && existing.LastSyncedAt != nil {
+			stateRecord.LastSyncedAt = cloneSourceTimePtr(existing.LastSyncedAt)
+		}
 		if strings.TrimSpace(existing.PayloadSHA256) == payloadSHA && strings.TrimSpace(existing.SyncStatus) == strings.TrimSpace(stateRecord.SyncStatus) {
 			stateRecord.CreatedAt = existing.CreatedAt
 		} else {
@@ -423,6 +447,111 @@ func sourceCommentMessageSummaries(records []stores.SourceCommentMessageRecord) 
 		})
 	}
 	return out
+}
+
+func (s DefaultSourceCommentSyncService) recordSourceRevisionCommentSyncFailureWithLineage(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, input SourceCommentSyncFailureInput) (SourceCommentSyncResult, error) {
+	sourceRevisionID := strings.TrimSpace(input.SourceRevisionID)
+	if sourceRevisionID == "" {
+		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "source_revision_id", "required")
+	}
+	revision, err := lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	sourceDocumentID := firstNonEmpty(strings.TrimSpace(input.SourceDocumentID), strings.TrimSpace(revision.SourceDocumentID))
+	if sourceDocumentID == "" {
+		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "source_document_id", "required")
+	}
+	sourceDocument, err := lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	providerKind := firstNonEmpty(strings.TrimSpace(input.ProviderKind), strings.TrimSpace(sourceDocument.ProviderKind), stores.SourceProviderKindGoogleDrive)
+	threadCount, messageCount, err := sourceCommentRevisionCounts(ctx, lineage, scope, revision.ID)
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	attemptedAt := cloneSourceTimePtr(firstNonNilTime(input.AttemptedAt, new(time.Time)))
+	if attemptedAt == nil {
+		now := time.Now().UTC()
+		attemptedAt = &now
+	}
+	failurePayload := SourceCommentSyncInput{
+		SourceDocumentID: sourceDocument.ID,
+		SourceRevisionID: revision.ID,
+		ProviderKind:     providerKind,
+		SyncStatus:       SourceManagementCommentSyncFailed,
+		AttemptedAt:      cloneSourceTimePtr(attemptedAt),
+		ErrorCode:        strings.TrimSpace(input.ErrorCode),
+		ErrorMessage:     strings.TrimSpace(input.ErrorMessage),
+	}
+	payloadJSON, payloadSHA, err := sourceCommentSyncPayload(failurePayload)
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	state, err := s.upsertSyncState(ctx, lineage, scope, sourceDocument, revision, providerKind, SourceCommentSyncInput{
+		SourceDocumentID: sourceDocument.ID,
+		SourceRevisionID: revision.ID,
+		ProviderKind:     providerKind,
+		SyncStatus:       SourceManagementCommentSyncFailed,
+		AttemptedAt:      cloneSourceTimePtr(attemptedAt),
+		ErrorCode:        strings.TrimSpace(input.ErrorCode),
+		ErrorMessage:     strings.TrimSpace(input.ErrorMessage),
+	}, payloadJSON, payloadSHA, threadCount, messageCount, attemptedAt.UTC())
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	return SourceCommentSyncResult{
+		SourceDocumentID: sourceDocument.ID,
+		SourceRevisionID: revision.ID,
+		Sync:             sourceCommentSyncSummaryFromRecord(state),
+	}, nil
+}
+
+func replayableSourceCommentSyncInput(states []stores.SourceCommentSyncStateRecord) (stores.SourceCommentSyncStateRecord, SourceCommentSyncInput, error) {
+	if len(states) == 0 {
+		return stores.SourceCommentSyncStateRecord{}, SourceCommentSyncInput{}, debugLineageNotFound("source_comment_sync_states", "")
+	}
+	for idx := len(states) - 1; idx >= 0; idx-- {
+		state := states[idx]
+		input := SourceCommentSyncInput{}
+		if err := json.Unmarshal([]byte(strings.TrimSpace(state.PayloadJSON)), &input); err != nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(state.SyncStatus), SourceManagementCommentSyncFailed) && len(input.Threads) == 0 {
+			continue
+		}
+		return state, input, nil
+	}
+	state := states[len(states)-1]
+	input := SourceCommentSyncInput{}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(state.PayloadJSON)), &input); err != nil {
+		return stores.SourceCommentSyncStateRecord{}, SourceCommentSyncInput{}, err
+	}
+	return state, input, nil
+}
+
+func sourceCommentRevisionCounts(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, sourceRevisionID string) (int, int, error) {
+	threads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
+		SourceRevisionID: sourceRevisionID,
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	messages, err := lineage.ListSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{
+		SourceRevisionID: sourceRevisionID,
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	return len(threads), len(messages), nil
+}
+
+func sourceCommentSyncFailureCode(err error) string {
+	if err == nil {
+		return ""
+	}
+	return strings.TrimSpace(strings.ReplaceAll(strings.ToLower(err.Error()), " ", "_"))
 }
 
 func sourceCommentSyncSummaryFromRecord(record stores.SourceCommentSyncStateRecord) SourceCommentSyncSummary {

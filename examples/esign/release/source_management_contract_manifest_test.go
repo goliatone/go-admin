@@ -43,26 +43,37 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 		t.Fatalf("expected schema version %d, got %d", v2SourceManagementContractManifestSchemaVersion, manifest.SchemaVersion)
 	}
 
-	requiredEndpoints := map[string]string{
-		"GET /admin/api/v1/esign/sources":                                       "SourceListPage",
-		"GET /admin/api/v1/esign/sources/:source_document_id":                   "SourceDetail",
-		"GET /admin/api/v1/esign/sources/:source_document_id/workspace":         "SourceWorkspace",
-		"GET /admin/api/v1/esign/sources/:source_document_id/revisions":         "SourceRevisionPage",
-		"GET /admin/api/v1/esign/sources/:source_document_id/relationships":     "SourceRelationshipPage",
-		"GET /admin/api/v1/esign/sources/:source_document_id/agreements":        "SourceAgreementPage",
-		"GET /admin/api/v1/esign/sources/:source_document_id/comments":          "SourceCommentPage",
-		"GET /admin/api/v1/esign/source-revisions/:source_revision_id/comments": "SourceCommentPage",
-		"GET /admin/api/v1/esign/source-search":                                 "SourceSearchResults",
-		"GET /admin/api/v1/esign/reconciliation-queue":                          "ReconciliationQueuePage",
-		"GET /admin/api/v1/esign/reconciliation-queue/:relationship_id":         "ReconciliationCandidateDetail",
+	requiredEndpoints := map[string]struct {
+		requestSchema  string
+		responseSchema string
+	}{
+		"GET /admin/api/v1/esign/sources":                                       {responseSchema: "SourceListPage"},
+		"GET /admin/api/v1/esign/sources/:source_document_id":                   {responseSchema: "SourceDetail"},
+		"GET /admin/api/v1/esign/sources/:source_document_id/workspace":         {responseSchema: "SourceWorkspace"},
+		"GET /admin/api/v1/esign/sources/:source_document_id/revisions":         {responseSchema: "SourceRevisionPage"},
+		"GET /admin/api/v1/esign/sources/:source_document_id/relationships":     {responseSchema: "SourceRelationshipPage"},
+		"GET /admin/api/v1/esign/sources/:source_document_id/agreements":        {responseSchema: "SourceAgreementPage"},
+		"GET /admin/api/v1/esign/sources/:source_document_id/comments":          {responseSchema: "SourceCommentPage"},
+		"GET /admin/api/v1/esign/source-revisions/:source_revision_id/comments": {responseSchema: "SourceCommentPage"},
+		"GET /admin/api/v1/esign/source-search":                                 {responseSchema: "SourceSearchResults"},
+		"GET /admin/api/v1/esign/reconciliation-queue":                          {responseSchema: "ReconciliationQueuePage"},
+		"GET /admin/api/v1/esign/reconciliation-queue/:relationship_id":         {responseSchema: "ReconciliationCandidateDetail"},
+		"POST /admin/api/v1/esign/reconciliation-queue/:relationship_id/review": {requestSchema: "ReconciliationReviewRequest", responseSchema: "ReconciliationReviewResponse"},
 	}
-	seenEndpoints := make(map[string]string, len(manifest.Endpoints))
+	seenEndpoints := make(map[string]V2SourceManagementContractRoute, len(manifest.Endpoints))
 	for _, endpoint := range manifest.Endpoints {
-		seenEndpoints[endpoint.Method+" "+endpoint.Path] = endpoint.ResponseSchema
+		seenEndpoints[endpoint.Method+" "+endpoint.Path] = endpoint
 	}
-	for key, responseSchema := range requiredEndpoints {
-		if got := strings.TrimSpace(seenEndpoints[key]); got != responseSchema {
-			t.Fatalf("expected endpoint %s => %s, got %q", key, responseSchema, got)
+	for key, expected := range requiredEndpoints {
+		endpoint, ok := seenEndpoints[key]
+		if !ok {
+			t.Fatalf("expected endpoint %s in manifest", key)
+		}
+		if got := strings.TrimSpace(endpoint.RequestSchema); got != expected.requestSchema {
+			t.Fatalf("expected endpoint %s request schema %q, got %q", key, expected.requestSchema, got)
+		}
+		if got := strings.TrimSpace(endpoint.ResponseSchema); got != expected.responseSchema {
+			t.Fatalf("expected endpoint %s response schema %q, got %q", key, expected.responseSchema, got)
 		}
 	}
 
@@ -74,6 +85,8 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 		"SourceSearchResults":           {"items", "applied_query", "permissions", "links"},
 		"ReconciliationQueuePage":       {"items", "applied_query", "permissions", "links"},
 		"ReconciliationCandidateDetail": {"candidate", "actions", "audit_trail", "permissions", "links"},
+		"ReconciliationReviewRequest":   {"action", "confirm_behavior", "reason"},
+		"ReconciliationReviewResponse":  {"status", "candidate"},
 		"SourceProviderSummary":         {"kind", "label", "extension"},
 	}
 	manifestByName := make(map[string]V2SourceManagementContractSchema, len(manifest.Schemas))

@@ -372,18 +372,16 @@ func buildSourceBrowserRuntimePageModel(scope stores.Scope, routes map[string]st
 		pendingCandidates += item.PendingCandidateCount
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
-		sourceManagementRuntimeLink("Source Search", routes["source_search"], "secondary"),
+		sourceManagementRuntimeLink("Search", routes["source_search"], "secondary"),
 	}
 	return eSignSourceManagementPageModel{
 		Surface: "source_browser",
-		Title:   "Source Browser",
-		Summary: "Live canonical source browsing powered by the frozen source-management list contract.",
+		Title:   "Sources",
+		Summary: "",
 		Scope:   scope,
 		Highlights: compactRuntimeHighlights(
-			runtimeHighlight("Visible Sources", strconvString(len(page.Items))),
-			runtimeHighlight("Page", strconvString(page.PageInfo.Page)),
-			runtimeHighlight("Sort", firstNonEmptyValue(page.PageInfo.Sort, "updated_desc")),
-			runtimeHighlight("Pending Candidates", strconvString(pendingCandidates)),
+			runtimeHighlight("Total", strconvString(page.PageInfo.TotalCount)),
+			runtimeHighlight("Pending Review", strconvString(pendingCandidates)),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: page,
@@ -392,21 +390,21 @@ func buildSourceBrowserRuntimePageModel(scope stores.Scope, routes map[string]st
 
 func buildSourceDetailRuntimePageModel(scope stores.Scope, routes map[string]string, detail services.SourceDetail) eSignSourceManagementPageModel {
 	sourceID := sourceReferenceID(detail.Source)
-	sourceLabel := firstNonEmptyValue(sourceReferenceLabel(detail.Source), sourceID, "Source Detail")
+	sourceLabel := firstNonEmptyValue(sourceReferenceLabel(detail.Source), sourceID, "Source")
 	navLinks := []eSignSourceManagementRuntimeLink{
-		sourceManagementRuntimeLink("Source Browser", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Source Search", routes["source_search"], "secondary"),
+		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
+		sourceManagementRuntimeLink("Search", routes["source_search"], "secondary"),
 	}
 	if detail.LatestRevision != nil {
 		revisionID := strings.TrimSpace(detail.LatestRevision.ID)
 		navLinks = append(navLinks,
 			sourceManagementRuntimeLink("Latest Revision", replaceRuntimeRouteID(routes["source_revision"], revisionID), "primary"),
-			sourceManagementRuntimeLink("Comment Inspector", replaceRuntimeRouteID(routes["source_comment_inspector"], revisionID), "secondary"),
-			sourceManagementRuntimeLink("Artifact Inspector", replaceRuntimeRouteID(routes["source_artifact_inspector"], revisionID), "secondary"),
+			sourceManagementRuntimeLink("Comments", replaceRuntimeRouteID(routes["source_comment_inspector"], revisionID), "secondary"),
+			sourceManagementRuntimeLink("Artifacts", replaceRuntimeRouteID(routes["source_artifact_inspector"], revisionID), "secondary"),
 		)
 	}
 	if detail.Permissions.CanOpenProviderLinks {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Open Provider File", detail.Links.Provider, "external"))
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Open in Provider", detail.Links.Provider, "external"))
 	}
 	if detail.Permissions.CanViewDiagnostics {
 		navLinks = append(navLinks, sourceManagementRuntimeLink("Diagnostics", detail.Links.Diagnostics, "external"))
@@ -414,15 +412,14 @@ func buildSourceDetailRuntimePageModel(scope stores.Scope, routes map[string]str
 	return eSignSourceManagementPageModel{
 		Surface:    "source_detail",
 		Title:      sourceLabel,
-		Summary:    "Runtime source workspace shell bridged directly from the frozen source-detail contract.",
+		Summary:    "",
 		ResourceID: sourceID,
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
 			runtimeHighlight("Status", firstNonEmptyValue(detail.Status, "-")),
 			runtimeHighlight("Confidence", firstNonEmptyValue(detail.LineageConfidence, "-")),
 			runtimeHighlight("Revisions", strconvString(detail.RevisionCount)),
-			runtimeHighlight("Handles", strconvString(detail.HandleCount)),
-			runtimeHighlight("Pending Candidates", strconvString(detail.PendingCandidateCount)),
+			runtimeHighlight("Pending", strconvString(detail.PendingCandidateCount)),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: detail,
@@ -435,16 +432,15 @@ func buildSourceRevisionRuntimePageModel(scope stores.Scope, routes map[string]s
 		revisionID = strings.TrimSpace(detail.Revision.ID)
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
-		sourceManagementRuntimeLink("Source Browser", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Source Search", routes["source_search"], "secondary"),
-		sourceManagementRuntimeLink("Comment Inspector", routes["source_comment_inspector"], "primary"),
-		sourceManagementRuntimeLink("Artifact Inspector", routes["source_artifact_inspector"], "secondary"),
+		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
+		sourceManagementRuntimeLink("Comments", routes["source_comment_inspector"], "primary"),
+		sourceManagementRuntimeLink("Artifacts", routes["source_artifact_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Source Detail", routes["source_detail"], "secondary"))
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "secondary"))
 	}
 	if detail.Permissions.CanOpenProviderLinks {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Open Provider File", detail.Links.Provider, "external"))
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Open in Provider", detail.Links.Provider, "external"))
 	}
 	if detail.Permissions.CanViewDiagnostics {
 		navLinks = append(navLinks, sourceManagementRuntimeLink("Diagnostics", detail.Links.Diagnostics, "external"))
@@ -452,14 +448,13 @@ func buildSourceRevisionRuntimePageModel(scope stores.Scope, routes map[string]s
 	return eSignSourceManagementPageModel{
 		Surface:    "source_revision",
 		Title:      revisionInspectorLabel(detail.Revision),
-		Summary:    "Runtime revision inspector shell bridged directly from the frozen source-revision contract.",
+		Summary:    "",
 		ResourceID: revisionID,
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
-			runtimeHighlight("Revision ID", firstNonEmptyValue(revisionID, "-")),
-			runtimeHighlight("Fingerprint Status", firstNonEmptyValue(detail.FingerprintStatus.Status, "-")),
-			runtimeHighlight("Processing State", firstNonEmptyValue(detail.FingerprintProcessing.State, "-")),
-			runtimeHighlight("Provider File", providerExternalFileID(detail.Provider)),
+			runtimeHighlight("Fingerprint", firstNonEmptyValue(detail.FingerprintStatus.Status, "-")),
+			runtimeHighlight("Processing", firstNonEmptyValue(detail.FingerprintProcessing.State, "-")),
+			runtimeHighlight("Provider", providerExternalFileID(detail.Provider)),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: detail,
@@ -472,25 +467,23 @@ func buildSourceCommentInspectorRuntimePageModel(scope stores.Scope, routes map[
 		totalMessages += len(item.Messages)
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
-		sourceManagementRuntimeLink("Source Browser", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Source Search", routes["source_search"], "secondary"),
-		sourceManagementRuntimeLink("Revision Inspector", routes["source_revision"], "secondary"),
-		sourceManagementRuntimeLink("Artifact Inspector", routes["source_artifact_inspector"], "secondary"),
+		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
+		sourceManagementRuntimeLink("Revision", routes["source_revision"], "secondary"),
+		sourceManagementRuntimeLink("Artifacts", routes["source_artifact_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Source Detail", routes["source_detail"], "primary"))
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "primary"))
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_comments",
-		Title:      "Comment Inspector",
-		Summary:    "Revision-scoped comment visibility bridged directly from the frozen source-comment contract.",
+		Title:      "Comments",
+		Summary:    "",
 		ResourceID: revisionSummaryID(page.Revision),
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
 			runtimeHighlight("Threads", strconvString(len(page.Items))),
 			runtimeHighlight("Messages", strconvString(totalMessages)),
 			runtimeHighlight("Sync Status", firstNonEmptyValue(page.SyncStatus, "-")),
-			runtimeHighlight("Revision ID", firstNonEmptyValue(revisionSummaryID(page.Revision), "-")),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: page,
@@ -503,24 +496,22 @@ func buildSourceArtifactInspectorRuntimePageModel(scope stores.Scope, routes map
 		totalPages += item.PageCount
 	}
 	navLinks := []eSignSourceManagementRuntimeLink{
-		sourceManagementRuntimeLink("Source Browser", routes["source_browser"], "secondary"),
-		sourceManagementRuntimeLink("Source Search", routes["source_search"], "secondary"),
-		sourceManagementRuntimeLink("Revision Inspector", routes["source_revision"], "primary"),
-		sourceManagementRuntimeLink("Comment Inspector", routes["source_comment_inspector"], "secondary"),
+		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
+		sourceManagementRuntimeLink("Revision", routes["source_revision"], "primary"),
+		sourceManagementRuntimeLink("Comments", routes["source_comment_inspector"], "secondary"),
 	}
 	if routes["source_detail"] != "" {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Source Detail", routes["source_detail"], "secondary"))
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Source", routes["source_detail"], "secondary"))
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_artifacts",
-		Title:      "Artifact Inspector",
-		Summary:    "Revision-scoped artifact visibility bridged directly from the frozen source-artifact contract.",
+		Title:      "Artifacts",
+		Summary:    "",
 		ResourceID: revisionSummaryID(page.Revision),
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
-			runtimeHighlight("Artifacts", strconvString(len(page.Items))),
-			runtimeHighlight("Revision ID", firstNonEmptyValue(revisionSummaryID(page.Revision), "-")),
-			runtimeHighlight("Page Total", strconvString(totalPages)),
+			runtimeHighlight("Files", strconvString(len(page.Items))),
+			runtimeHighlight("Total Pages", strconvString(totalPages)),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
 		Contract: page,
@@ -538,18 +529,15 @@ func buildSourceSearchRuntimePageModel(basePath, queryString string, scope store
 	}
 	return eSignSourceManagementPageModel{
 		Surface: "source_search",
-		Title:   "Source Search",
-		Summary: "Live source search shell powered by the frozen source-search contract.",
+		Title:   "Search",
+		Summary: "",
 		Scope:   scope,
 		Highlights: compactRuntimeHighlights(
-			runtimeHighlight("Query", firstNonEmptyValue(results.AppliedQuery.Query, "(empty)")),
 			runtimeHighlight("Results", strconvString(len(results.Items))),
-			runtimeHighlight("Result Kind", firstNonEmptyValue(results.AppliedQuery.ResultKind, "all")),
-			runtimeHighlight("Page", strconvString(results.PageInfo.Page)),
+			runtimeHighlight("Total", strconvString(results.PageInfo.TotalCount)),
 		),
 		NavLinks: compactRuntimeLinks(
-			sourceManagementRuntimeLink("Source Browser", routes["source_browser"], "primary"),
-			sourceManagementRuntimeLink("Refresh Search", routes["source_search"], "secondary"),
+			sourceManagementRuntimeLink("Browse Sources", routes["source_browser"], "primary"),
 		),
 		ResultLinks: resultLinks,
 		Contract:    results,

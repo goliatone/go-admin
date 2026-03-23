@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -184,7 +185,9 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 }
 
 func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
+	normalizedAction, _ := normalizeSourceRelationshipReviewAction(strings.TrimSpace(input.Action), strings.TrimSpace(input.ConfirmBehavior))
 	if s.lineage == nil {
+		observability.ObserveSourceReviewAction(ctx, normalizedAction, false)
 		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "lineage", "not configured")
 	}
 	if txManager, ok := any(s.lineage).(stores.TransactionManager); ok {
@@ -197,9 +200,12 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 			summary = updated
 			return nil
 		})
+		observability.ObserveSourceReviewAction(ctx, normalizedAction, err == nil)
 		return summary, err
 	}
-	return s.applyReviewAction(ctx, scope, input)
+	summary, err := s.applyReviewAction(ctx, scope, input)
+	observability.ObserveSourceReviewAction(ctx, normalizedAction, err == nil)
+	return summary, err
 }
 
 func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
@@ -955,6 +961,7 @@ func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context
 	if s.search == nil {
 		return
 	}
+	success := true
 	seen := map[string]struct{}{}
 	for _, sourceDocumentID := range sourceDocumentIDs {
 		sourceDocumentID = strings.TrimSpace(sourceDocumentID)
@@ -965,8 +972,11 @@ func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context
 			continue
 		}
 		seen[sourceDocumentID] = struct{}{}
-		_, _ = s.search.ReindexSourceDocument(ctx, scope, sourceDocumentID)
+		if _, err := s.search.ReindexSourceDocument(ctx, scope, sourceDocumentID); err != nil {
+			success = false
+		}
 	}
+	observability.ObserveSourceSearchFreshness(ctx, "reconciliation_review", success)
 }
 
 func preferredCanonicalSourceDocument(left, right stores.SourceDocumentRecord) (stores.SourceDocumentRecord, stores.SourceDocumentRecord) {

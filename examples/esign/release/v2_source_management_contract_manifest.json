@@ -117,6 +117,15 @@
         "relationship_id"
       ],
       "response_schema": "ReconciliationCandidateDetail"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/api/v1/esign/reconciliation-queue/:relationship_id/review",
+      "path_params": [
+        "relationship_id"
+      ],
+      "request_schema": "ReconciliationReviewRequest",
+      "response_schema": "ReconciliationReviewResponse"
     }
   ],
   "schemas": [
@@ -617,6 +626,44 @@
           "name": "tone",
           "optional": true,
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationReviewRequest",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "action",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "confirm_behavior",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "optional": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ReconciliationReviewResponse",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "candidate",
+          "optional": false,
+          "type": "object",
+          "ref": "ReconciliationCandidateDetail"
         }
       ]
     },

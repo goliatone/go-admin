@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	neturl "net/url"
@@ -449,6 +450,42 @@ type GoogleDriveFile struct {
 	ModifiedTime time.Time `json:"modifiedTime"`
 }
 
+type GoogleDriveCommentAuthor struct {
+	DisplayName  string `json:"display_name,omitempty"`
+	EmailAddress string `json:"email_address,omitempty"`
+	Me           bool   `json:"me,omitempty"`
+}
+
+type GoogleDriveQuotedFileContent struct {
+	MimeType string `json:"mime_type,omitempty"`
+	Value    string `json:"value,omitempty"`
+}
+
+type GoogleDriveReply struct {
+	ID           string                  `json:"id"`
+	Content      string                  `json:"content,omitempty"`
+	HTMLContent  string                  `json:"html_content,omitempty"`
+	Action       string                  `json:"action,omitempty"`
+	Deleted      bool                    `json:"deleted,omitempty"`
+	CreatedTime  time.Time               `json:"created_time"`
+	ModifiedTime time.Time               `json:"modified_time"`
+	Author       GoogleDriveCommentAuthor `json:"author"`
+}
+
+type GoogleDriveComment struct {
+	ID                string                    `json:"id"`
+	Content           string                    `json:"content,omitempty"`
+	HTMLContent       string                    `json:"html_content,omitempty"`
+	Anchor            string                    `json:"anchor,omitempty"`
+	Deleted           bool                      `json:"deleted,omitempty"`
+	Resolved          bool                      `json:"resolved,omitempty"`
+	CreatedTime       time.Time                 `json:"created_time"`
+	ModifiedTime      time.Time                 `json:"modified_time"`
+	Author            GoogleDriveCommentAuthor  `json:"author"`
+	QuotedFileContent GoogleDriveQuotedFileContent `json:"quoted_file_content,omitempty"`
+	Replies           []GoogleDriveReply        `json:"replies,omitempty"`
+}
+
 // GoogleDriveListResult captures search/browse pagination results.
 type GoogleDriveListResult struct {
 	Files         []GoogleDriveFile `json:"files"`
@@ -468,6 +505,7 @@ type GoogleProvider interface {
 	SearchFiles(ctx context.Context, accessToken, query, pageToken string, pageSize int) (GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, accessToken, folderID, pageToken string, pageSize int) (GoogleDriveListResult, error)
 	GetFile(ctx context.Context, accessToken, fileID string) (GoogleDriveFile, error)
+	ListComments(ctx context.Context, accessToken, fileID string) ([]GoogleDriveComment, error)
 	ExportFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error)
 	DownloadFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error)
 }
@@ -481,6 +519,7 @@ type DeterministicGoogleProvider struct {
 	now       func() time.Time
 	files     map[string]GoogleDriveFile
 	pdfByID   map[string][]byte
+	commentsByID map[string][]GoogleDriveComment
 	errorByOp map[string]error
 }
 
@@ -512,6 +551,33 @@ func NewDeterministicGoogleProvider() *DeterministicGoogleProvider {
 		pdfByID: map[string][]byte{
 			"google-file-1": GenerateDeterministicPDF(1),
 			"google-pdf-1":  GenerateDeterministicPDF(2),
+		},
+		commentsByID: map[string][]GoogleDriveComment{
+			"google-file-1": {{
+				ID:           "google-comment-1",
+				Content:      "Need legal approval",
+				Anchor:       "kix.anchor.fixture.1",
+				CreatedTime:  now.Add(-85 * time.Minute),
+				ModifiedTime: now.Add(-80 * time.Minute),
+				Author: GoogleDriveCommentAuthor{
+					DisplayName:  "Fixture Reviewer",
+					EmailAddress: "reviewer@example.com",
+				},
+				QuotedFileContent: GoogleDriveQuotedFileContent{
+					MimeType: "text/plain",
+					Value:    "Need legal approval",
+				},
+				Replies: []GoogleDriveReply{{
+					ID:           "google-reply-1",
+					Content:      "Acknowledged by ops",
+					CreatedTime:  now.Add(-75 * time.Minute),
+					ModifiedTime: now.Add(-75 * time.Minute),
+					Author: GoogleDriveCommentAuthor{
+						DisplayName:  "Fixture Ops",
+						EmailAddress: "ops@example.com",
+					},
+				}},
+			}},
 		},
 		errorByOp: map[string]error{},
 	}
@@ -791,6 +857,15 @@ func WithGoogleSourceIdentityService(identity SourceIdentityService) GoogleInteg
 	}
 }
 
+func WithGoogleSourceCommentSyncService(service SourceCommentSyncService) GoogleIntegrationOption {
+	return func(s *GoogleIntegrationService) {
+		if s == nil || service == nil {
+			return
+		}
+		s.sourceComments = service
+	}
+}
+
 func WithGoogleLineageProcessingTrigger(trigger SourceLineageProcessingTrigger) GoogleIntegrationOption {
 	return func(s *GoogleIntegrationService) {
 		if s == nil {
@@ -810,6 +885,7 @@ type GoogleIntegrationService struct {
 	documentStore     stores.DocumentStore
 	agreementStore    stores.AgreementStore
 	lineage           stores.LineageStore
+	sourceComments    SourceCommentSyncService
 	identity          SourceIdentityService
 	lineageProcessing SourceLineageProcessingTrigger
 	importRuns        stores.GoogleImportRunStore
@@ -1301,6 +1377,15 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
 	}, snapshot, sourceMimeType, ingestionMode, userID); err != nil {
 		return GoogleImportResult{}, err
+	}
+	if s.sourceComments != nil && strings.TrimSpace(result.SourceRevisionID) != "" {
+		if _, syncErr := s.SyncSourceRevisionComments(ctx, scope, result.SourceRevisionID); syncErr != nil {
+			observability.LogOperation(ctx, slog.LevelWarn, "google", "source_comment_sync", "error", strings.TrimSpace(input.CorrelationID), 0, syncErr, map[string]any{
+				"source_revision_id": strings.TrimSpace(result.SourceRevisionID),
+				"source_document_id": strings.TrimSpace(result.SourceDocumentID),
+				"google_file_id":     fileID,
+			})
+		}
 	}
 	return result, nil
 }

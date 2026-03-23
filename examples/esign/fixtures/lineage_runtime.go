@@ -3,6 +3,7 @@ package fixtures
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"encoding/hex"
 	"fmt"
 	"net/url"
@@ -36,6 +37,11 @@ type LineageFixtureURLSet struct {
 	SourceCommentsURL         string `json:"source_comments_url"`
 	SourceArtifactsURL        string `json:"source_artifacts_url"`
 	SourceSearchURL           string `json:"source_search_url"`
+	SourceSearchNormalizedURL string `json:"source_search_normalized_url"`
+	SourceSearchAgreementURL  string `json:"source_search_agreement_url"`
+	SourceSearchCommentsURL   string `json:"source_search_comments_url"`
+	ReconciliationQueueURL    string `json:"reconciliation_queue_url"`
+	ReconciliationCandidateURL string `json:"reconciliation_candidate_url"`
 }
 
 var lineageFixtureNamespace = uuid.NameSpaceURL
@@ -90,6 +96,11 @@ func BuildLineageFixtureURLs(basePath string, scope stores.Scope, set stores.Lin
 		SourceCommentsURL:         path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "comments") + "?" + query,
 		SourceArtifactsURL:        path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "artifacts") + "?" + query,
 		SourceSearchURL:           path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture-google-file-legacy",
+		SourceSearchNormalizedURL: path.Join(basePath, "esign", "source-search") + "?" + query + "&q=fixture+normalized+text+for+repeated+revision",
+		SourceSearchAgreementURL:  path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Imported+Fixture+Agreement+Rev+2",
+		SourceSearchCommentsURL:   path.Join(basePath, "esign", "source-search") + "?" + query + "&q=Need+legal+approval",
+		ReconciliationQueueURL:    path.Join(basePath, "esign", "reconciliation-queue") + "?" + query,
+		ReconciliationCandidateURL: path.Join(basePath, "esign", "reconciliation-queue", set.CandidateRelationshipID) + "?" + query,
 	}, nil
 }
 
@@ -140,6 +151,61 @@ func EnsureLineageQAFixtures(
 
 	firstNow := time.Date(2026, 3, 18, 12, 0, 0, 0, time.UTC)
 	secondNow := firstNow.Add(2 * time.Hour)
+	sourceCommentSyncPayload, err := json.Marshal(services.SourceCommentSyncInput{
+		SourceDocumentID: ids.SourceDocumentID,
+		SourceRevisionID: ids.SecondSourceRevisionID,
+		ProviderKind:     stores.SourceProviderKindGoogleDrive,
+		SyncStatus:       services.SourceManagementCommentSyncSynced,
+		AttemptedAt:      &secondNow,
+		SyncedAt:         &secondNow,
+		Threads: []services.SourceCommentProviderThread{{
+			ProviderCommentID: "fixture-provider-comment-1",
+			ThreadID:          "fixture-thread-1",
+			Status:            stores.SourceCommentThreadStatusOpen,
+			Anchor: services.SourceCommentProviderAnchor{
+				Kind:  stores.SourceCommentAnchorKindPage,
+				Label: "Page 2",
+			},
+			Author: services.SourceCommentProviderAuthor{
+				DisplayName: "Fixture Reviewer",
+				Email:       "reviewer@example.com",
+				Type:        stores.SourceCommentAuthorTypeUser,
+			},
+			BodyText:       "Need legal approval",
+			LastActivityAt: ptrTime(secondNow.Add(5 * time.Minute)),
+			Messages: []services.SourceCommentProviderMessage{
+				{
+					ProviderMessageID: "fixture-provider-message-1",
+					MessageKind:       stores.SourceCommentMessageKindComment,
+					BodyText:          "Need legal approval",
+					Author: services.SourceCommentProviderAuthor{
+						DisplayName: "Fixture Reviewer",
+						Email:       "reviewer@example.com",
+						Type:        stores.SourceCommentAuthorTypeUser,
+					},
+					CreatedAt: &secondNow,
+					UpdatedAt: &secondNow,
+				},
+				{
+					ProviderMessageID:       "fixture-provider-message-2",
+					ProviderParentMessageID: "fixture-provider-message-1",
+					MessageKind:             stores.SourceCommentMessageKindReply,
+					BodyText:                "Acknowledged by ops",
+					Author: services.SourceCommentProviderAuthor{
+						DisplayName: "Fixture Ops",
+						Email:       "ops@example.com",
+						Type:        stores.SourceCommentAuthorTypeUser,
+					},
+					CreatedAt: ptrTime(secondNow.Add(5 * time.Minute)),
+					UpdatedAt: ptrTime(secondNow.Add(5 * time.Minute)),
+				},
+			},
+		}},
+	})
+	if err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: marshal source comment sync payload: %w", err)
+	}
+	sourceCommentSyncPayloadSHA := sha256.Sum256(sourceCommentSyncPayload)
 
 	if err := deleteFixtureRecords(ctx, db, ids); err != nil {
 		return stores.LineageFixtureSet{}, err
@@ -208,6 +274,12 @@ VALUES (?, ?, ?, ?, 'signable_pdf', ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert second artifact: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
+INSERT INTO source_fingerprints (id, tenant_id, org_id, source_revision_id, artifact_id, extract_version, status, raw_sha256, normalized_text_sha256, simhash64, minhash_json, chunk_hashes_json, extraction_metadata_json, error_code, error_message, token_count, created_at)
+VALUES (?, ?, ?, ?, ?, ?, 'failed', ?, ?, '', '[]', '[]', ?, 'EXTRACTION_FAILED', 'PDF text extraction failed: document is encrypted or corrupted', 6, ?)
+`, fixtureID(scope, "source-fingerprint"), scope.TenantID, scope.OrgID, ids.SecondSourceRevisionID, ids.SecondSourceArtifactID, stores.SourceExtractVersionPDFTextV1, strings.Repeat("b", 64), strings.Repeat("c", 64), `{"extractor":"ledongthuc/pdf","extract_version":"`+stores.SourceExtractVersionPDFTextV1+`","normalized_text":"fixture normalized text for repeated revision","normalized_texts":["fixture normalized text for repeated revision"]}`, secondNow); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert source fingerprint: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `
 INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, normalized_object_key, source_sha256, size_bytes, page_count, source_type, source_google_file_id, source_google_doc_url, source_modified_time, source_exported_at, source_exported_by_user_id, source_mime_type, source_ingestion_mode, source_document_id, source_revision_id, source_artifact_id, created_by_user_id, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, ids.RepeatedImportDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source Rev 2", "Imported Fixture Source Rev 2.pdf", keys.ImportedV2SourceObjectKey, keys.ImportedV2NormalizedObjectKey, importedV2PDF.sha256, importedV2PDF.sizeBytes, importedV2PDF.pageCount, "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", secondNow, secondNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SourceDocumentID, ids.SecondSourceRevisionID, ids.SecondSourceArtifactID, "fixture-user", secondNow, secondNow); err != nil {
@@ -236,7 +308,7 @@ VALUES
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO source_comment_sync_states (id, tenant_id, org_id, source_document_id, source_revision_id, provider_kind, sync_status, thread_count, message_count, payload_sha256, payload_json, last_attempt_at, last_synced_at, error_code, error_message, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, 'google_drive', 'synced', 1, 2, ?, ?, ?, ?, '', '', ?, ?)
-`, fixtureID(scope, "source-comment-sync-state"), scope.TenantID, scope.OrgID, ids.SourceDocumentID, ids.SecondSourceRevisionID, strings.Repeat("a", 64), `{"source_revision_id":"`+ids.SecondSourceRevisionID+`","thread_count":1}`, secondNow, secondNow, secondNow, secondNow); err != nil {
+`, fixtureID(scope, "source-comment-sync-state"), scope.TenantID, scope.OrgID, ids.SourceDocumentID, ids.SecondSourceRevisionID, hex.EncodeToString(sourceCommentSyncPayloadSHA[:]), string(sourceCommentSyncPayload), secondNow, secondNow, secondNow, secondNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert source comment sync state: %w", err)
 	}
 
@@ -304,6 +376,7 @@ func deleteFixtureRecords(ctx context.Context, db bun.IDB, ids stores.LineageFix
 		{query: `DELETE FROM source_comment_messages WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
 		{query: `DELETE FROM source_comment_threads WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
 		{query: `DELETE FROM source_comment_sync_states WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_fingerprints WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},
 		{query: `DELETE FROM source_search_documents WHERE source_document_id IN (?)`, args: []any{bun.In([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
 		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.In([]string{ids.ImportedAgreementID, ids.RepeatedImportAgreementID})}},
 		{query: `DELETE FROM documents WHERE id IN (?)`, args: []any{bun.In([]string{ids.UploadOnlyDocumentID, ids.ImportedDocumentID, ids.RepeatedImportDocumentID})}},
@@ -335,4 +408,9 @@ func fixtureBinary(pageCount int) fixturePDFBinary {
 		sizeBytes: len(payload),
 		pageCount: pageCount,
 	}
+}
+
+func ptrTime(value time.Time) *time.Time {
+	clone := value.UTC()
+	return &clone
 }

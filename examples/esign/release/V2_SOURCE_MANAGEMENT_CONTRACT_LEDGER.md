@@ -2,7 +2,7 @@
 
 ## V2-SM-2026-03-22-001
 
-reviewed_contract_hash: 52a16bc7fa5507a76a7a7ae410d629e9c14e6a3b1f60e918a57a62eb2c757e5a
+reviewed_contract_hash: 7bf742470aee564111cd5946ba7740d14a93063b061ccde6e33a0f36ec0d60da
 freeze_date: 2026-02-16
 approved_by: backend-release-owner
 approval_ref: SM-V2-2026-03-22-001
