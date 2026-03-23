@@ -1,24 +1,50 @@
 package main
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 )
 
-func TestTranslateSourceManagementAPIPathToRuntimePath(t *testing.T) {
+func TestTranslateSourceManagementAPIPathToRuntimePathFallsBackToDetailWhenWorkspaceRouteMissing(t *testing.T) {
 	got := translateSourceManagementAPIPathToRuntimePath(
-		"/admin",
 		"/admin/api/v1/esign/sources/src-123/workspace?panel=comments&anchor=thread:1",
+		map[string]string{
+			"source_detail": "/admin/esign/sources/:source_document_id",
+		},
 	)
-	want := "/admin/esign/sources/src-123/workspace?panel=comments&anchor=thread:1"
-	if got != want {
-		t.Fatalf("expected translated runtime path %q, got %q", want, got)
-	}
+	assertEquivalentRuntimeHref(t, got, "/admin/esign/sources/src-123", url.Values{
+		"panel":  []string{"comments"},
+		"anchor": []string{"thread:1"},
+	})
 }
 
-func TestSourceSearchResultRuntimeLinkPrefersBackendDrillIn(t *testing.T) {
-	link := sourceSearchResultRuntimeLink("/admin", "tenant_id=tenant-1&user_id=ops-user", services.SourceSearchResultSummary{
+func TestTranslateSourceManagementAPIPathToRuntimePathUsesWorkspaceRouteWhenRegistered(t *testing.T) {
+	got := translateSourceManagementAPIPathToRuntimePath(
+		"/admin/api/v1/esign/sources/src-123/workspace?panel=comments&anchor=thread:1",
+		map[string]string{
+			"source_detail":    "/admin/esign/sources/:source_document_id",
+			"source_workspace": "/admin/esign/sources/:source_document_id/workspace",
+		},
+	)
+	assertEquivalentRuntimeHref(t, got, "/admin/esign/sources/src-123/workspace", url.Values{
+		"panel":  []string{"comments"},
+		"anchor": []string{"thread:1"},
+	})
+}
+
+func TestSourceSearchResultRuntimeLinkPrefersBackendDrillInAndEmitsReachableWorkspaceHref(t *testing.T) {
+	routes := map[string]string{
+		"source_browser":            "/admin/esign/sources",
+		"source_search":             "/admin/esign/source-search",
+		"source_detail":             "/admin/esign/sources/:source_document_id",
+		"source_workspace":          "/admin/esign/sources/:source_document_id/workspace",
+		"source_revision":           "/admin/esign/source-revisions/:source_revision_id",
+		"source_comment_inspector":  "/admin/esign/source-revisions/:source_revision_id/comments",
+		"source_artifact_inspector": "/admin/esign/source-revisions/:source_revision_id/artifacts",
+	}
+	link := sourceSearchResultRuntimeLink(routes, "tenant_id=tenant-1&user_id=ops-user", services.SourceSearchResultSummary{
 		ResultKind: "source_revision",
 		Source: &services.LineageReference{
 			ID:    "src-123",
@@ -39,8 +65,28 @@ func TestSourceSearchResultRuntimeLinkPrefersBackendDrillIn(t *testing.T) {
 		},
 	})
 
-	want := "/admin/esign/sources/src-123/workspace?panel=comments&anchor=thread:1&tenant_id=tenant-1&user_id=ops-user"
-	if link.Href != want {
-		t.Fatalf("expected backend drill-in href %q, got %q", want, link.Href)
+	assertEquivalentRuntimeHref(t, link.Href, "/admin/esign/sources/src-123/workspace", url.Values{
+		"panel":     []string{"comments"},
+		"anchor":    []string{"thread:1"},
+		"tenant_id": []string{"tenant-1"},
+		"user_id":   []string{"ops-user"},
+	})
+	if !runtimeHrefReachable(link.Href, routes) {
+		t.Fatalf("expected drill-in href to match a registered runtime route, got %q", link.Href)
+	}
+}
+
+func assertEquivalentRuntimeHref(t *testing.T, got, wantPath string, wantQuery url.Values) {
+	t.Helper()
+
+	parsed, err := url.Parse(got)
+	if err != nil {
+		t.Fatalf("parse runtime href %q: %v", got, err)
+	}
+	if parsed.Path != wantPath {
+		t.Fatalf("expected runtime href path %q, got %q", wantPath, parsed.Path)
+	}
+	if encodedGot, encodedWant := parsed.Query().Encode(), wantQuery.Encode(); encodedGot != encodedWant {
+		t.Fatalf("expected runtime href query %q, got %q", encodedWant, encodedGot)
 	}
 }

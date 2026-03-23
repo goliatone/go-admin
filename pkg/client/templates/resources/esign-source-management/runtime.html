@@ -92,18 +92,18 @@
         </div>
         {% endif %}
 
+        {% if source_management_quick_action_links %}
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
           <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Quick Actions</h2>
           <div class="mt-4 space-y-2">
-            {% for link in source_management_nav_links %}
-            {% if link.kind != 'external' %}
+            {% for link in source_management_quick_action_links %}
             <a href="{{ link.href }}" class="block rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
               {{ link.label }}
             </a>
-            {% endif %}
             {% endfor %}
           </div>
         </div>
+        {% endif %}
       </aside>
     </div>
     {% endif %}

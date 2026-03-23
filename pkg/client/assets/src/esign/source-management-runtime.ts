@@ -2,7 +2,7 @@ import type {
   SourceArtifactPage,
   SourceCommentPage,
   SourceCommentThreadSummary,
-  SourceDetail,
+  SourceWorkspace,
   SourceManagementLinks,
   SourceListItem,
   SourceListPage,
@@ -19,13 +19,13 @@ import {
   SourceArtifactInspectorPageController,
   SourceBrowserPageController,
   SourceCommentInspectorPageController,
-  SourceDetailPageController,
+  SourceWorkspacePageController,
   SourceRevisionInspectorPageController,
   SourceSearchPageController,
   bootstrapSourceArtifactInspectorPage,
   bootstrapSourceBrowserPage,
   bootstrapSourceCommentInspectorPage,
-  bootstrapSourceDetailPage,
+  bootstrapSourceWorkspacePage,
   bootstrapSourceRevisionInspectorPage,
   bootstrapSourceSearchPage,
   registerPageController,
@@ -36,6 +36,7 @@ import { onReady } from './utils/dom-helpers.js';
 type SourceManagementRuntimePage =
   | 'admin.sources.browser'
   | 'admin.sources.detail'
+  | 'admin.sources.workspace'
   | 'admin.sources.revision_inspector'
   | 'admin.sources.comment_inspector'
   | 'admin.sources.artifact_inspector'
@@ -61,6 +62,7 @@ interface SourceManagementRuntimePageModel {
   resource_id?: string;
   scope?: SourceManagementRuntimeScope;
   nav_links?: SourceManagementRuntimeLink[];
+  quick_action_links?: SourceManagementRuntimeLink[];
   result_links?: SourceManagementRuntimeLink[];
   contract?: unknown;
 }
@@ -75,7 +77,7 @@ interface SourceManagementRuntimePageConfig {
 
 type SourceManagementRuntimeLiveController =
   | SourceBrowserPageController
-  | SourceDetailPageController
+  | SourceWorkspacePageController
   | SourceRevisionInspectorPageController
   | SourceCommentInspectorPageController
   | SourceArtifactInspectorPageController
@@ -187,15 +189,26 @@ function routeWithID(route: string | undefined, id: string | undefined): string 
     .replace(new RegExp(encodeURIComponent(':source_revision_id'), 'g'), encodeURIComponent(resourceID));
 }
 
-function appendQueryString(target: string, queryString: string): string {
+function mergeQueryString(target: string, queryString: string): string {
   const normalizedTarget = String(target ?? '').trim();
   const normalizedQuery = String(queryString ?? '').trim().replace(/^\?+/, '');
   if (!normalizedTarget || !normalizedQuery) {
     return normalizedTarget;
   }
-  return normalizedTarget.includes('?')
-    ? `${normalizedTarget}&${normalizedQuery}`
-    : `${normalizedTarget}?${normalizedQuery}`;
+  try {
+    const url = new URL(normalizedTarget, 'https://runtime.invalid');
+    const extra = new URLSearchParams(normalizedQuery);
+    extra.forEach((value, key) => {
+      if (!url.searchParams.has(key)) {
+        url.searchParams.append(key, value);
+      }
+    });
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return normalizedTarget.includes('?')
+      ? `${normalizedTarget}&${normalizedQuery}`
+      : `${normalizedTarget}?${normalizedQuery}`;
+  }
 }
 
 function currentRuntimeQueryString(): string {
@@ -205,9 +218,89 @@ function currentRuntimeQueryString(): string {
   return window.location.search.replace(/^\?+/, '').trim();
 }
 
-function runtimeUIBasePath(config: SourceManagementRuntimePageConfig): string {
-  const basePath = String(config.base_path ?? '').trim().replace(/\/+$/, '');
-  return `${basePath || ''}/esign`;
+function pathnameOfHref(href: string): string {
+  const normalizedHref = String(href ?? '').trim();
+  if (!normalizedHref) {
+    return '';
+  }
+  try {
+    return new URL(normalizedHref, 'https://runtime.invalid').pathname;
+  } catch {
+    return normalizedHref.split('?')[0] ?? '';
+  }
+}
+
+function runtimeRoutePathnames(
+  routes: Pick<SourceManagementRuntimePageConfig, 'routes'>['routes']
+): string[] {
+  if (!routes) {
+    return [];
+  }
+  return [
+    routes.source_browser,
+    routes.source_search,
+    routes.source_detail,
+    routes.source_workspace,
+    routes.source_revision,
+    routes.source_comment_inspector,
+    routes.source_artifact_inspector,
+  ]
+    .map((route) => pathnameOfHref(String(route ?? '')))
+    .filter((route) => route.length > 0);
+}
+
+function matchesRuntimeRoute(pathname: string, routePattern: string): boolean {
+  const targetSegments = pathnameOfHref(pathname).split('/').filter(Boolean);
+  const routeSegments = pathnameOfHref(routePattern).split('/').filter(Boolean);
+  if (targetSegments.length !== routeSegments.length) {
+    return false;
+  }
+  return routeSegments.every((segment, index) => segment.startsWith(':') || segment === targetSegments[index]);
+}
+
+export function isRegisteredRuntimeHref(
+  href: string | undefined,
+  routes: Pick<SourceManagementRuntimePageConfig, 'routes'>['routes']
+): boolean {
+  const pathname = pathnameOfHref(String(href ?? ''));
+  if (!pathname) {
+    return false;
+  }
+  return runtimeRoutePathnames(routes).some((routePattern) =>
+    matchesRuntimeRoute(pathname, routePattern)
+  );
+}
+
+function withTargetQuery(route: string, sourceHref: string, queryString: string): string {
+  const normalizedRoute = String(route ?? '').trim();
+  if (!normalizedRoute) {
+    return '';
+  }
+  try {
+    const routeURL = new URL(normalizedRoute, 'https://runtime.invalid');
+    const sourceURL = new URL(sourceHref, 'https://runtime.invalid');
+    sourceURL.searchParams.forEach((value, key) => {
+      if (!routeURL.searchParams.has(key)) {
+        routeURL.searchParams.append(key, value);
+      }
+    });
+    return mergeQueryString(`${routeURL.pathname}${routeURL.search}${routeURL.hash}`, queryString);
+  } catch {
+    return mergeQueryString(normalizedRoute, queryString);
+  }
+}
+
+function apiRelativePath(
+  href: string,
+  config: Pick<SourceManagementRuntimePageConfig, 'api_base_path'>
+): string {
+  const normalizedHref = String(href ?? '').trim();
+  const apiBasePath = String(config.api_base_path ?? '').trim().replace(/\/+$/, '');
+  if (!normalizedHref || !apiBasePath) {
+    return '';
+  }
+  const pathname = pathnameOfHref(normalizedHref);
+  return pathname.startsWith(apiBasePath) ? pathname.slice(apiBasePath.length) : '';
 }
 
 /**
@@ -216,20 +309,79 @@ function runtimeUIBasePath(config: SourceManagementRuntimePageConfig): string {
  */
 export function translateSourceManagementHrefToRuntime(
   href: string | undefined,
-  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path'>,
+  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path' | 'routes'>,
   queryString = currentRuntimeQueryString()
 ): string {
   const normalizedHref = String(href ?? '').trim();
-  const apiBasePath = String(config.api_base_path ?? '').trim().replace(/\/+$/, '');
   if (!normalizedHref) {
     return '';
   }
-  if (!apiBasePath || !normalizedHref.startsWith(apiBasePath)) {
-    return normalizedHref;
+  const relativePath = apiRelativePath(normalizedHref, config);
+  if (!relativePath) {
+    return isRegisteredRuntimeHref(normalizedHref, config.routes)
+      ? mergeQueryString(normalizedHref, queryString)
+      : normalizedHref.startsWith('/')
+        ? ''
+        : normalizedHref;
   }
 
-  const translated = `${runtimeUIBasePath(config as SourceManagementRuntimePageConfig)}${normalizedHref.slice(apiBasePath.length)}`;
-  return appendQueryString(translated, queryString);
+  const workspaceMatch = relativePath.match(/^\/sources\/([^/]+)\/workspace$/);
+  const detailMatch = relativePath.match(/^\/sources\/([^/]+)$/);
+  const revisionMatch = relativePath.match(/^\/source-revisions\/([^/]+)$/);
+  const commentMatch = relativePath.match(/^\/source-revisions\/([^/]+)\/comments$/);
+  const artifactMatch = relativePath.match(/^\/source-revisions\/([^/]+)\/artifacts$/);
+
+  if (relativePath === '/sources') {
+    return mergeQueryString(String(config.routes?.source_browser ?? ''), queryString);
+  }
+  if (relativePath === '/source-search') {
+    return mergeQueryString(String(config.routes?.source_search ?? ''), queryString);
+  }
+  if (workspaceMatch) {
+    const sourceID = decodeURIComponent(workspaceMatch[1] ?? '');
+    const targetRoute = String(
+      config.routes?.source_workspace ?? config.routes?.source_detail ?? ''
+    );
+    const translated = routeWithID(targetRoute, sourceID);
+    return isRegisteredRuntimeHref(translated, config.routes)
+      ? withTargetQuery(translated, normalizedHref, queryString)
+      : '';
+  }
+  if (detailMatch) {
+    const translated = routeWithID(config.routes?.source_detail, decodeURIComponent(detailMatch[1] ?? ''));
+    return isRegisteredRuntimeHref(translated, config.routes)
+      ? withTargetQuery(translated, normalizedHref, queryString)
+      : '';
+  }
+  if (commentMatch) {
+    const translated = routeWithID(
+      config.routes?.source_comment_inspector,
+      decodeURIComponent(commentMatch[1] ?? '')
+    );
+    return isRegisteredRuntimeHref(translated, config.routes)
+      ? withTargetQuery(translated, normalizedHref, queryString)
+      : '';
+  }
+  if (artifactMatch) {
+    const translated = routeWithID(
+      config.routes?.source_artifact_inspector,
+      decodeURIComponent(artifactMatch[1] ?? '')
+    );
+    return isRegisteredRuntimeHref(translated, config.routes)
+      ? withTargetQuery(translated, normalizedHref, queryString)
+      : '';
+  }
+  if (revisionMatch) {
+    const translated = routeWithID(
+      config.routes?.source_revision,
+      decodeURIComponent(revisionMatch[1] ?? '')
+    );
+    return isRegisteredRuntimeHref(translated, config.routes)
+      ? withTargetQuery(translated, normalizedHref, queryString)
+      : '';
+  }
+
+  return '';
 }
 
 function firstRuntimeLink(
@@ -259,7 +411,8 @@ export function resolveBrowserItemRuntimeHref(
   if (contractHref) {
     return contractHref;
   }
-  return routeWithID(config.routes?.source_detail, item.source?.id ?? '');
+  const fallback = routeWithID(config.routes?.source_workspace ?? config.routes?.source_detail, item.source?.id ?? '');
+  return isRegisteredRuntimeHref(fallback, config.routes) ? fallback : '';
 }
 
 export function resolveSearchResultRuntimeHref(
@@ -274,10 +427,15 @@ export function resolveSearchResultRuntimeHref(
   }
 
   if (item.result_kind === SEARCH_RESULT_KIND.SOURCE_REVISION && item.revision?.id) {
-    return routeWithID(config.routes?.source_revision, item.revision.id);
+    const revisionHref = routeWithID(config.routes?.source_revision, item.revision.id);
+    return isRegisteredRuntimeHref(revisionHref, config.routes) ? revisionHref : '';
   }
   if (item.source?.id) {
-    return routeWithID(config.routes?.source_detail, item.source.id);
+    const sourceHref = routeWithID(
+      config.routes?.source_workspace ?? config.routes?.source_detail,
+      item.source.id
+    );
+    return isRegisteredRuntimeHref(sourceHref, config.routes) ? sourceHref : '';
   }
   return '';
 }
@@ -465,42 +623,304 @@ function renderBrowserTable(
   `;
 }
 
-function renderDetailPanel(detail: SourceDetail): string {
-  if (detail.empty_state?.kind && detail.empty_state.kind !== 'none') {
-    return renderEmptyState(detail.empty_state.title ?? 'Source unavailable', detail.empty_state.description ?? '', true);
+function renderWorkspaceSection(
+  panelId: string,
+  title: string,
+  activePanel: string | undefined,
+  body: string
+): string {
+  const active = panelId === String(activePanel ?? '').trim();
+  return `
+    <section id="workspace-panel-${escapeHtml(panelId)}" class="rounded-xl border ${active ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 bg-white'} p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">${escapeHtml(title)}</h3>
+        ${active ? '<span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">Active</span>' : ''}
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
+function renderWorkspacePanelNav(
+  workspace: SourceWorkspace,
+  config: SourceManagementRuntimePageConfig
+): string {
+  const panels = workspace.panels ?? [];
+  if (panels.length === 0) {
+    return '';
+  }
+  const activePanel = String(workspace.active_panel ?? 'overview').trim();
+  return `
+    <div class="rounded-xl border border-gray-200 bg-white p-3">
+      <div class="flex flex-wrap gap-2">
+        ${panels
+          .map((panel) => {
+            const href = firstRuntimeLink(panel.links, config, 'anchor', 'workspace', 'self');
+            const isActive = panel.id === activePanel;
+            const count = panel.item_count ?? 0;
+            const classes = isActive
+              ? 'border-blue-600 bg-blue-600 text-white'
+              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50';
+            if (!href) {
+              return `
+                <span class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${classes}">
+                  <span>${escapeHtml(panel.label)}</span>
+                  <span class="${isActive ? 'text-blue-100' : 'text-gray-400'}">${escapeHtml(count)}</span>
+                </span>
+              `;
+            }
+            return `
+              <a
+                href="${escapeHtml(href)}"
+                data-runtime-workspace-link="panel"
+                class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${classes}"
+              >
+                <span>${escapeHtml(panel.label)}</span>
+                <span class="${isActive ? 'text-blue-100' : 'text-gray-400'}">${escapeHtml(count)}</span>
+              </a>
+            `;
+          })
+          .join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkspacePage(
+  workspace: SourceWorkspace,
+  _routes: Record<string, string>,
+  config: SourceManagementRuntimePageConfig
+): string {
+  if (workspace.empty_state?.kind && workspace.empty_state.kind !== 'none') {
+    return renderEmptyState(
+      workspace.empty_state.title ?? 'Workspace unavailable',
+      workspace.empty_state.description ?? '',
+      true
+    );
   }
 
+  const activePanel = String(workspace.active_panel ?? 'overview').trim();
+  const activeAnchor = String(workspace.active_anchor ?? '').trim();
+  const continuity = workspace.continuity;
+  const continuityRefs = [...(continuity.predecessors ?? []), ...(continuity.successors ?? [])];
+  const continuitySummary = continuity.summary
+    ? `<p class="text-sm text-gray-700">${escapeHtml(continuity.summary)}</p>`
+    : '<p class="text-sm text-gray-500">No continuity summary available.</p>';
+
+  const timelineBody =
+    (workspace.timeline?.entries ?? []).length > 0
+      ? `<div class="space-y-3">
+          ${workspace.timeline.entries
+            .map((entry) => {
+              const href =
+                translateSourceManagementHrefToRuntime(entry.drill_in?.href, config) ||
+                firstRuntimeLink(entry.links, config, 'anchor', 'timeline', 'workspace', 'source', 'self');
+              return `
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
+                        entry.revision?.provider_revision_hint ?? entry.revision?.id ?? 'Revision'
+                      )}</h4>
+                      <p class="mt-1 text-xs text-gray-500">${escapeHtml(entry.continuity_summary ?? 'Continuity details available from backend workspace timeline.')}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      ${entry.is_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Latest</span>' : ''}
+                      ${entry.is_repeated_handle ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Repeated Handle</span>' : ''}
+                      ${href ? `<a href="${escapeHtml(href)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
+                    </div>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+                    <span>${escapeHtml(entry.comment_count ?? 0)} comments</span>
+                    <span>${escapeHtml(entry.agreement_count ?? 0)} agreements</span>
+                    <span>${escapeHtml(entry.artifact_count ?? 0)} artifacts</span>
+                    <span>${escapeHtml(entry.handle?.external_file_id ?? entry.handle?.id ?? 'No active handle')}</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>`
+      : renderEmptyState(
+          workspace.timeline?.empty_state?.title ?? 'No revision timeline',
+          workspace.timeline?.empty_state?.description ?? 'No revisions are available in this workspace.'
+        );
+
+  const agreementsBody =
+    (workspace.agreements?.items ?? []).length > 0
+      ? `<div class="space-y-3">
+          ${workspace.agreements.items
+            .map((item) => {
+              const href = firstRuntimeLink(item.links, config, 'anchor', 'workspace', 'agreement', 'self');
+              return `
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
+                        item.agreement?.label ?? item.agreement?.id ?? 'Agreement'
+                      )}</h4>
+                      <p class="mt-1 text-xs text-gray-500">${escapeHtml(
+                        item.document?.label ?? item.document?.id ?? 'Linked document'
+                      )}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      ${statusBadge(item.status)}
+                      ${item.is_pinned_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Pinned Latest</span>' : ''}
+                      ${href ? `<a href="${escapeHtml(href)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>`
+      : renderEmptyState(
+          workspace.agreements?.empty_state?.title ?? 'No related agreements',
+          workspace.agreements?.empty_state?.description ?? 'No agreements are pinned to this source.'
+        );
+
+  const artifactsBody =
+    (workspace.artifacts?.items ?? []).length > 0
+      ? `<div class="grid gap-3">
+          ${workspace.artifacts.items
+            .map((item) => {
+              const href =
+                translateSourceManagementHrefToRuntime(item.drill_in?.href, config) ||
+                firstRuntimeLink(item.links, config, 'anchor', 'workspace', 'artifacts', 'self');
+              return `
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
+                        item.artifact?.artifact_kind ?? 'Artifact'
+                      )}</h4>
+                      <p class="mt-1 text-xs text-gray-500">${escapeHtml(
+                        item.revision?.provider_revision_hint ?? item.revision?.id ?? ''
+                      )}</p>
+                    </div>
+                    ${href ? `<a href="${escapeHtml(href)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+                    <span>${escapeHtml(item.provider?.kind ?? 'provider')}</span>
+                    <span>${escapeHtml(item.artifact?.page_count ?? 0)} pages</span>
+                    <span class="font-mono">${escapeHtml(item.artifact?.id ?? '-')}</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>`
+      : renderEmptyState(
+          workspace.artifacts?.empty_state?.title ?? 'No artifacts',
+          workspace.artifacts?.empty_state?.description ?? 'No artifacts are available in this workspace.'
+        );
+
+  const commentsBody =
+    (workspace.comments?.items ?? []).length > 0
+      ? `<div class="space-y-3">${workspace.comments.items.map(renderCommentThread).join('')}</div>`
+      : renderEmptyState(
+          workspace.comments?.empty_state?.title ?? 'No comments',
+          workspace.comments?.empty_state?.description ?? 'No comment threads are available in this workspace.'
+        );
+
+  const handlesBody =
+    (workspace.handles?.items ?? []).length > 0
+      ? `<div class="grid gap-3">
+          ${workspace.handles.items
+            .map((item) => {
+              const href = firstRuntimeLink(item.links, config, 'workspace', 'source', 'self');
+              return `
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
+                        item.external_file_id ?? item.id
+                      )}</h4>
+                      <p class="mt-1 text-xs text-gray-500">${escapeHtml(
+                        item.provider_kind ?? 'provider'
+                      )}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      ${statusBadge(item.handle_status)}
+                      ${href ? `<a href="${escapeHtml(href)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>`
+      : renderEmptyState(
+          workspace.handles?.empty_state?.title ?? 'No handles',
+          workspace.handles?.empty_state?.description ?? 'No handles are available in this workspace.'
+        );
+
   return `
-    <div class="space-y-6">
-      <div class="flex items-start justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">${escapeHtml(detail.source?.label ?? 'Source')}</h2>
-          <p class="mt-1 text-sm text-gray-500 font-mono">${escapeHtml(detail.source?.id ?? '-')}</p>
+    <div class="p-6 space-y-6">
+      <div class="rounded-xl border border-gray-200 bg-white p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">${escapeHtml(
+              workspace.source?.label ?? 'Source Workspace'
+            )}</h2>
+            <p class="mt-1 font-mono text-xs text-gray-500">${escapeHtml(
+              workspace.source?.id ?? '-'
+            )}</p>
+          </div>
+          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
         </div>
-        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
+        <div class="mt-4 flex flex-wrap gap-2">
+          ${statusBadge(workspace.status)}
+          ${workspace.lineage_confidence ? `<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">Confidence: ${escapeHtml(workspace.lineage_confidence)}</span>` : ''}
+          <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">${escapeHtml(workspace.revision_count ?? 0)} revisions</span>
+          <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">${escapeHtml(workspace.handle_count ?? 0)} handles</span>
+          ${activeAnchor ? `<span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">Anchor: ${escapeHtml(activeAnchor)}</span>` : ''}
+        </div>
       </div>
 
-      <div class="flex flex-wrap gap-2">
-        ${statusBadge(detail.status)}
-        ${detail.lineage_confidence ? `<span class="inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800">Confidence: ${escapeHtml(detail.lineage_confidence)}</span>` : ''}
-        <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">${detail.revision_count ?? 0} revisions</span>
-        ${(detail.pending_candidate_count ?? 0) > 0 ? `<span class="inline-flex items-center rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">${detail.pending_candidate_count} pending</span>` : ''}
-      </div>
+      ${renderWorkspacePanelNav(workspace, config)}
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Provider</h3>
-          <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(detail.provider?.label ?? detail.provider?.kind ?? '-')}</p>
-          <p class="mt-1 text-xs text-gray-500">${escapeHtml(detail.provider?.external_file_id ?? '-')}</p>
-        </div>
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Latest Revision</h3>
-          <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(detail.latest_revision?.provider_revision_hint ?? detail.latest_revision?.id ?? '-')}</p>
-          <p class="mt-1 text-xs text-gray-500">${formatDateTime(detail.latest_revision?.modified_time)}</p>
-        </div>
-      </div>
+      ${renderWorkspaceSection(
+        'overview',
+        'Overview',
+        activePanel,
+        `
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Provider</h4>
+              <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(workspace.provider?.label ?? workspace.provider?.kind ?? '-')}</p>
+              <p class="mt-1 text-xs text-gray-500">${escapeHtml(workspace.provider?.external_file_id ?? '-')}</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Latest Revision</h4>
+              <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(workspace.latest_revision?.provider_revision_hint ?? workspace.latest_revision?.id ?? '-')}</p>
+              <p class="mt-1 text-xs text-gray-500">${formatDateTime(workspace.latest_revision?.modified_time)}</p>
+            </div>
+          </div>
+          <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div class="mb-2 flex items-center justify-between gap-4">
+              <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Continuity</h4>
+              ${statusBadge(continuity.status)}
+            </div>
+            ${continuitySummary}
+            ${continuity.continuation ? `<p class="mt-3 text-xs text-gray-500">Continuation: ${escapeHtml(continuity.continuation.label ?? continuity.continuation.id ?? '-')}</p>` : ''}
+            ${continuityRefs.length > 0 ? `<p class="mt-2 text-xs text-gray-500">Linked sources: ${continuityRefs.map((ref) => escapeHtml(ref.label ?? ref.id ?? '-')).join(', ')}</p>` : ''}
+          </div>
+        `
+      )}
+
+      ${renderWorkspaceSection('timeline', 'Revision Timeline', activePanel, timelineBody)}
+      ${renderWorkspaceSection('agreements', 'Related Agreements', activePanel, agreementsBody)}
+      ${renderWorkspaceSection('artifacts', 'Related Artifacts', activePanel, artifactsBody)}
+      ${renderWorkspaceSection(
+        'comments',
+        'Related Comments',
+        activePanel,
+        `${workspace.comments?.sync_status ? `<div class="mb-3">${statusBadge(workspace.comments.sync_status)}</div>` : ''}${commentsBody}`
+      )}
+      ${renderWorkspaceSection('handles', 'Active Handles', activePanel, handlesBody)}
     </div>
   `;
 }
@@ -511,7 +931,7 @@ function renderRevisionInspector(detail: SourceRevisionDetail): string {
   }
 
   return `
-    <div class="space-y-6">
+    <div class="p-6 space-y-6">
       <div class="flex items-start justify-between">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">${escapeHtml(detail.revision?.provider_revision_hint ?? 'Revision')}</h2>
@@ -595,7 +1015,7 @@ function renderArtifactInspector(page: SourceArtifactPage): string {
     .join('');
 
   return `
-    <div class="space-y-4">
+    <div class="p-6 space-y-4">
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">Artifacts</h2>
@@ -645,7 +1065,7 @@ function renderCommentInspector(page: SourceCommentPage): string {
   }
 
   return `
-    <div class="space-y-4">
+    <div class="p-6 space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <h2 class="text-lg font-semibold text-gray-900">Comments</h2>
@@ -896,6 +1316,21 @@ export class SourceManagementRuntimeController {
           }
           void this.goToPage(action, page);
         }
+
+        const workspaceLink = event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>('[data-runtime-workspace-link]')
+          : null;
+        if (workspaceLink && this.liveController instanceof SourceWorkspacePageController) {
+          const href = String(workspaceLink.getAttribute('href') ?? '').trim();
+          if (href) {
+            const currentPath = pathnameOfHref(window.location.href);
+            const targetPath = pathnameOfHref(href);
+            if (currentPath === targetPath) {
+              event.preventDefault();
+              void this.liveController.navigateToHref(href);
+            }
+          }
+        }
       },
       { signal: this.abortController.signal }
     );
@@ -957,10 +1392,22 @@ export class SourceManagementRuntimeController {
           return;
         }
         register(
-          bootstrapSourceDetailPage({
+          bootstrapSourceWorkspacePage({
             apiBasePath,
             sourceId: sourceDocumentID,
-            onStateChange: (state) => this.renderDetailState(state),
+            onStateChange: (state) => this.renderWorkspaceState(state),
+          })
+        );
+        break;
+      case 'admin.sources.workspace':
+        if (!sourceDocumentID) {
+          return;
+        }
+        register(
+          bootstrapSourceWorkspacePage({
+            apiBasePath,
+            sourceId: sourceDocumentID,
+            onStateChange: (state) => this.renderWorkspaceState(state),
           })
         );
         break;
@@ -1018,7 +1465,8 @@ export class SourceManagementRuntimeController {
         this.root.innerHTML = renderBrowserTable(contract as SourceListPage, this.config.routes ?? {}, this.config);
         return;
       case 'admin.sources.detail':
-        this.root.innerHTML = renderDetailPanel(contract as SourceDetail);
+      case 'admin.sources.workspace':
+        this.root.innerHTML = renderWorkspacePage(contract as SourceWorkspace, this.config.routes ?? {}, this.config);
         return;
       case 'admin.sources.revision_inspector':
         this.root.innerHTML = renderRevisionInspector(contract as SourceRevisionDetail);
@@ -1053,7 +1501,7 @@ export class SourceManagementRuntimeController {
     }
   }
 
-  private renderDetailState(state: SourceManagementPageState<{ sourceDetail: SourceDetail }>): void {
+  private renderWorkspaceState(state: SourceManagementPageState<{ workspace: SourceWorkspace }>): void {
     if (state.loading && !this.hasLiveContract && this.model.contract) {
       return;
     }
@@ -1065,9 +1513,9 @@ export class SourceManagementRuntimeController {
       this.root.innerHTML = renderErrorState(state.error);
       return;
     }
-    if (state.contracts?.sourceDetail) {
+    if (state.contracts?.workspace) {
       this.hasLiveContract = true;
-      this.root.innerHTML = renderDetailPanel(state.contracts.sourceDetail);
+      this.root.innerHTML = renderWorkspacePage(state.contracts.workspace, this.config.routes ?? {}, this.config);
     }
   }
 

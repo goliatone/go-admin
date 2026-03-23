@@ -1014,6 +1014,11 @@ func main() {
 	if scopeDebugEnabled {
 		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
+	if debugEnabled {
+		if err := registerDebugCompatibilityRoutes(r, adm, adminAPIBasePath); err != nil {
+			log.Printf("warning: failed to register debug compatibility routes: %v", err)
+		}
+	}
 
 	// Test error route for dev error page testing (only in dev mode)
 	if isDev {

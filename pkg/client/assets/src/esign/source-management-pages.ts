@@ -24,10 +24,12 @@ import type {
   SourceArtifactPage,
   SourceCommentPage,
   SourceSearchResults,
+  SourceWorkspace,
   SourceListQuery,
   SourceCommentListQuery,
   SourceRevisionListQuery,
   Phase13SourceSearchQuery,
+  SourceWorkspaceQuery,
   ReconciliationQueuePage,
   ReconciliationCandidateDetail,
   ReconciliationQueueQuery,
@@ -35,10 +37,13 @@ import type {
   ReconciliationReviewResponse,
 } from './lineage-contracts.js';
 
+import { normalizeSourceWorkspace } from './lineage-contracts.js';
+
 import type {
   SourceBrowserPageContracts,
   SourceCommentInspectorPageContracts,
   SourceDetailPageContracts,
+  SourceWorkspacePageContracts,
   SourceRevisionDetailPageContracts,
   SourceRevisionTimelinePageContracts,
   SourceArtifactInspectorPageContracts,
@@ -288,6 +293,29 @@ function buildSourceSearchQueryString(query: Phase13SourceSearchQuery): string {
   if (query.page && query.page !== 1) params.set('page', String(query.page));
   if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
 
+  return params.toString();
+}
+
+function extractSourceWorkspaceQuery(params: URLSearchParams): SourceWorkspaceQuery {
+  return {
+    panel: params.get('panel') ?? undefined,
+    anchor: params.get('anchor') ?? undefined,
+  };
+}
+
+function buildSourceWorkspaceQueryParamUpdates(
+  query: Partial<SourceWorkspaceQuery>
+): Record<string, string | number | boolean | undefined> {
+  return {
+    panel: query.panel,
+    anchor: query.anchor,
+  };
+}
+
+function buildSourceWorkspaceQueryString(query: SourceWorkspaceQuery): string {
+  const params = new URLSearchParams();
+  if (query.panel) params.set('panel', query.panel);
+  if (query.anchor) params.set('anchor', query.anchor);
   return params.toString();
 }
 
@@ -608,6 +636,118 @@ export function bootstrapSourceDetailPage(
   const controller = new SourceDetailPageController(config);
   controller.init().catch((error) => {
     console.error('[SourceDetailPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
+// Source Workspace Page
+// ============================================================================
+
+export interface SourceWorkspacePageConfig {
+  apiBasePath: string;
+  sourceId: string;
+  containerSelector?: string;
+  onStateChange?: (state: SourceManagementPageState<SourceWorkspacePageContracts>) => void;
+}
+
+export class SourceWorkspacePageController {
+  private readonly config: SourceWorkspacePageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<SourceWorkspacePageContracts>;
+
+  constructor(config: SourceWorkspacePageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'source-workspace',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'sources/:id/workspace',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['sources/:id/workspace']);
+    if (!validation.valid) {
+      console.error('[SourceWorkspacePage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  async init(): Promise<void> {
+    const params = parseQueryParams();
+    const query = extractSourceWorkspaceQuery(params);
+    await this.fetchWorkspace(query);
+  }
+
+  async fetchWorkspace(query: SourceWorkspaceQuery): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const queryString = buildSourceWorkspaceQueryString(query);
+      const suffix = queryString ? `?${queryString}` : '';
+      const url = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${suffix}`;
+      const workspace = normalizeSourceWorkspace(await fetchJSON<unknown>(url));
+
+      const contracts: SourceWorkspacePageContracts = {
+        workspace,
+        query,
+        links: workspace.links,
+        permissions: workspace.permissions,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  async refresh(): Promise<void> {
+    const query = this.state.contracts?.query ?? extractSourceWorkspaceQuery(parseQueryParams());
+    await this.fetchWorkspace(query);
+  }
+
+  async navigateToHref(href: string): Promise<void> {
+    const target = String(href ?? '').trim();
+    if (!target || typeof window === 'undefined') {
+      return;
+    }
+    const currentURL = new URL(window.location.href);
+    const nextURL = new URL(target, currentURL.origin);
+    if (currentURL.pathname !== nextURL.pathname) {
+      window.location.assign(nextURL.toString());
+      return;
+    }
+    const query = extractSourceWorkspaceQuery(nextURL.searchParams);
+    updateQueryParams(buildSourceWorkspaceQueryParamUpdates(query));
+    await this.fetchWorkspace(query);
+  }
+
+  getState(): SourceManagementPageState<SourceWorkspacePageContracts> {
+    return this.state;
+  }
+
+  private setState(state: SourceManagementPageState<SourceWorkspacePageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+export function bootstrapSourceWorkspacePage(
+  config: SourceWorkspacePageConfig
+): SourceWorkspacePageController {
+  const controller = new SourceWorkspacePageController(config);
+  controller.init().catch((error) => {
+    console.error('[SourceWorkspacePage] Initialization failed:', error);
   });
   return controller;
 }
@@ -1514,6 +1654,7 @@ export function registerPageController(
   controller:
     | SourceBrowserPageController
     | SourceDetailPageController
+    | SourceWorkspacePageController
     | SourceRevisionTimelinePageController
     | SourceRevisionInspectorPageController
     | SourceCommentInspectorPageController

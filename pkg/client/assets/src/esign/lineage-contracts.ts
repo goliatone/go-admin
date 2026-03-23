@@ -878,6 +878,18 @@ export interface SourceWorkspaceDrillIn {
   href: string;
 }
 
+export const SOURCE_WORKSPACE_PANEL = {
+  OVERVIEW: 'overview',
+  TIMELINE: 'timeline',
+  AGREEMENTS: 'agreements',
+  ARTIFACTS: 'artifacts',
+  COMMENTS: 'comments',
+  HANDLES: 'handles',
+} as const;
+
+export type SourceWorkspacePanel =
+  (typeof SOURCE_WORKSPACE_PANEL)[keyof typeof SOURCE_WORKSPACE_PANEL];
+
 /**
  * Source list item for source browser display.
  */
@@ -999,6 +1011,43 @@ export interface SourceRelationshipPage {
 }
 
 /**
+ * Source agreement summary for source workspace agreement drill-ins.
+ */
+export interface SourceAgreementSummary {
+  agreement: LineageReference | null;
+  document: LineageReference | null;
+  pinned_source_revision: SourceRevisionSummary | null;
+  status?: string;
+  workflow_kind?: string;
+  is_pinned_latest: boolean;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source agreement list query parameters.
+ */
+export interface SourceAgreementListQuery {
+  status?: string;
+  source_revision_id?: string;
+  sort?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Source agreement page response.
+ */
+export interface SourceAgreementPage {
+  source: LineageReference | null;
+  items: SourceAgreementSummary[];
+  page_info: SourceManagementPageInfo;
+  applied_query: SourceAgreementListQuery;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
  * Source handle page response.
  */
 export interface SourceHandlePage {
@@ -1040,12 +1089,15 @@ export interface SourceArtifactPage {
  * Source comment page response.
  */
 export interface SourceCommentPage {
+  source?: LineageReference | null;
   revision: SourceRevisionSummary | null;
   items: SourceCommentThreadSummary[];
+  applied_query?: SourceCommentListQuery;
   page_info: SourceManagementPageInfo;
   permissions: SourceManagementPermissions;
   empty_state: LineageEmptyState;
   sync_status: string;
+  sync?: SourceCommentSyncSummary;
   links: SourceManagementLinks;
 }
 
@@ -1059,6 +1111,116 @@ export interface SourceSearchResults {
   permissions: SourceManagementPermissions;
   empty_state: LineageEmptyState;
   links: SourceManagementLinks;
+}
+
+/**
+ * Source workspace query parameters.
+ */
+export interface SourceWorkspaceQuery {
+  panel?: string;
+  anchor?: string;
+}
+
+/**
+ * Workspace panel summary for canonical source workspace navigation.
+ */
+export interface SourceWorkspacePanelSummary {
+  id: string;
+  label: string;
+  item_count?: number;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Timeline entry for source revision continuity.
+ */
+export interface SourceRevisionTimelineEntry {
+  revision: SourceRevisionSummary | null;
+  handle: SourceHandleSummary | null;
+  primary_artifact: SourceArtifactSummary | null;
+  comment_count?: number;
+  agreement_count?: number;
+  artifact_count?: number;
+  is_latest: boolean;
+  is_repeated_handle: boolean;
+  continuity_summary?: string;
+  drill_in?: SourceWorkspaceDrillIn;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Revision timeline section of the source workspace.
+ */
+export interface SourceRevisionTimeline {
+  entries: SourceRevisionTimelineEntry[];
+  repeated_handle_count?: number;
+  handle_transition_count?: number;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Workspace-scoped artifact summary.
+ */
+export interface SourceWorkspaceArtifactSummary {
+  artifact: SourceArtifactSummary | null;
+  revision: SourceRevisionSummary | null;
+  provider: SourceProviderSummary | null;
+  drill_in?: SourceWorkspaceDrillIn;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Workspace artifact page response.
+ */
+export interface SourceWorkspaceArtifactPage {
+  source: LineageReference | null;
+  items: SourceWorkspaceArtifactSummary[];
+  page_info: SourceManagementPageInfo;
+  permissions: SourceManagementPermissions;
+  empty_state: LineageEmptyState;
+  links: SourceManagementLinks;
+}
+
+/**
+ * Source continuity summary for workspace header/context.
+ */
+export interface SourceContinuitySummary {
+  status?: string;
+  summary?: string;
+  continuation: LineageReference | null;
+  predecessors: LineageReference[];
+  successors: LineageReference[];
+  links: SourceManagementLinks;
+}
+
+/**
+ * Canonical source workspace response.
+ */
+export interface SourceWorkspace {
+  source: LineageReference | null;
+  status: string;
+  lineage_confidence: string;
+  provider: SourceProviderSummary | null;
+  active_handle: SourceHandleSummary | null;
+  latest_revision: SourceRevisionSummary | null;
+  revision_count: number;
+  handle_count: number;
+  relationship_count: number;
+  pending_candidate_count: number;
+  active_panel?: string;
+  active_anchor?: string;
+  panels: SourceWorkspacePanelSummary[];
+  continuity: SourceContinuitySummary;
+  timeline: SourceRevisionTimeline;
+  agreements: SourceAgreementPage;
+  artifacts: SourceWorkspaceArtifactPage;
+  comments: Phase13SourceCommentPage;
+  handles: SourceHandlePage;
+  permissions: SourceManagementPermissions;
+  links: SourceManagementLinks;
+  empty_state: LineageEmptyState;
 }
 
 /**
@@ -1493,7 +1655,9 @@ export function normalizePhase13SourceSearchResultSummary(
   };
 }
 
-function normalizeSourceWorkspaceDrillIn(value: unknown): SourceWorkspaceDrillIn | undefined {
+export function normalizeSourceWorkspaceDrillIn(
+  value: unknown
+): SourceWorkspaceDrillIn | undefined {
   const record = asRecord(value);
   const href = asOptionalString(record.href);
   const panel = asOptionalString(record.panel);
@@ -1504,6 +1668,175 @@ function normalizeSourceWorkspaceDrillIn(value: unknown): SourceWorkspaceDrillIn
     panel,
     anchor: asOptionalString(record.anchor),
     href,
+  };
+}
+
+export function normalizeSourceWorkspaceQuery(value: unknown): SourceWorkspaceQuery {
+  const record = asRecord(value);
+  return {
+    panel: asOptionalString(record.panel),
+    anchor: asOptionalString(record.anchor),
+  };
+}
+
+export function normalizeSourceAgreementSummary(value: unknown): SourceAgreementSummary {
+  const record = asRecord(value);
+  return {
+    agreement: normalizeLineageReference(record.agreement),
+    document: normalizeLineageReference(record.document),
+    pinned_source_revision: normalizeSourceRevisionSummary(record.pinned_source_revision),
+    status: asOptionalString(record.status),
+    workflow_kind: asOptionalString(record.workflow_kind),
+    is_pinned_latest: asBoolean(record.is_pinned_latest),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceAgreementListQuery(value: unknown): SourceAgreementListQuery {
+  const record = asRecord(value);
+  return {
+    status: asOptionalString(record.status),
+    source_revision_id: asOptionalString(record.source_revision_id),
+    sort: asOptionalString(record.sort),
+    page: asOptionalNumber(record.page),
+    page_size: asOptionalNumber(record.page_size),
+  };
+}
+
+export function normalizeSourceAgreementPage(value: unknown): SourceAgreementPage {
+  const record = asRecord(value);
+  return {
+    source: normalizeLineageReference(record.source),
+    items: Array.isArray(record.items) ? record.items.map(normalizeSourceAgreementSummary) : [],
+    page_info: normalizeSourceManagementPageInfo(record.page_info),
+    applied_query: normalizeSourceAgreementListQuery(record.applied_query),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceWorkspacePanelSummary(
+  value: unknown
+): SourceWorkspacePanelSummary {
+  const record = asRecord(value);
+  return {
+    id: asString(record.id),
+    label: asString(record.label),
+    item_count: asOptionalNumber(record.item_count),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceRevisionTimelineEntry(
+  value: unknown
+): SourceRevisionTimelineEntry {
+  const record = asRecord(value);
+  return {
+    revision: normalizeSourceRevisionSummary(record.revision),
+    handle: normalizeSourceHandleSummary(record.handle),
+    primary_artifact: normalizeSourceArtifactSummary(record.primary_artifact),
+    comment_count: asOptionalNumber(record.comment_count),
+    agreement_count: asOptionalNumber(record.agreement_count),
+    artifact_count: asOptionalNumber(record.artifact_count),
+    is_latest: asBoolean(record.is_latest),
+    is_repeated_handle: asBoolean(record.is_repeated_handle),
+    continuity_summary: asOptionalString(record.continuity_summary),
+    drill_in: normalizeSourceWorkspaceDrillIn(record.drill_in),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceRevisionTimeline(value: unknown): SourceRevisionTimeline {
+  const record = asRecord(value);
+  return {
+    entries: Array.isArray(record.entries)
+      ? record.entries.map(normalizeSourceRevisionTimelineEntry)
+      : [],
+    repeated_handle_count: asOptionalNumber(record.repeated_handle_count),
+    handle_transition_count: asOptionalNumber(record.handle_transition_count),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceWorkspaceArtifactSummary(
+  value: unknown
+): SourceWorkspaceArtifactSummary {
+  const record = asRecord(value);
+  return {
+    artifact: normalizeSourceArtifactSummary(record.artifact),
+    revision: normalizeSourceRevisionSummary(record.revision),
+    provider: normalizeSourceProviderSummary(record.provider),
+    drill_in: normalizeSourceWorkspaceDrillIn(record.drill_in),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceWorkspaceArtifactPage(
+  value: unknown
+): SourceWorkspaceArtifactPage {
+  const record = asRecord(value);
+  return {
+    source: normalizeLineageReference(record.source),
+    items: Array.isArray(record.items)
+      ? record.items.map(normalizeSourceWorkspaceArtifactSummary)
+      : [],
+    page_info: normalizeSourceManagementPageInfo(record.page_info),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceContinuitySummary(value: unknown): SourceContinuitySummary {
+  const record = asRecord(value);
+  return {
+    status: asOptionalString(record.status),
+    summary: asOptionalString(record.summary),
+    continuation: normalizeLineageReference(record.continuation),
+    predecessors: Array.isArray(record.predecessors)
+      ? record.predecessors
+          .map((entry) => normalizeLineageReference(entry))
+          .filter((entry): entry is LineageReference => entry !== null)
+      : [],
+    successors: Array.isArray(record.successors)
+      ? record.successors
+          .map((entry) => normalizeLineageReference(entry))
+          .filter((entry): entry is LineageReference => entry !== null)
+      : [],
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+export function normalizeSourceWorkspace(value: unknown): SourceWorkspace {
+  const record = asRecord(value);
+  return {
+    source: normalizeLineageReference(record.source),
+    status: asString(record.status),
+    lineage_confidence: asString(record.lineage_confidence),
+    provider: normalizeSourceProviderSummary(record.provider),
+    active_handle: normalizeSourceHandleSummary(record.active_handle),
+    latest_revision: normalizeSourceRevisionSummary(record.latest_revision),
+    revision_count: asNumber(record.revision_count),
+    handle_count: asNumber(record.handle_count),
+    relationship_count: asNumber(record.relationship_count),
+    pending_candidate_count: asNumber(record.pending_candidate_count),
+    active_panel: asOptionalString(record.active_panel),
+    active_anchor: asOptionalString(record.active_anchor),
+    panels: Array.isArray(record.panels)
+      ? record.panels.map(normalizeSourceWorkspacePanelSummary)
+      : [],
+    continuity: normalizeSourceContinuitySummary(record.continuity),
+    timeline: normalizeSourceRevisionTimeline(record.timeline),
+    agreements: normalizeSourceAgreementPage(record.agreements),
+    artifacts: normalizeSourceWorkspaceArtifactPage(record.artifacts),
+    comments: normalizePhase13SourceCommentPage(record.comments),
+    handles: normalizeSourceHandlePage(record.handles),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    links: asRecord(record.links) as SourceManagementLinks,
+    empty_state: normalizeLineageEmptyState(record.empty_state),
   };
 }
 
@@ -1576,6 +1909,45 @@ function normalizeSourceManagementPermissions(value: unknown): SourceManagementP
     can_open_provider_links: asBoolean(record.can_open_provider_links),
     can_review_candidates: asBoolean(record.can_review_candidates),
     can_view_comments: asBoolean(record.can_view_comments),
+  };
+}
+
+function normalizeSourceHandleSummary(value: unknown): SourceHandleSummary | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = asRecord(value);
+  const id = asString(record.id);
+  if (!id) {
+    return null;
+  }
+  return {
+    id,
+    provider_kind: asString(record.provider_kind),
+    external_file_id: asString(record.external_file_id),
+    account_id: asOptionalString(record.account_id),
+    drive_id: asOptionalString(record.drive_id),
+    web_url: asOptionalString(record.web_url),
+    handle_status: asString(record.handle_status),
+    valid_from: asOptionalString(record.valid_from),
+    valid_to: asOptionalString(record.valid_to),
+    links: asRecord(record.links) as SourceManagementLinks,
+  };
+}
+
+function normalizeSourceHandlePage(value: unknown): SourceHandlePage {
+  const record = asRecord(value);
+  return {
+    source: normalizeLineageReference(record.source),
+    items: Array.isArray(record.items)
+      ? record.items
+          .map((item) => normalizeSourceHandleSummary(item))
+          .filter((item): item is SourceHandleSummary => item !== null)
+      : [],
+    page_info: normalizeSourceManagementPageInfo(record.page_info),
+    permissions: normalizeSourceManagementPermissions(record.permissions),
+    empty_state: normalizeLineageEmptyState(record.empty_state),
+    links: asRecord(record.links) as SourceManagementLinks,
   };
 }
 
@@ -1950,7 +2322,7 @@ export function normalizeReconciliationQueueSourceSummary(
     status: asString(record.status),
     lineage_confidence: asString(record.lineage_confidence),
     provider: normalizeSourceProviderSummary(record.provider) ?? undefined,
-    active_handle: normalizeSourceHandleSummary(record.active_handle),
+    active_handle: normalizeSourceHandleSummary(record.active_handle) ?? undefined,
     latest_revision: normalizeSourceRevisionSummary(record.latest_revision) ?? undefined,
     pending_candidate_count: asOptionalNumber(record.pending_candidate_count),
     permissions: normalizeSourceManagementPermissions(record.permissions),
@@ -2087,30 +2459,6 @@ export function normalizeReconciliationReviewResponse(
             : {}),
         }
       : undefined,
-  };
-}
-
-// Internal helper for source handle summary normalization
-function normalizeSourceHandleSummary(value: unknown): SourceHandleSummary | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined;
-  }
-  const record = asRecord(value);
-  const id = asString(record.id);
-  if (!id) {
-    return undefined;
-  }
-  return {
-    id,
-    provider_kind: asString(record.provider_kind),
-    external_file_id: asString(record.external_file_id),
-    account_id: asOptionalString(record.account_id),
-    drive_id: asOptionalString(record.drive_id),
-    web_url: asOptionalString(record.web_url),
-    handle_status: asString(record.handle_status),
-    valid_from: asOptionalString(record.valid_from),
-    valid_to: asOptionalString(record.valid_to),
-    links: asRecord(record.links) as SourceManagementLinks,
   };
 }
 

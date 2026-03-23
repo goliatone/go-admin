@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -30,6 +31,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 		expectedPage string
 		expectedText []string
 		assertModel  func(t *testing.T, payload map[string]any)
+		assertHTML   func(t *testing.T, app *fiber.App, authCookie *http.Cookie, html string)
 	}{
 		{
 			name:         "source browser",
@@ -55,6 +57,54 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 				}
 				if strings.TrimSpace(rawToString(payload["resource_id"])) == "" {
 					t.Fatalf("expected source detail resource id, got %+v", payload)
+				}
+				assertCanonicalWorkspaceContract(t, payload)
+			},
+			assertHTML: func(t *testing.T, app *fiber.App, authCookie *http.Cookie, html string) {
+				t.Helper()
+				detailModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
+				detailContract := assertCanonicalWorkspaceContract(t, detailModel)
+
+				resp := doRequestWithCookie(t, app, http.MethodGet, urls.SourceWorkspaceURL, authCookie)
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					body, _ := io.ReadAll(resp.Body)
+					t.Fatalf("expected source workspace page status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+				}
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("read source workspace alias comparison body: %v", err)
+				}
+				workspaceModel := extractJSONScriptPayloadFromHTML(t, string(body), "source-management-page-model")
+				workspaceContract := assertCanonicalWorkspaceContract(t, workspaceModel)
+
+				detailSource, _ := detailContract["source"].(map[string]any)
+				workspaceSource, _ := workspaceContract["source"].(map[string]any)
+				if got, want := strings.TrimSpace(rawToString(detailSource["id"])), strings.TrimSpace(rawToString(workspaceSource["id"])); got != want {
+					t.Fatalf("expected detail alias source id %q to match workspace source id %q", got, want)
+				}
+				detailRevision, _ := detailContract["latest_revision"].(map[string]any)
+				workspaceRevision, _ := workspaceContract["latest_revision"].(map[string]any)
+				if got, want := strings.TrimSpace(rawToString(detailRevision["id"])), strings.TrimSpace(rawToString(workspaceRevision["id"])); got != want {
+					t.Fatalf("expected detail alias latest revision %q to match workspace latest revision %q", got, want)
+				}
+				if got, want := strings.TrimSpace(rawToString(detailContract["active_panel"])), strings.TrimSpace(rawToString(workspaceContract["active_panel"])); got != want {
+					t.Fatalf("expected detail alias active panel %q to match workspace active panel %q", got, want)
+				}
+			},
+		},
+		{
+			name:         "source workspace",
+			endpoint:     urls.SourceWorkspaceURL,
+			expectedPage: eSignPageSourceWorkspace,
+			expectedText: []string{"Source Workspace", "Canonical Workspace", "Workspace"},
+			assertModel: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				if got := strings.TrimSpace(rawToString(payload["surface"])); got != "source_workspace" {
+					t.Fatalf("expected source_workspace surface, got %q", got)
+				}
+				if strings.TrimSpace(rawToString(payload["resource_id"])) == "" {
+					t.Fatalf("expected source workspace resource id, got %+v", payload)
 				}
 			},
 		},
@@ -109,6 +159,30 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 					t.Fatalf("expected search result drill-ins, got %+v", payload["result_links"])
 				}
 			},
+			assertHTML: func(t *testing.T, app *fiber.App, authCookie *http.Cookie, html string) {
+				t.Helper()
+				pageModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
+				rawLinks, ok := pageModel["result_links"].([]any)
+				if !ok || len(rawLinks) == 0 {
+					t.Fatalf("expected search result drill-ins, got %+v", pageModel["result_links"])
+				}
+				for _, rawLink := range rawLinks {
+					link, ok := rawLink.(map[string]any)
+					if !ok {
+						continue
+					}
+					href := strings.TrimSpace(rawToString(link["href"]))
+					if href == "" {
+						t.Fatalf("expected reachable result link href, got %+v", link)
+					}
+					resp := doRequestWithCookie(t, app, http.MethodGet, href, authCookie)
+					defer resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						body, _ := io.ReadAll(resp.Body)
+						t.Fatalf("expected translated result link %q to return 200, got %d body=%s", href, resp.StatusCode, strings.TrimSpace(string(body)))
+					}
+				}
+			},
 		},
 	}
 
@@ -150,6 +224,9 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			pageModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
 			tc.assertModel(t, pageModel)
 			assertSourceManagementShellMatchesModel(t, html, pageModel)
+			if tc.assertHTML != nil {
+				tc.assertHTML(t, fixture.App, authCookie, html)
+			}
 		})
 	}
 }
@@ -251,6 +328,27 @@ func stripScriptsFromHTML(html string) string {
 	return re.ReplaceAllString(html, "")
 }
 
+func assertCanonicalWorkspaceContract(t *testing.T, payload map[string]any) map[string]any {
+	t.Helper()
+
+	contract, ok := payload["contract"].(map[string]any)
+	if !ok || contract == nil {
+		t.Fatalf("expected canonical workspace contract object, got %+v", payload["contract"])
+	}
+	if strings.TrimSpace(rawToString(contract["active_panel"])) == "" {
+		t.Fatalf("expected canonical workspace contract to publish active_panel, got %+v", contract)
+	}
+	if panels, ok := contract["panels"].([]any); !ok || len(panels) == 0 {
+		t.Fatalf("expected canonical workspace contract to publish panel summaries, got %+v", contract["panels"])
+	}
+	for _, key := range []string{"timeline", "agreements", "artifacts", "comments", "handles", "continuity"} {
+		if _, ok := contract[key].(map[string]any); !ok {
+			t.Fatalf("expected canonical workspace contract to publish %q section, got %+v", key, contract[key])
+		}
+	}
+	return contract
+}
+
 func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageModel map[string]any) {
 	t.Helper()
 
@@ -277,6 +375,30 @@ func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageMode
 
 	switch surface {
 	case "source_detail", "source_revision", "source_comments", "source_artifacts":
+		quickActions, _ := pageModel["quick_action_links"].([]any)
+		if len(quickActions) > 0 {
+			if !strings.Contains(rendered, "Quick Actions") {
+				t.Fatalf("expected rendered source-management shell to include Quick Actions heading for surface %q", surface)
+			}
+			for _, raw := range quickActions {
+				link, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				label := strings.TrimSpace(rawToString(link["label"]))
+				href := strings.TrimSpace(rawToString(link["href"]))
+				if label != "" && !strings.Contains(rendered, label) {
+					t.Fatalf("expected rendered source-management shell to include quick action label %q for surface %q", label, surface)
+				}
+				hrefPath := strings.TrimSpace(strings.SplitN(href, "?", 2)[0])
+				if hrefPath != "" && !strings.Contains(rendered, `href="`+hrefPath) {
+					t.Fatalf("expected rendered source-management shell to include quick action href path %q for surface %q", hrefPath, surface)
+				}
+			}
+		} else if strings.Contains(rendered, "Quick Actions") {
+			t.Fatalf("expected rendered source-management shell to omit Quick Actions heading when no quick actions exist for surface %q", surface)
+		}
+
 		if highlights, ok := pageModel["highlights"].([]any); ok {
 			for _, raw := range highlights {
 				highlight, ok := raw.(map[string]any)
@@ -310,6 +432,23 @@ func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageMode
 					t.Fatalf("expected rendered source-management shell to include result href path %q for surface %q", hrefPath, surface)
 				}
 			}
+		}
+	}
+}
+
+func TestNonExternalRuntimeLinksFiltersExternalLinks(t *testing.T) {
+	links := nonExternalRuntimeLinks(
+		sourceManagementRuntimeLink("Open in Provider", "https://example.com/provider", "external"),
+		sourceManagementRuntimeLink("Source", "/admin/esign/sources/source-1", "secondary"),
+		sourceManagementRuntimeLink("Revision", "/admin/esign/source-revisions/rev-1", "primary"),
+	)
+
+	if len(links) != 2 {
+		t.Fatalf("expected 2 non-external runtime links, got %d: %+v", len(links), links)
+	}
+	for _, link := range links {
+		if strings.EqualFold(strings.TrimSpace(link.Kind), "external") {
+			t.Fatalf("expected external links to be filtered out, got %+v", links)
 		}
 	}
 }

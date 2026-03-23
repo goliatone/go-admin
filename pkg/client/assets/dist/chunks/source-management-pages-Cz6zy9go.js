@@ -1,4 +1,5 @@
-function z(e) {
+import { P as f } from "./lineage-contracts-Clh6Zaep.js";
+function B(e) {
   return {
     workspaceId: e,
     panels: {
@@ -79,7 +80,7 @@ function z(e) {
     error: null
   };
 }
-function A() {
+function F() {
   return {
     workspaceId: "source-search",
     panels: {
@@ -130,10 +131,11 @@ function r(e, t) {
     warnings: s
   };
 }
-function D(e) {
+function U(e) {
   const t = [
     "SourceListPage",
     "SourceDetail",
+    "SourceWorkspace",
     "SourceRevisionPage",
     "SourceRelationshipPage",
     "SourceHandlePage",
@@ -144,7 +146,7 @@ function D(e) {
   ], a = ["DocumentLineageDetail", "AgreementLineageDetail"], s = e.some((l) => t.includes(l)), n = e.some((l) => a.includes(l));
   return s && n;
 }
-var L = {
+var N = {
   version: 1,
   enforcementLevel: "strict",
   approvedContracts: [
@@ -170,7 +172,7 @@ var L = {
     "No client-side lineage computation",
     "Provider-neutral by default"
   ]
-}, T = {
+}, x = {
   version: 1,
   phase: 13,
   enforcementLevel: "strict",
@@ -235,7 +237,7 @@ var L = {
       orchestrationMode: "search-driven"
     }
   }
-}, E = {
+}, M = {
   version: 2,
   phase: 14,
   documentationDate: "2025-03-22",
@@ -410,7 +412,7 @@ function o(e) {
     n == null || n === "" ? a.delete(s) : a.set(s, String(n));
   }), t.search = a.toString(), history.pushState({}, "", t.toString());
 }
-function g(e) {
+function h(e) {
   return {
     q: e.query,
     query: void 0,
@@ -422,7 +424,7 @@ function g(e) {
     page_size: e.page_size
   };
 }
-function m(e) {
+function S(e) {
   const t = Number.parseInt(e.get("page") ?? "1", 10), a = Number.parseInt(e.get("page_size") ?? "20", 10);
   return {
     query: e.get("q") ?? e.get("query") ?? void 0,
@@ -434,7 +436,7 @@ function m(e) {
     page_size: a > 0 ? a : 20
   };
 }
-function f(e) {
+function v(e) {
   const t = Number.parseInt(e.get("page") ?? "1", 10), a = Number.parseInt(e.get("page_size") ?? "20", 10);
   return {
     sort: e.get("sort") ?? void 0,
@@ -451,7 +453,7 @@ function u(e) {
     page_size: a > 0 ? a : 20
   };
 }
-function h(e) {
+function p(e) {
   const t = Number.parseInt(e.get("page") ?? "1", 10), a = Number.parseInt(e.get("page_size") ?? "20", 10);
   return {
     query: e.get("q") ?? e.get("query") ?? void 0,
@@ -467,19 +469,19 @@ function h(e) {
     has_comments: e.get("has_comments") === "true" ? !0 : void 0
   };
 }
-function S(e) {
+function P(e) {
   const t = new URLSearchParams();
   return e.query && t.set("q", e.query), e.provider_kind && t.set("provider_kind", e.provider_kind), e.status && t.set("status", e.status), e.has_pending_candidates !== void 0 && t.set("has_pending_candidates", String(e.has_pending_candidates)), e.sort && t.set("sort", e.sort), e.page && e.page !== 1 && t.set("page", String(e.page)), e.page_size && e.page_size !== 20 && t.set("page_size", String(e.page_size)), t.toString();
 }
-function v(e) {
+function w(e) {
   const t = new URLSearchParams();
   return e.sort && t.set("sort", e.sort), e.page && e.page !== 1 && t.set("page", String(e.page)), e.page_size && e.page_size !== 20 && t.set("page_size", String(e.page_size)), t.toString();
 }
-function P(e) {
+function _(e) {
   const t = new URLSearchParams();
   return e.status && t.set("status", e.status), e.sync_status && t.set("sync_status", e.sync_status), e.page && e.page !== 1 && t.set("page", String(e.page)), e.page_size && e.page_size !== 20 && t.set("page_size", String(e.page_size)), t.toString();
 }
-function p(e) {
+function m(e) {
   return {
     q: e.query,
     query: void 0,
@@ -495,11 +497,27 @@ function p(e) {
     page_size: e.page_size
   };
 }
-function _(e) {
+function y(e) {
   const t = new URLSearchParams();
   return e.query && t.set("q", e.query), e.provider_kind && t.set("provider_kind", e.provider_kind), e.status && t.set("status", e.status), e.result_kind && t.set("result_kind", e.result_kind), e.relationship_state && t.set("relationship_state", e.relationship_state), e.comment_sync_status && t.set("comment_sync_status", e.comment_sync_status), e.revision_hint && t.set("revision_hint", e.revision_hint), e.has_comments !== void 0 && t.set("has_comments", String(e.has_comments)), e.sort && t.set("sort", e.sort), e.page && e.page !== 1 && t.set("page", String(e.page)), e.page_size && e.page_size !== 20 && t.set("page_size", String(e.page_size)), t.toString();
 }
-var w = class {
+function d(e) {
+  return {
+    panel: e.get("panel") ?? void 0,
+    anchor: e.get("anchor") ?? void 0
+  };
+}
+function C(e) {
+  return {
+    panel: e.panel,
+    anchor: e.anchor
+  };
+}
+function k(e) {
+  const t = new URLSearchParams();
+  return e.panel && t.set("panel", e.panel), e.anchor && t.set("anchor", e.anchor), t.toString();
+}
+var b = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-browser",
@@ -515,7 +533,7 @@ var w = class {
     };
   }
   async init() {
-    const e = m(i());
+    const e = S(i());
     await this.fetchSources(e);
   }
   async fetchSources(e) {
@@ -525,7 +543,7 @@ var w = class {
       contracts: null
     });
     try {
-      const t = S(e), a = await c(`${this.config.apiBasePath}/sources?${t}`), s = {
+      const t = P(e), a = await c(`${this.config.apiBasePath}/sources?${t}`), s = {
         listSources: a,
         query: e,
         permissions: a.permissions
@@ -548,7 +566,7 @@ var w = class {
       ...this.state.contracts?.query ?? {},
       page: e
     };
-    o(g(t)), await this.fetchSources(t);
+    o(h(t)), await this.fetchSources(t);
   }
   async applyFilters(e) {
     const t = {
@@ -556,7 +574,7 @@ var w = class {
       ...e,
       page: 1
     };
-    o(g(t)), await this.fetchSources(t);
+    o(h(t)), await this.fetchSources(t);
   }
   getState() {
     return this.state;
@@ -565,13 +583,13 @@ var w = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function F(e) {
-  const t = new w(e);
+function $(e) {
+  const t = new b(e);
   return t.init().catch((a) => {
     console.error("[SourceBrowserPage] Initialization failed:", a);
   }), t;
 }
-var y = class {
+var I = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-detail",
@@ -624,13 +642,86 @@ var y = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function N(e) {
-  const t = new y(e);
+function O(e) {
+  const t = new I(e);
   return t.init().catch((a) => {
     console.error("[SourceDetailPage] Initialization failed:", a);
   }), t;
 }
-var C = class {
+var R = class {
+  constructor(e) {
+    this.config = e, this.metadata = {
+      pageId: "source-workspace",
+      apiBasePath: e.apiBasePath,
+      endpointFamily: "sources/:id/workspace",
+      contractVersion: 1
+    };
+    const t = r(this.metadata, ["sources/:id/workspace"]);
+    t.valid || console.error("[SourceWorkspacePage] Composition validation failed:", t.errors), this.state = {
+      loading: !1,
+      error: null,
+      contracts: null
+    };
+  }
+  async init() {
+    const e = d(i());
+    await this.fetchWorkspace(e);
+  }
+  async fetchWorkspace(e) {
+    this.setState({
+      loading: !0,
+      error: null,
+      contracts: null
+    });
+    try {
+      const t = k(e), a = t ? `?${t}` : "", s = f(await c(`${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${a}`)), n = {
+        workspace: s,
+        query: e,
+        links: s.links,
+        permissions: s.permissions
+      };
+      this.setState({
+        loading: !1,
+        error: null,
+        contracts: n
+      });
+    } catch (t) {
+      this.setState({
+        loading: !1,
+        error: t instanceof Error ? t : new Error(String(t)),
+        contracts: null
+      });
+    }
+  }
+  async refresh() {
+    const e = this.state.contracts?.query ?? d(i());
+    await this.fetchWorkspace(e);
+  }
+  async navigateToHref(e) {
+    const t = String(e ?? "").trim();
+    if (!t || typeof window > "u") return;
+    const a = new URL(window.location.href), s = new URL(t, a.origin);
+    if (a.pathname !== s.pathname) {
+      window.location.assign(s.toString());
+      return;
+    }
+    const n = d(s.searchParams);
+    o(C(n)), await this.fetchWorkspace(n);
+  }
+  getState() {
+    return this.state;
+  }
+  setState(e) {
+    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
+  }
+};
+function Q(e) {
+  const t = new R(e);
+  return t.init().catch((a) => {
+    console.error("[SourceWorkspacePage] Initialization failed:", a);
+  }), t;
+}
+var z = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-revision-timeline",
@@ -646,7 +737,7 @@ var C = class {
     };
   }
   async init() {
-    const e = f(i());
+    const e = v(i());
     await this.fetchRevisions(e);
   }
   async fetchRevisions(e) {
@@ -656,7 +747,7 @@ var C = class {
       contracts: null
     });
     try {
-      const t = v(e), a = await c(`${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${t}`), s = {
+      const t = w(e), a = await c(`${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${t}`), s = {
         revisionPage: a,
         query: e,
         links: a.links
@@ -699,13 +790,13 @@ var C = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function B(e) {
-  const t = new C(e);
+function W(e) {
+  const t = new z(e);
   return t.init().catch((a) => {
     console.error("[SourceRevisionTimelinePage] Initialization failed:", a);
   }), t;
 }
-var b = class {
+var L = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-revision-inspector",
@@ -758,13 +849,13 @@ var b = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function M(e) {
-  const t = new b(e);
+function V(e) {
+  const t = new L(e);
   return t.init().catch((a) => {
     console.error("[SourceRevisionInspectorPage] Initialization failed:", a);
   }), t;
 }
-var I = class {
+var A = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-comment-inspector",
@@ -790,7 +881,7 @@ var I = class {
       contracts: null
     });
     try {
-      const t = P(e), a = await c(`${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${t}`), s = {
+      const t = _(e), a = await c(`${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${t}`), s = {
         commentPage: a,
         links: a.links
       };
@@ -825,13 +916,13 @@ var I = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function O(e) {
-  const t = new I(e);
+function G(e) {
+  const t = new A(e);
   return t.init().catch((a) => {
     console.error("[SourceCommentInspectorPage] Initialization failed:", a);
   }), t;
 }
-var R = class {
+var D = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-artifact-inspector",
@@ -883,13 +974,13 @@ var R = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function x(e) {
-  const t = new R(e);
+function H(e) {
+  const t = new D(e);
   return t.init().catch((a) => {
     console.error("[SourceArtifactInspectorPage] Initialization failed:", a);
   }), t;
 }
-var k = class {
+var E = class {
   constructor(e) {
     this.config = e, this.metadata = {
       pageId: "source-search",
@@ -905,7 +996,7 @@ var k = class {
     };
   }
   async init() {
-    const e = h(i());
+    const e = p(i());
     await this.search(e);
   }
   async search(e) {
@@ -915,7 +1006,7 @@ var k = class {
       contracts: null
     });
     try {
-      const t = _(e), a = await c(`${this.config.apiBasePath}/source-search?${t}`), s = {
+      const t = y(e), a = await c(`${this.config.apiBasePath}/source-search?${t}`), s = {
         searchResults: a,
         query: e,
         links: a.links
@@ -938,7 +1029,7 @@ var k = class {
       ...this.state.contracts?.query ?? {},
       page: e
     };
-    o(p(t)), await this.search(t);
+    o(m(t)), await this.search(t);
   }
   async applyFilters(e) {
     const t = {
@@ -946,10 +1037,10 @@ var k = class {
       ...e,
       page: 1
     };
-    o(p(t)), await this.search(t);
+    o(m(t)), await this.search(t);
   }
   async refresh() {
-    const e = this.state.contracts?.query ?? h(i());
+    const e = this.state.contracts?.query ?? p(i());
     await this.search(e);
   }
   getState() {
@@ -959,47 +1050,49 @@ var k = class {
     this.state = e, this.config.onStateChange && this.config.onStateChange(e);
   }
 };
-function U(e) {
-  const t = new k(e);
+function j(e) {
+  const t = new E(e);
   return t.init().catch((a) => {
     console.error("[SourceSearchPage] Initialization failed:", a);
   }), t;
 }
-var d = /* @__PURE__ */ new Map();
-function $(e, t) {
-  d.set(e, t);
+var g = /* @__PURE__ */ new Map();
+function Y(e, t) {
+  g.set(e, t);
 }
-function Q(e) {
-  return d.get(e);
+function J(e) {
+  return g.get(e);
 }
-function G() {
-  return Array.from(d.keys());
+function K() {
+  return Array.from(g.keys());
 }
 export {
-  D as C,
-  A as S,
-  $ as _,
-  b as a,
-  E as b,
-  x as c,
-  N as d,
-  M as f,
-  G as g,
-  Q as h,
-  y as i,
-  F as l,
-  U as m,
-  w as n,
-  C as o,
-  B as p,
-  I as r,
-  k as s,
-  R as t,
-  O as u,
-  T as v,
-  r as w,
-  z as x,
-  L as y
+  B as C,
+  r as E,
+  M as S,
+  U as T,
+  J as _,
+  L as a,
+  x as b,
+  R as c,
+  G as d,
+  O as f,
+  Q as g,
+  j as h,
+  I as i,
+  H as l,
+  W as m,
+  b as n,
+  z as o,
+  V as p,
+  A as r,
+  E as s,
+  D as t,
+  $ as u,
+  K as v,
+  F as w,
+  N as x,
+  Y as y
 };
 
-//# sourceMappingURL=source-management-pages-BO2sJj9C.js.map
+//# sourceMappingURL=source-management-pages-Cz6zy9go.js.map

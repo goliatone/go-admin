@@ -1,13 +1,13 @@
-import { D as k, g as C, h as _ } from "./lineage-contracts-RFw4HNlm.js";
+import { B as k, _ as C, g as _ } from "./lineage-contracts-Clh6Zaep.js";
 import { c as x, f as u, l as a, o as l, t as f, u as P } from "./dom-helpers-CDdChTSn.js";
 import { i as w, r as D } from "./formatters-CcW2Edf9.js";
 import { n as z } from "./async-helpers-CA3ovFR9.js";
-var I = "esign.google.account_id", M = 25 * 1024 * 1024, B = 2e3, L = 60, S = "application/vnd.google-apps.document", y = "application/pdf", E = "application/vnd.google-apps.folder", R = [S, y], F = class {
+var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "application/vnd.google-apps.document", y = "application/pdf", E = "application/vnd.google-apps.folder", R = [S, y], F = class {
   constructor(e) {
     this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{
       id: "root",
       name: "My Drive"
-    }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || M, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || B, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       form: a("#document-upload-form"),
       fileInput: a("#pdf_file"),
       uploadZone: a("#pdf-upload-zone"),
@@ -632,7 +632,7 @@ var I = "esign.google.account_id", M = 25 * 1024 * 1024, B = 2e3, L = 60, S = "a
     }
   }
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), B);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), M);
   }
   async pollImportStatus() {
     if (this.currentImportRunId) {
@@ -738,4 +738,4 @@ export {
   F as t
 };
 
-//# sourceMappingURL=document-form-Ea6PBT0X.js.map
+//# sourceMappingURL=document-form-ro4nTkf8.js.map

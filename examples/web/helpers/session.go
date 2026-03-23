@@ -3,298 +3,30 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
-	"sort"
 	"strings"
-	"time"
 	"unicode/utf8"
 
-	authlib "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-admin/quickstart"
 	fggate "github.com/goliatone/go-featuregate/gate"
 )
 
 // SessionUser captures session metadata to expose in templates and APIs.
-type SessionUser struct {
-	ID              string            `json:"id,omitempty"`
-	Subject         string            `json:"subject,omitempty"`
-	Username        string            `json:"username,omitempty"`
-	Email           string            `json:"email,omitempty"`
-	Role            string            `json:"role,omitempty"`
-	TenantID        string            `json:"tenant_id,omitempty"`
-	OrganizationID  string            `json:"organization_id,omitempty"`
-	ResourceRoles   map[string]string `json:"resource_roles,omitempty"`
-	Metadata        map[string]any    `json:"metadata,omitempty"`
-	Scopes          []string          `json:"scopes,omitempty"`
-	IssuedAt        *time.Time        `json:"issued_at,omitempty"`
-	ExpiresAt       *time.Time        `json:"expires_at,omitempty"`
-	IsAuthenticated bool              `json:"is_authenticated"`
-	DisplayName     string            `json:"display_name,omitempty"`
-	Subtitle        string            `json:"subtitle,omitempty"`
-	Initial         string            `json:"initial,omitempty"`
-	AvatarURL       string            `json:"avatar_url,omitempty"`
-}
+type SessionUser = quickstart.SessionUser
 
 // BuildSessionUser extracts actor/claims data from the request context.
 func BuildSessionUser(ctx context.Context) SessionUser {
-	session := SessionUser{}
-	if ctx == nil {
-		return session
-	}
-
-	actor, _ := authlib.ActorFromContext(ctx)
-	claims, _ := authlib.GetClaims(ctx)
-	claimScopes := claimScopesFromClaims(claims)
-
-	if actor != nil {
-		session.ID = primitives.FirstNonEmpty(session.ID, actor.ActorID, actor.Subject)
-		session.Subject = primitives.FirstNonEmpty(session.Subject, actor.Subject, actor.ActorID)
-		session.Role = primitives.FirstNonEmpty(session.Role, actor.Role)
-		session.TenantID = actor.TenantID
-		session.OrganizationID = actor.OrganizationID
-		session.ResourceRoles = primitives.CloneStringMapNilOnEmpty(actor.ResourceRoles)
-		session.Metadata = primitives.CloneAnyMapNilOnEmpty(actor.Metadata)
-	}
-
-	if claims != nil {
-		if session.ID == "" {
-			session.ID = claims.UserID()
-		}
-		session.Subject = primitives.FirstNonEmpty(session.Subject, claims.Subject(), claims.UserID())
-		session.Role = primitives.FirstNonEmpty(session.Role, claims.Role())
-
-		if carrier, ok := claims.(interface{ ResourceRoles() map[string]string }); ok {
-			if session.ResourceRoles == nil {
-				session.ResourceRoles = primitives.CloneStringMapNilOnEmpty(carrier.ResourceRoles())
-			} else {
-				session.ResourceRoles = mergeStringMaps(session.ResourceRoles, carrier.ResourceRoles())
-			}
-		}
-
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
-			session.Metadata = mergeAnyMaps(session.Metadata, carrier.ClaimsMetadata())
-		}
-
-		if issued := claims.IssuedAt(); !issued.IsZero() {
-			session.IssuedAt = ptrTime(issued)
-		}
-		if exp := claims.Expires(); !exp.IsZero() {
-			session.ExpiresAt = ptrTime(exp)
-		}
-	}
-
-	session.Email = primitives.FirstNonEmpty(session.Email,
-		stringFromMetadata(session.Metadata, "email", "user_email"),
-	)
-	session.Username = primitives.FirstNonEmpty(session.Username,
-		stringFromMetadata(session.Metadata, "username", "user", "name"),
-	)
-	session.TenantID = primitives.FirstNonEmpty(session.TenantID,
-		stringFromMetadata(session.Metadata, "tenant_id", "tenant", "default_tenant"),
-	)
-	session.OrganizationID = primitives.FirstNonEmpty(session.OrganizationID,
-		stringFromMetadata(session.Metadata, "organization_id", "org_id", "org"),
-	)
-	session.AvatarURL = primitives.FirstNonEmpty(session.AvatarURL,
-		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
-	)
-
-	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles, claimScopes)
-
-	session.DisplayName = primitives.FirstNonEmpty(session.DisplayName,
-		stringFromMetadata(session.Metadata, "name", "display_name"),
-		session.Username,
-		session.Email,
-	)
-	if session.DisplayName == "" {
-		if session.IsAuthenticated {
-			session.DisplayName = "Authenticated User"
-		} else {
-			session.DisplayName = "Guest"
-		}
-	}
-
-	session.IsAuthenticated = actor != nil || claims != nil
+	session := quickstart.BuildSessionUser(ctx)
 	session.Subtitle = buildSubtitle(session)
 	session.Initial = strings.ToUpper(initialRune(session.DisplayName))
-
 	return session
 }
 
 // FilterSessionUser hides tenant/org data when those features are disabled.
 func FilterSessionUser(session SessionUser, gate fggate.FeatureGate) SessionUser {
-	if !featureEnabled(gate, "tenants") {
-		session.TenantID = ""
-		session.Metadata = pruneSessionMetadata(session.Metadata, tenantMetadataKeys)
-	}
-	if !featureEnabled(gate, "organizations") {
-		session.OrganizationID = ""
-		session.Metadata = pruneSessionMetadata(session.Metadata, organizationMetadataKeys)
-	}
+	session = quickstart.FilterSessionUser(session, gate)
+	session.Subtitle = buildSubtitle(session)
+	session.Initial = strings.ToUpper(initialRune(session.DisplayName))
 	return session
-}
-
-func featureEnabled(gate fggate.FeatureGate, feature string) bool {
-	if gate == nil || strings.TrimSpace(feature) == "" {
-		return false
-	}
-	enabled, err := gate.Enabled(context.Background(), feature, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
-	return err == nil && enabled
-}
-
-// ToViewContext converts the session into snake_case keys for templates.
-func (s SessionUser) ToViewContext() map[string]any {
-	view := map[string]any{
-		"id":               s.ID,
-		"subject":          s.Subject,
-		"username":         s.Username,
-		"email":            s.Email,
-		"role":             s.Role,
-		"tenant_id":        s.TenantID,
-		"organization_id":  s.OrganizationID,
-		"resource_roles":   s.ResourceRoles,
-		"metadata":         s.Metadata,
-		"scopes":           s.Scopes,
-		"is_authenticated": s.IsAuthenticated,
-		"display_name":     s.DisplayName,
-		"subtitle":         s.Subtitle,
-		"initial":          s.Initial,
-		"avatar_url":       s.AvatarURL,
-	}
-
-	if s.IssuedAt != nil {
-		view["issued_at"] = *s.IssuedAt
-	}
-	if s.ExpiresAt != nil {
-		view["expires_at"] = *s.ExpiresAt
-	}
-
-	return view
-}
-
-func stringFromMetadata(metadata map[string]any, keys ...string) string {
-	if len(metadata) == 0 {
-		return ""
-	}
-	for _, key := range keys {
-		if val, ok := metadata[key]; ok {
-			if str, ok := val.(string); ok && strings.TrimSpace(str) != "" {
-				return strings.TrimSpace(str)
-			}
-		}
-	}
-	return ""
-}
-
-func mergeAnyMaps(base map[string]any, src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return primitives.CloneAnyMapNilOnEmpty(base)
-	}
-
-	out := primitives.CloneAnyMapNilOnEmpty(base)
-	if out == nil {
-		out = map[string]any{}
-	}
-	maps.Copy(out, src)
-	return out
-}
-
-func mergeStringMaps(base map[string]string, src map[string]string) map[string]string {
-	if len(src) == 0 {
-		return primitives.CloneStringMapNilOnEmpty(base)
-	}
-	out := primitives.CloneStringMapNilOnEmpty(base)
-	if out == nil {
-		out = map[string]string{}
-	}
-	maps.Copy(out, src)
-	return out
-}
-
-func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any {
-	if len(metadata) == 0 || len(keys) == 0 {
-		return metadata
-	}
-	out := primitives.CloneAnyMapNilOnEmpty(metadata)
-	for _, key := range keys {
-		delete(out, key)
-	}
-	return out
-}
-
-func collectScopes(metadata map[string]any, resourceRoles map[string]string, claimScopes []string) []string {
-	scopes := map[string]struct{}{}
-
-	if raw, ok := metadata["scopes"]; ok {
-		switch vals := raw.(type) {
-		case []string:
-			for _, v := range vals {
-				if strings.TrimSpace(v) != "" {
-					scopes[strings.TrimSpace(v)] = struct{}{}
-				}
-			}
-		case []any:
-			for _, v := range vals {
-				if str, ok := v.(string); ok && strings.TrimSpace(str) != "" {
-					scopes[strings.TrimSpace(str)] = struct{}{}
-				}
-			}
-		case string:
-			for v := range strings.FieldsSeq(vals) {
-				if strings.TrimSpace(v) != "" {
-					scopes[strings.TrimSpace(v)] = struct{}{}
-				}
-			}
-		}
-	}
-
-	for resource, role := range resourceRoles {
-		if strings.TrimSpace(resource) == "" || strings.TrimSpace(role) == "" {
-			continue
-		}
-		scopes[fmt.Sprintf("%s:%s", resource, role)] = struct{}{}
-	}
-
-	for _, scope := range claimScopes {
-		scope = strings.TrimSpace(scope)
-		if scope == "" {
-			continue
-		}
-		scopes[scope] = struct{}{}
-	}
-
-	if len(scopes) == 0 {
-		return nil
-	}
-
-	out := make([]string, 0, len(scopes))
-	for scope := range scopes {
-		out = append(out, scope)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func claimScopesFromClaims(claims authlib.AuthClaims) []string {
-	if claims == nil {
-		return nil
-	}
-	typed, ok := claims.(*authlib.JWTClaims)
-	if !ok || typed == nil || len(typed.Scopes) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(typed.Scopes))
-	for _, scope := range typed.Scopes {
-		scope = strings.TrimSpace(scope)
-		if scope == "" {
-			continue
-		}
-		out = append(out, scope)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func buildSubtitle(session SessionUser) string {
@@ -336,11 +68,4 @@ func initialRune(value string) string {
 		return "?"
 	}
 	return string(r)
-}
-
-func ptrTime(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	return &t
 }

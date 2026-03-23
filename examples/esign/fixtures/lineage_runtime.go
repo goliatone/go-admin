@@ -33,6 +33,7 @@ type LineageFixtureURLSet struct {
 	ImportedAgreementURL       string `json:"imported_agreement_url"`
 	SourceBrowserURL           string `json:"source_browser_url"`
 	SourceDetailURL            string `json:"source_detail_url"`
+	SourceWorkspaceURL         string `json:"source_workspace_url"`
 	SourceRevisionURL          string `json:"source_revision_url"`
 	SourceCommentsURL          string `json:"source_comments_url"`
 	SourceArtifactsURL         string `json:"source_artifacts_url"`
@@ -92,6 +93,7 @@ func BuildLineageFixtureURLs(basePath string, scope stores.Scope, set stores.Lin
 		ImportedAgreementURL:       withQuery("esign_agreements", set.ImportedAgreementID),
 		SourceBrowserURL:           path.Join(basePath, "esign", "sources") + "?" + query,
 		SourceDetailURL:            path.Join(basePath, "esign", "sources", set.SourceDocumentID) + "?" + query,
+		SourceWorkspaceURL:         path.Join(basePath, "esign", "sources", set.SourceDocumentID, "workspace") + "?" + query,
 		SourceRevisionURL:          path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID) + "?" + query,
 		SourceCommentsURL:          path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "comments") + "?" + query,
 		SourceArtifactsURL:         path.Join(basePath, "esign", "source-revisions", set.SecondSourceRevisionID, "artifacts") + "?" + query,

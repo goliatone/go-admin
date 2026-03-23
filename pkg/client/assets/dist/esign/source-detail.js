@@ -1,9 +1,9 @@
 import { S as r, _ as a } from "../chunks/source-management-rendering-states-DicysSM1.js";
-import { _ as t, d as i, i as l } from "../chunks/source-management-pages-BO2sJj9C.js";
+import { f as t, i, y as l } from "../chunks/source-management-pages-Cz6zy9go.js";
 export {
-  l as SourceDetailPageController,
+  i as SourceDetailPageController,
   r as adaptSourceDetail,
-  i as bootstrapSourceDetailPage,
-  t as registerPageController,
+  t as bootstrapSourceDetailPage,
+  l as registerPageController,
   a as resolveSourceDetailRenderingState
 };

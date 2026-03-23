@@ -35,15 +35,16 @@ type eSignSourceManagementRuntimeHighlight struct {
 }
 
 type eSignSourceManagementPageModel struct {
-	Surface     string                                  `json:"surface"`
-	Title       string                                  `json:"title"`
-	Summary     string                                  `json:"summary,omitempty"`
-	ResourceID  string                                  `json:"resource_id,omitempty"`
-	Scope       stores.Scope                            `json:"scope"`
-	Highlights  []eSignSourceManagementRuntimeHighlight `json:"highlights,omitempty"`
-	NavLinks    []eSignSourceManagementRuntimeLink      `json:"nav_links,omitempty"`
-	ResultLinks []eSignSourceManagementRuntimeLink      `json:"result_links,omitempty"`
-	Contract    any                                     `json:"contract,omitempty"`
+	Surface          string                                  `json:"surface"`
+	Title            string                                  `json:"title"`
+	Summary          string                                  `json:"summary,omitempty"`
+	ResourceID       string                                  `json:"resource_id,omitempty"`
+	Scope            stores.Scope                            `json:"scope"`
+	Highlights       []eSignSourceManagementRuntimeHighlight `json:"highlights,omitempty"`
+	NavLinks         []eSignSourceManagementRuntimeLink      `json:"nav_links,omitempty"`
+	QuickActionLinks []eSignSourceManagementRuntimeLink      `json:"quick_action_links,omitempty"`
+	ResultLinks      []eSignSourceManagementRuntimeLink      `json:"result_links,omitempty"`
+	Contract         any                                     `json:"contract,omitempty"`
 }
 
 func registerESignSourceManagementUIRoutes(
@@ -123,7 +124,10 @@ func registerESignSourceManagementUIRoutes(
 				if sourceDocumentID == "" {
 					return nil, coreadmin.ErrNotFound
 				}
-				detail, err := sourceReadModels.GetSourceDetail(c.Context(), scope, sourceDocumentID)
+				workspace, err := sourceReadModels.GetSourceWorkspace(c.Context(), scope, sourceDocumentID, services.SourceWorkspaceQuery{
+					Panel:  strings.TrimSpace(c.Query("panel")),
+					Anchor: strings.TrimSpace(c.Query("anchor")),
+				})
 				if err != nil {
 					if isESignNotFound(err) {
 						return nil, coreadmin.ErrNotFound
@@ -131,11 +135,11 @@ func registerESignSourceManagementUIRoutes(
 					return nil, err
 				}
 				latestRevisionID := ""
-				if detail.LatestRevision != nil {
-					latestRevisionID = strings.TrimSpace(detail.LatestRevision.ID)
+				if workspace.LatestRevision != nil {
+					latestRevisionID = strings.TrimSpace(workspace.LatestRevision.ID)
 				}
 				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
-				model := buildSourceDetailRuntimePageModel(scope, routes, detail)
+				model := buildSourceDetailAliasRuntimePageModel(scope, routes, workspace)
 				viewCtx := router.ViewContext{
 					"routes": routes,
 				}
@@ -145,7 +149,7 @@ func registerESignSourceManagementUIRoutes(
 					Trail: []quickstart.BreadcrumbItem{
 						quickstart.Breadcrumb("Source Browser", routes["source_browser"]),
 					},
-					CurrentLabel: firstNonEmptyValue(sourceReferenceLabel(detail.Source), strings.TrimSpace(sourceDocumentID)),
+					CurrentLabel: firstNonEmptyValue(sourceReferenceLabel(workspace.Source), strings.TrimSpace(sourceDocumentID)),
 				})
 				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
 				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
@@ -155,6 +159,59 @@ func registerESignSourceManagementUIRoutes(
 					routes,
 					map[string]any{
 						"surface":            "source_detail",
+						"source_document_id": sourceDocumentID,
+						"source_revision_id": latestRevisionID,
+					},
+				))
+				return viewCtx, nil
+			},
+		},
+		quickstart.AdminPageSpec{
+			Path:       eSignSourceWorkspacePath(basePath, ":source_document_id"),
+			Template:   sourceManagementRuntimeTemplate,
+			Title:      "Source Workspace",
+			Active:     "esign_sources",
+			Permission: permissions.AdminESignView,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+				sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+				if sourceDocumentID == "" {
+					return nil, coreadmin.ErrNotFound
+				}
+				workspace, err := sourceReadModels.GetSourceWorkspace(c.Context(), scope, sourceDocumentID, services.SourceWorkspaceQuery{
+					Panel:  strings.TrimSpace(c.Query("panel")),
+					Anchor: strings.TrimSpace(c.Query("anchor")),
+				})
+				if err != nil {
+					if isESignNotFound(err) {
+						return nil, coreadmin.ErrNotFound
+					}
+					return nil, err
+				}
+				latestRevisionID := ""
+				if workspace.LatestRevision != nil {
+					latestRevisionID = strings.TrimSpace(workspace.LatestRevision.ID)
+				}
+				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
+				model := buildSourceWorkspaceRuntimePageModel(scope, routes, workspace)
+				viewCtx := router.ViewContext{
+					"routes": routes,
+				}
+				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
+					basePath,
+					routes,
+					sourceReferenceLabel(workspace.Source),
+					sourceDocumentID,
+					"Workspace",
+				))
+				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+					eSignPageSourceWorkspace,
+					basePath,
+					apiESignBasePath,
+					routes,
+					map[string]any{
+						"surface":            "source_workspace",
 						"source_document_id": sourceDocumentID,
 						"source_revision_id": latestRevisionID,
 					},
@@ -361,6 +418,7 @@ func withESignSourceManagementPageModel(ctx router.ViewContext, model eSignSourc
 	ctx["source_management_page_summary"] = model.Summary
 	ctx["source_management_highlights"] = model.Highlights
 	ctx["source_management_nav_links"] = model.NavLinks
+	ctx["source_management_quick_action_links"] = model.QuickActionLinks
 	ctx["source_management_result_links"] = model.ResultLinks
 	ctx["source_management_resource_id"] = model.ResourceID
 	return ctx
@@ -383,31 +441,32 @@ func buildSourceBrowserRuntimePageModel(scope stores.Scope, routes map[string]st
 			runtimeHighlight("Total", strconvString(page.PageInfo.TotalCount)),
 			runtimeHighlight("Pending Review", strconvString(pendingCandidates)),
 		),
-		NavLinks: compactRuntimeLinks(navLinks...),
-		Contract: page,
+		NavLinks:         compactRuntimeLinks(navLinks...),
+		QuickActionLinks: nonExternalRuntimeLinks(navLinks...),
+		Contract:         page,
 	}
 }
 
-func buildSourceDetailRuntimePageModel(scope stores.Scope, routes map[string]string, detail services.SourceDetail) eSignSourceManagementPageModel {
-	sourceID := sourceReferenceID(detail.Source)
-	sourceLabel := firstNonEmptyValue(sourceReferenceLabel(detail.Source), sourceID, "Source")
+func buildSourceDetailAliasRuntimePageModel(scope stores.Scope, routes map[string]string, workspace services.SourceWorkspace) eSignSourceManagementPageModel {
+	sourceID := sourceReferenceID(workspace.Source)
+	sourceLabel := firstNonEmptyValue(sourceReferenceLabel(workspace.Source), sourceID, "Source")
 	navLinks := []eSignSourceManagementRuntimeLink{
 		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
 		sourceManagementRuntimeLink("Search", routes["source_search"], "secondary"),
 	}
-	if detail.LatestRevision != nil {
-		revisionID := strings.TrimSpace(detail.LatestRevision.ID)
+	if workspace.LatestRevision != nil {
+		revisionID := strings.TrimSpace(workspace.LatestRevision.ID)
 		navLinks = append(navLinks,
 			sourceManagementRuntimeLink("Latest Revision", replaceRuntimeRouteID(routes["source_revision"], revisionID), "primary"),
 			sourceManagementRuntimeLink("Comments", replaceRuntimeRouteID(routes["source_comment_inspector"], revisionID), "secondary"),
 			sourceManagementRuntimeLink("Artifacts", replaceRuntimeRouteID(routes["source_artifact_inspector"], revisionID), "secondary"),
 		)
 	}
-	if detail.Permissions.CanOpenProviderLinks {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Open in Provider", detail.Links.Provider, "external"))
+	if workspace.Permissions.CanOpenProviderLinks {
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Open in Provider", workspace.Links.Provider, "external"))
 	}
-	if detail.Permissions.CanViewDiagnostics {
-		navLinks = append(navLinks, sourceManagementRuntimeLink("Diagnostics", detail.Links.Diagnostics, "external"))
+	if workspace.Permissions.CanViewDiagnostics {
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Diagnostics", workspace.Links.Diagnostics, "external"))
 	}
 	return eSignSourceManagementPageModel{
 		Surface:    "source_detail",
@@ -416,13 +475,56 @@ func buildSourceDetailRuntimePageModel(scope stores.Scope, routes map[string]str
 		ResourceID: sourceID,
 		Scope:      scope,
 		Highlights: compactRuntimeHighlights(
-			runtimeHighlight("Status", firstNonEmptyValue(detail.Status, "-")),
-			runtimeHighlight("Confidence", firstNonEmptyValue(detail.LineageConfidence, "-")),
-			runtimeHighlight("Revisions", strconvString(detail.RevisionCount)),
-			runtimeHighlight("Pending Candidates", strconvString(detail.PendingCandidateCount)),
+			runtimeHighlight("Status", firstNonEmptyValue(workspace.Status, "-")),
+			runtimeHighlight("Confidence", firstNonEmptyValue(workspace.LineageConfidence, "-")),
+			runtimeHighlight("Revisions", strconvString(workspace.RevisionCount)),
+			runtimeHighlight("Pending Candidates", strconvString(workspace.PendingCandidateCount)),
+		),
+		NavLinks:         compactRuntimeLinks(navLinks...),
+		QuickActionLinks: nonExternalRuntimeLinks(navLinks...),
+		Contract:         workspace,
+	}
+}
+
+func buildSourceWorkspaceRuntimePageModel(scope stores.Scope, routes map[string]string, workspace services.SourceWorkspace) eSignSourceManagementPageModel {
+	sourceID := sourceReferenceID(workspace.Source)
+	sourceLabel := firstNonEmptyValue(sourceReferenceLabel(workspace.Source), sourceID, "Source Workspace")
+	navLinks := []eSignSourceManagementRuntimeLink{
+		sourceManagementRuntimeLink("All Sources", routes["source_browser"], "secondary"),
+		sourceManagementRuntimeLink("Search", routes["source_search"], "secondary"),
+	}
+	if workspace.LatestRevision != nil {
+		revisionID := strings.TrimSpace(workspace.LatestRevision.ID)
+		navLinks = append(navLinks,
+			sourceManagementRuntimeLink("Latest Revision", replaceRuntimeRouteID(routes["source_revision"], revisionID), "secondary"),
+			sourceManagementRuntimeLink("Comment Inspector", replaceRuntimeRouteID(routes["source_comment_inspector"], revisionID), "secondary"),
+			sourceManagementRuntimeLink("Artifact Inspector", replaceRuntimeRouteID(routes["source_artifact_inspector"], revisionID), "secondary"),
+		)
+	}
+	if workspace.Permissions.CanOpenProviderLinks {
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Open in Provider", workspace.Links.Provider, "external"))
+	}
+	if workspace.Permissions.CanViewDiagnostics {
+		navLinks = append(navLinks, sourceManagementRuntimeLink("Diagnostics", workspace.Links.Diagnostics, "external"))
+	}
+
+	activePanel := firstNonEmptyValue(strings.TrimSpace(workspace.ActivePanel), services.SourceWorkspacePanelOverview)
+	activeAnchor := firstNonEmptyValue(strings.TrimSpace(workspace.ActiveAnchor), "-")
+
+	return eSignSourceManagementPageModel{
+		Surface:    "source_workspace",
+		Title:      sourceLabel,
+		Summary:    "Canonical Workspace",
+		ResourceID: sourceID,
+		Scope:      scope,
+		Highlights: compactRuntimeHighlights(
+			runtimeHighlight("Status", firstNonEmptyValue(workspace.Status, "-")),
+			runtimeHighlight("Confidence", firstNonEmptyValue(workspace.LineageConfidence, "-")),
+			runtimeHighlight("Panel", activePanel),
+			runtimeHighlight("Anchor", activeAnchor),
 		),
 		NavLinks: compactRuntimeLinks(navLinks...),
-		Contract: detail,
+		Contract: workspace,
 	}
 }
 
@@ -456,8 +558,9 @@ func buildSourceRevisionRuntimePageModel(scope stores.Scope, routes map[string]s
 			runtimeHighlight("Processing", firstNonEmptyValue(detail.FingerprintProcessing.State, "-")),
 			runtimeHighlight("Provider", providerExternalFileID(detail.Provider)),
 		),
-		NavLinks: compactRuntimeLinks(navLinks...),
-		Contract: detail,
+		NavLinks:         compactRuntimeLinks(navLinks...),
+		QuickActionLinks: nonExternalRuntimeLinks(navLinks...),
+		Contract:         detail,
 	}
 }
 
@@ -485,8 +588,9 @@ func buildSourceCommentInspectorRuntimePageModel(scope stores.Scope, routes map[
 			runtimeHighlight("Messages", strconvString(totalMessages)),
 			runtimeHighlight("Sync Status", firstNonEmptyValue(page.SyncStatus, "-")),
 		),
-		NavLinks: compactRuntimeLinks(navLinks...),
-		Contract: page,
+		NavLinks:         compactRuntimeLinks(navLinks...),
+		QuickActionLinks: nonExternalRuntimeLinks(navLinks...),
+		Contract:         page,
 	}
 }
 
@@ -513,15 +617,16 @@ func buildSourceArtifactInspectorRuntimePageModel(scope stores.Scope, routes map
 			runtimeHighlight("Files", strconvString(len(page.Items))),
 			runtimeHighlight("Total Pages", strconvString(totalPages)),
 		),
-		NavLinks: compactRuntimeLinks(navLinks...),
-		Contract: page,
+		NavLinks:         compactRuntimeLinks(navLinks...),
+		QuickActionLinks: nonExternalRuntimeLinks(navLinks...),
+		Contract:         page,
 	}
 }
 
 func buildSourceSearchRuntimePageModel(basePath, queryString string, scope stores.Scope, routes map[string]string, results services.SourceSearchResults) eSignSourceManagementPageModel {
 	resultLinks := make([]eSignSourceManagementRuntimeLink, 0, len(results.Items))
 	for _, item := range results.Items {
-		link := sourceSearchResultRuntimeLink(basePath, queryString, item)
+		link := sourceSearchResultRuntimeLink(routes, queryString, item)
 		if link.Href == "" {
 			continue
 		}
@@ -537,6 +642,9 @@ func buildSourceSearchRuntimePageModel(basePath, queryString string, scope store
 			runtimeHighlight("Total", strconvString(results.PageInfo.TotalCount)),
 		),
 		NavLinks: compactRuntimeLinks(
+			sourceManagementRuntimeLink("Browse Sources", routes["source_browser"], "primary"),
+		),
+		QuickActionLinks: nonExternalRuntimeLinks(
 			sourceManagementRuntimeLink("Browse Sources", routes["source_browser"], "primary"),
 		),
 		ResultLinks: resultLinks,
@@ -575,6 +683,7 @@ func buildESignSourceManagementRuntimeRoutes(c router.Context, basePath, apiBase
 		"source_browser":            appendQueryString(eSignSourceBrowserPath(uiBase), queryString),
 		"source_search":             appendQueryString(eSignSourceSearchPath(uiBase), queryString),
 		"source_detail":             appendQueryString(eSignSourceDetailPath(uiBase, sourceDocumentRouteID), queryString),
+		"source_workspace":          appendQueryString(eSignSourceWorkspacePath(uiBase, sourceDocumentRouteID), queryString),
 		"source_revision":           appendQueryString(eSignSourceRevisionPath(uiBase, sourceRevisionRouteID), queryString),
 		"source_comment_inspector":  appendQueryString(eSignSourceCommentsPath(uiBase, sourceRevisionRouteID), queryString),
 		"source_artifact_inspector": appendQueryString(eSignSourceArtifactsPath(uiBase, sourceRevisionRouteID), queryString),
@@ -604,6 +713,14 @@ func eSignSourceDetailPath(basePath, sourceDocumentID string) string {
 		return path.Join(normalizeESignBasePath(basePath), "esign", "sources", sourceDocumentID)
 	}
 	return path.Join(normalizeESignBasePath(basePath), "esign", "sources", neturl.PathEscape(sourceDocumentID))
+}
+
+func eSignSourceWorkspacePath(basePath, sourceDocumentID string) string {
+	sourcePath := eSignSourceDetailPath(basePath, sourceDocumentID)
+	if sourcePath == "" {
+		return ""
+	}
+	return path.Join(sourcePath, "workspace")
 }
 
 func eSignSourceRevisionPath(basePath, sourceRevisionID string) string {
@@ -731,21 +848,22 @@ func sourceSearchQueryFromRequest(c router.Context) services.SourceSearchQuery {
 	}
 }
 
-func sourceSearchResultRuntimeLink(basePath, queryString string, result services.SourceSearchResultSummary) eSignSourceManagementRuntimeLink {
-	target := sourceManagementRuntimePathFromLinks(basePath, queryString, result.DrillIn, result.Links)
+func sourceSearchResultRuntimeLink(routes map[string]string, queryString string, result services.SourceSearchResultSummary) eSignSourceManagementRuntimeLink {
+	target := sourceManagementRuntimePathFromLinks(routes, queryString, result.DrillIn, result.Links)
 	if target == "" {
 		switch {
 		case result.Revision != nil && strings.TrimSpace(result.Revision.ID) != "":
-			target = appendQueryString(eSignSourceRevisionPath(basePath, result.Revision.ID), queryString)
+			target = mergeQueryString(routeWithRuntimeID(routes["source_revision"], result.Revision.ID), queryString)
 		case result.Source != nil && strings.TrimSpace(result.Source.ID) != "":
-			target = appendQueryString(eSignSourceDetailPath(basePath, result.Source.ID), queryString)
+			target = mergeQueryString(routeWithRuntimeID(routes["source_detail"], result.Source.ID), queryString)
 		}
 	}
 	return sourceManagementRuntimeLink(firstNonEmptyValue(result.Summary, sourceSearchResultLabel(result)), target, "secondary")
 }
 
 func sourceManagementRuntimePathFromLinks(
-	basePath, queryString string,
+	routes map[string]string,
+	queryString string,
 	drillIn *services.SourceWorkspaceDrillIn,
 	links services.SourceManagementLinks,
 ) string {
@@ -758,9 +876,9 @@ func sourceManagementRuntimePathFromLinks(
 		links.Source,
 		links.Self,
 	} {
-		target := translateSourceManagementAPIPathToRuntimePath(basePath, strings.TrimSpace(candidate))
+		target := translateSourceManagementAPIPathToRuntimePath(strings.TrimSpace(candidate), routes)
 		if target != "" {
-			return appendQueryString(target, queryString)
+			return mergeQueryString(target, queryString)
 		}
 	}
 	return ""
@@ -773,16 +891,263 @@ func sourceWorkspaceDrillInHref(drillIn *services.SourceWorkspaceDrillIn) string
 	return strings.TrimSpace(drillIn.Href)
 }
 
-func translateSourceManagementAPIPathToRuntimePath(basePath, target string) string {
+func translateSourceManagementAPIPathToRuntimePath(target string, routes map[string]string) string {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return ""
 	}
 	if !strings.HasPrefix(target, services.DefaultSourceManagementBasePath) {
+		if runtimeHrefReachable(target, routes) {
+			return target
+		}
+		return ""
+	}
+
+	parsed, err := neturl.Parse(target)
+	if err != nil {
+		return ""
+	}
+	pathname := strings.TrimSpace(parsed.Path)
+	search := parsed.Query()
+	trimmed := strings.TrimPrefix(pathname, services.DefaultSourceManagementBasePath)
+
+	switch {
+	case trimmed == "/sources":
+		return routeWithQuery(routes["source_browser"], search)
+	case trimmed == "/source-search":
+		return routeWithQuery(routes["source_search"], search)
+	case sourceWorkspaceTarget(trimmed):
+		sourceDocumentID := sourceWorkspaceID(trimmed)
+		if sourceDocumentID == "" {
+			return ""
+		}
+		targetRoute := routes["source_workspace"]
+		if strings.TrimSpace(targetRoute) == "" {
+			targetRoute = routes["source_detail"]
+		}
+		return routeWithQuery(routeWithRuntimeID(targetRoute, sourceDocumentID), search)
+	case sourceDetailTarget(trimmed):
+		sourceDocumentID := sourceDetailID(trimmed)
+		if sourceDocumentID == "" {
+			return ""
+		}
+		return routeWithQuery(routeWithRuntimeID(routes["source_detail"], sourceDocumentID), search)
+	case sourceRevisionCommentsTarget(trimmed):
+		sourceRevisionID := sourceRevisionCommentsID(trimmed)
+		if sourceRevisionID == "" {
+			return ""
+		}
+		return routeWithQuery(routeWithRuntimeID(routes["source_comment_inspector"], sourceRevisionID), search)
+	case sourceRevisionArtifactsTarget(trimmed):
+		sourceRevisionID := sourceRevisionArtifactsID(trimmed)
+		if sourceRevisionID == "" {
+			return ""
+		}
+		return routeWithQuery(routeWithRuntimeID(routes["source_artifact_inspector"], sourceRevisionID), search)
+	case sourceRevisionTarget(trimmed):
+		sourceRevisionID := sourceRevisionIDFromPath(trimmed)
+		if sourceRevisionID == "" {
+			return ""
+		}
+		return routeWithQuery(routeWithRuntimeID(routes["source_revision"], sourceRevisionID), search)
+	default:
+		return ""
+	}
+}
+
+func mergeQueryString(target, queryString string) string {
+	target = strings.TrimSpace(target)
+	queryString = strings.TrimSpace(queryString)
+	if target == "" || queryString == "" {
 		return target
 	}
-	uiBase := path.Join(normalizeESignBasePath(basePath), "esign")
-	return uiBase + strings.TrimPrefix(target, services.DefaultSourceManagementBasePath)
+	parsed, err := neturl.Parse(target)
+	if err != nil {
+		return appendQueryString(target, queryString)
+	}
+	targetQuery := parsed.Query()
+	extraQuery, err := neturl.ParseQuery(queryString)
+	if err != nil {
+		return appendQueryString(target, queryString)
+	}
+	for key, values := range extraQuery {
+		if _, exists := targetQuery[key]; exists {
+			continue
+		}
+		for _, value := range values {
+			targetQuery.Add(key, value)
+		}
+	}
+	parsed.RawQuery = targetQuery.Encode()
+	return parsed.String()
+}
+
+func routeWithQuery(route string, query neturl.Values) string {
+	route = strings.TrimSpace(route)
+	if route == "" {
+		return ""
+	}
+	if len(query) == 0 {
+		return route
+	}
+	parsed, err := neturl.Parse(route)
+	if err != nil {
+		return route
+	}
+	routeQuery := parsed.Query()
+	for key, values := range query {
+		if _, exists := routeQuery[key]; exists {
+			continue
+		}
+		for _, value := range values {
+			routeQuery.Add(key, value)
+		}
+	}
+	parsed.RawQuery = routeQuery.Encode()
+	return parsed.String()
+}
+
+func routeWithRuntimeID(route, id string) string {
+	return replaceRuntimeRouteID(route, id)
+}
+
+func runtimeHrefReachable(target string, routes map[string]string) bool {
+	pathname := runtimePathname(target)
+	if pathname == "" {
+		return false
+	}
+	for _, key := range []string{
+		"source_browser",
+		"source_search",
+		"source_detail",
+		"source_workspace",
+		"source_revision",
+		"source_comment_inspector",
+		"source_artifact_inspector",
+	} {
+		if runtimePathMatchesRoute(pathname, routes[key]) {
+			return true
+		}
+	}
+	return false
+}
+
+func runtimePathMatchesRoute(target, route string) bool {
+	target = runtimePathname(target)
+	route = runtimePathname(route)
+	if target == "" || route == "" {
+		return false
+	}
+	targetSegments := runtimeSegments(target)
+	routeSegments := runtimeSegments(route)
+	if len(targetSegments) != len(routeSegments) {
+		return false
+	}
+	for i := range routeSegments {
+		if strings.HasPrefix(routeSegments[i], ":") {
+			if targetSegments[i] == "" {
+				return false
+			}
+			continue
+		}
+		if targetSegments[i] != routeSegments[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func runtimePathname(target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ""
+	}
+	parsed, err := neturl.Parse(target)
+	if err == nil && strings.TrimSpace(parsed.Path) != "" {
+		return strings.TrimSpace(parsed.Path)
+	}
+	if before, _, ok := strings.Cut(target, "?"); ok {
+		return strings.TrimSpace(before)
+	}
+	return target
+}
+
+func runtimeSegments(target string) []string {
+	target = strings.Trim(strings.TrimSpace(target), "/")
+	if target == "" {
+		return nil
+	}
+	return strings.Split(target, "/")
+}
+
+func sourceDetailTarget(pathname string) bool {
+	segments := apiSegments(pathname)
+	return len(segments) == 2 && segments[0] == "sources"
+}
+
+func sourceDetailID(pathname string) string {
+	segments := apiSegments(pathname)
+	if len(segments) == 2 && segments[0] == "sources" {
+		return segments[1]
+	}
+	return ""
+}
+
+func sourceWorkspaceTarget(pathname string) bool {
+	segments := apiSegments(pathname)
+	return len(segments) == 3 && segments[0] == "sources" && segments[2] == "workspace"
+}
+
+func sourceWorkspaceID(pathname string) string {
+	segments := apiSegments(pathname)
+	if len(segments) == 3 && segments[0] == "sources" && segments[2] == "workspace" {
+		return segments[1]
+	}
+	return ""
+}
+
+func sourceRevisionTarget(pathname string) bool {
+	segments := apiSegments(pathname)
+	return len(segments) == 2 && segments[0] == "source-revisions"
+}
+
+func sourceRevisionIDFromPath(pathname string) string {
+	segments := apiSegments(pathname)
+	if len(segments) == 2 && segments[0] == "source-revisions" {
+		return segments[1]
+	}
+	return ""
+}
+
+func sourceRevisionCommentsTarget(pathname string) bool {
+	segments := apiSegments(pathname)
+	return len(segments) == 3 && segments[0] == "source-revisions" && segments[2] == "comments"
+}
+
+func sourceRevisionCommentsID(pathname string) string {
+	segments := apiSegments(pathname)
+	if len(segments) == 3 && segments[0] == "source-revisions" && segments[2] == "comments" {
+		return segments[1]
+	}
+	return ""
+}
+
+func sourceRevisionArtifactsTarget(pathname string) bool {
+	segments := apiSegments(pathname)
+	return len(segments) == 3 && segments[0] == "source-revisions" && segments[2] == "artifacts"
+}
+
+func sourceRevisionArtifactsID(pathname string) string {
+	segments := apiSegments(pathname)
+	if len(segments) == 3 && segments[0] == "source-revisions" && segments[2] == "artifacts" {
+		return segments[1]
+	}
+	return ""
+}
+
+func apiSegments(pathname string) []string {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(pathname), services.DefaultSourceManagementBasePath)
+	return runtimeSegments(trimmed)
 }
 
 func sourceSearchResultLabel(result services.SourceSearchResultSummary) string {
@@ -807,6 +1172,17 @@ func compactRuntimeLinks(items ...eSignSourceManagementRuntimeLink) []eSignSourc
 	out := make([]eSignSourceManagementRuntimeLink, 0, len(items))
 	for _, item := range items {
 		if strings.TrimSpace(item.Label) == "" || strings.TrimSpace(item.Href) == "" {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func nonExternalRuntimeLinks(items ...eSignSourceManagementRuntimeLink) []eSignSourceManagementRuntimeLink {
+	out := make([]eSignSourceManagementRuntimeLink, 0, len(items))
+	for _, item := range compactRuntimeLinks(items...) {
+		if strings.EqualFold(strings.TrimSpace(item.Kind), "external") {
 			continue
 		}
 		out = append(out, item)

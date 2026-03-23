@@ -13,7 +13,9 @@ import assert from 'node:assert/strict';
 const {
   SourceBrowserPageController,
   SourceSearchPageController,
+  SourceWorkspacePageController,
   translateSourceManagementHrefToRuntime,
+  isRegisteredRuntimeHref,
   resolveBrowserItemRuntimeHref,
   resolveSearchResultRuntimeHref,
   SOURCE_SEARCH_RESULT_KIND_OPTIONS,
@@ -169,8 +171,8 @@ test('search controller clear filters removes all filter params from URL', async
   globalThis.fetch = createFetchStub(SEARCH_RESULTS, fetchCalls);
   globalThis.window = {
     location: {
-      search: '?q=agreement&provider_kind=google_docs&status=active&result_kind=source&has_comments=true',
-      href: 'https://example.test/admin/esign/source-search?q=agreement&provider_kind=google_docs&status=active&result_kind=source&has_comments=true',
+      search: '?q=agreement&provider_kind=google_docs&status=active&result_kind=source_document&has_comments=true',
+      href: 'https://example.test/admin/esign/source-search?q=agreement&provider_kind=google_docs&status=active&result_kind=source_document&has_comments=true',
     },
   };
   globalThis.history = createHistoryStub(historyCalls);
@@ -329,7 +331,7 @@ test('search controller state updates correctly on pagination (links should refl
       ...SEARCH_RESULTS,
       items: [
         {
-          result_kind: 'comment',
+          result_kind: 'source_revision',
           source: { id: 'src_PAGE2', label: 'Page 2 Result' },
           revision: { id: 'rev_PAGE2' },
           provider: { kind: 'google_docs' },
@@ -405,7 +407,7 @@ test('search controller state updates correctly after new search (links should r
       ...SEARCH_RESULTS,
       items: [
         {
-          result_kind: 'source',
+          result_kind: 'source_document',
           source: { id: 'src_NEW_SEARCH', label: 'New Search Result' },
           revision: { id: 'rev_NEW' },
           provider: { kind: 'google_drive' },
@@ -524,19 +526,42 @@ test('browser controller preserves existing params when applying partial filters
 // Runtime Link Resolution Tests
 // ============================================================================
 
-test('translateSourceManagementHrefToRuntime converts backend API drill-ins to UI routes and preserves query context', () => {
+test('translateSourceManagementHrefToRuntime falls back to source detail when workspace route is not registered', () => {
   const href = translateSourceManagementHrefToRuntime(
     '/admin/api/v1/esign/sources/src_123/workspace?panel=comments&anchor=thread:1',
     {
       base_path: '/admin',
       api_base_path: '/admin/api/v1/esign',
+      routes: {
+        source_detail: '/admin/esign/sources/:source_document_id',
+      },
     },
     'tenant_id=tenant-1&user_id=ops-user&q=agreement'
   );
 
   assert.equal(
     href,
-    '/admin/esign/sources/src_123/workspace?panel=comments&anchor=thread:1&tenant_id=tenant-1&user_id=ops-user&q=agreement'
+    '/admin/esign/sources/src_123?panel=comments&anchor=thread%3A1&tenant_id=tenant-1&user_id=ops-user&q=agreement'
+  );
+});
+
+test('translateSourceManagementHrefToRuntime uses workspace UI route when registered and preserves query context', () => {
+  const href = translateSourceManagementHrefToRuntime(
+    '/admin/api/v1/esign/sources/src_123/workspace?panel=comments&anchor=thread:1',
+    {
+      base_path: '/admin',
+      api_base_path: '/admin/api/v1/esign',
+      routes: {
+        source_detail: '/admin/esign/sources/:source_document_id',
+        source_workspace: '/admin/esign/sources/:source_document_id/workspace',
+      },
+    },
+    'tenant_id=tenant-1&user_id=ops-user&q=agreement'
+  );
+
+  assert.equal(
+    href,
+    '/admin/esign/sources/src_123/workspace?panel=comments&anchor=thread%3A1&tenant_id=tenant-1&user_id=ops-user&q=agreement'
   );
 });
 
@@ -563,14 +588,59 @@ test('resolveBrowserItemRuntimeHref prefers backend-authored workspace link over
       api_base_path: '/admin/api/v1/esign',
       routes: {
         source_detail: '/admin/esign/sources/:source_document_id',
+        source_workspace: '/admin/esign/sources/:source_document_id/workspace',
       },
     }
   );
 
   assert.equal(href, '/admin/esign/sources/src_01HX5ZCQK0ABC123/workspace');
+  assert.equal(
+    isRegisteredRuntimeHref(href, {
+      source_detail: '/admin/esign/sources/:source_document_id',
+      source_workspace: '/admin/esign/sources/:source_document_id/workspace',
+    }),
+    true
+  );
 });
 
 test('resolveSearchResultRuntimeHref prefers backend-authored anchor/workspace drill-ins', () => {
+  const searchHref = resolveSearchResultRuntimeHref(
+    {
+      result_kind: 'source_revision',
+      source: { id: 'src_01HX5ZCQK0ABC456', label: 'Contract B' },
+      revision: { id: 'rev_002' },
+      provider: { kind: 'google_drive' },
+      matched_fields: ['artifact'],
+      links: {
+        anchor: '/admin/api/v1/esign/sources/src_01HX5ZCQK0ABC456/workspace?panel=artifacts&anchor=revision:rev_002',
+      },
+    },
+    {
+      base_path: '/admin',
+      api_base_path: '/admin/api/v1/esign',
+      routes: {
+        source_detail: '/admin/esign/sources/:source_document_id',
+        source_workspace: '/admin/esign/sources/:source_document_id/workspace',
+        source_revision: '/admin/esign/source-revisions/:source_revision_id',
+      },
+    }
+  );
+
+  assert.equal(
+    searchHref,
+    '/admin/esign/sources/src_01HX5ZCQK0ABC456/workspace?panel=artifacts&anchor=revision%3Arev_002'
+  );
+  assert.equal(
+    isRegisteredRuntimeHref(searchHref, {
+      source_detail: '/admin/esign/sources/:source_document_id',
+      source_workspace: '/admin/esign/sources/:source_document_id/workspace',
+      source_revision: '/admin/esign/source-revisions/:source_revision_id',
+    }),
+    true
+  );
+});
+
+test('resolveSearchResultRuntimeHref falls back to source detail when workspace route is unavailable', () => {
   const searchHref = resolveSearchResultRuntimeHref(
     {
       result_kind: 'source_revision',
@@ -594,8 +664,125 @@ test('resolveSearchResultRuntimeHref prefers backend-authored anchor/workspace d
 
   assert.equal(
     searchHref,
-    '/admin/esign/sources/src_01HX5ZCQK0ABC456/workspace?panel=artifacts&anchor=revision:rev_002'
+    '/admin/esign/sources/src_01HX5ZCQK0ABC456?panel=artifacts&anchor=revision%3Arev_002'
   );
+});
+
+test('workspace controller fetches canonical workspace endpoint and preserves backend panel/anchor query state', async () => {
+  const fetchCalls = [];
+  const historyCalls = [];
+  const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
+  const originalHistory = globalThis.history;
+
+  globalThis.fetch = createFetchStub(
+    {
+      source: { id: 'src_workspace', label: 'Workspace Source' },
+      status: 'active',
+      lineage_confidence: 'high',
+      provider: { kind: 'google_docs', label: 'Google Docs' },
+      active_handle: null,
+      latest_revision: { id: 'rev_workspace', provider_revision_hint: 'v2' },
+      revision_count: 2,
+      handle_count: 1,
+      relationship_count: 0,
+      pending_candidate_count: 0,
+      active_panel: 'comments',
+      active_anchor: 'thread:1',
+      panels: [
+        {
+          id: 'overview',
+          label: 'Overview',
+          links: { workspace: '/admin/api/v1/esign/sources/src_workspace/workspace' },
+        },
+        {
+          id: 'comments',
+          label: 'Comments',
+          item_count: 1,
+          links: {
+            anchor: '/admin/api/v1/esign/sources/src_workspace/workspace?panel=comments&anchor=thread:1',
+          },
+        },
+      ],
+      continuity: { predecessors: [], successors: [], links: {} },
+      timeline: { entries: [], permissions: {}, empty_state: { kind: 'none' }, links: {} },
+      agreements: {
+        source: { id: 'src_workspace', label: 'Workspace Source' },
+        items: [],
+        page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+        applied_query: {},
+        permissions: {},
+        empty_state: { kind: 'none' },
+        links: {},
+      },
+      artifacts: {
+        source: { id: 'src_workspace', label: 'Workspace Source' },
+        items: [],
+        page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+        permissions: {},
+        empty_state: { kind: 'none' },
+        links: {},
+      },
+      comments: {
+        source: { id: 'src_workspace', label: 'Workspace Source' },
+        revision: { id: 'rev_workspace' },
+        items: [],
+        applied_query: { page: 1 },
+        page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+        permissions: {},
+        empty_state: { kind: 'none' },
+        sync_status: 'synced',
+        links: {},
+      },
+      handles: {
+        source: { id: 'src_workspace', label: 'Workspace Source' },
+        items: [],
+        page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+        permissions: {},
+        empty_state: { kind: 'none' },
+        links: {},
+      },
+      permissions: {},
+      links: {
+        workspace: '/admin/api/v1/esign/sources/src_workspace/workspace',
+      },
+      empty_state: { kind: 'none' },
+    },
+    fetchCalls
+  );
+  globalThis.window = {
+    location: {
+      search: '?panel=comments&anchor=thread:1',
+      href: 'https://example.test/admin/esign/sources/src_workspace/workspace?panel=comments&anchor=thread:1',
+    },
+  };
+  globalThis.history = createHistoryStub(historyCalls);
+
+  try {
+    const controller = new SourceWorkspacePageController({
+      apiBasePath: '/admin/api/v1/esign',
+      sourceId: 'src_workspace',
+    });
+
+    await controller.init();
+    await controller.navigateToHref(
+      '/admin/esign/sources/src_workspace/workspace?panel=overview'
+    );
+
+    assert.equal(
+      fetchCalls[0],
+      '/admin/api/v1/esign/sources/src_workspace/workspace?panel=comments&anchor=thread%3A1'
+    );
+    assert.equal(
+      fetchCalls[1],
+      '/admin/api/v1/esign/sources/src_workspace/workspace?panel=overview'
+    );
+    assert.ok(historyCalls[historyCalls.length - 1].includes('panel=overview'));
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
+    globalThis.history = originalHistory;
+  }
 });
 
 test('SOURCE_SEARCH_RESULT_KIND_OPTIONS stays aligned with the frozen Phase 13 contract values', () => {

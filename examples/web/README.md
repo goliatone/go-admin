@@ -214,6 +214,7 @@ Config toggles:
 - **Organizations Panel**: `GET /admin/api/organizations`
 - **Session**: `GET /admin/api/session` (current authenticated user snapshot)
 - **Permission Diagnostics**: `GET /admin/api/debug/permissions` (current user granted/required/missing permissions + hints)
+- **Debug Sessions**: `GET /admin/debug/api/sessions` (canonical active-session registry); compatibility redirects are also registered for `GET /api/sessions` and `GET /admin/api/debug/sessions`
 
 ### Action UX QA
 

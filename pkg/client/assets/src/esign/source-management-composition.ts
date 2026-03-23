@@ -26,10 +26,12 @@ import type {
   SourceArtifactPage,
   SourceCommentPage,
   SourceSearchResults,
+  SourceWorkspace,
   SourceListQuery,
   SourceRevisionListQuery,
   SourceRelationshipListQuery,
   SourceSearchQuery,
+  SourceWorkspaceQuery,
   SourceManagementLinks,
   SourceManagementPermissions,
   Phase13SourceSearchQuery,
@@ -68,13 +70,35 @@ export interface SourceBrowserPageContracts {
  * Source Detail Page Contract Family
  *
  * Consumes: GET /admin/api/v1/esign/sources/:source_document_id
- * Purpose: Display detailed view of a single canonical source document
+ * Purpose: Legacy lightweight source detail read model.
+ * Canonical operator detail UI aliases the source workspace experience and
+ * should render SourceWorkspace for both `/sources/:id` and `/sources/:id/workspace`.
  * State: source_document_id from URL
  * Data boundary: SourceDetail only; no embedded revision, relationship, or artifact lists
  */
 export interface SourceDetailPageContracts {
   /** Primary contract: source detail with counts */
   sourceDetail: SourceDetail;
+  /** Navigation links to related surfaces */
+  links: SourceManagementLinks;
+  /** Permission flags for UI affordances */
+  permissions: SourceManagementPermissions;
+}
+
+/**
+ * Source Workspace Page Contract Family
+ *
+ * Consumes: GET /admin/api/v1/esign/sources/:source_document_id/workspace
+ * Purpose: Display the canonical operator workspace for a single source document.
+ * This is the primary operator experience for both workspace and detail-route aliases.
+ * State: source_document_id from URL, panel/anchor from query params
+ * Data boundary: SourceWorkspace only; no initial client-side stitching from sibling endpoints
+ */
+export interface SourceWorkspacePageContracts {
+  /** Primary contract: canonical source workspace */
+  workspace: SourceWorkspace;
+  /** Applied query from URL state */
+  query: SourceWorkspaceQuery;
   /** Navigation links to related surfaces */
   links: SourceManagementLinks;
   /** Permission flags for UI affordances */
@@ -691,6 +715,7 @@ export function detectProvenancePayloadMixing(dependencies: string[]): boolean {
   const sourceManagementContracts = [
     'SourceListPage',
     'SourceDetail',
+    'SourceWorkspace',
     'SourceRevisionPage',
     'SourceRelationshipPage',
     'SourceHandlePage',

@@ -27,6 +27,7 @@ const (
 	eSignPageGoogleDrivePicker = "admin.integrations.google_drive_picker"
 	eSignPageSourceBrowser     = "admin.sources.browser"
 	eSignPageSourceDetail      = "admin.sources.detail"
+	eSignPageSourceWorkspace   = "admin.sources.workspace"
 	eSignPageSourceRevision    = "admin.sources.revision_inspector"
 	eSignPageSourceComments    = "admin.sources.comment_inspector"
 	eSignPageSourceArtifacts   = "admin.sources.artifact_inspector"
@@ -54,6 +55,7 @@ var eSignMigratedPageModuleAssets = map[string]string{
 	eSignPageGoogleDrivePicker: eSignModuleAssetGoogleDrivePicker,
 	eSignPageSourceBrowser:     eSignModuleAssetSourceManagement,
 	eSignPageSourceDetail:      eSignModuleAssetSourceManagement,
+	eSignPageSourceWorkspace:   eSignModuleAssetSourceManagement,
 	eSignPageSourceRevision:    eSignModuleAssetSourceManagement,
 	eSignPageSourceComments:    eSignModuleAssetSourceManagement,
 	eSignPageSourceArtifacts:   eSignModuleAssetSourceManagement,
