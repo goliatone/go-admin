@@ -100,8 +100,10 @@ func TestPhase1LineageServiceBoundariesExposeCanonicalMethods(t *testing.T) {
 		"ListCandidateWarnings",
 		"ListSources",
 		"GetSourceDetail",
+		"GetSourceWorkspace",
 		"ListSourceRevisions",
 		"ListSourceRelationships",
+		"ListSourceAgreements",
 		"ListSourceHandles",
 		"GetSourceRevisionDetail",
 		"ListSourceRevisionArtifacts",
@@ -161,6 +163,9 @@ func TestPhase11SourceManagementContractFixtureCoversCanonicalStates(t *testing.
 	if fixture.States.SourceDetailRepeated.LatestRevision == nil || fixture.States.SourceDetailRepeated.ActiveHandle == nil {
 		t.Fatalf("expected repeated source detail to expose latest revision and active handle, got %+v", fixture.States.SourceDetailRepeated)
 	}
+	if fixture.States.SourceWorkspaceRepeated.ActivePanel != SourceWorkspacePanelAgreements || len(fixture.States.SourceWorkspaceRepeated.Timeline.Entries) == 0 {
+		t.Fatalf("expected repeated source workspace to expose panel drill-ins and revision timeline, got %+v", fixture.States.SourceWorkspaceRepeated)
+	}
 	if !containsString(fixture.States.SourceDetailRepeated.LatestRevision.HistoryLabels, SourceRevisionHistoryLabelLatest) {
 		t.Fatalf("expected repeated source detail latest revision history label, got %+v", fixture.States.SourceDetailRepeated.LatestRevision)
 	}
@@ -169,6 +174,9 @@ func TestPhase11SourceManagementContractFixtureCoversCanonicalStates(t *testing.
 	}
 	if len(fixture.States.SourceRelationshipsReview.Items) == 0 || fixture.States.SourceRelationshipsReview.Items[0].ReviewActionVisible != LineageReviewVisibilityAdminOnly {
 		t.Fatalf("expected candidate-review relationship state, got %+v", fixture.States.SourceRelationshipsReview)
+	}
+	if len(fixture.States.SourceAgreementsRepeated.Items) < 2 {
+		t.Fatalf("expected repeated source agreements to expose multi-revision agreement history, got %+v", fixture.States.SourceAgreementsRepeated)
 	}
 	if fixture.States.SourceRelationshipsReview.Items[0].RelationshipKind == "" || fixture.States.SourceRelationshipsReview.Items[0].CounterpartRole == "" {
 		t.Fatalf("expected source relationship review semantics, got %+v", fixture.States.SourceRelationshipsReview.Items[0])
@@ -570,6 +578,43 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 		Links:                 sourceLinksForDocument("src-doc-1"),
 		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
 	}
+	sourceAgreementsRepeated := SourceAgreementPage{
+		Source: sourceRef,
+		Items: []SourceAgreementSummary{
+			{
+				Agreement:            &LineageReference{ID: "agr-imported-v2", Label: "Imported Fixture Agreement Rev 2", URL: sourceManagementAgreementDetailPath("agr-imported-v2")},
+				Document:             &LineageReference{ID: "doc-imported-v2", Label: "Imported Fixture Source Rev 2", URL: sourceManagementDocumentDetailPath("doc-imported-v2")},
+				PinnedSourceRevision: secondRevision,
+				Status:               stores.AgreementStatusDraft,
+				IsPinnedLatest:       true,
+				Links: SourceManagementLinks{
+					Self:       sourceManagementAgreementDetailPath("agr-imported-v2"),
+					Agreement:  sourceManagementAgreementDetailPath("agr-imported-v2"),
+					Workspace:  sourceManagementSourceWorkspacePath("src-doc-1"),
+					Agreements: sourceManagementSourceAgreementsPath("src-doc-1"),
+					Anchor:     sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelAgreements, "agreement:agr-imported-v2"),
+				},
+			},
+			{
+				Agreement:            &LineageReference{ID: "agr-imported-v1", Label: "Imported Fixture Agreement", URL: sourceManagementAgreementDetailPath("agr-imported-v1")},
+				Document:             &LineageReference{ID: "doc-imported-v1", Label: "Imported Fixture Source", URL: sourceManagementDocumentDetailPath("doc-imported-v1")},
+				PinnedSourceRevision: firstRevision,
+				Status:               stores.AgreementStatusDraft,
+				Links: SourceManagementLinks{
+					Self:       sourceManagementAgreementDetailPath("agr-imported-v1"),
+					Agreement:  sourceManagementAgreementDetailPath("agr-imported-v1"),
+					Workspace:  sourceManagementSourceWorkspacePath("src-doc-1"),
+					Agreements: sourceManagementSourceAgreementsPath("src-doc-1"),
+					Anchor:     sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelAgreements, "agreement:agr-imported-v1"),
+				},
+			},
+		},
+		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 2, HasMore: false, Sort: sourceAgreementSortUpdatedDesc},
+		AppliedQuery: SourceAgreementListQuery{Sort: sourceAgreementSortUpdatedDesc, Page: 1, PageSize: 10},
+		Permissions:  permissions,
+		EmptyState:   LineageEmptyState{Kind: LineageEmptyStateNone},
+		Links:        sourceLinksForDocument("src-doc-1"),
+	}
 	sourceHandlesMulti := SourceHandlePage{
 		Source:      sourceRef,
 		Items:       []SourceHandleSummary{secondHandle, firstHandle},
@@ -683,6 +728,78 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 		SyncStatus: SourceManagementCommentSyncNotConfigured,
 		Links:      sourceRevisionLinks("src-rev-2", "src-doc-1"),
 	}
+	sourceWorkspaceRepeated := SourceWorkspace{
+		Source:                sourceRef,
+		Status:                stores.SourceDocumentStatusActive,
+		LineageConfidence:     stores.LineageConfidenceBandExact,
+		Provider:              providerV2,
+		ActiveHandle:          &secondHandle,
+		LatestRevision:        secondRevision,
+		RevisionCount:         2,
+		HandleCount:           2,
+		RelationshipCount:     1,
+		PendingCandidateCount: 1,
+		ActivePanel:           SourceWorkspacePanelAgreements,
+		ActiveAnchor:          "agreement:agr-imported-v2",
+		Panels: []SourceWorkspacePanelSummary{
+			{ID: SourceWorkspacePanelOverview, Label: "Overview", Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelOverview, "")},
+			{ID: SourceWorkspacePanelTimeline, Label: "Revision Timeline", ItemCount: 2, Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelTimeline, "")},
+			{ID: SourceWorkspacePanelAgreements, Label: "Related Agreements", ItemCount: 2, Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelAgreements, "")},
+			{ID: SourceWorkspacePanelArtifacts, Label: "Related Artifacts", ItemCount: 3, Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelArtifacts, "")},
+			{ID: SourceWorkspacePanelComments, Label: "Related Comments", ItemCount: 0, Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelComments, "")},
+			{ID: SourceWorkspacePanelHandles, Label: "Active Handles", ItemCount: 2, Links: sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelHandles, "")},
+		},
+		Continuity: SourceContinuitySummary{
+			Status:  stores.SourceDocumentStatusActive,
+			Summary: "Canonical source continuity is tracked from the active handle through revision history.",
+			Links:   sourceLinksForDocument("src-doc-1"),
+		},
+		Timeline: SourceRevisionTimeline{
+			Entries: []SourceRevisionTimelineEntry{
+				{
+					Revision:          secondRevision,
+					Handle:            &secondHandle,
+					PrimaryArtifact:   &secondArtifact,
+					AgreementCount:    1,
+					ArtifactCount:     1,
+					IsLatest:          true,
+					ContinuitySummary: "Latest observed revision for this canonical source.",
+					DrillIn:           &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelTimeline, Anchor: "revision:src-rev-2", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelTimeline, "revision:src-rev-2")},
+					Links:             sourceRevisionLinks("src-rev-2", "src-doc-1"),
+				},
+				{
+					Revision:          firstRevision,
+					Handle:            &firstHandle,
+					AgreementCount:    1,
+					ArtifactCount:     2,
+					ContinuitySummary: "Historical revision remains pinned for downstream document and agreement lineage.",
+					DrillIn:           &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelTimeline, Anchor: "revision:src-rev-1", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelTimeline, "revision:src-rev-1")},
+					Links:             sourceRevisionLinks("src-rev-1", "src-doc-1"),
+				},
+			},
+			Permissions: permissions,
+			EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+			Links:       sourceLinksForDocument("src-doc-1"),
+		},
+		Agreements: sourceAgreementsRepeated,
+		Artifacts: SourceWorkspaceArtifactPage{
+			Source: sourceRef,
+			Items: []SourceWorkspaceArtifactSummary{
+				{Artifact: &secondArtifact, Revision: secondRevision, Provider: providerV2, DrillIn: &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelArtifacts, Anchor: "artifact:src-art-2", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelArtifacts, "artifact:src-art-2")}, Links: sourceRevisionLinks("src-rev-2", "src-doc-1")},
+				{Artifact: &SourceArtifactSummary{ID: "src-art-1-preview", ArtifactKind: stores.SourceArtifactKindPreviewPDF, ObjectKey: "tenant/google-v1.preview.pdf", SHA256: strings.Repeat("c", 64), PageCount: 3, SizeBytes: 2048, CompatibilityTier: "supported", NormalizationStatus: "completed"}, Revision: firstRevision, DrillIn: &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelArtifacts, Anchor: "artifact:src-art-1-preview", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelArtifacts, "artifact:src-art-1-preview")}, Links: sourceRevisionLinks("src-rev-1", "src-doc-1")},
+				{Artifact: &SourceArtifactSummary{ID: "src-art-1", ArtifactKind: stores.SourceArtifactKindSignablePDF, ObjectKey: "tenant/google-v1.pdf", SHA256: strings.Repeat("a", 64), PageCount: 3, SizeBytes: 4096, CompatibilityTier: "supported", NormalizationStatus: "completed"}, Revision: firstRevision, DrillIn: &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelArtifacts, Anchor: "artifact:src-art-1", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelArtifacts, "artifact:src-art-1")}, Links: sourceRevisionLinks("src-rev-1", "src-doc-1")},
+			},
+			PageInfo:    SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 3, TotalCount: 3, HasMore: false, Sort: sourceRevisionSortLatestDesc},
+			Permissions: permissions,
+			EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+			Links:       sourceLinksForDocument("src-doc-1"),
+		},
+		Comments:    sourceCommentsEmpty,
+		Handles:     sourceHandlesMulti,
+		Permissions: permissions,
+		Links:       sourceWorkspaceLinksForDocument("src-doc-1", SourceWorkspacePanelAgreements, "agreement:agr-imported-v2"),
+		EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
 	sourceSearchResults := SourceSearchResults{
 		Items: []SourceSearchResultSummary{{
 			ResultKind:    SourceManagementSearchResultSourceRevision,
@@ -691,6 +808,7 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 			Provider:      providerV2,
 			MatchedFields: []string{"external_file_id", "provider_revision_hint"},
 			Summary:       "Matched external_file_id, provider_revision_hint across canonical source metadata.",
+			DrillIn:       &SourceWorkspaceDrillIn{Panel: SourceWorkspacePanelTimeline, Anchor: "revision:src-rev-2", Href: sourceManagementWorkspaceAnchorPath("src-doc-1", SourceWorkspacePanelTimeline, "revision:src-rev-2")},
 			Links:         sourceRevisionLinks("src-rev-2", "src-doc-1"),
 		}},
 		PageInfo:     SourceManagementPageInfo{Mode: SourceManagementPaginationModePage, Page: 1, PageSize: 10, TotalCount: 1, HasMore: false, Sort: sourceSearchSortRelevance},
@@ -769,9 +887,11 @@ func buildPhase11SourceManagementContractFixture(t *testing.T) Phase11SourceMana
 			SourceListEmpty:           sourceListEmpty,
 			SourceListSingle:          sourceListSingle,
 			SourceDetailRepeated:      sourceDetailRepeated,
+			SourceWorkspaceRepeated:   sourceWorkspaceRepeated,
 			SourceHandlesMulti:        sourceHandlesMulti,
 			SourceRevisionsRepeated:   sourceRevisionsRepeated,
 			SourceRelationshipsReview: sourceRelationshipsReview,
+			SourceAgreementsRepeated:  sourceAgreementsRepeated,
 			SourceRevisionDetail:      sourceRevisionDetail,
 			SourceArtifacts:           sourceArtifacts,
 			SourceCommentsEmpty:       sourceCommentsEmpty,

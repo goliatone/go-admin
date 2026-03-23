@@ -326,6 +326,31 @@ func TestDefaultSourceReadModelServiceBuildsSourceManagementReadModels(t *testin
 	if detail.Permissions.CanViewDiagnostics || detail.Permissions.CanOpenProviderLinks || detail.Permissions.CanReviewCandidates || detail.Permissions.CanViewComments {
 		t.Fatalf("expected direct source detail permissions to remain transport-neutral, got %+v", detail.Permissions)
 	}
+	workspace, err := service.GetSourceWorkspace(context.Background(), scope, seeded.sourceDocumentID, SourceWorkspaceQuery{
+		Panel:  SourceWorkspacePanelAgreements,
+		Anchor: "agreement:" + seeded.importedAgreementID,
+	})
+	if err != nil {
+		t.Fatalf("GetSourceWorkspace: %v", err)
+	}
+	if workspace.Source == nil || workspace.Source.ID != seeded.sourceDocumentID {
+		t.Fatalf("expected source workspace for %q, got %+v", seeded.sourceDocumentID, workspace)
+	}
+	if workspace.ActivePanel != SourceWorkspacePanelAgreements || workspace.ActiveAnchor == "" {
+		t.Fatalf("expected source workspace drill-in state, got %+v", workspace)
+	}
+	if len(workspace.Timeline.Entries) != 2 {
+		t.Fatalf("expected two workspace timeline entries, got %+v", workspace.Timeline)
+	}
+	if len(workspace.Agreements.Items) != 2 {
+		t.Fatalf("expected two revision-pinned agreement summaries, got %+v", workspace.Agreements)
+	}
+	if len(workspace.Artifacts.Items) != 3 {
+		t.Fatalf("expected three source-level artifacts across revisions, got %+v", workspace.Artifacts)
+	}
+	if workspace.Continuity.Summary == "" {
+		t.Fatalf("expected source workspace continuity summary, got %+v", workspace.Continuity)
+	}
 
 	revisions, err := service.ListSourceRevisions(context.Background(), scope, seeded.sourceDocumentID, SourceRevisionListQuery{})
 	if err != nil {
@@ -583,6 +608,63 @@ func TestDefaultSourceReadModelServiceAppliesSourceManagementFiltersAndPaginatio
 	}
 }
 
+func TestDefaultSourceReadModelServiceBuildsReconciliationQueueReadModels(t *testing.T) {
+	store, scope, seeded := seedSourceReadModelFixtures(t)
+	service := NewDefaultSourceReadModelService(
+		store,
+		store,
+		store,
+		WithSourceReadModelClock(func() time.Time {
+			return time.Date(2026, time.March, 25, 12, 0, 0, 0, time.UTC)
+		}),
+	)
+
+	queue, err := service.ListReconciliationQueue(context.Background(), scope, ReconciliationQueueQuery{
+		ConfidenceBand: stores.LineageConfidenceBandMedium,
+		RelationshipType: stores.SourceRelationshipTypeSameLogicalDoc,
+		ProviderKind: stores.SourceProviderKindGoogleDrive,
+		SourceStatus: stores.SourceDocumentStatusActive,
+		AgeBand: ReconciliationQueueAgeBandLT7D,
+		Page: 1,
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("ListReconciliationQueue: %v", err)
+	}
+	if len(queue.Items) != 1 {
+		t.Fatalf("expected one pending queue item, got %+v", queue)
+	}
+	if queue.Items[0].Candidate == nil || queue.Items[0].Candidate.ID != seeded.candidateRelationshipID {
+		t.Fatalf("expected queue candidate %q, got %+v", seeded.candidateRelationshipID, queue.Items[0].Candidate)
+	}
+	if queue.Items[0].LeftSource == nil || queue.Items[0].LeftSource.Source == nil || queue.Items[0].LeftSource.Source.ID != "src-doc-candidate" {
+		t.Fatalf("expected left queue source summary, got %+v", queue.Items[0].LeftSource)
+	}
+	if queue.Items[0].QueueAgeBand != ReconciliationQueueAgeBandLT7D {
+		t.Fatalf("expected queue age band lt_7d, got %+v", queue.Items[0])
+	}
+	if len(queue.Items[0].Actions) < 5 {
+		t.Fatalf("expected queue actions metadata, got %+v", queue.Items[0].Actions)
+	}
+
+	detail, err := service.GetReconciliationCandidate(context.Background(), scope, seeded.candidateRelationshipID)
+	if err != nil {
+		t.Fatalf("GetReconciliationCandidate: %v", err)
+	}
+	if detail.Candidate == nil || detail.Candidate.ID != seeded.candidateRelationshipID {
+		t.Fatalf("expected candidate detail %q, got %+v", seeded.candidateRelationshipID, detail.Candidate)
+	}
+	if detail.MatchedSourceRevision == nil || detail.MatchedSourceRevision.ID != "src-rev-candidate" {
+		t.Fatalf("expected matched candidate revision, got %+v", detail.MatchedSourceRevision)
+	}
+	if detail.MatchedSourceArtifact != nil {
+		t.Fatalf("expected candidate fixture without artifact evidence to omit matched artifact, got %+v", detail.MatchedSourceArtifact)
+	}
+	if len(detail.Actions) < 5 {
+		t.Fatalf("expected detail actions metadata, got %+v", detail.Actions)
+	}
+}
+
 func TestPhase12SourceManagementRemainsConsistentWithDocumentAndAgreementProvenanceReads(t *testing.T) {
 	store, scope, seeded := seedSourceReadModelFixtures(t)
 	service := NewDefaultSourceReadModelService(store, store, store)
@@ -684,9 +766,13 @@ func containsCandidateEvidence(evidence []CandidateEvidenceSummary, code, label,
 type sourceManagementParitySnapshot struct {
 	ListSources        SourceListPage         `json:"list_sources"`
 	SourceDetail       SourceDetail           `json:"source_detail"`
+	SourceWorkspace    SourceWorkspace        `json:"source_workspace"`
 	RevisionHistory    SourceRevisionPage     `json:"revision_history"`
 	RelationshipList   SourceRelationshipPage `json:"relationship_list"`
+	AgreementList      SourceAgreementPage    `json:"agreement_list"`
 	ProviderHandleList SourceHandlePage       `json:"provider_handle_list"`
+	QueuePage          ReconciliationQueuePage `json:"queue_page"`
+	QueueDetail        ReconciliationCandidateDetail `json:"queue_detail"`
 }
 
 func buildSourceManagementParitySnapshot(t *testing.T, ctx context.Context, scope stores.Scope, service DefaultSourceReadModelService, fixtures sourceReadModelFixtures) sourceManagementParitySnapshot {
@@ -700,6 +786,10 @@ func buildSourceManagementParitySnapshot(t *testing.T, ctx context.Context, scop
 	if err != nil {
 		t.Fatalf("GetSourceDetail snapshot: %v", err)
 	}
+	sourceWorkspace, err := service.GetSourceWorkspace(ctx, scope, fixtures.sourceDocumentID, SourceWorkspaceQuery{Panel: SourceWorkspacePanelOverview})
+	if err != nil {
+		t.Fatalf("GetSourceWorkspace snapshot: %v", err)
+	}
 	revisionHistory, err := service.ListSourceRevisions(ctx, scope, fixtures.sourceDocumentID, SourceRevisionListQuery{Sort: sourceRevisionSortLatestDesc, Page: 1, PageSize: 10})
 	if err != nil {
 		t.Fatalf("ListSourceRevisions snapshot: %v", err)
@@ -708,16 +798,32 @@ func buildSourceManagementParitySnapshot(t *testing.T, ctx context.Context, scop
 	if err != nil {
 		t.Fatalf("ListSourceRelationships snapshot: %v", err)
 	}
+	agreementList, err := service.ListSourceAgreements(ctx, scope, fixtures.sourceDocumentID, SourceAgreementListQuery{Sort: sourceAgreementSortUpdatedDesc, Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListSourceAgreements snapshot: %v", err)
+	}
 	providerHandleList, err := service.ListSourceHandles(ctx, scope, fixtures.sourceDocumentID)
 	if err != nil {
 		t.Fatalf("ListSourceHandles snapshot: %v", err)
 	}
+	queuePage, err := service.ListReconciliationQueue(ctx, scope, ReconciliationQueueQuery{Sort: reconciliationQueueSortConfidenceDesc, Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListReconciliationQueue snapshot: %v", err)
+	}
+	queueDetail, err := service.GetReconciliationCandidate(ctx, scope, fixtures.candidateRelationshipID)
+	if err != nil {
+		t.Fatalf("GetReconciliationCandidate snapshot: %v", err)
+	}
 	return sourceManagementParitySnapshot{
 		ListSources:        listSources,
 		SourceDetail:       sourceDetail,
+		SourceWorkspace:    sourceWorkspace,
 		RevisionHistory:    revisionHistory,
 		RelationshipList:   relationshipList,
+		AgreementList:      agreementList,
 		ProviderHandleList: providerHandleList,
+		QueuePage:          queuePage,
+		QueueDetail:        queueDetail,
 	}
 }
 
@@ -777,12 +883,14 @@ func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtu
 		importedDocumentID:       "doc-imported-v1",
 		repeatedImportDocumentID: "doc-imported-v2",
 		importedAgreementID:      "agr-imported-v1",
+		repeatedAgreementID:      "agr-imported-v2",
 		sourceDocumentID:         "src-doc-1",
 		activeSourceHandleID:     "src-handle-1",
 		secondSourceHandleID:     "src-handle-2",
 		firstSourceRevisionID:    "src-rev-1",
 		secondSourceRevisionID:   "src-rev-2",
 		firstSourceArtifactID:    "src-art-1",
+		firstPreviewArtifactID:   "src-art-1-preview",
 		secondSourceArtifactID:   "src-art-2",
 		candidateRelationshipID:  "src-rel-1",
 		copyRelationshipID:       "src-rel-copy",
@@ -912,6 +1020,21 @@ func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtu
 	}); err != nil {
 		t.Fatalf("CreateSourceArtifact first: %v", err)
 	}
+	if _, err := store.CreateSourceArtifact(context.Background(), scope, stores.SourceArtifactRecord{
+		ID:                  fixtures.firstPreviewArtifactID,
+		SourceRevisionID:    fixtures.firstSourceRevisionID,
+		ArtifactKind:        stores.SourceArtifactKindPreviewPDF,
+		ObjectKey:           "tenant/google-v1.preview.pdf",
+		SHA256:              strings.Repeat("c", 64),
+		PageCount:           3,
+		SizeBytes:           2048,
+		CompatibilityTier:   "supported",
+		NormalizationStatus: "completed",
+		CreatedAt:           now.Add(5 * time.Minute),
+		UpdatedAt:           now.Add(5 * time.Minute),
+	}); err != nil {
+		t.Fatalf("CreateSourceArtifact first preview: %v", err)
+	}
 	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
 		ID:                     fixtures.importedDocumentID,
 		Title:                  "Imported Fixture Source",
@@ -1031,6 +1154,28 @@ func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtu
 	}); err != nil {
 		t.Fatalf("Create repeated import document: %v", err)
 	}
+	if _, err := store.CreateDraft(context.Background(), scope, stores.AgreementRecord{
+		ID:                     fixtures.repeatedAgreementID,
+		DocumentID:             fixtures.repeatedImportDocumentID,
+		Title:                  "Imported Fixture Agreement Rev 2",
+		Status:                 stores.AgreementStatusDraft,
+		Version:                1,
+		SourceType:             stores.SourceTypeGoogleDrive,
+		SourceGoogleFileID:     "fixture-google-file-2",
+		SourceGoogleDocURL:     "https://docs.google.com/document/d/fixture-google-file-2/edit",
+		SourceModifiedTime:     &second,
+		SourceExportedAt:       &second,
+		SourceExportedByUserID: "fixture-user",
+		SourceMimeType:         "application/vnd.google-apps.document",
+		SourceIngestionMode:    GoogleIngestionModeExportPDF,
+		SourceRevisionID:       fixtures.secondSourceRevisionID,
+		CreatedByUserID:        "fixture-user",
+		UpdatedByUserID:        "fixture-user",
+		CreatedAt:              second,
+		UpdatedAt:              second,
+	}); err != nil {
+		t.Fatalf("Create repeated agreement: %v", err)
+	}
 	if _, err := store.CreateSourceFingerprint(context.Background(), scope, stores.SourceFingerprintRecord{
 		ID:                     "src-fp-2",
 		SourceRevisionID:       fixtures.secondSourceRevisionID,
@@ -1039,7 +1184,7 @@ func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtu
 		Status:                 stores.SourceFingerprintStatusFailed,
 		ErrorCode:              "EXTRACTION_FAILED",
 		ErrorMessage:           "PDF text extraction failed: document is encrypted or corrupted",
-		ExtractionMetadataJSON: `{"extractor":"ledongthuc/pdf","extract_version":"` + stores.SourceExtractVersionPDFTextV1 + `"}`,
+		ExtractionMetadataJSON: `{"extractor":"ledongthuc/pdf","extract_version":"` + stores.SourceExtractVersionPDFTextV1 + `","normalized_text":"fixture normalized text for repeated revision","normalized_texts":["fixture normalized text for repeated revision"]}`,
 		CreatedAt:              second,
 	}); err != nil {
 		t.Fatalf("CreateSourceFingerprint failed: %v", err)
@@ -1055,7 +1200,7 @@ func seedSourceReadModelFixturesInStore(t *testing.T, store sourceReadModelFixtu
 			ConfidenceBand:              stores.LineageConfidenceBandMedium,
 			ConfidenceScore:             0.72,
 			Status:                      stores.SourceRelationshipStatusPendingReview,
-			EvidenceJSON:                `{"candidate_reason":"matching_title_with_partial_google_context"}`,
+			EvidenceJSON:                `{"candidate_reason":"matching_title_with_partial_google_context","candidate_source_document_id":"src-doc-candidate","candidate_source_revision_id":"src-rev-candidate"}`,
 			CreatedByUserID:             "fixture-user",
 			CreatedAt:                   second,
 			UpdatedAt:                   second,
@@ -1119,12 +1264,14 @@ type sourceReadModelFixtures struct {
 	importedDocumentID       string
 	repeatedImportDocumentID string
 	importedAgreementID      string
+	repeatedAgreementID      string
 	sourceDocumentID         string
 	activeSourceHandleID     string
 	secondSourceHandleID     string
 	firstSourceRevisionID    string
 	secondSourceRevisionID   string
 	firstSourceArtifactID    string
+	firstPreviewArtifactID   string
 	secondSourceArtifactID   string
 	candidateRelationshipID  string
 	copyRelationshipID       string

@@ -28,6 +28,7 @@ func DefaultSourceReconciliationPolicy() SourceReconciliationPolicy {
 
 type DefaultSourceReconciliationService struct {
 	lineage stores.LineageStore
+	search  SourceSearchService
 	now     func() time.Time
 	policy  SourceReconciliationPolicy
 }
@@ -49,6 +50,15 @@ func WithSourceReconciliationPolicy(policy SourceReconciliationPolicy) SourceRec
 			return
 		}
 		s.policy = policy
+	}
+}
+
+func WithSourceReconciliationSearchService(service SourceSearchService) SourceReconciliationServiceOption {
+	return func(s *DefaultSourceReconciliationService) {
+		if s == nil || service == nil {
+			return
+		}
+		s.search = service
 	}
 }
 
@@ -197,22 +207,33 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 	if relationshipID == "" || action == "" || actorID == "" {
 		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
 	}
+	effectiveAction, err := normalizeSourceRelationshipReviewAction(action, input.ConfirmBehavior)
+	if err != nil {
+		return CandidateWarningSummary{}, err
+	}
 	relationship, err := s.lineage.GetSourceRelationship(ctx, scope, relationshipID)
 	if err != nil {
 		return CandidateWarningSummary{}, err
 	}
-	if strings.TrimSpace(relationship.Status) == stores.SourceRelationshipStatusSuperseded && action != SourceRelationshipActionSupersede {
+	currentStatus := strings.TrimSpace(relationship.Status)
+	if currentStatus == stores.SourceRelationshipStatusSuperseded && effectiveAction != SourceRelationshipActionSupersede {
 		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship", "superseded candidates are immutable")
+	}
+	if currentStatus != stores.SourceRelationshipStatusPendingReview && effectiveAction != SourceRelationshipActionSupersede {
+		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "relationship", "candidate is no longer pending review")
 	}
 
 	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
-	evidence["review_action"] = action
+	evidence["review_action"] = effectiveAction
 	evidence["reviewed_by_user_id"] = actorID
 	evidence["review_reason"] = strings.TrimSpace(input.Reason)
 	evidence["reviewed_at"] = s.now().UTC().Format(time.RFC3339Nano)
+	evidence["last_review_action"] = effectiveAction
+	beforeStatus := currentStatus
 
-	switch action {
-	case SourceRelationshipActionConfirm:
+	impactedSourceIDs := []string{relationship.LeftSourceDocumentID, relationship.RightSourceDocumentID}
+	switch effectiveAction {
+	case SourceRelationshipActionAttach:
 		relationship.Status = stores.SourceRelationshipStatusConfirmed
 		if s.policy.AttachHandlesOnConfirm {
 			canonicalID, attachedHandles, err := s.attachHandlesForRelationship(ctx, scope, relationship)
@@ -224,13 +245,46 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 			}
 			evidence["attached_handle_count"] = attachedHandles
 		}
+	case SourceRelationshipActionMerge:
+		relationship.Status = stores.SourceRelationshipStatusConfirmed
+		canonicalID, mergedID, attachedHandles, err := s.mergeSourceDocumentsForRelationship(ctx, scope, relationship)
+		if err != nil {
+			return CandidateWarningSummary{}, err
+		}
+		if canonicalID != "" {
+			evidence["canonical_source_document_id"] = canonicalID
+			impactedSourceIDs = append(impactedSourceIDs, canonicalID)
+		}
+		if mergedID != "" {
+			evidence["merged_source_document_id"] = mergedID
+			impactedSourceIDs = append(impactedSourceIDs, mergedID)
+		}
+		evidence["attached_handle_count"] = attachedHandles
+		relationship.PredecessorSourceDocumentID = strings.TrimSpace(mergedID)
+		relationship.SuccessorSourceDocumentID = strings.TrimSpace(canonicalID)
+	case SourceRelationshipActionRelated:
+		relationship.Status = stores.SourceRelationshipStatusConfirmed
+		relationship.RelationshipType = confirmedRelatedRelationshipType(relationship.RelationshipType)
+		relationship.PredecessorSourceDocumentID = ""
+		relationship.SuccessorSourceDocumentID = ""
 	case SourceRelationshipActionReject:
 		relationship.Status = stores.SourceRelationshipStatusRejected
+		evidence["suppression_evidence_signature"] = firstNonEmpty(lineageMetadataString(evidence, "evidence_signature"), lineageMetadataString(evidence, "suppression_evidence_signature"))
 	case SourceRelationshipActionSupersede:
 		relationship.Status = stores.SourceRelationshipStatusSuperseded
 	default:
 		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "action", "unsupported")
 	}
+	evidence = appendReconciliationAuditEntry(evidence, reconciliationAuditEntryInput{
+		ID:         "audit_" + hashFingerprintValue(strings.Join([]string{relationship.ID, effectiveAction, actorID, s.now().UTC().Format(time.RFC3339Nano)}, "|"))[:16],
+		Action:     effectiveAction,
+		ActorID:    actorID,
+		Reason:     strings.TrimSpace(input.Reason),
+		FromStatus: beforeStatus,
+		ToStatus:   strings.TrimSpace(relationship.Status),
+		Summary:    reconciliationReviewActionSummary(effectiveAction, relationship),
+		CreatedAt:  s.now().UTC(),
+	})
 
 	encoded, err := json.Marshal(evidence)
 	if err != nil {
@@ -242,6 +296,7 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 	if err != nil {
 		return CandidateWarningSummary{}, err
 	}
+	s.refreshSearchAfterReview(ctx, scope, impactedSourceIDs...)
 	return candidateWarningSummaryFromRelationship(relationship), nil
 }
 
@@ -262,6 +317,79 @@ func (s DefaultSourceReconciliationService) ListCandidateRelationships(ctx conte
 		return relationships[i].UpdatedAt.After(relationships[j].UpdatedAt)
 	})
 	return relationships, nil
+}
+
+type reconciliationAuditEntryInput struct {
+	ID         string
+	Action     string
+	ActorID    string
+	Reason     string
+	FromStatus string
+	ToStatus   string
+	Summary    string
+	CreatedAt  time.Time
+}
+
+func normalizeSourceRelationshipReviewAction(action, confirmBehavior string) (string, error) {
+	action = strings.TrimSpace(strings.ToLower(action))
+	confirmBehavior = strings.TrimSpace(strings.ToLower(confirmBehavior))
+	switch action {
+	case SourceRelationshipActionConfirm:
+		if confirmBehavior == "" {
+			return SourceRelationshipActionAttach, nil
+		}
+		return normalizeSourceRelationshipReviewAction(confirmBehavior, "")
+	case SourceRelationshipActionAttach, SourceRelationshipActionMerge, SourceRelationshipActionRelated, SourceRelationshipActionReject, SourceRelationshipActionSupersede:
+		return action, nil
+	default:
+		return "", domainValidationError("lineage_reconciliation", "action", "unsupported")
+	}
+}
+
+func confirmedRelatedRelationshipType(relationshipType string) string {
+	switch strings.TrimSpace(relationshipType) {
+	case stores.SourceRelationshipTypeForkedFrom, stores.SourceRelationshipTypePartialOverlap:
+		return strings.TrimSpace(relationshipType)
+	default:
+		return stores.SourceRelationshipTypePartialOverlap
+	}
+}
+
+func reconciliationReviewActionSummary(action string, relationship stores.SourceRelationshipRecord) string {
+	switch strings.TrimSpace(action) {
+	case SourceRelationshipActionAttach:
+		return "Operator confirmed the candidate by attaching active handles to the existing canonical source."
+	case SourceRelationshipActionMerge:
+		return "Operator confirmed the candidate by merging the duplicate source into the canonical source."
+	case SourceRelationshipActionRelated:
+		return "Operator confirmed the candidate as related but distinct without merging canonical identities."
+	case SourceRelationshipActionReject:
+		return "Operator rejected the candidate and suppression remains active until evidence changes."
+	case SourceRelationshipActionSupersede:
+		return "Operator superseded the candidate in favor of newer or more reliable evidence."
+	default:
+		return relationshipSummary(relationship)
+	}
+}
+
+func appendReconciliationAuditEntry(evidence map[string]any, entry reconciliationAuditEntryInput) map[string]any {
+	if len(evidence) == 0 {
+		evidence = map[string]any{}
+	}
+	raw, _ := evidence["review_audit"].([]any)
+	auditEntry := map[string]any{
+		"id":          strings.TrimSpace(entry.ID),
+		"action":      strings.TrimSpace(entry.Action),
+		"actor_id":    strings.TrimSpace(entry.ActorID),
+		"reason":      strings.TrimSpace(entry.Reason),
+		"from_status": strings.TrimSpace(entry.FromStatus),
+		"to_status":   strings.TrimSpace(entry.ToStatus),
+		"summary":     strings.TrimSpace(entry.Summary),
+		"created_at":  entry.CreatedAt.UTC().Format(time.RFC3339Nano),
+	}
+	raw = append(raw, auditEntry)
+	evidence["review_audit"] = raw
+	return evidence
 }
 
 type reconciliationTargetContext struct {
@@ -501,11 +629,17 @@ func (s DefaultSourceReconciliationService) evaluateCandidateArtifact(
 		"web_url_match":                fmt.Sprintf("%t", webURLMatch),
 		"owner_match":                  fmt.Sprintf("%t", ownerMatch),
 		"folder_match":                 fmt.Sprintf("%t", folderMatch),
+		"target_source_document_id":    strings.TrimSpace(targetDocument.ID),
+		"target_source_revision_id":    strings.TrimSpace(targetRevision.ID),
+		"target_source_artifact_id":    strings.TrimSpace(targetArtifact.ID),
+		"target_extract_version":       strings.TrimSpace(targetFingerprint.ExtractVersion),
 		"candidate_source_document_id": strings.TrimSpace(candidateDocument.ID),
 		"candidate_source_revision_id": strings.TrimSpace(candidateRevision.ID),
 		"candidate_source_artifact_id": strings.TrimSpace(artifactContext.artifact.ID),
+		"candidate_extract_version":    strings.TrimSpace(artifactContext.fingerprint.ExtractVersion),
 		"evaluated_at":                 s.now().UTC().Format(time.RFC3339Nano),
 	}
+	evidence["evidence_signature"] = reconciliationEvidenceSignature(evidence)
 
 	return candidateScoreEvaluation{
 		candidateDocument:  candidateDocument,
@@ -591,7 +725,20 @@ func (s DefaultSourceReconciliationService) upsertEvaluatedRelationship(ctx cont
 	record.Status = preservedRelationshipStatus(existing, evaluation)
 	record.UpdatedAt = now
 	evaluation.evidence["evaluation_actor_id"] = strings.TrimSpace(firstNonEmpty(input.ActorID, "system"))
-	encoded, err := json.Marshal(evaluation.evidence)
+	mergedEvidence := mergeRelationshipEvidence(decodeLineageMetadataJSON(existing.EvidenceJSON), evaluation.evidence)
+	if strings.TrimSpace(existing.Status) == stores.SourceRelationshipStatusRejected && record.Status != stores.SourceRelationshipStatusRejected {
+		mergedEvidence = appendReconciliationAuditEntry(mergedEvidence, reconciliationAuditEntryInput{
+			ID:         "audit_" + hashFingerprintValue(strings.Join([]string{record.ID, "reopened", now.Format(time.RFC3339Nano)}, "|"))[:16],
+			Action:     "candidate_reopened",
+			ActorID:    strings.TrimSpace(firstNonEmpty(input.ActorID, "system")),
+			Reason:     "new evidence or extractor version reopened a previously rejected candidate",
+			FromStatus: stores.SourceRelationshipStatusRejected,
+			ToStatus:   record.Status,
+			Summary:    "Candidate reopened after the evaluation evidence changed.",
+			CreatedAt:  now,
+		})
+	}
+	encoded, err := json.Marshal(mergedEvidence)
 	if err != nil {
 		return stores.SourceRelationshipRecord{}, err
 	}
@@ -622,12 +769,36 @@ func preservedRelationshipStatus(existing stores.SourceRelationshipRecord, evalu
 	case stores.SourceRelationshipStatusConfirmed:
 		return stores.SourceRelationshipStatusConfirmed
 	case stores.SourceRelationshipStatusRejected:
-		return stores.SourceRelationshipStatusRejected
+		if shouldPreserveRejectedRelationship(existing, evaluation) {
+			return stores.SourceRelationshipStatusRejected
+		}
+		return strings.TrimSpace(evaluation.status)
 	case stores.SourceRelationshipStatusSuperseded:
 		return stores.SourceRelationshipStatusSuperseded
 	default:
 		return strings.TrimSpace(evaluation.status)
 	}
+}
+
+func shouldPreserveRejectedRelationship(existing stores.SourceRelationshipRecord, evaluation candidateScoreEvaluation) bool {
+	evidence := decodeLineageMetadataJSON(existing.EvidenceJSON)
+	suppressedSignature := firstNonEmpty(
+		lineageMetadataString(evidence, "suppression_evidence_signature"),
+		lineageMetadataString(evidence, "evidence_signature"),
+	)
+	nextSignature := lineageMetadataString(evaluation.evidence, "evidence_signature")
+	return suppressedSignature != "" && suppressedSignature == nextSignature
+}
+
+func mergeRelationshipEvidence(existing, next map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, value := range existing {
+		merged[strings.TrimSpace(key)] = value
+	}
+	for key, value := range next {
+		merged[strings.TrimSpace(key)] = value
+	}
+	return merged
 }
 
 func (s DefaultSourceReconciliationService) findRelationshipPair(ctx context.Context, scope stores.Scope, leftID, rightID string) (stores.SourceRelationshipRecord, error) {
@@ -736,6 +907,47 @@ func (s DefaultSourceReconciliationService) attachHandlesForRelationship(ctx con
 	return canonical.ID, attached, nil
 }
 
+func (s DefaultSourceReconciliationService) mergeSourceDocumentsForRelationship(ctx context.Context, scope stores.Scope, relationship stores.SourceRelationshipRecord) (string, string, int, error) {
+	left, err := s.lineage.GetSourceDocument(ctx, scope, relationship.LeftSourceDocumentID)
+	if err != nil {
+		return "", "", 0, err
+	}
+	right, err := s.lineage.GetSourceDocument(ctx, scope, relationship.RightSourceDocumentID)
+	if err != nil {
+		return "", "", 0, err
+	}
+	canonical, duplicate := preferredCanonicalSourceDocument(left, right)
+	canonicalID, attachedHandles, err := s.attachHandlesForRelationship(ctx, scope, relationship)
+	if err != nil {
+		return "", "", attachedHandles, err
+	}
+	now := s.now().UTC()
+	duplicate.Status = stores.SourceDocumentStatusMerged
+	duplicate.UpdatedAt = now
+	if _, err := s.lineage.SaveSourceDocument(ctx, scope, duplicate); err != nil {
+		return "", "", attachedHandles, err
+	}
+	return firstNonEmpty(canonicalID, canonical.ID), duplicate.ID, attachedHandles, nil
+}
+
+func (s DefaultSourceReconciliationService) refreshSearchAfterReview(ctx context.Context, scope stores.Scope, sourceDocumentIDs ...string) {
+	if s.search == nil {
+		return
+	}
+	seen := map[string]struct{}{}
+	for _, sourceDocumentID := range sourceDocumentIDs {
+		sourceDocumentID = strings.TrimSpace(sourceDocumentID)
+		if sourceDocumentID == "" {
+			continue
+		}
+		if _, ok := seen[sourceDocumentID]; ok {
+			continue
+		}
+		seen[sourceDocumentID] = struct{}{}
+		_, _ = s.search.ReindexSourceDocument(ctx, scope, sourceDocumentID)
+	}
+}
+
 func preferredCanonicalSourceDocument(left, right stores.SourceDocumentRecord) (stores.SourceDocumentRecord, stores.SourceDocumentRecord) {
 	leftConfidence := reconciliationConfidenceRank(left.LineageConfidence)
 	rightConfidence := reconciliationConfidenceRank(right.LineageConfidence)
@@ -839,6 +1051,59 @@ func reconciliationCandidateReason(exactArtifact bool, normalizedSimilarity, chu
 		return "partial_chunk_overlap"
 	default:
 		return "multi_signal_candidate_match"
+	}
+}
+
+func reconciliationEvidenceSignature(evidence map[string]any) string {
+	keys := []string{
+		"candidate_reason",
+		"exact_artifact_match",
+		"normalized_text_similarity",
+		"chunk_overlap",
+		"title_similarity",
+		"temporal_proximity",
+		"account_match",
+		"drive_match",
+		"web_url_match",
+		"owner_match",
+		"folder_match",
+		"target_source_document_id",
+		"target_source_revision_id",
+		"target_source_artifact_id",
+		"target_extract_version",
+		"candidate_source_document_id",
+		"candidate_source_revision_id",
+		"candidate_source_artifact_id",
+		"candidate_extract_version",
+	}
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+reconciliationEvidenceValue(evidence[key]))
+	}
+	return hashFingerprintValue(strings.Join(parts, "|"))
+}
+
+func reconciliationEvidenceValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case bool:
+		if typed {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return fmt.Sprintf("%.6f", typed)
+	case float32:
+		return fmt.Sprintf("%.6f", typed)
+	case int:
+		return fmt.Sprintf("%d", typed)
+	case int64:
+		return fmt.Sprintf("%d", typed)
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
 	}
 }
 

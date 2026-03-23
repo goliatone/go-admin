@@ -18,14 +18,14 @@ func TestRunSourceManagementValidationProfileCoversPhase14LandingZone(t *testing
 	if !result.BootstrapValidated || !result.ContractGuardValidated || !result.FixtureScenarioSeeded {
 		t.Fatalf("expected bootstrap, guard, and fixture validation, got %+v", result)
 	}
-	if !result.SourceListBootstrapped || !result.SourceBrowserNavigationReady || !result.SourceDetailReadable {
-		t.Fatalf("expected source browser landing-zone coverage, got %+v", result)
+	if !result.SourceListBootstrapped || !result.SourceBrowserNavigationReady || !result.SourceDetailReadable || !result.SourceWorkspaceReadable {
+		t.Fatalf("expected source browser and workspace landing-zone coverage, got %+v", result)
 	}
-	if !result.RevisionHistoryReadable || !result.MultiHandleContinuityVisible || !result.RelationshipSummariesReadable {
-		t.Fatalf("expected revision, handle continuity, and relationship coverage, got %+v", result)
+	if !result.RevisionHistoryReadable || !result.RevisionTimelineReadable || !result.MultiHandleContinuityVisible || !result.RelationshipSummariesReadable {
+		t.Fatalf("expected revision, timeline, handle continuity, and relationship coverage, got %+v", result)
 	}
-	if !result.SourceSearchCorrect || !result.SourceCommentsReadable || !result.ProviderNeutralContractsStable {
-		t.Fatalf("expected search, comments, and provider-neutral contract coverage, got %+v", result)
+	if !result.SourceAgreementsReadable || !result.SourceArtifactsReadable || !result.SourceSearchCorrect || !result.SourceCommentsReadable || !result.ProviderNeutralContractsStable {
+		t.Fatalf("expected agreements, artifacts, search, comments, and provider-neutral contract coverage, got %+v", result)
 	}
 	if result.Scenario.SourceDocumentID == "" || result.Scenario.SecondSourceRevisionID == "" || result.Scenario.CandidateRelationshipID == "" {
 		t.Fatalf("expected seeded scenario ids, got %+v", result.Scenario)

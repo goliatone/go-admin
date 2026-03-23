@@ -453,7 +453,7 @@
 {% block sidebar %}
   {# Source Provenance Card - Pinned to sidebar #}
   {% if resource_item.lineage_presentation %}
-    {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation %}
+    {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation resource=resource_item %}
   {% endif %}
 {% endblock %}
 

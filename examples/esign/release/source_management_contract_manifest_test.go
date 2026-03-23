@@ -46,8 +46,10 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 	requiredEndpoints := map[string]string{
 		"GET /admin/api/v1/esign/sources":                                       "SourceListPage",
 		"GET /admin/api/v1/esign/sources/:source_document_id":                   "SourceDetail",
+		"GET /admin/api/v1/esign/sources/:source_document_id/workspace":         "SourceWorkspace",
 		"GET /admin/api/v1/esign/sources/:source_document_id/revisions":         "SourceRevisionPage",
 		"GET /admin/api/v1/esign/sources/:source_document_id/relationships":     "SourceRelationshipPage",
+		"GET /admin/api/v1/esign/sources/:source_document_id/agreements":        "SourceAgreementPage",
 		"GET /admin/api/v1/esign/sources/:source_document_id/comments":          "SourceCommentPage",
 		"GET /admin/api/v1/esign/source-revisions/:source_revision_id/comments": "SourceCommentPage",
 		"GET /admin/api/v1/esign/source-search":                                 "SourceSearchResults",
@@ -64,6 +66,8 @@ func TestV2SourceManagementContractManifestCoversRequiredFamilies(t *testing.T) 
 
 	requiredSchemas := map[string][]string{
 		"SourceDetail":          {"provider", "active_handle", "latest_revision", "permissions", "links"},
+		"SourceWorkspace":       {"timeline", "agreements", "artifacts", "comments", "handles", "continuity"},
+		"SourceAgreementPage":   {"items", "applied_query", "permissions", "links"},
 		"SourceCommentPage":     {"items", "sync_status", "sync", "permissions", "links"},
 		"SourceSearchResults":   {"items", "applied_query", "permissions", "links"},
 		"SourceProviderSummary": {"kind", "label", "extension"},

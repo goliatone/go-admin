@@ -549,9 +549,20 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	var sourceReconciliation services.SourceReconciliationService
 	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
+	var sourceSearch services.SourceSearchService
 	if lineageStore != nil {
+		searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+			Lineage: lineageStore,
+		})
+		if err != nil {
+			return err
+		}
+		sourceSearch = searchService
 		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
-		reconciliationService := services.NewDefaultSourceReconciliationService(lineageStore)
+		reconciliationService := services.NewDefaultSourceReconciliationService(
+			lineageStore,
+			services.WithSourceReconciliationSearchService(sourceSearch),
+		)
 		sourceReconciliation = reconciliationService
 		lineageJobDeps := jobHandlerDeps
 		lineageJobDeps.Fingerprints = fingerprintService
@@ -797,11 +808,14 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	var sourceReadModels services.SourceReadModelService
 	var lineageDiagnostics services.LineageDiagnosticsService
 	if lineageStore, ok := any(m.store).(stores.LineageStore); ok {
-		sourceSearch, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
-			Lineage: lineageStore,
-		})
-		if err != nil {
-			return err
+		if sourceSearch == nil {
+			searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+				Lineage: lineageStore,
+			})
+			if err != nil {
+				return err
+			}
+			sourceSearch = searchService
 		}
 		sourceReadModels = services.NewDefaultSourceReadModelService(
 			m.store,

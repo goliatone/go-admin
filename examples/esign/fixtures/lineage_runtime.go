@@ -185,13 +185,13 @@ VALUES (?, ?, ?, ?, 'signable_pdf', ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	if _, err := db.ExecContext(ctx, `
 	INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, normalized_object_key, source_sha256, size_bytes, page_count, source_type, source_google_file_id, source_google_doc_url, source_modified_time, source_exported_at, source_exported_by_user_id, source_mime_type, source_ingestion_mode, source_document_id, source_revision_id, source_artifact_id, created_by_user_id, created_at, updated_at)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, ids.ImportedDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", "Imported Fixture Source.pdf", keys.ImportedV1SourceObjectKey, keys.ImportedV1NormalizedObjectKey, importedV1PDF.sha256, importedV1PDF.sizeBytes, importedV1PDF.pageCount, "fixture-google-file-legacy", "https://docs.google.com/document/d/fixture-google-file-legacy/edit", firstNow, firstNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SourceDocumentID, ids.FirstSourceRevisionID, ids.FirstSourceArtifactID, "fixture-user", firstNow, firstNow); err != nil {
+	`, ids.ImportedDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source", "Imported Fixture Source.pdf", keys.ImportedV1SourceObjectKey, keys.ImportedV1NormalizedObjectKey, importedV1PDF.sha256, importedV1PDF.sizeBytes, importedV1PDF.pageCount, "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", firstNow, firstNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SourceDocumentID, ids.FirstSourceRevisionID, ids.FirstSourceArtifactID, "fixture-user", firstNow, firstNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert imported document: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
 	INSERT INTO agreements (id, tenant_id, org_id, document_id, status, title, message, version, source_type, source_google_file_id, source_google_doc_url, source_modified_time, source_exported_at, source_exported_by_user_id, source_mime_type, source_ingestion_mode, source_revision_id, created_by_user_id, updated_by_user_id, created_at, updated_at)
 	VALUES (?, ?, ?, ?, 'draft', ?, ?, 1, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, ids.ImportedAgreementID, scope.TenantID, scope.OrgID, ids.ImportedDocumentID, "Imported Fixture Agreement", "Fixture agreement pinned to the first imported source revision.", "fixture-google-file-legacy", "https://docs.google.com/document/d/fixture-google-file-legacy/edit", firstNow, firstNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.FirstSourceRevisionID, "fixture-user", "fixture-user", firstNow, firstNow); err != nil {
+	`, ids.ImportedAgreementID, scope.TenantID, scope.OrgID, ids.ImportedDocumentID, "Imported Fixture Agreement", "Fixture agreement pinned to the first imported source revision.", "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", firstNow, firstNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.FirstSourceRevisionID, "fixture-user", "fixture-user", firstNow, firstNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert imported agreement: %w", err)
 	}
 
@@ -212,6 +212,12 @@ INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, sourc
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, ids.RepeatedImportDocumentID, scope.TenantID, scope.OrgID, "Imported Fixture Source Rev 2", "Imported Fixture Source Rev 2.pdf", keys.ImportedV2SourceObjectKey, keys.ImportedV2NormalizedObjectKey, importedV2PDF.sha256, importedV2PDF.sizeBytes, importedV2PDF.pageCount, "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", secondNow, secondNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SourceDocumentID, ids.SecondSourceRevisionID, ids.SecondSourceArtifactID, "fixture-user", secondNow, secondNow); err != nil {
 		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert repeated-import document: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+	INSERT INTO agreements (id, tenant_id, org_id, document_id, status, title, message, version, source_type, source_google_file_id, source_google_doc_url, source_modified_time, source_exported_at, source_exported_by_user_id, source_mime_type, source_ingestion_mode, source_revision_id, created_by_user_id, updated_by_user_id, created_at, updated_at)
+	VALUES (?, ?, ?, ?, 'sent', ?, ?, 2, 'google_drive', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, ids.RepeatedImportAgreementID, scope.TenantID, scope.OrgID, ids.RepeatedImportDocumentID, "Imported Fixture Agreement Rev 2", "Fixture agreement pinned to the repeated source revision.", "fixture-google-file-1", "https://docs.google.com/document/d/fixture-google-file-1/edit", secondNow, secondNow, "fixture-user", "application/vnd.google-apps.document", "google_export_pdf", ids.SecondSourceRevisionID, "fixture-user", "fixture-user", secondNow, secondNow); err != nil {
+		return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: insert repeated imported agreement: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO source_comment_threads (id, tenant_id, org_id, source_document_id, source_revision_id, provider_kind, provider_comment_id, thread_id, status, anchor_kind, anchor_json, author_json, body_preview, message_count, reply_count, sync_status, last_synced_at, last_activity_at, created_at, updated_at)
@@ -270,6 +276,7 @@ func buildLineageFixtureSet(scope stores.Scope) stores.LineageFixtureSet {
 		UploadOnlyDocumentID:      fixtureID(scope, "upload-only-document"),
 		ImportedDocumentID:        fixtureID(scope, "imported-document"),
 		ImportedAgreementID:       fixtureID(scope, "imported-agreement"),
+		RepeatedImportAgreementID: fixtureID(scope, "repeated-import-agreement"),
 		SourceDocumentID:          fixtureID(scope, "source-document"),
 		LegacySourceHandleID:      fixtureID(scope, "legacy-source-handle"),
 		ActiveSourceHandleID:      fixtureID(scope, "active-source-handle"),
@@ -298,7 +305,7 @@ func deleteFixtureRecords(ctx context.Context, db bun.IDB, ids stores.LineageFix
 		{query: `DELETE FROM source_comment_threads WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
 		{query: `DELETE FROM source_comment_sync_states WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
 		{query: `DELETE FROM source_search_documents WHERE source_document_id IN (?)`, args: []any{bun.In([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
-		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.In([]string{ids.ImportedAgreementID})}},
+		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.In([]string{ids.ImportedAgreementID, ids.RepeatedImportAgreementID})}},
 		{query: `DELETE FROM documents WHERE id IN (?)`, args: []any{bun.In([]string{ids.UploadOnlyDocumentID, ids.ImportedDocumentID, ids.RepeatedImportDocumentID})}},
 		{query: `DELETE FROM source_artifacts WHERE id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceArtifactID, ids.SecondSourceArtifactID})}},
 		{query: `DELETE FROM source_revisions WHERE id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},

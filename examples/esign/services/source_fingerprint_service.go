@@ -404,6 +404,8 @@ func buildFingerprintExtractionMetadata(
 		"external_file_id":       strings.TrimSpace(metadata.ExternalFileID),
 		"account_id":             strings.TrimSpace(metadata.AccountID),
 		"drive_id":               strings.TrimSpace(metadata.DriveID),
+		"normalized_text":        strings.TrimSpace(strings.Join(paragraphs, "\n\n")),
+		"normalized_texts":       append([]string(nil), paragraphs...),
 		"owner_email":            strings.TrimSpace(strings.ToLower(metadata.OwnerEmail)),
 		"parent_id":              strings.TrimSpace(metadata.ParentID),
 		"provider_revision_hint": firstNonEmpty(strings.TrimSpace(metadata.SourceVersionHint), strings.TrimSpace(sourceRevision.ProviderRevisionHint)),

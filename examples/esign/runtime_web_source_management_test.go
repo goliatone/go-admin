@@ -141,6 +141,9 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			if strings.TrimSpace(rawToString(routes["source_browser"])) == "" || strings.TrimSpace(rawToString(routes["source_search"])) == "" {
 				t.Fatalf("expected source browser/search routes in page config, got %+v", routes)
 			}
+			if strings.TrimSpace(rawToString(routes["source_detail"])) == "" || strings.TrimSpace(rawToString(routes["source_revision"])) == "" {
+				t.Fatalf("expected source detail/revision route ownership in page config, got %+v", routes)
+			}
 
 			pageModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
 			tc.assertModel(t, pageModel)

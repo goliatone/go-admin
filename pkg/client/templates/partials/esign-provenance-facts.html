@@ -1,5 +1,5 @@
 {% if provenance.has_lineage %}
-<dl class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2" data-lineage-facts>
+<dl class="mt-5 grid grid-cols-1 gap-3" data-lineage-facts>
   {# Source Document Card #}
   {% if provenance.source %}
   <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-slate-200 transition-shadow hover:ring-slate-300">
@@ -96,6 +96,14 @@
 
   {# Google Provider Metadata Card #}
   {% if provenance.google_source %}
+  {% set provider_file_id = provenance.google_source.file_id %}
+  {% set provider_web_url = provenance.google_source.web_url %}
+  {% if resource and resource.source_google_file_id %}
+    {% set provider_file_id = resource.source_google_file_id %}
+  {% endif %}
+  {% if resource and resource.source_google_doc_url %}
+    {% set provider_web_url = resource.source_google_doc_url %}
+  {% endif %}
   <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-slate-200 transition-shadow hover:ring-slate-300">
     <dt class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -104,11 +112,22 @@
       Provider Metadata
     </dt>
     <dd class="mt-2 text-sm font-medium text-slate-900 break-all">
-      {{ provenance.google_source.title|default:provenance.google_source.file_id }}
+      {% if provider_web_url %}
+      <a
+        href="{{ provider_web_url }}"
+        class="text-sky-700 hover:text-sky-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-1 rounded"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {{ provenance.google_source.title|default:provider_file_id }}
+      </a>
+      {% else %}
+      {{ provenance.google_source.title|default:provider_file_id }}
+      {% endif %}
     </dd>
     <dd class="mt-1 text-xs text-slate-500">
       <span class="font-medium">File ID</span>
-      <span class="font-mono ml-1">{{ provenance.google_source.file_id }}</span>
+      <span class="font-mono ml-1">{{ provider_file_id }}</span>
     </dd>
     {% if provenance.google_source.account_id %}
     <dd class="mt-2 flex items-center gap-1.5 text-xs text-slate-600">

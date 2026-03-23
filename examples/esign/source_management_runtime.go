@@ -575,25 +575,29 @@ func buildESignSourceManagementRuntimeRoutes(c router.Context, basePath, apiBase
 	queryString := currentSourceManagementRuntimeQuery(c)
 	uiBase := normalizeESignBasePath(basePath)
 	apiESignBase := path.Join(normalizeAPIBasePath(apiBasePath), "esign")
+	sourceDocumentRouteID := strings.TrimSpace(sourceDocumentID)
+	if sourceDocumentRouteID == "" {
+		sourceDocumentRouteID = ":source_document_id"
+	}
+	sourceRevisionRouteID := strings.TrimSpace(sourceRevisionID)
+	if sourceRevisionRouteID == "" {
+		sourceRevisionRouteID = ":source_revision_id"
+	}
 	routes := map[string]string{
 		"source_browser":            appendQueryString(eSignSourceBrowserPath(uiBase), queryString),
 		"source_search":             appendQueryString(eSignSourceSearchPath(uiBase), queryString),
-		"source_detail":             "",
-		"source_revision":           "",
-		"source_comment_inspector":  "",
-		"source_artifact_inspector": appendQueryString(eSignSourceArtifactsPath(uiBase, sourceRevisionID), queryString),
+		"source_detail":             appendQueryString(eSignSourceDetailPath(uiBase, sourceDocumentRouteID), queryString),
+		"source_revision":           appendQueryString(eSignSourceRevisionPath(uiBase, sourceRevisionRouteID), queryString),
+		"source_comment_inspector":  appendQueryString(eSignSourceCommentsPath(uiBase, sourceRevisionRouteID), queryString),
+		"source_artifact_inspector": appendQueryString(eSignSourceArtifactsPath(uiBase, sourceRevisionRouteID), queryString),
 		"api_base":                  apiESignBase,
 		"api_sources":               path.Join(apiESignBase, "sources"),
 		"api_source_search":         path.Join(apiESignBase, "source-search"),
 	}
 	if strings.TrimSpace(sourceDocumentID) != "" {
-		routes["source_detail"] = appendQueryString(eSignSourceDetailPath(uiBase, sourceDocumentID), queryString)
 		routes["api_source_detail"] = path.Join(apiESignBase, "sources", strings.TrimSpace(sourceDocumentID))
 	}
 	if strings.TrimSpace(sourceRevisionID) != "" {
-		routes["source_revision"] = appendQueryString(eSignSourceRevisionPath(uiBase, sourceRevisionID), queryString)
-		routes["source_comment_inspector"] = appendQueryString(eSignSourceCommentsPath(uiBase, sourceRevisionID), queryString)
-		routes["source_artifact_inspector"] = appendQueryString(eSignSourceArtifactsPath(uiBase, sourceRevisionID), queryString)
 		routes["api_source_revision"] = path.Join(apiESignBase, "source-revisions", strings.TrimSpace(sourceRevisionID))
 	}
 	return routes

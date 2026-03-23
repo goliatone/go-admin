@@ -15,11 +15,18 @@ import (
 var sourceSearchNamespace = uuid.MustParse("a44d9760-80ef-4225-8c65-f1bc9fdf6f68")
 
 type DefaultSourceSearchService struct {
-	lineage stores.LineageStore
+	lineage    stores.LineageStore
+	agreements stores.AgreementStore
 }
 
-func NewDefaultSourceSearchService(lineage stores.LineageStore) DefaultSourceSearchService {
-	return DefaultSourceSearchService{lineage: lineage}
+func NewDefaultSourceSearchService(lineage stores.LineageStore, agreements ...stores.AgreementStore) DefaultSourceSearchService {
+	service := DefaultSourceSearchService{lineage: lineage}
+	if len(agreements) > 0 && agreements[0] != nil {
+		service.agreements = agreements[0]
+	} else if store, ok := any(lineage).(stores.AgreementStore); ok {
+		service.agreements = store
+	}
+	return service
 }
 
 func (s DefaultSourceSearchService) Search(ctx context.Context, scope stores.Scope, query SourceSearchQuery) (SourceSearchResults, error) {
@@ -202,20 +209,26 @@ func (s DefaultSourceSearchService) buildSourceDocumentIndexRecord(
 		"status":             strings.TrimSpace(sourceDocument.Status),
 		"external_file_ids":  uniqueHandleValues(handles, func(v stores.SourceHandleRecord) string { return v.ExternalFileID }),
 		"account_ids":        uniqueHandleValues(handles, func(v stores.SourceHandleRecord) string { return v.AccountID }),
+		"drive_ids":          uniqueHandleValues(handles, func(v stores.SourceHandleRecord) string { return v.DriveID }),
 		"web_urls":           uniqueHandleValues(handles, func(v stores.SourceHandleRecord) string { return v.WebURL }),
 		"revision_hints":     uniqueRevisionValues(revisions, func(v stores.SourceRevisionRecord) string { return v.ProviderRevisionHint }),
+		"agreement_titles":   s.collectAgreementTitles(ctx, scope, revisions),
 		"artifact_hashes":    s.collectArtifactHashes(ctx, scope, revisions),
 		"fingerprint_hashes": s.collectFingerprintHashes(ctx, scope, revisions),
+		"normalized_texts":   s.collectNormalizedTexts(ctx, scope, revisions),
 		"comment_bodies":     sourceCommentBodies(commentThreads),
 	}
 	searchText := strings.Join([]string{
 		strings.TrimSpace(sourceDocument.CanonicalTitle),
 		strings.Join(anyStrings(metadata["external_file_ids"]), " "),
 		strings.Join(anyStrings(metadata["account_ids"]), " "),
+		strings.Join(anyStrings(metadata["drive_ids"]), " "),
 		strings.Join(anyStrings(metadata["web_urls"]), " "),
 		strings.Join(anyStrings(metadata["revision_hints"]), " "),
+		strings.Join(anyStrings(metadata["agreement_titles"]), " "),
 		strings.Join(anyStrings(metadata["artifact_hashes"]), " "),
 		strings.Join(anyStrings(metadata["fingerprint_hashes"]), " "),
+		strings.Join(anyStrings(metadata["normalized_texts"]), " "),
 		strings.Join(anyStrings(metadata["comment_bodies"]), " "),
 		relationshipState,
 	}, " ")
@@ -262,18 +275,25 @@ func (s DefaultSourceSearchService) buildSourceRevisionIndexRecord(
 		"status":             strings.TrimSpace(sourceDocument.Status),
 		"external_file_ids":  uniqueHandleValues(handleIDs, func(v stores.SourceHandleRecord) string { return v.ExternalFileID }),
 		"account_ids":        uniqueHandleValues(handleIDs, func(v stores.SourceHandleRecord) string { return v.AccountID }),
+		"drive_ids":          uniqueHandleValues(handleIDs, func(v stores.SourceHandleRecord) string { return v.DriveID }),
 		"web_urls":           uniqueHandleValues(handleIDs, func(v stores.SourceHandleRecord) string { return v.WebURL }),
 		"revision_hints":     []string{strings.TrimSpace(revision.ProviderRevisionHint)},
+		"agreement_titles":   s.collectAgreementTitles(ctx, scope, []stores.SourceRevisionRecord{revision}),
 		"artifact_hashes":    s.collectArtifactHashes(ctx, scope, []stores.SourceRevisionRecord{revision}),
 		"fingerprint_hashes": s.collectFingerprintHashes(ctx, scope, []stores.SourceRevisionRecord{revision}),
+		"normalized_texts":   s.collectNormalizedTexts(ctx, scope, []stores.SourceRevisionRecord{revision}),
 		"comment_bodies":     sourceCommentBodies(revisionThreads),
 	}
 	searchText := strings.Join([]string{
 		strings.TrimSpace(sourceDocument.CanonicalTitle),
 		strings.TrimSpace(revision.ProviderRevisionHint),
 		strings.Join(anyStrings(metadata["external_file_ids"]), " "),
+		strings.Join(anyStrings(metadata["account_ids"]), " "),
+		strings.Join(anyStrings(metadata["drive_ids"]), " "),
+		strings.Join(anyStrings(metadata["agreement_titles"]), " "),
 		strings.Join(anyStrings(metadata["artifact_hashes"]), " "),
 		strings.Join(anyStrings(metadata["fingerprint_hashes"]), " "),
+		strings.Join(anyStrings(metadata["normalized_texts"]), " "),
 		strings.Join(anyStrings(metadata["comment_bodies"]), " "),
 		relationshipState,
 	}, " ")
@@ -354,12 +374,16 @@ func (s DefaultSourceSearchService) matchIndexedDocument(ctx context.Context, sc
 		values []string
 		score  int
 	}{
-		{name: "provider_handle", values: anyStrings(metadata["external_file_ids"]), score: 35},
-		{name: "revision_hint", values: anyStrings(metadata["revision_hints"]), score: 25},
+		{name: "external_file_id", values: anyStrings(metadata["external_file_ids"]), score: 35},
+		{name: "account_id", values: anyStrings(metadata["account_ids"]), score: 20},
+		{name: "drive_id", values: anyStrings(metadata["drive_ids"]), score: 20},
+		{name: "provider_revision_hint", values: anyStrings(metadata["revision_hints"]), score: 25},
+		{name: "agreement_title", values: anyStrings(metadata["agreement_titles"]), score: 30},
 		{name: "artifact_hash", values: anyStrings(metadata["artifact_hashes"]), score: 40},
 		{name: "fingerprint_hash", values: anyStrings(metadata["fingerprint_hashes"]), score: 40},
+		{name: "normalized_text", values: anyStrings(metadata["normalized_texts"]), score: 45},
 		{name: "comment_text", values: anyStrings(metadata["comment_bodies"]), score: 15},
-		{name: "provider_url", values: anyStrings(metadata["web_urls"]), score: 15},
+		{name: "web_url", values: anyStrings(metadata["web_urls"]), score: 15},
 	} {
 		for _, value := range field.values {
 			if strings.Contains(strings.ToLower(strings.TrimSpace(value)), normalizedQuery) {
@@ -377,6 +401,9 @@ func (s DefaultSourceSearchService) matchIndexedDocument(ctx context.Context, sc
 		return SourceSearchResultSummary{}, 0, false
 	}
 	result.MatchedFields = matched
+	drillIn := sourceSearchWorkspaceDrillInForMatch(indexed, matched)
+	result.DrillIn = &drillIn
+	result.Links.Anchor = drillIn.Href
 	return result, score, true
 }
 
@@ -409,9 +436,14 @@ func (s DefaultSourceSearchService) buildSourceSearchResultSummary(ctx context.C
 		artifactHash = hashes[0]
 	}
 	resultKind := strings.TrimSpace(indexed.ResultKind)
-	links := SourceManagementLinks{Self: sourceManagementSourcePath(sourceDocument.ID), Source: sourceManagementSourcePath(sourceDocument.ID)}
+	links := sourceLinksForDocument(sourceDocument.ID)
+	drillIn := sourceSearchWorkspaceDrillIn(indexed)
+	links.Workspace = sourceManagementSourceWorkspacePath(sourceDocument.ID)
+	links.Anchor = drillIn.Href
 	if resultKind == SourceManagementSearchResultSourceRevision {
 		links.Self = sourceManagementRevisionPath(indexed.SourceRevisionID)
+		links.Artifacts = sourceManagementRevisionArtifactsPath(indexed.SourceRevisionID)
+		links.Comments = sourceManagementRevisionCommentsPath(indexed.SourceRevisionID)
 	}
 	return SourceSearchResultSummary{
 		ResultKind:        resultKind,
@@ -424,6 +456,7 @@ func (s DefaultSourceSearchService) buildSourceSearchResultSummary(ctx context.C
 		HasComments:       indexed.HasComments,
 		ArtifactHash:      artifactHash,
 		Summary:           sourceSearchSummaryText(resultKind, indexed.CommentCount, indexed.RelationshipState),
+		DrillIn:           &drillIn,
 		Links:             links,
 	}, metadata, true
 }
@@ -442,6 +475,68 @@ func sourceSearchSummaryText(resultKind string, commentCount int, relationshipSt
 		parts = append(parts, "comments available")
 	}
 	return strings.Join(parts, ", ")
+}
+
+func sourceSearchWorkspaceDrillIn(indexed stores.SourceSearchDocumentRecord) SourceWorkspaceDrillIn {
+	sourceDocumentID := strings.TrimSpace(indexed.SourceDocumentID)
+	sourceRevisionID := strings.TrimSpace(indexed.SourceRevisionID)
+	panel := SourceWorkspacePanelOverview
+	anchor := ""
+	switch {
+	case indexed.HasComments && sourceRevisionID != "":
+		panel = SourceWorkspacePanelComments
+		anchor = "revision:" + sourceRevisionID
+	case sourceRevisionID != "":
+		panel = SourceWorkspacePanelTimeline
+		anchor = "revision:" + sourceRevisionID
+	default:
+		panel = SourceWorkspacePanelOverview
+	}
+	return SourceWorkspaceDrillIn{
+		Panel:  panel,
+		Anchor: anchor,
+		Href:   sourceManagementWorkspaceAnchorPath(sourceDocumentID, panel, anchor),
+	}
+}
+
+func sourceSearchWorkspaceDrillInForMatch(indexed stores.SourceSearchDocumentRecord, matched []string) SourceWorkspaceDrillIn {
+	sourceDocumentID := strings.TrimSpace(indexed.SourceDocumentID)
+	sourceRevisionID := strings.TrimSpace(indexed.SourceRevisionID)
+	switch {
+	case containsMatchedField(matched, "agreement_title"):
+		return SourceWorkspaceDrillIn{
+			Panel:  SourceWorkspacePanelAgreements,
+			Anchor: "",
+			Href:   sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelAgreements, ""),
+		}
+	case containsMatchedField(matched, "artifact_hash"):
+		return SourceWorkspaceDrillIn{
+			Panel:  SourceWorkspacePanelArtifacts,
+			Anchor: "",
+			Href:   sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelArtifacts, ""),
+		}
+	case containsMatchedField(matched, "comment_text"):
+		anchor := ""
+		if sourceRevisionID != "" {
+			anchor = "revision:" + sourceRevisionID
+		}
+		return SourceWorkspaceDrillIn{
+			Panel:  SourceWorkspacePanelComments,
+			Anchor: anchor,
+			Href:   sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelComments, anchor),
+		}
+	case sourceRevisionID != "":
+		return SourceWorkspaceDrillIn{
+			Panel:  SourceWorkspacePanelTimeline,
+			Anchor: "revision:" + sourceRevisionID,
+			Href:   sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelTimeline, "revision:"+sourceRevisionID),
+		}
+	default:
+		return SourceWorkspaceDrillIn{
+			Panel: SourceWorkspacePanelOverview,
+			Href:  sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelOverview, ""),
+		}
+	}
 }
 
 func deterministicSourceSearchDocumentID(resultKind, sourceDocumentID, sourceRevisionID string) string {
@@ -472,6 +567,52 @@ func (s DefaultSourceSearchService) collectFingerprintHashes(ctx context.Context
 		for _, fingerprint := range fingerprints {
 			out = appendUniqueString(out, strings.TrimSpace(fingerprint.NormalizedTextSHA256))
 		}
+	}
+	return out
+}
+
+func (s DefaultSourceSearchService) collectNormalizedTexts(ctx context.Context, scope stores.Scope, revisions []stores.SourceRevisionRecord) []string {
+	out := make([]string, 0)
+	for _, revision := range revisions {
+		fingerprints, err := s.lineage.ListSourceFingerprints(ctx, scope, stores.SourceFingerprintQuery{SourceRevisionID: revision.ID})
+		if err != nil {
+			continue
+		}
+		for _, fingerprint := range fingerprints {
+			metadata := decodeLineageMetadataJSON(fingerprint.ExtractionMetadataJSON)
+			for _, candidate := range anyStrings(metadata["normalized_texts"]) {
+				out = appendUniqueString(out, candidate)
+			}
+			if value := strings.TrimSpace(lineageMetadataString(metadata, "normalized_text")); value != "" {
+				out = appendUniqueString(out, value)
+			}
+		}
+	}
+	return out
+}
+
+func (s DefaultSourceSearchService) collectAgreementTitles(ctx context.Context, scope stores.Scope, revisions []stores.SourceRevisionRecord) []string {
+	if s.agreements == nil {
+		return nil
+	}
+	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+	if err != nil {
+		return nil
+	}
+	revisionIDs := make(map[string]struct{}, len(revisions))
+	for _, revision := range revisions {
+		revisionIDs[strings.TrimSpace(revision.ID)] = struct{}{}
+	}
+	out := make([]string, 0)
+	for _, agreement := range agreements {
+		if _, ok := revisionIDs[strings.TrimSpace(agreement.SourceRevisionID)]; !ok {
+			continue
+		}
+		title := strings.TrimSpace(agreement.Title)
+		if title == "" {
+			continue
+		}
+		out = appendUniqueString(out, title)
 	}
 	return out
 }
@@ -604,6 +745,15 @@ func containsFold(values []string, target string) bool {
 	return false
 }
 
+func containsMatchedField(values []string, target string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(target)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s DefaultSourceSearchService) sourceSearchIndexNeedsRefresh(ctx context.Context, scope stores.Scope, sourceDocument stores.SourceDocumentRecord) (bool, error) {
 	indexed, err := s.lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{
 		SourceDocumentID: sourceDocument.ID,
@@ -715,6 +865,22 @@ func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Contex
 			latest = maxSourceSearchTime(latest, fingerprint.CreatedAt)
 		}
 	}
+	if s.agreements != nil {
+		agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+		if err != nil {
+			return time.Time{}, err
+		}
+		revisionIDs := make(map[string]struct{}, len(revisions))
+		for _, revision := range revisions {
+			revisionIDs[strings.TrimSpace(revision.ID)] = struct{}{}
+		}
+		for _, agreement := range agreements {
+			if _, ok := revisionIDs[strings.TrimSpace(agreement.SourceRevisionID)]; !ok {
+				continue
+			}
+			latest = maxSourceSearchTime(latest, agreement.UpdatedAt, agreement.CreatedAt)
+		}
+	}
 	return latest, nil
 }
 
@@ -736,17 +902,12 @@ func sortIndexedSourceSearchResults(items []scoredSourceSearchResult, sortKey st
 	switch normalizeSourceSearchSort(sortKey) {
 	case sourceSearchSortTitleAsc:
 		sort.SliceStable(items, func(i, j int) bool {
-			left := searchResultTitle(items[i].result)
-			right := searchResultTitle(items[j].result)
-			if left == right {
-				return items[i].result.ResultKind < items[j].result.ResultKind
-			}
-			return left < right
+			return preferSourceSearchResult(items[i].result, items[j].result)
 		})
 	default:
 		sort.SliceStable(items, func(i, j int) bool {
 			if items[i].score == items[j].score {
-				return searchResultTitle(items[i].result) < searchResultTitle(items[j].result)
+				return preferSourceSearchResult(items[i].result, items[j].result)
 			}
 			return items[i].score > items[j].score
 		})

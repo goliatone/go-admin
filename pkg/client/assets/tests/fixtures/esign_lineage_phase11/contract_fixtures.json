@@ -152,10 +152,13 @@
           "links": {
             "self": "/admin/api/v1/esign/sources/src-doc-1",
             "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
             "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
             "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
-            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
           }
         }
       ],
@@ -254,10 +257,767 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-1",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      }
+    },
+    "source_workspace_repeated": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "status": "active",
+      "lineage_confidence": "exact",
+      "provider": {
+        "kind": "google_drive",
+        "label": "Google Drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "extension": {
+          "schema": "google_drive.v1",
+          "values": {
+            "owner_email": "owner@example.com",
+            "parent_id": "fixture-folder",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "source_version_hint": "v2",
+            "title_hint": "Imported Fixture Source"
+          }
+        }
+      },
+      "active_handle": {
+        "id": "src-handle-2",
+        "provider_kind": "google_drive",
+        "external_file_id": "fixture-google-file-2",
+        "account_id": "fixture-account-2",
+        "drive_id": "fixture-drive-root",
+        "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+        "handle_status": "active",
+        "valid_from": "2026-03-18T20:00:00Z",
+        "links": {
+          "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+        }
+      },
+      "latest_revision": {
+        "id": "src-rev-2",
+        "provider_revision_hint": "v2",
+        "modified_time": "2026-03-18T20:00:00Z",
+        "exported_at": "2026-03-18T20:05:00Z",
+        "exported_by_user_id": "fixture-user",
+        "source_mime_type": "application/vnd.google-apps.document",
+        "history_labels": [
+          "latest",
+          "pinned"
+        ],
+        "pinned_document_count": 1
+      },
+      "revision_count": 2,
+      "handle_count": 2,
+      "relationship_count": 1,
+      "pending_candidate_count": 1,
+      "active_panel": "agreements",
+      "active_anchor": "agreement:agr-imported-v2",
+      "panels": [
+        {
+          "id": "overview",
+          "label": "Overview",
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace"
+          }
+        },
+        {
+          "id": "timeline",
+          "label": "Revision Timeline",
+          "item_count": 2,
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline"
+          }
+        },
+        {
+          "id": "agreements",
+          "label": "Related Agreements",
+          "item_count": 2,
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements"
+          }
+        },
+        {
+          "id": "artifacts",
+          "label": "Related Artifacts",
+          "item_count": 3,
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=artifacts",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=artifacts"
+          }
+        },
+        {
+          "id": "comments",
+          "label": "Related Comments",
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=comments",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=comments"
+          }
+        },
+        {
+          "id": "handles",
+          "label": "Active Handles",
+          "item_count": 2,
+          "links": {
+            "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=handles",
+            "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+            "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+            "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+            "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=handles"
+          }
+        }
+      ],
+      "continuity": {
+        "status": "active",
+        "summary": "Canonical source continuity is tracked from the active handle through revision history.",
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+        }
+      },
+      "timeline": {
+        "entries": [
+          {
+            "revision": {
+              "id": "src-rev-2",
+              "provider_revision_hint": "v2",
+              "modified_time": "2026-03-18T20:00:00Z",
+              "exported_at": "2026-03-18T20:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "latest",
+                "pinned"
+              ],
+              "pinned_document_count": 1
+            },
+            "handle": {
+              "id": "src-handle-2",
+              "provider_kind": "google_drive",
+              "external_file_id": "fixture-google-file-2",
+              "account_id": "fixture-account-2",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+              "handle_status": "active",
+              "valid_from": "2026-03-18T20:00:00Z",
+              "links": {
+                "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+              }
+            },
+            "primary_artifact": {
+              "id": "src-art-2",
+              "artifact_kind": "signable_pdf",
+              "object_key": "tenant/google-v2.pdf",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "page_count": 4,
+              "size_bytes": 8192,
+              "compatibility_tier": "supported",
+              "normalization_status": "completed"
+            },
+            "agreement_count": 1,
+            "artifact_count": 1,
+            "is_latest": true,
+            "is_repeated_handle": false,
+            "continuity_summary": "Latest observed revision for this canonical source.",
+            "drill_in": {
+              "panel": "timeline",
+              "anchor": "revision:src-rev-2",
+              "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+              "source": "/admin/api/v1/esign/sources/src-doc-1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+              "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+              "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+              "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+              "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+              "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
+            }
+          },
+          {
+            "revision": {
+              "id": "src-rev-1",
+              "provider_revision_hint": "v1",
+              "modified_time": "2026-03-18T18:00:00Z",
+              "exported_at": "2026-03-18T18:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "pinned",
+                "superseded"
+              ],
+              "pinned_document_count": 1,
+              "pinned_agreement_count": 1
+            },
+            "handle": {
+              "id": "src-handle-1",
+              "provider_kind": "google_drive",
+              "external_file_id": "fixture-google-file-1",
+              "account_id": "fixture-account-1",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit",
+              "handle_status": "active",
+              "valid_from": "2026-03-18T18:00:00Z",
+              "links": {
+                "provider": "https://docs.google.com/document/d/fixture-google-file-1/edit"
+              }
+            },
+            "agreement_count": 1,
+            "artifact_count": 2,
+            "is_latest": false,
+            "is_repeated_handle": false,
+            "continuity_summary": "Historical revision remains pinned for downstream document and agreement lineage.",
+            "drill_in": {
+              "panel": "timeline",
+              "anchor": "revision:src-rev-1",
+              "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-1"
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/source-revisions/src-rev-1",
+              "source": "/admin/api/v1/esign/sources/src-doc-1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+              "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+              "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+              "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+              "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-1/artifacts",
+              "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-1"
+            }
+          }
+        ],
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "empty_state": {
+          "kind": "none",
+          "title": "",
+          "description": ""
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+        }
+      },
+      "agreements": {
+        "source": {
+          "id": "src-doc-1",
+          "label": "Imported Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-1"
+        },
+        "items": [
+          {
+            "agreement": {
+              "id": "agr-imported-v2",
+              "label": "Imported Fixture Agreement Rev 2",
+              "url": "/admin/content/esign_agreements/agr-imported-v2"
+            },
+            "document": {
+              "id": "doc-imported-v2",
+              "label": "Imported Fixture Source Rev 2",
+              "url": "/admin/content/esign_documents/doc-imported-v2"
+            },
+            "pinned_source_revision": {
+              "id": "src-rev-2",
+              "provider_revision_hint": "v2",
+              "modified_time": "2026-03-18T20:00:00Z",
+              "exported_at": "2026-03-18T20:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "latest",
+                "pinned"
+              ],
+              "pinned_document_count": 1
+            },
+            "status": "draft",
+            "is_pinned_latest": true,
+            "links": {
+              "self": "/admin/content/esign_agreements/agr-imported-v2",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "agreement": "/admin/content/esign_agreements/agr-imported-v2",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2"
+            }
+          },
+          {
+            "agreement": {
+              "id": "agr-imported-v1",
+              "label": "Imported Fixture Agreement",
+              "url": "/admin/content/esign_agreements/agr-imported-v1"
+            },
+            "document": {
+              "id": "doc-imported-v1",
+              "label": "Imported Fixture Source",
+              "url": "/admin/content/esign_documents/doc-imported-v1"
+            },
+            "pinned_source_revision": {
+              "id": "src-rev-1",
+              "provider_revision_hint": "v1",
+              "modified_time": "2026-03-18T18:00:00Z",
+              "exported_at": "2026-03-18T18:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "pinned",
+                "superseded"
+              ],
+              "pinned_document_count": 1,
+              "pinned_agreement_count": 1
+            },
+            "status": "draft",
+            "is_pinned_latest": false,
+            "links": {
+              "self": "/admin/content/esign_agreements/agr-imported-v1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "agreement": "/admin/content/esign_agreements/agr-imported-v1",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v1"
+            }
+          }
+        ],
+        "page_info": {
+          "mode": "page",
+          "page": 1,
+          "page_size": 10,
+          "total_count": 2,
+          "has_more": false,
+          "sort": "updated_desc"
+        },
+        "applied_query": {
+          "sort": "updated_desc",
+          "page": 1,
+          "page_size": 10
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "empty_state": {
+          "kind": "none",
+          "title": "",
+          "description": ""
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+        }
+      },
+      "artifacts": {
+        "source": {
+          "id": "src-doc-1",
+          "label": "Imported Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-1"
+        },
+        "items": [
+          {
+            "artifact": {
+              "id": "src-art-2",
+              "artifact_kind": "signable_pdf",
+              "object_key": "tenant/google-v2.pdf",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "page_count": 4,
+              "size_bytes": 8192,
+              "compatibility_tier": "supported",
+              "normalization_status": "completed"
+            },
+            "revision": {
+              "id": "src-rev-2",
+              "provider_revision_hint": "v2",
+              "modified_time": "2026-03-18T20:00:00Z",
+              "exported_at": "2026-03-18T20:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "latest",
+                "pinned"
+              ],
+              "pinned_document_count": 1
+            },
+            "provider": {
+              "kind": "google_drive",
+              "label": "Google Drive",
+              "external_file_id": "fixture-google-file-2",
+              "account_id": "fixture-account-2",
+              "drive_id": "fixture-drive-root",
+              "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+              "extension": {
+                "schema": "google_drive.v1",
+                "values": {
+                  "owner_email": "owner@example.com",
+                  "parent_id": "fixture-folder",
+                  "source_mime_type": "application/vnd.google-apps.document",
+                  "source_version_hint": "v2",
+                  "title_hint": "Imported Fixture Source"
+                }
+              }
+            },
+            "drill_in": {
+              "panel": "artifacts",
+              "anchor": "artifact:src-art-2",
+              "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=artifacts\u0026anchor=artifact:src-art-2"
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+              "source": "/admin/api/v1/esign/sources/src-doc-1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+              "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+              "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+              "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+              "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+              "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
+            }
+          },
+          {
+            "artifact": {
+              "id": "src-art-1-preview",
+              "artifact_kind": "preview_pdf",
+              "object_key": "tenant/google-v1.preview.pdf",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "page_count": 3,
+              "size_bytes": 2048,
+              "compatibility_tier": "supported",
+              "normalization_status": "completed"
+            },
+            "revision": {
+              "id": "src-rev-1",
+              "provider_revision_hint": "v1",
+              "modified_time": "2026-03-18T18:00:00Z",
+              "exported_at": "2026-03-18T18:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "pinned",
+                "superseded"
+              ],
+              "pinned_document_count": 1,
+              "pinned_agreement_count": 1
+            },
+            "drill_in": {
+              "panel": "artifacts",
+              "anchor": "artifact:src-art-1-preview",
+              "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=artifacts\u0026anchor=artifact:src-art-1-preview"
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/source-revisions/src-rev-1",
+              "source": "/admin/api/v1/esign/sources/src-doc-1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+              "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+              "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+              "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+              "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-1/artifacts",
+              "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-1"
+            }
+          },
+          {
+            "artifact": {
+              "id": "src-art-1",
+              "artifact_kind": "signable_pdf",
+              "object_key": "tenant/google-v1.pdf",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "page_count": 3,
+              "size_bytes": 4096,
+              "compatibility_tier": "supported",
+              "normalization_status": "completed"
+            },
+            "revision": {
+              "id": "src-rev-1",
+              "provider_revision_hint": "v1",
+              "modified_time": "2026-03-18T18:00:00Z",
+              "exported_at": "2026-03-18T18:05:00Z",
+              "exported_by_user_id": "fixture-user",
+              "source_mime_type": "application/vnd.google-apps.document",
+              "history_labels": [
+                "pinned",
+                "superseded"
+              ],
+              "pinned_document_count": 1,
+              "pinned_agreement_count": 1
+            },
+            "drill_in": {
+              "panel": "artifacts",
+              "anchor": "artifact:src-art-1",
+              "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=artifacts\u0026anchor=artifact:src-art-1"
+            },
+            "links": {
+              "self": "/admin/api/v1/esign/source-revisions/src-rev-1",
+              "source": "/admin/api/v1/esign/sources/src-doc-1",
+              "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+              "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+              "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+              "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+              "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+              "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-1/artifacts",
+              "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments",
+              "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+              "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-1"
+            }
+          }
+        ],
+        "page_info": {
+          "mode": "page",
+          "page": 1,
+          "page_size": 3,
+          "total_count": 3,
+          "has_more": false,
+          "sort": "latest_desc"
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "empty_state": {
+          "kind": "none",
+          "title": "",
+          "description": ""
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+        }
+      },
+      "comments": {
+        "revision": {
+          "id": "src-rev-2",
+          "provider_revision_hint": "v2",
+          "modified_time": "2026-03-18T20:00:00Z",
+          "exported_at": "2026-03-18T20:05:00Z",
+          "exported_by_user_id": "fixture-user",
+          "source_mime_type": "application/vnd.google-apps.document",
+          "history_labels": [
+            "latest",
+            "pinned"
+          ],
+          "pinned_document_count": 1
+        },
+        "items": [],
+        "applied_query": {},
+        "page_info": {
+          "mode": "page",
+          "page": 1,
+          "page_size": 0,
+          "total_count": 0,
+          "has_more": false,
+          "sort": "latest_desc"
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "empty_state": {
+          "kind": "no_comments",
+          "title": "No comments",
+          "description": "Source-level comment sync is not configured yet for this revision."
+        },
+        "sync_status": "not_configured",
+        "links": {
+          "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
+          "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+          "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
+        }
+      },
+      "handles": {
+        "source": {
+          "id": "src-doc-1",
+          "label": "Imported Fixture Source",
+          "url": "/admin/api/v1/esign/sources/src-doc-1"
+        },
+        "items": [
+          {
+            "id": "src-handle-2",
+            "provider_kind": "google_drive",
+            "external_file_id": "fixture-google-file-2",
+            "account_id": "fixture-account-2",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-2/edit",
+            "handle_status": "active",
+            "valid_from": "2026-03-18T20:00:00Z",
+            "links": {
+              "provider": "https://docs.google.com/document/d/fixture-google-file-2/edit"
+            }
+          },
+          {
+            "id": "src-handle-1",
+            "provider_kind": "google_drive",
+            "external_file_id": "fixture-google-file-1",
+            "account_id": "fixture-account-1",
+            "drive_id": "fixture-drive-root",
+            "web_url": "https://docs.google.com/document/d/fixture-google-file-1/edit",
+            "handle_status": "active",
+            "valid_from": "2026-03-18T18:00:00Z",
+            "links": {
+              "provider": "https://docs.google.com/document/d/fixture-google-file-1/edit"
+            }
+          }
+        ],
+        "page_info": {
+          "mode": "page",
+          "page": 1,
+          "page_size": 2,
+          "total_count": 2,
+          "has_more": false,
+          "sort": "updated_desc"
+        },
+        "permissions": {
+          "can_view_diagnostics": true,
+          "can_open_provider_links": true,
+          "can_review_candidates": true,
+          "can_view_comments": false
+        },
+        "empty_state": {
+          "kind": "none",
+          "title": "",
+          "description": ""
+        },
+        "links": {
+          "self": "/admin/api/v1/esign/sources/src-doc-1",
+          "source": "/admin/api/v1/esign/sources/src-doc-1",
+          "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+          "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+          "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+          "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+          "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+          "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+          "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+        }
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+        "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2"
       },
       "empty_state": {
         "kind": "none",
@@ -321,10 +1081,13 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-1",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
       }
     },
     "source_revisions_repeated": {
@@ -394,11 +1157,15 @@
           "links": {
             "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
             "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
             "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
             "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
             "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
-            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
           }
         },
         {
@@ -448,11 +1215,15 @@
           "links": {
             "self": "/admin/api/v1/esign/source-revisions/src-rev-1",
             "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
             "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
             "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
             "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-1/artifacts",
-            "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments"
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-1/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-1"
           }
         }
       ],
@@ -483,10 +1254,13 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-1",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
       }
     },
     "source_relationships_review": {
@@ -567,10 +1341,126 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-1",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
+      }
+    },
+    "source_agreements_repeated": {
+      "source": {
+        "id": "src-doc-1",
+        "label": "Imported Fixture Source",
+        "url": "/admin/api/v1/esign/sources/src-doc-1"
+      },
+      "items": [
+        {
+          "agreement": {
+            "id": "agr-imported-v2",
+            "label": "Imported Fixture Agreement Rev 2",
+            "url": "/admin/content/esign_agreements/agr-imported-v2"
+          },
+          "document": {
+            "id": "doc-imported-v2",
+            "label": "Imported Fixture Source Rev 2",
+            "url": "/admin/content/esign_documents/doc-imported-v2"
+          },
+          "pinned_source_revision": {
+            "id": "src-rev-2",
+            "provider_revision_hint": "v2",
+            "modified_time": "2026-03-18T20:00:00Z",
+            "exported_at": "2026-03-18T20:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "latest",
+              "pinned"
+            ],
+            "pinned_document_count": 1
+          },
+          "status": "draft",
+          "is_pinned_latest": true,
+          "links": {
+            "self": "/admin/content/esign_agreements/agr-imported-v2",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "agreement": "/admin/content/esign_agreements/agr-imported-v2",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2"
+          }
+        },
+        {
+          "agreement": {
+            "id": "agr-imported-v1",
+            "label": "Imported Fixture Agreement",
+            "url": "/admin/content/esign_agreements/agr-imported-v1"
+          },
+          "document": {
+            "id": "doc-imported-v1",
+            "label": "Imported Fixture Source",
+            "url": "/admin/content/esign_documents/doc-imported-v1"
+          },
+          "pinned_source_revision": {
+            "id": "src-rev-1",
+            "provider_revision_hint": "v1",
+            "modified_time": "2026-03-18T18:00:00Z",
+            "exported_at": "2026-03-18T18:05:00Z",
+            "exported_by_user_id": "fixture-user",
+            "source_mime_type": "application/vnd.google-apps.document",
+            "history_labels": [
+              "pinned",
+              "superseded"
+            ],
+            "pinned_document_count": 1,
+            "pinned_agreement_count": 1
+          },
+          "status": "draft",
+          "is_pinned_latest": false,
+          "links": {
+            "self": "/admin/content/esign_agreements/agr-imported-v1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "agreement": "/admin/content/esign_agreements/agr-imported-v1",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v1"
+          }
+        }
+      ],
+      "page_info": {
+        "mode": "page",
+        "page": 1,
+        "page_size": 10,
+        "total_count": 2,
+        "has_more": false,
+        "sort": "updated_desc"
+      },
+      "applied_query": {
+        "sort": "updated_desc",
+        "page": 1,
+        "page_size": 10
+      },
+      "permissions": {
+        "can_view_diagnostics": true,
+        "can_open_provider_links": true,
+        "can_review_candidates": true,
+        "can_view_comments": false
+      },
+      "empty_state": {
+        "kind": "none",
+        "title": "",
+        "description": ""
+      },
+      "links": {
+        "self": "/admin/api/v1/esign/sources/src-doc-1",
+        "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
+        "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
+        "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
+        "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
+        "comments": "/admin/api/v1/esign/sources/src-doc-1/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements"
       }
     },
     "source_revision_detail": {
@@ -633,11 +1523,15 @@
       "links": {
         "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
         "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
-        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+        "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
       },
       "empty_state": {
         "kind": "none",
@@ -693,11 +1587,15 @@
       "links": {
         "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
         "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
-        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+        "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
       }
     },
     "source_comments_empty": {
@@ -739,11 +1637,15 @@
       "links": {
         "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
         "source": "/admin/api/v1/esign/sources/src-doc-1",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
         "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
-        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+        "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+        "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
       }
     },
     "source_search_results": {
@@ -792,14 +1694,23 @@
             "provider_revision_hint"
           ],
           "summary": "Matched external_file_id, provider_revision_hint across canonical source metadata.",
+          "drill_in": {
+            "panel": "timeline",
+            "anchor": "revision:src-rev-2",
+            "href": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
+          },
           "links": {
             "self": "/admin/api/v1/esign/source-revisions/src-rev-2",
             "source": "/admin/api/v1/esign/sources/src-doc-1",
+            "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "revisions": "/admin/api/v1/esign/sources/src-doc-1/revisions",
+            "timeline": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline",
             "relationships": "/admin/api/v1/esign/sources/src-doc-1/relationships",
             "handles": "/admin/api/v1/esign/sources/src-doc-1/handles",
             "artifacts": "/admin/api/v1/esign/source-revisions/src-rev-2/artifacts",
-            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments"
+            "comments": "/admin/api/v1/esign/source-revisions/src-rev-2/comments",
+            "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
+            "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=timeline\u0026anchor=revision:src-rev-2"
           }
         }
       ],
@@ -897,10 +1808,13 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-merged",
         "source": "/admin/api/v1/esign/sources/src-doc-merged",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-merged/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-merged/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-merged/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-merged/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-merged/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-merged/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-merged/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-merged/agreements"
       },
       "empty_state": {
         "kind": "none",
@@ -973,10 +1887,13 @@
       "links": {
         "self": "/admin/api/v1/esign/sources/src-doc-archived",
         "source": "/admin/api/v1/esign/sources/src-doc-archived",
+        "workspace": "/admin/api/v1/esign/sources/src-doc-archived/workspace",
         "revisions": "/admin/api/v1/esign/sources/src-doc-archived/revisions",
+        "timeline": "/admin/api/v1/esign/sources/src-doc-archived/workspace?panel=timeline",
         "relationships": "/admin/api/v1/esign/sources/src-doc-archived/relationships",
         "handles": "/admin/api/v1/esign/sources/src-doc-archived/handles",
-        "comments": "/admin/api/v1/esign/sources/src-doc-archived/comments"
+        "comments": "/admin/api/v1/esign/sources/src-doc-archived/comments",
+        "agreements": "/admin/api/v1/esign/sources/src-doc-archived/agreements"
       },
       "empty_state": {
         "kind": "none",

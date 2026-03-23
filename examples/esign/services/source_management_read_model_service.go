@@ -22,6 +22,8 @@ const (
 	sourceRevisionSortOldestAsc      = "oldest_asc"
 	sourceRelationshipSortConfidence = "confidence_desc"
 	sourceRelationshipSortCreated    = "created_desc"
+	sourceAgreementSortUpdatedDesc   = "updated_desc"
+	sourceAgreementSortTitleAsc      = "title_asc"
 	sourceSearchSortRelevance        = "relevance"
 	sourceSearchSortTitleAsc         = "title_asc"
 )
@@ -39,6 +41,12 @@ type sourceManagementContext struct {
 type sourceRevisionUsageSummary struct {
 	PinnedDocumentCount  int
 	PinnedAgreementCount int
+}
+
+type sourceAgreementContext struct {
+	agreement stores.AgreementRecord
+	document  stores.DocumentRecord
+	revision  stores.SourceRevisionRecord
 }
 
 func (s DefaultSourceReadModelService) ListSources(ctx context.Context, scope stores.Scope, query SourceListQuery) (SourceListPage, error) {
@@ -94,6 +102,74 @@ func (s DefaultSourceReadModelService) GetSourceDetail(ctx context.Context, scop
 		return SourceDetail{}, err
 	}
 	return s.buildSourceDetail(resolved), nil
+}
+
+func (s DefaultSourceReadModelService) GetSourceWorkspace(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceWorkspaceQuery) (SourceWorkspace, error) {
+	normalized := normalizeSourceWorkspaceQuery(query)
+	if s.lineage == nil {
+		return SourceWorkspace{}, domainValidationError("lineage_read_models", "lineage", "not configured")
+	}
+	record, err := s.lineage.GetSourceDocument(ctx, scope, strings.TrimSpace(sourceDocumentID))
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	resolved, err := s.resolveSourceManagementContext(ctx, scope, record)
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	agreements, err := s.ListSourceAgreements(ctx, scope, sourceDocumentID, SourceAgreementListQuery{
+		Sort:     sourceAgreementSortUpdatedDesc,
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	artifacts, err := s.listSourceWorkspaceArtifacts(ctx, scope, resolved)
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	comments, err := s.ListSourceComments(ctx, scope, sourceDocumentID, SourceCommentListQuery{Page: 1, PageSize: 10})
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	handles, err := s.ListSourceHandles(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	timeline, err := s.buildSourceRevisionTimeline(ctx, scope, resolved)
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	continuity, err := s.buildSourceContinuitySummary(ctx, scope, resolved)
+	if err != nil {
+		return SourceWorkspace{}, err
+	}
+	workspace := SourceWorkspace{
+		Source:                sourceLineageReference(resolved.sourceDocument),
+		Status:                strings.TrimSpace(resolved.sourceDocument.Status),
+		LineageConfidence:     strings.TrimSpace(resolved.sourceDocument.LineageConfidence),
+		Provider:              providerSummaryFromRevision(resolved.sourceDocument.ProviderKind, resolved.activeHandle, resolved.latestRevision, stores.SourceArtifactRecord{}),
+		ActiveHandle:          optionalSourceHandleSummary(resolved.activeHandle),
+		LatestRevision:        sourceManagementRevisionSummary(resolved.latestRevision, resolved),
+		RevisionCount:         len(resolved.revisions),
+		HandleCount:           len(resolved.handles),
+		RelationshipCount:     len(resolved.relationships),
+		PendingCandidateCount: pendingRelationshipCount(resolved.relationships),
+		ActivePanel:           normalized.Panel,
+		ActiveAnchor:          normalized.Anchor,
+		Continuity:            continuity,
+		Timeline:              timeline,
+		Agreements:            agreements,
+		Artifacts:             artifacts,
+		Comments:              comments,
+		Handles:               handles,
+		Permissions:           defaultSourceManagementPermissions(),
+		Links:                 sourceWorkspaceLinksForDocument(resolved.sourceDocument.ID, normalized.Panel, normalized.Anchor),
+		EmptyState:            LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+	workspace.Panels = buildSourceWorkspacePanels(workspace)
+	return workspace, nil
 }
 
 func (s DefaultSourceReadModelService) ListSourceRevisions(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceRevisionListQuery) (SourceRevisionPage, error) {
@@ -186,6 +262,47 @@ func (s DefaultSourceReadModelService) ListSourceRelationships(ctx context.Conte
 	page.PageInfo = pageInfo
 	page.Links = sourceLinksForDocument(resolved.sourceDocument.ID)
 	page.EmptyState = sourceCollectionEmptyState(len(items) == 0, "No relationships", "This source has no relationship records for the current filters.")
+	return page, nil
+}
+
+func (s DefaultSourceReadModelService) ListSourceAgreements(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceAgreementListQuery) (SourceAgreementPage, error) {
+	normalized := normalizeSourceAgreementListQuery(query)
+	page := emptySourceAgreementPage(normalized)
+	if s.lineage == nil {
+		return page, domainValidationError("lineage_read_models", "lineage", "not configured")
+	}
+	if s.agreements == nil {
+		return page, domainValidationError("lineage_read_models", "agreements", "not configured")
+	}
+	record, err := s.lineage.GetSourceDocument(ctx, scope, strings.TrimSpace(sourceDocumentID))
+	if err != nil {
+		return page, err
+	}
+	resolved, err := s.resolveSourceManagementContext(ctx, scope, record)
+	if err != nil {
+		return page, err
+	}
+	contexts, err := s.listSourceAgreementContexts(ctx, scope, resolved)
+	if err != nil {
+		return page, err
+	}
+	items := make([]SourceAgreementSummary, 0, len(contexts))
+	for _, item := range contexts {
+		if normalized.SourceRevisionID != "" && strings.TrimSpace(item.revision.ID) != normalized.SourceRevisionID {
+			continue
+		}
+		if normalized.Status != "" && !strings.EqualFold(strings.TrimSpace(item.agreement.Status), normalized.Status) {
+			continue
+		}
+		items = append(items, s.buildSourceAgreementSummary(resolved, item))
+	}
+	sortSourceAgreementSummaries(items, normalized.Sort)
+	paged, pageInfo := paginateSourceManagement(items, normalized.Page, normalized.PageSize, normalized.Sort)
+	page.Source = sourceLineageReference(resolved.sourceDocument)
+	page.Items = paged
+	page.PageInfo = pageInfo
+	page.Links = sourceLinksForDocument(resolved.sourceDocument.ID)
+	page.EmptyState = sourceCollectionEmptyState(len(page.Items) == 0, "No agreements", "No agreements are pinned to this source for the current filters.")
 	return page, nil
 }
 
@@ -463,6 +580,285 @@ func (s DefaultSourceReadModelService) buildSourceDetail(resolved sourceManageme
 	}
 }
 
+func (s DefaultSourceReadModelService) buildSourceAgreementSummary(resolved sourceManagementContext, item sourceAgreementContext) SourceAgreementSummary {
+	agreementLabel := firstNonEmpty(strings.TrimSpace(item.agreement.Title), strings.TrimSpace(item.agreement.ID))
+	summary := SourceAgreementSummary{
+		Agreement: &LineageReference{
+			ID:    strings.TrimSpace(item.agreement.ID),
+			Label: agreementLabel,
+			URL:   sourceManagementAgreementDetailPath(item.agreement.ID),
+		},
+		PinnedSourceRevision: sourceManagementRevisionSummary(item.revision, resolved),
+		Status:               strings.TrimSpace(item.agreement.Status),
+		WorkflowKind:         strings.TrimSpace(item.agreement.WorkflowKind),
+		IsPinnedLatest:       strings.TrimSpace(item.revision.ID) == strings.TrimSpace(resolved.latestRevision.ID),
+		Links: SourceManagementLinks{
+			Self:       sourceManagementAgreementDetailPath(item.agreement.ID),
+			Agreement:  sourceManagementAgreementDetailPath(item.agreement.ID),
+			Workspace:  sourceManagementSourceWorkspacePath(resolved.sourceDocument.ID),
+			Agreements: sourceManagementSourceAgreementsPath(resolved.sourceDocument.ID),
+			Anchor:     sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelAgreements, "agreement:"+strings.TrimSpace(item.agreement.ID)),
+		},
+	}
+	if strings.TrimSpace(item.document.ID) != "" {
+		summary.Document = &LineageReference{
+			ID:    strings.TrimSpace(item.document.ID),
+			Label: firstNonEmpty(strings.TrimSpace(item.document.Title), strings.TrimSpace(item.document.ID)),
+			URL:   sourceManagementDocumentDetailPath(item.document.ID),
+		}
+	}
+	return summary
+}
+
+func (s DefaultSourceReadModelService) listSourceAgreementContexts(ctx context.Context, scope stores.Scope, resolved sourceManagementContext) ([]sourceAgreementContext, error) {
+	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+	if err != nil {
+		return nil, err
+	}
+	revisionByID := make(map[string]stores.SourceRevisionRecord, len(resolved.revisions))
+	for _, revision := range resolved.revisions {
+		revisionByID[strings.TrimSpace(revision.ID)] = revision
+	}
+	documentCache := map[string]stores.DocumentRecord{}
+	out := make([]sourceAgreementContext, 0, len(agreements))
+	for _, agreement := range agreements {
+		revisionID := strings.TrimSpace(agreement.SourceRevisionID)
+		if revisionID == "" {
+			continue
+		}
+		revision, ok := revisionByID[revisionID]
+		if !ok {
+			continue
+		}
+		item := sourceAgreementContext{
+			agreement: agreement,
+			revision:  revision,
+		}
+		documentID := strings.TrimSpace(agreement.DocumentID)
+		if documentID != "" && s.documents != nil {
+			if cached, ok := documentCache[documentID]; ok {
+				item.document = cached
+			} else if record, err := s.documents.Get(ctx, scope, documentID); err == nil {
+				documentCache[documentID] = record
+				item.document = record
+			} else if !isNotFound(err) {
+				return nil, err
+			}
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func (s DefaultSourceReadModelService) listSourceWorkspaceArtifacts(ctx context.Context, scope stores.Scope, resolved sourceManagementContext) (SourceWorkspaceArtifactPage, error) {
+	page := SourceWorkspaceArtifactPage{
+		Source:      sourceLineageReference(resolved.sourceDocument),
+		Permissions: defaultSourceManagementPermissions(),
+		Links:       sourceLinksForDocument(resolved.sourceDocument.ID),
+	}
+	items := make([]SourceWorkspaceArtifactSummary, 0)
+	for _, revision := range resolved.revisions {
+		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{SourceRevisionID: revision.ID})
+		if err != nil {
+			return page, err
+		}
+		sort.SliceStable(artifacts, func(i, j int) bool {
+			if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
+				return artifacts[i].ID < artifacts[j].ID
+			}
+			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+		})
+		handle := sourceHandleForRevision(resolved.handles, revision)
+		for _, artifact := range artifacts {
+			summary := sourceArtifactSummaryFromRecord(artifact)
+			if summary == nil {
+				continue
+			}
+			items = append(items, SourceWorkspaceArtifactSummary{
+				Artifact: summary,
+				Revision: sourceManagementRevisionSummary(revision, resolved),
+				Provider: providerSummaryFromRevision(resolved.sourceDocument.ProviderKind, handle, revision, artifact),
+				DrillIn: &SourceWorkspaceDrillIn{
+					Panel:  SourceWorkspacePanelArtifacts,
+					Anchor: "artifact:" + strings.TrimSpace(artifact.ID),
+					Href:   sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelArtifacts, "artifact:"+strings.TrimSpace(artifact.ID)),
+				},
+				Links: SourceManagementLinks{
+					Self:      sourceManagementRevisionArtifactsPath(revision.ID),
+					Source:    sourceManagementSourcePath(resolved.sourceDocument.ID),
+					Workspace: sourceManagementSourceWorkspacePath(resolved.sourceDocument.ID),
+					Artifacts: sourceManagementRevisionArtifactsPath(revision.ID),
+					Anchor:    sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelArtifacts, "artifact:"+strings.TrimSpace(artifact.ID)),
+				},
+			})
+		}
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		left := sourceRevisionSummarySortTime(items[i].Revision)
+		right := sourceRevisionSummarySortTime(items[j].Revision)
+		if left.Equal(right) {
+			return firstNonEmpty(artifactSummaryID(items[i].Artifact), "") < firstNonEmpty(artifactSummaryID(items[j].Artifact), "")
+		}
+		return left.After(right)
+	})
+	page.Items = items
+	page.PageInfo = fixedSourceManagementPageInfo(len(items), len(items), sourceRevisionSortLatestDesc)
+	page.EmptyState = sourceCollectionEmptyState(len(items) == 0, "No artifacts", "This source has no derived artifacts across tracked revisions.")
+	return page, nil
+}
+
+func (s DefaultSourceReadModelService) buildSourceRevisionTimeline(ctx context.Context, scope stores.Scope, resolved sourceManagementContext) (SourceRevisionTimeline, error) {
+	timeline := SourceRevisionTimeline{
+		Entries:     []SourceRevisionTimelineEntry{},
+		Permissions: defaultSourceManagementPermissions(),
+		Links:       sourceLinksForDocument(resolved.sourceDocument.ID),
+		EmptyState:  LineageEmptyState{Kind: LineageEmptyStateNone},
+	}
+	commentThreads, err := s.lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
+		SourceDocumentID: resolved.sourceDocument.ID,
+		IncludeDeleted:   true,
+	})
+	if err != nil {
+		return timeline, err
+	}
+	commentCounts := map[string]int{}
+	for _, thread := range commentThreads {
+		commentCounts[strings.TrimSpace(thread.SourceRevisionID)]++
+	}
+	agreementContexts, err := s.listSourceAgreementContexts(ctx, scope, resolved)
+	if err != nil {
+		return timeline, err
+	}
+	agreementCounts := map[string]int{}
+	for _, item := range agreementContexts {
+		agreementCounts[strings.TrimSpace(item.revision.ID)]++
+	}
+	seenHandleIDs := map[string]int{}
+	for idx, revision := range resolved.revisions {
+		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{SourceRevisionID: revision.ID})
+		if err != nil {
+			return timeline, err
+		}
+		sort.SliceStable(artifacts, func(i, j int) bool {
+			if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
+				return artifacts[i].ID < artifacts[j].ID
+			}
+			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+		})
+		handle := sourceHandleForRevision(resolved.handles, revision)
+		handleID := strings.TrimSpace(handle.ID)
+		repeatedHandle := false
+		if handleID != "" {
+			seenHandleIDs[handleID]++
+			repeatedHandle = seenHandleIDs[handleID] > 1
+		}
+		continuity := sourceRevisionContinuitySummary(idx, resolved.revisions, handle, repeatedHandle)
+		if idx > 0 && strings.TrimSpace(handle.ID) != strings.TrimSpace(sourceHandleForRevision(resolved.handles, resolved.revisions[idx-1]).ID) {
+			timeline.HandleTransitionCount++
+		}
+		if repeatedHandle {
+			timeline.RepeatedHandleCount++
+		}
+		entry := SourceRevisionTimelineEntry{
+			Revision:          sourceManagementRevisionSummary(revision, resolved),
+			Handle:            optionalSourceHandleSummary(handle),
+			CommentCount:      commentCounts[strings.TrimSpace(revision.ID)],
+			AgreementCount:    agreementCounts[strings.TrimSpace(revision.ID)],
+			ArtifactCount:     len(artifacts),
+			IsLatest:          idx == 0,
+			IsRepeatedHandle:  repeatedHandle,
+			ContinuitySummary: continuity,
+			DrillIn: &SourceWorkspaceDrillIn{
+				Panel:  SourceWorkspacePanelTimeline,
+				Anchor: "revision:" + strings.TrimSpace(revision.ID),
+				Href:   sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelTimeline, "revision:"+strings.TrimSpace(revision.ID)),
+			},
+			Links: SourceManagementLinks{
+				Self:      sourceManagementRevisionPath(revision.ID),
+				Source:    sourceManagementSourcePath(resolved.sourceDocument.ID),
+				Workspace: sourceManagementSourceWorkspacePath(resolved.sourceDocument.ID),
+				Timeline:  sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelTimeline, "revision:"+strings.TrimSpace(revision.ID)),
+				Artifacts: sourceManagementRevisionArtifactsPath(revision.ID),
+				Comments:  sourceManagementRevisionCommentsPath(revision.ID),
+				Anchor:    sourceManagementWorkspaceAnchorPath(resolved.sourceDocument.ID, SourceWorkspacePanelTimeline, "revision:"+strings.TrimSpace(revision.ID)),
+			},
+		}
+		if len(artifacts) > 0 {
+			entry.PrimaryArtifact = sourceArtifactSummaryFromRecord(artifacts[0])
+		}
+		timeline.Entries = append(timeline.Entries, entry)
+	}
+	timeline.EmptyState = sourceCollectionEmptyState(len(timeline.Entries) == 0, "No revision history", "This source has no tracked revision continuity yet.")
+	return timeline, nil
+}
+
+func (s DefaultSourceReadModelService) buildSourceContinuitySummary(ctx context.Context, scope stores.Scope, resolved sourceManagementContext) (SourceContinuitySummary, error) {
+	summary := SourceContinuitySummary{
+		Status: strings.TrimSpace(resolved.sourceDocument.Status),
+		Links:  sourceLinksForDocument(resolved.sourceDocument.ID),
+	}
+	if len(resolved.relationships) == 0 {
+		summary.Summary = sourceContinuityStatusSummary(resolved.sourceDocument.Status, nil)
+		return summary, nil
+	}
+	predecessors := make([]LineageReference, 0, len(resolved.relationships))
+	successors := make([]LineageReference, 0, len(resolved.relationships))
+	for _, relationship := range resolved.relationships {
+		if !strings.EqualFold(strings.TrimSpace(relationship.Status), stores.SourceRelationshipStatusConfirmed) {
+			continue
+		}
+		predecessorID, successorID := sourceRelationshipDirectionalSummaryEndpoints(relationship)
+		switch strings.TrimSpace(resolved.sourceDocument.ID) {
+		case predecessorID:
+			if successorID == "" {
+				continue
+			}
+			record, err := s.lineage.GetSourceDocument(ctx, scope, successorID)
+			if err != nil {
+				return summary, err
+			}
+			ref := sourceLineageReference(record)
+			if ref == nil {
+				continue
+			}
+			successors = append(successors, *ref)
+		case successorID:
+			if predecessorID == "" {
+				continue
+			}
+			record, err := s.lineage.GetSourceDocument(ctx, scope, predecessorID)
+			if err != nil {
+				return summary, err
+			}
+			ref := sourceLineageReference(record)
+			if ref == nil {
+				continue
+			}
+			predecessors = append(predecessors, *ref)
+		}
+	}
+	summary.Predecessors = predecessors
+	summary.Successors = successors
+	if strings.EqualFold(strings.TrimSpace(resolved.sourceDocument.Status), stores.SourceDocumentStatusMerged) && len(successors) > 0 {
+		continuation := successors[0]
+		summary.Continuation = &continuation
+	}
+	summary.Summary = sourceContinuityStatusSummary(resolved.sourceDocument.Status, summary.Continuation)
+	return summary, nil
+}
+
+func buildSourceWorkspacePanels(workspace SourceWorkspace) []SourceWorkspacePanelSummary {
+	sourceID := sourceReferenceID(workspace.Source)
+	return []SourceWorkspacePanelSummary{
+		{ID: SourceWorkspacePanelOverview, Label: "Overview", Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelOverview, "")},
+		{ID: SourceWorkspacePanelTimeline, Label: "Revision Timeline", ItemCount: len(workspace.Timeline.Entries), Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelTimeline, "")},
+		{ID: SourceWorkspacePanelAgreements, Label: "Related Agreements", ItemCount: len(workspace.Agreements.Items), Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelAgreements, "")},
+		{ID: SourceWorkspacePanelArtifacts, Label: "Related Artifacts", ItemCount: len(workspace.Artifacts.Items), Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelArtifacts, "")},
+		{ID: SourceWorkspacePanelComments, Label: "Related Comments", ItemCount: len(workspace.Comments.Items), Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelComments, "")},
+		{ID: SourceWorkspacePanelHandles, Label: "Active Handles", ItemCount: len(workspace.Handles.Items), Links: sourceWorkspaceLinksForDocument(sourceID, SourceWorkspacePanelHandles, "")},
+	}
+}
+
 func (s DefaultSourceReadModelService) buildSourceRevisionListItem(ctx context.Context, scope stores.Scope, resolved sourceManagementContext, revision stores.SourceRevisionRecord) SourceRevisionListItem {
 	handle, err := s.handleForSourceRevision(ctx, scope, revision, resolved.sourceDocument.ID)
 	if err != nil && !isNotFound(err) {
@@ -643,6 +1039,20 @@ func normalizeSourceRelationshipListQuery(query SourceRelationshipListQuery) Sou
 	return query
 }
 
+func normalizeSourceAgreementListQuery(query SourceAgreementListQuery) SourceAgreementListQuery {
+	query.Status = strings.TrimSpace(query.Status)
+	query.SourceRevisionID = strings.TrimSpace(query.SourceRevisionID)
+	query.Sort = normalizeSourceAgreementSort(query.Sort)
+	query.Page, query.PageSize = normalizeSourceManagementPage(query.Page, query.PageSize)
+	return query
+}
+
+func normalizeSourceWorkspaceQuery(query SourceWorkspaceQuery) SourceWorkspaceQuery {
+	query.Panel = normalizeSourceWorkspacePanel(query.Panel)
+	query.Anchor = strings.TrimSpace(query.Anchor)
+	return query
+}
+
 func normalizeSourceSearchQuery(query SourceSearchQuery) SourceSearchQuery {
 	query.Query = strings.TrimSpace(query.Query)
 	query.ProviderKind = strings.TrimSpace(query.ProviderKind)
@@ -693,6 +1103,32 @@ func normalizeSourceRelationshipSort(value string) string {
 		return sourceRelationshipSortCreated
 	default:
 		return sourceRelationshipSortConfidence
+	}
+}
+
+func normalizeSourceAgreementSort(value string) string {
+	switch strings.TrimSpace(value) {
+	case sourceAgreementSortTitleAsc:
+		return sourceAgreementSortTitleAsc
+	default:
+		return sourceAgreementSortUpdatedDesc
+	}
+}
+
+func normalizeSourceWorkspacePanel(value string) string {
+	switch strings.TrimSpace(value) {
+	case SourceWorkspacePanelTimeline:
+		return SourceWorkspacePanelTimeline
+	case SourceWorkspacePanelAgreements:
+		return SourceWorkspacePanelAgreements
+	case SourceWorkspacePanelArtifacts:
+		return SourceWorkspacePanelArtifacts
+	case SourceWorkspacePanelComments:
+		return SourceWorkspacePanelComments
+	case SourceWorkspacePanelHandles:
+		return SourceWorkspacePanelHandles
+	default:
+		return SourceWorkspacePanelOverview
 	}
 }
 
@@ -790,16 +1226,74 @@ func sortSourceRelationshipRecords(items []stores.SourceRelationshipRecord, sort
 	})
 }
 
+func sortSourceAgreementSummaries(items []SourceAgreementSummary, sortKey string) {
+	sort.SliceStable(items, func(i, j int) bool {
+		if sortKey == sourceAgreementSortTitleAsc {
+			return strings.ToLower(sourceAgreementLabel(items[i])) < strings.ToLower(sourceAgreementLabel(items[j]))
+		}
+		left := sourceRevisionSummarySortTime(items[i].PinnedSourceRevision)
+		right := sourceRevisionSummarySortTime(items[j].PinnedSourceRevision)
+		if left.Equal(right) {
+			return strings.ToLower(sourceAgreementLabel(items[i])) < strings.ToLower(sourceAgreementLabel(items[j]))
+		}
+		return left.After(right)
+	})
+}
+
 func sortSourceSearchResults(items []scoredSourceSearchResult, sortKey string) {
 	sort.SliceStable(items, func(i, j int) bool {
 		if sortKey == sourceSearchSortTitleAsc {
-			return searchResultTitle(items[i].result) < searchResultTitle(items[j].result)
+			return preferSourceSearchResult(items[i].result, items[j].result)
 		}
 		if items[i].score == items[j].score {
-			return searchResultTitle(items[i].result) < searchResultTitle(items[j].result)
+			return preferSourceSearchResult(items[i].result, items[j].result)
 		}
 		return items[i].score > items[j].score
 	})
+}
+
+func preferSourceSearchResult(left, right SourceSearchResultSummary) bool {
+	leftTitle := searchResultTitle(left)
+	rightTitle := searchResultTitle(right)
+	if leftTitle != rightTitle {
+		return leftTitle < rightTitle
+	}
+	leftRank := sourceSearchSpecificityRank(left.ResultKind)
+	rightRank := sourceSearchSpecificityRank(right.ResultKind)
+	if leftRank != rightRank {
+		return leftRank < rightRank
+	}
+	leftRevisionID := ""
+	if left.Revision != nil {
+		leftRevisionID = strings.TrimSpace(left.Revision.ID)
+	}
+	rightRevisionID := ""
+	if right.Revision != nil {
+		rightRevisionID = strings.TrimSpace(right.Revision.ID)
+	}
+	if leftRevisionID != rightRevisionID {
+		return leftRevisionID < rightRevisionID
+	}
+	leftSourceID := ""
+	if left.Source != nil {
+		leftSourceID = strings.TrimSpace(left.Source.ID)
+	}
+	rightSourceID := ""
+	if right.Source != nil {
+		rightSourceID = strings.TrimSpace(right.Source.ID)
+	}
+	return leftSourceID < rightSourceID
+}
+
+func sourceSearchSpecificityRank(resultKind string) int {
+	switch strings.TrimSpace(resultKind) {
+	case SourceManagementSearchResultSourceRevision:
+		return 0
+	case SourceManagementSearchResultSourceDocument:
+		return 1
+	default:
+		return 2
+	}
 }
 
 func paginateSourceManagement[T any](items []T, page, pageSize int, sort string) ([]T, SourceManagementPageInfo) {
@@ -857,6 +1351,16 @@ func emptySourceRelationshipPage(query SourceRelationshipListQuery) SourceRelati
 		AppliedQuery: query,
 		Permissions:  defaultSourceManagementPermissions(),
 		EmptyState:   sourceCollectionEmptyState(true, "No relationships", "This source has no relationships."),
+	}
+}
+
+func emptySourceAgreementPage(query SourceAgreementListQuery) SourceAgreementPage {
+	return SourceAgreementPage{
+		Items:        []SourceAgreementSummary{},
+		PageInfo:     fixedSourceManagementPageInfo(0, 0, normalizeSourceAgreementSort(query.Sort)),
+		AppliedQuery: query,
+		Permissions:  defaultSourceManagementPermissions(),
+		EmptyState:   sourceCollectionEmptyState(true, "No agreements", "This source has no related agreements."),
 	}
 }
 
@@ -1161,6 +1665,63 @@ func sourceRevisionID(summary *SourceRevisionSummary) string {
 	return strings.TrimSpace(summary.ID)
 }
 
+func sourceRevisionSummarySortTime(summary *SourceRevisionSummary) time.Time {
+	return sourceRevisionSortTime(summary)
+}
+
+func sourceAgreementLabel(summary SourceAgreementSummary) string {
+	if summary.Agreement == nil {
+		return ""
+	}
+	return strings.TrimSpace(summary.Agreement.Label)
+}
+
+func artifactSummaryID(summary *SourceArtifactSummary) string {
+	if summary == nil {
+		return ""
+	}
+	return strings.TrimSpace(summary.ID)
+}
+
+func sourceReferenceID(ref *LineageReference) string {
+	if ref == nil {
+		return ""
+	}
+	return strings.TrimSpace(ref.ID)
+}
+
+func sourceContinuityStatusSummary(status string, continuation *LineageReference) string {
+	switch strings.TrimSpace(status) {
+	case stores.SourceDocumentStatusMerged:
+		if continuation != nil && strings.TrimSpace(continuation.Label) != "" {
+			return "Merged continuity now resolves through " + strings.TrimSpace(continuation.Label) + "."
+		}
+		return "Merged continuity remains visible from the canonical source workspace."
+	case stores.SourceDocumentStatusArchived:
+		return "Archived source history remains available without changing pinned agreement provenance."
+	default:
+		return "Canonical source continuity is tracked from the active handle through revision history."
+	}
+}
+
+func sourceRevisionContinuitySummary(index int, revisions []stores.SourceRevisionRecord, handle stores.SourceHandleRecord, repeatedHandle bool) string {
+	if repeatedHandle {
+		return "Repeated revision captured under the same active provider handle."
+	}
+	if index == 0 {
+		return "Latest observed revision for this canonical source."
+	}
+	currentHandleID := strings.TrimSpace(handle.ID)
+	previousHandleID := currentHandleID
+	if index > 0 {
+		previousHandleID = strings.TrimSpace(revisions[index-1].SourceHandleID)
+	}
+	if currentHandleID != "" && previousHandleID != "" && currentHandleID != previousHandleID {
+		return "Provider handle continuity changed at this revision boundary."
+	}
+	return "Historical revision remains pinned for downstream document and agreement lineage."
+}
+
 func sourceRelationshipKind(relationshipType string) string {
 	switch strings.TrimSpace(relationshipType) {
 	case stores.SourceRelationshipTypeCopiedFrom:
@@ -1285,12 +1846,20 @@ func sourceManagementSourcePath(sourceDocumentID string) string {
 	return sourceManagementSourcesPath() + "/" + strings.TrimSpace(sourceDocumentID)
 }
 
+func sourceManagementSourceWorkspacePath(sourceDocumentID string) string {
+	return sourceManagementSourcePath(sourceDocumentID) + "/workspace"
+}
+
 func sourceManagementSourceRevisionsPath(sourceDocumentID string) string {
 	return sourceManagementSourcePath(sourceDocumentID) + "/revisions"
 }
 
 func sourceManagementSourceRelationshipsPath(sourceDocumentID string) string {
 	return sourceManagementSourcePath(sourceDocumentID) + "/relationships"
+}
+
+func sourceManagementSourceAgreementsPath(sourceDocumentID string) string {
+	return sourceManagementSourcePath(sourceDocumentID) + "/agreements"
 }
 
 func sourceManagementSourceHandlesPath(sourceDocumentID string) string {
@@ -1317,13 +1886,44 @@ func sourceManagementSearchPath() string {
 	return DefaultSourceManagementBasePath + "/source-search"
 }
 
+func sourceManagementDocumentDetailPath(documentID string) string {
+	return "/admin/content/esign_documents/" + strings.TrimSpace(documentID)
+}
+
+func sourceManagementAgreementDetailPath(agreementID string) string {
+	return "/admin/content/esign_agreements/" + strings.TrimSpace(agreementID)
+}
+
+func sourceManagementWorkspaceAnchorPath(sourceDocumentID, panel, anchor string) string {
+	workspace := sourceManagementSourceWorkspacePath(sourceDocumentID)
+	panel = normalizeSourceWorkspacePanel(panel)
+	anchor = strings.TrimSpace(anchor)
+	if panel == SourceWorkspacePanelOverview && anchor == "" {
+		return workspace
+	}
+	parts := make([]string, 0, 2)
+	if panel != "" {
+		parts = append(parts, "panel="+panel)
+	}
+	if anchor != "" {
+		parts = append(parts, "anchor="+anchor)
+	}
+	if len(parts) == 0 {
+		return workspace
+	}
+	return workspace + "?" + strings.Join(parts, "&")
+}
+
 func sourceLinksForDocument(sourceDocumentID string) SourceManagementLinks {
 	sourceDocumentID = strings.TrimSpace(sourceDocumentID)
 	return SourceManagementLinks{
 		Self:          sourceManagementSourcePath(sourceDocumentID),
 		Source:        sourceManagementSourcePath(sourceDocumentID),
+		Workspace:     sourceManagementSourceWorkspacePath(sourceDocumentID),
 		Revisions:     sourceManagementSourceRevisionsPath(sourceDocumentID),
+		Timeline:      sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelTimeline, ""),
 		Relationships: sourceManagementSourceRelationshipsPath(sourceDocumentID),
+		Agreements:    sourceManagementSourceAgreementsPath(sourceDocumentID),
 		Handles:       sourceManagementSourceHandlesPath(sourceDocumentID),
 		Comments:      sourceManagementSourceCommentsPath(sourceDocumentID),
 	}
@@ -1332,7 +1932,15 @@ func sourceLinksForDocument(sourceDocumentID string) SourceManagementLinks {
 func sourceRevisionLinks(sourceRevisionID, sourceDocumentID string) SourceManagementLinks {
 	links := sourceLinksForDocument(sourceDocumentID)
 	links.Self = sourceManagementRevisionPath(sourceRevisionID)
+	links.Anchor = sourceManagementWorkspaceAnchorPath(sourceDocumentID, SourceWorkspacePanelTimeline, "revision:"+strings.TrimSpace(sourceRevisionID))
 	links.Artifacts = sourceManagementRevisionArtifactsPath(sourceRevisionID)
 	links.Comments = sourceManagementRevisionCommentsPath(sourceRevisionID)
+	return links
+}
+
+func sourceWorkspaceLinksForDocument(sourceDocumentID, panel, anchor string) SourceManagementLinks {
+	links := sourceLinksForDocument(sourceDocumentID)
+	links.Self = sourceManagementWorkspaceAnchorPath(sourceDocumentID, panel, anchor)
+	links.Anchor = links.Self
 	return links
 }

@@ -282,18 +282,35 @@ export {
 
 export {
   SourceBrowserPageController,
+  SourceCommentInspectorPageController,
   SourceDetailPageController,
+  SourceRevisionInspectorPageController,
   SourceRevisionTimelinePageController,
+  SourceArtifactInspectorPageController,
+  SourceSearchPageController,
   bootstrapSourceBrowserPage,
+  bootstrapSourceCommentInspectorPage,
   bootstrapSourceDetailPage,
+  bootstrapSourceRevisionInspectorPage,
   bootstrapSourceRevisionTimelinePage,
+  bootstrapSourceArtifactInspectorPage,
+  bootstrapSourceSearchPage,
   registerPageController,
   getPageController,
   listRegisteredPages,
   type SourceBrowserPageConfig,
+  type SourceCommentInspectorPageConfig,
   type SourceDetailPageConfig,
+  type SourceRevisionInspectorPageConfig,
   type SourceRevisionTimelinePageConfig,
+  type SourceArtifactInspectorPageConfig,
+  type SourceSearchPageConfig,
 } from './source-management-pages.js';
+
+export {
+  SourceManagementRuntimeController,
+  initSourceManagementRuntimePage,
+} from './source-management-runtime.js';
 
 export {
   createLoadingState,
@@ -437,6 +454,12 @@ export {
   validateLivePageBootstrap,
   logPhase15SmokeTestResults,
   runPhase15RuntimeSmokeCoverage,
+  // Phase 16 workspace smoke tests
+  runPhase16WorkspaceSmokeTests,
+  assertPhase16WorkspaceSmokeTests,
+  runPhase16RuntimeSmokeCoverage,
+  logPhase16SmokeTestResults,
+  runPhase16ComprehensiveSmokeCoverage,
   type SmokeTestRuntimeOptions,
   type FixtureRouteValidationResult,
   type SmokeSurfaceResult,
@@ -445,7 +468,68 @@ export {
   type Phase15PageBootstrapResult,
   type Phase15RuntimeSmokeResult,
   type Phase15PageId,
+  type Phase16WorkspacePanelResult,
+  type Phase16WorkspaceSmokeResult,
 } from './source-management-smoke-tests.js';
+
+// Source Detail Workspace (Phase 16)
+export {
+  // Workspace Composition
+  createInitialWorkspaceState,
+  createLoadingWorkspaceState,
+  updateWorkspacePanel,
+  setActivePanel,
+  getPanelDrillInUrl,
+  panelRequiresLoad,
+  // Panel State Resolvers
+  resolveOverviewPanelState,
+  resolveRevisionsPanelState,
+  resolveArtifactsPanelState,
+  resolveRelationshipsPanelState,
+  resolveCommentsPanelState,
+  resolveHandlesPanelState,
+  // Panel State Creators
+  createPanelLoadingState,
+  createPanelErrorState,
+  createPanelEmptyState,
+  createOverviewPanelSuccessState,
+  createRevisionsPanelSuccessState,
+  createArtifactsPanelSuccessState,
+  createRelationshipsPanelSuccessState,
+  createCommentsPanelSuccessState,
+  createHandlesPanelSuccessState,
+  // Contract Validation
+  validateWorkspaceContractUsage,
+  validateWorkspaceContractIsolation,
+  validateWorkspaceBackendLinks,
+  WORKSPACE_APPROVED_CONTRACT_FAMILIES,
+  WORKSPACE_FORBIDDEN_CONTRACT_FAMILIES,
+  // Types
+  type SourceWorkspacePanel,
+  type WorkspacePanelStateKind,
+  type WorkspacePanelMetadata,
+  type WorkspacePanelLoadingState,
+  type WorkspacePanelEmptyState,
+  type WorkspacePanelErrorState,
+  type OverviewPanelSuccessState,
+  type RevisionsPanelSuccessState,
+  type ArtifactsPanelSuccessState,
+  type RelationshipsPanelSuccessState,
+  type CommentsPanelSuccessState,
+  type HandlesPanelSuccessState,
+  type ArtifactPanelItemViewModel,
+  type CommentPanelItemViewModel,
+  type HandlePanelItemViewModel,
+  type OverviewPanelRenderingState,
+  type RevisionsPanelRenderingState,
+  type ArtifactsPanelRenderingState,
+  type RelationshipsPanelRenderingState,
+  type CommentsPanelRenderingState,
+  type HandlesPanelRenderingState,
+  type SourceDetailWorkspaceState,
+  type WorkspaceContractFamily,
+  type WorkspaceContractValidationResult,
+} from './source-detail-workspace.js';
 
 // API Client
 export {

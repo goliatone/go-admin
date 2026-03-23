@@ -10,23 +10,24 @@ import (
 
 	searchcommand "github.com/goliatone/go-search/command"
 	searchindexing "github.com/goliatone/go-search/indexing"
+	searchtypes "github.com/goliatone/go-search/pkg/types"
 	searchplanner "github.com/goliatone/go-search/planner"
 	searchproviders "github.com/goliatone/go-search/providers"
 	searchmemory "github.com/goliatone/go-search/providers/memory"
 	searchquery "github.com/goliatone/go-search/query"
-	searchtypes "github.com/goliatone/go-search/pkg/types"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
 const (
-	defaultSourceManagementGoSearchIndexName        = "esign_source_management"
-	defaultSourceManagementGoSearchRegistrationKey  = "source_document"
-	defaultSourceManagementGoSearchSourceType       = "source_document"
+	defaultSourceManagementGoSearchIndexName       = "esign_source_management"
+	defaultSourceManagementGoSearchRegistrationKey = "source_document"
+	defaultSourceManagementGoSearchSourceType      = "source_document"
 )
 
 type GoSearchSourceSearchConfig struct {
 	Lineage         stores.LineageStore
+	Agreements      stores.AgreementStore
 	IndexName       string
 	RegistrationKey string
 	ProviderFactory func(scope stores.Scope) searchproviders.Provider
@@ -34,6 +35,7 @@ type GoSearchSourceSearchConfig struct {
 
 type GoSearchSourceSearchService struct {
 	lineage         stores.LineageStore
+	agreements      stores.AgreementStore
 	indexName       string
 	registrationKey string
 	providerFactory func(scope stores.Scope) searchproviders.Provider
@@ -49,6 +51,9 @@ type goSearchSourceSearchBundle struct {
 	indexer         *searchindexing.Indexer
 	search          *searchquery.Search
 	reindex         *searchcommand.ReindexIndex
+
+	bootstrapMu  sync.Mutex
+	bootstrapped bool
 }
 
 type goSearchSourceDocumentSource struct {
@@ -57,8 +62,9 @@ type goSearchSourceDocumentSource struct {
 }
 
 type goSearchSourceDocumentProjector struct {
-	lineage stores.LineageStore
-	scope   stores.Scope
+	lineage    stores.LineageStore
+	agreements stores.AgreementStore
+	scope      stores.Scope
 }
 
 func NewGoSearchSourceSearchService(cfg GoSearchSourceSearchConfig) (*GoSearchSourceSearchService, error) {
@@ -78,6 +84,7 @@ func NewGoSearchSourceSearchService(cfg GoSearchSourceSearchConfig) (*GoSearchSo
 	}
 	return &GoSearchSourceSearchService{
 		lineage:         cfg.Lineage,
+		agreements:      firstAgreementStore(cfg.Agreements, cfg.Lineage),
 		indexName:       strings.TrimSpace(cfg.IndexName),
 		registrationKey: strings.TrimSpace(cfg.RegistrationKey),
 		providerFactory: cfg.ProviderFactory,
@@ -96,29 +103,36 @@ func (s *GoSearchSourceSearchService) Search(ctx context.Context, scope stores.S
 	if err != nil {
 		return results, err
 	}
-	if err := bundle.reindexAll(ctx); err != nil {
+	if err := bundle.ensureBootstrapped(ctx); err != nil {
 		return results, err
 	}
 	page, err := bundle.search.Query(ctx, sourceSearchGoSearchRequest(s.indexName, scope, normalized))
 	if err != nil {
 		return results, err
 	}
-	results.Items = make([]SourceSearchResultSummary, 0, len(page.Hits))
-	legacy := DefaultSourceSearchService{lineage: s.lineage}
+	scored := make([]scoredSourceSearchResult, 0, len(page.Hits))
+	legacy := DefaultSourceSearchService{lineage: s.lineage, agreements: s.agreements}
 	for _, hit := range page.Hits {
 		indexed, ok := sourceSearchRecordFromHit(hit)
 		if !ok {
 			continue
 		}
-		if summary, _, matched := legacy.matchIndexedDocument(ctx, scope, indexed, normalized); matched {
-			results.Items = append(results.Items, summary)
+		if summary, score, matched := legacy.matchIndexedDocument(ctx, scope, indexed, normalized); matched {
+			scored = append(scored, scoredSourceSearchResult{result: summary, score: score})
 			continue
 		}
 		summary, _, ok := legacy.buildSourceSearchResultSummary(ctx, scope, indexed)
 		if !ok {
 			continue
 		}
-		results.Items = append(results.Items, summary)
+		scored = append(scored, scoredSourceSearchResult{result: summary})
+	}
+	if len(scored) != 0 {
+		sortIndexedSourceSearchResults(scored, normalized.Sort)
+		results.Items = make([]SourceSearchResultSummary, 0, len(scored))
+		for _, item := range scored {
+			results.Items = append(results.Items, item.result)
+		}
 	}
 	results.PageInfo = SourceManagementPageInfo{
 		Mode:       SourceManagementPaginationModePage,
@@ -212,7 +226,7 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 		s.registrationKey,
 		defaultSourceManagementGoSearchSourceType,
 		goSearchSourceDocumentSource{lineage: s.lineage, scope: scope},
-		goSearchSourceDocumentProjector{lineage: s.lineage, scope: scope},
+		goSearchSourceDocumentProjector{lineage: s.lineage, agreements: s.agreements, scope: scope},
 		func(record stores.SourceDocumentRecord) string {
 			return strings.TrimSpace(record.ID)
 		},
@@ -283,6 +297,22 @@ func (b *goSearchSourceSearchBundle) reindexAll(ctx context.Context) error {
 	})
 }
 
+func (b *goSearchSourceSearchBundle) ensureBootstrapped(ctx context.Context) error {
+	if b == nil {
+		return nil
+	}
+	b.bootstrapMu.Lock()
+	defer b.bootstrapMu.Unlock()
+	if b.bootstrapped {
+		return nil
+	}
+	if err := b.reindexAll(ctx); err != nil {
+		return err
+	}
+	b.bootstrapped = true
+	return nil
+}
+
 func (s goSearchSourceDocumentSource) Get(ctx context.Context, id string) (stores.SourceDocumentRecord, error) {
 	return s.lineage.GetSourceDocument(ctx, s.scope, strings.TrimSpace(id))
 }
@@ -317,7 +347,7 @@ func (s goSearchSourceDocumentSource) List(ctx context.Context, limit int, curso
 }
 
 func (p goSearchSourceDocumentProjector) Project(ctx context.Context, record stores.SourceDocumentRecord) ([]searchtypes.Document, error) {
-	legacy := DefaultSourceSearchService{lineage: p.lineage}
+	legacy := DefaultSourceSearchService{lineage: p.lineage, agreements: p.agreements}
 	indexed, _, err := legacy.buildIndexDocuments(ctx, p.scope, record)
 	if err != nil {
 		return nil, err
@@ -333,7 +363,7 @@ func sourceManagementGoSearchIndexDefinition(indexName string) searchtypes.Index
 	return searchtypes.IndexDefinition{
 		Name:               strings.TrimSpace(indexName),
 		Label:              "E-Sign Source Management",
-		DefaultQueryFields: []string{"title", "body"},
+		DefaultQueryFields: []string{"title", "summary", "body"},
 		SearchableFields:   []string{"title", "summary", "body"},
 		FilterableFields:   []string{"result_kind", "provider_kind", "status", "relationship_state", "comment_sync_status", "has_comments", "revision_hint"},
 		SortableFields:     []string{"title", "updated_at"},
@@ -362,6 +392,9 @@ func sourceSearchGoSearchDocument(scope stores.Scope, sourceDocument stores.Sour
 		"updated_at":          indexed.UpdatedAt.UnixMilli(),
 		"metadata_json":       strings.TrimSpace(indexed.MetadataJSON),
 	}
+	appendGoSearchFieldStrings(fields, "agreement_titles", anyStrings(metadata["agreement_titles"]))
+	appendGoSearchFieldStrings(fields, "normalized_texts", anyStrings(metadata["normalized_texts"]))
+	appendGoSearchFieldStrings(fields, "drive_ids", anyStrings(metadata["drive_ids"]))
 	if len(revisionHints) > 0 {
 		fields["revision_hint"] = revisionHints[0]
 	}
@@ -536,6 +569,13 @@ func documentBoolField(doc searchtypes.Document, key string) bool {
 	}
 }
 
+func appendGoSearchFieldStrings(fields map[string]any, key string, values []string) {
+	if len(fields) == 0 || len(values) == 0 {
+		return
+	}
+	fields[strings.TrimSpace(key)] = append([]string(nil), values...)
+}
+
 func sourceSearchRecordURL(indexed stores.SourceSearchDocumentRecord) string {
 	if strings.TrimSpace(indexed.ResultKind) == SourceManagementSearchResultSourceRevision {
 		return sourceManagementRevisionPath(indexed.SourceRevisionID)
@@ -566,4 +606,14 @@ func validateGoSearchScope(scope stores.Scope) (stores.Scope, error) {
 
 func sourceSearchScopeKey(scope stores.Scope) string {
 	return strings.TrimSpace(scope.TenantID) + "|" + strings.TrimSpace(scope.OrgID)
+}
+
+func firstAgreementStore(primary stores.AgreementStore, fallback any) stores.AgreementStore {
+	if primary != nil {
+		return primary
+	}
+	if store, ok := fallback.(stores.AgreementStore); ok {
+		return store
+	}
+	return nil
 }

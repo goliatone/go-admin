@@ -31,6 +31,7 @@ type DefaultSourceReadModelService struct {
 	jobRuns             stores.JobRunStore
 	sourceSearch        SourceSearchService
 	diagnosticsBasePath string
+	now                 func() time.Time
 }
 
 type SourceReadModelServiceOption func(*DefaultSourceReadModelService)
@@ -75,6 +76,15 @@ func WithSourceReadModelDiagnosticsBasePath(basePath string) SourceReadModelServ
 	}
 }
 
+func WithSourceReadModelClock(now func() time.Time) SourceReadModelServiceOption {
+	return func(s *DefaultSourceReadModelService) {
+		if s == nil || now == nil {
+			return
+		}
+		s.now = now
+	}
+}
+
 func NewDefaultSourceReadModelService(
 	documents stores.DocumentStore,
 	agreements stores.AgreementStore,
@@ -86,9 +96,10 @@ func NewDefaultSourceReadModelService(
 		agreements:          agreements,
 		lineage:             lineage,
 		diagnosticsBasePath: DefaultLineageDiagnosticsBasePath,
+		now:                 func() time.Time { return time.Now().UTC() },
 	}
 	if lineage != nil {
-		search := NewDefaultSourceSearchService(lineage)
+		search := NewDefaultSourceSearchService(lineage, agreements)
 		svc.sourceSearch = search
 	}
 	for _, opt := range opts {

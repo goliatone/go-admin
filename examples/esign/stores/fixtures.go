@@ -31,6 +31,7 @@ type LineageFixtureSet struct {
 	UploadOnlyDocumentID      string `json:"upload_only_document_id"`
 	ImportedDocumentID        string `json:"imported_document_id"`
 	ImportedAgreementID       string `json:"imported_agreement_id"`
+	RepeatedImportAgreementID string `json:"repeated_import_agreement_id"`
 	SourceDocumentID          string `json:"source_document_id"`
 	LegacySourceHandleID      string `json:"legacy_source_handle_id"`
 	ActiveSourceHandleID      string `json:"active_source_handle_id"`

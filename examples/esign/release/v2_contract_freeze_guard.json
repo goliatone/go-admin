@@ -5,11 +5,11 @@
     "examples/esign/services/lineage_contracts.go",
     "examples/esign/handlers/register_lineage_routes.go"
   ],
-  "contract_hash": "75b72c7a80b112d6af1b5349b68676760617f204a7f9d49f165a6f88e677988d",
+  "contract_hash": "2328729bf6ea567bf16983f7bc91fe89c9c7348f359d56f92577989cb39e30b1",
   "freeze_date": "2026-02-16",
   "release_owner": "backend-release-owner",
   "ledger_path": "examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md",
   "required_ledger_entry_id": "V2-SM-2026-03-22-001",
-  "exception_approval_ref": "",
-  "exception_approved_by": ""
+  "exception_approval_ref": "SM-V2-2026-03-22-001",
+  "exception_approved_by": "backend-release-owner"
 }

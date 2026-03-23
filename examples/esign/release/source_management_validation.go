@@ -27,9 +27,13 @@ type SourceManagementValidationResult struct {
 	SourceListBootstrapped         bool                          `json:"source_list_bootstrapped"`
 	SourceBrowserNavigationReady   bool                          `json:"source_browser_navigation_ready"`
 	SourceDetailReadable           bool                          `json:"source_detail_readable"`
+	SourceWorkspaceReadable        bool                          `json:"source_workspace_readable"`
 	RevisionHistoryReadable        bool                          `json:"revision_history_readable"`
+	RevisionTimelineReadable       bool                          `json:"revision_timeline_readable"`
 	MultiHandleContinuityVisible   bool                          `json:"multi_handle_continuity_visible"`
 	RelationshipSummariesReadable  bool                          `json:"relationship_summaries_readable"`
+	SourceAgreementsReadable       bool                          `json:"source_agreements_readable"`
+	SourceArtifactsReadable        bool                          `json:"source_artifacts_readable"`
 	SourceSearchCorrect            bool                          `json:"source_search_correct"`
 	SourceCommentsReadable         bool                          `json:"source_comments_readable"`
 	ProviderNeutralContractsStable bool                          `json:"provider_neutral_contracts_stable"`
@@ -129,6 +133,13 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("get source detail: %w", err)
 	}
+	workspace, err := readModels.GetSourceWorkspace(ctx, scope, fixtureSet.SourceDocumentID, services.SourceWorkspaceQuery{
+		Panel:  services.SourceWorkspacePanelAgreements,
+		Anchor: "agreement:" + fixtureSet.ImportedAgreementID,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("get source workspace: %w", err)
+	}
 	revisions, err := readModels.ListSourceRevisions(ctx, scope, fixtureSet.SourceDocumentID, services.SourceRevisionListQuery{Page: 1, PageSize: 10})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("list source revisions: %w", err)
@@ -144,6 +155,10 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("list source relationships: %w", err)
+	}
+	agreements, err := readModels.ListSourceAgreements(ctx, scope, fixtureSet.SourceDocumentID, services.SourceAgreementListQuery{Page: 1, PageSize: 10})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("list source agreements: %w", err)
 	}
 	searchByLegacyHandle, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{
 		Query:    "fixture-google-file-legacy",
@@ -163,6 +178,14 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("search sources by comment text: %w", err)
 	}
+	searchByAgreementTitle, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{
+		Query:    "Imported Fixture Agreement",
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("search sources by agreement title: %w", err)
+	}
 	comments, err := readModels.ListSourceRevisionComments(ctx, scope, fixtureSet.SecondSourceRevisionID, services.SourceCommentListQuery{
 		Page:     1,
 		PageSize: 10,
@@ -176,6 +199,12 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	}
 	if detail.Source == nil || strings.TrimSpace(detail.Source.ID) != strings.TrimSpace(fixtureSet.SourceDocumentID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("source detail did not resolve seeded canonical source")
+	}
+	if workspace.Source == nil || strings.TrimSpace(workspace.Source.ID) != strings.TrimSpace(fixtureSet.SourceDocumentID) {
+		return SourceManagementValidationResult{}, fmt.Errorf("source workspace did not resolve seeded canonical source")
+	}
+	if strings.TrimSpace(workspace.ActivePanel) != services.SourceWorkspacePanelAgreements || len(workspace.Timeline.Entries) < 2 {
+		return SourceManagementValidationResult{}, fmt.Errorf("source workspace did not expose timeline and active panel continuity")
 	}
 	if len(revisions.Items) < 2 || revisions.Items[0].Revision == nil || strings.TrimSpace(revisions.Items[0].Revision.ID) != strings.TrimSpace(fixtureSet.SecondSourceRevisionID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("revision history did not expose repeated revision ordering")
@@ -206,14 +235,29 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if len(relationships.Items) == 0 || strings.TrimSpace(relationships.Items[0].ID) != strings.TrimSpace(fixtureSet.CandidateRelationshipID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("relationship summaries did not expose seeded pending candidate")
 	}
+	if len(agreements.Items) < 2 {
+		return SourceManagementValidationResult{}, fmt.Errorf("source agreement summaries did not expose revision-pinned agreement history")
+	}
+	if got := strings.TrimSpace(agreements.Items[0].Links.Agreement); got == "" {
+		return SourceManagementValidationResult{}, fmt.Errorf("source agreements did not expose stable agreement detail links")
+	}
+	if len(workspace.Artifacts.Items) < 2 {
+		return SourceManagementValidationResult{}, fmt.Errorf("source workspace artifacts did not expose multi-artifact history")
+	}
 	if len(searchByLegacyHandle.Items) == 0 || searchByLegacyHandle.Items[0].Source == nil || strings.TrimSpace(searchByLegacyHandle.Items[0].Source.ID) != strings.TrimSpace(fixtureSet.SourceDocumentID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("search by legacy handle did not discover canonical source")
 	}
 	if len(searchByComment.Items) == 0 || searchByComment.Items[0].Revision == nil || strings.TrimSpace(searchByComment.Items[0].Revision.ID) != strings.TrimSpace(fixtureSet.SecondSourceRevisionID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("search by comment text did not discover revision-scoped source result")
 	}
+	if len(searchByAgreementTitle.Items) == 0 || searchByAgreementTitle.Items[0].Source == nil || strings.TrimSpace(searchByAgreementTitle.Items[0].Source.ID) != strings.TrimSpace(fixtureSet.SourceDocumentID) {
+		return SourceManagementValidationResult{}, fmt.Errorf("search by agreement title did not discover canonical source")
+	}
 	if len(comments.Items) == 0 || len(comments.Items[0].Messages) != 2 {
 		return SourceManagementValidationResult{}, fmt.Errorf("source comment read did not expose seeded synced thread")
+	}
+	if err := rejectGoogleSpecificJSONKeys(workspace, "source_workspace"); err != nil {
+		return SourceManagementValidationResult{}, err
 	}
 	if err := rejectGoogleSpecificJSONKeys(detail, "source_detail"); err != nil {
 		return SourceManagementValidationResult{}, err
@@ -232,10 +276,14 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 		SourceListBootstrapped:         len(listPage.Items) >= 2,
 		SourceBrowserNavigationReady:   strings.TrimSpace(listPage.Items[0].Links.Self) != "" && strings.TrimSpace(detail.Links.Revisions) != "" && strings.TrimSpace(detail.Links.Comments) != "",
 		SourceDetailReadable:           detail.Source != nil && strings.TrimSpace(detail.Source.ID) == strings.TrimSpace(fixtureSet.SourceDocumentID),
+		SourceWorkspaceReadable:        workspace.Source != nil && strings.TrimSpace(workspace.Source.ID) == strings.TrimSpace(fixtureSet.SourceDocumentID),
 		RevisionHistoryReadable:        len(revisions.Items) >= 2,
+		RevisionTimelineReadable:       len(workspace.Timeline.Entries) >= 2,
 		MultiHandleContinuityVisible:   len(handles.Items) >= 2,
 		RelationshipSummariesReadable:  len(relationships.Items) >= 1,
-		SourceSearchCorrect:            len(searchByLegacyHandle.Items) >= 1 && len(searchByComment.Items) >= 1,
+		SourceAgreementsReadable:       len(agreements.Items) >= 1,
+		SourceArtifactsReadable:        len(workspace.Artifacts.Items) >= 1,
+		SourceSearchCorrect:            len(searchByLegacyHandle.Items) >= 1 && len(searchByComment.Items) >= 1 && len(searchByAgreementTitle.Items) >= 1,
 		SourceCommentsReadable:         len(comments.Items) >= 1 && comments.SyncStatus == services.SourceManagementCommentSyncSynced,
 		ProviderNeutralContractsStable: true,
 		Scenario:                       fixtureSet,
@@ -275,6 +323,10 @@ func ValidateV2SourceManagementStartup(
 	}
 	if _, err := readModels.ListSources(ctx, scope, services.SourceListQuery{Page: 1, PageSize: 1}); err != nil {
 		return fmt.Errorf("validate source-management list service wiring: %w", err)
+	}
+	const startupValidationSourceID = "startup-validation-source"
+	if _, err := readModels.GetSourceWorkspace(ctx, scope, startupValidationSourceID, services.SourceWorkspaceQuery{}); err != nil && !strings.Contains(err.Error(), "not found") {
+		return fmt.Errorf("validate source-management workspace wiring: %w", err)
 	}
 	if _, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{Page: 1, PageSize: 1}); err != nil {
 		return fmt.Errorf("validate source-management go-search wiring: %w", err)

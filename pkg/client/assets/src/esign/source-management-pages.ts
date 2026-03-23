@@ -19,15 +19,25 @@
 import type {
   SourceListPage,
   SourceDetail,
+  SourceRevisionDetail,
   SourceRevisionPage,
+  SourceArtifactPage,
+  SourceCommentPage,
+  SourceSearchResults,
   SourceListQuery,
+  SourceCommentListQuery,
   SourceRevisionListQuery,
+  Phase13SourceSearchQuery,
 } from './lineage-contracts.js';
 
 import type {
   SourceBrowserPageContracts,
+  SourceCommentInspectorPageContracts,
   SourceDetailPageContracts,
+  SourceRevisionDetailPageContracts,
   SourceRevisionTimelinePageContracts,
+  SourceArtifactInspectorPageContracts,
+  SourceSearchPageContracts,
   SourceManagementPageState,
   SourceManagementPageMetadata,
 } from './source-management-composition.js';
@@ -159,6 +169,43 @@ function extractSourceRevisionListQuery(params: URLSearchParams): SourceRevision
 }
 
 /**
+ * Extracts SourceCommentListQuery from URL params.
+ */
+function extractSourceCommentListQuery(params: URLSearchParams): SourceCommentListQuery {
+  const page = Number.parseInt(params.get('page') ?? '1', 10);
+  const pageSize = Number.parseInt(params.get('page_size') ?? '20', 10);
+
+  return {
+    status: params.get('status') ?? undefined,
+    sync_status: params.get('sync_status') ?? undefined,
+    page: page > 0 ? page : 1,
+    page_size: pageSize > 0 ? pageSize : 20,
+  };
+}
+
+/**
+ * Extracts SourceSearchQuery from URL params.
+ */
+function extractSourceSearchQuery(params: URLSearchParams): Phase13SourceSearchQuery {
+  const page = Number.parseInt(params.get('page') ?? '1', 10);
+  const pageSize = Number.parseInt(params.get('page_size') ?? '20', 10);
+
+  return {
+    query: params.get('q') ?? params.get('query') ?? undefined,
+    provider_kind: params.get('provider_kind') ?? undefined,
+    status: params.get('status') ?? undefined,
+    result_kind: params.get('result_kind') ?? undefined,
+    relationship_state: params.get('relationship_state') ?? undefined,
+    comment_sync_status: params.get('comment_sync_status') ?? undefined,
+    revision_hint: params.get('revision_hint') ?? undefined,
+    sort: params.get('sort') ?? undefined,
+    page: page > 0 ? page : 1,
+    page_size: pageSize > 0 ? pageSize : 20,
+    has_comments: params.get('has_comments') === 'true' ? true : undefined,
+  };
+}
+
+/**
  * Builds query string from SourceListQuery.
  */
 function buildSourceListQueryString(query: SourceListQuery): string {
@@ -182,6 +229,54 @@ function buildSourceListQueryString(query: SourceListQuery): string {
 function buildSourceRevisionListQueryString(query: SourceRevisionListQuery): string {
   const params = new URLSearchParams();
 
+  if (query.sort) params.set('sort', query.sort);
+  if (query.page && query.page !== 1) params.set('page', String(query.page));
+  if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
+
+  return params.toString();
+}
+
+function buildSourceCommentListQueryString(query: SourceCommentListQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.status) params.set('status', query.status);
+  if (query.sync_status) params.set('sync_status', query.sync_status);
+  if (query.page && query.page !== 1) params.set('page', String(query.page));
+  if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
+
+  return params.toString();
+}
+
+function buildSourceSearchQueryParamUpdates(
+  query: Partial<Phase13SourceSearchQuery>
+): Record<string, string | number | boolean | undefined> {
+  return {
+    q: query.query,
+    query: undefined,
+    provider_kind: query.provider_kind,
+    status: query.status,
+    result_kind: query.result_kind,
+    relationship_state: query.relationship_state,
+    comment_sync_status: query.comment_sync_status,
+    revision_hint: query.revision_hint,
+    has_comments: query.has_comments,
+    sort: query.sort,
+    page: query.page,
+    page_size: query.page_size,
+  };
+}
+
+function buildSourceSearchQueryString(query: Phase13SourceSearchQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.query) params.set('q', query.query);
+  if (query.provider_kind) params.set('provider_kind', query.provider_kind);
+  if (query.status) params.set('status', query.status);
+  if (query.result_kind) params.set('result_kind', query.result_kind);
+  if (query.relationship_state) params.set('relationship_state', query.relationship_state);
+  if (query.comment_sync_status) params.set('comment_sync_status', query.comment_sync_status);
+  if (query.revision_hint) params.set('revision_hint', query.revision_hint);
+  if (query.has_comments !== undefined) params.set('has_comments', String(query.has_comments));
   if (query.sort) params.set('sort', query.sort);
   if (query.page && query.page !== 1) params.set('page', String(query.page));
   if (query.page_size && query.page_size !== 20) params.set('page_size', String(query.page_size));
@@ -592,6 +687,396 @@ export function bootstrapSourceRevisionTimelinePage(
 }
 
 // ============================================================================
+// Source Revision Inspector Page
+// ============================================================================
+
+export interface SourceRevisionInspectorPageConfig {
+  apiBasePath: string;
+  sourceRevisionId: string;
+  containerSelector?: string;
+  onStateChange?: (state: SourceManagementPageState<SourceRevisionDetailPageContracts>) => void;
+}
+
+export class SourceRevisionInspectorPageController {
+  private readonly config: SourceRevisionInspectorPageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<SourceRevisionDetailPageContracts>;
+
+  constructor(config: SourceRevisionInspectorPageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'source-revision-inspector',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'source-revisions/:id',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['source-revisions/:id']);
+    if (!validation.valid) {
+      console.error('[SourceRevisionInspectorPage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  async init(): Promise<void> {
+    await this.fetchRevision();
+  }
+
+  async fetchRevision(): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const url = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}`;
+      const revisionDetail = await fetchJSON<SourceRevisionDetail>(url);
+
+      const contracts: SourceRevisionDetailPageContracts = {
+        revisionDetail,
+        links: revisionDetail.links,
+        permissions: revisionDetail.permissions,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  async refresh(): Promise<void> {
+    await this.fetchRevision();
+  }
+
+  getState(): SourceManagementPageState<SourceRevisionDetailPageContracts> {
+    return this.state;
+  }
+
+  private setState(state: SourceManagementPageState<SourceRevisionDetailPageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+export function bootstrapSourceRevisionInspectorPage(
+  config: SourceRevisionInspectorPageConfig
+): SourceRevisionInspectorPageController {
+  const controller = new SourceRevisionInspectorPageController(config);
+  controller.init().catch((error) => {
+    console.error('[SourceRevisionInspectorPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
+// Source Comment Inspector Page
+// ============================================================================
+
+export interface SourceCommentInspectorPageConfig {
+  apiBasePath: string;
+  sourceRevisionId: string;
+  initialQuery?: Partial<SourceCommentListQuery>;
+  containerSelector?: string;
+  onStateChange?: (state: SourceManagementPageState<SourceCommentInspectorPageContracts>) => void;
+}
+
+export class SourceCommentInspectorPageController {
+  private readonly config: SourceCommentInspectorPageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<SourceCommentInspectorPageContracts>;
+
+  constructor(config: SourceCommentInspectorPageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'source-comment-inspector',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'source-revisions/:id/comments',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['source-revisions/:id/comments']);
+    if (!validation.valid) {
+      console.error('[SourceCommentInspectorPage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  async init(): Promise<void> {
+    const params = parseQueryParams();
+    const query = extractSourceCommentListQuery(params);
+    await this.fetchComments(query);
+  }
+
+  async fetchComments(query: SourceCommentListQuery): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const queryString = buildSourceCommentListQueryString(query);
+      const url = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${queryString}`;
+      const commentPage = await fetchJSON<SourceCommentPage>(url);
+
+      const contracts: SourceCommentInspectorPageContracts = {
+        commentPage,
+        links: commentPage.links,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  async goToPage(page: number): Promise<void> {
+    const currentQuery = this.state.contracts?.commentPage.page_info
+      ? extractSourceCommentListQuery(parseQueryParams())
+      : {};
+    const newQuery = { ...currentQuery, page };
+    updateQueryParams({ page });
+    await this.fetchComments(newQuery);
+  }
+
+  async refresh(): Promise<void> {
+    const query = extractSourceCommentListQuery(parseQueryParams());
+    await this.fetchComments(query);
+  }
+
+  getState(): SourceManagementPageState<SourceCommentInspectorPageContracts> {
+    return this.state;
+  }
+
+  private setState(state: SourceManagementPageState<SourceCommentInspectorPageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+export function bootstrapSourceCommentInspectorPage(
+  config: SourceCommentInspectorPageConfig
+): SourceCommentInspectorPageController {
+  const controller = new SourceCommentInspectorPageController(config);
+  controller.init().catch((error) => {
+    console.error('[SourceCommentInspectorPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
+// Source Artifact Inspector Page
+// ============================================================================
+
+export interface SourceArtifactInspectorPageConfig {
+  apiBasePath: string;
+  sourceRevisionId: string;
+  containerSelector?: string;
+  onStateChange?: (state: SourceManagementPageState<SourceArtifactInspectorPageContracts>) => void;
+}
+
+export class SourceArtifactInspectorPageController {
+  private readonly config: SourceArtifactInspectorPageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<SourceArtifactInspectorPageContracts>;
+
+  constructor(config: SourceArtifactInspectorPageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'source-artifact-inspector',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'source-revisions/:id/artifacts',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['source-revisions/:id/artifacts']);
+    if (!validation.valid) {
+      console.error('[SourceArtifactInspectorPage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  async init(): Promise<void> {
+    await this.fetchArtifacts();
+  }
+
+  async fetchArtifacts(): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const url = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/artifacts`;
+      const artifactPage = await fetchJSON<SourceArtifactPage>(url);
+
+      const contracts: SourceArtifactInspectorPageContracts = {
+        artifactPage,
+        links: artifactPage.links,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  async refresh(): Promise<void> {
+    await this.fetchArtifacts();
+  }
+
+  getState(): SourceManagementPageState<SourceArtifactInspectorPageContracts> {
+    return this.state;
+  }
+
+  private setState(state: SourceManagementPageState<SourceArtifactInspectorPageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+export function bootstrapSourceArtifactInspectorPage(
+  config: SourceArtifactInspectorPageConfig
+): SourceArtifactInspectorPageController {
+  const controller = new SourceArtifactInspectorPageController(config);
+  controller.init().catch((error) => {
+    console.error('[SourceArtifactInspectorPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
+// Source Search Page
+// ============================================================================
+
+export interface SourceSearchPageConfig {
+  apiBasePath: string;
+  initialQuery?: Partial<Phase13SourceSearchQuery>;
+  containerSelector?: string;
+  onStateChange?: (state: SourceManagementPageState<SourceSearchPageContracts>) => void;
+}
+
+export class SourceSearchPageController {
+  private readonly config: SourceSearchPageConfig;
+  private readonly metadata: SourceManagementPageMetadata;
+  private state: SourceManagementPageState<SourceSearchPageContracts>;
+
+  constructor(config: SourceSearchPageConfig) {
+    this.config = config;
+    this.metadata = {
+      pageId: 'source-search',
+      apiBasePath: config.apiBasePath,
+      endpointFamily: 'source-search',
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, ['source-search']);
+    if (!validation.valid) {
+      console.error('[SourceSearchPage] Composition validation failed:', validation.errors);
+    }
+
+    this.state = {
+      loading: false,
+      error: null,
+      contracts: null,
+    };
+  }
+
+  async init(): Promise<void> {
+    const params = parseQueryParams();
+    const query = extractSourceSearchQuery(params);
+    await this.search(query);
+  }
+
+  async search(query: Phase13SourceSearchQuery): Promise<void> {
+    this.setState({ loading: true, error: null, contracts: null });
+
+    try {
+      const queryString = buildSourceSearchQueryString(query);
+      const url = `${this.config.apiBasePath}/source-search?${queryString}`;
+      const searchResults = await fetchJSON<SourceSearchResults>(url);
+
+      const contracts: SourceSearchPageContracts = {
+        searchResults,
+        query,
+        links: searchResults.links,
+      };
+
+      this.setState({ loading: false, error: null, contracts });
+    } catch (error) {
+      this.setState({
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        contracts: null,
+      });
+    }
+  }
+
+  async goToPage(page: number): Promise<void> {
+    const currentQuery = this.state.contracts?.query ?? {};
+    const newQuery = { ...currentQuery, page };
+    updateQueryParams(buildSourceSearchQueryParamUpdates(newQuery));
+    await this.search(newQuery);
+  }
+
+  async applyFilters(filters: Partial<Phase13SourceSearchQuery>): Promise<void> {
+    const currentQuery = this.state.contracts?.query ?? {};
+    const newQuery = { ...currentQuery, ...filters, page: 1 };
+    updateQueryParams(buildSourceSearchQueryParamUpdates(newQuery));
+    await this.search(newQuery);
+  }
+
+  async refresh(): Promise<void> {
+    const query = this.state.contracts?.query ?? extractSourceSearchQuery(parseQueryParams());
+    await this.search(query);
+  }
+
+  getState(): SourceManagementPageState<SourceSearchPageContracts> {
+    return this.state;
+  }
+
+  private setState(state: SourceManagementPageState<SourceSearchPageContracts>): void {
+    this.state = state;
+    if (this.config.onStateChange) {
+      this.config.onStateChange(state);
+    }
+  }
+}
+
+export function bootstrapSourceSearchPage(
+  config: SourceSearchPageConfig
+): SourceSearchPageController {
+  const controller = new SourceSearchPageController(config);
+  controller.init().catch((error) => {
+    console.error('[SourceSearchPage] Initialization failed:', error);
+  });
+  return controller;
+}
+
+// ============================================================================
 // Page Registry
 // ============================================================================
 
@@ -606,7 +1091,15 @@ const PAGE_REGISTRY: Map<string, unknown> = new Map();
  */
 export function registerPageController(
   pageId: string,
-  controller: SourceBrowserPageController | SourceDetailPageController | SourceRevisionTimelinePageController
+  controller:
+    | SourceBrowserPageController
+    | SourceDetailPageController
+    | SourceRevisionTimelinePageController
+    | SourceRevisionInspectorPageController
+    | SourceCommentInspectorPageController
+    | SourceArtifactInspectorPageController
+    | SourceSearchPageController
+    | unknown
 ): void {
   PAGE_REGISTRY.set(pageId, controller);
 }

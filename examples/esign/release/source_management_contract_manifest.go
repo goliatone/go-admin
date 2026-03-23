@@ -67,8 +67,10 @@ func BuildV2SourceManagementContractManifest() V2SourceManagementContractManifes
 		Endpoints: []V2SourceManagementContractRoute{
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources", QuerySchema: "SourceListQuery", ResponseSchema: "SourceListPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id", PathParams: []string{"source_document_id"}, ResponseSchema: "SourceDetail"},
+			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/workspace", PathParams: []string{"source_document_id"}, QuerySchema: "SourceWorkspaceQuery", ResponseSchema: "SourceWorkspace"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/revisions", PathParams: []string{"source_document_id"}, QuerySchema: "SourceRevisionListQuery", ResponseSchema: "SourceRevisionPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/relationships", PathParams: []string{"source_document_id"}, QuerySchema: "SourceRelationshipListQuery", ResponseSchema: "SourceRelationshipPage"},
+			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/agreements", PathParams: []string{"source_document_id"}, QuerySchema: "SourceAgreementListQuery", ResponseSchema: "SourceAgreementPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/handles", PathParams: []string{"source_document_id"}, ResponseSchema: "SourceHandlePage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/sources/:source_document_id/comments", PathParams: []string{"source_document_id"}, QuerySchema: "SourceCommentListQuery", ResponseSchema: "SourceCommentPage"},
 			{Method: "GET", Path: services.DefaultSourceManagementBasePath + "/source-revisions/:source_revision_id", PathParams: []string{"source_revision_id"}, ResponseSchema: "SourceRevisionDetail"},
@@ -118,12 +120,16 @@ func collectV2SourceManagementSchemaTypes() []reflect.Type {
 		typeOf[services.SourceListQuery](),
 		typeOf[services.SourceRevisionListQuery](),
 		typeOf[services.SourceRelationshipListQuery](),
+		typeOf[services.SourceAgreementListQuery](),
 		typeOf[services.SourceCommentListQuery](),
+		typeOf[services.SourceWorkspaceQuery](),
 		typeOf[services.SourceSearchQuery](),
 		typeOf[services.SourceListPage](),
 		typeOf[services.SourceDetail](),
+		typeOf[services.SourceWorkspace](),
 		typeOf[services.SourceRevisionPage](),
 		typeOf[services.SourceRelationshipPage](),
+		typeOf[services.SourceAgreementPage](),
 		typeOf[services.SourceHandlePage](),
 		typeOf[services.SourceRevisionDetail](),
 		typeOf[services.SourceArtifactPage](),
@@ -160,7 +166,6 @@ func collectNamedStructTypes(value reflect.Type, seen map[reflect.Type]struct{})
 		}
 		seen[value] = struct{}{}
 		for field := range value.Fields() {
-			field := field
 			if field.PkgPath != "" {
 				continue
 			}
@@ -183,7 +188,6 @@ func buildV2ContractSchema(value reflect.Type) V2SourceManagementContractSchema 
 		Kind: value.Kind().String(),
 	}
 	for field := range value.Fields() {
-		field := field
 		if field.PkgPath != "" {
 			continue
 		}

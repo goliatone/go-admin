@@ -46,6 +46,12 @@ const (
 	SourceManagementCommentSyncStale           = "stale"
 	SourceManagementSearchResultSourceDocument = "source_document"
 	SourceManagementSearchResultSourceRevision = "source_revision"
+	SourceWorkspacePanelOverview               = "overview"
+	SourceWorkspacePanelTimeline               = "timeline"
+	SourceWorkspacePanelAgreements             = "agreements"
+	SourceWorkspacePanelArtifacts              = "artifacts"
+	SourceWorkspacePanelComments               = "comments"
+	SourceWorkspacePanelHandles                = "handles"
 	SourceRevisionHistoryLabelLatest           = "latest"
 	SourceRevisionHistoryLabelPinned           = "pinned"
 	SourceRevisionHistoryLabelSuperseded       = "superseded"
@@ -64,6 +70,15 @@ const (
 	SourceRelationshipActionConfirm   = "confirm"
 	SourceRelationshipActionReject    = "reject"
 	SourceRelationshipActionSupersede = "supersede"
+	SourceRelationshipActionAttach    = "attach_handle_to_existing_source"
+	SourceRelationshipActionMerge     = "merge_source_documents"
+	SourceRelationshipActionRelated   = "confirm_related_but_distinct"
+)
+
+const (
+	ReconciliationQueueAgeBandLT7D   = "lt_7d"
+	ReconciliationQueueAgeBand7To30D = "7d_to_30d"
+	ReconciliationQueueAgeBandGT30D  = "gt_30d"
 )
 
 // SourceMetadataBaseline captures the minimum provider metadata used for identity and reconciliation.
@@ -179,13 +194,20 @@ type NewerSourceSummary struct {
 type SourceManagementLinks struct {
 	Self          string `json:"self,omitempty"`
 	Source        string `json:"source,omitempty"`
+	Workspace     string `json:"workspace,omitempty"`
+	Queue         string `json:"queue,omitempty"`
 	Revisions     string `json:"revisions,omitempty"`
+	Timeline      string `json:"timeline,omitempty"`
 	Relationships string `json:"relationships,omitempty"`
+	Review        string `json:"review,omitempty"`
 	Handles       string `json:"handles,omitempty"`
 	Diagnostics   string `json:"diagnostics,omitempty"`
 	Provider      string `json:"provider,omitempty"`
 	Artifacts     string `json:"artifacts,omitempty"`
 	Comments      string `json:"comments,omitempty"`
+	Agreements    string `json:"agreements,omitempty"`
+	Agreement     string `json:"agreement,omitempty"`
+	Anchor        string `json:"anchor,omitempty"`
 }
 
 type SourceManagementPermissions struct {
@@ -310,18 +332,19 @@ type SourceCommentThreadSummary struct {
 }
 
 type SourceSearchResultSummary struct {
-	ResultKind        string                 `json:"result_kind"`
-	Source            *LineageReference      `json:"source,omitempty"`
-	Revision          *SourceRevisionSummary `json:"revision,omitempty"`
-	Provider          *SourceProviderSummary `json:"provider,omitempty"`
-	RelationshipState string                 `json:"relationship_state,omitempty"`
-	CommentSyncStatus string                 `json:"comment_sync_status,omitempty"`
-	CommentCount      int                    `json:"comment_count,omitempty"`
-	HasComments       bool                   `json:"has_comments"`
-	ArtifactHash      string                 `json:"artifact_hash,omitempty"`
-	MatchedFields     []string               `json:"matched_fields,omitempty"`
-	Summary           string                 `json:"summary,omitempty"`
-	Links             SourceManagementLinks  `json:"links"`
+	ResultKind        string                  `json:"result_kind"`
+	Source            *LineageReference       `json:"source,omitempty"`
+	Revision          *SourceRevisionSummary  `json:"revision,omitempty"`
+	Provider          *SourceProviderSummary  `json:"provider,omitempty"`
+	RelationshipState string                  `json:"relationship_state,omitempty"`
+	CommentSyncStatus string                  `json:"comment_sync_status,omitempty"`
+	CommentCount      int                     `json:"comment_count,omitempty"`
+	HasComments       bool                    `json:"has_comments"`
+	ArtifactHash      string                  `json:"artifact_hash,omitempty"`
+	MatchedFields     []string                `json:"matched_fields,omitempty"`
+	Summary           string                  `json:"summary,omitempty"`
+	DrillIn           *SourceWorkspaceDrillIn `json:"drill_in,omitempty"`
+	Links             SourceManagementLinks   `json:"links"`
 }
 
 type SourceListItem struct {
@@ -429,6 +452,34 @@ type SourceRelationshipPage struct {
 	Links        SourceManagementLinks       `json:"links"`
 }
 
+type SourceAgreementSummary struct {
+	Agreement            *LineageReference      `json:"agreement,omitempty"`
+	Document             *LineageReference      `json:"document,omitempty"`
+	PinnedSourceRevision *SourceRevisionSummary `json:"pinned_source_revision,omitempty"`
+	Status               string                 `json:"status,omitempty"`
+	WorkflowKind         string                 `json:"workflow_kind,omitempty"`
+	IsPinnedLatest       bool                   `json:"is_pinned_latest"`
+	Links                SourceManagementLinks  `json:"links"`
+}
+
+type SourceAgreementListQuery struct {
+	Status           string `json:"status,omitempty"`
+	SourceRevisionID string `json:"source_revision_id,omitempty"`
+	Sort             string `json:"sort,omitempty"`
+	Page             int    `json:"page,omitempty"`
+	PageSize         int    `json:"page_size,omitempty"`
+}
+
+type SourceAgreementPage struct {
+	Source       *LineageReference           `json:"source,omitempty"`
+	Items        []SourceAgreementSummary    `json:"items"`
+	PageInfo     SourceManagementPageInfo    `json:"page_info"`
+	AppliedQuery SourceAgreementListQuery    `json:"applied_query"`
+	Permissions  SourceManagementPermissions `json:"permissions"`
+	EmptyState   LineageEmptyState           `json:"empty_state"`
+	Links        SourceManagementLinks       `json:"links"`
+}
+
 type SourceHandlePage struct {
 	Source      *LineageReference           `json:"source,omitempty"`
 	Items       []SourceHandleSummary       `json:"items"`
@@ -480,6 +531,175 @@ type SourceSearchResults struct {
 	Links        SourceManagementLinks       `json:"links"`
 }
 
+type ReconciliationQueueQuery struct {
+	ConfidenceBand   string `json:"confidence_band,omitempty"`
+	RelationshipType string `json:"relationship_type,omitempty"`
+	ProviderKind     string `json:"provider_kind,omitempty"`
+	SourceStatus     string `json:"source_status,omitempty"`
+	AgeBand          string `json:"age_band,omitempty"`
+	Sort             string `json:"sort,omitempty"`
+	Page             int    `json:"page,omitempty"`
+	PageSize         int    `json:"page_size,omitempty"`
+}
+
+type ReconciliationQueueSourceSummary struct {
+	Source                *LineageReference           `json:"source,omitempty"`
+	Status                string                      `json:"status"`
+	LineageConfidence     string                      `json:"lineage_confidence"`
+	Provider              *SourceProviderSummary      `json:"provider,omitempty"`
+	ActiveHandle          *SourceHandleSummary        `json:"active_handle,omitempty"`
+	LatestRevision        *SourceRevisionSummary      `json:"latest_revision,omitempty"`
+	PendingCandidateCount int                         `json:"pending_candidate_count,omitempty"`
+	Permissions           SourceManagementPermissions `json:"permissions"`
+	Links                 SourceManagementLinks       `json:"links"`
+}
+
+type ReconciliationReviewAction struct {
+	ID             string `json:"id"`
+	Label          string `json:"label"`
+	RequiresReason bool   `json:"requires_reason"`
+	Available      bool   `json:"available"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Tone           string `json:"tone,omitempty"`
+}
+
+type ReconciliationAuditEntry struct {
+	ID         string     `json:"id"`
+	Action     string     `json:"action"`
+	ActorID    string     `json:"actor_id,omitempty"`
+	Reason     string     `json:"reason,omitempty"`
+	FromStatus string     `json:"from_status,omitempty"`
+	ToStatus   string     `json:"to_status,omitempty"`
+	Summary    string     `json:"summary,omitempty"`
+	CreatedAt  *time.Time `json:"created_at,omitempty"`
+}
+
+type ReconciliationQueueItem struct {
+	Candidate    *SourceRelationshipSummary        `json:"candidate,omitempty"`
+	LeftSource   *ReconciliationQueueSourceSummary `json:"left_source,omitempty"`
+	RightSource  *ReconciliationQueueSourceSummary `json:"right_source,omitempty"`
+	QueueAgeBand string                            `json:"queue_age_band,omitempty"`
+	QueueAgeDays int                               `json:"queue_age_days,omitempty"`
+	UpdatedAt    *time.Time                        `json:"updated_at,omitempty"`
+	Actions      []ReconciliationReviewAction      `json:"actions,omitempty"`
+	Links        SourceManagementLinks             `json:"links"`
+}
+
+type ReconciliationQueuePage struct {
+	Items        []ReconciliationQueueItem   `json:"items"`
+	PageInfo     SourceManagementPageInfo    `json:"page_info"`
+	AppliedQuery ReconciliationQueueQuery    `json:"applied_query"`
+	Permissions  SourceManagementPermissions `json:"permissions"`
+	EmptyState   LineageEmptyState           `json:"empty_state"`
+	Links        SourceManagementLinks       `json:"links"`
+}
+
+type ReconciliationCandidateDetail struct {
+	Candidate             *SourceRelationshipSummary        `json:"candidate,omitempty"`
+	LeftSource            *ReconciliationQueueSourceSummary `json:"left_source,omitempty"`
+	RightSource           *ReconciliationQueueSourceSummary `json:"right_source,omitempty"`
+	MatchedSourceRevision *SourceRevisionSummary            `json:"matched_source_revision,omitempty"`
+	MatchedSourceArtifact *SourceArtifactSummary            `json:"matched_source_artifact,omitempty"`
+	Evidence              []CandidateEvidenceSummary        `json:"evidence,omitempty"`
+	AuditTrail            []ReconciliationAuditEntry        `json:"audit_trail,omitempty"`
+	Actions               []ReconciliationReviewAction      `json:"actions,omitempty"`
+	Permissions           SourceManagementPermissions       `json:"permissions"`
+	Links                 SourceManagementLinks             `json:"links"`
+	EmptyState            LineageEmptyState                 `json:"empty_state"`
+}
+
+type SourceWorkspaceDrillIn struct {
+	Panel  string `json:"panel"`
+	Anchor string `json:"anchor,omitempty"`
+	Href   string `json:"href"`
+}
+
+type SourceWorkspacePanelSummary struct {
+	ID        string                `json:"id"`
+	Label     string                `json:"label"`
+	ItemCount int                   `json:"item_count,omitempty"`
+	Links     SourceManagementLinks `json:"links"`
+}
+
+type SourceRevisionTimelineEntry struct {
+	Revision          *SourceRevisionSummary  `json:"revision,omitempty"`
+	Handle            *SourceHandleSummary    `json:"handle,omitempty"`
+	PrimaryArtifact   *SourceArtifactSummary  `json:"primary_artifact,omitempty"`
+	CommentCount      int                     `json:"comment_count,omitempty"`
+	AgreementCount    int                     `json:"agreement_count,omitempty"`
+	ArtifactCount     int                     `json:"artifact_count,omitempty"`
+	IsLatest          bool                    `json:"is_latest"`
+	IsRepeatedHandle  bool                    `json:"is_repeated_handle"`
+	ContinuitySummary string                  `json:"continuity_summary,omitempty"`
+	DrillIn           *SourceWorkspaceDrillIn `json:"drill_in,omitempty"`
+	Links             SourceManagementLinks   `json:"links"`
+}
+
+type SourceRevisionTimeline struct {
+	Entries               []SourceRevisionTimelineEntry `json:"entries"`
+	RepeatedHandleCount   int                           `json:"repeated_handle_count,omitempty"`
+	HandleTransitionCount int                           `json:"handle_transition_count,omitempty"`
+	Permissions           SourceManagementPermissions   `json:"permissions"`
+	EmptyState            LineageEmptyState             `json:"empty_state"`
+	Links                 SourceManagementLinks         `json:"links"`
+}
+
+type SourceWorkspaceArtifactSummary struct {
+	Artifact *SourceArtifactSummary  `json:"artifact,omitempty"`
+	Revision *SourceRevisionSummary  `json:"revision,omitempty"`
+	Provider *SourceProviderSummary  `json:"provider,omitempty"`
+	DrillIn  *SourceWorkspaceDrillIn `json:"drill_in,omitempty"`
+	Links    SourceManagementLinks   `json:"links"`
+}
+
+type SourceWorkspaceArtifactPage struct {
+	Source      *LineageReference                `json:"source,omitempty"`
+	Items       []SourceWorkspaceArtifactSummary `json:"items"`
+	PageInfo    SourceManagementPageInfo         `json:"page_info"`
+	Permissions SourceManagementPermissions      `json:"permissions"`
+	EmptyState  LineageEmptyState                `json:"empty_state"`
+	Links       SourceManagementLinks            `json:"links"`
+}
+
+type SourceContinuitySummary struct {
+	Status       string                `json:"status,omitempty"`
+	Summary      string                `json:"summary,omitempty"`
+	Continuation *LineageReference     `json:"continuation,omitempty"`
+	Predecessors []LineageReference    `json:"predecessors,omitempty"`
+	Successors   []LineageReference    `json:"successors,omitempty"`
+	Links        SourceManagementLinks `json:"links"`
+}
+
+type SourceWorkspaceQuery struct {
+	Panel  string `json:"panel,omitempty"`
+	Anchor string `json:"anchor,omitempty"`
+}
+
+type SourceWorkspace struct {
+	Source                *LineageReference             `json:"source,omitempty"`
+	Status                string                        `json:"status"`
+	LineageConfidence     string                        `json:"lineage_confidence"`
+	Provider              *SourceProviderSummary        `json:"provider,omitempty"`
+	ActiveHandle          *SourceHandleSummary          `json:"active_handle,omitempty"`
+	LatestRevision        *SourceRevisionSummary        `json:"latest_revision,omitempty"`
+	RevisionCount         int                           `json:"revision_count"`
+	HandleCount           int                           `json:"handle_count"`
+	RelationshipCount     int                           `json:"relationship_count"`
+	PendingCandidateCount int                           `json:"pending_candidate_count"`
+	ActivePanel           string                        `json:"active_panel,omitempty"`
+	ActiveAnchor          string                        `json:"active_anchor,omitempty"`
+	Panels                []SourceWorkspacePanelSummary `json:"panels,omitempty"`
+	Continuity            SourceContinuitySummary       `json:"continuity"`
+	Timeline              SourceRevisionTimeline        `json:"timeline"`
+	Agreements            SourceAgreementPage           `json:"agreements"`
+	Artifacts             SourceWorkspaceArtifactPage   `json:"artifacts"`
+	Comments              SourceCommentPage             `json:"comments"`
+	Handles               SourceHandlePage              `json:"handles"`
+	Permissions           SourceManagementPermissions   `json:"permissions"`
+	Links                 SourceManagementLinks         `json:"links"`
+	EmptyState            LineageEmptyState             `json:"empty_state"`
+}
+
 type SourceManagementContractRules struct {
 	FrontendPresentationOnly   bool     `json:"frontend_presentation_only"`
 	PaginationMode             string   `json:"pagination_mode"`
@@ -505,9 +725,11 @@ type Phase11SourceManagementFixtureStates struct {
 	SourceListEmpty           SourceListPage         `json:"source_list_empty"`
 	SourceListSingle          SourceListPage         `json:"source_list_single"`
 	SourceDetailRepeated      SourceDetail           `json:"source_detail_repeated"`
+	SourceWorkspaceRepeated   SourceWorkspace        `json:"source_workspace_repeated"`
 	SourceHandlesMulti        SourceHandlePage       `json:"source_handles_multi"`
 	SourceRevisionsRepeated   SourceRevisionPage     `json:"source_revisions_repeated"`
 	SourceRelationshipsReview SourceRelationshipPage `json:"source_relationships_review"`
+	SourceAgreementsRepeated  SourceAgreementPage    `json:"source_agreements_repeated"`
 	SourceRevisionDetail      SourceRevisionDetail   `json:"source_revision_detail"`
 	SourceArtifacts           SourceArtifactPage     `json:"source_artifacts"`
 	SourceCommentsEmpty       SourceCommentPage      `json:"source_comments_empty"`
@@ -623,14 +845,18 @@ type SourceReadModelService interface {
 	ListCandidateWarnings(ctx context.Context, scope stores.Scope, sourceDocumentID string) ([]CandidateWarningSummary, error)
 	ListSources(ctx context.Context, scope stores.Scope, query SourceListQuery) (SourceListPage, error)
 	GetSourceDetail(ctx context.Context, scope stores.Scope, sourceDocumentID string) (SourceDetail, error)
+	GetSourceWorkspace(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceWorkspaceQuery) (SourceWorkspace, error)
 	ListSourceRevisions(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceRevisionListQuery) (SourceRevisionPage, error)
 	ListSourceRelationships(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceRelationshipListQuery) (SourceRelationshipPage, error)
+	ListSourceAgreements(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceAgreementListQuery) (SourceAgreementPage, error)
 	ListSourceHandles(ctx context.Context, scope stores.Scope, sourceDocumentID string) (SourceHandlePage, error)
 	GetSourceRevisionDetail(ctx context.Context, scope stores.Scope, sourceRevisionID string) (SourceRevisionDetail, error)
 	ListSourceRevisionArtifacts(ctx context.Context, scope stores.Scope, sourceRevisionID string) (SourceArtifactPage, error)
 	ListSourceComments(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceCommentListQuery) (SourceCommentPage, error)
 	ListSourceRevisionComments(ctx context.Context, scope stores.Scope, sourceRevisionID string, query SourceCommentListQuery) (SourceCommentPage, error)
 	SearchSources(ctx context.Context, scope stores.Scope, query SourceSearchQuery) (SourceSearchResults, error)
+	ListReconciliationQueue(ctx context.Context, scope stores.Scope, query ReconciliationQueueQuery) (ReconciliationQueuePage, error)
+	GetReconciliationCandidate(ctx context.Context, scope stores.Scope, relationshipID string) (ReconciliationCandidateDetail, error)
 }
 
 type SourceCommentProviderAuthor struct {
@@ -758,10 +984,11 @@ type SourceReconciliationResult struct {
 }
 
 type SourceRelationshipReviewInput struct {
-	RelationshipID string `json:"relationship_id"`
-	Action         string `json:"action"`
-	ActorID        string `json:"actor_id"`
-	Reason         string `json:"reason,omitempty"`
+	RelationshipID  string `json:"relationship_id"`
+	Action          string `json:"action"`
+	ConfirmBehavior string `json:"confirm_behavior,omitempty"`
+	ActorID         string `json:"actor_id"`
+	Reason          string `json:"reason,omitempty"`
 }
 
 type SourceLineageProcessingInput struct {

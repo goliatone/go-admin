@@ -3,7 +3,7 @@
 ## Diagnose Source-Browser Read Failures
 
 1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunSourceManagementValidationProfileCoversPhase14LandingZone -count=1` to confirm the fresh-environment source-management landing zone still boots and reads correctly.
-2. If the validation fails before fixture seeding, inspect persistence bootstrap and verify the `source_documents`, `source_handles`, `source_revisions`, `source_relationships`, `source_comment_*`, and `source_search_documents` tables exist in the target database.
+2. If the validation fails before fixture seeding, inspect persistence bootstrap and verify the canonical lineage tables (`source_documents`, `source_handles`, `source_revisions`, `source_relationships`, and `source_comment_*`) exist in the target database.
 3. If source list or source detail reads fail after bootstrapping, query the canonical source ids from the seeded QA scenario and confirm `tenant_id` and `org_id` match the current runtime scope.
 
 ## Diagnose Contract Mismatches
@@ -20,9 +20,9 @@
 
 ## Diagnose Search Indexing Regressions
 
-1. Confirm `source_search_documents` contains both `source_document` and `source_revision` index rows for the affected canonical source.
-2. Verify search still finds the seeded continuity handle (`fixture-google-file-legacy`) and the seeded comment body (`Need legal approval`); those two probes cover handle-driven and comment-driven discovery.
-3. If either probe fails, reindex the affected source document and source revision, then re-run the release validation profile.
+1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign -run 'TestRuntimeSourceManagementPagesBootWithSeededContracts|TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable' -count=1` to confirm the live runtime search page still boots through `../go-search`.
+2. Verify search still finds the seeded continuity handle (`fixture-google-file-legacy`) and the seeded comment body (`Need legal approval`); those two probes cover handle-driven and comment-driven discovery through the go-search-backed runtime path.
+3. If either probe fails, rebuild the source-management go-search index by rerunning the runtime or validation profile, then repeat the probes before investigating template or frontend behavior.
 
 ## Diagnose Provider-Neutral Metadata Degradation
 

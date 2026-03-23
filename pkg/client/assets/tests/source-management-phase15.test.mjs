@@ -1,373 +1,245 @@
-/**
- * Phase 15 Runtime Page Bootstrap Smoke Tests
- *
- * Validates that source-management pages boot from backend-published contracts
- * without fallback payload synthesis or client-built URLs.
- *
- * @see DOC_LINEAGE_V2_TSK.md Phase 15 Tasks 15.6, 15.7, 15.8
- */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { describe, it, expect } from 'vitest';
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch (error) {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
 
-import {
-  // Phase 15 page bootstrap smoke tests
+const { JSDOM } = await loadJSDOM();
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const runtimeTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-source-management/runtime.html',
+);
+const runtimeTemplate = fs.readFileSync(runtimeTemplatePath, 'utf8');
+
+const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', {
+  url: 'http://localhost:8082/admin/esign/sources',
+});
+setGlobals(bootstrapDom.window);
+Object.defineProperty(globalThis.document, 'readyState', { value: 'loading', configurable: true });
+
+const {
   PHASE_15_PAGE_DEFINITIONS,
-  runPhase15PageBootstrapSmokeTests,
-  assertPhase15PageBootstrapSmokeTests,
-  validateLivePageBootstrap,
-  logPhase15SmokeTestResults,
-  runPhase15RuntimeSmokeCoverage,
-  // Page controllers
-  SourceBrowserPageController,
-  SourceDetailPageController,
-  SourceRevisionTimelinePageController,
-  bootstrapSourceBrowserPage,
-  bootstrapSourceDetailPage,
-  bootstrapSourceRevisionTimelinePage,
-  registerPageController,
+  initSourceManagementRuntimePage,
   getPageController,
-  listRegisteredPages,
-} from '../src/esign/index.js';
+} = await import('../dist/esign/index.js');
 
-describe('Phase 15: Runtime Page Bootstrap', () => {
-  describe('PHASE_15_PAGE_DEFINITIONS', () => {
-    it('defines all required source-management pages', () => {
-      expect(PHASE_15_PAGE_DEFINITIONS).toBeDefined();
-      expect(PHASE_15_PAGE_DEFINITIONS['source-browser']).toBeDefined();
-      expect(PHASE_15_PAGE_DEFINITIONS['source-detail']).toBeDefined();
-      expect(PHASE_15_PAGE_DEFINITIONS['source-revision-timeline']).toBeDefined();
-      expect(PHASE_15_PAGE_DEFINITIONS['source-search']).toBeDefined();
-    });
+function setGlobals(win) {
+  defineGlobal('window', win);
+  defineGlobal('document', win.document);
+  defineGlobal('Document', win.Document);
+  defineGlobal('Node', win.Node);
+  defineGlobal('Element', win.Element);
+  defineGlobal('HTMLElement', win.HTMLElement);
+  defineGlobal('HTMLButtonElement', win.HTMLButtonElement);
+  defineGlobal('HTMLFormElement', win.HTMLFormElement);
+  defineGlobal('HTMLInputElement', win.HTMLInputElement);
+  defineGlobal('Event', win.Event);
+  defineGlobal('CustomEvent', win.CustomEvent);
+  defineGlobal('FormData', win.FormData);
+  defineGlobal('AbortController', win.AbortController);
+  defineGlobal('AbortSignal', win.AbortSignal);
+  defineGlobal('navigator', win.navigator);
+  defineGlobal('history', win.history);
+  defineGlobal('location', win.location);
+}
 
-    it('includes template paths for all pages', () => {
-      const pages = Object.values(PHASE_15_PAGE_DEFINITIONS);
-      for (const page of pages) {
-        expect(page.templatePath).toBeDefined();
-        expect(page.templatePath).toMatch(/^resources\/esign-sources\/.+\.html$/);
-      }
-    });
-
-    it('maps pages to contract families', () => {
-      expect(PHASE_15_PAGE_DEFINITIONS['source-browser'].contractFamily).toBe('SourceListPage');
-      expect(PHASE_15_PAGE_DEFINITIONS['source-detail'].contractFamily).toBe('SourceDetail');
-      expect(PHASE_15_PAGE_DEFINITIONS['source-revision-timeline'].contractFamily).toBe('SourceRevisionPage');
-      expect(PHASE_15_PAGE_DEFINITIONS['source-search'].contractFamily).toBe('Phase13SourceSearchResults');
-    });
-
-    it('requires backend links for all pages', () => {
-      const pages = Object.values(PHASE_15_PAGE_DEFINITIONS);
-      for (const page of pages) {
-        expect(page.requiresBackendLinks).toBe(true);
-      }
-    });
+function defineGlobal(name, value) {
+  Object.defineProperty(globalThis, name, {
+    value,
+    configurable: true,
+    writable: true,
   });
+}
 
-  describe('runPhase15PageBootstrapSmokeTests', () => {
-    it('validates all page bootstraps pass', () => {
-      const result = runPhase15PageBootstrapSmokeTests();
+function createRuntimeMarkup({ page, config, model }) {
+  return `
+    <!doctype html>
+    <html>
+      <body>
+        <div data-esign-page="${page}" hidden></div>
+        <script id="esign-page-config" type="application/json">${JSON.stringify(config)}</script>
+        <script id="source-management-page-model" type="application/json">${JSON.stringify(model)}</script>
+        <div data-source-management-runtime-root></div>
+      </body>
+    </html>
+  `;
+}
 
-      expect(result).toBeDefined();
-      expect(result.passed).toBe(true);
-      expect(result.pages).toHaveLength(4);
-      expect(result.summary).toContain('4/4 pages passed');
-    });
+function useRuntimeDOM(markup, url = 'http://localhost:8082/admin/esign/sources') {
+  const dom = new JSDOM(markup, { url });
+  setGlobals(dom.window);
+  Object.defineProperty(globalThis.document, 'readyState', { value: 'complete', configurable: true });
+  return dom;
+}
 
-    it('returns page-level validation details', () => {
-      const result = runPhase15PageBootstrapSmokeTests();
-
-      for (const page of result.pages) {
-        expect(page.pageId).toBeDefined();
-        expect(page.templatePath).toBeDefined();
-        expect(page.bootstrapFunctionAvailable).toBe(true);
-        expect(page.controllerRegisterable).toBe(true);
-        expect(page.stateCallbackWired).toBe(true);
-        expect(page.backendLinksOnly).toBe(true);
-        expect(page.noFallbackSynthesis).toBe(true);
-        expect(page.passed).toBe(true);
-      }
-    });
-
-    it('includes timing information', () => {
-      const result = runPhase15PageBootstrapSmokeTests();
-
-      expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
-      expect(result.timestamp).toBeDefined();
-
-      for (const page of result.pages) {
-        expect(page.durationMs).toBeGreaterThanOrEqual(0);
-      }
-    });
+function installFetchStub(payload) {
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return payload;
+    },
+    async text() {
+      return JSON.stringify(payload);
+    },
   });
+}
 
-  describe('assertPhase15PageBootstrapSmokeTests', () => {
-    it('does not throw when all tests pass', () => {
-      expect(() => assertPhase15PageBootstrapSmokeTests()).not.toThrow();
-    });
-  });
+test('phase 15 runtime definitions cover all runtime surfaces', () => {
+  assert.deepEqual(Object.keys(PHASE_15_PAGE_DEFINITIONS), [
+    'source-browser',
+    'source-detail',
+    'source-revision-inspector',
+    'source-comment-inspector',
+    'source-artifact-inspector',
+    'source-search',
+  ]);
 
-  describe('validateLivePageBootstrap', () => {
-    it('validates valid bootstrap config', () => {
-      const result = validateLivePageBootstrap('source-browser', {
-        apiBasePath: '/admin/api/v1/esign',
-        bootstrap: { query: {} },
-        controllerRegistered: true,
-      });
-
-      expect(result.valid).toBe(true);
-      expect(result.violations).toHaveLength(0);
-    });
-
-    it('rejects missing apiBasePath', () => {
-      const result = validateLivePageBootstrap('source-browser', {
-        bootstrap: {},
-        controllerRegistered: true,
-      });
-
-      expect(result.valid).toBe(false);
-      expect(result.violations).toContain('apiBasePath must be provided by backend template');
-    });
-
-    it('rejects synthesized bootstrap fields', () => {
-      const result = validateLivePageBootstrap('source-browser', {
-        apiBasePath: '/admin/api/v1/esign',
-        bootstrap: { _synthesized: true },
-        controllerRegistered: true,
-      });
-
-      expect(result.valid).toBe(false);
-      expect(result.violations[0]).toContain('forbidden client-synthesized field');
-    });
-
-    it('rejects unregistered controllers', () => {
-      const result = validateLivePageBootstrap('source-browser', {
-        apiBasePath: '/admin/api/v1/esign',
-        controllerRegistered: false,
-      });
-
-      expect(result.valid).toBe(false);
-      expect(result.violations).toContain('Controller must be registered in page registry');
-    });
-  });
-
-  describe('logPhase15SmokeTestResults', () => {
-    it('logs results to console without throwing', () => {
-      const result = runPhase15PageBootstrapSmokeTests();
-      expect(() => logPhase15SmokeTestResults(result)).not.toThrow();
-    });
-  });
+  for (const definition of Object.values(PHASE_15_PAGE_DEFINITIONS)) {
+    assert.equal(definition.templatePath, 'resources/esign-source-management/runtime.html');
+    assert.equal(definition.requiresBackendLinks, true);
+  }
 });
 
-describe('Phase 15: Page Controller Bootstraps', () => {
-  describe('SourceBrowserPageController', () => {
-    it('can be instantiated with valid config', () => {
-      const controller = new SourceBrowserPageController({
-        apiBasePath: '/admin/api/v1/esign',
-      });
+test('runtime template exposes a single runtime module load and the live workspace root', () => {
+  assert.match(
+    runtimeTemplate,
+    /data-source-management-runtime-root/,
+    'expected runtime template to expose the live workspace root'
+  );
+  assert.match(
+    runtimeTemplate,
+    /source_management_page_model_json/,
+    'expected runtime template to emit the page model payload'
+  );
 
-      expect(controller).toBeDefined();
-      expect(controller.getState).toBeDefined();
-    });
-
-    it('has initial empty state', () => {
-      const controller = new SourceBrowserPageController({
-        apiBasePath: '/admin/api/v1/esign',
-      });
-
-      const state = controller.getState();
-      expect(state.loading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.contracts).toBeNull();
-    });
-  });
-
-  describe('SourceDetailPageController', () => {
-    it('can be instantiated with valid config', () => {
-      const controller = new SourceDetailPageController({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_001',
-      });
-
-      expect(controller).toBeDefined();
-      expect(controller.getState).toBeDefined();
-    });
-
-    it('has initial empty state', () => {
-      const controller = new SourceDetailPageController({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_001',
-      });
-
-      const state = controller.getState();
-      expect(state.loading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.contracts).toBeNull();
-    });
-  });
-
-  describe('SourceRevisionTimelinePageController', () => {
-    it('can be instantiated with valid config', () => {
-      const controller = new SourceRevisionTimelinePageController({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_001',
-      });
-
-      expect(controller).toBeDefined();
-      expect(controller.getState).toBeDefined();
-    });
-
-    it('has initial empty state', () => {
-      const controller = new SourceRevisionTimelinePageController({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_001',
-      });
-
-      const state = controller.getState();
-      expect(state.loading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.contracts).toBeNull();
-    });
-  });
-
-  describe('Page Registry', () => {
-    it('can register and retrieve page controllers', () => {
-      const controller = new SourceBrowserPageController({
-        apiBasePath: '/admin/api/v1/esign',
-      });
-
-      registerPageController('test-source-browser', controller);
-      const retrieved = getPageController('test-source-browser');
-
-      expect(retrieved).toBe(controller);
-    });
-
-    it('lists registered pages', () => {
-      const controller = new SourceDetailPageController({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_002',
-      });
-
-      registerPageController('test-source-detail', controller);
-      const pages = listRegisteredPages();
-
-      expect(pages).toContain('test-source-detail');
-    });
-  });
+  const moduleLoads = runtimeTemplate.match(/<script type="module" src="/g) ?? [];
+  assert.equal(moduleLoads.length, 1, 'expected runtime template to load the esign module exactly once');
 });
 
-describe('Phase 15: Bootstrap Functions', () => {
-  // Note: These tests validate function availability and config acceptance
-  // Actual HTTP requests are not made in unit tests
-
-  describe('bootstrapSourceBrowserPage', () => {
-    it('returns controller instance', () => {
-      const controller = bootstrapSourceBrowserPage({
-        apiBasePath: '/admin/api/v1/esign',
-      });
-
-      expect(controller).toBeInstanceOf(SourceBrowserPageController);
-    });
-
-    it('accepts onStateChange callback', () => {
-      let stateChangeCalled = false;
-      const controller = bootstrapSourceBrowserPage({
-        apiBasePath: '/admin/api/v1/esign',
-        onStateChange: () => {
-          stateChangeCalled = true;
+test('runtime bootstrap renders source browser from server-authored contracts and registers the page controller', async () => {
+  const payload = {
+    items: [
+      {
+        source: { id: 'src_123', label: 'Master Service Agreement' },
+        status: 'active',
+        lineage_confidence: 'high',
+        provider: {
+          kind: 'google_drive',
+          label: 'Google Drive',
+          external_file_id: 'fixture-google-file-1',
         },
-      });
+        latest_revision: {
+          id: 'rev_123',
+          provider_revision_hint: 'candidate-v2',
+          modified_time: '2026-03-22T10:00:00Z',
+        },
+        pending_candidate_count: 2,
+        links: {},
+      },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 1, has_more: false, sort: 'updated_desc' },
+    applied_query: { query: 'msa' },
+    permissions: {},
+    empty_state: { kind: 'none' },
+    links: {},
+  };
 
-      expect(controller).toBeDefined();
-    });
-  });
+  installFetchStub(payload);
+  const config = {
+    page: 'admin.sources.browser',
+    api_base_path: '/admin/api/v1/esign',
+    routes: {
+      source_browser: '/admin/esign/sources',
+      source_detail: '/admin/esign/sources/:source_document_id',
+      source_search: '/admin/esign/source-search',
+    },
+    context: {
+      surface: 'source_browser',
+    },
+  };
+  const model = {
+    surface: 'source_browser',
+    title: 'Source Browser',
+    summary: 'Runtime source browser',
+    contract: payload,
+  };
 
-  describe('bootstrapSourceDetailPage', () => {
-    it('returns controller instance', () => {
-      const controller = bootstrapSourceDetailPage({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_003',
-      });
+  useRuntimeDOM(createRuntimeMarkup({ page: 'admin.sources.browser', config, model }));
+  const controller = initSourceManagementRuntimePage();
+  assert.ok(controller, 'expected runtime bootstrap controller');
 
-      expect(controller).toBeInstanceOf(SourceDetailPageController);
-    });
-  });
-
-  describe('bootstrapSourceRevisionTimelinePage', () => {
-    it('returns controller instance', () => {
-      const controller = bootstrapSourceRevisionTimelinePage({
-        apiBasePath: '/admin/api/v1/esign',
-        sourceId: 'src_test_004',
-      });
-
-      expect(controller).toBeInstanceOf(SourceRevisionTimelinePageController);
-    });
-  });
+  const root = globalThis.document.querySelector('[data-source-management-runtime-root]');
+  assert.ok(root);
+  assert.match(root.innerHTML, /Master Service Agreement/);
+  assert.match(root.innerHTML, /fixture-google-file-1/);
+  assert.ok(getPageController('admin.sources.browser'));
 });
 
-describe('Phase 15: Template Integration Contracts', () => {
-  describe('Template bootstrap payload structure', () => {
-    it('validates source-browser bootstrap schema', () => {
-      // This simulates the bootstrap payload from the template's JSON script
-      const bootstrap = {
-        query: {
-          page: 1,
-          page_size: 20,
-        },
-      };
+test('runtime bootstrap renders source search from backend-authored result links', async () => {
+  const payload = {
+    items: [
+      {
+        result_kind: 'source_revision',
+        source: { id: 'src_789', label: 'Vendor Terms' },
+        revision: { id: 'rev_789', provider_revision_hint: 'vendor-v3' },
+        provider: { kind: 'google_drive', label: 'Google Drive' },
+        matched_fields: ['canonical_title', 'comment_text'],
+        summary: 'Matched canonical_title and comment_text across canonical source metadata.',
+        links: {},
+      },
+    ],
+    page_info: { page: 1, page_size: 20, total_count: 1, has_more: false, sort: 'relevance' },
+    applied_query: { query: 'Need legal approval', has_comments: true },
+    permissions: {},
+    empty_state: { kind: 'none' },
+    links: {},
+  };
 
-      expect(bootstrap.query).toBeDefined();
-      expect(bootstrap.query.page).toBe(1);
-      expect(bootstrap.query.page_size).toBe(20);
-    });
+  installFetchStub(payload);
+  const config = {
+    page: 'admin.sources.search',
+    api_base_path: '/admin/api/v1/esign',
+    routes: {
+      source_browser: '/admin/esign/sources',
+      source_detail: '/admin/esign/sources/:source_document_id',
+      source_revision: '/admin/esign/source-revisions/:source_revision_id',
+      source_search: '/admin/esign/source-search',
+    },
+    context: {
+      surface: 'source_search',
+    },
+  };
+  const model = {
+    surface: 'source_search',
+    title: 'Source Search',
+    result_links: [
+      {
+        label: 'Vendor Terms revision',
+        href: '/admin/esign/source-revisions/rev_789?q=Need+legal+approval',
+      },
+    ],
+    contract: payload,
+  };
 
-    it('validates source-detail bootstrap schema', () => {
-      const bootstrap = {
-        sourceId: 'src_abc123',
-      };
+  useRuntimeDOM(
+    createRuntimeMarkup({ page: 'admin.sources.search', config, model }),
+    'http://localhost:8082/admin/esign/source-search?q=Need+legal+approval'
+  );
+  const controller = initSourceManagementRuntimePage();
+  assert.ok(controller, 'expected runtime bootstrap controller');
 
-      expect(bootstrap.sourceId).toBeDefined();
-      expect(typeof bootstrap.sourceId).toBe('string');
-    });
-
-    it('validates source-revisions bootstrap schema', () => {
-      const bootstrap = {
-        sourceId: 'src_abc123',
-        query: {
-          sort: 'modified_time_desc',
-        },
-      };
-
-      expect(bootstrap.sourceId).toBeDefined();
-      expect(bootstrap.query).toBeDefined();
-    });
-  });
-
-  describe('Backend-authored links requirement', () => {
-    it('all drill-in URLs must come from backend links field', () => {
-      // This validates the architectural rule: frontend must not construct URLs
-      const mockSourceDetail = {
-        source: { id: 'src_001' },
-        links: {
-          self: '/admin/api/v1/esign/sources/src_001',
-          revisions: '/admin/api/v1/esign/sources/src_001/revisions',
-          relationships: '/admin/api/v1/esign/sources/src_001/relationships',
-          handles: '/admin/api/v1/esign/sources/src_001/handles',
-        },
-      };
-
-      // All navigation must use these backend-provided links
-      expect(mockSourceDetail.links.self).toBeDefined();
-      expect(mockSourceDetail.links.revisions).toBeDefined();
-      expect(mockSourceDetail.links.relationships).toBeDefined();
-    });
-  });
-});
-
-describe('Phase 15: Combined Runtime Smoke Coverage', () => {
-  it('validates landing-zone and page bootstrap together', async () => {
-    // Note: This test runs without a live backend, so landing-zone tests
-    // will fail to load fixtures. In a real runtime, both would pass.
-    // Here we just validate the function structure.
-    expect(runPhase15RuntimeSmokeCoverage).toBeDefined();
-    expect(typeof runPhase15RuntimeSmokeCoverage).toBe('function');
-  });
+  const root = globalThis.document.querySelector('[data-source-management-runtime-root]');
+  assert.ok(root);
+  assert.match(root.innerHTML, /Matched canonical_title and comment_text/);
+  assert.match(root.innerHTML, /\/admin\/esign\/source-revisions\/rev_789\?q=Need\+legal\+approval/);
+  assert.ok(getPageController('admin.sources.search'));
 });

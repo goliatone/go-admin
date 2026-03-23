@@ -105,13 +105,11 @@
 
     {# Sidebar column - sticky on large screens #}
     {% block sidebar_container %}
-      {% if self.sidebar() %}
       <aside class="w-full lg:w-80 xl:w-96 flex-shrink-0">
         <div class="lg:sticky lg:top-6 space-y-6">
           {% block sidebar %}{% endblock %}
         </div>
       </aside>
-      {% endif %}
     {% endblock %}
   </div>
 

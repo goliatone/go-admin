@@ -658,27 +658,39 @@ export interface Phase15RuntimeSmokeResult {
  */
 export const PHASE_15_PAGE_DEFINITIONS = {
   'source-browser': {
-    templatePath: 'resources/esign-sources/list.html',
+    templatePath: 'resources/esign-source-management/runtime.html',
     bootstrapFunction: 'bootstrapSourceBrowserPage',
     contractFamily: 'SourceListPage',
     requiresBackendLinks: true,
   },
   'source-detail': {
-    templatePath: 'resources/esign-sources/detail.html',
+    templatePath: 'resources/esign-source-management/runtime.html',
     bootstrapFunction: 'bootstrapSourceDetailPage',
     contractFamily: 'SourceDetail',
     requiresBackendLinks: true,
   },
-  'source-revision-timeline': {
-    templatePath: 'resources/esign-sources/revisions.html',
-    bootstrapFunction: 'bootstrapSourceRevisionTimelinePage',
-    contractFamily: 'SourceRevisionPage',
+  'source-revision-inspector': {
+    templatePath: 'resources/esign-source-management/runtime.html',
+    bootstrapFunction: 'bootstrapSourceRevisionInspectorPage',
+    contractFamily: 'SourceRevisionDetail',
+    requiresBackendLinks: true,
+  },
+  'source-comment-inspector': {
+    templatePath: 'resources/esign-source-management/runtime.html',
+    bootstrapFunction: 'bootstrapSourceCommentInspectorPage',
+    contractFamily: 'SourceCommentPage',
+    requiresBackendLinks: true,
+  },
+  'source-artifact-inspector': {
+    templatePath: 'resources/esign-source-management/runtime.html',
+    bootstrapFunction: 'bootstrapSourceArtifactInspectorPage',
+    contractFamily: 'SourceArtifactPage',
     requiresBackendLinks: true,
   },
   'source-search': {
-    templatePath: 'resources/esign-sources/search.html',
-    bootstrapFunction: null, // Uses inline controller
-    contractFamily: 'Phase13SourceSearchResults',
+    templatePath: 'resources/esign-source-management/runtime.html',
+    bootstrapFunction: 'bootstrapSourceSearchPage',
+    contractFamily: 'SourceSearchResults',
     requiresBackendLinks: true,
   },
 } as const;
@@ -754,13 +766,7 @@ function validatePageBootstrap(pageId: Phase15PageId): Phase15PageBootstrapResul
 
   try {
     // Check bootstrap function availability
-    if (definition.bootstrapFunction === null) {
-      // Inline controller pages (like search) don't have separate bootstrap
-      result.bootstrapFunctionAvailable = true;
-    } else {
-      // Bootstrap function should be exported from the module
-      result.bootstrapFunctionAvailable = true; // Validated at import time
-    }
+    result.bootstrapFunctionAvailable = true;
 
     // Controller should be registerable in the page registry
     result.controllerRegisterable = true; // Validated by registerPageController
@@ -938,5 +944,850 @@ export async function runPhase15RuntimeSmokeCoverage(
     landingZone,
     pageBootstrap,
     overallPassed: landingZone.passed && pageBootstrap.passed,
+  };
+}
+
+// ============================================================================
+// Phase 16 Source Detail Workspace Smoke Tests (Task 16.8)
+// ============================================================================
+
+import type {
+  SourceArtifactPage,
+  SourceHandlePage,
+} from './lineage-contracts.js';
+
+import {
+  type SourceDetailWorkspaceState,
+  type WorkspacePanelStateKind,
+  type OverviewPanelRenderingState,
+  type RevisionsPanelRenderingState,
+  type ArtifactsPanelRenderingState,
+  type RelationshipsPanelRenderingState,
+  type CommentsPanelRenderingState,
+  type HandlesPanelRenderingState,
+  createInitialWorkspaceState,
+  createLoadingWorkspaceState,
+  resolveOverviewPanelState,
+  resolveRevisionsPanelState,
+  resolveArtifactsPanelState,
+  resolveRelationshipsPanelState,
+  resolveCommentsPanelState,
+  resolveHandlesPanelState,
+  validateWorkspaceContractUsage,
+  validateWorkspaceContractIsolation,
+  validateWorkspaceBackendLinks,
+  WORKSPACE_APPROVED_CONTRACT_FAMILIES,
+  WORKSPACE_FORBIDDEN_CONTRACT_FAMILIES,
+} from './source-detail-workspace.js';
+
+/**
+ * Phase 16 workspace panel smoke test result.
+ */
+export interface Phase16WorkspacePanelResult {
+  panelId: string;
+  stateKind: WorkspacePanelStateKind;
+  renderStateResolved: boolean;
+  backendEmptyStateUsed: boolean;
+  noClientSideSemantics: boolean;
+  passed: boolean;
+  errorMessage?: string;
+  durationMs: number;
+}
+
+/**
+ * Phase 16 workspace smoke test result.
+ */
+export interface Phase16WorkspaceSmokeResult {
+  passed: boolean;
+  panels: Phase16WorkspacePanelResult[];
+  contractUsageValid: boolean;
+  contractIsolationValid: boolean;
+  backendLinksValid: boolean;
+  summary: string;
+  totalDurationMs: number;
+  timestamp: string;
+}
+
+/**
+ * Panel-level rendering state kinds that workspace must support.
+ */
+const PHASE_16_PANEL_STATES: WorkspacePanelStateKind[] = [
+  'loading',
+  'success',
+  'empty',
+  'error',
+  'no_artifacts',
+  'no_comments',
+  'no_relationships',
+  'no_agreements',
+  'repeated_revisions',
+  'merged_source',
+  'archived_source',
+];
+
+/**
+ * Validate that a panel rendering state was resolved correctly.
+ */
+function validatePanelRenderingState(
+  panelState: unknown,
+  expectedStateKind?: WorkspacePanelStateKind
+): { valid: boolean; actualKind: WorkspacePanelStateKind; issues: string[] } {
+  const issues: string[] = [];
+
+  if (typeof panelState !== 'object' || panelState === null) {
+    issues.push('Panel state is not an object');
+    return { valid: false, actualKind: 'error', issues };
+  }
+
+  const record = panelState as Record<string, unknown>;
+  const metadata = record.metadata as Record<string, unknown> | undefined;
+
+  if (!metadata || typeof metadata.stateKind !== 'string') {
+    issues.push('Panel state missing metadata.stateKind');
+    return { valid: false, actualKind: 'error', issues };
+  }
+
+  const actualKind = metadata.stateKind as WorkspacePanelStateKind;
+
+  if (expectedStateKind && actualKind !== expectedStateKind) {
+    issues.push(`Expected state kind ${expectedStateKind}, got ${actualKind}`);
+  }
+
+  // Check timestamp is present (proves no hardcoded test values)
+  if (typeof metadata.timestamp !== 'string' || metadata.timestamp.length === 0) {
+    issues.push('Panel state missing timestamp');
+  }
+
+  return {
+    valid: issues.length === 0,
+    actualKind,
+    issues,
+  };
+}
+
+/**
+ * Validate that panel uses backend empty state only.
+ */
+function validateBackendEmptyState(panelState: unknown): boolean {
+  if (typeof panelState !== 'object' || panelState === null) {
+    return false;
+  }
+
+  const record = panelState as Record<string, unknown>;
+  const metadata = record.metadata as Record<string, unknown> | undefined;
+
+  if (!metadata) {
+    return false;
+  }
+
+  const stateKind = metadata.stateKind as string;
+
+  // For empty states, verify backendEmptyStateKind is present
+  if (stateKind === 'empty' || PHASE_16_PANEL_STATES.includes(stateKind as WorkspacePanelStateKind)) {
+    // Success states don't need backend empty state validation
+    if (stateKind === 'success' || stateKind === 'loading' || stateKind === 'error') {
+      return true;
+    }
+
+    // Empty states must have backend-provided kind
+    if ('backendEmptyStateKind' in record) {
+      return typeof record.backendEmptyStateKind === 'string';
+    }
+
+    // Panel-specific empty states are allowed (no_artifacts, no_comments, etc.)
+    return true;
+  }
+
+  return true;
+}
+
+/**
+ * Validate that panel does not compute client-side semantics.
+ */
+function validateNoClientSideSemantics(panelState: unknown): boolean {
+  if (typeof panelState !== 'object' || panelState === null) {
+    return false;
+  }
+
+  const record = panelState as Record<string, unknown>;
+
+  // Forbidden computed semantic fields
+  const forbiddenFields = [
+    'computedLineageConfidence',
+    'derivedCanonicalIdentity',
+    'synthesizedRevisionContinuity',
+    'clientComputedWarningPrecedence',
+    'inferredAgreementStatus',
+  ];
+
+  for (const field of forbiddenFields) {
+    if (field in record) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Create mock fixtures for workspace panel smoke tests.
+ * These use minimal backend contract shapes.
+ */
+function createMockSourceDetail(): SourceDetail {
+  return {
+    source: { id: 'src_smoke_test', label: 'Smoke Test Source' },
+    status: 'active',
+    lineage_confidence: 'high',
+    provider: { kind: 'google_drive', label: 'Google Drive' },
+    active_handle: null,
+    latest_revision: { id: 'rev_smoke_001' },
+    revision_count: 3,
+    handle_count: 1,
+    relationship_count: 2,
+    pending_candidate_count: 0,
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    links: {
+      self: '/admin/api/v1/esign/sources/src_smoke_test',
+      revisions: '/admin/api/v1/esign/sources/src_smoke_test/revisions',
+      relationships: '/admin/api/v1/esign/sources/src_smoke_test/relationships',
+      handles: '/admin/api/v1/esign/sources/src_smoke_test/handles',
+      comments: '/admin/api/v1/esign/sources/src_smoke_test/comments',
+    },
+    empty_state: { kind: 'none' },
+  };
+}
+
+function createMockSourceRevisionPage(): SourceRevisionPage {
+  return {
+    source: { id: 'src_smoke_test', label: 'Smoke Test Source' },
+    items: [
+      {
+        revision: { id: 'rev_001' },
+        provider: { kind: 'google_drive', label: 'Google Drive' },
+        primary_artifact: null,
+        fingerprint_status: { status: 'ready', evidence_available: true },
+        fingerprint_processing: {
+          state: 'complete',
+          attempt_count: 1,
+          retryable: false,
+          stale: false,
+        },
+        is_latest: true,
+        links: {},
+      },
+      {
+        revision: { id: 'rev_002' },
+        provider: { kind: 'google_drive', label: 'Google Drive' },
+        primary_artifact: null,
+        fingerprint_status: { status: 'ready', evidence_available: true },
+        fingerprint_processing: {
+          state: 'complete',
+          attempt_count: 1,
+          retryable: false,
+          stale: false,
+        },
+        is_latest: false,
+        links: {},
+      },
+    ],
+    page_info: { mode: 'page', page: 1, page_size: 20, total_count: 2, has_more: false },
+    applied_query: {},
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    empty_state: { kind: 'none' },
+    links: { self: '/admin/api/v1/esign/sources/src_smoke_test/revisions' },
+  };
+}
+
+function createMockSourceRelationshipPage(): SourceRelationshipPage {
+  return {
+    source: { id: 'src_smoke_test', label: 'Smoke Test Source' },
+    items: [],
+    page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+    applied_query: {},
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    empty_state: { kind: 'no_relationships', title: 'No Relationships', description: 'This source has no relationships.' },
+    links: { self: '/admin/api/v1/esign/sources/src_smoke_test/relationships' },
+  };
+}
+
+function createMockSourceArtifactPage(): SourceArtifactPage {
+  return {
+    revision: { id: 'rev_001' },
+    items: [],
+    page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    empty_state: { kind: 'no_artifacts', title: 'No Artifacts', description: 'This revision has no artifacts.' },
+    links: { self: '/admin/api/v1/esign/source-revisions/rev_001/artifacts' },
+  };
+}
+
+function createMockPhase13CommentPage(): Phase13SourceCommentPage {
+  return {
+    source: { id: 'src_smoke_test', label: 'Smoke Test Source' },
+    revision: { id: 'rev_001' },
+    items: [],
+    applied_query: {},
+    page_info: { mode: 'page', page: 1, page_size: 20, total_count: 0, has_more: false },
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    empty_state: { kind: 'no_comments', title: 'No Comments', description: 'This source has no comments.' },
+    sync_status: 'synced',
+    links: { self: '/admin/api/v1/esign/sources/src_smoke_test/comments' },
+  };
+}
+
+function createMockSourceHandlePage(): SourceHandlePage {
+  return {
+    source: { id: 'src_smoke_test', label: 'Smoke Test Source' },
+    items: [
+      {
+        id: 'hdl_001',
+        provider_kind: 'google_drive',
+        external_file_id: 'abc123',
+        handle_status: 'active',
+        links: {},
+      },
+    ],
+    page_info: { mode: 'page', page: 1, page_size: 20, total_count: 1, has_more: false },
+    permissions: {
+      can_view_diagnostics: true,
+      can_open_provider_links: true,
+      can_review_candidates: true,
+      can_view_comments: true,
+    },
+    empty_state: { kind: 'none' },
+    links: { self: '/admin/api/v1/esign/sources/src_smoke_test/handles' },
+  };
+}
+
+/**
+ * Run smoke test for overview panel.
+ */
+function smokeTestOverviewPanel(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'overview',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockDetail = createMockSourceDetail();
+    const panelState = resolveOverviewPanelState(false, null, mockDetail);
+
+    const validation = validatePanelRenderingState(panelState, 'success');
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for revisions panel.
+ */
+function smokeTestRevisionsPanel(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'revisions',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockPage = createMockSourceRevisionPage();
+    const panelState = resolveRevisionsPanelState(false, null, mockPage);
+
+    // Should resolve to repeated_revisions since there are multiple items
+    const validation = validatePanelRenderingState(panelState);
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for artifacts panel with no_artifacts empty state.
+ */
+function smokeTestArtifactsPanelEmpty(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'artifacts_empty',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockPage = createMockSourceArtifactPage();
+    const panelState = resolveArtifactsPanelState(false, null, mockPage);
+
+    const validation = validatePanelRenderingState(panelState, 'no_artifacts');
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for relationships panel with no_relationships empty state.
+ */
+function smokeTestRelationshipsPanelEmpty(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'relationships_empty',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockPage = createMockSourceRelationshipPage();
+    const panelState = resolveRelationshipsPanelState(false, null, mockPage);
+
+    const validation = validatePanelRenderingState(panelState, 'no_relationships');
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for comments panel with no_comments empty state.
+ */
+function smokeTestCommentsPanelEmpty(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'comments_empty',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockPage = createMockPhase13CommentPage();
+    const panelState = resolveCommentsPanelState(false, null, mockPage);
+
+    const validation = validatePanelRenderingState(panelState, 'no_comments');
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for handles panel.
+ */
+function smokeTestHandlesPanel(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'handles',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockPage = createMockSourceHandlePage();
+    const panelState = resolveHandlesPanelState(false, null, mockPage, 'hdl_001');
+
+    const validation = validatePanelRenderingState(panelState, 'success');
+    result.stateKind = validation.actualKind;
+    result.renderStateResolved = validation.valid;
+    result.backendEmptyStateUsed = validateBackendEmptyState(panelState);
+    result.noClientSideSemantics = validateNoClientSideSemantics(panelState);
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!validation.valid) {
+      result.errorMessage = validation.issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for workspace initial state creation.
+ */
+function smokeTestWorkspaceInitialState(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'workspace_init',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    const mockDetail = createMockSourceDetail();
+    const workspace = createInitialWorkspaceState('src_smoke_test', mockDetail);
+
+    // Validate workspace structure
+    const hasSourceId = workspace.sourceId === 'src_smoke_test';
+    const hasActivePanel = workspace.activePanel === 'overview';
+    const hasOverviewPanel = workspace.overview !== null;
+    const hasPermissions = workspace.permissions !== undefined;
+    const hasLinks = workspace.links !== undefined;
+    const hasSelfLink = typeof workspace.links.self === 'string';
+
+    result.renderStateResolved = hasSourceId && hasActivePanel && hasOverviewPanel;
+    result.backendEmptyStateUsed = hasPermissions && hasLinks && hasSelfLink;
+    result.noClientSideSemantics = validateNoClientSideSemantics(workspace);
+    result.stateKind = 'success';
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!result.passed) {
+      const issues: string[] = [];
+      if (!hasSourceId) issues.push('missing sourceId');
+      if (!hasActivePanel) issues.push('missing activePanel');
+      if (!hasOverviewPanel) issues.push('missing overview panel');
+      if (!hasPermissions) issues.push('missing permissions');
+      if (!hasSelfLink) issues.push('missing self link');
+      result.errorMessage = issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run smoke test for workspace contract usage validation.
+ */
+function smokeTestWorkspaceContractValidation(): Phase16WorkspacePanelResult {
+  const startTime = performance.now();
+  const result: Phase16WorkspacePanelResult = {
+    panelId: 'contract_validation',
+    stateKind: 'loading',
+    renderStateResolved: false,
+    backendEmptyStateUsed: false,
+    noClientSideSemantics: false,
+    passed: false,
+    durationMs: 0,
+  };
+
+  try {
+    // Test approved contract families pass validation
+    const approvedValidation = validateWorkspaceContractUsage([
+      'SourceDetail',
+      'SourceRevisionPage',
+      'Phase13SourceCommentPage',
+    ]);
+
+    // Test forbidden contract families fail isolation
+    const isolationValidation = validateWorkspaceContractIsolation([
+      'SourceDetail',
+      'DocumentLineageDetail', // This should fail
+    ]);
+
+    // Test backend links validation
+    const mockDetail = createMockSourceDetail();
+    const workspace = createInitialWorkspaceState('src_test', mockDetail);
+    const linksValidation = validateWorkspaceBackendLinks(workspace);
+
+    result.renderStateResolved = approvedValidation.valid;
+    result.backendEmptyStateUsed = !isolationValidation.valid; // Should fail due to DocumentLineageDetail
+    result.noClientSideSemantics = linksValidation.valid;
+    result.stateKind = 'success';
+
+    result.passed =
+      result.renderStateResolved &&
+      result.backendEmptyStateUsed &&
+      result.noClientSideSemantics;
+
+    if (!result.passed) {
+      const issues: string[] = [];
+      if (!approvedValidation.valid) {
+        issues.push(`approved validation failed: ${approvedValidation.violations.join(', ')}`);
+      }
+      if (isolationValidation.valid) {
+        issues.push('isolation validation should have failed for DocumentLineageDetail');
+      }
+      if (!linksValidation.valid) {
+        issues.push(`links validation failed: ${linksValidation.violations.join(', ')}`);
+      }
+      result.errorMessage = issues.join('; ');
+    }
+  } catch (error) {
+    result.errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  result.durationMs = performance.now() - startTime;
+  return result;
+}
+
+/**
+ * Run all Phase 16 workspace smoke tests.
+ *
+ * @see DOC_LINEAGE_V2_TSK.md Phase 16 Task 16.8
+ */
+export function runPhase16WorkspaceSmokeTests(): Phase16WorkspaceSmokeResult {
+  const startTime = performance.now();
+  const panels: Phase16WorkspacePanelResult[] = [];
+
+  // Run panel smoke tests
+  panels.push(smokeTestOverviewPanel());
+  panels.push(smokeTestRevisionsPanel());
+  panels.push(smokeTestArtifactsPanelEmpty());
+  panels.push(smokeTestRelationshipsPanelEmpty());
+  panels.push(smokeTestCommentsPanelEmpty());
+  panels.push(smokeTestHandlesPanel());
+  panels.push(smokeTestWorkspaceInitialState());
+  panels.push(smokeTestWorkspaceContractValidation());
+
+  // Validate contract usage
+  const contractUsageResult = validateWorkspaceContractUsage([...WORKSPACE_APPROVED_CONTRACT_FAMILIES]);
+  const contractIsolationResult = validateWorkspaceContractIsolation([...WORKSPACE_APPROVED_CONTRACT_FAMILIES]);
+
+  // Validate backend links
+  const mockDetail = createMockSourceDetail();
+  const workspace = createInitialWorkspaceState('src_test', mockDetail);
+  const backendLinksResult = validateWorkspaceBackendLinks(workspace);
+
+  const panelsPassed = panels.every((panel) => panel.passed);
+  const passed =
+    panelsPassed &&
+    contractUsageResult.valid &&
+    contractIsolationResult.valid &&
+    backendLinksResult.valid;
+
+  const failedPanels = panels.filter((panel) => !panel.passed).map((panel) => panel.panelId);
+  const summary = passed
+    ? `Phase 16 workspace smoke tests: ${panels.length}/${panels.length} panels passed`
+    : `Phase 16 workspace smoke tests failed: ${failedPanels.join(', ')}`;
+
+  return {
+    passed,
+    panels,
+    contractUsageValid: contractUsageResult.valid,
+    contractIsolationValid: contractIsolationResult.valid,
+    backendLinksValid: backendLinksResult.valid,
+    summary,
+    totalDurationMs: performance.now() - startTime,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Assert Phase 16 workspace smoke tests pass.
+ */
+export function assertPhase16WorkspaceSmokeTests(): void {
+  const result = runPhase16WorkspaceSmokeTests();
+  if (!result.passed) {
+    const failedDetails = result.panels
+      .filter((panel) => !panel.passed)
+      .map((panel) => `  - ${panel.panelId}: ${panel.errorMessage || 'validation failed'}`)
+      .join('\n');
+    throw new Error(`${result.summary}\n${failedDetails}`);
+  }
+}
+
+/**
+ * Log Phase 16 workspace smoke test results.
+ */
+export function logPhase16SmokeTestResults(result: Phase16WorkspaceSmokeResult): void {
+  console.group('Phase 16 Workspace Smoke Test Results');
+  console.log(`Overall: ${result.passed ? 'PASSED' : 'FAILED'}`);
+  console.log(`Duration: ${result.totalDurationMs.toFixed(2)}ms`);
+  console.log(`Timestamp: ${result.timestamp}`);
+  console.log(`Contract Usage: ${result.contractUsageValid ? '✓' : '✗'}`);
+  console.log(`Contract Isolation: ${result.contractIsolationValid ? '✓' : '✗'}`);
+  console.log(`Backend Links: ${result.backendLinksValid ? '✓' : '✗'}`);
+
+  console.group('Panel Results');
+  for (const panel of result.panels) {
+    const status = panel.passed ? '✓' : '✗';
+    const details = [
+      `state:${panel.stateKind}`,
+      `render:${panel.renderStateResolved ? '✓' : '✗'}`,
+      `empty:${panel.backendEmptyStateUsed ? '✓' : '✗'}`,
+      `noSemantics:${panel.noClientSideSemantics ? '✓' : '✗'}`,
+    ].join(' ');
+
+    console.log(
+      `${status} ${panel.panelId.padEnd(25)} ${details} (${panel.durationMs.toFixed(2)}ms)`
+    );
+
+    if (!panel.passed && panel.errorMessage) {
+      console.log(`    Error: ${panel.errorMessage}`);
+    }
+  }
+  console.groupEnd();
+
+  console.log(`Summary: ${result.summary}`);
+  console.groupEnd();
+}
+
+/**
+ * Combined Phase 16 runtime smoke coverage.
+ * Validates workspace panels and contract compliance.
+ */
+export function runPhase16RuntimeSmokeCoverage(): {
+  workspace: Phase16WorkspaceSmokeResult;
+  overallPassed: boolean;
+} {
+  const workspace = runPhase16WorkspaceSmokeTests();
+
+  return {
+    workspace,
+    overallPassed: workspace.passed,
+  };
+}
+
+/**
+ * Combined Phase 14 + Phase 15 + Phase 16 runtime smoke coverage.
+ * Validates landing-zone contracts, page bootstrap, and workspace panels.
+ */
+export async function runPhase16ComprehensiveSmokeCoverage(
+  options: SmokeTestRuntimeOptions = {}
+): Promise<{
+  landingZone: V2LandingZoneSmokeResult;
+  pageBootstrap: Phase15RuntimeSmokeResult;
+  workspace: Phase16WorkspaceSmokeResult;
+  overallPassed: boolean;
+}> {
+  const landingZone = await runV2LandingZoneSmokeTests(options);
+  const pageBootstrap = runPhase15PageBootstrapSmokeTests();
+  const workspace = runPhase16WorkspaceSmokeTests();
+
+  return {
+    landingZone,
+    pageBootstrap,
+    workspace,
+    overallPassed: landingZone.passed && pageBootstrap.passed && workspace.passed,
   };
 }

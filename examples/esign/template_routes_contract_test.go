@@ -103,8 +103,14 @@ func TestESignSourceManagementRuntimeTemplateUsesServerAuthoredBootstrapPayloads
 	if !strings.Contains(template, `{{ source_management_page_model_json|default:"{}"|safe }}`) {
 		t.Fatal("expected source-management runtime template to emit the page model payload")
 	}
+	if !strings.Contains(template, `data-source-management-runtime-root`) {
+		t.Fatal("expected source-management runtime template to expose the live workspace root")
+	}
 	if !strings.Contains(template, `<script type="module" src="{{ esign_module_path }}"></script>`) {
 		t.Fatal("expected source-management runtime template to load the resolved e-sign module path")
+	}
+	if strings.Count(template, `<script type="module" src="`) != 1 {
+		t.Fatal("expected source-management runtime template to load the e-sign module exactly once")
 	}
 }
 

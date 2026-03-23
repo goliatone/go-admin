@@ -19,6 +19,6 @@
   {% include "partials/esign-provenance-warnings.html" with provenance=provenance %}
 
   {# Facts Grid: Source document, revision, artifact, provider metadata #}
-  {% include "partials/esign-provenance-facts.html" with provenance=provenance %}
+  {% include "partials/esign-provenance-facts.html" with provenance=provenance resource=resource %}
 </section>
 {% endif %}

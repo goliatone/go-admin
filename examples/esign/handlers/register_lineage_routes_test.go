@@ -255,6 +255,19 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			EmptyState:  services.LineageEmptyState{Kind: services.LineageEmptyStateNone},
 			Permissions: services.SourceManagementPermissions{},
 		},
+		reconciliationQueuePageResult: services.ReconciliationQueuePage{
+			Items: []services.ReconciliationQueueItem{{
+				Candidate: &services.SourceRelationshipSummary{ID: "stub-queue-relationship"},
+			}},
+			PageInfo:    services.SourceManagementPageInfo{Mode: services.SourceManagementPaginationModePage, Page: 1, PageSize: 1, TotalCount: 1},
+			EmptyState:  services.LineageEmptyState{Kind: services.LineageEmptyStateNone},
+			Permissions: services.SourceManagementPermissions{},
+		},
+		reconciliationCandidateResult: services.ReconciliationCandidateDetail{
+			Candidate:   &services.SourceRelationshipSummary{ID: "stub-queue-candidate"},
+			Permissions: services.SourceManagementPermissions{},
+			EmptyState:  services.LineageEmptyState{Kind: services.LineageEmptyStateNone},
+		},
 	}
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(authorizerWithPermissions(DefaultPermissions.AdminView)),
@@ -373,6 +386,28 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 				revision, _ := first["revision"].(map[string]any)
 				if got := strings.TrimSpace(toString(revision["id"])); got != "stub-search-revision" {
 					t.Fatalf("expected stub source search payload, got %+v", payload)
+				}
+			},
+		},
+		{
+			name: "reconciliation queue",
+			path: services.DefaultSourceManagementBasePath + "/reconciliation-queue?user_id=ops-user",
+			check: func(payload map[string]any) {
+				items, _ := payload["items"].([]any)
+				first, _ := items[0].(map[string]any)
+				candidate, _ := first["candidate"].(map[string]any)
+				if got := strings.TrimSpace(toString(candidate["id"])); got != "stub-queue-relationship" {
+					t.Fatalf("expected stub reconciliation queue payload, got %+v", payload)
+				}
+			},
+		},
+		{
+			name: "reconciliation candidate",
+			path: services.DefaultSourceManagementBasePath + "/reconciliation-queue/src-rel-lineage-1?user_id=ops-user",
+			check: func(payload map[string]any) {
+				candidate, _ := payload["candidate"].(map[string]any)
+				if got := strings.TrimSpace(toString(candidate["id"])); got != "stub-queue-candidate" {
+					t.Fatalf("expected stub reconciliation candidate payload, got %+v", payload)
 				}
 			},
 		},
@@ -708,15 +743,19 @@ func TestRegisterSourceManagementRoutesWithRealReadModelServiceRemainConsistent(
 }
 
 type stubSourceReadModelService struct {
-	listSourcesResult            services.SourceListPage
-	sourceDetailResult           services.SourceDetail
-	sourceRevisionPageResult     services.SourceRevisionPage
-	sourceRelationshipPageResult services.SourceRelationshipPage
-	sourceHandlePageResult       services.SourceHandlePage
-	sourceRevisionDetailResult   services.SourceRevisionDetail
-	sourceArtifactPageResult     services.SourceArtifactPage
-	sourceCommentPageResult      services.SourceCommentPage
-	sourceSearchResult           services.SourceSearchResults
+	listSourcesResult             services.SourceListPage
+	sourceDetailResult            services.SourceDetail
+	sourceWorkspaceResult         services.SourceWorkspace
+	sourceRevisionPageResult      services.SourceRevisionPage
+	sourceRelationshipPageResult  services.SourceRelationshipPage
+	sourceAgreementPageResult     services.SourceAgreementPage
+	sourceHandlePageResult        services.SourceHandlePage
+	sourceRevisionDetailResult    services.SourceRevisionDetail
+	sourceArtifactPageResult      services.SourceArtifactPage
+	sourceCommentPageResult       services.SourceCommentPage
+	sourceSearchResult            services.SourceSearchResults
+	reconciliationQueuePageResult services.ReconciliationQueuePage
+	reconciliationCandidateResult services.ReconciliationCandidateDetail
 }
 
 func (s stubSourceReadModelService) GetDocumentLineageDetail(ctx context.Context, scope stores.Scope, documentID string) (services.DocumentLineageDetail, error) {
@@ -743,12 +782,20 @@ func (s stubSourceReadModelService) GetSourceDetail(ctx context.Context, scope s
 	return s.sourceDetailResult, nil
 }
 
+func (s stubSourceReadModelService) GetSourceWorkspace(ctx context.Context, scope stores.Scope, sourceDocumentID string, query services.SourceWorkspaceQuery) (services.SourceWorkspace, error) {
+	return s.sourceWorkspaceResult, nil
+}
+
 func (s stubSourceReadModelService) ListSourceRevisions(ctx context.Context, scope stores.Scope, sourceDocumentID string, query services.SourceRevisionListQuery) (services.SourceRevisionPage, error) {
 	return s.sourceRevisionPageResult, nil
 }
 
 func (s stubSourceReadModelService) ListSourceRelationships(ctx context.Context, scope stores.Scope, sourceDocumentID string, query services.SourceRelationshipListQuery) (services.SourceRelationshipPage, error) {
 	return s.sourceRelationshipPageResult, nil
+}
+
+func (s stubSourceReadModelService) ListSourceAgreements(ctx context.Context, scope stores.Scope, sourceDocumentID string, query services.SourceAgreementListQuery) (services.SourceAgreementPage, error) {
+	return s.sourceAgreementPageResult, nil
 }
 
 func (s stubSourceReadModelService) ListSourceHandles(ctx context.Context, scope stores.Scope, sourceDocumentID string) (services.SourceHandlePage, error) {
@@ -773,6 +820,14 @@ func (s stubSourceReadModelService) ListSourceRevisionComments(ctx context.Conte
 
 func (s stubSourceReadModelService) SearchSources(ctx context.Context, scope stores.Scope, query services.SourceSearchQuery) (services.SourceSearchResults, error) {
 	return s.sourceSearchResult, nil
+}
+
+func (s stubSourceReadModelService) ListReconciliationQueue(ctx context.Context, scope stores.Scope, query services.ReconciliationQueueQuery) (services.ReconciliationQueuePage, error) {
+	return s.reconciliationQueuePageResult, nil
+}
+
+func (s stubSourceReadModelService) GetReconciliationCandidate(ctx context.Context, scope stores.Scope, relationshipID string) (services.ReconciliationCandidateDetail, error) {
+	return s.reconciliationCandidateResult, nil
 }
 
 func toBool(value any) bool {

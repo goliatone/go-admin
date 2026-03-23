@@ -22,6 +22,15 @@
     },
     {
       "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/workspace",
+      "path_params": [
+        "source_document_id"
+      ],
+      "query_schema": "SourceWorkspaceQuery",
+      "response_schema": "SourceWorkspace"
+    },
+    {
+      "method": "GET",
       "path": "/admin/api/v1/esign/sources/:source_document_id/revisions",
       "path_params": [
         "source_document_id"
@@ -37,6 +46,15 @@
       ],
       "query_schema": "SourceRelationshipListQuery",
       "response_schema": "SourceRelationshipPage"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/api/v1/esign/sources/:source_document_id/agreements",
+      "path_params": [
+        "source_document_id"
+      ],
+      "query_schema": "SourceAgreementListQuery",
+      "response_schema": "SourceAgreementPage"
     },
     {
       "method": "GET",
@@ -235,6 +253,130 @@
           "name": "url",
           "optional": true,
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceAgreementListQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "source_revision_id",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "sort",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "optional": true,
+          "type": "integer"
+        }
+      ]
+    },
+    {
+      "name": "SourceAgreementPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceAgreementSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "applied_query",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceAgreementListQuery"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceAgreementSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "agreement",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "document",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "pinned_source_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "workflow_kind",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "is_pinned_latest",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
         }
       ]
     },
@@ -635,6 +777,46 @@
       ]
     },
     {
+      "name": "SourceContinuitySummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "status",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "summary",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "continuation",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "predecessors",
+          "optional": true,
+          "type": "array",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "successors",
+          "optional": true,
+          "type": "array",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
       "name": "SourceDetail",
       "kind": "struct",
       "fields": [
@@ -981,7 +1163,17 @@
           "type": "string"
         },
         {
+          "name": "workspace",
+          "optional": true,
+          "type": "string"
+        },
+        {
           "name": "revisions",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "timeline",
           "optional": true,
           "type": "string"
         },
@@ -1012,6 +1204,21 @@
         },
         {
           "name": "comments",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "agreements",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "agreement",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "anchor",
           "optional": true,
           "type": "string"
         }
@@ -1522,6 +1729,112 @@
       ]
     },
     {
+      "name": "SourceRevisionTimeline",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "entries",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceRevisionTimelineEntry"
+        },
+        {
+          "name": "repeated_handle_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "handle_transition_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceRevisionTimelineEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "handle",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "primary_artifact",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceArtifactSummary"
+        },
+        {
+          "name": "comment_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "agreement_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "artifact_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "is_latest",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_repeated_handle",
+          "optional": false,
+          "type": "bool"
+        },
+        {
+          "name": "continuity_summary",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "drill_in",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceWorkspaceDrillIn"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
       "name": "SourceSearchQuery",
       "kind": "struct",
       "fields": [
@@ -1646,6 +1959,12 @@
           "type": "string"
         },
         {
+          "name": "drill_in",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceWorkspaceDrillIn"
+        },
+        {
           "name": "links",
           "optional": false,
           "type": "object",
@@ -1692,6 +2011,278 @@
           "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspace",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "status",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "lineage_confidence",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "active_handle",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceHandleSummary"
+        },
+        {
+          "name": "latest_revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "revision_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "handle_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "relationship_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "pending_candidate_count",
+          "optional": false,
+          "type": "integer"
+        },
+        {
+          "name": "active_panel",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "active_anchor",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "panels",
+          "optional": true,
+          "type": "array",
+          "ref": "SourceWorkspacePanelSummary"
+        },
+        {
+          "name": "continuity",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceContinuitySummary"
+        },
+        {
+          "name": "timeline",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceRevisionTimeline"
+        },
+        {
+          "name": "agreements",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceAgreementPage"
+        },
+        {
+          "name": "artifacts",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceWorkspaceArtifactPage"
+        },
+        {
+          "name": "comments",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceCommentPage"
+        },
+        {
+          "name": "handles",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceHandlePage"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspaceArtifactPage",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source",
+          "optional": true,
+          "type": "object",
+          "ref": "LineageReference"
+        },
+        {
+          "name": "items",
+          "optional": false,
+          "type": "array",
+          "ref": "SourceWorkspaceArtifactSummary"
+        },
+        {
+          "name": "page_info",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPageInfo"
+        },
+        {
+          "name": "permissions",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementPermissions"
+        },
+        {
+          "name": "empty_state",
+          "optional": false,
+          "type": "object",
+          "ref": "LineageEmptyState"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspaceArtifactSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "artifact",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceArtifactSummary"
+        },
+        {
+          "name": "revision",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceRevisionSummary"
+        },
+        {
+          "name": "provider",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceProviderSummary"
+        },
+        {
+          "name": "drill_in",
+          "optional": true,
+          "type": "object",
+          "ref": "SourceWorkspaceDrillIn"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspaceDrillIn",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "panel",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "anchor",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "href",
+          "optional": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspacePanelSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "item_count",
+          "optional": true,
+          "type": "integer"
+        },
+        {
+          "name": "links",
+          "optional": false,
+          "type": "object",
+          "ref": "SourceManagementLinks"
+        }
+      ]
+    },
+    {
+      "name": "SourceWorkspaceQuery",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "panel",
+          "optional": true,
+          "type": "string"
+        },
+        {
+          "name": "anchor",
+          "optional": true,
+          "type": "string"
         }
       ]
     }

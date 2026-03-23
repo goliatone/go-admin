@@ -920,7 +920,7 @@ export interface SourceRelationshipListQuery {
  * Source search query parameters.
  */
 export interface SourceSearchQuery {
-  query: string;
+  query?: string;
   provider_kind?: string;
   status?: string;
   sort?: string;

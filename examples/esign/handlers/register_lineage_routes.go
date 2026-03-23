@@ -19,14 +19,19 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 	reviewRoute := services.DefaultLineageDiagnosticsBasePath + "/relationships/:relationship_id/review"
 	sourcesRoute := services.DefaultSourceManagementBasePath + "/sources"
 	sourceRoute := sourcesRoute + "/:source_document_id"
+	sourceWorkspaceRoute := sourceRoute + "/workspace"
 	sourceRevisionsRoute := sourceRoute + "/revisions"
 	sourceRelationshipsRoute := sourceRoute + "/relationships"
+	sourceAgreementsRoute := sourceRoute + "/agreements"
 	sourceHandlesRoute := sourceRoute + "/handles"
 	sourceCommentsRoute := sourceRoute + "/comments"
 	sourceRevisionRoute := services.DefaultSourceManagementBasePath + "/source-revisions/:source_revision_id"
 	sourceRevisionArtifactsRoute := sourceRevisionRoute + "/artifacts"
 	sourceRevisionCommentsRoute := sourceRevisionRoute + "/comments"
 	sourceSearchRoute := services.DefaultSourceManagementBasePath + "/source-search"
+	reconciliationQueueRoute := services.DefaultSourceManagementBasePath + "/reconciliation-queue"
+	reconciliationCandidateRoute := reconciliationQueueRoute + "/:relationship_id"
+	reconciliationCandidateReviewRoute := reconciliationCandidateRoute + "/review"
 
 	adminRoutes.Get(documentRoute, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -119,8 +124,9 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "relationship_id is required", nil)
 		}
 		var payload struct {
-			Action string `json:"action"`
-			Reason string `json:"reason"`
+			Action          string `json:"action"`
+			ConfirmBehavior string `json:"confirm_behavior"`
+			Reason          string `json:"reason"`
 		}
 		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid lineage review payload"); err != nil {
 			return err
@@ -130,10 +136,11 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			return writeAPIError(c, nil, http.StatusForbidden, string(services.ErrorCodeScopeDenied), "authenticated admin actor is required for lineage review actions", nil)
 		}
 		summary, err := cfg.sourceReconciliation.ApplyReviewAction(c.Context(), cfg.resolveScope(c), services.SourceRelationshipReviewInput{
-			RelationshipID: relationshipID,
-			Action:         strings.TrimSpace(payload.Action),
-			ActorID:        actorID,
-			Reason:         strings.TrimSpace(payload.Reason),
+			RelationshipID:  relationshipID,
+			Action:          strings.TrimSpace(payload.Action),
+			ConfirmBehavior: strings.TrimSpace(payload.ConfirmBehavior),
+			ActorID:         actorID,
+			Reason:          strings.TrimSpace(payload.Reason),
 		})
 		if err != nil {
 			status := http.StatusConflict
@@ -195,6 +202,30 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 		return c.JSON(http.StatusOK, detail)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
+	adminRoutes.Get(sourceWorkspaceRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		workspace, err := cfg.sourceReadModels.GetSourceWorkspace(c.Context(), cfg.resolveScope(c), sourceDocumentID, services.SourceWorkspaceQuery{
+			Panel:  strings.TrimSpace(c.Query("panel")),
+			Anchor: strings.TrimSpace(c.Query("anchor")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_NOT_FOUND", "LINEAGE_SOURCE_UNAVAILABLE", "source workspace not found", "unable to load source workspace", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		workspace = authorizeSourceWorkspace(c, cfg, workspace)
+		return c.JSON(http.StatusOK, workspace)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
 	adminRoutes.Get(sourceRevisionsRoute, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -244,6 +275,33 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 			})
 		}
 		page = authorizeSourceRelationshipPage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(sourceAgreementsRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+		if sourceDocumentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "source_document_id is required", nil)
+		}
+		page, err := cfg.sourceReadModels.ListSourceAgreements(c.Context(), cfg.resolveScope(c), sourceDocumentID, services.SourceAgreementListQuery{
+			Status:           strings.TrimSpace(c.Query("status")),
+			SourceRevisionID: strings.TrimSpace(c.Query("source_revision_id")),
+			Sort:             strings.TrimSpace(c.Query("sort")),
+			Page:             parsePageSize(c.Query("page")),
+			PageSize:         parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_SOURCE_AGREEMENTS_NOT_FOUND", "LINEAGE_SOURCE_AGREEMENTS_UNAVAILABLE", "source agreements not found", "unable to list source agreements", map[string]any{
+				"source_document_id": sourceDocumentID,
+			})
+		}
+		page = authorizeSourceAgreementPage(c, cfg, page)
 		return c.JSON(http.StatusOK, page)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
@@ -389,6 +447,102 @@ func registerLineageRoutes(adminRoutes routeRegistrar, cfg registerConfig) {
 		results = authorizeSourceSearchResults(c, cfg, results)
 		return c.JSON(http.StatusOK, results)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(reconciliationQueueRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		page, err := cfg.sourceReadModels.ListReconciliationQueue(c.Context(), cfg.resolveScope(c), services.ReconciliationQueueQuery{
+			ConfidenceBand:   strings.TrimSpace(c.Query("confidence_band")),
+			RelationshipType: strings.TrimSpace(c.Query("relationship_type")),
+			ProviderKind:     strings.TrimSpace(c.Query("provider_kind")),
+			SourceStatus:     strings.TrimSpace(c.Query("source_status")),
+			AgeBand:          strings.TrimSpace(c.Query("age_band")),
+			Sort:             strings.TrimSpace(c.Query("sort")),
+			Page:             parsePageSize(c.Query("page")),
+			PageSize:         parsePageSize(c.Query("page_size")),
+		})
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_RECONCILIATION_QUEUE_NOT_FOUND", "LINEAGE_RECONCILIATION_QUEUE_UNAVAILABLE", "reconciliation queue not found", "unable to list reconciliation queue", nil)
+		}
+		page = authorizeReconciliationQueuePage(c, cfg, page)
+		return c.JSON(http.StatusOK, page)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(reconciliationCandidateRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_READ_MODELS_UNAVAILABLE", "source read models are not configured", nil)
+		}
+		relationshipID := strings.TrimSpace(c.Param("relationship_id"))
+		if relationshipID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "relationship_id is required", nil)
+		}
+		detail, err := cfg.sourceReadModels.GetReconciliationCandidate(c.Context(), cfg.resolveScope(c), relationshipID)
+		if err != nil {
+			return writeSourceManagementReadModelError(c, err, "LINEAGE_RECONCILIATION_CANDIDATE_NOT_FOUND", "LINEAGE_RECONCILIATION_CANDIDATE_UNAVAILABLE", "reconciliation candidate not found", "unable to load reconciliation candidate", map[string]any{
+				"relationship_id": relationshipID,
+			})
+		}
+		detail = authorizeReconciliationCandidateDetail(c, cfg, detail)
+		return c.JSON(http.StatusOK, detail)
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Post(reconciliationCandidateReviewRoute, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.sourceReconciliation == nil || cfg.sourceReadModels == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "LINEAGE_RECONCILIATION_UNAVAILABLE", "lineage reconciliation is not configured", nil)
+		}
+		relationshipID := strings.TrimSpace(c.Param("relationship_id"))
+		if relationshipID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "relationship_id is required", nil)
+		}
+		var payload struct {
+			Action          string `json:"action"`
+			ConfirmBehavior string `json:"confirm_behavior"`
+			Reason          string `json:"reason"`
+		}
+		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid reconciliation review payload"); err != nil {
+			return err
+		}
+		actorID := resolveAuthenticatedAdminUserID(c)
+		if actorID == "" {
+			return writeAPIError(c, nil, http.StatusForbidden, string(services.ErrorCodeScopeDenied), "authenticated admin actor is required for lineage review actions", nil)
+		}
+		if _, err := cfg.sourceReconciliation.ApplyReviewAction(c.Context(), cfg.resolveScope(c), services.SourceRelationshipReviewInput{
+			RelationshipID:  relationshipID,
+			Action:          strings.TrimSpace(payload.Action),
+			ConfirmBehavior: strings.TrimSpace(payload.ConfirmBehavior),
+			ActorID:         actorID,
+			Reason:          strings.TrimSpace(payload.Reason),
+		}); err != nil {
+			status := http.StatusConflict
+			if isNotFound(err) {
+				status = http.StatusNotFound
+			}
+			return writeAPIError(c, err, status, "LINEAGE_RECONCILIATION_REVIEW_FAILED", "unable to apply reconciliation review action", map[string]any{
+				"relationship_id": relationshipID,
+			})
+		}
+		detail, err := cfg.sourceReadModels.GetReconciliationCandidate(c.Context(), cfg.resolveScope(c), relationshipID)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusUnprocessableEntity, "LINEAGE_RECONCILIATION_CANDIDATE_UNAVAILABLE", "unable to refresh reconciliation candidate detail", map[string]any{
+				"relationship_id": relationshipID,
+			})
+		}
+		detail = authorizeReconciliationCandidateDetail(c, cfg, detail)
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":    "ok",
+			"candidate": detail,
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 }
 
 func writeSourceManagementReadModelError(c router.Context, err error, notFoundCode, unavailableCode, notFoundMessage, unavailableMessage string, metadata map[string]any) error {
@@ -442,6 +596,29 @@ func authorizeSourceDetail(c router.Context, cfg registerConfig, detail services
 	return detail
 }
 
+func authorizeSourceWorkspace(c router.Context, cfg registerConfig, workspace services.SourceWorkspace) services.SourceWorkspace {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	workspace.Permissions = permissions
+	workspace.Links = redactSourceManagementLinks(workspace.Links, permissions)
+	if workspace.Provider != nil {
+		workspace.Provider = authorizeSourceProviderSummary(workspace.Provider, permissions)
+	}
+	if workspace.ActiveHandle != nil {
+		handle := authorizeSourceHandleSummary(*workspace.ActiveHandle, permissions)
+		workspace.ActiveHandle = &handle
+	}
+	workspace.Agreements = authorizeSourceAgreementPage(c, cfg, workspace.Agreements)
+	workspace.Artifacts = authorizeSourceWorkspaceArtifactPage(c, cfg, workspace.Artifacts)
+	workspace.Comments = authorizeSourceCommentPage(c, cfg, workspace.Comments)
+	workspace.Handles = authorizeSourceHandlePage(c, cfg, workspace.Handles)
+	workspace.Timeline = authorizeSourceRevisionTimeline(c, cfg, workspace.Timeline)
+	for i := range workspace.Panels {
+		workspace.Panels[i].Links = redactSourceManagementLinks(workspace.Panels[i].Links, permissions)
+	}
+	workspace.Continuity.Links = redactSourceManagementLinks(workspace.Continuity.Links, permissions)
+	return workspace
+}
+
 func authorizeSourceRevisionPage(c router.Context, cfg registerConfig, page services.SourceRevisionPage) services.SourceRevisionPage {
 	permissions := sourceManagementPermissionsForRequest(c, cfg)
 	page.Permissions = permissions
@@ -458,6 +635,16 @@ func authorizeSourceRelationshipPage(c router.Context, cfg registerConfig, page 
 	page.Links = redactSourceManagementLinks(page.Links, permissions)
 	for i := range page.Items {
 		page.Items[i] = authorizeSourceRelationshipSummary(page.Items[i], permissions)
+	}
+	return page
+}
+
+func authorizeSourceAgreementPage(c router.Context, cfg registerConfig, page services.SourceAgreementPage) services.SourceAgreementPage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i].Links = redactSourceManagementLinks(page.Items[i].Links, permissions)
 	}
 	return page
 }
@@ -488,6 +675,19 @@ func authorizeSourceArtifactPage(c router.Context, cfg registerConfig, page serv
 	return page
 }
 
+func authorizeSourceWorkspaceArtifactPage(c router.Context, cfg registerConfig, page services.SourceWorkspaceArtifactPage) services.SourceWorkspaceArtifactPage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i].Links = redactSourceManagementLinks(page.Items[i].Links, permissions)
+		if page.Items[i].Provider != nil {
+			page.Items[i].Provider = authorizeSourceProviderSummary(page.Items[i].Provider, permissions)
+		}
+	}
+	return page
+}
+
 func authorizeSourceCommentPage(c router.Context, cfg registerConfig, page services.SourceCommentPage) services.SourceCommentPage {
 	page.Permissions = sourceManagementPermissionsForRequest(c, cfg)
 	page.Links = redactSourceManagementLinks(page.Links, page.Permissions)
@@ -495,6 +695,20 @@ func authorizeSourceCommentPage(c router.Context, cfg registerConfig, page servi
 		page.Items[i].Links = redactSourceManagementLinks(page.Items[i].Links, page.Permissions)
 	}
 	return page
+}
+
+func authorizeSourceRevisionTimeline(c router.Context, cfg registerConfig, timeline services.SourceRevisionTimeline) services.SourceRevisionTimeline {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	timeline.Permissions = permissions
+	timeline.Links = redactSourceManagementLinks(timeline.Links, permissions)
+	for i := range timeline.Entries {
+		timeline.Entries[i].Links = redactSourceManagementLinks(timeline.Entries[i].Links, permissions)
+		if timeline.Entries[i].Handle != nil {
+			handle := authorizeSourceHandleSummary(*timeline.Entries[i].Handle, permissions)
+			timeline.Entries[i].Handle = &handle
+		}
+	}
+	return timeline
 }
 
 func authorizeSourceSearchResults(c router.Context, cfg registerConfig, results services.SourceSearchResults) services.SourceSearchResults {
@@ -505,6 +719,66 @@ func authorizeSourceSearchResults(c router.Context, cfg registerConfig, results 
 		results.Items[i] = authorizeSourceSearchResultSummary(results.Items[i], permissions)
 	}
 	return results
+}
+
+func authorizeReconciliationQueuePage(c router.Context, cfg registerConfig, page services.ReconciliationQueuePage) services.ReconciliationQueuePage {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	page.Permissions = permissions
+	page.Links = redactSourceManagementLinks(page.Links, permissions)
+	for i := range page.Items {
+		page.Items[i].Links = redactSourceManagementLinks(page.Items[i].Links, permissions)
+		if page.Items[i].Candidate != nil {
+			candidate := authorizeSourceRelationshipSummary(*page.Items[i].Candidate, permissions)
+			page.Items[i].Candidate = &candidate
+		}
+		if page.Items[i].LeftSource != nil {
+			left := authorizeReconciliationQueueSourceSummary(*page.Items[i].LeftSource, permissions)
+			page.Items[i].LeftSource = &left
+		}
+		if page.Items[i].RightSource != nil {
+			right := authorizeReconciliationQueueSourceSummary(*page.Items[i].RightSource, permissions)
+			page.Items[i].RightSource = &right
+		}
+		if !permissions.CanReviewCandidates {
+			page.Items[i].Actions = nil
+		}
+	}
+	return page
+}
+
+func authorizeReconciliationCandidateDetail(c router.Context, cfg registerConfig, detail services.ReconciliationCandidateDetail) services.ReconciliationCandidateDetail {
+	permissions := sourceManagementPermissionsForRequest(c, cfg)
+	detail.Permissions = permissions
+	detail.Links = redactSourceManagementLinks(detail.Links, permissions)
+	if detail.Candidate != nil {
+		candidate := authorizeSourceRelationshipSummary(*detail.Candidate, permissions)
+		detail.Candidate = &candidate
+	}
+	if detail.LeftSource != nil {
+		left := authorizeReconciliationQueueSourceSummary(*detail.LeftSource, permissions)
+		detail.LeftSource = &left
+	}
+	if detail.RightSource != nil {
+		right := authorizeReconciliationQueueSourceSummary(*detail.RightSource, permissions)
+		detail.RightSource = &right
+	}
+	if !permissions.CanReviewCandidates {
+		detail.Actions = nil
+	}
+	return detail
+}
+
+func authorizeReconciliationQueueSourceSummary(summary services.ReconciliationQueueSourceSummary, permissions services.SourceManagementPermissions) services.ReconciliationQueueSourceSummary {
+	summary.Permissions = permissions
+	summary.Links = redactSourceManagementLinks(summary.Links, permissions)
+	if summary.Provider != nil {
+		summary.Provider = authorizeSourceProviderSummary(summary.Provider, permissions)
+	}
+	if summary.ActiveHandle != nil {
+		handle := authorizeSourceHandleSummary(*summary.ActiveHandle, permissions)
+		summary.ActiveHandle = &handle
+	}
+	return summary
 }
 
 func authorizeSourceListItem(item services.SourceListItem, permissions services.SourceManagementPermissions) services.SourceListItem {
