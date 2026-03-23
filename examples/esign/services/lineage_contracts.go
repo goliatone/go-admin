@@ -229,7 +229,7 @@ type SourceHandleSummary struct {
 	HandleStatus   string                `json:"handle_status"`
 	ValidFrom      *time.Time            `json:"valid_from,omitempty"`
 	ValidTo        *time.Time            `json:"valid_to,omitempty"`
-	Links          SourceManagementLinks `json:"links,omitempty"`
+	Links          SourceManagementLinks `json:"links"`
 }
 
 type SourceRevisionListItem struct {
@@ -239,7 +239,7 @@ type SourceRevisionListItem struct {
 	FingerprintStatus     FingerprintStatusSummary     `json:"fingerprint_status"`
 	FingerprintProcessing FingerprintProcessingSummary `json:"fingerprint_processing"`
 	IsLatest              bool                         `json:"is_latest"`
-	Links                 SourceManagementLinks        `json:"links,omitempty"`
+	Links                 SourceManagementLinks        `json:"links"`
 }
 
 type SourceRelationshipSummary struct {
@@ -256,7 +256,7 @@ type SourceRelationshipSummary struct {
 	CounterpartSource   *LineageReference          `json:"counterpart_source,omitempty"`
 	ReviewActionVisible string                     `json:"review_action_visible,omitempty"`
 	Evidence            []CandidateEvidenceSummary `json:"evidence,omitempty"`
-	Links               SourceManagementLinks      `json:"links,omitempty"`
+	Links               SourceManagementLinks      `json:"links"`
 }
 
 type SourceCommentAnchorSummary struct {
@@ -290,38 +290,38 @@ type SourceCommentSyncSummary struct {
 }
 
 type SourceCommentThreadSummary struct {
-	ID                string                      `json:"id"`
-	ProviderCommentID string                      `json:"provider_comment_id,omitempty"`
-	ThreadID          string                      `json:"thread_id,omitempty"`
-	Status            string                      `json:"status,omitempty"`
-	Source            *LineageReference           `json:"source,omitempty"`
-	Revision          *SourceRevisionSummary      `json:"revision,omitempty"`
-	Anchor            *SourceCommentAnchorSummary `json:"anchor,omitempty"`
-	AuthorName        string                      `json:"author_name,omitempty"`
-	Author            *SourceCommentAuthorSummary `json:"author,omitempty"`
-	BodyPreview       string                      `json:"body_preview,omitempty"`
-	MessageCount      int                         `json:"message_count"`
-	ReplyCount        int                         `json:"reply_count"`
+	ID                string                        `json:"id"`
+	ProviderCommentID string                        `json:"provider_comment_id,omitempty"`
+	ThreadID          string                        `json:"thread_id,omitempty"`
+	Status            string                        `json:"status,omitempty"`
+	Source            *LineageReference             `json:"source,omitempty"`
+	Revision          *SourceRevisionSummary        `json:"revision,omitempty"`
+	Anchor            *SourceCommentAnchorSummary   `json:"anchor,omitempty"`
+	AuthorName        string                        `json:"author_name,omitempty"`
+	Author            *SourceCommentAuthorSummary   `json:"author,omitempty"`
+	BodyPreview       string                        `json:"body_preview,omitempty"`
+	MessageCount      int                           `json:"message_count"`
+	ReplyCount        int                           `json:"reply_count"`
 	Messages          []SourceCommentMessageSummary `json:"messages,omitempty"`
-	ResolvedAt        *time.Time                  `json:"resolved_at,omitempty"`
-	LastSyncedAt      *time.Time                  `json:"last_synced_at,omitempty"`
-	SyncStatus        string                      `json:"sync_status,omitempty"`
-	Links             SourceManagementLinks       `json:"links,omitempty"`
+	ResolvedAt        *time.Time                    `json:"resolved_at,omitempty"`
+	LastSyncedAt      *time.Time                    `json:"last_synced_at,omitempty"`
+	SyncStatus        string                        `json:"sync_status,omitempty"`
+	Links             SourceManagementLinks         `json:"links"`
 }
 
 type SourceSearchResultSummary struct {
-	ResultKind    string                 `json:"result_kind"`
-	Source        *LineageReference      `json:"source,omitempty"`
-	Revision      *SourceRevisionSummary `json:"revision,omitempty"`
-	Provider      *SourceProviderSummary `json:"provider,omitempty"`
-	RelationshipState string             `json:"relationship_state,omitempty"`
-	CommentSyncStatus string             `json:"comment_sync_status,omitempty"`
-	CommentCount   int                    `json:"comment_count,omitempty"`
-	HasComments    bool                   `json:"has_comments"`
-	ArtifactHash   string                 `json:"artifact_hash,omitempty"`
-	MatchedFields []string               `json:"matched_fields,omitempty"`
-	Summary       string                 `json:"summary,omitempty"`
-	Links         SourceManagementLinks  `json:"links,omitempty"`
+	ResultKind        string                 `json:"result_kind"`
+	Source            *LineageReference      `json:"source,omitempty"`
+	Revision          *SourceRevisionSummary `json:"revision,omitempty"`
+	Provider          *SourceProviderSummary `json:"provider,omitempty"`
+	RelationshipState string                 `json:"relationship_state,omitempty"`
+	CommentSyncStatus string                 `json:"comment_sync_status,omitempty"`
+	CommentCount      int                    `json:"comment_count,omitempty"`
+	HasComments       bool                   `json:"has_comments"`
+	ArtifactHash      string                 `json:"artifact_hash,omitempty"`
+	MatchedFields     []string               `json:"matched_fields,omitempty"`
+	Summary           string                 `json:"summary,omitempty"`
+	Links             SourceManagementLinks  `json:"links"`
 }
 
 type SourceListItem struct {
@@ -336,7 +336,7 @@ type SourceListItem struct {
 	RelationshipCount     int                         `json:"relationship_count"`
 	PendingCandidateCount int                         `json:"pending_candidate_count"`
 	Permissions           SourceManagementPermissions `json:"permissions"`
-	Links                 SourceManagementLinks       `json:"links,omitempty"`
+	Links                 SourceManagementLinks       `json:"links"`
 }
 
 type SourceListQuery struct {
@@ -390,7 +390,7 @@ type SourceListPage struct {
 	AppliedQuery SourceListQuery             `json:"applied_query"`
 	Permissions  SourceManagementPermissions `json:"permissions"`
 	EmptyState   LineageEmptyState           `json:"empty_state"`
-	Links        SourceManagementLinks       `json:"links,omitempty"`
+	Links        SourceManagementLinks       `json:"links"`
 }
 
 type SourceDetail struct {
@@ -405,7 +405,7 @@ type SourceDetail struct {
 	RelationshipCount     int                         `json:"relationship_count"`
 	PendingCandidateCount int                         `json:"pending_candidate_count"`
 	Permissions           SourceManagementPermissions `json:"permissions"`
-	Links                 SourceManagementLinks       `json:"links,omitempty"`
+	Links                 SourceManagementLinks       `json:"links"`
 	EmptyState            LineageEmptyState           `json:"empty_state"`
 }
 
@@ -416,7 +416,7 @@ type SourceRevisionPage struct {
 	AppliedQuery SourceRevisionListQuery     `json:"applied_query"`
 	Permissions  SourceManagementPermissions `json:"permissions"`
 	EmptyState   LineageEmptyState           `json:"empty_state"`
-	Links        SourceManagementLinks       `json:"links,omitempty"`
+	Links        SourceManagementLinks       `json:"links"`
 }
 
 type SourceRelationshipPage struct {
@@ -426,7 +426,7 @@ type SourceRelationshipPage struct {
 	AppliedQuery SourceRelationshipListQuery `json:"applied_query"`
 	Permissions  SourceManagementPermissions `json:"permissions"`
 	EmptyState   LineageEmptyState           `json:"empty_state"`
-	Links        SourceManagementLinks       `json:"links,omitempty"`
+	Links        SourceManagementLinks       `json:"links"`
 }
 
 type SourceHandlePage struct {
@@ -435,7 +435,7 @@ type SourceHandlePage struct {
 	PageInfo    SourceManagementPageInfo    `json:"page_info"`
 	Permissions SourceManagementPermissions `json:"permissions"`
 	EmptyState  LineageEmptyState           `json:"empty_state"`
-	Links       SourceManagementLinks       `json:"links,omitempty"`
+	Links       SourceManagementLinks       `json:"links"`
 }
 
 type SourceRevisionDetail struct {
@@ -445,7 +445,7 @@ type SourceRevisionDetail struct {
 	FingerprintStatus     FingerprintStatusSummary     `json:"fingerprint_status"`
 	FingerprintProcessing FingerprintProcessingSummary `json:"fingerprint_processing"`
 	Permissions           SourceManagementPermissions  `json:"permissions"`
-	Links                 SourceManagementLinks        `json:"links,omitempty"`
+	Links                 SourceManagementLinks        `json:"links"`
 	EmptyState            LineageEmptyState            `json:"empty_state"`
 }
 
@@ -455,20 +455,20 @@ type SourceArtifactPage struct {
 	PageInfo    SourceManagementPageInfo    `json:"page_info"`
 	Permissions SourceManagementPermissions `json:"permissions"`
 	EmptyState  LineageEmptyState           `json:"empty_state"`
-	Links       SourceManagementLinks       `json:"links,omitempty"`
+	Links       SourceManagementLinks       `json:"links"`
 }
 
 type SourceCommentPage struct {
-	Source      *LineageReference           `json:"source,omitempty"`
-	Revision    *SourceRevisionSummary       `json:"revision,omitempty"`
-	Items       []SourceCommentThreadSummary `json:"items"`
-	AppliedQuery SourceCommentListQuery      `json:"applied_query"`
-	PageInfo    SourceManagementPageInfo     `json:"page_info"`
-	Permissions SourceManagementPermissions  `json:"permissions"`
-	EmptyState  LineageEmptyState            `json:"empty_state"`
-	SyncStatus  string                       `json:"sync_status"`
-	Sync        *SourceCommentSyncSummary    `json:"sync,omitempty"`
-	Links       SourceManagementLinks        `json:"links,omitempty"`
+	Source       *LineageReference            `json:"source,omitempty"`
+	Revision     *SourceRevisionSummary       `json:"revision,omitempty"`
+	Items        []SourceCommentThreadSummary `json:"items"`
+	AppliedQuery SourceCommentListQuery       `json:"applied_query"`
+	PageInfo     SourceManagementPageInfo     `json:"page_info"`
+	Permissions  SourceManagementPermissions  `json:"permissions"`
+	EmptyState   LineageEmptyState            `json:"empty_state"`
+	SyncStatus   string                       `json:"sync_status"`
+	Sync         *SourceCommentSyncSummary    `json:"sync,omitempty"`
+	Links        SourceManagementLinks        `json:"links"`
 }
 
 type SourceSearchResults struct {
@@ -477,7 +477,7 @@ type SourceSearchResults struct {
 	AppliedQuery SourceSearchQuery           `json:"applied_query"`
 	Permissions  SourceManagementPermissions `json:"permissions"`
 	EmptyState   LineageEmptyState           `json:"empty_state"`
-	Links        SourceManagementLinks       `json:"links,omitempty"`
+	Links        SourceManagementLinks       `json:"links"`
 }
 
 type SourceManagementContractRules struct {
@@ -649,53 +649,53 @@ type SourceCommentProviderAnchor struct {
 }
 
 type SourceCommentProviderMessage struct {
-	ProviderMessageID       string                    `json:"provider_message_id"`
-	ProviderParentMessageID string                    `json:"provider_parent_message_id,omitempty"`
-	MessageKind             string                    `json:"message_kind,omitempty"`
-	BodyText                string                    `json:"body_text"`
+	ProviderMessageID       string                      `json:"provider_message_id"`
+	ProviderParentMessageID string                      `json:"provider_parent_message_id,omitempty"`
+	MessageKind             string                      `json:"message_kind,omitempty"`
+	BodyText                string                      `json:"body_text"`
 	Author                  SourceCommentProviderAuthor `json:"author"`
-	CreatedAt               *time.Time                `json:"created_at,omitempty"`
-	UpdatedAt               *time.Time                `json:"updated_at,omitempty"`
+	CreatedAt               *time.Time                  `json:"created_at,omitempty"`
+	UpdatedAt               *time.Time                  `json:"updated_at,omitempty"`
 }
 
 type SourceCommentProviderThread struct {
-	ProviderCommentID string                       `json:"provider_comment_id"`
-	ThreadID          string                       `json:"thread_id,omitempty"`
-	Status            string                       `json:"status,omitempty"`
-	Anchor            SourceCommentProviderAnchor  `json:"anchor"`
-	Author            SourceCommentProviderAuthor  `json:"author"`
-	BodyText          string                       `json:"body_text"`
-	ResolvedAt        *time.Time                   `json:"resolved_at,omitempty"`
-	LastActivityAt    *time.Time                   `json:"last_activity_at,omitempty"`
+	ProviderCommentID string                         `json:"provider_comment_id"`
+	ThreadID          string                         `json:"thread_id,omitempty"`
+	Status            string                         `json:"status,omitempty"`
+	Anchor            SourceCommentProviderAnchor    `json:"anchor"`
+	Author            SourceCommentProviderAuthor    `json:"author"`
+	BodyText          string                         `json:"body_text"`
+	ResolvedAt        *time.Time                     `json:"resolved_at,omitempty"`
+	LastActivityAt    *time.Time                     `json:"last_activity_at,omitempty"`
 	Messages          []SourceCommentProviderMessage `json:"messages,omitempty"`
 }
 
 type SourceCommentSyncInput struct {
-	SourceDocumentID string                      `json:"source_document_id"`
-	SourceRevisionID string                      `json:"source_revision_id"`
-	ProviderKind     string                      `json:"provider_kind"`
-	SyncStatus       string                      `json:"sync_status,omitempty"`
-	AttemptedAt      *time.Time                  `json:"attempted_at,omitempty"`
-	SyncedAt         *time.Time                  `json:"synced_at,omitempty"`
-	ErrorCode        string                      `json:"error_code,omitempty"`
-	ErrorMessage     string                      `json:"error_message,omitempty"`
+	SourceDocumentID string                        `json:"source_document_id"`
+	SourceRevisionID string                        `json:"source_revision_id"`
+	ProviderKind     string                        `json:"provider_kind"`
+	SyncStatus       string                        `json:"sync_status,omitempty"`
+	AttemptedAt      *time.Time                    `json:"attempted_at,omitempty"`
+	SyncedAt         *time.Time                    `json:"synced_at,omitempty"`
+	ErrorCode        string                        `json:"error_code,omitempty"`
+	ErrorMessage     string                        `json:"error_message,omitempty"`
 	Threads          []SourceCommentProviderThread `json:"threads,omitempty"`
 }
 
 type SourceCommentSyncResult struct {
-	SourceDocumentID string                   `json:"source_document_id"`
-	SourceRevisionID string                   `json:"source_revision_id"`
-	Sync            SourceCommentSyncSummary `json:"sync"`
-	Threads         []SourceCommentThreadSummary `json:"threads,omitempty"`
+	SourceDocumentID string                       `json:"source_document_id"`
+	SourceRevisionID string                       `json:"source_revision_id"`
+	Sync             SourceCommentSyncSummary     `json:"sync"`
+	Threads          []SourceCommentThreadSummary `json:"threads,omitempty"`
 }
 
 type SourceSearchIndexResult struct {
-	TargetKind      string     `json:"target_kind"`
-	TargetID        string     `json:"target_id"`
-	IndexedCount    int        `json:"indexed_count"`
-	DeletedCount    int        `json:"deleted_count"`
-	IndexedAt       *time.Time `json:"indexed_at,omitempty"`
-	CommentSyncStatus string   `json:"comment_sync_status,omitempty"`
+	TargetKind        string     `json:"target_kind"`
+	TargetID          string     `json:"target_id"`
+	IndexedCount      int        `json:"indexed_count"`
+	DeletedCount      int        `json:"deleted_count"`
+	IndexedAt         *time.Time `json:"indexed_at,omitempty"`
+	CommentSyncStatus string     `json:"comment_sync_status,omitempty"`
 }
 
 type SourceCommentSyncService interface {

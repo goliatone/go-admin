@@ -93,8 +93,6 @@ func (s DefaultSourceReadModelService) buildSourceCommentPage(ctx context.Contex
 	page.Source = sourceLineageReference(sourceDocument)
 	if strings.TrimSpace(revision.ID) != "" {
 		page.Revision = sourceManagementRevisionSummary(revision, resolved)
-	} else {
-		page.Revision = sourceManagementRevisionSummary(resolved.latestRevision, resolved)
 	}
 	page.Items = paged
 	page.PageInfo = pageInfo

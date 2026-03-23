@@ -91,6 +91,23 @@ func TestESignGoogleIntegrationTemplateUsesServerAuthoredConfigPayload(t *testin
 	}
 }
 
+func TestESignSourceManagementRuntimeTemplateUsesServerAuthoredBootstrapPayloads(t *testing.T) {
+	template := mustReadESignTemplate(t, "resources/esign-source-management/runtime.html")
+
+	if !strings.Contains(template, `data-esign-page="{{ esign_page|default:'admin.sources.browser' }}"`) {
+		t.Fatal("expected source-management runtime template to expose the page marker")
+	}
+	if !strings.Contains(template, `{{ esign_page_config_json|default:"{}"|safe }}`) {
+		t.Fatal("expected source-management runtime template to emit the page config payload")
+	}
+	if !strings.Contains(template, `{{ source_management_page_model_json|default:"{}"|safe }}`) {
+		t.Fatal("expected source-management runtime template to emit the page model payload")
+	}
+	if !strings.Contains(template, `<script type="module" src="{{ esign_module_path }}"></script>`) {
+		t.Fatal("expected source-management runtime template to load the resolved e-sign module path")
+	}
+}
+
 func mustReadESignTemplate(t *testing.T, name string) string {
 	t.Helper()
 	body, err := fs.ReadFile(client.Templates(), strings.TrimSpace(name))

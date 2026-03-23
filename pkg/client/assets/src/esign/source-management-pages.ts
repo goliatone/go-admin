@@ -110,15 +110,31 @@ function updateQueryParams(params: Record<string, string | number | boolean | un
   history.pushState({}, '', url.toString());
 }
 
+function buildSourceListQueryParamUpdates(
+  query: Partial<SourceListQuery>
+): Record<string, string | number | boolean | undefined> {
+  return {
+    q: query.query,
+    query: undefined,
+    provider_kind: query.provider_kind,
+    status: query.status,
+    has_pending_candidates: query.has_pending_candidates,
+    sort: query.sort,
+    page: query.page,
+    page_size: query.page_size,
+  };
+}
+
 /**
  * Extracts SourceListQuery from URL params.
  */
 function extractSourceListQuery(params: URLSearchParams): SourceListQuery {
   const page = Number.parseInt(params.get('page') ?? '1', 10);
   const pageSize = Number.parseInt(params.get('page_size') ?? '20', 10);
+  const query = params.get('q') ?? params.get('query') ?? undefined;
 
   return {
-    query: params.get('query') ?? undefined,
+    query,
     provider_kind: params.get('provider_kind') ?? undefined,
     status: params.get('status') ?? undefined,
     has_pending_candidates: params.get('has_pending_candidates') === 'true' ? true : undefined,
@@ -148,7 +164,7 @@ function extractSourceRevisionListQuery(params: URLSearchParams): SourceRevision
 function buildSourceListQueryString(query: SourceListQuery): string {
   const params = new URLSearchParams();
 
-  if (query.query) params.set('query', query.query);
+  if (query.query) params.set('q', query.query);
   if (query.provider_kind) params.set('provider_kind', query.provider_kind);
   if (query.status) params.set('status', query.status);
   if (query.has_pending_candidates !== undefined)
@@ -268,7 +284,7 @@ export class SourceBrowserPageController {
   async goToPage(page: number): Promise<void> {
     const currentQuery = this.state.contracts?.query ?? {};
     const newQuery = { ...currentQuery, page };
-    updateQueryParams({ page });
+    updateQueryParams(buildSourceListQueryParamUpdates(newQuery));
     await this.fetchSources(newQuery);
   }
 
@@ -278,7 +294,7 @@ export class SourceBrowserPageController {
   async applyFilters(filters: Partial<SourceListQuery>): Promise<void> {
     const currentQuery = this.state.contracts?.query ?? {};
     const newQuery = { ...currentQuery, ...filters, page: 1 };
-    updateQueryParams(newQuery as Record<string, string | number | boolean | undefined>);
+    updateQueryParams(buildSourceListQueryParamUpdates(newQuery));
     await this.fetchSources(newQuery);
   }
 

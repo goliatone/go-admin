@@ -35,31 +35,79 @@ func TestRunSourceManagementValidationProfileCoversPhase14LandingZone(t *testing
 	}
 }
 
-func TestValidateV2SourceManagementStartupRequiresSearchStoreReadiness(t *testing.T) {
+func TestValidateV2SourceManagementStartupRequiresGoSearchWiring(t *testing.T) {
 	repoRoot, err := DefaultRepoRoot()
 	if err != nil {
 		t.Fatalf("DefaultRepoRoot: %v", err)
 	}
-	store := failingSourceManagementStartupStore{InMemoryStore: stores.NewInMemoryStore(), failSearchDocuments: true}
-	readModels := services.NewDefaultSourceReadModelService(store, store, store)
+	store := stores.NewInMemoryStore()
+	readModels := services.NewDefaultSourceReadModelService(
+		store,
+		store,
+		store,
+		services.WithSourceReadModelSearchService(failingSourceSearchService{}),
+	)
 
 	err = ValidateV2SourceManagementStartup(context.Background(), repoRoot, stores.Scope{TenantID: "tenant-startup", OrgID: "org-startup"}, store, readModels)
 	if err == nil {
-		t.Fatal("expected startup validation error when source search store readiness fails")
+		t.Fatal("expected startup validation error when go-search wiring fails")
 	}
-	if !strings.Contains(err.Error(), "source_search_documents") {
+	if !strings.Contains(err.Error(), "go-search") {
 		t.Fatalf("unexpected startup validation error: %v", err)
 	}
 }
 
-type failingSourceManagementStartupStore struct {
-	*stores.InMemoryStore
-	failSearchDocuments bool
+func TestValidateV2SourceManagementStartupRequiresLineageCapableStore(t *testing.T) {
+	repoRoot, err := DefaultRepoRoot()
+	if err != nil {
+		t.Fatalf("DefaultRepoRoot: %v", err)
+	}
+
+	err = ValidateV2SourceManagementStartup(
+		context.Background(),
+		repoRoot,
+		stores.Scope{TenantID: "tenant-startup", OrgID: "org-startup"},
+		nonLineageStartupStore{Store: stores.NewInMemoryStore()},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected startup validation error when store does not expose lineage contracts")
+	}
+	if !strings.Contains(err.Error(), "lineage-capable store is required") {
+		t.Fatalf("unexpected startup validation error: %v", err)
+	}
 }
 
-func (s failingSourceManagementStartupStore) ListSourceSearchDocuments(ctx context.Context, scope stores.Scope, query stores.SourceSearchDocumentQuery) ([]stores.SourceSearchDocumentRecord, error) {
-	if s.failSearchDocuments {
-		return nil, fmt.Errorf("simulated source_search_documents failure")
+func TestValidateV2SourceManagementStartupDoesNotRequireReleaseSnapshots(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	readModels := services.NewDefaultSourceReadModelService(store, store, store)
+
+	err := ValidateV2SourceManagementStartup(
+		context.Background(),
+		t.TempDir(),
+		stores.Scope{TenantID: "tenant-startup", OrgID: "org-startup"},
+		store,
+		readModels,
+	)
+	if err != nil {
+		t.Fatalf("expected runtime readiness validation to ignore release snapshots, got %v", err)
 	}
-	return s.InMemoryStore.ListSourceSearchDocuments(ctx, scope, query)
+}
+
+type nonLineageStartupStore struct {
+	stores.Store
+}
+
+type failingSourceSearchService struct{}
+
+func (failingSourceSearchService) Search(context.Context, stores.Scope, services.SourceSearchQuery) (services.SourceSearchResults, error) {
+	return services.SourceSearchResults{}, fmt.Errorf("go-search unavailable")
+}
+
+func (failingSourceSearchService) ReindexSourceDocument(context.Context, stores.Scope, string) (services.SourceSearchIndexResult, error) {
+	return services.SourceSearchIndexResult{}, fmt.Errorf("go-search unavailable")
+}
+
+func (failingSourceSearchService) ReindexSourceRevision(context.Context, stores.Scope, string) (services.SourceSearchIndexResult, error) {
+	return services.SourceSearchIndexResult{}, fmt.Errorf("go-search unavailable")
 }

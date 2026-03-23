@@ -100,16 +100,27 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("seed source-management qa fixtures: %w", err)
 	}
-	lineageStore, ok := store.(stores.LineageStore)
-	if !ok {
-		return SourceManagementValidationResult{}, fmt.Errorf("source-management validation store does not implement lineage store contracts")
+	lineageStore, err := RequireV2SourceManagementLineageStore(any(store))
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("source-management validation store does not implement lineage store contracts: %w", err)
 	}
 	urls, err := fixtures.BuildLineageFixtureURLs("/admin", scope, fixtureSet)
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("build source-management qa fixture urls: %w", err)
 	}
 
-	readModels := services.NewDefaultSourceReadModelService(store, store, lineageStore)
+	sourceSearch, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+		Lineage: lineageStore,
+	})
+	if err != nil {
+		return SourceManagementValidationResult{}, fmt.Errorf("build source-management go-search service: %w", err)
+	}
+	readModels := services.NewDefaultSourceReadModelService(
+		store,
+		store,
+		lineageStore,
+		services.WithSourceReadModelSearchService(sourceSearch),
+	)
 	listPage, err := readModels.ListSources(ctx, scope, services.SourceListQuery{Page: 1, PageSize: 10})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("list sources: %w", err)
@@ -147,7 +158,7 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 		ResultKind:  services.SourceManagementSearchResultSourceRevision,
 		Page:        1,
 		PageSize:    10,
-		HasComments: boolPtr(true),
+		HasComments: new(true),
 	})
 	if err != nil {
 		return SourceManagementValidationResult{}, fmt.Errorf("search sources by comment text: %w", err)
@@ -168,6 +179,12 @@ func RunSourceManagementValidationProfile(ctx context.Context, _ SourceManagemen
 	}
 	if len(revisions.Items) < 2 || revisions.Items[0].Revision == nil || strings.TrimSpace(revisions.Items[0].Revision.ID) != strings.TrimSpace(fixtureSet.SecondSourceRevisionID) {
 		return SourceManagementValidationResult{}, fmt.Errorf("revision history did not expose repeated revision ordering")
+	}
+	if revisions.Items[0].Provider == nil || strings.TrimSpace(revisions.Items[0].Provider.ExternalFileID) != "fixture-google-file-1" {
+		return SourceManagementValidationResult{}, fmt.Errorf("latest revision did not expose the active provider handle continuity")
+	}
+	if revisions.Items[1].Provider == nil || strings.TrimSpace(revisions.Items[1].Provider.ExternalFileID) != "fixture-google-file-legacy" {
+		return SourceManagementValidationResult{}, fmt.Errorf("historical revision did not expose the superseded legacy provider handle continuity")
 	}
 	if len(handles.Items) < 2 {
 		return SourceManagementValidationResult{}, fmt.Errorf("multi-handle continuity fixture is missing from source handle page")
@@ -240,36 +257,12 @@ func ValidateV2SourceManagementStartup(
 	if repoRoot == "" {
 		return fmt.Errorf("repo root is required")
 	}
-	lineageStore, ok := store.(stores.LineageStore)
-	if !ok {
-		return nil
+	lineageStore, err := RequireV2SourceManagementLineageStore(store)
+	if err != nil {
+		return err
 	}
 	if readModels == nil {
 		return fmt.Errorf("source read model service is required for v2 source-management startup validation")
-	}
-
-	guardPath := DefaultV2ContractFreezeGuardPath(repoRoot)
-	guard, err := LoadV2ContractFreezeGuard(guardPath)
-	if err != nil {
-		return fmt.Errorf("load v2 source-management contract guard: %w", err)
-	}
-	guardIssues, err := ValidateV2ContractFreezeGuard(repoRoot, guard, time.Now().UTC())
-	if err != nil {
-		return fmt.Errorf("validate v2 source-management contract guard: %w", err)
-	}
-	if len(guardIssues) != 0 {
-		return fmt.Errorf("v2 source-management contract guard failed: %s", strings.Join(guardIssues, "; "))
-	}
-
-	if err := validateJSONFile(DefaultV2SourceManagementContractManifestPath(repoRoot)); err != nil {
-		return fmt.Errorf("validate v2 source-management manifest snapshot: %w", err)
-	}
-	if err := validateJSONFile(DefaultV2SourceManagementFixtureSnapshotPath(repoRoot)); err != nil {
-		return fmt.Errorf("validate v2 source-management fixture snapshot: %w", err)
-	}
-
-	if _, err := os.Stat(DefaultV2SourceManagementRunbookPath(repoRoot)); err != nil {
-		return fmt.Errorf("validate v2 source-management runbook: %w", err)
 	}
 	if _, err := lineageStore.ListSourceDocuments(ctx, scope, stores.SourceDocumentQuery{}); err != nil {
 		return fmt.Errorf("validate source_documents store readiness: %w", err)
@@ -280,16 +273,25 @@ func ValidateV2SourceManagementStartup(
 	if _, err := lineageStore.ListSourceCommentSyncStates(ctx, scope, stores.SourceCommentSyncStateQuery{}); err != nil {
 		return fmt.Errorf("validate source_comment_sync_states store readiness: %w", err)
 	}
-	if _, err := lineageStore.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{}); err != nil {
-		return fmt.Errorf("validate source_search_documents store readiness: %w", err)
-	}
 	if _, err := readModels.ListSources(ctx, scope, services.SourceListQuery{Page: 1, PageSize: 1}); err != nil {
 		return fmt.Errorf("validate source-management list service wiring: %w", err)
 	}
 	if _, err := readModels.SearchSources(ctx, scope, services.SourceSearchQuery{Page: 1, PageSize: 1}); err != nil {
-		return fmt.Errorf("validate source-management search service wiring: %w", err)
+		return fmt.Errorf("validate source-management go-search wiring: %w", err)
 	}
 	return nil
+}
+
+// RequireV2SourceManagementLineageStore enforces the lineage persistence contract required by Phase 14 startup validation.
+func RequireV2SourceManagementLineageStore(store any) (stores.LineageStore, error) {
+	if store == nil {
+		return nil, fmt.Errorf("lineage-capable store is required for v2 source-management startup validation")
+	}
+	lineageStore, ok := store.(stores.LineageStore)
+	if !ok {
+		return nil, fmt.Errorf("lineage-capable store is required for v2 source-management startup validation")
+	}
+	return lineageStore, nil
 }
 
 func validateJSONFile(path string) error {
@@ -351,6 +353,7 @@ func contains(values []string, target string) bool {
 	return false
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }

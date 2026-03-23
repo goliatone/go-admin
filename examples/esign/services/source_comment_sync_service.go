@@ -45,11 +45,28 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 	if s.lineage == nil {
 		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "lineage", "not configured")
 	}
+	result := SourceCommentSyncResult{}
+	err := s.withLineageWriteTx(ctx, func(lineage stores.LineageStore) error {
+		var innerErr error
+		result, innerErr = s.syncSourceRevisionCommentsWithLineage(ctx, lineage, scope, input)
+		return innerErr
+	})
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	if s.search != nil {
+		_, _ = s.search.ReindexSourceRevision(ctx, scope, result.SourceRevisionID)
+		_, _ = s.search.ReindexSourceDocument(ctx, scope, result.SourceDocumentID)
+	}
+	return result, nil
+}
+
+func (s DefaultSourceCommentSyncService) syncSourceRevisionCommentsWithLineage(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, input SourceCommentSyncInput) (SourceCommentSyncResult, error) {
 	sourceRevisionID := strings.TrimSpace(input.SourceRevisionID)
 	if sourceRevisionID == "" {
 		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "source_revision_id", "required")
 	}
-	revision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
+	revision, err := lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
 	if err != nil {
 		return SourceCommentSyncResult{}, err
 	}
@@ -57,7 +74,7 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 	if sourceDocumentID == "" {
 		return SourceCommentSyncResult{}, domainValidationError("source_comment_sync", "source_document_id", "required")
 	}
-	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	sourceDocument, err := lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
 	if err != nil {
 		return SourceCommentSyncResult{}, err
 	}
@@ -74,8 +91,23 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 	threads := make([]SourceCommentThreadSummary, 0, len(input.Threads))
 	threadCount := 0
 	messageCount := 0
+	incomingThreadIDs := make(map[string]struct{}, len(input.Threads))
 	for _, threadInput := range input.Threads {
-		threadRecord, messageRecords, err := s.upsertThread(ctx, scope, sourceDocument, revision, providerKind, input, threadInput)
+		incomingThreadIDs[deterministicSourceCommentThreadID(revision.ID, providerKind, threadInput.ProviderCommentID)] = struct{}{}
+	}
+	existingThreads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
+		SourceRevisionID: revision.ID,
+		ProviderKind:     providerKind,
+		IncludeDeleted:   true,
+	})
+	if err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	if err := s.reconcileDeletedThreads(ctx, lineage, scope, existingThreads, input, incomingThreadIDs, now); err != nil {
+		return SourceCommentSyncResult{}, err
+	}
+	for _, threadInput := range input.Threads {
+		threadRecord, messageRecords, err := s.upsertThread(ctx, lineage, scope, sourceDocument, revision, providerKind, input, threadInput)
 		if err != nil {
 			return SourceCommentSyncResult{}, err
 		}
@@ -84,13 +116,9 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 		threads = append(threads, buildSourceCommentThreadSummary(sourceDocument, revision, threadRecord, messageRecords))
 	}
 
-	state, err := s.upsertSyncState(ctx, scope, sourceDocument, revision, providerKind, input, payloadJSON, payloadSHA, threadCount, messageCount, now)
+	state, err := s.upsertSyncState(ctx, lineage, scope, sourceDocument, revision, providerKind, input, payloadJSON, payloadSHA, threadCount, messageCount, now)
 	if err != nil {
 		return SourceCommentSyncResult{}, err
-	}
-	if s.search != nil {
-		_, _ = s.search.ReindexSourceRevision(ctx, scope, revision.ID)
-		_, _ = s.search.ReindexSourceDocument(ctx, scope, sourceDocument.ID)
 	}
 	return SourceCommentSyncResult{
 		SourceDocumentID: strings.TrimSpace(sourceDocument.ID),
@@ -98,6 +126,23 @@ func (s DefaultSourceCommentSyncService) SyncSourceRevisionComments(ctx context.
 		Sync:             sourceCommentSyncSummaryFromRecord(state),
 		Threads:          threads,
 	}, nil
+}
+
+func (s DefaultSourceCommentSyncService) withLineageWriteTx(ctx context.Context, fn func(stores.LineageStore) error) error {
+	if fn == nil {
+		return nil
+	}
+	txManager, ok := any(s.lineage).(stores.TransactionManager)
+	if !ok {
+		return fn(s.lineage)
+	}
+	return txManager.WithTx(ctx, func(tx stores.TxStore) error {
+		lineage, ok := any(tx).(stores.LineageStore)
+		if !ok {
+			return domainValidationError("source_comment_sync", "lineage", "transaction store does not expose lineage contracts")
+		}
+		return fn(lineage)
+	})
 }
 
 func (s DefaultSourceCommentSyncService) ReplaySourceRevisionCommentSync(ctx context.Context, scope stores.Scope, sourceRevisionID string) (SourceCommentSyncResult, error) {
@@ -136,6 +181,7 @@ func (s DefaultSourceCommentSyncService) ReplaySourceRevisionCommentSync(ctx con
 
 func (s DefaultSourceCommentSyncService) upsertThread(
 	ctx context.Context,
+	lineage stores.LineageStore,
 	scope stores.Scope,
 	sourceDocument stores.SourceDocumentRecord,
 	revision stores.SourceRevisionRecord,
@@ -182,10 +228,10 @@ func (s DefaultSourceCommentSyncService) upsertThread(
 		LastSyncedAt:      cloneSourceTimePtr(input.SyncedAt),
 		LastActivityAt:    cloneSourceTimePtr(firstNonNilTime(threadInput.LastActivityAt, latestProviderMessageTime(messagesInput))),
 	}
-	if existing, err := s.lineage.GetSourceCommentThread(ctx, scope, threadID); err == nil {
+	if existing, err := lineage.GetSourceCommentThread(ctx, scope, threadID); err == nil {
 		threadRecord.CreatedAt = existing.CreatedAt
 		threadRecord.UpdatedAt = time.Now().UTC()
-		threadRecord, err = s.lineage.SaveSourceCommentThread(ctx, scope, threadRecord)
+		threadRecord, err = lineage.SaveSourceCommentThread(ctx, scope, threadRecord)
 		if err != nil {
 			return stores.SourceCommentThreadRecord{}, nil, err
 		}
@@ -194,15 +240,20 @@ func (s DefaultSourceCommentSyncService) upsertThread(
 	} else {
 		threadRecord.CreatedAt = time.Now().UTC()
 		threadRecord.UpdatedAt = threadRecord.CreatedAt
-		threadRecord, err = s.lineage.CreateSourceCommentThread(ctx, scope, threadRecord)
+		threadRecord, err = lineage.CreateSourceCommentThread(ctx, scope, threadRecord)
 		if err != nil {
 			return stores.SourceCommentThreadRecord{}, nil, err
 		}
 	}
+	if err := lineage.DeleteSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{
+		SourceCommentThreadID: threadRecord.ID,
+	}); err != nil {
+		return stores.SourceCommentThreadRecord{}, nil, err
+	}
 
 	messageRecords := make([]stores.SourceCommentMessageRecord, 0, len(messagesInput))
 	for _, messageInput := range messagesInput {
-		messageRecord, err := s.upsertMessage(ctx, scope, revision, threadRecord, messageInput)
+		messageRecord, err := s.upsertMessage(ctx, lineage, scope, revision, threadRecord, messageInput)
 		if err != nil {
 			return stores.SourceCommentThreadRecord{}, nil, err
 		}
@@ -217,46 +268,9 @@ func (s DefaultSourceCommentSyncService) upsertThread(
 	return threadRecord, messageRecords, nil
 }
 
-func (s DefaultSourceCommentSyncService) upsertMessage(ctx context.Context, scope stores.Scope, revision stores.SourceRevisionRecord, thread stores.SourceCommentThreadRecord, input SourceCommentProviderMessage) (stores.SourceCommentMessageRecord, error) {
-	authorJSON, err := json.Marshal(input.Author)
-	if err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	messageID := deterministicSourceCommentMessageID(revision.ID, thread.ID, input.ProviderMessageID)
-	record := stores.SourceCommentMessageRecord{
-		ID:                      messageID,
-		SourceCommentThreadID:   thread.ID,
-		SourceRevisionID:        revision.ID,
-		ProviderMessageID:       strings.TrimSpace(input.ProviderMessageID),
-		ProviderParentMessageID: strings.TrimSpace(input.ProviderParentMessageID),
-		MessageKind:             firstNonEmpty(strings.TrimSpace(input.MessageKind), stores.SourceCommentMessageKindComment),
-		BodyText:                strings.TrimSpace(input.BodyText),
-		BodyPreview:             sourceCommentPreview(input.BodyText),
-		AuthorJSON:              string(authorJSON),
-	}
-	if ts := firstNonNilTime(input.UpdatedAt, input.CreatedAt); ts != nil {
-		record.UpdatedAt = ts.UTC()
-	}
-	if record.UpdatedAt.IsZero() {
-		record.UpdatedAt = time.Now().UTC()
-	}
-	if input.CreatedAt != nil {
-		record.CreatedAt = input.CreatedAt.UTC()
-	}
-	if record.CreatedAt.IsZero() {
-		record.CreatedAt = record.UpdatedAt
-	}
-	if existing, err := s.lineage.GetSourceCommentMessage(ctx, scope, messageID); err == nil {
-		record.CreatedAt = existing.CreatedAt
-		return s.lineage.SaveSourceCommentMessage(ctx, scope, record)
-	} else if !isNotFound(err) {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	return s.lineage.CreateSourceCommentMessage(ctx, scope, record)
-}
-
 func (s DefaultSourceCommentSyncService) upsertSyncState(
 	ctx context.Context,
+	lineage stores.LineageStore,
 	scope stores.Scope,
 	sourceDocument stores.SourceDocumentRecord,
 	revision stores.SourceRevisionRecord,
@@ -289,17 +303,68 @@ func (s DefaultSourceCommentSyncService) upsertSyncState(
 	if stateRecord.LastSyncedAt == nil && status == SourceManagementCommentSyncSynced {
 		stateRecord.LastSyncedAt = &now
 	}
-	if existing, err := s.lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID); err == nil {
+	if existing, err := lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID); err == nil {
 		if strings.TrimSpace(existing.PayloadSHA256) == payloadSHA && strings.TrimSpace(existing.SyncStatus) == strings.TrimSpace(stateRecord.SyncStatus) {
 			stateRecord.CreatedAt = existing.CreatedAt
 		} else {
 			stateRecord.CreatedAt = existing.CreatedAt
 		}
-		return s.lineage.SaveSourceCommentSyncState(ctx, scope, stateRecord)
+		return lineage.SaveSourceCommentSyncState(ctx, scope, stateRecord)
 	} else if !isNotFound(err) {
 		return stores.SourceCommentSyncStateRecord{}, err
 	}
-	return s.lineage.CreateSourceCommentSyncState(ctx, scope, stateRecord)
+	return lineage.CreateSourceCommentSyncState(ctx, scope, stateRecord)
+}
+
+func (s DefaultSourceCommentSyncService) upsertMessage(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, revision stores.SourceRevisionRecord, thread stores.SourceCommentThreadRecord, input SourceCommentProviderMessage) (stores.SourceCommentMessageRecord, error) {
+	authorJSON, err := json.Marshal(input.Author)
+	if err != nil {
+		return stores.SourceCommentMessageRecord{}, err
+	}
+	messageID := deterministicSourceCommentMessageID(revision.ID, thread.ID, input.ProviderMessageID)
+	record := stores.SourceCommentMessageRecord{
+		ID:                      messageID,
+		SourceCommentThreadID:   thread.ID,
+		SourceRevisionID:        revision.ID,
+		ProviderMessageID:       strings.TrimSpace(input.ProviderMessageID),
+		ProviderParentMessageID: strings.TrimSpace(input.ProviderParentMessageID),
+		MessageKind:             firstNonEmpty(strings.TrimSpace(input.MessageKind), stores.SourceCommentMessageKindComment),
+		BodyText:                strings.TrimSpace(input.BodyText),
+		BodyPreview:             sourceCommentPreview(input.BodyText),
+		AuthorJSON:              string(authorJSON),
+	}
+	if ts := firstNonNilTime(input.UpdatedAt, input.CreatedAt); ts != nil {
+		record.UpdatedAt = ts.UTC()
+	}
+	if record.UpdatedAt.IsZero() {
+		record.UpdatedAt = time.Now().UTC()
+	}
+	if input.CreatedAt != nil {
+		record.CreatedAt = input.CreatedAt.UTC()
+	}
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = record.UpdatedAt
+	}
+	return lineage.CreateSourceCommentMessage(ctx, scope, record)
+}
+
+func (s DefaultSourceCommentSyncService) reconcileDeletedThreads(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, existing []stores.SourceCommentThreadRecord, input SourceCommentSyncInput, incomingThreadIDs map[string]struct{}, now time.Time) error {
+	for _, thread := range existing {
+		if _, ok := incomingThreadIDs[strings.TrimSpace(thread.ID)]; ok {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(thread.Status), stores.SourceCommentThreadStatusDeleted) {
+			continue
+		}
+		thread.Status = stores.SourceCommentThreadStatusDeleted
+		thread.SyncStatus = firstNonEmpty(strings.TrimSpace(input.SyncStatus), SourceManagementCommentSyncSynced)
+		thread.LastSyncedAt = cloneSourceTimePtr(firstNonNilTime(input.SyncedAt, &now))
+		thread.UpdatedAt = now
+		if _, err := lineage.SaveSourceCommentThread(ctx, scope, thread); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sourceCommentSyncPayload(input SourceCommentSyncInput) (string, string, error) {

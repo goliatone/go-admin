@@ -134,10 +134,14 @@ func FormatV2FreezeDate(value string) (string, error) {
 }
 
 func requiredV2SourceManagementTrackedFiles(repoRoot string) []string {
-	return []string{
+	required := []string{
 		filepath.ToSlash(strings.TrimPrefix(DefaultV2SourceManagementContractManifestPath(repoRoot), strings.TrimRight(repoRoot, string(filepath.Separator))+string(filepath.Separator))),
 		filepath.ToSlash(strings.TrimPrefix(DefaultV2SourceManagementFixtureSnapshotPath(repoRoot), strings.TrimRight(repoRoot, string(filepath.Separator))+string(filepath.Separator))),
 	}
+	for _, path := range DefaultV2SourceManagementContractSourcePaths() {
+		required = append(required, filepath.ToSlash(strings.TrimSpace(path)))
+	}
+	return required
 }
 
 func containsTrackedFile(trackedFiles []string, target string) bool {

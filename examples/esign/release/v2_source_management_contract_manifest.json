@@ -274,7 +274,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -490,7 +490,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -628,7 +628,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -700,7 +700,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         },
@@ -748,7 +748,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -805,7 +805,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -877,7 +877,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -919,7 +919,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1212,7 +1212,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1293,7 +1293,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1341,7 +1341,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         },
@@ -1394,7 +1394,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1463,7 +1463,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1647,7 +1647,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }
@@ -1689,7 +1689,7 @@
         },
         {
           "name": "links",
-          "optional": true,
+          "optional": false,
           "type": "object",
           "ref": "SourceManagementLinks"
         }

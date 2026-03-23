@@ -109,3 +109,16 @@ func TestV2SourceManagementContractManifestJSONRemainsProviderNeutral(t *testing
 		t.Fatalf("expected provider-neutral manifest keys: %v", err)
 	}
 }
+
+func TestDefaultV2SourceManagementContractSourcePathsTracksManifestInputs(t *testing.T) {
+	manifest := BuildV2SourceManagementContractManifest()
+	paths := DefaultV2SourceManagementContractSourcePaths()
+	if len(paths) != len(manifest.GeneratedFrom) {
+		t.Fatalf("expected contract source paths to match generated_from list, got %+v vs %+v", paths, manifest.GeneratedFrom)
+	}
+	for idx, path := range manifest.GeneratedFrom {
+		if strings.TrimSpace(paths[idx]) != strings.TrimSpace(path) {
+			t.Fatalf("expected contract source path %d to be %q, got %q", idx, path, paths[idx])
+		}
+	}
+}

@@ -223,6 +223,14 @@ func (m *ESignModule) DefaultScope() stores.Scope {
 	return m.defaultScope
 }
 
+// SourceReadModelService returns the backend-owned source-management read models.
+func (m *ESignModule) SourceReadModelService() services.SourceReadModelService {
+	if m == nil {
+		return nil
+	}
+	return m.sourceReadModels
+}
+
 // MaxSourcePDFBytes returns the configured max source PDF size.
 func (m *ESignModule) MaxSourcePDFBytes() int64 {
 	if m == nil || m.settings.MaxSourcePDFBytes <= 0 {
@@ -789,12 +797,19 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	var sourceReadModels services.SourceReadModelService
 	var lineageDiagnostics services.LineageDiagnosticsService
 	if lineageStore, ok := any(m.store).(stores.LineageStore); ok {
+		sourceSearch, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+			Lineage: lineageStore,
+		})
+		if err != nil {
+			return err
+		}
 		sourceReadModels = services.NewDefaultSourceReadModelService(
 			m.store,
 			m.store,
 			lineageStore,
 			services.WithSourceReadModelImportRuns(m.store),
 			services.WithSourceReadModelJobRuns(m.store),
+			services.WithSourceReadModelSearchService(sourceSearch),
 		)
 		lineageDiagnostics = services.NewDefaultLineageDiagnosticsService(
 			m.store,
@@ -1224,9 +1239,13 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 
 	documentsPath := joinBasePath(m.basePath, path.Join("content", esignDocumentsPanelID))
 	agreementsPath := joinBasePath(m.basePath, path.Join("content", esignAgreementsPanelID))
+	sourceBrowserPath := joinBasePath(m.basePath, path.Join("esign", "sources"))
+	sourceSearchPath := joinBasePath(m.basePath, path.Join("esign", "source-search"))
 
 	agreementsPos := 15
 	documentsPos := 16
+	sourceBrowserPos := 17
+	sourceSearchPos := 18
 	items := []coreadmin.MenuItem{
 		{
 			ID:    "esign.agreements",
@@ -1256,9 +1275,37 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 			Menu:        menuCode,
 			Position:    &documentsPos,
 		},
+		{
+			ID:    "esign.sources",
+			Label: "Source Browser",
+			Icon:  "git-branch",
+			Target: map[string]any{
+				"type": "url",
+				"path": sourceBrowserPath,
+				"key":  "esign_sources",
+			},
+			Permissions: []string{permissions.AdminESignView},
+			Locale:      locale,
+			Menu:        menuCode,
+			Position:    &sourceBrowserPos,
+		},
+		{
+			ID:    "esign.source_search",
+			Label: "Source Search",
+			Icon:  "search",
+			Target: map[string]any{
+				"type": "url",
+				"path": sourceSearchPath,
+				"key":  "esign_source_search",
+			},
+			Permissions: []string{permissions.AdminESignView},
+			Locale:      locale,
+			Menu:        menuCode,
+			Position:    &sourceSearchPos,
+		},
 	}
 	if m.GoogleIntegrationEnabled() {
-		integrationsPos := 17
+		integrationsPos := 19
 		items = append(items, coreadmin.MenuItem{
 			ID:    "esign.integrations",
 			Label: "Integrations",
@@ -1572,8 +1619,8 @@ func (m *ESignModule) validateLineageRuntimeWiring(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if _, ok := any(m.store).(stores.LineageStore); !ok {
-		return nil
+	if _, err := release.RequireV2SourceManagementLineageStore(m.store); err != nil {
+		return fmt.Errorf("esign module: %w", err)
 	}
 	if m.sourceReadModels == nil {
 		return fmt.Errorf("esign module: source read model service is required when lineage store is enabled")

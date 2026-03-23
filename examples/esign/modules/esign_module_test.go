@@ -240,6 +240,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !hasMenuTarget(menu, esignDocumentsPanelID, "/admin/content/esign_documents") {
 		t.Fatalf("expected e-sign documents menu entry in navigation")
 	}
+	if !hasMenuTarget(menu, "esign_sources", "/admin/esign/sources") {
+		t.Fatalf("expected source browser menu entry in navigation")
+	}
+	if !hasMenuTarget(menu, "esign_source_search", "/admin/esign/source-search") {
+		t.Fatalf("expected source search menu entry in navigation")
+	}
 
 	providers := adm.Dashboard().Providers()
 	for _, code := range []string{

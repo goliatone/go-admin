@@ -95,6 +95,19 @@ func TestValidateLineageRuntimeWiringRequiresReadModelsWhenLineageEnabled(t *tes
 	}
 }
 
+func TestValidateLineageRuntimeWiringRequiresLineageCapableStore(t *testing.T) {
+	module := &ESignModule{
+		store: nonLineageModuleStore{Store: stores.NewInMemoryStore()},
+	}
+	err := module.validateLineageRuntimeWiring(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error when store does not expose lineage contracts")
+	}
+	if !strings.Contains(err.Error(), "lineage-capable store is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestValidateLineageRuntimeWiringRequiresDiagnosticsWhenLineageEnabled(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	module := &ESignModule{
@@ -246,6 +259,10 @@ func TestBuildPDFRemediationCommandServiceRejectsNonAllowlistedExecutable(t *tes
 
 type startupGoogleIntegrationStub struct {
 	health services.GoogleProviderHealthStatus
+}
+
+type nonLineageModuleStore struct {
+	stores.Store
 }
 
 func (startupGoogleIntegrationStub) Connect(context.Context, stores.Scope, services.GoogleConnectInput) (services.GoogleOAuthStatus, error) {

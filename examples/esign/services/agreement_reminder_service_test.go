@@ -525,7 +525,7 @@ func TestAgreementReminderServiceSweepSendsDueReviewReminder(t *testing.T) {
 		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
 			t.Fatalf("Unmarshal outbox payload: %v", err)
 		}
-		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participant.ID+":1" {
+		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participant.ReviewID+":1" {
 			continue
 		}
 		if payload.Notification != string(NotificationReviewInvitation) {
@@ -558,6 +558,97 @@ func TestAgreementReminderServiceSweepSendsDueReviewReminder(t *testing.T) {
 	}
 	if !foundAutoAudit {
 		t.Fatalf("expected auto reminder audit event, got %+v", events)
+	}
+}
+
+func TestAgreementReminderServiceSweepSendsReviewReminderBatchToAllPendingReviewers(t *testing.T) {
+	now := time.Date(2026, 3, 10, 2, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.BatchSize = 10
+	cfg.Reminders.ClaimLeaseSeconds = 120
+	cfg.Reminders.IntervalMinutes = 60
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.MaxReminders = 6
+	cfg.Reminders.JitterPercent = 0
+	cfg.Reminders.RecentViewGraceMinutes = 120
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	current := now.Add(-2 * time.Hour)
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreements, agreement, participants := seedDraftAgreementInReviewWithExternalReviewers(t, store, scope, &current)
+
+	current = now.Add(-5 * time.Minute)
+	appendReviewViewedAuditEvent(t, store, scope, agreement.ID, participants[1], current)
+
+	reminders := NewAgreementReminderService(
+		store,
+		agreements,
+		WithAgreementReminderClock(func() time.Time { return current }),
+		WithAgreementReminderWorkerID("test-sweep"),
+	)
+
+	current = now
+	result, err := reminders.Sweep(context.Background(), scope)
+	if err != nil {
+		t.Fatalf("Sweep: %v", err)
+	}
+	if result.Claimed != 2 || result.Sent != 2 {
+		t.Fatalf("expected two scheduled review reminders sent, got %+v", result)
+	}
+
+	outbox, err := store.ListOutboxMessages(context.Background(), scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 4 {
+		t.Fatalf("expected two initial invites plus two reminders, got %+v", outbox)
+	}
+	reminderCount := 0
+	for _, record := range outbox {
+		var payload EmailSendAgreementNotificationOutboxPayload
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", err)
+		}
+		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participants[0].ReviewID+":1" {
+			continue
+		}
+		reminderCount++
+	}
+	if reminderCount != 2 {
+		t.Fatalf("expected two review reminder outbox payloads in one batch, got %d", reminderCount)
+	}
+
+	events, err := store.ListForAgreement(context.Background(), scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	foundAutoBatch := false
+	for _, event := range events {
+		if event.EventType != "agreement.review_notified" {
+			continue
+		}
+		metadata := map[string]any{}
+		if err := json.Unmarshal([]byte(event.MetadataJSON), &metadata); err != nil {
+			t.Fatalf("Unmarshal audit metadata: %v", err)
+		}
+		if strings.TrimSpace(fmt.Sprint(metadata["source"])) != ReviewNotificationSourceAutoReminder {
+			continue
+		}
+		if got := strings.TrimSpace(fmt.Sprint(metadata["notified_count"])); got != "2" {
+			continue
+		}
+		rawParticipants, ok := metadata["review_participants"].([]any)
+		if !ok || len(rawParticipants) != 2 {
+			t.Fatalf("expected batched review participants metadata, got %+v", metadata)
+		}
+		foundAutoBatch = true
+		break
+	}
+	if !foundAutoBatch {
+		t.Fatalf("expected batched auto reminder audit event, got %+v", events)
 	}
 }
 
@@ -965,4 +1056,100 @@ func seedDraftAgreementInReviewWithReviewer(
 		t.Fatalf("expected one review participant, got %+v", summary.Participants)
 	}
 	return agreements, agreement, summary.Participants[0]
+}
+
+func seedDraftAgreementInReviewWithExternalReviewers(
+	t *testing.T,
+	store *stores.InMemoryStore,
+	scope stores.Scope,
+	current *time.Time,
+) (AgreementService, stores.AgreementRecord, []stores.AgreementReviewParticipantRecord) {
+	t.Helper()
+	ctx := context.Background()
+	docSvc := NewDocumentService(store, WithDocumentClock(func() time.Time { return current.UTC() }))
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:              "Review Reminder Document",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-review-reminder-batch/original.pdf",
+		SourceOriginalName: "review-reminder-batch.pdf",
+		PDF:                samplePDF(2),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreements := NewAgreementService(
+		store,
+		WithAgreementClock(func() time.Time { return current.UTC() }),
+		WithAgreementNotificationOutbox(store),
+	)
+	agreement, err := agreements.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Review Reminder Agreement",
+		Message:         "Please review",
+		CreatedByUserID: "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	summary, err := agreements.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+		Gate:            stores.AgreementReviewGateApproveBeforeSend,
+		CommentsEnabled: true,
+		ReviewParticipants: []ReviewParticipantInput{
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "pm@team.com",
+				DisplayName:     "Project Manager",
+				CanComment:      true,
+				CanApprove:      false,
+			},
+			{
+				ParticipantType: stores.AgreementReviewParticipantTypeExternal,
+				Email:           "legal@team.com",
+				DisplayName:     "Legal",
+				CanComment:      true,
+				CanApprove:      true,
+			},
+		},
+		RequestedByUserID: "ops-user",
+		ActorType:         "user",
+		ActorID:           "ops-user",
+		CorrelationID:     "initial-review-open-batch",
+	})
+	if err != nil {
+		t.Fatalf("OpenReview: %v", err)
+	}
+	if len(summary.Participants) != 2 {
+		t.Fatalf("expected two review participants, got %+v", summary.Participants)
+	}
+	return agreements, agreement, summary.Participants
+}
+
+func appendReviewViewedAuditEvent(
+	t *testing.T,
+	store *stores.InMemoryStore,
+	scope stores.Scope,
+	agreementID string,
+	participant stores.AgreementReviewParticipantRecord,
+	createdAt time.Time,
+) {
+	t.Helper()
+	metadata, err := json.Marshal(map[string]any{
+		"participant_email": participant.Email,
+		"participant_id":    participant.ID,
+		"participant_type":  participant.ParticipantType,
+		"recipient_id":      participant.RecipientID,
+		"review_id":         participant.ReviewID,
+	})
+	if err != nil {
+		t.Fatalf("Marshal review_viewed metadata: %v", err)
+	}
+	if _, err := store.Append(context.Background(), scope, stores.AuditEventRecord{
+		AgreementID:  agreementID,
+		EventType:    "agreement.review_viewed",
+		ActorType:    "reviewer",
+		ActorID:      participant.ID,
+		MetadataJSON: string(metadata),
+		CreatedAt:    createdAt,
+	}); err != nil {
+		t.Fatalf("Append review_viewed event: %v", err)
+	}
 }

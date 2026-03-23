@@ -643,6 +643,9 @@ func registerESignWebRoutes(
 			return redirectPathAlias(c, legacyLandingPath, landingPath)
 		}))
 	}
+	if err := registerESignSourceManagementUIRoutes(r, cfg, adm, authn, esignModule); err != nil {
+		return err
+	}
 	if err := registerESignGoogleIntegrationUIRoutes(r, cfg, adm, authn, routes, esignModule); err != nil {
 		return err
 	}
@@ -1879,17 +1882,26 @@ func buildSignerReviewViewContext(token, apiBasePath, signerBasePath, resourceBa
 	if profileTTLDays < 1 || profileTTLDays > 365 {
 		profileTTLDays = 90
 	}
+	reviewAPIPath := strings.TrimRight(strings.TrimSpace(resourceBasePath), "/") + "/review"
+	assetContractPath := strings.TrimRight(strings.TrimSpace(resourceBasePath), "/") + "/assets"
+	telemetryPath := ""
+	if strings.TrimSpace(token) != "" {
+		assetContractPath = strings.TrimRight(strings.TrimSpace(apiBasePath), "/") + "/assets/" + url.PathEscape(token)
+		telemetryPath = strings.TrimRight(strings.TrimSpace(apiBasePath), "/") + "/telemetry/" + url.PathEscape(token)
+	}
 	return router.ViewContext{
 		"token":                           token,
 		"api_base_path":                   apiBasePath,
 		"signer_base_path":                signerBasePath,
 		"resource_base_path":              resourceBasePath,
+		"review_api_path":                 reviewAPIPath,
+		"asset_contract_path":             assetContractPath,
+		"telemetry_path":                  telemetryPath,
 		"flow_mode":                       signerFlowModeUnified,
 		"profile_mode":                    resolveSignerProfileMode(),
 		"profile_ttl_days":                profileTTLDays,
 		"profile_persist_drawn_signature": runtimeCfg.Signer.ProfilePersistDrawnSignature,
 		"profile_endpoint_base_path":      apiBasePath,
-		"document_url":                    strings.TrimRight(strings.TrimSpace(resourceBasePath), "/") + "/assets?asset=preview",
 		"session":                         sessionCtx,
 		"viewer":                          viewerCtx,
 		"agreement": map[string]any{

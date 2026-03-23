@@ -109,6 +109,10 @@ func DefaultV2SourceManagementLedgerPath(repoRoot string) string {
 	return filepath.Join(strings.TrimSpace(repoRoot), "examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md")
 }
 
+func DefaultV2SourceManagementContractSourcePaths() []string {
+	return append([]string(nil), BuildV2SourceManagementContractManifest().GeneratedFrom...)
+}
+
 func collectV2SourceManagementSchemaTypes() []reflect.Type {
 	rootTypes := []reflect.Type{
 		typeOf[services.SourceListQuery](),
@@ -155,8 +159,8 @@ func collectNamedStructTypes(value reflect.Type, seen map[reflect.Type]struct{})
 			return
 		}
 		seen[value] = struct{}{}
-		for i := 0; i < value.NumField(); i++ {
-			field := value.Field(i)
+		for field := range value.Fields() {
+			field := field
 			if field.PkgPath != "" {
 				continue
 			}
@@ -178,8 +182,8 @@ func buildV2ContractSchema(value reflect.Type) V2SourceManagementContractSchema 
 		Name: value.Name(),
 		Kind: value.Kind().String(),
 	}
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
+	for field := range value.Fields() {
+		field := field
 		if field.PkgPath != "" {
 			continue
 		}
@@ -273,7 +277,7 @@ func parseJSONFieldName(field reflect.StructField) (string, bool) {
 }
 
 func typeOf[T any]() reflect.Type {
-	return reflect.TypeOf((*T)(nil)).Elem()
+	return reflect.TypeFor[T]()
 }
 
 func firstNonEmpty(values ...string) string {

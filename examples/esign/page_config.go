@@ -25,6 +25,12 @@ const (
 	eSignPageGoogleIntegration = "admin.integrations.google"
 	eSignPageGoogleCallback    = "admin.integrations.google_callback"
 	eSignPageGoogleDrivePicker = "admin.integrations.google_drive_picker"
+	eSignPageSourceBrowser     = "admin.sources.browser"
+	eSignPageSourceDetail      = "admin.sources.detail"
+	eSignPageSourceRevision    = "admin.sources.revision_inspector"
+	eSignPageSourceComments    = "admin.sources.comment_inspector"
+	eSignPageSourceArtifacts   = "admin.sources.artifact_inspector"
+	eSignPageSourceSearch      = "admin.sources.search"
 	eSignPageSignerReview      = "signer.review"
 	eSignPageSignerComplete    = "signer.complete"
 	eSignPageSignerDeclined    = "signer.declined"
@@ -34,6 +40,7 @@ const (
 	eSignModuleAssetDocumentIngestion = "dist/esign/index.js"
 	eSignModuleAssetAgreementForm     = "dist/esign/index.js"
 	eSignModuleAssetGoogleIntegration = "dist/esign/index.js"
+	eSignModuleAssetSourceManagement  = "dist/esign/index.js"
 )
 
 var eSignMigratedPageModuleAssets = map[string]string{
@@ -43,6 +50,12 @@ var eSignMigratedPageModuleAssets = map[string]string{
 	eSignPageGoogleIntegration: eSignModuleAssetGoogleIntegration,
 	eSignPageGoogleCallback:    eSignModuleAssetGoogleIntegration,
 	eSignPageGoogleDrivePicker: eSignModuleAssetGoogleIntegration,
+	eSignPageSourceBrowser:     eSignModuleAssetSourceManagement,
+	eSignPageSourceDetail:      eSignModuleAssetSourceManagement,
+	eSignPageSourceRevision:    eSignModuleAssetSourceManagement,
+	eSignPageSourceComments:    eSignModuleAssetSourceManagement,
+	eSignPageSourceArtifacts:   eSignModuleAssetSourceManagement,
+	eSignPageSourceSearch:      eSignModuleAssetSourceManagement,
 }
 
 type eSignPageConfig struct {
@@ -69,6 +82,8 @@ func buildESignAdminLandingPageConfig(basePath, apiBasePath string, googleEnable
 		Routes: map[string]string{
 			"documents_index":  path.Join(resolvedBasePath, "content", "esign_documents"),
 			"agreements_index": path.Join(resolvedBasePath, "content", "esign_agreements"),
+			"source_browser":   path.Join(resolvedBasePath, "esign", "sources"),
+			"source_search":    path.Join(resolvedBasePath, "esign", "source-search"),
 		},
 	}
 }
@@ -164,6 +179,27 @@ func buildESignGoogleIntegrationPageConfig(
 			"google_redirect_uri": strings.TrimSpace(redirectURI),
 			"google_client_id":    strings.TrimSpace(clientID),
 		},
+	}
+}
+
+func buildESignSourceManagementPageConfig(
+	page string,
+	basePath string,
+	apiBasePath string,
+	routes map[string]string,
+	context map[string]any,
+) eSignPageConfig {
+	resolvedBasePath := normalizeESignBasePath(basePath)
+	return eSignPageConfig{
+		Page:        strings.TrimSpace(page),
+		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetSourceManagement),
+		BasePath:    resolvedBasePath,
+		APIBasePath: normalizeAPIBasePath(apiBasePath),
+		Routes:      cloneStringMap(routes),
+		Features: map[string]bool{
+			"source_management_enabled": true,
+		},
+		Context: cloneAnyMap(context),
 	}
 }
 
@@ -288,6 +324,21 @@ func cloneStringMap(in map[string]string) map[string]string {
 			continue
 		}
 		out[trimmedKey] = strings.TrimSpace(value)
+	}
+	return out
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		out[trimmedKey] = value
 	}
 	return out
 }

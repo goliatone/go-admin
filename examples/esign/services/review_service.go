@@ -60,15 +60,16 @@ type ReviewApproveOnBehalfInput struct {
 }
 
 type ReviewNotifyInput struct {
-	ParticipantID string `json:"participant_id"`
-	RecipientID   string `json:"recipient_id"`
-	RequestedByID string `json:"requested_by_id"`
-	ActorType     string `json:"actor_type"`
-	ActorID       string `json:"actor_id"`
-	IPAddress     string `json:"ip_address"`
-	CorrelationID string `json:"correlation_id"`
-	Source        string `json:"source"`
-	Reason        string `json:"reason"`
+	ParticipantIDs []string `json:"participant_ids"`
+	ParticipantID  string   `json:"participant_id"`
+	RecipientID    string   `json:"recipient_id"`
+	RequestedByID  string   `json:"requested_by_id"`
+	ActorType      string   `json:"actor_type"`
+	ActorID        string   `json:"actor_id"`
+	IPAddress      string   `json:"ip_address"`
+	CorrelationID  string   `json:"correlation_id"`
+	Source         string   `json:"source"`
+	Reason         string   `json:"reason"`
 }
 
 const (
@@ -322,7 +323,7 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 		if err != nil {
 			return err
 		}
-		targets, err := resolveReviewNotificationTargets(participants, input.ParticipantID, input.RecipientID)
+		targets, err := resolveReviewNotificationTargets(participants, input.ParticipantIDs, input.ParticipantID, input.RecipientID)
 		if err != nil {
 			return err
 		}
@@ -1271,8 +1272,39 @@ func normalizeReviewNotificationSource(source string) string {
 
 func resolveReviewNotificationTargets(
 	participants []stores.AgreementReviewParticipantRecord,
+	participantIDs []string,
 	participantID, recipientID string,
 ) ([]stores.AgreementReviewParticipantRecord, error) {
+	cleanIDs := make([]string, 0, len(participantIDs))
+	seen := make(map[string]struct{}, len(participantIDs))
+	for _, rawID := range participantIDs {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		cleanIDs = append(cleanIDs, id)
+	}
+	if len(cleanIDs) > 0 {
+		out := make([]stores.AgreementReviewParticipantRecord, 0, len(cleanIDs))
+		for _, id := range cleanIDs {
+			target, _, err := findReviewParticipant(participants, id, "")
+			if err != nil {
+				return nil, err
+			}
+			if reviewParticipantEffectiveDecisionStatus(target) != stores.AgreementReviewDecisionPending {
+				return nil, domainValidationError("agreement_review_participants", "decision_status", "review notifications require pending reviewers")
+			}
+			out = append(out, target)
+		}
+		if len(out) == 0 {
+			return nil, domainValidationError("agreement_review_participants", "decision_status", "no pending reviewers to notify")
+		}
+		return out, nil
+	}
 	participantID = strings.TrimSpace(participantID)
 	recipientID = strings.TrimSpace(recipientID)
 	if participantID != "" || recipientID != "" {

@@ -1914,6 +1914,21 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["flowMode"])); got != "unified" {
 		t.Fatalf("expected unified flow mode in signer review config, got %q payload=%+v", got, reviewConfig)
 	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["resourceBasePath"])); got != "/api/v1/esign/signing/session/"+url.PathEscape(signerToken) {
+		t.Fatalf("expected resourceBasePath to match signer session route, got %q payload=%+v", got, reviewConfig)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["reviewApiPath"])); got != "/api/v1/esign/signing/session/"+url.PathEscape(signerToken)+"/review" {
+		t.Fatalf("expected reviewApiPath to match signer review route, got %q payload=%+v", got, reviewConfig)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["assetContractPath"])); got != "/api/v1/esign/signing/assets/"+url.PathEscape(signerToken) {
+		t.Fatalf("expected assetContractPath to match signer assets route, got %q payload=%+v", got, reviewConfig)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["telemetryPath"])); got != "/api/v1/esign/signing/telemetry/"+url.PathEscape(signerToken) {
+		t.Fatalf("expected telemetryPath to match signer telemetry route, got %q payload=%+v", got, reviewConfig)
+	}
+	if _, exists := reviewConfig["documentUrl"]; exists {
+		t.Fatalf("expected signer review config to omit documentUrl, got payload=%+v", reviewConfig)
+	}
 	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["uiMode"])); got != services.SignerSessionUIModeSign {
 		t.Fatalf("expected uiMode %q in signer review config, got %q payload=%+v", services.SignerSessionUIModeSign, got, reviewConfig)
 	}
@@ -2057,6 +2072,55 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	}
 }
 
+func TestBuildSignerReviewViewContextPinsClientEndpointsToBackendRoutes(t *testing.T) {
+	session := services.SignerSessionContext{
+		SessionKind:  "reviewer",
+		AgreementID:  "agreement-1",
+		DocumentName: "Agreement.pdf",
+		PageCount:    2,
+	}
+
+	publicCtx := buildSignerReviewViewContext(
+		"token-123",
+		"/api/v1/esign/signing",
+		"/review",
+		"/api/v1/esign/signing/session/token-123",
+		session,
+	)
+	if got := strings.TrimSpace(fmt.Sprint(publicCtx["review_api_path"])); got != "/api/v1/esign/signing/session/token-123/review" {
+		t.Fatalf("expected public review_api_path, got %q", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(publicCtx["asset_contract_path"])); got != "/api/v1/esign/signing/assets/token-123" {
+		t.Fatalf("expected public asset_contract_path, got %q", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(publicCtx["telemetry_path"])); got != "/api/v1/esign/signing/telemetry/token-123" {
+		t.Fatalf("expected public telemetry_path, got %q", got)
+	}
+	if _, exists := publicCtx["document_url"]; exists {
+		t.Fatalf("expected public signer review context to omit document_url, got %+v", publicCtx)
+	}
+
+	senderCtx := buildSignerReviewViewContext(
+		"",
+		"/admin/api/v1/esign",
+		"/admin/esign/agreements",
+		"/admin/api/v1/esign/agreements/agreement-1/viewer",
+		session,
+	)
+	if got := strings.TrimSpace(fmt.Sprint(senderCtx["review_api_path"])); got != "/admin/api/v1/esign/agreements/agreement-1/viewer/review" {
+		t.Fatalf("expected sender review_api_path, got %q", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(senderCtx["asset_contract_path"])); got != "/admin/api/v1/esign/agreements/agreement-1/viewer/assets" {
+		t.Fatalf("expected sender asset_contract_path, got %q", got)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(senderCtx["telemetry_path"])); got != "" {
+		t.Fatalf("expected sender telemetry_path to be empty, got %q", got)
+	}
+	if _, exists := senderCtx["document_url"]; exists {
+		t.Fatalf("expected sender signer review context to omit document_url, got %+v", senderCtx)
+	}
+}
+
 func setupESignRuntimeWebApp(t *testing.T) *fiber.App {
 	t.Helper()
 	setESignRuntimeTestConfig(false)
@@ -2105,6 +2169,14 @@ type eSignRuntimeWebFixture struct {
 }
 
 func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnabled bool) (eSignRuntimeWebFixture, error) {
+	return newESignRuntimeWebFixtureForTestsWithOptions(t, googleEnabled, eSignRuntimeWebFixtureOptions{})
+}
+
+type eSignRuntimeWebFixtureOptions struct {
+	StoreWrap func(stores.Store) stores.Store
+}
+
+func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bool, opts eSignRuntimeWebFixtureOptions) (eSignRuntimeWebFixture, error) {
 	if t != nil {
 		t.Helper()
 	}
@@ -2156,6 +2228,9 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnab
 	}
 	if t != nil && storeCleanup != nil {
 		t.Cleanup(func() { _ = storeCleanup() })
+	}
+	if opts.StoreWrap != nil {
+		bootstrapStore = opts.StoreWrap(bootstrapStore)
 	}
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithUploadDir(resolveESignDiskAssetsDir()).

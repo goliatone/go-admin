@@ -1,9 +1,11 @@
 {
   "tracked_files": [
     "examples/esign/release/v2_source_management_contract_manifest.json",
-    "pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json"
+    "pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json",
+    "examples/esign/services/lineage_contracts.go",
+    "examples/esign/handlers/register_lineage_routes.go"
   ],
-  "contract_hash": "276d5ad0c8a6296b8459667f69badae06d8c1f0d6e0dcc1fa994ca17044a00af",
+  "contract_hash": "75b72c7a80b112d6af1b5349b68676760617f204a7f9d49f165a6f88e677988d",
   "freeze_date": "2026-02-16",
   "release_owner": "backend-release-owner",
   "ledger_path": "examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md",

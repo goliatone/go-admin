@@ -634,13 +634,46 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 	searchDocs, err := lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{
 		SourceRevisionID: revision.ID,
 		ResultKind:       stores.SourceSearchResultKindSourceRevision,
-		HasComments:      boolPtr(true),
+		HasComments:      new(true),
 	})
 	if err != nil {
 		t.Fatalf("ListSourceSearchDocuments: %v", err)
 	}
 	if len(searchDocs) != 1 || searchDocs[0].ID != searchDoc.ID {
 		t.Fatalf("expected search document %q, got %+v", searchDoc.ID, searchDocs)
+	}
+	thread.Status = stores.SourceCommentThreadStatusDeleted
+	thread.UpdatedAt = now.Add(time.Minute)
+	if _, err := lineage.SaveSourceCommentThread(ctx, scope, thread); err != nil {
+		t.Fatalf("SaveSourceCommentThread deleted: %v", err)
+	}
+	activeThreads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{SourceDocumentID: document.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentThreads active-only: %v", err)
+	}
+	if len(activeThreads) != 0 {
+		t.Fatalf("expected deleted thread to stay hidden by default, got %+v", activeThreads)
+	}
+	deletedThreads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
+		SourceDocumentID: document.ID,
+		Status:           stores.SourceCommentThreadStatusDeleted,
+		IncludeDeleted:   true,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceCommentThreads deleted: %v", err)
+	}
+	if len(deletedThreads) != 1 || deletedThreads[0].ID != thread.ID {
+		t.Fatalf("expected deleted thread query to return %q, got %+v", thread.ID, deletedThreads)
+	}
+	if err := lineage.DeleteSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{SourceCommentThreadID: thread.ID}); err != nil {
+		t.Fatalf("DeleteSourceCommentMessages: %v", err)
+	}
+	deletedMessages, err := lineage.ListSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentMessages after delete: %v", err)
+	}
+	if len(deletedMessages) != 0 {
+		t.Fatalf("expected deleted source comment messages, got %+v", deletedMessages)
 	}
 
 	if err := lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID}); err != nil {

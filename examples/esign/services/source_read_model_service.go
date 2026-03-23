@@ -53,6 +53,15 @@ func WithSourceReadModelJobRuns(store stores.JobRunStore) SourceReadModelService
 	}
 }
 
+func WithSourceReadModelSearchService(service SourceSearchService) SourceReadModelServiceOption {
+	return func(s *DefaultSourceReadModelService) {
+		if s == nil || service == nil {
+			return
+		}
+		s.sourceSearch = service
+	}
+}
+
 func WithSourceReadModelDiagnosticsBasePath(basePath string) SourceReadModelServiceOption {
 	return func(s *DefaultSourceReadModelService) {
 		if s == nil {

@@ -573,7 +573,7 @@ func TestPhase13InMemoryLineageStoreCRUDForSourceCommentsAndSearchDocuments(t *t
 	if len(states) != 1 || states[0].ID != state.ID {
 		t.Fatalf("expected sync state %q, got %+v", state.ID, states)
 	}
-	searchDocs, err := store.ListSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceRevisionID: revision.ID, HasComments: boolPtr(true)})
+	searchDocs, err := store.ListSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceRevisionID: revision.ID, HasComments: new(true)})
 	if err != nil {
 		t.Fatalf("ListSourceSearchDocuments: %v", err)
 	}
@@ -590,6 +590,39 @@ func TestPhase13InMemoryLineageStoreCRUDForSourceCommentsAndSearchDocuments(t *t
 	searchDoc.UpdatedAt = now.Add(time.Minute)
 	if _, err := store.SaveSourceSearchDocument(ctx, scope, searchDoc); err != nil {
 		t.Fatalf("SaveSourceSearchDocument: %v", err)
+	}
+	thread.Status = SourceCommentThreadStatusDeleted
+	thread.UpdatedAt = now.Add(2 * time.Minute)
+	if _, err := store.SaveSourceCommentThread(ctx, scope, thread); err != nil {
+		t.Fatalf("SaveSourceCommentThread deleted: %v", err)
+	}
+	activeThreads, err := store.ListSourceCommentThreads(ctx, scope, SourceCommentThreadQuery{SourceRevisionID: revision.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentThreads active-only: %v", err)
+	}
+	if len(activeThreads) != 0 {
+		t.Fatalf("expected deleted thread to stay hidden by default, got %+v", activeThreads)
+	}
+	deletedThreads, err := store.ListSourceCommentThreads(ctx, scope, SourceCommentThreadQuery{
+		SourceRevisionID: revision.ID,
+		Status:           SourceCommentThreadStatusDeleted,
+		IncludeDeleted:   true,
+	})
+	if err != nil {
+		t.Fatalf("ListSourceCommentThreads deleted: %v", err)
+	}
+	if len(deletedThreads) != 1 || deletedThreads[0].ID != thread.ID {
+		t.Fatalf("expected deleted thread query to return %q, got %+v", thread.ID, deletedThreads)
+	}
+	if err := store.DeleteSourceCommentMessages(ctx, scope, SourceCommentMessageQuery{SourceCommentThreadID: thread.ID}); err != nil {
+		t.Fatalf("DeleteSourceCommentMessages: %v", err)
+	}
+	deletedMessages, err := store.ListSourceCommentMessages(ctx, scope, SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
+	if err != nil {
+		t.Fatalf("ListSourceCommentMessages after delete: %v", err)
+	}
+	if len(deletedMessages) != 0 {
+		t.Fatalf("expected deleted source comment messages, got %+v", deletedMessages)
 	}
 	if err := store.DeleteSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceDocumentID: document.ID}); err != nil {
 		t.Fatalf("DeleteSourceSearchDocuments: %v", err)

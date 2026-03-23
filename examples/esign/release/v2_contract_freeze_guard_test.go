@@ -100,3 +100,34 @@ func TestValidateV2ContractFreezeGuardRequiresSourceManagementCoverage(t *testin
 		t.Fatalf("expected tracked file coverage issue, got %s", joined)
 	}
 }
+
+func TestValidateV2ContractFreezeGuardRequiresContractSourceInputs(t *testing.T) {
+	repoRoot, err := DefaultRepoRoot()
+	if err != nil {
+		t.Fatalf("DefaultRepoRoot: %v", err)
+	}
+	guardPath := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
+	guard, err := LoadV2ContractFreezeGuard(guardPath)
+	if err != nil {
+		t.Fatalf("LoadV2ContractFreezeGuard: %v", err)
+	}
+	guard.TrackedFiles = []string{
+		"examples/esign/release/v2_source_management_contract_manifest.json",
+		"pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json",
+	}
+
+	issues, err := ValidateV2ContractFreezeGuard(repoRoot, guard, time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("ValidateV2ContractFreezeGuard: %v", err)
+	}
+	if len(issues) == 0 {
+		t.Fatal("expected missing contract source input issue")
+	}
+	joined := strings.Join(issues, " | ")
+	if !strings.Contains(joined, "examples/esign/services/lineage_contracts.go") {
+		t.Fatalf("expected missing lineage contract source input, got %s", joined)
+	}
+	if !strings.Contains(joined, "examples/esign/handlers/register_lineage_routes.go") {
+		t.Fatalf("expected missing route registration source input, got %s", joined)
+	}
+}

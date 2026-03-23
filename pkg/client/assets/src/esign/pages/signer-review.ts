@@ -22,6 +22,9 @@ export interface SignerReviewConfig {
   apiBasePath?: string;
   signerBasePath?: string;
   resourceBasePath?: string;
+  reviewApiPath?: string;
+  assetContractPath?: string;
+  telemetryPath?: string;
   agreementId: string;
   sessionKind?: 'signer' | 'reviewer' | string;
   uiMode?: 'sign' | 'review' | 'sign_and_review' | string;
@@ -31,7 +34,6 @@ export interface SignerReviewConfig {
   recipientId: string;
   recipientEmail?: string;
   recipientName?: string;
-  documentUrl: string;
   pageCount?: number;
   hasConsented?: boolean;
   canSign?: boolean;
@@ -469,6 +471,9 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
     apiBasePath: String(config.apiBasePath || '/api/v1/esign/signing').trim(),
     signerBasePath: String(config.signerBasePath || '/sign').trim(),
     resourceBasePath: String(config.resourceBasePath || '').trim(),
+    reviewApiPath: String(config.reviewApiPath || '').trim(),
+    assetContractPath: String(config.assetContractPath || '').trim(),
+    telemetryPath: String(config.telemetryPath || '').trim(),
     agreementId: String(config.agreementId || '').trim(),
     sessionKind: String(config.sessionKind || 'signer').trim() || 'signer',
     uiMode: normalizedUIMode || 'sign',
@@ -478,7 +483,6 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
     recipientId: String(config.recipientId || '').trim(),
     recipientEmail: String(config.recipientEmail || '').trim(),
     recipientName: String(config.recipientName || '').trim(),
-    documentUrl: String(config.documentUrl || '').trim(),
     pageCount: Number(config.pageCount || 1) || 1,
     hasConsented: Boolean(config.hasConsented),
     canSign: config.canSign !== false,
@@ -1043,6 +1047,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
      */
     async flush() {
       if (!unifiedConfig.telemetryEnabled || this.events.length === 0) return;
+      const telemetryPath = telemetryEndpointPath();
+      if (!telemetryPath) {
+        this.events = [];
+        return;
+      }
 
       const eventsToSend = [...this.events];
       this.events = [];
@@ -1054,10 +1063,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
             events: eventsToSend,
             summary: this.getSessionSummary()
           });
-          navigator.sendBeacon(`${unifiedConfig.apiBasePath}/telemetry/${unifiedConfig.token}`, payload);
+          navigator.sendBeacon(telemetryPath, payload);
         } else {
           // Fallback to fetch
-          await fetch(`${unifiedConfig.apiBasePath}/telemetry/${unifiedConfig.token}`, {
+          await fetch(telemetryPath, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1362,11 +1371,27 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function reviewBasePath() {
+    const configured = String(unifiedConfig.reviewApiPath || '').trim();
+    if (configured) return configured;
     return `${reviewSessionPath()}/review`;
   }
 
   function assetsContractPath() {
+    const configured = String(unifiedConfig.assetContractPath || '').trim();
+    if (configured) return configured;
+    const publicToken = String(unifiedConfig.token || '').trim();
+    if (!isSenderSession() && publicToken) {
+      return `${unifiedConfig.apiBasePath}/assets/${encodeURIComponent(publicToken)}`;
+    }
     return `${resolvedResourceBasePath()}/assets`;
+  }
+
+  function telemetryEndpointPath() {
+    const configured = String(unifiedConfig.telemetryPath || '').trim();
+    if (configured) return configured;
+    const publicToken = String(unifiedConfig.token || '').trim();
+    if (!publicToken) return '';
+    return `${unifiedConfig.apiBasePath}/telemetry/${encodeURIComponent(publicToken)}`;
   }
 
   function resolveBinaryAssetUrl(assets) {

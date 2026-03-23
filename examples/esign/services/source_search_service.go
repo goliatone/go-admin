@@ -23,7 +23,8 @@ func NewDefaultSourceSearchService(lineage stores.LineageStore) DefaultSourceSea
 }
 
 func (s DefaultSourceSearchService) Search(ctx context.Context, scope stores.Scope, query SourceSearchQuery) (SourceSearchResults, error) {
-	results := emptySourceSearchResults(query)
+	normalizedQuery := normalizeSourceSearchQuery(query)
+	results := emptySourceSearchResults(normalizedQuery)
 	if s.lineage == nil {
 		return results, domainValidationError("source_search", "lineage", "not configured")
 	}
@@ -31,27 +32,26 @@ func (s DefaultSourceSearchService) Search(ctx context.Context, scope stores.Sco
 		return results, err
 	}
 	documents, err := s.lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{
-		ResultKind:        strings.TrimSpace(query.ResultKind),
-		ProviderKind:      strings.TrimSpace(query.ProviderKind),
-		RelationshipState: strings.TrimSpace(query.RelationshipState),
-		CommentSyncStatus: strings.TrimSpace(query.CommentSyncStatus),
-		HasComments:       query.HasComments,
+		ResultKind:        strings.TrimSpace(normalizedQuery.ResultKind),
+		ProviderKind:      strings.TrimSpace(normalizedQuery.ProviderKind),
+		RelationshipState: strings.TrimSpace(normalizedQuery.RelationshipState),
+		CommentSyncStatus: strings.TrimSpace(normalizedQuery.CommentSyncStatus),
+		HasComments:       normalizedQuery.HasComments,
 	})
 	if err != nil {
 		return results, err
 	}
 	scored := make([]scoredSourceSearchResult, 0, len(documents))
 	for _, indexed := range documents {
-		if !s.matchesSearchFilters(ctx, scope, indexed, query) {
+		if !s.matchesSearchFilters(ctx, scope, indexed, normalizedQuery) {
 			continue
 		}
-		item, score, ok := s.matchIndexedDocument(ctx, scope, indexed, query)
+		item, score, ok := s.matchIndexedDocument(ctx, scope, indexed, normalizedQuery)
 		if !ok {
 			continue
 		}
 		scored = append(scored, scoredSourceSearchResult{result: item, score: score})
 	}
-	normalizedQuery := normalizeSourceSearchQuery(query)
 	sortIndexedSourceSearchResults(scored, normalizedQuery.Sort)
 	paged, pageInfo := paginateSourceManagement(scored, normalizedQuery.Page, normalizedQuery.PageSize, normalizedQuery.Sort)
 	results.Items = make([]SourceSearchResultSummary, 0, len(paged))
@@ -125,18 +125,18 @@ func (s DefaultSourceSearchService) ReindexSourceRevision(ctx context.Context, s
 }
 
 func (s DefaultSourceSearchService) ensureIndexed(ctx context.Context, scope stores.Scope) error {
-	indexed, err := s.lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{})
-	if err != nil {
-		return err
-	}
-	if len(indexed) > 0 {
-		return nil
-	}
 	sources, err := s.lineage.ListSourceDocuments(ctx, scope, stores.SourceDocumentQuery{})
 	if err != nil {
 		return err
 	}
 	for _, source := range sources {
+		needsRefresh, err := s.sourceSearchIndexNeedsRefresh(ctx, scope, source)
+		if err != nil {
+			return err
+		}
+		if !needsRefresh {
+			continue
+		}
 		if _, err := s.ReindexSourceDocument(ctx, scope, source.ID); err != nil {
 			return err
 		}
@@ -254,7 +254,10 @@ func (s DefaultSourceSearchService) buildSourceRevisionIndexRecord(
 ) (stores.SourceSearchDocumentRecord, error) {
 	revisionThreads := filterSourceCommentThreadsByRevision(commentThreads, revision.ID)
 	revisionState := latestSourceCommentSyncState(commentStates, revision.ID)
-	handleIDs := handles
+	handleIDs := make([]stores.SourceHandleRecord, 0, 1)
+	if handle := sourceHandleForRevision(handles, revision); strings.TrimSpace(handle.ID) != "" {
+		handleIDs = append(handleIDs, handle)
+	}
 	metadata := map[string]any{
 		"status":             strings.TrimSpace(sourceDocument.Status),
 		"external_file_ids":  uniqueHandleValues(handleIDs, func(v stores.SourceHandleRecord) string { return v.ExternalFileID }),
@@ -329,18 +332,13 @@ func (s DefaultSourceSearchService) matchesSearchFilters(ctx context.Context, sc
 
 func (s DefaultSourceSearchService) matchIndexedDocument(ctx context.Context, scope stores.Scope, indexed stores.SourceSearchDocumentRecord, query SourceSearchQuery) (SourceSearchResultSummary, int, bool) {
 	normalizedQuery := strings.ToLower(strings.TrimSpace(query.Query))
+	result, metadata, ok := s.buildSourceSearchResultSummary(ctx, scope, indexed)
+	if !ok {
+		return SourceSearchResultSummary{}, 0, false
+	}
 	if normalizedQuery == "" {
-		return SourceSearchResultSummary{}, 0, false
+		return result, 0, true
 	}
-	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, indexed.SourceDocumentID)
-	if err != nil {
-		return SourceSearchResultSummary{}, 0, false
-	}
-	revision := stores.SourceRevisionRecord{}
-	if strings.TrimSpace(indexed.SourceRevisionID) != "" {
-		revision, _ = s.lineage.GetSourceRevision(ctx, scope, indexed.SourceRevisionID)
-	}
-	metadata := decodeLineageMetadataJSON(indexed.MetadataJSON)
 	score := 0
 	matched := make([]string, 0, 6)
 	canonicalTitle := strings.ToLower(strings.TrimSpace(indexed.CanonicalTitle))
@@ -378,9 +376,33 @@ func (s DefaultSourceSearchService) matchIndexedDocument(ctx context.Context, sc
 	if score == 0 {
 		return SourceSearchResultSummary{}, 0, false
 	}
+	result.MatchedFields = matched
+	return result, score, true
+}
+
+func (s DefaultSourceSearchService) buildSourceSearchResultSummary(ctx context.Context, scope stores.Scope, indexed stores.SourceSearchDocumentRecord) (SourceSearchResultSummary, map[string]any, bool) {
+	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, indexed.SourceDocumentID)
+	if err != nil {
+		return SourceSearchResultSummary{}, nil, false
+	}
+	revision := stores.SourceRevisionRecord{}
+	if strings.TrimSpace(indexed.SourceRevisionID) != "" {
+		revision, _ = s.lineage.GetSourceRevision(ctx, scope, indexed.SourceRevisionID)
+	}
+	metadata := decodeLineageMetadataJSON(indexed.MetadataJSON)
 	handle := stores.SourceHandleRecord{}
-	if handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentID: sourceDocument.ID, ActiveOnly: true}); err == nil && len(handles) > 0 {
-		handle = handles[len(handles)-1]
+	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentID: sourceDocument.ID})
+	if err == nil {
+		if strings.TrimSpace(indexed.ResultKind) == SourceManagementSearchResultSourceRevision && strings.TrimSpace(revision.ID) != "" {
+			handle = sourceHandleForRevision(handles, revision)
+		}
+		if strings.TrimSpace(handle.ID) == "" {
+			for _, candidate := range handles {
+				if strings.EqualFold(strings.TrimSpace(candidate.HandleStatus), stores.SourceHandleStatusActive) {
+					handle = candidate
+				}
+			}
+		}
 	}
 	artifactHash := ""
 	if hashes := anyStrings(metadata["artifact_hashes"]); len(hashes) > 0 {
@@ -401,10 +423,9 @@ func (s DefaultSourceSearchService) matchIndexedDocument(ctx context.Context, sc
 		CommentCount:      indexed.CommentCount,
 		HasComments:       indexed.HasComments,
 		ArtifactHash:      artifactHash,
-		MatchedFields:     matched,
 		Summary:           sourceSearchSummaryText(resultKind, indexed.CommentCount, indexed.RelationshipState),
 		Links:             links,
-	}, score, true
+	}, metadata, true
 }
 
 func sourceSearchSummaryText(resultKind string, commentCount int, relationshipState string) string {
@@ -581,6 +602,134 @@ func containsFold(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func (s DefaultSourceSearchService) sourceSearchIndexNeedsRefresh(ctx context.Context, scope stores.Scope, sourceDocument stores.SourceDocumentRecord) (bool, error) {
+	indexed, err := s.lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{
+		SourceDocumentID: sourceDocument.ID,
+	})
+	if err != nil {
+		return false, err
+	}
+	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{SourceDocumentID: sourceDocument.ID})
+	if err != nil {
+		return false, err
+	}
+	if len(indexed) == 0 {
+		return true, nil
+	}
+	hasDocumentResult := false
+	revisionResultIDs := make(map[string]struct{}, len(revisions))
+	latestIndexedAt := time.Time{}
+	for _, record := range indexed {
+		if record.IndexedAt.After(latestIndexedAt) {
+			latestIndexedAt = record.IndexedAt
+		}
+		if record.UpdatedAt.After(latestIndexedAt) {
+			latestIndexedAt = record.UpdatedAt
+		}
+		switch strings.TrimSpace(record.ResultKind) {
+		case SourceManagementSearchResultSourceDocument:
+			hasDocumentResult = true
+		case SourceManagementSearchResultSourceRevision:
+			revisionResultIDs[strings.TrimSpace(record.SourceRevisionID)] = struct{}{}
+		}
+	}
+	if !hasDocumentResult {
+		return true, nil
+	}
+	for _, revision := range revisions {
+		if _, ok := revisionResultIDs[strings.TrimSpace(revision.ID)]; !ok {
+			return true, nil
+		}
+	}
+	if len(revisionResultIDs) != len(revisions) {
+		return true, nil
+	}
+	latestActivityAt, err := s.sourceSearchLastChangedAt(ctx, scope, sourceDocument, revisions)
+	if err != nil {
+		return false, err
+	}
+	return latestIndexedAt.Before(latestActivityAt), nil
+}
+
+func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Context, scope stores.Scope, sourceDocument stores.SourceDocumentRecord, revisions []stores.SourceRevisionRecord) (time.Time, error) {
+	latest := sourceDocument.UpdatedAt.UTC()
+	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentID: sourceDocument.ID})
+	if err != nil {
+		return time.Time{}, err
+	}
+	for _, handle := range handles {
+		latest = maxSourceSearchTime(latest, handle.UpdatedAt, handle.CreatedAt)
+	}
+	relationships, err := s.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{SourceDocumentID: sourceDocument.ID})
+	if err != nil {
+		return time.Time{}, err
+	}
+	for _, relationship := range relationships {
+		latest = maxSourceSearchTime(latest, relationship.UpdatedAt, relationship.CreatedAt)
+	}
+	threads, err := s.lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
+		SourceDocumentID: sourceDocument.ID,
+		IncludeDeleted:   true,
+	})
+	if err != nil {
+		return time.Time{}, err
+	}
+	for _, thread := range threads {
+		latest = maxSourceSearchTime(latest, thread.UpdatedAt, thread.CreatedAt)
+		if thread.LastActivityAt != nil {
+			latest = maxSourceSearchTime(latest, thread.LastActivityAt.UTC())
+		}
+		if thread.LastSyncedAt != nil {
+			latest = maxSourceSearchTime(latest, thread.LastSyncedAt.UTC())
+		}
+	}
+	states, err := s.lineage.ListSourceCommentSyncStates(ctx, scope, stores.SourceCommentSyncStateQuery{SourceDocumentID: sourceDocument.ID})
+	if err != nil {
+		return time.Time{}, err
+	}
+	for _, state := range states {
+		latest = maxSourceSearchTime(latest, state.UpdatedAt, state.CreatedAt)
+		if state.LastAttemptAt != nil {
+			latest = maxSourceSearchTime(latest, state.LastAttemptAt.UTC())
+		}
+		if state.LastSyncedAt != nil {
+			latest = maxSourceSearchTime(latest, state.LastSyncedAt.UTC())
+		}
+	}
+	for _, revision := range revisions {
+		latest = maxSourceSearchTime(latest, revision.UpdatedAt, revision.CreatedAt)
+		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{SourceRevisionID: revision.ID})
+		if err != nil {
+			return time.Time{}, err
+		}
+		for _, artifact := range artifacts {
+			latest = maxSourceSearchTime(latest, artifact.UpdatedAt, artifact.CreatedAt)
+		}
+		fingerprints, err := s.lineage.ListSourceFingerprints(ctx, scope, stores.SourceFingerprintQuery{SourceRevisionID: revision.ID})
+		if err != nil {
+			return time.Time{}, err
+		}
+		for _, fingerprint := range fingerprints {
+			latest = maxSourceSearchTime(latest, fingerprint.CreatedAt)
+		}
+	}
+	return latest, nil
+}
+
+func maxSourceSearchTime(current time.Time, candidates ...time.Time) time.Time {
+	latest := current.UTC()
+	for _, candidate := range candidates {
+		if candidate.IsZero() {
+			continue
+		}
+		candidate = candidate.UTC()
+		if candidate.After(latest) {
+			latest = candidate
+		}
+	}
+	return latest
 }
 
 func sortIndexedSourceSearchResults(items []scoredSourceSearchResult, sortKey string) {

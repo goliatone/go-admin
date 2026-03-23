@@ -1,0 +1,542 @@
+{% extends "layout.html" %}
+
+{% block title %}Source Search - E-Sign Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Source Search</h1>
+      <p class="text-sm text-gray-500 mt-1">Search across source documents, revisions, and comments</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ sources_list_url|default:'/admin/esign/sources' }}" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+        </svg>
+        Browse All
+      </a>
+    </div>
+  </div>
+
+  <!-- Search Input -->
+  <div class="bg-white rounded-lg shadow mb-6">
+    <div class="p-6">
+      <form id="search-form" role="search" aria-label="Search source documents">
+        <div class="flex flex-col md:flex-row gap-4">
+          <!-- Main Search Input -->
+          <div class="flex-1">
+            <label for="search-query" class="sr-only">Search query</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <input type="text" id="search-query" name="q" class="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="Search by title, content, file ID, or comment text...">
+            </div>
+          </div>
+
+          <!-- Search Button -->
+          <button type="submit" id="search-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Search
+          </button>
+        </div>
+
+        <!-- Advanced Filters -->
+        <div id="advanced-filters" class="mt-4 pt-4 border-t border-gray-200">
+          <div class="flex flex-wrap gap-4">
+            <div class="w-full sm:w-auto">
+              <label for="filter-provider" class="block text-xs font-medium text-gray-500 mb-1">Provider</label>
+              <select id="filter-provider" name="provider_kind" class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <option value="">All Providers</option>
+                <option value="google_drive">Google Drive</option>
+                <option value="dropbox">Dropbox</option>
+                <option value="onedrive">OneDrive</option>
+              </select>
+            </div>
+            <div class="w-full sm:w-auto">
+              <label for="filter-status" class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+              <select id="filter-status" name="status" class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="merged">Merged</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" id="filter-has-comments" name="has_comments" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="text-sm text-gray-700">Has Comments</span>
+              </label>
+            </div>
+            <div class="flex items-end">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" id="filter-pending-candidates" name="has_pending_candidates" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="text-sm text-gray-700">Has Pending</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Search Results Container -->
+  <div id="search-results-container">
+    <!-- Initial/Empty State -->
+    <div id="search-initial" class="bg-white rounded-lg shadow p-8 text-center">
+      <div class="mx-auto w-20 h-20 mb-4 rounded-full bg-blue-50 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Search Source Documents</h3>
+      <p class="text-sm text-gray-500 max-w-md mx-auto">
+        Enter a search query to find source documents by title, extracted content, file ID, or comment text.
+      </p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="search-loading" class="hidden bg-white rounded-lg shadow p-8 text-center">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600" role="status" aria-label="Searching">
+        <span class="sr-only">Searching...</span>
+      </div>
+      <p class="mt-2 text-sm text-gray-500">Searching source documents...</p>
+    </div>
+
+    <!-- No Results State -->
+    <div id="search-empty" class="hidden bg-white rounded-lg shadow p-8 text-center">
+      <div class="mx-auto w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h3 id="empty-title" class="text-lg font-semibold text-gray-900 mb-1">No results found</h3>
+      <p id="empty-description" class="text-sm text-gray-500 mb-4">No source documents match your search criteria.</p>
+      <button id="clear-search-btn" class="text-sm text-blue-600 hover:text-blue-800">Clear search</button>
+    </div>
+
+    <!-- Error State -->
+    <div id="search-error" class="hidden bg-white rounded-lg shadow p-8 text-center">
+      <div class="mx-auto w-16 h-16 mb-4 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 mb-1">Search failed</h3>
+      <p id="error-message" class="text-sm text-gray-500 mb-4">An error occurred while searching.</p>
+      <button id="retry-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Retry</button>
+    </div>
+
+    <!-- Search Results -->
+    <div id="search-results" class="hidden">
+      <!-- Results Header -->
+      <div class="bg-white rounded-lg shadow mb-4 px-6 py-4 flex justify-between items-center">
+        <p class="text-sm text-gray-700">
+          Found <span id="results-count" class="font-semibold">0</span> results
+          <span id="results-query" class="text-gray-500"></span>
+        </p>
+        <div class="flex items-center gap-4">
+          <select id="sort-select" class="block py-1.5 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            <option value="relevance">Relevance</option>
+            <option value="modified_desc">Recently Modified</option>
+            <option value="modified_asc">Oldest First</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results List -->
+      <div id="results-list" class="space-y-4">
+        <!-- Result cards will be inserted here -->
+      </div>
+
+      <!-- Pagination -->
+      <div id="results-pagination" class="mt-6 bg-white rounded-lg shadow px-6 py-3 flex items-center justify-between">
+        <div class="flex-1 flex justify-between sm:hidden">
+          <button id="prev-page-mobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" disabled>Previous</button>
+          <button id="next-page-mobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" disabled>Next</button>
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-gray-700">
+              Showing <span id="page-start" class="font-medium">0</span> to <span id="page-end" class="font-medium">0</span> of <span id="page-total" class="font-medium">0</span> results
+            </p>
+          </div>
+          <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              <button id="prev-page" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" disabled>
+                <span class="sr-only">Previous</span>
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </button>
+              <span id="page-numbers" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                Page 1
+              </span>
+              <button id="next-page" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" disabled>
+                <span class="sr-only">Next</span>
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap payload from backend (Phase 15.6) -->
+<script id="search-bootstrap" type="application/json">
+{{ toJSON(bootstrap)|safe|default:"{}" }}
+</script>
+
+<script type="module">
+import {
+  resolvePhase13SearchRenderingState,
+  registerPageController
+} from '{{ adminURL("assets/dist/esign/index.js") }}';
+
+const apiBase = '{{ api_base|default:"/admin/api/v1/esign" }}';
+const bootstrap = JSON.parse(document.getElementById('search-bootstrap')?.textContent || '{}');
+
+// DOM elements
+const searchForm = document.getElementById('search-form');
+const searchQuery = document.getElementById('search-query');
+const searchBtn = document.getElementById('search-btn');
+const filterProvider = document.getElementById('filter-provider');
+const filterStatus = document.getElementById('filter-status');
+const filterHasComments = document.getElementById('filter-has-comments');
+const filterPendingCandidates = document.getElementById('filter-pending-candidates');
+const sortSelect = document.getElementById('sort-select');
+
+const initialEl = document.getElementById('search-initial');
+const loadingEl = document.getElementById('search-loading');
+const emptyEl = document.getElementById('search-empty');
+const errorEl = document.getElementById('search-error');
+const resultsEl = document.getElementById('search-results');
+const resultsListEl = document.getElementById('results-list');
+const resultsCountEl = document.getElementById('results-count');
+const resultsQueryEl = document.getElementById('results-query');
+const errorMessageEl = document.getElementById('error-message');
+
+const clearSearchBtn = document.getElementById('clear-search-btn');
+const retryBtn = document.getElementById('retry-btn');
+const prevPageBtn = document.getElementById('prev-page');
+const nextPageBtn = document.getElementById('next-page');
+const pageStartEl = document.getElementById('page-start');
+const pageEndEl = document.getElementById('page-end');
+const pageTotalEl = document.getElementById('page-total');
+const pageNumbersEl = document.getElementById('page-numbers');
+
+let currentQuery = '';
+let currentFilters = {};
+let currentPage = 1;
+let lastResults = null;
+
+function showState(state) {
+  initialEl.classList.add('hidden');
+  loadingEl.classList.add('hidden');
+  emptyEl.classList.add('hidden');
+  errorEl.classList.add('hidden');
+  resultsEl.classList.add('hidden');
+
+  if (state === 'initial') {
+    initialEl.classList.remove('hidden');
+  } else if (state === 'loading') {
+    loadingEl.classList.remove('hidden');
+  } else if (state === 'empty') {
+    emptyEl.classList.remove('hidden');
+  } else if (state === 'error') {
+    errorEl.classList.remove('hidden');
+  } else if (state === 'results') {
+    resultsEl.classList.remove('hidden');
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[m]));
+}
+
+function renderProviderBadge(provider) {
+  if (!provider) return '';
+  const kindLabels = {
+    'google_drive': 'Google Drive',
+    'dropbox': 'Dropbox',
+    'onedrive': 'OneDrive'
+  };
+  const label = kindLabels[provider.kind] || provider.label || provider.kind;
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${escapeHtml(label)}</span>`;
+}
+
+function renderCommentBadge(item) {
+  if (!item.has_comments) return '';
+
+  const syncStatusColors = {
+    'synced': 'bg-green-100 text-green-800',
+    'pending_sync': 'bg-yellow-100 text-yellow-800',
+    'sync_failed': 'bg-red-100 text-red-800',
+    'stale': 'bg-orange-100 text-orange-800'
+  };
+  const colors = syncStatusColors[item.comment_sync_status] || 'bg-gray-100 text-gray-800';
+
+  return `
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors}">
+      <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+      </svg>
+      ${item.comment_count || 0} comment${(item.comment_count || 0) !== 1 ? 's' : ''}
+    </span>
+  `;
+}
+
+function renderResultCard(item) {
+  const source = item.source || {};
+  const provider = item.provider;
+  const detailUrl = source.url || `/admin/esign/sources/${source.id}`;
+  const highlight = item.highlight || {};
+
+  // Truncate and highlight title
+  let titleHtml = escapeHtml(source.label || source.id);
+  if (highlight.title) {
+    titleHtml = highlight.title; // Already highlighted by backend
+  }
+
+  // Truncate and highlight snippet
+  let snippetHtml = '';
+  if (highlight.content) {
+    snippetHtml = highlight.content;
+  } else if (item.excerpt) {
+    snippetHtml = escapeHtml(item.excerpt);
+  }
+
+  return `
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+      <div class="p-5">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <a href="${detailUrl}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline">${titleHtml}</a>
+            <p class="text-xs text-gray-500 mt-1 font-mono">${escapeHtml(source.id)}</p>
+          </div>
+          <div class="flex-shrink-0 flex gap-2">
+            ${renderProviderBadge(provider)}
+            ${renderCommentBadge(item)}
+          </div>
+        </div>
+
+        ${snippetHtml ? `
+          <p class="mt-3 text-sm text-gray-600 line-clamp-2">${snippetHtml}</p>
+        ` : ''}
+
+        <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+          ${item.latest_revision ? `
+            <span>Modified: ${formatDate(item.latest_revision.modified_time)}</span>
+          ` : ''}
+          ${item.status ? `
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${item.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+              ${escapeHtml(item.status)}
+            </span>
+          ` : ''}
+          ${item.pending_candidate_count > 0 ? `
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+              ${item.pending_candidate_count} pending
+            </span>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateResults(data) {
+  lastResults = data;
+
+  if (!data || !data.items || data.items.length === 0) {
+    showState('empty');
+    return;
+  }
+
+  showState('results');
+
+  // Update results count
+  resultsCountEl.textContent = data.page_info?.total_count || data.items.length;
+  resultsQueryEl.textContent = currentQuery ? `for "${currentQuery}"` : '';
+
+  // Render result cards
+  resultsListEl.innerHTML = data.items.map(renderResultCard).join('');
+
+  // Update pagination
+  const pageInfo = data.page_info || {};
+  const page = pageInfo.page || 1;
+  const pageSize = pageInfo.page_size || 20;
+  const total = pageInfo.total_count || 0;
+  const hasMore = pageInfo.has_more || false;
+
+  const start = total > 0 ? (page - 1) * pageSize + 1 : 0;
+  const end = Math.min(page * pageSize, total);
+
+  pageStartEl.textContent = start;
+  pageEndEl.textContent = end;
+  pageTotalEl.textContent = total;
+  pageNumbersEl.textContent = `Page ${page}`;
+
+  prevPageBtn.disabled = page <= 1;
+  nextPageBtn.disabled = !hasMore;
+}
+
+function buildSearchUrl(page) {
+  const params = new URLSearchParams();
+
+  if (currentQuery) params.set('q', currentQuery);
+  if (currentFilters.provider_kind) params.set('provider_kind', currentFilters.provider_kind);
+  if (currentFilters.status) params.set('status', currentFilters.status);
+  if (currentFilters.has_comments) params.set('has_comments', 'true');
+  if (currentFilters.has_pending_candidates) params.set('has_pending_candidates', 'true');
+  if (sortSelect.value && sortSelect.value !== 'relevance') params.set('sort', sortSelect.value);
+  if (page > 1) params.set('page', page);
+
+  return `${apiBase}/source-search?${params.toString()}`;
+}
+
+async function executeSearch(page = 1) {
+  currentPage = page;
+
+  if (!currentQuery && !Object.values(currentFilters).some(Boolean)) {
+    showState('initial');
+    return;
+  }
+
+  showState('loading');
+
+  try {
+    const url = buildSearchUrl(page);
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Search request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    updateResults(data);
+
+    // Update URL without reload
+    const searchParams = new URLSearchParams(window.location.search);
+    if (currentQuery) searchParams.set('q', currentQuery);
+    else searchParams.delete('q');
+    if (page > 1) searchParams.set('page', String(page));
+    else searchParams.delete('page');
+
+    const newUrl = `${window.location.pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+    history.pushState({}, '', newUrl);
+
+  } catch (error) {
+    showState('error');
+    errorMessageEl.textContent = error.message || 'An unexpected error occurred.';
+  }
+}
+
+function collectFilters() {
+  return {
+    provider_kind: filterProvider.value || undefined,
+    status: filterStatus.value || undefined,
+    has_comments: filterHasComments.checked || undefined,
+    has_pending_candidates: filterPendingCandidates.checked || undefined
+  };
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  filterProvider.value = '';
+  filterStatus.value = '';
+  filterHasComments.checked = false;
+  filterPendingCandidates.checked = false;
+  sortSelect.value = 'relevance';
+  currentQuery = '';
+  currentFilters = {};
+  currentPage = 1;
+  lastResults = null;
+  showState('initial');
+
+  history.pushState({}, '', window.location.pathname);
+}
+
+// Initialize from URL params
+function initFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q');
+  const page = parseInt(params.get('page') || '1', 10);
+
+  if (q) {
+    searchQuery.value = q;
+    currentQuery = q;
+    currentFilters = collectFilters();
+    executeSearch(page);
+  }
+}
+
+// Event listeners
+searchForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  currentQuery = searchQuery.value.trim();
+  currentFilters = collectFilters();
+  executeSearch(1);
+});
+
+clearSearchBtn.addEventListener('click', clearSearch);
+
+retryBtn.addEventListener('click', () => {
+  executeSearch(currentPage);
+});
+
+sortSelect.addEventListener('change', () => {
+  if (currentQuery || Object.values(currentFilters).some(Boolean)) {
+    executeSearch(1);
+  }
+});
+
+prevPageBtn.addEventListener('click', () => {
+  if (currentPage > 1) {
+    executeSearch(currentPage - 1);
+  }
+});
+
+nextPageBtn.addEventListener('click', () => {
+  const pageInfo = lastResults?.page_info || {};
+  if (pageInfo.has_more) {
+    executeSearch(currentPage + 1);
+  }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  registerPageController('source-search', {
+    executeSearch,
+    clearSearch,
+    getCurrentQuery: () => currentQuery,
+    getCurrentFilters: () => currentFilters
+  });
+
+  initFromUrl();
+});
+</script>
+{% endblock %}

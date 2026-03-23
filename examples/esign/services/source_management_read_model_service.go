@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -803,14 +804,8 @@ func sortSourceSearchResults(items []scoredSourceSearchResult, sortKey string) {
 
 func paginateSourceManagement[T any](items []T, page, pageSize int, sort string) ([]T, SourceManagementPageInfo) {
 	total := len(items)
-	start := (page - 1) * pageSize
-	if start > total {
-		start = total
-	}
-	end := start + pageSize
-	if end > total {
-		end = total
-	}
+	start := min((page-1)*pageSize, total)
+	end := min(start+pageSize, total)
 	out := make([]T, 0, end-start)
 	out = append(out, items[start:end]...)
 	return out, SourceManagementPageInfo{
@@ -1259,12 +1254,7 @@ func searchResultTitle(result SourceSearchResultSummary) string {
 }
 
 func containsString(values []string, candidate string) bool {
-	for _, value := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, candidate)
 }
 
 func appendUniqueString(values []string, candidate string) []string {

@@ -186,6 +186,40 @@ func TestBuildESignGoogleIntegrationPageConfigIncludesOAuthContext(t *testing.T)
 	}
 }
 
+func TestBuildESignSourceManagementPageConfigIncludesRuntimeRoutesAndContext(t *testing.T) {
+	cfg := buildESignSourceManagementPageConfig(
+		eSignPageSourceDetail,
+		"/admin",
+		"/admin/api/v1/esign",
+		map[string]string{
+			"source_browser": "/admin/esign/sources",
+			"source_search":  "/admin/esign/source-search",
+		},
+		map[string]any{
+			"surface":            "source_detail",
+			"source_document_id": "src-123",
+		},
+	)
+	if cfg.Page != eSignPageSourceDetail {
+		t.Fatalf("expected page %q, got %q", eSignPageSourceDetail, cfg.Page)
+	}
+	if got := cfg.Routes["source_browser"]; got != "/admin/esign/sources" {
+		t.Fatalf("expected source_browser route, got %q", got)
+	}
+	if !cfg.Features["source_management_enabled"] {
+		t.Fatalf("expected source_management_enabled feature flag, got %+v", cfg.Features)
+	}
+	if got := rawToString(cfg.Context["surface"]); got != "source_detail" {
+		t.Fatalf("expected surface context source_detail, got %q", got)
+	}
+	if got := rawToString(cfg.Context["source_document_id"]); got != "src-123" {
+		t.Fatalf("expected source_document_id context src-123, got %q", got)
+	}
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
+		t.Fatalf("expected source-management module path /admin/assets/dist/esign/index.js, got %q", got)
+	}
+}
+
 func TestBuildESignAgreementFormStorageScopeIsOpaqueAndStable(t *testing.T) {
 	first := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")
 	second := buildESignAgreementFormStorageScope("actor-1", "tenant-1", "org-1", "/admin/content/esign_agreements/new")

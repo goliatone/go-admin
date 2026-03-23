@@ -100,11 +100,15 @@ test('Phase 5 contract: signer review uses shared PDF runtime and prefers previe
   assert.match(source, /loadPdfDocument as loadPdfSourceDocument/);
   assert.match(source, /logPdfLoadError/);
   assert.match(source, /function resolveBinaryAssetUrl\(assets\)/);
+  assert.match(source, /function reviewBasePath\(\)\s*{\s*const configured = String\(unifiedConfig\.reviewApiPath \|\| ''\)\.trim\(\);\s*if \(configured\) return configured;/);
+  assert.match(source, /function assetsContractPath\(\)\s*{\s*const configured = String\(unifiedConfig\.assetContractPath \|\| ''\)\.trim\(\);\s*if \(configured\) return configured;/);
+  assert.match(source, /function telemetryEndpointPath\(\)\s*{\s*const configured = String\(unifiedConfig\.telemetryPath \|\| ''\)\.trim\(\);\s*if \(configured\) return configured;/);
   assert.doesNotMatch(source, /pdfjs-dist\/build\/pdf\.min\.mjs/);
   assert.doesNotMatch(source, /pdf\.worker\.min\.mjs\?url/);
   assert.doesNotMatch(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
   assert.doesNotMatch(template, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
-  assert.doesNotMatch(source, /\|\| unifiedConfig\.documentUrl/);
+  assert.doesNotMatch(template, /"documentUrl":/);
+  assert.doesNotMatch(source, /documentUrl:\s*String\(config\.documentUrl \|\| ''\)/);
 });
 
 test('Phase 5 contract: e-sign PDF runtime owns worker configuration and worker asset path', () => {

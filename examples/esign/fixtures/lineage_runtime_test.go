@@ -84,11 +84,38 @@ WHERE source_document_id = ?
 		t.Fatalf("expected 2 seeded source handles for multi-handle continuity, got %d", handles)
 	}
 
+	var revisionHandlePairs []struct {
+		RevisionID     string `bun:"revision_id"`
+		ExternalFileID string `bun:"external_file_id"`
+		HandleStatus   string `bun:"handle_status"`
+	}
+	if err := bootstrap.BunDB.NewRaw(`
+SELECT r.id AS revision_id, h.external_file_id, h.handle_status
+FROM source_revisions r
+JOIN source_handles h ON h.id = r.source_handle_id
+WHERE r.source_document_id = ?
+ORDER BY r.modified_time ASC, r.id ASC
+`, first.SourceDocumentID).Scan(ctx, &revisionHandlePairs); err != nil {
+		t.Fatalf("load seeded revision handles: %v", err)
+	}
+	if len(revisionHandlePairs) != 2 {
+		t.Fatalf("expected 2 seeded revisions, got %+v", revisionHandlePairs)
+	}
+	if revisionHandlePairs[0].RevisionID != first.FirstSourceRevisionID || revisionHandlePairs[0].ExternalFileID != "fixture-google-file-legacy" || revisionHandlePairs[0].HandleStatus != stores.SourceHandleStatusSuperseded {
+		t.Fatalf("expected first revision to remain pinned to the superseded legacy handle, got %+v", revisionHandlePairs[0])
+	}
+	if revisionHandlePairs[1].RevisionID != first.SecondSourceRevisionID || revisionHandlePairs[1].ExternalFileID != "fixture-google-file-1" || revisionHandlePairs[1].HandleStatus != stores.SourceHandleStatusActive {
+		t.Fatalf("expected second revision to resolve through the active handle, got %+v", revisionHandlePairs[1])
+	}
+
 	urls, err := BuildLineageFixtureURLs("/admin", scope, first)
 	if err != nil {
 		t.Fatalf("BuildLineageFixtureURLs: %v", err)
 	}
 	if urls.UploadOnlyDocumentURL == "" || urls.ImportedAgreementURL == "" {
 		t.Fatalf("expected detail urls, got %+v", urls)
+	}
+	if urls.SourceBrowserURL == "" || urls.SourceDetailURL == "" || urls.SourceRevisionURL == "" || urls.SourceSearchURL == "" {
+		t.Fatalf("expected source-management runtime urls, got %+v", urls)
 	}
 }

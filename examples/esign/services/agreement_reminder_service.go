@@ -540,11 +540,30 @@ func mergeAgreementReminderSweepResult(dst *AgreementReminderSweepResult, src Ag
 	dst.DueBacklogAgeMS = append(dst.DueBacklogAgeMS, src.DueBacklogAgeMS...)
 }
 
+type reviewReminderParticipantSignals struct {
+	FirstSentAt        *time.Time `json:"first_sent_at"`
+	LastSentAt         *time.Time `json:"last_sent_at"`
+	LastViewedAt       *time.Time `json:"last_viewed_at"`
+	LastManualResendAt *time.Time `json:"last_manual_resend_at"`
+	AutoReminderCount  int        `json:"auto_reminder_count"`
+	LastReasonCode     string     `json:"last_reason_code"`
+	Paused             bool       `json:"paused"`
+	NextDueAt          *time.Time `json:"next_due_at"`
+	pausedNextDueAt    *time.Time
+}
+
+type derivedReviewReminderBatchState struct {
+	ReviewID          string          `json:"review_id"`
+	State             reminders.State `json:"state"`
+	AutoReminderCount int             `json:"auto_reminder_count"`
+}
+
 type derivedReviewReminderState struct {
-	Snapshot          ReviewReminderState `json:"snapshot"`
-	State             reminders.State     `json:"state"`
-	AutoReminderCount int                 `json:"auto_reminder_count"`
-	pausedNextDueAt   *time.Time
+	Snapshot               ReviewReminderState `json:"snapshot"`
+	State                  reminders.State     `json:"state"`
+	AutoReminderCount      int                 `json:"auto_reminder_count"`
+	BatchAutoReminderCount int                 `json:"batch_auto_reminder_count"`
+	pausedNextDueAt        *time.Time
 }
 
 func (s AgreementReminderService) sweepReviewReminders(
@@ -596,11 +615,21 @@ func (s AgreementReminderService) sweepReviewReminders(
 			}
 			return events[i].ID < events[j].ID
 		})
+		batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(summary.Review.ID), now, summary.Participants, events, policy)
+		if !ok {
+			continue
+		}
+		targets := make([]stores.AgreementReviewParticipantRecord, 0, len(summary.Participants))
+		targetStates := make([]derivedReviewReminderState, 0, len(summary.Participants))
 		for _, participant := range summary.Participants {
 			if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
 				continue
 			}
-			derived, ok := deriveReviewReminderState(scope, agreement.ID, summary.Status, now, participant, events, policy)
+			signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
+			if !ok {
+				continue
+			}
+			derived, ok := deriveReviewReminderState(agreement.ID, summary.Status, participant, batch, signals)
 			if !ok {
 				continue
 			}
@@ -622,21 +651,32 @@ func (s AgreementReminderService) sweepReviewReminders(
 				continue
 			}
 			out.Claimed++
-			correlationID := fmt.Sprintf("review-reminder:%s:%s:%d", strings.TrimSpace(agreement.ID), strings.TrimSpace(participant.ID), derived.AutoReminderCount+1)
-			notifyStartedAt := s.now().UTC()
-			if _, err := s.lifecycle.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
-				ParticipantID: strings.TrimSpace(participant.ID),
-				RequestedByID: "",
-				ActorType:     "system",
-				ActorID:       "",
-				CorrelationID: correlationID,
-				Source:        ReviewNotificationSourceAutoReminder,
-			}); err != nil {
-				out.Failed++
-				out.FailureReasons["review_notify_failed"]++
-				continue
-			}
-			out.Sent++
+			targets = append(targets, participant)
+			targetStates = append(targetStates, derived)
+		}
+		if len(targets) == 0 {
+			continue
+		}
+		participantIDs := make([]string, 0, len(targets))
+		for _, target := range targets {
+			participantIDs = append(participantIDs, strings.TrimSpace(target.ID))
+		}
+		correlationID := fmt.Sprintf("review-reminder:%s:%s:%d", strings.TrimSpace(agreement.ID), strings.TrimSpace(batch.ReviewID), batch.AutoReminderCount+1)
+		notifyStartedAt := s.now().UTC()
+		if _, err := s.lifecycle.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
+			ParticipantIDs: participantIDs,
+			RequestedByID:  "",
+			ActorType:      "system",
+			ActorID:        "",
+			CorrelationID:  correlationID,
+			Source:         ReviewNotificationSourceAutoReminder,
+		}); err != nil {
+			out.Failed += len(targets)
+			out.FailureReasons["review_notify_failed"] += len(targets)
+			continue
+		}
+		out.Sent += len(targets)
+		for _, derived := range targetStates {
 			out.ClaimToSendMS = append(out.ClaimToSendMS, 0)
 			if derived.State.NextDueAt != nil {
 				out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(notifyStartedAt.Sub(derived.State.NextDueAt.UTC())))
@@ -646,107 +686,145 @@ func (s AgreementReminderService) sweepReviewReminders(
 	return out, nil
 }
 
-func deriveReviewReminderState(
+func deriveReviewReminderBatchState(
 	scope stores.Scope,
-	agreementID string,
-	reviewStatus string,
+	reviewID string,
 	now time.Time,
-	participant stores.AgreementReviewParticipantRecord,
+	participants []stores.AgreementReviewParticipantRecord,
 	events []stores.AuditEventRecord,
 	policy reminders.Policy,
-) (derivedReviewReminderState, bool) {
-	state := reminders.State{}
-	snapshot := ReviewReminderState{
-		AgreementID:   strings.TrimSpace(agreementID),
-		ReviewID:      strings.TrimSpace(participant.ReviewID),
-		ParticipantID: strings.TrimSpace(participant.ID),
-		RecipientID:   strings.TrimSpace(participant.RecipientID),
-		Status:        stores.AgreementReminderStatusActive,
+) (derivedReviewReminderBatchState, map[string]reviewReminderParticipantSignals, bool) {
+	reviewID = strings.TrimSpace(reviewID)
+	if reviewID == "" {
+		return derivedReviewReminderBatchState{}, nil, false
 	}
-	stableKey := reviewReminderStableKey(scope, participant)
+	signalsByParticipantID := make(map[string]reviewReminderParticipantSignals, len(participants))
+	batch := derivedReviewReminderBatchState{ReviewID: reviewID}
+	for _, participant := range participants {
+		signals, ok := deriveReviewReminderParticipantSignals(participant, events)
+		if !ok {
+			continue
+		}
+		signalsByParticipantID[strings.TrimSpace(participant.ID)] = signals
+		batch.State.FirstSentAt = newerTimePtr(batch.State.FirstSentAt, signals.FirstSentAt)
+		batch.State.LastSentAt = newerTimePtr(batch.State.LastSentAt, signals.LastSentAt)
+		batch.State.LastManualResendAt = newerTimePtr(batch.State.LastManualResendAt, signals.LastManualResendAt)
+		if signals.AutoReminderCount > batch.AutoReminderCount {
+			batch.AutoReminderCount = signals.AutoReminderCount
+		}
+	}
+	if len(signalsByParticipantID) == 0 || batch.State.FirstSentAt == nil {
+		return derivedReviewReminderBatchState{}, nil, false
+	}
+	batch.State.SentCount = batch.AutoReminderCount
+	decision := reminders.Evaluate(now.UTC(), policy, batch.State)
+	if decision.NextDueAt != nil {
+		batch.State.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
+	} else if baseline := newerTimePtr(batch.State.LastSentAt, batch.State.FirstSentAt); baseline != nil {
+		nextDue := reminders.ComputeNextDue(baseline.UTC(), policy, reviewReminderBatchStableKey(scope, reviewID))
+		batch.State.NextDueAt = cloneServiceTimePtr(&nextDue)
+	}
+	return batch, signalsByParticipantID, true
+}
+
+func deriveReviewReminderParticipantSignals(
+	participant stores.AgreementReviewParticipantRecord,
+	events []stores.AuditEventRecord,
+) (reviewReminderParticipantSignals, bool) {
+	signals := reviewReminderParticipantSignals{}
 	var cycleStart *time.Time
 	for _, event := range events {
-		if !reviewReminderEventApplies(event, participant) {
+		if !reviewReminderEventMatchesReview(event, participant.ReviewID) || !reviewReminderEventApplies(event, participant) {
 			continue
 		}
 		switch strings.TrimSpace(event.EventType) {
 		case "agreement.review_requested", "agreement.review_reopened":
 			startedAt := event.CreatedAt.UTC()
 			cycleStart = &startedAt
-			state = reminders.State{
-				FirstSentAt: &startedAt,
-				LastSentAt:  &startedAt,
-			}
-			snapshot = ReviewReminderState{
-				AgreementID:   strings.TrimSpace(agreementID),
-				ReviewID:      strings.TrimSpace(participant.ReviewID),
-				ParticipantID: strings.TrimSpace(participant.ID),
-				RecipientID:   strings.TrimSpace(participant.RecipientID),
-				Status:        stores.AgreementReminderStatusActive,
-				FirstSentAt:   cloneServiceTimePtr(&startedAt),
-				LastSentAt:    cloneServiceTimePtr(&startedAt),
+			signals = reviewReminderParticipantSignals{
+				FirstSentAt: cloneServiceTimePtr(&startedAt),
+				LastSentAt:  cloneServiceTimePtr(&startedAt),
 			}
 		}
 	}
 	if cycleStart == nil {
-		return derivedReviewReminderState{}, false
+		return reviewReminderParticipantSignals{}, false
 	}
-	derived := derivedReviewReminderState{Snapshot: snapshot, State: state}
 	for _, event := range events {
 		eventAt := event.CreatedAt.UTC()
-		if eventAt.Before(*cycleStart) {
-			continue
-		}
-		if !reviewReminderEventApplies(event, participant) {
+		if eventAt.Before(*cycleStart) || !reviewReminderEventMatchesReview(event, participant.ReviewID) || !reviewReminderEventApplies(event, participant) {
 			continue
 		}
 		switch strings.TrimSpace(event.EventType) {
 		case "agreement.review_requested", "agreement.review_reopened":
-			derived.State.FirstSentAt = cloneServiceTimePtr(&eventAt)
-			derived.State.LastSentAt = cloneServiceTimePtr(&eventAt)
-			derived.Snapshot.FirstSentAt = cloneServiceTimePtr(&eventAt)
-			derived.Snapshot.LastSentAt = cloneServiceTimePtr(&eventAt)
-			derived.Snapshot.Status = stores.AgreementReminderStatusActive
-			derived.Snapshot.Paused = false
-			derived.Snapshot.NextDueAt = nil
-			derived.Snapshot.LastReasonCode = ""
-			derived.pausedNextDueAt = nil
+			signals.FirstSentAt = cloneServiceTimePtr(&eventAt)
+			signals.LastSentAt = cloneServiceTimePtr(&eventAt)
+			signals.LastViewedAt = nil
+			signals.LastManualResendAt = nil
+			signals.AutoReminderCount = 0
+			signals.LastReasonCode = ""
+			signals.Paused = false
+			signals.NextDueAt = nil
+			signals.pausedNextDueAt = nil
 		case "agreement.review_notified":
-			source := reviewReminderEventSource(event)
-			derived.State.LastSentAt = cloneServiceTimePtr(&eventAt)
-			derived.Snapshot.LastSentAt = cloneServiceTimePtr(&eventAt)
-			if source == ReviewNotificationSourceAutoReminder {
-				derived.AutoReminderCount++
-				derived.State.SentCount = derived.AutoReminderCount
-				derived.Snapshot.SentCount = derived.AutoReminderCount
+			signals.LastSentAt = cloneServiceTimePtr(&eventAt)
+			if reviewReminderEventSource(event) == ReviewNotificationSourceAutoReminder {
+				signals.AutoReminderCount++
 			} else {
-				derived.State.LastManualResendAt = cloneServiceTimePtr(&eventAt)
-				derived.Snapshot.LastManualResendAt = cloneServiceTimePtr(&eventAt)
+				signals.LastManualResendAt = cloneServiceTimePtr(&eventAt)
 			}
 		case "agreement.review_viewed":
-			derived.State.LastViewedAt = newerTimePtr(derived.State.LastViewedAt, &eventAt)
-			derived.Snapshot.LastViewedAt = newerTimePtr(derived.Snapshot.LastViewedAt, &eventAt)
+			signals.LastViewedAt = newerTimePtr(signals.LastViewedAt, &eventAt)
 		case "agreement.review_reminders_paused":
-			derived.Snapshot.Status = stores.AgreementReminderStatusPaused
-			derived.Snapshot.Paused = true
-			derived.Snapshot.LastReasonCode = "paused"
-			derived.pausedNextDueAt = reviewReminderEventNextDueAt(event)
-			derived.Snapshot.NextDueAt = nil
+			signals.Paused = true
+			signals.LastReasonCode = "paused"
+			signals.pausedNextDueAt = reviewReminderEventNextDueAt(event)
+			signals.NextDueAt = nil
 		case "agreement.review_reminders_resumed":
-			derived.Snapshot.Status = stores.AgreementReminderStatusActive
-			derived.Snapshot.Paused = false
-			derived.Snapshot.LastReasonCode = "resumed"
-			derived.Snapshot.NextDueAt = reviewReminderEventNextDueAt(event)
-			derived.pausedNextDueAt = nil
+			signals.Paused = false
+			signals.LastReasonCode = "resumed"
+			signals.NextDueAt = reviewReminderEventNextDueAt(event)
+			signals.pausedNextDueAt = nil
 		}
 	}
-	if derived.State.FirstSentAt == nil {
+	return signals, true
+}
+
+func deriveReviewReminderState(
+	agreementID string,
+	reviewStatus string,
+	participant stores.AgreementReviewParticipantRecord,
+	batch derivedReviewReminderBatchState,
+	signals reviewReminderParticipantSignals,
+) (derivedReviewReminderState, bool) {
+	if strings.TrimSpace(batch.ReviewID) == "" || batch.State.FirstSentAt == nil {
 		return derivedReviewReminderState{}, false
 	}
-	derived.Snapshot.FirstSentAt = newerTimePtr(derived.Snapshot.FirstSentAt, derived.State.FirstSentAt)
-	derived.Snapshot.LastSentAt = newerTimePtr(derived.Snapshot.LastSentAt, derived.State.LastSentAt)
-	derived.Snapshot.LastViewedAt = newerTimePtr(derived.Snapshot.LastViewedAt, derived.State.LastViewedAt)
-	derived.Snapshot.LastManualResendAt = newerTimePtr(derived.Snapshot.LastManualResendAt, derived.State.LastManualResendAt)
+	snapshot := ReviewReminderState{
+		AgreementID:        strings.TrimSpace(agreementID),
+		ReviewID:           strings.TrimSpace(participant.ReviewID),
+		ParticipantID:      strings.TrimSpace(participant.ID),
+		RecipientID:        strings.TrimSpace(participant.RecipientID),
+		Status:             stores.AgreementReminderStatusActive,
+		SentCount:          signals.AutoReminderCount,
+		FirstSentAt:        cloneServiceTimePtr(signals.FirstSentAt),
+		LastSentAt:         cloneServiceTimePtr(signals.LastSentAt),
+		LastViewedAt:       cloneServiceTimePtr(signals.LastViewedAt),
+		LastManualResendAt: cloneServiceTimePtr(signals.LastManualResendAt),
+		LastReasonCode:     strings.TrimSpace(signals.LastReasonCode),
+	}
+	derived := derivedReviewReminderState{
+		Snapshot: snapshot,
+		State: reminders.State{
+			SentCount:          batch.State.SentCount,
+			FirstSentAt:        cloneServiceTimePtr(batch.State.FirstSentAt),
+			LastSentAt:         cloneServiceTimePtr(batch.State.LastSentAt),
+			LastManualResendAt: cloneServiceTimePtr(batch.State.LastManualResendAt),
+		},
+		AutoReminderCount:      signals.AutoReminderCount,
+		BatchAutoReminderCount: batch.AutoReminderCount,
+		pausedNextDueAt:        cloneServiceTimePtr(signals.pausedNextDueAt),
+	}
 	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending || strings.TrimSpace(reviewStatus) != stores.AgreementReviewStatusInReview {
 		derived.Snapshot.Status = stores.AgreementReminderStatusTerminal
 		derived.Snapshot.Paused = false
@@ -754,33 +832,25 @@ func deriveReviewReminderState(
 		derived.State.NextDueAt = nil
 		return derived, true
 	}
-	if derived.Snapshot.Paused {
-		derived.State.NextDueAt = nil
+	if signals.Paused {
+		derived.Snapshot.Status = stores.AgreementReminderStatusPaused
+		derived.Snapshot.Paused = true
 		derived.Snapshot.NextDueAt = nil
+		derived.State.NextDueAt = nil
 		return derived, true
 	}
-	baseline := newerTimePtr(derived.State.LastSentAt, derived.State.FirstSentAt)
-	if derived.Snapshot.NextDueAt != nil {
-		derived.State.NextDueAt = cloneServiceTimePtr(derived.Snapshot.NextDueAt)
-	} else if baseline != nil {
-		decision := reminders.Evaluate(now.UTC(), policy, reminders.State{
-			SentCount:          derived.State.SentCount,
-			FirstSentAt:        derived.State.FirstSentAt,
-			LastSentAt:         derived.State.LastSentAt,
-			LastViewedAt:       derived.State.LastViewedAt,
-			LastManualResendAt: derived.State.LastManualResendAt,
-			NextDueAt:          derived.State.NextDueAt,
-		})
-		if decision.NextDueAt != nil {
-			derived.State.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
-			derived.Snapshot.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
-		} else {
-			nextDue := reminders.ComputeNextDue(baseline.UTC(), policy, stableKey)
-			derived.State.NextDueAt = &nextDue
-			derived.Snapshot.NextDueAt = cloneServiceTimePtr(&nextDue)
-		}
-	}
+	effectiveNextDueAt := laterTimePtr(batch.State.NextDueAt, signals.NextDueAt)
+	derived.Snapshot.NextDueAt = cloneServiceTimePtr(effectiveNextDueAt)
+	derived.State.NextDueAt = cloneServiceTimePtr(effectiveNextDueAt)
 	return derived, true
+}
+
+func reviewReminderBatchStableKey(scope stores.Scope, reviewID string) string {
+	return strings.Join([]string{
+		strings.TrimSpace(scope.TenantID),
+		strings.TrimSpace(scope.OrgID),
+		strings.TrimSpace(reviewID),
+	}, "|")
 }
 
 func reviewReminderStableKey(scope stores.Scope, participant stores.AgreementReviewParticipantRecord) string {
@@ -810,6 +880,19 @@ func reviewReminderEventApplies(event stores.AuditEventRecord, participant store
 func reviewReminderEventSource(event stores.AuditEventRecord) string {
 	metadata := reviewReminderEventMetadata(event)
 	return normalizeReviewNotificationSource(strings.TrimSpace(fmt.Sprint(metadata["source"])))
+}
+
+func reviewReminderEventReviewID(event stores.AuditEventRecord) string {
+	metadata := reviewReminderEventMetadata(event)
+	return strings.TrimSpace(fmt.Sprint(metadata["review_id"]))
+}
+
+func reviewReminderEventMatchesReview(event stores.AuditEventRecord, reviewID string) bool {
+	reviewID = strings.TrimSpace(reviewID)
+	if reviewID == "" {
+		return false
+	}
+	return strings.TrimSpace(reviewReminderEventReviewID(event)) == reviewID
 }
 
 func reviewReminderEventNextDueAt(event stores.AuditEventRecord) *time.Time {
@@ -859,6 +942,10 @@ func prefixReviewReminderReason(reason string) string {
 	return "review_" + reason
 }
 
+func laterTimePtr(a, b *time.Time) *time.Time {
+	return newerTimePtr(a, b)
+}
+
 func recipientByID(recipients []stores.RecipientRecord, id string) (stores.RecipientRecord, bool) {
 	id = strings.TrimSpace(id)
 	for _, recipient := range recipients {
@@ -893,8 +980,16 @@ func (s AgreementService) ReviewReminderStates(ctx context.Context, scope stores
 	})
 	policy := ReminderPolicyFromConfig(appcfg.Active())
 	out := make(map[string]ReviewReminderState, len(summary.Participants))
+	batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(summary.Review.ID), s.now().UTC(), summary.Participants, events, policy)
+	if !ok {
+		return out, nil
+	}
 	for _, participant := range summary.Participants {
-		derived, ok := deriveReviewReminderState(scope, agreementID, summary.Status, s.now().UTC(), participant, events, policy)
+		signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
+		if !ok {
+			continue
+		}
+		derived, ok := deriveReviewReminderState(agreementID, summary.Status, participant, batch, signals)
 		if !ok {
 			continue
 		}
@@ -1056,7 +1151,15 @@ func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope
 		}
 		return events[i].ID < events[j].ID
 	})
-	derived, ok := deriveReviewReminderState(scope, agreementID, review.Status, s.now().UTC(), participant, events, ReminderPolicyFromConfig(appcfg.Active()))
+	batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(review.ID), s.now().UTC(), participants, events, ReminderPolicyFromConfig(appcfg.Active()))
+	if !ok {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
+	if !ok {
+		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	derived, ok := deriveReviewReminderState(agreementID, review.Status, participant, batch, signals)
 	if !ok {
 		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
 	}
