@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -100,8 +101,84 @@ func NewGoAuthAuthenticator(routeAuth *auth.RouteAuthenticator, cfg auth.Config,
 		}
 	}
 	handler := authenticator.resolveErrorHandler()
-	authenticator.middleware = routeAuth.ProtectedRoute(cfg, handler)
+	authenticator.middleware = resolveProtectedRouteMiddleware(routeAuth, cfg, handler)
 	return authenticator
+}
+
+func resolveProtectedRouteMiddleware(
+	routeAuth *auth.RouteAuthenticator,
+	cfg auth.Config,
+	handler func(router.Context, error) error,
+) router.MiddlewareFunc {
+	if routeAuth == nil {
+		return nil
+	}
+	protectedRoute := routeAuth.ProtectedRoute(cfg, handler)
+	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(cfg, handler)
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		browserHandler := protectedBrowserRoute(next)
+		routeHandler := protectedRoute(next)
+		return func(c router.Context) error {
+			if c != nil && strings.Contains(c.Path(), "/api/") {
+				return routeHandler(c)
+			}
+			return browserHandler(c)
+		}
+	}
+}
+
+func resolveProtectedAdminBrowserRouteMiddleware(
+	cfg auth.Config,
+	handler func(router.Context, error) error,
+) router.MiddlewareFunc {
+	csrfMiddleware := csrfmw.New(csrfmw.Config{
+		ErrorHandler: func(c router.Context, err error) error {
+			if err == nil {
+				return c.Status(router.StatusForbidden).SendString("forbidden")
+			}
+			return c.Status(router.StatusForbidden).SendString(err.Error())
+		},
+	})
+	originMiddleware := router.OriginProtection(router.OriginProtectionConfig{
+		ErrorHandler: func(c router.Context, err error) error {
+			return c.Status(router.StatusForbidden).SendString("forbidden")
+		},
+	})
+	authCookieName := strings.TrimSpace(cfg.GetContextKey())
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			if isSafeBrowserMethod(c) {
+				return csrfMiddleware(next)(c)
+			}
+			if requestUsesCookieAuth(c, authCookieName) {
+				return originMiddleware(csrfMiddleware(next))(c)
+			}
+			return csrfMiddleware(next)(c)
+		}
+	}
+}
+
+func isSafeBrowserMethod(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	switch strings.ToUpper(strings.TrimSpace(c.Method())) {
+	case "GET", "HEAD", "OPTIONS", "TRACE":
+		return true
+	default:
+		return false
+	}
+}
+
+func requestUsesCookieAuth(c router.Context, cookieName string) bool {
+	if c == nil {
+		return false
+	}
+	cookieName = strings.TrimSpace(cookieName)
+	if cookieName == "" {
+		return false
+	}
+	return strings.TrimSpace(c.Cookies(cookieName)) != ""
 }
 
 // WrapHandler runs the go-auth middleware around the provided handler.
