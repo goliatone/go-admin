@@ -1,5 +1,31 @@
 # Changelog
 
+# [0.29.0](https://github.com/goliatone/go-admin/compare/v0.28.0...v0.29.0) - (2026-03-24)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- CSRF token middleware use ([c87dbb9](https://github.com/goliatone/go-admin/commit/c87dbb924ef9e9bd53a8e512b2deb7ff61b42479))  - (goliatone)
+- Asset building to pass test ([12ee1d2](https://github.com/goliatone/go-admin/commit/12ee1d2ddcc085af87bf2701f6e637c5831e6787))  - (goliatone)
+- Route auth use protected browse func ([8f6a99a](https://github.com/goliatone/go-admin/commit/8f6a99a3d7fc454d4652b0edd7b40f147d2ab6ee))  - (goliatone)
+- Missing preferences build dist ([3957bb9](https://github.com/goliatone/go-admin/commit/3957bb952c53aa4e7e09cd712495e13dbf6b15e3))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.29.0 ([acbbad9](https://github.com/goliatone/go-admin/commit/acbbad9cb850a3180951c8c13764a274ba36610b))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Quickstart use CSRF token ([96fb16b](https://github.com/goliatone/go-admin/commit/96fb16b611bf8422f074aeb80a356390a37b1982))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.28.0 ([e80e2fa](https://github.com/goliatone/go-admin/commit/e80e2fa6e84a7f2e2cff75554820f265fdaf0f24))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([01b10cf](https://github.com/goliatone/go-admin/commit/01b10cf22e7f24f6dfe100b0b239813944d9c388))  - (goliatone)
+- Update tasks ([c244358](https://github.com/goliatone/go-admin/commit/c2443582e85468606ca06c7e008e7e4f469122e2))  - (goliatone)
+
 # [0.28.0](https://github.com/goliatone/go-admin/compare/v0.27.1...v0.28.0) - (2026-03-24)
 
 ## <!-- 1 -->🐛 Bug Fixes
