@@ -256,7 +256,7 @@ func (r *BunTranslationAssignmentRepository) findActiveByKeyTx(ctx context.Conte
 		Where("family_id = ?", strings.TrimSpace(assignment.FamilyID)).
 		Where("target_locale = ?", strings.TrimSpace(strings.ToLower(assignment.TargetLocale))).
 		Where("work_scope = ?", normalizeTranslationAssignmentWorkScope(assignment.WorkScope)).
-		Where("status IN (?)", bun.In([]string{
+		Where("status IN (?)", bun.List([]string{
 			string(AssignmentStatusOpen),
 			string(AssignmentStatusAssigned),
 			string(AssignmentStatusInProgress),

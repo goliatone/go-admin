@@ -44,7 +44,7 @@ func (m *PreferencesModule) registerPreferencesRoutes(admin *Admin) {
 }
 
 func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context, prefPath string) error {
-	if admin == nil || c == nil {
+	if m == nil || admin == nil || c == nil {
 		return ErrNotFound
 	}
 	if !featureEnabled(admin.featureGate, FeaturePreferences) {
@@ -85,6 +85,8 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 	if err != nil {
 		return err
 	}
+	viewBuilder := m.viewBuilder
+	jsonEditorStrict := m.jsonEditorStrict
 
 	basePath := strings.TrimSpace(admin.config.BasePath)
 	viewCtx := router.ViewContext{
@@ -113,11 +115,11 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 			"form_id": schemaInfo.FormID,
 			"schema":  schemaInfo.Schema,
 		},
-		"json_editor_strict": m.jsonEditorStrict,
+		"json_editor_strict": jsonEditorStrict,
 	}
 	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
-	if m != nil && m.viewBuilder != nil {
-		if updated := m.viewBuilder(admin, c, viewCtx, preferencesModuleID); updated != nil {
+	if viewBuilder != nil {
+		if updated := viewBuilder(admin, c, viewCtx, preferencesModuleID); updated != nil {
 			viewCtx = updated
 		}
 	}
@@ -203,7 +205,7 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 			return err
 		}
 	}
-	if prefs.Theme != "" || prefs.ThemeVariant != "" || (prefs.Raw != nil && len(prefs.Raw) > 0) {
+	if prefs.Theme != "" || prefs.ThemeVariant != "" || len(prefs.Raw) > 0 {
 		if _, err := admin.preferences.Save(adminCtx.Context, userID, prefs); err != nil {
 			return err
 		}

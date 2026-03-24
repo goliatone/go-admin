@@ -200,10 +200,6 @@ func blockDefinitionsFromField(field model.Field, renderChild func(any) (string,
 	return definitions, nil
 }
 
-func blockDefinitionCandidates(field model.Field) []model.Field {
-	return blockDefinitionCandidatesWithDiscriminator(field, false)
-}
-
 func blockDefinitionCandidatesWithDiscriminator(field model.Field, requireDiscriminator bool) []model.Field {
 	if len(field.Nested) == 0 {
 		return nil

@@ -69,10 +69,10 @@ func buildRecordTranslationReadinessWithCache(
 	environment := translationReadinessEnvironment(ctx, filters)
 	environmentKey := strings.ToLower(strings.TrimSpace(environment))
 
-	requiredLocales := []string{}
-	requiredFields := map[string][]string{}
-	requirementsResolved := false
-	requirements := TranslationRequirements{}
+	var requiredLocales []string
+	var requiredFields map[string][]string
+	var requirementsResolved bool
+	var requirements TranslationRequirements
 	if cache == nil {
 		requiredLocales, requiredFields, requirementsResolved, requirements = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
 	} else {

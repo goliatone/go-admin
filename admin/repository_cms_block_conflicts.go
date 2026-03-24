@@ -237,7 +237,7 @@ func blocksConflict(embedded []map[string]any, legacy []CMSBlock, embeddedTypes 
 		return true
 	}
 	for idx := range embeddedTypes {
-		if strings.ToLower(embeddedTypes[idx]) != strings.ToLower(legacyTypes[idx]) {
+		if !strings.EqualFold(embeddedTypes[idx], legacyTypes[idx]) {
 			return true
 		}
 	}

@@ -4,37 +4,27 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestExportStubsRemoved(t *testing.T) {
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", func(info fs.FileInfo) bool {
-		name := info.Name()
-		if !strings.HasSuffix(name, ".go") {
-			return false
-		}
-		return !strings.HasSuffix(name, "_test.go")
-	}, 0)
+	entries, err := os.ReadDir(".")
 	if err != nil {
-		t.Fatalf("parse admin sources: %v", err)
+		t.Fatalf("read admin sources: %v", err)
 	}
-
-	pkg := pkgs["admin"]
-	if pkg == nil {
-		for _, candidate := range pkgs {
-			pkg = candidate
-			break
-		}
-	}
-	if pkg == nil {
-		t.Fatalf("admin package sources not found")
-	}
-
 	declared := map[string]struct{}{}
-	for _, file := range pkg.Files {
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, parseErr := parser.ParseFile(fset, name, nil, 0)
+		if parseErr != nil {
+			t.Fatalf("parse admin source %s: %v", name, parseErr)
+		}
 		for _, decl := range file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
 			if !ok || gen.Tok != token.TYPE {

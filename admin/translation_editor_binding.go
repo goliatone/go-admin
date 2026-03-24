@@ -687,7 +687,7 @@ func translationEditorStyleGuideSummary(editorCtx translationEditorContext) map[
 			"rules":     []string{},
 		}
 	}
-	title := fmt.Sprintf("%s %s Style Guide", strings.ToUpper(locale), strings.Title(strings.ReplaceAll(contentType, "_", " ")))
+	title := fmt.Sprintf("%s %s Style Guide", strings.ToUpper(locale), titleCase(strings.ReplaceAll(contentType, "_", " ")))
 	summary := "Keep terminology consistent, preserve links/placeholders, and mirror source structure before stylistic changes."
 	return map[string]any{
 		"available":        true,
@@ -1473,7 +1473,7 @@ func translationEditorFieldLabel(fieldPath string) string {
 	case "meta_description":
 		return "Meta Description"
 	default:
-		return strings.Title(strings.ReplaceAll(strings.TrimSpace(fieldPath), "_", " "))
+		return titleCase(strings.ReplaceAll(strings.TrimSpace(fieldPath), "_", " "))
 	}
 }
 

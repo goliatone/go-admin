@@ -84,6 +84,9 @@ func (a *Admin) AdminAPIBasePath() string {
 
 // URLs exposes the URL manager.
 func (a *Admin) URLs() urlkit.Resolver {
+	if a == nil || a.urlManager == nil {
+		return nil
+	}
 	return a.urlManager
 }
 

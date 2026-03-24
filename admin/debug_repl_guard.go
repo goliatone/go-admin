@@ -17,7 +17,8 @@ const (
 )
 
 const (
-	debugReplOverrideKeyHeader   = "X-Admin-REPL-Key"
+	debugReplOverrideKeyHeader = "X-Admin-REPL-Key"
+	// #nosec G101 -- header name used to carry an override token, not a hardcoded credential value.
 	debugReplOverrideTokenHeader = "X-Admin-REPL-Token"
 	debugReplOverrideKeyQuery    = "repl_key"
 	debugReplOverrideTokenQuery  = "repl_token"
@@ -35,32 +36,6 @@ const (
 	debugReplTextCodeReadOnly       = TextCodeReplReadOnly
 	debugReplTextCodeIPDenied       = TextCodeReplIPDenied
 )
-
-func debugREPLAccessMiddleware(admin *Admin, cfg DebugConfig, kind string, requireExec bool) router.MiddlewareFunc {
-	if admin == nil {
-		return nil
-	}
-	wrap := admin.authWrapper()
-	return func(next router.HandlerFunc) router.HandlerFunc {
-		return wrap(func(c router.Context) error {
-			if _, err := debugREPLAuthorizeRequest(admin, cfg, kind, requireExec, c); err != nil {
-				return writeError(c, err)
-			}
-			return next(c)
-		})
-	}
-}
-
-func debugREPLAuthHandler(admin *Admin, cfg DebugConfig, kind string, requireExec bool) router.HandlerFunc {
-	if admin == nil {
-		return func(_ router.Context) error { return ErrForbidden }
-	}
-	wrap := admin.authWrapper()
-	return wrap(func(c router.Context) error {
-		_, err := debugREPLAuthorizeRequest(admin, cfg, kind, requireExec, c)
-		return err
-	})
-}
 
 func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requireExec bool, c router.Context) (AdminContext, error) {
 	if admin == nil || c == nil {

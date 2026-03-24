@@ -80,40 +80,6 @@ func setStringField(val reflect.Value, fieldName string, value string) {
 	f.SetString(value)
 }
 
-func setStringPtr(field reflect.Value, value string) {
-	if !field.IsValid() || !field.CanSet() {
-		return
-	}
-	switch field.Kind() {
-	case reflect.String:
-		field.SetString(value)
-		return
-	case reflect.Pointer:
-		if field.Type().Elem().Kind() != reflect.String {
-			return
-		}
-		ptr := reflect.New(field.Type().Elem())
-		ptr.Elem().SetString(value)
-		field.Set(ptr)
-	}
-}
-
-func setUUIDPtr(field reflect.Value, id *uuid.UUID) {
-	if !field.IsValid() || !field.CanSet() || field.Kind() != reflect.Pointer {
-		return
-	}
-	if id == nil {
-		field.Set(reflect.Zero(field.Type()))
-		return
-	}
-	if field.Type().Elem() != reflect.TypeFor[uuid.UUID]() {
-		return
-	}
-	ptr := reflect.New(field.Type().Elem())
-	ptr.Elem().Set(reflect.ValueOf(*id))
-	field.Set(ptr)
-}
-
 func setMapField(val reflect.Value, fieldName string, value map[string]any) {
 	val = deref(val)
 	if !val.IsValid() || val.Kind() != reflect.Struct {

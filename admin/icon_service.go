@@ -143,7 +143,7 @@ func (s *IconService) RegisterIcon(icon IconDefinition) error {
 	if _, ok := s.libraries[library]; !ok {
 		s.libraries[library] = &IconLibrary{
 			ID:       library,
-			Name:     strings.Title(library),
+			Name:     titleCase(library),
 			Trusted:  true,
 			Priority: 100,
 		}

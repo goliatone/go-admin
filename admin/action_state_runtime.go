@@ -61,14 +61,6 @@ func (p *panelBinding) withScopedActionState(ctx AdminContext, records []map[str
 	return out, nil
 }
 
-func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransitionInfo, transitionsErr error) map[string]map[string]any {
-	if len(record) == 0 || len(actions) == 0 {
-		return nil
-	}
-	state := p.actionStateForRecord(ctx, primitives.CloneAnyMap(record), actions, ActionScopeRow, transitions, transitionsErr, nil)
-	return actionStatePayloadMap(state)
-}
-
 func (p *panelBinding) actionStateForRecord(
 	ctx AdminContext,
 	record map[string]any,

@@ -467,9 +467,6 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	if d == nil {
 		return nil, nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if d.components != nil {
 		return d.components, nil
 	}

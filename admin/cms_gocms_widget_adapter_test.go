@@ -420,11 +420,11 @@ func TestGoCMSWidgetAdapterSaveInstanceWithNilContext(t *testing.T) {
 	adapter := NewGoCMSWidgetAdapter(svc)
 
 	code := "admin.widget.nil_ctx"
-	if err := adapter.RegisterDefinition(nil, WidgetDefinition{Code: code, Name: "Nil Context"}); err != nil {
+	if err := adapter.RegisterDefinition(context.TODO(), WidgetDefinition{Code: code, Name: "Nil Context"}); err != nil {
 		t.Fatalf("register definition: %v", err)
 	}
 
-	inst, err := adapter.SaveInstance(nil, WidgetInstance{DefinitionCode: code, Area: "admin.dashboard.main"})
+	inst, err := adapter.SaveInstance(context.TODO(), WidgetInstance{DefinitionCode: code, Area: "admin.dashboard.main"})
 	if err != nil {
 		t.Fatalf("save instance with nil context: %v", err)
 	}

@@ -184,21 +184,21 @@ func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, family
 	variantRows := []bunTranslationLocaleVariantRecord{}
 	if err := s.db.NewSelect().
 		Model(&variantRows).
-		Where("family_id IN (?)", bun.In(familyIDs)).
+		Where("family_id IN (?)", bun.List(familyIDs)).
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	blockerRows := []bunTranslationFamilyBlockerRecord{}
 	if err := s.db.NewSelect().
 		Model(&blockerRows).
-		Where("family_id IN (?)", bun.In(familyIDs)).
+		Where("family_id IN (?)", bun.List(familyIDs)).
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	assignmentRows := []bunTranslationAssignmentRecord{}
 	if err := s.db.NewSelect().
 		Model(&assignmentRows).
-		Where("family_id IN (?)", bun.In(familyIDs)).
+		Where("family_id IN (?)", bun.List(familyIDs)).
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}

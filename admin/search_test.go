@@ -39,7 +39,6 @@ func TestSearchEngineDisabledByFeatureGate(t *testing.T) {
 }
 
 type stubSearchAdapter struct {
-	name       string
 	permission string
 	results    []SearchResult
 }

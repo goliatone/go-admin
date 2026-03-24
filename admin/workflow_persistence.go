@@ -173,10 +173,6 @@ func (e WorkflowValidationErrors) Error() string {
 	return "workflow validation failed"
 }
 
-func (e WorkflowValidationErrors) hasErrors() bool {
-	return len(e.Fields) > 0
-}
-
 func (s PersistedWorkflowStatus) IsValid() bool {
 	switch s {
 	case WorkflowStatusDraft, WorkflowStatusActive, WorkflowStatusDeprecated:

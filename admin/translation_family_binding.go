@@ -748,11 +748,6 @@ func translationCreateVariantAssignmentPayload(assignment TranslationAssignment)
 	}
 }
 
-func (b *translationFamilyBinding) rebuildCreateVariantPayload(ctx context.Context, scope translationservices.Scope, familyID string, input translationFamilyCreateVariantInput) (map[string]any, error) {
-	payload, _, err := b.rebuildCreateVariantPayloadWithFamily(ctx, scope, familyID, input)
-	return payload, err
-}
-
 func (b *translationFamilyBinding) rebuildCreateVariantPayloadWithFamily(ctx context.Context, scope translationservices.Scope, familyID string, input translationFamilyCreateVariantInput) (map[string]any, translationservices.FamilyRecord, error) {
 	runtime, err := b.runtime(ctx, input.Environment)
 	if err != nil {

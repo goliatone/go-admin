@@ -26,10 +26,6 @@ func hasAnyKey(set map[string]bool, keys []string) bool {
 }
 
 // mapMenuIDs normalizes ID and ParentID values to canonical menu item paths.
-func mapMenuIDs(item MenuItem) MenuItem {
-	return helpers.MapMenuIDs(item)
-}
-
 // buildMenuTree reconstructs a hierarchy from a flat slice using ParentID metadata.
 // If items already contain children, it leaves the structure as-is.
 func buildMenuTree(items []MenuItem) []MenuItem {

@@ -38,10 +38,6 @@ func resourceInUseDomainError(message string, meta map[string]any) error {
 	return NewDomainError(TextCodeResourceInUse, message, withDomainErrorMeta(meta, nil))
 }
 
-func preconditionFailedDomainError(message string, meta map[string]any) error {
-	return NewDomainError(TextCodePreconditionFailed, message, withDomainErrorMeta(meta, nil))
-}
-
 func invalidSelectionDomainError(message string, meta map[string]any) error {
 	return NewDomainError(TextCodeInvalidSelection, message, withDomainErrorMeta(meta, nil))
 }

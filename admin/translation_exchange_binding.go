@@ -814,18 +814,6 @@ func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {
 	return base + "/translations/exchange/jobs/" + id
 }
 
-func (b *translationExchangeBinding) jobHistoryEndpoint() string {
-	statusPath := b.jobStatusEndpoint("__job_id__")
-	if statusPath == "" {
-		base := strings.TrimSuffix(adminAPIBasePath(b.admin), "/")
-		if base == "" {
-			return "/admin/api/translations/exchange/jobs"
-		}
-		return base + "/translations/exchange/jobs"
-	}
-	return strings.TrimSuffix(statusPath, "/__job_id__")
-}
-
 func (b *translationExchangeBinding) recordCompletedExchangeJob(adminCtx AdminContext, kind, permission string, request map[string]any, rows []TranslationExchangeRow, result map[string]any, requestHash string) map[string]any {
 	if b == nil || b.runtime == nil {
 		return nil
@@ -871,10 +859,6 @@ func mergeTranslationExchangeExportPayload(result TranslationExportResult, job m
 		payload["job"] = job
 	}
 	return payload
-}
-
-func mergeTranslationExchangeResultPayload(result TranslationExchangeResult, job map[string]any) map[string]any {
-	return mergeTranslationExchangeResultPayloadForKind("", result, nil, job)
 }
 
 func mergeTranslationExchangeResultPayloadForKind(kind string, result TranslationExchangeResult, rows []TranslationExchangeRow, job map[string]any) map[string]any {

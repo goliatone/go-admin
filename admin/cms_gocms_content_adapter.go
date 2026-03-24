@@ -133,10 +133,6 @@ func buildGoCMSContentTranslations(content CMSContent) []cmscontent.ContentTrans
 	return []cmscontent.ContentTranslationInput{tr}
 }
 
-func (a *GoCMSContentAdapter) hasBlockService() bool {
-	return a != nil && a.blocks != nil
-}
-
 func (a *GoCMSContentAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
 	if a == nil || a.locales == nil {
 		return uuid.Nil, false
@@ -874,25 +870,6 @@ func applySchemaVersionToContent(content *CMSContent) {
 	content.SchemaVersion = schema
 }
 
-func applySchemaVersionToPage(page *CMSPage) {
-	if page == nil {
-		return
-	}
-	schema := strings.TrimSpace(page.SchemaVersion)
-	if schema == "" && page.Data != nil {
-		schema = strings.TrimSpace(toString(page.Data["_schema"]))
-		page.SchemaVersion = schema
-	}
-	if schema == "" {
-		return
-	}
-	if page.Data == nil {
-		page.Data = map[string]any{}
-	}
-	page.Data["_schema"] = schema
-	page.SchemaVersion = schema
-}
-
 func applyEmbeddedBlocksToContent(content *CMSContent) bool {
 	if content == nil {
 		return false
@@ -931,40 +908,6 @@ func applyEmbeddedBlocksToPage(page *CMSPage) bool {
 	page.Data["blocks"] = embedded
 	page.EmbeddedBlocks = embedded
 	return true
-}
-
-func mergePageContentData(page *CMSPage, content *CMSContent) {
-	if page == nil || content == nil {
-		return
-	}
-	merged := primitives.CloneAnyMap(content.Data)
-	if merged == nil {
-		merged = map[string]any{}
-	}
-	if page.Data != nil {
-		maps.Copy(merged, page.Data)
-	}
-	page.Data = merged
-	if page.SchemaVersion == "" {
-		page.SchemaVersion = content.SchemaVersion
-	}
-	if page.EmbeddedBlocks == nil && content.EmbeddedBlocks != nil {
-		page.EmbeddedBlocks = cloneEmbeddedBlocks(content.EmbeddedBlocks)
-	}
-}
-
-func (a *GoCMSContentAdapter) embeddedBlocksForContent(ctx context.Context, contentID, locale string) ([]map[string]any, bool) {
-	content, err := a.fetchContent(ctx, contentID, locale, false)
-	if err != nil || content == nil {
-		return nil, false
-	}
-	if content.EmbeddedBlocks != nil {
-		return cloneEmbeddedBlocks(content.EmbeddedBlocks), true
-	}
-	if embedded, present := embeddedBlocksFromData(content.Data); present {
-		return embedded, true
-	}
-	return nil, false
 }
 
 func (a *GoCMSContentAdapter) prepareContentMetadata(ctx context.Context, content CMSContent, existing *CMSContent) (map[string]any, map[string]any, bool) {
@@ -1154,51 +1097,6 @@ func mergeMetadata(base map[string]any, updates map[string]any) map[string]any {
 	maps.Copy(merged, base)
 	maps.Copy(merged, updates)
 	return merged
-}
-
-func (a *GoCMSContentAdapter) buildContentTranslation(field reflect.Value, content CMSContent) reflect.Value {
-	field = deref(field)
-	if !field.IsValid() || field.Kind() != reflect.Slice {
-		return reflect.Value{}
-	}
-	elemType := field.Type().Elem()
-	tr := reflect.New(elemType).Elem()
-	setStringField(tr, "Locale", content.Locale)
-	setStringField(tr, "Title", content.Title)
-	if summary := strings.TrimSpace(asString(content.Data["excerpt"], "")); summary != "" {
-		setStringPtr(tr.FieldByName("Summary"), summary)
-	}
-	if data := primitives.CloneAnyMap(content.Data); data != nil {
-		setMapField(tr, "Content", data)
-	}
-	slice := reflect.MakeSlice(field.Type(), 0, 1)
-	return reflect.Append(slice, tr)
-}
-
-func (a *GoCMSContentAdapter) buildPageTranslation(field reflect.Value, page CMSPage, path, locale string) reflect.Value {
-	field = deref(field)
-	if !field.IsValid() || field.Kind() != reflect.Slice {
-		return reflect.Value{}
-	}
-	elemType := field.Type().Elem()
-	tr := reflect.New(elemType).Elem()
-	setStringField(tr, "Locale", locale)
-	setStringField(tr, "Title", page.Title)
-	setStringField(tr, "Path", path)
-	if groupID := uuidFromString(page.FamilyID); groupID != uuid.Nil {
-		setUUIDPtr(tr.FieldByName("FamilyID"), &groupID)
-	}
-	if summary := asString(page.Data["summary"], ""); summary != "" {
-		setStringPtr(tr.FieldByName("Summary"), summary)
-	}
-	if mt := asString(page.SEO["title"], asString(page.Data["meta_title"], "")); mt != "" {
-		setStringPtr(tr.FieldByName("SEOTitle"), mt)
-	}
-	if md := asString(page.SEO["description"], asString(page.Data["meta_description"], "")); md != "" {
-		setStringPtr(tr.FieldByName("SEODescription"), md)
-	}
-	slice := reflect.MakeSlice(field.Type(), 0, 1)
-	return reflect.Append(slice, tr)
 }
 
 func (a *GoCMSContentAdapter) createPageFromContent(ctx context.Context, page CMSPage) (*CMSPage, error) {
@@ -1502,166 +1400,6 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 			out.Metadata = normalizeStructuralMetadata(out.Metadata)
 		}
 		out.Data = injectStructuralMetadata(out.Metadata, out.Data)
-	}
-	return out
-}
-
-func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CMSPage {
-	val := deref(value)
-	out := CMSPage{Data: map[string]any{}, SEO: map[string]any{}}
-	if id, ok := extractUUID(val, "ID"); ok {
-		out.ID = id.String()
-	}
-	if tpl, ok := extractUUID(val, "TemplateID"); ok {
-		out.TemplateID = tpl.String()
-	}
-	if pid, ok := extractUUID(val, "ParentID"); ok {
-		out.ParentID = pid.String()
-	}
-	out.Slug = stringField(val, "Slug")
-	out.Status = stringField(val, "Status")
-
-	translations := deref(val.FieldByName("Translations"))
-	availableLocales := stringSliceFieldAny(val, "AvailableLocales", "Locales")
-	var chosen reflect.Value
-	localeLower := strings.ToLower(strings.TrimSpace(locale))
-	seenLocales := map[string]bool{}
-	for _, code := range availableLocales {
-		if trimmed := strings.ToLower(strings.TrimSpace(code)); trimmed != "" {
-			seenLocales[trimmed] = true
-		}
-	}
-	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
-		current := deref(translations.Index(i))
-		rawCode := strings.TrimSpace(localeCodeFromTranslation(current))
-		code := strings.ToLower(rawCode)
-		if rawCode != "" && !seenLocales[code] {
-			availableLocales = append(availableLocales, rawCode)
-			seenLocales[code] = true
-		}
-		if !chosen.IsValid() {
-			chosen = current
-		}
-		if localeLower == "" {
-			continue
-		}
-		if code != "" && code == localeLower {
-			chosen = current
-		}
-	}
-	if chosen.IsValid() {
-		if groupID := uuidStringField(chosen, "FamilyID"); groupID != "" {
-			out.FamilyID = groupID
-		}
-		if code := localeCodeFromTranslation(chosen); code != "" {
-			out.Locale = code
-		}
-		out.Title = stringField(chosen, "Title")
-		if path := stringField(chosen, "Path"); path != "" {
-			out.Data["path"] = path
-			out.PreviewURL = path
-		}
-		if seoTitle := stringField(chosen, "SEOTitle"); seoTitle != "" {
-			out.SEO["title"] = seoTitle
-			out.Data["meta_title"] = seoTitle
-		}
-		if seoDesc := stringField(chosen, "SEODescription"); seoDesc != "" {
-			out.SEO["description"] = seoDesc
-			out.Data["meta_description"] = seoDesc
-		}
-		if summary := stringField(chosen, "Summary"); summary != "" {
-			out.Data["summary"] = summary
-		}
-		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			maps.Copy(contentData, out.Data)
-			out.Data = contentData
-		}
-		if out.Title == "" {
-			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
-				out.Title = title
-			}
-		}
-		if path := strings.TrimSpace(toString(out.Data["path"])); path != "" {
-			out.Data["path"] = path
-			if out.PreviewURL == "" {
-				out.PreviewURL = path
-			}
-		} else if out.PreviewURL != "" {
-			out.Data["path"] = out.PreviewURL
-		}
-		if out.SEO == nil {
-			out.SEO = map[string]any{}
-		}
-		if strings.TrimSpace(toString(out.SEO["title"])) == "" {
-			if seoTitle := strings.TrimSpace(toString(out.Data["meta_title"])); seoTitle != "" {
-				out.SEO["title"] = seoTitle
-			}
-		}
-		if strings.TrimSpace(toString(out.SEO["description"])) == "" {
-			if seoDesc := strings.TrimSpace(toString(out.Data["meta_description"])); seoDesc != "" {
-				out.SEO["description"] = seoDesc
-			}
-		}
-		if strings.TrimSpace(toString(out.Data["meta_title"])) == "" {
-			if seoTitle := strings.TrimSpace(toString(out.SEO["title"])); seoTitle != "" {
-				out.Data["meta_title"] = seoTitle
-			}
-		}
-		if strings.TrimSpace(toString(out.Data["meta_description"])) == "" {
-			if seoDesc := strings.TrimSpace(toString(out.SEO["description"])); seoDesc != "" {
-				out.Data["meta_description"] = seoDesc
-			}
-		}
-	}
-	if out.Locale == "" {
-		out.Locale = locale
-	}
-	if len(availableLocales) > 0 {
-		out.AvailableLocales = append([]string{}, availableLocales...)
-	}
-	requestedLocale := strings.TrimSpace(locale)
-	if requestedLocale == "" {
-		requestedLocale = strings.TrimSpace(stringFieldAny(val, "RequestedLocale"))
-	}
-	out.RequestedLocale = requestedLocale
-	resolvedLocale := strings.TrimSpace(stringFieldAny(val, "ResolvedLocale"))
-	if resolvedLocale == "" && chosen.IsValid() {
-		resolvedLocale = strings.TrimSpace(stringFieldAny(chosen, "ResolvedLocale"))
-	}
-	if resolvedLocale == "" {
-		resolvedLocale = out.Locale
-	}
-	out.ResolvedLocale = resolvedLocale
-	missing := false
-	if ok, set := boolFieldAny(val, "MissingRequestedLocale"); set {
-		missing = ok
-	} else if requestedLocale != "" {
-		found := false
-		for _, code := range out.AvailableLocales {
-			if strings.EqualFold(code, requestedLocale) {
-				found = true
-				break
-			}
-		}
-		if !found && len(out.AvailableLocales) > 0 {
-			missing = true
-		}
-	}
-	out.MissingRequestedLocale = missing
-	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
-		out.SchemaVersion = schema
-	}
-	if meta := mapFieldAny(val, "Metadata"); meta != nil {
-		out.Metadata = primitives.CloneAnyMap(meta)
-	}
-	out.FamilyID = adapterResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
-	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
-	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
-	if len(out.Navigation) > 0 {
-		out.Data["_navigation"] = navigationVisibilityMapAny(out.Navigation)
-	}
-	if len(out.EffectiveMenuLocations) > 0 {
-		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
 	}
 	return out
 }

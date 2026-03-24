@@ -209,9 +209,9 @@ func normalizeTranslationDatagridSummaryInt(value any) (int, bool) {
 	case int32:
 		return int(typed), true
 	case int64:
-		return int(typed), true
+		return primitives.IntFromInt64(typed)
 	case uint:
-		return int(typed), true
+		return primitives.IntFromUint(typed)
 	case uint8:
 		return int(typed), true
 	case uint16:
@@ -219,7 +219,7 @@ func normalizeTranslationDatagridSummaryInt(value any) (int, bool) {
 	case uint32:
 		return int(typed), true
 	case uint64:
-		return int(typed), true
+		return primitives.IntFromUint64(typed)
 	case float32:
 		return int(typed), true
 	case float64:

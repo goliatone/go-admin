@@ -361,10 +361,6 @@ func (s *SettingsService) Schema(ctx context.Context, userID string) (opts.Schem
 	return options.Schema()
 }
 
-func (s *SettingsService) validate(ctx context.Context, def SettingDefinition, val any) error {
-	return validateSetting(ctx, def, val)
-}
-
 func validateType(t string, val any) error {
 	switch t {
 	case "", "string":

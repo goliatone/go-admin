@@ -13,6 +13,8 @@ import (
 	router "github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
 	urlkit "github.com/goliatone/go-urlkit"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const preferencesModuleID = "preferences"
@@ -277,10 +279,11 @@ func manifestVariantOptions(manifest *theme.Manifest) []Option {
 }
 
 func titleCase(val string) string {
+	val = strings.TrimSpace(val)
 	if val == "" {
 		return ""
 	}
-	return strings.ToUpper(val[:1]) + strings.ToLower(val[1:])
+	return cases.Title(language.English).String(strings.ToLower(val))
 }
 
 // PreferencesRepository adapts PreferencesService to the panel Repository contract.

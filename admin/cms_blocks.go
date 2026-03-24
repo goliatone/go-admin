@@ -120,13 +120,7 @@ func embeddedBlocksFromAnySlice(values []any) []map[string]any {
 }
 
 func stringSliceFromAny(value []any) []string {
-	out := []string{}
-	for _, item := range value {
-		if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
-			out = append(out, s)
-		}
-	}
-	return out
+	return primitives.StringSliceFromAny(value)
 }
 
 func embeddedBlocksFromLegacy(blocks []CMSBlock) []map[string]any {

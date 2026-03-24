@@ -278,21 +278,6 @@ func normalizeTranslationQueueState(state string) string {
 	return string(normalized)
 }
 
-func normalizeTranslationQueueContentState(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case translationQueueContentStateDraft:
-		return translationQueueContentStateDraft
-	case translationQueueContentStateReview:
-		return translationQueueContentStateReview
-	case translationQueueContentStateReady:
-		return translationQueueContentStateReady
-	case translationQueueContentStateArchived:
-		return translationQueueContentStateArchived
-	default:
-		return translationQueueContentStateDraft
-	}
-}
-
 func normalizeTranslationQueueDueState(state string) string {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case translationQueueDueStateOverdue:

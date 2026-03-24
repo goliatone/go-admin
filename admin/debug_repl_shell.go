@@ -3,16 +3,18 @@ package admin
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
+	"golang.org/x/sys/execabs"
 )
 
 const (
@@ -270,7 +272,15 @@ func handleDebugREPLShellCommand(admin *Admin, ctx context.Context, cfg DebugREP
 		if cmd.Cols <= 0 || cmd.Rows <= 0 {
 			return nil
 		}
-		if err := pty.Setsize(ptmx, &pty.Winsize{Cols: uint16(cmd.Cols), Rows: uint16(cmd.Rows)}); err != nil {
+		cols, ok := primitives.Uint16FromInt(cmd.Cols)
+		if !ok {
+			return nil
+		}
+		rows, ok := primitives.Uint16FromInt(cmd.Rows)
+		if !ok {
+			return nil
+		}
+		if err := pty.Setsize(ptmx, &pty.Winsize{Cols: cols, Rows: rows}); err != nil {
 			return err
 		}
 	case debugREPLShellCommandClose:
@@ -280,9 +290,14 @@ func handleDebugREPLShellCommand(admin *Admin, ctx context.Context, cfg DebugREP
 }
 
 func debugREPLStartShell(cfg DebugREPLConfig) (*exec.Cmd, *os.File, error) {
-	cmd := exec.Command(cfg.ShellCommand, cfg.ShellArgs...)
+	shellCommand, err := execabs.LookPath(strings.TrimSpace(cfg.ShellCommand))
+	if err != nil {
+		return nil, nil, err
+	}
+	// #nosec G204 -- shellCommand is resolved to an absolute local executable before launch.
+	cmd := execabs.Command(shellCommand, cfg.ShellArgs...)
 	if strings.TrimSpace(cfg.WorkingDir) != "" {
-		cmd.Dir = cfg.WorkingDir
+		cmd.Dir = filepath.Clean(cfg.WorkingDir)
 	}
 	if len(cfg.Environment) > 0 {
 		cmd.Env = append(os.Environ(), cfg.Environment...)

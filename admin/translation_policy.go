@@ -38,13 +38,6 @@ type TranslationPolicyInput struct {
 	RequestedLocale string `json:"requested_locale"`
 }
 
-func (input TranslationPolicyInput) effectiveEntity() string {
-	if entity := normalizePolicyEntityKey(input.PolicyEntity); entity != "" {
-		return entity
-	}
-	return normalizePolicyEntityKey(input.EntityType)
-}
-
 // TranslationRequirements captures required locales and optional field checks.
 type TranslationRequirements struct {
 	Locales                 []string                         `json:"locales"`

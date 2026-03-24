@@ -97,7 +97,7 @@ func WithDynamicPanelMenu(basePath, menuCode, menuParent, locale string) Dynamic
 
 func (f *DynamicPanelFactory) resolveChannel(ctx context.Context, contentType *CMSContentType) string {
 	if contentType != nil {
-		if channel := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment)); channel != "" {
+		if channel := strings.TrimSpace(cmsContentTypeChannel(*contentType)); channel != "" {
 			return channel
 		}
 	}
@@ -1318,7 +1318,7 @@ func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin
 	if contentTypeRef == "" {
 		contentTypeRef = strings.TrimSpace(contentType.ID)
 	}
-	environment := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment))
+	environment := strings.TrimSpace(cmsContentTypeChannel(*contentType))
 	if environment == "" {
 		environment = strings.TrimSpace(resolveCMSContentChannel("", ctx))
 	}
@@ -1344,10 +1344,6 @@ func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin
 		source: strings.TrimSpace(resolution.Source),
 		traits: traits,
 	}
-}
-
-func adminTraitWorkflowDefaults(admin *Admin) map[string]string {
-	return nil
 }
 
 type workflowAlias struct {

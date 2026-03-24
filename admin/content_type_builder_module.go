@@ -759,7 +759,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin
 		}
 		addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
 			for _, def := range defs {
-				env := strings.ToLower(strings.TrimSpace(firstNonEmptyRaw(def.Channel, def.Environment)))
+				env := strings.ToLower(strings.TrimSpace(cmsBlockDefinitionChannel(def)))
 				if env == "" {
 					env = fallback
 				}

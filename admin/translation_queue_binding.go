@@ -529,15 +529,6 @@ type translationAssignmentListFilter struct {
 	OrgID       string `json:"org_id"`
 }
 
-func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string) ([]TranslationAssignment, int, error) {
-	assignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	paged, total := b.filterAssignments(ctx, assignments, filter, page, perPage, environment, b.now().UTC())
-	return paged, total, nil
-}
-
 func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignments []TranslationAssignment, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int) {
 	matched := b.matchAssignments(assignments, filter, now)
 	if filter.ReviewState != "" {
@@ -1623,11 +1614,6 @@ func (b *translationQueueBinding) assignmentQASummaryForFamily(assignment Transl
 		return nil
 	}
 	return translationQASummaryPayload(b.translationQAResults(editorCtx))
-}
-
-func (b *translationQueueBinding) assignmentHasQABlockers(ctx context.Context, assignment TranslationAssignment) bool {
-	summary := b.assignmentQASummary(ctx, assignment, "")
-	return intValue(summary["blocker_count"]) > 0
 }
 
 func (b *translationQueueBinding) assignmentHasQABlockersForFamily(assignment TranslationAssignment, family translationservices.FamilyRecord, environment string) bool {

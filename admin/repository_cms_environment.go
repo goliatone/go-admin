@@ -18,20 +18,12 @@ func normalizeCMSChannel(value string) string {
 	return normalized
 }
 
-func normalizeCMSEnvironment(value string) string {
-	return normalizeCMSChannel(value)
-}
-
 func cmsChannelMatches(recordChannel, requestedChannel string) bool {
 	requested := strings.TrimSpace(requestedChannel)
 	if requested == "" {
 		return true
 	}
 	return normalizeCMSChannel(recordChannel) == normalizeCMSChannel(requested)
-}
-
-func cmsEnvironmentMatches(recordEnvironment, requestedEnvironment string) bool {
-	return cmsChannelMatches(recordEnvironment, requestedEnvironment)
 }
 
 func resolveCMSContentChannel(fallback string, ctx context.Context) string {
@@ -46,10 +38,16 @@ func resolveCMSContentChannel(fallback string, ctx context.Context) string {
 }
 
 func cmsContentTypeChannel(ct CMSContentType) string {
+	//lint:ignore SA1019 compatibility bridge for legacy CMS content type records that still populate Environment.
 	return strings.TrimSpace(firstNonEmptyRaw(ct.Channel, ct.Environment))
 }
 
+func CMSContentTypeChannel(ct CMSContentType) string {
+	return cmsContentTypeChannel(ct)
+}
+
 func cmsBlockDefinitionChannel(def CMSBlockDefinition) string {
+	//lint:ignore SA1019 compatibility bridge for legacy CMS block definitions that still populate Environment.
 	return strings.TrimSpace(firstNonEmptyRaw(def.Channel, def.Environment))
 }
 
@@ -59,6 +57,7 @@ func setCMSContentTypeChannel(ct *CMSContentType, channel string) {
 	}
 	channel = strings.TrimSpace(channel)
 	ct.Channel = channel
+	//lint:ignore SA1019 keep legacy Environment synchronized while older persisted records still depend on it.
 	ct.Environment = channel
 }
 
@@ -68,6 +67,7 @@ func setCMSBlockDefinitionChannel(def *CMSBlockDefinition, channel string) {
 	}
 	channel = strings.TrimSpace(channel)
 	def.Channel = channel
+	//lint:ignore SA1019 keep legacy Environment synchronized while older persisted records still depend on it.
 	def.Environment = channel
 }
 

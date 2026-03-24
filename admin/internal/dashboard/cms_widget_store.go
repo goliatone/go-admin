@@ -3,11 +3,10 @@ package dashboard
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strconv"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	godash "github.com/goliatone/go-dashboard/components/dashboard"
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -308,21 +307,8 @@ func localeFromMetadata(meta map[string]any) string {
 }
 
 func toString(val any) string {
-	switch v := val.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	case int:
-		return strconv.Itoa(v)
-	case int64:
-		return strconv.FormatInt(v, 10)
-	case float64:
-		if v == 0 {
-			return ""
-		}
-		return strconv.Itoa(int(v))
-	default:
-		return fmt.Sprintf("%v", v)
+	if value, ok := val.(float64); ok && value == 0 {
+		return ""
 	}
+	return primitives.StringFromAny(val)
 }

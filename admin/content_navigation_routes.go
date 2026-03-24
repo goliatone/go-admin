@@ -124,7 +124,7 @@ func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey strin
 		if env != "" {
 			addCandidate(panelSlug + "@" + env)
 		}
-		if channel := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment)); channel != "" {
+		if channel := strings.TrimSpace(cmsContentTypeChannel(*contentType)); channel != "" {
 			addCandidate(panelSlug + "@" + channel)
 		}
 		addCandidate(panelSlug)

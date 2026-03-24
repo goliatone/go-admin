@@ -29,9 +29,7 @@ func (s *contentTypeListServiceStub) ContentTypes(_ context.Context) ([]CMSConte
 		return nil, s.err
 	}
 	out := make([]CMSContentType, 0, len(s.items))
-	for _, item := range s.items {
-		out = append(out, item)
-	}
+	out = append(out, s.items...)
 	return out, nil
 }
 
@@ -46,9 +44,7 @@ func (s *blockDefinitionListServiceStub) BlockDefinitions(_ context.Context) ([]
 		return nil, s.err
 	}
 	out := make([]CMSBlockDefinition, 0, len(s.defs))
-	for _, def := range s.defs {
-		out = append(out, def)
-	}
+	out = append(out, s.defs...)
 	return out, nil
 }
 

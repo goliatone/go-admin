@@ -265,10 +265,6 @@ func boolFromTarget(target map[string]any, key string) bool {
 	}
 }
 
-func (n *Navigation) localize(items []NavigationItem, locale string) []NavigationItem {
-	return localize(n.translator, items, locale)
-}
-
 func (n *Navigation) canAny(ctx context.Context, perms []string) bool {
 	for _, perm := range perms {
 		if strings.TrimSpace(perm) == "" {

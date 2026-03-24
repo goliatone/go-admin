@@ -53,9 +53,9 @@ func (c *resolvedPermissionsCache) markResolved(perms []string, err error) {
 	c.mu.Unlock()
 }
 
-func (c *resolvedPermissionsCache) snapshot() (perms []string, err error, ready bool, runs uint64) {
+func (c *resolvedPermissionsCache) snapshot() (perms []string, ready bool, runs uint64, err error) {
 	if c == nil {
-		return nil, nil, false, 0
+		return nil, false, 0, nil
 	}
 	c.mu.Lock()
 	perms = clonePermissions(c.perms)
@@ -63,7 +63,7 @@ func (c *resolvedPermissionsCache) snapshot() (perms []string, err error, ready 
 	ready = c.ready
 	runs = c.runs
 	c.mu.Unlock()
-	return perms, err, ready, runs
+	return perms, ready, runs, err
 }
 
 // WithResolvedPermissionsCache injects a request-scoped permission resolution cache into context.
@@ -333,7 +333,7 @@ func (a *GoAuthAuthorizer) ResolvedPermissions(ctx context.Context) []string {
 	}
 	a.resolverCalls.Add(1)
 	if cache := resolvedPermissionsCacheFromContext(ctx); cache != nil {
-		_, _, readyBefore, _ := cache.snapshot()
+		_, readyBefore, _, _ := cache.snapshot()
 		if readyBefore {
 			a.resolverCacheHits.Add(1)
 		} else {
@@ -344,7 +344,7 @@ func (a *GoAuthAuthorizer) ResolvedPermissions(ctx context.Context) []string {
 			perms, err := a.resolvePerms(ctx)
 			cache.markResolved(dedupePermissions(perms), err)
 		})
-		perms, err, _, runs := cache.snapshot()
+		perms, _, runs, err := cache.snapshot()
 		if runs > 1 {
 			ensureLogger(a.logger).Warn("auth permission resolver executed more than once in request context", "runs", runs)
 		}

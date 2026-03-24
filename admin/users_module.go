@@ -1066,30 +1066,12 @@ func roleMetadata(value any) map[string]any {
 }
 
 func toBool(val any) bool {
-	switch v := val.(type) {
-	case bool:
-		return v
-	case string:
-		switch strings.ToLower(strings.TrimSpace(v)) {
-		case "true", "1", "yes", "y", "on":
-			return true
-		}
+	if value, ok := primitives.BoolFromAny(val); ok {
+		return value
 	}
 	return false
 }
 
 func toStringSlice(val any) []string {
-	switch v := val.(type) {
-	case []string:
-		return dedupeStrings(v)
-	case []any:
-		out := []string{}
-		for _, item := range v {
-			if s := toString(item); s != "" {
-				out = append(out, s)
-			}
-		}
-		return dedupeStrings(out)
-	}
-	return nil
+	return dedupeStrings(primitives.StringSliceFromAny(val))
 }

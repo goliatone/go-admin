@@ -319,13 +319,6 @@ func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {
 	}
 }
 
-type fakeAuth struct{}
-
-func (fakeAuth) Wrap(ctx router.Context) error {
-	ctx.SetHeader("X-Auth", "ok")
-	return nil
-}
-
 func TestCommandBusRegistersHandlers(t *testing.T) {
 	registry.WithTestRegistry(func() {
 		cfg := Config{}
@@ -403,7 +396,6 @@ func (c *calledCommand) Execute(_ context.Context, msg calledCommandMsg) error {
 }
 
 type cronCommand struct {
-	name   string
 	called bool
 }
 

@@ -268,10 +268,6 @@ func (a *Admin) handleSiteMenuByLocation(c router.Context) error {
 	return a.handleSiteMenuByLocationPath(c, c.Param("location", ""))
 }
 
-func (a *Admin) handleSiteMenuByCode(c router.Context) error {
-	return a.handleSiteMenuByCodePath(c, c.Param("code", ""))
-}
-
 func (a *Admin) handleSiteMenuDispatch(c router.Context) error {
 	raw := strings.Trim(strings.TrimSpace(c.Param("menu_ref", "")), "/")
 	if raw == "" {

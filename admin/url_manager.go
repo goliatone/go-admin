@@ -353,35 +353,6 @@ func defaultAdminAPIRoutes() map[string]string {
 	return routes
 }
 
-func defaultAdminDebugRoutes() map[string]string {
-	return map[string]string{
-		"index":      "/",
-		"ws":         "/ws",
-		"session.ws": "/session/:sessionId/ws",
-		"repl.app":   "/repl/app/ws",
-		"repl.shell": "/repl/shell/ws",
-	}
-}
-
-func defaultAdminDebugAPIRoutes() map[string]string {
-	return map[string]string{
-		"panels":                    "/panels",
-		"snapshot":                  "/snapshot",
-		"sessions":                  "/sessions",
-		"clear":                     "/clear",
-		"clear.panel":               "/clear/:panel",
-		"doctor.action":             "/doctor/:check/action",
-		"errors":                    "/errors",
-		"dashboard":                 "/dashboard",
-		"dashboard.widgets":         "/dashboard/widgets",
-		"dashboard.widget":          "/dashboard/widgets/:id",
-		"dashboard.widgets.reorder": "/dashboard/widgets/reorder",
-		"dashboard.widgets.refresh": "/dashboard/widgets/refresh",
-		"dashboard.preferences":     "/dashboard/preferences",
-		"dashboard.ws":              "/dashboard/ws",
-	}
-}
-
 func defaultPublicAPIRoutes() map[string]string {
 	return map[string]string{
 		"content":             "/content",

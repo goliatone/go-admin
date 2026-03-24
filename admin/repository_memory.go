@@ -5,6 +5,8 @@ import (
 	"maps"
 	"strconv"
 	"sync"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // MemoryRepository is an in-memory implementation of Repository for testing/demo.
@@ -98,71 +100,12 @@ func cloneSlice(in []map[string]any) []map[string]any {
 }
 
 func toString(v any) string {
-	switch t := v.(type) {
-	case string:
-		return t
-	case int:
-		return strconv.Itoa(t)
-	case int8:
-		return strconv.FormatInt(int64(t), 10)
-	case int16:
-		return strconv.FormatInt(int64(t), 10)
-	case int32:
-		return strconv.FormatInt(int64(t), 10)
-	case int64:
-		return strconv.FormatInt(t, 10)
-	case uint:
-		return strconv.FormatUint(uint64(t), 10)
-	case uint8:
-		return strconv.FormatUint(uint64(t), 10)
-	case uint16:
-		return strconv.FormatUint(uint64(t), 10)
-	case uint32:
-		return strconv.FormatUint(uint64(t), 10)
-	case uint64:
-		return strconv.FormatUint(t, 10)
-	case float32:
-		return strconv.FormatFloat(float64(t), 'f', -1, 32)
-	case float64:
-		return strconv.FormatFloat(t, 'f', -1, 64)
-	case bool:
-		return strconv.FormatBool(t)
-	default:
-		return ""
-	}
+	return primitives.StringFromAny(v)
 }
 
 func intValue(v any) int {
-	switch t := v.(type) {
-	case int:
-		return t
-	case int8:
-		return int(t)
-	case int16:
-		return int(t)
-	case int32:
-		return int(t)
-	case int64:
-		return int(t)
-	case uint:
-		return int(t)
-	case uint8:
-		return int(t)
-	case uint16:
-		return int(t)
-	case uint32:
-		return int(t)
-	case uint64:
-		return int(t)
-	case float32:
-		return int(t)
-	case float64:
-		return int(t)
-	case string:
-		value, err := strconv.Atoi(t)
-		if err == nil {
-			return value
-		}
+	if value, ok := primitives.IntFromAny(v); ok {
+		return value
 	}
 	return 0
 }

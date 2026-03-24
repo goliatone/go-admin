@@ -354,7 +354,7 @@ func assignmentStatusOptions() []Option {
 	}
 	options := make([]Option, 0, len(statuses))
 	for _, status := range statuses {
-		options = append(options, Option{Value: string(status), Label: strings.ReplaceAll(strings.Title(string(status)), "_", " ")})
+		options = append(options, Option{Value: string(status), Label: titleCase(strings.ReplaceAll(string(status), "_", " "))})
 	}
 	return options
 }

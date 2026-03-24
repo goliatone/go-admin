@@ -173,7 +173,7 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		v := true
 		update.Collapsed = &v
 	}
-	if item.Target != nil && len(item.Target) > 0 {
+	if len(item.Target) > 0 {
 		itemType := normalizeMenuItemType(item.Type)
 		tgt := mergeMenuTarget(item)
 		if itemType != MenuItemTypeGroup && itemType != MenuItemTypeSeparator {
@@ -523,11 +523,6 @@ func navigationNodePath(node cms.NavigationNode, menuCode string) string {
 
 func mergeMenuTarget(item MenuItem) map[string]any {
 	return primitives.CloneAnyMap(item.Target)
-}
-
-//go:fix inline
-func boolPointer(v bool) *bool {
-	return new(v)
 }
 
 func normalizedURLOverride(raw *string) *string {

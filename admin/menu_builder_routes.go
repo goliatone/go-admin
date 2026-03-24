@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -686,10 +685,10 @@ func parseMenuItemMap(record map[string]any) MenuItem {
 }
 
 func boolFromAny(raw any) bool {
-	if value, ok := raw.(bool); ok {
+	if value, ok := primitives.BoolFromAny(raw); ok {
 		return value
 	}
-	return strings.EqualFold(strings.TrimSpace(toString(raw)), "true")
+	return false
 }
 
 func mapToStringMap(raw any) map[string]string {
@@ -712,9 +711,4 @@ func mapToStringMap(raw any) map[string]string {
 	default:
 		return nil
 	}
-}
-
-func (b *menuBuilderBinding) menuContext(c router.Context, locale string) context.Context {
-	adminCtx := b.admin.adminContextFromRequest(c, locale)
-	return adminCtx.Context
 }

@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -663,15 +662,6 @@ func (a *Admin) WithCMSWorkflowActions(actions ...Action) *Admin {
 	a.cmsWorkflowActions = append([]Action{}, actions...)
 	a.cmsWorkflowActionsSet = true
 	return a
-}
-
-func (a *Admin) traitWorkflowDefaultsForLookup() map[string]string {
-	if a == nil || len(a.traitWorkflowDefaults) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(a.traitWorkflowDefaults))
-	maps.Copy(out, a.traitWorkflowDefaults)
-	return out
 }
 
 func normalizeTraitWorkflowDefaults(defaults map[string]string) map[string]string {

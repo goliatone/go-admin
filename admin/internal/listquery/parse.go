@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -223,38 +224,7 @@ func PredicatesFromFilters(filters map[string]any) []Predicate {
 
 // ValuesFromAny normalizes scalar/array filter values into a string slice.
 func ValuesFromAny(raw any) []string {
-	switch typed := raw.(type) {
-	case nil:
-		return nil
-	case string:
-		return splitValues(typed)
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, value := range typed {
-			out = append(out, splitValues(value)...)
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, value := range typed {
-			out = append(out, splitValues(ToString(value))...)
-		}
-		return out
-	default:
-		return splitValues(ToString(raw))
-	}
-}
-
-func splitValues(value string) []string {
-	parts := strings.Split(strings.TrimSpace(value), ",")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
+	return primitives.CSVStringSliceFromAny(raw)
 }
 
 // AtoiDefault converts a string to int and returns def on parse failure.
@@ -270,18 +240,7 @@ func AtoiDefault(val string, def int) int {
 
 // ToString converts common scalar values into string.
 func ToString(v any) string {
-	switch value := v.(type) {
-	case string:
-		return value
-	case int:
-		return strconv.Itoa(value)
-	case int64:
-		return strconv.FormatInt(value, 10)
-	case float64:
-		return strconv.FormatFloat(value, 'f', -1, 64)
-	default:
-		return ""
-	}
+	return primitives.StringFromAny(v)
 }
 
 // MapPredicates projects parsed predicates into consumer-specific predicate types.
@@ -297,7 +256,4 @@ func MapPredicates[T any](predicates []Predicate, mapper func(Predicate) T) []T 
 }
 
 // Legacy wrappers retained for same-package tests/helpers.
-func predicatesFromFilters(filters map[string]any) []Predicate { return PredicatesFromFilters(filters) }
-func valuesFromAny(raw any) []string                           { return ValuesFromAny(raw) }
-func atoiDefault(val string, def int) int                      { return AtoiDefault(val, def) }
-func toString(v any) string                                    { return ToString(v) }
+func toString(v any) string { return ToString(v) }

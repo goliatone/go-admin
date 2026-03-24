@@ -2,9 +2,10 @@ package admin
 
 import (
 	"bufio"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // SourceContext holds source code lines around an error location.
@@ -84,7 +85,7 @@ func ExtractSourceContext(filePath string, errorLine, contextLines int) *SourceC
 		return nil
 	}
 
-	file, err := os.Open(filePath)
+	file, err := primitives.OpenTrustedFile(filePath)
 	if err != nil {
 		return nil
 	}

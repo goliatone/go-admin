@@ -836,16 +836,6 @@ func workflowTransitionCandidates(action string) []string {
 	}
 }
 
-func containsTransitionName(values []string, target string) bool {
-	target = strings.ToLower(strings.TrimSpace(target))
-	for _, value := range values {
-		if strings.ToLower(strings.TrimSpace(value)) == target {
-			return true
-		}
-	}
-	return false
-}
-
 func shouldReturnWorkflowInvalidTransition(definition Action, action string) bool {
 	if strings.TrimSpace(definition.CommandName) != "" {
 		return false

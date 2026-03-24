@@ -603,7 +603,7 @@ func loadTranslationExchangeArtifactsByJob(ctx context.Context, db bun.IDB, ids 
 	records := []bunTranslationExchangeJobArtifactRecord{}
 	if err := db.NewSelect().
 		Model(&records).
-		Where("job_id IN (?)", bun.In(ids)).
+		Where("job_id IN (?)", bun.List(ids)).
 		OrderExpr("job_id ASC, kind ASC").
 		Scan(ctx); err != nil {
 		return nil, err

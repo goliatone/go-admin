@@ -179,13 +179,11 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 
 func (p *planner) rebuildViews() {
 	modules := make([]ResolvedModule, 0, len(p.order))
-	moduleNames := make([]string, 0, len(p.order))
 	entries := make([]ManifestEntry, 0)
 
 	for _, slug := range p.order {
 		plan := p.modules[slug]
 		modules = append(modules, plan.resolved)
-		moduleNames = append(moduleNames, slug)
 		if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeModuleRoutes {
 			entries = append(entries, plan.entries...)
 		}
@@ -477,14 +475,6 @@ func joinMountPath(base, relative string) string {
 		return normalizeAbsolutePath(base)
 	}
 	return JoinAbsolutePath(base, relative)
-}
-
-func totalModuleRoutes(modules map[string]modulePlan) int {
-	total := 0
-	for _, plan := range modules {
-		total += len(plan.entries)
-	}
-	return total
 }
 
 func routeTableLen(contract ModuleContract) int {

@@ -17,7 +17,3 @@ func joinBasePath(basePath, routePath string) string {
 func ensureLeadingSlashPath(path string) string {
 	return pathutil.EnsureLeadingSlash(path)
 }
-
-func ensureLeadingSlash(path string) string {
-	return pathutil.EnsureLeadingSlash(path)
-}

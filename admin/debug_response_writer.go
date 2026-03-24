@@ -190,6 +190,7 @@ func debugSetResponseWriterField(target any, fieldName string, writer http.Respo
 	if !field.IsValid() || field.Type() != reflect.TypeFor[http.ResponseWriter]() {
 		return nil, false
 	}
+	// #nosec G103 -- audited reflection escape hatch used to replace an unexported http.ResponseWriter field in a local wrapper struct.
 	fieldPtr := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
 	current, _ := fieldPtr.Interface().(http.ResponseWriter)
 	next := reflect.ValueOf(writer)

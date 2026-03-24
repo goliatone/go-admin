@@ -3,10 +3,10 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -52,7 +52,7 @@ func loadFeatureCatalogFile(path string) (catalog.Catalog, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, nil
 	}
-	contents, err := os.ReadFile(path)
+	contents, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return nil, err
 	}

@@ -212,10 +212,6 @@ func translationFamilyIDForRecord(record map[string]any) string {
 	return strings.TrimSpace(translationFamilyIDFromRecord(record))
 }
 
-func translationGroupIDForRecord(record map[string]any) string {
-	return translationFamilyIDForRecord(record)
-}
-
 func orderTranslationGroupChildren(records []map[string]any, defaultLocale string) []map[string]any {
 	if len(records) == 0 {
 		return nil

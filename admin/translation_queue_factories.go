@@ -2,7 +2,6 @@ package admin
 
 import (
 	"github.com/goliatone/go-admin/internal/primitives"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -260,23 +259,8 @@ func queueExpectedVersion(payload map[string]any) int64 {
 }
 
 func queueVersionFromAny(raw any) int64 {
-	switch value := raw.(type) {
-	case int:
-		return int64(value)
-	case int32:
-		return int64(value)
-	case int64:
-		return value
-	case float64:
-		return int64(value)
-	case float32:
-		return int64(value)
-	case string:
-		parsed, _ := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
-		return parsed
-	default:
-		return 0
-	}
+	value, _ := primitives.Int64FromAny(raw)
+	return value
 }
 
 func queueDueDate(payload map[string]any) *time.Time {

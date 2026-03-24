@@ -823,7 +823,7 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 	if name == "" {
 		fields["name"] = "required"
 	}
-	if contentType.Schema == nil || len(contentType.Schema) == 0 {
+	if len(contentType.Schema) == 0 {
 		fields["schema"] = "required"
 	}
 	if slug == "" {
@@ -933,7 +933,7 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 		s.mu.Unlock()
 		return nil, contentTypeValidationError(map[string]string{"name": "required"})
 	}
-	if existing.Schema == nil || len(existing.Schema) == 0 {
+	if len(existing.Schema) == 0 {
 		s.mu.Unlock()
 		return nil, contentTypeValidationError(map[string]string{"schema": "required"})
 	}
