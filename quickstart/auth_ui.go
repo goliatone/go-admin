@@ -345,7 +345,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		},
 	})
 
-	r.Get(options.loginPath, csrfMiddleware(func(c router.Context) error {
+	r.Get(options.loginPath, func(c router.Context) error {
 		authState := AuthUIState{
 			PasswordResetEnabled:    resolvePasswordReset(c),
 			SelfRegistrationEnabled: resolveSelfRegistration(c),
@@ -375,9 +375,9 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		}
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.loginTemplate, viewCtx)
-	}))
+	}, csrfMiddleware)
 
-	r.Post(options.loginPath, csrfMiddleware(func(c router.Context) error {
+	r.Post(options.loginPath, func(c router.Context) error {
 		payload := loginPayload{}
 		_ = c.Bind(&payload)
 
@@ -407,7 +407,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		c.Cookie(&cookie)
 
 		return c.Redirect(options.loginRedirectPath, fiber.StatusFound)
-	}))
+	}, csrfMiddleware)
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
 		authState := AuthUIState{
@@ -466,7 +466,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		r.Get(confirmTokenPath, confirmHandler)
 	}
 
-	r.Post(options.logoutPath, csrfMiddleware(func(c router.Context) error {
+	r.Post(options.logoutPath, func(c router.Context) error {
 		cookie := options.cookie
 		cookie.Name = loginCookieName
 		cookie.Value = ""
@@ -476,7 +476,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		cookie.MaxAge = -1
 		c.Cookie(&cookie)
 		return c.Redirect(options.logoutRedirectPath, fiber.StatusFound)
-	}))
+	}, csrfMiddleware)
 
 	return nil
 }

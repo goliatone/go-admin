@@ -114,9 +114,9 @@ func resolveProtectedRouteMiddleware(
 		return nil
 	}
 	protectedRoute := routeAuth.ProtectedRoute(cfg, handler)
-	protectedBrowserRoute := routeAuth.ProtectedBrowserRoute(cfg, handler)
+	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(cfg, handler)
 	return func(next router.HandlerFunc) router.HandlerFunc {
-		browserHandler := protectedBrowserRoute(next)
+		browserHandler := protectedRoute(protectedBrowserRoute(next))
 		routeHandler := protectedRoute(next)
 		return func(c router.Context) error {
 			if c != nil {
@@ -134,21 +134,32 @@ func resolveProtectedAdminBrowserRouteMiddleware(
 	cfg auth.Config,
 	handler func(router.Context, error) error,
 ) router.MiddlewareFunc {
-	csrfMiddleware := csrfmw.New(csrfmw.Config{
-		ErrorHandler: func(c router.Context, err error) error {
-			if err == nil {
-				return c.Status(router.StatusForbidden).SendString("forbidden")
-			}
-			return c.Status(router.StatusForbidden).SendString(err.Error())
-		},
-	})
-	originMiddleware := router.OriginProtection(router.OriginProtectionConfig{
-		ErrorHandler: func(c router.Context, err error) error {
-			return c.Status(router.StatusForbidden).SendString("forbidden")
-		},
-	})
+	_ = handler
 	authCookieName := strings.TrimSpace(cfg.GetContextKey())
 	return func(next router.HandlerFunc) router.HandlerFunc {
+		contextKey := csrfmw.DefaultContextKey
+		headerName := csrfmw.DefaultHeaderName
+		csrfMiddleware := csrfmw.New(csrfmw.Config{
+			ContextKey: contextKey,
+			HeaderName: headerName,
+			ErrorHandler: func(c router.Context, err error) error {
+				if err == nil {
+					return c.Status(router.StatusForbidden).SendString("forbidden")
+				}
+				return c.Status(router.StatusForbidden).SendString(err.Error())
+			},
+			SuccessHandler: func(c router.Context) error {
+				if token, ok := c.Locals(contextKey).(string); ok && strings.TrimSpace(token) != "" {
+					c.Set(headerName, token)
+				}
+				return next(c)
+			},
+		})
+		originMiddleware := router.OriginProtection(router.OriginProtectionConfig{
+			ErrorHandler: func(c router.Context, err error) error {
+				return c.Status(router.StatusForbidden).SendString("forbidden")
+			},
+		})
 		return func(c router.Context) error {
 			if isSafeBrowserMethod(c) {
 				return csrfMiddleware(next)(c)
