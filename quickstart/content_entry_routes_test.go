@@ -1324,6 +1324,73 @@ func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderFormResolvesLateBreadcrumbOverrideFromViewContextHook(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	panel, err := newInMemoryPanelBuilder().
+		FormFields(admin.Field{Name: "title", Type: "text", Required: true}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		breadcrumbs, ok := viewCtx["breadcrumbs"].([]BreadcrumbItem)
+		if !ok || len(breadcrumbs) != 2 {
+			return false
+		}
+		return breadcrumbs[0].Label == "Home" &&
+			breadcrumbs[0].Href == "/admin" &&
+			!breadcrumbs[0].Current &&
+			breadcrumbs[1].Label == "Posts" &&
+			breadcrumbs[1].Href == "" &&
+			breadcrumbs[1].Current
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg: admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		},
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		viewContext: func(viewCtx router.ViewContext, _ string, _ router.Context) router.ViewContext {
+			return WithBreadcrumbOverride(
+				viewCtx,
+				Breadcrumb("Home", "/admin"),
+				CurrentBreadcrumb("Posts"),
+			)
+		},
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+
+	err = handler.renderForm(
+		ctx,
+		"posts",
+		panel,
+		nil,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{},
+		nil,
+		false,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testing.T) {
 	record := map[string]any{"family_id": "tg-page-123"}
 	urls := newTranslationFamilyURLManager(t)
@@ -1524,6 +1591,63 @@ func TestDetailForPanelBuildsDashboardTrailWithoutRecordBreadcrumbByDefault(t *t
 
 	if err := h.detailForPanel(ctx, ""); err != nil {
 		t.Fatalf("detailForPanel: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestListForPanelBuildsPanelBreadcrumbTrail(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	repo := admin.NewMemoryRepository()
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"title": "About Us",
+		"slug":  "about-us",
+	}); err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		WithBreadcrumbs(admin.PanelBreadcrumbConfig{
+			RootLabel: "Home",
+			RootHref:  "/admin",
+			ListLabel: "Pages",
+		}).
+		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	h := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		viewContext:  defaultUIViewContextBuilder(adm, cfg),
+		listTemplate: "resources/content/list",
+		templateExists: func(name string) bool {
+			return name == "resources/content/list"
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "pages"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		breadcrumbs, ok := viewCtx["breadcrumbs"].([]BreadcrumbItem)
+		if !ok || len(breadcrumbs) != 2 {
+			return false
+		}
+		return breadcrumbs[0].Label == "Home" &&
+			breadcrumbs[0].Href == "/admin" &&
+			!breadcrumbs[0].Current &&
+			breadcrumbs[1].Label == "Pages" &&
+			breadcrumbs[1].Href == "" &&
+			breadcrumbs[1].Current
+	})).Return(nil).Once()
+
+	if err := h.listForPanel(ctx, ""); err != nil {
+		t.Fatalf("listForPanel: %v", err)
 	}
 	ctx.AssertExpectations(t)
 }

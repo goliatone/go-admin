@@ -911,11 +911,9 @@ func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) co
 	}
 	addEnv := func(types []admin.CMSContentType, fallback string) {
 		for _, ct := range types {
-			env := normalizeChannelKey(strings.TrimSpace(ct.Channel))
-			if strings.TrimSpace(ct.Channel) == "" {
-				env = normalizeChannelKey(strings.TrimSpace(ct.Environment))
-			}
-			if env == defaultChannelKey && strings.TrimSpace(ct.Channel) == "" && strings.TrimSpace(ct.Environment) == "" {
+			channel := strings.TrimSpace(admin.CMSContentTypeChannel(ct))
+			env := normalizeChannelKey(channel)
+			if env == defaultChannelKey && channel == "" {
 				env = normalizeChannelKey(fallback)
 			}
 			envSet[env] = struct{}{}
@@ -1196,7 +1194,7 @@ func resolveContentTypeUpdateID(fallback string, record map[string]any) string {
 
 func buildVersionFromRecord(record map[string]any) contentTypeSchemaVersion {
 	schema := normalizeSchemaValue(record["schema"])
-	if schema == nil || len(schema) == 0 {
+	if len(schema) == 0 {
 		return contentTypeSchemaVersion{}
 	}
 	entry := contentTypeSchemaVersion{
@@ -1255,7 +1253,7 @@ func blockSchemaVersionFromCMS(item admin.CMSBlockDefinitionVersion) blockSchema
 
 func buildBlockVersionFromRecord(record map[string]any) blockSchemaVersion {
 	schema := normalizeSchemaValue(record["schema"])
-	if schema == nil || len(schema) == 0 {
+	if len(schema) == 0 {
 		return blockSchemaVersion{}
 	}
 	entry := blockSchemaVersion{

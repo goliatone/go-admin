@@ -89,6 +89,15 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 			"status": contentTypeStatus(contentType),
 		},
 	}
+	viewCtx = ApplyPanelBreadcrumbs(
+		viewCtx,
+		panel,
+		basePath,
+		contentTypeLabel(contentType, panelName),
+		routes.index(),
+		BreadcrumbRouteList,
+		nil,
+	)
 	if len(bulkCtx.Primary) > 0 {
 		viewCtx["bulk_actions_primary"] = bulkCtx.Primary
 	}
@@ -273,10 +282,7 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 		return nil, err
 	}
 	for _, ct := range types {
-		ctChannel := strings.TrimSpace(ct.Channel)
-		if ctChannel == "" {
-			ctChannel = strings.TrimSpace(ct.Environment)
-		}
+		ctChannel := strings.TrimSpace(admin.CMSContentTypeChannel(ct))
 		if !strings.EqualFold(ctChannel, env) {
 			continue
 		}

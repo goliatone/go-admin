@@ -42,7 +42,7 @@ type BreadcrumbSpec struct {
 // Breadcrumb builds a linked breadcrumb.
 func Breadcrumb(label, href string) BreadcrumbItem {
 	return BreadcrumbItem{
-		Label: strings.TrimSpace(label),
+		Label: normalizeBreadcrumbLabel(label),
 		Href:  strings.TrimSpace(href),
 	}
 }
@@ -50,7 +50,7 @@ func Breadcrumb(label, href string) BreadcrumbItem {
 // CurrentBreadcrumb builds a terminal breadcrumb.
 func CurrentBreadcrumb(label string) BreadcrumbItem {
 	return BreadcrumbItem{
-		Label:   strings.TrimSpace(label),
+		Label:   normalizeBreadcrumbLabel(label),
 		Current: true,
 	}
 }
@@ -126,6 +126,13 @@ func withResolvedBreadcrumbs(ctx router.ViewContext, navItems []map[string]any, 
 	}
 	ctx[ViewKeyBreadcrumbs] = finalizeBreadcrumbs(breadcrumbs)
 	return ctx
+}
+
+func withViewContextResolvedBreadcrumbs(ctx router.ViewContext, active string) router.ViewContext {
+	if ctx == nil {
+		return nil
+	}
+	return withResolvedBreadcrumbs(ctx, viewNavEntries(ctx["nav_items"]), active)
 }
 
 // ApplyPanelBreadcrumbs resolves a panel-backed breadcrumb trail without relying on menu nesting.
@@ -223,12 +230,12 @@ func breadcrumbItemFromNavEntry(entry map[string]any, isTerminal bool) (Breadcru
 		return BreadcrumbItem{}, false
 	}
 
-	label := explicitLabel
+	label := normalizeBreadcrumbLabel(explicitLabel)
 	if label == "" {
-		label = strings.TrimSpace(toNavString(entry["label"]))
+		label = normalizeBreadcrumbLabel(toNavString(entry["label"]))
 	}
 	if label == "" {
-		label = strings.TrimSpace(toNavString(entry["group_title"]))
+		label = normalizeBreadcrumbLabel(toNavString(entry["group_title"]))
 	}
 	if label == "" {
 		return BreadcrumbItem{}, false
@@ -256,7 +263,7 @@ func breadcrumbItemFromNavEntry(entry map[string]any, isTerminal bool) (Breadcru
 func finalizeBreadcrumbs(items []BreadcrumbItem) []BreadcrumbItem {
 	out := make([]BreadcrumbItem, 0, len(items))
 	for _, item := range items {
-		label := strings.TrimSpace(item.Label)
+		label := normalizeBreadcrumbLabel(item.Label)
 		if label == "" {
 			continue
 		}
@@ -293,12 +300,31 @@ func viewBreadcrumbItems(value any) []BreadcrumbItem {
 	}
 }
 
+func viewNavEntries(value any) []map[string]any {
+	switch typed := value.(type) {
+	case []map[string]any:
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			entry, ok := item.(map[string]any)
+			if !ok || entry == nil {
+				continue
+			}
+			out = append(out, entry)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
 func cloneBreadcrumbSpec(spec BreadcrumbSpec) BreadcrumbSpec {
 	spec.Override = cloneBreadcrumbItems(spec.Override)
 	spec.Trail = cloneBreadcrumbItems(spec.Trail)
-	spec.RootLabel = strings.TrimSpace(spec.RootLabel)
+	spec.RootLabel = normalizeBreadcrumbLabel(spec.RootLabel)
 	spec.RootHref = strings.TrimSpace(spec.RootHref)
-	spec.CurrentLabel = strings.TrimSpace(spec.CurrentLabel)
+	spec.CurrentLabel = normalizeBreadcrumbLabel(spec.CurrentLabel)
 	return spec
 }
 
@@ -337,7 +363,7 @@ func breadcrumbRootHref(basePath string) string {
 
 func resolvePanelDetailBreadcrumbLabel(cfg admin.PanelBreadcrumbConfig, record map[string]any) string {
 	if cfg.DetailLabelResolver != nil {
-		if label := strings.TrimSpace(cfg.DetailLabelResolver(record)); label != "" {
+		if label := normalizeBreadcrumbLabel(cfg.DetailLabelResolver(record)); label != "" {
 			return label
 		}
 	}
@@ -349,9 +375,17 @@ func defaultRecordBreadcrumbLabel(record map[string]any) string {
 		return ""
 	}
 	for _, key := range []string{"title", "display_name", "name", "username", "slug", "id"} {
-		if label := strings.TrimSpace(anyToString(record[key])); label != "" {
+		if label := normalizeBreadcrumbLabel(anyToString(record[key])); label != "" {
 			return label
 		}
 	}
 	return ""
+}
+
+func normalizeBreadcrumbLabel(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\n", " "))
+	if value == "" || strings.EqualFold(value, "<nil>") {
+		return ""
+	}
+	return value
 }

@@ -579,22 +579,7 @@ func navigationVisibilityBoolMap(raw any) map[string]bool {
 }
 
 func stringSliceFromAny(raw any) []string {
-	switch typed := raw.(type) {
-	case []string:
-		return normalizeStringSlice(typed)
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, value := range typed {
-			text := strings.TrimSpace(anyString(value))
-			if text == "" {
-				continue
-			}
-			out = append(out, text)
-		}
-		return normalizeStringSlice(out)
-	default:
-		return nil
-	}
+	return normalizeStringSlice(primitives.StringSliceFromAny(raw))
 }
 
 func normalizeStringSlice(values []string) []string {

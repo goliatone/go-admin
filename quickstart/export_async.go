@@ -8,6 +8,8 @@ import (
 	"github.com/goliatone/go-export/export"
 )
 
+var exportAsyncFallbackContext = context.Background()
+
 // AsyncRequesterFactory builds an async requester after the export service is initialized.
 type AsyncRequesterFactory func(service export.Service, logger export.Logger) exportapi.AsyncRequester
 
@@ -59,7 +61,12 @@ func (r inProcessRequester) RequestExport(ctx context.Context, actor export.Acto
 	}
 
 	go func() {
-		execCtx := context.Background()
+		execCtx := ctx
+		if execCtx == nil {
+			execCtx = exportAsyncFallbackContext
+		} else {
+			execCtx = context.WithoutCancel(execCtx)
+		}
 		var cancel context.CancelFunc
 		if r.timeout > 0 {
 			execCtx, cancel = context.WithTimeout(execCtx, r.timeout)

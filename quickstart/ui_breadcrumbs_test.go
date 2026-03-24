@@ -116,6 +116,29 @@ func TestWithResolvedBreadcrumbsOverrideWins(t *testing.T) {
 	}
 }
 
+func TestWithResolvedBreadcrumbsDropsPlaceholderLabels(t *testing.T) {
+	ctx := WithBreadcrumbOverride(nil,
+		Breadcrumb("Home", "/admin"),
+		Breadcrumb("<nil>", "/admin/content/broken"),
+		CurrentBreadcrumb("Documents"),
+	)
+	ctx = withResolvedBreadcrumbs(ctx, nil, "")
+
+	got, ok := ctx[ViewKeyBreadcrumbs].([]BreadcrumbItem)
+	if !ok {
+		t.Fatalf("expected breadcrumbs slice, got %T", ctx[ViewKeyBreadcrumbs])
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 breadcrumbs after dropping placeholder label, got %d", len(got))
+	}
+	if got[0].Label != "Home" || got[0].Href != "/admin" || got[0].Current {
+		t.Fatalf("expected linked Home breadcrumb, got %+v", got[0])
+	}
+	if got[1].Label != "Documents" || got[1].Href != "" || !got[1].Current {
+		t.Fatalf("expected current Documents breadcrumb, got %+v", got[1])
+	}
+}
+
 func TestWithResolvedBreadcrumbsSpecWinsOverNavTrail(t *testing.T) {
 	ctx := WithBreadcrumbSpec(nil, BreadcrumbSpec{
 		RootLabel:    "Dashboard",

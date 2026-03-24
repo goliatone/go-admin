@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"html/template"
 	"strings"
 	"unicode"
 
@@ -75,9 +74,9 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 			b, _ := json.Marshal(v)
 			return string(b)
 		},
-		// TODO: Remove safeHTML and all references to it, in templates use safe
-		"safeHTML": func(s string) template.HTML {
-			return template.HTML(s)
+		// Legacy alias preserved for compatibility; returns escaped text instead of raw HTML.
+		"safeHTML": func(s string) string {
+			return html.EscapeString(s)
 		},
 		"default": func(defaultVal, val any) any {
 			if val == nil || val == "" {

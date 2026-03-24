@@ -86,6 +86,19 @@ func (h *contentEntryHandlers) renderForm(
 			"navigation":   contentTypeNavigationCapability(contentType),
 		},
 	}
+	routeKind := BreadcrumbRouteList
+	if isEdit {
+		routeKind = BreadcrumbRouteDetail
+	}
+	viewCtx = ApplyPanelBreadcrumbs(
+		viewCtx,
+		panel,
+		resolveAdminBasePath(h.adminURLs(), h.cfg.BasePath),
+		contentTypeLabel(contentType, panelName),
+		routes.index(),
+		routeKind,
+		resourceItem,
+	)
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
@@ -1039,6 +1052,7 @@ func (h *contentEntryHandlers) renderTemplate(c router.Context, panelSlug string
 	if c == nil {
 		return admin.ErrNotFound
 	}
+	viewCtx = withViewContextResolvedBreadcrumbs(viewCtx, panelSlug)
 	fallbackTemplate = strings.TrimSpace(fallbackTemplate)
 	if fallbackTemplate == "" {
 		return admin.ErrNotFound

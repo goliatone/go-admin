@@ -208,3 +208,12 @@ func TestDefaultTemplateFuncs_TranslationProgressTitle(t *testing.T) {
 	require.True(t, ok, "getWidgetTitle should be func(string) string")
 	assert.Equal(t, "Translation Progress", getWidgetTitle(admin.WidgetTranslationProgress))
 }
+
+func TestDefaultTemplateFuncs_SafeHTMLEscapesInput(t *testing.T) {
+	funcs := DefaultTemplateFuncs()
+	safeHTML, ok := funcs["safeHTML"].(func(string) string)
+	require.True(t, ok, "safeHTML should be func(string) string")
+
+	got := safeHTML(`<strong>Hello</strong><script>alert(1)</script>`)
+	assert.Equal(t, "&lt;strong&gt;Hello&lt;/strong&gt;&lt;script&gt;alert(1)&lt;/script&gt;", got)
+}

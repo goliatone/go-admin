@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"gopkg.in/yaml.v3"
 )
 
@@ -180,7 +180,7 @@ func LoadWorkflowConfigFile(path string) (WorkflowConfig, error) {
 	if path == "" {
 		return DefaultWorkflowConfig(), nil
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return WorkflowConfig{}, err
 	}
