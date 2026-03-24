@@ -338,7 +338,12 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 			claims.Metadata["role"] = identity.Role()
 			return nil
 		}))
-	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		authCfg,
+		auth.WithAuthCookieTemplate(router.FirstPartySessionCookie("", "")),
+		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
+	)
 	if err != nil {
 		return eSignAuthBundle{}, err
 	}

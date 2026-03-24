@@ -43,7 +43,12 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 		WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
 			return applySessionClaimsMetadata(ctx, identity, claims, options, deps.RoleRegistry)
 		}))
-	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		cfg,
+		auth.WithAuthCookieTemplate(router.FirstPartySessionCookie("", "")),
+		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
+	)
 	if err != nil {
 		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
 	}
