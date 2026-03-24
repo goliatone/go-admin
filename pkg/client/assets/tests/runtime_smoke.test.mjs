@@ -169,6 +169,7 @@ const EXPECTED_ENTRY_POINTS = [
   'toast/error-helpers.js',
   'formgen/file_uploader.js',
   'formgen/block_editor.js',
+  'formgen/preferences.js',
   'debug/index.js',
   'translation-exchange/index.js',
   'translation-operations/index.js',

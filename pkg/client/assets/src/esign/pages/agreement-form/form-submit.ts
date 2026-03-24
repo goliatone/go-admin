@@ -496,7 +496,8 @@ export function createAgreementFormSubmitController(
       }
 
       const hasSaveAsDraftIntent = Boolean(form.querySelector('input[name="save_as_draft"]'));
-      const shouldStartReview = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && isStartReviewEnabled();
+      const startReviewEnabled = typeof isStartReviewEnabled === 'function' ? isStartReviewEnabled() : false;
+      const shouldStartReview = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && startReviewEnabled;
       const shouldSendForSignature = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && !shouldStartReview;
 
       if (shouldSendForSignature) {
@@ -618,7 +619,7 @@ export function createAgreementFormSubmitController(
                 status: status || 409,
               });
               submitBtn.disabled = false;
-              setPrimaryActionLabel(isStartReviewEnabled() ? 'Start Review' : 'Send for Signature');
+              setPrimaryActionLabel(startReviewEnabled ? 'Start Review' : 'Send for Signature');
               activeSendAttemptID = null;
               return;
             }
@@ -643,7 +644,7 @@ export function createAgreementFormSubmitController(
             }));
             announceError(message, code, status);
             submitBtn.disabled = false;
-            setPrimaryActionLabel(isStartReviewEnabled() ? 'Start Review' : 'Send for Signature');
+            setPrimaryActionLabel(startReviewEnabled ? 'Start Review' : 'Send for Signature');
             activeSendAttemptID = null;
           }
         })();

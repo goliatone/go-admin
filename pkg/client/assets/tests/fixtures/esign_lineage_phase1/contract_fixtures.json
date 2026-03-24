@@ -345,8 +345,8 @@
           "review_action_visible": "admin_debug_only"
         }
       ],
-      "document_detail_url": "/admin/content/documents/doc_001",
-      "agreement_detail_url": "/admin/content/agreements/agr_001"
+      "document_detail_url": "/admin/content/esign_documents/doc_001",
+      "agreement_detail_url": "/admin/content/esign_agreements/agr_001"
     }
   }
 }

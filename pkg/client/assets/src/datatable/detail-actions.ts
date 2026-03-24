@@ -177,9 +177,9 @@ export function renderDetailActions(actions: ActionButton[]): string {
       ? `<span
            class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
            title="${escapeHtml(reason)}"
-           data-detail-action-reason="${escapeHtml(key)}"
-           id="detail-action-reason-${escapeHtml(key)}"
-         >?</span>`
+           aria-hidden="true"
+         >?</span>
+         <span class="sr-only" data-detail-action-reason="${escapeHtml(key)}" id="detail-action-reason-${escapeHtml(key)}">${escapeHtml(reason)}</span>`
       : '';
 
     primaryHtml = `
@@ -235,9 +235,9 @@ export function renderDetailActions(actions: ActionButton[]): string {
         ? `<span
              class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
              title="${escapeHtml(reason)}"
-             data-detail-action-reason="${escapeHtml(key)}"
-             id="detail-action-reason-${escapeHtml(key)}"
-           >?</span>`
+             aria-hidden="true"
+           >?</span>
+           <span class="sr-only" data-detail-action-reason="${escapeHtml(key)}" id="detail-action-reason-${escapeHtml(key)}">${escapeHtml(reason)}</span>`
         : '';
 
       return `

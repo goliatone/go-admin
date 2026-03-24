@@ -440,6 +440,44 @@ export function resolveSearchResultRuntimeHref(
   return '';
 }
 
+function resolveModeledSearchResultHref(
+  item: Phase13SourceSearchResultSummary,
+  resultLinks: SourceManagementRuntimeLink[] | undefined,
+  config: Pick<SourceManagementRuntimePageConfig, 'base_path' | 'api_base_path' | 'routes'>
+): string {
+  const links = Array.isArray(resultLinks) ? resultLinks : [];
+  if (links.length === 0) {
+    return '';
+  }
+
+  const revisionID = String(item.revision?.id ?? '').trim();
+  const sourceID = String(item.source?.id ?? '').trim();
+  const summary = String(item.summary ?? item.source?.label ?? '').trim();
+
+  const candidates = links.filter((link) => {
+    const href = String(link?.href ?? '').trim();
+    if (!href) {
+      return false;
+    }
+    return (
+      (revisionID && href.includes(revisionID)) ||
+      (revisionID && href.includes(encodeURIComponent(revisionID))) ||
+      (sourceID && href.includes(sourceID)) ||
+      (sourceID && href.includes(encodeURIComponent(sourceID))) ||
+      (summary && String(link?.label ?? '').trim() === summary)
+    );
+  });
+
+  for (const link of candidates) {
+    const translated = translateSourceManagementHrefToRuntime(String(link?.href ?? '').trim(), config);
+    if (translated) {
+      return translated;
+    }
+  }
+
+  return '';
+}
+
 function renderEmptyState(title: string, description: string, showRetry = false): string {
   return `
     <div class="flex flex-col items-center justify-center py-12 text-center">
@@ -1221,11 +1259,16 @@ function renderSearchToolbar(page: Phase13SourceSearchResults): string {
 function renderSearchTable(
   items: Phase13SourceSearchResultSummary[],
   routes: Record<string, string>,
-  config: SourceManagementRuntimePageConfig
+  config: SourceManagementRuntimePageConfig,
+  resultLinks?: SourceManagementRuntimeLink[]
 ): string {
   const rows = items
     .map((item: Phase13SourceSearchResultSummary) => {
-      const href = resolveSearchResultRuntimeHref(item, {
+      const href = resolveModeledSearchResultHref(item, resultLinks, {
+        base_path: config.base_path,
+        api_base_path: config.api_base_path,
+        routes,
+      }) || resolveSearchResultRuntimeHref(item, {
         base_path: config.base_path,
         api_base_path: config.api_base_path,
         routes,
@@ -1290,7 +1333,8 @@ function renderSearchTable(
 function renderSearchResults(
   page: Phase13SourceSearchResults,
   routes: Record<string, string>,
-  config: SourceManagementRuntimePageConfig
+  config: SourceManagementRuntimePageConfig,
+  resultLinks?: SourceManagementRuntimeLink[]
 ): string {
   const toolbar = renderSearchToolbar(page);
   const items = page.items ?? [];
@@ -1311,7 +1355,7 @@ function renderSearchResults(
 
   return `
     ${toolbar}
-    ${renderSearchTable(items, routes, config)}
+    ${renderSearchTable(items, routes, config, resultLinks)}
     ${renderPagination(page.page_info, 'source-search-page')}
   `;
 }
@@ -1659,7 +1703,12 @@ export class SourceManagementRuntimeController {
         this.root.innerHTML = renderArtifactInspector(contract as SourceArtifactPage);
         return;
       case 'admin.sources.search':
-        this.root.innerHTML = renderSearchResults(contract as Phase13SourceSearchResults, this.config.routes ?? {}, this.config);
+        this.root.innerHTML = renderSearchResults(
+          contract as Phase13SourceSearchResults,
+          this.config.routes ?? {},
+          this.config,
+          this.model.result_links,
+        );
         return;
     }
   }
@@ -1768,7 +1817,12 @@ export class SourceManagementRuntimeController {
     }
     if (state.contracts?.searchResults) {
       this.hasLiveContract = true;
-      this.root.innerHTML = renderSearchResults(state.contracts.searchResults, this.config.routes ?? {}, this.config);
+      this.root.innerHTML = renderSearchResults(
+        state.contracts.searchResults,
+        this.config.routes ?? {},
+        this.config,
+        this.model.result_links,
+      );
     }
   }
 

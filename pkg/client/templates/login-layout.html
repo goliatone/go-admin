@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
+  {{ csrf_meta|safe }}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
   {% if theme %}

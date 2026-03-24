@@ -217,8 +217,8 @@
             <h4 class="text-sm font-medium text-gray-700 mb-3">Quick Actions</h4>
             <div class="flex flex-wrap gap-3">
               <a
-                href="{{ panelURL("esign_documents") }}/new?source=google"
-                data-base-href="{{ panelURL("esign_documents") }}/new?source=google"
+                href="{{ adminURL("content/esign_documents/new") }}?source=google"
+                data-base-href="{{ adminURL("content/esign_documents/new") }}?source=google"
                 id="import-drive-link"
                 class="btn btn-primary text-sm"
                 aria-label="Import a document from Google Drive"
@@ -417,6 +417,6 @@
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>
 {% else %}
-<script type="module" src="{{ adminURL("assets/dist/esign/google-integration.js") }}"></script>
+<script type="module" src="{{ base_path + "/assets/dist/esign/index.js" }}"></script>
 {% endif %}
 {% endblock %}

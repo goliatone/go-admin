@@ -167,7 +167,7 @@ export function createAgreementStateBindingController(
   }
 
   function restoreReviewState(state: AgreementStateShape | null | undefined): void {
-    reviewConfigController.restoreFromState(state);
+    reviewConfigController?.restoreFromState?.(state);
   }
 
   function bindChangeTracking(): void {

@@ -5532,9 +5532,9 @@ function ma(e) {
         ` : "", h = l ? `title="${w(l)}"` : "", y = a && l ? `<span
            class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
            title="${w(l)}"
-           data-detail-action-reason="${w(i)}"
-           id="detail-action-reason-${w(i)}"
-         >?</span>` : "";
+           aria-hidden="true"
+         >?</span>
+         <span class="sr-only" data-detail-action-reason="${w(i)}" id="detail-action-reason-${w(i)}">${w(l)}</span>` : "";
     n = `
       <div data-detail-action-card="${w(i)}" class="flex items-center gap-2">
         <button
@@ -5587,9 +5587,9 @@ function ma(e) {
           ` : "", $ = o && d ? `<span
              class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
              title="${w(d)}"
-             data-detail-action-reason="${w(l)}"
-             id="detail-action-reason-${w(l)}"
-           >?</span>` : "";
+             aria-hidden="true"
+           >?</span>
+           <span class="sr-only" data-detail-action-reason="${w(l)}" id="detail-action-reason-${w(l)}">${w(d)}</span>` : "";
     return `
         ${y}
         <div data-detail-action-card="${w(l)}" class="space-y-1">

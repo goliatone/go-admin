@@ -18,6 +18,7 @@ export default defineConfig({
         'formgen/file_uploader': resolve(__dirname, 'src/formgen/file_uploader.ts'),
         'formgen/block_editor': resolve(__dirname, 'src/formgen/block_editor.ts'),
         'formgen/block_library_picker': resolve(__dirname, 'src/formgen/block_library_picker.ts'),
+        'formgen/preferences': resolve(__dirname, 'src/formgen/preferences.ts'),
         'formgen/permission_matrix': resolve(__dirname, 'src/formgen/permission_matrix.ts'),
         'formgen/schema_editor': resolve(__dirname, 'src/formgen/schema_editor.ts'),
         'components/import-modal': resolve(__dirname, 'src/components/import-modal.ts'),
