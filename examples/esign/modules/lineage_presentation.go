@@ -22,7 +22,7 @@ func buildDocumentLineagePresentation(detail services.DocumentLineageDetail) map
 		"resource_id":            strings.TrimSpace(detail.DocumentID),
 		"status":                 status,
 		"source_type":            sourceType,
-		"headline":               "Source Provenance",
+		"headline":               "Document Source",
 		"summary":                documentPresentationSummary(status, hasArtifact),
 		"has_lineage":            hasSource || hasRevision || hasArtifact,
 		"has_google_source":      detail.GoogleSource != nil,
@@ -39,7 +39,7 @@ func buildDocumentLineagePresentation(detail services.DocumentLineageDetail) map
 		"warnings":               warnings,
 		"primary_warning":        firstPresentationWarning(warnings),
 		"diagnostics_url":        strings.TrimSpace(detail.DiagnosticsURL),
-		"show_diagnostics_link":  strings.TrimSpace(detail.DiagnosticsURL) != "",
+		"show_diagnostics_link":  false,
 	}
 }
 
@@ -55,7 +55,7 @@ func buildAgreementLineagePresentation(detail services.AgreementLineageDetail) m
 		"resource_id":            strings.TrimSpace(detail.AgreementID),
 		"status":                 status,
 		"source_type":            sourceType,
-		"headline":               "Pinned Source Provenance",
+		"headline":               "Document Source",
 		"summary":                agreementPresentationSummary(status, detail.NewerSourceExists),
 		"has_lineage":            hasRevision || hasArtifact,
 		"has_google_source":      detail.GoogleSource != nil,
@@ -72,7 +72,7 @@ func buildAgreementLineagePresentation(detail services.AgreementLineageDetail) m
 		"warnings":               warnings,
 		"primary_warning":        firstPresentationWarning(warnings),
 		"diagnostics_url":        strings.TrimSpace(detail.DiagnosticsURL),
-		"show_diagnostics_link":  strings.TrimSpace(detail.DiagnosticsURL) != "",
+		"show_diagnostics_link":  false,
 	}
 }
 
@@ -113,14 +113,14 @@ func documentPresentationSummary(status string, hasArtifact bool) string {
 func agreementPresentationSummary(status string, newerSourceExists bool) string {
 	switch strings.TrimSpace(status) {
 	case "empty":
-		return "This agreement is not pinned to an upstream source revision."
+		return ""
 	case "partial":
-		return "This agreement has incomplete source provenance and may require operator diagnostics."
+		return ""
 	default:
 		if newerSourceExists {
-			return "This agreement is pinned to an earlier source revision while a newer source revision is available."
+			return "A newer source revision is available."
 		}
-		return "This agreement is pinned to the exact source revision used at creation time."
+		return ""
 	}
 }
 

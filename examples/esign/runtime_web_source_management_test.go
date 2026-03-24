@@ -44,6 +44,14 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 					t.Fatalf("expected source_browser surface, got %q", got)
 				}
 			},
+			assertHTML: func(t *testing.T, _ *fiber.App, _ *http.Cookie, html string) {
+				t.Helper()
+				rendered := stripScriptsFromHTML(html)
+				if strings.Contains(rendered, "E-Sign Sources") {
+					t.Fatal("expected source browser header to avoid bespoke section pretitle")
+				}
+				assertRenderedHeaderActionClass(t, html, "/admin/esign/source-search", "btn btn-primary")
+			},
 		},
 		{
 			name:         "source detail",
@@ -97,7 +105,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			name:         "source workspace",
 			endpoint:     urls.SourceWorkspaceURL,
 			expectedPage: eSignPageSourceWorkspace,
-			expectedText: []string{"Source Workspace", "Canonical Workspace", "Workspace"},
+			expectedText: []string{"Status", "Confidence", "Latest Revision"},
 			assertModel: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := strings.TrimSpace(rawToString(payload["surface"])); got != "source_workspace" {
@@ -136,7 +144,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			name:         "artifact inspector",
 			endpoint:     urls.SourceArtifactsURL,
 			expectedPage: eSignPageSourceArtifacts,
-			expectedText: []string{"Artifact Inspector", "Revision Inspector", "Artifacts"},
+			expectedText: []string{"Artifact Inspector", "Revision Inspector", "Total Pages"},
 			assertModel: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := strings.TrimSpace(rawToString(payload["surface"])); got != "source_artifacts" {
@@ -148,7 +156,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			name:         "source search",
 			endpoint:     urls.SourceSearchURL,
 			expectedPage: eSignPageSourceSearch,
-			expectedText: []string{"Source Search", "Search Drill-Ins", "/admin/esign/sources"},
+			expectedText: []string{"Source Search", "/admin/esign/sources"},
 			assertModel: func(t *testing.T, payload map[string]any) {
 				t.Helper()
 				if got := strings.TrimSpace(rawToString(payload["surface"])); got != "source_search" {
@@ -161,6 +169,10 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			},
 			assertHTML: func(t *testing.T, app *fiber.App, authCookie *http.Cookie, html string) {
 				t.Helper()
+				rendered := stripScriptsFromHTML(html)
+				if strings.Contains(rendered, "E-Sign Sources") || strings.Contains(rendered, "Search Drill-Ins") {
+					t.Fatal("expected source search header to match shared heading contract without bespoke section/summary copy")
+				}
 				pageModel := extractJSONScriptPayloadFromHTML(t, html, "source-management-page-model")
 				rawLinks, ok := pageModel["result_links"].([]any)
 				if !ok || len(rawLinks) == 0 {
@@ -307,7 +319,7 @@ func TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable(t *te
 		t.Fatalf("read source search body: %v", err)
 	}
 	html := string(body)
-	for _, snippet := range []string{"Source Search", "fixture-google-file-legacy", "Search Drill-Ins"} {
+	for _, snippet := range []string{"Source Search", "fixture-google-file-legacy", "/admin/esign/sources"} {
 		if !strings.Contains(html, snippet) {
 			t.Fatalf("expected source search html to contain %q", snippet)
 		}
@@ -326,6 +338,15 @@ func (s legacySourceSearchFailingRuntimeStore) ListSourceSearchDocuments(context
 func stripScriptsFromHTML(html string) string {
 	re := regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script>`)
 	return re.ReplaceAllString(html, "")
+}
+
+func assertRenderedHeaderActionClass(t *testing.T, html, hrefPath, classToken string) {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(?is)<a\b[^>]*href="` + regexp.QuoteMeta(hrefPath) + `(?:\?[^"]*)?"[^>]*class="[^"]*` + regexp.QuoteMeta(classToken) + `[^"]*"`)
+	if !pattern.MatchString(html) {
+		t.Fatalf("expected rendered header action %q to use class token %q", hrefPath, classToken)
+	}
 }
 
 func assertCanonicalWorkspaceContract(t *testing.T, payload map[string]any) map[string]any {
@@ -371,10 +392,19 @@ func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageMode
 				t.Fatalf("expected rendered source-management shell to include nav href path %q for surface %q", hrefPath, surface)
 			}
 		}
+		if len(navLinks) > 2 && !strings.Contains(rendered, `data-admin-action-menu`) {
+			t.Fatalf("expected rendered source-management shell to include overflow action menu for surface %q with %d nav links", surface, len(navLinks))
+		}
 	}
 
 	switch surface {
 	case "source_detail", "source_revision", "source_comments", "source_artifacts":
+		for _, shellClass := range []string{"lg:w-80 xl:w-96", "lg:sticky lg:top-6"} {
+			if !strings.Contains(rendered, shellClass) {
+				t.Fatalf("expected rendered source-management shell to include detail shell class %q for surface %q", shellClass, surface)
+			}
+		}
+
 		quickActions, _ := pageModel["quick_action_links"].([]any)
 		if len(quickActions) > 0 {
 			if !strings.Contains(rendered, "Quick Actions") {
@@ -450,5 +480,21 @@ func TestNonExternalRuntimeLinksFiltersExternalLinks(t *testing.T) {
 		if strings.EqualFold(strings.TrimSpace(link.Kind), "external") {
 			t.Fatalf("expected external links to be filtered out, got %+v", links)
 		}
+	}
+}
+
+func TestPartitionRuntimeHeaderLinksPromotesSingleVisibleActionToPrimary(t *testing.T) {
+	visible, overflow := partitionRuntimeHeaderLinks([]eSignSourceManagementRuntimeLink{
+		sourceManagementRuntimeLink("Search", "/admin/esign/source-search", "secondary"),
+	}, 2)
+
+	if len(overflow) != 0 {
+		t.Fatalf("expected no overflow links, got %+v", overflow)
+	}
+	if len(visible) != 1 {
+		t.Fatalf("expected one visible link, got %+v", visible)
+	}
+	if got := strings.TrimSpace(visible[0].Kind); got != "primary" {
+		t.Fatalf("expected single visible action to be promoted to primary, got %q", got)
 	}
 }

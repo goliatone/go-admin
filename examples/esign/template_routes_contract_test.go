@@ -11,6 +11,18 @@ import (
 func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	template := mustReadESignTemplate(t, "resources/esign-agreements/form.html")
 
+	if !strings.Contains(template, `resources/shared/esign-form-base.html`) {
+		t.Fatal("expected agreement form template to extend the shared e-sign form shell")
+	}
+	if strings.Contains(template, `{% extends "layout.html" %}`) {
+		t.Fatal("expected agreement form template to avoid extending layout.html directly")
+	}
+	if !strings.Contains(template, `partials/admin-page-heading.html`) {
+		t.Fatal("expected agreement form template to use the shared admin page heading partial")
+	}
+	if !strings.Contains(template, `partials/esign-visual-primitives.html`) {
+		t.Fatal("expected agreement form template to include shared e-sign visual primitives")
+	}
 	if !strings.Contains(template, `<script id="esign-page-config" type="application/json">`) {
 		t.Fatal("expected form template to expose esign-page-config bootstrap payload")
 	}
@@ -40,6 +52,12 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 func TestESignAgreementDetailTemplateUsesCanonicalPanelActionAndArtifactRoutes(t *testing.T) {
 	template := mustReadESignTemplate(t, "resources/esign-agreements/detail.html")
 
+	if !strings.Contains(template, `partials/esign-visual-primitives.html`) {
+		t.Fatal("expected agreement detail template to include shared e-sign visual primitives")
+	}
+	if strings.Contains(template, `<style>`) {
+		t.Fatal("expected agreement detail template to avoid inline style blocks for shared visual rules")
+	}
 	if !strings.Contains(template, "${apiBase}/panels/${panelName}/${agreementId}/artifact/${assetType}") {
 		t.Fatal("expected detail template to use canonical panel artifact endpoint")
 	}
@@ -71,6 +89,64 @@ func TestESignDocumentDetailTemplateUsesCanonicalPanelSourceRoute(t *testing.T) 
 	}
 	if strings.Contains(template, `data-pdf-url="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf"`) {
 		t.Fatal("expected document detail template to avoid non-canonical source endpoint")
+	}
+}
+
+func TestESignDocumentFormTemplateUsesSharedShell(t *testing.T) {
+	template := mustReadESignTemplate(t, "resources/esign-documents/form.html")
+
+	if !strings.Contains(template, `resources/shared/esign-form-base.html`) {
+		t.Fatal("expected document form template to extend the shared e-sign form shell")
+	}
+	if strings.Contains(template, `{% extends "layout.html" %}`) {
+		t.Fatal("expected document form template to avoid extending layout.html directly")
+	}
+	if !strings.Contains(template, `partials/admin-page-heading.html`) {
+		t.Fatal("expected document form template to use the shared admin page heading partial")
+	}
+}
+
+func TestESignSourceTemplatesUseSharedDetailShell(t *testing.T) {
+	cases := []struct {
+		name             string
+		templatePath     string
+		expectedSnippet  string
+		forbiddenSnippet string
+	}{
+		{
+			name:             "source detail",
+			templatePath:     "resources/esign-sources/detail.html",
+			expectedSnippet:  `partials/esign-source-breadcrumbs.html`,
+			forbiddenSnippet: `container mx-auto px-4 py-6`,
+		},
+		{
+			name:             "source revisions",
+			templatePath:     "resources/esign-sources/revisions.html",
+			expectedSnippet:  `partials/esign-source-breadcrumbs.html`,
+			forbiddenSnippet: `container mx-auto px-4 py-6`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			template := mustReadESignTemplate(t, tc.templatePath)
+
+			if !strings.Contains(template, `resources/shared/esign-detail-base.html`) {
+				t.Fatal("expected source template to extend the shared e-sign detail shell")
+			}
+			if strings.Contains(template, `{% extends "layout.html" %}`) {
+				t.Fatal("expected source template to avoid extending layout.html directly")
+			}
+			if !strings.Contains(template, tc.expectedSnippet) {
+				t.Fatalf("expected source template to contain %q", tc.expectedSnippet)
+			}
+			if !strings.Contains(template, `{% block detail_scripts %}`) {
+				t.Fatal("expected source template scripts to render through the shared detail_scripts block")
+			}
+			if strings.Contains(template, tc.forbiddenSnippet) {
+				t.Fatalf("expected source template to avoid legacy shell class %q", tc.forbiddenSnippet)
+			}
+		})
 	}
 }
 
@@ -115,8 +191,50 @@ func TestESignSourceManagementRuntimeTemplateUsesServerAuthoredBootstrapPayloads
 	if strings.Contains(template, "max-w-7xl mx-auto") {
 		t.Fatal("expected source-management runtime template to use the shared full-width admin shell instead of a custom max-width wrapper")
 	}
-	if !strings.Contains(template, `btn btn-primary`) || !strings.Contains(template, `btn btn-secondary`) {
-		t.Fatal("expected source-management runtime template header actions to use shared admin button styles")
+	if !strings.Contains(template, `partials/admin-action-toolbar.html`) {
+		t.Fatal("expected source-management runtime template to use the shared admin action toolbar partial")
+	}
+	if !strings.Contains(template, `partials/admin-page-heading.html`) {
+		t.Fatal("expected source-management runtime template to use the shared admin page heading partial")
+	}
+	if !strings.Contains(template, `source_management_primary_nav_links`) || !strings.Contains(template, `source_management_overflow_nav_links`) {
+		t.Fatal("expected source-management runtime template to render grouped header actions for visible buttons and overflow menu")
+	}
+	if strings.Contains(template, `source_management_page_section`) || strings.Contains(template, `source_management_page_summary`) {
+		t.Fatal("expected source-management runtime template to avoid bespoke header pretitle/summary layers")
+	}
+
+	toolbarPartial := mustReadESignTemplate(t, "partials/admin-action-toolbar.html")
+	if !strings.Contains(toolbarPartial, `btn btn-primary`) || !strings.Contains(toolbarPartial, `btn btn-secondary`) {
+		t.Fatal("expected shared admin action toolbar partial to use shared admin button styles")
+	}
+
+	headingPartial := mustReadESignTemplate(t, "partials/admin-page-heading.html")
+	if !strings.Contains(headingPartial, `partials/breadcrumbs.html`) || !strings.Contains(headingPartial, `page_heading_title`) {
+		t.Fatal("expected shared admin page heading partial to render breadcrumbs and title")
+	}
+
+	esignDetailBase := mustReadESignTemplate(t, "resources/shared/esign-detail-base.html")
+	if strings.Contains(esignDetailBase, `max-w-7xl mx-auto`) {
+		t.Fatal("expected shared e-sign detail shell to avoid bespoke max-width wrappers")
+	}
+	if !strings.Contains(esignDetailBase, `partials/admin-page-heading.html`) {
+		t.Fatal("expected shared e-sign detail shell to use the shared admin page heading partial")
+	}
+
+	esignFormBase := mustReadESignTemplate(t, "resources/shared/esign-form-base.html")
+	if strings.Contains(esignFormBase, `max-w-7xl mx-auto`) {
+		t.Fatal("expected shared e-sign form shell to avoid bespoke max-width wrappers")
+	}
+	if !strings.Contains(esignFormBase, `partials/admin-page-heading.html`) {
+		t.Fatal("expected shared e-sign form shell to use the shared admin page heading partial")
+	}
+
+	visualPrimitives := mustReadESignTemplate(t, "partials/esign-visual-primitives.html")
+	for _, token := range []string{`.review-action-btn`, `.inline-status`, `.placement-field-item.linked-flash`} {
+		if !strings.Contains(visualPrimitives, token) {
+			t.Fatalf("expected shared e-sign visual primitives partial to contain %q", token)
+		}
 	}
 }
 

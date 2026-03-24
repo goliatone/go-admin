@@ -418,6 +418,9 @@ func withESignSourceManagementPageModel(ctx router.ViewContext, model eSignSourc
 	ctx["source_management_page_summary"] = model.Summary
 	ctx["source_management_highlights"] = model.Highlights
 	ctx["source_management_nav_links"] = model.NavLinks
+	primaryNavLinks, overflowNavLinks := partitionRuntimeHeaderLinks(model.NavLinks, 2)
+	ctx["source_management_primary_nav_links"] = primaryNavLinks
+	ctx["source_management_overflow_nav_links"] = overflowNavLinks
 	ctx["source_management_quick_action_links"] = model.QuickActionLinks
 	ctx["source_management_result_links"] = model.ResultLinks
 	ctx["source_management_resource_id"] = model.ResourceID
@@ -1188,6 +1191,64 @@ func nonExternalRuntimeLinks(items ...eSignSourceManagementRuntimeLink) []eSignS
 		out = append(out, item)
 	}
 	return out
+}
+
+func partitionRuntimeHeaderLinks(items []eSignSourceManagementRuntimeLink, maxVisible int) ([]eSignSourceManagementRuntimeLink, []eSignSourceManagementRuntimeLink) {
+	links := compactRuntimeLinks(items...)
+	if len(links) == 0 {
+		return nil, nil
+	}
+	if maxVisible <= 0 {
+		return nil, links
+	}
+
+	visible := make([]eSignSourceManagementRuntimeLink, 0, minInt(maxVisible, len(links)))
+	used := make([]bool, len(links))
+
+	appendPass := func(match func(eSignSourceManagementRuntimeLink) bool) {
+		if len(visible) >= maxVisible {
+			return
+		}
+		for idx, link := range links {
+			if used[idx] || !match(link) {
+				continue
+			}
+			visible = append(visible, link)
+			used[idx] = true
+			if len(visible) >= maxVisible {
+				return
+			}
+		}
+	}
+
+	appendPass(func(link eSignSourceManagementRuntimeLink) bool {
+		return strings.EqualFold(strings.TrimSpace(link.Kind), "primary")
+	})
+	appendPass(func(link eSignSourceManagementRuntimeLink) bool {
+		return !strings.EqualFold(strings.TrimSpace(link.Kind), "external")
+	})
+	appendPass(func(link eSignSourceManagementRuntimeLink) bool {
+		return true
+	})
+
+	overflow := make([]eSignSourceManagementRuntimeLink, 0, len(links)-len(visible))
+	for idx, link := range links {
+		if used[idx] {
+			continue
+		}
+		overflow = append(overflow, link)
+	}
+	if len(visible) == 1 && len(overflow) == 0 && !strings.EqualFold(strings.TrimSpace(visible[0].Kind), "external") {
+		visible[0].Kind = "primary"
+	}
+	return visible, overflow
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func runtimeHighlight(label, value string) eSignSourceManagementRuntimeHighlight {

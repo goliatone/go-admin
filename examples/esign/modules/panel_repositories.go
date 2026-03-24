@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -3192,12 +3193,7 @@ func agreementMatchesStatusFilter(agreement stores.AgreementRecord, raw string) 
 		return true
 	}
 	status := strings.ToLower(strings.TrimSpace(agreement.Status))
-	for _, value := range values {
-		if status == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, status)
 }
 
 func splitFilterValues(raw string) []string {
