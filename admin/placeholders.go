@@ -116,7 +116,7 @@ func resolveProtectedRouteMiddleware(
 	protectedRoute := routeAuth.ProtectedRoute(cfg, handler)
 	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(cfg, handler)
 	return func(next router.HandlerFunc) router.HandlerFunc {
-		browserHandler := protectedBrowserRoute(next)
+		browserHandler := protectedRoute(protectedBrowserRoute(next))
 		routeHandler := protectedRoute(next)
 		return func(c router.Context) error {
 			if c != nil && strings.Contains(c.Path(), "/api/") {
