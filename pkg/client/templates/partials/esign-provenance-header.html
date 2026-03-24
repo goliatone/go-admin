@@ -3,9 +3,6 @@
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
       {{ provenance.headline|default:"Source Provenance" }}
     </p>
-    <h3 class="mt-1 text-lg font-semibold text-slate-900">
-      {{ provenance.summary|default:"Source provenance is available for this record." }}
-    </h3>
   </div>
   {% if provenance.show_diagnostics_link and provenance.diagnostics_url %}
   <a

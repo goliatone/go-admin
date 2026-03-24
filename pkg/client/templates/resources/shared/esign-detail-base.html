@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}{% block detail_title %}{{ title }}{% endblock %}{% endblock %}
+
+{% block head_extra %}
+{% block detail_head_extra %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  {% block header_heading %}
+    {% include "partials/admin-page-heading.html" with breadcrumbs=breadcrumbs page_heading_pretitle=page_heading_pretitle page_heading_title=page_heading_title page_heading_summary=page_heading_summary %}
+  {% endblock %}
+  <div class="flex items-center justify-end gap-3">
+    {% block header_actions %}{% endblock %}
+  </div>
+</header>
+
+{% block tabs_area %}{% endblock %}
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {% block detail_shell %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% block detail_scripts %}{% endblock %}
+{% endblock %}

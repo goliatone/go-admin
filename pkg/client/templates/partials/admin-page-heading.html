@@ -1,0 +1,10 @@
+<div>
+  {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
+  {% if page_heading_pretitle %}
+  <p class="mb-1 text-sm text-gray-500">{{ page_heading_pretitle }}</p>
+  {% endif %}
+  <h1 class="text-3xl font-bold text-admin-dark">{{ page_heading_title }}</h1>
+  {% if page_heading_summary %}
+  <p class="mt-1 text-sm text-gray-500">{{ page_heading_summary }}</p>
+  {% endif %}
+</div>

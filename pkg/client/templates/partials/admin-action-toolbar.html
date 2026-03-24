@@ -1,0 +1,47 @@
+{% if primary_actions or overflow_actions %}
+<div class="flex flex-wrap items-center justify-end gap-2" data-admin-action-toolbar>
+  {% for link in primary_actions %}
+  <a
+    href="{{ link.href }}"
+    class="{% if link.kind == 'primary' %}btn btn-primary{% else %}btn btn-secondary{% endif %}"
+    {% if link.kind == 'external' %}target="_blank" rel="noopener noreferrer"{% endif %}
+  >
+    {{ link.label }}
+  </a>
+  {% endfor %}
+  {% if overflow_actions %}
+  <div class="relative" data-admin-action-menu>
+    <button
+      type="button"
+      class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      data-admin-action-menu-trigger
+      aria-haspopup="true"
+      aria-expanded="false"
+      aria-label="More actions"
+    >
+      <i class="iconoir-more-horiz text-lg"></i>
+    </button>
+    <div
+      class="absolute right-0 z-50 mt-2 hidden min-w-56 origin-top-right overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5"
+      data-admin-action-menu-content
+      role="menu"
+      aria-orientation="vertical"
+    >
+      {% for link in overflow_actions %}
+      <a
+        href="{{ link.href }}"
+        class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+        role="menuitem"
+        {% if link.kind == 'external' %}target="_blank" rel="noopener noreferrer"{% endif %}
+      >
+        <span class="flex-1">{{ link.label }}</span>
+        {% if link.kind == 'external' %}
+        <i class="iconoir-open-new-window text-base text-gray-400"></i>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}

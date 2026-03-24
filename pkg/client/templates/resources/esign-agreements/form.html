@@ -1,64 +1,58 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/esign-form-base.html" %}
 
-{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Agreement - {{ title }}{% endblock %}
+{% block form_title %}{% if is_edit %}Edit{% else %}Create{% endif %} Agreement - {{ title }}{% endblock %}
 
-{% block head_extra %}
-<style>
-  /* Collapsible section styles */
-  .collapsible-trigger {
-    cursor: pointer;
-    user-select: none;
-  }
-  .collapsible-content {
-    display: none;
-  }
-  .collapsible-content.expanded {
-    display: block;
-  }
-  .collapsible-icon {
-    transition: transform 0.2s ease;
-  }
-  .collapsible-trigger[aria-expanded="true"] .collapsible-icon {
-    transform: rotate(180deg);
-  }
-</style>
+{% block form_head_extra %}
+{% include "partials/esign-visual-primitives.html" %}
 {% endblock %}
 
-{% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    <p class="text-sm text-gray-500 mb-1">E-Sign Agreements</p>
-    <h1 class="text-3xl font-bold text-admin-dark">
-      {% if resource_item.workflow_kind == "correction" %}
-        {% if is_edit %}Edit Correction Draft{% else %}Create Correction Draft{% endif %}
-      {% elif resource_item.workflow_kind == "amendment" %}
-        {% if is_edit %}Edit Amendment Draft{% else %}Create Amendment Draft{% endif %}
-      {% else %}
-        {% if is_edit %}Edit{% else %}Create{% endif %} Agreement
-      {% endif %}
-    </h1>
-    {% if resource_item.workflow_kind == "correction" %}
-    <p class="mt-2 text-sm text-gray-500">This draft supersedes an earlier version and will be the corrected agreement in the lineage.</p>
-    {% elif resource_item.workflow_kind == "amendment" %}
-    <p class="mt-2 text-sm text-gray-500">This draft extends a completed agreement and stays linked to its executed parent.</p>
-    {% endif %}
+{% set agreement_form_heading = "Create Agreement" %}
+{% if is_edit %}
+  {% set agreement_form_heading = "Edit Agreement" %}
+{% endif %}
+{% if resource_item.workflow_kind == "correction" %}
+  {% if is_edit %}
+    {% set agreement_form_heading = "Edit Correction Draft" %}
+  {% else %}
+    {% set agreement_form_heading = "Create Correction Draft" %}
+  {% endif %}
+{% elif resource_item.workflow_kind == "amendment" %}
+  {% if is_edit %}
+    {% set agreement_form_heading = "Edit Amendment Draft" %}
+  {% else %}
+    {% set agreement_form_heading = "Create Amendment Draft" %}
+  {% endif %}
+{% endif %}
+
+{% set agreement_form_summary = "" %}
+{% if resource_item.workflow_kind == "correction" %}
+  {% set agreement_form_summary = "This draft supersedes an earlier version and will be the corrected agreement in the lineage." %}
+{% elif resource_item.workflow_kind == "amendment" %}
+  {% set agreement_form_summary = "This draft extends a completed agreement and stays linked to its executed parent." %}
+{% endif %}
+
+{% block header_heading %}
+  {% include "partials/admin-page-heading.html" with breadcrumbs=breadcrumbs page_heading_pretitle="E-Sign Agreements" page_heading_title=agreement_form_heading page_heading_summary=agreement_form_summary %}
+{% endblock %}
+
+{% block header_status %}
+  <div id="sync-status-indicator" class="hidden flex items-center gap-2 text-sm" role="status" aria-live="polite">
+    <span id="sync-status-icon" class="w-2 h-2 rounded-full bg-green-500"></span>
+    <span id="sync-status-text" class="text-gray-600">Saved</span>
+    <button type="button" id="sync-retry-btn" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">Retry</button>
   </div>
-  <div class="flex items-center gap-4">
-    <div id="sync-status-indicator" class="hidden flex items-center gap-2 text-sm" role="status" aria-live="polite">
-      <span id="sync-status-icon" class="w-2 h-2 rounded-full bg-green-500"></span>
-      <span id="sync-status-text" class="text-gray-600">Saved</span>
-      <button type="button" id="sync-retry-btn" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">Retry</button>
-    </div>
-    <div class="flex gap-3">
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
-          <i class="iconoir-arrow-left" aria-hidden="true"></i>
-          Back to Agreements
-        </a>
-      {% endif %}
-    </div>
-  </div>
-</header>
+{% endblock %}
+
+{% block header_actions %}
+  {% if routes.index %}
+    <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
+      <i class="iconoir-arrow-left" aria-hidden="true"></i>
+      Back to Agreements
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block after_header %}
 
 {# Resume Draft Dialog Modal #}
 <div id="resume-dialog-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="resume-dialog-title">
@@ -184,8 +178,9 @@
     </ol>
   </nav>
 </div>
+{% endblock %}
 
-<div class="flex-1 p-8 overflow-y-auto">
+{% block form_content %}
   {# Page marker for esign module auto-init #}
   <div data-esign-page="agreement-form" hidden></div>
 
@@ -1424,71 +1419,9 @@
     </div>
   </form>
 </div>
-
-{# Phase 3.2: Link toggle and animation styles #}
-<style>
-  /* Link toggle icon between linked fields */
-  .link-toggle {
-    margin: -2px 0;
-    position: relative;
-  }
-
-  .link-toggle::before,
-  .link-toggle::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    width: 1px;
-    height: 4px;
-    background-color: #e5e7eb;
-  }
-
-  .link-toggle::before {
-    top: 0;
-  }
-
-  .link-toggle::after {
-    bottom: 0;
-  }
-
-  /* Flash animation for auto-placed linked fields */
-  @keyframes linked-flash {
-    0% {
-      background-color: rgba(59, 130, 246, 0.3);
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-    }
-    100% {
-      background-color: transparent;
-      box-shadow: none;
-    }
-  }
-
-  .placement-field-item.linked-flash {
-    animation: linked-flash 0.6s ease-out forwards;
-  }
-
-  /* Visual distinction for unlinked fields in sidebar */
-  .placement-field-item[data-link-group-id].unlinked {
-    border-style: dashed;
-    border-color: #d1d5db;
-  }
-
-  /* Screen reader only utility */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-</style>
 {% endblock %}
 
-{% block scripts %}
+{% block form_scripts %}
 {# E-Sign agreement form module bootstrap #}
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>

@@ -9,6 +9,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const {
   SourceManagementRuntimeController,
@@ -21,6 +24,12 @@ const {
   resolveSearchResultRuntimeHref,
   SOURCE_SEARCH_RESULT_KIND_OPTIONS,
 } = await import('../dist/esign/index.js');
+
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const sourceManagementRuntimeSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/source-management-runtime.ts',
+);
 
 // Test fixtures
 const SOURCE_LIST_EMPTY = {
@@ -834,4 +843,27 @@ test('workspace controller fetches canonical workspace endpoint and preserves ba
 
 test('SOURCE_SEARCH_RESULT_KIND_OPTIONS stays aligned with the frozen Phase 13 contract values', () => {
   assert.deepEqual([...SOURCE_SEARCH_RESULT_KIND_OPTIONS], ['source_document', 'source_revision']);
+});
+
+test('source-management runtime centralizes shared shell render helpers for source inspectors', () => {
+  const source = fs.readFileSync(sourceManagementRuntimeSourcePath, 'utf8');
+
+  assert.match(source, /const runtimeSupportCardClass = 'rounded-lg border border-gray-200 bg-gray-50 p-4';/);
+  assert.match(source, /const runtimeInspectorCardClass = 'rounded-xl border border-gray-200 bg-white p-6';/);
+  assert.match(source, /function renderRuntimeRefreshButton\(action = 'refresh', label = 'Refresh'\): string/);
+  assert.match(source, /function renderRuntimeSupportCard\(content: string, extraClass = ''\): string/);
+  assert.match(source, /function renderRuntimeInspectorCard\(content: string, extraClass = ''\): string/);
+  assert.match(source, /function renderWorkspacePage[\s\S]*renderRuntimeInspectorCard\(/);
+  assert.match(source, /function renderRevisionInspector[\s\S]*renderRuntimeRefreshButton\(\)/);
+  assert.match(source, /function renderArtifactInspector[\s\S]*renderRuntimeInspectorCard\(/);
+  assert.match(source, /function renderCommentThread[\s\S]*renderRuntimeInspectorCard\(/);
+});
+
+test('source-management runtime initializes shared admin action menus from the package-level helper', () => {
+  const source = fs.readFileSync(sourceManagementRuntimeSourcePath, 'utf8');
+
+  assert.match(source, /function initAdminActionMenus\(root: ParentNode = document\): void/);
+  assert.match(source, /document\.body\?\.dataset\.adminActionMenusInit !== 'true'/);
+  assert.match(source, /document\.addEventListener\('click', \(event\) =>/);
+  assert.match(source, /initAdminActionMenus\(document\);/);
 });

@@ -501,6 +501,25 @@ const runtimeToolbarCheckboxLabelClass =
 const runtimeTableShellClass = 'bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden';
 const runtimeTableHeadCellClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
 const runtimeTableCellClass = 'px-6 py-4 align-top';
+const runtimeSupportCardClass = 'rounded-lg border border-gray-200 bg-gray-50 p-4';
+const runtimeInspectorCardClass = 'rounded-xl border border-gray-200 bg-white p-6';
+
+function renderRuntimeRefreshButton(action = 'refresh', label = 'Refresh'): string {
+  return `
+    <button type="button" data-runtime-action="${escapeHtml(action)}" class="${runtimeToolbarButtonClass}">
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      ${escapeHtml(label)}
+    </button>
+  `;
+}
+
+function renderRuntimeSupportCard(content: string, extraClass = ''): string {
+  return `<div class="${runtimeSupportCardClass}${extraClass ? ` ${extraClass}` : ''}">${content}</div>`;
+}
+
+function renderRuntimeInspectorCard(content: string, extraClass = ''): string {
+  return `<div class="${runtimeInspectorCardClass}${extraClass ? ` ${extraClass}` : ''}">${content}</div>`;
+}
 
 function renderRuntimeFilterToggle(action: string, label: string, active: boolean): string {
   return `
@@ -755,7 +774,7 @@ function renderWorkspacePage(
                 translateSourceManagementHrefToRuntime(entry.drill_in?.href, config) ||
                 firstRuntimeLink(entry.links, config, 'anchor', 'timeline', 'workspace', 'source', 'self');
               return `
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                ${renderRuntimeSupportCard(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
@@ -775,7 +794,7 @@ function renderWorkspacePage(
                     <span>${escapeHtml(entry.artifact_count ?? 0)} artifacts</span>
                     <span>${escapeHtml(entry.handle?.external_file_id ?? entry.handle?.id ?? 'No active handle')}</span>
                   </div>
-                </div>
+                `)}
               `;
             })
             .join('')}
@@ -792,7 +811,7 @@ function renderWorkspacePage(
             .map((item) => {
               const href = firstRuntimeLink(item.links, config, 'anchor', 'workspace', 'agreement', 'self');
               return `
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                ${renderRuntimeSupportCard(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
@@ -808,7 +827,7 @@ function renderWorkspacePage(
                       ${href ? `<a href="${escapeHtml(href)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
                     </div>
                   </div>
-                </div>
+                `)}
               `;
             })
             .join('')}
@@ -827,7 +846,7 @@ function renderWorkspacePage(
                 translateSourceManagementHrefToRuntime(item.drill_in?.href, config) ||
                 firstRuntimeLink(item.links, config, 'anchor', 'workspace', 'artifacts', 'self');
               return `
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                ${renderRuntimeSupportCard(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
@@ -844,7 +863,7 @@ function renderWorkspacePage(
                     <span>${escapeHtml(item.artifact?.page_count ?? 0)} pages</span>
                     <span class="font-mono">${escapeHtml(item.artifact?.id ?? '-')}</span>
                   </div>
-                </div>
+                `)}
               `;
             })
             .join('')}
@@ -869,7 +888,7 @@ function renderWorkspacePage(
             .map((item) => {
               const href = firstRuntimeLink(item.links, config, 'workspace', 'source', 'self');
               return `
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                ${renderRuntimeSupportCard(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${escapeHtml(
@@ -884,7 +903,7 @@ function renderWorkspacePage(
                       ${href ? `<a href="${escapeHtml(href)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ''}
                     </div>
                   </div>
-                </div>
+                `)}
               `;
             })
             .join('')}
@@ -896,7 +915,7 @@ function renderWorkspacePage(
 
   return `
     <div class="p-6 space-y-6">
-      <div class="rounded-xl border border-gray-200 bg-white p-6">
+      ${renderRuntimeInspectorCard(`
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-xl font-semibold text-gray-900">${escapeHtml(
@@ -906,9 +925,7 @@ function renderWorkspacePage(
               workspace.source?.id ?? '-'
             )}</p>
           </div>
-          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          </button>
+          ${renderRuntimeRefreshButton()}
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
           ${statusBadge(workspace.status)}
@@ -917,7 +934,7 @@ function renderWorkspacePage(
           <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">${escapeHtml(workspace.handle_count ?? 0)} handles</span>
           ${activeAnchor ? `<span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">Anchor: ${escapeHtml(activeAnchor)}</span>` : ''}
         </div>
-      </div>
+      `)}
 
       ${renderWorkspacePanelNav(workspace, config)}
 
@@ -927,18 +944,18 @@ function renderWorkspacePage(
         activePanel,
         `
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            ${renderRuntimeSupportCard(`
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Provider</h4>
               <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(workspace.provider?.label ?? workspace.provider?.kind ?? '-')}</p>
               <p class="mt-1 text-xs text-gray-500">${escapeHtml(workspace.provider?.external_file_id ?? '-')}</p>
-            </div>
-            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            `)}
+            ${renderRuntimeSupportCard(`
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Latest Revision</h4>
               <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(workspace.latest_revision?.provider_revision_hint ?? workspace.latest_revision?.id ?? '-')}</p>
               <p class="mt-1 text-xs text-gray-500">${formatDateTime(workspace.latest_revision?.modified_time)}</p>
-            </div>
+            `)}
           </div>
-          <div class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          ${renderRuntimeSupportCard(`
             <div class="mb-2 flex items-center justify-between gap-4">
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Continuity</h4>
               ${statusBadge(continuity.status)}
@@ -946,7 +963,7 @@ function renderWorkspacePage(
             ${continuitySummary}
             ${continuity.continuation ? `<p class="mt-3 text-xs text-gray-500">Continuation: ${escapeHtml(continuity.continuation.label ?? continuity.continuation.id ?? '-')}</p>` : ''}
             ${continuityRefs.length > 0 ? `<p class="mt-2 text-xs text-gray-500">Linked sources: ${continuityRefs.map((ref) => escapeHtml(ref.label ?? ref.id ?? '-')).join(', ')}</p>` : ''}
-          </div>
+          `, 'mt-4')}
         `
       )}
 
@@ -976,22 +993,20 @@ function renderRevisionInspector(detail: SourceRevisionDetail): string {
           <h2 class="text-lg font-semibold text-gray-900">${escapeHtml(detail.revision?.provider_revision_hint ?? 'Revision')}</h2>
           <p class="mt-1 text-sm text-gray-500 font-mono">${escapeHtml(detail.revision?.id ?? '-')}</p>
         </div>
-        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
+        ${renderRuntimeRefreshButton()}
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        ${renderRuntimeSupportCard(`
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Fingerprint Status</h3>
           <div class="mt-2">${statusBadge(detail.fingerprint_status?.status)}</div>
           ${detail.fingerprint_status?.error_message ? `<p class="mt-2 text-sm text-red-600">${escapeHtml(detail.fingerprint_status.error_message)}</p>` : ''}
-        </div>
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        `)}
+        ${renderRuntimeSupportCard(`
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Processing</h3>
           <div class="mt-2">${statusBadge(detail.fingerprint_processing?.state)}</div>
           ${detail.fingerprint_processing?.status_label ? `<p class="mt-2 text-sm text-gray-600">${escapeHtml(detail.fingerprint_processing.status_label)}</p>` : ''}
-        </div>
+        `)}
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
@@ -1026,7 +1041,7 @@ function renderArtifactInspector(page: SourceArtifactPage): string {
   const cards = items
     .map((item) => {
       return `
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        ${renderRuntimeInspectorCard(`
           <div class="flex items-start justify-between">
             <div class="flex flex-wrap gap-2">
               ${statusBadge(item.artifact_kind)}
@@ -1048,7 +1063,7 @@ function renderArtifactInspector(page: SourceArtifactPage): string {
               <dd class="mt-0.5 font-mono text-xs text-gray-700 truncate">${escapeHtml(item.sha256 ?? '-')}</dd>
             </div>
           </dl>
-        </div>
+        `, 'p-4')}
       `;
     })
     .join('');
@@ -1060,9 +1075,7 @@ function renderArtifactInspector(page: SourceArtifactPage): string {
           <h2 class="text-lg font-semibold text-gray-900">Artifacts</h2>
           <p class="mt-1 text-sm text-gray-500">${items.length} artifact${items.length !== 1 ? 's' : ''}</p>
         </div>
-        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
+        ${renderRuntimeRefreshButton()}
       </div>
       <div class="grid gap-4">${cards}</div>
     </div>
@@ -1071,7 +1084,7 @@ function renderArtifactInspector(page: SourceArtifactPage): string {
 
 function renderCommentThread(thread: SourceCommentThreadSummary): string {
   return `
-    <div class="rounded-lg border border-gray-200 bg-white p-4">
+    ${renderRuntimeInspectorCard(`
       <div class="flex items-start justify-between">
         <div class="flex flex-wrap gap-2">
           ${statusBadge(thread.status)}
@@ -1092,7 +1105,7 @@ function renderCommentThread(thread: SourceCommentThreadSummary): string {
         </span>
         ${(thread.reply_count ?? 0) > 0 ? `<span>${thread.reply_count} replies</span>` : ''}
       </div>
-    </div>
+    `, 'p-4')}
   `;
 }
 
@@ -1110,9 +1123,7 @@ function renderCommentInspector(page: SourceCommentPage): string {
           <h2 class="text-lg font-semibold text-gray-900">Comments</h2>
           ${statusBadge(page.sync_status ?? 'unknown')}
         </div>
-        <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
+        ${renderRuntimeRefreshButton()}
       </div>
       <div class="space-y-3">${items.map(renderCommentThread).join('')}</div>
       ${renderPagination(page.page_info, 'source-comment-page')}
@@ -1862,12 +1873,89 @@ function stringOrUndefined(value: FormDataEntryValue | unknown): string | undefi
   return normalized ? normalized : undefined;
 }
 
+function initAdminActionMenus(root: ParentNode = document): void {
+  const menus = Array.from(root.querySelectorAll<HTMLElement>('[data-admin-action-menu]'));
+  if (menus.length === 0) {
+    return;
+  }
+
+  const closeMenu = (menu: HTMLElement): void => {
+    const trigger = menu.querySelector<HTMLElement>('[data-admin-action-menu-trigger]');
+    const content = menu.querySelector<HTMLElement>('[data-admin-action-menu-content]');
+    content?.classList.add('hidden');
+    trigger?.setAttribute('aria-expanded', 'false');
+  };
+
+  const closeAllMenus = (except?: HTMLElement): void => {
+    for (const menu of menus) {
+      if (except && menu === except) {
+        continue;
+      }
+      closeMenu(menu);
+    }
+  };
+
+  for (const menu of menus) {
+    if (menu.dataset.adminActionMenuInit === 'true') {
+      continue;
+    }
+    menu.dataset.adminActionMenuInit = 'true';
+
+    const trigger = menu.querySelector<HTMLButtonElement>('[data-admin-action-menu-trigger]');
+    const content = menu.querySelector<HTMLElement>('[data-admin-action-menu-content]');
+    if (!trigger || !content) {
+      continue;
+    }
+
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const expanded = trigger.getAttribute('aria-expanded') === 'true';
+      closeAllMenus(menu);
+      if (expanded) {
+        closeMenu(menu);
+        return;
+      }
+      content.classList.remove('hidden');
+      trigger.setAttribute('aria-expanded', 'true');
+    });
+
+    menu.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      closeMenu(menu);
+      trigger.focus();
+    });
+  }
+
+  if (typeof document !== 'undefined' && document.body?.dataset.adminActionMenusInit !== 'true') {
+    document.body.dataset.adminActionMenusInit = 'true';
+    document.addEventListener('click', (event) => {
+      const target = event.target instanceof Node ? event.target : null;
+      if (!target) {
+        closeAllMenus();
+        return;
+      }
+      for (const menu of menus) {
+        if (menu.contains(target)) {
+          return;
+        }
+      }
+      closeAllMenus();
+    });
+  }
+}
+
 export function initSourceManagementRuntimePage(): SourceManagementRuntimeController | null {
   const marker = document.querySelector<HTMLElement>('[data-esign-page^="admin.sources."]');
   const root = document.querySelector<HTMLElement>('[data-source-management-runtime-root]');
   if (!marker || !root) {
     return null;
   }
+
+  initAdminActionMenus(document);
 
   const config = parseJSONScript<SourceManagementRuntimePageConfig>('esign-page-config');
   const model = parseJSONScript<SourceManagementRuntimePageModel>('source-management-page-model');

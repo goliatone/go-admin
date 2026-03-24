@@ -4,10 +4,7 @@
 
 {% block content %}
 <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-    <h1 class="text-3xl font-bold text-admin-dark">{{ resource_label|default:resource|title }}</h1>
-  </div>
+  {% include "partials/admin-page-heading.html" with breadcrumbs=breadcrumbs page_heading_title=resource_label|default:resource|title %}
   <div class="flex gap-3">
     {% block header_actions %}
       {% block header_actions_prepend %}{% endblock %}

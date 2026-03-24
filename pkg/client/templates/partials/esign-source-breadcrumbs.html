@@ -1,0 +1,27 @@
+<nav aria-label="Breadcrumb" class="mb-2">
+  <ol class="flex flex-wrap items-center gap-2 text-sm">
+    <li class="min-w-0">
+      <a href="{{ sources_list_url|default:'/admin/esign/sources' }}" class="text-gray-500 hover:text-gray-700 transition-colors">
+        Sources
+      </a>
+    </li>
+    {% if source_breadcrumb_mode == "revisions" %}
+      <li aria-hidden="true" class="text-gray-400">/</li>
+      <li class="min-w-0">
+        <a href="{{ source_detail_url|default:'/admin/esign/sources/' }}" id="source-link" class="text-gray-500 hover:text-gray-700 transition-colors">
+          {{ source_label|default:"Source" }}
+        </a>
+      </li>
+    {% endif %}
+    <li aria-hidden="true" class="text-gray-400">/</li>
+    <li class="min-w-0">
+      <span class="font-medium text-gray-900" aria-current="page">
+        {% if source_breadcrumb_mode == "revisions" %}
+          Revisions
+        {% else %}
+          <span id="breadcrumb-label">{{ source_label|default:"Source Detail" }}</span>
+        {% endif %}
+      </span>
+    </li>
+  </ol>
+</nav>

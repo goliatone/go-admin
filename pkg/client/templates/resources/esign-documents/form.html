@@ -1,24 +1,21 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/esign-form-base.html" %}
 
-{% block title %}Add Document - {{ title }}{% endblock %}
+{% block form_title %}Add Document - {{ title }}{% endblock %}
 
-{% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    <p class="text-sm text-gray-500 mb-1">E-Sign Documents</p>
-    <h1 class="text-3xl font-bold text-admin-dark">Add Document</h1>
-  </div>
-  <div class="flex gap-3">
-    {% if routes.index %}
-      <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to documents list">
-        <i class="iconoir-arrow-left" aria-hidden="true"></i>
-        Back to Documents
-      </a>
-    {% endif %}
-  </div>
-</header>
+{% block header_heading %}
+  {% include "partials/admin-page-heading.html" with breadcrumbs=breadcrumbs page_heading_pretitle="E-Sign Documents" page_heading_title="Add Document" %}
+{% endblock %}
 
-<div class="flex-1 p-8 overflow-y-auto">
+{% block header_actions %}
+  {% if routes.index %}
+    <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to documents list">
+      <i class="iconoir-arrow-left" aria-hidden="true"></i>
+      Back to Documents
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block form_content %}
   <div data-esign-page="{{ esign_page|default:"admin.documents.ingestion" }}" data-esign-module="{{ esign_module_path|default:"" }}" hidden></div>
   <script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
 
@@ -470,7 +467,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block form_scripts %}
 {% if esign_module_path %}
 <script type="module" src="{{ esign_module_path }}"></script>
 {% endif %}

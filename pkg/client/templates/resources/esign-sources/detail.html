@@ -1,33 +1,33 @@
-{% extends "layout.html" %}
+{% extends "resources/shared/esign-detail-base.html" %}
 
-{% block title %}Source Detail - {{ source_label|default:"Source Document" }} - E-Sign Admin{% endblock %}
+{% block detail_title %}Source Detail - {{ source_label|default:"Source Document" }} - E-Sign Admin{% endblock %}
 
-{% block content %}
-<div class="container mx-auto px-4 py-6">
-  <!-- Breadcrumb -->
-  <nav class="flex mb-6" aria-label="Breadcrumb">
-    <ol class="inline-flex items-center space-x-1 md:space-x-3">
-      <li class="inline-flex items-center">
-        <a href="{{ sources_list_url|default:'/admin/esign/sources' }}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Sources
-        </a>
-      </li>
-      <li aria-current="page">
-        <div class="flex items-center">
-          <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-          </svg>
-          <span id="breadcrumb-label" class="ml-1 text-sm font-medium text-gray-500 md:ml-2">{{ source_label|default:"Source Detail" }}</span>
-        </div>
-      </li>
-    </ol>
-  </nav>
+{% block header_heading %}
+  <div>
+    {% include "partials/esign-source-breadcrumbs.html" with source_breadcrumb_mode="detail" source_label=source_label sources_list_url=sources_list_url %}
+    <h1 id="source-title" class="text-3xl font-bold text-admin-dark">{{ source_label|default:"Source Document" }}</h1>
+    <p id="source-id" class="mt-1 text-sm text-gray-500 font-mono">{{ source_id }}</p>
+  </div>
+{% endblock %}
 
+{% block header_actions %}
+  <button id="refresh-btn" class="btn btn-secondary" aria-label="Refresh source details">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+    </svg>
+    Refresh
+  </button>
+  <a id="provider-link" href="#" target="_blank" rel="noopener noreferrer" class="hidden btn btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+    </svg>
+    Open in Provider
+  </a>
+{% endblock %}
+
+{% block detail_shell %}
   <!-- Loading State -->
-  <div id="source-detail-loading" class="bg-white rounded-lg shadow p-8 text-center">
+  <div id="source-detail-loading" class="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
     <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600" role="status" aria-label="Loading source details">
       <span class="sr-only">Loading...</span>
     </div>
@@ -35,7 +35,7 @@
   </div>
 
   <!-- Error State -->
-  <div id="source-detail-error" class="hidden bg-white rounded-lg shadow p-8 text-center">
+  <div id="source-detail-error" class="hidden bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
     <div class="mx-auto w-16 h-16 mb-4 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
       <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -43,52 +43,26 @@
     </div>
     <h3 class="text-lg font-semibold text-gray-900 mb-1">Failed to load source</h3>
     <p id="error-message" class="text-sm text-gray-500 mb-4">An error occurred while loading the source document.</p>
-    <button id="retry-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Retry</button>
+    <button id="retry-btn" class="btn btn-primary">Retry</button>
   </div>
 
   <!-- Source Detail Content -->
   <div id="source-detail-content" class="hidden">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow mb-6">
-      <div class="px-6 py-5">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 id="source-title" class="text-2xl font-bold text-gray-900">{{ source_label|default:"Source Document" }}</h1>
-            <p id="source-id" class="text-sm text-gray-500 mt-1 font-mono">{{ source_id }}</p>
-          </div>
-          <div class="flex gap-2">
-            <button id="refresh-btn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm" aria-label="Refresh source details">
-              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              Refresh
-            </button>
-            <a id="provider-link" href="#" target="_blank" rel="noopener noreferrer" class="hidden px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-              </svg>
-              Open in Provider
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Status and Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-lg shadow p-4">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
         <p class="text-sm text-gray-500 mb-1">Status</p>
         <p id="status-badge" class="text-lg font-semibold">-</p>
       </div>
-      <div class="bg-white rounded-lg shadow p-4">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
         <p class="text-sm text-gray-500 mb-1">Lineage Confidence</p>
         <p id="confidence-badge" class="text-lg font-semibold">-</p>
       </div>
-      <div class="bg-white rounded-lg shadow p-4">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
         <p class="text-sm text-gray-500 mb-1">Revisions</p>
         <p id="revision-count" class="text-lg font-semibold">-</p>
       </div>
-      <div class="bg-white rounded-lg shadow p-4">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
         <p class="text-sm text-gray-500 mb-1">Pending Candidates</p>
         <p id="pending-count" class="text-lg font-semibold">-</p>
       </div>
@@ -99,7 +73,7 @@
       <!-- Left Column: Provider Info & Latest Revision -->
       <div class="lg:col-span-2 space-y-6">
         <!-- Provider Information -->
-        <div class="bg-white rounded-lg shadow">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-900">Provider Information</h2>
           </div>
@@ -126,7 +100,7 @@
         </div>
 
         <!-- Latest Revision -->
-        <div class="bg-white rounded-lg shadow">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 class="text-lg font-semibold text-gray-900">Latest Revision</h2>
             <a id="revisions-link" href="#" class="text-sm text-blue-600 hover:text-blue-800">View all revisions</a>
@@ -165,7 +139,7 @@
       <!-- Right Column: Active Handle & Quick Links -->
       <div class="space-y-6">
         <!-- Active Handle -->
-        <div class="bg-white rounded-lg shadow">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 class="text-lg font-semibold text-gray-900">Active Handle</h2>
             <a id="handles-link" href="#" class="text-sm text-blue-600 hover:text-blue-800">View all handles</a>
@@ -176,7 +150,7 @@
         </div>
 
         <!-- Quick Links -->
-        <div class="bg-white rounded-lg shadow">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-900">Related Resources</h2>
           </div>
@@ -224,8 +198,9 @@
       </div>
     </div>
   </div>
-</div>
+{% endblock %}
 
+{% block detail_scripts %}
 <!-- Bootstrap payload from backend (Phase 15.6) -->
 <script id="source-detail-bootstrap" type="application/json">
 {{ toJSON(bootstrap)|safe|default:"{}" }}
