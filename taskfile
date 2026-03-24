@@ -28,6 +28,8 @@ GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.1.4}"
 GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.25.0}"
 GO_QUALITY_BASELINE_DIR="${GO_QUALITY_BASELINE_DIR:-ops/quality/baselines}"
 GO_QUALITY_BASELINE_SCRIPT="${GO_QUALITY_BASELINE_SCRIPT:-./tools/quality/baseline.sh}"
+GO_QUALITY_GOCACHE="${GO_QUALITY_GOCACHE:-$(pwd)/.tmp/go-cache}"
+GO_QUALITY_GOTMPDIR="${GO_QUALITY_GOTMPDIR:-$(pwd)/.tmp/go-tmp}"
 
 
 #################################################
@@ -86,6 +88,12 @@ function _go:bin {
     return 1
 }
 
+function _go:quality:prepare_env {
+    export GOCACHE="${GOCACHE:-${GO_QUALITY_GOCACHE}}"
+    export GOTMPDIR="${GOTMPDIR:-${GO_QUALITY_GOTMPDIR}}"
+    mkdir -p "${GOCACHE}" "${GOTMPDIR}"
+}
+
 function _go:tool_bin_dir {
     local go_bin
     local gobin
@@ -132,6 +140,7 @@ function _go:tool:install {
     local go_bin
 
     go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
     echo "Installing ${name} (${target})"
     GOTOOLCHAIN="${GO_TOOLCHAIN}" "${go_bin}" install "${target}" || return 1
     _go:tool:path "${name}" || return 1
@@ -257,6 +266,7 @@ function go:test {
     local -a packages=()
 
     go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -270,6 +280,7 @@ function go:race {
     local -a packages=()
 
     go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -284,6 +295,7 @@ function go:cover {
     local output_file=${GO_COVERPROFILE:-coverage.out}
 
     go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -297,6 +309,7 @@ function go:vet {
     local -a packages=()
 
     go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -310,6 +323,7 @@ function go:lint:staticcheck {
     local -a packages=()
 
     staticcheck_bin=$(_go:tool:ensure "staticcheck" "honnef.co/go/tools/cmd/staticcheck@${GO_STATICCHECK_VERSION}") || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -330,6 +344,7 @@ function go:lint:staticcheck:baseline {
 
     staticcheck_bin=$(_go:tool:ensure "staticcheck" "honnef.co/go/tools/cmd/staticcheck@${GO_STATICCHECK_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/staticcheck.txt"
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -343,6 +358,7 @@ function go:security:govulncheck {
     local -a packages=()
 
     govulncheck_bin=$(_go:tool:ensure "govulncheck" "golang.org/x/vuln/cmd/govulncheck@${GO_GOVULNCHECK_VERSION}") || return 1
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -356,6 +372,7 @@ function go:security:gosec {
     local -a patterns=()
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
+    _go:quality:prepare_env || return 1
     if [ "$#" -gt 0 ]; then
         patterns=("$@")
     else
@@ -371,6 +388,7 @@ function go:security:gosec:baseline {
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/gosec.txt"
+    _go:quality:prepare_env || return 1
     if [ "$#" -gt 0 ]; then
         patterns=("$@")
     else
@@ -391,6 +409,7 @@ function go:baseline:update:staticcheck {
 
     staticcheck_bin=$(_go:tool:ensure "staticcheck" "honnef.co/go/tools/cmd/staticcheck@${GO_STATICCHECK_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/staticcheck.txt"
+    _go:quality:prepare_env || return 1
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -406,6 +425,7 @@ function go:baseline:update:gosec {
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/gosec.txt"
+    _go:quality:prepare_env || return 1
     if [ "$#" -gt 0 ]; then
         patterns=("$@")
     else
