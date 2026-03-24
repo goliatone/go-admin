@@ -1,6 +1,10 @@
 package pathutil
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestNormalizeBasePath(t *testing.T) {
 	tests := map[string]string{
@@ -70,4 +74,51 @@ func TestIsAbsoluteURL(t *testing.T) {
 	if IsAbsoluteURL("/admin") {
 		t.Fatalf("path should not be absolute URL")
 	}
+}
+
+func TestNormalizeLocalPath(t *testing.T) {
+	if _, err := NormalizeLocalPath(" "); err == nil {
+		t.Fatal("expected blank path to fail")
+	}
+	got, err := NormalizeLocalPath(" ./a/../b.txt ")
+	if err != nil {
+		t.Fatalf("NormalizeLocalPath returned error: %v", err)
+	}
+	if got != filepath.Clean("./a/../b.txt") {
+		t.Fatalf("unexpected normalized path %q", got)
+	}
+}
+
+func TestResolveWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	got, err := ResolveWithinRoot(root, "./dir/../config.json")
+	if err != nil {
+		t.Fatalf("ResolveWithinRoot returned error: %v", err)
+	}
+	if got != filepath.Join(root, "config.json") {
+		t.Fatalf("unexpected resolved path %q", got)
+	}
+	if _, err := ResolveWithinRoot(root, "../escape.txt"); err == nil {
+		t.Fatal("expected traversal to fail")
+	}
+}
+
+func TestReadAndOpenFileWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.json")
+	if err := os.WriteFile(path, []byte("payload"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	payload, err := ReadFileWithinRoot(root, "config.json")
+	if err != nil {
+		t.Fatalf("ReadFileWithinRoot returned error: %v", err)
+	}
+	if string(payload) != "payload" {
+		t.Fatalf("unexpected payload %q", string(payload))
+	}
+	file, err := OpenFileWithinRoot(root, "./config.json")
+	if err != nil {
+		t.Fatalf("OpenFileWithinRoot returned error: %v", err)
+	}
+	_ = file.Close()
 }
