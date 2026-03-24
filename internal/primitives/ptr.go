@@ -3,13 +3,15 @@ package primitives
 import "strings"
 
 //go:fix inline
+//go:fix inline
 func Int(value int) *int {
-	return &value
+	return new(value)
 }
 
 //go:fix inline
+//go:fix inline
 func Bool(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 // StringOrNil returns nil for empty-after-trim input and a pointer otherwise.
