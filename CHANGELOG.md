@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.27.1](https://github.com/goliatone/go-admin/compare/v0.27.0...v0.27.1) - (2026-03-24)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.27.1 ([45133a7](https://github.com/goliatone/go-admin/commit/45133a75d6feab874954ffc229b99ffc751723fa))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.27.0 ([c3ba509](https://github.com/goliatone/go-admin/commit/c3ba50912c0f6e03e918aa4b75ff1346c1e5f805))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([60f1274](https://github.com/goliatone/go-admin/commit/60f127485548db1348179a34a0c0338c072f6ff5))  - (goliatone)
+
 # [0.27.0](https://github.com/goliatone/go-admin/compare/v0.26.0...v0.27.0) - (2026-03-24)
 
 ## <!-- 1 -->🐛 Bug Fixes
