@@ -2,77 +2,27 @@ package services
 
 import (
 	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(value))
+	return primitives.StringFromAny(value)
 }
 
 func toStringSlice(value any) []string {
-	if value == nil {
+	out := primitives.CSVStringSliceFromAny(value)
+	if len(out) == 0 {
 		return []string{}
 	}
-	switch typed := value.(type) {
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			trimmed := strings.TrimSpace(item)
-			if trimmed != "" {
-				out = append(out, trimmed)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			trimmed := strings.TrimSpace(toString(item))
-			if trimmed != "" {
-				out = append(out, trimmed)
-			}
-		}
-		return out
-	case string:
-		trimmed := strings.TrimSpace(typed)
-		if trimmed == "" {
-			return []string{}
-		}
-		parts := strings.Split(trimmed, ",")
-		out := make([]string, 0, len(parts))
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				out = append(out, part)
-			}
-		}
-		return out
-	default:
-		return []string{}
-	}
+	return out
 }
 
 func toBool(value any, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	switch typed := value.(type) {
-	case bool:
-		return typed
-	case string:
-		trimmed := strings.TrimSpace(strings.ToLower(typed))
-		if trimmed == "" {
-			return fallback
-		}
-		parsed, err := strconv.ParseBool(trimmed)
-		if err == nil {
-			return parsed
-		}
+	if parsed, ok := primitives.BoolFromAny(value); ok {
+		return parsed
 	}
 	return fallback
 }

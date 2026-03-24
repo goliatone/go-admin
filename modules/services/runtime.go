@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"maps"
 	"sort"
-	"strconv"
 	"strings"
 
 	goadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	gocore "github.com/goliatone/go-services/core"
 	goservicesinbound "github.com/goliatone/go-services/inbound"
 	sqlstore "github.com/goliatone/go-services/store/sql"
@@ -562,30 +562,8 @@ func copyAnyMap(in map[string]any) map[string]any {
 }
 
 func toInt(value any, fallback int) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int8:
-		return int(typed)
-	case int16:
-		return int(typed)
-	case int32:
-		return int(typed)
-	case int64:
-		return int(typed)
-	case float32:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case string:
-		trimmed := strings.TrimSpace(typed)
-		if trimmed == "" {
-			return fallback
-		}
-		parsed, err := strconv.Atoi(trimmed)
-		if err == nil {
-			return parsed
-		}
+	if parsed, ok := primitives.IntFromAny(value); ok {
+		return parsed
 	}
 	return fallback
 }
