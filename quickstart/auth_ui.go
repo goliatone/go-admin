@@ -1,15 +1,18 @@
 package quickstart
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
@@ -43,10 +46,16 @@ type authUIOptions struct {
 	themeAssets                  map[string]string
 	themeAssetPrefix             string
 	featureGate                  fggate.FeatureGate
+	csrfSecureKey                []byte
 	loginErrorQueryKey           string
 	loginIdentifierQueryKey      string
 	loginRememberQueryKey        string
 }
+
+var (
+	defaultAuthUICSRFKeyOnce sync.Once
+	defaultAuthUICSRFKey     []byte
+)
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
 func WithAuthUIBasePath(basePath string) AuthUIOption {
@@ -176,6 +185,15 @@ func WithAuthUICookie(cookie router.Cookie) AuthUIOption {
 	}
 }
 
+// WithAuthUICSRFSecureKey overrides the stateless CSRF secure key for auth UI forms.
+func WithAuthUICSRFSecureKey(key []byte) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && len(key) > 0 {
+			opts.csrfSecureKey = append([]byte(nil), key...)
+		}
+	}
+}
+
 // WithAuthUIPasswordResetEnabled overrides the password reset feature guard.
 func WithAuthUIPasswordResetEnabled(fn func(admin.Config) bool) AuthUIOption {
 	return func(opts *authUIOptions) {
@@ -250,14 +268,10 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		loginTitle:                   strings.TrimSpace(cfg.Title),
 		passwordResetTitle:           strings.TrimSpace(cfg.Title),
 		passwordResetConfirmTitle:    strings.TrimSpace(cfg.Title),
-		cookie: router.Cookie{
-			Path:     "/",
-			HTTPOnly: true,
-			SameSite: "Lax",
-		},
-		loginErrorQueryKey:      "error",
-		loginIdentifierQueryKey: "identifier",
-		loginRememberQueryKey:   "remember",
+		cookie:                       router.FirstPartySessionCookie("", ""),
+		loginErrorQueryKey:           "error",
+		loginIdentifierQueryKey:      "identifier",
+		loginRememberQueryKey:        "remember",
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -320,6 +334,16 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 	if loginCookieName == "" {
 		return fmt.Errorf("auth cookie name is required")
 	}
+	if err := router.ValidateCookie(options.cookie); err != nil {
+		return err
+	}
+
+	csrfMiddleware := csrfmw.New(csrfmw.Config{
+		SecureKey: resolveAuthUICSRFSecureKey(options, cfg, loginCookieName),
+		ErrorHandler: func(c router.Context, err error) error {
+			return c.Status(fiber.StatusForbidden).SendString(err.Error())
+		},
+	})
 
 	r.Get(options.loginPath, func(c router.Context) error {
 		authState := AuthUIState{
@@ -351,7 +375,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		}
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.loginTemplate, viewCtx)
-	})
+	}, csrfMiddleware)
 
 	r.Post(options.loginPath, func(c router.Context) error {
 		payload := loginPayload{}
@@ -383,7 +407,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		c.Cookie(&cookie)
 
 		return c.Redirect(options.loginRedirectPath, fiber.StatusFound)
-	})
+	}, csrfMiddleware)
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
 		authState := AuthUIState{
@@ -442,7 +466,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		r.Get(confirmTokenPath, confirmHandler)
 	}
 
-	r.Get(options.logoutPath, func(c router.Context) error {
+	r.Post(options.logoutPath, func(c router.Context) error {
 		cookie := options.cookie
 		cookie.Name = loginCookieName
 		cookie.Value = ""
@@ -452,7 +476,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		cookie.MaxAge = -1
 		c.Cookie(&cookie)
 		return c.Redirect(options.logoutRedirectPath, fiber.StatusFound)
-	})
+	}, csrfMiddleware)
 
 	return nil
 }
@@ -483,6 +507,23 @@ func stripRouteParams(route string) string {
 		return ""
 	}
 	return "/" + strings.Join(filtered, "/")
+}
+
+func resolveAuthUICSRFSecureKey(options authUIOptions, cfg admin.Config, cookieName string) []byte {
+	if len(options.csrfSecureKey) > 0 {
+		return append([]byte(nil), options.csrfSecureKey...)
+	}
+	if secret := strings.TrimSpace(cfg.PreviewSecret); secret != "" {
+		return []byte(secret)
+	}
+
+	defaultAuthUICSRFKeyOnce.Do(func() {
+		defaultAuthUICSRFKey = make([]byte, 32)
+		if _, err := rand.Read(defaultAuthUICSRFKey); err != nil {
+			defaultAuthUICSRFKey = []byte("go-admin-auth-ui-" + strings.TrimSpace(cookieName))
+		}
+	})
+	return append([]byte(nil), defaultAuthUICSRFKey...)
 }
 
 func buildLoginFailureRedirect(loginPath, errorKey, errorCode, identifierKey, identifier, rememberKey string, remember bool) string {
