@@ -23,7 +23,6 @@ func TestIntFromInt64(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, ok := IntFromInt64(tt.value)
@@ -49,7 +48,6 @@ func TestIntFromUint64(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, ok := IntFromUint64(tt.value)
@@ -74,7 +72,6 @@ func TestInt64FromUint64(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, ok := Int64FromUint64(tt.value)
@@ -100,7 +97,6 @@ func TestUint16FromInt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, ok := Uint16FromInt(tt.value)

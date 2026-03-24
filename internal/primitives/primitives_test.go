@@ -75,14 +75,14 @@ func TestCloneStringMapVariants(t *testing.T) {
 }
 
 func TestInt(t *testing.T) {
-	v := Int(7)
+	v := new(7)
 	if v == nil || *v != 7 {
 		t.Fatalf("Int helper mismatch")
 	}
 }
 
 func TestBool(t *testing.T) {
-	v := Bool(true)
+	v := new(true)
 	if v == nil || !*v {
 		t.Fatalf("Bool helper mismatch")
 	}
