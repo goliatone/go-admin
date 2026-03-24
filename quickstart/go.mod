@@ -31,7 +31,7 @@ require (
 	github.com/goliatone/go-notifications v0.13.0
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-router v0.54.0
-	github.com/goliatone/go-search v0.1.0
+	github.com/goliatone/go-search v0.2.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
