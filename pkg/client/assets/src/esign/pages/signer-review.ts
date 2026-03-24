@@ -2026,7 +2026,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     updateReviewProgressIndicator();
     if (reviewStatusChip) {
       reviewStatusChip.textContent = statusLabel;
-      reviewStatusChip.className = 'rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ' + (
+      reviewStatusChip.className = 'rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ' + (
         review.status === 'approved'
           ? 'bg-emerald-100 text-emerald-700'
           : review.status === 'changes_requested'
@@ -2210,7 +2210,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const visibility = String(thread.visibility || 'shared').trim();
       const isInternal = visibility === 'internal';
       const visibilityBadge = isInternal
-        ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>'
+        ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>'
         : '';
       const canHighlightMarker = reviewThreadHasMarker(entry);
       return `
@@ -2222,8 +2222,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${escapeHTML(anchorLabel)}</button>
-                <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${String(thread.status || '').trim() === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${escapeHTML(reviewStatusLabel(thread.status || 'open'))}</span>
+                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${escapeHTML(String(thread.id || ''))}" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${escapeHTML(anchorLabel)}</button>
+                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${String(thread.status || '').trim() === 'resolved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${escapeHTML(reviewStatusLabel(thread.status || 'open'))}</span>
                 ${visibilityBadge}
               </div>
               ${lastActivity ? `<p class="mt-2 text-xs text-gray-500">Last activity ${escapeHTML(lastActivity)}</p>` : ''}
@@ -3922,7 +3922,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           green: 'bg-green-100 text-green-800',
           slate: 'bg-slate-100 text-slate-800'
         };
-        badgeEl.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variantClasses[badge.variant] || variantClasses.slate}`;
+        badgeEl.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${variantClasses[badge.variant] || variantClasses.slate}`;
         badgeEl.innerHTML = `<i class="${badge.icon} mr-1"></i>${badge.text}`;
         meta.appendChild(badgeEl);
       });
@@ -4049,7 +4049,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         amber: 'bg-amber-100 text-amber-800',
         green: 'bg-green-100 text-green-800'
       };
-      badgeEl.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variantClasses[badge.variant] || variantClasses.blue}`;
+      badgeEl.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${variantClasses[badge.variant] || variantClasses.blue}`;
       badgeEl.innerHTML = `<i class="${badge.icon} mr-1"></i>${badge.text}`;
       meta.appendChild(badgeEl);
     });

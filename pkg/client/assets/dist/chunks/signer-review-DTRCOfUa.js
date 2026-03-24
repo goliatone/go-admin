@@ -1110,7 +1110,7 @@ function si(o) {
       e.classList.add("hidden"), t?.classList.add("hidden"), Oe();
       return;
     }
-    if (e.classList.remove("hidden"), Oe(), n && (n.textContent = _, n.className = "rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide " + (m.status === "approved" ? "bg-emerald-100 text-emerald-700" : m.status === "changes_requested" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700")), r && (r.textContent = ni(m)), i) {
+    if (e.classList.remove("hidden"), Oe(), n && (n.textContent = _, n.className = "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + (m.status === "approved" ? "bg-emerald-100 text-emerald-700" : m.status === "changes_requested" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700")), r && (r.textContent = ni(m)), i) {
       const x = bn(m.participant);
       if (x || y) {
         i.classList.remove("hidden"), i.className = "rounded-lg border px-3 py-2 text-xs", y === "approved" ? i.classList.add("border-emerald-200", "bg-emerald-50", "text-emerald-800") : y === "changes_requested" ? i.classList.add("border-amber-200", "bg-amber-50", "text-amber-800") : i.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
@@ -1193,7 +1193,7 @@ function si(o) {
       const w = x.thread || {}, A = Array.isArray(x.messages) ? x.messages : [], C = m.comments_enabled && m.can_comment, N = C && String(w.status || "").trim() === "open", ne = C && String(w.status || "").trim() === "resolved", Re = mt(x), me = Tt(w.last_activity_at || ""), pe = `review-reply-${E(String(w.id || ""))}`, lt = `review-reply-composer-${E(String(w.id || ""))}`, qr = String(w.status || "").trim() === "resolved" ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-200", ut = He(A[0]?.created_by_type || w.created_by_type, A[0]?.created_by_id || w.created_by_id);
       let De = "border-l-slate-300";
       ut.color === "#2563eb" && (De = "border-l-blue-400"), ut.color === "#7c3aed" && (De = "border-l-purple-400"), ut.color === "#059669" && (De = "border-l-emerald-400");
-      const zr = String(w.id || "").trim() === String(a.highlightedReviewThreadID || "").trim(), Vr = String(w.visibility || "shared").trim() === "internal" ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>' : "", nn = Zr(x);
+      const zr = String(w.id || "").trim() === String(a.highlightedReviewThreadID || "").trim(), Vr = String(w.visibility || "shared").trim() === "internal" ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>' : "", nn = Zr(x);
       return `
         <article
           class="rounded-xl border ${qr} border-l-4 ${De} p-4 ${zr ? "ring-2 ring-blue-200 shadow-sm" : ""} ${nn ? "cursor-pointer" : ""}"
@@ -1203,8 +1203,8 @@ function si(o) {
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${E(String(w.id || ""))}" class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${E(Re)}</button>
-                <span class="rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${String(w.status || "").trim() === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}">${E(he(w.status || "open"))}</span>
+                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${E(String(w.id || ""))}" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${E(Re)}</button>
+                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${String(w.status || "").trim() === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}">${E(he(w.status || "open"))}</span>
                 ${Vr}
               </div>
               ${me ? `<p class="mt-2 text-xs text-gray-500">Last activity ${E(me)}</p>` : ""}
@@ -2131,7 +2131,7 @@ function si(o) {
           green: "bg-green-100 text-green-800",
           slate: "bg-slate-100 text-slate-800"
         };
-        h.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${S[T.variant] || S.slate}`, h.innerHTML = `<i class="${T.icon} mr-1"></i>${T.text}`, i.appendChild(h);
+        h.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${S[T.variant] || S.slate}`, h.innerHTML = `<i class="${T.icon} mr-1"></i>${T.text}`, i.appendChild(h);
       });
       return;
     }
@@ -2225,7 +2225,7 @@ function si(o) {
         amber: "bg-amber-100 text-amber-800",
         green: "bg-green-100 text-green-800"
       };
-      y.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${T[_.variant] || T.blue}`, y.innerHTML = `<i class="${_.icon} mr-1"></i>${_.text}`, i.appendChild(y);
+      y.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${T[_.variant] || T.blue}`, y.innerHTML = `<i class="${_.icon} mr-1"></i>${_.text}`, i.appendChild(y);
     });
   }
   function Zn() {
@@ -3682,4 +3682,4 @@ export {
   sn as t
 };
 
-//# sourceMappingURL=signer-review-Btt4Uy4c.js.map
+//# sourceMappingURL=signer-review-DTRCOfUa.js.map
