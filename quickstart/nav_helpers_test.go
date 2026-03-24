@@ -265,6 +265,29 @@ func TestWithNavLoadsUtilityItemsFromUtilityPlacement(t *testing.T) {
 	}
 }
 
+func TestWithNavFallsBackToDefaultUtilityItemsWhenUtilityMenuIsEmpty(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+
+	view := WithNav(nil, adm, cfg, "", context.Background())
+	utilityItems, ok := view["nav_utility_items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected nav_utility_items slice, got %T", view["nav_utility_items"])
+	}
+	if len(utilityItems) == 0 {
+		t.Fatalf("expected default utility nav items when utility placement is empty")
+	}
+	if utilityItems[0]["label"] != "Settings" {
+		t.Fatalf("expected default utility nav label Settings, got %v", utilityItems[0]["label"])
+	}
+	if utilityItems[0]["href"] != "/admin/settings" {
+		t.Fatalf("expected default utility settings href /admin/settings, got %v", utilityItems[0]["href"])
+	}
+}
+
 func TestBuildNavItemsForPlacementUsesRequestLocaleAndScope(t *testing.T) {
 	cfg := admin.Config{
 		BasePath:      "/admin",
