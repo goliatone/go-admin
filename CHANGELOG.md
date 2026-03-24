@@ -1,5 +1,37 @@
 # Changelog
 
+# [0.28.0](https://github.com/goliatone/go-admin/compare/v0.27.1...v0.28.0) - (2026-03-24)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Use protected route setup ([746c2b6](https://github.com/goliatone/go-admin/commit/746c2b62938c4fd4044356f4690cb65b20d3efc9))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.28.0 ([e1576d3](https://github.com/goliatone/go-admin/commit/e1576d37e931697dba53b02a190f44634edba2aa))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Better navigation wiring and CSRF token handling ([a3d8216](https://github.com/goliatone/go-admin/commit/a3d82161c33b6533ef071617df48d19afeb94591))  - (goliatone)
+- Integreate CSRF token with login setup ([431359f](https://github.com/goliatone/go-admin/commit/431359f1ad49b8fb1a338ab99337007b547c60ce))  - (goliatone)
+- Support new router cookie setup ([3e86380](https://github.com/goliatone/go-admin/commit/3e863801bcff7202b13a2690a24fc78327761572))  - (goliatone)
+- HasProvider to dashboard ([c54d86a](https://github.com/goliatone/go-admin/commit/c54d86abb16b5c049e846db2e61c16aeac7d0428))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Resolve protected routes wiring ([b8c5e92](https://github.com/goliatone/go-admin/commit/b8c5e9224463e48ba96617c67ef77b2083934ff3))  - (goliatone)
+- Widget default registration ([dcbc22f](https://github.com/goliatone/go-admin/commit/dcbc22fac92d1fce7b2e3f39ed0c9094a4bea804))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.27.1 ([9c8027c](https://github.com/goliatone/go-admin/commit/9c8027c28b0eac995000a5f1f7229e8e107cdb60))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update example ([2390758](https://github.com/goliatone/go-admin/commit/2390758129f09037e3cd2c6f71e5390d727f2cf1))  - (goliatone)
+- Update tests ([8eb4076](https://github.com/goliatone/go-admin/commit/8eb4076a5b90354090b686b75b205741ef8c08ec))  - (goliatone)
+- Update deps ([560e757](https://github.com/goliatone/go-admin/commit/560e757810a3fc94d0cd6689c96d5fcfcb382378))  - (goliatone)
+
 # [0.27.1](https://github.com/goliatone/go-admin/compare/v0.27.0...v0.27.1) - (2026-03-24)
 
 ## <!-- 13 -->📦 Bumps
