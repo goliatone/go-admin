@@ -497,6 +497,14 @@ export function createAgreementFormSubmitController(
 
       const hasSaveAsDraftIntent = Boolean(form.querySelector('input[name="save_as_draft"]'));
       const startReviewEnabled = typeof isStartReviewEnabled === 'function' ? isStartReviewEnabled() : false;
+      const resetPrimaryActionLabel = () => {
+        const defaultLabel = startReviewEnabled ? 'Start Review' : 'Send for Signature';
+        if (typeof setPrimaryActionLabel === 'function') {
+          setPrimaryActionLabel(defaultLabel);
+          return;
+        }
+        setSubmitButtonState(defaultLabel, false);
+      };
       const shouldStartReview = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && startReviewEnabled;
       const shouldSendForSignature = getCurrentStep() === totalWizardSteps && !hasSaveAsDraftIntent && !shouldStartReview;
 
@@ -619,7 +627,7 @@ export function createAgreementFormSubmitController(
                 status: status || 409,
               });
               submitBtn.disabled = false;
-              setPrimaryActionLabel(startReviewEnabled ? 'Start Review' : 'Send for Signature');
+              resetPrimaryActionLabel();
               activeSendAttemptID = null;
               return;
             }
@@ -644,7 +652,7 @@ export function createAgreementFormSubmitController(
             }));
             announceError(message, code, status);
             submitBtn.disabled = false;
-            setPrimaryActionLabel(startReviewEnabled ? 'Start Review' : 'Send for Signature');
+            resetPrimaryActionLabel();
             activeSendAttemptID = null;
           }
         })();

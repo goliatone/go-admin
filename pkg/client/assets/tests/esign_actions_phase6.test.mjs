@@ -210,9 +210,9 @@ test('Phase 6 template: agreements detail header no longer duplicates shared sen
   assert.equal(template.includes('data-action="resend" data-agreement-id='), false);
   assert.equal(template.includes('data-action="void" data-agreement-id='), false);
   assert.equal(template.includes('id="agreement-notify-reviewers-btn"'), true);
-  assert.equal(template.includes('data-action="pause-review-reminder"'), true);
-  assert.equal(template.includes('data-action="resume-review-reminder"'), true);
-  assert.equal(template.includes('data-action="send-review-reminder-now"'), true);
+  assert.equal(template.includes('data-command-name="pause_review_reminder"'), true);
+  assert.equal(template.includes('data-command-name="resume_review_reminder"'), true);
+  assert.equal(template.includes('data-command-name="send_review_reminder_now"'), true);
 });
 
 test('Phase 6 templates: e-sign list surfaces reconcile row actions after structured domain failures', async () => {

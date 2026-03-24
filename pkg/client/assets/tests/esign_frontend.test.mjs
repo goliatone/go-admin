@@ -95,6 +95,10 @@ const agreementRuntimeDistPath = path.resolve(
   testFileDir,
   '../dist/esign/index.js',
 );
+const agreementRuntimeDistChunksPath = path.resolve(
+  testFileDir,
+  '../dist/chunks',
+);
 const signerReviewTemplatePath = path.resolve(
   testFileDir,
   '../../templates/esign-signer/review.html',
@@ -157,6 +161,20 @@ function createEsignActionBuilder(overrides = {}) {
     useDefaultFallback: false,
     ...overrides,
   });
+}
+
+function readBuiltAgreementRuntimeSource() {
+  const sourceFiles = [agreementRuntimeDistPath];
+  if (fs.existsSync(agreementRuntimeDistChunksPath)) {
+    const chunkPaths = fs.readdirSync(agreementRuntimeDistChunksPath)
+      .filter((name) => /^agreement-form-.*\.js$/.test(name))
+      .map((name) => path.join(agreementRuntimeDistChunksPath, name));
+    sourceFiles.push(...chunkPaths);
+  }
+  return sourceFiles
+    .filter((filePath) => fs.existsSync(filePath))
+    .map((filePath) => fs.readFileSync(filePath, 'utf8'))
+    .join('\n');
 }
 
 // =============================================================================
@@ -14389,7 +14407,7 @@ test('Phase 31.FE.3: runtime toggles bottom add-field action and sorts placement
 });
 
 test('Phase 31.FE.3: dist runtime stays in sync with source for Step 4 and placement contracts', () => {
-  const dist = fs.readFileSync(agreementRuntimeDistPath, 'utf8');
+  const dist = readBuiltAgreementRuntimeSource();
   assert.match(dist, /add-field-btn-container/);
   assert.match(dist, /\.definitionId\.localeCompare\(/);
   assert.doesNotMatch(dist, /jump-to-place-btn|updateJumpBtnTooltip/);

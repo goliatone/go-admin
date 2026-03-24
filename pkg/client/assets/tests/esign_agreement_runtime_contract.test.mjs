@@ -17,10 +17,25 @@ const templatePath = path.resolve(testFileDir, '../../templates/resources/esign-
 const signerReviewPath = path.resolve(testFileDir, '../src/esign/pages/signer-review.ts');
 const signerReviewTemplatePath = path.resolve(testFileDir, '../../templates/esign-signer/review.html');
 const esignDistPath = path.resolve(testFileDir, '../dist/esign/index.js');
+const esignDistChunksPath = path.resolve(testFileDir, '../dist/chunks');
 const workerDistPath = path.resolve(testFileDir, '../dist/pdf.worker.min.mjs');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
+}
+
+function readBuiltEsignBundle() {
+  const sourceFiles = [esignDistPath];
+  if (fs.existsSync(esignDistChunksPath)) {
+    const chunkPaths = fs.readdirSync(esignDistChunksPath)
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => path.join(esignDistChunksPath, name));
+    sourceFiles.push(...chunkPaths);
+  }
+  return sourceFiles
+    .filter((filePath) => fs.existsSync(filePath))
+    .map((filePath) => read(filePath))
+    .join('\n');
 }
 
 test('Phase 5 contract: normalization preserves linked placement metadata in payload', () => {
@@ -130,7 +145,7 @@ test('Phase 5 contract: build copies a same-origin PDF worker asset into dist', 
 });
 
 test('Phase 5 contract: built e-sign bundle references a local worker asset instead of a data URL', () => {
-  const source = read(esignDistPath);
+  const source = readBuiltEsignBundle();
   assert.match(source, /pdf\.worker\.min\.mjs/);
   assert.doesNotMatch(source, /data:text\/javascript;base64/);
 });
