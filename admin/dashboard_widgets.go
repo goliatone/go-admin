@@ -197,15 +197,25 @@ func (a *Admin) registerDashboardProviders() error {
 				},
 			}
 
-			a.dashboard.RegisterProvider(statsSpec)
-			a.dashboard.RegisterProvider(quickActionsSpec)
-			a.dashboard.RegisterProvider(chartSpec)
+			a.registerDefaultDashboardProvider(statsSpec)
+			a.registerDefaultDashboardProvider(quickActionsSpec)
+			a.registerDefaultDashboardProvider(chartSpec)
 			if queueStats := translationQueueStatsServiceFromAdmin(a); queueStats != nil {
 				RegisterTranslationProgressWidget(a.dashboard, queueStats, a.urlManager)
 			}
 			return nil
 		},
 	)
+}
+
+func (a *Admin) registerDefaultDashboardProvider(spec DashboardProviderSpec) {
+	if a == nil || a.dashboard == nil {
+		return
+	}
+	if a.dashboard.HasProvider(spec.Code) {
+		return
+	}
+	a.dashboard.RegisterProvider(spec)
 }
 
 func (a *Admin) registerSettingsWidget() error {
@@ -240,7 +250,7 @@ func (a *Admin) registerSettingsWidget() error {
 		}
 		return WidgetPayloadOf(SettingsOverviewWidgetPayload{Values: payload}), nil
 	}
-	a.dashboard.RegisterProvider(DashboardProviderSpec{
+	a.registerDefaultDashboardProvider(DashboardProviderSpec{
 		Code:          WidgetSettingsOverview,
 		Name:          "Settings Overview",
 		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementSidebar, ""),
@@ -282,7 +292,7 @@ func (a *Admin) registerNotificationsWidget() error {
 			Unread:        unread,
 		}), nil
 	}
-	a.dashboard.RegisterProvider(DashboardProviderSpec{
+	a.registerDefaultDashboardProvider(DashboardProviderSpec{
 		Code:          WidgetNotifications,
 		Name:          "Notifications",
 		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementSidebar, ""),
@@ -315,7 +325,7 @@ func (a *Admin) registerActivityWidget() error {
 		}
 		return WidgetPayloadOf(ActivityFeedWidgetPayload{Entries: entries}), nil
 	}
-	a.dashboard.RegisterProvider(DashboardProviderSpec{
+	a.registerDefaultDashboardProvider(DashboardProviderSpec{
 		Code:          WidgetActivityFeed,
 		Name:          "Recent Activity",
 		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
