@@ -597,9 +597,9 @@ func anyToInt(value any) (int, bool) {
 	case int32:
 		return int(typed), true
 	case int64:
-		return int(typed), true
+		return primitives.IntFromInt64(typed)
 	case uint:
-		return int(typed), true
+		return primitives.IntFromUint(typed)
 	case uint8:
 		return int(typed), true
 	case uint16:
@@ -607,7 +607,7 @@ func anyToInt(value any) (int, bool) {
 	case uint32:
 		return int(typed), true
 	case uint64:
-		return int(typed), true
+		return primitives.IntFromUint64(typed)
 	case float32:
 		if !isFinite(float64(typed)) {
 			return 0, false
@@ -1713,16 +1713,6 @@ func buildDraftReviewOpenInput(draft stores.DraftRecord, participantsByTempID ma
 		return ReviewOpenInput{}, domainValidationError("drafts", "review.participants", "at least one reviewer is required")
 	}
 	return input, nil
-}
-
-//go:fix inline
-func draftIntPtr(value int) *int {
-	return new(value)
-}
-
-//go:fix inline
-func draftBoolPtr(value bool) *bool {
-	return new(value)
 }
 
 func draftStringPtr(value string) *string {

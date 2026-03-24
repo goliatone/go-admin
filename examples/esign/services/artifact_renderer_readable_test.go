@@ -816,18 +816,6 @@ func buildReadableSignaturePNG(t *testing.T) []byte {
 	return out.Bytes()
 }
 
-//go:fix inline
-func strPtrReadable(v string) *string { return new(v) }
-
-//go:fix inline
-func intPtrReadable(v int) *int { return new(v) }
-
-//go:fix inline
-func floatPtrReadable(v float64) *float64 { return new(v) }
-
-//go:fix inline
-func boolPtrReadable(v bool) *bool { return new(v) }
-
 func almostEqualReadable(left, right float64) bool {
 	return math.Abs(left-right) <= 0.5
 }

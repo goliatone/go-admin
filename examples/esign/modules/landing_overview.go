@@ -11,6 +11,35 @@ import (
 
 const defaultLandingRecentLimit = 5
 
+func landingAgreementPresentationStatus(agreement stores.AgreementRecord) string {
+	status := strings.ToLower(strings.TrimSpace(agreement.Status))
+	if status != stores.AgreementStatusDraft {
+		return status
+	}
+
+	switch stores.NormalizeAgreementReviewStatus(agreement.ReviewStatus) {
+	case stores.AgreementReviewStatusInReview:
+		return stores.AgreementReviewStatusInReview
+	case stores.AgreementReviewStatusChangesRequested:
+		return stores.AgreementReviewStatusChangesRequested
+	case stores.AgreementReviewStatusApproved:
+		return "review_approved"
+	default:
+		return status
+	}
+}
+
+func agreementRequiresAction(agreement stores.AgreementRecord) bool {
+	switch strings.ToLower(strings.TrimSpace(agreement.Status)) {
+	case stores.AgreementStatusSent, stores.AgreementStatusInProgress, stores.AgreementStatusDeclined:
+		return true
+	case stores.AgreementStatusDraft:
+		return stores.NormalizeAgreementReviewStatus(agreement.ReviewStatus) == stores.AgreementReviewStatusChangesRequested
+	default:
+		return false
+	}
+}
+
 // LandingOverview builds landing-page stats and recent agreement rows.
 func (m *ESignModule) LandingOverview(ctx context.Context, scope stores.Scope, recentLimit int) (map[string]int, []map[string]any, error) {
 	stats := map[string]int{
@@ -35,17 +64,21 @@ func (m *ESignModule) LandingOverview(ctx context.Context, scope stores.Scope, r
 	stats["total"] = len(agreements)
 
 	byStatus := map[string]int{}
+	actionRequired := 0
 	for _, agreement := range agreements {
 		status := strings.ToLower(strings.TrimSpace(agreement.Status))
 		if status == "" {
 			continue
 		}
 		byStatus[status] = byStatus[status] + 1
+		if agreementRequiresAction(agreement) {
+			actionRequired++
+		}
 	}
 	stats["draft"] = byStatus[stores.AgreementStatusDraft]
 	stats["pending"] = byStatus[stores.AgreementStatusSent] + byStatus[stores.AgreementStatusInProgress]
 	stats["completed"] = byStatus[stores.AgreementStatusCompleted]
-	stats["action_required"] = stats["pending"] + byStatus[stores.AgreementStatusDeclined]
+	stats["action_required"] = actionRequired
 
 	sort.Slice(agreements, func(i, j int) bool {
 		left := agreements[i].UpdatedAt
@@ -77,16 +110,19 @@ func (m *ESignModule) LandingOverview(ctx context.Context, scope stores.Scope, r
 			title = "Untitled"
 		}
 		status := strings.TrimSpace(agreement.Status)
+		presentationStatus := landingAgreementPresentationStatus(agreement)
 		updatedAt := agreement.UpdatedAt.UTC().Format(time.RFC3339Nano)
 		if agreement.UpdatedAt.IsZero() {
 			updatedAt = agreement.CreatedAt.UTC().Format(time.RFC3339Nano)
 		}
 		recent = append(recent, map[string]any{
-			"id":              strings.TrimSpace(agreement.ID),
-			"title":           title,
-			"status":          status,
-			"recipient_count": len(recipients),
-			"updated_at":      updatedAt,
+			"id":                  strings.TrimSpace(agreement.ID),
+			"title":               title,
+			"status":              status,
+			"review_status":       strings.TrimSpace(agreement.ReviewStatus),
+			"presentation_status": presentationStatus,
+			"recipient_count":     len(recipients),
+			"updated_at":          updatedAt,
 		})
 	}
 

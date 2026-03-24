@@ -18,6 +18,7 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/ledongthuc/pdf"
 	"github.com/phpdave11/gofpdf"
 	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
@@ -41,23 +42,6 @@ func currentPDFReaderFactory() pdfReaderFactory {
 	pdfNewReaderMu.RLock()
 	defer pdfNewReaderMu.RUnlock()
 	return pdfNewReader
-}
-
-func setPDFReaderFactoryForTest(factory pdfReaderFactory) func() {
-	pdfNewReaderMu.Lock()
-	previous := pdfNewReader
-	if factory == nil {
-		factory = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
-			return pdf.NewReader(reader, size)
-		}
-	}
-	pdfNewReader = factory
-	pdfNewReaderMu.Unlock()
-	return func() {
-		pdfNewReaderMu.Lock()
-		pdfNewReader = previous
-		pdfNewReaderMu.Unlock()
-	}
 }
 
 const (
@@ -477,7 +461,7 @@ func parseInt64Any(value any) (int64, bool) {
 	case int64:
 		return typed, true
 	case uint:
-		return int64(typed), true
+		return primitives.Int64FromUint(typed)
 	case uint8:
 		return int64(typed), true
 	case uint16:
@@ -485,10 +469,7 @@ func parseInt64Any(value any) (int64, bool) {
 	case uint32:
 		return int64(typed), true
 	case uint64:
-		if typed > uint64(^uint64(0)>>1) {
-			return 0, false
-		}
-		return int64(typed), true
+		return primitives.Int64FromUint64(typed)
 	case float32:
 		return int64(typed), true
 	case float64:

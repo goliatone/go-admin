@@ -596,12 +596,12 @@
             "agreement": {
               "id": "agr-imported-v2",
               "label": "Imported Fixture Agreement Rev 2",
-              "url": "/admin/content/esign_agreements/agr-imported-v2"
+              "url": "/admin/content/agreements/agr-imported-v2"
             },
             "document": {
               "id": "doc-imported-v2",
               "label": "Imported Fixture Source Rev 2",
-              "url": "/admin/content/esign_documents/doc-imported-v2"
+              "url": "/admin/content/documents/doc-imported-v2"
             },
             "pinned_source_revision": {
               "id": "src-rev-2",
@@ -619,10 +619,10 @@
             "status": "draft",
             "is_pinned_latest": true,
             "links": {
-              "self": "/admin/content/esign_agreements/agr-imported-v2",
+              "self": "/admin/content/agreements/agr-imported-v2",
               "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
               "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
-              "agreement": "/admin/content/esign_agreements/agr-imported-v2",
+              "agreement": "/admin/content/agreements/agr-imported-v2",
               "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2"
             }
           },
@@ -630,12 +630,12 @@
             "agreement": {
               "id": "agr-imported-v1",
               "label": "Imported Fixture Agreement",
-              "url": "/admin/content/esign_agreements/agr-imported-v1"
+              "url": "/admin/content/agreements/agr-imported-v1"
             },
             "document": {
               "id": "doc-imported-v1",
               "label": "Imported Fixture Source",
-              "url": "/admin/content/esign_documents/doc-imported-v1"
+              "url": "/admin/content/documents/doc-imported-v1"
             },
             "pinned_source_revision": {
               "id": "src-rev-1",
@@ -654,10 +654,10 @@
             "status": "draft",
             "is_pinned_latest": false,
             "links": {
-              "self": "/admin/content/esign_agreements/agr-imported-v1",
+              "self": "/admin/content/agreements/agr-imported-v1",
               "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
               "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
-              "agreement": "/admin/content/esign_agreements/agr-imported-v1",
+              "agreement": "/admin/content/agreements/agr-imported-v1",
               "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v1"
             }
           }
@@ -1361,12 +1361,12 @@
           "agreement": {
             "id": "agr-imported-v2",
             "label": "Imported Fixture Agreement Rev 2",
-            "url": "/admin/content/esign_agreements/agr-imported-v2"
+            "url": "/admin/content/agreements/agr-imported-v2"
           },
           "document": {
             "id": "doc-imported-v2",
             "label": "Imported Fixture Source Rev 2",
-            "url": "/admin/content/esign_documents/doc-imported-v2"
+            "url": "/admin/content/documents/doc-imported-v2"
           },
           "pinned_source_revision": {
             "id": "src-rev-2",
@@ -1384,10 +1384,10 @@
           "status": "draft",
           "is_pinned_latest": true,
           "links": {
-            "self": "/admin/content/esign_agreements/agr-imported-v2",
+            "self": "/admin/content/agreements/agr-imported-v2",
             "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
-            "agreement": "/admin/content/esign_agreements/agr-imported-v2",
+            "agreement": "/admin/content/agreements/agr-imported-v2",
             "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v2"
           }
         },
@@ -1395,12 +1395,12 @@
           "agreement": {
             "id": "agr-imported-v1",
             "label": "Imported Fixture Agreement",
-            "url": "/admin/content/esign_agreements/agr-imported-v1"
+            "url": "/admin/content/agreements/agr-imported-v1"
           },
           "document": {
             "id": "doc-imported-v1",
             "label": "Imported Fixture Source",
-            "url": "/admin/content/esign_documents/doc-imported-v1"
+            "url": "/admin/content/documents/doc-imported-v1"
           },
           "pinned_source_revision": {
             "id": "src-rev-1",
@@ -1419,10 +1419,10 @@
           "status": "draft",
           "is_pinned_latest": false,
           "links": {
-            "self": "/admin/content/esign_agreements/agr-imported-v1",
+            "self": "/admin/content/agreements/agr-imported-v1",
             "workspace": "/admin/api/v1/esign/sources/src-doc-1/workspace",
             "agreements": "/admin/api/v1/esign/sources/src-doc-1/agreements",
-            "agreement": "/admin/content/esign_agreements/agr-imported-v1",
+            "agreement": "/admin/content/agreements/agr-imported-v1",
             "anchor": "/admin/api/v1/esign/sources/src-doc-1/workspace?panel=agreements\u0026anchor=agreement:agr-imported-v1"
           }
         }

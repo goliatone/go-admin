@@ -3,10 +3,10 @@
 {% block title %}E-Sign - {{ title }}{% endblock %}
 
 {% block content %}
-{% set agreements_index = adminURL("content/esign_agreements") %}
-{% set agreements_new = adminURL("content/esign_agreements/new") %}
-{% set documents_index = adminURL("content/esign_documents") %}
-{% set documents_new = adminURL("content/esign_documents/new") %}
+{% set agreements_index = panelURL("esign_agreements") %}
+{% set agreements_new = panelURL("esign_agreements") + "/new" %}
+{% set documents_index = panelURL("esign_documents") %}
+{% set documents_new = panelURL("esign_documents") + "/new" %}
 {% set google_integration = adminURL("esign/integrations/google") %}
 <div data-esign-page="{{ esign_page|default:"" }}" data-esign-module="{{ esign_module_path|default:"" }}" hidden></div>
 <script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
@@ -158,19 +158,25 @@
               </a>
             </td>
             <td class="px-6 py-4">
-              {% if agreement.status == "draft" %}
+              {% if agreement.presentation_status == "draft" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Draft</span>
-              {% elif agreement.status == "sent" %}
+              {% elif agreement.presentation_status == "sent" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Sent</span>
-              {% elif agreement.status == "in_progress" %}
+              {% elif agreement.presentation_status == "in_progress" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">In Progress</span>
-              {% elif agreement.status == "completed" %}
+              {% elif agreement.presentation_status == "in_review" %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700">In Review</span>
+              {% elif agreement.presentation_status == "changes_requested" %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Changes Requested</span>
+              {% elif agreement.presentation_status == "review_approved" %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Review Approved</span>
+              {% elif agreement.presentation_status == "completed" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Completed</span>
-              {% elif agreement.status == "voided" %}
+              {% elif agreement.presentation_status == "voided" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Voided</span>
-              {% elif agreement.status == "declined" %}
+              {% elif agreement.presentation_status == "declined" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Declined</span>
-              {% elif agreement.status == "expired" %}
+              {% elif agreement.presentation_status == "expired" %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Expired</span>
               {% endif %}
             </td>

@@ -11,6 +11,23 @@ import (
 	"github.com/ledongthuc/pdf"
 )
 
+func setPDFReaderFactoryForTest(factory pdfReaderFactory) func() {
+	pdfNewReaderMu.Lock()
+	previous := pdfNewReader
+	if factory == nil {
+		factory = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
+			return pdf.NewReader(reader, size)
+		}
+	}
+	pdfNewReader = factory
+	pdfNewReaderMu.Unlock()
+	return func() {
+		pdfNewReaderMu.Lock()
+		pdfNewReader = previous
+		pdfNewReaderMu.Unlock()
+	}
+}
+
 func TestPDFServiceAnalyzeReturnsCanonicalMetadata(t *testing.T) {
 	raw := GenerateDeterministicPDF(2)
 	svc := NewPDFService()

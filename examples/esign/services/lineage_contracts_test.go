@@ -436,8 +436,8 @@ func buildPhase1LineageContractFixture() Phase1LineageContractFixtures {
 					EvidenceAvailable: true,
 				},
 				CandidateStatus:    []CandidateWarningSummary{candidate},
-				DocumentDetailURL:  "/admin/content/esign_documents/doc_001",
-				AgreementDetailURL: "/admin/content/esign_agreements/agr_001",
+				DocumentDetailURL:  "/admin/content/documents/doc_001",
+				AgreementDetailURL: "/admin/content/agreements/agr_001",
 			},
 		},
 	}

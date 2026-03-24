@@ -9,7 +9,6 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -25,6 +24,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/internal/templateview"
 	"github.com/goliatone/go-admin/pkg/client"
 	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
@@ -37,6 +37,7 @@ import (
 	"github.com/goliatone/go-router/eventstream"
 	"github.com/goliatone/go-router/ssefiber"
 	"github.com/goliatone/go-uploader"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const (
@@ -259,7 +260,7 @@ func loadESignAuthSeed(runtimeCfg appcfg.Config) (appcfg.AuthConfig, error) {
 	if seedPath == "" {
 		return appcfg.AuthConfig{}, nil
 	}
-	payload, err := os.ReadFile(seedPath)
+	payload, err := primitives.ReadTrustedFile(seedPath)
 	if err != nil {
 		return appcfg.AuthConfig{}, fmt.Errorf("read auth seed file %q: %w", seedPath, err)
 	}
@@ -376,17 +377,6 @@ func (b eSignAuthBundle) Apply(adm *coreadmin.Admin) error {
 	return nil
 }
 
-func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.GoAuthAuthenticator, *auth.Auther, string, error) {
-	bundle, err := newESignAuthBundle(cfg)
-	if err != nil {
-		return nil, nil, "", err
-	}
-	if err := bundle.Apply(adm); err != nil {
-		return nil, nil, "", err
-	}
-	return bundle.Authenticator, bundle.Auther, bundle.CookieName, nil
-}
-
 func makeESignAuthErrorHandler(cfg eSignAuthConfig) func(router.Context, error) error {
 	return func(c router.Context, err error) error {
 		if c == nil {
@@ -461,6 +451,24 @@ func applyESignRuntimeDefaults(cfg *coreadmin.Config) {
 	}
 }
 
+func configureESignContentPanelRoutes(adm *coreadmin.Admin, basePath string) error {
+	if adm == nil {
+		return nil
+	}
+	manager, ok := adm.URLs().(*urlkit.RouteManager)
+	if !ok || manager == nil {
+		return nil
+	}
+	basePath = normalizeESignBasePath(basePath)
+	_, _, err := manager.AddRoutes("admin", map[string]string{
+		"esign_documents":     path.Join(basePath, "content", "documents"),
+		"esign_documents.id":  path.Join(basePath, "content", "documents", ":id"),
+		"esign_agreements":    path.Join(basePath, "content", "agreements"),
+		"esign_agreements.id": path.Join(basePath, "content", "agreements", ":id"),
+	})
+	return err
+}
+
 func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views, error) {
 	if err := validateESignTemplateOwnership(); err != nil {
 		return nil, err
@@ -487,20 +495,6 @@ func eSignTemplateFuncOptions(cfg coreadmin.Config, adm *coreadmin.Admin) []quic
 	return append(templateOpts,
 		quickstart.WithTemplateURLResolver(adm.URLs()),
 		quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
-	)
-}
-
-func configureESignDashboardRenderer(adm *coreadmin.Admin, viewEngine fiber.Views, cfg coreadmin.Config) error {
-	if adm == nil {
-		return fmt.Errorf("admin is required")
-	}
-	return quickstart.WithDefaultDashboardRenderer(
-		adm,
-		viewEngine,
-		cfg,
-		quickstart.WithDashboardTemplatesFS(client.Templates()),
-		quickstart.WithDashboardEmbeddedTemplates(false),
-		quickstart.WithDashboardTemplateFuncOptions(eSignTemplateFuncOptions(cfg, adm)...),
 	)
 }
 
@@ -532,6 +526,9 @@ func registerESignWebRoutes(
 	}
 	if basePath == "" {
 		basePath = "/admin"
+	}
+	if err := configureESignContentPanelRoutes(adm, basePath); err != nil {
+		return err
 	}
 	contentEntryViewContext := quickstart.DefaultAdminUIViewContextBuilder(adm, cfg)
 	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
@@ -1101,10 +1098,10 @@ func registerESignLegacyUIAliasRoutes(
 
 	aliases := map[string]string{
 		path.Join(basePath, "dashboard"):                  basePath,
-		path.Join(basePath, "esign", "agreements"):        path.Join(basePath, "content", "esign_agreements"),
-		path.Join(basePath, "esign", "agreements", "new"): path.Join(basePath, "content", "esign_agreements", "new"),
-		path.Join(basePath, "esign", "documents"):         path.Join(basePath, "content", "esign_documents"),
-		path.Join(basePath, "esign", "documents", "new"):  path.Join(basePath, "content", "esign_documents", "new"),
+		path.Join(basePath, "esign", "agreements"):        canonicalESignContentListPath(basePath, "esign_agreements"),
+		path.Join(basePath, "esign", "agreements", "new"): path.Join(canonicalESignContentListPath(basePath, "esign_agreements"), "new"),
+		path.Join(basePath, "esign", "documents"):         canonicalESignContentListPath(basePath, "esign_documents"),
+		path.Join(basePath, "esign", "documents", "new"):  path.Join(canonicalESignContentListPath(basePath, "esign_documents"), "new"),
 		path.Join(basePath, "esign", "users"):             path.Join(basePath, "users"),
 		path.Join(basePath, "esign", "roles"):             path.Join(basePath, "roles"),
 		path.Join(basePath, "esign", "profile"):           path.Join(basePath, "profile"),
@@ -1243,6 +1240,7 @@ func withESignContentEntryViewContext(
 
 	userID := resolveESignAdminUserID(c)
 	ctx["user_id"] = userID
+	ctx = withESignCanonicalContentEntryContext(ctx, panelName, c)
 
 	switch panelName {
 	case "esign_documents":
@@ -1345,11 +1343,100 @@ func guardESignAgreementEditRoute(c router.Context, panelName string, record map
 	if agreementID == "" {
 		return false, nil
 	}
-	target := path.Join(normalizeESignBasePath(basePath), "content", "esign_agreements", agreementID)
+	target := path.Join(canonicalESignContentListPath(basePath, panelName), agreementID)
 	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
 		target += "?" + rawQuery
 	}
 	return true, c.Redirect(target, http.StatusFound)
+}
+
+func canonicalESignContentRouteSlug(panelName string) string {
+	switch strings.TrimSpace(panelName) {
+	case "esign_documents":
+		return "documents"
+	case "esign_agreements":
+		return "agreements"
+	default:
+		return ""
+	}
+}
+
+func canonicalESignContentListPath(basePath, panelName string) string {
+	slug := canonicalESignContentRouteSlug(panelName)
+	if slug == "" {
+		return ""
+	}
+	return path.Join(normalizeESignBasePath(basePath), "content", slug)
+}
+
+func canonicalESignContentLabel(panelName string) string {
+	switch strings.TrimSpace(panelName) {
+	case "esign_documents":
+		return "Documents"
+	case "esign_agreements":
+		return "Agreements"
+	default:
+		return ""
+	}
+}
+
+func withESignCanonicalContentEntryContext(ctx router.ViewContext, panelName string, c router.Context) router.ViewContext {
+	label := canonicalESignContentLabel(panelName)
+	indexPath := canonicalESignContentListPath(viewContextString(ctx, "base_path", "/admin"), panelName)
+	if label == "" || indexPath == "" {
+		return ctx
+	}
+
+	routes := viewContextRoutes(ctx)
+	routes["index"] = indexPath
+	routes["create"] = indexPath
+	routes["new"] = path.Join(indexPath, "new")
+
+	record := rawToMap(ctx["resource_item"])
+	recordID := strings.TrimSpace(rawToString(record["id"]))
+	if recordID != "" {
+		routes["show"] = path.Join(indexPath, recordID)
+		routes["edit"] = path.Join(indexPath, recordID, "edit")
+		routes["delete"] = path.Join(indexPath, recordID, "delete")
+	}
+	ctx["routes"] = routes
+	ctx["resource_label"] = label
+
+	if contentType, ok := ctx["content_type"].(map[string]any); ok && contentType != nil {
+		contentType["name"] = label
+		contentType["slug"] = canonicalESignContentRouteSlug(panelName)
+		ctx["content_type"] = contentType
+	}
+	if record != nil {
+		record["actions"] = map[string]string{
+			"edit":   routes["edit"],
+			"delete": routes["delete"],
+		}
+		ctx["resource_item"] = record
+	}
+
+	home := quickstart.Breadcrumb("Home", normalizeESignBasePath(viewContextString(ctx, "base_path", "/admin")))
+	if recordID != "" && !rawToBool(ctx["is_edit"]) && !strings.HasSuffix(strings.TrimSpace(c.Path()), "/new") {
+		recordLabel := firstNonEmptyValue(
+			strings.TrimSpace(rawToString(record["title"])),
+			strings.TrimSpace(rawToString(record["name"])),
+			recordID,
+		)
+		if recordLabel != "" && !strings.EqualFold(recordLabel, label) {
+			return quickstart.WithBreadcrumbOverride(
+				ctx,
+				home,
+				quickstart.Breadcrumb(label, indexPath),
+				quickstart.CurrentBreadcrumb(recordLabel),
+			)
+		}
+	}
+
+	return quickstart.WithBreadcrumbOverride(
+		ctx,
+		home,
+		quickstart.CurrentBreadcrumb(label),
+	)
 }
 
 func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string {

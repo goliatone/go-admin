@@ -29,8 +29,9 @@ const (
 	CommandAgreementReminderSendNow       = "esign.agreements.reminders.send_now"
 	CommandGuardedEffectResume            = "esign.effects.resume"
 	CommandPDFRemediate                   = "esign.pdf.remediate"
-	CommandTokenRotate                    = "esign.tokens.rotate"
-	CommandDraftCleanup                   = "esign.drafts.cleanup"
+	// #nosec G101 -- command identifier, not an access token.
+	CommandTokenRotate  = "esign.tokens.rotate"
+	CommandDraftCleanup = "esign.drafts.cleanup"
 )
 
 var All = []string{

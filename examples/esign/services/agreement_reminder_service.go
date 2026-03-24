@@ -853,15 +853,6 @@ func reviewReminderBatchStableKey(scope stores.Scope, reviewID string) string {
 	}, "|")
 }
 
-func reviewReminderStableKey(scope stores.Scope, participant stores.AgreementReviewParticipantRecord) string {
-	return strings.Join([]string{
-		strings.TrimSpace(scope.TenantID),
-		strings.TrimSpace(scope.OrgID),
-		strings.TrimSpace(participant.ReviewID),
-		strings.TrimSpace(participant.ID),
-	}, "|")
-}
-
 func reviewReminderEventApplies(event stores.AuditEventRecord, participant stores.AgreementReviewParticipantRecord) bool {
 	switch strings.TrimSpace(event.EventType) {
 	case "agreement.review_requested", "agreement.review_reopened", "agreement.review_notified", "agreement.review_reminders_paused", "agreement.review_reminders_resumed":

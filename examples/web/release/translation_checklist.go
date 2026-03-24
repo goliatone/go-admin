@@ -3,9 +3,10 @@ package release
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 const (
@@ -142,7 +143,7 @@ func TranslationRequiredSignoffTeams() []string {
 }
 
 func LoadTranslationChecklist(path string) (TranslationChecklist, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return TranslationChecklist{}, err
 	}

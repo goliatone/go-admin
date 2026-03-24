@@ -429,6 +429,7 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	lineage := buildAgreementLineageIndex(agreements)
 	currentVersionIDs := buildCurrentAgreementVersionIDSet(agreements)
 	statusFilter := strings.TrimSpace(lookupFilter(opts.Filters, "status"))
+	actionRequiredOnly := truthyFilterValue(lookupFilter(opts.Filters, "action_required"))
 	versionVisibility := normalizeAgreementVersionVisibility(lookupFilter(opts.Filters, "version_visibility"))
 	documentID := strings.TrimSpace(lookupFilter(opts.Filters, "document_id"))
 	recipientEmail := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email")))
@@ -436,7 +437,10 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	filtered := make([]stores.AgreementRecord, 0, len(agreements))
 	for _, agreement := range agreements {
 		agreementID := strings.TrimSpace(agreement.ID)
-		if statusFilter != "" && strings.TrimSpace(agreement.Status) != statusFilter {
+		if !agreementMatchesStatusFilter(agreement, statusFilter) {
+			continue
+		}
+		if actionRequiredOnly && !agreementRequiresAction(agreement) {
 			continue
 		}
 		if !includeAgreementForVersionVisibility(agreementID, currentVersionIDs, versionVisibility) {
@@ -3139,19 +3143,10 @@ func sortedEntryIndexes(entries map[int]map[string]any) []int {
 }
 
 func toBool(value any) bool {
-	switch raw := value.(type) {
-	case bool:
+	if raw, ok := primitives.BoolFromAny(value); ok {
 		return raw
-	case string:
-		switch strings.ToLower(strings.TrimSpace(raw)) {
-		case "", "0", "false", "off", "no":
-			return false
-		default:
-			return true
-		}
-	default:
-		return toInt64(value) > 0
 	}
+	return toInt64(value) > 0
 }
 
 func shouldSendForSignature(record map[string]any) bool {
@@ -3177,11 +3172,6 @@ func stringPtr(value string) *string {
 	return &trimmed
 }
 
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
-}
-
 func lookupFilter(filters map[string]any, keys ...string) string {
 	for _, key := range keys {
 		if key == "" {
@@ -3194,6 +3184,46 @@ func lookupFilter(filters map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func agreementMatchesStatusFilter(agreement stores.AgreementRecord, raw string) bool {
+	values := splitFilterValues(raw)
+	if len(values) == 0 {
+		return true
+	}
+	status := strings.ToLower(strings.TrimSpace(agreement.Status))
+	for _, value := range values {
+		if status == value {
+			return true
+		}
+	}
+	return false
+}
+
+func splitFilterValues(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.ToLower(strings.TrimSpace(part))
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func truthyFilterValue(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func paginateRecords[T any](records []T, page, perPage int) []T {
@@ -3217,93 +3247,12 @@ func paginateRecords[T any](records []T, page, perPage int) []T {
 }
 
 func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	switch raw := value.(type) {
-	case string:
-		return strings.TrimSpace(raw)
-	case []byte:
-		return strings.TrimSpace(string(raw))
-	default:
-		return strings.TrimSpace(fmt.Sprint(raw))
-	}
+	return primitives.StringFromAny(value)
 }
 
 func toInt64(value any) int64 {
-	switch raw := value.(type) {
-	case int:
-		return int64(raw)
-	case int8:
-		return int64(raw)
-	case int16:
-		return int64(raw)
-	case int32:
-		return int64(raw)
-	case int64:
-		return raw
-	case uint:
-		return int64(raw)
-	case uint8:
-		return int64(raw)
-	case uint16:
-		return int64(raw)
-	case uint32:
-		return int64(raw)
-	case uint64:
-		return int64(raw)
-	case float32:
-		return int64(raw)
-	case float64:
-		return int64(raw)
-	case string:
-		trimmed := strings.TrimSpace(raw)
-		if trimmed == "" {
-			return 0
-		}
-		var parsed int64
-		_, _ = fmt.Sscan(trimmed, &parsed)
+	if parsed, ok := primitives.Int64FromAny(value); ok {
 		return parsed
-	default:
-		return 0
 	}
-}
-
-func toFloat64(value any) float64 {
-	switch raw := value.(type) {
-	case float64:
-		return raw
-	case float32:
-		return float64(raw)
-	case int:
-		return float64(raw)
-	case int8:
-		return float64(raw)
-	case int16:
-		return float64(raw)
-	case int32:
-		return float64(raw)
-	case int64:
-		return float64(raw)
-	case uint:
-		return float64(raw)
-	case uint8:
-		return float64(raw)
-	case uint16:
-		return float64(raw)
-	case uint32:
-		return float64(raw)
-	case uint64:
-		return float64(raw)
-	case string:
-		trimmed := strings.TrimSpace(raw)
-		if trimmed == "" {
-			return 0
-		}
-		var parsed float64
-		_, _ = fmt.Sscan(trimmed, &parsed)
-		return parsed
-	default:
-		return 0
-	}
+	return 0
 }

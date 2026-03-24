@@ -498,7 +498,10 @@
             {% elif resource_item.review_status == 'changes_requested' %}bg-amber-50 text-amber-700 ring-amber-200
             {% elif resource_item.review_status == 'in_review' %}bg-blue-50 text-blue-700 ring-blue-200
             {% else %}bg-gray-50 text-gray-600 ring-gray-200{% endif %}">
-            Review: {{ resource_item.review_status|default:"none"|title }}
+            {% if resource_item.review_status == 'approved' %}Approved
+            {% elif resource_item.review_status == 'changes_requested' %}Changes Requested
+            {% elif resource_item.review_status == 'in_review' %}In Review
+            {% else %}No Review{% endif %}
           </span>
         </div>
       </div>
@@ -730,15 +733,16 @@
           </div>
           <div>
             <h3 class="text-sm font-semibold text-gray-900">Review & Comments</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Configure reviewers and manage shared comments alongside internal notes</p>
+            <p class="text-xs text-gray-500 mt-0.5">Configure reviewers and manage comments, notes</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
           {# Inline status target for review actions #}
           <span data-live-status-target aria-live="polite"></span>
           {% if resource_item.sender_view and resource_item.sender_view.enabled %}
-          <a href="{{ resource_item.sender_view.url }}" class="btn btn-sm btn-secondary">
+          <a href="{{ resource_item.sender_view.url }}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener noreferrer">
             Open Document
+            <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
           </a>
           <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200">
             {{ resource_item.sender_view.mode|default:"read_only"|split:"_"|join:" "|title }}
@@ -774,7 +778,7 @@
     {# Review Configuration - Collapsible (draft only) #}
     {% if page_status == "draft" %}
     <div id="agreement-review-configuration-panel" class="border-b border-gray-200" data-live-status-section="review_config">
-      <button type="button" class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors" aria-expanded="false" aria-controls="review-configuration">
+      <div class="collapsible-trigger w-full px-5 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors cursor-pointer" aria-expanded="false" aria-controls="review-configuration" role="button" tabindex="0">
         <div class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-600">
             {% if resource_item.review and resource_item.review.status == "in_review" %}
@@ -789,10 +793,38 @@
           <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">Active</span>
           {% endif %}
         </div>
-        <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
-      </button>
+        <div class="flex items-center gap-2">
+          {# Quick action buttons visible in collapsed header #}
+          {% if resource_item.review and resource_item.review_permissions.can_admin_review and (resource_item.review.status == "in_review" or resource_item.review.status == "changes_requested") %}
+          <div class="flex items-center gap-1.5 collapsible-header-actions" id="review-header-actions">
+            {% if resource_item.review.status == "in_review" %}
+            <button type="button" class="review-action-btn review-action-btn-secondary" data-command-name="notify_reviewers" data-command-transport="rpc" data-command-dispatch="esign.agreements.notify_reviewers" data-command-success="Reviewers notified" data-command-refresh="#agreement-review-status-panel,#review-participants-panel" data-command-busy-target="#review-header-actions" title="Notify all reviewers">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              Notify
+            </button>
+            {% endif %}
+            <button type="button" class="review-action-btn review-action-btn-primary" data-command-name="force_approve_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.force_approve_review" data-command-success="Review force approved" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-header-actions" data-command-reason-title="Force approve review" data-command-reason-subject="This will finalize the review cycle using an admin override." title="Force approve this review">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Force Approve
+            </button>
+            {% if resource_item.review.status == "in_review" %}
+            <button type="button" class="review-action-btn review-action-btn-warning" data-command-name="close_review" data-command-transport="rpc" data-command-dispatch="esign.agreements.close_review" data-command-success="Review closed" data-command-refresh="#agreement-review-status-panel,#agreement-review-configuration-panel,#review-participants-panel,#review-comment-threads-panel" data-command-busy-target="#review-header-actions" title="Close the review">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              Close
+            </button>
+            {% elif resource_item.review.status == "changes_requested" %}
+            <button type="button" class="review-action-btn review-action-btn-success collapsible-expand-trigger" title="Reopen the review configuration">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Reopen
+            </button>
+            {% endif %}
+          </div>
+          {% endif %}
+          <svg class="collapsible-icon w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
       <div id="review-configuration" class="collapsible-content px-5 pb-4">
         {# Review State Progression Indicator #}
         {% set review_status = resource_item.review.status|default:resource_item.review_status|default:"none"|lower %}
@@ -1413,75 +1445,7 @@
 {% endif %}
 <div id="download-status-notice-dynamic" class="hidden mx-6 mt-6 mb-8 rounded-lg border p-4 text-sm" role="status" aria-live="polite"></div>
 
-{# Participants Section (v2-only) #}
-{% set participants_list = resource_item.participants %}
-{% if participants_list and participants_list|length > 0 %}
-<div id="agreement-participants-panel" class="p-6 border-t border-gray-200">
-  <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Participants</div>
-  <div class="space-y-3">
-    {% for participant in participants_list %}
-    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
-          {{ participant.name|default:participant.email|slice:"0:1"|upper }}
-        </div>
-        <div>
-          <div class="font-medium text-gray-900">{{ participant.name|default:participant.email }}</div>
-          <div class="text-sm text-gray-500">{{ participant.email }}</div>
-        </div>
-        {% if participant.role == "cc" %}
-        <span class="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">CC</span>
-        {% endif %}
-      </div>
-      <div class="flex items-center gap-2">
-        {% set pstatus = participant.status|lower %}
-        {% if pstatus == "pending" %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-            Pending
-          </span>
-        {% elif pstatus == "signed" or pstatus == "completed" %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-            Signed
-          </span>
-        {% elif pstatus == "declined" %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-            Declined
-          </span>
-        {% elif pstatus == "delivered" %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-            Delivered
-          </span>
-        {% else %}
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            {{ participant.status|default:"Pending"|title }}
-          </span>
-        {% endif %}
-        {# Action buttons for active participants #}
-        {% set status = resource_item.status|lower %}
-        {% if (status == "sent" or status == "in_progress") and participant.role != "cc" %}
-          <button type="button" class="text-sm text-blue-600 hover:text-blue-800"
-                  data-action="resend-recipient" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
-                  aria-label="Resend signing invitation to {{ participant.name|default:participant.email }}"
-                  title="Resend signing request to this participant">
-            Resend
-          </button>
-          <button type="button" class="text-sm text-gray-600 hover:text-gray-800"
-                  data-action="rotate-token" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
-                  aria-label="Rotate signing token for {{ participant.name|default:participant.email }}"
-                  title="Generate a new signing link for this participant">
-            Rotate Token
-          </button>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
+{# Participants Section removed - functionality consolidated into Participant Progress #}
 
 {# Void Reason (if voided) #}
 {% set status = resource_item.status|lower %}

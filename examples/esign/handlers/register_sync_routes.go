@@ -111,7 +111,9 @@ func serveHTTPMutationTransport(c router.Context, cfg registerConfig, handler fu
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err == nil {
-			req.Body.Close()
+			if closeErr := req.Body.Close(); closeErr != nil {
+				return closeErr
+			}
 			body = injectRequestIPMetadata(body, resolveAuditRequestIP(c, cfg))
 			req.Body = io.NopCloser(bytes.NewReader(body))
 			req.ContentLength = int64(len(body))

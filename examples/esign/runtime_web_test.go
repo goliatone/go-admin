@@ -103,6 +103,30 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 	}
 }
 
+func TestWithESignCanonicalContentEntryContextSkipsPlaceholderRecordBreadcrumbs(t *testing.T) {
+	ctx := router.ViewContext{
+		"base_path":      "/admin",
+		"resource_item":  map[string]any{},
+		"resource_label": "Agreements",
+	}
+	reqCtx := router.NewMockContext()
+
+	viewCtx := withESignCanonicalContentEntryContext(ctx, "esign_agreements", reqCtx)
+	override, ok := viewCtx[quickstart.ViewKeyBreadcrumbOverride].([]quickstart.BreadcrumbItem)
+	if !ok {
+		t.Fatalf("expected breadcrumb override slice, got %T", viewCtx[quickstart.ViewKeyBreadcrumbOverride])
+	}
+	if len(override) != 2 {
+		t.Fatalf("expected 2 breadcrumb items when record id is missing, got %+v", override)
+	}
+	if override[0].Label != "Home" || override[0].Href != "/admin" {
+		t.Fatalf("expected Home breadcrumb, got %+v", override[0])
+	}
+	if override[1].Label != "Agreements" {
+		t.Fatalf("expected Agreements breadcrumb, got %+v", override[1])
+	}
+}
+
 func TestRuntimeSignerRoutesExposeUnifiedSurfaceOnly(t *testing.T) {
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
 	if err != nil {
@@ -321,9 +345,9 @@ func TestRuntimeESignLegacyAliasesRedirectAfterLogin(t *testing.T) {
 		t.Fatal("expected auth cookie after login")
 	}
 
-	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents", "/admin/content/esign_documents")
-	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents/new?source=google", "/admin/content/esign_documents/new?source=google")
-	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/agreements", "/admin/content/esign_agreements")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents", "/admin/content/documents")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/documents/new?source=google", "/admin/content/documents/new?source=google")
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/agreements", "/admin/content/agreements")
 	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/users", "/admin/users")
 	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/roles", "/admin/roles")
 	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin/esign/profile", "/admin/profile")
@@ -1146,7 +1170,7 @@ func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T
 		authCookie,
 		http.MethodGet,
 		"/admin/content/esign_agreements/"+agreementID+"/edit?"+query,
-		"/admin/content/esign_agreements/"+agreementID+"?"+query,
+		"/admin/content/agreements/"+agreementID+"?"+query,
 	)
 }
 

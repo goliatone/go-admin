@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
@@ -340,24 +341,20 @@ func composeFullName(firstName, lastName string) string {
 
 // toString safely converts a value to string.
 func toString(v any) string {
-	if v == nil {
+	value, ok := v.(string)
+	if !ok {
 		return ""
 	}
-	if s, ok := v.(string); ok {
-		return strings.TrimSpace(s)
-	}
-	return ""
+	return primitives.StringFromAny(value)
 }
 
 // toBool safely converts a value to bool.
 func toBool(v any) bool {
-	if v == nil {
+	value, ok := v.(bool)
+	if !ok {
 		return false
 	}
-	if b, ok := v.(bool); ok {
-		return b
-	}
-	return false
+	return value
 }
 
 func widgetsForArea(layout *admin.DashboardLayout, areaCode string) []map[string]any {

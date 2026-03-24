@@ -108,7 +108,7 @@ func ensureSQLiteDSNDir(dsn string) {
 	if dir == "" || dir == "." {
 		return
 	}
-	_ = os.MkdirAll(dir, 0o755)
+	_ = os.MkdirAll(dir, 0o750)
 }
 
 func ensureESignActivityTable(ctx context.Context, db *sql.DB) error {
@@ -181,8 +181,12 @@ func (s *eSignActivityStore) List(ctx context.Context, limit int, filters ...cor
 	}
 	limit = normalizeActivityLimit(limit)
 	where, args := buildAdminActivityFilters(filters)
-	query := `SELECT id, user_id, actor_id, tenant_id, org_id, verb, object_type, object_id, channel, ip, data_json, occurred_at
-		FROM esign_activity_log` + where + ` ORDER BY occurred_at DESC LIMIT ?`
+	query := composeActivityQuery(
+		`SELECT id, user_id, actor_id, tenant_id, org_id, verb, object_type, object_id, channel, ip, data_json, occurred_at
+		FROM esign_activity_log`,
+		where,
+		` ORDER BY occurred_at DESC LIMIT ?`,
+	)
 	args = append(args, limit)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -212,14 +216,18 @@ func (s *eSignActivityStore) ListActivity(ctx context.Context, filter userstypes
 	limit, offset := normalizeUsersActivityPagination(filter.Pagination.Limit, filter.Pagination.Offset)
 	where, args := buildUsersActivityFilters(filter)
 
-	countQuery := `SELECT COUNT(1) FROM esign_activity_log` + where
+	countQuery := composeActivityQuery(`SELECT COUNT(1) FROM esign_activity_log`, where, "")
 	total, err := scanActivityCount(ctx, s.db, countQuery, args...)
 	if err != nil {
 		return userstypes.ActivityPage{}, err
 	}
 
-	query := `SELECT id, user_id, actor_id, tenant_id, org_id, verb, object_type, object_id, channel, ip, data_json, occurred_at
-		FROM esign_activity_log` + where + ` ORDER BY occurred_at DESC LIMIT ? OFFSET ?`
+	query := composeActivityQuery(
+		`SELECT id, user_id, actor_id, tenant_id, org_id, verb, object_type, object_id, channel, ip, data_json, occurred_at
+		FROM esign_activity_log`,
+		where,
+		` ORDER BY occurred_at DESC LIMIT ? OFFSET ?`,
+	)
 	listArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := s.db.QueryContext(ctx, query, listArgs...)
 	if err != nil {
@@ -255,7 +263,7 @@ func (s *eSignActivityStore) ActivityStats(ctx context.Context, filter userstype
 		return stats, nil
 	}
 	where, args := buildUsersActivityStatsFilters(filter)
-	query := `SELECT verb, COUNT(1) FROM esign_activity_log` + where + ` GROUP BY verb`
+	query := composeActivityQuery(`SELECT verb, COUNT(1) FROM esign_activity_log`, where, ` GROUP BY verb`)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return stats, fmt.Errorf("query esign activity stats: %w", err)
@@ -279,6 +287,11 @@ func (s *eSignActivityStore) ActivityStats(ctx context.Context, filter userstype
 		return stats, fmt.Errorf("iterate esign activity stats rows: %w", err)
 	}
 	return stats, nil
+}
+
+func composeActivityQuery(base, where, suffix string) string {
+	// #nosec G202 -- where fragments in this file are composed only from fixed column clauses with bound placeholders.
+	return base + where + suffix
 }
 
 func buildAdminActivityFilters(filters []coreadmin.ActivityFilter) (string, []any) {
@@ -676,10 +689,7 @@ func parseUUID(value string) uuid.UUID {
 }
 
 func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(value))
+	return primitives.StringFromAny(value)
 }
 
 func safeUUIDString(id uuid.UUID) string {

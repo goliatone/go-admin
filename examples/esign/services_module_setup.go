@@ -11,6 +11,7 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/internal/primitives"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	goservices "github.com/goliatone/go-services"
 	gdrive "github.com/goliatone/go-services/providers/google/drive"
@@ -73,9 +74,14 @@ func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
 		"service_grant_snapshots",
 	}
 	for _, table := range requiredTables {
-		query := fmt.Sprintf(`SELECT 1 FROM "%s" LIMIT 1`, table)
+		tableName, err := primitives.NormalizeSQLIdentifier(table)
+		if err != nil {
+			return err
+		}
+		// #nosec G201 -- table names come from the hardcoded requiredTables allowlist and are validated as identifiers.
+		query := fmt.Sprintf(`SELECT 1 FROM "%s" LIMIT 1`, tableName)
 		var marker int
-		err := db.QueryRowContext(ctx, query).Scan(&marker)
+		err = db.QueryRowContext(ctx, query).Scan(&marker)
 		if err == nil || errors.Is(err, sql.ErrNoRows) {
 			continue
 		}

@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
@@ -91,8 +92,8 @@ func buildESignAdminLandingPageConfig(basePath, apiBasePath string, googleEnable
 			"google_enabled": googleEnabled,
 		},
 		Routes: map[string]string{
-			"documents_index":  path.Join(resolvedBasePath, "content", "esign_documents"),
-			"agreements_index": path.Join(resolvedBasePath, "content", "esign_agreements"),
+			"documents_index":  canonicalESignContentListPath(resolvedBasePath, "esign_documents"),
+			"agreements_index": canonicalESignContentListPath(resolvedBasePath, "esign_agreements"),
 			"source_browser":   path.Join(resolvedBasePath, "esign", "sources"),
 			"source_search":    path.Join(resolvedBasePath, "esign", "source-search"),
 		},
@@ -395,14 +396,7 @@ func viewContextRoutes(ctx router.ViewContext) map[string]string {
 }
 
 func rawToString(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case []byte:
-		return string(typed)
-	default:
-		return strings.TrimSpace(strings.ReplaceAll(fmt.Sprint(typed), "\n", " "))
-	}
+	return strings.TrimSpace(strings.ReplaceAll(primitives.StringFromAny(value), "\n", " "))
 }
 
 func rawToBool(value any) bool {

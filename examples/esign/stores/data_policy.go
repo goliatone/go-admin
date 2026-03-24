@@ -4,6 +4,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // RetentionPolicy configures artifact, log, and PII metadata lifecycle controls.
@@ -129,10 +131,5 @@ func minimizeIP(raw string) string {
 }
 
 func toString(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	default:
-		return ""
-	}
+	return primitives.StringFromAny(value)
 }

@@ -392,9 +392,9 @@ bootstrapGoogleDrivePicker({
   googleConnected: {{ google_connected|default:false|yesno:"true,false" }},
   pickerRoutes: {
     integrations: '{{ adminURL("esign/integrations/google") }}',
-    agreements: '{{ adminURL("content/esign_agreements") }}',
-    documents: '{{ adminURL("content/esign_documents") }}',
-    documentImport: '{{ adminURL("content/esign_documents/new") }}',
+    agreements: '{{ panelURL("esign_agreements") }}',
+    documents: '{{ panelURL("esign_documents") }}',
+    documentImport: '{{ panelURL("esign_documents") }}/new',
   },
 });
 </script>

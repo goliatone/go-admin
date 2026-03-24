@@ -7,16 +7,6 @@ import (
 	"time"
 )
 
-//go:fix inline
-func strPtrDraft(value string) *string {
-	return new(value)
-}
-
-//go:fix inline
-func intPtrDraft(value int) *int {
-	return new(value)
-}
-
 func TestInMemoryDraftSessionLifecycleAndIdempotency(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()

@@ -3,10 +3,11 @@ package release
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 const v2ContractFreezeDateLayout = "2006-01-02"
@@ -25,7 +26,7 @@ type V2ContractFreezeGuard struct {
 
 // LoadV2ContractFreezeGuard reads and decodes a v2 contract freeze guard configuration file.
 func LoadV2ContractFreezeGuard(path string) (V2ContractFreezeGuard, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return V2ContractFreezeGuard{}, err
 	}
@@ -93,7 +94,7 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 	}
 
 	ledgerAbsPath := filepath.Join(repoRoot, filepath.FromSlash(strings.TrimSpace(guard.LedgerPath)))
-	ledgerRaw, err := os.ReadFile(ledgerAbsPath)
+	ledgerRaw, err := primitives.ReadTrustedFile(ledgerAbsPath)
 	if err != nil {
 		return issues, err
 	}

@@ -1369,6 +1369,15 @@ type OnboardingNotifier struct {
 	Activity      types.ActivitySink        `json:"activity"`
 }
 
+func (n *OnboardingNotifier) addNotification(ctx context.Context, notification admin.Notification) {
+	if n == nil || n.Notifications == nil {
+		return
+	}
+	if _, err := n.Notifications.Add(ctx, notification); err != nil {
+		log.Printf("onboarding notifier add notification failed: %v", err)
+	}
+}
+
 // HandleActivity attaches to go-users hooks to emit example notifications.
 func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.ActivityRecord) {
 	if n == nil {
@@ -1381,42 +1390,42 @@ func (n *OnboardingNotifier) HandleActivity(ctx context.Context, record types.Ac
 	switch record.Verb {
 	case "user.invite":
 		email := fmt.Sprint(record.Data["email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "User invited",
 			Message: fmt.Sprintf("Invite sent to %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
 	case "user.invite.consumed":
 		email := fmt.Sprint(record.Data["email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "Invite accepted",
 			Message: fmt.Sprintf("Invite accepted by %s", email),
 			Read:    false,
 		})
 	case "user.registration.requested":
 		email := fmt.Sprint(record.Data["email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "Registration requested",
 			Message: fmt.Sprintf("Registration link requested for %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,
 		})
 	case "user.registration.completed":
 		email := fmt.Sprint(record.Data["email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "Registration completed",
 			Message: fmt.Sprintf("Registration completed for %s", email),
 			Read:    false,
 		})
 	case "user.password.reset":
 		email := fmt.Sprint(record.Data["user_email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "Password reset",
 			Message: fmt.Sprintf("Password reset completed for %s", email),
 			Read:    false,
 		})
 	case "user.password.reset.requested":
 		email := fmt.Sprint(record.Data["user_email"])
-		n.Notifications.Add(ctx, admin.Notification{
+		n.addNotification(ctx, admin.Notification{
 			Title:   "Password reset requested",
 			Message: fmt.Sprintf("Reset link requested for %s (expires %v)", email, record.Data["expires_at"]),
 			Read:    false,

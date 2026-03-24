@@ -139,8 +139,8 @@ func resolveAppLocalMigrationFS(cfg appcfg.Config) (fs.FS, error) {
 		candidates = append(candidates, filepath.Join(configDir, "..", localDir))
 	}
 	candidates = append(candidates,
-		localDir,
 		filepath.Join("examples", "esign", localDir),
+		localDir,
 	)
 
 	for _, candidate := range candidates {

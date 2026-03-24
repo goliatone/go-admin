@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	EnvEmailTransport           = "APP_EMAIL__TRANSPORT"
-	EnvEmailSMTPHost            = "APP_EMAIL__SMTP__HOST"
-	EnvEmailSMTPPort            = "APP_EMAIL__SMTP__PORT"
-	EnvEmailSMTPUsername        = "APP_EMAIL__SMTP__USERNAME"
+	EnvEmailTransport    = "APP_EMAIL__TRANSPORT"
+	EnvEmailSMTPHost     = "APP_EMAIL__SMTP__HOST"
+	EnvEmailSMTPPort     = "APP_EMAIL__SMTP__PORT"
+	EnvEmailSMTPUsername = "APP_EMAIL__SMTP__USERNAME"
+	// #nosec G101 -- configuration key name, not an embedded credential.
 	EnvEmailSMTPPassword        = "APP_EMAIL__SMTP__PASSWORD"
 	EnvEmailDefaultFromName     = "APP_EMAIL__SMTP__FROM_NAME"
 	EnvEmailDefaultFromAddress  = "APP_EMAIL__SMTP__FROM_ADDRESS"
@@ -219,8 +220,9 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 	if !p.cfg.DisableSTARTTLS {
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			tlsConfig := &tls.Config{
-				ServerName:         host,
-				InsecureSkipVerify: p.cfg.InsecureTLS, //nolint:gosec // explicitly configurable for local/dev SMTP endpoints
+				ServerName: host,
+				// #nosec G402 -- explicitly configurable for local/dev SMTP endpoints that terminate TLS upstream.
+				InsecureSkipVerify: p.cfg.InsecureTLS,
 			}
 			if err := client.StartTLS(tlsConfig); err != nil {
 				return err
@@ -469,12 +471,4 @@ func htmlEscape(value string) string {
 		"'", "&#39;",
 	)
 	return replacer.Replace(strings.TrimSpace(value))
-}
-
-func parseEnvBool(value string, fallback bool) bool {
-	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }

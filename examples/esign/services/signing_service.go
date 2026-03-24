@@ -19,6 +19,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 )
@@ -1598,7 +1599,10 @@ func toInt64Any(value any) int64 {
 	case int64:
 		return typed
 	case uint:
-		return int64(typed)
+		if parsed, ok := primitives.Int64FromUint(typed); ok {
+			return parsed
+		}
+		return 0
 	case uint8:
 		return int64(typed)
 	case uint16:
@@ -1606,7 +1610,10 @@ func toInt64Any(value any) int64 {
 	case uint32:
 		return int64(typed)
 	case uint64:
-		return int64(typed)
+		if parsed, ok := primitives.Int64FromUint64(typed); ok {
+			return parsed
+		}
+		return 0
 	case float32:
 		return int64(typed)
 	case float64:

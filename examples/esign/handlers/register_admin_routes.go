@@ -140,17 +140,25 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			if err != nil {
 				return writeAPIError(c, err, http.StatusInternalServerError, "AGREEMENT_STATS_UNAVAILABLE", "unable to load agreement stats", nil)
 			}
+			actionRequired := 0
 			for _, record := range records {
 				status := strings.ToLower(strings.TrimSpace(record.Status))
 				if status == "" {
 					continue
 				}
 				byStatus[status] = byStatus[status] + 1
+				if status == stores.AgreementStatusSent ||
+					status == stores.AgreementStatusInProgress ||
+					status == stores.AgreementStatusDeclined ||
+					(status == stores.AgreementStatusDraft &&
+						stores.NormalizeAgreementReviewStatus(record.ReviewStatus) == stores.AgreementReviewStatusChangesRequested) {
+					actionRequired++
+				}
 			}
 			stats["draft"] = byStatus[stores.AgreementStatusDraft]
 			stats["pending"] = byStatus[stores.AgreementStatusSent] + byStatus[stores.AgreementStatusInProgress]
 			stats["completed"] = byStatus[stores.AgreementStatusCompleted]
-			stats["action_required"] = stats["pending"] + byStatus[stores.AgreementStatusDeclined]
+			stats["action_required"] = actionRequired
 			stats["total"] = len(records)
 		}
 		return c.JSON(http.StatusOK, map[string]any{

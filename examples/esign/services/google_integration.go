@@ -31,11 +31,15 @@ import (
 const (
 	GoogleProviderName = "google"
 	// DefaultGoogleCredentialKeyID is the default active key id used for credential encryption.
-	DefaultGoogleCredentialKeyID   = "v1"
-	defaultGoogleCredentialKey     = "go-admin-esign-google"
+	DefaultGoogleCredentialKeyID = "v1"
+	// #nosec G101 -- deterministic local/test fallback key material identifier, not a production secret.
+	defaultGoogleCredentialKey = "go-admin-esign-google"
+	// #nosec G101 -- configuration key name, not an embedded credential.
 	EnvGoogleCredentialActiveKeyID = "APP_GOOGLE__CREDENTIAL_ACTIVE_KEY_ID"
-	EnvGoogleCredentialActiveKey   = "APP_GOOGLE__CREDENTIAL_ACTIVE_KEY"
-	EnvGoogleCredentialKeysJSON    = "APP_GOOGLE__CREDENTIAL_KEYS_JSON"
+	// #nosec G101 -- configuration key name, not an embedded credential.
+	EnvGoogleCredentialActiveKey = "APP_GOOGLE__CREDENTIAL_ACTIVE_KEY"
+	// #nosec G101 -- configuration key name, not an embedded credential.
+	EnvGoogleCredentialKeysJSON = "APP_GOOGLE__CREDENTIAL_KEYS_JSON"
 )
 
 const (

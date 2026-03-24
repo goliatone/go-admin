@@ -312,7 +312,7 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 	var lineageDocuments int
 	if err := tx.NewRaw(
 		`SELECT COUNT(1) FROM documents WHERE id IN (?)`,
-		bun.In([]string{
+		bun.List([]string{
 			lineageSet.UploadOnlyDocumentID,
 			lineageSet.ImportedDocumentID,
 			lineageSet.RepeatedImportDocumentID,

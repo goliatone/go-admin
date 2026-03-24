@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	auth "github.com/goliatone/go-auth"
 	gocommand "github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
-	goerrors "github.com/goliatone/go-errors"
 )
 
 // AgreementLifecycleService captures agreement domain transitions triggered by admin actions.
@@ -338,24 +336,6 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 		"mode":         "queued",
 	})
 	return nil
-}
-
-func shouldFallbackToResend(err error) bool {
-	if err == nil {
-		return false
-	}
-	var coded *goerrors.Error
-	if !errors.As(err, &coded) || coded == nil {
-		return false
-	}
-	metadata := coded.Metadata
-	if metadata == nil {
-		return false
-	}
-	entity := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["entity"])))
-	field := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["field"])))
-	reason := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["reason"])))
-	return entity == "agreements" && field == "status" && reason == "send requires draft status"
 }
 
 // AgreementVoidCommand dispatches void transitions through the agreement service.
@@ -1807,7 +1787,6 @@ type AgreementReminderSendNowCommand struct {
 	reminders    AgreementReminderService
 	defaultScope stores.Scope
 	projector    AgreementActivityProjector
-	publisher    AgreementEventPublisher
 }
 
 var _ gocommand.Commander[AgreementReminderSendNowInput] = (*AgreementReminderSendNowCommand)(nil)

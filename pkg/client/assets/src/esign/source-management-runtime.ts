@@ -485,56 +485,95 @@ function renderErrorState(error: Error): string {
   `;
 }
 
+const runtimeToolbarCardClass = 'bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm';
+const runtimeToolbarButtonClass =
+  'h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors';
+const runtimeToolbarButtonActiveClass =
+  'h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors';
+const runtimeToolbarPrimaryButtonClass =
+  'h-10 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors';
+const runtimeToolbarTextInputClass =
+  'block w-full h-10 ps-9 pe-8 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-gray-200';
+const runtimeToolbarSelectClass =
+  'block w-full h-10 rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+const runtimeToolbarCheckboxLabelClass =
+  'inline-flex items-center gap-2 h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 cursor-pointer hover:bg-gray-50';
+const runtimeTableShellClass = 'bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden';
+const runtimeTableHeadCellClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+const runtimeTableCellClass = 'px-6 py-4 align-top';
+
+function renderRuntimeFilterToggle(action: string, label: string, active: boolean): string {
+  return `
+    <button type="button" data-runtime-action="${escapeHtml(action)}" class="${active ? runtimeToolbarButtonActiveClass : runtimeToolbarButtonClass}">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+      ${escapeHtml(label)}${active ? ' (Active)' : ''}
+    </button>
+  `;
+}
+
 function renderBrowserToolbar(page: SourceListPage): string {
   const appliedQuery = page.applied_query ?? {};
+  const hasActiveFilters = !!(appliedQuery.provider_kind || appliedQuery.status || appliedQuery.has_pending_candidates);
+
   return `
-    <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-      <form data-runtime-form="source-browser" class="space-y-3">
-        <div class="flex flex-wrap gap-3">
-          <div class="flex-1 min-w-[200px]">
-            <label class="sr-only" for="browser-search">Search</label>
-            <div class="relative">
-              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
+    <div class="${runtimeToolbarCardClass}">
+      <form data-runtime-form="source-browser">
+        <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+          <div class="relative max-w-2xl w-full flex flex-col gap-2">
+            <div class="flex gap-2">
+              ${renderRuntimeFilterToggle('toggle-filters', 'Filter', hasActiveFilters)}
+              <div class="relative flex-1">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                </div>
+                <input type="search" id="browser-search" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources..." class="${runtimeToolbarTextInputClass}" />
               </div>
-              <input type="search" id="browser-search" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources..." class="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+
+            <div id="browser-filter-panel" class="hidden border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1" for="browser-provider">Provider</label>
+                  <select id="browser-provider" name="provider_kind" class="${runtimeToolbarSelectClass}">
+                    <option value="">All providers</option>
+                    <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
+                    <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1" for="browser-status">Status</label>
+                  <select id="browser-status" name="status" class="${runtimeToolbarSelectClass}">
+                    <option value="">All statuses</option>
+                    <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
+                    <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
+                    <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
+                  </select>
+                </div>
+                <div class="flex items-end">
+                  <label class="${runtimeToolbarCheckboxLabelClass}">
+                    <input type="checkbox" name="has_pending_candidates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_pending_candidates ? 'checked' : ''} />
+                    <span>Pending review</span>
+                  </label>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 pt-2 border-t border-gray-200">
+                <button type="submit" class="${runtimeToolbarPrimaryButtonClass}">
+                  Apply Filters
+                </button>
+                <button type="button" data-runtime-action="clear-browser-filters" class="${runtimeToolbarButtonClass}">
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
-          <div class="w-40">
-            <label class="sr-only" for="browser-provider">Provider</label>
-            <select id="browser-provider" name="provider_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value="">All providers</option>
-              <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
-              <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
-            </select>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button type="button" data-runtime-action="refresh" class="${runtimeToolbarButtonClass}">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
           </div>
-          <div class="w-36">
-            <label class="sr-only" for="browser-status">Status</label>
-            <select id="browser-status" name="status" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value="">All statuses</option>
-              <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
-              <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
-              <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
-            </select>
-          </div>
-          <label class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">
-            <input type="checkbox" name="has_pending_candidates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_pending_candidates ? 'checked' : ''} />
-            <span>Pending review</span>
-          </label>
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="submit" class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-            Apply
-          </button>
-          <button type="button" data-runtime-action="clear-browser-filters" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            Clear
-          </button>
-          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          </button>
         </div>
       </form>
     </div>
@@ -552,8 +591,8 @@ function renderBrowserTable(
   if (items.length === 0) {
     const emptyState = page.empty_state;
     return `
-      <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        ${toolbar}
+      ${toolbar}
+      <div class="${runtimeTableShellClass}">
         ${renderEmptyState(
           emptyState?.title ?? 'No sources found',
           emptyState?.description ?? 'Try adjusting your filters or search terms.',
@@ -574,25 +613,25 @@ function renderBrowserTable(
       const providerKind = item.provider?.kind ?? '';
       return `
         <tr class="hover:bg-gray-50">
-          <td class="px-4 py-3">
+          <td class="${runtimeTableCellClass}">
             <a href="${escapeHtml(detailHref)}" class="font-medium text-gray-900 hover:text-blue-600">${escapeHtml(item.source?.label ?? 'Untitled')}</a>
             <p class="mt-0.5 text-xs text-gray-500 font-mono">${escapeHtml(sourceID.substring(0, 12))}...</p>
           </td>
-          <td class="px-4 py-3">
+          <td class="${runtimeTableCellClass}">
             ${statusBadge(providerKind)}
             <p class="mt-0.5 text-xs text-gray-500">${escapeHtml(item.provider?.external_file_id ?? '-')}</p>
           </td>
-          <td class="px-4 py-3 text-sm text-gray-700">
+          <td class="${runtimeTableCellClass} text-sm text-gray-700">
             <p>${escapeHtml(item.latest_revision?.provider_revision_hint ?? '-')}</p>
-            <p class="mt-0.5 text-xs text-gray-500">${formatRelativeTime(item.latest_revision?.modified_time)}</p>
+            <p class="mt-0.5 text-xs text-gray-500">${formatDateTime(item.latest_revision?.modified_time)}</p>
           </td>
-          <td class="px-4 py-3">${statusBadge(item.status)}</td>
-          <td class="px-4 py-3 text-sm">
+          <td class="${runtimeTableCellClass}">${statusBadge(item.status)}</td>
+          <td class="${runtimeTableCellClass} text-sm">
             ${(item.pending_candidate_count ?? 0) > 0
               ? `<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">${item.pending_candidate_count} pending</span>`
               : '<span class="text-gray-400">-</span>'}
           </td>
-          <td class="px-4 py-3 text-right">
+          <td class="${runtimeTableCellClass} text-right">
             <a href="${escapeHtml(detailHref)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View</a>
           </td>
         </tr>
@@ -601,25 +640,25 @@ function renderBrowserTable(
     .join('');
 
   return `
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      ${toolbar}
+    ${toolbar}
+    <div class="${runtimeTableShellClass}">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Revision</th>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
-              <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Source</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Provider</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Latest Revision</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Status</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Review</th>
+              <th scope="col" class="${runtimeTableHeadCellClass} text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">${rows}</tbody>
         </table>
       </div>
-      ${renderPagination(page.page_info, 'source-browser-page')}
     </div>
+    ${renderPagination(page.page_info, 'source-browser-page')}
   `;
 }
 
@@ -1083,60 +1122,156 @@ function renderCommentInspector(page: SourceCommentPage): string {
 
 function renderSearchToolbar(page: Phase13SourceSearchResults): string {
   const appliedQuery = (page.applied_query ?? {}) as Phase13SourceSearchQuery;
+  const hasActiveFilters = !!(
+    appliedQuery.provider_kind ||
+    appliedQuery.status ||
+    appliedQuery.result_kind ||
+    appliedQuery.relationship_state ||
+    appliedQuery.comment_sync_status ||
+    appliedQuery.revision_hint ||
+    appliedQuery.has_comments
+  );
   return `
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-4">
-      <form data-runtime-form="source-search" class="space-y-3">
-        <div class="flex flex-wrap gap-3">
-          <div class="flex-1 min-w-[240px]">
-            <label class="sr-only" for="search-query">Search</label>
-            <div class="relative">
-              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
+    <div class="${runtimeToolbarCardClass}">
+      <form data-runtime-form="source-search">
+        <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+          <div class="relative max-w-2xl w-full flex flex-col gap-2">
+            <div class="flex gap-2">
+              ${renderRuntimeFilterToggle('toggle-search-filters', 'Filter', hasActiveFilters)}
+              <div class="relative flex-1">
+                <label class="sr-only" for="search-query">Search</label>
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                </div>
+                <input type="search" id="search-query" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources, revisions, comments..." class="${runtimeToolbarTextInputClass}" />
               </div>
-              <input type="search" id="search-query" name="q" value="${escapeHtml(appliedQuery.query ?? '')}" placeholder="Search sources, revisions, comments..." class="block w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div id="search-filter-panel" class="hidden border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1" for="search-provider-kind">Provider</label>
+                  <select id="search-provider-kind" name="provider_kind" class="${runtimeToolbarSelectClass}">
+                    <option value="">All providers</option>
+                    <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
+                    <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1" for="search-status">Status</label>
+                  <select id="search-status" name="status" class="${runtimeToolbarSelectClass}">
+                    <option value="">All statuses</option>
+                    <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
+                    <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
+                    <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1" for="search-result-kind">Type</label>
+                  <select id="search-result-kind" name="result_kind" class="${runtimeToolbarSelectClass}">
+                    <option value="">All types</option>
+                    <option value="${SEARCH_RESULT_KIND.SOURCE_DOCUMENT}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_DOCUMENT ? 'selected' : ''}>Sources</option>
+                    <option value="${SEARCH_RESULT_KIND.SOURCE_REVISION}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_REVISION ? 'selected' : ''}>Revisions</option>
+                  </select>
+                </div>
+                <div class="flex items-end">
+                  <label class="${runtimeToolbarCheckboxLabelClass}">
+                    <input type="checkbox" name="has_comments" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_comments ? 'checked' : ''} />
+                    <span>Has comments</span>
+                  </label>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 pt-2 border-t border-gray-200">
+                <button type="submit" class="${runtimeToolbarPrimaryButtonClass}">
+                  Apply Filters
+                </button>
+                <button type="button" data-runtime-action="clear-search-filters" class="${runtimeToolbarButtonClass}">
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
-          <button type="submit" class="inline-flex items-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-            Search
-          </button>
-        </div>
-        <div class="flex flex-wrap gap-3">
-          <div class="w-40">
-            <select name="provider_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value="">All providers</option>
-              <option value="google_docs" ${appliedQuery.provider_kind === 'google_docs' ? 'selected' : ''}>Google Docs</option>
-              <option value="google_drive" ${appliedQuery.provider_kind === 'google_drive' ? 'selected' : ''}>Google Drive</option>
-            </select>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button type="submit" class="${runtimeToolbarPrimaryButtonClass}">
+              Search
+            </button>
+            <button type="button" data-runtime-action="refresh" class="${runtimeToolbarButtonClass}">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
           </div>
-          <div class="w-32">
-            <select name="status" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value="">All statuses</option>
-              <option value="active" ${appliedQuery.status === 'active' ? 'selected' : ''}>Active</option>
-              <option value="pending" ${appliedQuery.status === 'pending' ? 'selected' : ''}>Pending</option>
-              <option value="archived" ${appliedQuery.status === 'archived' ? 'selected' : ''}>Archived</option>
-            </select>
-          </div>
-          <div class="w-36">
-            <select name="result_kind" class="block w-full rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value="">All types</option>
-              <option value="${SEARCH_RESULT_KIND.SOURCE_DOCUMENT}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_DOCUMENT ? 'selected' : ''}>Sources</option>
-              <option value="${SEARCH_RESULT_KIND.SOURCE_REVISION}" ${appliedQuery.result_kind === SEARCH_RESULT_KIND.SOURCE_REVISION ? 'selected' : ''}>Revisions</option>
-            </select>
-          </div>
-          <label class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">
-            <input type="checkbox" name="has_comments" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${appliedQuery.has_comments ? 'checked' : ''} />
-            <span>Has comments</span>
-          </label>
-          <button type="button" data-runtime-action="clear-search-filters" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            Clear
-          </button>
-          <button type="button" data-runtime-action="refresh" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          </button>
         </div>
       </form>
+    </div>
+  `;
+}
+
+function renderSearchTable(
+  items: Phase13SourceSearchResultSummary[],
+  routes: Record<string, string>,
+  config: SourceManagementRuntimePageConfig
+): string {
+  const rows = items
+    .map((item: Phase13SourceSearchResultSummary) => {
+      const href = resolveSearchResultRuntimeHref(item, {
+        base_path: config.base_path,
+        api_base_path: config.api_base_path,
+        routes,
+      });
+      const matchedFields = item.matched_fields ?? [];
+      const sourceIdentifier = String(item.source?.id ?? '').trim();
+      const revisionIdentifier = String(item.revision?.id ?? '').trim();
+      const commentCount = Number(item.comment_count ?? 0);
+      const identifierParts = [sourceIdentifier, revisionIdentifier].filter((value) => value.length > 0);
+
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="${runtimeTableCellClass}">
+            <a href="${escapeHtml(href)}" class="font-medium text-gray-900 hover:text-blue-600">${escapeHtml(item.summary ?? item.source?.label ?? 'Result')}</a>
+            ${identifierParts.length > 0 ? `<p class="mt-0.5 text-xs text-gray-500 font-mono">${escapeHtml(identifierParts.join(' / '))}</p>` : ''}
+          </td>
+          <td class="${runtimeTableCellClass}">
+            ${statusBadge(item.result_kind)}
+          </td>
+          <td class="${runtimeTableCellClass}">
+            ${statusBadge(item.provider?.kind)}
+          </td>
+          <td class="${runtimeTableCellClass}">
+            ${matchedFields.length > 0
+              ? `<div class="flex flex-wrap gap-1">${matchedFields.map((field: string) => `<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Matched: ${escapeHtml(field)}</span>`).join('')}</div>`
+              : '<span class="text-gray-400">-</span>'}
+          </td>
+          <td class="${runtimeTableCellClass}">
+            ${commentCount > 0
+              ? `<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">${commentCount} comment${commentCount !== 1 ? 's' : ''}</span>`
+              : '<span class="text-gray-400">-</span>'}
+          </td>
+          <td class="${runtimeTableCellClass} text-right">
+            <a href="${escapeHtml(href)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="${runtimeTableShellClass}">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Result</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Type</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Provider</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Matched</th>
+              <th scope="col" class="${runtimeTableHeadCellClass}">Comments</th>
+              <th scope="col" class="${runtimeTableHeadCellClass} text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">${rows}</tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -1153,52 +1288,19 @@ function renderSearchResults(
     const emptyState = page.empty_state;
     return `
       ${toolbar}
-      ${renderEmptyState(
-        emptyState?.title ?? 'No results found',
-        emptyState?.description ?? 'Try adjusting your search terms or filters.',
-        false
-      )}
+      <div class="${runtimeTableShellClass}">
+        ${renderEmptyState(
+          emptyState?.title ?? 'No results found',
+          emptyState?.description ?? 'Try adjusting your search terms or filters.',
+          false
+        )}
+      </div>
     `;
   }
 
-  const resultCards = items
-    .map((item: Phase13SourceSearchResultSummary) => {
-      const href = resolveSearchResultRuntimeHref(item, {
-        base_path: config.base_path,
-        api_base_path: config.api_base_path,
-        routes,
-      });
-      const matchedFields = item.matched_fields ?? [];
-      const commentCount = item.comment_count;
-      const hasComments = commentCount !== undefined && commentCount > 0;
-
-      return `
-        <a href="${escapeHtml(href)}" class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-sm transition-all">
-          <div class="flex items-start justify-between">
-            <div class="flex flex-wrap gap-2">
-              ${statusBadge(item.result_kind)}
-              ${statusBadge(item.provider?.kind)}
-            </div>
-            ${hasComments ? `<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">${commentCount} comment${commentCount !== 1 ? 's' : ''}</span>` : ''}
-          </div>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(item.summary ?? item.source?.label ?? 'Result')}</h3>
-          <p class="mt-1 text-sm text-gray-500">${escapeHtml(item.source?.id ?? '')}</p>
-          ${matchedFields.length > 0 ? `
-            <div class="mt-2 flex flex-wrap gap-1">
-              ${matchedFields.map((field: string) => `<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Matched: ${escapeHtml(field)}</span>`).join('')}
-            </div>
-          ` : ''}
-        </a>
-      `;
-    })
-    .join('');
-
   return `
     ${toolbar}
-    <div class="mb-4 flex items-center justify-between">
-      <p class="text-sm text-gray-500">${page.page_info?.total_count ?? items.length} result${(page.page_info?.total_count ?? items.length) !== 1 ? 's' : ''}</p>
-    </div>
-    <div class="grid gap-3">${resultCards}</div>
+    ${renderSearchTable(items, routes, config)}
     ${renderPagination(page.page_info, 'source-search-page')}
   `;
 }
@@ -1218,32 +1320,59 @@ function renderPagination(
   const end = Math.min(page * pageSize, totalCount);
 
   return `
-    <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 mt-4 rounded-b-xl">
-      <div class="text-sm text-gray-500">
-        Showing <span class="font-medium">${start}</span> to <span class="font-medium">${end}</span> of <span class="font-medium">${totalCount}</span>
-      </div>
-      <div class="flex gap-2">
-        <button
-          type="button"
-          data-runtime-action="${escapeHtml(action)}"
-          data-page="${page - 1}"
-          class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          ${page <= 1 ? 'disabled' : ''}
-        >
-          Previous
-        </button>
-        <span class="inline-flex items-center px-3 py-1.5 text-sm text-gray-500">
-          Page ${page} of ${totalPages}
-        </span>
-        <button
-          type="button"
-          data-runtime-action="${escapeHtml(action)}"
-          data-page="${page + 1}"
-          class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          ${page >= totalPages ? 'disabled' : ''}
-        >
-          Next
-        </button>
+    <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+      <div class="flex items-center justify-between gap-4">
+        <!-- Left: Info text -->
+        <div class="flex-shrink-0">
+          <p class="text-sm text-gray-600">
+            Showing <span class="font-medium">${start}</span> to
+            <span class="font-medium">${end}</span> of
+            <span class="font-medium">${totalCount}</span>
+          </p>
+        </div>
+
+        <!-- Center: Pagination buttons -->
+        <div class="flex-1 flex justify-center">
+          <nav class="flex items-center gap-x-1" aria-label="Pagination">
+            <button
+              type="button"
+              data-runtime-action="${escapeHtml(action)}"
+              data-page="${page - 1}"
+              class="${runtimeToolbarButtonClass} disabled:opacity-50 disabled:pointer-events-none"
+              ${page <= 1 ? 'disabled' : ''}
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              <span class="sr-only sm:not-sr-only">Previous</span>
+            </button>
+            <span class="px-4 py-2 text-sm font-medium text-gray-700">
+              Page ${page} of ${totalPages}
+            </span>
+            <button
+              type="button"
+              data-runtime-action="${escapeHtml(action)}"
+              data-page="${page + 1}"
+              class="${runtimeToolbarButtonClass} disabled:opacity-50 disabled:pointer-events-none"
+              ${page >= totalPages ? 'disabled' : ''}
+            >
+              <span class="sr-only sm:not-sr-only">Next</span>
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Right: Per Page selector -->
+        <div class="flex items-center gap-x-2 flex-shrink-0">
+          <span class="text-sm text-gray-600 whitespace-nowrap">Per page:</span>
+          <select
+            data-runtime-action="${escapeHtml(action)}-page-size"
+            class="py-2 px-3 pe-9 block border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
+            <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
+            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+            <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+          </select>
+        </div>
       </div>
     </div>
   `;
@@ -1301,6 +1430,22 @@ export class SourceManagementRuntimeController {
         if (action === 'clear-browser-filters') {
           event.preventDefault();
           void this.clearBrowserFilters();
+          return;
+        }
+        if (action === 'toggle-filters') {
+          event.preventDefault();
+          const filterPanel = this.root.querySelector('#browser-filter-panel');
+          if (filterPanel) {
+            filterPanel.classList.toggle('hidden');
+          }
+          return;
+        }
+        if (action === 'toggle-search-filters') {
+          event.preventDefault();
+          const filterPanel = this.root.querySelector('#search-filter-panel');
+          if (filterPanel) {
+            filterPanel.classList.toggle('hidden');
+          }
           return;
         }
         if (action === 'clear-search-filters') {
@@ -1363,6 +1508,31 @@ export class SourceManagementRuntimeController {
             result_kind: stringOrUndefined(payload.get('result_kind')),
             has_comments: payload.get('has_comments') ? true : undefined,
           });
+        }
+      },
+      { signal: this.abortController.signal }
+    );
+
+    // Handle page size changes
+    this.root.addEventListener(
+      'change',
+      (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLSelectElement)) {
+          return;
+        }
+        const action = target.dataset.runtimeAction ?? '';
+        if (action === 'source-browser-page-page-size') {
+          const pageSize = Number.parseInt(target.value, 10);
+          if (Number.isFinite(pageSize) && pageSize > 0) {
+            void this.changePageSize('source-browser', pageSize);
+          }
+        }
+        if (action === 'source-search-page-page-size') {
+          const pageSize = Number.parseInt(target.value, 10);
+          if (Number.isFinite(pageSize) && pageSize > 0) {
+            void this.changePageSize('source-search', pageSize);
+          }
         }
       },
       { signal: this.abortController.signal }
@@ -1675,6 +1845,15 @@ export class SourceManagementRuntimeController {
       return;
     }
     await this.liveController.applyFilters(filters);
+  }
+
+  private async changePageSize(target: 'source-browser' | 'source-search', pageSize: number): Promise<void> {
+    if (target === 'source-browser' && this.liveController instanceof SourceBrowserPageController) {
+      await this.liveController.applyFilters({ page_size: pageSize, page: 1 });
+    }
+    if (target === 'source-search' && this.liveController instanceof SourceSearchPageController) {
+      await this.liveController.applyFilters({ page_size: pageSize, page: 1 });
+    }
   }
 }
 

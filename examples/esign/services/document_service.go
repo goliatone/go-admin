@@ -262,10 +262,7 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 
 func (s DocumentService) createLineageBackedDocument(ctx context.Context, scope stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
 	if s.txActive {
-		documentStore, ok := s.store.(stores.DocumentStore)
-		if !ok {
-			return stores.DocumentRecord{}, domainValidationError("documents", "store", "transaction document store not configured")
-		}
+		documentStore := s.store
 		lineage, ok := s.store.(stores.LineageStore)
 		if !ok {
 			return documentStore.Create(ctx, scope, record)

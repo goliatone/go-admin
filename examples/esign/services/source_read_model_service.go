@@ -598,11 +598,6 @@ func (s DefaultSourceReadModelService) fingerprintStateForRevision(ctx context.C
 	return fingerprintStateFromRecords(sourceRevision, fingerprints, jobRuns)
 }
 
-func (s DefaultSourceReadModelService) fingerprintStatusForRevision(ctx context.Context, scope stores.Scope, sourceRevision stores.SourceRevisionRecord) FingerprintStatusSummary {
-	status, _ := s.fingerprintStateForRevision(ctx, scope, sourceRevision)
-	return status
-}
-
 func (s DefaultSourceReadModelService) diagnosticsURL(resource, id string) string {
 	resource = strings.TrimSpace(resource)
 	id = strings.TrimSpace(id)

@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 )
@@ -15,10 +16,12 @@ func SetupSettings(adm *admin.Admin) {
 		settings.RegisterDefinition(def)
 	}
 
-	settings.Apply(context.Background(), admin.SettingsBundle{
+	if err := settings.Apply(context.Background(), admin.SettingsBundle{
 		Scope:  admin.SettingsScopeSystem,
 		Values: defaultSystemSettings(),
-	})
+	}); err != nil {
+		log.Printf("setup settings apply failed: %v", err)
+	}
 }
 
 func settingsDefinitions() []admin.SettingDefinition {

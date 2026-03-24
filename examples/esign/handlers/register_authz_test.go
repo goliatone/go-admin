@@ -262,11 +262,6 @@ func (p *sharedDriveEdgeProvider) DownloadFilePDF(_ context.Context, _ string, f
 	return services.GoogleExportSnapshot{File: file, PDF: pdf}, nil
 }
 
-//go:fix inline
-func strPtr(value string) *string {
-	return new(value)
-}
-
 func toString(value any) string {
 	if value == nil {
 		return ""
@@ -480,6 +475,7 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 		WithAgreementStatsService(agreementStatsStub{
 			records: []stores.AgreementRecord{
 				{Status: stores.AgreementStatusDraft},
+				{Status: stores.AgreementStatusDraft, ReviewStatus: stores.AgreementReviewStatusChangesRequested},
 				{Status: stores.AgreementStatusSent},
 				{Status: stores.AgreementStatusInProgress},
 				{Status: stores.AgreementStatusCompleted},
@@ -504,7 +500,7 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 		t.Fatalf("read response body: %v", err)
 	}
 	payload := string(body)
-	if !strings.Contains(payload, `"draft":1`) {
+	if !strings.Contains(payload, `"draft":2`) {
 		t.Fatalf("expected draft count in payload, got %s", payload)
 	}
 	if !strings.Contains(payload, `"pending":2`) {
@@ -513,7 +509,7 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 	if !strings.Contains(payload, `"completed":1`) {
 		t.Fatalf("expected completed count in payload, got %s", payload)
 	}
-	if !strings.Contains(payload, `"action_required":3`) {
+	if !strings.Contains(payload, `"action_required":4`) {
 		t.Fatalf("expected action_required count in payload, got %s", payload)
 	}
 }

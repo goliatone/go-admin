@@ -23,12 +23,6 @@ var validSourceCommentAnchorKinds = map[string]struct{}{
 	SourceCommentAnchorKindTextRange: {},
 }
 
-var validSourceCommentAuthorTypes = map[string]struct{}{
-	SourceCommentAuthorTypeUser:    {},
-	SourceCommentAuthorTypeSystem:  {},
-	SourceCommentAuthorTypeUnknown: {},
-}
-
 var validSourceCommentSyncStatuses = map[string]struct{}{
 	SourceCommentSyncStatusNotConfigured: {},
 	SourceCommentSyncStatusPending:       {},

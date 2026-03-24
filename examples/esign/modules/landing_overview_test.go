@@ -113,6 +113,68 @@ func TestLandingOverviewBuildsStatsAndRecentRows(t *testing.T) {
 	}
 }
 
+func TestLandingOverviewUsesReviewPresentationStatusForRecentRows(t *testing.T) {
+	ctx := context.Background()
+	scope := defaultModuleScope
+	store := stores.NewInMemoryStore()
+
+	module := &ESignModule{
+		store:        store,
+		defaultScope: scope,
+	}
+
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                 "doc-landing-review-status",
+		Title:              "Landing Review Status Source",
+		SourceObjectKey:    "tenant/tenant-bootstrap/org/org-bootstrap/docs/landing-review-status.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("b", 64),
+		SizeBytes:          1024,
+		PageCount:          1,
+	})
+	if err != nil {
+		t.Fatalf("create document: %v", err)
+	}
+
+	reviewStatus := stores.AgreementReviewStatusChangesRequested
+	agreement, err := store.CreateDraft(ctx, scope, stores.AgreementRecord{
+		ID:           "agreement-landing-changes-requested",
+		DocumentID:   document.ID,
+		Title:        "Needs Review Updates",
+		ReviewStatus: reviewStatus,
+	})
+	if err != nil {
+		t.Fatalf("create agreement: %v", err)
+	}
+	addRecipientToAgreement(t, store, scope, agreement.ID, "reviewer@example.com", "Reviewer")
+
+	_, recent, err := module.LandingOverview(ctx, scope, 1)
+	if err != nil {
+		t.Fatalf("LandingOverview: %v", err)
+	}
+	if len(recent) != 1 {
+		t.Fatalf("expected 1 recent agreement, got %d (%+v)", len(recent), recent)
+	}
+	if got := strings.TrimSpace(toString(recent[0]["status"])); got != stores.AgreementStatusDraft {
+		t.Fatalf("expected raw status %q, got %q", stores.AgreementStatusDraft, got)
+	}
+	if got := strings.TrimSpace(toString(recent[0]["presentation_status"])); got != stores.AgreementReviewStatusChangesRequested {
+		t.Fatalf("expected presentation_status %q, got %q", stores.AgreementReviewStatusChangesRequested, got)
+	}
+	if got := toInt(statsValueForTest(t, module, ctx, scope, "action_required")); got != 1 {
+		t.Fatalf("expected action_required=1 for changes requested agreement, got %d", got)
+	}
+}
+
+func statsValueForTest(t *testing.T, module *ESignModule, ctx context.Context, scope stores.Scope, key string) any {
+	t.Helper()
+	stats, _, err := module.LandingOverview(ctx, scope, 1)
+	if err != nil {
+		t.Fatalf("LandingOverview stats: %v", err)
+	}
+	return stats[key]
+}
+
 func addRecipientToAgreement(t *testing.T, store *stores.InMemoryStore, scope stores.Scope, agreementID, email, name string) {
 	t.Helper()
 	role := stores.RecipientRoleSigner

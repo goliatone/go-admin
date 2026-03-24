@@ -18,10 +18,12 @@ const (
 	GoogleProviderModeReal          = "real"
 	GoogleProviderModeDeterministic = "deterministic"
 
-	EnvGoogleProviderMode       = "APP_GOOGLE__PROVIDER_MODE"
-	EnvGoogleClientID           = "APP_GOOGLE__CLIENT_ID"
-	EnvGoogleClientSecret       = "APP_GOOGLE__CLIENT_SECRET"
-	EnvGoogleOAuthRedirectURI   = "APP_GOOGLE__OAUTH_REDIRECT_URI"
+	EnvGoogleProviderMode = "APP_GOOGLE__PROVIDER_MODE"
+	EnvGoogleClientID     = "APP_GOOGLE__CLIENT_ID"
+	// #nosec G101 -- configuration key name, not an embedded credential.
+	EnvGoogleClientSecret     = "APP_GOOGLE__CLIENT_SECRET"
+	EnvGoogleOAuthRedirectURI = "APP_GOOGLE__OAUTH_REDIRECT_URI"
+	// #nosec G101 -- OAuth endpoint constant, not a credential.
 	EnvGoogleTokenEndpoint      = "APP_GOOGLE__TOKEN_ENDPOINT"
 	EnvGoogleRevokeEndpoint     = "APP_GOOGLE__REVOKE_ENDPOINT"
 	EnvGoogleDriveBaseURL       = "APP_GOOGLE__DRIVE_BASE_URL"
@@ -31,6 +33,7 @@ const (
 )
 
 const (
+	// #nosec G101 -- OAuth endpoint constant, not a credential.
 	defaultGoogleTokenEndpoint      = "https://oauth2.googleapis.com/token"
 	defaultGoogleRevokeEndpoint     = "https://oauth2.googleapis.com/revoke"
 	defaultGoogleDriveBaseURL       = "https://www.googleapis.com/drive/v3"

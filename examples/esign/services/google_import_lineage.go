@@ -492,17 +492,6 @@ func candidateWarningsFromRelationship(relationship *stores.SourceRelationshipRe
 	return []CandidateWarningSummary{summary}
 }
 
-func candidateWarningsJSON(warnings []CandidateWarningSummary) string {
-	if len(warnings) == 0 {
-		return "[]"
-	}
-	encoded, err := json.Marshal(warnings)
-	if err != nil {
-		return "[]"
-	}
-	return string(encoded)
-}
-
 func detailURL(resource, id string) string {
 	resource = strings.TrimSpace(resource)
 	id = strings.TrimSpace(id)

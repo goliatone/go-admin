@@ -23,8 +23,8 @@ func TestGoogleImportRunRecordToMapIncludesLineageTransportFields(t *testing.T) 
 		LineageStatus:       "linked",
 		FingerprintStatus:   "pending",
 		CandidateStatusJSON: `[{"id":"rel-1","relationship_type":"same_logical_doc","status":"pending_review","confidence_band":"medium","summary":"review"}]`,
-		DocumentDetailURL:   "/admin/content/esign_documents/doc-1",
-		AgreementDetailURL:  "/admin/content/esign_agreements/agr-1",
+		DocumentDetailURL:   "/admin/content/documents/doc-1",
+		AgreementDetailURL:  "/admin/content/agreements/agr-1",
 		CreatedAt:           now,
 		UpdatedAt:           now,
 	})

@@ -35,6 +35,12 @@ func TestWithESignPageConfigAddsContractPayload(t *testing.T) {
 	}
 }
 
+func TestRawToStringNilReturnsEmptyString(t *testing.T) {
+	if got := rawToString(nil); got != "" {
+		t.Fatalf("expected rawToString(nil) to return empty string, got %q", got)
+	}
+}
+
 func TestBuildESignDocumentIngestionPageConfigIncludesFeatureFlagsAndRoutes(t *testing.T) {
 	cfg := buildESignDocumentIngestionPageConfig(
 		"/admin",

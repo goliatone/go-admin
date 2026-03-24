@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	uiplacement "github.com/goliatone/go-admin/ui/placement"
@@ -655,83 +656,18 @@ func toAnySlice(raw any) []any {
 }
 
 func toStringSlice(raw any) []string {
-	switch value := raw.(type) {
-	case []string:
-		return value
-	case []any:
-		out := make([]string, 0, len(value))
-		for _, item := range value {
-			text := chartString(item, "")
-			if text != "" {
-				out = append(out, text)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
+	return primitives.StringSliceFromAny(raw)
 }
 
 func toFloat64(raw any) (float64, bool) {
-	switch value := raw.(type) {
-	case float64:
-		return value, true
-	case float32:
-		return float64(value), true
-	case int:
-		return float64(value), true
-	case int8:
-		return float64(value), true
-	case int16:
-		return float64(value), true
-	case int32:
-		return float64(value), true
-	case int64:
-		return float64(value), true
-	case uint:
-		return float64(value), true
-	case uint8:
-		return float64(value), true
-	case uint16:
-		return float64(value), true
-	case uint32:
-		return float64(value), true
-	case uint64:
-		return float64(value), true
-	default:
-		return 0, false
-	}
+	return primitives.Float64FromAny(raw)
 }
 
 func intFromAny(raw any) int {
-	switch value := raw.(type) {
-	case int:
+	if value, ok := primitives.IntFromAny(raw); ok {
 		return value
-	case int8:
-		return int(value)
-	case int16:
-		return int(value)
-	case int32:
-		return int(value)
-	case int64:
-		return int(value)
-	case uint:
-		return int(value)
-	case uint8:
-		return int(value)
-	case uint16:
-		return int(value)
-	case uint32:
-		return int(value)
-	case uint64:
-		return int(value)
-	case float32:
-		return int(value)
-	case float64:
-		return int(value)
-	default:
-		return 0
 	}
+	return 0
 }
 
 func toStringMap(raw map[string]any) map[string]string {

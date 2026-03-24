@@ -8,6 +8,7 @@ import (
 	"time"
 
 	admin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 type exampleSiteSearchProvider struct {
@@ -452,56 +453,11 @@ func nestedMapValue(values map[string]any, key string) any {
 }
 
 func toString(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return ""
-	case string:
-		return typed
-	default:
-		return fmt.Sprint(typed)
-	}
+	return primitives.StringFromAny(value)
 }
 
 func toStringSlice(value any) []string {
-	switch typed := value.(type) {
-	case nil:
-		return nil
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			trimmed := strings.TrimSpace(item)
-			if trimmed == "" {
-				continue
-			}
-			out = append(out, trimmed)
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			trimmed := strings.TrimSpace(fmt.Sprint(item))
-			if trimmed == "" {
-				continue
-			}
-			out = append(out, trimmed)
-		}
-		return out
-	default:
-		trimmed := strings.TrimSpace(fmt.Sprint(typed))
-		if trimmed == "" {
-			return nil
-		}
-		parts := strings.Split(trimmed, ",")
-		out := make([]string, 0, len(parts))
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part == "" {
-				continue
-			}
-			out = append(out, part)
-		}
-		return out
-	}
+	return primitives.CSVStringSliceFromAny(value)
 }
 
 func containsFold(values []string, target string) bool {

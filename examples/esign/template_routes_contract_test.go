@@ -112,6 +112,12 @@ func TestESignSourceManagementRuntimeTemplateUsesServerAuthoredBootstrapPayloads
 	if strings.Count(template, `<script type="module" src="`) != 1 {
 		t.Fatal("expected source-management runtime template to load the e-sign module exactly once")
 	}
+	if strings.Contains(template, "max-w-7xl mx-auto") {
+		t.Fatal("expected source-management runtime template to use the shared full-width admin shell instead of a custom max-width wrapper")
+	}
+	if !strings.Contains(template, `btn btn-primary`) || !strings.Contains(template, `btn btn-secondary`) {
+		t.Fatal("expected source-management runtime template header actions to use shared admin button styles")
+	}
 }
 
 func mustReadESignTemplate(t *testing.T, name string) string {

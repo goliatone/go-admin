@@ -2051,7 +2051,7 @@ func TestAgreementPanelRepositoryListDefaultsToCurrentAgreementVersions(t *testi
 		t.Fatalf("expected current agreements amendment and standalone, got %q", got)
 	}
 
-	records, total, err = repo.List(context.Background(), coreadmin.ListOptions{
+	_, total, err = repo.List(context.Background(), coreadmin.ListOptions{
 		Filters: map[string]any{"version_visibility": "all"},
 	})
 	if err != nil {
@@ -2074,6 +2074,126 @@ func TestAgreementPanelRepositoryListDefaultsToCurrentAgreementVersions(t *testi
 	sort.Strings(previousIDs)
 	if got := strings.Join(previousIDs, ","); got != "agreement-correction,agreement-root" {
 		t.Fatalf("expected previous agreements root and correction, got %q", got)
+	}
+}
+
+func TestAgreementPanelRepositoryListSupportsStatusSetsAndActionRequiredFilter(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-agreement-filter-1")
+	now := time.Date(2026, 3, 23, 2, 11, 47, 0, time.UTC)
+
+	for _, record := range []stores.AgreementRecord{
+		{
+			ID:         "agreement-filter-draft",
+			DocumentID: "doc-agreement-filter-1",
+			Title:      "Plain Draft",
+			Status:     stores.AgreementStatusDraft,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		},
+		{
+			ID:           "agreement-filter-changes-requested",
+			DocumentID:   "doc-agreement-filter-1",
+			Title:        "Changes Requested",
+			Status:       stores.AgreementStatusDraft,
+			ReviewStatus: stores.AgreementReviewStatusChangesRequested,
+			CreatedAt:    now.Add(1 * time.Minute),
+			UpdatedAt:    now.Add(1 * time.Minute),
+		},
+		{
+			ID:         "agreement-filter-sent",
+			DocumentID: "doc-agreement-filter-1",
+			Title:      "Sent Agreement",
+			Status:     stores.AgreementStatusDraft,
+			CreatedAt:  now.Add(2 * time.Minute),
+			UpdatedAt:  now.Add(2 * time.Minute),
+		},
+		{
+			ID:         "agreement-filter-in-progress",
+			DocumentID: "doc-agreement-filter-1",
+			Title:      "In Progress Agreement",
+			Status:     stores.AgreementStatusDraft,
+			CreatedAt:  now.Add(3 * time.Minute),
+			UpdatedAt:  now.Add(3 * time.Minute),
+		},
+		{
+			ID:         "agreement-filter-declined",
+			DocumentID: "doc-agreement-filter-1",
+			Title:      "Declined Agreement",
+			Status:     stores.AgreementStatusDraft,
+			CreatedAt:  now.Add(4 * time.Minute),
+			UpdatedAt:  now.Add(4 * time.Minute),
+		},
+		{
+			ID:         "agreement-filter-completed",
+			DocumentID: "doc-agreement-filter-1",
+			Title:      "Completed Agreement",
+			Status:     stores.AgreementStatusDraft,
+			CreatedAt:  now.Add(5 * time.Minute),
+			UpdatedAt:  now.Add(5 * time.Minute),
+		},
+	} {
+		if _, err := store.CreateDraft(context.Background(), scope, record); err != nil {
+			t.Fatalf("seed agreement %s: %v", record.ID, err)
+		}
+	}
+	for agreementID, status := range map[string]string{
+		"agreement-filter-sent":        stores.AgreementStatusSent,
+		"agreement-filter-in-progress": stores.AgreementStatusInProgress,
+		"agreement-filter-declined":    stores.AgreementStatusDeclined,
+		"agreement-filter-completed":   stores.AgreementStatusCompleted,
+	} {
+		if _, err := store.Transition(context.Background(), scope, agreementID, stores.AgreementTransitionInput{ToStatus: status}); err != nil {
+			t.Fatalf("transition agreement %s to %s: %v", agreementID, status, err)
+		}
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{
+		Filters: map[string]any{
+			"version_visibility": "all",
+			"status":             "sent,in_progress",
+		},
+	})
+	if err != nil {
+		t.Fatalf("List status set filter: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 records for sent/in_progress filter, got %d", total)
+	}
+	statusIDs := extractRecordIDs(toAnySlice(records))
+	sort.Strings(statusIDs)
+	if got := strings.Join(statusIDs, ","); got != "agreement-filter-in-progress,agreement-filter-sent" {
+		t.Fatalf("expected sent and in-progress agreements, got %q", got)
+	}
+
+	records, total, err = repo.List(context.Background(), coreadmin.ListOptions{
+		Filters: map[string]any{
+			"version_visibility": "all",
+			"action_required":    "true",
+		},
+	})
+	if err != nil {
+		t.Fatalf("List action_required filter: %v", err)
+	}
+	if total != 4 {
+		t.Fatalf("expected 4 action-required records, got %d", total)
+	}
+	actionIDs := extractRecordIDs(toAnySlice(records))
+	sort.Strings(actionIDs)
+	if got := strings.Join(actionIDs, ","); got != "agreement-filter-changes-requested,agreement-filter-declined,agreement-filter-in-progress,agreement-filter-sent" {
+		t.Fatalf("expected action-required agreements, got %q", got)
 	}
 }
 

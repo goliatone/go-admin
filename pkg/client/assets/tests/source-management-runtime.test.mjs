@@ -11,6 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const {
+  SourceManagementRuntimeController,
   SourceBrowserPageController,
   SourceSearchPageController,
   SourceWorkspacePageController,
@@ -104,6 +105,16 @@ function createHistoryStub(calls) {
   return {
     pushState(_state, _title, url) {
       calls.push(String(url));
+    },
+  };
+}
+
+function createRuntimeRootStub() {
+  return {
+    innerHTML: '',
+    addEventListener() {},
+    querySelector() {
+      return null;
     },
   };
 }
@@ -273,6 +284,42 @@ test('search controller returns empty state with applied_query for filter visibi
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('runtime browser renderer uses shared table shell classes', () => {
+  const root = createRuntimeRootStub();
+  const controller = new SourceManagementRuntimeController({
+    page: 'admin.sources.browser',
+    config: { routes: {}, api_base_path: '/admin/api/v1/esign' },
+    model: { contract: SOURCE_LIST_SINGLE },
+    marker: {},
+    root,
+  });
+
+  controller.renderFromModel();
+
+  assert.match(root.innerHTML, /rounded-xl mb-4 p-4 shadow-sm/, 'browser toolbar should use shared list shell card');
+  assert.match(root.innerHTML, /<table class="min-w-full divide-y divide-gray-200">/, 'browser surface should render a table');
+  assert.match(root.innerHTML, />Actions</, 'browser surface should render an actions header');
+  assert.match(root.innerHTML, /px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider/, 'browser headers should use shared table spacing');
+});
+
+test('runtime search renderer uses table results instead of bespoke cards', () => {
+  const root = createRuntimeRootStub();
+  const controller = new SourceManagementRuntimeController({
+    page: 'admin.sources.search',
+    config: { routes: {}, api_base_path: '/admin/api/v1/esign' },
+    model: { contract: SEARCH_RESULTS },
+    marker: {},
+    root,
+  });
+
+  controller.renderFromModel();
+
+  assert.match(root.innerHTML, /rounded-xl mb-4 p-4 shadow-sm/, 'search toolbar should use shared list shell card');
+  assert.match(root.innerHTML, /<table class="min-w-full divide-y divide-gray-200">/, 'search surface should render table results');
+  assert.match(root.innerHTML, />Matched</, 'search surface should expose table columns for result metadata');
+  assert.doesNotMatch(root.innerHTML, /class="block bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-sm transition-all"/, 'search surface should no longer render bespoke result cards');
 });
 
 // ============================================================================

@@ -19,7 +19,6 @@ import (
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
 	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
 	"github.com/goliatone/go-admin/quickstart"
-	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
@@ -885,34 +884,6 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 	}
 }
 
-func requireAdminPermissions(cfg registerConfig, permissions ...string) router.MiddlewareFunc {
-	required := make([]string, 0, len(permissions))
-	for _, permission := range permissions {
-		if trimmed := strings.TrimSpace(permission); trimmed != "" {
-			required = append(required, trimmed)
-		}
-	}
-	return func(next router.HandlerFunc) router.HandlerFunc {
-		return func(c router.Context) error {
-			for _, permission := range required {
-				if cfg.authorizer != nil && !authorizerAllows(c, cfg.authorizer, permission) {
-					cfg.logSecurityEvent("admin.authz.denied", map[string]any{
-						"permission": permission,
-						"path":       c.Path(),
-						"method":     c.Method(),
-						"ip":         resolveAuditRequestIP(c, cfg),
-					})
-					return writePermissionDenied(c, permission)
-				}
-			}
-			if err := enforceScopeBoundary(c, cfg); err != nil {
-				return asHandlerError(err)
-			}
-			return next(c)
-		}
-	}
-}
-
 func writePermissionDenied(c router.Context, permission string) error {
 	return writeAPIError(c, goerrors.New("permission denied", goerrors.CategoryAuthz).
 		WithCode(http.StatusForbidden).
@@ -996,16 +967,6 @@ func scopeConflict(actor, request stores.Scope) bool {
 		return true
 	}
 	return false
-}
-
-func validateSignerToken(c router.Context, cfg registerConfig, rawToken string) error {
-	_, err := resolveSignerToken(c, cfg, rawToken)
-	return err
-}
-
-func validatePublicReviewToken(c router.Context, cfg registerConfig, rawToken string) error {
-	_, err := resolvePublicReviewToken(c, cfg, rawToken)
-	return err
 }
 
 func resolveSignerToken(c router.Context, cfg registerConfig, rawToken string) (stores.SigningTokenRecord, error) {
@@ -1332,16 +1293,6 @@ func defaultActorScopeResolver(c router.Context) stores.Scope {
 	}
 }
 
-func claimsMetadata(claims auth.AuthClaims) map[string]any {
-	if claims == nil {
-		return nil
-	}
-	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
-		return carrier.ClaimsMetadata()
-	}
-	return nil
-}
-
 func ceilDurationSeconds(value time.Duration) int {
 	if value <= 0 {
 		return 0
@@ -1354,33 +1305,6 @@ func ceilDurationSeconds(value time.Duration) int {
 		seconds = 1
 	}
 	return seconds
-}
-
-func metadataString(metadata map[string]any, keys ...string) string {
-	for _, key := range keys {
-		if metadata == nil {
-			return ""
-		}
-		raw, ok := metadata[key]
-		if !ok || raw == nil {
-			continue
-		}
-		switch value := raw.(type) {
-		case string:
-			if trimmed := strings.TrimSpace(value); trimmed != "" {
-				return trimmed
-			}
-		case []byte:
-			if trimmed := strings.TrimSpace(string(value)); trimmed != "" {
-				return trimmed
-			}
-		default:
-			if trimmed := strings.TrimSpace(fmt.Sprint(value)); trimmed != "" && trimmed != "<nil>" {
-				return trimmed
-			}
-		}
-	}
-	return ""
 }
 
 func stableString(value string) string {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -452,18 +451,6 @@ func RequireV2SourceManagementLineageStore(store any) (stores.LineageStore, erro
 	return lineageStore, nil
 }
 
-func validateJSONFile(path string) error {
-	raw, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return err
-	}
-	var payload any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return err
-	}
-	return nil
-}
-
 func rejectGoogleSpecificJSONKeys(payload any, label string) error {
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -523,9 +510,4 @@ func hasReadySearchIndex(health searchtypes.HealthStatus, stats searchtypes.Stat
 		}
 	}
 	return false
-}
-
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
 }

@@ -296,12 +296,11 @@ func RunV2ValidationProfile(ctx context.Context, cfg V2ValidationConfig) (V2Vali
 		}
 	}()
 
-	documentSvc := services.NewDocumentService(store)
 	pdfPolicy := services.DefaultPDFPolicy()
 	pdfPolicy.PipelineMode = services.PDFPipelineModeAnalyzeOnly
 	pdfPolicy.PreviewFallbackEnabled = true
 	pdfSvc := services.NewPDFService(services.WithPDFPolicyResolver(services.NewStaticPDFPolicyResolver(pdfPolicy)))
-	documentSvc = services.NewDocumentService(store, services.WithDocumentPDFService(pdfSvc))
+	documentSvc := services.NewDocumentService(store, services.WithDocumentPDFService(pdfSvc))
 	agreementSvc := services.NewAgreementService(store, services.WithAgreementPDFService(pdfSvc))
 	signingSvc := services.NewSigningService(store, services.WithSigningPDFService(pdfSvc))
 	integrationSvc := services.NewIntegrationFoundationService(store)
@@ -788,12 +787,3 @@ func percentile(values []float64, pct int) float64 {
 	rank := min(max(int(math.Ceil((float64(pct)/100.0)*float64(len(sorted)))), 1), len(sorted))
 	return sorted[rank-1]
 }
-
-//go:fix inline
-func v2StringPtr(v string) *string { return new(v) }
-
-//go:fix inline
-func v2IntPtr(v int) *int { return new(v) }
-
-//go:fix inline
-func v2BoolPtr(v bool) *bool { return new(v) }

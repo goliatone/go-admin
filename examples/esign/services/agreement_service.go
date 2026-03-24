@@ -2160,18 +2160,6 @@ func (s AgreementService) wasSendRecordedWithIdempotencyKey(ctx context.Context,
 	return false, nil
 }
 
-func (s AgreementService) sendIdempotencyKey(scope stores.Scope, agreementID, idempotencyKey string) string {
-	if strings.TrimSpace(idempotencyKey) == "" {
-		return ""
-	}
-	return strings.Join([]string{
-		strings.TrimSpace(scope.TenantID),
-		strings.TrimSpace(scope.OrgID),
-		strings.TrimSpace(agreementID),
-		strings.TrimSpace(idempotencyKey),
-	}, "|")
-}
-
 func normalizeAgreementRevisionKind(kind AgreementRevisionKind) AgreementRevisionKind {
 	switch AgreementRevisionKind(strings.ToLower(strings.TrimSpace(string(kind)))) {
 	case AgreementRevisionKindCorrection:
@@ -2977,14 +2965,6 @@ func activeSignerStage(recipients []stores.RecipientRecord) (int, []stores.Recip
 func ptrString(value string) *string {
 	out := value
 	return &out
-}
-
-func agreementTimePtr(value time.Time) *time.Time {
-	if value.IsZero() {
-		return nil
-	}
-	value = value.UTC()
-	return &value
 }
 
 func recipientIDs(recipients []stores.RecipientRecord) []string {

@@ -5,10 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -17,7 +15,6 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
-	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -229,153 +226,6 @@ func formatTime(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func nullableString(value string) any {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	return value
-}
-
-func draftRecordToSummaryMap(record stores.DraftRecord) map[string]any {
-	return map[string]any{
-		"id":           strings.TrimSpace(record.ID),
-		"wizard_id":    strings.TrimSpace(record.WizardID),
-		"title":        strings.TrimSpace(record.Title),
-		"current_step": record.CurrentStep,
-		"document_id":  nullableString(record.DocumentID),
-		"created_at":   record.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":   record.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		"expires_at":   record.ExpiresAt.UTC().Format(time.RFC3339Nano),
-		"revision":     record.Revision,
-	}
-}
-
-func draftRecordToDetailMap(record stores.DraftRecord) map[string]any {
-	out := draftRecordToSummaryMap(record)
-	out["wizard_state"] = decodeDraftWizardState(record.WizardStateJSON)
-	return out
-}
-
-func decodeDraftWizardState(raw string) map[string]any {
-	decoded := map[string]any{}
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return decoded
-	}
-	if err := json.Unmarshal([]byte(raw), &decoded); err != nil || decoded == nil {
-		return map[string]any{}
-	}
-	return decoded
-}
-
-func normalizeDraftMutationError(err error) error {
-	if err == nil {
-		return nil
-	}
-	var coded *goerrors.Error
-	if !errors.As(err, &coded) || coded == nil {
-		return err
-	}
-
-	text := strings.TrimSpace(strings.ToLower(coded.TextCode))
-	switch text {
-	case "version_conflict":
-		currentRevision := extractCurrentRevision(coded.Metadata)
-		return goerrors.New("stale revision", goerrors.CategoryConflict).
-			WithCode(http.StatusConflict).
-			WithTextCode("stale_revision").
-			WithMetadata(map[string]any{"current_revision": currentRevision})
-	case "missing_required_fields":
-		return goerrors.New("validation failed", goerrors.CategoryValidation).
-			WithCode(http.StatusUnprocessableEntity).
-			WithTextCode("validation_failed").
-			WithMetadata(copyAnyMap(coded.Metadata))
-	}
-	return err
-}
-
-func normalizeDraftSendError(err error) error {
-	normalized := normalizeDraftMutationError(err)
-	if normalized == nil {
-		return nil
-	}
-	var coded *goerrors.Error
-	if !errors.As(normalized, &coded) || coded == nil {
-		return normalized
-	}
-	text := strings.TrimSpace(strings.ToLower(coded.TextCode))
-	switch text {
-	case "not_found":
-		return goerrors.New("draft not found", goerrors.CategoryNotFound).
-			WithCode(http.StatusNotFound).
-			WithTextCode("draft_send_not_found").
-			WithMetadata(copyAnyMap(coded.Metadata))
-	}
-	return normalized
-}
-
-func extractCurrentRevision(metadata map[string]any) int64 {
-	if len(metadata) == 0 {
-		return 0
-	}
-	if raw, ok := metadata["current_revision"]; ok {
-		if parsed, ok := coerceInt64(raw); ok {
-			return parsed
-		}
-	}
-	if raw, ok := metadata["actual"]; ok {
-		if parsed, ok := coerceInt64(raw); ok {
-			return parsed
-		}
-	}
-	return 0
-}
-
-func coerceInt64(value any) (int64, bool) {
-	switch typed := value.(type) {
-	case int:
-		return int64(typed), true
-	case int8:
-		return int64(typed), true
-	case int16:
-		return int64(typed), true
-	case int32:
-		return int64(typed), true
-	case int64:
-		return typed, true
-	case uint:
-		return int64(typed), true
-	case uint8:
-		return int64(typed), true
-	case uint16:
-		return int64(typed), true
-	case uint32:
-		return int64(typed), true
-	case uint64:
-		return int64(typed), true
-	case float32:
-		return int64(typed), true
-	case float64:
-		return int64(typed), true
-	case string:
-		var parsed int64
-		if _, err := fmt.Sscan(strings.TrimSpace(typed), &parsed); err == nil {
-			return parsed, true
-		}
-	}
-	return 0, false
-}
-
-func copyAnyMap(source map[string]any) map[string]any {
-	if len(source) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(source))
-	maps.Copy(out, source)
-	return out
 }
 
 func participantRecordToMap(record stores.ParticipantRecord) map[string]any {

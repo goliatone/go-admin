@@ -209,5 +209,5 @@ func ensureSQLiteDSNDir(dsn string) {
 	if dir == "" || dir == "." {
 		return
 	}
-	_ = os.MkdirAll(dir, 0o755)
+	_ = os.MkdirAll(dir, 0o750)
 }

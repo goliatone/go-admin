@@ -5,20 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
-
-func normalizeLineageTimePtr(value *time.Time) *time.Time {
-	if value == nil || value.IsZero() {
-		return nil
-	}
-	cloned := value.UTC()
-	return &cloned
-}
 
 func loadSourceDocumentRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceDocumentRecord, error) {
 	scope, err := normalizedStoreScope(scope)
@@ -132,7 +123,7 @@ func listSourceHandleRecords(ctx context.Context, idb bun.IDB, scope stores.Scop
 		}
 	} else if len(documentIDs) > 1 {
 		ids := relationalLineageIDList(documentIDs)
-		sel = sel.Where("source_document_id IN (?)", bun.In(ids))
+		sel = sel.Where("source_document_id IN (?)", bun.List(ids))
 	}
 	if query.ProviderKind != "" {
 		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
@@ -191,7 +182,7 @@ func listSourceRevisionRecords(ctx context.Context, idb bun.IDB, scope stores.Sc
 		}
 	} else if len(documentIDs) > 1 {
 		ids := relationalLineageIDList(documentIDs)
-		sel = sel.Where("source_document_id IN (?)", bun.In(ids))
+		sel = sel.Where("source_document_id IN (?)", bun.List(ids))
 	}
 	if query.SourceHandleID != "" {
 		sel = sel.Where("source_handle_id = ?", strings.TrimSpace(query.SourceHandleID))
@@ -335,8 +326,8 @@ func listSourceRelationshipRecords(ctx context.Context, idb bun.IDB, scope store
 	if len(documentIDs) > 0 {
 		ids := relationalLineageIDList(documentIDs)
 		sel = sel.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("left_source_document_id IN (?)", bun.In(ids)).
-				WhereOr("right_source_document_id IN (?)", bun.In(ids))
+			return q.Where("left_source_document_id IN (?)", bun.List(ids)).
+				WhereOr("right_source_document_id IN (?)", bun.List(ids))
 		})
 	}
 	if query.RelationshipType != "" {
@@ -399,10 +390,10 @@ func listSourceRevisionUsageRecords(ctx context.Context, idb bun.IDB, scope stor
 		Where("source_document_id <> ''").
 		Where("source_revision_id <> ''")
 	if len(documentIDs) > 0 {
-		documentSel = documentSel.Where("source_document_id IN (?)", bun.In(relationalLineageIDList(documentIDs)))
+		documentSel = documentSel.Where("source_document_id IN (?)", bun.List(relationalLineageIDList(documentIDs)))
 	}
 	if len(revisionIDs) > 0 {
-		documentSel = documentSel.Where("source_revision_id IN (?)", bun.In(relationalLineageIDList(revisionIDs)))
+		documentSel = documentSel.Where("source_revision_id IN (?)", bun.List(relationalLineageIDList(revisionIDs)))
 	}
 	documentSel = documentSel.Group("source_document_id", "source_revision_id")
 	if err := documentSel.Scan(ctx, &documentRows); err != nil {
@@ -433,10 +424,10 @@ func listSourceRevisionUsageRecords(ctx context.Context, idb bun.IDB, scope stor
 		Where("agr.org_id = ?", scope.OrgID).
 		Where("agr.source_revision_id <> ''")
 	if len(documentIDs) > 0 {
-		agreementSel = agreementSel.Where("srv.source_document_id IN (?)", bun.In(relationalLineageIDList(documentIDs)))
+		agreementSel = agreementSel.Where("srv.source_document_id IN (?)", bun.List(relationalLineageIDList(documentIDs)))
 	}
 	if len(revisionIDs) > 0 {
-		agreementSel = agreementSel.Where("agr.source_revision_id IN (?)", bun.In(relationalLineageIDList(revisionIDs)))
+		agreementSel = agreementSel.Where("agr.source_revision_id IN (?)", bun.List(relationalLineageIDList(revisionIDs)))
 	}
 	agreementSel = agreementSel.Group("srv.source_document_id", "agr.source_revision_id")
 	if err := agreementSel.Scan(ctx, &agreementRows); err != nil {

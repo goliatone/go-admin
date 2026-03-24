@@ -162,12 +162,6 @@ func tokenRevokedError(tokenID string) error {
 		WithMetadata(map[string]any{"token_id": tokenID})
 }
 
-func rateLimitedError() error {
-	return goerrors.New("rate limit exceeded", goerrors.CategoryRateLimit).
-		WithCode(http.StatusTooManyRequests).
-		WithTextCode("RATE_LIMITED")
-}
-
 func storageEncryptionRequiredError(objectKey string) error {
 	return goerrors.New("object storage encryption required", goerrors.CategoryBadInput).
 		WithCode(http.StatusInternalServerError).

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -954,68 +953,6 @@ func (s DefaultSourceReadModelService) sourceManagementContextForRecord(ctx cont
 	return s.resolveSourceManagementContext(ctx, scope, record)
 }
 
-func (s DefaultSourceReadModelService) buildSourceSearchResult(resolved sourceManagementContext, query string) (SourceSearchResultSummary, int, bool) {
-	query = strings.TrimSpace(strings.ToLower(query))
-	if query == "" {
-		return SourceSearchResultSummary{}, 0, false
-	}
-	score := 0
-	matchedFields := make([]string, 0, 4)
-	matchedRevision := stores.SourceRevisionRecord{}
-	title := strings.ToLower(strings.TrimSpace(resolved.sourceDocument.CanonicalTitle))
-	if strings.Contains(title, query) {
-		score += 10
-		matchedFields = append(matchedFields, "canonical_title")
-	}
-	for _, handle := range resolved.handles {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(handle.ExternalFileID)), query) {
-			score += 8
-			matchedFields = appendUniqueString(matchedFields, "external_file_id")
-		}
-		if strings.Contains(strings.ToLower(strings.TrimSpace(handle.AccountID)), query) {
-			score += 6
-			matchedFields = appendUniqueString(matchedFields, "account_id")
-		}
-	}
-	for _, revision := range resolved.revisions {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(revision.ProviderRevisionHint)), query) {
-			score += 7
-			matchedFields = appendUniqueString(matchedFields, "provider_revision_hint")
-			if strings.TrimSpace(matchedRevision.ID) == "" {
-				matchedRevision = revision
-			}
-		}
-	}
-	if score == 0 {
-		return SourceSearchResultSummary{}, 0, false
-	}
-	summary := fmt.Sprintf("Matched %s across canonical source metadata.", strings.Join(matchedFields, ", "))
-	resultKind := SourceManagementSearchResultSourceDocument
-	var revision *SourceRevisionSummary
-	links := sourceLinksForDocument(resolved.sourceDocument.ID)
-	providerRevision := resolved.latestRevision
-	providerHandle := resolved.activeHandle
-	if containsString(matchedFields, "provider_revision_hint") {
-		resultKind = SourceManagementSearchResultSourceRevision
-		if strings.TrimSpace(matchedRevision.ID) == "" {
-			matchedRevision = resolved.latestRevision
-		}
-		revision = sourceManagementRevisionSummary(matchedRevision, resolved)
-		links = sourceRevisionLinks(matchedRevision.ID, resolved.sourceDocument.ID)
-		providerRevision = matchedRevision
-		providerHandle = sourceHandleForRevision(resolved.handles, matchedRevision)
-	}
-	return SourceSearchResultSummary{
-		ResultKind:    resultKind,
-		Source:        sourceLineageReference(resolved.sourceDocument),
-		Revision:      revision,
-		Provider:      providerSummaryFromRevision(resolved.sourceDocument.ProviderKind, providerHandle, providerRevision, stores.SourceArtifactRecord{}),
-		MatchedFields: matchedFields,
-		Summary:       summary,
-		Links:         links,
-	}, score, true
-}
-
 func normalizeSourceListQuery(query SourceListQuery) SourceListQuery {
 	query.Query = strings.TrimSpace(query.Query)
 	query.ProviderKind = strings.TrimSpace(query.ProviderKind)
@@ -1237,18 +1174,6 @@ func sortSourceAgreementSummaries(items []SourceAgreementSummary, sortKey string
 			return strings.ToLower(sourceAgreementLabel(items[i])) < strings.ToLower(sourceAgreementLabel(items[j]))
 		}
 		return left.After(right)
-	})
-}
-
-func sortSourceSearchResults(items []scoredSourceSearchResult, sortKey string) {
-	sort.SliceStable(items, func(i, j int) bool {
-		if sortKey == sourceSearchSortTitleAsc {
-			return preferSourceSearchResult(items[i].result, items[j].result)
-		}
-		if items[i].score == items[j].score {
-			return preferSourceSearchResult(items[i].result, items[j].result)
-		}
-		return items[i].score > items[j].score
 	})
 }
 
@@ -1887,11 +1812,11 @@ func sourceManagementSearchPath() string {
 }
 
 func sourceManagementDocumentDetailPath(documentID string) string {
-	return "/admin/content/esign_documents/" + strings.TrimSpace(documentID)
+	return "/admin/content/documents/" + strings.TrimSpace(documentID)
 }
 
 func sourceManagementAgreementDetailPath(agreementID string) string {
-	return "/admin/content/esign_agreements/" + strings.TrimSpace(agreementID)
+	return "/admin/content/agreements/" + strings.TrimSpace(agreementID)
 }
 
 func sourceManagementWorkspaceAnchorPath(sourceDocumentID, panel, anchor string) string {

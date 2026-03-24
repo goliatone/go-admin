@@ -14,15 +14,6 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 )
 
-//go:fix inline
-func stringPtr(v string) *string { return new(v) }
-
-//go:fix inline
-func boolPtr(v bool) *bool { return new(v) }
-
-//go:fix inline
-func floatPtr(v float64) *float64 { return new(v) }
-
 type stubAgreementEmailWorkflow struct {
 	sentCalls       int
 	resentCalls     int
@@ -1364,9 +1355,9 @@ func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
 }
 
 func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
-	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
@@ -1422,9 +1413,9 @@ func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 }
 
 func TestAgreementServiceCreateCorrectionRevisionCopiesAuthoringStateAndSendSupersedesParent(t *testing.T) {
-	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
@@ -1592,9 +1583,9 @@ func TestAgreementServiceCreateCorrectionRevisionCopiesAuthoringStateAndSendSupe
 }
 
 func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *testing.T) {
-	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),
@@ -1673,9 +1664,9 @@ func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *te
 }
 
 func TestAgreementServiceCreateRevisionIdempotencyPersistsAcrossServiceRestart(t *testing.T) {
-	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
-	svc = NewAgreementService(store, WithAgreementTokenService(tokenService))
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        new("signer@example.com"),

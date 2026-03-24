@@ -1092,11 +1092,6 @@ func integrationIntPtr(value int) *int {
 	return &value
 }
 
-//go:fix inline
-func integrationBoolPtr(value bool) *bool {
-	return new(value)
-}
-
 func integrationFloatPtr(value float64) *float64 {
 	if value == 0 {
 		return nil

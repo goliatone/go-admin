@@ -240,10 +240,10 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if hasMenuTargetKey(menu, "esign") {
 		t.Fatalf("expected top-level e-sign menu entry to be removed")
 	}
-	if !hasMenuTarget(menu, esignAgreementsPanelID, "/admin/content/esign_agreements") {
+	if !hasMenuTarget(menu, esignAgreementsPanelID, "/admin/content/agreements") {
 		t.Fatalf("expected e-sign agreements menu entry in navigation")
 	}
-	if !hasMenuTarget(menu, esignDocumentsPanelID, "/admin/content/esign_documents") {
+	if !hasMenuTarget(menu, esignDocumentsPanelID, "/admin/content/documents") {
 		t.Fatalf("expected e-sign documents menu entry in navigation")
 	}
 	if !hasMenuTarget(menu, "esign_sources", "/admin/esign/sources") {

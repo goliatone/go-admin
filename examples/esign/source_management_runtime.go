@@ -95,7 +95,7 @@ func registerESignSourceManagementUIRoutes(
 					"routes": routes,
 				}
 				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel:    "Dashboard",
+					RootLabel:    "Home",
 					RootHref:     normalizeESignBasePath(basePath),
 					CurrentLabel: "Sources",
 				})
@@ -144,7 +144,7 @@ func registerESignSourceManagementUIRoutes(
 					"routes": routes,
 				}
 				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel: "Dashboard",
+					RootLabel: "Home",
 					RootHref:  normalizeESignBasePath(basePath),
 					Trail: []quickstart.BreadcrumbItem{
 						quickstart.Breadcrumb("Source Browser", routes["source_browser"]),
@@ -382,7 +382,7 @@ func registerESignSourceManagementUIRoutes(
 					"routes": routes,
 				}
 				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel:    "Dashboard",
+					RootLabel:    "Home",
 					RootHref:     normalizeESignBasePath(basePath),
 					CurrentLabel: "Search",
 				})
@@ -654,7 +654,7 @@ func buildSourceSearchRuntimePageModel(basePath, queryString string, scope store
 
 func buildSourceManagementBreadcrumbSpec(basePath string, routes map[string]string, sourceLabel, sourceDocumentID, currentLabel string) quickstart.BreadcrumbSpec {
 	spec := quickstart.BreadcrumbSpec{
-		RootLabel: "Dashboard",
+		RootLabel: "Home",
 		RootHref:  normalizeESignBasePath(basePath),
 		Trail: []quickstart.BreadcrumbItem{
 			quickstart.Breadcrumb("Sources", routes["source_browser"]),
@@ -1252,16 +1252,6 @@ func providerExternalFileID(provider *services.SourceProviderSummary) string {
 		return "-"
 	}
 	return firstNonEmptyValue(strings.TrimSpace(provider.ExternalFileID), strings.TrimSpace(provider.Label), "-")
-}
-
-func matchedFieldIncludes(fields []string, needle string) bool {
-	needle = strings.TrimSpace(strings.ToLower(needle))
-	for _, field := range fields {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(field)), needle) {
-			return true
-		}
-	}
-	return false
 }
 
 func parsePositiveInt(raw string) int {

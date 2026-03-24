@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -86,21 +85,4 @@ func buildEmailNotificationOutboxRecord(
 		CorrelationID: strings.TrimSpace(notification.CorrelationID),
 		AvailableAt:   now.UTC(),
 	}, nil
-}
-
-func (s AgreementService) enqueueEmailNotificationOutbox(
-	ctx context.Context,
-	scope stores.Scope,
-	notification AgreementNotification,
-	failureAuditEvent string,
-) error {
-	if s.outbox == nil {
-		return nil
-	}
-	record, err := buildEmailNotificationOutboxRecord(scope, notification, failureAuditEvent, s.now())
-	if err != nil {
-		return err
-	}
-	_, err = s.outbox.EnqueueOutboxMessage(ctx, scope, record)
-	return err
 }

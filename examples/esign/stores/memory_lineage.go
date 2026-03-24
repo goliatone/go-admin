@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -28,21 +27,6 @@ func isActiveSourceHandle(record SourceHandleRecord) bool {
 		return false
 	}
 	return record.ValidTo == nil || record.ValidTo.IsZero()
-}
-
-func lineageTimeOrNow(value time.Time) time.Time {
-	if value.IsZero() {
-		return time.Now().UTC()
-	}
-	return value.UTC()
-}
-
-func cloneLineageTimePtr(value *time.Time) *time.Time {
-	if value == nil || value.IsZero() {
-		return nil
-	}
-	cloned := value.UTC()
-	return &cloned
 }
 
 func (s *InMemoryStore) CreateSourceDocument(ctx context.Context, scope Scope, record SourceDocumentRecord) (SourceDocumentRecord, error) {

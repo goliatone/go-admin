@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
+	"golang.org/x/sys/execabs"
 )
 
 const (
@@ -52,7 +54,7 @@ func (t PDFRemediationCommandTemplate) Validate(allowlist []string) error {
 	if !isAllowedRemediationExecutable(bin, allowlist) {
 		return fmt.Errorf("pdf remediation command bin %q is not allowlisted", bin)
 	}
-	if _, err := exec.LookPath(bin); err != nil {
+	if _, err := execabs.LookPath(bin); err != nil {
 		return fmt.Errorf("pdf remediation command bin %q is unavailable: %w", bin, err)
 	}
 	if _, err := interpolateRemediationArgs(t.Args, "input.pdf", "output.pdf"); err != nil {
@@ -170,7 +172,8 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 	stdout := newLimitedBuffer(r.template.MaxLogBytes)
 	stderr := newLimitedBuffer(r.template.MaxLogBytes)
 	startedAt := time.Now().UTC()
-	cmd := exec.CommandContext(opCtx, r.template.Bin, args...)
+	// #nosec G204 -- template.Bin is validated against an allowlist and resolved with execabs.LookPath during construction.
+	cmd := execabs.CommandContext(opCtx, r.template.Bin, args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
@@ -190,7 +193,7 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 	if info.Size() > r.template.MaxPDFBytes {
 		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation output exceeds max_pdf_bytes")
 	}
-	payload, err := os.ReadFile(outputPath)
+	payload, err := primitives.ReadTrustedFile(outputPath)
 	if err != nil {
 		return PDFRemediationRunResult{}, fmt.Errorf("read remediation output: %w", err)
 	}

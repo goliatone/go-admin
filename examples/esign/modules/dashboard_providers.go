@@ -318,11 +318,7 @@ func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (coreadmi
 }
 
 func (m *ESignModule) panelListURL(panelID string) string {
-	basePath := "/" + strings.Trim(strings.TrimSpace(m.basePath), "/")
-	if basePath == "/" {
-		basePath = "/admin"
-	}
-	return path.Join(basePath, "content", strings.TrimSpace(panelID))
+	return canonicalESignPanelListPath(m.basePath, panelID)
 }
 
 func (m *ESignModule) panelItemURL(panelID, id string) string {

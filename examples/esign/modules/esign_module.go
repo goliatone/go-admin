@@ -970,6 +970,15 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		WithRepository(docRepo).
 		WithActionStateResolver(documentsActionStateResolver(m.basePath, m.store, m.defaultScope)).
 		WithActionDefaults(coreadmin.PanelActionDefaultsModeNone).
+		WithBreadcrumbs(coreadmin.PanelBreadcrumbConfig{
+			ListLabel:           "Documents",
+			RootLabel:           "Home",
+			RootHref:            normalizeBasePath(m.basePath),
+			ShowCurrentOnDetail: true,
+			DetailLabelResolver: func(record map[string]any) string {
+				return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
+			},
+		}).
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "page_count", Label: "Pages", Type: "number"},
@@ -1028,6 +1037,15 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	agreementRepo.profiles = adm.ProfileService()
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
+		WithBreadcrumbs(coreadmin.PanelBreadcrumbConfig{
+			ListLabel:           "Agreements",
+			RootLabel:           "Home",
+			RootHref:            normalizeBasePath(m.basePath),
+			ShowCurrentOnDetail: true,
+			DetailLabelResolver: func(record map[string]any) string {
+				return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
+			},
+		}).
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "select"},
@@ -1287,8 +1305,8 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 		menuCode = "admin_main"
 	}
 
-	documentsPath := joinBasePath(m.basePath, path.Join("content", esignDocumentsPanelID))
-	agreementsPath := joinBasePath(m.basePath, path.Join("content", esignAgreementsPanelID))
+	documentsPath := canonicalESignPanelListPath(m.basePath, esignDocumentsPanelID)
+	agreementsPath := canonicalESignPanelListPath(m.basePath, esignAgreementsPanelID)
 	sourceBrowserPath := joinBasePath(m.basePath, path.Join("esign", "sources"))
 	sourceSearchPath := joinBasePath(m.basePath, path.Join("esign", "source-search"))
 

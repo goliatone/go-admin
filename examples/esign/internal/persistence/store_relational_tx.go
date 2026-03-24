@@ -4093,12 +4093,12 @@ func (s *relationalTxStore) ClaimDueJobs(ctx context.Context, scope stores.Scope
 		Model(&records).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID).
-		Where("status IN (?)", bun.In([]string{stores.JobRunStatusQueued, stores.JobRunStatusRetrying})).
+		Where("status IN (?)", bun.List([]string{stores.JobRunStatusQueued, stores.JobRunStatusRetrying})).
 		Where("COALESCE(available_at, next_retry_at, created_at) <= ?", now).
 		OrderExpr("COALESCE(available_at, next_retry_at, created_at) ASC, updated_at ASC, id ASC").
 		Limit(input.Limit)
 	if len(jobNames) > 0 {
-		query = query.Where("job_name IN (?)", bun.In(jobNames))
+		query = query.Where("job_name IN (?)", bun.List(jobNames))
 	}
 	if err := query.Scan(ctx); err != nil {
 		return nil, err
@@ -4261,7 +4261,7 @@ func (s *relationalTxStore) RequeueStaleJobs(ctx context.Context, scope stores.S
 		query = query.Limit(input.Limit)
 	}
 	if len(jobNames) > 0 {
-		query = query.Where("job_name IN (?)", bun.In(jobNames))
+		query = query.Where("job_name IN (?)", bun.List(jobNames))
 	}
 	if err := query.Scan(ctx); err != nil {
 		return 0, err

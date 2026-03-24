@@ -1,4 +1,4 @@
-{% extends "resources/shared/detail-base.html" %}
+{% extends "resources/shared/detail-base-with-sidebar.html" %}
 
 {% set avatar_type = "document" %}
 
@@ -54,10 +54,12 @@
       Document uploaded successfully. You are now viewing the document details.
     </div>
   {% endif %}
+{% endblock %}
+
+{% block sidebar %}
+  {# Source Provenance Card - Pinned to sidebar #}
   {% if resource_item.lineage_presentation %}
-    <div class="max-w-4xl mb-4">
-      {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation resource=resource_item %}
-    </div>
+    {% include "partials/esign-lineage-card.html" with provenance=resource_item.lineage_presentation resource=resource_item %}
   {% endif %}
 {% endblock %}
 

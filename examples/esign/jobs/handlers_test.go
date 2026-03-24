@@ -24,12 +24,6 @@ import (
 	"github.com/phpdave11/gofpdf"
 )
 
-//go:fix inline
-func strPtr(v string) *string { return new(v) }
-
-//go:fix inline
-func boolPtr(v bool) *bool { return new(v) }
-
 type flakyEmailProvider struct {
 	failures map[string]int
 }
@@ -656,8 +650,8 @@ func TestExecuteGoogleDriveImportJobReplaysCompletedRunWithoutReimport(t *testin
 		LineageStatus:       services.LineageImportStatusLinked,
 		FingerprintStatus:   services.LineageFingerprintStatusPending,
 		CandidateStatusJSON: "[]",
-		DocumentDetailURL:   "/admin/content/esign_documents/" + document.ID,
-		AgreementDetailURL:  "/admin/content/esign_agreements/" + agreement.ID,
+		DocumentDetailURL:   "/admin/content/documents/" + document.ID,
+		AgreementDetailURL:  "/admin/content/agreements/" + agreement.ID,
 		SourceMimeType:      services.GoogleDriveMimeTypeDoc,
 		IngestionMode:       services.GoogleIngestionModeExportPDF,
 		CompletedAt:         time.Now().UTC(),

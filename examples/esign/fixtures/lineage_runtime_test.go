@@ -65,7 +65,7 @@ func TestEnsureLineageQAFixturesIsIdempotentAndUploadsArtifacts(t *testing.T) {
 SELECT COUNT(1)
 FROM documents
 WHERE id IN (?)
-`, bun.In([]string{first.UploadOnlyDocumentID, first.ImportedDocumentID, first.RepeatedImportDocumentID})).Scan(ctx, &documents); err != nil {
+`, bun.List([]string{first.UploadOnlyDocumentID, first.ImportedDocumentID, first.RepeatedImportDocumentID})).Scan(ctx, &documents); err != nil {
 		t.Fatalf("count seeded documents: %v", err)
 	}
 	if documents != 3 {

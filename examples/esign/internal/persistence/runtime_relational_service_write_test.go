@@ -1100,12 +1100,3 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 		}
 	})
 }
-
-//go:fix inline
-func boolPtr(v bool) *bool { return new(v) }
-
-//go:fix inline
-func intPtr(v int) *int { return new(v) }
-
-//go:fix inline
-func stringPtr(v string) *string { return new(v) }

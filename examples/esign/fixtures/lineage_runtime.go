@@ -374,18 +374,18 @@ func deleteFixtureRecords(ctx context.Context, db bun.IDB, ids stores.LineageFix
 		query string
 		args  []any
 	}{
-		{query: `DELETE FROM source_relationships WHERE id IN (?)`, args: []any{bun.In([]string{ids.CandidateRelationshipID})}},
-		{query: `DELETE FROM source_comment_messages WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
-		{query: `DELETE FROM source_comment_threads WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
-		{query: `DELETE FROM source_comment_sync_states WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.SecondSourceRevisionID})}},
-		{query: `DELETE FROM source_fingerprints WHERE source_revision_id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},
-		{query: `DELETE FROM source_search_documents WHERE source_document_id IN (?)`, args: []any{bun.In([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
-		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.In([]string{ids.ImportedAgreementID, ids.RepeatedImportAgreementID})}},
-		{query: `DELETE FROM documents WHERE id IN (?)`, args: []any{bun.In([]string{ids.UploadOnlyDocumentID, ids.ImportedDocumentID, ids.RepeatedImportDocumentID})}},
-		{query: `DELETE FROM source_artifacts WHERE id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceArtifactID, ids.SecondSourceArtifactID})}},
-		{query: `DELETE FROM source_revisions WHERE id IN (?)`, args: []any{bun.In([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},
-		{query: `DELETE FROM source_handles WHERE id IN (?)`, args: []any{bun.In([]string{ids.LegacySourceHandleID, ids.ActiveSourceHandleID, ids.CandidateSourceHandleID})}},
-		{query: `DELETE FROM source_documents WHERE id IN (?)`, args: []any{bun.In([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
+		{query: `DELETE FROM source_relationships WHERE id IN (?)`, args: []any{bun.List([]string{ids.CandidateRelationshipID})}},
+		{query: `DELETE FROM source_comment_messages WHERE source_revision_id IN (?)`, args: []any{bun.List([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_comment_threads WHERE source_revision_id IN (?)`, args: []any{bun.List([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_comment_sync_states WHERE source_revision_id IN (?)`, args: []any{bun.List([]string{ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_fingerprints WHERE source_revision_id IN (?)`, args: []any{bun.List([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_search_documents WHERE source_document_id IN (?)`, args: []any{bun.List([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
+		{query: `DELETE FROM agreements WHERE id IN (?)`, args: []any{bun.List([]string{ids.ImportedAgreementID, ids.RepeatedImportAgreementID})}},
+		{query: `DELETE FROM documents WHERE id IN (?)`, args: []any{bun.List([]string{ids.UploadOnlyDocumentID, ids.ImportedDocumentID, ids.RepeatedImportDocumentID})}},
+		{query: `DELETE FROM source_artifacts WHERE id IN (?)`, args: []any{bun.List([]string{ids.FirstSourceArtifactID, ids.SecondSourceArtifactID})}},
+		{query: `DELETE FROM source_revisions WHERE id IN (?)`, args: []any{bun.List([]string{ids.FirstSourceRevisionID, ids.SecondSourceRevisionID})}},
+		{query: `DELETE FROM source_handles WHERE id IN (?)`, args: []any{bun.List([]string{ids.LegacySourceHandleID, ids.ActiveSourceHandleID, ids.CandidateSourceHandleID})}},
+		{query: `DELETE FROM source_documents WHERE id IN (?)`, args: []any{bun.List([]string{ids.SourceDocumentID, ids.CandidateSourceDocumentID})}},
 	} {
 		if _, err := db.ExecContext(ctx, stmt.query, stmt.args...); err != nil {
 			return fmt.Errorf("lineage qa fixtures: cleanup fixture records: %w", err)

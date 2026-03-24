@@ -120,6 +120,27 @@ export function wireCollapsibleSections(root: Document | HTMLElement = document)
       return;
     }
 
+    // Handle expand-only triggers (e.g., "Reopen" button in collapsed header)
+    const expandTrigger = target.closest('.collapsible-expand-trigger');
+    if (expandTrigger) {
+      const parentTrigger = expandTrigger.closest('.collapsible-trigger');
+      if (parentTrigger) {
+        const targetId = parentTrigger.getAttribute('aria-controls');
+        const content = targetId ? document.getElementById(targetId) : null;
+        if (content) {
+          parentTrigger.setAttribute('aria-expanded', 'true');
+          content.classList.add('expanded');
+        }
+      }
+      return;
+    }
+
+    // Ignore clicks on action buttons inside the header to prevent toggle
+    const headerAction = target.closest('.collapsible-header-actions button, .collapsible-header-actions [data-command-name]');
+    if (headerAction) {
+      return;
+    }
+
     const trigger = target.closest('.collapsible-trigger');
     if (!trigger) {
       return;

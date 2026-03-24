@@ -329,8 +329,9 @@ func Defaults() Config {
 			HealthEndpoint:        "https://www.googleapis.com/generate_204",
 			HTTPTimeoutSeconds:    10,
 			CredentialActiveKeyID: "v1",
-			CredentialActiveKey:   "go-admin-esign-google",
-			CredentialKeysJSON:    "",
+			// #nosec G101 -- deterministic development default, replaced by environment-specific keys in deployed environments.
+			CredentialActiveKey: "go-admin-esign-google",
+			CredentialKeysJSON:  "",
 		},
 		Public: PublicConfig{
 			BaseURL: "http://localhost:8082",
@@ -949,17 +950,6 @@ func defaultPDFRemediationCommandArgs() []string {
 		"-sOutputFile={out}",
 		"{in}",
 	}
-}
-
-func (c *Config) applyReminderDefaults() {
-	if c == nil {
-		return
-	}
-	resolution, err := ResolveReminderPolicy(c.Reminders)
-	if err != nil {
-		return
-	}
-	c.Reminders = resolution.Config
 }
 
 func isProductionLikeProfile(profile string) bool {

@@ -15,7 +15,6 @@ import (
 	searchplanner "github.com/goliatone/go-search/planner"
 	searchproviders "github.com/goliatone/go-search/providers"
 	searchmemory "github.com/goliatone/go-search/providers/memory"
-	searchhealth "github.com/goliatone/go-search/query"
 	searchquery "github.com/goliatone/go-search/query"
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -51,11 +50,11 @@ type goSearchSourceSearchBundle struct {
 	indexName       string
 	registrationKey string
 	provider        searchproviders.Provider
+	source          goSearchSourceDocumentSource
 	indexer         *searchindexing.Indexer
 	search          *searchquery.Search
-	reindex         *searchcommand.ReindexIndex
-	health          *searchhealth.Health
-	stats           *searchhealth.Stats
+	health          *searchquery.Health
+	stats           *searchquery.Stats
 
 	bootstrapMu  sync.Mutex
 	bootstrapped bool
@@ -269,12 +268,13 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 
 	indexDef := sourceManagementGoSearchIndexDefinition(s.indexName)
 	registry := searchindexing.NewRegistry()
+	source := goSearchSourceDocumentSource{lineage: s.lineage, scope: scope}
 	registration := searchindexing.NewRegistrationWithKey(
 		s.indexName,
 		indexDef,
 		s.registrationKey,
 		defaultSourceManagementGoSearchSourceType,
-		goSearchSourceDocumentSource{lineage: s.lineage, scope: scope},
+		source,
 		goSearchSourceDocumentProjector{lineage: s.lineage, agreements: s.agreements, scope: scope},
 		func(record stores.SourceDocumentRecord) string {
 			return strings.TrimSpace(record.ID)
@@ -302,10 +302,6 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 	if err != nil {
 		return nil, err
 	}
-	reindex, err := searchcommand.NewReindexIndex(searchcommand.ReindexIndexConfig{Indexer: indexer})
-	if err != nil {
-		return nil, err
-	}
 	pln, err := searchplanner.New(searchplanner.Config{
 		Registry: registry,
 		Defaults: searchplanner.Defaults{
@@ -322,11 +318,11 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 	if err != nil {
 		return nil, err
 	}
-	health, err := searchhealth.NewHealth(searchhealth.HealthConfig{Provider: provider})
+	health, err := searchquery.NewHealth(searchquery.HealthConfig{Provider: provider})
 	if err != nil {
 		return nil, err
 	}
-	stats, err := searchhealth.NewStats(searchhealth.StatsConfig{
+	stats, err := searchquery.NewStats(searchquery.StatsConfig{
 		Provider: provider,
 		Registry: registry,
 	})
@@ -338,9 +334,9 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 		indexName:       s.indexName,
 		registrationKey: s.registrationKey,
 		provider:        provider,
+		source:          source,
 		indexer:         indexer,
 		search:          search,
-		reindex:         reindex,
 		health:          health,
 		stats:           stats,
 	}
@@ -349,14 +345,29 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 }
 
 func (b *goSearchSourceSearchBundle) reindexAll(ctx context.Context) error {
-	if b == nil || b.reindex == nil {
+	if b == nil || b.indexer == nil {
 		return nil
 	}
-	return b.reindex.Execute(ctx, searchtypes.ReindexIndexInput{
-		Index:           b.indexName,
-		RegistrationKey: b.registrationKey,
-		BatchSize:       100,
-	})
+	cursor := ""
+	for {
+		records, next, err := b.source.List(ctx, 100, cursor)
+		if err != nil {
+			return err
+		}
+		for _, record := range records {
+			recordID := strings.TrimSpace(record.ID)
+			if recordID == "" {
+				continue
+			}
+			if _, err := b.indexer.IndexRecord(ctx, b.indexName, b.registrationKey, recordID); err != nil {
+				return err
+			}
+		}
+		if next == "" || len(records) == 0 {
+			return nil
+		}
+		cursor = next
+	}
 }
 
 func (b *goSearchSourceSearchBundle) ensureBootstrapped(ctx context.Context) error {

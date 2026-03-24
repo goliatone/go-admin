@@ -7,21 +7,6 @@ import (
 	"time"
 )
 
-//go:fix inline
-func strPtr(value string) *string {
-	return new(value)
-}
-
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
-}
-
-//go:fix inline
-func floatPtr(value float64) *float64 {
-	return new(value)
-}
-
 func TestInMemoryStoreRequiresScope(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()

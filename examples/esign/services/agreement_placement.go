@@ -597,21 +597,6 @@ func extractDefinitionLabel(validationJSON string) string {
 	return ""
 }
 
-//go:fix inline
-func placementStrPtr(value string) *string {
-	return new(value)
-}
-
-//go:fix inline
-func placementIntPtr(value int) *int {
-	return new(value)
-}
-
-//go:fix inline
-func placementFloatPtr(value float64) *float64 {
-	return new(value)
-}
-
 func cloneTimePtr(src *time.Time) *time.Time {
 	if src == nil {
 		return nil

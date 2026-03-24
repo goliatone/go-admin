@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // TrackCContractGuard defines the contract-shape guardrails enforced in tests/CI.
@@ -20,7 +21,7 @@ type TrackCContractGuard struct {
 
 // LoadTrackCContractGuard reads and decodes a guard configuration file.
 func LoadTrackCContractGuard(path string) (TrackCContractGuard, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return TrackCContractGuard{}, err
 	}
@@ -40,7 +41,7 @@ func ComputeContractShapeHash(repoRoot string, trackedFiles []string) (string, e
 			continue
 		}
 		absPath := filepath.Join(repoRoot, filepath.FromSlash(relPath))
-		raw, err := os.ReadFile(absPath)
+		raw, err := primitives.ReadTrustedFile(absPath)
 		if err != nil {
 			return "", fmt.Errorf("read tracked file %s: %w", relPath, err)
 		}
@@ -78,7 +79,7 @@ func ValidateTrackCContractGuard(repoRoot string, guard TrackCContractGuard) ([]
 	}
 
 	ledgerAbsPath := filepath.Join(repoRoot, filepath.FromSlash(strings.TrimSpace(guard.LedgerPath)))
-	ledgerRaw, err := os.ReadFile(ledgerAbsPath)
+	ledgerRaw, err := primitives.ReadTrustedFile(ledgerAbsPath)
 	if err != nil {
 		return issues, err
 	}

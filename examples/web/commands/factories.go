@@ -3,7 +3,6 @@ package commands
 import (
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -147,34 +146,11 @@ func commandIDsFromPayload(ids []string, payload map[string]any) []string {
 }
 
 func toString(val any) string {
-	switch v := val.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case int:
-		return strconv.Itoa(v)
-	case int64:
-		return strconv.FormatInt(v, 10)
-	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64)
-	default:
-		return ""
-	}
+	return primitives.StringFromAny(val)
 }
 
 func toStringSlice(val any) []string {
-	switch v := val.(type) {
-	case []string:
-		return dedupeStrings(v)
-	case []any:
-		out := []string{}
-		for _, item := range v {
-			if s := toString(item); s != "" {
-				out = append(out, s)
-			}
-		}
-		return dedupeStrings(out)
-	}
-	return nil
+	return dedupeStrings(primitives.StringSliceFromAny(val))
 }
 
 func extractMap(val any) map[string]any {

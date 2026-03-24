@@ -67,7 +67,7 @@ var ae = 3e3, B = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
         if (this.reconnectAttempt = 0, this.diagnosticsState.reconnectAttempts = 0, this.setConnectionState("connected"), this.armHeartbeatTimers(), this.recoveryPending && (this.recoveryPending = !1, this.options.onRecovery?.(this.getDiagnostics())), await this.consume(i.body), !this.running || this.diagnosticsState.failoverTriggered) return;
         await this.scheduleReconnect();
       } catch (t) {
-        if (!this.running || this.diagnosticsState.failoverTriggered || ge(t) && !this.running) return;
+        if (!this.running || this.diagnosticsState.failoverTriggered || pe(t) && !this.running) return;
         await this.scheduleReconnect();
       } finally {
         this.controller = null, this.clearHeartbeatTimers();
@@ -96,7 +96,7 @@ var ae = 3e3, B = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
   }
   dispatch(e) {
     if (e.retry !== null && e.retry > 0 && (this.serverRetryMs = e.retry), e.data === "" && e.id === null && e.event === "message") return;
-    const t = pe(e.data);
+    const t = ge(e.data);
     switch (e.event) {
       case "heartbeat":
         this.handleHeartbeat(t);
@@ -248,7 +248,7 @@ function me(e) {
     retry: a
   };
 }
-function pe(e) {
+function ge(e) {
   if (e === "") return null;
   try {
     return JSON.parse(e);
@@ -256,7 +256,7 @@ function pe(e) {
     return e;
   }
 }
-function ge(e) {
+function pe(e) {
   return e instanceof Error && e.name === "AbortError";
 }
 function fe(e) {
@@ -540,11 +540,11 @@ function Ae(e, t) {
   const n = r.pulse ? "inline-status-pulse" : "";
   e.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${r.colorClass} ${n}`.trim(), e.innerHTML = `${G[r.icon] || ""}<span class="inline-status-text">${J(i)}</span>`;
 }
-function Re(e) {
+function Te(e) {
   const t = document.querySelector(`[data-inline-status="${e}"]`);
   t && t.remove();
 }
-function Te() {
+function Re() {
   document.querySelectorAll("[data-inline-status]").forEach((e) => e.remove());
 }
 function Ce(e = 5e3) {
@@ -575,7 +575,7 @@ var ke = class {
     t.state === "completed" && this.config.completedClearDelay > 0 ? this.scheduleRemoval(t.correlationId, this.config.completedClearDelay) : t.state === "failed" && this.config.failedClearDelay > 0 && this.scheduleRemoval(t.correlationId, this.config.failedClearDelay);
   }
   clear() {
-    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Te();
+    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Re();
   }
   clearTerminalStatuses() {
     document.querySelectorAll("[data-inline-status]").forEach((e) => {
@@ -603,7 +603,7 @@ var ke = class {
   scheduleRemoval(e, t) {
     this.clearTimer(e);
     const r = setTimeout(() => {
-      Re(e), this.clearTimers.delete(e);
+      Te(e), this.clearTimers.delete(e);
     }, t);
     this.clearTimers.set(e, r);
   }
@@ -874,7 +874,7 @@ var bt = 3, Be = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
   admin: "#dc2626",
   automation: "#64748b"
 };
-function p(e) {
+function g(e) {
   if (!e || typeof e != "string") return !1;
   const t = e.trim();
   return Be.test(t) || $e.test(t);
@@ -919,15 +919,15 @@ function Ue(e, t) {
   const r = String(t.actor_type || "").trim(), i = String(t.actor_id || "").trim(), n = [];
   r === "recipient" || r === "signer" ? n.push(w("recipient", i), w("signer", i)) : r === "user" || r === "sender" ? n.push(w("user", i), w("sender", i)) : r === "reviewer" || r === "external" ? n.push(w("reviewer", i), w("external", i)) : n.push(w(r, i));
   const a = n.map((A) => e.actors[A]).find(Boolean) || {}, s = String(a.display_name || a.name || "").trim(), l = String(a.email || "").trim(), c = L(e, i), d = c ? String(c.display_name || c.name || "").trim() : "", u = c ? String(c.email || "").trim() : "", f = e.currentUserId && i === e.currentUserId, m = M(a.role || a.actor_type || r);
-  let g = "";
-  s && !p(s) ? g = s : l && !p(l) ? g = l : d && !p(d) ? g = d : u && !p(u) ? g = u : f ? g = "You" : m ? g = m : g = "Unknown User";
+  let p = "";
+  s && !g(s) ? p = s : l && !g(l) ? p = l : d && !g(d) ? p = d : u && !g(u) ? p = u : f ? p = "You" : m ? p = m : p = "Unknown User";
   const _ = String(a.role || a.actor_type || r || "participant").trim() || "participant", v = String(a.actor_type || r).trim();
   return {
-    name: g,
+    name: p,
     role: _,
     actor_type: v,
     email: l || u || void 0,
-    initials: Y(g, m),
+    initials: Y(p, m),
     color: K(v)
   };
 }
@@ -957,11 +957,11 @@ function je(e, t, r) {
       const n = L(e, i);
       if (n) {
         const a = String(n.display_name || n.name || "").trim(), s = String(n.email || "").trim();
-        if (a && !p(a)) return {
+        if (a && !g(a)) return {
           displayValue: a,
           isResolved: !0
         };
-        if (s && !p(s)) return {
+        if (s && !g(s)) return {
           displayValue: s,
           isResolved: !0
         };
@@ -971,22 +971,22 @@ function je(e, t, r) {
       const n = X(e, i);
       if (n) {
         const a = String(n.label || "").trim(), s = String(n.type || "").trim();
-        if (a && !p(a)) return {
+        if (a && !g(a)) return {
           displayValue: a,
           isResolved: !0
         };
-        if (s && !p(s)) return {
+        if (s && !g(s)) return {
           displayValue: `${D(s)} Field`,
           isResolved: !0
         };
       }
     }
-    if (p(i)) return {
+    if (g(i)) return {
       displayValue: "",
       isResolved: !1
     };
   }
-  return p(i) ? {
+  return g(i) ? {
     displayValue: "",
     isResolved: !1
   } : {
@@ -1014,17 +1014,17 @@ function _t(e, t) {
   const r = X(e, t);
   if (!r) return null;
   const i = String(r.label || "").trim();
-  if (i && !p(i)) return i;
+  if (i && !g(i)) return i;
   const n = String(r.type || "").trim();
-  return n && !p(n) ? D(n) + " Field" : null;
+  return n && !g(n) ? D(n) + " Field" : null;
 }
 function St(e, t) {
   const r = L(e, t);
   if (!r) return null;
   const i = String(r.display_name || r.name || "").trim();
-  if (i && !p(i)) return i;
+  if (i && !g(i)) return i;
   const n = String(r.email || "").trim();
-  return n && !p(n) ? n : null;
+  return n && !g(n) ? n : null;
 }
 var xt = 300 * 1e3;
 function Ge(e, t = !1) {
@@ -1484,7 +1484,7 @@ function At(e) {
   const t = new ee(e);
   return t.init(), t;
 }
-function Rt(e, t) {
+function Tt(e, t) {
   const r = document.getElementById(e), i = {
     agreement_id: t?.agreement_id || "",
     events: t?.events || [],
@@ -1523,7 +1523,7 @@ function lt(e, t) {
     participants: [...e.participants, ...n]
   };
 }
-function R(e, t, r = document) {
+function T(e, t, r = document) {
   const i = r.querySelector(`#${t}`);
   if (!i?.textContent) return e;
   try {
@@ -1541,10 +1541,10 @@ function C(e, t, r, i = document) {
     field_definitions: r?.field_definitions || [],
     current_user_id: r?.current_user_id
   }, a = i.querySelector(`#${e}`);
-  if (!a?.textContent) return R(n, t, i);
+  if (!a?.textContent) return T(n, t, i);
   try {
     const s = JSON.parse(a.textContent);
-    return R({
+    return T({
       agreement_id: s.agreement_id || n.agreement_id,
       events: Array.isArray(s.events) ? s.events : n.events,
       actors: s.actors && typeof s.actors == "object" ? s.actors : n.actors,
@@ -1553,7 +1553,7 @@ function C(e, t, r, i = document) {
       current_user_id: s.current_user_id || n.current_user_id
     }, t, i);
   } catch (s) {
-    return console.warn(`Failed to parse ${e}:`, s), R(n, t, i);
+    return console.warn(`Failed to parse ${e}:`, s), T(n, t, i);
   }
 }
 function dt(e) {
@@ -1576,19 +1576,29 @@ function mt(e = document) {
   e.addEventListener("click", (t) => {
     const r = t.target;
     if (!(r instanceof Element)) return;
-    const i = r.closest(".collapsible-trigger");
-    if (!i) return;
-    const n = i.getAttribute("aria-controls"), a = n ? document.getElementById(n) : null;
-    if (!a) return;
-    const s = i.getAttribute("aria-expanded") === "true";
-    i.setAttribute("aria-expanded", String(!s)), a.classList.toggle("expanded", !s);
+    const i = r.closest(".collapsible-expand-trigger");
+    if (i) {
+      const c = i.closest(".collapsible-trigger");
+      if (c) {
+        const d = c.getAttribute("aria-controls"), u = d ? document.getElementById(d) : null;
+        u && (c.setAttribute("aria-expanded", "true"), u.classList.add("expanded"));
+      }
+      return;
+    }
+    if (r.closest(".collapsible-header-actions button, .collapsible-header-actions [data-command-name]")) return;
+    const n = r.closest(".collapsible-trigger");
+    if (!n) return;
+    const a = n.getAttribute("aria-controls"), s = a ? document.getElementById(a) : null;
+    if (!s) return;
+    const l = n.getAttribute("aria-expanded") === "true";
+    n.setAttribute("aria-expanded", String(!l)), s.classList.toggle("expanded", !l);
   });
 }
 function b(e, t) {
   const r = String(e || "").trim(), i = String(t || "").trim();
   return !r || !i ? "" : `${r}:${i}`;
 }
-function pt(e, t) {
+function gt(e, t) {
   if (!t) return null;
   const r = String(t).trim();
   return e.find((i) => {
@@ -1596,12 +1606,12 @@ function pt(e, t) {
     return n === r || a === r;
   }) || null;
 }
-function T(e, t, r) {
+function R(e, t, r) {
   const i = r.actor_map && typeof r.actor_map == "object" ? r.actor_map : {}, n = Array.isArray(r.participants) ? r.participants : [], a = String(e || "").trim(), s = String(t || "").trim(), l = [];
   a === "recipient" || a === "signer" ? l.push(b("recipient", t), b("signer", t)) : a === "user" || a === "sender" ? l.push(b("user", t), b("sender", t)) : a === "reviewer" || a === "external" ? l.push(b("reviewer", t), b("external", t)) : l.push(b(a, t));
-  const c = l.map((A) => i[A]).find(Boolean) || {}, d = String(c.display_name || c.name || "").trim(), u = String(c.email || "").trim(), f = pt(n, s), m = f ? String(f.display_name || f.name || "").trim() : "", g = f ? String(f.email || "").trim() : "", _ = M(c.role || c.actor_type || a);
+  const c = l.map((A) => i[A]).find(Boolean) || {}, d = String(c.display_name || c.name || "").trim(), u = String(c.email || "").trim(), f = gt(n, s), m = f ? String(f.display_name || f.name || "").trim() : "", p = f ? String(f.email || "").trim() : "", _ = M(c.role || c.actor_type || a);
   let v = "";
-  return d && !p(d) ? v = d : u && !p(u) ? v = u : m && !p(m) ? v = m : g && !p(g) ? v = g : _ ? v = _ : v = "Unknown User", {
+  return d && !g(d) ? v = d : u && !g(u) ? v = u : m && !g(m) ? v = m : p && !g(p) ? v = p : _ ? v = _ : v = "Unknown User", {
     name: v,
     role: String(c.role || c.actor_type || a || "participant").trim() || "participant",
     actor_type: String(c.actor_type || a).trim()
@@ -1609,16 +1619,16 @@ function T(e, t, r) {
 }
 function z(e) {
   document.querySelectorAll("[data-review-actor-avatar]").forEach((t) => {
-    const r = T(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e), i = K(r.actor_type);
+    const r = R(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e), i = K(r.actor_type);
     t.textContent = Y(r.name, r.role), t.style.backgroundColor = i, t.style.color = "#ffffff";
   }), document.querySelectorAll("[data-review-actor-name]").forEach((t) => {
-    t.textContent = T(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e).name;
+    t.textContent = R(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e).name;
   }), document.querySelectorAll("[data-review-actor-role]").forEach((t) => {
-    const r = T(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e);
+    const r = R(t.getAttribute("data-actor-type") || "", t.getAttribute("data-actor-id") || "", e);
     t.textContent = M(r.role || r.actor_type);
   });
 }
-function gt(e, t, r = document) {
+function pt(e, t, r = document) {
   const i = r.querySelector(`#${e}`);
   if (!i?.textContent) return t;
   try {
@@ -1675,7 +1685,7 @@ var O = {
     }), this.timelineController.init();
   }
   hydrateReviewBootstrap(e = document) {
-    const t = gt("agreement-review-bootstrap", O, e);
+    const t = pt("agreement-review-bootstrap", O, e);
     Object.keys(this.reviewBootstrap).forEach((r) => {
       delete this.reviewBootstrap[r];
     }), Object.assign(this.reviewBootstrap, t);
@@ -2054,8 +2064,8 @@ var O = {
       l.disabled = !0, l.innerHTML = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Preparing...';
       try {
         await this.fetchAndDownloadAsset("certificate", `${this.config.agreementId}-certificate.pdf`, "Standalone audit certificate"), this.showDownloadNotice("Standalone audit certificate downloaded successfully.", "success");
-      } catch (g) {
-        this.showDownloadNotice(g instanceof Error ? g.message : "Unable to download standalone audit certificate.", "warning");
+      } catch (p) {
+        this.showDownloadNotice(p instanceof Error ? p.message : "Unable to download standalone audit certificate.", "warning");
       } finally {
         l.disabled = !1, l.innerHTML = m;
       }
@@ -2141,7 +2151,7 @@ var O = {
     document.removeEventListener("click", this.clickHandler), document.removeEventListener("change", this.changeHandler), this.inlineStatusUnsubscribe?.(), this.inlineStatusUnsubscribe = null, this.inlineStatusManager?.clear(), this.inlineStatusManager = null, this.commandRuntimeController?.destroy(), this.commandRuntimeController = null, this.feedbackAdapter?.stop(), this.feedbackAdapter = null, this.timelineController && (this.timelineController.dispose(), this.timelineController = null), this.initialized = !1;
   }
 };
-function Tt(e) {
+function Rt(e) {
   if (!e)
     return console.warn("Agreement detail page config not provided"), null;
   const t = new te(e);
@@ -2172,7 +2182,7 @@ export {
   _t as N,
   K as O,
   Ve as P,
-  Te as Q,
+  Re as Q,
   S as R,
   Et as S,
   Ye as T,
@@ -2189,14 +2199,14 @@ export {
   kt as c,
   b as d,
   xe as et,
-  gt as f,
-  R as g,
+  pt as f,
+  T as g,
   At as h,
-  pt as i,
-  Re as it,
-  p as j,
+  gt as i,
+  Te as it,
+  g as j,
   Y as k,
-  Tt as l,
+  Rt as l,
   ee as m,
   z as n,
   Ee as nt,
@@ -2209,12 +2219,12 @@ export {
   U as s,
   te as t,
   Me as tt,
-  T as u,
+  R as u,
   C as v,
   Ze as w,
   ot as x,
-  Rt as y,
+  Tt as y,
   P as z
 };
 
-//# sourceMappingURL=agreement-detail-Dx1zJKBx.js.map
+//# sourceMappingURL=agreement-detail-DPWpCkkQ.js.map

@@ -3,12 +3,12 @@ package release
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 const (
@@ -143,7 +143,7 @@ func RequiredSignoffTeams() []string {
 }
 
 func LoadChecklist(path string) (Checklist, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := primitives.ReadTrustedFile(path)
 	if err != nil {
 		return Checklist{}, err
 	}

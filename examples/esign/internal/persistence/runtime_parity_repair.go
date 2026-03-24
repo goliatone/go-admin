@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 func ensureRuntimeParityColumns(ctx context.Context, db *sql.DB, dialect Dialect) error {
@@ -118,7 +120,16 @@ func ensureSQLiteRuntimeParityColumns(ctx context.Context, db *sql.DB) error {
 		if exists {
 			continue
 		}
-		stmt := `ALTER TABLE ` + spec.table + ` ADD COLUMN ` + spec.column + ` ` + spec.ddl
+		tableName, err := primitives.NormalizeSQLIdentifier(spec.table)
+		if err != nil {
+			return err
+		}
+		columnName, err := primitives.NormalizeSQLIdentifier(spec.column)
+		if err != nil {
+			return err
+		}
+		// #nosec G201 -- table and column identifiers are validated; ddl comes from internal constant specs above.
+		stmt := fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, tableName, columnName, spec.ddl)
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("ensure sqlite runtime parity column %s.%s: %w", spec.table, spec.column, err)
 		}

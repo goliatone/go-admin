@@ -140,12 +140,3 @@ func TestUpgradeDraftAgreementToV2RejectsNonDraftAgreement(t *testing.T) {
 		t.Fatalf("expected non-draft issue in report")
 	}
 }
-
-//go:fix inline
-func v2StringPtr(v string) *string { return new(v) }
-
-//go:fix inline
-func v2IntPtr(v int) *int { return new(v) }
-
-//go:fix inline
-func v2BoolPtr(v bool) *bool { return new(v) }

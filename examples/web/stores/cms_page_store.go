@@ -852,11 +852,5 @@ func cloneEmbeddedBlocks(blocks []map[string]any) []map[string]any {
 }
 
 func stringSliceFromAny(value []any) []string {
-	out := []string{}
-	for _, item := range value {
-		if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
-			out = append(out, s)
-		}
-	}
-	return out
+	return primitives.StringSliceFromAny(value)
 }

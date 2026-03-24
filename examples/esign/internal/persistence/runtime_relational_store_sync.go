@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
 )
@@ -632,48 +633,6 @@ func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapsh
 	return nil
 }
 
-func (b *runtimeRelationalStoreSync) persistSnapshotDeltaTx(
-	ctx context.Context,
-	tx bun.Tx,
-	before runtimeStoreSnapshot,
-	after runtimeStoreSnapshot,
-) error {
-	if b == nil || b.sqlDB == nil {
-		return fmt.Errorf("runtime relational store sync: sql db is required")
-	}
-	specs := runtimeStoreUpsertSpecs()
-	columnMap, err := loadDialectColumnMap(ctx, tx, b.dialect, runtimeStoreTargetTables(specs))
-	if err != nil {
-		return err
-	}
-
-	for _, spec := range specs {
-		tableColumns := columnMap[spec.table]
-		if len(tableColumns) == 0 {
-			continue
-		}
-		beforeRows := rowsByConflictKey(spec, before)
-		afterRows := rowsByConflictKey(spec, after)
-		for key, row := range afterRows {
-			if existing, ok := beforeRows[key]; ok && runtimeRowsEqual(existing, row) {
-				continue
-			}
-			if err := upsertRuntimeRowForDialect(ctx, tx, b.dialect, spec, tableColumns, row); err != nil {
-				return fmt.Errorf("runtime relational store sync: upsert delta into %s: %w", spec.table, err)
-			}
-		}
-		for key, row := range beforeRows {
-			if _, ok := afterRows[key]; ok {
-				continue
-			}
-			if err := deleteRuntimeRowByConflict(ctx, tx, spec, tableColumns, row); err != nil {
-				return fmt.Errorf("runtime relational store sync: delete delta from %s: %w", spec.table, err)
-			}
-		}
-	}
-	return nil
-}
-
 func listRepositoryRecords[T any](ctx context.Context, idb bun.IDB, repo repository.Repository[T]) ([]T, error) {
 	if repo == nil {
 		return nil, nil
@@ -771,53 +730,6 @@ func collectRowKeys(rows []map[string]any, keyColumn string) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func rowsByConflictKey(spec runtimeTableUpsertSpec, snapshot runtimeStoreSnapshot) map[string]map[string]any {
-	rows := spec.rows(snapshot)
-	out := make(map[string]map[string]any, len(rows))
-	for _, row := range rows {
-		if row == nil {
-			continue
-		}
-		key := runtimeConflictKey(spec.conflict, row)
-		if key == "" {
-			continue
-		}
-		out[key] = row
-	}
-	return out
-}
-
-func runtimeConflictKey(columns []string, row map[string]any) string {
-	if len(columns) == 0 || len(row) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(columns))
-	for _, column := range columns {
-		column = strings.ToLower(strings.TrimSpace(column))
-		if column == "" {
-			return ""
-		}
-		value, ok := row[column]
-		if !ok {
-			return ""
-		}
-		parts = append(parts, column+"="+strings.TrimSpace(fmt.Sprint(value)))
-	}
-	return strings.Join(parts, "|")
-}
-
-func runtimeRowsEqual(left map[string]any, right map[string]any) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	leftJSON, leftErr := json.Marshal(left)
-	rightJSON, rightErr := json.Marshal(right)
-	if leftErr != nil || rightErr != nil {
-		return false
-	}
-	return string(leftJSON) == string(rightJSON)
 }
 
 func loadDialectColumnMap(ctx context.Context, queryer sqlQueryer, dialect Dialect, tables []string) (map[string]map[string]bool, error) {
@@ -918,13 +830,14 @@ func upsertRuntimeRowForDialect(
 	if isAppendOnlyRuntimeTable(spec.table) {
 		assignments = nil
 	}
-
-	query := `INSERT INTO ` + spec.table + ` (` + strings.Join(columns, ", ") + `) VALUES (` + strings.Join(placeholders, ", ") + `) ` +
-		`ON CONFLICT(` + strings.Join(spec.conflict, ", ") + `) `
+	query, err := buildRuntimeUpsertQuery(spec.table, columns, placeholders, spec.conflict)
+	if err != nil {
+		return err
+	}
 	if len(assignments) == 0 {
 		query += `DO NOTHING`
 	} else {
-		query += `DO UPDATE SET ` + strings.Join(assignments, ", ")
+		query += `DO UPDATE SET ` + strings.Join(normalizeRuntimeAssignments(assignments), ", ")
 	}
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 		return err
@@ -949,13 +862,20 @@ func deleteMissingRowsByKey(
 	keyColumn string,
 	keys []string,
 ) error {
-	table = strings.TrimSpace(table)
-	keyColumn = strings.TrimSpace(strings.ToLower(keyColumn))
-	if tx == nil || table == "" || keyColumn == "" {
+	if tx == nil {
+		return nil
+	}
+	tableName, err := primitives.NormalizeSQLIdentifier(table)
+	if err != nil {
+		return nil
+	}
+	keyName, err := primitives.NormalizeSQLIdentifier(keyColumn)
+	if err != nil {
 		return nil
 	}
 	if len(keys) == 0 {
-		_, err := tx.ExecContext(ctx, `DELETE FROM `+table)
+		// #nosec G201,G202 -- table identifier is validated before query construction.
+		_, err := tx.ExecContext(ctx, `DELETE FROM `+tableName)
 		return err
 	}
 	placeholders := make([]string, 0, len(keys))
@@ -964,40 +884,47 @@ func deleteMissingRowsByKey(
 		placeholders = append(placeholders, sqlPlaceholder(dialect, idx+1))
 		args = append(args, key)
 	}
-	query := `DELETE FROM ` + table + ` WHERE ` + keyColumn + ` NOT IN (` + strings.Join(placeholders, ", ") + `)`
-	_, err := tx.ExecContext(ctx, query, args...)
+	// #nosec G202 -- table and column identifiers are validated and values remain parameterized.
+	query := `DELETE FROM ` + tableName + ` WHERE ` + keyName + ` NOT IN (` + strings.Join(placeholders, ", ") + `)`
+	_, err = tx.ExecContext(ctx, query, args...)
 	return err
 }
 
-func deleteRuntimeRowByConflict(
-	ctx context.Context,
-	tx interface {
-		ExecContext(context.Context, string, ...any) (sql.Result, error)
-	},
-	spec runtimeTableUpsertSpec,
-	tableColumns map[string]bool,
-	row map[string]any,
-) error {
-	if tx == nil || len(spec.conflict) == 0 || len(row) == 0 {
+func buildRuntimeUpsertQuery(table string, columns, placeholders, conflict []string) (string, error) {
+	tableName, err := primitives.NormalizeSQLIdentifier(table)
+	if err != nil {
+		return "", err
+	}
+	normalizedColumns, err := primitives.NormalizeSQLIdentifiers(columns)
+	if err != nil {
+		return "", err
+	}
+	normalizedConflict, err := primitives.NormalizeSQLIdentifiers(conflict)
+	if err != nil {
+		return "", err
+	}
+	// #nosec G202 -- identifiers are validated before interpolation and row values stay parameterized.
+	return `INSERT INTO ` + tableName + ` (` + strings.Join(normalizedColumns, ", ") + `) VALUES (` + strings.Join(placeholders, ", ") + `) ` +
+		`ON CONFLICT(` + strings.Join(normalizedConflict, ", ") + `) `, nil
+}
+
+func normalizeRuntimeAssignments(assignments []string) []string {
+	if len(assignments) == 0 {
 		return nil
 	}
-	clauses := make([]string, 0, len(spec.conflict))
-	args := make([]any, 0, len(spec.conflict))
-	for _, column := range spec.conflict {
-		column = strings.ToLower(strings.TrimSpace(column))
-		if column == "" || !tableColumns[column] {
-			return nil
-		}
-		value, ok := row[column]
+	out := make([]string, 0, len(assignments))
+	for _, assignment := range assignments {
+		column, _, ok := strings.Cut(assignment, " = excluded.")
 		if !ok {
-			return nil
+			continue
 		}
-		clauses = append(clauses, column+" = ?")
-		args = append(args, value)
+		normalized, err := primitives.NormalizeSQLIdentifier(column)
+		if err != nil {
+			continue
+		}
+		out = append(out, normalized+" = excluded."+normalized)
 	}
-	query := `DELETE FROM ` + spec.table + ` WHERE ` + strings.Join(clauses, ` AND `)
-	_, err := tx.ExecContext(ctx, query, args...)
-	return err
+	return out
 }
 
 func sqlPlaceholder(dialect Dialect, position int) string {

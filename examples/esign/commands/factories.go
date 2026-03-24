@@ -3,12 +3,12 @@ package commands
 import (
 	"fmt"
 	"maps"
-	"strconv"
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // RegisterCommandFactories registers payload parsers for panel action command dispatch.
@@ -710,126 +710,32 @@ func toAnyMap(value any) map[string]any {
 }
 
 func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	switch raw := value.(type) {
-	case string:
-		return strings.TrimSpace(raw)
-	case []byte:
-		return strings.TrimSpace(string(raw))
-	default:
-		return strings.TrimSpace(fmt.Sprint(raw))
-	}
+	return primitives.StringFromAny(value)
 }
 
 func boolWithDefault(value any, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	switch raw := value.(type) {
-	case bool:
-		return raw
-	case string:
-		parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return fallback
-		}
+	if parsed, ok := primitives.BoolFromAny(value); ok {
 		return parsed
-	default:
-		return fallback
 	}
+	return fallback
 }
 
 func intWithDefault(value any, fallback int) int {
-	if value == nil {
-		return fallback
-	}
-	switch raw := value.(type) {
-	case int:
-		return raw
-	case int32:
-		return int(raw)
-	case int64:
-		return int(raw)
-	case float32:
-		return int(raw)
-	case float64:
-		return int(raw)
-	case string:
-		parsed, err := strconv.Atoi(strings.TrimSpace(raw))
-		if err != nil {
-			return fallback
-		}
+	if parsed, ok := primitives.IntFromAny(value); ok {
 		return parsed
-	default:
-		return fallback
 	}
+	return fallback
 }
 
 func floatWithDefault(value any, fallback float64) float64 {
-	if value == nil {
-		return fallback
-	}
-	switch raw := value.(type) {
-	case float32:
-		return float64(raw)
-	case float64:
-		return raw
-	case int:
-		return float64(raw)
-	case int32:
-		return float64(raw)
-	case int64:
-		return float64(raw)
-	case string:
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return fallback
-		}
+	if parsed, ok := primitives.Float64FromAny(value); ok {
 		return parsed
-	default:
-		return fallback
 	}
+	return fallback
 }
 
 func toStringSlice(value any) []string {
-	switch typed := value.(type) {
-	case []string:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			item = strings.TrimSpace(item)
-			if item != "" {
-				out = append(out, item)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			itemString := strings.TrimSpace(toString(item))
-			if itemString != "" {
-				out = append(out, itemString)
-			}
-		}
-		return out
-	case string:
-		raw := strings.TrimSpace(typed)
-		if raw == "" {
-			return nil
-		}
-		parts := strings.Split(raw, ",")
-		out := make([]string, 0, len(parts))
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if part != "" {
-				out = append(out, part)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
+	return primitives.CSVStringSliceFromAny(value)
 }
 
 func toReviewParticipants(value any) []services.ReviewParticipantInput {

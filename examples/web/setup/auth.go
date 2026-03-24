@@ -667,17 +667,7 @@ func statusFromIdentity(identity auth.Identity) auth.UserStatus {
 }
 
 func toString(val any) string {
-	if val == nil {
-		return ""
-	}
-	switch v := val.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	default:
-		return fmt.Sprintf("%v", v)
-	}
+	return primitives.StringFromAny(val)
 }
 
 func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error {

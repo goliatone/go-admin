@@ -307,7 +307,7 @@ DOC_STATUS="$(
     -o "${DOC_BODY}" \
     -D "${DOC_HEADERS}" \
     -b "${COOKIE_JAR}" \
-    -X POST "${BASE_URL}/admin/content/esign_documents?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
+    -X POST "${BASE_URL}/admin/content/documents?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     --data-urlencode "title=Smoke Document $(date +%s)" \
     --data-urlencode "source_original_name=${SOURCE_ORIGINAL_NAME}" \
@@ -330,7 +330,7 @@ AG_STATUS="$(
     -o "${AG_BODY}" \
     -D "${AG_HEADERS}" \
     -b "${COOKIE_JAR}" \
-    -X POST "${BASE_URL}/admin/content/esign_agreements?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
+    -X POST "${BASE_URL}/admin/content/agreements?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     --data-urlencode "document_id=${DOC_ID}" \
     --data-urlencode "title=Smoke Agreement $(date +%s)" \

@@ -544,12 +544,6 @@ func decodeFingerprintHashes(raw string) []string {
 	return out
 }
 
-func decodeFingerprintMetadata(raw string) map[string]any {
-	decoded := map[string]any{}
-	_ = json.Unmarshal([]byte(strings.TrimSpace(raw)), &decoded)
-	return decoded
-}
-
 func parseSimHash64(raw string) uint64 {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

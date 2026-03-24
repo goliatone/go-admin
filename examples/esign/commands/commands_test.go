@@ -230,22 +230,18 @@ func (s *stubDraftCleanupService) CleanupExpiredDrafts(_ context.Context, before
 }
 
 type stubAgreementReminderService struct {
-	sweepCalls         int
-	cleanupCalls       int
-	pauseCalls         int
-	resumeCalls        int
-	sendNowCalls       int
-	reviewPauseCalls   int
-	reviewResumeCalls  int
-	reviewSendNowCalls int
-	lastScope          stores.Scope
-	lastID             string
-	lastRecipient      string
-	lastParticipant    string
-	lastCleanupAt      time.Time
-	lastLimit          int
-	sweepResult        services.AgreementReminderSweepResult
-	sendNowResult      services.ResendResult
+	sweepCalls    int
+	cleanupCalls  int
+	pauseCalls    int
+	resumeCalls   int
+	sendNowCalls  int
+	lastScope     stores.Scope
+	lastID        string
+	lastRecipient string
+	lastCleanupAt time.Time
+	lastLimit     int
+	sweepResult   services.AgreementReminderSweepResult
+	sendNowResult services.ResendResult
 }
 
 func (s *stubAgreementReminderService) Sweep(_ context.Context, scope stores.Scope) (services.AgreementReminderSweepResult, error) {

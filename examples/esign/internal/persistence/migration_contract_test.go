@@ -442,20 +442,6 @@ func migrationTreeFromPath(filePath string) string {
 	return "default"
 }
 
-func versionsForTree(treePairs map[string]map[string]migrationPair, tree string) ([]string, bool) {
-	tree = strings.TrimSpace(tree)
-	pairs, ok := treePairs[tree]
-	if !ok || len(pairs) == 0 {
-		return nil, false
-	}
-	versions := make([]string, 0, len(pairs))
-	for version := range pairs {
-		versions = append(versions, version)
-	}
-	sort.Strings(versions)
-	return versions, true
-}
-
 func sameStringSet(left, right []string) bool {
 	if len(left) != len(right) {
 		return false

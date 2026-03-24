@@ -671,13 +671,3 @@ func TestPhase13SourceSearchRevisionResultsStayPinnedToRevisionHandles(t *testin
 		t.Fatalf("expected second handle search result to expose second revision provider handle, got %+v", activeItem.Provider)
 	}
 }
-
-//go:fix inline
-func timePtrPhase13(value time.Time) *time.Time {
-	return new(value)
-}
-
-//go:fix inline
-func boolPtrPhase13(value bool) *bool {
-	return new(value)
-}
