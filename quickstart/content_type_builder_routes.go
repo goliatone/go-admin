@@ -823,18 +823,15 @@ func (h *contentTypeBuilderHandlers) UpdateChannel(c router.Context) error {
 	if path == "" {
 		path = "/"
 	}
-	cookie := router.Cookie{
-		Name:     channelCookieName,
-		Value:    channel,
-		Path:     path,
-		HTTPOnly: true,
-		SameSite: router.CookieSameSiteLaxMode,
-	}
+	cookie := router.FirstPartySessionCookie(channelCookieName, channel)
+	cookie.Path = path
 	if channel == "" {
 		cookie.MaxAge = -1
 		cookie.Expires = time.Unix(0, 0)
+		cookie.SessionOnly = false
 	} else {
 		cookie.Expires = time.Now().Add(365 * 24 * time.Hour)
+		cookie.SessionOnly = false
 	}
 	c.Cookie(&cookie)
 	return c.JSON(http.StatusOK, map[string]any{

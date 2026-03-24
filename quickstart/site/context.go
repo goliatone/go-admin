@@ -130,14 +130,13 @@ func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state Req
 	if path == "" {
 		path = "/"
 	}
-	c.Cookie(&router.Cookie{
-		Name:     defaultLocaleCookieName,
-		Value:    locale,
-		Path:     path,
-		MaxAge:   int((365 * 24 * time.Hour).Seconds()),
-		Expires:  time.Now().Add(365 * 24 * time.Hour),
-		SameSite: router.CookieSameSiteLaxMode,
-	})
+	cookie := router.FirstPartySessionCookie(defaultLocaleCookieName, locale)
+	cookie.Path = path
+	cookie.MaxAge = int((365 * 24 * time.Hour).Seconds())
+	cookie.Expires = time.Now().Add(365 * 24 * time.Hour)
+	cookie.SessionOnly = false
+	cookie.HTTPOnly = false
+	c.Cookie(&cookie)
 }
 
 // ResolveRequestState computes the normalized request context + view context.

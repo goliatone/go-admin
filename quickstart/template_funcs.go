@@ -9,6 +9,7 @@ import (
 
 	"github.com/gobuffalo/flect"
 	"github.com/goliatone/go-admin/admin"
+	auth "github.com/goliatone/go-auth"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -137,6 +138,9 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 			}
 			return dict, nil
 		},
+	}
+	for key, value := range auth.TemplateHelpers() {
+		funcs[key] = value
 	}
 	for key, value := range fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...) {
 		funcs[key] = value

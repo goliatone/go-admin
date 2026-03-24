@@ -171,10 +171,13 @@
         </div>
 
         <div class="p-2">
-          <a href="{{ base_path }}/logout" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Log out</span>
-          </a>
+          <form method="post" action="{{ base_path }}/logout">
+            {{ csrf_field|safe }}
+            <button type="submit" class="flex w-full items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors text-left bg-transparent border-0">
+              <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
+              <span class="flex-1 text-sm">Log out</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>

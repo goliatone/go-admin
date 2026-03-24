@@ -3,6 +3,7 @@ package quickstart
 import (
 	"github.com/goliatone/go-admin/admin"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -74,6 +75,16 @@ func buildQuickstartAuthTemplateViewContext(
 	snapshot any,
 ) router.ViewContext {
 	viewCtx := AuthUIViewContext(cfg, state, paths)
+	if c != nil {
+		if helpers, ok := c.Locals(csrfmw.DefaultTemplateHelpersKey).(map[string]any); ok && helpers != nil {
+			viewCtx[csrfmw.DefaultTemplateHelpersKey] = helpers
+			for key, value := range helpers {
+				if _, exists := viewCtx[key]; !exists {
+					viewCtx[key] = value
+				}
+			}
+		}
+	}
 	viewCtx["title"] = title
 	viewCtx = WithAuthUIViewThemeAssets(viewCtx, assets, assetPrefix)
 	return WithFeatureTemplateContext(viewCtx, c.Context(), scope, snapshot)

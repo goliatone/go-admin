@@ -148,7 +148,11 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	navItems := BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["nav_items"] = navItems
-	ctx["nav_utility_items"] = BuildNavItemsForPlacement(adm, cfg, placements, SidebarPlacementUtility, reqCtx, active)
+	utilityItems := BuildNavItemsForPlacement(adm, cfg, placements, SidebarPlacementUtility, reqCtx, active)
+	if len(utilityItems) == 0 {
+		utilityItems = buildDefaultUtilityNavItems(adm, cfg, reqCtx, active)
+	}
+	ctx["nav_utility_items"] = utilityItems
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	ctx["users_import_available"] = adm.UserImportEnabled()
 	ctx["users_import_enabled"] = adm.UserImportAllowed(reqCtx)
@@ -208,6 +212,51 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 		}
 	}
 	return entries
+}
+
+func buildDefaultUtilityNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, active string) []map[string]any {
+	if adm == nil {
+		return []map[string]any{}
+	}
+	scope := resolveNavRequestScope(ctx, cfg.DefaultLocale)
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, DefaultSidebarUtilityMenuCode)
+	items := defaultSidebarUtilityMenuItems(adm, cfg, menuCode, scope.MenuLocale)
+	if len(items) == 0 {
+		return []map[string]any{}
+	}
+
+	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
+	urls := adm.URLs()
+	entries := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		entry, _ := buildNavEntry(menuItemAsNavigationItem(item), basePath, urls, active, scope)
+		if entry == nil {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func menuItemAsNavigationItem(item admin.MenuItem) admin.NavigationItem {
+	return admin.NavigationItem{
+		ID:            item.ID,
+		Type:          item.Type,
+		Label:         item.Label,
+		LabelKey:      item.LabelKey,
+		GroupTitle:    item.GroupTitle,
+		GroupTitleKey: item.GroupTitleKey,
+		Icon:          item.Icon,
+		Target:        cloneAnyMap(item.Target),
+		Badge:         cloneAnyMap(item.Badge),
+		Permissions:   append([]string{}, item.Permissions...),
+		Locale:        item.Locale,
+		Classes:       append([]string{}, item.Classes...),
+		Styles:        cloneStringMap(item.Styles),
+		Collapsible:   item.Collapsible,
+		Collapsed:     item.Collapsed,
+		Position:      item.Position,
+	}
 }
 
 func resolveNavRequestScope(ctx context.Context, defaultLocale string) navRequestScope {

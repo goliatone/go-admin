@@ -17,9 +17,10 @@ const defaultSettingsTemplate = "resources/settings/show"
 type SettingsUIOption func(*settingsUIOptions)
 
 type settingsUIOptions struct {
-	template string
-	active   string
-	route    string
+	template    string
+	active      string
+	route       string
+	viewContext UIViewContextBuilder
 }
 
 // WithSettingsUITemplate overrides the settings template name.
@@ -49,6 +50,15 @@ func WithSettingsUIRoute(route string) SettingsUIOption {
 			return
 		}
 		opts.route = strings.TrimSpace(route)
+	}
+}
+
+// WithSettingsUIViewContext overrides the default view context builder.
+func WithSettingsUIViewContext(builder UIViewContextBuilder) SettingsUIOption {
+	return func(opts *settingsUIOptions) {
+		if opts != nil && builder != nil {
+			opts.viewContext = builder
+		}
 	}
 }
 
@@ -84,14 +94,18 @@ func RegisterSettingsUIRoutes[T any](
 	if strings.TrimSpace(options.active) == "" {
 		options.active = "settings"
 	}
+	if options.viewContext == nil {
+		options.viewContext = DefaultAdminUIViewContextBuilder(adm, cfg)
+	}
 
 	spec := AdminPageSpec{
-		Route:      options.route,
-		Template:   options.template,
-		Title:      cfg.Title,
-		Active:     options.active,
-		Feature:    string(admin.FeatureSettings),
-		Permission: cfg.SettingsPermission,
+		Route:              options.route,
+		Template:           options.template,
+		Title:              cfg.Title,
+		Active:             options.active,
+		Feature:            string(admin.FeatureSettings),
+		Permission:         cfg.SettingsPermission,
+		ViewContextBuilder: options.viewContext,
 		Guard: func(c router.Context) error {
 			if adm.SettingsService() == nil {
 				return fmt.Errorf("settings service not configured")
