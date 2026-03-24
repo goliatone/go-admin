@@ -47,6 +47,10 @@ func TestUserModuleRegistersPanelsAndNavigation(t *testing.T) {
 	if _, ok := adm.registry.Panel(rolesPanelID); !ok {
 		t.Fatalf("expected roles panel to be registered")
 	}
+	rolesPanel, _ := adm.registry.Panel(rolesPanelID)
+	if rolesPanel.UIRouteMode() != PanelUIRouteModeCustom {
+		t.Fatalf("expected roles panel to use custom ui route mode, got %q", rolesPanel.UIRouteMode())
+	}
 
 	items := adm.Navigation().Resolve(context.Background(), cfg.DefaultLocale)
 	foundUsers := false
