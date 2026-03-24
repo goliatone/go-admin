@@ -39,7 +39,7 @@ run_tool() {
             "${STATICCHECK_BIN:-staticcheck}" "$@"
             ;;
         gosec)
-            "${GOSEC_BIN:-gosec}" -quiet -fmt=golint "$@"
+            "${GOSEC_BIN:-gosec}" ${GOSEC_ARGS:-} -quiet -fmt=golint "$@"
             ;;
         *)
             echo "unsupported tool: ${tool_name}" >&2

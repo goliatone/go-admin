@@ -127,7 +127,7 @@ func main() {
 		return
 	}
 
-	if err := os.WriteFile(outputPath, generated, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, generated, 0o600); err != nil {
 		fatal(err)
 	}
 }
