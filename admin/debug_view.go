@@ -81,6 +81,14 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 }
 
 func debugViewNavItems(adm *Admin, c router.Context, basePath string) []map[string]any {
+	return debugViewMenuItems(adm, c, basePath, "")
+}
+
+func debugViewUtilityNavItems(adm *Admin, c router.Context, basePath string) []map[string]any {
+	return debugViewMenuItems(adm, c, basePath, defaultSidebarUtilityMenuCode)
+}
+
+func debugViewMenuItems(adm *Admin, c router.Context, basePath string, menuCode string) []map[string]any {
 	out := []map[string]any{}
 	if adm == nil {
 		return out
@@ -101,9 +109,12 @@ func debugViewNavItems(adm *Admin, c router.Context, basePath string) []map[stri
 			locale = queryLocale
 		}
 	}
-	menuCode := strings.TrimSpace(adm.NavMenuCode())
+	menuCode = NormalizeMenuSlug(strings.TrimSpace(menuCode))
 	if menuCode == "" {
-		menuCode = NormalizeMenuSlug("admin.main")
+		menuCode = strings.TrimSpace(adm.NavMenuCode())
+		if menuCode == "" {
+			menuCode = NormalizeMenuSlug("admin.main")
+		}
 	}
 	if basePath == "" {
 		basePath = strings.TrimSpace(adm.BasePath())

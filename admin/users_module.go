@@ -265,6 +265,7 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 
 	roleBuilder := ctx.Admin.Panel(rolesPanelID).
 		WithRepository(roleRepo).
+		WithUIRouteMode(PanelUIRouteModeCustom).
 		ListFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "role_key", Label: "Role Key", Type: "text"},

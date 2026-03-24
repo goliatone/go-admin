@@ -38,6 +38,9 @@ func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewC
 	if _, ok := view["nav_items"]; !ok {
 		view["nav_items"] = debugViewNavItems(adm, c, basePath)
 	}
+	if _, ok := view["nav_utility_items"]; !ok {
+		view["nav_utility_items"] = debugViewUtilityNavItems(adm, c, basePath)
+	}
 	if _, ok := view["session_user"]; !ok {
 		view["session_user"] = debugViewSessionUser(c, basePath)
 	}
