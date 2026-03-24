@@ -42,20 +42,18 @@ func debugEnsureJSErrorNonce(c router.Context, cookiePath string, cfg DebugConfi
 		return ""
 	}
 	secure := debugIsSecureRequest(c, cfg)
-	sameSite := "Strict"
+	sameSite := router.CookieSameSiteStrictMode
 	if !secure {
-		sameSite = "Lax"
+		sameSite = router.CookieSameSiteLaxMode
 	}
-	c.Cookie(&router.Cookie{
-		Name:     debugNonceCookieName,
-		Value:    nonce,
-		Path:     cookiePath,
-		HTTPOnly: true,
-		Secure:   secure,
-		SameSite: sameSite,
-		MaxAge:   debugNonceCookieMaxAge,
-		Expires:  time.Now().Add(time.Duration(debugNonceCookieMaxAge) * time.Second),
-	})
+	cookie := router.FirstPartySessionCookie(debugNonceCookieName, nonce)
+	cookie.Path = cookiePath
+	cookie.Secure = secure
+	cookie.SameSite = sameSite
+	cookie.MaxAge = debugNonceCookieMaxAge
+	cookie.Expires = time.Now().Add(time.Duration(debugNonceCookieMaxAge) * time.Second)
+	cookie.SessionOnly = false
+	c.Cookie(&cookie)
 	return nonce
 }
 
