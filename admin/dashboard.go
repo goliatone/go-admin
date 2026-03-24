@@ -557,6 +557,19 @@ func (d *Dashboard) Providers() []DashboardProviderSpec {
 	return out
 }
 
+// HasProvider reports whether a provider with the given code is already registered.
+func (d *Dashboard) HasProvider(code string) bool {
+	if d == nil {
+		return false
+	}
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return false
+	}
+	_, ok := d.providers[code]
+	return ok
+}
+
 // Resolve returns widgets for a viewer, applying per-user preferences when present.
 func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
 	comp, err := d.ensureComponents(ctx.Context)
