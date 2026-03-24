@@ -41,11 +41,19 @@ var $ = class {
   applyVisibility(t, s) {
     s ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-}, k = class {
+};
+function k() {
+  const t = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")?.trim();
+  return t ? { "X-CSRF-Token": t } : {};
+}
+var C = class {
   async save(t, s) {
     const e = await fetch(t, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...k()
+      },
       body: JSON.stringify(s)
     });
     if (!e.ok) throw new Error(`Failed to save layout: ${e.statusText}`);
@@ -58,7 +66,7 @@ var $ = class {
       return console.warn("Failed to load layout preferences:", s), null;
     }
   }
-}, C = class {
+}, A = class {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -83,7 +91,7 @@ var $ = class {
       dragDrop: t.behaviors?.dragDrop || new $(),
       resize: t.behaviors?.resize || new S(),
       visibility: t.behaviors?.visibility || new _(),
-      persistence: t.behaviors?.persistence || new k()
+      persistence: t.behaviors?.persistence || new C()
     };
   }
   async init(t) {
@@ -201,7 +209,7 @@ var $ = class {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}, A = {
+}, N = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -220,13 +228,13 @@ var $ = class {
   "esign.widget.signing_activity": "E-Sign Signing Activity",
   "esign.widget.delivery_health": "E-Sign Delivery Health",
   "esign.widget.pending_signatures": "E-Sign Pending Signatures"
-}, N = /* @__PURE__ */ new Set([
+}, j = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
-]), j = class {
+]), E = class {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
@@ -733,7 +741,7 @@ var $ = class {
         ` : ""}
       `;
     }
-    if (N.has(s)) {
+    if (j.has(s)) {
       const a = e.subtitle || o.subtitle || "", i = String(e.theme || "westeros"), n = String(e.chart_assets_host || "/dashboard/assets/echarts/"), r = e.chart_options ? JSON.stringify(e.chart_options) : "", d = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
@@ -751,7 +759,7 @@ var $ = class {
     return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(e, null, 2)}</pre>`;
   }
   getTitle(t) {
-    return A[t] || t;
+    return N[t] || t;
   }
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
@@ -765,15 +773,15 @@ var $ = class {
     return !Number.isFinite(s) || s < 1 || s > 12 ? 12 : s;
   }
 }, v = /* @__PURE__ */ new Map(), b = /* @__PURE__ */ new WeakMap();
-async function E(t) {
-  const s = new j(t), e = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, o = document.getElementById("dashboard-export");
+async function T(t) {
+  const s = new E(t), e = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, o = document.getElementById("dashboard-export");
   o && o.addEventListener("click", () => window.open(e));
-  const a = T((await (await fetch(e)).json()).widgets || []);
+  const a = z((await (await fetch(e)).json()).widgets || []);
   for (const [i, n] of Object.entries(a)) {
     const r = document.querySelector(`[data-area-grid="${i}"]`);
     r && (r.innerHTML = n.map((d) => s.render(d, i)).join(""));
   }
-  await x(), await new C({
+  await x(), await new A({
     apiEndpoint: e,
     preferencesEndpoint: `${e}/preferences`,
     areas: [
@@ -795,13 +803,13 @@ async function E(t) {
     }
   }).init(), await x();
 }
-function T(t) {
+function z(t) {
   return t.reduce((s, e) => {
     const o = e.area || "admin.dashboard.main";
     return s[o] || (s[o] = []), s[o].push(e), s;
   }, {});
 }
-function z(t) {
+function B(t) {
   const s = (t || "").trim();
   return s ? s.endsWith("/") ? s : `${s}/` : "/dashboard/assets/echarts/";
 }
@@ -818,11 +826,11 @@ function f(t) {
   });
   return v.set(t, s), s;
 }
-async function B(t, s) {
-  const e = z(s);
+async function L(t, s) {
+  const e = B(s);
   await f(`${e}echarts.min.js`), t && t !== "default" && await f(`${e}themes/${t}.js`);
 }
-function L(t) {
+function D(t) {
   const s = t.querySelector("script[data-chart-options]");
   if (!s?.textContent) return null;
   try {
@@ -831,8 +839,8 @@ function L(t) {
     return console.error("[admin-dashboard] Failed to parse chart options", e), null;
   }
 }
-function D(t) {
-  const s = (t.dataset.chartId || "").trim(), e = (t.dataset.chartTheme || "westeros").trim(), o = L(t), a = s ? document.getElementById(s) : null, i = window.echarts;
+function M(t) {
+  const s = (t.dataset.chartId || "").trim(), e = (t.dataset.chartTheme || "westeros").trim(), o = D(t), a = s ? document.getElementById(s) : null, i = window.echarts;
   if (!a || !o || !i) return;
   const n = i.getInstanceByDom(a) || i.init(a, e, { renderer: "canvas" });
   if (n.setOption(o, !0), !b.has(t) && window.ResizeObserver) {
@@ -851,20 +859,20 @@ async function x() {
   for (const s of t) {
     const e = (s.dataset.chartTheme || "westeros").trim(), o = s.dataset.chartAssetsHost || "";
     try {
-      await B(e, o), D(s);
+      await L(e, o), M(s);
     } catch (a) {
       console.error("[admin-dashboard] Failed to hydrate chart widget", a);
     }
   }
 }
-function O() {
+function R() {
   const t = document.getElementById("admin-dashboard-config");
   if (!t?.textContent) {
     console.error("[admin-dashboard] Missing #admin-dashboard-config element");
     return;
   }
   try {
-    E(JSON.parse(t.textContent)).catch((s) => {
+    T(JSON.parse(t.textContent)).catch((s) => {
       console.error("[admin-dashboard] Failed to initialize:", s);
     });
   } catch (s) {
@@ -873,13 +881,13 @@ function O() {
 }
 export {
   $ as DefaultDragDropBehavior,
-  k as DefaultPersistenceBehavior,
+  C as DefaultPersistenceBehavior,
   S as DefaultResizeBehavior,
   _ as DefaultVisibilityBehavior,
-  C as WidgetGrid,
-  j as WidgetRenderer,
-  O as bootstrapAdminDashboard,
-  E as initAdminDashboard
+  A as WidgetGrid,
+  E as WidgetRenderer,
+  R as bootstrapAdminDashboard,
+  T as initAdminDashboard
 };
 
 //# sourceMappingURL=index.js.map

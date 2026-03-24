@@ -18,7 +18,12 @@ func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]s
 
 	auther := auth.NewAuthenticator(provider, cfg)
 	tokenService := auther.TokenService()
-	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		cfg,
+		auth.WithAuthCookieTemplate(router.FirstPartySessionCookie("", "")),
+		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
+	)
 	if err != nil {
 		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
 	}

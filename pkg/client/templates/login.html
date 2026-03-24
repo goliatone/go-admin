@@ -45,6 +45,7 @@
 
       <!-- Form -->
       <form class="space-y-4" action="{{ adminURL("login") }}" method="post">
+        {{ csrf_field|safe }}
         <!-- Email Input -->
         <div>
           <div class="relative">

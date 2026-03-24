@@ -131,7 +131,12 @@ func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*a
 	}
 
 	auther := auth.NewAuthenticator(provider, authCfg)
-	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		authCfg,
+		auth.WithAuthCookieTemplate(router.FirstPartySessionCookie("", "")),
+		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
+	)
 	if err != nil {
 		return nil, nil, nil, nil, DemoIdentity{}, "", "", err
 	}
