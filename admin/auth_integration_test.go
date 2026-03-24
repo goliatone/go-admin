@@ -371,6 +371,52 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 	}
 }
 
+func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret"}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewGoAuthAuthenticator(routeAuth, cfg)
+
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Get("/admin/activity", authenticator.WrapHandler(func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(token) == "" {
+			t.Fatalf("expected csrf token in browser route context")
+		}
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<!doctype html><html><body><main>activity-page</main></body></html>")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/admin/activity", nil)
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected browser html route status 200, got %d body=%s", res.Code, res.Body.String())
+	}
+	body := res.Body.String()
+	if !strings.Contains(strings.ToLower(body), "<html") {
+		t.Fatalf("expected browser html route to render html, got %q", body)
+	}
+	if !strings.Contains(body, "activity-page") {
+		t.Fatalf("expected browser html route body to include page content, got %q", body)
+	}
+}
+
 func TestGoAuthAuthorizerDebugLogging(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",

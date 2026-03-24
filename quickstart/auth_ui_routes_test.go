@@ -12,14 +12,18 @@ import (
 )
 
 type captureRouter struct {
-	getHandlers  map[string]router.HandlerFunc
-	postHandlers map[string]router.HandlerFunc
+	getHandlers          map[string]router.HandlerFunc
+	postHandlers         map[string]router.HandlerFunc
+	getMiddlewareCounts  map[string]int
+	postMiddlewareCounts map[string]int
 }
 
 func newCaptureRouter() *captureRouter {
 	return &captureRouter{
-		getHandlers:  map[string]router.HandlerFunc{},
-		postHandlers: map[string]router.HandlerFunc{},
+		getHandlers:          map[string]router.HandlerFunc{},
+		postHandlers:         map[string]router.HandlerFunc{},
+		getMiddlewareCounts:  map[string]int{},
+		postMiddlewareCounts: map[string]int{},
 	}
 }
 
@@ -66,14 +70,14 @@ func (r *captureRouter) Use(m ...router.MiddlewareFunc) router.Router[*fiber.App
 }
 
 func (r *captureRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
-	_ = mw
 	r.getHandlers[path] = handler
+	r.getMiddlewareCounts[path] = len(mw)
 	return nil
 }
 
 func (r *captureRouter) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
-	_ = mw
 	r.postHandlers[path] = handler
+	r.postMiddlewareCounts[path] = len(mw)
 	return nil
 }
 
@@ -178,6 +182,25 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	}
 	if !featureSnapshotFlag(viewCtx["feature_snapshot"], "users.password_reset") {
 		t.Fatalf("expected feature snapshot to include users.password_reset true, got %v", viewCtx["feature_snapshot"])
+	}
+}
+
+func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+
+	if err := RegisterAuthUIRoutes(r, cfg, auther, "auth"); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+	if got := r.getMiddlewareCounts["/admin/login"]; got != 1 {
+		t.Fatalf("expected login GET to register one middleware, got %d", got)
+	}
+	if got := r.postMiddlewareCounts["/admin/login"]; got != 1 {
+		t.Fatalf("expected login POST to register one middleware, got %d", got)
+	}
+	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
+		t.Fatalf("expected logout POST to register one middleware, got %d", got)
 	}
 }
 
