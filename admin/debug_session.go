@@ -129,21 +129,16 @@ func debugSetSessionCookie(c router.Context, name, value string, ttl time.Durati
 	if c == nil || strings.TrimSpace(name) == "" || strings.TrimSpace(value) == "" {
 		return
 	}
-	cookie := &router.Cookie{
-		Name:     name,
-		Value:    value,
-		Path:     "/",
-		HTTPOnly: true,
-		Secure:   debugIsSecureRequest(c, cfg),
-		SameSite: "Lax",
-	}
+	cookie := router.FirstPartySessionCookie(name, value)
+	cookie.Secure = debugIsSecureRequest(c, cfg)
 	if ttl > 0 {
 		cookie.MaxAge = int(ttl.Seconds())
 		cookie.Expires = time.Now().Add(ttl)
+		cookie.SessionOnly = false
 	} else {
 		cookie.SessionOnly = true
 	}
-	c.Cookie(cookie)
+	c.Cookie(&cookie)
 }
 
 func debugSessionUsernameFromRequest(c router.Context) string {
