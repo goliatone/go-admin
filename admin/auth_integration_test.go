@@ -2,11 +2,13 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	router "github.com/goliatone/go-router"
 )
 
@@ -316,6 +318,59 @@ func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.
 	}
 }
 
+func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret"}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewGoAuthAuthenticator(routeAuth, cfg)
+
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(token) == "" {
+			t.Fatalf("expected csrf token in browser route context")
+		}
+		return c.SendString(token)
+	}))
+	server.Router().Post("/admin/api/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
+		return c.SendStatus(http.StatusOK)
+	}))
+
+	browserReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/preferences", nil)
+	browserReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	browserRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(browserRes, browserReq)
+	if browserRes.Code != http.StatusOK {
+		t.Fatalf("expected browser route status 200, got %d", browserRes.Code)
+	}
+	if strings.TrimSpace(browserRes.Body.String()) == "" {
+		t.Fatalf("expected browser route to render csrf token")
+	}
+
+	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	apiRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(apiRes, apiReq)
+	if apiRes.Code != http.StatusOK {
+		t.Fatalf("expected api route status 200, got %d body=%s", apiRes.Code, apiRes.Body.String())
+	}
+}
+
 func TestGoAuthAuthorizerDebugLogging(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",
@@ -390,6 +445,24 @@ func (t testAuthConfig) GetIssuer() string             { return "go-admin-tests"
 func (t testAuthConfig) GetAudience() []string         { return []string{"go-admin"} }
 func (t testAuthConfig) GetRejectedRouteKey() string   { return "redirect" }
 func (t testAuthConfig) GetRejectedRouteDefault() string {
+	return "/login"
+}
+
+type cookieTestAuthConfig struct {
+	signingKey string
+}
+
+func (t cookieTestAuthConfig) GetSigningKey() string         { return t.signingKey }
+func (t cookieTestAuthConfig) GetSigningMethod() string      { return "HS256" }
+func (t cookieTestAuthConfig) GetContextKey() string         { return "user" }
+func (t cookieTestAuthConfig) GetTokenExpiration() int       { return 24 }
+func (t cookieTestAuthConfig) GetExtendedTokenDuration() int { return 24 }
+func (t cookieTestAuthConfig) GetTokenLookup() string        { return "header:Authorization,cookie:user" }
+func (t cookieTestAuthConfig) GetAuthScheme() string         { return "Bearer" }
+func (t cookieTestAuthConfig) GetIssuer() string             { return "go-admin-tests" }
+func (t cookieTestAuthConfig) GetAudience() []string         { return []string{"go-admin"} }
+func (t cookieTestAuthConfig) GetRejectedRouteKey() string   { return "redirect" }
+func (t cookieTestAuthConfig) GetRejectedRouteDefault() string {
 	return "/login"
 }
 
