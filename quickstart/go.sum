@@ -167,8 +167,8 @@ github.com/gofiber/utils v1.2.0/go.mod h1:poZpsnhBykfnY1Mc0KeEa6mSHrS3dV0+oBWyeQ
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=
-github.com/goliatone/go-auth v0.36.0 h1:qkC0eC0S/7SyKjphxsUI5e8iUcYqOMKnSRBk4bjrVqo=
-github.com/goliatone/go-auth v0.36.0/go.mod h1:/Z6MMdq7MmQQdhTcLSSML7uZqczZb42sawfz7vptmgE=
+github.com/goliatone/go-auth v0.37.0 h1:UbCVjWmrY9DL3JPCyhMnB8reA46IX783bFQsql7v3EQ=
+github.com/goliatone/go-auth v0.37.0/go.mod h1:l6MLvjcMa20ZEu59baYj6A40lPx0C7LTRop+XLydDhI=
 github.com/goliatone/go-auth/adapters/featuregate v0.36.0 h1:yxXSJkXQrQYF6nNxOi9O64vay/jbdKXIRYJMVHPBTQY=
 github.com/goliatone/go-auth/adapters/featuregate v0.36.0/go.mod h1:SiYC9KDokn6sWXFPmtJuCqCWHM1OFq6iJMR6299ITTs=
 github.com/goliatone/go-command v0.18.0 h1:jcuL0B5IZDz6nDLin9k0+inAY1pwA3T77QH/fDYQDUc=
@@ -213,8 +213,8 @@ github.com/goliatone/go-repository-cache v0.7.1 h1:/JHBAWnBDiz9Gz1ko3XZMmq5ZuOOH
 github.com/goliatone/go-repository-cache v0.7.1/go.mod h1:vv+5iv/FjDBoasIzy8Tb0t/lpswK1W6+l3piar4+w1o=
 github.com/goliatone/go-search v0.2.0 h1:2G0+T0c/JyJNaW5RbRiicM4+ftydwvA2XYuiFCH8IrI=
 github.com/goliatone/go-search v0.2.0/go.mod h1:W5Y/B6wpCWEAzBvIZt0mw8LkwKH/LNWPRrtWp5PxbjQ=
-github.com/goliatone/go-search/adapters/goadmin v0.1.0 h1:cI1WZTCdgUcoMIvn5akzgRHUE/FA6i3nREoB55Z9gFE=
-github.com/goliatone/go-search/adapters/goadmin v0.1.0/go.mod h1:qGEvNGAVuHbxZqIWpFxQ8cFEAkDTSpNF5J/73KpWwbk=
+github.com/goliatone/go-search/adapters/goadmin v0.2.0 h1:ecnc2YSSWMdOBbMpGfLYvZzDwgxz4A0t3qTFZ4tHCkY=
+github.com/goliatone/go-search/adapters/goadmin v0.2.0/go.mod h1:EY3eQC/6sZpN71vav/iYKZnM06+fyzUA2Buq8qt+I/k=
 github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1YraAk=
 github.com/goliatone/go-slug v0.1.0/go.mod h1:8lXx322OHfQQzdrwikY2uqhQVmH3IVNGiVxn9kPmX1w=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=

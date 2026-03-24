@@ -14,8 +14,8 @@ require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.27.1
-	github.com/goliatone/go-auth v0.36.0
+	github.com/goliatone/go-admin v0.28.0
+	github.com/goliatone/go-auth v0.37.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
 	github.com/goliatone/go-cms v0.44.0
 	github.com/goliatone/go-command v0.18.0
@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.13.0
 	github.com/goliatone/go-persistence-bun v0.13.0
-	github.com/goliatone/go-router v0.54.0
+	github.com/goliatone/go-router v0.55.0
 	github.com/goliatone/go-search v0.2.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
@@ -126,7 +126,7 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.15.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.1.0 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.2.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
