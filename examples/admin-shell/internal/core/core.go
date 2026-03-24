@@ -50,10 +50,7 @@ type Core struct {
 }
 
 // New builds application dependencies and wires go-admin.
-func New(ctx context.Context, cfg *config.AppConfig) (*Core, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}

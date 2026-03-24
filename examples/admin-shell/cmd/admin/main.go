@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -15,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	appCore, err := core.New(nil, &cfg)
+	appCore, err := core.New(context.TODO(), &cfg)
 	if err != nil {
 		panic(err)
 	}
