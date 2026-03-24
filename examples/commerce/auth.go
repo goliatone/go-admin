@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-router"
@@ -156,15 +156,5 @@ func generateCommerceTokens(ctx context.Context, ts auth.TokenService, provider 
 }
 
 func toString(val any) string {
-	if val == nil {
-		return ""
-	}
-	switch v := val.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	default:
-		return fmt.Sprintf("%v", v)
-	}
+	return primitives.StringFromAny(val)
 }

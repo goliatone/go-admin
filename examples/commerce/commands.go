@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
@@ -122,14 +123,6 @@ func buildDailyRevenueReportMsg(_ map[string]any, _ []string) (DailyRevenueRepor
 }
 
 func toInt(v any) int {
-	switch t := v.(type) {
-	case int:
-		return t
-	case int64:
-		return int(t)
-	case float64:
-		return int(t)
-	default:
-		return 0
-	}
+	value, _ := primitives.IntFromAny(v)
+	return value
 }
