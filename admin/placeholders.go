@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	auth "github.com/goliatone/go-auth"
-	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -114,15 +113,15 @@ func resolveProtectedRouteMiddleware(
 		return nil
 	}
 	protectedRoute := routeAuth.ProtectedRoute(cfg, handler)
-	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(cfg, handler)
+	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(routeAuth, cfg, handler)
 	return func(next router.HandlerFunc) router.HandlerFunc {
-		browserHandler := protectedRoute(protectedBrowserRoute(next))
+		browserHandler := protectedBrowserRoute(next)
 		routeHandler := protectedRoute(next)
 		return func(c router.Context) error {
 			if c != nil {
 				c.SetContext(WithResolvedPermissionsCache(c.Context()))
 			}
-			if c != nil && strings.Contains(c.Path(), "/api/") {
+			if isProtectedAdminAPIRequest(c, cfg) {
 				return routeHandler(c)
 			}
 			return browserHandler(c)
@@ -130,69 +129,47 @@ func resolveProtectedRouteMiddleware(
 	}
 }
 
+func isProtectedAdminAPIRequest(c router.Context, cfg auth.Config) bool {
+	if c == nil {
+		return false
+	}
+	return pathHasBase(c.Path(), protectedAdminAPIBasePath(cfg))
+}
+
+func protectedAdminAPIBasePath(cfg auth.Config) string {
+	adminCfg, ok := cfg.(interface{ AdminConfig() Config })
+	if !ok {
+		return defaultProtectedAdminAPIBasePath()
+	}
+	roots := effectiveRoutingRoots(adminCfg.AdminConfig())
+	if apiRoot := normalizeBasePath(roots.APIRoot); apiRoot != "" {
+		return apiRoot
+	}
+	return defaultProtectedAdminAPIBasePath()
+}
+
+func defaultProtectedAdminAPIBasePath() string {
+	return normalizeBasePath("/admin/" + defaultAPIPrefix)
+}
+
+func pathHasBase(path, base string) bool {
+	path = normalizeBasePath(path)
+	base = normalizeBasePath(base)
+	if path == "" || base == "" {
+		return false
+	}
+	return path == base || strings.HasPrefix(path, base+"/")
+}
+
 func resolveProtectedAdminBrowserRouteMiddleware(
+	routeAuth *auth.RouteAuthenticator,
 	cfg auth.Config,
 	handler func(router.Context, error) error,
 ) router.MiddlewareFunc {
-	_ = handler
-	authCookieName := strings.TrimSpace(cfg.GetContextKey())
-	return func(next router.HandlerFunc) router.HandlerFunc {
-		contextKey := csrfmw.DefaultContextKey
-		headerName := csrfmw.DefaultHeaderName
-		csrfMiddleware := csrfmw.New(csrfmw.Config{
-			ContextKey: contextKey,
-			HeaderName: headerName,
-			ErrorHandler: func(c router.Context, err error) error {
-				if err == nil {
-					return c.Status(router.StatusForbidden).SendString("forbidden")
-				}
-				return c.Status(router.StatusForbidden).SendString(err.Error())
-			},
-			SuccessHandler: func(c router.Context) error {
-				if token, ok := c.Locals(contextKey).(string); ok && strings.TrimSpace(token) != "" {
-					c.Set(headerName, token)
-				}
-				return next(c)
-			},
-		})
-		originMiddleware := router.OriginProtection(router.OriginProtectionConfig{
-			ErrorHandler: func(c router.Context, err error) error {
-				return c.Status(router.StatusForbidden).SendString("forbidden")
-			},
-		})
-		return func(c router.Context) error {
-			if isSafeBrowserMethod(c) {
-				return csrfMiddleware(next)(c)
-			}
-			if requestUsesCookieAuth(c, authCookieName) {
-				return originMiddleware(csrfMiddleware(next))(c)
-			}
-			return csrfMiddleware(next)(c)
-		}
+	if routeAuth == nil {
+		return nil
 	}
-}
-
-func isSafeBrowserMethod(c router.Context) bool {
-	if c == nil {
-		return false
-	}
-	switch strings.ToUpper(strings.TrimSpace(c.Method())) {
-	case "GET", "HEAD", "OPTIONS", "TRACE":
-		return true
-	default:
-		return false
-	}
-}
-
-func requestUsesCookieAuth(c router.Context, cookieName string) bool {
-	if c == nil {
-		return false
-	}
-	cookieName = strings.TrimSpace(cookieName)
-	if cookieName == "" {
-		return false
-	}
-	return strings.TrimSpace(c.Cookies(cookieName)) != ""
+	return routeAuth.ProtectedBrowserRoute(cfg, handler)
 }
 
 // WrapHandler runs the go-auth middleware around the provided handler.
