@@ -97,7 +97,7 @@ func RegisterRolesUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		}
 	}
 
-	if options.urls == nil && adm != nil {
+	if options.urls == nil {
 		options.urls = adm.URLs()
 	}
 	if resolved := resolveAdminBasePath(options.urls, options.basePath); resolved != "" {
@@ -329,6 +329,7 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 		}
 	}
 	html = rewriteRolesFormHTML(html, h.rolesRoot, formID)
+	html = []byte(injectQuickstartCSRFField(c, string(html)))
 
 	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
 		"resource_item": record,
