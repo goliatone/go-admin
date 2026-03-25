@@ -199,6 +199,9 @@ func resolveAssetsFS(base fs.FS) fs.FS {
 	if assetRootHasMarker(base) {
 		return base
 	}
+	if assetRootHasEntries(base) {
+		return base
+	}
 	if sub, err := fs.Sub(base, "assets"); err == nil {
 		return sub
 	}
@@ -214,6 +217,35 @@ func assetRootHasMarker(base fs.FS) bool {
 	}
 	if _, err := fs.Stat(base, path.Join("dist", "output.css")); err == nil {
 		return true
+	}
+	return false
+}
+
+func assetRootHasEntries(base fs.FS) bool {
+	if base == nil {
+		return false
+	}
+	entries, err := fs.ReadDir(base, ".")
+	if err != nil {
+		return false
+	}
+	if len(entries) == 0 {
+		return false
+	}
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		name := strings.TrimSpace(entry.Name())
+		if name == "" {
+			continue
+		}
+		switch name {
+		case "assets", "templates", "openapi":
+			continue
+		default:
+			return true
+		}
 	}
 	return false
 }
