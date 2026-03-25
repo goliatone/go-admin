@@ -4,6 +4,47 @@ export interface HTTPRequestOptions extends RequestInit {
   accept?: string;
 }
 
+const unsafeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export function readCSRFToken(): string {
+  if (typeof document === 'undefined' || !document?.querySelector) {
+    return '';
+  }
+  return document
+    .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+    ?.getAttribute('content')
+    ?.trim() || '';
+}
+
+function isUnsafeMethod(method?: string): boolean {
+  const normalized = String(method || 'GET').trim().toUpperCase() || 'GET';
+  return unsafeMethods.has(normalized);
+}
+
+function isSameOriginRequest(input: string): boolean {
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(input)) {
+    return true;
+  }
+  if (typeof location === 'undefined' || !location?.origin) {
+    return false;
+  }
+  try {
+    return new URL(input, location.origin).origin === location.origin;
+  } catch {
+    return false;
+  }
+}
+
+export function appendCSRFHeader(input: string, options: RequestInit, headers: Headers): void {
+  if (!isUnsafeMethod(options.method) || headers.has('X-CSRF-Token') || !isSameOriginRequest(input)) {
+    return;
+  }
+  const token = readCSRFToken();
+  if (token) {
+    headers.set('X-CSRF-Token', token);
+  }
+}
+
 export async function httpRequest(input: string, options: HTTPRequestOptions = {}): Promise<Response> {
   const {
     json,
@@ -31,6 +72,7 @@ export async function httpRequest(input: string, options: HTTPRequestOptions = {
     }
     body = JSON.stringify(json);
   }
+  appendCSRFHeader(input, rest, mergedHeaders);
 
   return fetch(input, {
     ...rest,

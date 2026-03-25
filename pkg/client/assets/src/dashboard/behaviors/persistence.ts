@@ -3,29 +3,13 @@
  */
 
 import type { PersistenceBehavior, LayoutPreferences } from '../types.js';
-
-function csrfHeaders(): HeadersInit {
-  const token = document
-    .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-    ?.getAttribute('content')
-    ?.trim();
-  if (!token) {
-    return {};
-  }
-  return {
-    'X-CSRF-Token': token,
-  };
-}
+import { httpRequest } from '../../shared/transport/http-client.js';
 
 export class DefaultPersistenceBehavior implements PersistenceBehavior {
   async save(endpoint: string, layout: LayoutPreferences): Promise<void> {
-    const response = await fetch(endpoint, {
+    const response = await httpRequest(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(),
-      },
-      body: JSON.stringify(layout),
+      json: layout,
     });
 
     if (!response.ok) {

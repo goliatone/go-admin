@@ -1,13 +1,14 @@
-import { B as k, _ as C, g as _ } from "./lineage-contracts-Clh6Zaep.js";
+import { t as k } from "./http-client-D9Z2A1Pg.js";
+import { B as C, _, g as D } from "./lineage-contracts-Clh6Zaep.js";
 import { c as x, f as u, l as a, o as l, t as f, u as P } from "./dom-helpers-CDdChTSn.js";
-import { i as w, r as D } from "./formatters-CcW2Edf9.js";
-import { n as z } from "./async-helpers-CA3ovFR9.js";
-var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "application/vnd.google-apps.document", y = "application/pdf", E = "application/vnd.google-apps.folder", R = [S, y], F = class {
+import { i as w, r as z } from "./formatters-CcW2Edf9.js";
+import { n as B } from "./async-helpers-CA3ovFR9.js";
+var I = "esign.google.account_id", M = 25 * 1024 * 1024, R = 2e3, L = 60, S = "application/vnd.google-apps.document", y = "application/pdf", E = "application/vnd.google-apps.folder", $ = [S, y], F = class {
   constructor(e) {
     this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{
       id: "root",
       name: "My Drive"
-    }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || B, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || M, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       form: a("#document-upload-form"),
       fileInput: a("#pdf_file"),
       uploadZone: a("#pdf-upload-zone"),
@@ -98,7 +99,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
   setupGoogleDriveListeners() {
     const { searchInput: e, clearSearchBtn: t, loadMoreBtn: i, refreshBtn: r, clearSelectionBtn: o, importBtn: s, importRetryBtn: n, driveAccountDropdown: c } = this.elements;
     if (e) {
-      const d = z(() => this.handleSearch(), 300);
+      const d = B(() => this.handleSearch(), 300);
       e.addEventListener("input", d);
     }
     t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.loadMoreFiles()), r && r.addEventListener("click", () => this.refreshFiles()), c && c.addEventListener("change", () => {
@@ -267,7 +268,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
     i && o.searchParams.set("tenant_id", i), r && o.searchParams.set("org_id", r);
     const s = new FormData();
     s.append("file", e);
-    const n = await fetch(o.toString(), {
+    const n = await k(o.toString(), {
       method: "POST",
       body: s,
       credentials: "same-origin"
@@ -328,7 +329,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
     return e.mimeType === E;
   }
   isImportable(e) {
-    return R.includes(e.mimeType);
+    return $.includes(e.mimeType);
   }
   getFileTypeName(e) {
     const t = String(e || "").trim().toLowerCase();
@@ -455,7 +456,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
             <p class="font-medium text-gray-900 truncate">${this.escapeHtml(r.name || "Untitled")}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(r.mimeType)}
-              ${r.modifiedTime ? " • " + D(r.modifiedTime) : ""}
+              ${r.modifiedTime ? " • " + z(r.modifiedTime) : ""}
               ${h ? " • Not importable" : ""}
             </p>
           </div>
@@ -622,7 +623,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
           code: h
         };
       }
-      this.currentImportRunId = C(c).import_run_id, this.pollAttempts = 0;
+      this.currentImportRunId = _(c).import_run_id, this.pollAttempts = 0;
       const d = new URL(window.location.href);
       this.currentImportRunId && d.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", d.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
     } catch (s) {
@@ -632,7 +633,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
     }
   }
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), M);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), R);
   }
   async pollImportStatus() {
     if (this.currentImportRunId) {
@@ -646,7 +647,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
           headers: { Accept: "application/json" }
         }), i = await t.json();
         if (!t.ok) throw new Error(i.error?.message || "Failed to check import status");
-        const r = _(i);
+        const r = D(i);
         switch (r.status) {
           case "queued":
             this.updateImportStatusMessage("Waiting in queue..."), this.startPolling();
@@ -656,7 +657,7 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
             break;
           case "succeeded":
             this.showImportStatus("succeeded"), f("Import complete");
-            const o = k(r, {
+            const o = C(r, {
               agreements: this.config.routes.agreements,
               documents: this.config.routes.index,
               fallback: this.config.routes.index
@@ -686,11 +687,11 @@ var I = "esign.google.account_id", B = 25 * 1024 * 1024, M = 2e3, L = 60, S = "a
     return t.textContent = e, t.innerHTML;
   }
 };
-function G(e) {
+function q(e) {
   const t = new F(e);
   return x(() => t.init()), t;
 }
-function N(e) {
+function V(e) {
   const t = new F({
     basePath: e.basePath,
     apiBasePath: e.apiBasePath || `${e.basePath}/api/v1`,
@@ -703,7 +704,7 @@ function N(e) {
   });
   x(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function $(e) {
+function U(e) {
   const t = String(e.basePath || e.base_path || "").trim(), i = e.routes && typeof e.routes == "object" ? e.routes : {}, r = e.features && typeof e.features == "object" ? e.features : {}, o = e.context && typeof e.context == "object" ? e.context : {}, s = String(i.index || "").trim();
   return !t && !s ? null : {
     basePath: t || "/admin",
@@ -725,7 +726,7 @@ typeof document < "u" && x(() => {
   if (document.querySelector('[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]')) {
     const e = document.getElementById("esign-page-config");
     if (e) try {
-      const t = $(JSON.parse(e.textContent || "{}"));
+      const t = U(JSON.parse(e.textContent || "{}"));
       t && new F(t).init();
     } catch (t) {
       console.warn("Failed to parse document form page config:", t);
@@ -733,9 +734,9 @@ typeof document < "u" && x(() => {
   }
 });
 export {
-  N as n,
-  G as r,
+  V as n,
+  q as r,
   F as t
 };
 
-//# sourceMappingURL=document-form-ro4nTkf8.js.map
+//# sourceMappingURL=document-form-DZACJs5E.js.map

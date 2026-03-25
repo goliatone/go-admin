@@ -6,6 +6,7 @@
 import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatFileSize, formatDateTime } from '../utils/formatters.js';
+import { httpRequest } from '../../shared/transport/http-client.js';
 import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
@@ -901,7 +902,7 @@ export class DocumentFormController {
     const payload = new FormData();
     payload.append('file', file);
 
-    const response = await fetch(uploadURL.toString(), {
+    const response = await httpRequest(uploadURL.toString(), {
       method: 'POST',
       body: payload,
       credentials: 'same-origin',

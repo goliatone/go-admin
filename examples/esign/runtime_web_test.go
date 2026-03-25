@@ -495,6 +495,9 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	if !strings.Contains(initialMarkup, `data-esign-page="admin.documents.ingestion"`) {
 		t.Fatalf("expected page marker data-esign-page=admin.documents.ingestion in new-document template")
 	}
+	if !strings.Contains(initialMarkup, `name="_token"`) {
+		t.Fatalf("expected new-document template to include csrf hidden field")
+	}
 	initialConfig := extractESignPageConfigFromHTML(t, initialMarkup)
 	if got := strings.TrimSpace(fmt.Sprint(initialConfig["page"])); got != "admin.documents.ingestion" {
 		t.Fatalf("expected page config page=admin.documents.ingestion, got %q", got)
@@ -576,6 +579,78 @@ func TestRuntimeNewDocumentRouteConfigReflectsGoogleFeatureGateWhenDisabled(t *t
 	}
 }
 
+func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
+	app := setupESignRuntimeWebApp(t)
+	authCookie := loginESignRuntimeBrowserUser(t, app)
+
+	query := "tenant_id=tenant-bootstrap&org_id=org-bootstrap"
+	pageResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/documents/new?"+query, authCookie)
+	defer pageResp.Body.Close()
+	if pageResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(pageResp.Body)
+		t.Fatalf("expected canonical document route status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	pageBody, err := io.ReadAll(pageResp.Body)
+	if err != nil {
+		t.Fatalf("read canonical document route body: %v", err)
+	}
+	csrfToken := extractHiddenInputValue(t, string(pageBody), "_token")
+	if csrfToken == "" {
+		t.Fatal("expected canonical document route to include csrf token")
+	}
+
+	var uploadBody bytes.Buffer
+	uploadWriter := multipart.NewWriter(&uploadBody)
+	fileWriter, err := uploadWriter.CreateFormFile("file", "canonical-upload.pdf")
+	if err != nil {
+		t.Fatalf("create upload file: %v", err)
+	}
+	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
+		t.Fatalf("write upload payload: %v", err)
+	}
+	if err := uploadWriter.Close(); err != nil {
+		t.Fatalf("close upload writer: %v", err)
+	}
+
+	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
+	prepareRuntimeTestRequest(uploadReq)
+	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
+	uploadReq.AddCookie(authCookie)
+	uploadResp, err := app.Test(uploadReq, -1)
+	if err != nil {
+		t.Fatalf("upload request failed: %v", err)
+	}
+	defer uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResp.Body)
+		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	uploadPayload := map[string]any{}
+	if err := json.NewDecoder(uploadResp.Body).Decode(&uploadPayload); err != nil {
+		t.Fatalf("decode upload payload: %v", err)
+	}
+
+	createForm := url.Values{}
+	createForm.Set("_token", csrfToken)
+	createForm.Set("title", "Canonical Upload Test")
+	createForm.Set("source_object_key", strings.TrimSpace(fmt.Sprint(uploadPayload["object_key"])))
+	createForm.Set("source_original_name", strings.TrimSpace(fmt.Sprint(uploadPayload["source_original_name"])))
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/content/documents?"+query, strings.NewReader(createForm.Encode()))
+	prepareRuntimeTestRequest(createReq)
+	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	createReq.Header.Set("Origin", "http://localhost:8082")
+	createReq.AddCookie(authCookie)
+	createResp, err := app.Test(createReq, -1)
+	if err != nil {
+		t.Fatalf("create request failed: %v", err)
+	}
+	defer createResp.Body.Close()
+	if createResp.StatusCode != http.StatusFound {
+		body, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected canonical document create redirect 302, got %d body=%s", createResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+}
+
 func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	app := setupESignRuntimeWebApp(t)
 
@@ -645,6 +720,9 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	agreementMarkup := string(agreementBody)
 	if !strings.Contains(agreementMarkup, `data-esign-page="agreement-form"`) {
 		t.Fatalf("expected agreement form marker in response")
+	}
+	if !strings.Contains(agreementMarkup, `name="_token"`) {
+		t.Fatalf("expected agreement form template to include csrf hidden field")
 	}
 	agreementConfig := extractESignPageConfigFromHTML(t, agreementMarkup)
 	agreementModulePath := getESignConfigModulePath(agreementConfig)
@@ -2458,16 +2536,80 @@ func assertStatusWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, m
 
 func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(method, endpoint, body)
+	var payload []byte
+	if body != nil {
+		var err error
+		payload, err = io.ReadAll(body)
+		if err != nil {
+			t.Fatalf("read request body (%s %s): %v", method, endpoint, err)
+		}
+	}
+	reqBody := bytes.NewReader(payload)
+	req := httptest.NewRequest(method, endpoint, reqBody)
 	prepareRuntimeTestRequest(req)
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if shouldAttachLoginCSRF(method, endpoint, contentType, payload) {
+		csrfToken, cookies := fetchLoginCSRFState(t, app)
+		values, err := url.ParseQuery(string(payload))
+		if err != nil {
+			t.Fatalf("parse login form payload: %v", err)
+		}
+		values.Set("_token", csrfToken)
+		req = httptest.NewRequest(method, endpoint, strings.NewReader(values.Encode()))
+		prepareRuntimeTestRequest(req)
+		req.Header.Set("Content-Type", contentType)
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
+		}
 	}
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed (%s %s): %v", method, endpoint, err)
 	}
 	return resp
+}
+
+func shouldAttachLoginCSRF(method, endpoint, contentType string, payload []byte) bool {
+	if !strings.EqualFold(strings.TrimSpace(method), http.MethodPost) {
+		return false
+	}
+	if !strings.Contains(strings.TrimSpace(contentType), "application/x-www-form-urlencoded") {
+		return false
+	}
+	path := strings.TrimSpace(endpoint)
+	if idx := strings.Index(path, "?"); idx >= 0 {
+		path = path[:idx]
+	}
+	if path != "/admin/login" {
+		return false
+	}
+	return !strings.Contains(string(payload), "_token=")
+}
+
+func fetchLoginCSRFState(t *testing.T, app *fiber.App) (string, []*http.Cookie) {
+	t.Helper()
+	loginPageReq := httptest.NewRequest(http.MethodGet, "/admin/login", nil)
+	prepareRuntimeTestRequest(loginPageReq)
+	loginPageResp, err := app.Test(loginPageReq, -1)
+	if err != nil {
+		t.Fatalf("request failed (GET /admin/login): %v", err)
+	}
+	defer loginPageResp.Body.Close()
+	if loginPageResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(loginPageResp.Body)
+		t.Fatalf("expected login page status 200, got %d body=%s", loginPageResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	loginPageBody, err := io.ReadAll(loginPageResp.Body)
+	if err != nil {
+		t.Fatalf("read login page body: %v", err)
+	}
+	csrfToken := extractHiddenInputValue(t, string(loginPageBody), "_token")
+	if csrfToken == "" {
+		t.Fatal("expected login page to include csrf token")
+	}
+	return csrfToken, loginPageResp.Cookies()
 }
 
 func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, cookie *http.Cookie) *http.Response {
@@ -2531,6 +2673,43 @@ func prepareRuntimeTestRequest(req *http.Request) {
 		req.URL.Scheme = "https"
 	}
 	req.TLS = &tls.ConnectionState{}
+}
+
+func extractHiddenInputValue(t *testing.T, body, fieldName string) string {
+	t.Helper()
+	re := regexp.MustCompile(`name="` + regexp.QuoteMeta(fieldName) + `" value="([^"]+)"`)
+	matches := re.FindStringSubmatch(body)
+	if len(matches) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(matches[1])
+}
+
+func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {
+	t.Helper()
+	csrfToken, cookies := fetchLoginCSRFState(t, app)
+
+	form := url.Values{}
+	form.Set("_token", csrfToken)
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginReq := httptest.NewRequest(http.MethodPost, "/admin/login", strings.NewReader(form.Encode()))
+	prepareRuntimeTestRequest(loginReq)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, cookie := range cookies {
+		loginReq.AddCookie(cookie)
+	}
+	loginResp, err := app.Test(loginReq, -1)
+	if err != nil {
+		t.Fatalf("login request failed: %v", err)
+	}
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		body, _ := io.ReadAll(loginResp.Body)
+		t.Fatalf("expected auth cookie after login, got status %d body=%s", loginResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return authCookie
 }
 
 func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string, payload map[string]any) string {

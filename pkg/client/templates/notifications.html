@@ -85,7 +85,7 @@
 
   async function toggleNotification(id, read) {
     try {
-      await fetch(`${apiRoot}/notifications/read`, {
+      await window.goAdminFetch(`${apiRoot}/notifications/read`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ids: [id], read}),
@@ -102,7 +102,7 @@
     }
     const ids = notificationsCache.map(n => n.id);
     try {
-      await fetch(`${apiRoot}/notifications/read`, {
+      await window.goAdminFetch(`${apiRoot}/notifications/read`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ids, read}),

@@ -5,7 +5,7 @@ import { createStructuredActionError as se, executeActionRequest as Ae, executeS
 import { n as er, t as ae } from "../chunks/badge-DARlE9j4.js";
 import { t as ie } from "../chunks/date-utils-DMGK0YYp.js";
 import { A as tt, C as H, D as Bi, E as Fi, F as rt, M as tr, N as nt, O as qi, P as rr, S as Oi, T as ji, _ as zi, a as Ni, b as Gi, c as Hi, d as Ui, f as Vi, g as Ki, h as st, i as Ji, j as at, k as Yi, l as Qi, m as it, n as Wi, o as Xi, p as Zi, r as eo, s as to, t as ro, u as ot, v as no, w as nr, x as sr, y as so } from "../chunks/translation-status-vocabulary-DDCX-Bio.js";
-import { n as ar, t as I } from "../chunks/http-client-DiXyH5DW.js";
+import { n as ar, t as A } from "../chunks/http-client-D9Z2A1Pg.js";
 import { t as ir } from "../chunks/sortable.esm-G5PYYtV9.js";
 import { r as or, t as lr } from "../chunks/translation-contracts-NuS3GLjo.js";
 var cr = class lt extends Ze {
@@ -557,7 +557,7 @@ function ct(e) {
 function ur(e) {
   return ct(e).replace(/"/g, "&quot;");
 }
-function D(e, t = {}, r = "neutral") {
+function I(e, t = {}, r = "neutral") {
   const n = e.trim();
   if (!n) return "";
   const { size: s = "sm", extraClass: a = "" } = t;
@@ -589,7 +589,7 @@ function ve(e, t) {
 function ut(e) {
   const t = typeof e.family_member_count == "number" ? Math.trunc(e.family_member_count) : Number(e.family_member_count);
   if (Number.isFinite(t) && t > 0) return Math.trunc(t);
-  const r = A(e);
+  const r = E(e);
   if (r.availableLocales.length > 0) return r.availableLocales.length;
   const n = P(e);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
@@ -597,7 +597,7 @@ function ut(e) {
 function uo(e, t = {}) {
   const r = typeof e.translation_family_url == "string" ? e.translation_family_url.trim() : "";
   if (!r) return '<span class="text-gray-400">-</span>';
-  const n = ut(e), s = n && n > 0 ? D(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
+  const n = ut(e), s = n && n > 0 ? I(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
   return `
     <div class="inline-flex items-center gap-2">
       <a href="${ur(r)}" class="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline">View family</a>
@@ -607,7 +607,7 @@ function uo(e, t = {}) {
 }
 function po(e, t = {}) {
   const r = ut(e);
-  return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : D(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
+  return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : I(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
 }
 function ho(e, t = {}) {
   const r = dt(e, "translation_assignment_summary");
@@ -617,7 +617,7 @@ function ho(e, t = {}) {
     domain: "queue",
     size: "sm",
     showIcon: !1
-  })) : s && l.push(D(s, t, "info")), o !== null && o >= 0 && l.push(D(`${o} active`, t, "neutral")), a && l.push(D(`@${a}`, t, "neutral")), i && l.push(D(i, t, i === "urgent" || i === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
+  })) : s && l.push(I(s, t, "info")), o !== null && o >= 0 && l.push(I(`${o} active`, t, "neutral")), a && l.push(I(`@${a}`, t, "neutral")), i && l.push(I(i, t, i === "urgent" || i === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
 function fo(e, t = {}) {
   const r = dt(e, "translation_exchange_summary");
@@ -627,9 +627,9 @@ function fo(e, t = {}) {
     domain: "exchange",
     size: "sm",
     showIcon: !1
-  })) : s && o.push(D(s, t, "info")), a !== null && a >= 0 && o.push(D(`${a} pending`, t, "neutral")), i !== null && i > 0 && o.push(D(`${i} errors`, t, "warning")), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${o.join("")}</div>`;
+  })) : s && o.push(I(s, t, "info")), a !== null && a >= 0 && o.push(I(`${a} pending`, t, "neutral")), i !== null && i > 0 && o.push(I(`${i} errors`, t, "warning")), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${o.join("")}</div>`;
 }
-function A(e) {
+function E(e) {
   const t = {
     familyId: null,
     requiredLocales: [],
@@ -658,10 +658,10 @@ function A(e) {
   return t;
 }
 function mo(e) {
-  return A(e).hasReadinessMetadata;
+  return E(e).hasReadinessMetadata;
 }
 function go(e, t) {
-  return A(e).readyForTransition[t] === !0;
+  return E(e).readyForTransition[t] === !0;
 }
 function pr(e) {
   return [
@@ -714,7 +714,7 @@ function bo(e, t = "default") {
   return st(r) !== null ? H(r, { size: t === "sm" ? "sm" : "default" }) : ae(e, "status", r.toLowerCase(), { size: t === "sm" ? "sm" : void 0 });
 }
 function yo(e, t = {}) {
-  const r = A(e);
+  const r = E(e);
   if (!r.hasReadinessMetadata) return "";
   const { size: n = "default", showDetailedTooltip: s = !0, extraClass: a = "" } = t, i = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: l, label: c, bgClass: d, textClass: u, tooltip: p } = mr(o, r, s);
   return `<span class="${i} ${d} ${u} ${a}"
@@ -726,7 +726,7 @@ function yo(e, t = {}) {
   </span>`;
 }
 function vo(e, t = {}) {
-  const r = A(e);
+  const r = E(e);
   if (!r.hasReadinessMetadata) return "";
   const n = r.readyForTransition.publish === !0, { size: s = "default", extraClass: a = "" } = t, i = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
   if (n) return `<span class="inline-flex items-center gap-1 rounded font-medium ${i} bg-green-100 text-green-700 ${a}"
@@ -748,7 +748,7 @@ function vo(e, t = {}) {
   </span>`;
 }
 function wo(e, t = {}) {
-  const r = A(e);
+  const r = E(e);
   if (!r.hasReadinessMetadata || r.requiredLocales.length === 0) return "";
   const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs" : "text-sm", i = r.requiredLocales.length, o = r.availableLocales.filter((l) => r.requiredLocales.includes(l)).length;
   return `<span class="${a} ${i > 0 && o === i ? "text-green-600" : o > 0 ? "text-amber-600" : "text-gray-500"} font-medium ${s}"
@@ -758,7 +758,7 @@ function wo(e, t = {}) {
   </span>`;
 }
 function xo(e, t = {}) {
-  const r = A(e);
+  const r = E(e);
   if (!r.hasReadinessMetadata || r.readinessState === "ready") return "";
   const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = r.missingRequiredLocales.length, o = i > 0, l = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
   let c = "bg-amber-100", d = "text-amber-800", u = "", p = "";
@@ -772,11 +772,11 @@ function xo(e, t = {}) {
   </span>` : "";
 }
 function So(e) {
-  const t = A(e);
+  const t = E(e);
   return t.hasReadinessMetadata ? t.readinessState !== "ready" : !1;
 }
 function $o(e) {
-  return A(e).missingRequiredLocales.length;
+  return E(e).missingRequiredLocales.length;
 }
 function mr(e, t, r) {
   const n = st(e, "core"), s = n ? nr(n, "sm") : "", a = n?.bgClass || "bg-gray-100", i = n?.textClass || "text-gray-600", o = n?.label || "Unknown", l = n?.description || "Unknown readiness state";
@@ -830,22 +830,22 @@ function mr(e, t, r) {
   }
 }
 function gr(e, t = {}) {
-  const { size: r = "sm", maxLocales: n = 5, showLabels: s = !1 } = t, a = A(e);
+  const { size: r = "sm", maxLocales: n = 5, showLabels: s = !1 } = t, a = E(e);
   if (!a.hasReadinessMetadata) return '<span class="text-gray-400">-</span>';
   const { requiredLocales: i, availableLocales: o, missingRequiredFieldsByLocale: l } = a, c = i.length > 0 ? i : o;
   if (c.length === 0) return '<span class="text-gray-400">-</span>';
   const d = new Set(o), u = br(l);
   return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${c.slice(0, n).map((p) => {
     const h = d.has(p), y = h && u.has(p), g = h && !y;
-    let m, $, E;
-    g ? (m = "bg-green-100 text-green-700 border-green-300", $ = "●", E = "Complete") : y ? (m = "bg-amber-100 text-amber-700 border-amber-300", $ = "◐", E = "Incomplete") : (m = "bg-white text-gray-400 border-gray-300 border-dashed", $ = "○", E = "Missing");
+    let m, $, L;
+    g ? (m = "bg-green-100 text-green-700 border-green-300", $ = "●", L = "Complete") : y ? (m = "bg-amber-100 text-amber-700 border-amber-300", $ = "◐", L = "Incomplete") : (m = "bg-white text-gray-400 border-gray-300 border-dashed", $ = "○", L = "Missing");
     const v = r === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", U = s ? `<span class="font-medium">${p.toUpperCase()}</span>` : "";
     return `
         <span class="inline-flex items-center gap-0.5 ${v} rounded border ${m}"
-              title="${p.toUpperCase()}: ${E}"
-              aria-label="${p.toUpperCase()}: ${E}"
+              title="${p.toUpperCase()}: ${L}"
+              aria-label="${p.toUpperCase()}: ${L}"
               data-locale="${p}"
-              data-state="${E.toLowerCase()}">
+              data-state="${L.toLowerCase()}">
           ${U}
           <span aria-hidden="true">${$}</span>
         </span>
@@ -943,7 +943,7 @@ function Ee(e, t) {
   }
   return n;
 }
-var R = '<span class="text-gray-400">-</span>', wr = [
+var D = '<span class="text-gray-400">-</span>', wr = [
   "name",
   "label",
   "title",
@@ -1062,15 +1062,15 @@ function _r(e) {
 var Rr = class {
   constructor() {
     this.renderers = /* @__PURE__ */ new Map(), this.defaultRenderer = (e) => {
-      if (e == null) return R;
+      if (e == null) return D;
       if (typeof e == "boolean") return e ? "Yes" : "No";
       if (Array.isArray(e)) {
         const t = xe(e, {});
-        return t ? V(t) : R;
+        return t ? V(t) : D;
       }
       if (typeof e == "object") {
         const t = we(e, {});
-        return t ? V(t) : R;
+        return t ? V(t) : D;
       }
       return String(e);
     }, this.registerDefaultRenderers();
@@ -1121,15 +1121,15 @@ var Rr = class {
       const t = String(e), r = 50;
       return t.length <= r ? t : `<span title="${t}">${t.substring(0, r)}...</span>`;
     }), this.renderers.set("_array", (e, t, r, n) => {
-      if (!Array.isArray(e) || e.length === 0) return R;
+      if (!Array.isArray(e) || e.length === 0) return D;
       const s = xe(e, n?.options || {});
-      return s ? V(s) : R;
+      return s ? V(s) : D;
     }), this.renderers.set("_object", (e, t, r, n) => {
-      if (e == null) return R;
+      if (e == null) return D;
       const s = we(e, n?.options || {});
-      return s ? V(s) : R;
+      return s ? V(s) : D;
     }), this.renderers.set("_tags", (e) => !Array.isArray(e) || e.length === 0 ? '<span class="text-gray-400">-</span>' : e.map((t) => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${t}</span>`).join("")), this.renderers.set("blocks_chips", (e, t, r, n) => {
-      if (!Array.isArray(e) || e.length === 0) return R;
+      if (!Array.isArray(e) || e.length === 0) return D;
       const s = n?.options || {}, a = kr(s, "max_visible", "maxVisible", 3), i = Ar(s, "show_count", "showCount", !0), o = Er(s, "chip_variant", "chipVariant", "default"), l = s.block_icons_map || s.blockIconsMap || {}, c = [], d = e.slice(0, a);
       for (const h of d) {
         const y = Lr(h);
@@ -1140,7 +1140,7 @@ var Rr = class {
         }), m = _r(o);
         c.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${m}">${g}<span>${V(y)}</span></span>`);
       }
-      if (c.length === 0) return R;
+      if (c.length === 0) return D;
       const u = e.length - a;
       let p = "";
       return i && u > 0 && (p = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${u} more</span>`), `<div class="flex flex-wrap gap-1">${c.join("")}${p}</div>`;
@@ -1343,28 +1343,20 @@ var ft = class {
   }
   async syncToServer(e) {
     try {
-      await fetch(this.preferencesEndpoint, {
+      await A(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({ raw: { [this.serverStateKey]: e } })
+        json: { raw: { [this.serverStateKey]: e } }
       });
     } catch {
     }
   }
   async clearServerState() {
     try {
-      await fetch(this.preferencesEndpoint, {
+      await A(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({ clear_raw_keys: [this.serverStateKey] })
+        json: { clear_raw_keys: [this.serverStateKey] }
       });
     } catch {
     }
@@ -2102,7 +2094,7 @@ function Sn(e, t = {}) {
 async function $n(e) {
   console.log("[DataGrid] ===== refresh() CALLED ====="), console.log("[DataGrid] Current sort state:", JSON.stringify(e.state.sort)), e.abortController && e.abortController.abort(), e.abortController = new AbortController();
   try {
-    const t = await I(e.buildApiUrl(), {
+    const t = await A(e.buildApiUrl(), {
       signal: e.abortController.signal,
       method: "GET",
       accept: "application/json"
@@ -2173,7 +2165,7 @@ function Ln(e, t) {
   return a && (e.state.perPage = r, e.state.currentPage = s, e.pushStateToURL()), t === 0 ? !1 : a;
 }
 async function _n(e, t) {
-  const r = await I(`${e.config.apiEndpoint}/${t}`, {
+  const r = await A(`${e.config.apiEndpoint}/${t}`, {
     method: "GET",
     accept: "application/json"
   });
@@ -2959,14 +2951,10 @@ async function $s(e) {
   e.bulkActionStateAbortController && e.bulkActionStateAbortController.abort(), e.bulkActionStateAbortController = new AbortController(), e.bulkActionStateRequestSeq += 1;
   const s = e.bulkActionStateRequestSeq, a = typeof e.buildQueryString == "function" ? e.buildQueryString() : "", i = a ? `${r}${r.includes("?") ? "&" : "?"}${a}` : r;
   try {
-    const o = await fetch(i, {
+    const o = await A(i, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
       signal: e.bulkActionStateAbortController.signal,
-      body: JSON.stringify({ ids: n })
+      json: { ids: n }
     });
     if (!o.ok) throw new Error(`Bulk action state request failed: ${o.status}`);
     const l = tr(await o.json());
@@ -3224,7 +3212,7 @@ var k, Rt = class {
     this.hasPersistedHiddenColumnState = a;
     const i = new Set((r?.hiddenColumns || []).filter((v) => n.has(v))), o = this.config.columns.map((v) => v.field), l = !!r && Array.isArray(r.columnOrder) && r.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = l;
-    const c = (r?.columnOrder || []).filter((v) => n.has(v)), d = l ? [...c, ...o.filter((v) => !c.includes(v))] : o, u = this.config.enableGroupedMode ? Zr(t) : !1, p = this.config.enableGroupedMode ? tn(t) : null, h = this.config.enableGroupedMode ? Xr(t) : "explicit", y = this.config.enableGroupedMode ? Wr(t) : /* @__PURE__ */ new Set(), g = te(r?.expandMode, h), m = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), $ = this.config.enableGroupedMode ? r?.expandMode !== void 0 || m.size > 0 || u : !1, E = (this.config.enableGroupedMode ? r?.viewMode || p : null) || this.config.defaultViewMode || "flat";
+    const c = (r?.columnOrder || []).filter((v) => n.has(v)), d = l ? [...c, ...o.filter((v) => !c.includes(v))] : o, u = this.config.enableGroupedMode ? Zr(t) : !1, p = this.config.enableGroupedMode ? tn(t) : null, h = this.config.enableGroupedMode ? Xr(t) : "explicit", y = this.config.enableGroupedMode ? Wr(t) : /* @__PURE__ */ new Set(), g = te(r?.expandMode, h), m = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), $ = this.config.enableGroupedMode ? r?.expandMode !== void 0 || m.size > 0 || u : !1, L = (this.config.enableGroupedMode ? r?.viewMode || p : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -3235,7 +3223,7 @@ var k, Rt = class {
       selectedRows: /* @__PURE__ */ new Set(),
       hiddenColumns: a ? i : s,
       columnOrder: d,
-      viewMode: E,
+      viewMode: L,
       expandMode: g,
       groupedData: null,
       expandedGroups: m,
@@ -4323,7 +4311,7 @@ var He = {
     r.delivery = Hs(this.config, e);
     let n;
     try {
-      n = await I(this.getEndpoint(), {
+      n = await A(this.getEndpoint(), {
         method: "POST",
         json: r,
         headers: { Accept: "application/json,application/octet-stream" }
@@ -4342,7 +4330,7 @@ var He = {
             intervalMs: Us(this.config),
             timeoutMs: Vs(this.config)
           });
-          const o = await I(i, {
+          const o = await A(i, {
             method: "GET",
             headers: { Accept: "application/octet-stream" }
           });
@@ -4398,7 +4386,7 @@ function Ks(e, t) {
 async function Js(e, t) {
   const r = Date.now(), n = Math.max(250, t.intervalMs);
   for (; ; ) {
-    const s = await I(e, {
+    const s = await A(e, {
       method: "GET",
       headers: { Accept: "application/json" }
     });
@@ -4537,7 +4525,7 @@ var Go = class {
     return this.baseEndpoint.endsWith("s") ? this.baseEndpoint : `${this.baseEndpoint}s`;
   }
   async execute(e, t, r) {
-    const n = await I(this.getActionEndpoint(e), {
+    const n = await A(this.getActionEndpoint(e), {
       method: "POST",
       json: { ids: t },
       accept: "application/json"
@@ -4658,7 +4646,7 @@ var oa = class {
   }
   async loadFromServer() {
     try {
-      const e = await I(this.preferencesEndpoint, {
+      const e = await A(this.preferencesEndpoint, {
         method: "GET",
         credentials: "same-origin",
         headers: { Accept: "application/json" }
@@ -4711,7 +4699,7 @@ var oa = class {
       order: e.state.columnOrder.length > 0 ? e.state.columnOrder : void 0
     };
     try {
-      const n = await I(this.preferencesEndpoint, {
+      const n = await A(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4734,7 +4722,7 @@ var oa = class {
   }
   async clearServerPrefs() {
     try {
-      const e = await I(this.preferencesEndpoint, {
+      const e = await A(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5178,8 +5166,8 @@ var Je = {
       const m = g.trim().toLowerCase();
       if (!m || h.has(m)) continue;
       h.add(m);
-      const $ = c?.toLowerCase() === m, E = d.includes(m), v = [];
-      E && v.push("Required for publishing"), u.length > 0 && v.push(`${u.length} translation${u.length > 1 ? "s" : ""} exist`);
+      const $ = c?.toLowerCase() === m, L = d.includes(m), v = [];
+      L && v.push("Required for publishing"), u.length > 0 && v.push(`${u.length} translation${u.length > 1 ? "s" : ""} exist`);
       const U = v.length > 0 ? v.join(" • ") : void 0, Yt = p[m] || this.localeLabel(m);
       let qe = `${m.toUpperCase()} - ${Yt}`;
       $ && (qe += " (recommended)"), y.push({
@@ -6523,7 +6511,7 @@ var Aa = {
   no: "Norwegian",
   fi: "Finnish"
 };
-function _(e) {
+function R(e) {
   return Aa[e.toLowerCase()] || e.toUpperCase();
 }
 var de = class {
@@ -6543,7 +6531,7 @@ var de = class {
     return String(this.config.channel ?? "").trim() || void 0;
   }
   render() {
-    const { locale: e, size: t, mode: r, localeExists: n } = this.config, { loading: s, created: a, error: i } = this.state, o = _(e), l = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", c = r === "button" ? "rounded-lg" : "rounded-full";
+    const { locale: e, size: t, mode: r, localeExists: n } = this.config, { loading: s, created: a, error: i } = this.state, o = R(e), l = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", c = r === "button" ? "rounded-lg" : "rounded-full";
     let d, u = "";
     s ? (d = "bg-gray-100 text-gray-600 border-gray-300", u = this.renderSpinner()) : a ? (d = "bg-green-100 text-green-700 border-green-300", u = this.renderCheckIcon()) : i ? (d = "bg-red-100 text-red-700 border-red-300", u = this.renderErrorIcon()) : n ? d = "bg-blue-100 text-blue-700 border-blue-300" : d = "bg-amber-100 text-amber-700 border-amber-300";
     const p = this.renderActions();
@@ -6569,8 +6557,8 @@ var de = class {
                 class="inline-flex items-center justify-center ${a} rounded hover:bg-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
                 data-action="create"
                 data-locale="${f(e)}"
-                aria-label="Create ${_(e)} translation"
-                title="Create ${_(e)} translation">
+                aria-label="Create ${R(e)} translation"
+                title="Create ${R(e)} translation">
           <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -6582,8 +6570,8 @@ var de = class {
                 class="inline-flex items-center justify-center ${a} rounded ${l} focus:outline-none focus:ring-1 ${c} transition-colors"
                 data-action="open"
                 data-locale="${f(e)}"
-                aria-label="Open ${_(e)} translation"
-                title="Open ${_(e)} translation">
+                aria-label="Open ${R(e)} translation"
+                title="Open ${R(e)} translation">
           <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
           </svg>
@@ -6749,7 +6737,7 @@ var Be = class {
   }
   render() {
     if (!this.isInFallbackMode()) return "";
-    const { context: e, showFormLockMessage: t } = this.config, r = e.requestedLocale || "requested", n = e.resolvedLocale || "default", s = _(r), a = _(n), i = this.renderPrimaryCta(), o = this.renderSecondaryCta(), l = t ? this.renderFormLockMessage() : "";
+    const { context: e, showFormLockMessage: t } = this.config, r = e.requestedLocale || "requested", n = e.resolvedLocale || "default", s = R(r), a = R(n), i = this.renderPrimaryCta(), o = this.renderSecondaryCta(), l = t ? this.renderFormLockMessage() : "";
     return `
       <div class="fallback-banner bg-amber-50 border border-amber-200 rounded-lg shadow-sm"
            role="alert"
@@ -6801,7 +6789,7 @@ var Be = class {
               data-api-endpoint="${f(t)}"
               data-panel="${f(n || "")}"
               data-channel="${f(i)}"
-              aria-label="Create ${_(a)} translation">
+              aria-label="Create ${R(a)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -6816,7 +6804,7 @@ var Be = class {
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
          data-locale="${f(n)}"
-         aria-label="Open ${_(n)} translation">
+         aria-label="Open ${R(n)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>
@@ -6920,7 +6908,7 @@ var Ft = class {
       maxChips: 3,
       size: "sm",
       ...t
-    }, this.readiness = A(e), this.actionState = this.extractActionState(e, "create_translation");
+    }, this.readiness = E(e), this.actionState = this.extractActionState(e, "create_translation");
   }
   extractActionState(e, t) {
     return rt(e, t);
@@ -6976,7 +6964,7 @@ var Ft = class {
     }) : this.renderDisabledChip(e, r, l);
   }
   renderDisabledChip(e, t, r) {
-    const n = r === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", s = t || "Translation creation unavailable", a = _(e);
+    const n = r === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", s = t || "Translation creation unavailable", a = R(e);
     return `
       <div class="inline-flex items-center gap-1 ${n} rounded-full border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
            data-locale="${f(e)}"
@@ -7039,7 +7027,7 @@ function _a(e, t) {
   }).render() : "";
 }
 function ul(e) {
-  const t = A(e);
+  const t = E(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
 function pl(e, t, r) {
@@ -10897,11 +10885,11 @@ var Si = class {
         <div class="sbs-columns">
           <div class="sbs-header">
             <div class="sbs-column-header sbs-source-header">
-              <span class="sbs-column-title">${L(t.sourceColumn)}</span>
+              <span class="sbs-column-title">${_(t.sourceColumn)}</span>
               <span class="sbs-locale-badge">${r.toUpperCase()}</span>
             </div>
             <div class="sbs-column-header sbs-target-header">
-              <span class="sbs-column-title">${L(t.targetColumn)}</span>
+              <span class="sbs-column-title">${_(t.targetColumn)}</span>
               <span class="sbs-locale-badge">${n.toUpperCase()}</span>
             </div>
           </div>
@@ -10916,7 +10904,7 @@ var Si = class {
     const r = {
       ...ye,
       ...t
-    }, n = e.changedFieldsSummary.count, s = e.changedFieldsSummary.fields, a = s.length > 0 ? `<ul class="sbs-drift-fields-list">${s.map((i) => `<li>${L(i)}</li>`).join("")}</ul>` : "";
+    }, n = e.changedFieldsSummary.count, s = e.changedFieldsSummary.fields, a = s.length > 0 ? `<ul class="sbs-drift-fields-list">${s.map((i) => `<li>${_(i)}</li>`).join("")}</ul>` : "";
     return `
       <div class="sbs-drift-banner" role="alert" aria-live="polite" data-drift-banner="true">
         <div class="sbs-drift-icon">
@@ -10925,16 +10913,16 @@ var Si = class {
           </svg>
         </div>
         <div class="sbs-drift-content">
-          <h3 class="sbs-drift-title">${L(r.driftBannerTitle)}</h3>
+          <h3 class="sbs-drift-title">${_(r.driftBannerTitle)}</h3>
           <p class="sbs-drift-description">
-            ${L(r.driftBannerDescription)}
+            ${_(r.driftBannerDescription)}
             ${n > 0 ? `<span class="sbs-drift-count">${n} field${n !== 1 ? "s" : ""} changed.</span>` : ""}
           </p>
           ${a}
         </div>
         <div class="sbs-drift-actions">
           <button type="button" class="sbs-drift-acknowledge" data-action="acknowledge-drift">
-            ${L(r.driftAcknowledgeButton)}
+            ${_(r.driftAcknowledgeButton)}
           </button>
         </div>
       </div>
@@ -10944,7 +10932,7 @@ var Si = class {
     const r = {
       ...ye,
       ...t
-    }, n = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${L(r.fieldChangedIndicator)}">
+    }, n = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${_(r.fieldChangedIndicator)}">
           <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
           </svg>
@@ -10964,7 +10952,7 @@ var Si = class {
       <div class="${e.hasSourceChanged ? "sbs-field-row sbs-field-changed-row" : "sbs-field-row"}" data-field-key="${C(e.key)}">
         <div class="sbs-field-header">
           <label class="sbs-field-label">
-            ${L(e.label)}
+            ${_(e.label)}
             ${e.required ? '<span class="sbs-required">*</span>' : ""}
           </label>
           ${n}
@@ -10984,7 +10972,7 @@ var Si = class {
     `;
   }
   renderSourceField(e) {
-    const t = L(e.sourceValue || "");
+    const t = _(e.sourceValue || "");
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <div class="sbs-source-content sbs-textarea-field"
              data-field="${C(e.key)}"
@@ -11000,7 +10988,7 @@ var Si = class {
     `;
   }
   renderTargetField(e) {
-    const t = L(e.targetValue || ""), r = e.placeholder ? `placeholder="${C(e.placeholder)}"` : "", n = e.required ? "required" : "", s = e.maxLength ? `maxlength="${e.maxLength}"` : "";
+    const t = _(e.targetValue || ""), r = e.placeholder ? `placeholder="${C(e.placeholder)}"` : "", n = e.required ? "required" : "", s = e.maxLength ? `maxlength="${e.maxLength}"` : "";
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <textarea class="sbs-target-input sbs-textarea-input"
                   name="${C(e.key)}"
@@ -11475,7 +11463,7 @@ function Hl() {
     }
   `;
 }
-function L(e) {
+function _(e) {
   return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 function C(e) {
@@ -11570,7 +11558,7 @@ export {
   Vo as extractSchemaActions,
   wi as extractSourceTargetDrift,
   P as extractTranslationContext,
-  A as extractTranslationReadiness,
+  E as extractTranslationReadiness,
   qt as formatShortcutDisplay,
   _i as generateExchangeReport,
   ot as getActionBlockDisplay,
@@ -11586,7 +11574,7 @@ export {
   Do as getExpandedGroupIds,
   Al as getFieldHelperStyles,
   il as getFormLockReason,
-  _ as getLocaleLabel,
+  R as getLocaleLabel,
   $o as getMissingTranslationsCount,
   Da as getModifierSymbol,
   Wr as getPersistedExpandState,

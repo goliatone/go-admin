@@ -72,6 +72,7 @@
     <div id="panel-upload" class="source-panel" role="tabpanel" aria-labelledby="tab-upload">
       <div class="max-w-2xl">
         <form id="document-upload-form" method="POST" action="{{ routes.create|default:routes.index }}" enctype="multipart/form-data" class="space-y-6">
+      {{ csrf_field|safe }}
 
       {# Document Title #}
       <div>

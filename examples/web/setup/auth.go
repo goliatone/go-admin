@@ -26,6 +26,9 @@ import (
 // the Auther, and the context key used for the auth cookie.
 func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies, opts ...AuthOption) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
 	cfg := demoAuthConfig{signingKey: "web-demo-secret"}
+	if adm != nil {
+		cfg.adminCfg = admin.Config{BasePath: adm.BasePath()}
+	}
 	provider := &demoIdentityProvider{
 		users:    dataStores.Users,
 		authRepo: deps.AuthRepo,
@@ -276,6 +279,7 @@ func (i userIdentity) Status() auth.UserStatus {
 
 type demoAuthConfig struct {
 	signingKey string
+	adminCfg   admin.Config
 }
 
 func (d demoAuthConfig) GetSigningKey() string         { return d.signingKey }
@@ -292,6 +296,7 @@ func (d demoAuthConfig) GetIssuer() string               { return "go-admin-web"
 func (d demoAuthConfig) GetAudience() []string           { return []string{"go-admin"} }
 func (d demoAuthConfig) GetRejectedRouteKey() string     { return "admin_reject" }
 func (d demoAuthConfig) GetRejectedRouteDefault() string { return "/admin/login" }
+func (d demoAuthConfig) AdminConfig() admin.Config       { return d.adminCfg }
 
 func mapToAuthRole(role string) auth.UserRole {
 	switch strings.ToLower(strings.TrimSpace(role)) {

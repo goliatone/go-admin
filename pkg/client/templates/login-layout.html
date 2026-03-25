@@ -5,6 +5,55 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
   {{ csrf_meta|safe }}
+  <script>
+    (function() {
+      function getCSRFToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (!meta) return '';
+        return (meta.getAttribute('content') || '').trim();
+      }
+
+      function isUnsafeMethod(method) {
+        switch (String(method || 'GET').toUpperCase()) {
+          case 'POST':
+          case 'PUT':
+          case 'PATCH':
+          case 'DELETE':
+            return true;
+          default:
+            return false;
+        }
+      }
+
+      function isSameOriginRequest(input) {
+        if (typeof input !== 'string') return true;
+        if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(input)) return true;
+        try {
+          return new URL(input, window.location.origin).origin === window.location.origin;
+        } catch (_error) {
+          return false;
+        }
+      }
+
+      window.goAdminGetCSRFToken = getCSRFToken;
+      window.goAdminCSRFHeaders = function(headers) {
+        var merged = new Headers(headers || {});
+        var token = getCSRFToken();
+        if (token && !merged.has('X-CSRF-Token')) {
+          merged.set('X-CSRF-Token', token);
+        }
+        return merged;
+      };
+      window.goAdminFetch = function(input, init) {
+        var options = init ? Object.assign({}, init) : {};
+        var method = options.method || (input && typeof input === 'object' ? input.method : '') || 'GET';
+        if (isUnsafeMethod(method) && isSameOriginRequest(typeof input === 'string' ? input : (input && input.url) || '')) {
+          options.headers = window.goAdminCSRFHeaders(options.headers);
+        }
+        return fetch(input, options);
+      };
+    })();
+  </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
   {% if theme %}

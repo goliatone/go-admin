@@ -1,5 +1,6 @@
 import type { ColumnFilter, SortColumn } from './behaviors/types.js';
 import type { ViewMode, GroupExpandMode } from './grouped-mode.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 
 export type DataGridStateStoreMode = 'local' | 'preferences';
 
@@ -335,18 +336,14 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
 
   private async syncToServer(state: DataGridPersistedState): Promise<void> {
     try {
-      await fetch(this.preferencesEndpoint, {
+      await httpRequest(this.preferencesEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
+        json: {
           raw: {
             [this.serverStateKey]: state,
           },
-        }),
+        },
       });
     } catch {
       // Ignore sync failures and keep local state authoritative.
@@ -355,16 +352,12 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
 
   private async clearServerState(): Promise<void> {
     try {
-      await fetch(this.preferencesEndpoint, {
+      await httpRequest(this.preferencesEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
+        json: {
           clear_raw_keys: [this.serverStateKey],
-        }),
+        },
       });
     } catch {
       // Ignore clear failures.

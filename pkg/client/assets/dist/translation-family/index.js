@@ -1,6 +1,6 @@
 import { n as c, t as _ } from "../chunks/html-Cx1oHGAm.js";
 import { extractStructuredError as G } from "../toast/error-helpers.js";
-import { t as te } from "../chunks/http-client-DiXyH5DW.js";
+import { t as te } from "../chunks/http-client-D9Z2A1Pg.js";
 import { $ as I, C as se, E as re, H as ie, S as ne, U as oe, _ as le, d as S, g as ce, h as de, l as H, m as ue, o as me, p as fe, rt as ye, s as P, v as ge } from "../chunks/translation-shared-BSLmw_rJ.js";
 function r(e) {
   return typeof e == "string" ? e.trim() : "";

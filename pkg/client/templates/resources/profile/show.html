@@ -28,6 +28,7 @@
 
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
       <form method="post" action="">
+        {{ csrf_field|safe }}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="md:col-span-1">
             <div class="flex items-center gap-4">

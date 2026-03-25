@@ -1,6 +1,6 @@
 import { n as m, t as f } from "../chunks/html-Cx1oHGAm.js";
 import { extractStructuredError as A } from "../toast/error-helpers.js";
-import { n as S } from "../chunks/http-client-DiXyH5DW.js";
+import { n as S } from "../chunks/http-client-D9Z2A1Pg.js";
 import { n as w } from "../chunks/translation-contracts-NuS3GLjo.js";
 import { $ as D, A as N, C as F, D as H, E as U, M as Q, O as X, S as Y, _ as W, g as G, h as E, i as K, j as V, k as J, m as M, p as R, s as Z, u as k, v as ee, x as te } from "../chunks/translation-shared-BSLmw_rJ.js";
 function i(t) {

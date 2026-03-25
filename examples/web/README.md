@@ -476,6 +476,8 @@ Use these tokens in the `Authorization` header:
 curl -H "Authorization: Bearer <token>" http://localhost:8080/admin/api/dashboard
 ```
 
+Browser note: cookie-backed admin pages now submit CSRF automatically through the shared templates. If you replace built-in browser forms or write custom same-origin `fetch()` calls, include `X-CSRF-Token` from `meta[name="csrf-token"]`. Bearer-based CLI calls to `/admin/api/...` remain unchanged.
+
 ## User management (go-users + go-crud)
 
 - Users/roles/profiles/preferences are backed by go-users on the shared SQLite DSN (`databases.cms_dsn`); seeds create admin/editor/viewer/inactive with passwords `<username>.pwd`, and demo JWTs are printed from the DB on startup.
@@ -509,6 +511,8 @@ Use the demo tokens to exercise the go-crud JSON endpoints (snake_case payloads)
 2. Create: `curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"username":"api.user","email":"api.user@example.com","role":"editor","status":"active"}' http://localhost:8080/admin/crud/user`
 3. Update: `curl -X PUT -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"status":"inactive"}' http://localhost:8080/admin/crud/user/<id>`
 4. Delete: `curl -X DELETE -H "Authorization: Bearer <token>" http://localhost:8080/admin/crud/user/<id>`
+
+If you exercise the same flows through browser sessions instead of Bearer auth, use the rendered UI or send the CSRF token alongside the cookie-backed request.
 
 ### Swapping Identity Providers
 

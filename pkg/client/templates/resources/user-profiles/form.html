@@ -95,7 +95,7 @@
           }
 
           const payload = Object.fromEntries(data.entries());
-          const response = await fetch(`${basePath}/crud/users`, {
+          const response = await window.goAdminFetch(`${basePath}/crud/users`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),

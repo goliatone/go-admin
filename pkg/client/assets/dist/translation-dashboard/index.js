@@ -1,6 +1,6 @@
 import { n as i, t as u } from "../chunks/html-Cx1oHGAm.js";
 import { extractStructuredError as z } from "../toast/error-helpers.js";
-import { n as F } from "../chunks/http-client-DiXyH5DW.js";
+import { n as F } from "../chunks/http-client-D9Z2A1Pg.js";
 import { $ as R, C as P, E as H, S as B, _ as v, d as $, g as I, h as S, i as K, m as A, p as j, s as D, v as L, x as U } from "../chunks/translation-shared-BSLmw_rJ.js";
 var m = class extends Error {
   constructor(e) {

@@ -256,7 +256,7 @@
       const payload = Object.fromEntries(formData.entries());
 
       try {
-        const response = await fetch(registerRequestForm.action, {
+        const response = await window.goAdminFetch(registerRequestForm.action, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -294,7 +294,7 @@
       const payload = Object.fromEntries(formData.entries());
 
       try {
-        const response = await fetch(registerConfirmForm.action, {
+        const response = await window.goAdminFetch(registerConfirmForm.action, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

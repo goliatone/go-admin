@@ -41,10 +41,13 @@
           if (navigator.sendBeacon) {
             navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
           } else {
+            var headers = window.goAdminCSRFHeaders
+              ? window.goAdminCSRFHeaders({ 'Content-Type': 'application/json' })
+              : { 'Content-Type': 'application/json' };
             origFetch(endpoint, {
               method: 'POST',
               body: body,
-              headers: { 'Content-Type': 'application/json' },
+              headers: headers,
               keepalive: true,
               credentials: 'same-origin'
             }).catch(function() {});

@@ -57,6 +57,9 @@ test('dashboard persistence sends csrf token when present in admin shell meta ta
 
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, '/admin/api/dashboard/preferences');
-  assert.equal(requests[0].init.headers['Content-Type'], 'application/json');
-  assert.equal(requests[0].init.headers['X-CSRF-Token'], 'dashboard-csrf-token');
+  const headers = requests[0].init.headers instanceof Headers
+    ? requests[0].init.headers
+    : new Headers(requests[0].init.headers || {});
+  assert.equal(headers.get('Content-Type'), 'application/json');
+  assert.equal(headers.get('X-CSRF-Token'), 'dashboard-csrf-token');
 });

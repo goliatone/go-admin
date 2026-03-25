@@ -23,6 +23,7 @@ The token is saved to localStorage for convenience. Pass `?token=<TOKEN>` as a U
 ### API Access
 
 APIs require `Authorization: Bearer <token>` header. Startup logs print demo tokens for seeded users.
+This example stays Bearer-only against `/admin/api/...`, so browser CSRF headers are not part of the normal flow unless you add cookie-backed admin pages on top.
 
 ### What’s wired
 

@@ -96,6 +96,53 @@ fail() {
   exit 1
 }
 
+extract_csrf_token() {
+  local html_path="$1"
+  python3 - "$html_path" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8", errors="ignore") as handle:
+    body = handle.read()
+
+patterns = [
+    r'name="_token"\s+value="([^"]+)"',
+    r'<meta\s+name="csrf-token"\s+content="([^"]+)"',
+]
+for pattern in patterns:
+    match = re.search(pattern, body, re.IGNORECASE)
+    if match:
+        print(match.group(1))
+        sys.exit(0)
+
+sys.exit(1)
+PY
+}
+
+fetch_csrf_token() {
+  local url="$1"
+  local output_path="$2"
+  local status=""
+  status="$(
+    curl -sS \
+      -o "${output_path}" \
+      -b "${COOKIE_JAR}" \
+      -c "${COOKIE_JAR}" \
+      "${url}" \
+      --write-out '%{http_code}'
+  )"
+  if [[ "${status}" != "200" ]]; then
+    fail "csrf token fetch failed: expected HTTP 200, got ${status}. url=${url} body=$(cat "${output_path}")"
+  fi
+  local token=""
+  token="$(extract_csrf_token "${output_path}" || true)"
+  if [[ -z "${token}" ]]; then
+    fail "csrf token not found in ${url}"
+  fi
+  echo "${token}"
+}
+
 extract_location() {
   awk 'tolower($1)=="location:"{print $2}' "$1" | tr -d '\r' | tail -n1
 }
@@ -192,16 +239,20 @@ resolve_recipient_link() {
 
 require_cmd curl
 require_cmd jq
+require_cmd python3
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/esign-smoke.XXXXXX")"
 COOKIE_JAR="${TMP_DIR}/cookies.txt"
 LOGIN_HEADERS="${TMP_DIR}/login.headers"
 LOGIN_BODY="${TMP_DIR}/login.body"
+LOGIN_PAGE="${TMP_DIR}/login.page.html"
 UPLOAD_JSON_PATH="${TMP_DIR}/upload.json"
 DOC_HEADERS="${TMP_DIR}/doc-create.headers"
 DOC_BODY="${TMP_DIR}/doc-create.body"
+DOC_FORM_HTML="${TMP_DIR}/document-form.html"
 AG_HEADERS="${TMP_DIR}/agreement-create.headers"
 AG_BODY="${TMP_DIR}/agreement-create.body"
+AG_FORM_HTML="${TMP_DIR}/agreement-form.html"
 DETAIL_JSON_PATH="${TMP_DIR}/agreement-detail.json"
 SEND_JSON_PATH="${TMP_DIR}/send.json"
 SIGNER_SESSION_HTML="${TMP_DIR}/signer-session.html"
@@ -264,13 +315,17 @@ EOF
 fi
 
 log "Logging in at ${BASE_URL}/admin/login"
+LOGIN_CSRF_TOKEN="$(fetch_csrf_token "${BASE_URL}/admin/login" "${LOGIN_PAGE}")"
 LOGIN_STATUS="$(
   curl -sS \
     -o "${LOGIN_BODY}" \
     -D "${LOGIN_HEADERS}" \
+    -b "${COOKIE_JAR}" \
     -c "${COOKIE_JAR}" \
     -X POST "${BASE_URL}/admin/login" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${BASE_URL}" \
+    --data-urlencode "_token=${LOGIN_CSRF_TOKEN}" \
     --data-urlencode "identifier=${ADMIN_IDENTIFIER}" \
     --data-urlencode "password=${ADMIN_PASSWORD}" \
     --write-out '%{http_code}'
@@ -302,13 +357,17 @@ if [[ -z "${SOURCE_ORIGINAL_NAME}" ]]; then
 fi
 
 log "Creating document entry"
+DOC_CSRF_TOKEN="$(fetch_csrf_token "${BASE_URL}/admin/content/documents/new?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" "${DOC_FORM_HTML}")"
 DOC_STATUS="$(
   curl -sS \
     -o "${DOC_BODY}" \
     -D "${DOC_HEADERS}" \
     -b "${COOKIE_JAR}" \
+    -c "${COOKIE_JAR}" \
     -X POST "${BASE_URL}/admin/content/documents?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${BASE_URL}" \
+    --data-urlencode "_token=${DOC_CSRF_TOKEN}" \
     --data-urlencode "title=Smoke Document $(date +%s)" \
     --data-urlencode "source_original_name=${SOURCE_ORIGINAL_NAME}" \
     --data-urlencode "source_object_key=${OBJECT_KEY}" \
@@ -325,13 +384,17 @@ if [[ -z "${DOC_ID}" || "${DOC_ID}" == "${DOC_LOCATION}" ]]; then
 fi
 
 log "Creating agreement entry"
+AG_CSRF_TOKEN="$(fetch_csrf_token "${BASE_URL}/admin/content/agreements/new?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" "${AG_FORM_HTML}")"
 AG_STATUS="$(
   curl -sS \
     -o "${AG_BODY}" \
     -D "${AG_HEADERS}" \
     -b "${COOKIE_JAR}" \
+    -c "${COOKIE_JAR}" \
     -X POST "${BASE_URL}/admin/content/agreements?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${BASE_URL}" \
+    --data-urlencode "_token=${AG_CSRF_TOKEN}" \
     --data-urlencode "document_id=${DOC_ID}" \
     --data-urlencode "title=Smoke Agreement $(date +%s)" \
     --data-urlencode "message=Smoke test agreement" \

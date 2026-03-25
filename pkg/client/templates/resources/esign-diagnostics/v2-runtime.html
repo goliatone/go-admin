@@ -1084,7 +1084,7 @@
     if (checked.length === 0) return;
 
     try {
-      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-resolve`, {
+      await window.goAdminFetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: checked })
@@ -1101,7 +1101,7 @@
     if (checked.length === 0) return;
 
     try {
-      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-ignore`, {
+      await window.goAdminFetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-ignore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: checked })
@@ -1121,7 +1121,7 @@
   // Expose functions for inline handlers
   window.resolveConflict = async function(id) {
     try {
-      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/${id}/resolve`, { method: 'POST' });
+      await window.goAdminFetch(`${apiBase}/esign-diagnostics/v2/conflicts/${id}/resolve`, { method: 'POST' });
       addActivityItem('success', `Conflict ${id} resolved`, null);
       loadConflicts();
     } catch (error) {

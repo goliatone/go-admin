@@ -84,6 +84,7 @@ type authRuntimeConfig struct {
 	issuer               string
 	audience             []string
 	rejectedRouteDefault string
+	adminCfg             admin.Config
 }
 
 func (c authRuntimeConfig) GetSigningKey() string         { return c.signingKey }
@@ -100,6 +101,7 @@ func (c authRuntimeConfig) GetIssuer() string               { return c.issuer }
 func (c authRuntimeConfig) GetAudience() []string           { return c.audience }
 func (c authRuntimeConfig) GetRejectedRouteKey() string     { return "admin_shell_reject" }
 func (c authRuntimeConfig) GetRejectedRouteDefault() string { return c.rejectedRouteDefault }
+func (c authRuntimeConfig) AdminConfig() admin.Config       { return c.adminCfg }
 
 func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*auth.Auther, *auth.RouteAuthenticator, *admin.GoAuthAuthenticator, []DemoCredential, DemoIdentity, string, string, error) {
 	if adm == nil {
@@ -125,6 +127,7 @@ func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*a
 		issuer:               strings.TrimSpace(cfg.Name),
 		audience:             []string{"go-admin"},
 		rejectedRouteDefault: path.Join(cfg.Admin.BasePath, "login"),
+		adminCfg:             admin.Config{BasePath: cfg.Admin.BasePath},
 	}
 	if authCfg.issuer == "" {
 		authCfg.issuer = "go-admin-shell"

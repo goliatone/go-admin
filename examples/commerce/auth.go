@@ -14,6 +14,9 @@ import (
 
 func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]string {
 	cfg := commerceAuthConfig{signingKey: "commerce-demo-secret"}
+	if adm != nil {
+		cfg.adminCfg = admin.Config{BasePath: adm.BasePath()}
+	}
 	provider := &commerceIdentityProvider{users: dataStores.Users}
 
 	auther := auth.NewAuthenticator(provider, cfg)
@@ -111,6 +114,7 @@ func (i commerceIdentity) Role() string     { return i.role }
 
 type commerceAuthConfig struct {
 	signingKey string
+	adminCfg   admin.Config
 }
 
 func (c commerceAuthConfig) GetSigningKey() string           { return c.signingKey }
@@ -124,6 +128,7 @@ func (c commerceAuthConfig) GetIssuer() string               { return "go-admin-
 func (c commerceAuthConfig) GetAudience() []string           { return []string{"go-admin"} }
 func (c commerceAuthConfig) GetRejectedRouteKey() string     { return "commerce_reject" }
 func (c commerceAuthConfig) GetRejectedRouteDefault() string { return "/admin/login" }
+func (c commerceAuthConfig) AdminConfig() admin.Config       { return c.adminCfg }
 
 func logDemoCommerceTokens(tokens map[string]string) {
 	if len(tokens) == 0 {

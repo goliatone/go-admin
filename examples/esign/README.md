@@ -74,6 +74,8 @@ cd examples/esign
 ./taskfile smoke:e2e
 ```
 
+The smoke script now fetches CSRF tokens for the login and browser-backed content-entry forms before posting with the session cookie, so `curl`, `jq`, and `python3` must be available.
+
 Optional smoke overrides:
 
 ```bash

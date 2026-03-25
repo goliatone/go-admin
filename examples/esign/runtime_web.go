@@ -194,6 +194,7 @@ type eSignAuthConfig struct {
 	basePath   string
 	signingKey string
 	contextKey string
+	adminCfg   coreadmin.Config
 }
 
 type eSignAuthBundle struct {
@@ -216,6 +217,9 @@ func (c eSignAuthConfig) GetAuthScheme() string       { return "Bearer" }
 func (c eSignAuthConfig) GetIssuer() string           { return "go-admin-esign" }
 func (c eSignAuthConfig) GetAudience() []string       { return []string{"go-admin"} }
 func (c eSignAuthConfig) GetRejectedRouteKey() string { return "admin_reject" }
+func (c eSignAuthConfig) AdminConfig() coreadmin.Config {
+	return c.adminCfg
+}
 func (c eSignAuthConfig) GetRejectedRouteDefault() string {
 	basePath := strings.TrimSpace(c.basePath)
 	if basePath == "" {
@@ -312,6 +316,7 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 	}
 	authCfg := eSignAuthConfig{
 		basePath: basePath,
+		adminCfg: coreadmin.Config{BasePath: basePath},
 		signingKey: firstNonEmptyValue(
 			strings.TrimSpace(runtimeCfg.Auth.SigningKey),
 			strings.TrimSpace(seedAuth.SigningKey),

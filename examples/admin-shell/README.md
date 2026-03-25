@@ -94,3 +94,5 @@ Default address from config is `:8383`:
 - `translator` / `translator.pwd`
 - `john.doe` / `john.doe.pwd`
 - `viewer` / `viewer.pwd`
+
+Browser note: the shell uses cookie-backed login sessions for `/admin/*`, so unsafe browser writes must include the CSRF token exposed by the rendered templates. Bearer-based API calls to `/admin/api/...` still work without browser form fields.

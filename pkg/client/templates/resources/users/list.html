@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   async function lifecycleAction(userId, action) {
     try {
       const apiRoot = apiBasePath || `${basePath}/api`;
-      const response = await fetch(`${apiRoot}/users/${userId}/${action}`, {
+      const response = await window.goAdminFetch(`${apiRoot}/users/${userId}/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -595,7 +595,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     try {
       const apiRoot = apiBasePath || `${basePath}/api`;
-      const response = await fetch(`${apiRoot}/users/${userId}/reset-password`, {
+      const response = await window.goAdminFetch(`${apiRoot}/users/${userId}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

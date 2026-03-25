@@ -1,11 +1,12 @@
-import { t as w } from "../chunks/sortable.esm-G5PYYtV9.js";
-var $ = class {
+import { t as w } from "../chunks/http-client-D9Z2A1Pg.js";
+import { t as $ } from "../chunks/sortable.esm-G5PYYtV9.js";
+var S = class {
   constructor() {
     this.sortableInstances = [];
   }
   enable(t, s) {
     t.querySelectorAll("[data-widgets-grid]").forEach((e) => {
-      const o = w.create(e, {
+      const o = $.create(e, {
         handle: ".widget-drag-handle",
         draggable: "[data-widget]",
         animation: 150,
@@ -25,7 +26,7 @@ var $ = class {
       t.destroy();
     }), this.sortableInstances = [];
   }
-}, S = class {
+}, _ = class {
   toggleWidth(t, s, e) {
     const o = s === e ? e / 2 : e;
     return this.applyWidth(t, o), o;
@@ -33,7 +34,7 @@ var $ = class {
   applyWidth(t, s) {
     t.dataset.span = s.toString(), t.style.setProperty("--span", s.toString());
   }
-}, _ = class {
+}, k = class {
   toggle(t) {
     const s = t.dataset.hidden !== "true";
     return this.applyVisibility(t, s), s;
@@ -41,20 +42,11 @@ var $ = class {
   applyVisibility(t, s) {
     s ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-};
-function k() {
-  const t = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")?.trim();
-  return t ? { "X-CSRF-Token": t } : {};
-}
-var C = class {
+}, C = class {
   async save(t, s) {
-    const e = await fetch(t, {
+    const e = await w(t, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...k()
-      },
-      body: JSON.stringify(s)
+      json: s
     });
     if (!e.ok) throw new Error(`Failed to save layout: ${e.statusText}`);
   }
@@ -88,9 +80,9 @@ var C = class {
       }),
       onError: t.onError || ((s) => console.error("WidgetGrid error:", s))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new $(),
-      resize: t.behaviors?.resize || new S(),
-      visibility: t.behaviors?.visibility || new _(),
+      dragDrop: t.behaviors?.dragDrop || new S(),
+      resize: t.behaviors?.resize || new _(),
+      visibility: t.behaviors?.visibility || new k(),
       persistence: t.behaviors?.persistence || new C()
     };
   }
@@ -209,7 +201,7 @@ var C = class {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}, N = {
+}, j = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -228,7 +220,7 @@ var C = class {
   "esign.widget.signing_activity": "E-Sign Signing Activity",
   "esign.widget.delivery_health": "E-Sign Delivery Health",
   "esign.widget.pending_signatures": "E-Sign Pending Signatures"
-}, j = /* @__PURE__ */ new Set([
+}, N = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
@@ -741,7 +733,7 @@ var C = class {
         ` : ""}
       `;
     }
-    if (j.has(s)) {
+    if (N.has(s)) {
       const a = e.subtitle || o.subtitle || "", i = String(e.theme || "westeros"), n = String(e.chart_assets_host || "/dashboard/assets/echarts/"), r = e.chart_options ? JSON.stringify(e.chart_options) : "", d = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
@@ -759,7 +751,7 @@ var C = class {
     return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(e, null, 2)}</pre>`;
   }
   getTitle(t) {
-    return N[t] || t;
+    return j[t] || t;
   }
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
@@ -865,7 +857,7 @@ async function x() {
     }
   }
 }
-function R() {
+function I() {
   const t = document.getElementById("admin-dashboard-config");
   if (!t?.textContent) {
     console.error("[admin-dashboard] Missing #admin-dashboard-config element");
@@ -880,13 +872,13 @@ function R() {
   }
 }
 export {
-  $ as DefaultDragDropBehavior,
+  S as DefaultDragDropBehavior,
   C as DefaultPersistenceBehavior,
-  S as DefaultResizeBehavior,
-  _ as DefaultVisibilityBehavior,
+  _ as DefaultResizeBehavior,
+  k as DefaultVisibilityBehavior,
   A as WidgetGrid,
   E as WidgetRenderer,
-  R as bootstrapAdminDashboard,
+  I as bootstrapAdminDashboard,
   T as initAdminDashboard
 };
 

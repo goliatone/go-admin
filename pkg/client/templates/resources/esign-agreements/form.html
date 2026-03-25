@@ -458,6 +458,7 @@
   {% endif %}
 
   <form id="agreement-form" method="POST" action="{{ form_action|default:routes.create }}" class="max-w-4xl space-y-8" aria-describedby="form-announcements">
+    {{ csrf_field|safe }}
     {% if resource_item.version %}
     <input type="hidden" name="expected_version" value="{{ resource_item.version }}">
     {% endif %}

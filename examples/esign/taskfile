@@ -184,6 +184,8 @@ function dev:serve {
     export APP_REMINDERS__JITTER_PERCENT="${APP_REMINDERS__JITTER_PERCENT:-1}";
     export APP_REMINDERS__MAX_REMINDERS="${APP_REMINDERS__MAX_REMINDERS:-2}";
     export APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES="${APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES:-5}";
+    export APP_RUNTIME__REPOSITORY_DIALECT="${APP_RUNTIME__REPOSITORY_DIALECT:-postgres}";
+    export APP_PERSISTENCE__POSTGRES__DSN="${APP_PERSISTENCE__POSTGRES__DSN:-$(_resolve:esign:postgres_dsn)}";
 
 	export APP_FEATURES__ESIGN_GOOGLE=true;
 	export APP_SERVICES__MODULE_ENABLED=true;
@@ -206,6 +208,10 @@ function dev:serve {
     export ADMIN_ERROR_EXPOSE_INTERNAL=true
 
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
+
+    if [ "$(_resolve:esign:repository_dialect)" = "postgres" ] && [ "${APP_PERSISTENCE__POSTGRES__DSN}" = "$(_resolve:esign:postgres_dsn)" ]; then
+        dev:docker:postgres || return 1
+    fi
 
     "${GO_BIN}" run .
 }
@@ -253,33 +259,192 @@ function dev:smtp:init {
     echo 'User1:$2y$05$lvT6Z111jzakwt2mmmmeZOi64AqK3vpzilT5mRYTzXHxLZgSfe4Pm' > "$SCRIPT_DIR/ops/mailpit/development.txt"
 }
 
-function dev:docker:postgres {
-    local container_name="esign-dev-postgres"
-    local image="postgres:16-alpine"
-    local host_port="5439"
-    local db_name="esign"
-    local db_user="esign"
-    local db_password="esign"
-    local dsn="postgres://${db_user}:${db_password}@127.0.0.1:${host_port}/${db_name}?sslmode=disable"
-
+function _require:docker {
     if ! command -v docker >/dev/null 2>&1; then
-        lgr ERR "docker is required for dev:docker:postgres"
+        lgr ERR "docker is required"
         return 1
     fi
+}
 
-    if docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
-        lgr OK "postgres container already running: ${container_name}"
-        lgr OK "DSN: ${dsn}"
-        return 0
+function _resolve:esign:docker_context {
+    docker context show 2>/dev/null || echo "default"
+}
+
+function _warn:esign:docker_runtime_overlap {
+    local context
+    context="$(_resolve:esign:docker_context)"
+
+    lgr I "using docker context: ${context}"
+
+    if [ "${context}" = "colima" ] && pgrep -f '/Applications/Docker.app/Contents/MacOS/com.docker.backend' >/dev/null 2>&1; then
+        lgr W "Docker Desktop is also running while the active docker context is colima. If host port checks fail, quit Docker Desktop or switch contexts."
     fi
 
-    if docker ps -a --format '{{.Names}}' | grep -qx "${container_name}"; then
-        lgr I "starting existing postgres container: ${container_name}"
-        if ! docker start "${container_name}" >/dev/null; then
-            lgr ERR "failed to start existing postgres container: ${container_name}"
+    if [ "${context}" = "desktop-linux" ] && pgrep -f '/opt/homebrew/bin/colima daemon start' >/dev/null 2>&1; then
+        lgr W "Colima is also running while the active docker context is desktop-linux. If host port checks fail, stop Colima or switch contexts."
+    fi
+}
+
+function _resolve:esign:postgres_container_name {
+    echo "${ESIGN_POSTGRES_CONTAINER_NAME:-esign-dev-postgres}"
+}
+
+function _resolve:esign:postgres_image {
+    echo "${ESIGN_POSTGRES_IMAGE:-postgres:16-alpine}"
+}
+
+function _resolve:esign:postgres_host_port {
+    echo "${ESIGN_POSTGRES_HOST_PORT:-15439}"
+}
+
+function _resolve:esign:postgres_db_name {
+    echo "${ESIGN_POSTGRES_DB:-esign}"
+}
+
+function _resolve:esign:postgres_db_user {
+    echo "${ESIGN_POSTGRES_USER:-esign}"
+}
+
+function _resolve:esign:postgres_db_password {
+    echo "${ESIGN_POSTGRES_PASSWORD:-esign}"
+}
+
+function _resolve:esign:postgres_host {
+    echo "${ESIGN_POSTGRES_HOST:-127.0.0.1}"
+}
+
+function _resolve:esign:postgres_dsn_default {
+    local db_name
+    local db_user
+    local db_password
+    local host
+    local host_port
+    db_name="$(_resolve:esign:postgres_db_name)"
+    db_user="$(_resolve:esign:postgres_db_user)"
+    db_password="$(_resolve:esign:postgres_db_password)"
+    host="$(_resolve:esign:postgres_host)"
+    host_port="$(_resolve:esign:postgres_host_port)"
+    echo "postgres://${db_user}:${db_password}@${host}:${host_port}/${db_name}?sslmode=disable"
+}
+
+function _resolve:esign:postgres_published_port {
+    local container_name
+    container_name="$(_resolve:esign:postgres_container_name)"
+    docker port "${container_name}" 5432/tcp 2>/dev/null | head -n 1 | awk -F: '{print $NF}'
+}
+
+function _verify:esign:postgres_host_connection {
+    local host
+    local host_port
+    local db_name
+    local db_user
+    local dsn
+    host="$(_resolve:esign:postgres_host)"
+    host_port="$(_resolve:esign:postgres_host_port)"
+    db_name="$(_resolve:esign:postgres_db_name)"
+    db_user="$(_resolve:esign:postgres_db_user)"
+    dsn="$(_resolve:esign:postgres_dsn)"
+
+    if command -v psql >/dev/null 2>&1; then
+        PGPASSWORD="$(_resolve:esign:postgres_db_password)" psql "${dsn}" -c 'select 1' >/dev/null 2>&1
+        return $?
+    fi
+
+    if command -v pg_isready >/dev/null 2>&1; then
+        PGPASSWORD="$(_resolve:esign:postgres_db_password)" pg_isready -h "${host}" -p "${host_port}" -d "${db_name}" -U "${db_user}" >/dev/null 2>&1
+        return $?
+    fi
+
+    if command -v nc >/dev/null 2>&1; then
+        nc -z "${host}" "${host_port}" >/dev/null 2>&1
+        return $?
+    fi
+
+    bash -lc "echo > /dev/tcp/${host}/${host_port}" >/dev/null 2>&1
+}
+
+function _wait:esign:postgres_container_ready {
+    local container_name
+    local db_name
+    local db_user
+    local attempt
+    container_name="$(_resolve:esign:postgres_container_name)"
+    db_name="$(_resolve:esign:postgres_db_name)"
+    db_user="$(_resolve:esign:postgres_db_user)"
+
+    lgr I "waiting for postgres inside the container to accept connections..."
+    for attempt in $(seq 1 30); do
+        if docker exec "${container_name}" pg_isready -U "${db_user}" -d "${db_name}" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 1
+}
+
+function _wait:esign:postgres_host_ready {
+    local attempt
+    local host_port
+    host_port="$(_resolve:esign:postgres_host_port)"
+
+    lgr I "waiting for postgres host port ${host_port} to accept connections..."
+    for attempt in $(seq 1 30); do
+        if _verify:esign:postgres_host_connection; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 1
+}
+
+function dev:docker:postgres {
+    local container_name
+    local image
+    local host_port
+    local db_name
+    local db_user
+    local db_password
+    local dsn
+    local published_port
+
+    _require:docker || return 1
+    _warn:esign:docker_runtime_overlap
+
+    container_name="$(_resolve:esign:postgres_container_name)"
+    image="$(_resolve:esign:postgres_image)"
+    host_port="$(_resolve:esign:postgres_host_port)"
+    db_name="$(_resolve:esign:postgres_db_name)"
+    db_user="$(_resolve:esign:postgres_db_user)"
+    db_password="$(_resolve:esign:postgres_db_password)"
+    dsn="$(_resolve:esign:postgres_dsn_default)"
+
+    if docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
+        published_port="$(_resolve:esign:postgres_published_port)"
+        if [ -n "${published_port}" ] && [ "${published_port}" != "${host_port}" ]; then
+            lgr ERR "postgres container ${container_name} is running on host port ${published_port}, expected ${host_port}. Run ./taskfile dev:docker:postgres:reset to recreate it."
             return 1
         fi
-    else
+        lgr OK "postgres container already running: ${container_name}"
+    elif docker ps -a --format '{{.Names}}' | grep -qx "${container_name}"; then
+        published_port="$(_resolve:esign:postgres_published_port)"
+        if [ -n "${published_port}" ] && [ "${published_port}" != "${host_port}" ]; then
+            lgr W "removing postgres container ${container_name} because it is published on host port ${published_port}, expected ${host_port}"
+            if ! docker rm -f "${container_name}" >/dev/null; then
+                lgr ERR "failed to replace postgres container: ${container_name}"
+                return 1
+            fi
+        else
+            lgr I "starting existing postgres container: ${container_name}"
+            if ! docker start "${container_name}" >/dev/null; then
+                lgr ERR "failed to start existing postgres container: ${container_name}"
+                return 1
+            fi
+        fi
+    fi
+
+    if ! docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
         lgr I "creating postgres container: ${container_name}"
         if ! docker run -d \
             --name "${container_name}" \
@@ -293,19 +458,70 @@ function dev:docker:postgres {
         fi
     fi
 
-    lgr I "waiting for postgres to accept connections..."
-    local attempt
-    for attempt in $(seq 1 30); do
-        if docker exec "${container_name}" pg_isready -U "${db_user}" -d "${db_name}" >/dev/null 2>&1; then
-            lgr OK "postgres ready on port ${host_port}"
-            lgr OK "DSN: ${dsn}"
-            return 0
-        fi
-        sleep 1
-    done
+    if ! _wait:esign:postgres_container_ready; then
+        lgr ERR "postgres container did not become ready in time: ${container_name}"
+        docker logs --tail 100 "${container_name}" >&2
+        return 1
+    fi
 
-    lgr ERR "postgres container did not become ready in time: ${container_name}"
+    if ! _wait:esign:postgres_host_ready; then
+        lgr ERR "postgres container is healthy but the host cannot reach ${dsn}"
+        lgr ERR "active docker context: $(_resolve:esign:docker_context)"
+        lgr ERR "if both Docker Desktop and Colima are running, stop the unused runtime and retry"
+        return 1
+    fi
+
+    lgr OK "postgres ready on port ${host_port}"
+    lgr OK "DSN: ${dsn}"
+    return 0
+}
+
+function dev:docker:postgres:down {
+    local container_name
+    _require:docker || return 1
+    container_name="$(_resolve:esign:postgres_container_name)"
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx "${container_name}"; then
+        lgr OK "postgres container is not present: ${container_name}"
+        return 0
+    fi
+
+    if docker rm -f "${container_name}" >/dev/null; then
+        lgr OK "removed postgres container: ${container_name}"
+        return 0
+    fi
+
+    lgr ERR "failed to remove postgres container: ${container_name}"
     return 1
+}
+
+function dev:docker:postgres:reset {
+    dev:docker:postgres:down || return 1
+    dev:docker:postgres
+}
+
+function dev:docker:postgres:status {
+    local container_name
+    local context
+    local dsn
+
+    _require:docker || return 1
+    container_name="$(_resolve:esign:postgres_container_name)"
+    context="$(_resolve:esign:docker_context)"
+    dsn="$(_resolve:esign:postgres_dsn)"
+
+    lgr I "docker context: ${context}"
+    lgr I "expected dsn: ${dsn}"
+
+    docker ps -a --filter "name=^/${container_name}$" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+
+    if docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
+        if _verify:esign:postgres_host_connection; then
+            lgr OK "host can reach postgres at ${dsn}"
+        else
+            lgr W "container is running but host connectivity check failed for ${dsn}"
+        fi
+    fi
 }
 
 function _resolve:esign:repository_dialect {
@@ -318,7 +534,7 @@ function _resolve:esign:repository_dialect {
 }
 
 function _resolve:esign:postgres_dsn {
-    echo "${APP_PERSISTENCE__POSTGRES__DSN:-postgres://esign:esign@127.0.0.1:5439/esign?sslmode=disable}"
+    echo "${APP_PERSISTENCE__POSTGRES__DSN:-$(_resolve:esign:postgres_dsn_default)}"
 }
 
 function _resolve:esign:sqlite_path {

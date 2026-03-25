@@ -12,6 +12,7 @@ import {
   isHandledActionError,
 } from '../toast/error-helpers.js';
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 
 export function bindSearchInput(grid: any): void {
     const input = document.querySelector<HTMLInputElement>(grid.selectors.searchInput);
@@ -593,14 +594,10 @@ async function fetchSelectionSensitiveBulkActionState(grid: any): Promise<void> 
   const url = query ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}` : endpoint;
 
   try {
-    const response = await fetch(url, {
+    const response = await httpRequest(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
       signal: grid.bulkActionStateAbortController.signal,
-      body: JSON.stringify({ ids: selectedIds }),
+      json: { ids: selectedIds },
     });
     if (!response.ok) {
       throw new Error(`Bulk action state request failed: ${response.status}`);

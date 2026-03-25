@@ -32,6 +32,9 @@ func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	if !strings.Contains(template, `<script type="module" src="{{ adminURL("assets/dist/esign/agreement-form.js") }}"></script>`) {
 		t.Fatal("expected form template to include fallback agreement-form module script path")
 	}
+	if !strings.Contains(template, `{{ csrf_field|safe }}`) {
+		t.Fatal("expected agreement form template to render the shared csrf field helper")
+	}
 	if strings.Contains(template, "document.addEventListener('DOMContentLoaded'") {
 		t.Fatal("expected form template to avoid legacy inline wizard bootstrap")
 	}
@@ -103,6 +106,9 @@ func TestESignDocumentFormTemplateUsesSharedShell(t *testing.T) {
 	}
 	if !strings.Contains(template, `partials/admin-page-heading.html`) {
 		t.Fatal("expected document form template to use the shared admin page heading partial")
+	}
+	if !strings.Contains(template, `{{ csrf_field|safe }}`) {
+		t.Fatal("expected document form template to render the shared csrf field helper")
 	}
 }
 
