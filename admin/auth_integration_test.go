@@ -9,6 +9,7 @@ import (
 
 	auth "github.com/goliatone/go-auth"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -346,6 +347,9 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		}
 		return c.SendString(token)
 	}))
+	server.Router().Post("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		return c.SendStatus(http.StatusOK)
+	}))
 	server.Router().Post("/admin/api/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
 		return c.SendStatus(http.StatusOK)
 	}))
@@ -357,8 +361,25 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 	if browserRes.Code != http.StatusOK {
 		t.Fatalf("expected browser route status 200, got %d", browserRes.Code)
 	}
-	if strings.TrimSpace(browserRes.Body.String()) == "" {
+	browserToken := strings.TrimSpace(browserRes.Body.String())
+	if browserToken == "" {
 		t.Fatalf("expected browser route to render csrf token")
+	}
+	if headerToken := strings.TrimSpace(browserRes.Header().Get(csrfmw.DefaultHeaderName)); headerToken == "" {
+		t.Fatalf("expected browser route to emit %s header", csrfmw.DefaultHeaderName)
+	} else if headerToken != browserToken {
+		t.Fatalf("expected browser route header token to match rendered token")
+	}
+
+	browserPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/preferences", strings.NewReader("theme=dark"))
+	browserPostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	browserPostReq.Header.Set("Origin", "http://example.com")
+	browserPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
+	browserPostReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	browserPostRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(browserPostRes, browserPostReq)
+	if browserPostRes.Code != http.StatusOK {
+		t.Fatalf("expected browser post status 200, got %d body=%s", browserPostRes.Code, browserPostRes.Body.String())
 	}
 
 	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
@@ -368,6 +389,52 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(apiRes, apiReq)
 	if apiRes.Code != http.StatusOK {
 		t.Fatalf("expected api route status 200, got %d body=%s", apiRes.Code, apiRes.Body.String())
+	}
+}
+
+func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
+	cfg := cookieTestAuthConfig{
+		signingKey: "test-secret",
+		adminCfg: Config{
+			BasePath: "/admin",
+			Routing: routing.Config{
+				Roots: routing.RootsConfig{
+					AdminRoot: "/admin",
+					APIRoot:   "/admin/internal/v2",
+				},
+			},
+		},
+	}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewGoAuthAuthenticator(routeAuth, cfg)
+
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Post("/admin/internal/v2/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
+		return c.SendStatus(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/internal/v2/dashboard/config", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected configured admin api route status 200, got %d body=%s", res.Code, res.Body.String())
 	}
 }
 
@@ -414,6 +481,9 @@ func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
 	}
 	if !strings.Contains(body, "activity-page") {
 		t.Fatalf("expected browser html route body to include page content, got %q", body)
+	}
+	if headerToken := strings.TrimSpace(res.Header().Get(csrfmw.DefaultHeaderName)); headerToken == "" {
+		t.Fatalf("expected browser html route to emit %s header", csrfmw.DefaultHeaderName)
 	}
 }
 
@@ -496,6 +566,7 @@ func (t testAuthConfig) GetRejectedRouteDefault() string {
 
 type cookieTestAuthConfig struct {
 	signingKey string
+	adminCfg   Config
 }
 
 func (t cookieTestAuthConfig) GetSigningKey() string         { return t.signingKey }
@@ -511,6 +582,7 @@ func (t cookieTestAuthConfig) GetRejectedRouteKey() string   { return "redirect"
 func (t cookieTestAuthConfig) GetRejectedRouteDefault() string {
 	return "/login"
 }
+func (t cookieTestAuthConfig) AdminConfig() Config { return t.adminCfg }
 
 type stubIdentityProvider struct {
 	identity auth.Identity

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	cms "github.com/goliatone/go-cms"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -1146,6 +1147,9 @@ func TestRenderFormRolesPanelIncludesPermissionMatrixHTML(t *testing.T) {
 
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
+	ctx.LocalsMock[csrfmw.DefaultTemplateHelpersKey] = map[string]any{
+		"csrf_field": `<input type="hidden" name="_token" value="csrf-token">`,
+	}
 	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
 		if !ok {
@@ -1155,6 +1159,7 @@ func TestRenderFormRolesPanelIncludesPermissionMatrixHTML(t *testing.T) {
 		return strings.Contains(html, `class="permission-matrix"`) &&
 			strings.Contains(html, `name="permissions_debug"`) &&
 			strings.Contains(html, `name="permissions_translation"`) &&
+			strings.Contains(html, `name="_token" value="csrf-token"`) &&
 			strings.Contains(html, `permission_matrix.js`)
 	})).Return(nil).Once()
 

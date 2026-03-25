@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -91,6 +92,48 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 
 	if err := handler.list(ctx); err != nil {
 		t.Fatalf("list: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Title:    "Admin",
+	}
+	formGen, err := admin.NewRoleFormGenerator(cfg)
+	if err != nil {
+		t.Fatalf("new role form generator: %v", err)
+	}
+	handler := newRoleHandlersWithRoutes(
+		nil,
+		cfg,
+		formGen,
+		nil,
+		"resources/roles/form",
+		"resources/roles/list",
+		"resources/roles/detail",
+		"/admin",
+		nil,
+	)
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.LocalsMock[csrfmw.DefaultTemplateHelpersKey] = map[string]any{
+		"csrf_field": `<input type="hidden" name="_token" value="csrf-token">`,
+	}
+	ctx.On("Render", "resources/roles/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		html := strings.TrimSpace(anyToString(viewCtx["form_html"]))
+		return strings.Contains(html, `name="_token" value="csrf-token"`) &&
+			strings.Contains(html, `<form`)
+	})).Return(nil).Once()
+
+	if err := handler.renderForm(ctx, map[string]any{"name": "Editor", "key": "editor"}, false, "resources/roles/form"); err != nil {
+		t.Fatalf("render form: %v", err)
 	}
 	ctx.AssertExpectations(t)
 }
