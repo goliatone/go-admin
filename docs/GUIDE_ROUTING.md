@@ -22,6 +22,18 @@ The canonical diagnostics surfaces are in-process, not HTTP:
 - quickstart doctor output includes the same routing report under
   `quickstart.routing`.
 
+## Browser route contract
+
+For cookie-backed admin HTML routes, keep browser protection package-managed and
+consistent:
+
+1. Prefer the shared browser protection path instead of a parallel custom CSRF
+   wrapper.
+2. Preserve the shared shell contract: `csrf_meta` in layouts, `csrf_field` in
+   browser forms, and `X-CSRF-Token` on unsafe same-origin JavaScript writes.
+3. Treat regressions in CSRF header emission, origin enforcement, or session-key
+   resolution as package-contract issues first, not example-local patches.
+
 ## Host-owned routing model
 
 The routing model is intentionally opinionated:
@@ -101,6 +113,10 @@ func (*PartnerToolsModule) Register(ctx admin.ModuleContext) error {
 7. Expect collisions to fail startup.
    Method/path conflicts, route-name conflicts, slug violations, and ownership
    violations are release blockers.
+8. Preserve quickstart canonical-route precedence where applicable.
+   In quickstart content-entry HTML routing, concrete canonical routes must be
+   registered before generic `/content/:name/*` handlers so routes like
+   `/admin/content/documents/new` resolve to the intended browser owner.
 
 ## Surface defaults
 

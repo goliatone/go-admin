@@ -83,6 +83,7 @@ Each helper is optional and composable.
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
 - `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths (`base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`).
 - Browser/admin routes rendered through quickstart now carry CSRF helpers automatically. Generated forms should include the hidden `_token` field, and same-origin JavaScript writes should send `X-CSRF-Token` from `meta[name="csrf-token"]`.
+- For cookie-backed browser pages, prefer the package-managed browser protection path instead of a custom CSRF wrapper so origin checks, CSRF header emission, and session-key resolution stay aligned with `go-auth`.
 - `RegisterAuthUIRoutes` applies CSRF middleware to login/logout/password-reset forms. Use `WithAuthUICSRFSecureKey(...)` when you need a stable stateless CSRF signing key across restarts or multi-instance deployments.
 - `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
@@ -357,6 +358,10 @@ All user management URLs should resolve via URLKit (admin namespace). Defaults:
 Panel entry behavior:
 - Canonical panel UI routes (registered by `RegisterContentEntryUIRoutes`) now
   honor `PanelBuilder.WithEntryMode(...)`.
+- `RegisterContentEntryUIRoutes` must register concrete canonical routes before the
+  generic `/content/:name/*` handlers. Reordering them can cause paths like
+  `/admin/content/documents/new` to be captured by the generic matcher and skip
+  the intended browser handler.
 - `profile` defaults to `admin.PanelEntryModeDetailCurrentUser`, so
   `GET /admin/profile` resolves to the current user detail view instead of the
   profile datagrid/list.
