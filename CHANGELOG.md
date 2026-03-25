@@ -1,5 +1,24 @@
 # Changelog
 
+# [0.30.0](https://github.com/goliatone/go-admin/compare/v0.29.0...v0.30.0) - (2026-03-25)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Static asset setup ([ad396d5](https://github.com/goliatone/go-admin/commit/ad396d5b97e6df95f2740b022384b3d6e6ed0860))  - (goliatone)
+- Template logo override ([cc3968f](https://github.com/goliatone/go-admin/commit/cc3968fd3942be4241df1c771cb292493827ae47))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.30.0 ([3abc481](https://github.com/goliatone/go-admin/commit/3abc481a2b5c52b7caba17a18891e011d66a3ad8))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.29.0 ([35320da](https://github.com/goliatone/go-admin/commit/35320da616d0fee010b203fef297347472c29ea1))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([1dbb67d](https://github.com/goliatone/go-admin/commit/1dbb67d329f557302235accb37d6e8d9f75055e4))  - (goliatone)
+
 # [0.29.0](https://github.com/goliatone/go-admin/compare/v0.28.0...v0.29.0) - (2026-03-24)
 
 ## <!-- 1 -->🐛 Bug Fixes
