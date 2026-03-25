@@ -105,6 +105,31 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	}
 }
 
+func TestWithNavCarriesConfiguredLogoURLIntoThemeAssets(t *testing.T) {
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		LogoURL:       "/brand/logo.svg",
+		FaviconURL:    "/brand/favicon.svg",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+
+	view := WithNav(nil, adm, cfg, "", context.Background())
+	theme, ok := view["theme"].(map[string]map[string]string)
+	if !ok {
+		t.Fatalf("expected theme payload, got %T", view["theme"])
+	}
+	assets := theme["assets"]
+	if assets["logo"] != "/brand/logo.svg" {
+		t.Fatalf("expected theme assets logo override, got %q", assets["logo"])
+	}
+	if assets["favicon"] != "/brand/favicon.svg" {
+		t.Fatalf("expected theme assets favicon override, got %q", assets["favicon"])
+	}
+}
+
 func TestWithNavIncludesUsersImportFlagsWhenConfigured(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 	adm, err := admin.New(cfg, admin.Dependencies{

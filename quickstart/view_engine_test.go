@@ -1,9 +1,13 @@
 package quickstart
 
 import (
+	"bytes"
 	"io/fs"
+	"net/http/httptest"
 	"testing"
 	"testing/fstest"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 func TestViewEngineTemplateOverrides(t *testing.T) {
@@ -79,4 +83,58 @@ func TestViewEngineTemplateStackAlignsRoots(t *testing.T) {
 	if string(data) != "toolbar" {
 		t.Fatalf("expected toolbar template, got %q", string(data))
 	}
+}
+
+func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":             "Admin",
+			"base_path":         "/admin",
+			"asset_base_path":   "/admin",
+			"theme":             map[string]map[string]string{"assets": {"logo": "/brand/logo.svg"}},
+			"nav_items":         []map[string]any{},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if !containsAll(html, `/brand/logo.svg`, `class="sidebar-logo"`) {
+		t.Fatalf("expected rendered sidebar to use theme logo asset, got %q", html)
+	}
+}
+
+func containsAll(input string, patterns ...string) bool {
+	for _, pattern := range patterns {
+		if !bytes.Contains([]byte(input), []byte(pattern)) {
+			return false
+		}
+	}
+	return true
 }
