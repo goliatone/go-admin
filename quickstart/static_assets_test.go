@@ -131,6 +131,64 @@ func TestNewStaticAssetsPrefersDiskAssets(t *testing.T) {
 	}
 }
 
+func TestNewStaticAssetsPrefersDiskAssetsWhenDiskFSIsAlreadyAssetRoot(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+	diskFS := fstest.MapFS{
+		"logo.svg": {Data: []byte("disk-logo")},
+	}
+	embeddedFS := fstest.MapFS{
+		"assets/logo.svg": {Data: []byte("embedded-logo")},
+	}
+
+	NewStaticAssets(r, cfg, embeddedFS, WithDiskAssetsFS(diskFS))
+
+	call, ok := findStaticCall(r.staticCalls, "/admin/assets")
+	if !ok {
+		t.Fatalf("expected assets mount")
+	}
+	if call.config.FS == nil {
+		t.Fatalf("expected static FS configured")
+	}
+	data, err := fs.ReadFile(call.config.FS, "logo.svg")
+	if err != nil {
+		t.Fatalf("read static asset: %v", err)
+	}
+	if string(data) != "disk-logo" {
+		t.Fatalf("expected disk asset root override, got %q", string(data))
+	}
+}
+
+func TestResolveAssetsFSUsesAssetsSubdirForBundleRoot(t *testing.T) {
+	base := fstest.MapFS{
+		"assets/app.js": {Data: []byte("bundle")},
+	}
+
+	resolved := resolveAssetsFS(base)
+	data, err := fs.ReadFile(resolved, "app.js")
+	if err != nil {
+		t.Fatalf("read resolved asset: %v", err)
+	}
+	if string(data) != "bundle" {
+		t.Fatalf("expected bundle asset from assets subdir, got %q", string(data))
+	}
+}
+
+func TestResolveAssetsFSKeepsDirectAssetRoot(t *testing.T) {
+	base := fstest.MapFS{
+		"logo.svg": {Data: []byte("root-logo")},
+	}
+
+	resolved := resolveAssetsFS(base)
+	data, err := fs.ReadFile(resolved, "logo.svg")
+	if err != nil {
+		t.Fatalf("read resolved asset: %v", err)
+	}
+	if string(data) != "root-logo" {
+		t.Fatalf("expected direct asset root, got %q", string(data))
+	}
+}
+
 func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 	r := &stubRouter{}
 	cfg := admin.Config{BasePath: "/admin"}
