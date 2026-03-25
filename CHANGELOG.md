@@ -1,5 +1,29 @@
 # Changelog
 
+# [0.31.0](https://github.com/goliatone/go-admin/compare/v0.30.0...v0.31.0) - (2026-03-25)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Inject csrf token ([d1cd43d](https://github.com/goliatone/go-admin/commit/d1cd43d7696cf2b007ed710ad0047ee85773a97d))  - (goliatone)
+- Move register canonical content entry routes before others ([c0570d8](https://github.com/goliatone/go-admin/commit/c0570d8d6e71daf9d7237328f0c3fe5df7ff4fa6))  - (goliatone)
+- Use protected route from go-auth ([17e4f78](https://github.com/goliatone/go-admin/commit/17e4f7829984ed3c7c4d724b4eb54fd8daff4f5d))  - (goliatone)
+- Indject CSRF field to form ([c38ea07](https://github.com/goliatone/go-admin/commit/c38ea07f7c4e0ce822fb326b1a3e2e22d25f8214))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.31.0 ([416ad6f](https://github.com/goliatone/go-admin/commit/416ad6fb99c85cbc36bfdcc862c6c13880223268))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.30.0 ([9e0f666](https://github.com/goliatone/go-admin/commit/9e0f66694e8f4698a723971dc33ff8c80b05e646))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deploy setup ([bc3ee1c](https://github.com/goliatone/go-admin/commit/bc3ee1c65ab949919726d3e390e24f1af43986ce))  - (goliatone)
+- Update tests ([52ea287](https://github.com/goliatone/go-admin/commit/52ea28708e632e0276c2695f899e3498744e994d))  - (goliatone)
+- Update docs ([3083a9b](https://github.com/goliatone/go-admin/commit/3083a9b90d7972dd294735a79d06f4c0c9542691))  - (goliatone)
+- Update example ([f649bee](https://github.com/goliatone/go-admin/commit/f649bee4894f6e44d2bb29b895e678e1631af95a))  - (goliatone)
+
 # [0.30.0](https://github.com/goliatone/go-admin/compare/v0.29.0...v0.30.0) - (2026-03-25)
 
 ## <!-- 1 -->🐛 Bug Fixes
