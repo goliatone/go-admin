@@ -238,6 +238,11 @@ Core API endpoints:
 - `POST /admin/api/translations/exchange/export`
 - `GET /admin/api/translations/exchange/template`
 
+Security note:
+
+- Programmatic clients should prefer Bearer auth against the exchange API.
+- Browser or cookie-backed clients must send `X-CSRF-Token` on unsafe same-origin requests. The admin shell exposes the token through `meta[name="csrf-token"]`.
+
 ### Step 2: Translate externally
 
 Exported rows carry source/linkage metadata so imports can validate staleness and target resolution safely.

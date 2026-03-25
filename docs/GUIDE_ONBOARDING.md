@@ -89,6 +89,12 @@ Defaults (when base path is `/admin`):
 
 All of these are overrideable via `WithAuthUI*` and `WithRegistrationUI*` options.
 
+CSRF behavior:
+
+- Browser forms served by the auth UI include CSRF helpers automatically (`csrf_field`, `csrf_meta`).
+- If you replace the built-in form submissions with custom JavaScript, include `X-CSRF-Token` from `meta[name="csrf-token"]` on unsafe same-origin requests.
+- Programmatic onboarding API calls made with Bearer auth do not need browser form fields, but cookie-backed browser calls still follow the CSRF contract.
+
 ## Token lifecycle + replay protection
 
 Securelink payloads include:
