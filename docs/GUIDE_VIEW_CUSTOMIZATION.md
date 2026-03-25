@@ -310,6 +310,12 @@ if err := quickstart.RegisterAuthUIRoutes(
 
 If the block is empty, the login page renders normally with no extra content.
 
+When overriding auth or admin templates, preserve the CSRF helpers:
+
+- Keep `{{ csrf_meta|safe }}` in the page `<head>` so browser scripts can read `meta[name="csrf-token"]`.
+- Keep `{{ csrf_field|safe }}` inside custom HTML forms that post back to protected browser routes.
+- For custom same-origin JavaScript writes, send `X-CSRF-Token` using the value from `meta[name="csrf-token"]`.
+
 ## Template helpers (functions)
 
 Quickstart exposes default helpers via `quickstart.DefaultTemplateFuncs(...)`.
