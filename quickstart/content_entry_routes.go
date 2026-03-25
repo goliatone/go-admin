@@ -239,6 +239,11 @@ func RegisterContentEntryUIRoutes[T any](
 	wrap := wrapQuickstartRouteAuth(auth)
 
 	handlers := newContentEntryHandlers(adm, cfg, options.viewContext, options)
+	// Register concrete canonical panel routes before the generic /content/:name/* routes.
+	// If the generic routes are registered first, paths like /admin/content/documents/new
+	// can be captured as /:name/:id with id="new", which bypasses the intended new-entry
+	// handler and breaks browser flows that rely on the canonical content URLs.
+	registerCanonicalContentEntryPanelRoutes(r, adm, wrap, handlers)
 	// TODO: Make configurable, use URLKit and url manager
 	base := path.Join(options.basePath, "content")
 	contentRoutes := r.Group(base)
@@ -249,7 +254,6 @@ func RegisterContentEntryUIRoutes[T any](
 	contentRoutes.Get("/:name/:id/edit", wrap(handlers.Edit))
 	contentRoutes.Post("/:name/:id", wrap(handlers.Update))
 	contentRoutes.Post("/:name/:id/delete", wrap(handlers.Delete))
-	registerCanonicalContentEntryPanelRoutes(r, adm, wrap, handlers)
 	return nil
 }
 
