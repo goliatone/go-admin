@@ -63,6 +63,7 @@ func (h *contentEntryHandlers) renderForm(
 	if err != nil {
 		return err
 	}
+	html = injectQuickstartCSRFField(c, html)
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      h.cfg.BasePath,
@@ -102,6 +103,7 @@ func (h *contentEntryHandlers) renderForm(
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
+	viewCtx = mergeQuickstartCSRFViewContext(c, viewCtx)
 	return h.renderTemplate(c, baseSlug, h.formTemplate, viewCtx)
 }
 
