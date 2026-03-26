@@ -46,8 +46,8 @@ func (a *Admin) validatePanelActionWiring() error {
 		if panel == nil {
 			continue
 		}
-		issues = append(issues, validatePanelActionScope(panel, panelName, "row", panel.actions, a.commandBus)...)
-		issues = append(issues, validatePanelActionScope(panel, panelName, "bulk", panel.bulkActions, a.commandBus)...)
+		issues = append(issues, validatePanelActionScope(panel, panelName, "row", panel.actions, a.commandBus, a.validatePanelCommandWiring)...)
+		issues = append(issues, validatePanelActionScope(panel, panelName, "bulk", panel.bulkActions, a.commandBus, a.validatePanelCommandWiring)...)
 	}
 	if len(issues) == 0 {
 		return nil
@@ -58,13 +58,13 @@ func (a *Admin) validatePanelActionWiring() error {
 	})
 }
 
-func validatePanelActionScope(panel *Panel, panelName, scope string, actions []Action, bus *CommandBus) []map[string]any {
+func validatePanelActionScope(panel *Panel, panelName, scope string, actions []Action, bus *CommandBus, validateCommands bool) []map[string]any {
 	if panel == nil || len(actions) == 0 {
 		return nil
 	}
 	issues := make([]map[string]any, 0)
 	for _, action := range actions {
-		issue := validatePanelAction(panel, panelName, scope, action, bus)
+		issue := validatePanelAction(panel, panelName, scope, action, bus, validateCommands)
 		if issue != nil {
 			issues = append(issues, issue)
 		}
@@ -72,14 +72,17 @@ func validatePanelActionScope(panel *Panel, panelName, scope string, actions []A
 	return issues
 }
 
-func validatePanelAction(panel *Panel, panelName, scope string, action Action, bus *CommandBus) map[string]any {
+func validatePanelAction(panel *Panel, panelName, scope string, action Action, bus *CommandBus, validateCommands bool) map[string]any {
 	actionName := strings.ToLower(strings.TrimSpace(action.Name))
 	commandName := strings.TrimSpace(action.CommandName)
 	if actionName == "" {
 		return panelActionIssue(panelName, scope, action, "action_name_required")
 	}
 	if commandName != "" {
-		if bus != nil && bus.enabled && !bus.HasFactory(commandName) {
+		if !validateCommands {
+			return nil
+		}
+		if bus == nil || !bus.HasFactory(commandName) {
 			return panelActionIssue(panelName, scope, action, "command_factory_not_registered")
 		}
 		return nil
