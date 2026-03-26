@@ -183,14 +183,13 @@ func moduleRoutePath(ctx BootCtx, slug, surface, route string) string {
 }
 
 func parseListOptions(c router.Context) ListOptions {
-	opts := listquery.ParseOptions(c, 1, 10, func(predicate listquery.Predicate) ListPredicate {
+	return ListOptions(listquery.ParsePanelOptions(c, func(predicate listquery.Predicate) ListPredicate {
 		return ListPredicate{
 			Field:    predicate.Field,
 			Operator: predicate.Operator,
 			Values:   append([]string{}, predicate.Values...),
 		}
-	})
-	return ListOptions(opts)
+	}))
 }
 
 func atoiDefault(val string, def int) int {

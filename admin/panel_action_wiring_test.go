@@ -69,6 +69,28 @@ func TestValidatePanelActionWiringAcceptsWorkflowAliasActions(t *testing.T) {
 	}
 }
 
+func TestValidatePanelActionWiringFailsForNonIntrospectableWorkflowEngine(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		WithWorkflow(&stubWorkflowEngine{}).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		Actions(Action{Name: "publish"})
+	if _, err := adm.RegisterPanel("pages", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	err := adm.validatePanelActionWiring()
+	if err == nil {
+		t.Fatalf("expected wiring validation to fail for non-introspectable workflow engine")
+	}
+	if !panelActionWiringContainsReason(t, err, "workflow_engine_not_introspectable") {
+		t.Fatalf("expected workflow_engine_not_introspectable issue, got %v", err)
+	}
+}
+
 func TestValidatePanelActionWiringFailsForMissingCommandFactory(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})

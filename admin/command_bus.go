@@ -80,7 +80,7 @@ func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], run
 
 // RegisterFactory stores a message factory for name-based dispatch.
 func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error {
-	if b == nil || !b.enabled {
+	if b == nil {
 		return nil
 	}
 	if name == "" {
@@ -110,7 +110,7 @@ func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error 
 
 // RegisterMessageFactory registers both a factory and a typed dispatcher for name-based routing.
 func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
-	if bus == nil || !bus.enabled {
+	if bus == nil {
 		return nil
 	}
 	if name == "" {
@@ -291,7 +291,7 @@ func (b *CommandBus) track(sub dispatcher.Subscription) {
 
 // HasFactory reports whether a named message factory is registered.
 func (b *CommandBus) HasFactory(name string) bool {
-	if b == nil || !b.enabled {
+	if b == nil {
 		return false
 	}
 	name = strings.TrimSpace(name)

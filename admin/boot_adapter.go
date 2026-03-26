@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"context"
+
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
@@ -9,8 +11,24 @@ import (
 
 // Boot runs the admin boot pipeline with the given steps or the defaults.
 func (a *Admin) Boot(steps ...boot.Step) error {
+	return a.BootWithContext(a.LifecycleContext(), steps...)
+}
+
+// BootWithContext runs the admin boot pipeline with the given lifecycle context and steps.
+func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
 	if len(steps) == 0 {
 		steps = boot.DefaultBootSteps()
+	}
+	if a != nil {
+		previousCtx := a.bootContext
+		if ctx == nil {
+			ctx = previousCtx
+		}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		a.bootContext = ctx
+		defer func() { a.bootContext = previousCtx }()
 	}
 	if err := boot.Run(a, steps...); err != nil {
 		return err
@@ -26,6 +44,14 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 	a.registerMenuBuilderRoutes()
 
 	return a.registerDebugDashboardRoutes()
+}
+
+// LifecycleContext exposes the current boot lifecycle context to boot steps.
+func (a *Admin) LifecycleContext() context.Context {
+	if a == nil || a.bootContext == nil {
+		return context.Background()
+	}
+	return a.bootContext
 }
 
 // Router exposes the configured router for boot steps.

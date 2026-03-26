@@ -306,51 +306,66 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	spec.CommandName = strings.TrimSpace(spec.CommandName)
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	previous, hadPrevious := d.providers[spec.Code]
-	if hadPrevious {
-		prevCommand := strings.TrimSpace(previous.spec.CommandName)
-		if prevCommand != "" && prevCommand != spec.CommandName {
-			delete(d.providerCommands, prevCommand)
-		}
+	d.releaseProviderCommand(spec)
+	d.removeDefaultInstancesForCode(spec.Code)
+	hasPersistedInstance := d.hasPersistedInstance(spec)
+	d.providers[spec.Code] = registeredProvider{spec: spec, handler: spec.Handler}
+	d.registerProviderDependencies(spec)
+	if !d.registerProviderCommand(spec) {
+		return
 	}
+	d.seedDefaultProviderInstance(spec, hasPersistedInstance)
+}
 
-	// Replace existing provider and drop any previously registered default instances for the same code
-	// so that overrides (e.g., app-specific providers without DefaultArea) do not leave stale defaults.
+func (d *Dashboard) releaseProviderCommand(spec DashboardProviderSpec) {
+	previous, hadPrevious := d.providers[spec.Code]
+	if !hadPrevious {
+		return
+	}
+	prevCommand := strings.TrimSpace(previous.spec.CommandName)
+	if prevCommand == "" || prevCommand == spec.CommandName {
+		return
+	}
+	delete(d.providerCommands, prevCommand)
+}
+
+func (d *Dashboard) removeDefaultInstancesForCode(code string) {
 	filtered := d.defaultInstances[:0]
 	for _, inst := range d.defaultInstances {
-		if inst.DefinitionCode != spec.Code {
+		if inst.DefinitionCode != code {
 			filtered = append(filtered, inst)
 		}
 	}
 	d.defaultInstances = filtered
+}
 
-	// Track whether a persisted instance already exists for this definition.
-	hasPersistedInstance := false
-	if d.widgetSvc != nil {
-		if checker, ok := d.widgetSvc.(widgetInstanceExistenceChecker); ok {
-			exists, err := checker.HasInstanceForDefinition(context.Background(), spec.Code, WidgetInstanceFilter{})
-			if err == nil {
-				hasPersistedInstance = exists
-			}
-		}
-		if !hasPersistedInstance {
-			filter := WidgetInstanceFilter{}
-			area := strings.TrimSpace(spec.DefaultArea)
-			if area != "" {
-				filter.Area = area
-			}
-			if instances, err := d.widgetSvc.ListInstances(context.Background(), filter); err == nil {
-				for _, inst := range instances {
-					if inst.DefinitionCode == spec.Code {
-						hasPersistedInstance = true
-						break
-					}
-				}
-			}
+func (d *Dashboard) hasPersistedInstance(spec DashboardProviderSpec) bool {
+	if d.widgetSvc == nil {
+		return false
+	}
+	if checker, ok := d.widgetSvc.(widgetInstanceExistenceChecker); ok {
+		exists, err := checker.HasInstanceForDefinition(context.Background(), spec.Code, WidgetInstanceFilter{})
+		if err == nil && exists {
+			return true
 		}
 	}
+	filter := WidgetInstanceFilter{}
+	if area := strings.TrimSpace(spec.DefaultArea); area != "" {
+		filter.Area = area
+	}
+	instances, err := d.widgetSvc.ListInstances(context.Background(), filter)
+	if err != nil {
+		return false
+	}
+	for _, inst := range instances {
+		if inst.DefinitionCode == spec.Code {
+			return true
+		}
+	}
+	return false
+}
 
-	d.providers[spec.Code] = registeredProvider{spec: spec, handler: spec.Handler}
+func (d *Dashboard) registerProviderDependencies(spec DashboardProviderSpec) {
 	if d.registry != nil {
 		d.registry.RegisterDashboardProvider(spec)
 	}
@@ -359,85 +374,114 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 			"provider", spec.Code)
 		d.registerProviderInComponents(spec, spec.Handler)
 	}
+	d.registerWidgetDefinition(spec)
+}
 
-	// Register widget definition with CMS widget service when available.
-	// Some CMS backends require a non-empty schema, so default to an empty schema
-	// to allow persistence/seed even for non-configurable widgets.
-	if d.widgetSvc != nil {
-		schema := primitives.CloneAnyMap(spec.Schema)
-		if len(schema) == 0 {
-			schema = map[string]any{"fields": []any{}}
-		}
-		name := strings.TrimSpace(spec.Name)
-		if name == "" {
-			name = spec.Code
-		}
-		_ = d.widgetSvc.RegisterDefinition(context.Background(), WidgetDefinition{
-			Code:   spec.Code,
-			Name:   name,
-			Schema: schema,
-		})
+func (d *Dashboard) registerWidgetDefinition(spec DashboardProviderSpec) {
+	if d.widgetSvc == nil {
+		return
 	}
-
-	// Register a command hook if requested.
-	if d.commandBus != nil && spec.CommandName != "" {
-		if d.providerCommands == nil {
-			d.providerCommands = map[string]string{}
-		}
-		if existingCode, exists := d.providerCommands[spec.CommandName]; exists {
-			if existingCode != spec.Code {
-				d.logger.Warn("dashboard command already mapped; skipping provider",
-					"command", spec.CommandName,
-					"existing_provider", existingCode,
-					"provider", spec.Code)
-			}
-		} else {
-			if !d.providerCmdReady {
-				_, _ = RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d})
-				d.providerCmdReady = true
-			}
-			if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
-				d.logger.Warn("failed to register dashboard command",
-					"command", spec.CommandName,
-					"error", err)
-			} else {
-				d.providerCommands[spec.CommandName] = spec.Code
-			}
-		}
+	schema := primitives.CloneAnyMap(spec.Schema)
+	if len(schema) == 0 {
+		schema = map[string]any{"fields": []any{}}
 	}
+	name := strings.TrimSpace(spec.Name)
+	if name == "" {
+		name = spec.Code
+	}
+	if err := d.widgetSvc.RegisterDefinition(context.Background(), WidgetDefinition{
+		Code:   spec.Code,
+		Name:   name,
+		Schema: schema,
+	}); err != nil {
+		d.logger.Warn("failed to register dashboard widget definition",
+			"definition", spec.Code,
+			"error", err)
+	}
+}
 
-	// Seed a default instance if provided and no persisted instance already exists.
-	if spec.DefaultArea != "" && !hasPersistedInstance {
-		area := strings.TrimSpace(spec.DefaultArea)
-		if !d.enforceAreas || area == "" || d.hasArea(area) {
-			span := spec.DefaultSpan
-			if span <= 0 {
-				span = 12
-			}
-			d.defaultInstances = append(d.defaultInstances, DashboardWidgetInstance{
-				DefinitionCode: spec.Code,
-				AreaCode:       area,
-				Config:         primitives.CloneAnyMap(spec.DefaultConfig),
-				Span:           span,
-				Hidden:         false,
-				Locale:         "",
-			})
-			if d.widgetSvc != nil {
-				_ = d.widgetSvc.Definitions()
-				if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
-					DefinitionCode: spec.Code,
-					Area:           area,
-					Config:         primitives.CloneAnyMap(spec.DefaultConfig),
-					Span:           span,
-					Locale:         "",
-				}); err != nil {
-					d.logger.Warn("failed to persist default widget instance",
-						"definition", spec.Code,
-						"area", area,
-						"error", err)
-				}
-			}
+func (d *Dashboard) registerProviderCommand(spec DashboardProviderSpec) bool {
+	if d.commandBus == nil || spec.CommandName == "" {
+		return true
+	}
+	if d.providerCommands == nil {
+		d.providerCommands = map[string]string{}
+	}
+	if existingCode, exists := d.providerCommands[spec.CommandName]; exists {
+		if existingCode != spec.Code {
+			d.logger.Warn("dashboard command already mapped; skipping provider",
+				"command", spec.CommandName,
+				"existing_provider", existingCode,
+				"provider", spec.Code)
 		}
+		return true
+	}
+	if !d.ensureProviderCommandRegistered() {
+		return false
+	}
+	if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
+		d.logger.Warn("failed to register dashboard command",
+			"command", spec.CommandName,
+			"error", err)
+		return true
+	}
+	d.providerCommands[spec.CommandName] = spec.Code
+	return true
+}
+
+func (d *Dashboard) ensureProviderCommandRegistered() bool {
+	if d.providerCmdReady {
+		return true
+	}
+	if _, err := RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d}); err != nil {
+		d.logger.Warn("failed to register dashboard provider command",
+			"command", dashboardProviderCommandName,
+			"error", err)
+		return false
+	}
+	d.providerCmdReady = true
+	return true
+}
+
+func (d *Dashboard) seedDefaultProviderInstance(spec DashboardProviderSpec, hasPersistedInstance bool) {
+	area := strings.TrimSpace(spec.DefaultArea)
+	if area == "" || hasPersistedInstance {
+		return
+	}
+	if d.enforceAreas && !d.hasArea(area) {
+		return
+	}
+	span := spec.DefaultSpan
+	if span <= 0 {
+		span = 12
+	}
+	d.defaultInstances = append(d.defaultInstances, DashboardWidgetInstance{
+		DefinitionCode: spec.Code,
+		AreaCode:       area,
+		Config:         primitives.CloneAnyMap(spec.DefaultConfig),
+		Span:           span,
+		Hidden:         false,
+		Locale:         "",
+	})
+	d.persistDefaultProviderInstance(spec, area, span)
+}
+
+func (d *Dashboard) persistDefaultProviderInstance(spec DashboardProviderSpec, area string, span int) {
+	if d.widgetSvc == nil {
+		return
+	}
+	_ = d.widgetSvc.Definitions()
+	if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
+		DefinitionCode: spec.Code,
+		Area:           area,
+		Config:         primitives.CloneAnyMap(spec.DefaultConfig),
+		Span:           span,
+		Locale:         "",
+	}); err != nil {
+		d.logger.Warn("failed to persist default widget instance",
+			"definition", spec.Code,
+			"area", area,
+			"error", err)
 	}
 }
 
@@ -450,8 +494,13 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 		Name:   spec.Name,
 		Schema: spec.Schema,
 	}
-	_ = d.components.providers.RegisterDefinition(def)
-	_ = d.components.providers.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
+	if err := d.components.providers.RegisterDefinition(def); err != nil {
+		d.logger.Warn("failed to register dashboard provider definition in live registry",
+			"definition", spec.Code,
+			"error", err)
+		return
+	}
+	if err := d.components.providers.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
 		cfg := cloneAny(spec.DefaultConfig)
 		if cfg == nil {
 			cfg = map[string]any{}
@@ -471,7 +520,12 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 			return nil, err
 		}
 		return dashcmp.WidgetData(data), nil
-	}))
+	})); err != nil {
+		d.logger.Warn("failed to register dashboard provider in live registry",
+			"provider", spec.Code,
+			"error", err)
+		return
+	}
 	if d.components.specs != nil {
 		d.components.specs[spec.Code] = spec
 	}
@@ -548,38 +602,7 @@ func (d *Dashboard) saveUserLayout(ctx AdminContext, instances []DashboardWidget
 	d.mu.RUnlock()
 	persisted := false
 	failed := false
-	if prefService != nil && ctx.UserID != "" {
-		if _, err := prefService.SaveDashboardLayout(ctx.Context, ctx.UserID, instances); err != nil {
-			failed = true
-			logger.Warn("failed to persist dashboard layout",
-				"backend", "preferences_service",
-				"user_id", ctx.UserID,
-				"error", err)
-		} else {
-			persisted = true
-		}
-	}
-	if prefCtx, ok := prefs.(DashboardPreferencesWithContext); ok {
-		if err := prefCtx.SaveWithContext(ctx.Context, ctx.UserID, instances); err != nil {
-			failed = true
-			logger.Warn("failed to persist dashboard layout",
-				"backend", "dashboard_preferences_context",
-				"user_id", ctx.UserID,
-				"error", err)
-		} else {
-			persisted = true
-		}
-	} else if prefs != nil {
-		if err := prefs.Save(ctx.UserID, instances); err != nil {
-			failed = true
-			logger.Warn("failed to persist dashboard layout",
-				"backend", "dashboard_preferences",
-				"user_id", ctx.UserID,
-				"error", err)
-		} else {
-			persisted = true
-		}
-	}
+	persisted, failed = d.persistDashboardLayout(ctx, instances, prefService, prefs, logger, persisted, failed)
 	if failed || !persisted {
 		return
 	}
@@ -600,26 +623,43 @@ func (d *Dashboard) saveUserLayout(ctx AdminContext, instances []DashboardWidget
 	}
 }
 
-func (d *Dashboard) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
-	if d == nil {
-		return
+func (d *Dashboard) persistDashboardLayout(ctx AdminContext, instances []DashboardWidgetInstance, prefService *PreferencesService, prefs DashboardPreferences, logger Logger, persisted, failed bool) (bool, bool) {
+	if prefService != nil && ctx.UserID != "" {
+		if _, err := prefService.SaveDashboardLayout(ctx.Context, ctx.UserID, instances); err != nil {
+			logger.Warn("failed to persist dashboard layout",
+				"backend", "preferences_service",
+				"user_id", ctx.UserID,
+				"error", err)
+			failed = true
+		} else {
+			persisted = true
+		}
 	}
-	d.mu.RLock()
-	activity := d.activity
-	d.mu.RUnlock()
-	if activity == nil {
-		return
+	if prefCtx, ok := prefs.(DashboardPreferencesWithContext); ok {
+		return d.persistDashboardLayoutWithContext(ctx, instances, prefCtx, logger, persisted, failed)
 	}
-	actor := ctx.UserID
-	if actor == "" {
-		actor = actorFromContext(ctx.Context)
+	if prefs == nil {
+		return persisted, failed
 	}
-	_ = activity.Record(ctx.Context, ActivityEntry{
-		Actor:    actor,
-		Action:   action,
-		Object:   "dashboard",
-		Metadata: metadata,
-	})
+	if err := prefs.Save(ctx.UserID, instances); err != nil {
+		logger.Warn("failed to persist dashboard layout",
+			"backend", "dashboard_preferences",
+			"user_id", ctx.UserID,
+			"error", err)
+		return persisted, true
+	}
+	return true, failed
+}
+
+func (d *Dashboard) persistDashboardLayoutWithContext(ctx AdminContext, instances []DashboardWidgetInstance, prefs DashboardPreferencesWithContext, logger Logger, persisted, failed bool) (bool, bool) {
+	if err := prefs.SaveWithContext(ctx.Context, ctx.UserID, instances); err != nil {
+		logger.Warn("failed to persist dashboard layout",
+			"backend", "dashboard_preferences_context",
+			"user_id", ctx.UserID,
+			"error", err)
+		return persisted, true
+	}
+	return true, failed
 }
 
 func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents, error) {
@@ -679,20 +719,6 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 		specs:      specs,
 	}
 	return d.components, nil
-}
-
-func (d *Dashboard) areaCodesForService() []string {
-	if d == nil {
-		return nil
-	}
-	d.mu.RLock()
-	areas := make([]WidgetAreaDefinition, 0, len(d.areas))
-	for _, area := range d.areas {
-		areas = append(areas, area)
-	}
-	widgetSvc := d.widgetSvc
-	d.mu.RUnlock()
-	return dashboardAreaCodesForService(areas, widgetSvc)
 }
 
 func (d *Dashboard) areaCodesForServiceLocked() []string {
@@ -1030,16 +1056,6 @@ func convertDashboardTheme(theme *dashcmp.ThemeSelection) *ThemeSelection {
 		ChartTheme:  theme.ChartTheme,
 		AssetPrefix: theme.Assets.Prefix,
 	}
-}
-
-func (d *Dashboard) widgetServiceAdapter() dashinternal.WidgetService {
-	if d == nil {
-		return nil
-	}
-	d.mu.RLock()
-	svc := d.widgetSvc
-	d.mu.RUnlock()
-	return widgetServiceAdapterFor(svc)
 }
 
 func widgetServiceAdapterFor(svc CMSWidgetService) dashinternal.WidgetService {

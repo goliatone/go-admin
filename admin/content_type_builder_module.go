@@ -3,13 +3,15 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"github.com/goliatone/go-admin/admin/routing"
-	"github.com/goliatone/go-admin/internal/primitives"
+	"fmt"
 	"io/fs"
 	"maps"
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	"github.com/goliatone/go-admin/pkg/client"
 	goerrors "github.com/goliatone/go-errors"
@@ -197,6 +199,17 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if ctx.Admin.contentTypeSvc == nil || ctx.Admin.contentSvc == nil {
 		return FeatureDisabledError{Feature: string(FeatureCMS)}
 	}
+	if err := m.initializeModule(ctx); err != nil {
+		return err
+	}
+	if err := m.registerPanelsAndCommands(ctx); err != nil {
+		return err
+	}
+	m.registerBuilderRoutes(ctx.Admin)
+	return m.loadExistingContentTypes(ctx.Admin)
+}
+
+func (m *ContentTypeBuilderModule) initializeModule(ctx ModuleContext) error {
 	if m.basePath == "" {
 		m.basePath = ctx.Admin.config.BasePath
 	}
@@ -224,30 +237,9 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if m.contentSvc == nil {
 		m.contentSvc = ctx.Admin.contentSvc
 	}
-
-	// Initialize schema guardrails with defaults
-	if m.schemaGuardrails == nil {
-		m.schemaGuardrails = NewSchemaGuardrails()
+	if err := m.ensureSchemaRuntime(ctx.Admin); err != nil {
+		return err
 	}
-
-	// Initialize rate limiter with defaults (30 requests/minute)
-	if m.rateLimiter == nil {
-		m.rateLimiter = DefaultSchemaRateLimiter()
-	}
-
-	if m.schemaValidator == nil {
-		apiBase := ""
-		if ctx.Admin != nil {
-			apiBase = ctx.Admin.AdminAPIBasePath()
-		}
-		validator, err := NewFormgenSchemaValidatorWithAPIBase(m.basePath, apiBase)
-		if err != nil {
-			return err
-		}
-		// Wrap validator with guardrails
-		m.schemaValidator = NewGuardrailedSchemaValidator(validator, m.schemaGuardrails)
-	}
-
 	if m.panelFactory == nil {
 		m.panelFactory = NewDynamicPanelFactory(ctx.Admin,
 			WithDynamicPanelSchemaConverter(NewSchemaToFieldsConverter()),
@@ -255,30 +247,51 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 			WithDynamicPanelMenu(m.basePath, m.menuCode, m.entryMenuParent, m.defaultLocale),
 		)
 	}
-
 	if m.activity == nil {
 		m.activity = ctx.Admin.ActivityFeed()
 	}
+	return nil
+}
 
+func (m *ContentTypeBuilderModule) ensureSchemaRuntime(admin *Admin) error {
+	if m.schemaGuardrails == nil {
+		m.schemaGuardrails = NewSchemaGuardrails()
+	}
+	if m.rateLimiter == nil {
+		m.rateLimiter = DefaultSchemaRateLimiter()
+	}
+	if m.schemaValidator != nil {
+		return nil
+	}
+	apiBase := ""
+	if admin != nil {
+		apiBase = admin.AdminAPIBasePath()
+	}
+	validator, err := NewFormgenSchemaValidatorWithAPIBase(m.basePath, apiBase)
+	if err != nil {
+		return err
+	}
+	m.schemaValidator = NewGuardrailedSchemaValidator(validator, m.schemaGuardrails)
+	return nil
+}
+
+func (m *ContentTypeBuilderModule) registerPanelsAndCommands(ctx ModuleContext) error {
 	if err := m.registerContentTypePanel(ctx); err != nil {
 		return err
 	}
 	if err := m.registerBlockDefinitionsPanel(ctx); err != nil {
 		return err
 	}
-	m.registerCommands(ctx.Admin)
-	m.registerSearchAdapter(ctx.Admin)
-	m.registerSchemaRoutes(ctx.Admin)
-	m.registerBlockDefinitionCategoriesRoute(ctx.Admin)
-	m.registerBlockDefinitionDiagnosticsRoute(ctx.Admin)
-	m.registerBlockDefinitionFieldTypesRoute(ctx.Admin)
-	m.registerBlockDefinitionTemplateRoutes(ctx.Admin)
+	return m.registerCommands(ctx.Admin)
+}
 
-	if err := m.loadExistingContentTypes(ctx.Admin); err != nil {
-		return err
-	}
-
-	return nil
+func (m *ContentTypeBuilderModule) registerBuilderRoutes(admin *Admin) {
+	m.registerSearchAdapter(admin)
+	m.registerSchemaRoutes(admin)
+	m.registerBlockDefinitionCategoriesRoute(admin)
+	m.registerBlockDefinitionDiagnosticsRoute(admin)
+	m.registerBlockDefinitionFieldTypesRoute(admin)
+	m.registerBlockDefinitionTemplateRoutes(admin)
 }
 
 func (m *ContentTypeBuilderModule) RouteContract() routing.ModuleContract {
@@ -552,19 +565,36 @@ func (m *ContentTypeBuilderModule) resolveContentType(ctx context.Context, recor
 	return nil, ErrNotFound
 }
 
-func (m *ContentTypeBuilderModule) registerCommands(admin *Admin) {
+func (m *ContentTypeBuilderModule) registerCommands(admin *Admin) error {
 	if admin == nil || admin.commandBus == nil {
-		return
+		return nil
 	}
-	_ = RegisterMessageFactory(admin.commandBus, contentTypeCreateCommandName, buildContentTypeCreateMsg)
-	_ = RegisterMessageFactory(admin.commandBus, contentTypeUpdateCommandName, buildContentTypeUpdateMsg)
-	_ = RegisterMessageFactory(admin.commandBus, contentTypePublishCommandName, buildContentTypePublishMsg)
-	_ = RegisterMessageFactory(admin.commandBus, contentTypeDeleteCommandName, buildContentTypeDeleteMsg)
+	if err := RegisterMessageFactory(admin.commandBus, contentTypeCreateCommandName, buildContentTypeCreateMsg); err != nil {
+		return fmt.Errorf("register content type command factory %q: %w", contentTypeCreateCommandName, err)
+	}
+	if err := RegisterMessageFactory(admin.commandBus, contentTypeUpdateCommandName, buildContentTypeUpdateMsg); err != nil {
+		return fmt.Errorf("register content type command factory %q: %w", contentTypeUpdateCommandName, err)
+	}
+	if err := RegisterMessageFactory(admin.commandBus, contentTypePublishCommandName, buildContentTypePublishMsg); err != nil {
+		return fmt.Errorf("register content type command factory %q: %w", contentTypePublishCommandName, err)
+	}
+	if err := RegisterMessageFactory(admin.commandBus, contentTypeDeleteCommandName, buildContentTypeDeleteMsg); err != nil {
+		return fmt.Errorf("register content type command factory %q: %w", contentTypeDeleteCommandName, err)
+	}
 
-	_, _ = RegisterCommand(admin.commandBus, &contentTypeCreateCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity})
-	_, _ = RegisterCommand(admin.commandBus, &contentTypeUpdateCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity})
-	_, _ = RegisterCommand(admin.commandBus, &contentTypePublishCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity})
-	_, _ = RegisterCommand(admin.commandBus, &contentTypeDeleteCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity})
+	if _, err := RegisterCommand(admin.commandBus, &contentTypeCreateCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity}); err != nil {
+		return fmt.Errorf("register content type command %q: %w", contentTypeCreateCommandName, err)
+	}
+	if _, err := RegisterCommand(admin.commandBus, &contentTypeUpdateCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity}); err != nil {
+		return fmt.Errorf("register content type command %q: %w", contentTypeUpdateCommandName, err)
+	}
+	if _, err := RegisterCommand(admin.commandBus, &contentTypePublishCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity}); err != nil {
+		return fmt.Errorf("register content type command %q: %w", contentTypePublishCommandName, err)
+	}
+	if _, err := RegisterCommand(admin.commandBus, &contentTypeDeleteCommand{service: m.contentTypeSvc, panels: m.panelFactory, activity: m.activity}); err != nil {
+		return fmt.Errorf("register content type command %q: %w", contentTypeDeleteCommandName, err)
+	}
+	return nil
 }
 
 func (m *ContentTypeBuilderModule) registerSearchAdapter(admin *Admin) {
@@ -592,16 +622,15 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 	}
 	validatePath := adminAPIRoutePath(admin, "content_types.validate")
 	previewPath := adminAPIRoutePath(admin, "content_types.preview")
+	admin.router.Post(validatePath, m.wrapSchemaRoute(admin, m.handleSchemaValidate))
+	admin.router.Post(previewPath, m.wrapSchemaRoute(admin, m.handleSchemaPreview))
+}
 
-	validateHandler := func(c router.Context) error {
-		// Apply rate limiting
-		if m.rateLimiter != nil {
-			clientKey := rateLimitKeyFromRequest(c)
-			if !m.rateLimiter.Allow(clientKey) {
-				return writeError(c, RateLimitError())
-			}
+func (m *ContentTypeBuilderModule) wrapSchemaRoute(admin *Admin, handler func(router.Context, AdminContext, map[string]any, SchemaValidationOptions) error) router.HandlerFunc {
+	wrapped := func(c router.Context) error {
+		if err := m.enforceSchemaRateLimit(c); err != nil {
+			return writeError(c, err)
 		}
-
 		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
 		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
 			return writeError(c, err)
@@ -615,64 +644,61 @@ func (m *ContentTypeBuilderModule) registerSchemaRoutes(admin *Admin) {
 			return writeError(c, err)
 		}
 		opts.UISchema = uiSchema
-		if err := m.schemaValidator.Validate(adminCtx.Context, schema, opts); err != nil {
-			return writeError(c, err)
-		}
-		return writeJSON(c, map[string]any{"valid": true})
+		return handler(c, adminCtx, schema, opts)
 	}
-
-	previewHandler := func(c router.Context) error {
-		// Apply rate limiting
-		if m.rateLimiter != nil {
-			clientKey := rateLimitKeyFromRequest(c)
-			if !m.rateLimiter.Allow(clientKey) {
-				return writeError(c, RateLimitError())
-			}
-		}
-
-		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
-		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
-			return writeError(c, err)
-		}
-		body, err := parseJSONBody(c)
-		if err != nil {
-			return writeError(c, err)
-		}
-		schema, uiSchema, opts, err := parseSchemaPayload(body)
-		if err != nil {
-			return writeError(c, err)
-		}
-		opts.UISchema = uiSchema
-		if !schemaHasPreviewableFields(schema) {
-			return writeJSON(c, map[string]any{
-				"html": `<p class="text-sm text-gray-500">Add fields to preview the form.</p>`,
-			})
-		}
-		previewer, ok := m.schemaValidator.(SchemaPreviewer)
-		if !ok {
-			return writeError(c, serviceUnavailableDomainError("schema preview not configured", map[string]any{
-				"service": "schema_preview",
-			}))
-		}
-		html, err := previewer.Preview(adminCtx.Context, schema, opts)
-		if err != nil {
-			if m.previewFallback != nil {
-				if fallback, handled := m.previewFallback(adminCtx, schema, opts, err); handled {
-					return writeJSON(c, map[string]any{"html": fallback})
-				}
-			}
-			return writeError(c, err)
-		}
-		return writeJSON(c, map[string]any{"html": string(html)})
+	if authWrap := admin.authWrapper(); authWrap != nil {
+		return authWrap(wrapped)
 	}
+	return wrapped
+}
 
-	authWrap := admin.authWrapper()
-	if authWrap != nil {
-		validateHandler = authWrap(validateHandler)
-		previewHandler = authWrap(previewHandler)
+func (m *ContentTypeBuilderModule) enforceSchemaRateLimit(c router.Context) error {
+	if m.rateLimiter == nil {
+		return nil
 	}
-	admin.router.Post(validatePath, validateHandler)
-	admin.router.Post(previewPath, previewHandler)
+	clientKey := rateLimitKeyFromRequest(c)
+	if m.rateLimiter.Allow(clientKey) {
+		return nil
+	}
+	return RateLimitError()
+}
+
+func (m *ContentTypeBuilderModule) handleSchemaValidate(c router.Context, adminCtx AdminContext, schema map[string]any, opts SchemaValidationOptions) error {
+	if m.schemaValidator == nil {
+		return writeError(c, serviceUnavailableDomainError("schema validator not configured", map[string]any{"service": "schema_validator"}))
+	}
+	if err := m.schemaValidator.Validate(adminCtx.Context, schema, opts); err != nil {
+		return writeError(c, err)
+	}
+	return writeJSON(c, map[string]any{"valid": true})
+}
+
+func (m *ContentTypeBuilderModule) handleSchemaPreview(c router.Context, adminCtx AdminContext, schema map[string]any, opts SchemaValidationOptions) error {
+	if !schemaHasPreviewableFields(schema) {
+		return writeJSON(c, map[string]any{
+			"html": `<p class="text-sm text-gray-500">Add fields to preview the form.</p>`,
+		})
+	}
+	previewer, ok := m.schemaValidator.(SchemaPreviewer)
+	if !ok {
+		return writeError(c, serviceUnavailableDomainError("schema preview not configured", map[string]any{
+			"service": "schema_preview",
+		}))
+	}
+	html, err := previewer.Preview(adminCtx.Context, schema, opts)
+	if err != nil {
+		return m.handleSchemaPreviewError(c, adminCtx, schema, opts, err)
+	}
+	return writeJSON(c, map[string]any{"html": string(html)})
+}
+
+func (m *ContentTypeBuilderModule) handleSchemaPreviewError(c router.Context, adminCtx AdminContext, schema map[string]any, opts SchemaValidationOptions, previewErr error) error {
+	if m.previewFallback != nil {
+		if fallback, handled := m.previewFallback(adminCtx, schema, opts, previewErr); handled {
+			return writeJSON(c, map[string]any{"html": fallback})
+		}
+	}
+	return writeError(c, previewErr)
 }
 
 func (m *ContentTypeBuilderModule) registerBlockDefinitionCategoriesRoute(admin *Admin) {
@@ -729,76 +755,83 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin
 		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
 			return writeError(c, err)
 		}
-
-		requestedChannel := strings.ToLower(strings.TrimSpace(resolveContentChannelFromRouter(c)))
-		effectiveChannel := requestedChannel
-		if effectiveChannel == "" {
-			effectiveChannel = defaultContentChannelKey
-		}
-		defaultDefs, defaultErr := m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), defaultContentChannelKey))
-		effectiveDefs := defaultDefs
-		effectiveErr := defaultErr
-		if effectiveChannel != defaultContentChannelKey {
-			effectiveDefs, effectiveErr = m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), effectiveChannel))
-		}
-		if defaultErr != nil || effectiveErr != nil {
-			return writeJSON(c, map[string]any{
-				"effective_channel": effectiveChannel,
-				"requested_channel": requestedChannel,
-				"total_effective":   0,
-				"total_default":     0,
-				"available_channels": []string{
-					defaultContentChannelKey,
-				},
-			})
-		}
-
-		envSet := map[string]struct{}{
-			defaultContentChannelKey: {},
-			effectiveChannel:         {},
-		}
-		addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
-			for _, def := range defs {
-				env := strings.ToLower(strings.TrimSpace(cmsBlockDefinitionChannel(def)))
-				if env == "" {
-					env = fallback
-				}
-				if env == "" {
-					env = defaultContentChannelKey
-				}
-				envSet[env] = struct{}{}
-			}
-		}
-		addEnvFromDefs(defaultDefs, defaultContentChannelKey)
-		addEnvFromDefs(effectiveDefs, effectiveChannel)
-
-		available := make([]string, 0, len(envSet))
-		for env := range envSet {
-			available = append(available, env)
-		}
-		sort.Strings(available)
-		if len(available) > 1 {
-			for i, env := range available {
-				if env == defaultContentChannelKey {
-					available[0], available[i] = available[i], available[0]
-					break
-				}
-			}
-		}
-
-		return writeJSON(c, map[string]any{
-			"effective_channel":  effectiveChannel,
-			"requested_channel":  requestedChannel,
-			"total_effective":    len(effectiveDefs),
-			"total_default":      len(defaultDefs),
-			"available_channels": available,
-		})
+		return writeJSON(c, m.blockDefinitionDiagnostics(resolveContentChannelFromRouter(c)))
 	}
 
 	if authWrap := admin.authWrapper(); authWrap != nil {
 		handler = authWrap(handler)
 	}
 	admin.router.Get(diagnosticsPath, handler)
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionDiagnostics(channel string) map[string]any {
+	requestedChannel := strings.ToLower(strings.TrimSpace(channel))
+	effectiveChannel := requestedChannel
+	if effectiveChannel == "" {
+		effectiveChannel = defaultContentChannelKey
+	}
+	defaultDefs, defaultErr := m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), defaultContentChannelKey))
+	effectiveDefs, effectiveErr := m.blockDefinitionsForChannel(effectiveChannel, defaultDefs, defaultErr)
+	if defaultErr != nil || effectiveErr != nil {
+		return map[string]any{
+			"effective_channel":  effectiveChannel,
+			"requested_channel":  requestedChannel,
+			"total_effective":    0,
+			"total_default":      0,
+			"available_channels": []string{defaultContentChannelKey},
+		}
+	}
+	return map[string]any{
+		"effective_channel":  effectiveChannel,
+		"requested_channel":  requestedChannel,
+		"total_effective":    len(effectiveDefs),
+		"total_default":      len(defaultDefs),
+		"available_channels": m.blockDefinitionChannels(defaultDefs, effectiveDefs, effectiveChannel),
+	}
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionsForChannel(effectiveChannel string, defaultDefs []CMSBlockDefinition, defaultErr error) ([]CMSBlockDefinition, error) {
+	if effectiveChannel == defaultContentChannelKey {
+		return defaultDefs, defaultErr
+	}
+	return m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), effectiveChannel))
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionChannels(defaultDefs, effectiveDefs []CMSBlockDefinition, effectiveChannel string) []string {
+	envSet := map[string]struct{}{
+		defaultContentChannelKey: {},
+		effectiveChannel:         {},
+	}
+	addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
+		for _, def := range defs {
+			env := strings.ToLower(strings.TrimSpace(cmsBlockDefinitionChannel(def)))
+			if env == "" {
+				env = fallback
+			}
+			if env == "" {
+				env = defaultContentChannelKey
+			}
+			envSet[env] = struct{}{}
+		}
+	}
+	addEnvFromDefs(defaultDefs, defaultContentChannelKey)
+	addEnvFromDefs(effectiveDefs, effectiveChannel)
+	available := make([]string, 0, len(envSet))
+	for env := range envSet {
+		available = append(available, env)
+	}
+	sort.Strings(available)
+	defaultIndex := -1
+	for idx, env := range available {
+		if env == defaultContentChannelKey {
+			defaultIndex = idx
+			break
+		}
+	}
+	if defaultIndex > 0 {
+		available[0], available[defaultIndex] = available[defaultIndex], available[0]
+	}
+	return available
 }
 
 func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin *Admin) {
@@ -1264,7 +1297,7 @@ func (v *FormgenSchemaValidator) RenderForm(ctx context.Context, schema map[stri
 				overlayDoc["$schema"] = "x-ui-overlay/v1"
 			}
 		}
-		if overlay, err := json.Marshal(overlayDoc); err == nil {
+		if overlay, marshalErr := json.Marshal(overlayDoc); marshalErr == nil {
 			normalizeOptions.Overlay = overlay
 		}
 	}
@@ -1318,7 +1351,7 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 				overlayDoc["$schema"] = "x-ui-overlay/v1"
 			}
 		}
-		if overlay, err := json.Marshal(overlayDoc); err == nil {
+		if overlay, marshalErr := json.Marshal(overlayDoc); marshalErr == nil {
 			normalizeOptions.Overlay = overlay
 		}
 	}

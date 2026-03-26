@@ -14,31 +14,52 @@ import (
 
 const actionPayloadSchemaResource = "inmemory://admin/action_payload_schema.json"
 
-// TODO: why are we mixing snake_case (OK) and pascalCase (NOT OK)?
+var actionPayloadFieldAliases = map[string]string{
+	"policyEntity":    "policy_entity",
+	"actorId":         "actor_id",
+	"userId":          "user_id",
+	"requestId":       "request_id",
+	"correlationId":   "correlation_id",
+	"tenantId":        "tenant_id",
+	"orgId":           "org_id",
+	"organizationId":  "organization_id",
+	"idempotencyKey":  "idempotency_key",
+	"_idempotencyKey": "_idempotency_key",
+	"dryRun":          "dry_run",
+}
+
 var actionPayloadSystemFields = map[string]struct{}{
-	"id":            {},
-	"ids":           {},
-	"selection":     {},
-	"record":        {},
-	"data":          {},
-	"policy_entity": {},
-	"policyEntity":  {},
-	"channel":       {},
-	"environment":   {},
-	"env":           {},
+	"id":               {},
+	"ids":              {},
+	"selection":        {},
+	"record":           {},
+	"data":             {},
+	"policy_entity":    {},
+	"actor_id":         {},
+	"user_id":          {},
+	"request_id":       {},
+	"correlation_id":   {},
+	"tenant_id":        {},
+	"org_id":           {},
+	"organization_id":  {},
+	"channel":          {},
+	"environment":      {},
+	"env":              {},
+	"idempotency_key":  {},
+	"_idempotency_key": {},
+	"dry_run":          {},
 }
 
 func validateActionPayload(action Action, payload map[string]any) error {
 	if len(action.PayloadRequired) == 0 && len(action.PayloadSchema) == 0 {
 		return nil
 	}
-	if payload == nil {
-		payload = map[string]any{}
-	}
+	payload = normalizeActionPayloadMap(payload)
+	schema := normalizeActionPayloadSchema(action.PayloadSchema)
 
 	missing := map[string]string{}
 	for _, field := range action.PayloadRequired {
-		field = strings.TrimSpace(field)
+		field = canonicalActionPayloadFieldName(field)
 		if field == "" {
 			continue
 		}
@@ -57,20 +78,18 @@ func validateActionPayload(action Action, payload map[string]any) error {
 	if len(action.PayloadSchema) == 0 {
 		return nil
 	}
-	compiled, err := compileActionPayloadSchema(action.PayloadSchema)
+	compiled, err := compileActionPayloadSchema(schema)
 	if err != nil {
 		return validationDomainError("invalid action payload schema", map[string]any{
 			"action": action.Name,
 			"error":  strings.TrimSpace(err.Error()),
 		})
 	}
-	return compiled.Validate(normalizeActionPayloadForSchema(action.PayloadSchema, payload))
+	return compiled.Validate(normalizeActionPayloadForSchema(schema, payload))
 }
 
 func applyActionPayloadDefaults(action Action, payload map[string]any, ids []string) map[string]any {
-	if payload == nil {
-		payload = map[string]any{}
-	}
+	payload = normalizeActionPayloadMap(payload)
 	if !action.Idempotent {
 		return payload
 	}
@@ -102,10 +121,11 @@ func compileActionPayloadSchema(schema map[string]any) (*jsonschema.Schema, erro
 }
 
 func normalizeActionPayloadForSchema(schema map[string]any, payload map[string]any) map[string]any {
+	payload = normalizeActionPayloadMap(payload)
 	if len(payload) == 0 || !schemaDisallowsAdditionalProperties(schema) {
 		return payload
 	}
-	properties := schemaProperties(schema)
+	properties := schemaProperties(normalizeActionPayloadSchema(schema))
 	out := primitives.CloneAnyMap(payload)
 	for field := range actionPayloadSystemFields {
 		if _, declared := properties[field]; declared {
@@ -114,6 +134,63 @@ func normalizeActionPayloadForSchema(schema map[string]any, payload map[string]a
 		delete(out, field)
 	}
 	return out
+}
+
+func normalizeActionPayloadSchema(schema map[string]any) map[string]any {
+	if len(schema) == 0 {
+		return schema
+	}
+	out := primitives.CloneAnyMap(schema)
+	if out == nil {
+		return nil
+	}
+	if props, ok := out["properties"].(map[string]any); ok && len(props) > 0 {
+		out["properties"] = normalizeActionPayloadSchemaProperties(props)
+	}
+	if required, ok := out["required"]; ok {
+		out["required"] = ensureActionPayloadRequiredFields(required)
+	}
+	return out
+}
+
+func normalizeActionPayloadSchemaProperties(properties map[string]any) map[string]any {
+	if len(properties) == 0 {
+		return properties
+	}
+	out := map[string]any{}
+	for field, value := range properties {
+		out[canonicalActionPayloadFieldName(field)] = value
+	}
+	return out
+}
+
+func normalizeActionPayloadMap(payload map[string]any) map[string]any {
+	if payload == nil {
+		return map[string]any{}
+	}
+	out := primitives.CloneAnyMap(payload)
+	for alias, canonical := range actionPayloadFieldAliases {
+		canonicalValue, canonicalOK := out[canonical]
+		aliasValue, aliasOK := out[alias]
+		if !canonicalOK && aliasOK {
+			out[canonical] = aliasValue
+		} else if canonicalOK && isEmptyActionPayloadValue(canonicalValue) && aliasOK && !isEmptyActionPayloadValue(aliasValue) {
+			out[canonical] = aliasValue
+		}
+		delete(out, alias)
+	}
+	return out
+}
+
+func canonicalActionPayloadFieldName(field string) string {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return ""
+	}
+	if canonical, ok := actionPayloadFieldAliases[field]; ok {
+		return canonical
+	}
+	return field
 }
 
 func schemaDisallowsAdditionalProperties(schema map[string]any) bool {

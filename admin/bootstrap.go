@@ -47,6 +47,11 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 
 // Initialize attaches the router, bootstraps, and mounts base routes.
 func (a *Admin) Initialize(r AdminRouter) error {
+	return a.InitializeWithContext(context.Background(), r)
+}
+
+// InitializeWithContext attaches the router, bootstraps, and mounts base routes with a lifecycle context.
+func (a *Admin) InitializeWithContext(ctx context.Context, r AdminRouter) error {
 	if r == nil {
 		return requiredFieldDomainError("router", map[string]any{"component": "bootstrap"})
 	}
@@ -54,7 +59,7 @@ func (a *Admin) Initialize(r AdminRouter) error {
 	if err := a.runInitHooks(); err != nil {
 		return err
 	}
-	return a.Boot()
+	return a.BootWithContext(ctx)
 }
 
 // AddInitHook registers a hook that runs after Initialize sets the router.
@@ -83,6 +88,21 @@ func (a *Admin) runInitHooks() error {
 
 // Prepare runs the pre-route initialization pipeline (bootstrap, module loading).
 func (a *Admin) Prepare(ctx context.Context) error {
+	a.prepareCoreServices()
+	if err := a.validateRouting(); err != nil {
+		a.logRoutingStartupReport("validate", err)
+		return err
+	}
+	if err := a.validateConfig(); err != nil {
+		return err
+	}
+	return a.runPrepareLifecycle(ctx)
+}
+
+func (a *Admin) prepareCoreServices() {
+	if a == nil {
+		return
+	}
 	if a.nav == nil {
 		a.nav = NewNavigation(a.menuSvc, a.authorizer)
 	}
@@ -99,39 +119,54 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	if a.settings != nil {
 		a.settings.Enable(featureEnabled(a.featureGate, FeatureSettings))
 	}
-	if err := a.validateRouting(); err != nil {
-		a.logRoutingStartupReport("validate", err)
-		return err
-	}
-	if err := a.validateConfig(); err != nil {
-		return err
-	}
+}
+
+func (a *Admin) runPrepareLifecycle(ctx context.Context) error {
 	if err := a.Bootstrap(ctx); err != nil {
 		return err
 	}
-	if err := a.loadModules(ctx); err != nil {
-		a.logRoutingStartupReport("load_modules", err)
+	if err := a.loadPrepareModules(ctx); err != nil {
 		return err
 	}
-	a.logRoutingStartupReport("load_modules", nil)
 	if err := a.validatePanelActionWiring(); err != nil {
 		return err
 	}
 	if err := a.initializeCommandRegistry(ctx); err != nil {
 		return err
 	}
+	if err := a.startTranslationExchangeRuntime(ctx); err != nil {
+		return err
+	}
 	if err := a.ensureDashboard(ctx); err != nil {
 		return err
 	}
-	if a.jobs != nil {
-		if err := a.jobs.Sync(ctx); err != nil {
-			return err
-		}
-	}
-	if err := a.ensureSettingsNavigation(ctx); err != nil {
+	if err := a.syncPrepareJobs(ctx); err != nil {
 		return err
 	}
+	return a.ensureSettingsNavigation(ctx)
+}
+
+func (a *Admin) loadPrepareModules(ctx context.Context) error {
+	if err := a.loadModules(ctx); err != nil {
+		a.logRoutingStartupReport("load_modules", err)
+		return err
+	}
+	a.logRoutingStartupReport("load_modules", nil)
 	return nil
+}
+
+func (a *Admin) syncPrepareJobs(ctx context.Context) error {
+	if a == nil || a.jobs == nil {
+		return nil
+	}
+	return a.jobs.Sync(ctx)
+}
+
+func (a *Admin) startTranslationExchangeRuntime(ctx context.Context) error {
+	if a == nil || !featureEnabled(a.featureGate, FeatureTranslationExchange) || a.translationExchangeRuntime == nil {
+		return nil
+	}
+	return a.translationExchangeRuntime.Start(ctx)
 }
 
 func (a *Admin) initializeCommandRegistry(ctx context.Context) error {

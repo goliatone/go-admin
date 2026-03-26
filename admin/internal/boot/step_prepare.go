@@ -15,5 +15,9 @@ func PrepareStep(ctx BootCtx) error {
 	if !ok {
 		return nil
 	}
-	return p.Prepare(context.Background())
+	prepareCtx := ctx.LifecycleContext()
+	if prepareCtx == nil {
+		prepareCtx = context.Background()
+	}
+	return p.Prepare(prepareCtx)
 }

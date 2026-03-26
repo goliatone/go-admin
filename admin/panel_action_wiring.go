@@ -103,10 +103,14 @@ func validatePanelAction(panel *Panel, panelName, scope string, action Action, b
 		return nil
 	}
 	if panel.workflow != nil {
-		if workflowActionIsResolvable(panel, actionName) {
+		resolvable, introspectable := workflowActionIsResolvable(panel, actionName)
+		if resolvable {
 			return nil
 		}
 		if _, ok := workflowActionNames[actionName]; ok {
+			if !introspectable {
+				return panelActionIssue(panelName, scope, action, "workflow_engine_not_introspectable")
+			}
 			return panelActionIssue(panelName, scope, action, "workflow_transition_not_registered")
 		}
 		return nil
@@ -132,63 +136,62 @@ func actionHasPassiveRouting(action Action) bool {
 	}
 }
 
-func workflowActionIsResolvable(panel *Panel, actionName string) bool {
+func workflowActionIsResolvable(panel *Panel, actionName string) (bool, bool) {
 	if panel == nil || panel.workflow == nil {
-		return false
+		return false, false
 	}
 	candidates := workflowTransitionCandidates(actionName)
 	transitions, ok := workflowTransitionNames(panel.workflow, panel.name)
 	if !ok {
-		// Unknown workflow engine type; avoid false positives and allow runtime handling.
-		return true
+		return false, false
 	}
 	for _, candidate := range candidates {
 		if _, exists := transitions[strings.ToLower(strings.TrimSpace(candidate))]; exists {
-			return true
+			return true, true
 		}
 	}
-	return false
+	return false, true
 }
 
 func workflowTransitionNames(engine WorkflowEngine, panelName string) (map[string]struct{}, bool) {
 	switch typed := engine.(type) {
 	case workflowAlias:
-		return aliasWorkflowTransitionNames(typed), true
+		return aliasWorkflowTransitionNames(typed)
 	case *workflowAlias:
 		if typed == nil {
-			return map[string]struct{}{}, true
+			return nil, false
 		}
-		return aliasWorkflowTransitionNames(*typed), true
+		return aliasWorkflowTransitionNames(*typed)
 	case WorkflowDefinitionProvider:
-		return workflowDefinitionTransitionNames(typed, panelName), true
+		return workflowDefinitionTransitionNames(typed, panelName)
 	default:
 		return nil, false
 	}
 }
 
-func aliasWorkflowTransitionNames(alias workflowAlias) map[string]struct{} {
+func aliasWorkflowTransitionNames(alias workflowAlias) (map[string]struct{}, bool) {
 	entityType := strings.TrimSpace(alias.entityType)
 	if entityType == "" {
-		return map[string]struct{}{}
+		return nil, false
 	}
 	if provider, ok := alias.engine.(WorkflowDefinitionProvider); ok && provider != nil {
 		return workflowDefinitionTransitionNames(provider, entityType)
 	}
-	return map[string]struct{}{}
+	return nil, false
 }
 
-func workflowDefinitionTransitionNames(provider WorkflowDefinitionProvider, entityType string) map[string]struct{} {
+func workflowDefinitionTransitionNames(provider WorkflowDefinitionProvider, entityType string) (map[string]struct{}, bool) {
 	names := map[string]struct{}{}
 	if provider == nil {
-		return names
+		return nil, false
 	}
 	entityType = strings.TrimSpace(entityType)
 	if entityType == "" {
-		return names
+		return nil, false
 	}
 	definition, ok := provider.WorkflowDefinition(entityType)
 	if !ok {
-		return names
+		return names, true
 	}
 	for _, transition := range definition.Transitions {
 		name := strings.ToLower(strings.TrimSpace(transition.Name))
@@ -197,7 +200,7 @@ func workflowDefinitionTransitionNames(provider WorkflowDefinitionProvider, enti
 		}
 		names[name] = struct{}{}
 	}
-	return names
+	return names, true
 }
 
 func panelActionIssue(panelName, scope string, action Action, reason string) map[string]any {

@@ -84,6 +84,9 @@ type IconLibraryFunc func(lib IconLibrary) error
 // IconDefinitionFunc forwards contributed icon definitions to the host.
 type IconDefinitionFunc func(icon IconDefinition) error
 
+// SkipDependencyFunc handles modules skipped because one of their dependencies was skipped earlier in the load order.
+type SkipDependencyFunc func(moduleID string, dependencies []string)
+
 // LoadOptions configures module loading.
 type LoadOptions struct {
 	Modules           []Module             `json:"modules"`
@@ -92,6 +95,7 @@ type LoadOptions struct {
 	Translator        Translator           `json:"translator"`
 	DisabledError     DisabledErrorFactory `json:"disabled_error"`
 	Register          RegisterFunc         `json:"register"`
+	SkipDependency    SkipDependencyFunc   `json:"skip_dependency"`
 	AddMenuItems      MenuItemsFunc        `json:"add_menu_items"`
 	AddIconLibrary    IconLibraryFunc      `json:"add_icon_library"`
 	AddIconDefinition IconDefinitionFunc   `json:"add_icon_definition"`

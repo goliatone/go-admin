@@ -41,6 +41,7 @@ type Admin struct {
 	authenticator                Authenticator
 	router                       AdminRouter
 	commandBus                   *CommandBus
+	validatePanelCommandWiring   bool
 	rpcServer                    *cmdrpc.Server
 	rpcCommandPolicyHook         RPCCommandPolicyHook
 	dashboard                    *Dashboard
@@ -99,6 +100,7 @@ type Admin struct {
 	contentAliasRoutesRegistered bool
 	iconService                  *IconService
 	menuBuilder                  *MenuBuilderService
+	bootContext                  context.Context
 	doctorMu                     sync.RWMutex
 	doctorChecks                 map[string]DoctorCheck
 	menuBuilderRoutesRegistered  bool
@@ -112,59 +114,275 @@ type adminLocaleCatalog interface {
 	ActiveLocales(ctx context.Context) ([]string, error)
 }
 
+type adminConstructorState struct {
+	cfg                    Config
+	registry               *Registry
+	container              CMSContainer
+	translator             Translator
+	loggerProvider         LoggerProvider
+	logger                 Logger
+	featureGate            fggate.FeatureGate
+	featureCatalog         catalog.Catalog
+	featureCatalogResolver catalog.MessageResolver
+	activitySink           ActivitySink
+	activityPolicy         activity.ActivityAccessPolicy
+	activityFeed           ActivityFeedQuerier
+	replSessionStore       DebugREPLSessionStore
+	replSessionManager     *DebugREPLSessionManager
+	replCommandCatalog     *DebugREPLCommandCatalog
+	debugSessionStore      DebugUserSessionStore
+	actionDiagnostics      *ActionDiagnosticsStore
+	commandBus             *CommandBus
+	rpcServer              *cmdrpc.Server
+	settingsSvc            *SettingsService
+	settingsForm           *SettingsFormAdapter
+	settingsCmd            *SettingsUpdateCommand
+	notifSvc               NotificationService
+	exportRegistry         ExportRegistry
+	exportRegistrar        ExportHTTPRegistrar
+	exportMetadata         ExportMetadataProvider
+	bulkSvc                BulkService
+	urlManager             *urlkit.RouteManager
+	routingPlanner         routing.Planner
+	routingReport          routing.StartupReport
+	mediaLib               MediaLibrary
+	preferencesSvc         *PreferencesService
+	profileSvc             *ProfileService
+	userSvc                *UserManagementService
+	tenantSvc              *TenantService
+	orgSvc                 *OrganizationService
+	jobReg                 *JobRegistry
+	defaultTheme           *ThemeSelection
+	navMenuCode            string
+	dashboard              *Dashboard
+	iconService            *IconService
+}
+
 // New constructs an Admin orchestrator with explicit dependencies.
 func New(cfg Config, deps Dependencies) (*Admin, error) {
-	cfg = applyConfigDefaults(cfg)
-	SetDefaultErrorPresenter(NewErrorPresenter(cfg.Errors))
-	if err := deps.validate(cfg); err != nil {
+	state, err := resolveAdminConstructorState(cfg, deps)
+	if err != nil {
 		return nil, err
 	}
+	adm := newAdminFromConstructorState(state, deps)
+	if err = initializeConstructedAdmin(adm, state, deps); err != nil {
+		return nil, err
+	}
+	return adm, nil
+}
 
+func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstructorState, error) {
+	state := adminConstructorState{}
+	state.cfg = applyConfigDefaults(cfg)
+	SetDefaultErrorPresenter(NewErrorPresenter(state.cfg.Errors))
+	if err := deps.validate(state.cfg); err != nil {
+		return state, err
+	}
+	state.cfg = applyCMSDependencyConfig(state.cfg, deps)
+	state.registry = resolveRegistryDependency(deps.Registry)
+	state.container = resolveCMSContainer(state.cfg.CMS.Container)
+	state.translator = resolveTranslatorDependency(deps.Translator)
+	state.loggerProvider, state.logger = resolveLoggerDependencies(deps.LoggerProvider, deps.Logger)
+	state.registry.WithLogger(resolveNamedLogger("admin.registry", state.loggerProvider, state.logger))
+	setTranslationObservabilityLogger(resolveNamedLogger("admin.translation", state.loggerProvider, state.logger))
+	state.featureGate = resolveFeatureGateDependency(deps.FeatureGate)
+
+	var err error
+	state.featureCatalog, err = resolveFeatureCatalogDependency(state.cfg, deps.FeatureCatalog)
+	if err != nil {
+		return state, err
+	}
+	state.featureCatalogResolver = resolveFeatureCatalogResolverDependency(deps.FeatureCatalogResolver)
+	state.activitySink, state.activityPolicy, state.activityFeed = resolveActivityDependencies(deps)
+	state.replSessionStore, state.replSessionManager, state.replCommandCatalog, state.debugSessionStore, state.actionDiagnostics = resolveDebugDependencies(state.cfg, deps)
+	state.commandBus, state.rpcServer, err = resolveCommandInfrastructure(&state.cfg, deps, state.featureGate)
+	if err != nil {
+		return state, err
+	}
+	state.settingsSvc, state.settingsForm, state.settingsCmd, err = resolveSettingsInfrastructure(state.cfg, deps, state.registry, state.featureGate, state.commandBus)
+	if err != nil {
+		return state, err
+	}
+	return resolveAdminRuntimeState(state, deps)
+}
+
+func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (adminConstructorState, error) {
+	var err error
+	state.notifSvc = resolveNotificationService(state.cfg, deps, state.featureGate, state.translator, state.activitySink)
+	state.exportRegistry = deps.ExportRegistry
+	state.exportRegistrar = deps.ExportRegistrar
+	state.exportMetadata = deps.ExportMetadata
+	state.bulkSvc = resolveBulkService(deps.BulkService, state.featureGate)
+	state.urlManager, err = resolveAdminURLManager(state.cfg, deps.URLManager)
+	if err != nil {
+		return state, err
+	}
+	state.routingPlanner, state.routingReport, err = resolveRoutingPlanner(state.cfg, state.urlManager, state.featureGate)
+	if err != nil {
+		return state, err
+	}
+	state.mediaLib = resolveMediaLibrary(state.cfg, deps.MediaLibrary, state.featureGate, state.urlManager)
+	state.preferencesSvc, state.profileSvc, state.userSvc, state.tenantSvc, state.orgSvc = resolveDomainServices(state.cfg, deps, state.activitySink)
+	state.jobReg = resolveJobRegistry(deps.JobRegistry, state.featureGate, state.activitySink)
+	if err = registerFeatureCommands(state.featureGate, state.commandBus, state.notifSvc, state.bulkSvc); err != nil {
+		return state, err
+	}
+	state.defaultTheme = resolveDefaultThemeSelection(state.cfg)
+	state.navMenuCode = resolveAdminNavMenuCode(state.cfg.NavMenuCode)
+	state.dashboard = newAdminDashboard(state.registry, state.loggerProvider, state.logger)
+	state.iconService, err = resolveIconService(deps.IconService, state.loggerProvider, state.logger)
+	if err != nil {
+		return state, err
+	}
+	return state, nil
+}
+
+func newAdminFromConstructorState(state adminConstructorState, deps Dependencies) *Admin {
+	return &Admin{
+		config:                 state.cfg,
+		logger:                 state.logger,
+		loggerProvider:         state.loggerProvider,
+		featureGate:            state.featureGate,
+		featureCatalog:         state.featureCatalog,
+		featureCatalogResolver: state.featureCatalogResolver,
+		urlManager:             state.urlManager,
+		routingPlanner:         state.routingPlanner,
+		routingReport:          state.routingReport,
+		registry:               state.registry,
+		cms:                    state.container,
+		widgetSvc:              state.container.WidgetService(),
+		menuSvc:                state.container.MenuService(),
+		contentSvc:             state.container.ContentService(),
+		contentTypeSvc:         nil,
+		authenticator:          deps.Authenticator,
+		router:                 deps.Router,
+		commandBus:             state.commandBus,
+		validatePanelCommandWiring: deps.CommandBus != nil ||
+			featureEnabled(state.featureGate, FeatureCommands) ||
+			(state.commandBus != nil && state.commandBus.enabled),
+		rpcServer:              state.rpcServer,
+		rpcCommandPolicyHook:   deps.RPCCommandPolicyHook,
+		dashboard:              state.dashboard,
+		actionDiagnostics:      state.actionDiagnostics,
+		replSessionStore:       state.replSessionStore,
+		replSessionManager:     state.replSessionManager,
+		replCommandCatalog:     state.replCommandCatalog,
+		debugSessionStore:      state.debugSessionStore,
+		nav:                    NewNavigation(state.container.MenuService(), deps.Authorizer),
+		search:                 NewSearchEngine(deps.Authorizer),
+		authorizer:             deps.Authorizer,
+		notifications:          state.notifSvc,
+		activity:               state.activitySink,
+		activityFeed:           state.activityFeed,
+		activityPolicy:         state.activityPolicy,
+		jobs:                   state.jobReg,
+		settings:               state.settingsSvc,
+		settingsForm:           state.settingsForm,
+		settingsCommand:        state.settingsCmd,
+		preferences:            state.preferencesSvc,
+		profile:                state.profileSvc,
+		users:                  state.userSvc,
+		tenants:                state.tenantSvc,
+		organizations:          state.orgSvc,
+		bulkUserImport:         deps.BulkUserImport,
+		panelForm:              &PanelFormAdapter{},
+		defaultTheme:           state.defaultTheme,
+		exportRegistry:         state.exportRegistry,
+		exportRegistrar:        state.exportRegistrar,
+		exportMetadata:         state.exportMetadata,
+		bulkSvc:                state.bulkSvc,
+		mediaLibrary:           state.mediaLib,
+		moduleStartupPolicy:    ModuleStartupPolicyEnforce,
+		navMenuCode:            state.navMenuCode,
+		translator:             state.translator,
+		workflow:               deps.Workflow,
+		workflowRuntime:        deps.WorkflowRuntime,
+		translationPolicy:      deps.TranslationPolicy,
+		translationFamilyStore: deps.TranslationFamilyStore,
+		preview:                NewPreviewService(state.cfg.PreviewSecret),
+		iconService:            state.iconService,
+		menuBuilder:            NewMenuBuilderService(),
+		doctorChecks:           map[string]DoctorCheck{},
+	}
+}
+
+func initializeConstructedAdmin(adm *Admin, state adminConstructorState, deps Dependencies) error {
+	adm.RegisterDoctorChecks(defaultDoctorChecks()...)
+	if err := registerCoreRPCEndpoints(state.rpcServer, adm); err != nil {
+		return err
+	}
+	if err := registerWorkflowRPCEndpoints(state.rpcServer, adm); err != nil {
+		return err
+	}
+	if _, err := RegisterQuery(state.commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
+		return err
+	}
+	resolveAdminContentTypeService(adm, state.container)
+	activitySink := resolveActivitySinkEnrichment(adm, deps, state.settingsSvc, state.jobReg, state.activitySink)
+	configureAdminRuntime(adm, deps, state.settingsForm, state.preferencesSvc, state.commandBus, activitySink, state.translator)
+	if err := bindAdminWorkflowRuntime(adm); err != nil {
+		return err
+	}
+	return nil
+}
+
+func applyCMSDependencyConfig(cfg Config, deps Dependencies) Config {
 	if deps.CMSContainer != nil {
 		cfg.CMS.Container = deps.CMSContainer
 	}
 	if deps.CMSContainerBuilder != nil {
 		cfg.CMS.ContainerBuilder = deps.CMSContainerBuilder
 	}
+	return cfg
+}
 
-	registry := deps.Registry
-	if registry == nil {
-		registry = NewRegistry()
+func resolveRegistryDependency(registry *Registry) *Registry {
+	if registry != nil {
+		return registry
 	}
+	return NewRegistry()
+}
 
-	container := cfg.CMS.Container
-	if container == nil {
-		container = NewNoopCMSContainer()
+func resolveCMSContainer(container CMSContainer) CMSContainer {
+	if container != nil {
+		return container
 	}
+	return NewNoopCMSContainer()
+}
 
-	translator := deps.Translator
-	if translator == nil {
-		translator = NoopTranslator{}
+func resolveTranslatorDependency(translator Translator) Translator {
+	if translator != nil {
+		return translator
 	}
-	loggerProvider, logger := resolveLoggerDependencies(deps.LoggerProvider, deps.Logger)
-	registry.WithLogger(resolveNamedLogger("admin.registry", loggerProvider, logger))
+	return NoopTranslator{}
+}
 
-	featureGate := deps.FeatureGate
-	if featureGate == nil {
-		featureGate = newFeatureGateFromFlags(nil)
+func resolveFeatureGateDependency(featureGate fggate.FeatureGate) fggate.FeatureGate {
+	if featureGate != nil {
+		return featureGate
 	}
+	return newFeatureGateFromFlags(nil)
+}
 
-	featureCatalog := deps.FeatureCatalog
-	if featureCatalog == nil {
-		catalogPath := strings.TrimSpace(cfg.FeatureCatalogPath)
-		if catalogPath != "" {
-			loaded, err := loadFeatureCatalogFile(catalogPath)
-			if err != nil {
-				return nil, err
-			}
-			featureCatalog = loaded
-		}
+func resolveFeatureCatalogDependency(cfg Config, featureCatalog catalog.Catalog) (catalog.Catalog, error) {
+	if featureCatalog != nil {
+		return featureCatalog, nil
 	}
-	featureCatalogResolver := deps.FeatureCatalogResolver
-	if featureCatalogResolver == nil {
-		featureCatalogResolver = catalog.PlainResolver{}
+	catalogPath := strings.TrimSpace(cfg.FeatureCatalogPath)
+	if catalogPath == "" {
+		return nil, nil
 	}
+	return loadFeatureCatalogFile(catalogPath)
+}
 
+func resolveFeatureCatalogResolverDependency(resolver catalog.MessageResolver) catalog.MessageResolver {
+	if resolver != nil {
+		return resolver
+	}
+	return catalog.PlainResolver{}
+}
+
+func resolveActivityDependencies(deps Dependencies) (ActivitySink, activity.ActivityAccessPolicy, ActivityFeedQuerier) {
 	activitySink := deps.ActivitySink
 	if activitySink == nil {
 		activitySink = NewActivityFeed()
@@ -184,7 +402,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		}
 		activityFeed = query.NewActivityFeedQuery(deps.ActivityRepository, nil, opts...)
 	}
+	return activitySink, activityPolicy, activityFeed
+}
 
+func resolveDebugDependencies(cfg Config, deps Dependencies) (DebugREPLSessionStore, *DebugREPLSessionManager, *DebugREPLCommandCatalog, DebugUserSessionStore, *ActionDiagnosticsStore) {
 	replSessionStore := deps.DebugREPLSessionStore
 	if replSessionStore == nil {
 		replSessionStore = NewInMemoryDebugREPLSessionStore()
@@ -196,37 +417,47 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		debugSessionStore = NewInMemoryDebugUserSessionStore()
 	}
 	actionDiagnostics := NewActionDiagnosticsStore(cfg.Debug.MaxLogEntries)
+	return replSessionStore, replSessionManager, replCommandCatalog, debugSessionStore, actionDiagnostics
+}
 
+func resolveCommandInfrastructure(cfg *Config, deps Dependencies, featureGate fggate.FeatureGate) (*CommandBus, *cmdrpc.Server, error) {
 	commandBus := deps.CommandBus
 	if commandBus == nil {
-		enableCommands := featureEnabled(featureGate, FeatureCommands) || featureEnabled(featureGate, FeatureSettings) || featureEnabled(featureGate, FeatureJobs) || featureEnabled(featureGate, FeatureBulk) || featureEnabled(featureGate, FeatureDashboard) || featureEnabled(featureGate, FeatureNotifications)
+		enableCommands := featureEnabled(featureGate, FeatureCommands) ||
+			featureEnabled(featureGate, FeatureSettings) ||
+			featureEnabled(featureGate, FeatureJobs) ||
+			featureEnabled(featureGate, FeatureBulk) ||
+			featureEnabled(featureGate, FeatureDashboard) ||
+			featureEnabled(featureGate, FeatureNotifications)
 		commandBus = NewCommandBus(enableCommands)
 	}
 	commandPolicy, err := normalizeCommandExecutionPolicy(cfg.Commands.Execution)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	rpcPolicy, err := normalizeRPCCommandConfig(cfg.Commands.RPC)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cfg.Commands.RPC = rpcPolicy
-	if err := commandBus.SetExecutionPolicy(commandPolicy); err != nil {
-		return nil, err
+	if err = commandBus.SetExecutionPolicy(commandPolicy); err != nil {
+		return nil, nil, err
 	}
-	if err := RegisterCoreCommandFactories(commandBus); err != nil {
-		return nil, err
+	if err = RegisterCoreCommandFactories(commandBus); err != nil {
+		return nil, nil, err
 	}
-	rpcServer := newRPCServer(deps.RPCServer)
+	return commandBus, newRPCServer(deps.RPCServer), nil
+}
 
+func resolveSettingsInfrastructure(cfg Config, deps Dependencies, registry *Registry, featureGate fggate.FeatureGate, commandBus *CommandBus) (*SettingsService, *SettingsFormAdapter, *SettingsUpdateCommand, error) {
 	settingsSvc := deps.SettingsService
 	if settingsSvc == nil {
 		settingsSvc = NewSettingsService()
 	}
 	settingsSvc.WithRegistry(registry)
 	if featureEnabled(featureGate, FeatureSettings) {
-		if db, err := newSettingsDB(); err == nil {
-			if adapter, err := NewBunSettingsAdapter(db); err == nil {
+		if db, dbErr := newSettingsDB(); dbErr == nil {
+			if adapter, adapterErr := NewBunSettingsAdapter(db); adapterErr == nil {
 				settingsSvc.UseAdapter(adapter)
 			}
 		}
@@ -235,73 +466,81 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	settingsCmd := &SettingsUpdateCommand{Service: settingsSvc, Permission: cfg.SettingsUpdatePermission}
 	if featureEnabled(featureGate, FeatureSettings) {
 		if _, err := RegisterCommand(commandBus, settingsCmd); err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 	}
+	return settingsSvc, settingsForm, settingsCmd, nil
+}
 
+func resolveNotificationService(cfg Config, deps Dependencies, featureGate fggate.FeatureGate, translator Translator, activitySink ActivitySink) NotificationService {
 	notifSvc := deps.NotificationService
-	if notifSvc == nil {
-		notifSvc = DisabledNotificationService{}
-		if featureEnabled(featureGate, FeatureNotifications) {
-			if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
-				notifSvc = svc
-			} else {
-				mem := NewInMemoryNotificationService()
-				mem.WithActivitySink(activitySink)
-				notifSvc = mem
-			}
-		}
+	if notifSvc != nil {
+		return notifSvc
 	}
-
-	exportRegistry := deps.ExportRegistry
-	exportRegistrar := deps.ExportRegistrar
-	exportMetadata := deps.ExportMetadata
-
-	bulkSvc := deps.BulkService
-	if bulkSvc == nil {
-		bulkSvc = DisabledBulkService{}
-		if featureEnabled(featureGate, FeatureBulk) {
-			bulkSvc = NewInMemoryBulkService()
-		}
+	notifSvc = DisabledNotificationService{}
+	if !featureEnabled(featureGate, FeatureNotifications) {
+		return notifSvc
 	}
-
-	urlManager := deps.URLManager
-	if urlManager == nil {
-		var err error
-		urlManager, err = newURLManager(cfg)
-		if err != nil {
-			return nil, err
-		}
+	if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
+		return svc
 	}
+	mem := NewInMemoryNotificationService()
+	mem.WithActivitySink(activitySink)
+	return mem
+}
 
+func resolveBulkService(bulkSvc BulkService, featureGate fggate.FeatureGate) BulkService {
+	if bulkSvc != nil {
+		return bulkSvc
+	}
+	if featureEnabled(featureGate, FeatureBulk) {
+		return NewInMemoryBulkService()
+	}
+	return DisabledBulkService{}
+}
+
+func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager) (*urlkit.RouteManager, error) {
+	if urlManager != nil {
+		return urlManager, nil
+	}
+	return newURLManager(cfg)
+}
+
+func resolveRoutingPlanner(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (routing.Planner, routing.StartupReport, error) {
 	routingPlanner, routingReport, err := newRoutingPlanner(cfg, urlManager)
 	if err != nil {
-		return nil, err
+		return nil, routing.StartupReport{}, err
 	}
-	if routingPlanner != nil && (featureEnabled(featureGate, FeatureCMS) || featureEnabled(featureGate, FeatureTranslationExchange) || featureEnabled(featureGate, FeatureTranslationQueue)) {
-		if err := routingPlanner.RegisterModule(translationgoadmin.ModuleContract()); err != nil {
-			return nil, validationDomainError("translation routing registration failed", map[string]any{
-				"component": "translations",
-				"slug":      translationgoadmin.ModuleSlug,
-				"error":     strings.TrimSpace(err.Error()),
-			})
-		}
-		routingReport = routingPlanner.Report()
+	if routingPlanner == nil || (!featureEnabled(featureGate, FeatureCMS) && !featureEnabled(featureGate, FeatureTranslationExchange) && !featureEnabled(featureGate, FeatureTranslationQueue)) {
+		return routingPlanner, routingReport, nil
 	}
+	if err = routingPlanner.RegisterModule(translationgoadmin.ModuleContract()); err != nil {
+		return nil, routing.StartupReport{}, validationDomainError("translation routing registration failed", map[string]any{
+			"component": "translations",
+			"slug":      translationgoadmin.ModuleSlug,
+			"error":     strings.TrimSpace(err.Error()),
+		})
+	}
+	return routingPlanner, routingPlanner.Report(), nil
+}
 
-	mediaLib := deps.MediaLibrary
-	if mediaLib == nil {
-		mediaLib = DisabledMediaLibrary{}
-		if featureEnabled(featureGate, FeatureMedia) {
-			mediaBase := resolveURLWith(urlManager, "admin", "dashboard", nil, nil)
-			if mediaBase == "" {
-				mediaBase = adminBasePath(cfg)
-			}
-			mediaBase = strings.TrimRight(mediaBase, "/")
-			mediaLib = NewInMemoryMediaLibrary(mediaBase)
-		}
+func resolveMediaLibrary(cfg Config, mediaLib MediaLibrary, featureGate fggate.FeatureGate, urlManager *urlkit.RouteManager) MediaLibrary {
+	if mediaLib != nil {
+		return mediaLib
 	}
+	mediaLib = DisabledMediaLibrary{}
+	if !featureEnabled(featureGate, FeatureMedia) {
+		return mediaLib
+	}
+	mediaBase := resolveURLWith(urlManager, "admin", "dashboard", nil, nil)
+	if mediaBase == "" {
+		mediaBase = adminBasePath(cfg)
+	}
+	mediaBase = strings.TrimRight(mediaBase, "/")
+	return NewInMemoryMediaLibrary(mediaBase)
+}
 
+func resolveDomainServices(cfg Config, deps Dependencies, activitySink ActivitySink) (*PreferencesService, *ProfileService, *UserManagementService, *TenantService, *OrganizationService) {
 	preferencesSvc := NewPreferencesService(deps.PreferencesStore).WithDefaults(cfg.Theme, cfg.ThemeVariant)
 	preferencesSvc.WithActivitySink(activitySink)
 	profileSvc := NewProfileService(deps.ProfileStore)
@@ -312,8 +551,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	tenantSvc.WithActivitySink(activitySink)
 	orgSvc := NewOrganizationService(deps.OrganizationRepository)
 	orgSvc.WithActivitySink(activitySink)
+	return preferencesSvc, profileSvc, userSvc, tenantSvc, orgSvc
+}
 
-	jobReg := deps.JobRegistry
+func resolveJobRegistry(jobReg *JobRegistry, featureGate fggate.FeatureGate, activitySink ActivitySink) *JobRegistry {
 	if jobReg == nil {
 		jobReg = NewJobRegistry()
 	}
@@ -321,18 +562,24 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if !featureEnabled(featureGate, FeatureJobs) {
 		jobReg.Enable(false)
 	}
+	return jobReg
+}
 
+func registerFeatureCommands(featureGate fggate.FeatureGate, commandBus *CommandBus, notifSvc NotificationService, bulkSvc BulkService) error {
 	if featureEnabled(featureGate, FeatureNotifications) {
 		if _, err := RegisterCommand(commandBus, &NotificationMarkCommand{Service: notifSvc}); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if featureEnabled(featureGate, FeatureBulk) {
 		if _, err := RegisterCommand(commandBus, &BulkCommand{Service: bulkSvc}); err != nil {
-			return nil, err
+			return err
 		}
 	}
+	return nil
+}
 
+func resolveDefaultThemeSelection(cfg Config) *ThemeSelection {
 	defaultTheme := &ThemeSelection{
 		Name:        cfg.Theme,
 		Variant:     cfg.ThemeVariant,
@@ -347,103 +594,41 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if cfg.FaviconURL != "" {
 		defaultTheme.Assets["favicon"] = cfg.FaviconURL
 	}
+	return defaultTheme
+}
 
-	navMenuCode := NormalizeMenuSlug(cfg.NavMenuCode)
-	if navMenuCode == "" {
-		navMenuCode = NormalizeMenuSlug("admin.main")
+func resolveAdminNavMenuCode(navMenuCode string) string {
+	navMenuCode = NormalizeMenuSlug(navMenuCode)
+	if navMenuCode != "" {
+		return navMenuCode
 	}
+	return NormalizeMenuSlug("admin.main")
+}
 
+func newAdminDashboard(registry *Registry, loggerProvider LoggerProvider, logger Logger) *Dashboard {
 	dashboard := NewDashboard()
 	dashboard.WithRegistry(registry)
 	dashboard.WithLogger(resolveNamedLogger("admin.dashboard", loggerProvider, logger))
+	return dashboard
+}
 
-	iconService := deps.IconService
-	if iconService == nil {
-		iconService = NewIconService(
-			WithIconServiceLogger(resolveNamedLogger("admin.icons", loggerProvider, logger)),
-		)
-		if err := RegisterBuiltinIconLibraries(iconService); err != nil {
-			return nil, err
-		}
+func resolveIconService(iconService *IconService, loggerProvider LoggerProvider, logger Logger) (*IconService, error) {
+	if iconService != nil {
+		return iconService, nil
 	}
-
-	adm := &Admin{
-		config:                 cfg,
-		logger:                 logger,
-		loggerProvider:         loggerProvider,
-		featureGate:            featureGate,
-		featureCatalog:         featureCatalog,
-		featureCatalogResolver: featureCatalogResolver,
-		urlManager:             urlManager,
-		routingPlanner:         routingPlanner,
-		routingReport:          routingReport,
-		registry:               registry,
-		cms:                    container,
-		widgetSvc:              container.WidgetService(),
-		menuSvc:                container.MenuService(),
-		contentSvc:             container.ContentService(),
-		contentTypeSvc:         nil,
-		authenticator:          deps.Authenticator,
-		router:                 deps.Router,
-		commandBus:             commandBus,
-		rpcServer:              rpcServer,
-		rpcCommandPolicyHook:   deps.RPCCommandPolicyHook,
-		dashboard:              dashboard,
-		actionDiagnostics:      actionDiagnostics,
-		replSessionStore:       replSessionStore,
-		replSessionManager:     replSessionManager,
-		replCommandCatalog:     replCommandCatalog,
-		debugSessionStore:      debugSessionStore,
-		nav:                    NewNavigation(container.MenuService(), deps.Authorizer),
-		search:                 NewSearchEngine(deps.Authorizer),
-		authorizer:             deps.Authorizer,
-		notifications:          notifSvc,
-		activity:               activitySink,
-		activityFeed:           activityFeed,
-		activityPolicy:         activityPolicy,
-		jobs:                   jobReg,
-		settings:               settingsSvc,
-		settingsForm:           settingsForm,
-		settingsCommand:        settingsCmd,
-		preferences:            preferencesSvc,
-		profile:                profileSvc,
-		users:                  userSvc,
-		tenants:                tenantSvc,
-		organizations:          orgSvc,
-		bulkUserImport:         deps.BulkUserImport,
-		panelForm:              &PanelFormAdapter{},
-		defaultTheme:           defaultTheme,
-		exportRegistry:         exportRegistry,
-		exportRegistrar:        exportRegistrar,
-		exportMetadata:         exportMetadata,
-		bulkSvc:                bulkSvc,
-		mediaLibrary:           mediaLib,
-		moduleStartupPolicy:    ModuleStartupPolicyEnforce,
-		navMenuCode:            navMenuCode,
-		translator:             translator,
-		workflow:               deps.Workflow,
-		workflowRuntime:        deps.WorkflowRuntime,
-		translationPolicy:      deps.TranslationPolicy,
-		translationFamilyStore: deps.TranslationFamilyStore,
-		preview:                NewPreviewService(cfg.PreviewSecret),
-		iconService:            iconService,
-		menuBuilder:            NewMenuBuilderService(),
-		doctorChecks:           map[string]DoctorCheck{},
-	}
-
-	adm.RegisterDoctorChecks(defaultDoctorChecks()...)
-
-	if err := registerCoreRPCEndpoints(rpcServer, adm); err != nil {
+	iconService = NewIconService(
+		WithIconServiceLogger(resolveNamedLogger("admin.icons", loggerProvider, logger)),
+	)
+	if err := RegisterBuiltinIconLibraries(iconService); err != nil {
 		return nil, err
 	}
-	if err := registerWorkflowRPCEndpoints(rpcServer, adm); err != nil {
-		return nil, err
-	}
+	return iconService, nil
+}
 
-	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
-		return nil, err
+func resolveAdminContentTypeService(adm *Admin, container CMSContainer) {
+	if adm == nil {
+		return
 	}
-
 	if adm.contentTypeSvc == nil {
 		adm.contentTypeSvc = container.ContentTypeService()
 	}
@@ -452,7 +637,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 			adm.contentTypeSvc = svc
 		}
 	}
+}
 
+func resolveActivitySinkEnrichment(adm *Admin, deps Dependencies, settingsSvc *SettingsService, jobReg *JobRegistry, activitySink ActivitySink) ActivitySink {
 	enrichmentMode := deps.ActivityEnrichmentWriteMode
 	if enrichmentMode == "" {
 		enrichmentMode = activity.EnrichmentWriteModeWrapper
@@ -461,8 +648,6 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if sessionIDProvider == nil {
 		sessionIDProvider = defaultSessionIDProvider()
 	}
-	sessionIDKey := strings.TrimSpace(deps.ActivitySessionIDKey)
-
 	activityEnricher := deps.ActivityEnricher
 	if activityEnricher == nil && enrichmentMode == activity.EnrichmentWriteModeWrapper {
 		activityEnricher = NewAdminActivityEnricher(AdminActivityEnricherConfig{
@@ -484,16 +669,25 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 			}),
 		})
 	}
-
 	switch enrichmentMode {
-	case activity.EnrichmentWriteModeWrapper:
-		activitySink = newEnrichedActivitySink(activitySink, activityEnricher, deps.ActivityEnrichmentErrorHandler, sessionIDProvider, sessionIDKey)
-	case activity.EnrichmentWriteModeHybrid:
-		activitySink = newEnrichedActivitySink(activitySink, activityEnricher, deps.ActivityEnrichmentErrorHandler, sessionIDProvider, sessionIDKey)
+	case activity.EnrichmentWriteModeWrapper, activity.EnrichmentWriteModeHybrid:
+		return newEnrichedActivitySink(
+			activitySink,
+			activityEnricher,
+			deps.ActivityEnrichmentErrorHandler,
+			sessionIDProvider,
+			strings.TrimSpace(deps.ActivitySessionIDKey),
+		)
+	default:
+		return activitySink
 	}
+}
 
+func configureAdminRuntime(adm *Admin, deps Dependencies, settingsForm *SettingsFormAdapter, preferencesSvc *PreferencesService, commandBus *CommandBus, activitySink ActivitySink, translator Translator) {
+	if adm == nil {
+		return
+	}
 	adm.activity = activitySink
-
 	adm.dashboard.WithWidgetService(adm.widgetSvc)
 	adm.dashboard.WithPreferences(NewDashboardPreferencesAdapter(preferencesSvc))
 	adm.dashboard.WithPreferenceService(preferencesSvc)
@@ -505,7 +699,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	adm.panelForm.ThemeResolver = adm.resolveTheme
 
 	if adm.nav != nil {
-		adm.nav.SetDefaultMenuCode(navMenuCode)
+		adm.nav.SetDefaultMenuCode(adm.navMenuCode)
 		adm.nav.UseCMS(featureEnabled(adm.featureGate, FeatureCMS))
 		adm.nav.SetTranslator(translator)
 	}
@@ -516,14 +710,13 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		adm.settings.Enable(featureEnabled(adm.featureGate, FeatureSettings))
 	}
 	adm.applyActivitySink(activitySink)
+}
 
-	if adm.workflowRuntime != nil {
-		if err := adm.bindWorkflowRuntime(adm.workflowRuntime); err != nil {
-			return nil, err
-		}
+func bindAdminWorkflowRuntime(adm *Admin) error {
+	if adm == nil || adm.workflowRuntime == nil {
+		return nil
 	}
-
-	return adm, nil
+	return adm.bindWorkflowRuntime(adm.workflowRuntime)
 }
 
 // WithModuleStartupPolicy configures how module startup validation errors are handled.
@@ -696,17 +889,28 @@ func (a *Admin) bindWorkflowRuntime(runtime WorkflowRuntime) error {
 	if runtime == nil {
 		return nil
 	}
-	if typed, ok := runtime.(*WorkflowRuntimeService); ok && typed != nil {
-		if bunRepo, ok := typed.workflows.(*BunWorkflowDefinitionRepository); ok && bunRepo != nil && bunRepo.db != nil {
-			if err := EnsureWorkflowAuthoringCutover(context.Background(), bunRepo.db); err != nil {
-				return err
-			}
-			if typed.AuthoringStore() == nil {
-				typed.SetAuthoringStore(NewBunWorkflowAuthoringStore(bunRepo.db))
-			}
-		}
+	if err := configureWorkflowAuthoringRuntime(runtime); err != nil {
+		return err
 	}
 	return runtime.BindWorkflowEngine(resolveCMSWorkflowEngine(a))
+}
+
+func configureWorkflowAuthoringRuntime(runtime WorkflowRuntime) error {
+	typed, ok := runtime.(*WorkflowRuntimeService)
+	if !ok || typed == nil {
+		return nil
+	}
+	bunRepo, ok := typed.workflows.(*BunWorkflowDefinitionRepository)
+	if !ok || bunRepo == nil || bunRepo.db == nil {
+		return nil
+	}
+	if err := EnsureWorkflowAuthoringCutover(context.Background(), bunRepo.db); err != nil {
+		return err
+	}
+	if typed.AuthoringStore() == nil {
+		typed.SetAuthoringStore(NewBunWorkflowAuthoringStore(bunRepo.db))
+	}
+	return nil
 }
 
 // Authorizer exposes the configured authorizer (if any).
@@ -771,6 +975,12 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 		return
 	}
 	a.activity = sink
+	a.applyCoreActivitySink(sink)
+	a.applyAwareActivitySink(sink)
+	a.applyDomainActivitySink(sink)
+}
+
+func (a *Admin) applyCoreActivitySink(sink ActivitySink) {
 	if a.jobs != nil {
 		a.jobs.WithActivitySink(sink)
 	}
@@ -780,23 +990,17 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 	if a.settings != nil {
 		a.settings.WithActivitySink(sink)
 	}
-	if aware, ok := a.notifications.(activityAware); ok {
-		aware.WithActivitySink(sink)
-	}
-	if aware, ok := a.widgetSvc.(activityAware); ok {
-		aware.WithActivitySink(sink)
-	}
-	if aware, ok := a.menuSvc.(activityAware); ok {
-		aware.WithActivitySink(sink)
-	}
-	if aware, ok := a.contentSvc.(activityAware); ok {
-		aware.WithActivitySink(sink)
-	}
-	if aware, ok := a.workflow.(workflowActivityAware); ok {
-		if err := aware.AttachActivitySink(sink); err != nil {
-			a.loggerFor("admin.workflow").Warn("failed to attach workflow activity sink", "error", err)
-		}
-	}
+}
+
+func (a *Admin) applyAwareActivitySink(sink ActivitySink) {
+	propagateActivityAwareSink(a.notifications, sink)
+	propagateActivityAwareSink(a.widgetSvc, sink)
+	propagateActivityAwareSink(a.menuSvc, sink)
+	propagateActivityAwareSink(a.contentSvc, sink)
+	a.attachWorkflowActivitySink(sink)
+}
+
+func (a *Admin) applyDomainActivitySink(sink ActivitySink) {
 	if a.preferences != nil {
 		a.preferences.WithActivitySink(sink)
 	}
@@ -811,6 +1015,24 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 	}
 	if a.organizations != nil {
 		a.organizations.WithActivitySink(sink)
+	}
+}
+
+func propagateActivityAwareSink(target any, sink ActivitySink) {
+	aware, ok := target.(activityAware)
+	if !ok {
+		return
+	}
+	aware.WithActivitySink(sink)
+}
+
+func (a *Admin) attachWorkflowActivitySink(sink ActivitySink) {
+	aware, ok := a.workflow.(workflowActivityAware)
+	if !ok {
+		return
+	}
+	if err := aware.AttachActivitySink(sink); err != nil {
+		a.loggerFor("admin.workflow").Warn("failed to attach workflow activity sink", "error", err)
 	}
 }
 

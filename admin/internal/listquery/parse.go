@@ -177,6 +177,11 @@ func ParseOptions[T any](c router.Context, defaultPage, defaultPerPage int, mapp
 	}
 }
 
+// ParsePanelOptions parses list query params using the canonical go-admin panel defaults.
+func ParsePanelOptions[T any](c router.Context, mapper func(Predicate) T) Options[T] {
+	return ParseOptions(c, 1, 10, mapper)
+}
+
 // ParsePredicateKey splits filter keys like "title__ilike".
 func ParsePredicateKey(key string) (string, string) {
 	parts := strings.SplitN(strings.TrimSpace(key), "__", 2)

@@ -2,22 +2,11 @@ package helpers
 
 import (
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
-	"github.com/goliatone/go-admin/internal/navigationutil"
 )
 
 // Translator resolves i18n keys into localized strings.
 type Translator interface {
 	Translate(locale, key string, args ...any) (string, error)
-}
-
-// NormalizeMenuSlug converts an arbitrary name/code into a normalized slug.
-func NormalizeMenuSlug(raw string) string {
-	return navigationutil.NormalizeMenuSlug(raw)
-}
-
-// MenuUUIDFromSlug derives a deterministic UUID string from a menu slug/name.
-func MenuUUIDFromSlug(slug string) string {
-	return navigationutil.MenuUUIDFromSlug(slug)
 }
 
 // NormalizeMenuItem ensures menu code is set and derives an ID when missing.

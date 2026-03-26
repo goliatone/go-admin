@@ -1,6 +1,8 @@
 package boot
 
 import (
+	"context"
+
 	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -265,6 +267,7 @@ type IconsBinding interface {
 
 // BootCtx exposes the surface needed by boot steps.
 type BootCtx interface {
+	LifecycleContext() context.Context
 	Router() Router
 	AuthWrapper() HandlerWrapper
 	BasePath() string

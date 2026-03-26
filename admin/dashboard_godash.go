@@ -123,9 +123,7 @@ func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[str
 	}
 	d.mu.RLock()
 	providers := make(map[string]registeredProvider, len(d.providers))
-	for code, provider := range d.providers {
-		providers[code] = provider
-	}
+	maps.Copy(providers, d.providers)
 	d.mu.RUnlock()
 	return buildDashboardProviders(providers)
 }
@@ -135,9 +133,7 @@ func (d *Dashboard) buildDashboardProvidersLocked() (dashcmp.ProviderRegistry, m
 		return dashcmp.NewRegistry(), map[string]DashboardProviderSpec{}
 	}
 	providers := make(map[string]registeredProvider, len(d.providers))
-	for code, provider := range d.providers {
-		providers[code] = provider
-	}
+	maps.Copy(providers, d.providers)
 	return buildDashboardProviders(providers)
 }
 

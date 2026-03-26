@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"slices"
@@ -558,23 +559,62 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	c.mu.RLock()
-	templateData := primitives.CloneAnyMap(c.templateData)
-	sessionData := primitives.CloneAnyMap(c.sessionData)
-	customData := primitives.CloneAnyMap(c.customData)
-	configData := primitives.CloneAnyMap(c.configData)
-	routesData := cloneRouteEntries(c.routesData)
-	panelData := clonePanelData(c.panelData)
-	panels := append([]DebugPanel{}, c.panels...)
-	c.mu.RUnlock()
+	state := c.snapshotState()
+	snapshot := c.collectBuiltinSnapshot(state)
+	c.collectPanelDataSnapshot(snapshot, state.panelData)
+	c.collectRegisteredPanelSnapshots(ctx, snapshot)
+	c.collectCustomPanelSnapshots(ctx, snapshot, state.panels)
+	return snapshot
+}
 
+type debugSnapshotState struct {
+	templateData map[string]any
+	sessionData  map[string]any
+	customData   map[string]any
+	configData   map[string]any
+	routesData   []RouteEntry
+	panelData    map[string]debugPanelSnapshot
+	panels       []DebugPanel
+}
+
+func (c *DebugCollector) snapshotState() debugSnapshotState {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return debugSnapshotState{
+		templateData: primitives.CloneAnyMap(c.templateData),
+		sessionData:  primitives.CloneAnyMap(c.sessionData),
+		customData:   primitives.CloneAnyMap(c.customData),
+		configData:   primitives.CloneAnyMap(c.configData),
+		routesData:   cloneRouteEntries(c.routesData),
+		panelData:    clonePanelData(c.panelData),
+		panels:       append([]DebugPanel{}, c.panels...),
+	}
+}
+
+func (c *DebugCollector) collectBuiltinSnapshot(state debugSnapshotState) map[string]any {
 	snapshot := map[string]any{}
+	c.collectBuiltinStateSnapshots(snapshot, state)
+	c.collectBuiltinLogSnapshots(snapshot)
+	c.collectBuiltinCustomSnapshots(snapshot, state)
+	return snapshot
+}
+
+func (c *DebugCollector) collectBuiltinStateSnapshots(snapshot map[string]any, state debugSnapshotState) {
 	if c.panelEnabled(DebugPanelTemplate) {
-		snapshot[DebugPanelTemplate] = templateData
+		snapshot[DebugPanelTemplate] = state.templateData
 	}
 	if c.panelEnabled(DebugPanelSession) {
-		snapshot[DebugPanelSession] = sessionData
+		snapshot[DebugPanelSession] = state.sessionData
 	}
+	if c.panelEnabled(DebugPanelConfig) && len(state.configData) > 0 {
+		snapshot[DebugPanelConfig] = debugMaskMap(c.config, state.configData)
+	}
+	if c.panelEnabled(DebugPanelRoutes) && len(state.routesData) > 0 {
+		snapshot[DebugPanelRoutes] = state.routesData
+	}
+}
+
+func (c *DebugCollector) collectBuiltinLogSnapshots(snapshot map[string]any) {
 	if c.panelEnabled(DebugPanelRequests) && c.requestLog != nil {
 		snapshot[DebugPanelRequests] = c.requestLog.Values()
 	}
@@ -587,36 +627,35 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 	if c.panelEnabled(DebugPanelJSErrors) && c.jsErrorLog != nil {
 		snapshot[DebugPanelJSErrors] = c.jsErrorLog.Values()
 	}
+}
+
+func (c *DebugCollector) collectBuiltinCustomSnapshots(snapshot map[string]any, state debugSnapshotState) {
 	if c.panelEnabled(DebugPanelCustom) {
-		customSnapshot := map[string]any{
-			"data": customData,
-		}
+		customSnapshot := map[string]any{"data": state.customData}
 		if c.customLog != nil {
 			customSnapshot["logs"] = c.customLog.Values()
 		}
 		snapshot[DebugPanelCustom] = customSnapshot
 	}
-	if c.panelEnabled(DebugPanelConfig) && len(configData) > 0 {
-		snapshot[DebugPanelConfig] = debugMaskMap(c.config, configData)
-	}
-	if c.panelEnabled(DebugPanelRoutes) && len(routesData) > 0 {
-		snapshot[DebugPanelRoutes] = routesData
-	}
-	if len(panelData) > 0 {
-		for panelID, panelSnapshot := range panelData {
-			if c.panelEnabled(panelID) {
-				key := strings.TrimSpace(panelSnapshot.snapshotKey)
-				if key == "" {
-					key = panelID
-				}
-				snapshot[key] = panelSnapshot.payload
-			}
-		}
-	}
+}
 
+func (c *DebugCollector) collectPanelDataSnapshot(snapshot map[string]any, panelData map[string]debugPanelSnapshot) {
+	for panelID, panelSnapshot := range panelData {
+		if !c.panelEnabled(panelID) {
+			continue
+		}
+		key := strings.TrimSpace(panelSnapshot.snapshotKey)
+		if key == "" {
+			key = panelID
+		}
+		snapshot[key] = panelSnapshot.payload
+	}
+}
+
+func (c *DebugCollector) collectRegisteredPanelSnapshots(ctx context.Context, snapshot map[string]any) {
 	for _, registration := range debugregistry.PanelRegistrations() {
 		id := normalizePanelID(registration.Definition.ID)
-		if id == "" || !c.panelEnabled(id) {
+		if id == "" || !c.panelEnabled(id) || registration.Snapshot == nil {
 			continue
 		}
 		key := strings.TrimSpace(registration.Definition.SnapshotKey)
@@ -626,11 +665,11 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 		if _, exists := snapshot[key]; exists {
 			continue
 		}
-		if registration.Snapshot == nil {
-			continue
-		}
 		snapshot[key] = clonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx)))
 	}
+}
+
+func (c *DebugCollector) collectCustomPanelSnapshots(ctx context.Context, snapshot map[string]any, panels []DebugPanel) {
 	for _, panel := range panels {
 		if panel == nil {
 			continue
@@ -644,7 +683,6 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 		}
 		snapshot[id] = clonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx)))
 	}
-	return snapshot
 }
 
 // SessionSnapshot returns session-scoped debug data filtered by session ID.
@@ -806,15 +844,18 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return false
 	}
+	if c.clearBuiltinPanel(panelID) {
+		return true
+	}
+	return c.clearRegisteredOrDynamicPanel(panelID)
+}
+
+func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
 	switch panelID {
 	case DebugPanelTemplate:
-		c.mu.Lock()
-		c.templateData = map[string]any{}
-		c.mu.Unlock()
+		c.resetPanelData(func() { c.templateData = map[string]any{} })
 	case DebugPanelSession:
-		c.mu.Lock()
-		c.sessionData = map[string]any{}
-		c.mu.Unlock()
+		c.resetPanelData(func() { c.sessionData = map[string]any{} })
 	case DebugPanelRequests:
 		if c.requestLog != nil {
 			c.requestLog.Clear()
@@ -832,41 +873,42 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 			c.jsErrorLog.Clear()
 		}
 	case DebugPanelCustom:
-		c.mu.Lock()
-		c.customData = map[string]any{}
-		c.mu.Unlock()
+		c.resetPanelData(func() { c.customData = map[string]any{} })
 		if c.customLog != nil {
 			c.customLog.Clear()
 		}
 	case DebugPanelConfig:
-		c.mu.Lock()
-		c.configData = map[string]any{}
-		c.mu.Unlock()
+		c.resetPanelData(func() { c.configData = map[string]any{} })
 	case DebugPanelRoutes:
-		c.mu.Lock()
-		c.routesData = nil
-		c.mu.Unlock()
+		c.resetPanelData(func() { c.routesData = nil })
 	default:
-		reg, regOk := debugregistry.Panel(panelID)
-		if regOk && reg.Clear != nil {
-			_ = reg.Clear(context.Background())
-		}
-		c.mu.Lock()
-		hadData := false
-		if c.panelData != nil {
-			if _, ok := c.panelData[panelID]; ok {
-				delete(c.panelData, panelID)
-				hadData = true
-			}
-		}
-		_, legacy := c.panelIndex[panelID]
-		c.mu.Unlock()
-		if regOk || legacy || hadData {
-			return true
-		}
 		return false
 	}
 	return true
+}
+
+func (c *DebugCollector) clearRegisteredOrDynamicPanel(panelID string) bool {
+	reg, regOK := debugregistry.Panel(panelID)
+	if regOK && reg.Clear != nil {
+		_ = reg.Clear(context.Background())
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	hadData := false
+	if c.panelData != nil {
+		if _, ok := c.panelData[panelID]; ok {
+			delete(c.panelData, panelID)
+			hadData = true
+		}
+	}
+	_, legacy := c.panelIndex[panelID]
+	return regOK || legacy || hadData
+}
+
+func (c *DebugCollector) resetPanelData(reset func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	reset()
 }
 
 func (c *DebugCollector) panelEnabled(id string) bool {
@@ -913,27 +955,52 @@ func (c *DebugCollector) publish(eventType string, payload any) {
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}
-	channels := make([]chan DebugEvent, 0, len(c.subscribers))
-	for _, ch := range c.subscribers {
-		channels = append(channels, ch)
+	subscribers := make([]debugSubscriber, 0, len(c.subscribers))
+	for id, ch := range c.subscribers {
+		subscribers = append(subscribers, debugSubscriber{id: id, ch: ch})
 	}
 	c.mu.RUnlock()
 
-	for _, ch := range channels {
-		safeSend(ch, event)
+	for _, subscriber := range subscribers {
+		if safeSend(subscriber.ch, event) {
+			c.removeSubscriberChannel(subscriber.id, subscriber.ch)
+		}
 	}
 }
 
-func safeSend(ch chan DebugEvent, event DebugEvent) {
+type debugSubscriber struct {
+	id string
+	ch chan DebugEvent
+}
+
+func safeSend(ch chan DebugEvent, event DebugEvent) (closed bool) {
 	if ch == nil {
-		return
+		return false
 	}
 	defer func() {
-		_ = recover()
+		if recovered := recover(); recovered != nil {
+			if strings.Contains(fmt.Sprint(recovered), "send on closed channel") {
+				closed = true
+				return
+			}
+			panic(recovered)
+		}
 	}()
 	select {
 	case ch <- event:
 	default:
+	}
+	return false
+}
+
+func (c *DebugCollector) removeSubscriberChannel(id string, ch chan DebugEvent) {
+	if c == nil || strings.TrimSpace(id) == "" || ch == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if existing, ok := c.subscribers[id]; ok && existing == ch {
+		delete(c.subscribers, id)
 	}
 }
 

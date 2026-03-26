@@ -691,9 +691,7 @@ func actionContextValue(record map[string]any, field string) (any, bool) {
 }
 
 func mergePanelActionContext(body map[string]any, locale string, values ...string) map[string]any {
-	if body == nil {
-		body = map[string]any{}
-	}
+	body = normalizeActionPayloadMap(body)
 	queryLocale := ""
 	queryChannel := ""
 	queryPolicyEntity := ""
@@ -724,16 +722,14 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 	if strings.TrimSpace(toString(body["channel"])) == "" && queryChannel != "" {
 		body["channel"] = queryChannel
 	}
-	if strings.TrimSpace(toString(body["policy_entity"])) == "" && strings.TrimSpace(toString(body["policyEntity"])) == "" && queryPolicyEntity != "" {
+	if strings.TrimSpace(toString(body["policy_entity"])) == "" && queryPolicyEntity != "" {
 		body["policy_entity"] = queryPolicyEntity
 	}
-	return body
+	return normalizeActionPayloadMap(body)
 }
 
 func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[string]any {
-	if body == nil {
-		body = map[string]any{}
-	}
+	body = normalizeActionPayloadMap(body)
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.UserID, userIDFromContext(ctx.Context), actorFromContext(ctx.Context)))
 	if userID != "" {
 		if strings.TrimSpace(toString(body["user_id"])) == "" {
@@ -741,9 +737,6 @@ func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[str
 		}
 		if strings.TrimSpace(toString(body["actor_id"])) == "" {
 			body["actor_id"] = userID
-		}
-		if strings.TrimSpace(toString(body["actorId"])) == "" {
-			body["actorId"] = userID
 		}
 	}
 	if tenantID := strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.TenantID, tenantIDFromContext(ctx.Context))); tenantID != "" {
@@ -755,19 +748,13 @@ func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[str
 		if strings.TrimSpace(toString(body["request_id"])) == "" {
 			body["request_id"] = requestID
 		}
-		if strings.TrimSpace(toString(body["requestId"])) == "" {
-			body["requestId"] = requestID
-		}
 	}
 	if correlationID := strings.TrimSpace(correlationIDFromContext(ctx.Context)); correlationID != "" {
 		if strings.TrimSpace(toString(body["correlation_id"])) == "" {
 			body["correlation_id"] = correlationID
 		}
-		if strings.TrimSpace(toString(body["correlationId"])) == "" {
-			body["correlationId"] = correlationID
-		}
 	}
-	return body
+	return normalizeActionPayloadMap(body)
 }
 
 func resolvePrimaryActionID(body map[string]any, ids []string) string {
