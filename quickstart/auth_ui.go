@@ -54,8 +54,9 @@ type authUIOptions struct {
 }
 
 var (
-	defaultAuthUICSRFKeyOnce sync.Once
-	defaultAuthUICSRFKey     []byte
+	defaultAuthUICSRFKeyMu sync.Mutex
+	defaultAuthUICSRFKey   []byte
+	authUIRandRead         = rand.Read
 )
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
@@ -352,8 +353,12 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		return err
 	}
 
+	csrfSecureKey, err := resolveAuthUICSRFSecureKey(options, cfg)
+	if err != nil {
+		return err
+	}
 	csrfMiddleware := csrfmw.New(csrfmw.Config{
-		SecureKey: resolveAuthUICSRFSecureKey(options, cfg, loginCookieName),
+		SecureKey: csrfSecureKey,
 		ErrorHandler: func(c router.Context, err error) error {
 			return c.Status(fiber.StatusForbidden).SendString(err.Error())
 		},
@@ -525,21 +530,24 @@ func stripRouteParams(route string) string {
 	return "/" + strings.Join(filtered, "/")
 }
 
-func resolveAuthUICSRFSecureKey(options authUIOptions, cfg admin.Config, cookieName string) []byte {
+func resolveAuthUICSRFSecureKey(options authUIOptions, cfg admin.Config) ([]byte, error) {
 	if len(options.csrfSecureKey) > 0 {
-		return append([]byte(nil), options.csrfSecureKey...)
+		return append([]byte(nil), options.csrfSecureKey...), nil
 	}
 	if secret := strings.TrimSpace(cfg.PreviewSecret); secret != "" {
-		return []byte(secret)
+		return []byte(secret), nil
 	}
-
-	defaultAuthUICSRFKeyOnce.Do(func() {
-		defaultAuthUICSRFKey = make([]byte, 32)
-		if _, err := rand.Read(defaultAuthUICSRFKey); err != nil {
-			defaultAuthUICSRFKey = []byte("go-admin-auth-ui-" + strings.TrimSpace(cookieName))
-		}
-	})
-	return append([]byte(nil), defaultAuthUICSRFKey...)
+	defaultAuthUICSRFKeyMu.Lock()
+	defer defaultAuthUICSRFKeyMu.Unlock()
+	if len(defaultAuthUICSRFKey) > 0 {
+		return append([]byte(nil), defaultAuthUICSRFKey...), nil
+	}
+	key := make([]byte, 32)
+	if _, err := authUIRandRead(key); err != nil {
+		return nil, fmt.Errorf("generate auth ui csrf secure key: %w", err)
+	}
+	defaultAuthUICSRFKey = append([]byte(nil), key...)
+	return append([]byte(nil), defaultAuthUICSRFKey...), nil
 }
 
 func buildLoginFailureRedirect(loginPath, errorKey, errorCode, identifierKey, identifier, rememberKey string, remember bool) string {
