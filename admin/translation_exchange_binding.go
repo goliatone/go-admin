@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	"github.com/goliatone/go-command/dispatcher"
 	router "github.com/goliatone/go-router"
 )
@@ -190,7 +192,7 @@ func (b *translationExchangeBinding) Export(c router.Context) (payload any, err 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c); err != nil {
+	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
 		return nil, err
 	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
@@ -288,7 +290,7 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload a
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c); err != nil {
+	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
 		return nil, err
 	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportValidate, "translations"); err != nil {
@@ -339,7 +341,7 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c); err != nil {
+	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
 		return nil, err
 	}
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportApply, "translations"); err != nil {
@@ -488,6 +490,9 @@ func (b *translationExchangeBinding) DeleteJob(c router.Context, id string) (pay
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
+	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
+		return nil, err
+	}
 	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
 		return nil, err
 	}
@@ -1662,25 +1667,126 @@ func translationExchangeResolutionPayloads(resolutions []TranslationExchangeConf
 	return out
 }
 
-func enforceTranslationExchangeCSRF(c router.Context) error {
+func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
 	if c == nil {
 		return nil
 	}
-	if !strings.EqualFold(strings.TrimSpace(c.Method()), "POST") {
+	if !translationExchangeMethodRequiresCSRF(c.Method()) {
 		return nil
 	}
-	if strings.TrimSpace(c.Header("Cookie")) == "" {
+	cfg, ok := translationExchangeAuthConfig(admin)
+	if !ok {
+		if strings.TrimSpace(c.Header("Cookie")) == "" {
+			return nil
+		}
+		return permissionDenied("csrf", "translations")
+	}
+	if !translationExchangeUsesCookieAuth(c, cfg) {
 		return nil
 	}
-	if strings.TrimSpace(c.Header("X-CSRF-Token")) != "" {
+	if err := translationExchangeValidateCSRFMiddleware(c, cfg); err != nil {
+		return permissionDenied("csrf", "translations")
+	}
+	return nil
+}
+
+func translationExchangeMethodRequiresCSRF(method string) bool {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET", "HEAD", "OPTIONS", "TRACE":
+		return false
+	default:
+		return true
+	}
+}
+
+func translationExchangeAuthConfig(admin *Admin) (auth.Config, bool) {
+	if admin == nil {
+		return nil, false
+	}
+	authenticator, ok := admin.authenticator.(*GoAuthAuthenticator)
+	if !ok || authenticator == nil || authenticator.authConfig == nil {
+		return nil, false
+	}
+	return authenticator.authConfig, true
+}
+
+func translationExchangeUsesCookieAuth(c router.Context, cfg auth.Config) bool {
+	if c == nil || cfg == nil {
+		return false
+	}
+	cookieName := translationExchangeAuthCookieName(cfg)
+	if cookieName == "" {
+		return false
+	}
+	return strings.TrimSpace(c.Cookies(cookieName)) != ""
+}
+
+func translationExchangeAuthCookieName(cfg auth.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	for _, part := range strings.Split(cfg.GetTokenLookup(), ",") {
+		part = strings.TrimSpace(part)
+		if after, ok := strings.CutPrefix(part, "cookie:"); ok {
+			return strings.TrimSpace(after)
+		}
+	}
+	return ""
+}
+
+func translationExchangeValidateCSRFMiddleware(c router.Context, cfg auth.Config) error {
+	if c == nil || cfg == nil {
+		return errors.New("csrf configuration unavailable")
+	}
+	middleware := csrfmw.New(csrfmw.Config{
+		SecureKey:          translationExchangeCSRFSecureKey(cfg),
+		SessionKeyResolver: translationExchangeCSRFSessionKeyResolver,
+		ErrorHandler: func(_ router.Context, err error) error {
+			return err
+		},
+		SuccessHandler: func(router.Context) error { return nil },
+	})
+	return middleware(func(router.Context) error { return nil })(c)
+}
+
+func translationExchangeCSRFSecureKey(cfg auth.Config) []byte {
+	if cfg == nil {
 		return nil
 	}
-	host := strings.TrimSpace(firstNonEmpty(c.Header("X-Forwarded-Host"), c.Header("Host")))
-	origin := strings.TrimSpace(firstNonEmpty(c.Header("Origin"), c.Header("Referer")))
-	if host != "" && origin != "" && strings.Contains(origin, host) {
-		return nil
+	// Mirror go-auth's browser CSRF secure-key derivation so API writes can
+	// validate the same token emitted by protected browser routes.
+	sum := sha256.Sum256([]byte("go-auth-browser-csrf:" + cfg.GetSigningKey() + ":" + cfg.GetContextKey()))
+	return sum[:]
+}
+
+func translationExchangeCSRFSessionKeyResolver(c router.Context) (string, bool) {
+	// Mirror go-auth's browser CSRF session binding so the same cookie-backed
+	// session can authorize both browser pages and translation exchange writes.
+	if c == nil {
+		return "", false
 	}
-	return permissionDenied("csrf", "translations")
+	if sessionID := strings.TrimSpace(c.GetString("session_id", "")); sessionID != "" {
+		return "csrf_" + sessionID, true
+	}
+	if userID := strings.TrimSpace(c.GetString("user_id", "")); userID != "" {
+		return "csrf_user_" + userID, true
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		if tokenIDer, ok := claims.(interface{ TokenID() string }); ok {
+			if tokenID := strings.TrimSpace(tokenIDer.TokenID()); tokenID != "" {
+				return "csrf_session_" + tokenID, true
+			}
+		}
+		if userID := strings.TrimSpace(claims.UserID()); userID != "" {
+			return "csrf_user_" + userID, true
+		}
+	}
+	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
+		if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
+			return "csrf_user_" + actorID, true
+		}
+	}
+	return "", false
 }
 
 func parseOptionalJSONMap(raw []byte) (map[string]any, error) {
