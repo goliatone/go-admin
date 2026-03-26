@@ -17,6 +17,7 @@ func buildWorkflowApplyRequest(
 	machineID = strings.TrimSpace(machineID)
 	currentState = normalizeWorkflowState(currentState)
 	targetState = normalizeWorkflowState(targetState)
+	payload = normalizeActionPayloadMap(payload)
 	metadata := workflowTransitionMetadata(ctx, machineID, entityID, currentState, targetState, payload)
 	return WorkflowApplyEventRequest{
 		MachineID:     machineID,
@@ -28,7 +29,7 @@ func buildWorkflowApplyRequest(
 			EntityType:   machineID,
 			CurrentState: currentState,
 			TargetState:  targetState,
-			Payload:      cloneWorkflowTransitionMetadata(payload),
+			Payload:      normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload)),
 		},
 		IdempotencyKey: workflowIdempotencyKey(payload),
 		Metadata:       metadata,
@@ -52,6 +53,7 @@ func workflowSnapshotTransitions(
 	if engine == nil {
 		return nil, nil
 	}
+	payload = normalizeActionPayloadMap(payload)
 	entityID = strings.TrimSpace(entityID)
 	snapshot, err := engine.Snapshot(ctx, WorkflowSnapshotRequest{
 		MachineID: machineID,
@@ -60,7 +62,7 @@ func workflowSnapshotTransitions(
 			EntityID:     entityID,
 			EntityType:   machineID,
 			CurrentState: normalizeWorkflowState(currentState),
-			Payload:      cloneWorkflowTransitionMetadata(payload),
+			Payload:      normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload)),
 		},
 		ExecCtx:        workflowExecutionContextFromContext(ctx),
 		EvaluateGuards: true,
@@ -148,7 +150,7 @@ func workflowTransitionMetadata(
 	targetState string,
 	payload map[string]any,
 ) map[string]any {
-	metadata := cloneWorkflowTransitionMetadata(payload)
+	metadata := normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload))
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
@@ -167,9 +169,6 @@ func workflowTransitionMetadata(
 	if actorID := strings.TrimSpace(userIDFromContext(ctx)); actorID != "" && strings.TrimSpace(toString(metadata["actor_id"])) == "" {
 		metadata["actor_id"] = actorID
 	}
-	if actorID := strings.TrimSpace(userIDFromContext(ctx)); actorID != "" && strings.TrimSpace(toString(metadata["actorId"])) == "" {
-		metadata["actorId"] = actorID
-	}
 	if tenantID := strings.TrimSpace(tenantIDFromContext(ctx)); tenantID != "" && strings.TrimSpace(toString(metadata["tenant"])) == "" {
 		metadata["tenant"] = tenantID
 	}
@@ -179,9 +178,6 @@ func workflowTransitionMetadata(
 	}
 	if requestID != "" {
 		metadata["request_id"] = requestID
-		if strings.TrimSpace(toString(metadata["requestId"])) == "" {
-			metadata["requestId"] = requestID
-		}
 	}
 	correlationID := strings.TrimSpace(toString(firstNonEmptyAny(payload, "correlation_id", "correlationId")))
 	if correlationID == "" {
@@ -189,9 +185,6 @@ func workflowTransitionMetadata(
 	}
 	if correlationID != "" {
 		metadata["correlation_id"] = correlationID
-		if strings.TrimSpace(toString(metadata["correlationId"])) == "" {
-			metadata["correlationId"] = correlationID
-		}
 	}
 	return metadata
 }
