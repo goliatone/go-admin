@@ -18,10 +18,20 @@ type notificationMemoryBase[T any] struct {
 	meta    func(*T) *domain.RecordMeta
 }
 
+type notificationMemoryRepository[T any] struct {
+	base notificationMemoryBase[T]
+}
+
 func newNotificationMemoryBase[T any](meta func(*T) *domain.RecordMeta) notificationMemoryBase[T] {
 	return notificationMemoryBase[T]{
 		records: make(map[uuid.UUID]T),
 		meta:    meta,
+	}
+}
+
+func newNotificationMemoryRepository[T any](meta func(*T) *domain.RecordMeta) notificationMemoryRepository[T] {
+	return notificationMemoryRepository[T]{
+		base: newNotificationMemoryBase(meta),
 	}
 }
 
@@ -116,39 +126,39 @@ func (b *notificationMemoryBase[T]) softDelete(id uuid.UUID) error {
 	return nil
 }
 
-type memoryDefinitionRepository struct {
-	base notificationMemoryBase[domain.NotificationDefinition]
-}
-
-func newMemoryDefinitionRepository() *memoryDefinitionRepository {
-	return &memoryDefinitionRepository{
-		base: newNotificationMemoryBase(func(def *domain.NotificationDefinition) *domain.RecordMeta { return &def.RecordMeta }),
-	}
-}
-
-func (r *memoryDefinitionRepository) Create(ctx context.Context, record *domain.NotificationDefinition) error {
+func (r *notificationMemoryRepository[T]) Create(ctx context.Context, record *T) error {
 	_ = ctx
 	return r.base.create(record)
 }
 
-func (r *memoryDefinitionRepository) Update(ctx context.Context, record *domain.NotificationDefinition) error {
+func (r *notificationMemoryRepository[T]) Update(ctx context.Context, record *T) error {
 	_ = ctx
 	return r.base.update(record)
 }
 
-func (r *memoryDefinitionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NotificationDefinition, error) {
+func (r *notificationMemoryRepository[T]) GetByID(ctx context.Context, id uuid.UUID) (*T, error) {
 	_ = ctx
 	return r.base.getByID(id, false)
 }
 
-func (r *memoryDefinitionRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.NotificationDefinition], error) {
+func (r *notificationMemoryRepository[T]) List(ctx context.Context, opts store.ListOptions) (store.ListResult[T], error) {
 	_ = ctx
 	return r.base.list(opts)
 }
 
-func (r *memoryDefinitionRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+func (r *notificationMemoryRepository[T]) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	_ = ctx
 	return r.base.softDelete(id)
+}
+
+type memoryDefinitionRepository struct {
+	notificationMemoryRepository[domain.NotificationDefinition]
+}
+
+func newMemoryDefinitionRepository() *memoryDefinitionRepository {
+	return &memoryDefinitionRepository{
+		notificationMemoryRepository: newNotificationMemoryRepository(func(def *domain.NotificationDefinition) *domain.RecordMeta { return &def.RecordMeta }),
+	}
 }
 
 func (r *memoryDefinitionRepository) GetByCode(ctx context.Context, code string) (*domain.NotificationDefinition, error) {
@@ -165,38 +175,13 @@ func (r *memoryDefinitionRepository) GetByCode(ctx context.Context, code string)
 }
 
 type memoryTemplateRepository struct {
-	base notificationMemoryBase[domain.NotificationTemplate]
+	notificationMemoryRepository[domain.NotificationTemplate]
 }
 
 func newMemoryTemplateRepository() *memoryTemplateRepository {
 	return &memoryTemplateRepository{
-		base: newNotificationMemoryBase(func(tpl *domain.NotificationTemplate) *domain.RecordMeta { return &tpl.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(tpl *domain.NotificationTemplate) *domain.RecordMeta { return &tpl.RecordMeta }),
 	}
-}
-
-func (r *memoryTemplateRepository) Create(ctx context.Context, record *domain.NotificationTemplate) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryTemplateRepository) Update(ctx context.Context, record *domain.NotificationTemplate) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryTemplateRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NotificationTemplate, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryTemplateRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.NotificationTemplate], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryTemplateRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryTemplateRepository) GetByCodeAndLocale(ctx context.Context, code, locale, channel string) (*domain.NotificationTemplate, error) {
@@ -227,38 +212,13 @@ func (r *memoryTemplateRepository) ListByCode(ctx context.Context, code string, 
 }
 
 type memoryEventRepository struct {
-	base notificationMemoryBase[domain.NotificationEvent]
+	notificationMemoryRepository[domain.NotificationEvent]
 }
 
 func newMemoryEventRepository() *memoryEventRepository {
 	return &memoryEventRepository{
-		base: newNotificationMemoryBase(func(evt *domain.NotificationEvent) *domain.RecordMeta { return &evt.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(evt *domain.NotificationEvent) *domain.RecordMeta { return &evt.RecordMeta }),
 	}
-}
-
-func (r *memoryEventRepository) Create(ctx context.Context, record *domain.NotificationEvent) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryEventRepository) Update(ctx context.Context, record *domain.NotificationEvent) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryEventRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NotificationEvent, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryEventRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.NotificationEvent], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryEventRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryEventRepository) ListPending(ctx context.Context, limit int) ([]domain.NotificationEvent, error) {
@@ -286,38 +246,13 @@ func (r *memoryEventRepository) UpdateStatus(ctx context.Context, id uuid.UUID, 
 }
 
 type memoryMessageRepository struct {
-	base notificationMemoryBase[domain.NotificationMessage]
+	notificationMemoryRepository[domain.NotificationMessage]
 }
 
 func newMemoryMessageRepository() *memoryMessageRepository {
 	return &memoryMessageRepository{
-		base: newNotificationMemoryBase(func(msg *domain.NotificationMessage) *domain.RecordMeta { return &msg.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(msg *domain.NotificationMessage) *domain.RecordMeta { return &msg.RecordMeta }),
 	}
-}
-
-func (r *memoryMessageRepository) Create(ctx context.Context, record *domain.NotificationMessage) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryMessageRepository) Update(ctx context.Context, record *domain.NotificationMessage) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryMessageRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NotificationMessage, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryMessageRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.NotificationMessage], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryMessageRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryMessageRepository) ListByEvent(ctx context.Context, eventID uuid.UUID) ([]domain.NotificationMessage, error) {
@@ -336,38 +271,13 @@ func (r *memoryMessageRepository) ListByEvent(ctx context.Context, eventID uuid.
 }
 
 type memoryAttemptRepository struct {
-	base notificationMemoryBase[domain.DeliveryAttempt]
+	notificationMemoryRepository[domain.DeliveryAttempt]
 }
 
 func newMemoryAttemptRepository() *memoryAttemptRepository {
 	return &memoryAttemptRepository{
-		base: newNotificationMemoryBase(func(attempt *domain.DeliveryAttempt) *domain.RecordMeta { return &attempt.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(attempt *domain.DeliveryAttempt) *domain.RecordMeta { return &attempt.RecordMeta }),
 	}
-}
-
-func (r *memoryAttemptRepository) Create(ctx context.Context, record *domain.DeliveryAttempt) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryAttemptRepository) Update(ctx context.Context, record *domain.DeliveryAttempt) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryAttemptRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.DeliveryAttempt, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryAttemptRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.DeliveryAttempt], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryAttemptRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryAttemptRepository) ListByMessage(ctx context.Context, messageID uuid.UUID) ([]domain.DeliveryAttempt, error) {
@@ -386,38 +296,13 @@ func (r *memoryAttemptRepository) ListByMessage(ctx context.Context, messageID u
 }
 
 type memoryPreferenceRepository struct {
-	base notificationMemoryBase[domain.NotificationPreference]
+	notificationMemoryRepository[domain.NotificationPreference]
 }
 
 func newMemoryPreferenceRepository() *memoryPreferenceRepository {
 	return &memoryPreferenceRepository{
-		base: newNotificationMemoryBase(func(pref *domain.NotificationPreference) *domain.RecordMeta { return &pref.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(pref *domain.NotificationPreference) *domain.RecordMeta { return &pref.RecordMeta }),
 	}
-}
-
-func (r *memoryPreferenceRepository) Create(ctx context.Context, record *domain.NotificationPreference) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryPreferenceRepository) Update(ctx context.Context, record *domain.NotificationPreference) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryPreferenceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.NotificationPreference, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryPreferenceRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.NotificationPreference], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryPreferenceRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryPreferenceRepository) GetBySubject(ctx context.Context, subjectType, subjectID, definitionCode string, channel string) (*domain.NotificationPreference, error) {
@@ -437,38 +322,13 @@ func (r *memoryPreferenceRepository) GetBySubject(ctx context.Context, subjectTy
 }
 
 type memoryInboxRepository struct {
-	base notificationMemoryBase[domain.InboxItem]
+	notificationMemoryRepository[domain.InboxItem]
 }
 
 func newMemoryInboxRepository() *memoryInboxRepository {
 	return &memoryInboxRepository{
-		base: newNotificationMemoryBase(func(item *domain.InboxItem) *domain.RecordMeta { return &item.RecordMeta }),
+		notificationMemoryRepository: newNotificationMemoryRepository(func(item *domain.InboxItem) *domain.RecordMeta { return &item.RecordMeta }),
 	}
-}
-
-func (r *memoryInboxRepository) Create(ctx context.Context, record *domain.InboxItem) error {
-	_ = ctx
-	return r.base.create(record)
-}
-
-func (r *memoryInboxRepository) Update(ctx context.Context, record *domain.InboxItem) error {
-	_ = ctx
-	return r.base.update(record)
-}
-
-func (r *memoryInboxRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.InboxItem, error) {
-	_ = ctx
-	return r.base.getByID(id, false)
-}
-
-func (r *memoryInboxRepository) List(ctx context.Context, opts store.ListOptions) (store.ListResult[domain.InboxItem], error) {
-	_ = ctx
-	return r.base.list(opts)
-}
-
-func (r *memoryInboxRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	return r.base.softDelete(id)
 }
 
 func (r *memoryInboxRepository) ListByUser(ctx context.Context, userID string, opts store.ListOptions) (store.ListResult[domain.InboxItem], error) {
