@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	"github.com/gofiber/fiber/v2"
 	router "github.com/goliatone/go-router"
 )
@@ -632,6 +634,198 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 	}
 }
 
+func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	adm := mustNewAdmin(t, cfg.adminCfg, Dependencies{})
+	adm.WithAuth(NewGoAuthAuthenticator(routeAuth, cfg), nil)
+	adm.WithAuthorizer(allowAll{})
+
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{Format: "json"},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	}
+	if called, _ := executor.exportSnapshot(); called != 0 {
+		t.Fatalf("expected export executor not to run when csrf validation fails")
+	}
+}
+
+func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	adm := mustNewAdmin(t, cfg.adminCfg, Dependencies{})
+	adm.WithAuth(NewGoAuthAuthenticator(routeAuth, cfg), nil)
+	adm.WithAuthorizer(allowAll{})
+
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{Format: "json"},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(csrfmw.DefaultHeaderName, "bogus")
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	}
+	if called, _ := executor.exportSnapshot(); called != 0 {
+		t.Fatalf("expected export executor not to run when csrf validation fails")
+	}
+}
+
+func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	adm := mustNewAdmin(t, cfg.adminCfg, Dependencies{})
+	adm.WithAuth(NewGoAuthAuthenticator(routeAuth, cfg), nil)
+	adm.WithAuthorizer(allowAll{})
+
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{Format: "json"},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	tokenReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/translations", nil)
+	tokenReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	tokenResp, err := app.Test(tokenReq)
+	if err != nil {
+		t.Fatalf("token request error: %v", err)
+	}
+	if tokenResp.StatusCode != http.StatusOK {
+		t.Fatalf("token route status=%d, want %d", tokenResp.StatusCode, http.StatusOK)
+	}
+	var csrfTokenBody bytes.Buffer
+	if _, err := csrfTokenBody.ReadFrom(tokenResp.Body); err != nil {
+		t.Fatalf("read csrf token body: %v", err)
+	}
+	csrfToken := strings.TrimSpace(csrfTokenBody.String())
+	if csrfToken == "" {
+		t.Fatalf("expected csrf token from browser route")
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if called, _ := executor.exportSnapshot(); called != 1 {
+		t.Fatalf("expected export executor to run once, got %d", called)
+	}
+}
+
+func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t *testing.T) {
+	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	adm := mustNewAdmin(t, cfg.adminCfg, Dependencies{})
+	adm.WithAuth(NewGoAuthAuthenticator(routeAuth, cfg), nil)
+	adm.WithAuthorizer(allowAll{})
+
+	binding := newTranslationExchangeBinding(adm)
+	app := newTranslationExchangeTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodDelete, "http://example.com/admin/api/translations/exchange/jobs/job-1", nil)
+	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	}
+}
+
 func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	executor := &stubTranslationExchangeExecutor{}
@@ -1215,51 +1409,61 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 		})
 	})
 	r := adapter.Router()
-	r.Post("/admin/api/translations/exchange/export", func(c router.Context) error {
+	wrap := func(handler router.HandlerFunc) router.HandlerFunc {
+		if binding != nil && binding.admin != nil {
+			return binding.admin.authWrapper()(handler)
+		}
+		return handler
+	}
+	r.Get("/admin/translations", wrap(func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		return c.SendString(token)
+	}))
+	r.Post("/admin/api/translations/exchange/export", wrap(func(c router.Context) error {
 		payload, err := binding.Export(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
-	r.Get("/admin/api/translations/exchange/template", func(c router.Context) error {
+	}))
+	r.Get("/admin/api/translations/exchange/template", wrap(func(c router.Context) error {
 		return binding.Template(c)
-	})
-	r.Post("/admin/api/translations/exchange/import/validate", func(c router.Context) error {
+	}))
+	r.Post("/admin/api/translations/exchange/import/validate", wrap(func(c router.Context) error {
 		payload, err := binding.ImportValidate(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
-	r.Post("/admin/api/translations/exchange/import/apply", func(c router.Context) error {
+	}))
+	r.Post("/admin/api/translations/exchange/import/apply", wrap(func(c router.Context) error {
 		payload, err := binding.ImportApply(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
-	r.Get("/admin/api/translations/exchange/jobs", func(c router.Context) error {
+	}))
+	r.Get("/admin/api/translations/exchange/jobs", wrap(func(c router.Context) error {
 		payload, err := binding.History(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
-	r.Get("/admin/api/translations/exchange/jobs/:job_id", func(c router.Context) error {
+	}))
+	r.Get("/admin/api/translations/exchange/jobs/:job_id", wrap(func(c router.Context) error {
 		payload, err := binding.JobStatus(c, c.Param("job_id", ""))
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
-	r.Delete("/admin/api/translations/exchange/jobs/:job_id", func(c router.Context) error {
+	}))
+	r.Delete("/admin/api/translations/exchange/jobs/:job_id", wrap(func(c router.Context) error {
 		payload, err := binding.DeleteJob(c, c.Param("job_id", ""))
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
-	})
+	}))
 	adapter.Init()
 	return adapter.WrappedRouter()
 }

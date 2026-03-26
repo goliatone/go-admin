@@ -576,7 +576,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		t.Fatalf("expected preview_token to promote include_drafts=true")
 	}
 	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "footer" {
-		t.Fatalf("expected non-prod view profile override, got %q", got)
+		t.Fatalf("expected preview token to retain view profile override, got %q", got)
 	}
 	overridePayload := decodeJSONMap(t, overrideRes)
 	overrideMeta := extractMap(overridePayload["meta"])
@@ -601,19 +601,76 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		t.Fatalf("expected non-menu preview token to be rejected for menu draft reads, got %d body=%s", nonMenuRes.Code, nonMenuRes.Body.String())
 	}
 
-	prodPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+	runtimeEnvPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
 		"locale":       "en",
-		"runtime_env":  "prod",
+		"runtime_env":  "staging",
 		"view_profile": "footer",
 	})
-	prodReq := httptest.NewRequest(http.MethodGet, prodPath, nil)
-	prodRes := httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(prodRes, prodReq)
-	if prodRes.Code != http.StatusOK {
-		t.Fatalf("prod menu read status=%d body=%s", prodRes.Code, prodRes.Body.String())
+	runtimeEnvReq := httptest.NewRequest(http.MethodGet, runtimeEnvPath, nil)
+	runtimeEnvRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(runtimeEnvRes, runtimeEnvReq)
+	if runtimeEnvRes.Code != http.StatusOK {
+		t.Fatalf("runtime_env menu read status=%d body=%s", runtimeEnvRes.Code, runtimeEnvRes.Body.String())
 	}
 	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "" {
-		t.Fatalf("expected view profile override ignored in prod context, got %q", got)
+		t.Fatalf("expected runtime_env query ignored for view profile override, got %q", got)
+	}
+
+	siteRuntimeEnvPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale":           "en",
+		"site_runtime_env": "staging",
+		"view_profile":     "footer",
+	})
+	siteRuntimeEnvReq := httptest.NewRequest(http.MethodGet, siteRuntimeEnvPath, nil)
+	siteRuntimeEnvRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(siteRuntimeEnvRes, siteRuntimeEnvReq)
+	if siteRuntimeEnvRes.Code != http.StatusOK {
+		t.Fatalf("site_runtime_env menu read status=%d body=%s", siteRuntimeEnvRes.Code, siteRuntimeEnvRes.Body.String())
+	}
+	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "" {
+		t.Fatalf("expected site_runtime_env query ignored for view profile override, got %q", got)
+	}
+
+	actorDeniedPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale":       "en",
+		"view_profile": "footer",
+	})
+	actorDeniedAdmin, actorDeniedServer := newSiteTestServer(t, cfg, Dependencies{
+		Authorizer: permissionAuthorizer{allowed: map[string]bool{}},
+	}, nil, menuSvc)
+	actorDeniedReq := httptest.NewRequest(http.MethodGet, actorDeniedPath, nil)
+	actorDeniedReq = actorDeniedReq.WithContext(auth.WithActorContext(actorDeniedReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
+	actorDeniedRes := httptest.NewRecorder()
+	actorDeniedServer.WrappedRouter().ServeHTTP(actorDeniedRes, actorDeniedReq)
+	if actorDeniedRes.Code != http.StatusOK {
+		t.Fatalf("actor denied menu read status=%d body=%s", actorDeniedRes.Code, actorDeniedRes.Body.String())
+	}
+	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "" {
+		t.Fatalf("expected authenticated actor without override permission to be ignored, got %q", got)
+	}
+
+	actorAllowedPath := mustResolveURL(t, actorDeniedAdmin.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale":       "en",
+		"view_profile": "footer",
+	})
+	_, actorAllowedServer := newSiteTestServer(t, cfg, Dependencies{
+		Authorizer: permissionAuthorizer{allowed: map[string]bool{
+			"admin.site.view_profile_override": true,
+		}},
+	}, nil, menuSvc)
+	actorAllowedReq := httptest.NewRequest(http.MethodGet, actorAllowedPath, nil)
+	actorAllowedReq = actorAllowedReq.WithContext(auth.WithActorContext(actorAllowedReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
+	actorAllowedRes := httptest.NewRecorder()
+	actorAllowedServer.WrappedRouter().ServeHTTP(actorAllowedRes, actorAllowedReq)
+	if actorAllowedRes.Code != http.StatusOK {
+		t.Fatalf("actor allowed menu read status=%d body=%s", actorAllowedRes.Code, actorAllowedRes.Body.String())
+	}
+	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "footer" {
+		t.Fatalf("expected authenticated actor with override permission to retain view profile, got %q", got)
 	}
 
 	codePath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByCode, map[string]string{"code": "primary"}, map[string]string{"locale": "en"})

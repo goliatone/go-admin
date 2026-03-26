@@ -26,6 +26,52 @@ type stubActivityFeedQuery struct {
 	err  error
 }
 
+type failingWorkflowRuntime struct {
+	bindErr   error
+	bindCalls int
+}
+
+func (f *failingWorkflowRuntime) ListWorkflows(context.Context, PersistedWorkflowListOptions) ([]PersistedWorkflow, int, error) {
+	return nil, 0, nil
+}
+
+func (f *failingWorkflowRuntime) CreateWorkflow(context.Context, PersistedWorkflow) (PersistedWorkflow, error) {
+	return PersistedWorkflow{}, nil
+}
+
+func (f *failingWorkflowRuntime) UpdateWorkflow(context.Context, PersistedWorkflow, int) (PersistedWorkflow, error) {
+	return PersistedWorkflow{}, nil
+}
+
+func (f *failingWorkflowRuntime) RollbackWorkflow(context.Context, string, int, int) (PersistedWorkflow, error) {
+	return PersistedWorkflow{}, nil
+}
+
+func (f *failingWorkflowRuntime) ListBindings(context.Context, WorkflowBindingListOptions) ([]WorkflowBinding, int, error) {
+	return nil, 0, nil
+}
+
+func (f *failingWorkflowRuntime) CreateBinding(context.Context, WorkflowBinding) (WorkflowBinding, error) {
+	return WorkflowBinding{}, nil
+}
+
+func (f *failingWorkflowRuntime) UpdateBinding(context.Context, WorkflowBinding, int) (WorkflowBinding, error) {
+	return WorkflowBinding{}, nil
+}
+
+func (f *failingWorkflowRuntime) DeleteBinding(context.Context, string) error {
+	return nil
+}
+
+func (f *failingWorkflowRuntime) ResolveBinding(context.Context, WorkflowBindingResolveInput) (WorkflowBindingResolution, error) {
+	return WorkflowBindingResolution{}, nil
+}
+
+func (f *failingWorkflowRuntime) BindWorkflowEngine(WorkflowEngine) error {
+	f.bindCalls++
+	return f.bindErr
+}
+
 func (s stubActivityFeedQuery) Query(context.Context, usertypes.ActivityFilter) (usertypes.ActivityPage, error) {
 	if s.err != nil {
 		return usertypes.ActivityPage{}, s.err
@@ -212,6 +258,92 @@ func TestInitializeRunsPreRoutePreparation(t *testing.T) {
 	}
 	if !called {
 		t.Fatalf("expected module Register to be called during Initialize")
+	}
+}
+
+func TestWithWorkflowLogsWorkflowRuntimeBindingFailure(t *testing.T) {
+	logger := &captureAdminLogger{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{Logger: logger})
+	runtime := &failingWorkflowRuntime{bindErr: fmt.Errorf("bind failed")}
+	adm.workflowRuntime = runtime
+
+	engine := workflowEngineWithPagesAndPosts()
+	if got := adm.WithWorkflow(engine); got != adm {
+		t.Fatalf("expected fluent admin return")
+	}
+	if adm.workflow != engine {
+		t.Fatalf("expected workflow engine to be assigned")
+	}
+	if runtime.bindCalls != 1 {
+		t.Fatalf("expected workflow runtime bind call, got %d", runtime.bindCalls)
+	}
+	if got := logger.count("warn", "workflow runtime binding failed"); got != 1 {
+		t.Fatalf("expected one workflow runtime binding warning, got %d", got)
+	}
+}
+
+func TestWithWorkflowNilReceiverIsSafe(t *testing.T) {
+	var adm *Admin
+	if got := adm.WithWorkflow(workflowEngineWithPagesAndPosts()); got != nil {
+		t.Fatalf("expected nil receiver to remain nil")
+	}
+}
+
+func TestInitializeRetriesInitHooksAfterFailure(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+
+	firstRuns := 0
+	secondRuns := 0
+	adm.AddInitHook(func(AdminRouter) error {
+		firstRuns++
+		return nil
+	})
+	adm.AddInitHook(func(AdminRouter) error {
+		secondRuns++
+		if secondRuns == 1 {
+			return fmt.Errorf("init hook failed")
+		}
+		return nil
+	})
+
+	if err := adm.Initialize(nilRouter{}); err == nil || !strings.Contains(err.Error(), "init hook failed") {
+		t.Fatalf("expected init hook failure on first initialize, got %v", err)
+	}
+	if adm.initHooksRun {
+		t.Fatalf("expected initHooksRun to remain false after failed initialize")
+	}
+
+	if err := adm.Initialize(nilRouter{}); err != nil {
+		t.Fatalf("expected initialize retry to succeed, got %v", err)
+	}
+	if !adm.initHooksRun {
+		t.Fatalf("expected initHooksRun to be true after successful retry")
+	}
+	if firstRuns != 2 {
+		t.Fatalf("expected first hook to rerun on retry, got %d", firstRuns)
+	}
+	if secondRuns != 2 {
+		t.Fatalf("expected failing hook to rerun on retry, got %d", secondRuns)
+	}
+}
+
+func TestInitializeRunsInitHooksOnlyOnceAfterSuccess(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+
+	runs := 0
+	adm.AddInitHook(func(AdminRouter) error {
+		runs++
+		return nil
+	})
+
+	if err := adm.Initialize(nilRouter{}); err != nil {
+		t.Fatalf("first initialize: %v", err)
+	}
+	if err := adm.Initialize(nilRouter{}); err != nil {
+		t.Fatalf("second initialize: %v", err)
+	}
+	if runs != 1 {
+		t.Fatalf("expected init hooks to run once after successful initialize, got %d", runs)
 	}
 }
 

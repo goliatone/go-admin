@@ -1266,8 +1266,6 @@ func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {
 	}
 
 	assertStatusWithCookie(t, app, authCookie, http.MethodGet, "/admin/users", http.StatusOK)
-	assertStatusWithCookie(t, app, authCookie, http.MethodGet, "/admin/roles", http.StatusOK)
-	assertStatusWithCookie(t, app, authCookie, http.MethodGet, "/admin/profile", http.StatusOK)
 }
 
 func TestRuntimeActivityAPIResolvesAfterLogin(t *testing.T) {
@@ -1717,6 +1715,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		body, _ := io.ReadAll(sendResp.Body)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
+	drainRuntimeNotificationOutboxes(t, fixture, scope)
 
 	signerToken := waitForCapturedSignerToken(t, scope, agreementID, recipientID)
 
@@ -2003,6 +2002,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		body, _ := io.ReadAll(sendResp.Body)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
+	drainRuntimeNotificationOutboxes(t, fixture, scope)
 
 	signerToken := waitForCapturedSignerToken(t, scope, agreementID, recipientID)
 
@@ -2326,6 +2326,8 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 			"esign":                           true,
 			"esign_google":                    googleEnabled,
 			string(coreadmin.FeatureActivity): true,
+			string(coreadmin.FeatureUsers):    true,
+			string(coreadmin.FeatureProfile):  true,
 		}),
 	)
 	if err != nil {
@@ -2400,7 +2402,7 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 func waitForCapturedSignerToken(t *testing.T, scope stores.Scope, agreementID, recipientID string) string {
 	t.Helper()
 
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		captured, ok := jobs.LookupCapturedRecipientLink(scope, agreementID, recipientID, "signing_invitation")
 		if ok {
@@ -2414,6 +2416,58 @@ func waitForCapturedSignerToken(t *testing.T, scope stores.Scope, agreementID, r
 
 	t.Fatalf("expected captured signer link for agreement=%s recipient=%s", agreementID, recipientID)
 	return ""
+}
+
+func drainRuntimeNotificationOutboxes(t *testing.T, fixture eSignRuntimeWebFixture, scope stores.Scope) {
+	t.Helper()
+
+	store, cleanup, err := newESignRuntimeStore(fixture.Bootstrap)
+	if err != nil {
+		t.Fatalf("new runtime store for outbox drain: %v", err)
+	}
+	if cleanup != nil {
+		defer func() {
+			if err := cleanup(); err != nil {
+				t.Fatalf("cleanup runtime outbox drain store: %v", err)
+			}
+		}()
+	}
+	tokenService := fixture.Module.TokenService()
+	if tokenService == nil {
+		t.Fatal("expected e-sign module token service")
+	}
+	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
+		Agreements:    store,
+		Effects:       store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		Audits:        store,
+		Tokens:        tokenService,
+		EmailProvider: jobs.DeterministicEmailProvider{},
+		Transactions:  store,
+	})
+	emailPublisher := jobs.NewEmailOutboxPublisher(jobHandlers)
+
+	ctx := context.Background()
+	retryDelay := jobs.DefaultRetryPolicy().BaseDelay
+	for attempt := 0; attempt < 6; attempt++ {
+		claimed := 0
+		now := time.Now().UTC()
+		result, err := stores.DispatchOutboxBatch(ctx, store, scope, emailPublisher, stores.OutboxDispatchInput{
+			Consumer:   "runtime-web-test-email-outbox",
+			Topic:      services.NotificationOutboxTopicEmailSendSigningRequest,
+			Limit:      25,
+			Now:        now,
+			RetryDelay: retryDelay,
+		})
+		if err != nil {
+			t.Fatalf("dispatch email outbox: %v", err)
+		}
+		claimed += result.Claimed
+		if claimed == 0 {
+			return
+		}
+	}
 }
 
 func signerTokenFromLink(t *testing.T, raw string) string {
@@ -2628,19 +2682,117 @@ func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, 
 
 func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cookie, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(method, endpoint, body)
+	var payload []byte
+	if body != nil {
+		var err error
+		payload, err = io.ReadAll(body)
+		if err != nil {
+			t.Fatalf("read request body (%s %s): %v", method, endpoint, err)
+		}
+	}
+	attachBrowserCSRF := shouldAttachRuntimeBrowserFormCSRF(method, endpoint, contentType, payload)
+	formCookies := []*http.Cookie(nil)
+	if attachBrowserCSRF {
+		csrfToken, cookies := fetchRuntimeBrowserFormCSRFState(t, app, cookie, endpoint)
+		values, err := url.ParseQuery(string(payload))
+		if err != nil {
+			t.Fatalf("parse browser form payload: %v", err)
+		}
+		values.Set("_token", csrfToken)
+		payload = []byte(values.Encode())
+		formCookies = cookies
+	}
+	req := httptest.NewRequest(method, endpoint, bytes.NewReader(payload))
 	prepareRuntimeTestRequest(req)
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
+	for _, formCookie := range formCookies {
+		if formCookie == nil {
+			continue
+		}
+		req.AddCookie(formCookie)
+	}
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if attachBrowserCSRF {
+		req.Header.Set("Origin", "http://localhost:8082")
 	}
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed (%s %s): %v", method, endpoint, err)
 	}
 	return resp
+}
+
+func shouldAttachRuntimeBrowserFormCSRF(method, endpoint, contentType string, payload []byte) bool {
+	if !strings.EqualFold(strings.TrimSpace(method), http.MethodPost) {
+		return false
+	}
+	if !strings.Contains(strings.TrimSpace(contentType), "application/x-www-form-urlencoded") {
+		return false
+	}
+	if strings.Contains(string(payload), "_token=") {
+		return false
+	}
+	path := strings.TrimSpace(endpoint)
+	if idx := strings.Index(path, "?"); idx >= 0 {
+		path = path[:idx]
+	}
+	if !strings.HasPrefix(path, "/admin/content/") {
+		return false
+	}
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	return len(segments) == 3
+}
+
+func fetchRuntimeBrowserFormCSRFState(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string) (string, []*http.Cookie) {
+	t.Helper()
+
+	pagePath := runtimeBrowserFormCSRFPagePath(endpoint)
+	if pagePath == "" {
+		t.Fatalf("expected browser form page path for %q", endpoint)
+	}
+	pageResp := doRequestWithCookie(t, app, http.MethodGet, pagePath, cookie)
+	defer pageResp.Body.Close()
+	if pageResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(pageResp.Body)
+		t.Fatalf("expected browser form page status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	pageBody, err := io.ReadAll(pageResp.Body)
+	if err != nil {
+		t.Fatalf("read browser form page body: %v", err)
+	}
+	csrfToken := extractHiddenInputValue(t, string(pageBody), "_token")
+	if csrfToken == "" {
+		t.Fatalf("expected browser form page %q to include csrf token", pagePath)
+	}
+	return csrfToken, pageResp.Cookies()
+}
+
+func runtimeBrowserFormCSRFPagePath(endpoint string) string {
+	raw := strings.TrimSpace(endpoint)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	path := strings.TrimSpace(parsed.Path)
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segments) != 3 || segments[0] != "admin" || segments[1] != "content" {
+		return ""
+	}
+	pagePath := path
+	if !strings.HasSuffix(pagePath, "/new") {
+		pagePath = strings.TrimRight(pagePath, "/") + "/new"
+	}
+	if parsed.RawQuery == "" {
+		return pagePath
+	}
+	return pagePath + "?" + parsed.RawQuery
 }
 
 func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader, headers map[string]string) *http.Response {

@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http/httptest"
 	"testing"
@@ -102,6 +103,43 @@ func TestDashboardPreferencesEndpointPersistsLayout(t *testing.T) {
 	reloaded := NewPreferencesService(store).DashboardOverrides(ctx, "user-1")
 	if len(reloaded.AreaRows["admin.dashboard.main"]) == 0 {
 		t.Fatalf("expected preferences to persist across sessions, got %+v", reloaded.AreaRows)
+	}
+}
+
+func TestDashboardPreferenceStoreSaveLayoutOverridesReturnsLayoutPersistenceError(t *testing.T) {
+	ctx := context.Background()
+	expectedErr := errors.New("layout persistence failed")
+	store := &failingPreferencesStore{
+		base:       NewInMemoryPreferencesStore(),
+		failLayout: true,
+		err:        expectedErr,
+	}
+	prefs := NewPreferencesService(store)
+	widgetStore := newStubWidgetStore(map[string]dashcmp.WidgetInstance{
+		"w1": {ID: "w1", DefinitionID: "admin.widget.stats", Configuration: map[string]any{"color": "blue"}},
+	})
+	preferenceStore := &dashboardPreferenceStore{prefs: prefs, store: widgetStore}
+
+	overrides := dashcmp.LayoutOverrides{
+		Locale:    "en",
+		AreaOrder: map[string][]string{"admin.dashboard.main": {"w1"}},
+		AreaRows: map[string][]dashcmp.LayoutRow{
+			"admin.dashboard.main": {
+				{Widgets: []dashcmp.WidgetSlot{{ID: "w1", Width: 12}}},
+			},
+		},
+	}
+	viewer := dashcmp.ViewerContext{UserID: "user-1", Locale: "en"}
+	if err := preferenceStore.SaveLayoutOverrides(ctx, viewer, overrides); !errors.Is(err, expectedErr) {
+		t.Fatalf("expected layout persistence error %v, got %v", expectedErr, err)
+	}
+
+	stored := prefs.DashboardOverrides(ctx, viewer.UserID)
+	if len(stored.AreaRows["admin.dashboard.main"]) != 1 {
+		t.Fatalf("expected overrides to persist before layout save failed, got %+v", stored.AreaRows)
+	}
+	if layout := prefs.DashboardLayout(ctx, viewer.UserID); len(layout) != 0 {
+		t.Fatalf("expected derived layout persistence to fail, got %+v", layout)
 	}
 }
 

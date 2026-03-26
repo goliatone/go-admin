@@ -3,7 +3,10 @@ package admin
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http/httptest"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/goliatone/go-command/registry"
@@ -19,6 +22,82 @@ func (s stubAuthorizer) Can(ctx context.Context, action string, resource string)
 	_ = action
 	_ = resource
 	return s.allow
+}
+
+type failingDashboardPreferences struct {
+	err       error
+	saveCalls int
+}
+
+func (f *failingDashboardPreferences) ForUser(string) []DashboardWidgetInstance {
+	return nil
+}
+
+func (f *failingDashboardPreferences) Save(string, []DashboardWidgetInstance) error {
+	f.saveCalls++
+	if f.err != nil {
+		return f.err
+	}
+	return errors.New("dashboard preferences save failed")
+}
+
+func (f *failingDashboardPreferences) ForUserWithContext(context.Context, string) []DashboardWidgetInstance {
+	return nil
+}
+
+func (f *failingDashboardPreferences) SaveWithContext(_ context.Context, _ string, _ []DashboardWidgetInstance) error {
+	f.saveCalls++
+	if f.err != nil {
+		return f.err
+	}
+	return errors.New("dashboard preferences save failed")
+}
+
+type failingPreferencesStore struct {
+	base          PreferencesStore
+	failLayout    bool
+	failOverrides bool
+	err           error
+}
+
+func (f *failingPreferencesStore) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
+	if f == nil || f.base == nil {
+		return PreferenceSnapshot{}, nil
+	}
+	return f.base.Resolve(ctx, input)
+}
+
+func (f *failingPreferencesStore) Upsert(ctx context.Context, input PreferencesUpsertInput) (PreferenceSnapshot, error) {
+	if f == nil {
+		return PreferenceSnapshot{}, nil
+	}
+	if f.failLayout {
+		if _, ok := input.Values[preferencesKeyDashboardLayout]; ok {
+			if f.err != nil {
+				return PreferenceSnapshot{}, f.err
+			}
+			return PreferenceSnapshot{}, errors.New("dashboard layout save failed")
+		}
+	}
+	if f.failOverrides {
+		if _, ok := input.Values[preferencesKeyDashboardPrefs]; ok {
+			if f.err != nil {
+				return PreferenceSnapshot{}, f.err
+			}
+			return PreferenceSnapshot{}, errors.New("dashboard overrides save failed")
+		}
+	}
+	if f.base == nil {
+		return PreferenceSnapshot{}, nil
+	}
+	return f.base.Upsert(ctx, input)
+}
+
+func (f *failingPreferencesStore) Delete(ctx context.Context, input PreferencesDeleteInput) error {
+	if f == nil || f.base == nil {
+		return nil
+	}
+	return f.base.Delete(ctx, input)
 }
 
 func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
@@ -224,6 +303,169 @@ func TestDashboardLateAreaRegistrationRebuildsLayoutAreas(t *testing.T) {
 	}
 	if got := widgets[0]["area"]; got != "admin.users.detail.activity" {
 		t.Fatalf("expected activity area widget, got area=%v", got)
+	}
+}
+
+func TestDashboardConcurrentResolveAndLateProviderRegistration(t *testing.T) {
+	widgetSvc := NewInMemoryWidgetService()
+	dash := NewDashboard()
+	dash.WithWidgetService(widgetSvc)
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			spec := DashboardProviderSpec{
+				Code:        "concurrent.widget." + strconv.Itoa(i),
+				Name:        "Concurrent Widget",
+				DefaultArea: "admin.dashboard.main",
+				Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+					_ = ctx
+					_ = cfg
+					return WidgetPayloadOf(struct {
+						OK bool `json:"ok"`
+					}{OK: true}), nil
+				},
+			}
+			dash.RegisterProvider(spec)
+		}(i)
+	}
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if _, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"}); err != nil {
+				t.Errorf("resolve failed: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("final resolve failed: %v", err)
+	}
+	if len(widgets) != 8 {
+		t.Fatalf("expected 8 widgets after concurrent registration, got %d", len(widgets))
+	}
+}
+
+func TestDashboardConcurrentResolveAndLateAreaRegistration(t *testing.T) {
+	widgetSvc := NewInMemoryWidgetService()
+	dash := NewDashboard()
+	dash.WithWidgetService(widgetSvc)
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			areaCode := "admin.dashboard.concurrent." + strconv.Itoa(i)
+			dash.RegisterArea(WidgetAreaDefinition{Code: areaCode, Name: areaCode})
+			dash.RegisterProvider(DashboardProviderSpec{
+				Code:        "area.widget." + strconv.Itoa(i),
+				Name:        "Area Widget",
+				DefaultArea: areaCode,
+				Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+					_ = ctx
+					_ = cfg
+					return WidgetPayloadOf(struct {
+						OK bool `json:"ok"`
+					}{OK: true}), nil
+				},
+			})
+		}(i)
+	}
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if _, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"}); err != nil {
+				t.Errorf("resolve failed: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("final resolve failed: %v", err)
+	}
+	if len(widgets) != 6 {
+		t.Fatalf("expected 6 widgets after concurrent area registration, got %d", len(widgets))
+	}
+}
+
+func TestDashboardNilReceiverSettersDoNotPanic(t *testing.T) {
+	var dash *Dashboard
+	dash.WithWidgetService(NewInMemoryWidgetService())
+	dash.WithPreferences(NewInMemoryDashboardPreferences())
+	dash.WithActivitySink(&failingActivitySink{})
+}
+
+func TestDashboardSetUserLayoutSkipsSuccessActivityOnPreferenceServiceFailure(t *testing.T) {
+	logger := &captureAdminLogger{}
+	activity := &recordingSink{}
+	dash := NewDashboard()
+	dash.WithLogger(logger)
+	dash.WithActivitySink(activity)
+	dash.prefs = nil
+	dash.WithPreferenceService(NewPreferencesService(&failingPreferencesStore{
+		base:       NewInMemoryPreferencesStore(),
+		failLayout: true,
+		err:        errors.New("preferences service down"),
+	}))
+
+	dash.SetUserLayoutWithContext(AdminContext{
+		Context: context.Background(),
+		UserID:  "dash-user",
+	}, []DashboardWidgetInstance{
+		{DefinitionCode: WidgetActivityFeed, AreaCode: "admin.dashboard.main"},
+	})
+
+	if len(activity.entries) != 0 {
+		t.Fatalf("expected no success activity when preference service persistence fails, got %+v", activity.entries)
+	}
+	if got := logger.count("warn", "failed to persist dashboard layout"); got != 1 {
+		t.Fatalf("expected one persistence warning, got %d", got)
+	}
+}
+
+func TestDashboardSetUserLayoutSkipsSuccessActivityOnPreferenceStoreFailure(t *testing.T) {
+	logger := &captureAdminLogger{}
+	activity := &recordingSink{}
+	prefs := &failingDashboardPreferences{err: errors.New("dashboard preferences down")}
+	dash := NewDashboard()
+	dash.WithLogger(logger)
+	dash.WithActivitySink(activity)
+	dash.prefService = nil
+	dash.WithPreferences(prefs)
+
+	dash.SetUserLayoutWithContext(AdminContext{
+		Context: context.Background(),
+		UserID:  "dash-user",
+	}, []DashboardWidgetInstance{
+		{DefinitionCode: WidgetActivityFeed, AreaCode: "admin.dashboard.main"},
+	})
+
+	if prefs.saveCalls != 1 {
+		t.Fatalf("expected one dashboard preferences save attempt, got %d", prefs.saveCalls)
+	}
+	if len(activity.entries) != 0 {
+		t.Fatalf("expected no success activity when dashboard preferences persistence fails, got %+v", activity.entries)
+	}
+	if got := logger.count("warn", "failed to persist dashboard layout"); got != 1 {
+		t.Fatalf("expected one persistence warning, got %d", got)
 	}
 }
 
