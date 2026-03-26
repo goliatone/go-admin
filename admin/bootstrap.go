@@ -69,7 +69,6 @@ func (a *Admin) runInitHooks() error {
 	if a == nil || a.initHooksRun {
 		return nil
 	}
-	a.initHooksRun = true
 	for _, hook := range a.initHooks {
 		if hook == nil {
 			continue
@@ -78,6 +77,7 @@ func (a *Admin) runInitHooks() error {
 			return err
 		}
 	}
+	a.initHooksRun = true
 	return nil
 }
 
