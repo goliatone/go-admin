@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"expvar"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -50,10 +49,10 @@ func recordTranslationAPIOperation(ctx context.Context, observation translationA
 		"request_id": strings.TrimSpace(observation.RequestID),
 		"trace_id":   strings.TrimSpace(observation.TraceID),
 	}
-	level := slog.LevelInfo
+	levelWarn := false
 	if observation.Err != nil {
 		tags["outcome"] = "error"
-		level = slog.LevelWarn
+		levelWarn = true
 	}
 	if translationAPIObservabilityMetrics != nil {
 		translationAPIObservabilityMetrics.Add(translationMetricTagsKey(tags), 1)
@@ -72,9 +71,10 @@ func recordTranslationAPIOperation(ctx context.Context, observation translationA
 	if observation.Err != nil {
 		attrs = append(attrs, "error", observation.Err.Error())
 	}
-	if level >= slog.LevelWarn {
-		translationObservabilityLogger.WarnContext(ctx, "translation api operation", attrs...)
+	logger := translationObservabilityContextLogger(ctx)
+	if levelWarn {
+		logger.Warn("translation api operation", attrs...)
 		return
 	}
-	translationObservabilityLogger.InfoContext(ctx, "translation api operation", attrs...)
+	logger.Info("translation api operation", attrs...)
 }
