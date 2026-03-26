@@ -1,15 +1,15 @@
 import { r as u } from "../chunks/icon-renderer-FL11lsYV.js";
 import { escapeHTML as o } from "../shared/html.js";
-import { C as at } from "../chunks/modal-8-n6PAK8.js";
-import { c as ft, m as bt, g as yt } from "../chunks/command-runtime-DiUPApH6.js";
-import { C as He, a as Oe, f as Be, h as ze, b as Ve, i as We, d as Ge, n as Je, p as Qe, e as Ke } from "../chunks/command-runtime-DiUPApH6.js";
-class q extends Error {
+import { C as ft } from "../chunks/modal-8-n6PAK8.js";
+import { c as Ct, m as Lt, g as kt } from "../chunks/command-runtime-DiUPApH6.js";
+import { C as Ze, a as Xe, f as ts, h as es, b as ss, i as is, d as rs, n as ns, p as as, e as os } from "../chunks/command-runtime-DiUPApH6.js";
+class I extends Error {
   constructor(t, e, s, i) {
     super(t), this.name = "ServicesAPIError", this.code = e, this.statusCode = s, this.details = i;
   }
   static fromResponse(t, e) {
     const s = e.message || e.error || "Unknown error", i = e.text_code || "UNKNOWN_ERROR";
-    return new q(s, i, t, e.details);
+    return new I(s, i, t, e.details);
   }
   get isForbidden() {
     return this.statusCode === 403 || this.code === "FORBIDDEN";
@@ -24,7 +24,7 @@ class q extends Error {
     return this.statusCode === 409 || this.code === "CONFLICT";
   }
 }
-const S = {
+const _ = {
   VIEW: "admin.services.view",
   CONNECT: "admin.services.connect",
   EDIT: "admin.services.edit",
@@ -32,18 +32,18 @@ const S = {
   RECONSENT: "admin.services.reconsent",
   ACTIVITY_VIEW: "admin.services.activity.view",
   WEBHOOKS: "admin.services.webhooks"
-}, mt = {
+}, Tt = {
   basePath: "/admin/api/services",
   timeout: 3e4,
   headers: {}
 };
-function xt() {
+function Et() {
   return (typeof globalThis < "u" ? globalThis.location : void 0)?.origin || "http://localhost";
 }
-class ot {
+class bt {
   constructor(t = {}) {
     this.abortControllers = /* @__PURE__ */ new Map(), this.config = {
-      ...mt,
+      ...Tt,
       ...t
     };
   }
@@ -543,8 +543,8 @@ class ot {
     e && (e.abort(), this.abortControllers.delete(t));
   }
   async get(t, e = {}, s) {
-    const i = this.buildUrl(t, e), r = new AbortController(), n = () => r.abort();
-    s && (s.aborted ? r.abort() : s.addEventListener("abort", n, { once: !0 })), this.abortControllers.set(t, r);
+    const i = this.buildUrl(t, e), r = new AbortController(), a = () => r.abort();
+    s && (s.aborted ? r.abort() : s.addEventListener("abort", a, { once: !0 })), this.abortControllers.set(t, r);
     try {
       const l = await this.fetchWithTimeout(i, {
         method: "GET",
@@ -556,12 +556,12 @@ class ot {
       }, t);
       return this.handleResponse(l);
     } finally {
-      s && s.removeEventListener("abort", n), this.abortControllers.delete(t);
+      s && s.removeEventListener("abort", a), this.abortControllers.delete(t);
     }
   }
   async post(t, e, s, i) {
-    const r = this.buildUrl(t), n = new AbortController();
-    this.abortControllers.set(t, n);
+    const r = this.buildUrl(t), a = new AbortController();
+    this.abortControllers.set(t, a);
     const l = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -574,7 +574,7 @@ class ot {
         method: "POST",
         headers: l,
         body: JSON.stringify(e),
-        signal: n.signal
+        signal: a.signal
       }, t);
       return this.handleResponse(d);
     } finally {
@@ -582,9 +582,9 @@ class ot {
     }
   }
   buildUrl(t, e = {}) {
-    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, xt());
-    for (const [r, n] of Object.entries(e))
-      n != null && n !== "" && i.searchParams.set(r, String(n));
+    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, Et());
+    for (const [r, a] of Object.entries(e))
+      a != null && a !== "" && i.searchParams.set(r, String(a));
     return i.toString();
   }
   async fetchWithTimeout(t, e, s) {
@@ -609,7 +609,7 @@ class ot {
       } catch {
         e = { error: t.statusText };
       }
-      const s = q.fromResponse(t.status, e);
+      const s = I.fromResponse(t.status, e);
       throw this.config.onError?.(s), s;
     }
     return t.json();
@@ -625,33 +625,33 @@ class ot {
     return t.page !== void 0 && t.per_page !== void 0 ? (e.offset = (t.page - 1) * t.per_page, e.limit = t.per_page, delete e.page, delete e.per_page) : t.per_page !== void 0 && (e.limit = t.per_page, delete e.per_page), e;
   }
 }
-let P = null;
-function C() {
-  return P || (P = new ot()), P;
+let j = null;
+function E() {
+  return j || (j = new bt()), j;
 }
-function Jt(a) {
-  P = a;
+function ne(n) {
+  j = n;
 }
-function Qt(a = {}) {
-  return new ot(a);
+function ae(n = {}) {
+  return new bt(n);
 }
-const vt = {
+const qt = {
   defaultPage: 1,
   defaultPerPage: 25,
   searchDelay: 300,
   useReplaceState: !1
 };
-function z() {
+function Z() {
   if (typeof window < "u")
     return window;
 }
-function Y() {
+function at() {
   return typeof globalThis > "u" ? void 0 : globalThis.localStorage;
 }
-class M {
+class O {
   constructor(t = {}) {
     this.searchTimeout = null, this.initialized = !1, this.config = {
-      ...vt,
+      ...qt,
       ...t.config
     }, this.filterFields = new Set(t.filterFields || []), this.dateFields = new Set(t.dateFields || []), this.storageKey = t.storageKey || null, this.state = {
       page: this.config.defaultPage,
@@ -800,7 +800,7 @@ class M {
   // Private Methods
   // ---------------------------------------------------------------------------
   restoreFromURL() {
-    const t = z();
+    const t = Z();
     if (!t?.location)
       return;
     const e = new URLSearchParams(t.location.search), s = e.get("page");
@@ -815,8 +815,8 @@ class M {
     }
     const r = e.get("q") || e.get("search");
     r && (this.state.search = r);
-    const n = e.get("sort_field"), l = e.get("sort_order");
-    n && (this.state.sort_field = n, this.state.sort_order = l === "desc" ? "desc" : "asc");
+    const a = e.get("sort_field"), l = e.get("sort_order");
+    a && (this.state.sort_field = a, this.state.sort_order = l === "desc" ? "desc" : "asc");
     for (const c of this.filterFields) {
       const d = e.get(String(c));
       d !== null && (this.dateFields.has(c) ? this.state.filters[c] = this.toLocalInput(d) : this.state.filters[c] = d);
@@ -824,7 +824,7 @@ class M {
   }
   restoreFromStorage() {
     if (!this.storageKey) return;
-    const t = Y(), e = z();
+    const t = at(), e = Z();
     if (t)
       try {
         const s = t.getItem(this.storageKey);
@@ -838,7 +838,7 @@ class M {
   }
   saveToStorage() {
     if (!this.storageKey) return;
-    const t = Y();
+    const t = at();
     if (t)
       try {
         t.setItem(
@@ -850,7 +850,7 @@ class M {
       }
   }
   syncToURL() {
-    const t = z();
+    const t = Z();
     if (!t?.location || !t.history)
       return;
     const e = new URLSearchParams();
@@ -858,8 +858,8 @@ class M {
     for (const [i, r] of Object.entries(this.state.filters))
       if (r != null && r !== "")
         if (this.dateFields.has(i)) {
-          const n = this.toRFC3339(r);
-          n && e.set(i, n);
+          const a = this.toRFC3339(r);
+          a && e.set(i, a);
         } else
           e.set(i, r);
     const s = e.toString() ? `${t.location.pathname}?${e.toString()}` : t.location.pathname;
@@ -881,38 +881,38 @@ class M {
     return new Date(e.getTime() - s).toISOString().slice(0, 16);
   }
 }
-function Kt(a, t) {
+function oe(n, t) {
   let e = null;
   return Object.assign((...r) => {
     e && clearTimeout(e), e = setTimeout(() => {
-      a(...r), e = null;
+      n(...r), e = null;
     }, t);
   }, { cancel: () => {
     e && (clearTimeout(e), e = null);
   } });
 }
-function Yt(a, t) {
-  if (!("filters" in a)) {
-    const n = a, l = new URLSearchParams();
-    for (const [c, d] of Object.entries(n))
+function ce(n, t) {
+  if (!("filters" in n)) {
+    const a = n, l = new URLSearchParams();
+    for (const [c, d] of Object.entries(a))
       d != null && d !== "" && l.set(c, String(d));
     return l;
   }
-  const e = a, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
+  const e = n, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
   i && (e.page > 1 || r) && s.set("page", String(e.page)), (e.per_page !== 25 || r) && s.set("per_page", String(e.per_page)), e.search && s.set("q", e.search), e.sort_field && (s.set("sort_field", e.sort_field), e.sort_order && s.set("sort_order", e.sort_order));
-  for (const [n, l] of Object.entries(e.filters))
-    l != null && l !== "" && s.set(n, l);
+  for (const [a, l] of Object.entries(e.filters))
+    l != null && l !== "" && s.set(a, l);
   return s;
 }
-function Zt(a, t, e) {
+function le(n, t, e) {
   if (!e) {
     const c = {};
     for (const d of t) {
-      const p = a.get(String(d));
+      const p = n.get(String(d));
       p !== null && (c[String(d)] = p);
     }
     for (const d of ["page", "per_page", "q", "search", "sort_field", "sort_order"]) {
-      const p = a.get(d);
+      const p = n.get(d);
       p !== null && (c[d] = p);
     }
     return c;
@@ -923,27 +923,27 @@ function Zt(a, t, e) {
     search: e?.search ?? "",
     filters: {},
     ...e
-  }, i = a.get("page");
+  }, i = n.get("page");
   if (i) {
     const c = parseInt(i, 10);
     Number.isNaN(c) || (s.page = Math.max(1, c));
   }
-  const r = a.get("per_page");
+  const r = n.get("per_page");
   if (r) {
     const c = parseInt(r, 10);
     Number.isNaN(c) || (s.per_page = Math.max(1, c));
   }
-  const n = a.get("q") || a.get("search");
-  n && (s.search = n);
-  const l = a.get("sort_field");
-  l && (s.sort_field = l, s.sort_order = a.get("sort_order") === "desc" ? "desc" : "asc");
+  const a = n.get("q") || n.get("search");
+  a && (s.search = a);
+  const l = n.get("sort_field");
+  l && (s.sort_field = l, s.sort_order = n.get("sort_order") === "desc" ? "desc" : "asc");
   for (const c of t) {
-    const d = a.get(String(c));
+    const d = n.get(String(c));
     d !== null && (s.filters[c] = d);
   }
   return s;
 }
-class F {
+class B {
   constructor() {
     this.state = {
       granted: /* @__PURE__ */ new Set(),
@@ -1073,98 +1073,98 @@ class F {
     this.listeners.forEach((e) => e(t));
   }
 }
-let V = null;
-function w() {
-  return V || (V = new F()), V;
+let X = null;
+function C() {
+  return X || (X = new B()), X;
 }
-function Xt(a) {
-  w().init(a);
+function de(n) {
+  C().init(n);
 }
-function L(a, t) {
+function q(n, t) {
   return (e) => {
-    const s = e instanceof F ? e : t || w(), i = Array.isArray(a) ? a : [a];
+    const s = e instanceof B ? e : t || C(), i = Array.isArray(n) ? n : [n];
     return () => s.hasAll(i);
   };
 }
-function te(a, t) {
+function ue(n, t) {
   return (e) => {
-    const s = e instanceof F ? e : t || w();
-    return () => s.hasAll(a);
+    const s = e instanceof B ? e : t || C();
+    return () => s.hasAll(n);
   };
 }
-function ee(a, t) {
+function he(n, t) {
   return (e) => {
-    const s = e instanceof F ? e : t || w();
-    return () => s.hasAny(a);
+    const s = e instanceof B ? e : t || C();
+    return () => s.hasAny(n);
   };
 }
-function se(...a) {
-  const t = a.flatMap((e) => Array.isArray(e) ? e : [e]);
+function pe(...n) {
+  const t = n.flatMap((e) => Array.isArray(e) ? e : [e]);
   return (e) => () => t.every((s) => s(e)());
 }
-function E(a) {
-  return L(S.VIEW, a)();
+function F(n) {
+  return q(_.VIEW, n)();
 }
-function _(a) {
-  return L(S.CONNECT, a)();
+function k(n) {
+  return q(_.CONNECT, n)();
 }
-function k(a) {
-  return L(S.EDIT, a)();
+function A(n) {
+  return q(_.EDIT, n)();
 }
-function K(a) {
-  return L(S.REVOKE, a)();
+function rt(n) {
+  return q(_.REVOKE, n)();
 }
-function ct(a) {
-  return L(S.RECONSENT, a)();
+function yt(n) {
+  return q(_.RECONSENT, n)();
 }
-function St(a) {
-  return L(S.ACTIVITY_VIEW, a)();
+function At(n) {
+  return q(_.ACTIVITY_VIEW, n)();
 }
-function wt(a) {
-  if (a instanceof q)
-    return a.isForbidden;
-  if (!a || typeof a != "object")
+function Rt(n) {
+  if (n instanceof I)
+    return n.isForbidden;
+  if (!n || typeof n != "object")
     return !1;
-  const t = a;
+  const t = n;
   return t.isForbidden === !0 || t.statusCode === 403 || t.code === "FORBIDDEN";
 }
-function ie(a, t) {
-  return wt(a) ? (t(a), !0) : !1;
+function ge(n, t) {
+  return Rt(n) ? (t(n), !0) : !1;
 }
-function re(a, t, e, s) {
-  const i = s || w();
+function fe(n, t, e, s) {
+  const i = s || C();
   return async () => {
-    if (!i.has(a)) {
+    if (!i.has(n)) {
       e?.();
       return;
     }
     return t();
   };
 }
-function W(a, t, e) {
-  const s = e || w(), { requires: i = [], requiresAny: r = [], onDenied: n, disableOnDenied: l } = t;
+function tt(n, t, e) {
+  const s = e || C(), { requires: i = [], requiresAny: r = [], onDenied: a, disableOnDenied: l } = t;
   let c = !0, d = [];
-  i.length > 0 ? (d = s.getMissing(i), c = d.length === 0) : r.length > 0 && (c = s.hasAny(r), c || (d = r)), c || (l ? ((a instanceof HTMLButtonElement || a instanceof HTMLInputElement) && (a.disabled = !0), a.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), a.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (a.style.display = "none", a.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? a.outerHTML = t.deniedContent : a.replaceWith(t.deniedContent)), n?.(d));
+  i.length > 0 ? (d = s.getMissing(i), c = d.length === 0) : r.length > 0 && (c = s.hasAny(r), c || (d = r)), c || (l ? ((n instanceof HTMLButtonElement || n instanceof HTMLInputElement) && (n.disabled = !0), n.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), n.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (n.style.display = "none", n.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? n.outerHTML = t.deniedContent : n.replaceWith(t.deniedContent)), a?.(d));
 }
-function ne(a = document.body, t) {
-  a.querySelectorAll("[data-permission-requires]").forEach((r) => {
-    const n = r.dataset.permissionRequires?.split(",").map((l) => l.trim());
-    n && n.length > 0 && W(r, { requires: n }, t);
-  }), a.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
-    const n = r.dataset.permissionRequiresAny?.split(",").map((l) => l.trim());
-    n && n.length > 0 && W(r, { requiresAny: n }, t);
-  }), a.querySelectorAll("[data-permission-disable]").forEach((r) => {
-    const n = r.dataset.permissionDisable?.split(",").map((l) => l.trim());
-    n && n.length > 0 && W(r, { requires: n, disableOnDenied: !0 }, t);
+function be(n = document.body, t) {
+  n.querySelectorAll("[data-permission-requires]").forEach((r) => {
+    const a = r.dataset.permissionRequires?.split(",").map((l) => l.trim());
+    a && a.length > 0 && tt(r, { requires: a }, t);
+  }), n.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
+    const a = r.dataset.permissionRequiresAny?.split(",").map((l) => l.trim());
+    a && a.length > 0 && tt(r, { requiresAny: a }, t);
+  }), n.querySelectorAll("[data-permission-disable]").forEach((r) => {
+    const a = r.dataset.permissionDisable?.split(",").map((l) => l.trim());
+    a && a.length > 0 && tt(r, { requires: a, disableOnDenied: !0 }, t);
   });
 }
-function $t() {
+function Pt() {
   if (typeof window > "u" || typeof document > "u")
     return [];
-  const a = window.__permissions;
-  if (Array.isArray(a))
-    return a.filter(
-      (e) => Object.values(S).includes(e)
+  const n = window.__permissions;
+  if (Array.isArray(n))
+    return n.filter(
+      (e) => Object.values(_).includes(e)
     );
   const t = document.body.dataset.permissions;
   if (t)
@@ -1172,17 +1172,17 @@ function $t() {
       const e = JSON.parse(t);
       if (Array.isArray(e))
         return e.filter(
-          (s) => Object.values(S).includes(s)
+          (s) => Object.values(_).includes(s)
         );
     } catch {
     }
   return [];
 }
-function ae() {
-  const a = $t(), t = w();
-  return t.init(a), t;
+function ye() {
+  const n = Pt(), t = C();
+  return t.init(n), t;
 }
-const lt = {
+const mt = {
   providers: {
     icon: "iconoir:plug",
     title: "No providers available",
@@ -1219,8 +1219,8 @@ const lt = {
     message: "Nothing to display."
   }
 };
-function N(a = {}) {
-  const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = a, r = {
+function z(n = {}) {
+  const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = n, r = {
     sm: { spinner: "h-4 w-4", text: "text-xs", py: "py-4" },
     md: { spinner: "h-5 w-5", text: "text-sm", py: "py-8" },
     lg: { spinner: "h-8 w-8", text: "text-base", py: "py-16" }
@@ -1237,17 +1237,17 @@ function N(a = {}) {
     </div>
   `;
 }
-function dt(a = {}) {
-  const t = lt[a.type || "generic"], {
+function xt(n = {}) {
+  const t = mt[n.type || "generic"], {
     icon: e = t.icon,
     iconClass: s = "text-gray-400",
     title: i = t.title,
     message: r = t.message,
-    containerClass: n = "",
+    containerClass: a = "",
     action: l
-  } = a;
+  } = n;
   return `
-    <div class="ui-state ui-state-empty flex items-center justify-center py-12 ${n}" role="status" aria-label="Empty">
+    <div class="ui-state ui-state-empty flex items-center justify-center py-12 ${a}" role="status" aria-label="Empty">
       <div class="flex flex-col items-center gap-4 text-center max-w-sm">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
           ${u(e, { size: "24px", extraClass: s })}
@@ -1256,24 +1256,24 @@ function dt(a = {}) {
           <h3 class="text-lg font-medium text-gray-900">${o(i)}</h3>
           <p class="text-sm text-gray-500 mt-1">${o(r)}</p>
         </div>
-        ${l ? ht(l) : ""}
+        ${l ? St(l) : ""}
       </div>
     </div>
   `;
 }
-function ut(a = {}) {
+function vt(n = {}) {
   const {
     icon: t = "iconoir:search",
     iconClass: e = "text-gray-400",
     title: s = "No results found",
     query: i,
     filterCount: r = 0,
-    containerClass: n = "",
+    containerClass: a = "",
     onReset: l
-  } = a;
-  let c = a.message;
+  } = n;
+  let c = n.message;
   return c || (i && r > 0 ? c = `No items match "${i}" with ${r} filter${r > 1 ? "s" : ""} applied.` : i ? c = `No items match "${i}".` : r > 0 ? c = `No items match the ${r} filter${r > 1 ? "s" : ""} applied.` : c = "Try adjusting your search or filters."), `
-    <div class="ui-state ui-state-no-results flex items-center justify-center py-12 ${n}" role="status" aria-label="No results">
+    <div class="ui-state ui-state-no-results flex items-center justify-center py-12 ${a}" role="status" aria-label="No results">
       <div class="flex flex-col items-center gap-4 text-center max-w-sm">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
           ${u(t, { size: "24px", extraClass: e })}
@@ -1291,19 +1291,19 @@ function ut(a = {}) {
     </div>
   `;
 }
-function j(a = {}) {
+function V(n = {}) {
   const {
     icon: t = "iconoir:warning-triangle",
     iconClass: e = "text-red-500",
     title: s = "Something went wrong",
     error: i,
     compact: r = !1,
-    containerClass: n = "",
+    containerClass: a = "",
     showRetry: l = !0,
     retryText: c = "Try again"
-  } = a, d = a.message || i?.message || "An unexpected error occurred. Please try again.";
+  } = n, d = n.message || i?.message || "An unexpected error occurred. Please try again.";
   return r ? `
-      <div class="ui-state ui-state-error ui-state-error-compact p-4 ${n}" role="alert">
+      <div class="ui-state ui-state-error ui-state-error-compact p-4 ${a}" role="alert">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 text-red-500" aria-hidden="true">
             ${u(t, { size: "20px", extraClass: e })}
@@ -1320,7 +1320,7 @@ function j(a = {}) {
         </div>
       </div>
     ` : `
-    <div class="ui-state ui-state-error flex items-center justify-center py-16 ${n}" role="alert">
+    <div class="ui-state ui-state-error flex items-center justify-center py-16 ${a}" role="alert">
       <div class="flex flex-col items-center gap-4 text-center max-w-md">
         <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
           ${u(t, { size: "24px", extraClass: e })}
@@ -1338,19 +1338,19 @@ function j(a = {}) {
     </div>
   `;
 }
-function $(a = {}) {
+function L(n = {}) {
   const {
     icon: t = "iconoir:lock",
     iconClass: e = "text-amber-500",
     title: s = "Access Denied",
     resource: i,
     permission: r,
-    containerClass: n = "",
+    containerClass: a = "",
     action: l
-  } = a;
-  let c = a.message;
+  } = n;
+  let c = n.message;
   return c || (i && r ? c = `You need the "${r}" permission to view ${i}.` : i ? c = `You don't have permission to view ${i}.` : c = "You don't have permission to access this resource."), `
-    <div class="ui-state ui-state-forbidden flex items-center justify-center py-16 ${n}" role="alert" aria-label="Access denied">
+    <div class="ui-state ui-state-forbidden flex items-center justify-center py-16 ${a}" role="alert" aria-label="Access denied">
       <div class="flex flex-col items-center gap-4 text-center max-w-md">
         <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center" aria-hidden="true">
           ${u(t, { size: "24px", extraClass: e })}
@@ -1359,16 +1359,16 @@ function $(a = {}) {
           <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
           <p class="text-sm text-gray-500 mt-1">${o(c)}</p>
         </div>
-        ${l ? ht(l) : ""}
+        ${l ? St(l) : ""}
       </div>
     </div>
   `;
 }
-function D(a, t = {}) {
+function W(n, t = {}) {
   const { text: e = "Loading...", containerClass: s = "" } = t;
   return `
     <tr class="ui-state ui-state-table-loading ${s}">
-      <td colspan="${a}" class="px-4 py-12 text-center">
+      <td colspan="${n}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center gap-2 text-gray-500" aria-busy="true">
           <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1380,19 +1380,19 @@ function D(a, t = {}) {
     </tr>
   `;
 }
-function U(a, t = {}) {
+function G(n, t = {}) {
   const {
     icon: e = "iconoir:warning-triangle",
     iconClass: s = "text-red-500",
     title: i = "Failed to load data",
     error: r,
-    containerClass: n = "",
+    containerClass: a = "",
     showRetry: l = !0,
     retryText: c = "Try again"
   } = t, d = t.message || r?.message || "An error occurred while loading.";
   return `
-    <tr class="ui-state ui-state-table-error ${n}">
-      <td colspan="${a}" class="px-4 py-12 text-center">
+    <tr class="ui-state ui-state-table-error ${a}">
+      <td colspan="${n}" class="px-4 py-12 text-center">
         <div class="text-red-500 mb-2" aria-hidden="true">
           ${u(e, { size: "24px", extraClass: s })}
         </div>
@@ -1407,40 +1407,40 @@ function U(a, t = {}) {
     </tr>
   `;
 }
-function oe(a, t = {}) {
-  const e = lt[t.type || "generic"], {
+function me(n, t = {}) {
+  const e = mt[t.type || "generic"], {
     icon: s = e.icon,
     iconClass: i = "text-gray-400",
     title: r = e.title,
-    message: n = e.message,
+    message: a = e.message,
     containerClass: l = ""
   } = t;
   return `
     <tr class="ui-state ui-state-table-empty ${l}">
-      <td colspan="${a}" class="px-4 py-12 text-center">
+      <td colspan="${n}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
           ${u(s, { size: "24px", extraClass: i })}
         </div>
         <h3 class="text-lg font-medium text-gray-900">${o(r)}</h3>
-        <p class="text-sm text-gray-500 mt-1">${o(n)}</p>
+        <p class="text-sm text-gray-500 mt-1">${o(a)}</p>
       </td>
     </tr>
   `;
 }
-function T(a, t = {}) {
+function R(n, t = {}) {
   const {
     icon: e = "iconoir:search",
     iconClass: s = "text-gray-400",
     title: i = "No results found",
     query: r,
-    filterCount: n = 0,
+    filterCount: a = 0,
     containerClass: l = "",
     onReset: c
   } = t;
   let d = t.message;
-  return d || (r && n > 0 ? d = `No items match "${r}" with ${n} filter${n > 1 ? "s" : ""} applied.` : r ? d = `No items match "${r}".` : n > 0 ? d = `No items match the ${n} filter${n > 1 ? "s" : ""} applied.` : d = "Try adjusting your search or filters."), `
+  return d || (r && a > 0 ? d = `No items match "${r}" with ${a} filter${a > 1 ? "s" : ""} applied.` : r ? d = `No items match "${r}".` : a > 0 ? d = `No items match the ${a} filter${a > 1 ? "s" : ""} applied.` : d = "Try adjusting your search or filters."), `
     <tr class="ui-state ui-state-table-no-results ${l}">
-      <td colspan="${a}" class="px-4 py-12 text-center">
+      <td colspan="${n}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
           ${u(e, { size: "24px", extraClass: s })}
         </div>
@@ -1455,7 +1455,7 @@ function T(a, t = {}) {
     </tr>
   `;
 }
-class ce {
+class xe {
   constructor(t) {
     this.currentState = "loading", this.container = t.container, this.config = t;
   }
@@ -1463,13 +1463,13 @@ class ce {
    * Show loading state
    */
   showLoading(t) {
-    this.currentState = "loading", this.container.innerHTML = N(t);
+    this.currentState = "loading", this.container.innerHTML = z(t);
   }
   /**
    * Show empty state (no data)
    */
   showEmpty(t) {
-    this.currentState = "empty", this.container.innerHTML = dt(t);
+    this.currentState = "empty", this.container.innerHTML = xt(t);
   }
   /**
    * Show no-results state (filters returned nothing)
@@ -1477,7 +1477,7 @@ class ce {
   showNoResults(t) {
     this.currentState = "no-results";
     const e = { ...t, onReset: t?.onReset || this.config.onReset };
-    this.container.innerHTML = ut(e), this.bindResetHandler();
+    this.container.innerHTML = vt(e), this.bindResetHandler();
   }
   /**
    * Show error state
@@ -1485,13 +1485,13 @@ class ce {
   showError(t) {
     this.currentState = "error";
     const e = { ...t, onRetry: t?.onRetry || this.config.onRetry };
-    this.container.innerHTML = j(e), this.bindRetryHandler();
+    this.container.innerHTML = V(e), this.bindRetryHandler();
   }
   /**
    * Show forbidden state
    */
   showForbidden(t) {
-    this.currentState = "forbidden", this.container.innerHTML = $(t);
+    this.currentState = "forbidden", this.container.innerHTML = L(t);
   }
   /**
    * Show content (clears any state and allows content rendering)
@@ -1528,18 +1528,18 @@ class ce {
     });
   }
 }
-function ht(a) {
+function St(n) {
   return `
     <button type="button" class="ui-state-action-btn px-4 py-2 text-sm font-medium rounded-lg focus:ring-2 focus:ring-offset-2 transition-colors ${{
     primary: "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
     secondary: "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500",
     danger: "text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
-  }[a.variant || "primary"]}">
-      ${o(a.text)}
+  }[n.variant || "primary"]}">
+      ${o(n.text)}
     </button>
   `;
 }
-class _t {
+class It {
   constructor(t) {
     this.state = "idle", this.feedbackTimeout = null, this.button = t.button, this.originalHTML = this.button.innerHTML, this.originalDisabled = this.button.disabled, this.config = {
       loadingText: t.loadingText ?? "Processing...",
@@ -1597,18 +1597,18 @@ class _t {
     this.feedbackTimeout && (clearTimeout(this.feedbackTimeout), this.feedbackTimeout = null);
   }
 }
-async function x(a) {
+async function S(n) {
   const {
     mutation: t,
     notifier: e,
     successMessage: s,
     errorMessagePrefix: i = "Operation failed",
     buttonConfig: r,
-    onSuccess: n,
+    onSuccess: a,
     onError: l,
     showInlineRetry: c = !1,
     retryContainer: d
-  } = a, p = r ? new _t(r) : null;
+  } = n, p = r ? new It(r) : null;
   try {
     p?.setLoading();
     const h = await t();
@@ -1616,36 +1616,36 @@ async function x(a) {
       const g = typeof s == "function" ? s(h) : s;
       e.success(g);
     }
-    return d && Q(d), await n?.(h), { success: !0, result: h };
+    return d && it(d), await a?.(h), { success: !0, result: h };
   } catch (h) {
     const g = h instanceof Error ? h : new Error(String(h));
-    return p?.setError(), e && e.error(`${i}: ${g.message}`), c && d && Ct({
+    return p?.setError(), e && e.error(`${i}: ${g.message}`), c && d && Ft({
       container: d,
-      action: () => x(a).then(() => {
+      action: () => S(n).then(() => {
       }),
       errorMessage: `${i}: ${g.message}`,
-      onDismiss: () => Q(d)
+      onDismiss: () => it(d)
     }), l?.(g), { success: !1, error: g };
   }
 }
-async function le(a) {
-  const { confirmMessage: t, confirmOptions: e, ...s } = a;
-  return await at.confirm(t, {
+async function ve(n) {
+  const { confirmMessage: t, confirmOptions: e, ...s } = n;
+  return await ft.confirm(t, {
     title: e?.title ?? "Confirm Action",
     confirmText: e?.confirmText ?? "Confirm",
     cancelText: e?.cancelText ?? "Cancel",
     confirmVariant: e?.variant ?? "primary"
-  }) ? { ...await x(s), cancelled: !1 } : { success: !1, cancelled: !0 };
+  }) ? { ...await S(s), cancelled: !1 } : { success: !1, cancelled: !0 };
 }
-function Ct(a) {
+function Ft(n) {
   const {
     container: t,
     action: e,
     errorMessage: s,
     retryText: i = "Retry",
     dismissText: r = "Dismiss",
-    onDismiss: n
-  } = a;
+    onDismiss: a
+  } = n;
   t.innerHTML = `
     <div class="mutation-retry-ui flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
       <div class="flex-shrink-0 text-red-500" aria-hidden="true">
@@ -1682,26 +1682,26 @@ function Ct(a) {
       d.disabled = !1, d.textContent = p;
     }
   }), c?.addEventListener("click", () => {
-    Q(t), n?.();
+    it(t), a?.();
   });
 }
-function Q(a) {
-  a.querySelector(".mutation-retry-ui")?.remove();
+function it(n) {
+  n.querySelector(".mutation-retry-ui")?.remove();
 }
-function Lt(a) {
-  const { action: t, resourceType: e, resourceName: s, additionalContext: i } = a, r = {
+function Mt(n) {
+  const { action: t, resourceType: e, resourceName: s, additionalContext: i } = n, r = {
     revoke: { verb: "revoke", noun: "Revoke", variant: "danger" },
     disconnect: { verb: "disconnect", noun: "Disconnect", variant: "danger" },
     uninstall: { verb: "uninstall", noun: "Uninstall", variant: "danger" },
     cancel: { verb: "cancel", noun: "Cancel", variant: "danger" },
     delete: { verb: "delete", noun: "Delete", variant: "danger" },
     refresh: { verb: "refresh", noun: "Refresh", variant: "primary" }
-  }, n = {
+  }, a = {
     connection: "connection",
     installation: "installation",
     subscription: "subscription",
     sync: "sync job"
-  }, l = r[t] || { verb: t, noun: t, variant: "primary" }, c = n[e] || e;
+  }, l = r[t] || { verb: t, noun: t, variant: "primary" }, c = a[e] || e;
   let d = `Are you sure you want to ${l.verb} this ${c}`;
   return s && (d += ` (${s})`), d += "?", i && (d += ` ${i}`), l.variant === "danger" && (d += " This action cannot be undone."), {
     message: d,
@@ -1713,11 +1713,11 @@ function Lt(a) {
     }
   };
 }
-async function H(a) {
-  const { message: t, options: e } = Lt(a);
-  return at.confirm(t, e);
+async function Q(n) {
+  const { message: t, options: e } = Mt(n);
+  return ft.confirm(t, e);
 }
-class O {
+class J {
   constructor() {
     this.inFlight = /* @__PURE__ */ new Set();
   }
@@ -1748,7 +1748,7 @@ class O {
     this.inFlight.clear();
   }
 }
-const R = {
+const M = {
   // Connection lifecycle
   connected: {
     action: "connected",
@@ -1945,9 +1945,9 @@ const R = {
     category: "errors"
   }
 };
-class kt {
+class Nt {
   constructor() {
-    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = Z;
+    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = ot;
   }
   /**
    * Initialize the registry with backend-provided labels.
@@ -1968,14 +1968,14 @@ class kt {
   getLabel(t) {
     if (this.backendLabels[t])
       return this.backendLabels[t];
-    const e = R[t];
+    const e = M[t];
     return e ? e.label : this.fallbackFormatter(t);
   }
   /**
    * Get full entry information for an action (includes description, category).
    */
   getEntry(t) {
-    const e = R[t];
+    const e = M[t];
     return e ? {
       ...e,
       label: this.backendLabels[t] || e.label
@@ -1986,7 +1986,7 @@ class kt {
    */
   getAllLabels() {
     const t = {};
-    for (const [e, s] of Object.entries(R))
+    for (const [e, s] of Object.entries(M))
       t[e] = s.label;
     for (const [e, s] of Object.entries(this.backendLabels))
       t[e] = s;
@@ -1997,7 +1997,7 @@ class kt {
    */
   getActionsByCategory() {
     const t = {};
-    for (const e of Object.values(R)) {
+    for (const e of Object.values(M)) {
       const s = e.category || "other";
       t[s] || (t[s] = []), t[s].push({
         ...e,
@@ -2022,91 +2022,91 @@ class kt {
    * Reset to initial state.
    */
   reset() {
-    this.backendLabels = {}, this.fallbackFormatter = Z, this.initialized = !1;
+    this.backendLabels = {}, this.fallbackFormatter = ot, this.initialized = !1;
   }
 }
-const v = new kt();
-function de(a = {}) {
-  v.init(a);
+const $ = new Nt();
+function Se(n = {}) {
+  $.init(n);
 }
-function Tt(a) {
-  return v.getLabel(a);
+function jt(n) {
+  return $.getLabel(n);
 }
-function ue(a) {
-  return v.getEntry(a);
+function we(n) {
+  return $.getEntry(n);
 }
-function he() {
-  return v.getAllLabels();
+function $e() {
+  return $.getAllLabels();
 }
-function qt() {
-  return v.getActionsByCategory();
+function Dt() {
+  return $.getActionsByCategory();
 }
-function pe(a) {
-  v.setLabels(a);
+function _e(n) {
+  $.setLabels(n);
 }
-function ge() {
-  return v.isInitialized();
+function Ce() {
+  return $.isInitialized();
 }
-function fe() {
-  v.reset();
+function Le() {
+  $.reset();
 }
-function be(a = {}) {
-  return (t) => a[t] ? a[t] : v.getLabel(t);
+function ke(n = {}) {
+  return (t) => n[t] ? n[t] : $.getLabel(t);
 }
-function Z(a) {
-  return a.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
+function ot(n) {
+  return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
-function Et(a) {
+function Ut(n) {
   const {
     container: t,
     selector: e,
     onSelect: s,
     onFocus: i,
     onEscape: r,
-    wrap: n = !0,
+    wrap: a = !0,
     autoFocus: l = !1,
     keyHandlers: c = {}
-  } = a;
+  } = n;
   function d() {
     return Array.from(t.querySelectorAll(e));
   }
   function p(f) {
-    const y = d();
-    if (y.length === 0) return;
-    let b = f;
-    n ? b = (f % y.length + y.length) % y.length : b = Math.max(0, Math.min(f, y.length - 1)), y.forEach((pt, gt) => {
-      pt.setAttribute("tabindex", gt === b ? "0" : "-1");
+    const b = d();
+    if (b.length === 0) return;
+    let y = f;
+    a ? y = (f % b.length + b.length) % b.length : y = Math.max(0, Math.min(f, b.length - 1)), b.forEach(($t, _t) => {
+      $t.setAttribute("tabindex", _t === y ? "0" : "-1");
     });
-    const m = y[b];
-    m.focus(), i?.(m, b);
+    const x = b[y];
+    x.focus(), i?.(x, y);
   }
   function h(f) {
-    const y = d();
-    if (y.length === 0) return;
-    const b = f.target, m = y.indexOf(b);
-    if (m !== -1) {
+    const b = d();
+    if (b.length === 0) return;
+    const y = f.target, x = b.indexOf(y);
+    if (x !== -1) {
       if (c[f.key]) {
-        c[f.key](f, b, m);
+        c[f.key](f, y, x);
         return;
       }
       switch (f.key) {
         case "ArrowDown":
         case "ArrowRight":
-          f.preventDefault(), p(m + 1);
+          f.preventDefault(), p(x + 1);
           break;
         case "ArrowUp":
         case "ArrowLeft":
-          f.preventDefault(), p(m - 1);
+          f.preventDefault(), p(x - 1);
           break;
         case "Home":
           f.preventDefault(), p(0);
           break;
         case "End":
-          f.preventDefault(), p(y.length - 1);
+          f.preventDefault(), p(b.length - 1);
           break;
         case "Enter":
         case " ":
-          f.preventDefault(), s?.(b, m);
+          f.preventDefault(), s?.(y, x);
           break;
         case "Escape":
           f.preventDefault(), r?.();
@@ -2115,15 +2115,15 @@ function Et(a) {
     }
   }
   const g = d();
-  return g.forEach((f, y) => {
-    f.setAttribute("tabindex", y === 0 ? "0" : "-1"), f.hasAttribute("role") || f.setAttribute("role", "option");
+  return g.forEach((f, b) => {
+    f.setAttribute("tabindex", b === 0 ? "0" : "-1"), f.hasAttribute("role") || f.setAttribute("role", "option");
   }), t.hasAttribute("role") || t.setAttribute("role", "listbox"), t.addEventListener("keydown", h), l && g.length > 0 && p(0), () => {
     t.removeEventListener("keydown", h);
   };
 }
-function ye(a, t) {
-  return Et({
-    container: a,
+function Te(n, t) {
+  return Ut({
+    container: n,
     selector: t,
     wrap: !0,
     onSelect: (e) => {
@@ -2131,7 +2131,7 @@ function ye(a, t) {
     }
   });
 }
-const Rt = [
+const Ht = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -2139,10 +2139,10 @@ const Rt = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
-function At(a) {
-  const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = a, r = document.activeElement;
-  function n() {
-    return Array.from(t.querySelectorAll(Rt));
+function Ot(n) {
+  const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = n, r = document.activeElement;
+  function a() {
+    return Array.from(t.querySelectorAll(Ht));
   }
   function l(c) {
     if (c.key === "Escape") {
@@ -2150,21 +2150,21 @@ function At(a) {
       return;
     }
     if (c.key !== "Tab") return;
-    const d = n();
+    const d = a();
     if (d.length === 0) return;
     const p = d[0], h = d[d.length - 1];
     c.shiftKey ? document.activeElement === p && (c.preventDefault(), h.focus()) : document.activeElement === h && (c.preventDefault(), p.focus());
   }
   return requestAnimationFrame(() => {
-    e ? (typeof e == "string" ? t.querySelector(e) : e)?.focus() : n()[0]?.focus();
+    e ? (typeof e == "string" ? t.querySelector(e) : e)?.focus() : a()[0]?.focus();
   }), t.addEventListener("keydown", l), t.hasAttribute("role") || t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), () => {
     t.removeEventListener("keydown", l), t.removeAttribute("aria-modal"), (s || r)?.focus?.();
   };
 }
-function Pt(a) {
-  const t = `services-live-region-${a}`;
+function Bt(n) {
+  const t = `services-live-region-${n}`;
   let e = document.getElementById(t);
-  return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", a), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
+  return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", n), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
     position: "absolute",
     width: "1px",
     height: "1px",
@@ -2176,77 +2176,77 @@ function Pt(a) {
     border: "0"
   }), document.body.appendChild(e)), e;
 }
-function B(a, t = {}) {
-  const { priority: e = "polite", clear: s = !0 } = t, i = Pt(e);
+function K(n, t = {}) {
+  const { priority: e = "polite", clear: s = !0 } = t, i = Bt(e);
   s && (i.textContent = ""), setTimeout(() => {
-    i.textContent = a;
+    i.textContent = n;
   }, 100);
 }
-function me(a) {
-  B(`Loading ${a}...`, { priority: "polite" });
+function Ee(n) {
+  K(`Loading ${n}...`, { priority: "polite" });
 }
-function xe(a) {
-  B(a, { priority: "polite" });
+function qe(n) {
+  K(n, { priority: "polite" });
 }
-function ve(a) {
-  B(`Error: ${a}`, { priority: "assertive" });
+function Ae(n) {
+  K(`Error: ${n}`, { priority: "assertive" });
 }
-function Se(a) {
-  B(`Navigating to ${a}`, { priority: "polite" });
+function Re(n) {
+  K(`Navigating to ${n}`, { priority: "polite" });
 }
-function we(a, t, e) {
-  a.setAttribute("aria-expanded", String(e));
+function Pe(n, t, e) {
+  n.setAttribute("aria-expanded", String(e));
   const s = typeof t == "string" ? t : t.id;
-  s && a.setAttribute("aria-controls", s);
+  s && n.setAttribute("aria-controls", s);
 }
-function $e(a, t) {
-  a.setAttribute("aria-busy", String(t)), t ? a.setAttribute("aria-describedby", "loading-indicator") : a.removeAttribute("aria-describedby");
+function Ie(n, t) {
+  n.setAttribute("aria-busy", String(t)), t ? n.setAttribute("aria-describedby", "loading-indicator") : n.removeAttribute("aria-describedby");
 }
-function _e(a, t, e) {
-  a.setAttribute("role", "status"), a.setAttribute("aria-label", `Status: ${e}`);
+function Fe(n, t, e) {
+  n.setAttribute("role", "status"), n.setAttribute("aria-label", `Status: ${e}`);
 }
-function Ce(a, t) {
-  a.setAttribute("aria-sort", t), a.setAttribute("role", "columnheader");
+function Me(n, t) {
+  n.setAttribute("aria-sort", t), n.setAttribute("role", "columnheader");
 }
-function Le(a, t, e = 100, s) {
-  a.setAttribute("role", "progressbar"), a.setAttribute("aria-valuenow", String(t)), a.setAttribute("aria-valuemin", "0"), a.setAttribute("aria-valuemax", String(e)), s && a.setAttribute("aria-label", s);
+function Ne(n, t, e = 100, s) {
+  n.setAttribute("role", "progressbar"), n.setAttribute("aria-valuenow", String(t)), n.setAttribute("aria-valuemin", "0"), n.setAttribute("aria-valuemax", String(e)), s && n.setAttribute("aria-label", s);
 }
-function ke(a, t = "Skip to main content") {
+function je(n, t = "Skip to main content") {
   const e = document.createElement("a");
-  return e.href = `#${a}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
+  return e.href = `#${n}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
 }
-function Te(a, t = {}) {
+function De(n, t = {}) {
   const { title: e, describedBy: s, onClose: i } = t;
-  if (a.setAttribute("role", "dialog"), a.setAttribute("aria-modal", "true"), e) {
-    const n = `dialog-title-${Date.now()}`, l = a.querySelector('h1, h2, h3, [role="heading"]');
-    l && (l.id = n, a.setAttribute("aria-labelledby", n));
+  if (n.setAttribute("role", "dialog"), n.setAttribute("aria-modal", "true"), e) {
+    const a = `dialog-title-${Date.now()}`, l = n.querySelector('h1, h2, h3, [role="heading"]');
+    l && (l.id = a, n.setAttribute("aria-labelledby", a));
   }
-  s && a.setAttribute("aria-describedby", s);
-  const r = At({
-    container: a,
+  s && n.setAttribute("aria-describedby", s);
+  const r = Ot({
+    container: n,
     onEscape: i
   });
   return () => {
-    r(), a.removeAttribute("aria-modal"), a.removeAttribute("aria-labelledby"), a.removeAttribute("aria-describedby");
+    r(), n.removeAttribute("aria-modal"), n.removeAttribute("aria-labelledby"), n.removeAttribute("aria-describedby");
   };
 }
-function It() {
+function zt() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function qe(a) {
-  return It() ? 0 : a;
+function Ue(n) {
+  return zt() ? 0 : n;
 }
-const X = {
+const ct = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   degraded: { label: "Degraded", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   disabled: { label: "Disabled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" }
-}, Mt = {
+}, Vt = {
   healthy: { label: "Healthy", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   warning: { label: "Warnings", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   error: { label: "Errors", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
 };
-class Ee {
+class He {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -2374,8 +2374,8 @@ class Ee {
           <span class="text-2xl font-semibold text-gray-900">${e}</span>
         </div>
         <div class="flex items-center gap-2 mt-2">
-          ${Object.entries(s).map(([n, l]) => {
-      const c = X[n];
+          ${Object.entries(s).map(([a, l]) => {
+      const c = ct[a];
       return l > 0 ? `
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${c.bg} ${c.text}">
                 ${l} ${c.label.toLowerCase()}
@@ -2388,7 +2388,7 @@ class Ee {
   }
   renderConfigHealthCard() {
     if (!this.state) return "";
-    const t = this.state.configHealth, e = Mt[t.status];
+    const t = this.state.configHealth, e = Vt[t.status];
     return `
       <div class="bg-white rounded-lg border ${t.status === "healthy" ? "border-gray-200" : "border-amber-200"} p-4">
         <div class="flex items-center justify-between">
@@ -2428,7 +2428,7 @@ class Ee {
     `;
   }
   renderPackRow(t) {
-    const e = X[t.status];
+    const e = ct[t.status];
     return `
       <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${o(t.id)}">
         <div class="flex items-center justify-between">
@@ -2554,12 +2554,12 @@ class Ee {
   formatTime(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5);
-    return r < 1 ? "just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : e.toLocaleDateString();
+    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), a = Math.floor(i / 36e5);
+    return r < 1 ? "just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : e.toLocaleDateString();
   }
 }
-function I(a) {
-  const { source: t, packName: e, mode: s = "badge", context: i } = a, n = {
+function D(n) {
+  const { source: t, packName: e, mode: s = "badge", context: i } = n, a = {
     "go-services": {
       label: "Core",
       bg: "bg-blue-50",
@@ -2584,46 +2584,109 @@ function I(a) {
   }[t];
   return s === "tooltip" ? `
       <span class="state-source-indicator inline-flex items-center"
-            title="${o(n.description)}${i ? ` - ${i}` : ""}"
-            aria-label="${o(n.description)}">
-        ${u(n.icon, { size: "14px", extraClass: n.text })}
+            title="${o(a.description)}${i ? ` - ${i}` : ""}"
+            aria-label="${o(a.description)}">
+        ${u(a.icon, { size: "14px", extraClass: a.text })}
       </span>
     ` : `
-    <span class="state-source-indicator inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${n.bg} ${n.text}"
-          title="${o(n.description)}${i ? ` - ${i}` : ""}"
+    <span class="state-source-indicator inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${a.bg} ${a.text}"
+          title="${o(a.description)}${i ? ` - ${i}` : ""}"
           role="note"
-          aria-label="State source: ${o(n.description)}">
-      ${u(n.icon, { size: "12px" })}
-      <span>${o(n.label)}</span>
+          aria-label="State source: ${o(a.description)}">
+      ${u(a.icon, { size: "12px" })}
+      <span>${o(a.label)}</span>
     </span>
   `;
 }
-function Re(a, t) {
+function Oe(n, t) {
   const e = document.createElement("span");
-  e.innerHTML = I(t), a.appendChild(e.firstElementChild);
+  e.innerHTML = D(t), n.appendChild(e.firstElementChild);
 }
-function Ae() {
+function Be() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
       <div class="space-y-2">
         <div class="flex items-center gap-3">
-          ${I({ source: "go-services" })}
+          ${D({ source: "go-services" })}
           <span class="text-sm text-gray-600">Data managed by go-services core runtime</span>
         </div>
         <div class="flex items-center gap-3">
-          ${I({ source: "downstream", packName: "Extension" })}
+          ${D({ source: "downstream", packName: "Extension" })}
           <span class="text-sm text-gray-600">Data managed by an installed extension package</span>
         </div>
         <div class="flex items-center gap-3">
-          ${I({ source: "mixed" })}
+          ${D({ source: "mixed" })}
           <span class="text-sm text-gray-600">Combination of core and extension-managed data</span>
         </div>
       </div>
     </div>
   `;
 }
-const tt = {
+function U(n) {
+  return n.split(/[-_]/).map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(" ");
+}
+function w(n, t) {
+  const e = typeof t == "function" ? String(t(n) || "").trim() : "";
+  return e || U(n);
+}
+function H(n) {
+  return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
+}
+function v(n, t = 12) {
+  return n.length <= t ? n : `${n.slice(0, t - 3)}...`;
+}
+function P(n) {
+  const t = new Date(n);
+  return Number.isNaN(t.getTime()) ? n : t.toLocaleString();
+}
+function m(n, t = {}) {
+  const e = new Date(n);
+  if (Number.isNaN(e.getTime())) return n;
+  if (!t.allowFuture) {
+    const h = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), g = Math.floor(h / 6e4), f = Math.floor(h / 36e5), b = Math.floor(h / 864e5);
+    return g < 1 ? t.pastImmediateLabel || "Just now" : g < 60 ? `${g}m ago` : f < 24 ? `${f}h ago` : b < 7 ? `${b}d ago` : e.toLocaleDateString();
+  }
+  const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, a = Math.abs(i), l = Math.floor(a / 6e4), c = Math.floor(a / 36e5), d = Math.floor(a / 864e5);
+  return l < 1 ? r ? t.futureImmediateLabel || "Soon" : t.pastImmediateLabel || "Just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
+}
+async function wt(n, t = {}) {
+  try {
+    return (await n.listProviders(t.signal)).providers || [];
+  } catch (e) {
+    const s = e instanceof Error ? e : new Error(String(e));
+    return t.onError?.(s), t.notifier?.error(`Failed to load providers: ${s.message}`), [];
+  }
+}
+async function nt(n, t) {
+  const e = await wt(n, t);
+  return Wt({
+    container: t.container,
+    providers: e,
+    selectedProviderId: t.selectedProviderId,
+    getProviderName: t.getProviderName,
+    selectSelector: t.selectSelector,
+    emptyLabel: t.emptyLabel
+  }), e;
+}
+function Wt(n) {
+  const t = n.container?.querySelector(
+    n.selectSelector || '[data-filter="provider_id"]'
+  );
+  if (!t) return;
+  const e = n.emptyLabel || "All Providers", s = n.providers.map((i) => {
+    const r = w(i.id, n.getProviderName);
+    return `<option value="${o(i.id)}">${o(r)}</option>`;
+  }).join("");
+  t.innerHTML = `<option value="">${o(e)}</option>${s}`, t.value = n.selectedProviderId || "";
+}
+function T(n, t) {
+  n.querySelector(".ui-state-reset-btn")?.addEventListener("click", t);
+}
+function Y(n, t) {
+  return n?.abort(), t.destroy(), null;
+}
+const lt = {
   github: "iconoir:github",
   google: "iconoir:google",
   gmail: "iconoir:mail",
@@ -2637,7 +2700,7 @@ const tt = {
   teams: "iconoir:group",
   onedrive: "iconoir:cloud",
   default: "iconoir:plugin"
-}, Ft = {
+}, Gt = {
   github: "GitHub",
   google: "Google",
   gmail: "Gmail",
@@ -2651,7 +2714,7 @@ const tt = {
   teams: "Microsoft Teams",
   onedrive: "OneDrive"
 };
-class Nt {
+class Qt {
   constructor(t) {
     this.container = null, this.providers = [], this.loading = !1, this.error = null, this.config = t;
   }
@@ -2663,7 +2726,7 @@ class Nt {
       console.error("[ProvidersCatalog] Container not found:", this.config.container);
       return;
     }
-    if (!E()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -2691,34 +2754,41 @@ class Nt {
   // Private Methods
   // ---------------------------------------------------------------------------
   async loadProviders() {
-    if (this.container) {
-      this.loading = !0, this.error = null, this.renderLoading();
-      try {
-        const e = await C().listProviders();
-        this.providers = e.providers || [], this.renderProviders();
-      } catch (t) {
-        this.error = t instanceof Error ? t : new Error(String(t)), this.renderError(), this.config.notifier && this.config.notifier.error(`Failed to load providers: ${this.error.message}`);
-      } finally {
-        this.loading = !1;
+    if (!this.container) return;
+    this.loading = !0, this.error = null, this.renderLoading();
+    const t = E();
+    this.providers = await wt(t, {
+      notifier: this.config.notifier,
+      onError: (e) => {
+        this.error = e;
       }
+    });
+    try {
+      if (this.error) {
+        this.renderError();
+        return;
+      }
+      this.renderProviders();
+    } finally {
+      this.loading = !1;
     }
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = N({
+    this.container && (this.container.innerHTML = z({
       text: "Loading providers...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = j({
+    this.container.innerHTML = V({
       title: "Failed to load providers",
       error: this.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadProviders());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "service providers"
     }));
   }
@@ -2736,12 +2806,12 @@ class Nt {
     `, this.bindCardEvents();
   }
   renderEmpty() {
-    this.container && (this.container.innerHTML = dt({
+    this.container && (this.container.innerHTML = xt({
       type: "providers"
     }));
   }
   buildProviderCard(t) {
-    const e = this.getProviderCardData(t), s = _()() && t.supported_scope_types.includes("user"), i = _()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), n = this.buildScopeBadges(t.supported_scope_types);
+    const e = this.getProviderCardData(t), s = k()() && t.supported_scope_types.includes("user"), i = k()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
     return `
       <div class="provider-card bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
            data-provider-id="${o(t.id)}">
@@ -2757,7 +2827,7 @@ class Nt {
                 <span class="text-xs text-gray-500">${o(t.auth_kind)}</span>
               </div>
             </div>
-            ${n}
+            ${a}
           </div>
 
           <!-- Capabilities -->
@@ -2799,12 +2869,12 @@ class Nt {
       return '<span class="text-xs text-gray-400">No capabilities defined</span>';
     const e = 4, s = t.slice(0, e), i = t.length - e;
     let r = '<div class="flex flex-wrap gap-1">';
-    for (const n of s) {
-      const [l, c] = n.name.split(".");
+    for (const a of s) {
+      const [l, c] = a.name.split(".");
       r += `
         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-              title="${o(n.name)}">
-          ${o(c || n.name)}
+              title="${o(a.name)}">
+          ${o(c || a.name)}
         </span>
       `;
     }
@@ -2822,18 +2892,15 @@ class Nt {
     `;
   }
   getProviderCardData(t) {
-    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Ft[t.id.toLowerCase()] || this.formatProviderId(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : tt[t.id.toLowerCase()] || tt.default;
+    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Gt[t.id.toLowerCase()] || w(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : lt[t.id.toLowerCase()] || lt.default;
     return {
       provider: t,
       displayName: e,
       icon: s,
       description: `${t.auth_kind} authentication`,
       capabilityCount: t.capabilities.length,
-      canConnect: _()()
+      canConnect: k()()
     };
-  }
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
   }
   bindCardEvents() {
     if (!this.container) return;
@@ -2842,34 +2909,34 @@ class Nt {
         if (i.target.closest("button")) return;
         const r = s.dataset.providerId;
         if (r) {
-          const n = this.getProvider(r);
-          n && this.config.onSelect && this.config.onSelect(n);
+          const a = this.getProvider(r);
+          a && this.config.onSelect && this.config.onSelect(a);
         }
       });
     }), this.container.querySelectorAll(".provider-connect-btn").forEach((s) => {
       s.addEventListener("click", (i) => {
         i.stopPropagation();
-        const r = s.dataset.providerId, n = s.dataset.scopeType;
-        if (r && n) {
+        const r = s.dataset.providerId, a = s.dataset.scopeType;
+        if (r && a) {
           const l = this.getProvider(r);
-          l && this.config.onConnect && this.config.onConnect(l, n);
+          l && this.config.onConnect && this.config.onConnect(l, a);
         }
       });
     });
   }
 }
-async function Pe(a) {
-  const t = new Nt(a);
+async function ze(n) {
+  const t = new Qt(n);
   return await t.init(), t;
 }
-const et = {
+const dt = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
 };
-class jt {
+class Jt {
   constructor(t) {
     this.container = null, this.state = {
       connections: [],
@@ -2877,11 +2944,11 @@ class jt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new O(), this.config = {
+    }, this.abortController = null, this.actionQueue = new J(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || C(), this.queryState = new M({
+    }, this.client = t.apiClient || E(), this.queryState = new O({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadConnections()
@@ -2898,11 +2965,16 @@ class jt {
       console.error("[ConnectionsList] Container not found:", this.config.container);
       return;
     }
-    if (!E()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
-    this.queryState.init(), this.renderStructure(), await this.loadProviders(), this.bindEvents(), await this.loadConnections();
+    this.queryState.init(), this.renderStructure(), this.state.providers = await nt(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || "",
+      getProviderName: this.config.getProviderName
+    }), this.bindEvents(), await this.loadConnections();
   }
   /**
    * Refresh the connections list
@@ -2926,7 +2998,7 @@ class jt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController?.abort(), this.queryState.destroy();
+    this.abortController = Y(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -2995,7 +3067,7 @@ class jt {
                   title="Reset filters">
             ${u("iconoir:refresh", { size: "16px" })}
           </button>
-          ${_()() && this.config.onConnect ? `
+          ${k()() && this.config.onConnect ? `
             <button type="button"
                     class="connections-connect-user px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
               Connect User
@@ -3077,44 +3149,29 @@ class jt {
     });
     const i = this.container.querySelector(".connections-connect-user"), r = this.container.querySelector(".connections-connect-org");
     i?.addEventListener("click", () => this.handleConnect("user")), r?.addEventListener("click", () => this.handleConnect("org"));
-    const n = this.container.querySelector(".connections-prev"), l = this.container.querySelector(".connections-next");
-    n?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
+    const a = this.container.querySelector(".connections-prev"), l = this.container.querySelector(".connections-next");
+    a?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderConnections() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-empty"), s = this.container?.querySelector(".connections-table-wrapper");
     if (t) {
       if (this.state.connections.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(6, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(6, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
           onReset: () => {
             this.queryState.reset(), this.restoreFilterValues();
           }
-        }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
+        }), T(t, () => {
+          this.queryState.reset(), this.restoreFilterValues();
+        })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
         return;
       }
       s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = this.state.connections.map((i) => this.renderConnectionRow(i)).join(""), this.bindRowActions();
     }
   }
-  async loadProviders() {
-    try {
-      const t = await this.client.listProviders();
-      this.state.providers = t.providers || [], this.populateProviderFilterOptions();
-    } catch (t) {
-      this.state.providers = [], this.config.notifier?.error(`Failed to load providers: ${t.message}`);
-    }
-  }
-  populateProviderFilterOptions() {
-    const t = this.container?.querySelector('[data-filter="provider_id"]');
-    if (!t) return;
-    const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
-      const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${o(i.id)}">${o(r)}</option>`;
-    }).join("");
-    t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
-  }
   handleConnect(t) {
-    if (!this.config.onConnect || !_()()) return;
+    if (!this.config.onConnect || !k()()) return;
     const s = this.container?.querySelector('[data-filter="provider_id"]')?.value || "";
     if (!s) {
       this.config.notifier?.error("Select a provider before starting a connection.");
@@ -3126,18 +3183,14 @@ class jt {
       return;
     }
     if (!i.supported_scope_types.includes(t)) {
-      this.config.notifier?.error(`${this.formatProviderId(i.id)} does not support ${t} scope.`);
+      const r = w(i.id, this.config.getProviderName);
+      this.config.notifier?.error(`${r} does not support ${t} scope.`);
       return;
     }
     this.config.onConnect(i.id, t);
   }
-  bindNoResultsActions(t) {
-    t.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
-      this.queryState.reset(), this.restoreFilterValues();
-    });
-  }
   renderConnectionRow(t) {
-    const e = et[t.status] || et.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.formatDate(t.updated_at), r = this.buildRowActions(t);
+    const e = dt[t.status] || dt.disconnected, s = w(t.provider_id, this.config.getProviderName), i = m(t.updated_at), r = this.buildRowActions(t);
     return `
       <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -3148,12 +3201,12 @@ class jt {
             ${o(t.scope_type)}
           </span>
           <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
-            ${o(this.truncateId(t.scope_id))}
+            ${o(v(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="text-gray-600" title="${o(t.external_account_id)}">
-            ${o(this.truncateId(t.external_account_id, 20))}
+            ${o(v(t.external_account_id, 20))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -3178,21 +3231,21 @@ class jt {
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && k()() && e.push(`
+    return t.status === "active" && A()() && e.push(`
         <button type="button"
                 class="connection-action-refresh p-1 text-gray-400 hover:text-blue-600"
                 data-action="refresh"
                 title="Refresh credentials">
           ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status === "needs_reconsent" && ct()() && e.push(`
+      `), t.status === "needs_reconsent" && yt()() && e.push(`
         <button type="button"
                 class="connection-action-reconsent p-1 text-gray-400 hover:text-orange-600"
                 data-action="reconsent"
                 title="Re-consent">
           ${u("iconoir:redo", { size: "16px" })}
         </button>
-      `), t.status !== "disconnected" && K()() && e.push(`
+      `), t.status !== "disconnected" && rt()() && e.push(`
         <button type="button"
                 class="connection-action-revoke p-1 text-gray-400 hover:text-red-600"
                 data-action="revoke"
@@ -3228,7 +3281,7 @@ class jt {
   async handleRefresh(t, e) {
     const s = this.getConnection(t);
     s && (this.actionQueue.isInFlight(`refresh-${t}`) || await this.actionQueue.execute(`refresh-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.refreshConnection(t, {
           provider_id: s.provider_id
         }),
@@ -3247,7 +3300,7 @@ class jt {
   }
   async handleReconsent(t, e) {
     this.actionQueue.isInFlight(`reconsent-${t}`) || await this.actionQueue.execute(`reconsent-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.beginReconsent(t),
         notifier: this.config.notifier,
         errorMessagePrefix: "Failed to start re-consent",
@@ -3263,13 +3316,13 @@ class jt {
     });
   }
   async handleRevoke(t, e) {
-    const s = this.getConnection(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await H({
+    const s = this.getConnection(t), i = s ? w(s.provider_id, this.config.getProviderName) : void 0;
+    await Q({
       action: "revoke",
       resourceType: "connection",
       resourceName: i
     }) && (this.actionQueue.isInFlight(`revoke-${t}`) || await this.actionQueue.execute(`revoke-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.revokeConnection(t),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
@@ -3287,58 +3340,43 @@ class jt {
   renderError() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(6, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = G(6, {
       title: "Failed to load connections",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnections());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "connections"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
-    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = D(6, { text: "Loading connections..." }));
+    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = W(6, { text: "Loading connections..." }));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".connections-info"), p = this.container?.querySelector(".connections-prev"), h = this.container?.querySelector(".connections-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No connections"), p && (p.disabled = !c), h && (h.disabled = !l);
-  }
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
-  }
-  truncateId(t, e = 12) {
-    return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
-  }
-  formatDate(t) {
-    const e = new Date(t);
-    if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".connections-info"), p = this.container?.querySelector(".connections-prev"), h = this.container?.querySelector(".connections-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No connections"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
 }
-async function Ie(a) {
-  const t = new jt(a);
+async function Ve(n) {
+  const t = new Jt(n);
   return await t.init(), t;
 }
-const st = {
+const ut = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   suspended: { label: "Suspended", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:pause" },
   uninstalled: { label: "Uninstalled", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, it = {
+}, ht = {
   user: { label: "User", bg: "bg-blue-50", text: "text-blue-600" },
   workspace: { label: "Workspace", bg: "bg-indigo-50", text: "text-indigo-600" },
   org: { label: "Organization", bg: "bg-purple-50", text: "text-purple-600" },
   marketplace_app: { label: "Marketplace", bg: "bg-pink-50", text: "text-pink-600" },
   standard: { label: "Standard", bg: "bg-gray-50", text: "text-gray-600" }
 };
-class Dt {
+class Kt {
   constructor(t) {
     this.container = null, this.state = {
       installations: [],
@@ -3346,11 +3384,11 @@ class Dt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new O(), this.config = {
+    }, this.abortController = null, this.actionQueue = new J(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || C(), this.queryState = new M({
+    }, this.client = t.apiClient || E(), this.queryState = new O({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadInstallations()
@@ -3367,11 +3405,16 @@ class Dt {
       console.error("[InstallationsList] Container not found:", this.config.container);
       return;
     }
-    if (!E()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
-    this.queryState.init(), this.renderStructure(), await this.loadProviders(), this.bindEvents(), await this.loadInstallations();
+    this.queryState.init(), this.renderStructure(), this.state.providers = await nt(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || "",
+      getProviderName: this.config.getProviderName
+    }), this.bindEvents(), await this.loadInstallations();
   }
   /**
    * Refresh the installations list
@@ -3395,7 +3438,7 @@ class Dt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController?.abort(), this.queryState.destroy();
+    this.abortController = Y(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -3532,12 +3575,12 @@ class Dt {
   }
   bindEvents() {
     if (!this.container) return;
-    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (n) => {
-      this.queryState.setSearch(n.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((n) => {
-      n.addEventListener("change", () => {
-        const l = n.dataset.filter;
-        this.queryState.setFilter(l, n.value || void 0);
+    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (a) => {
+      this.queryState.setSearch(a.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((a) => {
+      a.addEventListener("change", () => {
+        const l = a.dataset.filter;
+        this.queryState.setFilter(l, a.value || void 0);
       });
     }), this.container.querySelector(".installations-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
@@ -3549,22 +3592,19 @@ class Dt {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-empty"), s = this.container?.querySelector(".installations-table-wrapper");
     if (t) {
       if (this.state.installations.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
+        }), T(t, () => {
+          this.queryState.reset(), this.restoreFilterValues();
+        })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
         return;
       }
       s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = this.state.installations.map((i) => this.renderInstallationRow(i)).join(""), this.bindRowActions();
     }
   }
-  bindNoResultsActions(t) {
-    t.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
-      this.queryState.reset(), this.restoreFilterValues();
-    });
-  }
   renderInstallationRow(t) {
-    const e = st[t.status] || st.uninstalled, s = it[t.install_type] || it.standard, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.granted_at ? this.formatDate(t.granted_at) : "—", n = t.revoked_at ? this.formatDate(t.revoked_at) : "—", l = this.buildRowActions(t);
+    const e = ut[t.status] || ut.uninstalled, s = ht[t.install_type] || ht.standard, i = w(t.provider_id, this.config.getProviderName), r = t.granted_at ? m(t.granted_at) : "—", a = t.revoked_at ? m(t.revoked_at) : "—", l = this.buildRowActions(t);
     return `
       <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -3580,7 +3620,7 @@ class Dt {
             ${o(t.scope_type)}
           </span>
           <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
-            ${o(this.truncateId(t.scope_id))}
+            ${o(v(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -3593,7 +3633,7 @@ class Dt {
           ${r}
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">
-          ${n}
+          ${a}
         </td>
         <td class="px-4 py-3 text-right">
           ${l}
@@ -3603,14 +3643,14 @@ class Dt {
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && K()() && e.push(`
+    return t.status === "active" && rt()() && e.push(`
         <button type="button"
                 class="installation-action-uninstall p-1 text-gray-400 hover:text-red-600"
                 data-action="uninstall"
                 title="Uninstall">
           ${u("iconoir:trash", { size: "16px" })}
         </button>
-      `), t.status === "uninstalled" && _()() && e.push(`
+      `), t.status === "uninstalled" && k()() && e.push(`
         <button type="button"
                 class="installation-action-reinstall p-1 text-gray-400 hover:text-green-600"
                 data-action="reinstall"
@@ -3641,13 +3681,13 @@ class Dt {
     });
   }
   async handleUninstall(t, e) {
-    const s = this.getInstallation(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await H({
+    const s = this.getInstallation(t), i = s ? w(s.provider_id, this.config.getProviderName) : void 0;
+    await Q({
       action: "uninstall",
       resourceType: "installation",
       resourceName: i
     }) && (this.actionQueue.isInFlight(`uninstall-${t}`) || await this.actionQueue.execute(`uninstall-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.uninstallInstallation(t),
         notifier: this.config.notifier,
         successMessage: "Service uninstalled",
@@ -3669,68 +3709,36 @@ class Dt {
   renderError() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(7, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = G(7, {
       title: "Failed to load installations",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadInstallations());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "installations"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
-    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = D(7, { text: "Loading installations..." }));
-  }
-  async loadProviders() {
-    try {
-      const t = await this.client.listProviders();
-      this.state.providers = t.providers || [], this.populateProviderFilterOptions();
-    } catch (t) {
-      this.state.providers = [], this.config.notifier?.error(`Failed to load providers: ${t.message}`);
-    }
-  }
-  populateProviderFilterOptions() {
-    const t = this.container?.querySelector('[data-filter="provider_id"]');
-    if (!t) return;
-    const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
-      const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${o(i.id)}">${o(r)}</option>`;
-    }).join("");
-    t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
+    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = W(7, { text: "Loading installations..." }));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".installations-info"), p = this.container?.querySelector(".installations-prev"), h = this.container?.querySelector(".installations-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No installations"), p && (p.disabled = !c), h && (h.disabled = !l);
-  }
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
-  }
-  truncateId(t, e = 12) {
-    return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
-  }
-  formatDate(t) {
-    const e = new Date(t);
-    if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".installations-info"), p = this.container?.querySelector(".installations-prev"), h = this.container?.querySelector(".installations-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No installations"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
 }
-async function Me(a) {
-  const t = new Dt(a);
+async function We(n) {
+  const t = new Kt(n);
   return await t.init(), t;
 }
-const A = {
+const N = {
   success: { label: "Success", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failure: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending: { label: "Pending", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" }
 };
-class Ut {
+class Yt {
   constructor(t) {
     this.container = null, this.state = {
       entries: [],
@@ -3744,7 +3752,7 @@ class Ut {
       viewMode: "timeline",
       useDeepLinks: !0,
       ...t
-    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || C(), this.queryState = new M({
+    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || E(), this.queryState = new O({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadActivity()
@@ -3773,7 +3781,7 @@ class Ut {
       console.error("[ActivityPage] Container not found:", this.config.container);
       return;
     }
-    if (!St()()) {
+    if (!At()()) {
       this.renderForbidden();
       return;
     }
@@ -3813,7 +3821,7 @@ class Ut {
    * Destroy the manager
    */
   destroy() {
-    this.abortController?.abort(), this.queryState.destroy();
+    this.abortController = Y(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -4049,7 +4057,7 @@ class Ut {
     return !this.config.providers || this.config.providers.length === 0 ? "" : this.config.providers.map((t) => `<option value="${o(t.id)}">${o(t.name)}</option>`).join("");
   }
   renderChannelOptions() {
-    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${o(e)}">${o(this.formatLabel(e))}</option>`).join("");
+    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${o(e)}">${o(H(e))}</option>`).join("");
   }
   renderActionOptions() {
     if (this.config.actions && this.config.actions.length > 0)
@@ -4057,7 +4065,7 @@ class Ut {
         const r = this.resolveActionLabel(i);
         return `<option value="${o(i)}">${o(r)}</option>`;
       }).join("");
-    const t = qt(), e = {
+    const t = Dt(), e = {
       connections: "Connections",
       credentials: "Credentials",
       sync: "Sync",
@@ -4069,11 +4077,11 @@ class Ut {
       other: "Other"
     }, s = [];
     for (const [i, r] of Object.entries(t)) {
-      const n = e[i] || this.formatLabel(i), l = r.map((c) => {
+      const a = e[i] || H(i), l = r.map((c) => {
         const d = this.resolveActionLabel(c.action);
         return `<option value="${o(c.action)}">${o(d)}</option>`;
       }).join("");
-      s.push(`<optgroup label="${o(n)}">${l}</optgroup>`);
+      s.push(`<optgroup label="${o(a)}">${l}</optgroup>`);
     }
     return s.join("");
   }
@@ -4081,7 +4089,7 @@ class Ut {
    * Resolve action label using config override or centralized registry.
    */
   resolveActionLabel(t) {
-    return this.config.getActionLabel ? this.config.getActionLabel(t) : Tt(t);
+    return this.config.getActionLabel ? this.config.getActionLabel(t) : jt(t);
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4107,9 +4115,9 @@ class Ut {
         this.queryState.setFilter(g, h.value || void 0);
       });
     });
-    const n = this.container.querySelector('[data-filter="object_type"]'), l = this.container.querySelector('[data-filter="object_id"]');
-    n?.addEventListener("change", () => {
-      this.queryState.setFilter("object_type", n.value || void 0);
+    const a = this.container.querySelector('[data-filter="object_type"]'), l = this.container.querySelector('[data-filter="object_id"]');
+    a?.addEventListener("change", () => {
+      this.queryState.setFilter("object_type", a.value || void 0);
     }), l?.addEventListener("change", () => {
       this.queryState.setFilter("object_id", l.value || void 0);
     }), this.container.querySelector(".activity-reset")?.addEventListener("click", () => {
@@ -4121,25 +4129,24 @@ class Ut {
   renderEntries() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-empty"), i = this.container?.querySelector(".activity-timeline-container"), r = this.container?.querySelector(".activity-table-container");
     if (this.state.entries.length === 0) {
-      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = ut({
+      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = vt({
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount(),
         containerClass: "bg-white rounded-lg border border-gray-200"
-      }), this.bindNoResultsActions(t))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = T(7, {
+      }), T(t, () => {
+        this.queryState.reset(), this.restoreFilterValues();
+      }))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = R(7, {
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount()
-      }), this.bindNoResultsActions(e)))) : (i?.classList.add("hidden"), r?.classList.add("hidden"), s?.classList.remove("hidden")), this.updateFilterSummary();
+      }), T(e, () => {
+        this.queryState.reset(), this.restoreFilterValues();
+      })))) : (i?.classList.add("hidden"), r?.classList.add("hidden"), s?.classList.remove("hidden")), this.updateFilterSummary();
       return;
     }
-    s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((n) => this.renderTimelineEntry(n)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((n) => this.renderTableRow(n)).join(""), this.bindEntryActions())), this.updateFilterSummary();
-  }
-  bindNoResultsActions(t) {
-    t.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
-      this.queryState.reset(), this.restoreFilterValues();
-    });
+    s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((a) => this.renderTimelineEntry(a)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((a) => this.renderTableRow(a)).join(""), this.bindEntryActions())), this.updateFilterSummary();
   }
   renderTimelineEntry(t) {
-    const e = A[t.status] || A.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), n = this.formatRelativeTime(t.created_at);
+    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = P(t.created_at), a = m(t.created_at);
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
            data-entry-id="${o(t.id)}">
@@ -4169,13 +4176,13 @@ class Ut {
                      class="activity-object-link text-xs text-blue-600 hover:text-blue-700"
                      data-object-type="${o(t.object_type)}"
                      data-object-id="${o(t.object_id)}">
-                    ${o(t.object_type)}:${o(this.truncateId(t.object_id))}
+                    ${o(t.object_type)}:${o(v(t.object_id))}
                   </a>
                 ` : ""}
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-xs text-gray-500" title="${o(r)}">${n}</p>
+              <p class="text-xs text-gray-500" title="${o(r)}">${a}</p>
               <div class="flex items-center gap-1 mt-1">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
                   ${o(t.scope_type)}
@@ -4204,11 +4211,11 @@ class Ut {
     `;
   }
   renderTableRow(t) {
-    const e = A[t.status] || A.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), n = this.formatRelativeTime(t.created_at);
+    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = P(t.created_at), a = m(t.created_at);
     return `
       <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${o(t.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
-          <span class="text-sm text-gray-900" title="${o(r)}">${n}</span>
+          <span class="text-sm text-gray-900" title="${o(r)}">${a}</span>
         </td>
         <td class="px-4 py-3">
           <span class="text-sm font-medium text-gray-900">${o(s)}</span>
@@ -4222,7 +4229,7 @@ class Ut {
                class="activity-object-link text-sm text-blue-600 hover:text-blue-700"
                data-object-type="${o(t.object_type)}"
                data-object-id="${o(t.object_id)}">
-              ${o(t.object_type)}:${o(this.truncateId(t.object_id))}
+              ${o(t.object_type)}:${o(v(t.object_id))}
             </a>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -4248,19 +4255,19 @@ class Ut {
       const i = s.dataset.entryId;
       i && s.addEventListener("click", (r) => {
         if (r.target.closest("a")) return;
-        const n = this.getEntry(i);
-        n && this.config.onSelect && this.config.onSelect(n);
+        const a = this.getEntry(i);
+        a && this.config.onSelect && this.config.onSelect(a);
       });
     }), this.container?.querySelectorAll(".activity-object-link")?.forEach((s) => {
       s.addEventListener("click", (i) => {
         i.preventDefault(), i.stopPropagation();
-        const r = s.dataset.objectType, n = s.dataset.objectId;
-        if (!(!r || !n)) {
+        const r = s.dataset.objectType, a = s.dataset.objectId;
+        if (!(!r || !a)) {
           if (this.config.onNavigate) {
-            this.config.onNavigate(r, n);
+            this.config.onNavigate(r, a);
             return;
           }
-          this.config.useDeepLinks && this.createDeepLinkNavigateHandler()(r, n);
+          this.config.useDeepLinks && this.createDeepLinkNavigateHandler()(r, a);
         }
       });
     });
@@ -4269,7 +4276,7 @@ class Ut {
    * Create a navigate handler that uses deep links with context preservation.
    */
   createDeepLinkNavigateHandler() {
-    return ft(
+    return Ct(
       () => {
         const t = this.queryState.getState();
         return {
@@ -4288,19 +4295,19 @@ class Ut {
   buildObjectLinkUrl(t, e) {
     if (!this.config.useDeepLinks)
       return "#";
-    const s = bt(t);
+    const s = Lt(t);
     if (!s)
       return "#";
     const i = this.queryState.getState(), r = {
       fromPage: window.location.pathname,
       filters: Object.fromEntries(
-        Object.entries(i.filters).filter(([, n]) => n)
+        Object.entries(i.filters).filter(([, a]) => a)
       ),
       search: i.search || void 0,
       page: i.page > 1 ? i.page : void 0,
       viewMode: this.state.viewMode
     };
-    return yt(s, e, r);
+    return kt(s, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -4319,29 +4326,29 @@ class Ut {
   }
   renderError() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container");
-    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = j({
+    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = V({
       title: "Failed to load activity",
       error: this.state.error,
       containerClass: "bg-white rounded-lg border border-gray-200",
       showRetry: !0
-    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = U(7, {
+    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = G(7, {
       title: "Failed to load activity",
       error: this.state.error,
       showRetry: !0
     }), e.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity())));
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "activity"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container"), r = this.container?.querySelector(".activity-empty");
-    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = N({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = D(7, { text: "Loading activity..." })))));
+    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = z({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = W(7, { text: "Loading activity..." })))));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".activity-info"), p = this.container?.querySelector(".activity-prev"), h = this.container?.querySelector(".activity-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No activity"), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".activity-info"), p = this.container?.querySelector(".activity-prev"), h = this.container?.querySelector(".activity-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No activity"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // View Mode Persistence
@@ -4367,49 +4374,30 @@ class Ut {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
-  }
-  formatLabel(t) {
-    return t.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
-  }
-  truncateId(t, e = 12) {
-    return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
-  }
-  formatTime(t) {
-    const e = new Date(t);
-    return Number.isNaN(e.getTime()) ? t : e.toLocaleString();
-  }
-  formatRelativeTime(t) {
-    const e = new Date(t);
-    if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
-  }
   formatMetadataPreview(t) {
     return Object.entries(t).slice(0, 3).map(([s, i]) => `${s}: ${JSON.stringify(i)}`).join(", ");
   }
 }
-async function Fe(a) {
-  const t = new Ut(a);
+async function Ge(n) {
+  const t = new Yt(n);
   return await t.init(), t;
 }
-const G = {
+const et = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   expired: { label: "Expired", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   cancelled: { label: "Cancelled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, J = {
+}, st = {
   queued: { label: "Queued", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   running: { label: "Running", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:play" },
   succeeded: { label: "Succeeded", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failed: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, rt = {
+}, pt = {
   bootstrap: { label: "Bootstrap", description: "Full initial sync" },
   incremental: { label: "Incremental", description: "Delta changes only" },
   backfill: { label: "Backfill", description: "Historical data recovery" }
 };
-class Ht {
+class Zt {
   constructor(t) {
     this.container = null, this.state = {
       providers: [],
@@ -4420,12 +4408,12 @@ class Ht {
       loading: !1,
       error: null,
       activeTab: "subscriptions"
-    }, this.abortController = null, this.actionQueue = new O(), this.config = {
+    }, this.abortController = null, this.actionQueue = new J(), this.config = {
       perPage: 25,
       syncUrl: !0,
       activeTab: "subscriptions",
       ...t
-    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || C(), this.queryState = new M({
+    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || E(), this.queryState = new O({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadData()
@@ -4442,11 +4430,16 @@ class Ht {
       console.error("[SubscriptionsSyncPage] Container not found:", this.config.container);
       return;
     }
-    if (!E()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
-    this.restoreTab(), this.queryState.init(), this.renderStructure(), await this.loadProviders(), this.bindEvents(), await this.loadData();
+    this.restoreTab(), this.queryState.init(), this.renderStructure(), this.state.providers = await nt(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || "",
+      getProviderName: this.config.getProviderName
+    }), this.bindEvents(), await this.loadData();
   }
   /**
    * Refresh the data
@@ -4482,7 +4475,7 @@ class Ht {
    * Destroy the manager
    */
   destroy() {
-    this.abortController?.abort(), this.queryState.destroy();
+    this.abortController = Y(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -4513,23 +4506,23 @@ class Ht {
     this.state.subscriptions = s.subscriptions, this.state.subscriptionsTotal = s.total, this.queryState.updateFromResponse(s.total, s.has_next), this.renderSubscriptions(), this.updatePagination();
   }
   async loadSyncJobs(t) {
-    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), n = t.page || 1, l = t.per_page || this.config.perPage || 25, c = await this.loadSyncConnections({
+    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), a = t.page || 1, l = t.per_page || this.config.perPage || 25, c = await this.loadSyncConnections({
       providerId: e,
       connectionId: s,
       signal: this.abortController?.signal
     }), h = (await Promise.all(
-      c.map(async (b) => {
+      c.map(async (y) => {
         try {
-          const m = await this.client.getSyncStatus(b.id, this.abortController?.signal);
-          return { connection: b, summary: m.sync_summary };
-        } catch (m) {
-          if (m.name === "AbortError")
-            throw m;
+          const x = await this.client.getSyncStatus(y.id, this.abortController?.signal);
+          return { connection: y, summary: x.sync_summary };
+        } catch (x) {
+          if (x.name === "AbortError")
+            throw x;
           return null;
         }
       })
-    )).filter((b) => b !== null).map((b) => this.toSyncJob(b.connection, b.summary)).filter((b) => b !== null).filter((b) => i && b.status !== i ? !1 : r ? this.matchesSyncSearch(b, r) : !0), g = h.length, f = (n - 1) * l, y = h.slice(f, f + l);
-    this.state.syncJobs = y, this.state.syncJobsTotal = g, this.renderSyncJobs(), this.updatePagination();
+    )).filter((y) => y !== null).map((y) => this.toSyncJob(y.connection, y.summary)).filter((y) => y !== null).filter((y) => i && y.status !== i ? !1 : r ? this.matchesSyncSearch(y, r) : !0), g = h.length, f = (a - 1) * l, b = h.slice(f, f + l);
+    this.state.syncJobs = b, this.state.syncJobsTotal = g, this.renderSyncJobs(), this.updatePagination();
   }
   // ---------------------------------------------------------------------------
   // Rendering
@@ -4655,27 +4648,10 @@ class Ht {
     `, this.restoreFilterValues());
   }
   renderSubscriptionStatusOptions() {
-    return Object.entries(G).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(et).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   renderSyncStatusOptions() {
-    return Object.entries(J).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
-  }
-  async loadProviders() {
-    try {
-      const t = await this.client.listProviders();
-      this.state.providers = t.providers || [], this.populateProviderFilterOptions();
-    } catch (t) {
-      this.state.providers = [], this.config.notifier?.error(`Failed to load providers: ${t.message}`);
-    }
-  }
-  populateProviderFilterOptions() {
-    const t = this.container?.querySelector('[data-filter="provider_id"]');
-    if (!t) return;
-    const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
-      const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${o(i.id)}">${o(r)}</option>`;
-    }).join("");
-    t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
+    return Object.entries(st).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4697,29 +4673,29 @@ class Ht {
     }), this.container.querySelector(".reset-btn")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
     });
-    const n = this.container.querySelector(".prev-btn"), l = this.container.querySelector(".next-btn");
-    n?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
+    const a = this.container.querySelector(".prev-btn"), l = this.container.querySelector(".next-btn");
+    a?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderSubscriptions() {
     const t = this.container?.querySelector(".subscriptions-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".subscriptions-content");
     if (t) {
       if (this.state.subscriptions.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("subscriptions"));
+        }), T(t, () => {
+          this.queryState.reset(), this.restoreFilterValues();
+        })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("subscriptions"));
         return;
       }
       s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = this.state.subscriptions.map((i) => this.renderSubscriptionRow(i)).join(""), this.bindSubscriptionActions();
     }
   }
-  bindNoResultsActions(t) {
-    t.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
-      this.queryState.reset(), this.restoreFilterValues();
-    });
-  }
   renderSubscriptionRow(t) {
-    const e = G[t.status] || G.errored, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = t.expires_at ? this.formatRelativeTime(t.expires_at) : "—", r = t.expires_at ? this.formatTime(t.expires_at) : "", n = this.formatRelativeTime(t.updated_at), l = t.expires_at && this.isExpiringSoon(t.expires_at);
+    const e = et[t.status] || et.errored, s = w(t.provider_id, this.config.getProviderName), i = t.expires_at ? m(t.expires_at, { allowFuture: !0, futureImmediateLabel: "Soon" }) : "—", r = t.expires_at ? P(t.expires_at) : "", a = m(t.updated_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "Soon"
+    }), l = t.expires_at && this.isExpiringSoon(t.expires_at);
     return `
       <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -4728,11 +4704,11 @@ class Ht {
         <td class="px-4 py-3">
           <div class="text-sm text-gray-700">${o(t.resource_type)}</div>
           <div class="text-xs text-gray-500" title="${o(t.resource_id)}">
-            ${o(this.truncateId(t.resource_id))}
+            ${o(v(t.resource_id))}
           </div>
         </td>
         <td class="px-4 py-3">
-          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${o(this.truncateId(t.channel_id, 16))}</code>
+          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${o(v(t.channel_id, 16))}</code>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
@@ -4747,7 +4723,7 @@ class Ht {
           ${l ? u("iconoir:warning-triangle", { size: "12px", extraClass: "inline ml-1 text-amber-500" }) : ""}
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">
-          ${n}
+          ${a}
         </td>
         <td class="px-4 py-3 text-right">
           ${this.buildSubscriptionActions(t)}
@@ -4757,14 +4733,14 @@ class Ht {
   }
   buildSubscriptionActions(t) {
     const e = [];
-    return t.status === "active" && k()() && e.push(`
+    return t.status === "active" && A()() && e.push(`
         <button type="button"
                 class="action-renew p-1 text-gray-400 hover:text-blue-600"
                 data-action="renew"
                 title="Renew subscription">
           ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status !== "cancelled" && k()() && e.push(`
+      `), t.status !== "cancelled" && A()() && e.push(`
         <button type="button"
                 class="action-cancel p-1 text-gray-400 hover:text-red-600"
                 data-action="cancel"
@@ -4778,7 +4754,7 @@ class Ht {
       const s = e.dataset.subscriptionId;
       s && (e.addEventListener("click", (i) => {
         if (i.target.closest("button")) return;
-        const r = this.state.subscriptions.find((n) => n.id === s);
+        const r = this.state.subscriptions.find((a) => a.id === s);
         r && this.config.onSubscriptionSelect && this.config.onSubscriptionSelect(r);
       }), e.querySelectorAll("button[data-action]").forEach((i) => {
         i.addEventListener("click", async (r) => {
@@ -4798,17 +4774,19 @@ class Ht {
     const t = this.container?.querySelector(".sync-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".sync-content");
     if (t) {
       if (this.state.syncJobs.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("sync"));
+        }), T(t, () => {
+          this.queryState.reset(), this.restoreFilterValues();
+        })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("sync"));
         return;
       }
       s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = this.state.syncJobs.map((i) => this.renderSyncJobRow(i)).join(""), this.bindSyncJobActions();
     }
   }
   renderSyncJobRow(t) {
-    const e = J[t.status] || J.failed, s = rt[t.mode] || rt.incremental, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.metadata, n = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = n ? this.formatRelativeTime(n) : this.formatRelativeTime(t.updated_at), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
+    const e = st[t.status] || st.failed, s = pt[t.mode] || pt.incremental, i = w(t.provider_id, this.config.getProviderName), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = a ? m(a, { allowFuture: !0, futureImmediateLabel: "Soon" }) : m(t.updated_at, { allowFuture: !0, futureImmediateLabel: "Soon" }), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
     return `
       <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -4828,7 +4806,7 @@ class Ht {
         <td class="px-4 py-3">
           ${d ? `
             <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${o(d)}">
-              ${o(this.truncateId(d, 16))}
+              ${o(v(d, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -4836,7 +4814,7 @@ class Ht {
           ${l}
         </td>
         <td class="px-4 py-3 text-xs">
-          ${c ? `<span class="text-red-600" title="${o(c)}">${o(this.truncateId(c, 48))}</span>` : '<span class="text-gray-400">—</span>'}
+          ${c ? `<span class="text-red-600" title="${o(c)}">${o(v(c, 48))}</span>` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-right">
           ${this.buildSyncJobActions(t)}
@@ -4846,7 +4824,7 @@ class Ht {
   }
   buildSyncJobActions(t) {
     const e = [];
-    return t.status !== "running" && k()() && e.push(`
+    return t.status !== "running" && A()() && e.push(`
         <button type="button"
                 class="action-run p-1 text-gray-400 hover:text-green-600"
                 data-action="run"
@@ -4860,7 +4838,7 @@ class Ht {
       const s = e.dataset.jobId;
       s && (e.addEventListener("click", (i) => {
         if (i.target.closest("button")) return;
-        const r = this.state.syncJobs.find((n) => n.id === s);
+        const r = this.state.syncJobs.find((a) => a.id === s);
         r && this.config.onSyncJobSelect && this.config.onSyncJobSelect(r);
       }), e.querySelectorAll("button[data-action]").forEach((i) => {
         i.addEventListener("click", async (r) => {
@@ -4871,7 +4849,7 @@ class Ht {
   }
   async handleRenew(t, e) {
     this.actionQueue.isInFlight(`renew-${t}`) || await this.actionQueue.execute(`renew-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.renewSubscription(t),
         notifier: this.config.notifier,
         successMessage: "Subscription renewal initiated",
@@ -4887,11 +4865,11 @@ class Ht {
     });
   }
   async handleCancel(t, e) {
-    await H({
+    await Q({
       action: "cancel",
       resourceType: "subscription"
     }) && (this.actionQueue.isInFlight(`cancel-${t}`) || await this.actionQueue.execute(`cancel-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.cancelSubscription(t),
         notifier: this.config.notifier,
         successMessage: "Subscription cancelled",
@@ -4909,13 +4887,13 @@ class Ht {
   async handleRunSync(t, e) {
     const s = this.state.syncJobs.find((l) => l.id === t);
     if (!s) return;
-    const i = s.metadata, r = typeof i.run_resource_type == "string" && i.run_resource_type ? i.run_resource_type : "default", n = typeof i.run_resource_id == "string" && i.run_resource_id ? i.run_resource_id : "default";
+    const i = s.metadata, r = typeof i.run_resource_type == "string" && i.run_resource_type ? i.run_resource_type : "default", a = typeof i.run_resource_id == "string" && i.run_resource_id ? i.run_resource_id : "default";
     this.actionQueue.isInFlight(`sync-${t}`) || await this.actionQueue.execute(`sync-${t}`, async () => {
-      await x({
+      await S({
         mutation: () => this.client.runSync(s.connection_id, {
           provider_id: s.provider_id,
           resource_type: r,
-          resource_id: n
+          resource_id: a
         }),
         notifier: this.config.notifier,
         successMessage: "Sync job started",
@@ -4942,14 +4920,14 @@ class Ht {
     const t = this.state.activeTab === "subscriptions" ? ".subscriptions-content" : ".sync-content", e = this.container?.querySelector(t), s = this.container?.querySelector(".empty-state"), i = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody");
     if (!i) return;
     const r = 7;
-    i.innerHTML = U(r, {
+    i.innerHTML = G(r, {
       title: `Failed to load ${this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs"}`,
       error: this.state.error,
       showRetry: !0
     }), e?.classList.remove("hidden"), s?.classList.add("hidden"), i.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadData());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "subscriptions and sync"
     }));
   }
@@ -4957,22 +4935,22 @@ class Ht {
     const t = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-content") : this.container?.querySelector(".sync-content"), e = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody"), s = this.container?.querySelector(".empty-state");
     if (!this.state.loading || !e) return;
     if ((this.state.activeTab === "subscriptions" ? this.state.subscriptions : this.state.syncJobs).length === 0) {
-      const n = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
-      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = D(7, { text: n });
+      const a = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
+      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = W(7, { text: a });
     }
   }
   async loadSyncConnections(t) {
     const { providerId: e, connectionId: s, signal: i } = t;
     if (s)
       try {
-        const n = await this.client.getConnectionDetail(s, i);
-        return e && n.connection.provider_id !== e ? [] : [n.connection];
-      } catch (n) {
-        if (n.name === "AbortError")
-          throw n;
-        if (n instanceof q && n.isNotFound)
+        const a = await this.client.getConnectionDetail(s, i);
+        return e && a.connection.provider_id !== e ? [] : [a.connection];
+      } catch (a) {
+        if (a.name === "AbortError")
+          throw a;
+        if (a instanceof I && a.isNotFound)
           return [];
-        throw n;
+        throw a;
       }
     return (await this.client.listConnections({
       provider_id: e,
@@ -4981,7 +4959,7 @@ class Ht {
     }, i)).connections;
   }
   toSyncJob(t, e) {
-    const s = e.cursors[0], i = s?.resource_type || "default", r = s?.resource_id || "default", n = {
+    const s = e.cursors[0], i = s?.resource_type || "default", r = s?.resource_id || "default", a = {
       ...e.last_job?.metadata || {},
       last_synced_at: e.last_synced_at || null,
       last_sync_error: e.last_sync_error || "",
@@ -4991,7 +4969,7 @@ class Ht {
     return e.last_job ? {
       ...e.last_job,
       checkpoint: e.last_cursor || e.last_job.checkpoint,
-      metadata: n
+      metadata: a
     } : !e.last_cursor && !e.last_synced_at && !e.last_sync_error ? null : {
       id: `synthetic-sync-${t.id}`,
       connection_id: t.id,
@@ -5000,7 +4978,7 @@ class Ht {
       checkpoint: e.last_cursor || "",
       status: e.last_sync_error ? "failed" : "succeeded",
       attempts: 0,
-      metadata: n,
+      metadata: a,
       created_at: t.created_at,
       updated_at: e.last_synced_at || t.updated_at
     };
@@ -5018,8 +4996,8 @@ class Ht {
     ].join(" ").toLowerCase().includes(e);
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".info"), p = this.container?.querySelector(".prev-btn"), h = this.container?.querySelector(".next-btn"), g = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
-    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i} ${g}` : `No ${g}`), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".info"), p = this.container?.querySelector(".prev-btn"), h = this.container?.querySelector(".next-btn"), g = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i} ${g}` : `No ${g}`), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // Tab Persistence
@@ -5034,25 +5012,6 @@ class Ht {
     const e = `${window.location.pathname}?${t.toString()}`;
     window.history.replaceState({}, "", e);
   }
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
-  }
-  truncateId(t, e = 12) {
-    return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
-  }
-  formatTime(t) {
-    const e = new Date(t);
-    return Number.isNaN(e.getTime()) ? t : e.toLocaleString();
-  }
-  formatRelativeTime(t) {
-    const e = new Date(t);
-    if (Number.isNaN(e.getTime())) return t;
-    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, n = Math.abs(i), l = Math.floor(n / 6e4), c = Math.floor(n / 36e5), d = Math.floor(n / 864e5);
-    return l < 1 ? r ? "Soon" : "Just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
-  }
   isExpiringSoon(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return !1;
@@ -5060,23 +5019,23 @@ class Ht {
     return i > 0 && i < 864e5;
   }
 }
-async function Ne(a) {
-  const t = new Ht(a);
+async function Qe(n) {
+  const t = new Zt(n);
   return await t.init(), t;
 }
-const nt = {
+const gt = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, Ot = {
+}, Xt = {
   granted: { label: "Granted", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check" },
   requested: { label: "Requested", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:clock" },
   missing: { label: "Missing", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:minus" },
   capability_required: { label: "Required", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" }
 };
-class Bt {
+class te {
   constructor(t) {
     this.container = null, this.state = {
       connection: null,
@@ -5087,7 +5046,7 @@ class Bt {
       loading: !1,
       error: null,
       reconsentInProgress: !1
-    }, this.abortController = null, this.actionQueue = new O(), this.config = t, this.client = t.apiClient || C();
+    }, this.abortController = null, this.actionQueue = new J(), this.config = t, this.client = t.apiClient || E();
   }
   /**
    * Initialize the detail panel
@@ -5097,7 +5056,7 @@ class Bt {
       console.error("[ConnectionDetail] Container not found:", this.config.container);
       return;
     }
-    if (!E()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -5159,7 +5118,7 @@ class Bt {
   // ---------------------------------------------------------------------------
   render() {
     if (!this.container || !this.state.connection) return;
-    const t = this.state.connection, e = nt[t.status] || nt.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.buildGrantInfoList(), r = i.some((l) => l.status === "capability_required"), n = t.status === "needs_reconsent" || r;
+    const t = this.state.connection, e = gt[t.status] || gt.disconnected, s = w(t.provider_id, this.config.getProviderName), i = this.buildGrantInfoList(), r = i.some((l) => l.status === "capability_required"), a = t.status === "needs_reconsent" || r;
     this.container.innerHTML = `
       <div class="connection-detail">
         <!-- Header -->
@@ -5192,7 +5151,7 @@ class Bt {
                 ${o(t.scope_type)}
               </span>
               <span class="text-sm text-gray-700" title="${o(t.scope_id)}">
-                ${o(this.truncateId(t.scope_id, 16))}
+                ${o(v(t.scope_id, 16))}
               </span>
             </dd>
           </div>
@@ -5200,21 +5159,21 @@ class Bt {
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">External Account</dt>
             <dd class="mt-1 text-sm text-gray-700" title="${o(t.external_account_id)}">
-              ${o(this.truncateId(t.external_account_id, 20))}
+              ${o(v(t.external_account_id, 20))}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${this.formatTime(t.created_at)}
+              ${P(t.created_at)}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Updated</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${this.formatTime(t.updated_at)}
+              ${P(t.updated_at)}
             </dd>
           </div>
         </div>
@@ -5231,7 +5190,7 @@ class Bt {
           </div>
         ` : ""}
 
-        ${n ? `
+        ${a ? `
           <div class="reconsent-banner flex items-center justify-between p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0 text-amber-500">
@@ -5244,7 +5203,7 @@ class Bt {
                 </p>
               </div>
             </div>
-            ${ct()() ? `
+            ${yt()() ? `
               <button type="button"
                       class="reconsent-btn flex-shrink-0 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
                 Re-consent Now
@@ -5260,7 +5219,11 @@ class Bt {
               <h3 class="text-lg font-medium text-gray-900">Permissions</h3>
               ${this.state.grantSnapshot ? `
                 <span class="text-xs text-gray-500">
-                  Version ${this.state.grantSnapshot.version} • Captured ${this.formatRelativeTime(this.state.grantSnapshot.captured_at)}
+                  Version ${this.state.grantSnapshot.version} • Captured ${m(this.state.grantSnapshot.captured_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "in a moment",
+      pastImmediateLabel: "just now"
+    })}
                 </span>
               ` : ""}
             </div>
@@ -5302,14 +5265,14 @@ class Bt {
 
         <!-- Actions -->
         <div class="actions flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-          ${k()() && t.status === "active" ? `
+          ${A()() && t.status === "active" ? `
             <button type="button"
                     class="refresh-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
               ${u("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
               Refresh Credentials
             </button>
           ` : ""}
-          ${K()() && t.status !== "disconnected" ? `
+          ${rt()() && t.status !== "disconnected" ? `
             <button type="button"
                     class="revoke-btn px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
               ${u("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
@@ -5322,7 +5285,7 @@ class Bt {
   }
   renderGrantMatrix(t) {
     return t.length === 0 ? "" : t.map((e) => {
-      const s = Ot[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => this.formatLabel(r)).join(", ") : null;
+      const s = Xt[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => H(r)).join(", ") : null;
       return `
           <div class="grant-row flex items-center justify-between px-4 py-3 hover:bg-gray-50">
             <div class="flex-1 min-w-0">
@@ -5353,13 +5316,13 @@ class Bt {
   }
   renderCapabilities() {
     return !this.state.provider || !this.state.grantSnapshot ? "" : this.state.provider.capabilities.map((t) => {
-      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((h) => e.has(h)), i = t.optional_grants.every((h) => e.has(h)), r = s && i, n = s && !i, l = !s;
+      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((h) => e.has(h)), i = t.optional_grants.every((h) => e.has(h)), r = s && i, a = s && !i, l = !s;
       let c, d, p;
-      return r ? (c = "Fully Enabled", d = "bg-green-100 text-green-700", p = "iconoir:check-circle") : n ? (c = "Partially Enabled", d = "bg-blue-100 text-blue-700", p = "iconoir:half-moon") : (c = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", p = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
+      return r ? (c = "Fully Enabled", d = "bg-green-100 text-green-700", p = "iconoir:check-circle") : a ? (c = "Partially Enabled", d = "bg-blue-100 text-blue-700", p = "iconoir:half-moon") : (c = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", p = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
-                <h4 class="text-sm font-medium text-gray-900">${o(this.formatLabel(t.name))}</h4>
+                <h4 class="text-sm font-medium text-gray-900">${o(H(t.name))}</h4>
                 <p class="text-xs text-gray-500 mt-0.5">
                   ${t.required_grants.length} required, ${t.optional_grants.length} optional
                 </p>
@@ -5388,7 +5351,7 @@ class Bt {
     else if (t.last_error)
       e = "error", s = "Credential Error", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const n = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), c = (n.getTime() - l.getTime()) / (1e3 * 60 * 60);
+      const a = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), c = (a.getTime() - l.getTime()) / (1e3 * 60 * 60);
       c < 0 ? (e = "error", s = "Expired", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : c < 24 && (e = "warning", s = "Expiring Soon", i = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
@@ -5421,7 +5384,11 @@ class Bt {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Expires At</span>
               <span class="text-sm font-medium text-gray-900" title="${o(t.expires_at)}">
-                ${this.formatRelativeTime(t.expires_at)}
+                ${m(t.expires_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "in a moment",
+      pastImmediateLabel: "just now"
+    })}
               </span>
             </div>
           ` : ""}
@@ -5429,7 +5396,11 @@ class Bt {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Last Refresh</span>
               <span class="text-sm font-medium text-gray-900" title="${o(t.last_refresh_at)}">
-                ${this.formatRelativeTime(t.last_refresh_at)}
+                ${m(t.last_refresh_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "in a moment",
+      pastImmediateLabel: "just now"
+    })}
               </span>
             </div>
           ` : ""}
@@ -5437,7 +5408,11 @@ class Bt {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Refresh</span>
               <span class="text-sm font-medium text-gray-900" title="${o(t.next_refresh_attempt_at)}">
-                ${this.formatRelativeTime(t.next_refresh_attempt_at)}
+                ${m(t.next_refresh_attempt_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "in a moment",
+      pastImmediateLabel: "just now"
+    })}
               </span>
             </div>
           ` : ""}
@@ -5462,7 +5437,7 @@ class Bt {
       const l = t.exhausted_buckets / Math.max(t.total_buckets, 1);
       l >= 1 ? (e = "exhausted", s = "All Limits Exhausted", i = "bg-red-100 text-red-700", r = "iconoir:warning-circle") : l >= 0.5 ? (e = "warning", s = "High Usage", i = "bg-amber-100 text-amber-700", r = "iconoir:warning-triangle") : (e = "warning", s = "Some Limits Hit", i = "bg-amber-100 text-amber-700", r = "iconoir:clock");
     }
-    const n = t.total_buckets > 0 ? Math.round(t.exhausted_buckets / t.total_buckets * 100) : 0;
+    const a = t.total_buckets > 0 ? Math.round(t.exhausted_buckets / t.total_buckets * 100) : 0;
     return `
       <div class="rate-limit-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -5485,7 +5460,7 @@ class Bt {
               </span>
             </div>
             <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full transition-all duration-300 ${e === "healthy" ? "bg-green-500" : e === "warning" ? "bg-amber-500" : "bg-red-500"}" style="width: ${n}%"></div>
+              <div class="h-full transition-all duration-300 ${e === "healthy" ? "bg-green-500" : e === "warning" ? "bg-amber-500" : "bg-red-500"}" style="width: ${a}%"></div>
             </div>
           </div>
 
@@ -5493,7 +5468,11 @@ class Bt {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Reset</span>
               <span class="text-sm font-medium text-gray-900" title="${o(t.next_reset_at)}">
-                ${this.formatRelativeTime(t.next_reset_at)}
+                ${m(t.next_reset_at, {
+      allowFuture: !0,
+      futureImmediateLabel: "in a moment",
+      pastImmediateLabel: "just now"
+    })}
               </span>
             </div>
           ` : ""}
@@ -5529,12 +5508,6 @@ class Bt {
     const e = Math.floor(t / 3600), s = Math.floor(t % 3600 / 60);
     return s > 0 ? `${e}h ${s}m` : `${e}h`;
   }
-  formatRelativeTime(t) {
-    const e = new Date(t);
-    if (Number.isNaN(e.getTime())) return t;
-    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, n = Math.abs(i), l = Math.floor(n / 6e4), c = Math.floor(n / 36e5), d = Math.floor(n / 864e5);
-    return l < 1 ? r ? "in a moment" : "just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
-  }
   bindEvents() {
     if (!this.container) return;
     this.container.querySelector(".back-btn")?.addEventListener("click", () => {
@@ -5558,7 +5531,7 @@ class Bt {
     if (!this.state.connection) return;
     const t = this.container?.querySelector(".refresh-btn");
     this.actionQueue.isInFlight("refresh") || await this.actionQueue.execute("refresh", async () => {
-      await x({
+      await S({
         mutation: () => this.client.refreshConnection(this.config.connectionId, {
           provider_id: this.state.connection.provider_id
         }),
@@ -5577,15 +5550,15 @@ class Bt {
   }
   async handleRevoke() {
     if (!this.state.connection) return;
-    const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : this.formatProviderId(this.state.connection.provider_id);
-    if (!await H({
+    const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : U(this.state.connection.provider_id);
+    if (!await Q({
       action: "revoke",
       resourceType: "connection",
       resourceName: t
     })) return;
     const s = this.container?.querySelector(".revoke-btn");
     this.actionQueue.isInFlight("revoke") || await this.actionQueue.execute("revoke", async () => {
-      await x({
+      await S({
         mutation: () => this.client.revokeConnection(this.config.connectionId),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
@@ -5611,21 +5584,21 @@ class Bt {
       `) : (t.disabled = !1, t.textContent = "Re-consent Now"));
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = N({
+    this.container && (this.container.innerHTML = z({
       text: "Loading connection details...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = j({
+    this.container.innerHTML = V({
       title: "Failed to Load Connection",
       error: this.state.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnection());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = $({
+    this.container && (this.container.innerHTML = L({
       resource: "connection details"
     }));
   }
@@ -5636,11 +5609,11 @@ class Bt {
     const t = this.state.grantSnapshot, e = this.state.provider;
     if (!t)
       return [];
-    const s = new Set(t.requested_grants), i = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), n = /* @__PURE__ */ new Set();
+    const s = new Set(t.requested_grants), i = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Set();
     if (e)
       for (const p of e.capabilities) {
         for (const h of p.required_grants) {
-          n.add(h);
+          a.add(h);
           const g = r.get(h) || [];
           g.push(p.name), r.set(h, g);
         }
@@ -5652,14 +5625,14 @@ class Bt {
     const l = /* @__PURE__ */ new Set([
       ...t.requested_grants,
       ...t.granted_grants,
-      ...n
+      ...a
     ]), c = [];
     for (const p of l) {
-      const h = i.has(p), g = s.has(p), f = n.has(p);
-      let y;
-      h ? y = "granted" : g ? y = "requested" : f ? y = "capability_required" : y = "missing", c.push({
+      const h = i.has(p), g = s.has(p), f = a.has(p);
+      let b;
+      h ? b = "granted" : g ? b = "requested" : f ? b = "capability_required" : b = "missing", c.push({
         grant: p,
-        status: y,
+        status: b,
         isRequired: g || f,
         isCapabilityRequired: f,
         capabilities: r.get(p) || []
@@ -5673,129 +5646,127 @@ class Bt {
     };
     return c.sort((p, h) => d[p.status] - d[h.status]), c;
   }
-  formatProviderId(t) {
-    return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
-  }
-  formatLabel(t) {
-    return t.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
-  }
-  truncateId(t, e = 12) {
-    return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
-  }
-  formatTime(t) {
-    const e = new Date(t);
-    return Number.isNaN(e.getTime()) ? t : e.toLocaleString();
-  }
 }
-async function je(a) {
-  const t = new Bt(a);
+async function Je(n) {
+  const t = new te(n);
   return await t.init(), t;
 }
 export {
-  O as ActionQueue,
-  Ut as ActivityPageManager,
-  He as CommandRuntimeController,
-  Bt as ConnectionDetailManager,
-  jt as ConnectionsListManager,
-  R as DEFAULT_ACTION_LABELS,
-  Ee as ExtensionDiagnosticsPanel,
-  Rt as FOCUSABLE_SELECTOR,
-  Dt as InstallationsListManager,
-  _t as MutationButtonManager,
-  Nt as ProvidersCatalogManager,
-  M as QueryStateManager,
-  ot as ServicesAPIClient,
-  q as ServicesAPIError,
-  F as ServicesPermissionManager,
-  S as ServicesPermissions,
-  Ht as SubscriptionsSyncPageManager,
-  ce as UIStateManager,
-  Re as addStateSourceIndicator,
-  ve as announceError,
-  me as announceLoading,
-  Se as announceNavigation,
-  xe as announceSuccess,
-  B as announceToScreenReader,
-  Yt as buildSearchParams,
-  _ as canConnect,
-  k as canEdit,
-  ct as canReconsent,
-  K as canRevoke,
-  St as canViewActivity,
-  E as canViewServices,
-  Q as clearRetryUI,
-  se as combineGuards,
-  Oe as configureDeepLinks,
-  H as confirmServiceAction,
-  be as createActionLabelResolver,
-  ft as createActivityNavigateHandler,
-  Fe as createActivityPage,
-  je as createConnectionDetail,
-  Ie as createConnectionsList,
-  At as createFocusTrap,
-  Me as createInstallationsList,
-  Be as createNavigationContext,
-  L as createPermissionGuard,
-  Pe as createProvidersCatalog,
-  Qt as createServicesClient,
-  ke as createSkipLink,
-  Ne as createSubscriptionsSyncPage,
-  Kt as debounce,
-  ze as deepLinkManager,
-  W as gateElement,
-  yt as generateDeepLink,
-  Ve as generateListLink,
-  ue as getActionEntry,
-  Tt as getActionLabel,
-  qt as getActionsByCategory,
-  he as getAllActionLabels,
-  qe as getAnimationDuration,
-  w as getPermissionManager,
-  Lt as getServiceConfirmConfig,
-  C as getServicesClient,
-  ie as handleForbidden,
-  de as initActivityLabels,
-  We as initCommandRuntime,
-  ne as initPermissionGates,
-  Xt as initPermissions,
-  ae as initPermissionsFromContext,
-  ge as isActivityLabelsInitialized,
-  wt as isForbiddenError,
-  $t as loadPermissionsFromContext,
-  bt as mapObjectTypeToEntity,
-  Ge as navigateBack,
-  Je as navigateToEntity,
-  Qe as parseCurrentDeepLink,
-  Ke as parseDeepLink,
-  Zt as parseSearchParams,
-  It as prefersReducedMotion,
-  dt as renderEmptyState,
-  j as renderErrorState,
-  $ as renderForbiddenState,
-  N as renderLoadingState,
-  ut as renderNoResultsState,
-  Ct as renderRetryUI,
-  I as renderStateSourceIndicator,
-  Ae as renderStateSourceLegend,
-  oe as renderTableEmptyState,
-  U as renderTableErrorState,
-  D as renderTableLoadingState,
-  T as renderTableNoResultsState,
-  te as requireAll,
-  ee as requireAny,
-  fe as resetActivityLabels,
-  pe as setActionLabels,
-  we as setExpandedState,
-  $e as setLoadingState,
-  Le as setProgress,
-  Jt as setServicesClient,
-  Ce as setSortableHeader,
-  _e as setStatusLabel,
-  Te as setupDialogFocus,
-  Et as setupKeyboardNavigation,
-  ye as setupRovingTabindex,
-  le as withConfirmation,
-  x as withMutationFeedback,
-  re as withPermission
+  J as ActionQueue,
+  Yt as ActivityPageManager,
+  Ze as CommandRuntimeController,
+  te as ConnectionDetailManager,
+  Jt as ConnectionsListManager,
+  M as DEFAULT_ACTION_LABELS,
+  He as ExtensionDiagnosticsPanel,
+  Ht as FOCUSABLE_SELECTOR,
+  Kt as InstallationsListManager,
+  It as MutationButtonManager,
+  Qt as ProvidersCatalogManager,
+  O as QueryStateManager,
+  bt as ServicesAPIClient,
+  I as ServicesAPIError,
+  B as ServicesPermissionManager,
+  _ as ServicesPermissions,
+  Zt as SubscriptionsSyncPageManager,
+  xe as UIStateManager,
+  Oe as addStateSourceIndicator,
+  Ae as announceError,
+  Ee as announceLoading,
+  Re as announceNavigation,
+  qe as announceSuccess,
+  K as announceToScreenReader,
+  T as bindNoResultsResetAction,
+  ce as buildSearchParams,
+  k as canConnect,
+  A as canEdit,
+  yt as canReconsent,
+  rt as canRevoke,
+  At as canViewActivity,
+  F as canViewServices,
+  it as clearRetryUI,
+  pe as combineGuards,
+  Xe as configureDeepLinks,
+  Q as confirmServiceAction,
+  ke as createActionLabelResolver,
+  Ct as createActivityNavigateHandler,
+  Ge as createActivityPage,
+  Je as createConnectionDetail,
+  Ve as createConnectionsList,
+  Ot as createFocusTrap,
+  We as createInstallationsList,
+  ts as createNavigationContext,
+  q as createPermissionGuard,
+  ze as createProvidersCatalog,
+  ae as createServicesClient,
+  je as createSkipLink,
+  Qe as createSubscriptionsSyncPage,
+  oe as debounce,
+  es as deepLinkManager,
+  Y as destroyAbortableQueryPage,
+  P as formatDateTime,
+  U as formatProviderId,
+  m as formatRelativeTime,
+  H as formatServiceLabel,
+  tt as gateElement,
+  kt as generateDeepLink,
+  ss as generateListLink,
+  we as getActionEntry,
+  jt as getActionLabel,
+  Dt as getActionsByCategory,
+  $e as getAllActionLabels,
+  Ue as getAnimationDuration,
+  C as getPermissionManager,
+  Mt as getServiceConfirmConfig,
+  E as getServicesClient,
+  ge as handleForbidden,
+  Se as initActivityLabels,
+  is as initCommandRuntime,
+  be as initPermissionGates,
+  de as initPermissions,
+  ye as initPermissionsFromContext,
+  Ce as isActivityLabelsInitialized,
+  Rt as isForbiddenError,
+  nt as loadAndPopulateProviders,
+  Pt as loadPermissionsFromContext,
+  wt as loadProviders,
+  Lt as mapObjectTypeToEntity,
+  rs as navigateBack,
+  ns as navigateToEntity,
+  as as parseCurrentDeepLink,
+  os as parseDeepLink,
+  le as parseSearchParams,
+  Wt as populateProviderFilterOptions,
+  zt as prefersReducedMotion,
+  xt as renderEmptyState,
+  V as renderErrorState,
+  L as renderForbiddenState,
+  z as renderLoadingState,
+  vt as renderNoResultsState,
+  Ft as renderRetryUI,
+  D as renderStateSourceIndicator,
+  Be as renderStateSourceLegend,
+  me as renderTableEmptyState,
+  G as renderTableErrorState,
+  W as renderTableLoadingState,
+  R as renderTableNoResultsState,
+  ue as requireAll,
+  he as requireAny,
+  Le as resetActivityLabels,
+  w as resolveProviderDisplayName,
+  _e as setActionLabels,
+  Pe as setExpandedState,
+  Ie as setLoadingState,
+  Ne as setProgress,
+  ne as setServicesClient,
+  Me as setSortableHeader,
+  Fe as setStatusLabel,
+  De as setupDialogFocus,
+  Ut as setupKeyboardNavigation,
+  Te as setupRovingTabindex,
+  v as truncateId,
+  ve as withConfirmation,
+  S as withMutationFeedback,
+  fe as withPermission
 };
 //# sourceMappingURL=index.js.map

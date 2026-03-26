@@ -35,6 +35,14 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import {
+  formatDateTime,
+  formatProviderId,
+  formatRelativeTime,
+  formatServiceLabel,
+  resolveProviderDisplayName,
+  truncateId,
+} from './formatters.js';
 
 // =============================================================================
 // Types
@@ -241,9 +249,7 @@ export class ConnectionDetailManager {
 
     const connection = this.state.connection;
     const status = STATUS_CONFIG[connection.status] || STATUS_CONFIG.disconnected;
-    const providerName = this.config.getProviderName
-      ? this.config.getProviderName(connection.provider_id)
-      : this.formatProviderId(connection.provider_id);
+    const providerName = resolveProviderDisplayName(connection.provider_id, this.config.getProviderName);
 
     const grantInfoList = this.buildGrantInfoList();
     const hasMissingRequired = grantInfoList.some((g) => g.status === 'capability_required');
@@ -283,7 +289,7 @@ export class ConnectionDetailManager {
                 ${escapeHtml(connection.scope_type)}
               </span>
               <span class="text-sm text-gray-700" title="${escapeHtml(connection.scope_id)}">
-                ${escapeHtml(this.truncateId(connection.scope_id, 16))}
+                ${escapeHtml(truncateId(connection.scope_id, 16))}
               </span>
             </dd>
           </div>
@@ -291,21 +297,21 @@ export class ConnectionDetailManager {
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">External Account</dt>
             <dd class="mt-1 text-sm text-gray-700" title="${escapeHtml(connection.external_account_id)}">
-              ${escapeHtml(this.truncateId(connection.external_account_id, 20))}
+              ${escapeHtml(truncateId(connection.external_account_id, 20))}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${this.formatTime(connection.created_at)}
+              ${formatDateTime(connection.created_at)}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Updated</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${this.formatTime(connection.updated_at)}
+              ${formatDateTime(connection.updated_at)}
             </dd>
           </div>
         </div>
@@ -353,7 +359,11 @@ export class ConnectionDetailManager {
               <h3 class="text-lg font-medium text-gray-900">Permissions</h3>
               ${this.state.grantSnapshot ? `
                 <span class="text-xs text-gray-500">
-                  Version ${this.state.grantSnapshot.version} • Captured ${this.formatRelativeTime(this.state.grantSnapshot.captured_at)}
+                  Version ${this.state.grantSnapshot.version} • Captured ${formatRelativeTime(this.state.grantSnapshot.captured_at, {
+                    allowFuture: true,
+                    futureImmediateLabel: 'in a moment',
+                    pastImmediateLabel: 'just now',
+                  })}
                 </span>
               ` : ''}
             </div>
@@ -425,7 +435,7 @@ export class ConnectionDetailManager {
       .map((grantInfo) => {
         const statusConfig = GRANT_STATUS_CONFIG[grantInfo.status];
         const capabilitiesList = grantInfo.capabilities.length > 0
-          ? grantInfo.capabilities.map((c) => this.formatLabel(c)).join(', ')
+          ? grantInfo.capabilities.map((c) => formatServiceLabel(c)).join(', ')
           : null;
 
         return `
@@ -495,7 +505,7 @@ export class ConnectionDetailManager {
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
-                <h4 class="text-sm font-medium text-gray-900">${escapeHtml(this.formatLabel(capability.name))}</h4>
+                <h4 class="text-sm font-medium text-gray-900">${escapeHtml(formatServiceLabel(capability.name))}</h4>
                 <p class="text-xs text-gray-500 mt-0.5">
                   ${capability.required_grants.length} required, ${capability.optional_grants.length} optional
                 </p>
@@ -585,7 +595,11 @@ export class ConnectionDetailManager {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Expires At</span>
               <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.expires_at)}">
-                ${this.formatRelativeTime(health.expires_at)}
+                ${formatRelativeTime(health.expires_at, {
+                  allowFuture: true,
+                  futureImmediateLabel: 'in a moment',
+                  pastImmediateLabel: 'just now',
+                })}
               </span>
             </div>
           ` : ''}
@@ -593,7 +607,11 @@ export class ConnectionDetailManager {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Last Refresh</span>
               <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.last_refresh_at)}">
-                ${this.formatRelativeTime(health.last_refresh_at)}
+                ${formatRelativeTime(health.last_refresh_at, {
+                  allowFuture: true,
+                  futureImmediateLabel: 'in a moment',
+                  pastImmediateLabel: 'just now',
+                })}
               </span>
             </div>
           ` : ''}
@@ -601,7 +619,11 @@ export class ConnectionDetailManager {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Refresh</span>
               <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.next_refresh_attempt_at)}">
-                ${this.formatRelativeTime(health.next_refresh_attempt_at)}
+                ${formatRelativeTime(health.next_refresh_attempt_at, {
+                  allowFuture: true,
+                  futureImmediateLabel: 'in a moment',
+                  pastImmediateLabel: 'just now',
+                })}
               </span>
             </div>
           ` : ''}
@@ -688,7 +710,11 @@ export class ConnectionDetailManager {
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Reset</span>
               <span class="text-sm font-medium text-gray-900" title="${escapeHtml(rateLimit.next_reset_at)}">
-                ${this.formatRelativeTime(rateLimit.next_reset_at)}
+                ${formatRelativeTime(rateLimit.next_reset_at, {
+                  allowFuture: true,
+                  futureImmediateLabel: 'in a moment',
+                  pastImmediateLabel: 'just now',
+                })}
               </span>
             </div>
           ` : ''}
@@ -728,26 +754,6 @@ export class ConnectionDetailManager {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-
-  private formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const isFuture = diffMs > 0;
-    const absDiffMs = Math.abs(diffMs);
-    const absDiffMins = Math.floor(absDiffMs / 60000);
-    const absDiffHours = Math.floor(absDiffMs / 3600000);
-    const absDiffDays = Math.floor(absDiffMs / 86400000);
-
-    if (absDiffMins < 1) return isFuture ? 'in a moment' : 'just now';
-    if (absDiffMins < 60) return isFuture ? `in ${absDiffMins}m` : `${absDiffMins}m ago`;
-    if (absDiffHours < 24) return isFuture ? `in ${absDiffHours}h` : `${absDiffHours}h ago`;
-    if (absDiffDays < 7) return isFuture ? `in ${absDiffDays}d` : `${absDiffDays}d ago`;
-
-    return date.toLocaleDateString();
   }
 
   private bindEvents(): void {
@@ -832,7 +838,7 @@ export class ConnectionDetailManager {
 
     const providerName = this.config.getProviderName
       ? this.config.getProviderName(this.state.connection.provider_id)
-      : this.formatProviderId(this.state.connection.provider_id);
+      : formatProviderId(this.state.connection.provider_id);
 
     // Show confirmation dialog
     const confirmed = await confirmServiceAction({
@@ -996,30 +1002,6 @@ export class ConnectionDetailManager {
     return grantInfoList;
   }
 
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private formatLabel(str: string): string {
-    return str
-      .replace(/_/g, ' ')
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  private truncateId(id: string, maxLen = 12): string {
-    if (id.length <= maxLen) return id;
-    return `${id.slice(0, maxLen - 3)}...`;
-  }
-
-  private formatTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleString();
-  }
 }
 
 // =============================================================================

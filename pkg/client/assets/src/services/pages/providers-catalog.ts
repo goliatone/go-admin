@@ -15,6 +15,7 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { loadProviders, resolveProviderDisplayName } from './formatters.js';
 
 // =============================================================================
 // Types
@@ -153,18 +154,20 @@ export class ProvidersCatalogManager {
     this.error = null;
     this.renderLoading();
 
-    try {
-      const client = getServicesClient();
-      const response = await client.listProviders();
-      this.providers = response.providers || [];
-      this.renderProviders();
-    } catch (err) {
-      this.error = err instanceof Error ? err : new Error(String(err));
-      this.renderError();
+    const client = getServicesClient();
+    this.providers = await loadProviders(client, {
+      notifier: this.config.notifier,
+      onError: (error) => {
+        this.error = error;
+      },
+    });
 
-      if (this.config.notifier) {
-        this.config.notifier.error(`Failed to load providers: ${this.error.message}`);
+    try {
+      if (this.error) {
+        this.renderError();
+        return;
       }
+      this.renderProviders();
     } finally {
       this.loading = false;
     }
@@ -336,7 +339,7 @@ export class ProvidersCatalogManager {
   private getProviderCardData(provider: Provider): ProviderCardData {
     const displayName = this.config.getProviderName
       ? this.config.getProviderName(provider.id)
-      : PROVIDER_NAMES[provider.id.toLowerCase()] || this.formatProviderId(provider.id);
+      : PROVIDER_NAMES[provider.id.toLowerCase()] || resolveProviderDisplayName(provider.id);
 
     const icon = this.config.getProviderIcon
       ? this.config.getProviderIcon(provider.id)
@@ -350,13 +353,6 @@ export class ProvidersCatalogManager {
       capabilityCount: provider.capabilities.length,
       canConnect: canConnect()(),
     };
-  }
-
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
   }
 
   private bindCardEvents(): void {

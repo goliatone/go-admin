@@ -40,6 +40,18 @@ const {
   MutationButtonManager,
   ActionQueue,
   getServiceConfirmConfig,
+
+  // Shared page helpers
+  formatProviderId,
+  resolveProviderDisplayName,
+  formatServiceLabel,
+  truncateId,
+  formatDateTime,
+  formatRelativeTime,
+  loadProviders,
+  populateProviderFilterOptions,
+  bindNoResultsResetAction,
+  destroyAbortableQueryPage,
 } = await import('../dist/services/index.js');
 
 // =============================================================================
@@ -232,6 +244,126 @@ test('parseSearchParams parses URLSearchParams into object', () => {
   assert.equal(parsed.provider_id, 'google');
   assert.equal(parsed.status, 'active');
   assert.equal(parsed.page, '2');
+});
+
+// =============================================================================
+// Shared Services Page Helper Tests
+// =============================================================================
+
+test('formatProviderId and formatServiceLabel normalize identifiers', () => {
+  assert.equal(formatProviderId('google_drive'), 'Google Drive');
+  assert.equal(formatProviderId('github-enterprise'), 'Github Enterprise');
+  assert.equal(formatServiceLabel('needs_reconsent'), 'Needs Reconsent');
+  assert.equal(formatServiceLabel('oauth-token'), 'Oauth Token');
+});
+
+test('resolveProviderDisplayName prefers custom resolver and falls back to formatted id', () => {
+  assert.equal(
+    resolveProviderDisplayName('google_drive', (id) => id === 'google_drive' ? 'Google Drive' : ''),
+    'Google Drive'
+  );
+  assert.equal(resolveProviderDisplayName('github_enterprise'), 'Github Enterprise');
+});
+
+test('truncateId and date helpers preserve services-page formatting behavior', () => {
+  assert.equal(truncateId('abcdef1234567890', 8), 'abcde...');
+  assert.equal(formatDateTime('not-a-date'), 'not-a-date');
+  assert.equal(formatRelativeTime('not-a-date'), 'not-a-date');
+
+  const justNow = new Date(Date.now() - 15_000).toISOString();
+  const futureSoon = new Date(Date.now() + 15_000).toISOString();
+  assert.equal(formatRelativeTime(justNow), 'Just now');
+  assert.equal(
+    formatRelativeTime(futureSoon, { allowFuture: true, futureImmediateLabel: 'Soon' }),
+    'Soon'
+  );
+});
+
+test('loadProviders returns providers and reports failures through the notifier', async () => {
+  const messages = [];
+  const client = {
+    async listProviders() {
+      return {
+        providers: [{ id: 'google_drive', auth_kind: 'oauth2', supported_scope_types: [], capabilities: [] }],
+      };
+    },
+  };
+  const providers = await loadProviders(client);
+  assert.equal(providers.length, 1);
+  assert.equal(providers[0].id, 'google_drive');
+
+  const failingClient = {
+    async listProviders() {
+      throw new Error('boom');
+    },
+  };
+  const fallback = await loadProviders(failingClient, {
+    notifier: { error: (message) => messages.push(message) },
+  });
+  assert.deepEqual(fallback, []);
+  assert.equal(messages[0], 'Failed to load providers: boom');
+});
+
+test('populateProviderFilterOptions renders provider options and preserves selection', () => {
+  const select = { innerHTML: '', value: '' };
+  const container = {
+    querySelector(selector) {
+      assert.equal(selector, '[data-filter="provider_id"]');
+      return select;
+    },
+  };
+
+  populateProviderFilterOptions({
+    container,
+    providers: [{ id: 'google_drive' }, { id: 'github' }],
+    selectedProviderId: 'github',
+    getProviderName: (id) => id === 'github' ? 'GitHub' : '',
+  });
+
+  assert.match(select.innerHTML, /All Providers/);
+  assert.match(select.innerHTML, /Google Drive/);
+  assert.match(select.innerHTML, /GitHub/);
+  assert.equal(select.value, 'github');
+});
+
+test('bindNoResultsResetAction and destroyAbortableQueryPage share reset and teardown behavior', () => {
+  let resetCalled = 0;
+  let clickHandler = null;
+  const container = {
+    querySelector(selector) {
+      assert.equal(selector, '.ui-state-reset-btn');
+      return {
+        addEventListener(eventName, handler) {
+          assert.equal(eventName, 'click');
+          clickHandler = handler;
+        },
+      };
+    },
+  };
+
+  bindNoResultsResetAction(container, () => {
+    resetCalled += 1;
+  });
+  clickHandler();
+  assert.equal(resetCalled, 1);
+
+  let destroyed = 0;
+  let aborted = 0;
+  const abortController = {
+    abort() {
+      aborted += 1;
+    },
+  };
+  const queryState = {
+    destroy() {
+      destroyed += 1;
+    },
+  };
+
+  const nextAbortController = destroyAbortableQueryPage(abortController, queryState);
+  assert.equal(nextAbortController, null);
+  assert.equal(aborted, 1);
+  assert.equal(destroyed, 1);
 });
 
 // =============================================================================

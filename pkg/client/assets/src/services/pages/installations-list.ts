@@ -33,6 +33,14 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import {
+  bindNoResultsResetAction,
+  destroyAbortableQueryPage,
+  formatRelativeTime,
+  loadAndPopulateProviders,
+  resolveProviderDisplayName,
+  truncateId,
+} from './formatters.js';
 
 // =============================================================================
 // Types
@@ -150,7 +158,12 @@ export class InstallationsListManager {
 
     this.queryState.init();
     this.renderStructure();
-    await this.loadProviders();
+    this.state.providers = await loadAndPopulateProviders(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || '',
+      getProviderName: this.config.getProviderName,
+    });
     this.bindEvents();
     await this.loadInstallations();
   }
@@ -180,8 +193,7 @@ export class InstallationsListManager {
    * Destroy the manager
    */
   destroy(): void {
-    this.abortController?.abort();
-    this.queryState.destroy();
+    this.abortController = destroyAbortableQueryPage(this.abortController, this.queryState);
   }
 
   // ---------------------------------------------------------------------------
@@ -403,7 +415,10 @@ export class InstallationsListManager {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
         });
-        this.bindNoResultsActions(tbody);
+        bindNoResultsResetAction(tbody, () => {
+          this.queryState.reset();
+          this.restoreFilterValues();
+        });
       } else {
         // Show empty state
         tbody.innerHTML = '';
@@ -420,23 +435,12 @@ export class InstallationsListManager {
     this.bindRowActions();
   }
 
-  private bindNoResultsActions(container: Element): void {
-    const resetBtn = container.querySelector('.ui-state-reset-btn');
-    resetBtn?.addEventListener('click', () => {
-      this.queryState.reset();
-      this.restoreFilterValues();
-    });
-  }
-
   private renderInstallationRow(installation: Installation): string {
     const status = STATUS_CONFIG[installation.status] || STATUS_CONFIG.uninstalled;
     const installType = INSTALL_TYPE_CONFIG[installation.install_type] || INSTALL_TYPE_CONFIG.standard;
-    const providerName = this.config.getProviderName
-      ? this.config.getProviderName(installation.provider_id)
-      : this.formatProviderId(installation.provider_id);
-
-    const grantedAt = installation.granted_at ? this.formatDate(installation.granted_at) : '—';
-    const revokedAt = installation.revoked_at ? this.formatDate(installation.revoked_at) : '—';
+    const providerName = resolveProviderDisplayName(installation.provider_id, this.config.getProviderName);
+    const grantedAt = installation.granted_at ? formatRelativeTime(installation.granted_at) : '—';
+    const revokedAt = installation.revoked_at ? formatRelativeTime(installation.revoked_at) : '—';
     const actions = this.buildRowActions(installation);
 
     return `
@@ -456,7 +460,7 @@ export class InstallationsListManager {
             ${escapeHtml(installation.scope_type)}
           </span>
           <span class="text-gray-500 text-xs ml-1" title="${escapeHtml(installation.scope_id)}">
-            ${escapeHtml(this.truncateId(installation.scope_id))}
+            ${escapeHtml(truncateId(installation.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -547,9 +551,7 @@ export class InstallationsListManager {
   private async handleUninstall(installationId: string, button?: HTMLButtonElement): Promise<void> {
     const installation = this.getInstallation(installationId);
     const providerName = installation
-      ? (this.config.getProviderName
-          ? this.config.getProviderName(installation.provider_id)
-          : this.formatProviderId(installation.provider_id))
+      ? resolveProviderDisplayName(installation.provider_id, this.config.getProviderName)
       : undefined;
 
     // Show confirmation dialog
@@ -629,35 +631,6 @@ export class InstallationsListManager {
     }
   }
 
-  private async loadProviders(): Promise<void> {
-    try {
-      const response = await this.client.listProviders();
-      this.state.providers = response.providers || [];
-      this.populateProviderFilterOptions();
-    } catch (err) {
-      this.state.providers = [];
-      this.config.notifier?.error(`Failed to load providers: ${(err as Error).message}`);
-    }
-  }
-
-  private populateProviderFilterOptions(): void {
-    const providerSelect = this.container?.querySelector<HTMLSelectElement>('[data-filter="provider_id"]');
-    if (!providerSelect) return;
-
-    const selectedProviderId = this.queryState.getState().filters.provider_id || '';
-    const options = this.state.providers
-      .map((provider) => {
-        const displayName = this.config.getProviderName
-          ? this.config.getProviderName(provider.id)
-          : this.formatProviderId(provider.id);
-        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
-      })
-      .join('');
-
-    providerSelect.innerHTML = `<option value="">All Providers</option>${options}`;
-    providerSelect.value = selectedProviderId;
-  }
-
   private updatePagination(): void {
     const state = this.queryState.getState();
     const { page, per_page } = state;
@@ -678,40 +651,6 @@ export class InstallationsListManager {
 
     if (prevBtn) prevBtn.disabled = !hasPrev;
     if (nextBtn) nextBtn.disabled = !hasNext;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private truncateId(id: string, maxLen = 12): string {
-    if (id.length <= maxLen) return id;
-    return `${id.slice(0, maxLen - 3)}...`;
-  }
-
-  private formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
   }
 }
 

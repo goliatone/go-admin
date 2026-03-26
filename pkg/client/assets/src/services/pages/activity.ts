@@ -35,6 +35,15 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import {
+  bindNoResultsResetAction,
+  destroyAbortableQueryPage,
+  formatDateTime,
+  formatProviderId,
+  formatRelativeTime,
+  formatServiceLabel,
+  truncateId,
+} from './formatters.js';
 
 // =============================================================================
 // Types
@@ -234,8 +243,7 @@ export class ActivityPageManager {
    * Destroy the manager
    */
   destroy(): void {
-    this.abortController?.abort();
-    this.queryState.destroy();
+    this.abortController = destroyAbortableQueryPage(this.abortController, this.queryState);
   }
 
   // ---------------------------------------------------------------------------
@@ -512,7 +520,7 @@ export class ActivityPageManager {
   private renderChannelOptions(): string {
     const channels = this.config.channels || ['connections', 'credentials', 'grants', 'webhooks', 'sync', 'lifecycle'];
     return channels
-      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(this.formatLabel(c))}</option>`)
+      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(formatServiceLabel(c))}</option>`)
       .join('');
   }
 
@@ -543,7 +551,7 @@ export class ActivityPageManager {
 
     const optgroups: string[] = [];
     for (const [category, entries] of Object.entries(categories)) {
-      const categoryLabel = categoryLabels[category] || this.formatLabel(category);
+      const categoryLabel = categoryLabels[category] || formatServiceLabel(category);
       const options = entries
         .map((entry) => {
           const label = this.resolveActionLabel(entry.action);
@@ -667,7 +675,10 @@ export class ActivityPageManager {
               filterCount: this.queryState.getActiveFilterCount(),
               containerClass: 'bg-white rounded-lg border border-gray-200',
             });
-            this.bindNoResultsActions(timelineContainer);
+            bindNoResultsResetAction(timelineContainer, () => {
+              this.queryState.reset();
+              this.restoreFilterValues();
+            });
           }
         } else {
           tableWrapper?.classList.remove('hidden');
@@ -677,7 +688,10 @@ export class ActivityPageManager {
               query: this.queryState.getState().search,
               filterCount: this.queryState.getActiveFilterCount(),
             });
-            this.bindNoResultsActions(tbody);
+            bindNoResultsResetAction(tbody, () => {
+              this.queryState.reset();
+              this.restoreFilterValues();
+            });
           }
         }
       } else {
@@ -713,22 +727,14 @@ export class ActivityPageManager {
     this.updateFilterSummary();
   }
 
-  private bindNoResultsActions(container: Element): void {
-    const resetBtn = container.querySelector('.ui-state-reset-btn');
-    resetBtn?.addEventListener('click', () => {
-      this.queryState.reset();
-      this.restoreFilterValues();
-    });
-  }
-
   private renderTimelineEntry(entry: ServiceActivityEntry): string {
     const status = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
     const providerName = this.config.getProviderName
       ? this.config.getProviderName(entry.provider_id)
-      : this.formatProviderId(entry.provider_id);
+      : formatProviderId(entry.provider_id);
     const actionLabel = this.resolveActionLabel(entry.action);
-    const time = this.formatTime(entry.created_at);
-    const relativeTime = this.formatRelativeTime(entry.created_at);
+    const time = formatDateTime(entry.created_at);
+    const relativeTime = formatRelativeTime(entry.created_at);
 
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
@@ -759,7 +765,7 @@ export class ActivityPageManager {
                      class="activity-object-link text-xs text-blue-600 hover:text-blue-700"
                      data-object-type="${escapeHtml(entry.object_type)}"
                      data-object-id="${escapeHtml(entry.object_id)}">
-                    ${escapeHtml(entry.object_type)}:${escapeHtml(this.truncateId(entry.object_id))}
+                    ${escapeHtml(entry.object_type)}:${escapeHtml(truncateId(entry.object_id))}
                   </a>
                 ` : ''}
               </div>
@@ -800,10 +806,10 @@ export class ActivityPageManager {
     const status = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
     const providerName = this.config.getProviderName
       ? this.config.getProviderName(entry.provider_id)
-      : this.formatProviderId(entry.provider_id);
+      : formatProviderId(entry.provider_id);
     const actionLabel = this.resolveActionLabel(entry.action);
-    const time = this.formatTime(entry.created_at);
-    const relativeTime = this.formatRelativeTime(entry.created_at);
+    const time = formatDateTime(entry.created_at);
+    const relativeTime = formatRelativeTime(entry.created_at);
 
     return `
       <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${escapeHtml(entry.id)}">
@@ -822,7 +828,7 @@ export class ActivityPageManager {
                class="activity-object-link text-sm text-blue-600 hover:text-blue-700"
                data-object-type="${escapeHtml(entry.object_type)}"
                data-object-id="${escapeHtml(entry.object_id)}">
-              ${escapeHtml(entry.object_type)}:${escapeHtml(this.truncateId(entry.object_id))}
+              ${escapeHtml(entry.object_type)}:${escapeHtml(truncateId(entry.object_id))}
             </a>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -1107,49 +1113,6 @@ export class ActivityPageManager {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private formatLabel(str: string): string {
-    return str
-      .replace(/_/g, ' ')
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  private truncateId(id: string, maxLen = 12): string {
-    if (id.length <= maxLen) return id;
-    return `${id.slice(0, maxLen - 3)}...`;
-  }
-
-  private formatTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleString();
-  }
-
-  private formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
-  }
 
   private formatMetadataPreview(metadata: Record<string, unknown>): string {
     const entries = Object.entries(metadata).slice(0, 3);

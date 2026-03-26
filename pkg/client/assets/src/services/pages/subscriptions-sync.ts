@@ -32,6 +32,15 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import {
+  bindNoResultsResetAction,
+  destroyAbortableQueryPage,
+  formatDateTime,
+  formatRelativeTime,
+  loadAndPopulateProviders,
+  resolveProviderDisplayName,
+  truncateId,
+} from './formatters.js';
 
 // =============================================================================
 // Types
@@ -175,7 +184,12 @@ export class SubscriptionsSyncPageManager {
 
     // Render initial structure
     this.renderStructure();
-    await this.loadProviders();
+    this.state.providers = await loadAndPopulateProviders(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || '',
+      getProviderName: this.config.getProviderName,
+    });
     this.bindEvents();
 
     // Load data
@@ -226,8 +240,7 @@ export class SubscriptionsSyncPageManager {
    * Destroy the manager
    */
   destroy(): void {
-    this.abortController?.abort();
-    this.queryState.destroy();
+    this.abortController = destroyAbortableQueryPage(this.abortController, this.queryState);
   }
 
   // ---------------------------------------------------------------------------
@@ -492,35 +505,6 @@ export class SubscriptionsSyncPageManager {
       .join('');
   }
 
-  private async loadProviders(): Promise<void> {
-    try {
-      const response = await this.client.listProviders();
-      this.state.providers = response.providers || [];
-      this.populateProviderFilterOptions();
-    } catch (err) {
-      this.state.providers = [];
-      this.config.notifier?.error(`Failed to load providers: ${(err as Error).message}`);
-    }
-  }
-
-  private populateProviderFilterOptions(): void {
-    const providerSelect = this.container?.querySelector<HTMLSelectElement>('[data-filter="provider_id"]');
-    if (!providerSelect) return;
-
-    const selectedProviderId = this.queryState.getState().filters.provider_id || '';
-    const options = this.state.providers
-      .map((provider) => {
-        const displayName = this.config.getProviderName
-          ? this.config.getProviderName(provider.id)
-          : this.formatProviderId(provider.id);
-        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
-      })
-      .join('');
-
-    providerSelect.innerHTML = `<option value="">All Providers</option>${options}`;
-    providerSelect.value = selectedProviderId;
-  }
-
   private restoreFilterValues(): void {
     const state = this.queryState.getState();
 
@@ -598,7 +582,10 @@ export class SubscriptionsSyncPageManager {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
         });
-        this.bindNoResultsActions(tbody);
+        bindNoResultsResetAction(tbody, () => {
+          this.queryState.reset();
+          this.restoreFilterValues();
+        });
       } else {
         // Show empty state
         tbody.innerHTML = '';
@@ -616,23 +603,17 @@ export class SubscriptionsSyncPageManager {
     this.bindSubscriptionActions();
   }
 
-  private bindNoResultsActions(container: Element): void {
-    const resetBtn = container.querySelector('.ui-state-reset-btn');
-    resetBtn?.addEventListener('click', () => {
-      this.queryState.reset();
-      this.restoreFilterValues();
-    });
-  }
-
   private renderSubscriptionRow(subscription: Subscription): string {
     const status = SUBSCRIPTION_STATUS_CONFIG[subscription.status] || SUBSCRIPTION_STATUS_CONFIG.errored;
-    const providerName = this.config.getProviderName
-      ? this.config.getProviderName(subscription.provider_id)
-      : this.formatProviderId(subscription.provider_id);
-
-    const expiresAt = subscription.expires_at ? this.formatRelativeTime(subscription.expires_at) : '—';
-    const expiresTitle = subscription.expires_at ? this.formatTime(subscription.expires_at) : '';
-    const updatedAt = this.formatRelativeTime(subscription.updated_at);
+    const providerName = resolveProviderDisplayName(subscription.provider_id, this.config.getProviderName);
+    const expiresAt = subscription.expires_at
+      ? formatRelativeTime(subscription.expires_at, { allowFuture: true, futureImmediateLabel: 'Soon' })
+      : '—';
+    const expiresTitle = subscription.expires_at ? formatDateTime(subscription.expires_at) : '';
+    const updatedAt = formatRelativeTime(subscription.updated_at, {
+      allowFuture: true,
+      futureImmediateLabel: 'Soon',
+    });
     const isExpiringSoon = subscription.expires_at && this.isExpiringSoon(subscription.expires_at);
 
     return `
@@ -643,11 +624,11 @@ export class SubscriptionsSyncPageManager {
         <td class="px-4 py-3">
           <div class="text-sm text-gray-700">${escapeHtml(subscription.resource_type)}</div>
           <div class="text-xs text-gray-500" title="${escapeHtml(subscription.resource_id)}">
-            ${escapeHtml(this.truncateId(subscription.resource_id))}
+            ${escapeHtml(truncateId(subscription.resource_id))}
           </div>
         </td>
         <td class="px-4 py-3">
-          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${escapeHtml(this.truncateId(subscription.channel_id, 16))}</code>
+          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${escapeHtml(truncateId(subscription.channel_id, 16))}</code>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bg} ${status.text}">
@@ -758,7 +739,10 @@ export class SubscriptionsSyncPageManager {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
         });
-        this.bindNoResultsActions(tbody);
+        bindNoResultsResetAction(tbody, () => {
+          this.queryState.reset();
+          this.restoreFilterValues();
+        });
       } else {
         // Show empty state
         tbody.innerHTML = '';
@@ -779,13 +763,13 @@ export class SubscriptionsSyncPageManager {
   private renderSyncJobRow(job: SyncJob): string {
     const status = SYNC_STATUS_CONFIG[job.status] || SYNC_STATUS_CONFIG.failed;
     const mode = SYNC_MODE_CONFIG[job.mode] || SYNC_MODE_CONFIG.incremental;
-    const providerName = this.config.getProviderName
-      ? this.config.getProviderName(job.provider_id)
-      : this.formatProviderId(job.provider_id);
+    const providerName = resolveProviderDisplayName(job.provider_id, this.config.getProviderName);
 
     const metadata = job.metadata as Record<string, unknown>;
     const lastRunRaw = typeof metadata.last_synced_at === 'string' ? metadata.last_synced_at : '';
-    const lastRun = lastRunRaw ? this.formatRelativeTime(lastRunRaw) : this.formatRelativeTime(job.updated_at);
+    const lastRun = lastRunRaw
+      ? formatRelativeTime(lastRunRaw, { allowFuture: true, futureImmediateLabel: 'Soon' })
+      : formatRelativeTime(job.updated_at, { allowFuture: true, futureImmediateLabel: 'Soon' });
     const errorText = typeof metadata.last_sync_error === 'string' ? metadata.last_sync_error : '';
     const cursor = job.checkpoint || '';
 
@@ -808,7 +792,7 @@ export class SubscriptionsSyncPageManager {
         <td class="px-4 py-3">
           ${cursor ? `
             <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${escapeHtml(cursor)}">
-              ${escapeHtml(this.truncateId(cursor, 16))}
+              ${escapeHtml(truncateId(cursor, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -817,7 +801,7 @@ export class SubscriptionsSyncPageManager {
         </td>
         <td class="px-4 py-3 text-xs">
           ${errorText
-            ? `<span class="text-red-600" title="${escapeHtml(errorText)}">${escapeHtml(this.truncateId(errorText, 48))}</span>`
+            ? `<span class="text-red-600" title="${escapeHtml(errorText)}">${escapeHtml(truncateId(errorText, 48))}</span>`
             : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-right">
@@ -1202,49 +1186,6 @@ export class SubscriptionsSyncPageManager {
     params.set('tab', this.state.activeTab);
     const newURL = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', newURL);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private truncateId(id: string, maxLen = 12): string {
-    if (id.length <= maxLen) return id;
-    return `${id.slice(0, maxLen - 3)}...`;
-  }
-
-  private formatTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleString();
-  }
-
-  private formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const isFuture = diffMs > 0;
-    const absDiffMs = Math.abs(diffMs);
-
-    const diffMins = Math.floor(absDiffMs / 60000);
-    const diffHours = Math.floor(absDiffMs / 3600000);
-    const diffDays = Math.floor(absDiffMs / 86400000);
-
-    if (diffMins < 1) return isFuture ? 'Soon' : 'Just now';
-    if (diffMins < 60) return isFuture ? `in ${diffMins}m` : `${diffMins}m ago`;
-    if (diffHours < 24) return isFuture ? `in ${diffHours}h` : `${diffHours}h ago`;
-    if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
   }
 
   private isExpiringSoon(dateStr: string): boolean {

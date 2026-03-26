@@ -36,6 +36,14 @@ import {
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import {
+  bindNoResultsResetAction,
+  destroyAbortableQueryPage,
+  formatRelativeTime,
+  loadAndPopulateProviders,
+  resolveProviderDisplayName,
+  truncateId,
+} from './formatters.js';
 
 // =============================================================================
 // Types
@@ -150,7 +158,12 @@ export class ConnectionsListManager {
 
     // Render initial structure
     this.renderStructure();
-    await this.loadProviders();
+    this.state.providers = await loadAndPopulateProviders(this.client, {
+      container: this.container,
+      notifier: this.config.notifier,
+      selectedProviderId: this.queryState.getState().filters.provider_id || '',
+      getProviderName: this.config.getProviderName,
+    });
     this.bindEvents();
 
     // Load connections
@@ -182,8 +195,7 @@ export class ConnectionsListManager {
    * Destroy the manager
    */
   destroy(): void {
-    this.abortController?.abort();
-    this.queryState.destroy();
+    this.abortController = destroyAbortableQueryPage(this.abortController, this.queryState);
   }
 
   // ---------------------------------------------------------------------------
@@ -422,7 +434,10 @@ export class ConnectionsListManager {
             this.restoreFilterValues();
           },
         });
-        this.bindNoResultsActions(tbody);
+        bindNoResultsResetAction(tbody, () => {
+          this.queryState.reset();
+          this.restoreFilterValues();
+        });
       } else {
         // Show empty state
         tbody.innerHTML = '';
@@ -439,35 +454,6 @@ export class ConnectionsListManager {
 
     // Bind row actions
     this.bindRowActions();
-  }
-
-  private async loadProviders(): Promise<void> {
-    try {
-      const response = await this.client.listProviders();
-      this.state.providers = response.providers || [];
-      this.populateProviderFilterOptions();
-    } catch (err) {
-      this.state.providers = [];
-      this.config.notifier?.error(`Failed to load providers: ${(err as Error).message}`);
-    }
-  }
-
-  private populateProviderFilterOptions(): void {
-    const providerSelect = this.container?.querySelector<HTMLSelectElement>('[data-filter="provider_id"]');
-    if (!providerSelect) return;
-
-    const selectedProviderId = this.queryState.getState().filters.provider_id || '';
-    const options = this.state.providers
-      .map((provider) => {
-        const displayName = this.config.getProviderName
-          ? this.config.getProviderName(provider.id)
-          : this.formatProviderId(provider.id);
-        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
-      })
-      .join('');
-
-    providerSelect.innerHTML = `<option value="">All Providers</option>${options}`;
-    providerSelect.value = selectedProviderId;
   }
 
   private handleConnect(scopeType: ScopeType): void {
@@ -487,28 +473,18 @@ export class ConnectionsListManager {
     }
 
     if (!provider.supported_scope_types.includes(scopeType)) {
-      this.config.notifier?.error(`${this.formatProviderId(provider.id)} does not support ${scopeType} scope.`);
+      const providerName = resolveProviderDisplayName(provider.id, this.config.getProviderName);
+      this.config.notifier?.error(`${providerName} does not support ${scopeType} scope.`);
       return;
     }
 
     this.config.onConnect(provider.id, scopeType);
   }
 
-  private bindNoResultsActions(container: Element): void {
-    const resetBtn = container.querySelector('.ui-state-reset-btn');
-    resetBtn?.addEventListener('click', () => {
-      this.queryState.reset();
-      this.restoreFilterValues();
-    });
-  }
-
   private renderConnectionRow(connection: Connection): string {
     const status = STATUS_CONFIG[connection.status] || STATUS_CONFIG.disconnected;
-    const providerName = this.config.getProviderName
-      ? this.config.getProviderName(connection.provider_id)
-      : this.formatProviderId(connection.provider_id);
-
-    const updatedAt = this.formatDate(connection.updated_at);
+    const providerName = resolveProviderDisplayName(connection.provider_id, this.config.getProviderName);
+    const updatedAt = formatRelativeTime(connection.updated_at);
     const actions = this.buildRowActions(connection);
 
     return `
@@ -523,12 +499,12 @@ export class ConnectionsListManager {
             ${escapeHtml(connection.scope_type)}
           </span>
           <span class="text-gray-500 text-xs ml-1" title="${escapeHtml(connection.scope_id)}">
-            ${escapeHtml(this.truncateId(connection.scope_id))}
+            ${escapeHtml(truncateId(connection.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="text-gray-600" title="${escapeHtml(connection.external_account_id)}">
-            ${escapeHtml(this.truncateId(connection.external_account_id, 20))}
+            ${escapeHtml(truncateId(connection.external_account_id, 20))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -686,9 +662,7 @@ export class ConnectionsListManager {
   private async handleRevoke(connectionId: string, button?: HTMLButtonElement): Promise<void> {
     const connection = this.getConnection(connectionId);
     const providerName = connection
-      ? (this.config.getProviderName
-          ? this.config.getProviderName(connection.provider_id)
-          : this.formatProviderId(connection.provider_id))
+      ? resolveProviderDisplayName(connection.provider_id, this.config.getProviderName)
       : undefined;
 
     // Show confirmation dialog
@@ -784,40 +758,6 @@ export class ConnectionsListManager {
     if (nextBtn) {
       nextBtn.disabled = !hasNext;
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  private formatProviderId(id: string): string {
-    return id
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private truncateId(id: string, maxLen = 12): string {
-    if (id.length <= maxLen) return id;
-    return `${id.slice(0, maxLen - 3)}...`;
-  }
-
-  private formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
   }
 }
 
