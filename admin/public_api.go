@@ -542,27 +542,20 @@ func hasAuthActor(ctx context.Context) bool {
 }
 
 func siteViewProfileOverrideAllowed(c router.Context, admin *Admin) bool {
-	if c == nil {
+	if c == nil || !hasAuthActor(c.Context()) {
 		return false
 	}
-	env := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("runtime_env"), c.Query("site_runtime_env"))))
-	if env != "" && env != "prod" && env != "production" {
+	if admin == nil {
 		return true
 	}
-	if admin == nil {
-		return hasAuthActor(c.Context())
+	permission := strings.TrimSpace(admin.config.Site.ViewProfileOverridePermission)
+	if permission == "" {
+		return true
 	}
-	if hasAuthActor(c.Context()) {
-		permission := strings.TrimSpace(admin.config.Site.ViewProfileOverridePermission)
-		if permission == "" {
-			return true
-		}
-		if admin.authorizer == nil {
-			return true
-		}
-		return admin.authorizer.Can(c.Context(), permission, "site")
+	if admin.authorizer == nil {
+		return true
 	}
-	return false
+	return admin.authorizer.Can(c.Context(), permission, "site")
 }
 
 func (a *Admin) previewTokenFromQuery(token string) (*PreviewToken, error) {
