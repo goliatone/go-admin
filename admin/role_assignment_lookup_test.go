@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	auth "github.com/goliatone/go-auth"
@@ -67,9 +68,90 @@ func TestGoUsersRoleAssignmentLookupSkipsNonUUID(t *testing.T) {
 	}
 }
 
+func TestUserManagementServiceDeleteUserRollsBackRoleCleanupFailure(t *testing.T) {
+	userRepo := &recordingUserRepo{}
+	roleRepo := &recordingRoleRepo{
+		rolesForUser: []RoleRecord{
+			{ID: "role-1", Name: "Role 1"},
+			{ID: "role-2", Name: "Role 2"},
+		},
+		unassignErrByID: map[string]error{
+			"role-2": errors.New("role registry down"),
+		},
+	}
+	service := NewUserManagementService(userRepo, roleRepo)
+
+	err := service.DeleteUser(context.Background(), "user-1")
+	if err == nil || !errors.Is(err, roleRepo.unassignErrByID["role-2"]) {
+		t.Fatalf("expected role cleanup failure, got %v", err)
+	}
+	if len(userRepo.deleted) != 0 {
+		t.Fatalf("expected user delete to be skipped when role cleanup fails, got %+v", userRepo.deleted)
+	}
+	if got := roleRepo.unassigned; len(got) != 2 || got[0] != "role-1" || got[1] != "role-2" {
+		t.Fatalf("expected ordered unassign attempts before failure, got %+v", got)
+	}
+	if got := roleRepo.assigned; len(got) != 1 || got[0] != "role-1" {
+		t.Fatalf("expected successful unassigns to be rolled back, got %+v", got)
+	}
+}
+
+func TestUserManagementServiceDeleteUserRestoresRolesWhenDeleteFails(t *testing.T) {
+	deleteErr := errors.New("disable user failed")
+	userRepo := &recordingUserRepo{deleteErr: deleteErr}
+	roleRepo := &recordingRoleRepo{
+		rolesForUser: []RoleRecord{
+			{ID: "role-1", Name: "Role 1"},
+			{ID: "role-2", Name: "Role 2"},
+		},
+	}
+	service := NewUserManagementService(userRepo, roleRepo)
+
+	err := service.DeleteUser(context.Background(), "user-1")
+	if err == nil || !errors.Is(err, deleteErr) {
+		t.Fatalf("expected delete failure, got %v", err)
+	}
+	if len(userRepo.deleted) != 1 || userRepo.deleted[0] != "user-1" {
+		t.Fatalf("expected one delete attempt, got %+v", userRepo.deleted)
+	}
+	if got := roleRepo.unassigned; len(got) != 2 {
+		t.Fatalf("expected role cleanup before delete, got %+v", got)
+	}
+	if got := roleRepo.assigned; len(got) != 2 {
+		t.Fatalf("expected roles to be restored after delete failure, got %+v", got)
+	}
+}
+
+func TestUserManagementServiceDeleteUserRecordsActivityAfterSuccessfulCleanup(t *testing.T) {
+	userRepo := &recordingUserRepo{}
+	roleRepo := &recordingRoleRepo{
+		rolesForUser: []RoleRecord{
+			{ID: "role-1", Name: "Role 1"},
+		},
+	}
+	activity := &recordingSink{}
+	service := NewUserManagementService(userRepo, roleRepo)
+	service.WithActivitySink(activity)
+
+	if err := service.DeleteUser(context.Background(), "user-1"); err != nil {
+		t.Fatalf("delete user: %v", err)
+	}
+	if len(userRepo.deleted) != 1 || userRepo.deleted[0] != "user-1" {
+		t.Fatalf("expected successful delete call, got %+v", userRepo.deleted)
+	}
+	if len(activity.entries) != 1 {
+		t.Fatalf("expected one delete activity entry, got %d", len(activity.entries))
+	}
+	if activity.entries[0].Action != "user.delete" || activity.entries[0].Object != "user:user-1" {
+		t.Fatalf("unexpected delete activity entry: %+v", activity.entries[0])
+	}
+}
+
 type recordingUserRepo struct {
-	created UserRecord
-	updated UserRecord
+	created   UserRecord
+	updated   UserRecord
+	deleted   []string
+	deleteErr error
 }
 
 func (r *recordingUserRepo) List(context.Context, ListOptions) ([]UserRecord, int, error) {
@@ -90,8 +172,9 @@ func (r *recordingUserRepo) Update(_ context.Context, user UserRecord) (UserReco
 	return user, nil
 }
 
-func (r *recordingUserRepo) Delete(context.Context, string) error {
-	return nil
+func (r *recordingUserRepo) Delete(_ context.Context, id string) error {
+	r.deleted = append(r.deleted, id)
+	return r.deleteErr
 }
 
 func (r *recordingUserRepo) Search(context.Context, string, int) ([]UserRecord, error) {
@@ -99,8 +182,12 @@ func (r *recordingUserRepo) Search(context.Context, string, int) ([]UserRecord, 
 }
 
 type recordingRoleRepo struct {
-	assigned   []string
-	unassigned []string
+	assigned        []string
+	unassigned      []string
+	rolesForUser    []RoleRecord
+	rolesForUserErr error
+	assignErrByID   map[string]error
+	unassignErrByID map[string]error
 }
 
 func (r *recordingRoleRepo) List(context.Context, ListOptions) ([]RoleRecord, int, error) {
@@ -125,16 +212,27 @@ func (r *recordingRoleRepo) Delete(context.Context, string) error {
 
 func (r *recordingRoleRepo) Assign(_ context.Context, _ string, roleID string) error {
 	r.assigned = append(r.assigned, roleID)
+	if err, ok := r.assignErrByID[roleID]; ok {
+		return err
+	}
 	return nil
 }
 
 func (r *recordingRoleRepo) Unassign(_ context.Context, _ string, roleID string) error {
 	r.unassigned = append(r.unassigned, roleID)
+	if err, ok := r.unassignErrByID[roleID]; ok {
+		return err
+	}
 	return nil
 }
 
 func (r *recordingRoleRepo) RolesForUser(context.Context, string) ([]RoleRecord, error) {
-	return nil, nil
+	if r.rolesForUserErr != nil {
+		return nil, r.rolesForUserErr
+	}
+	out := make([]RoleRecord, len(r.rolesForUser))
+	copy(out, r.rolesForUser)
+	return out, nil
 }
 
 type recordingRoleRegistry struct {
