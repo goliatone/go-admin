@@ -23,6 +23,9 @@ type TranslationExchangeRuntime struct {
 
 	mu      sync.Mutex
 	running map[string]struct{}
+
+	workerCtx    context.Context
+	workerCancel context.CancelFunc
 }
 
 func NewTranslationExchangeRuntime(store TranslationExchangeRuntimeStore, exporter TranslationExchangeExporter, applyService *TranslationExchangeService) *TranslationExchangeRuntime {
@@ -58,12 +61,20 @@ func (r *TranslationExchangeRuntime) Start(ctx context.Context) error {
 	if r == nil || r.store == nil {
 		return nil
 	}
-	jobs, err := r.store.ListRecoverableJobs(ctx, time.Now().UTC(), 100)
+	queryCtx := ctx
+	if queryCtx == nil {
+		queryCtx = context.Background()
+	}
+	workerCtx, err := r.workerContextForStart(queryCtx)
+	if err != nil {
+		return err
+	}
+	jobs, err := r.store.ListRecoverableJobs(queryCtx, time.Now().UTC(), 100)
 	if err != nil {
 		return err
 	}
 	for _, job := range jobs {
-		r.ensureWorker(job.ID)
+		r.ensureWorkerWithContext(workerCtx, job.ID)
 	}
 	return nil
 }
@@ -153,8 +164,15 @@ func (r *TranslationExchangeRuntime) ListJobs(ctx context.Context, query transla
 }
 
 func (r *TranslationExchangeRuntime) ensureWorker(jobID string) {
+	r.ensureWorkerWithContext(r.workerContext(), jobID)
+}
+
+func (r *TranslationExchangeRuntime) ensureWorkerWithContext(ctx context.Context, jobID string) {
 	if r == nil {
 		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	jobID = strings.TrimSpace(jobID)
 	if jobID == "" {
@@ -173,8 +191,44 @@ func (r *TranslationExchangeRuntime) ensureWorker(jobID string) {
 			delete(r.running, jobID)
 			r.mu.Unlock()
 		}()
-		r.runJob(context.Background(), jobID)
+		r.runJob(ctx, jobID)
 	}()
+}
+
+func (r *TranslationExchangeRuntime) workerContextForStart(ctx context.Context) (context.Context, error) {
+	if r == nil {
+		return context.Background(), nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.workerCtx != nil && r.workerCtx.Err() == nil {
+		return r.workerCtx, nil
+	}
+	workerCtx, cancel := context.WithCancel(ctx)
+	if r.workerCancel != nil {
+		r.workerCancel()
+	}
+	r.workerCtx = workerCtx
+	r.workerCancel = cancel
+	return workerCtx, nil
+}
+
+func (r *TranslationExchangeRuntime) workerContext() context.Context {
+	if r == nil {
+		return context.Background()
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.workerCtx != nil && r.workerCtx.Err() == nil {
+		return r.workerCtx
+	}
+	return context.Background()
 }
 
 func (r *TranslationExchangeRuntime) runJob(ctx context.Context, jobID string) {
@@ -215,6 +269,8 @@ func (r *TranslationExchangeRuntime) heartbeatLoop(ctx context.Context, jobID st
 	for {
 		select {
 		case <-done:
+			return
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			now := time.Now().UTC()
@@ -274,6 +330,10 @@ func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job tr
 		r.executeApplyJobWithExecutor(ctx, job, rows, applier, progressMu, currentProgress)
 		return
 	}
+	r.executeApplyJobWithService(ctx, job, rows, applyService, progressMu, currentProgress)
+}
+
+func (r *TranslationExchangeRuntime) executeApplyJobWithService(ctx context.Context, job translationExchangeAsyncJob, rows []translationExchangeStoredRow, applyService *TranslationExchangeService, progressMu *sync.Mutex, currentProgress *map[string]any) {
 	input := translationExchangeApplyInputFromRequest(job.Request, rows)
 	resolutions := translationExchangeResolutionMap(nil)
 	seen := map[string]int{}
@@ -282,59 +342,97 @@ func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job tr
 		TotalRows: len(rows),
 	}
 	for position, stored := range rows {
-		if stored.Result != nil {
-			if stored.SeenRegistered && strings.TrimSpace(stored.LinkageKey) != "" {
-				seen[stored.LinkageKey] = stored.RowIndex
-			}
-			result.Add(*stored.Result)
+		if r.replayStoredApplyResult(stored, seen, &result) {
 			continue
 		}
-		outcome, applyErr := applyService.applyImportRow(ctx, input, stored.Input, stored.RowIndex, seen, resolutions)
-		if applyErr != nil {
-			r.failJob(ctx, job.ID, applyErr)
+		outcome, failed := r.applyImportRow(ctx, job.ID, applyService, input, stored, seen, resolutions)
+		if failed {
 			return
 		}
-		stored.Result = &outcome.RowResult
-		stored.LinkageKey = outcome.SeenKey
-		stored.PayloadHash = strings.TrimSpace(toString(outcome.RowResult.Metadata["payload_hash"]))
-		stored.SeenRegistered = outcome.SeenRegistered
-		stored.CreateTranslation = stored.Input.CreateTranslation
-		if appliedAt := strings.TrimSpace(toString(outcome.RowResult.Metadata["applied_at"])); appliedAt != "" {
-			if parsed, parseErr := time.Parse(time.RFC3339Nano, appliedAt); parseErr == nil {
-				stored.AppliedAt = parsed.UTC()
-			}
-		}
-		if stored.AppliedAt.IsZero() && strings.EqualFold(strings.TrimSpace(outcome.RowResult.Status), translationExchangeRowStatusSuccess) {
-			stored.AppliedAt = time.Now().UTC()
-		}
-		stored.UpdatedAt = time.Now().UTC()
+		stored = r.updateStoredApplyRow(stored, outcome)
 		_ = r.store.UpsertJobRow(ctx, job.ID, stored)
-		if outcome.SeenRegistered && strings.TrimSpace(outcome.SeenKey) != "" {
-			seen[outcome.SeenKey] = stored.RowIndex
-		}
+		r.registerSeenKey(seen, outcome.SeenRegistered, outcome.SeenKey, stored.RowIndex)
 		result.Add(outcome.RowResult)
-		progress := translationExchangeProgressFromResultSummary(result.Summary, len(rows))
-		progressMu.Lock()
-		*currentProgress = primitives.CloneAnyMap(progress)
-		progressMu.Unlock()
+		r.updateApplyProgress(progressMu, currentProgress, result.Summary, len(rows))
 		if outcome.TerminalStop {
-			for tail := position + 1; tail < len(rows); tail++ {
-				pending := rows[tail]
-				if pending.Result != nil {
-					result.Add(*pending.Result)
-					continue
-				}
-				rowResult := translationExchangeRowResult(tail, pending.Input)
-				rowResult.Status = translationExchangeRowStatusSkipped
-				rowResult.Error = "skipped due to previous row failure and continue_on_error=false"
-				pending.Result = &rowResult
-				pending.UpdatedAt = time.Now().UTC()
-				_ = r.store.UpsertJobRow(ctx, job.ID, pending)
-				result.Add(rowResult)
-			}
+			r.markRemainingApplyRowsSkipped(ctx, job.ID, rows[position+1:], position+1, &result)
 			break
 		}
 	}
+	r.completeApplyJob(ctx, job, rows, result, progressMu, currentProgress)
+}
+
+func (r *TranslationExchangeRuntime) replayStoredApplyResult(stored translationExchangeStoredRow, seen map[string]int, result *TranslationExchangeResult) bool {
+	if stored.Result == nil {
+		return false
+	}
+	r.registerSeenKey(seen, stored.SeenRegistered, stored.LinkageKey, stored.RowIndex)
+	result.Add(*stored.Result)
+	return true
+}
+
+func (r *TranslationExchangeRuntime) applyImportRow(ctx context.Context, jobID string, applyService *TranslationExchangeService, input TranslationImportApplyInput, stored translationExchangeStoredRow, seen map[string]int, resolutions map[int]TranslationExchangeConflictResolution) (translationExchangeApplyRowOutcome, bool) {
+	outcome, err := applyService.applyImportRow(ctx, input, stored.Input, stored.RowIndex, seen, resolutions)
+	if err != nil {
+		r.failJob(ctx, jobID, err)
+		return translationExchangeApplyRowOutcome{}, true
+	}
+	return outcome, false
+}
+
+func (r *TranslationExchangeRuntime) updateStoredApplyRow(stored translationExchangeStoredRow, outcome translationExchangeApplyRowOutcome) translationExchangeStoredRow {
+	stored.Result = &outcome.RowResult
+	stored.LinkageKey = outcome.SeenKey
+	stored.PayloadHash = strings.TrimSpace(toString(outcome.RowResult.Metadata["payload_hash"]))
+	stored.SeenRegistered = outcome.SeenRegistered
+	stored.CreateTranslation = stored.Input.CreateTranslation
+	if appliedAt := strings.TrimSpace(toString(outcome.RowResult.Metadata["applied_at"])); appliedAt != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, appliedAt); err == nil {
+			stored.AppliedAt = parsed.UTC()
+		}
+	}
+	if stored.AppliedAt.IsZero() && strings.EqualFold(strings.TrimSpace(outcome.RowResult.Status), translationExchangeRowStatusSuccess) {
+		stored.AppliedAt = time.Now().UTC()
+	}
+	stored.UpdatedAt = time.Now().UTC()
+	return stored
+}
+
+func (r *TranslationExchangeRuntime) registerSeenKey(seen map[string]int, registered bool, key string, rowIndex int) {
+	if !registered {
+		return
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
+	seen[key] = rowIndex
+}
+
+func (r *TranslationExchangeRuntime) updateApplyProgress(progressMu *sync.Mutex, currentProgress *map[string]any, summary TranslationExchangeSummary, total int) {
+	progress := translationExchangeProgressFromResultSummary(summary, total)
+	progressMu.Lock()
+	*currentProgress = primitives.CloneAnyMap(progress)
+	progressMu.Unlock()
+}
+
+func (r *TranslationExchangeRuntime) markRemainingApplyRowsSkipped(ctx context.Context, jobID string, pendingRows []translationExchangeStoredRow, startIndex int, result *TranslationExchangeResult) {
+	for offset, pending := range pendingRows {
+		if pending.Result != nil {
+			result.Add(*pending.Result)
+			continue
+		}
+		rowResult := translationExchangeRowResult(startIndex+offset, pending.Input)
+		rowResult.Status = translationExchangeRowStatusSkipped
+		rowResult.Error = "skipped due to previous row failure and continue_on_error=false"
+		pending.Result = &rowResult
+		pending.UpdatedAt = time.Now().UTC()
+		_ = r.store.UpsertJobRow(ctx, jobID, pending)
+		result.Add(rowResult)
+	}
+}
+
+func (r *TranslationExchangeRuntime) completeApplyJob(ctx context.Context, job translationExchangeAsyncJob, rows []translationExchangeStoredRow, result TranslationExchangeResult, progressMu *sync.Mutex, currentProgress *map[string]any) {
 	inputRows := translationExchangeInputRowsFromStoredRows(rows)
 	responsePayload := translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, result, inputRows)
 	progress := translationExchangeProgressFromResultSummary(result.Summary, len(rows))
