@@ -126,3 +126,15 @@ backend_tests: go test ./examples/esign/release ./examples/esign/services ./exam
 frontend_tests: N/A (no frontend contract payload change in this review-only snapshot refresh)
 contract_hash: 33d4406270b3a8edb2db3a42039143c6d671e4b32846fcb4dbe52ce2c19b06bc
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-03-25-009
+
+date: 2026-03-25
+owner: backend
+breaking_change_rationale: refresh the Track C guard after subsequent backend contract edits changed the reviewed file hash, so CI tracks the current accepted store, service, and panel repository contract shape instead of failing against the March 23, 2026 snapshot.
+measurable_gain: release validation now matches the reviewed Track C file set, preserving a new auditable checkpoint while preventing false guard failures during full-repo verification.
+impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
+backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
+frontend_tests: N/A (no frontend contract payload change in this guard refresh)
+contract_hash: 3dcfd3d3bd2074a8033a28fd8e6be984267cc08ffb27f6aec03feb0df73aaeb3
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
