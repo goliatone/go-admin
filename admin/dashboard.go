@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	uiplacement "github.com/goliatone/go-admin/ui/placement"
@@ -69,6 +70,7 @@ type widgetInstanceExistenceChecker interface {
 
 // Dashboard orchestrates widget providers and instances.
 type Dashboard struct {
+	mu               sync.RWMutex
 	providers        map[string]registeredProvider
 	providerCommands map[string]string
 	defaultInstances []DashboardWidgetInstance
@@ -87,6 +89,15 @@ type Dashboard struct {
 	providerCmdReady bool
 }
 
+func cloneDashboardProviderSpec(spec DashboardProviderSpec) DashboardProviderSpec {
+	spec.Schema = primitives.CloneAnyMap(spec.Schema)
+	spec.DefaultConfig = primitives.CloneAnyMap(spec.DefaultConfig)
+	if len(spec.VisibilityRole) > 0 {
+		spec.VisibilityRole = append([]string{}, spec.VisibilityRole...)
+	}
+	return spec
+}
+
 // NewDashboard constructs a dashboard registry with in-memory defaults.
 func NewDashboard() *Dashboard {
 	return &Dashboard{
@@ -102,31 +113,48 @@ func NewDashboard() *Dashboard {
 // WithLogger sets the runtime logger used by dashboard internals.
 func (d *Dashboard) WithLogger(logger Logger) {
 	if d != nil {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.logger = ensureLogger(logger)
 	}
 }
 
 // WithWidgetService wires a CMS widget service for definitions/instances.
 func (d *Dashboard) WithWidgetService(svc CMSWidgetService) {
-	d.widgetSvc = svc
-	if d.widgetSvc == nil {
+	if d == nil {
 		return
 	}
+	d.mu.Lock()
+	d.widgetSvc = svc
 	d.components = nil
-	if len(d.areas) > 0 {
-		for _, area := range d.areas {
-			_ = d.widgetSvc.RegisterAreaDefinition(context.Background(), area)
+	areas := make([]WidgetAreaDefinition, 0, len(d.areas))
+	for _, area := range d.areas {
+		areas = append(areas, area)
+	}
+	d.mu.Unlock()
+	if svc == nil {
+		return
+	}
+	if len(areas) > 0 {
+		for _, area := range areas {
+			_ = svc.RegisterAreaDefinition(context.Background(), area)
 		}
 	} else {
-		for _, area := range d.widgetSvc.Areas() {
-			d.storeArea(area)
+		for _, area := range svc.Areas() {
+			d.mu.Lock()
+			if _, exists := d.areas[area.Code]; !exists {
+				d.storeArea(area)
+			}
+			d.mu.Unlock()
 		}
 	}
 }
 
 // WithPreferences sets the preference store used for per-user layouts.
 func (d *Dashboard) WithPreferences(store DashboardPreferences) {
-	if store != nil {
+	if d != nil && store != nil {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.prefs = store
 		d.components = nil
 	}
@@ -135,6 +163,8 @@ func (d *Dashboard) WithPreferences(store DashboardPreferences) {
 // WithPreferenceService wires the PreferencesService used for go-dashboard overrides.
 func (d *Dashboard) WithPreferenceService(service *PreferencesService) {
 	if d != nil && service != nil {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.prefService = service
 		d.components = nil
 	}
@@ -142,23 +172,40 @@ func (d *Dashboard) WithPreferenceService(service *PreferencesService) {
 
 // WithAuthorizer sets the authorizer for role/permission visibility.
 func (d *Dashboard) WithAuthorizer(authz Authorizer) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.authorizer = authz
 	d.components = nil
 }
 
 // WithCommandBus wires the command bus so providers can expose commands.
 func (d *Dashboard) WithCommandBus(bus *CommandBus) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.commandBus = bus
 }
 
 // WithRegistry wires the shared registry for discovery/use by other transports.
 func (d *Dashboard) WithRegistry(reg *Registry) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.registry = reg
 }
 
 // WithActivitySink wires an activity sink for layout or widget changes.
 func (d *Dashboard) WithActivitySink(sink ActivitySink) {
-	if sink != nil {
+	if d != nil && sink != nil {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.activity = sink
 		d.components = nil
 	}
@@ -174,6 +221,7 @@ func (d *Dashboard) RegisterArea(def WidgetAreaDefinition) {
 		return
 	}
 	def.Code = code
+	d.mu.Lock()
 	prev, had := d.areas[code]
 	d.storeArea(def)
 	if !had || prev != def {
@@ -181,8 +229,10 @@ func (d *Dashboard) RegisterArea(def WidgetAreaDefinition) {
 		// Force a rebuild so newly registered areas are resolvable in subsequent layout renders.
 		d.components = nil
 	}
-	if d.widgetSvc != nil {
-		_ = d.widgetSvc.RegisterAreaDefinition(context.Background(), def)
+	widgetSvc := d.widgetSvc
+	d.mu.Unlock()
+	if widgetSvc != nil {
+		_ = widgetSvc.RegisterAreaDefinition(context.Background(), def)
 	}
 }
 
@@ -191,6 +241,8 @@ func (d *Dashboard) Areas() []WidgetAreaDefinition {
 	if d == nil {
 		return nil
 	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	out := make([]WidgetAreaDefinition, 0, len(d.areas))
 	for _, def := range d.areas {
 		out = append(out, def)
@@ -202,6 +254,8 @@ func (d *Dashboard) Areas() []WidgetAreaDefinition {
 // EnforceKnownAreas toggles validation to prevent default instances from using unknown areas.
 func (d *Dashboard) EnforceKnownAreas(enable bool) {
 	if d != nil {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.enforceAreas = enable
 	}
 }
@@ -224,12 +278,22 @@ func (d *Dashboard) hasArea(code string) bool {
 // WithRenderer sets the dashboard renderer for HTML generation.
 // When set, enables server-side rendering of dashboard HTML.
 func (d *Dashboard) WithRenderer(renderer DashboardRenderer) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.renderer = renderer
 	d.components = nil
 }
 
 // HasRenderer returns true if a renderer is configured.
 func (d *Dashboard) HasRenderer() bool {
+	if d == nil {
+		return false
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.renderer != nil
 }
 
@@ -238,7 +302,10 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	if d == nil || spec.Code == "" || spec.Handler == nil {
 		return
 	}
+	spec = cloneDashboardProviderSpec(spec)
 	spec.CommandName = strings.TrimSpace(spec.CommandName)
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	previous, hadPrevious := d.providers[spec.Code]
 	if hadPrevious {
 		prevCommand := strings.TrimSpace(previous.spec.CommandName)
@@ -341,7 +408,36 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 
 	// Seed a default instance if provided and no persisted instance already exists.
 	if spec.DefaultArea != "" && !hasPersistedInstance {
-		d.AddDefaultInstance(spec.DefaultArea, spec.Code, spec.DefaultConfig, spec.DefaultSpan, "")
+		area := strings.TrimSpace(spec.DefaultArea)
+		if !d.enforceAreas || area == "" || d.hasArea(area) {
+			span := spec.DefaultSpan
+			if span <= 0 {
+				span = 12
+			}
+			d.defaultInstances = append(d.defaultInstances, DashboardWidgetInstance{
+				DefinitionCode: spec.Code,
+				AreaCode:       area,
+				Config:         primitives.CloneAnyMap(spec.DefaultConfig),
+				Span:           span,
+				Hidden:         false,
+				Locale:         "",
+			})
+			if d.widgetSvc != nil {
+				_ = d.widgetSvc.Definitions()
+				if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
+					DefinitionCode: spec.Code,
+					Area:           area,
+					Config:         primitives.CloneAnyMap(spec.DefaultConfig),
+					Span:           span,
+					Locale:         "",
+				}); err != nil {
+					d.logger.Warn("failed to persist default widget instance",
+						"definition", spec.Code,
+						"area", area,
+						"error", err)
+				}
+			}
+		}
 	}
 }
 
@@ -390,8 +486,13 @@ func (d *Dashboard) RegisterManifest(providers []DashboardProviderSpec) {
 
 // AddDefaultInstance stores a default widget instance (used when no CMS/prefs are present).
 func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any, span int, locale string) {
+	if d == nil {
+		return
+	}
 	area = strings.TrimSpace(area)
+	d.mu.Lock()
 	if d.enforceAreas && area != "" && !d.hasArea(area) {
+		d.mu.Unlock()
 		return
 	}
 	if span <= 0 {
@@ -405,16 +506,19 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 		Hidden:         false,
 		Locale:         locale,
 	})
-	if d.widgetSvc != nil {
-		_ = d.widgetSvc.Definitions()
-		if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
+	widgetSvc := d.widgetSvc
+	logger := ensureLogger(d.logger)
+	d.mu.Unlock()
+	if widgetSvc != nil {
+		_ = widgetSvc.Definitions()
+		if _, err := widgetSvc.SaveInstance(context.Background(), WidgetInstance{
 			DefinitionCode: defCode,
 			Area:           area,
 			Config:         primitives.CloneAnyMap(cfg),
 			Span:           span,
 			Locale:         locale,
 		}); err != nil {
-			d.logger.Warn("failed to persist default widget instance",
+			logger.Warn("failed to persist default widget instance",
 				"definition", defCode,
 				"area", area,
 				"error", err)
@@ -433,29 +537,84 @@ func (d *Dashboard) SetUserLayoutWithContext(ctx AdminContext, instances []Dashb
 }
 
 func (d *Dashboard) saveUserLayout(ctx AdminContext, instances []DashboardWidgetInstance) {
-	if d.prefService != nil && ctx.UserID != "" {
-		_, _ = d.prefService.SaveDashboardLayout(ctx.Context, ctx.UserID, instances)
+	if d == nil {
+		return
 	}
-	if prefCtx, ok := d.prefs.(DashboardPreferencesWithContext); ok {
-		_ = prefCtx.SaveWithContext(ctx.Context, ctx.UserID, instances)
-	} else if d.prefs != nil {
-		_ = d.prefs.Save(ctx.UserID, instances)
+	d.mu.RLock()
+	prefService := d.prefService
+	prefs := d.prefs
+	activity := d.activity
+	logger := d.logger
+	d.mu.RUnlock()
+	persisted := false
+	failed := false
+	if prefService != nil && ctx.UserID != "" {
+		if _, err := prefService.SaveDashboardLayout(ctx.Context, ctx.UserID, instances); err != nil {
+			failed = true
+			logger.Warn("failed to persist dashboard layout",
+				"backend", "preferences_service",
+				"user_id", ctx.UserID,
+				"error", err)
+		} else {
+			persisted = true
+		}
 	}
-	d.recordActivity(ctx, "dashboard.layout.save", map[string]any{
-		"widgets": len(instances),
-		"user_id": ctx.UserID,
-	})
+	if prefCtx, ok := prefs.(DashboardPreferencesWithContext); ok {
+		if err := prefCtx.SaveWithContext(ctx.Context, ctx.UserID, instances); err != nil {
+			failed = true
+			logger.Warn("failed to persist dashboard layout",
+				"backend", "dashboard_preferences_context",
+				"user_id", ctx.UserID,
+				"error", err)
+		} else {
+			persisted = true
+		}
+	} else if prefs != nil {
+		if err := prefs.Save(ctx.UserID, instances); err != nil {
+			failed = true
+			logger.Warn("failed to persist dashboard layout",
+				"backend", "dashboard_preferences",
+				"user_id", ctx.UserID,
+				"error", err)
+		} else {
+			persisted = true
+		}
+	}
+	if failed || !persisted {
+		return
+	}
+	if activity != nil {
+		actor := ctx.UserID
+		if actor == "" {
+			actor = actorFromContext(ctx.Context)
+		}
+		_ = activity.Record(ctx.Context, ActivityEntry{
+			Actor:  actor,
+			Action: "dashboard.layout.save",
+			Object: "dashboard",
+			Metadata: map[string]any{
+				"widgets": len(instances),
+				"user_id": ctx.UserID,
+			},
+		})
+	}
 }
 
 func (d *Dashboard) recordActivity(ctx AdminContext, action string, metadata map[string]any) {
-	if d == nil || d.activity == nil {
+	if d == nil {
+		return
+	}
+	d.mu.RLock()
+	activity := d.activity
+	d.mu.RUnlock()
+	if activity == nil {
 		return
 	}
 	actor := ctx.UserID
 	if actor == "" {
 		actor = actorFromContext(ctx.Context)
 	}
-	_ = d.activity.Record(ctx.Context, ActivityEntry{
+	_ = activity.Record(ctx.Context, ActivityEntry{
 		Actor:    actor,
 		Action:   action,
 		Object:   "dashboard",
@@ -467,14 +626,23 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	if d == nil {
 		return nil, nil
 	}
+	d.mu.RLock()
+	if d.components != nil {
+		comp := d.components
+		d.mu.RUnlock()
+		return comp, nil
+	}
+	d.mu.RUnlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if d.components != nil {
 		return d.components, nil
 	}
-	store := dashinternal.NewCMSWidgetStoreWithActivity(d.widgetServiceAdapter(), activityRecorderAdapter{sink: d.activity})
+	store := dashinternal.NewCMSWidgetStoreWithActivity(widgetServiceAdapterFor(d.widgetSvc), activityRecorderAdapter{sink: d.activity})
 	if store == nil {
 		return nil, serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
 	}
-	registry, specs := d.buildDashboardProviders()
+	registry, specs := d.buildDashboardProvidersLocked()
 	var prefStore dashcmp.PreferenceStore
 	if d.prefService != nil {
 		prefStore = &dashboardPreferenceStore{prefs: d.prefService, store: store}
@@ -493,7 +661,7 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 		Providers:       registry,
 		RefreshHook:     refresh,
 	}
-	if areas := d.areaCodesForService(); len(areas) > 0 {
+	if areas := d.areaCodesForServiceLocked(); len(areas) > 0 {
 		opts.Areas = areas
 	}
 	service := dashcmp.NewService(opts)
@@ -517,9 +685,28 @@ func (d *Dashboard) areaCodesForService() []string {
 	if d == nil {
 		return nil
 	}
+	d.mu.RLock()
+	areas := make([]WidgetAreaDefinition, 0, len(d.areas))
+	for _, area := range d.areas {
+		areas = append(areas, area)
+	}
+	widgetSvc := d.widgetSvc
+	d.mu.RUnlock()
+	return dashboardAreaCodesForService(areas, widgetSvc)
+}
+
+func (d *Dashboard) areaCodesForServiceLocked() []string {
+	areas := make([]WidgetAreaDefinition, 0, len(d.areas))
+	for _, area := range d.areas {
+		areas = append(areas, area)
+	}
+	return dashboardAreaCodesForService(areas, d.widgetSvc)
+}
+
+func dashboardAreaCodesForService(areas []WidgetAreaDefinition, widgetSvc CMSWidgetService) []string {
 	seen := map[string]struct{}{}
 	out := []string{}
-	for _, area := range d.Areas() {
+	for _, area := range areas {
 		code := strings.TrimSpace(area.Code)
 		if code == "" {
 			continue
@@ -530,8 +717,8 @@ func (d *Dashboard) areaCodesForService() []string {
 		seen[code] = struct{}{}
 		out = append(out, code)
 	}
-	if d.widgetSvc != nil {
-		for _, area := range d.widgetSvc.Areas() {
+	if widgetSvc != nil {
+		for _, area := range widgetSvc.Areas() {
 			code := strings.TrimSpace(area.Code)
 			if code == "" {
 				continue
@@ -549,9 +736,14 @@ func (d *Dashboard) areaCodesForService() []string {
 
 // Providers returns registered provider metadata.
 func (d *Dashboard) Providers() []DashboardProviderSpec {
+	if d == nil {
+		return nil
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	out := []DashboardProviderSpec{}
 	for _, p := range d.providers {
-		out = append(out, p.spec)
+		out = append(out, cloneDashboardProviderSpec(p.spec))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
 	return out
@@ -566,6 +758,8 @@ func (d *Dashboard) HasProvider(code string) bool {
 	if code == "" {
 		return false
 	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	_, ok := d.providers[code]
 	return ok
 }
@@ -839,13 +1033,23 @@ func convertDashboardTheme(theme *dashcmp.ThemeSelection) *ThemeSelection {
 }
 
 func (d *Dashboard) widgetServiceAdapter() dashinternal.WidgetService {
-	if d == nil || d.widgetSvc == nil {
+	if d == nil {
 		return nil
 	}
-	if svc, ok := d.widgetSvc.(dashinternal.WidgetService); ok {
+	d.mu.RLock()
+	svc := d.widgetSvc
+	d.mu.RUnlock()
+	return widgetServiceAdapterFor(svc)
+}
+
+func widgetServiceAdapterFor(svc CMSWidgetService) dashinternal.WidgetService {
+	if svc == nil {
+		return nil
+	}
+	if svc, ok := svc.(dashinternal.WidgetService); ok {
 		return svc
 	}
-	return cmsWidgetServiceAdapter{svc: d.widgetSvc}
+	return cmsWidgetServiceAdapter{svc: svc}
 }
 
 // DashboardProviderCommand allows fetching widget data via command bus.
@@ -869,7 +1073,7 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 	if adminCtx.Locale == "" {
 		adminCtx.Locale = "en"
 	}
-	provider, ok := c.dashboard.providers[code]
+	provider, ok := c.dashboard.provider(code)
 	if !ok || provider.handler == nil {
 		return ErrNotFound
 	}
@@ -889,12 +1093,29 @@ func (d *Dashboard) providerCodeForCommand(name string) string {
 	if d == nil || name == "" {
 		return ""
 	}
+	d.mu.RLock()
+	if code := d.providerCommands[name]; code != "" {
+		d.mu.RUnlock()
+		return code
+	}
 	for code, provider := range d.providers {
 		if provider.spec.CommandName == name {
+			d.mu.RUnlock()
 			return code
 		}
 	}
+	d.mu.RUnlock()
 	return ""
+}
+
+func (d *Dashboard) provider(code string) (registeredProvider, bool) {
+	if d == nil {
+		return registeredProvider{}, false
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	provider, ok := d.providers[strings.TrimSpace(code)]
+	return provider, ok
 }
 
 func sanitizeDashboardWidgetData(data map[string]any) map[string]any {
