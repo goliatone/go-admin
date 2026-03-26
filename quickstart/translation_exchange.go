@@ -109,9 +109,6 @@ func RegisterTranslationExchangeWiring(adm *admin.Admin, cfg TranslationExchange
 		if runtime != nil {
 			runtime.Configure(exporter, applier)
 			adm.WithTranslationExchangeRuntime(runtime)
-			if err := runtime.Start(context.Background()); err != nil {
-				return err
-			}
 		}
 	}
 
