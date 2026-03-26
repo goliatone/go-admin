@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -24,6 +25,14 @@ type IssuedSigningToken struct {
 	Token  string             `json:"token"`
 	Record SigningTokenRecord `json:"record"`
 }
+
+// SigningTokenObserver receives successfully issued raw signer tokens.
+type SigningTokenObserver func(scope Scope, agreementID, recipientID, token string)
+
+var signingTokenObserver = struct {
+	mu sync.RWMutex
+	fn SigningTokenObserver
+}{}
 
 // TokenService issues and validates signer tokens with hash-only persistence.
 type TokenService struct {
@@ -52,6 +61,14 @@ func NewTokenService(store SigningTokenStore, opts ...TokenServiceOption) TokenS
 		opt(&svc)
 	}
 	return svc
+}
+
+// SetSigningTokenObserver configures an optional observer used by tests that
+// need deterministic access to freshly issued raw signer tokens.
+func SetSigningTokenObserver(observer SigningTokenObserver) {
+	signingTokenObserver.mu.Lock()
+	defer signingTokenObserver.mu.Unlock()
+	signingTokenObserver.fn = observer
 }
 
 func WithTokenTTL(ttl time.Duration) TokenServiceOption {
@@ -157,8 +174,18 @@ func (s TokenService) issueWithStore(ctx context.Context, store SigningTokenStor
 	if err != nil {
 		return IssuedSigningToken{}, err
 	}
+	notifySigningTokenIssued(scope, agreementID, recipientID, rawToken)
 
 	return IssuedSigningToken{Token: rawToken, Record: record}, nil
+}
+
+func notifySigningTokenIssued(scope Scope, agreementID, recipientID, token string) {
+	signingTokenObserver.mu.RLock()
+	observer := signingTokenObserver.fn
+	signingTokenObserver.mu.RUnlock()
+	if observer != nil {
+		observer(scope, agreementID, recipientID, token)
+	}
 }
 
 func (s TokenService) Rotate(ctx context.Context, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {

@@ -22,7 +22,7 @@ func buildDocumentLineagePresentation(detail services.DocumentLineageDetail) map
 		"resource_id":            strings.TrimSpace(detail.DocumentID),
 		"status":                 status,
 		"source_type":            sourceType,
-		"headline":               "Document Source",
+		"headline":               "Source Provenance",
 		"summary":                documentPresentationSummary(status, hasArtifact),
 		"has_lineage":            hasSource || hasRevision || hasArtifact,
 		"has_google_source":      detail.GoogleSource != nil,
@@ -39,7 +39,7 @@ func buildDocumentLineagePresentation(detail services.DocumentLineageDetail) map
 		"warnings":               warnings,
 		"primary_warning":        firstPresentationWarning(warnings),
 		"diagnostics_url":        strings.TrimSpace(detail.DiagnosticsURL),
-		"show_diagnostics_link":  false,
+		"show_diagnostics_link":  strings.TrimSpace(detail.DiagnosticsURL) != "",
 	}
 }
 
@@ -55,7 +55,7 @@ func buildAgreementLineagePresentation(detail services.AgreementLineageDetail) m
 		"resource_id":            strings.TrimSpace(detail.AgreementID),
 		"status":                 status,
 		"source_type":            sourceType,
-		"headline":               "Document Source",
+		"headline":               "Pinned Source Provenance",
 		"summary":                agreementPresentationSummary(status, detail.NewerSourceExists),
 		"has_lineage":            hasRevision || hasArtifact,
 		"has_google_source":      detail.GoogleSource != nil,
@@ -72,7 +72,7 @@ func buildAgreementLineagePresentation(detail services.AgreementLineageDetail) m
 		"warnings":               warnings,
 		"primary_warning":        firstPresentationWarning(warnings),
 		"diagnostics_url":        strings.TrimSpace(detail.DiagnosticsURL),
-		"show_diagnostics_link":  false,
+		"show_diagnostics_link":  strings.TrimSpace(detail.DiagnosticsURL) != "",
 	}
 }
 
