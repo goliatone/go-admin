@@ -1,13 +1,4 @@
-var U = /* @__PURE__ */ new Set([
-  "inherit",
-  "show",
-  "hide"
-]), V = /* @__PURE__ */ new Set(["draft", "published"]), J = /* @__PURE__ */ new Set([
-  "content",
-  "route",
-  "module",
-  "external"
-]), W = /* @__PURE__ */ new Set([
+const J = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), W = /* @__PURE__ */ new Set(["draft", "published"]), G = /* @__PURE__ */ new Set(["content", "route", "module", "external"]), H = /* @__PURE__ */ new Set([
   "full",
   "top_level_limit",
   "max_depth",
@@ -15,207 +6,224 @@ var U = /* @__PURE__ */ new Set([
   "exclude_ids",
   "composed"
 ]);
-function f(e, t) {
-  if (!e || typeof e != "object" || Array.isArray(e)) throw new Error(`${t} must be an object`);
+function g(i, e) {
+  if (!i || typeof i != "object" || Array.isArray(i))
+    throw new Error(`${e} must be an object`);
+  return i;
+}
+function d(i, e, t = "") {
+  return typeof i == "string" ? i.trim() : i == null ? t : String(i).trim();
+}
+function P(i) {
+  return typeof i == "boolean" ? i : typeof i == "string" ? i.trim().toLowerCase() === "true" : !1;
+}
+function M(i, e = 0) {
+  if (typeof i == "number" && Number.isFinite(i))
+    return i;
+  if (typeof i == "string") {
+    const t = Number.parseInt(i.trim(), 10);
+    if (Number.isFinite(t))
+      return t;
+  }
   return e;
 }
-function d(e, t, r = "") {
-  return typeof e == "string" ? e.trim() : e == null ? r : String(e).trim();
+function w(i) {
+  return Array.isArray(i) ? i.map((e) => d(e)).filter((e) => e.length > 0) : [];
 }
-function E(e) {
-  return typeof e == "boolean" ? e : typeof e == "string" ? e.trim().toLowerCase() === "true" : !1;
+function T(i) {
+  const e = d(i, "status", "draft").toLowerCase();
+  return W.has(e) ? e : "draft";
 }
-function I(e, t = 0) {
-  if (typeof e == "number" && Number.isFinite(e)) return e;
-  if (typeof e == "string") {
-    const r = Number.parseInt(e.trim(), 10);
-    if (Number.isFinite(r)) return r;
-  }
-  return t;
+function K(i) {
+  const e = d(i, "mode", "full").toLowerCase();
+  return H.has(e) ? e : "full";
 }
-function x(e) {
-  return Array.isArray(e) ? e.map((t) => d(t, "value")).filter((t) => t.length > 0) : [];
-}
-function C(e) {
-  const t = d(e, "status", "draft").toLowerCase();
-  return V.has(t) ? t : "draft";
-}
-function G(e) {
-  const t = d(e, "mode", "full").toLowerCase();
-  return W.has(t) ? t : "full";
-}
-function H(e) {
-  const t = f(e, "menu contracts"), r = f(t.endpoints, "menu contracts endpoints"), i = f(t.error_codes ?? t.errorCode ?? {}, "menu contracts error codes"), a = {};
-  Object.entries(r).forEach(([n, o]) => {
-    const c = d(o, `endpoints.${n}`);
-    c && (a[n] = c);
-  });
-  const s = {};
-  return Object.entries(i).forEach(([n, o]) => {
-    const c = d(o, `error_codes.${n}`);
-    c && (s[n] = c);
-  }), {
-    endpoints: a,
-    error_codes: s,
-    content_navigation: K(t.content_navigation)
-  };
-}
-function K(e) {
-  if (!e || typeof e != "object" || Array.isArray(e)) return;
-  const t = e, r = t.endpoints, i = t.entry_navigation_overrides, a = t.validation, s = {};
-  r && typeof r == "object" && !Array.isArray(r) && Object.entries(r).forEach(([o, c]) => {
-    const u = d(c, `content_navigation.endpoints.${o}`);
-    u && (s[o] = u);
+function Q(i) {
+  const e = g(i, "menu contracts"), t = g(e.endpoints, "menu contracts endpoints"), r = e.error_codes ?? e.errorCode ?? {}, s = g(r, "menu contracts error codes"), a = {};
+  Object.entries(t).forEach(([l, c]) => {
+    const p = d(c);
+    p && (a[l] = p);
   });
   const n = {};
-  if (Object.keys(s).length > 0 && (n.endpoints = s), i && typeof i == "object" && !Array.isArray(i)) {
-    const o = i;
+  Object.entries(s).forEach(([l, c]) => {
+    const p = d(c);
+    p && (n[l] = p);
+  });
+  const o = X(e.content_navigation);
+  return {
+    endpoints: a,
+    error_codes: n,
+    content_navigation: o
+  };
+}
+function X(i) {
+  if (!i || typeof i != "object" || Array.isArray(i))
+    return;
+  const e = i, t = e.endpoints, r = e.entry_navigation_overrides, s = e.validation, a = {};
+  t && typeof t == "object" && !Array.isArray(t) && Object.entries(t).forEach(([o, l]) => {
+    const c = d(l);
+    c && (a[o] = c);
+  });
+  const n = {};
+  if (Object.keys(a).length > 0 && (n.endpoints = a), r && typeof r == "object" && !Array.isArray(r)) {
+    const o = r;
     n.entry_navigation_overrides = {
-      value_enum: x(o.value_enum),
-      write_endpoint: d(o.write_endpoint, "content_navigation.entry_navigation_overrides.write_endpoint")
+      value_enum: w(o.value_enum),
+      write_endpoint: d(o.write_endpoint)
     };
   }
-  if (a && typeof a == "object" && !Array.isArray(a)) {
-    const o = a, c = o.invalid_location, u = o.invalid_value;
+  if (s && typeof s == "object" && !Array.isArray(s)) {
+    const o = s, l = o.invalid_location, c = o.invalid_value;
     n.validation = {
-      invalid_location: c && typeof c == "object" && !Array.isArray(c) ? {
-        field_pattern: d(c.field_pattern, "invalid_location.field_pattern"),
-        rule: d(c.rule, "invalid_location.rule"),
-        hint: d(c.hint, "invalid_location.hint")
+      invalid_location: l && typeof l == "object" && !Array.isArray(l) ? {
+        field_pattern: d(l.field_pattern),
+        rule: d(l.rule),
+        hint: d(l.hint)
       } : void 0,
-      invalid_value: u && typeof u == "object" && !Array.isArray(u) ? { allowed_values: x(u.allowed_values) } : void 0
+      invalid_value: c && typeof c == "object" && !Array.isArray(c) ? {
+        allowed_values: w(c.allowed_values)
+      } : void 0
     };
   }
   return n;
 }
-function v(e) {
-  const t = f(e, "menu record"), r = d(t.id, "menu.id", d(t.code, "menu.code")), i = d(t.code, "menu.code", r);
-  if (!r || !i) throw new Error("menu record requires id and code");
+function y(i) {
+  const e = g(i, "menu record"), t = d(e.id, "menu.id", d(e.code, "menu.code")), r = d(e.code, "menu.code", t);
+  if (!t || !r)
+    throw new Error("menu record requires id and code");
   return {
-    id: r,
-    code: i,
-    name: d(t.name, "menu.name", i),
-    description: d(t.description, "menu.description"),
-    status: C(t.status),
-    locale: d(t.locale, "menu.locale"),
-    family_id: d(t.family_id, "menu.family_id"),
-    archived: E(t.archived),
-    created_at: d(t.created_at, "menu.created_at"),
-    updated_at: d(t.updated_at, "menu.updated_at"),
-    published_at: d(t.published_at, "menu.published_at"),
-    archived_at: d(t.archived_at, "menu.archived_at")
-  };
-}
-function P(e) {
-  const t = f(e, "menu binding record"), r = d(t.location, "binding.location"), i = d(t.menu_code, "binding.menu_code");
-  if (!r || !i) throw new Error("menu binding requires location and menu_code");
-  return {
-    id: d(t.id, "binding.id"),
-    location: r,
-    menu_code: i,
-    view_profile_code: d(t.view_profile_code, "binding.view_profile_code"),
-    locale: d(t.locale, "binding.locale"),
-    priority: I(t.priority, 0),
-    status: C(t.status),
-    created_at: d(t.created_at, "binding.created_at"),
-    updated_at: d(t.updated_at, "binding.updated_at"),
-    published_at: d(t.published_at, "binding.published_at")
-  };
-}
-function y(e) {
-  const t = f(e, "menu view profile"), r = d(t.code, "profile.code");
-  if (!r) throw new Error("menu view profile requires code");
-  return {
+    id: t,
     code: r,
-    name: d(t.name, "profile.name", r),
-    mode: G(t.mode),
-    max_top_level: I(t.max_top_level, 0) || void 0,
-    max_depth: I(t.max_depth, 0) || void 0,
-    include_item_ids: x(t.include_item_ids),
-    exclude_item_ids: x(t.exclude_item_ids),
-    status: C(t.status),
-    created_at: d(t.created_at, "profile.created_at"),
-    updated_at: d(t.updated_at, "profile.updated_at"),
-    published_at: d(t.published_at, "profile.published_at")
+    name: d(e.name, "menu.name", r),
+    description: d(e.description),
+    status: T(e.status),
+    locale: d(e.locale),
+    family_id: d(e.family_id),
+    archived: P(e.archived),
+    created_at: d(e.created_at),
+    updated_at: d(e.updated_at),
+    published_at: d(e.published_at),
+    archived_at: d(e.archived_at)
   };
 }
-function Q(e) {
-  if (!e || typeof e != "object" || Array.isArray(e)) return;
-  const t = e, r = d(t.type, "menu item target.type").toLowerCase();
-  if (J.has(r))
+function L(i) {
+  const e = g(i, "menu binding record"), t = d(e.location), r = d(e.menu_code);
+  if (!t || !r)
+    throw new Error("menu binding requires location and menu_code");
+  return {
+    id: d(e.id),
+    location: t,
+    menu_code: r,
+    view_profile_code: d(e.view_profile_code),
+    locale: d(e.locale),
+    priority: M(e.priority, 0),
+    status: T(e.status),
+    created_at: d(e.created_at),
+    updated_at: d(e.updated_at),
+    published_at: d(e.published_at)
+  };
+}
+function _(i) {
+  const e = g(i, "menu view profile"), t = d(e.code);
+  if (!t)
+    throw new Error("menu view profile requires code");
+  return {
+    code: t,
+    name: d(e.name, "profile.name", t),
+    mode: K(e.mode),
+    max_top_level: M(e.max_top_level, 0) || void 0,
+    max_depth: M(e.max_depth, 0) || void 0,
+    include_item_ids: w(e.include_item_ids),
+    exclude_item_ids: w(e.exclude_item_ids),
+    status: T(e.status),
+    created_at: d(e.created_at),
+    updated_at: d(e.updated_at),
+    published_at: d(e.published_at)
+  };
+}
+function Y(i) {
+  if (!i || typeof i != "object" || Array.isArray(i))
+    return;
+  const e = i, t = d(e.type).toLowerCase();
+  if (G.has(t))
     return {
-      type: r,
-      id: d(t.id, "target.id"),
-      slug: d(t.slug, "target.slug"),
-      content_type: d(t.content_type, "target.content_type"),
-      path: d(t.path, "target.path"),
-      route: d(t.route, "target.route"),
-      module: d(t.module, "target.module"),
-      url: d(t.url, "target.url")
+      type: t,
+      id: d(e.id),
+      slug: d(e.slug),
+      content_type: d(e.content_type),
+      path: d(e.path),
+      route: d(e.route),
+      module: d(e.module),
+      url: d(e.url)
     };
 }
-function _(e, t = "menu item") {
-  const r = f(e, t), i = d(r.id, `${t}.id`);
-  if (!i) throw new Error(`${t} requires id`);
-  const a = r.children ?? r.Items, s = Array.isArray(a) ? a.map((n, o) => _(n, `${t}.children[${o}]`)) : [];
+function S(i, e = "menu item") {
+  const t = g(i, e), r = d(t.id);
+  if (!r)
+    throw new Error(`${e} requires id`);
+  const s = t.children ?? t.Items, a = Array.isArray(s) ? s.map((n, o) => S(n, `${e}.children[${o}]`)) : [];
   return {
-    id: i,
-    label: d(r.label, `${t}.label`, i),
-    type: d(r.type, `${t}.type`),
-    parent_id: d(r.parent_id ?? r.parentID ?? r.ParentID, `${t}.parent_id`),
-    target: Q(r.target ?? r.Target),
-    children: s
+    id: r,
+    label: d(t.label, `${e}.label`, r),
+    type: d(t.type),
+    parent_id: d(t.parent_id ?? t.parentID ?? t.ParentID),
+    target: Y(t.target ?? t.Target),
+    children: a
   };
 }
-function X(e) {
-  const t = f(e, "menu preview response"), r = f(t.menu ?? t.data, "menu preview menu"), i = r.items ?? r.Items, a = Array.isArray(i) ? i.map((s, n) => _(s, `preview.menu.items[${n}]`)) : [];
+function Z(i) {
+  const e = g(i, "menu preview response"), t = g(e.menu ?? e.data, "menu preview menu"), r = t.items ?? t.Items, s = Array.isArray(r) ? r.map((a, n) => S(a, `preview.menu.items[${n}]`)) : [];
   return {
     menu: {
-      code: d(r.code ?? r.Code, "preview.menu.code"),
-      items: a
+      code: d(t.code ?? t.Code),
+      items: s
     },
-    simulation: t.simulation && typeof t.simulation == "object" && !Array.isArray(t.simulation) ? {
-      requested_id: d(t.simulation.requested_id, "preview.simulation.requested_id"),
-      location: d(t.simulation.location, "preview.simulation.location"),
-      locale: d(t.simulation.locale, "preview.simulation.locale"),
-      view_profile: d(t.simulation.view_profile, "preview.simulation.view_profile"),
-      include_drafts: E(t.simulation.include_drafts),
-      preview_token_present: E(t.simulation.preview_token_present),
-      binding: t.simulation.binding && typeof t.simulation.binding == "object" ? P(t.simulation.binding) : void 0,
-      profile: t.simulation.profile && typeof t.simulation.profile == "object" ? y(t.simulation.profile) : void 0
+    simulation: e.simulation && typeof e.simulation == "object" && !Array.isArray(e.simulation) ? {
+      requested_id: d(e.simulation.requested_id),
+      location: d(e.simulation.location),
+      locale: d(e.simulation.locale),
+      view_profile: d(e.simulation.view_profile),
+      include_drafts: P(e.simulation.include_drafts),
+      preview_token_present: P(e.simulation.preview_token_present),
+      binding: e.simulation.binding && typeof e.simulation.binding == "object" ? L(e.simulation.binding) : void 0,
+      profile: e.simulation.profile && typeof e.simulation.profile == "object" ? _(e.simulation.profile) : void 0
     } : void 0
   };
 }
-function Y(e, t = []) {
-  if (!e || typeof e != "object" || Array.isArray(e)) return {};
-  const r = e, i = new Set(t.map((s) => s.trim()).filter(Boolean)), a = {};
-  return Object.entries(r).forEach(([s, n]) => {
-    const o = s.trim();
-    if (!o) return;
-    if (i.size > 0 && !i.has(o)) throw new Error(`invalid navigation location: ${o}`);
-    const c = d(n, `_navigation.${o}`).toLowerCase();
-    if (!U.has(c)) throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
-    a[o] = c;
-  }), a;
+function ee(i, e = []) {
+  if (!i || typeof i != "object" || Array.isArray(i))
+    return {};
+  const t = i, r = new Set(e.map((a) => a.trim()).filter(Boolean)), s = {};
+  return Object.entries(t).forEach(([a, n]) => {
+    const o = a.trim();
+    if (!o)
+      return;
+    if (r.size > 0 && !r.has(o))
+      throw new Error(`invalid navigation location: ${o}`);
+    const l = d(n).toLowerCase();
+    if (!J.has(l))
+      throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
+    s[o] = l;
+  }), s;
 }
-var w = class extends Error {
-  constructor(e, t = 500, r = "", i = {}) {
-    super(e), this.name = "MenuBuilderAPIError", this.status = t, this.textCode = r, this.metadata = i;
+class $ extends Error {
+  constructor(e, t = 500, r = "", s = {}) {
+    super(e), this.name = "MenuBuilderAPIError", this.status = t, this.textCode = r, this.metadata = s;
   }
-};
-function g(e) {
-  return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
 }
-function T(e, t) {
-  let r = e;
-  return Object.entries(t).forEach(([i, a]) => {
-    r = r.replace(`:${i}`, encodeURIComponent(String(a)));
-  }), r;
+function b(i) {
+  return !i || typeof i != "object" || Array.isArray(i) ? {} : i;
 }
-function D(e, t) {
-  return t ? /^https?:\/\//i.test(t) || t.startsWith("/") ? t : `${e.replace(/\/+$/, "")}/${t.replace(/^\/+/, "")}` : e;
+function N(i, e) {
+  let t = i;
+  return Object.entries(e).forEach(([r, s]) => {
+    t = t.replace(`:${r}`, encodeURIComponent(String(s)));
+  }), t;
 }
-var j = class {
+function q(i, e) {
+  return e ? /^https?:\/\//i.test(e) || e.startsWith("/") ? e : `${i.replace(/\/+$/, "")}/${e.replace(/^\/+/, "")}` : i;
+}
+class R {
   constructor(e) {
     this.contracts = null;
     const t = e.basePath.replace(/\/+$/, "");
@@ -227,30 +235,28 @@ var j = class {
     };
   }
   async loadContracts(e = !1) {
-    if (this.contracts && !e) return this.contracts;
-    const t = g(await this.fetchJSON(this.config.contractsPath, { method: "GET" })), r = H(t.contracts ?? t);
-    return this.contracts = r, r;
+    if (this.contracts && !e)
+      return this.contracts;
+    const t = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = b(t), s = Q(r.contracts ?? r);
+    return this.contracts = s, s;
   }
   async listMenus() {
     const e = await this.fetchFromEndpoint("menus", { method: "GET" });
-    return (Array.isArray(e.menus) ? e.menus : Array.isArray(e.data) ? e.data : []).map((t) => v(t));
+    return (Array.isArray(e.menus) ? e.menus : Array.isArray(e.data) ? e.data : []).map((r) => y(r));
   }
   async getMenu(e) {
     const t = await this.fetchFromEndpoint("menus.id", {
       method: "GET",
       params: { id: e }
-    });
-    return {
-      menu: v(t.menu ?? t.data ?? t),
-      items: (Array.isArray(t.items) ? t.items : []).map((r, i) => _(r, `menu.items[${i}]`))
-    };
+    }), r = y(t.menu ?? t.data ?? t), a = (Array.isArray(t.items) ? t.items : []).map((n, o) => S(n, `menu.items[${o}]`));
+    return { menu: r, items: a };
   }
   async createMenu(e) {
     const t = await this.fetchFromEndpoint("menus", {
       method: "POST",
       body: e
     });
-    return v(t.menu ?? t.data ?? t);
+    return y(t.menu ?? t.data ?? t);
   }
   async updateMenu(e, t) {
     const r = await this.fetchFromEndpoint("menus.id", {
@@ -258,15 +264,15 @@ var j = class {
       params: { id: e },
       body: t
     });
-    return v(r.menu ?? r.data ?? r);
+    return y(r.menu ?? r.data ?? r);
   }
   async publishMenu(e, t) {
-    const r = t ? "menus.publish" : "menus.unpublish", i = await this.fetchFromEndpoint(r, {
+    const r = t ? "menus.publish" : "menus.unpublish", s = await this.fetchFromEndpoint(r, {
       method: "POST",
       params: { id: e },
       body: {}
     });
-    return v(i.menu ?? i.data ?? i);
+    return y(s.menu ?? s.data ?? s);
   }
   async cloneMenu(e, t) {
     const r = await this.fetchFromEndpoint("menus.clone", {
@@ -274,7 +280,7 @@ var j = class {
       params: { id: e },
       body: { code: t }
     });
-    return v(r.menu ?? r.data ?? r);
+    return y(r.menu ?? r.data ?? r);
   }
   async archiveMenu(e, t) {
     const r = await this.fetchFromEndpoint("menus.archive", {
@@ -282,27 +288,29 @@ var j = class {
       params: { id: e },
       body: { archived: t }
     });
-    return v(r.menu ?? r.data ?? r);
+    return y(r.menu ?? r.data ?? r);
   }
   async upsertMenuItems(e, t) {
     const r = await this.fetchFromEndpoint("menus.items", {
       method: "PUT",
       params: { id: e },
       body: { items: t }
-    }), i = g(r.menu ?? r.data ?? {});
-    return (Array.isArray(i.items) ? i.items : Array.isArray(i.Items) ? i.Items : []).map((a, s) => _(a, `menu.items[${s}]`));
+    }), s = b(r.menu ?? r.data ?? {});
+    return (Array.isArray(s.items) ? s.items : Array.isArray(s.Items) ? s.Items : []).map((n, o) => S(n, `menu.items[${o}]`));
   }
   async previewMenu(e) {
     const t = new URLSearchParams();
-    return e.location && t.set("location", e.location), e.locale && t.set("locale", e.locale), e.view_profile && t.set("view_profile", e.view_profile), e.include_drafts && t.set("include_drafts", "true"), e.preview_token && t.set("preview_token", e.preview_token), X(await this.fetchFromEndpoint("menus.preview", {
+    e.location && t.set("location", e.location), e.locale && t.set("locale", e.locale), e.view_profile && t.set("view_profile", e.view_profile), e.include_drafts && t.set("include_drafts", "true"), e.preview_token && t.set("preview_token", e.preview_token);
+    const r = await this.fetchFromEndpoint("menus.preview", {
       method: "GET",
       params: { id: e.menuId },
       query: t
-    }));
+    });
+    return Z(r);
   }
   async listBindings() {
     const e = await this.fetchFromEndpoint("menu.bindings", { method: "GET" });
-    return (Array.isArray(e.bindings) ? e.bindings : Array.isArray(e.data) ? e.data : []).map((t) => P(t));
+    return (Array.isArray(e.bindings) ? e.bindings : Array.isArray(e.data) ? e.data : []).map((r) => L(r));
   }
   async upsertBinding(e, t) {
     const r = await this.fetchFromEndpoint("menu.bindings.location", {
@@ -310,18 +318,18 @@ var j = class {
       params: { location: e },
       body: t
     });
-    return P(r.binding ?? r.data ?? r);
+    return L(r.binding ?? r.data ?? r);
   }
   async listProfiles() {
     const e = await this.fetchFromEndpoint("menu.view_profiles", { method: "GET" });
-    return (Array.isArray(e.view_profiles) ? e.view_profiles : Array.isArray(e.profiles) ? e.profiles : Array.isArray(e.data) ? e.data : []).map((t) => y(t));
+    return (Array.isArray(e.view_profiles) ? e.view_profiles : Array.isArray(e.profiles) ? e.profiles : Array.isArray(e.data) ? e.data : []).map((r) => _(r));
   }
   async createProfile(e) {
     const t = await this.fetchFromEndpoint("menu.view_profiles", {
       method: "POST",
       body: e
     });
-    return y(t.view_profile ?? t.profile ?? t.data ?? t);
+    return _(t.view_profile ?? t.profile ?? t.data ?? t);
   }
   async updateProfile(e, t) {
     const r = await this.fetchFromEndpoint("menu.view_profiles.code", {
@@ -329,7 +337,7 @@ var j = class {
       params: { code: e },
       body: t
     });
-    return y(r.view_profile ?? r.profile ?? r.data ?? r);
+    return _(r.view_profile ?? r.profile ?? r.data ?? r);
   }
   async deleteProfile(e) {
     await this.fetchFromEndpoint("menu.view_profiles.code", {
@@ -343,36 +351,38 @@ var j = class {
       params: { code: e },
       body: { publish: t }
     });
-    return y(r.view_profile ?? r.profile ?? r.data ?? r);
+    return _(r.view_profile ?? r.profile ?? r.data ?? r);
   }
-  async patchEntryNavigation(e, t, r, i = []) {
+  async patchEntryNavigation(e, t, r, s = []) {
     let a = `${this.config.basePath}/content/:type/:id/navigation`;
     try {
       a = (await this.loadContracts()).content_navigation?.endpoints?.["content.navigation"] || a;
     } catch {
     }
-    const s = D(this.config.basePath, T(a, {
-      type: e,
-      id: t
-    })), n = g(await this.fetchJSON(s, {
+    const n = q(this.config.basePath, N(a, { type: e, id: t })), o = await this.fetchJSON(n, {
       method: "PATCH",
       body: JSON.stringify({ _navigation: r }),
-      headers: { "Content-Type": "application/json" }
-    })), o = g(n.data ?? n);
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }), l = b(o), c = b(l.data ?? l);
     return {
-      overrides: Y(o._navigation, i),
-      effective_visibility: g(o.effective_navigation_visibility)
+      overrides: ee(c._navigation, s),
+      effective_visibility: b(c.effective_navigation_visibility)
     };
   }
   async fetchFromEndpoint(e, t) {
-    const r = (await this.loadContracts()).endpoints[e];
-    if (!r) throw new w(`missing endpoint contract for ${e}`, 500, "CONTRACT_MISSING");
-    const i = D(this.config.basePath, T(r, t.params ?? {})), a = String(t.query ?? "").trim(), s = a ? `?${a}` : "";
-    return g(await this.fetchJSON(`${i}${s}`, {
+    const s = (await this.loadContracts()).endpoints[e];
+    if (!s)
+      throw new $(`missing endpoint contract for ${e}`, 500, "CONTRACT_MISSING");
+    const a = q(this.config.basePath, N(s, t.params ?? {})), n = String(t.query ?? "").trim(), o = n ? `?${n}` : "", l = await this.fetchJSON(`${a}${o}`, {
       method: t.method,
       body: t.body ? JSON.stringify(t.body) : void 0,
-      headers: t.body ? { "Content-Type": "application/json" } : void 0
-    }));
+      headers: t.body ? {
+        "Content-Type": "application/json"
+      } : void 0
+    });
+    return b(l);
   }
   async fetchJSON(e, t) {
     const r = await fetch(e, {
@@ -383,19 +393,20 @@ var j = class {
         ...t.headers ?? {}
       }
     });
-    let i = null;
+    let s = null;
     try {
-      i = await r.json();
+      s = await r.json();
     } catch {
-      i = null;
+      s = null;
     }
     if (!r.ok) {
-      const a = g(i?.error ?? i), s = String(a.message ?? (r.statusText || "request failed")).trim() || "request failed", n = String(a.text_code ?? "").trim(), o = g(a.metadata);
-      throw new w(s, r.status, n, o);
+      const a = b(s?.error ?? s), n = String(a.message ?? (r.statusText || "request failed")).trim() || "request failed", o = String(a.text_code ?? "").trim(), l = b(a.metadata);
+      throw new $(n, r.status, o, l);
     }
-    return i;
+    return s;
   }
-}, Z = {
+}
+const te = {
   loading: !1,
   error: "",
   contracts: null,
@@ -408,173 +419,142 @@ var j = class {
   validation_issues: [],
   preview_result: null
 };
-function m(e) {
-  return e.map((t) => ({
-    ...t,
-    target: t.target ? { ...t.target } : void 0,
-    children: m(t.children || [])
+function f(i) {
+  return i.map((e) => ({
+    ...e,
+    target: e.target ? { ...e.target } : void 0,
+    children: f(e.children || [])
   }));
 }
-function O(e, t = /* @__PURE__ */ new Set()) {
-  return e.forEach((r) => {
-    t.add(r.id), O(r.children || [], t);
-  }), t;
+function O(i, e = /* @__PURE__ */ new Set()) {
+  return i.forEach((t) => {
+    e.add(t.id), O(t.children || [], e);
+  }), e;
 }
-function M(e, t) {
+function C(i, e) {
+  const t = [];
+  let r = null;
+  return i.forEach((s) => {
+    if (s.id === e) {
+      r = {
+        ...s,
+        target: s.target ? { ...s.target } : void 0,
+        children: f(s.children || [])
+      };
+      return;
+    }
+    const a = C(s.children || [], e);
+    if (a.node && !r) {
+      r = a.node, t.push({
+        ...s,
+        children: a.next
+      });
+      return;
+    }
+    t.push({
+      ...s,
+      children: f(s.children || [])
+    });
+  }), { node: r, next: t };
+}
+function k(i, e, t) {
   const r = [];
-  let i = null;
-  return e.forEach((a) => {
-    if (a.id === t) {
-      i = {
+  let s = !1;
+  return i.forEach((a) => {
+    !s && a.id === e && (r.push(t), s = !0);
+    const n = k(a.children || [], e, t);
+    if (n.inserted) {
+      s = !0, r.push({ ...a, children: n.items });
+      return;
+    }
+    r.push({ ...a, children: f(a.children || []) });
+  }), { inserted: s, items: r };
+}
+function F(i, e, t) {
+  const r = [];
+  let s = !1;
+  return i.forEach((a) => {
+    const n = F(a.children || [], e, t);
+    if (n.inserted) {
+      s = !0, r.push({ ...a, children: n.items });
+      return;
+    }
+    r.push({ ...a, children: f(a.children || []) }), !s && a.id === e && (r.push(t), s = !0);
+  }), { inserted: s, items: r };
+}
+function A(i, e, t) {
+  let r = !1;
+  const s = i.map((a) => {
+    if (a.id === e)
+      return r = !0, {
         ...a,
-        target: a.target ? { ...a.target } : void 0,
-        children: m(a.children || [])
+        children: [...f(a.children || []), t]
       };
-      return;
-    }
-    const s = M(a.children || [], t);
-    if (s.node && !i) {
-      i = s.node, r.push({
-        ...a,
-        children: s.next
-      });
-      return;
-    }
-    r.push({
+    const n = A(a.children || [], e, t);
+    return n.inserted ? (r = !0, {
       ...a,
-      children: m(a.children || [])
-    });
-  }), {
-    node: i,
-    next: r
-  };
-}
-function B(e, t, r) {
-  const i = [];
-  let a = !1;
-  return e.forEach((s) => {
-    !a && s.id === t && (i.push(r), a = !0);
-    const n = B(s.children || [], t, r);
-    if (n.inserted) {
-      a = !0, i.push({
-        ...s,
-        children: n.items
-      });
-      return;
-    }
-    i.push({
-      ...s,
-      children: m(s.children || [])
-    });
-  }), {
-    inserted: a,
-    items: i
-  };
-}
-function R(e, t, r) {
-  const i = [];
-  let a = !1;
-  return e.forEach((s) => {
-    const n = R(s.children || [], t, r);
-    if (n.inserted) {
-      a = !0, i.push({
-        ...s,
-        children: n.items
-      });
-      return;
-    }
-    i.push({
-      ...s,
-      children: m(s.children || [])
-    }), !a && s.id === t && (i.push(r), a = !0);
-  }), {
-    inserted: a,
-    items: i
-  };
-}
-function L(e, t, r) {
-  let i = !1;
-  const a = e.map((s) => {
-    if (s.id === t)
-      return i = !0, {
-        ...s,
-        children: [...m(s.children || []), r]
-      };
-    const n = L(s.children || [], t, r);
-    return n.inserted ? (i = !0, {
-      ...s,
       children: n.items
     }) : {
-      ...s,
-      children: m(s.children || [])
+      ...a,
+      children: f(a.children || [])
     };
   });
-  return {
-    inserted: i,
-    items: a
-  };
+  return { inserted: r, items: s };
 }
-function ee(e) {
-  const t = e.target;
-  return !t || !t.type ? "" : t.type === "external" ? `external:${String(t.url || "").trim().toLowerCase()}` : t.type === "route" || t.type === "module" ? `${t.type}:${String(t.path || t.route || t.module || "").trim().toLowerCase()}` : `content:${String(t.content_type || "").trim().toLowerCase()}:${String(t.slug || t.id || "").trim().toLowerCase()}`;
+function re(i) {
+  const e = i.target;
+  return !e || !e.type ? "" : e.type === "external" ? `external:${String(e.url || "").trim().toLowerCase()}` : e.type === "route" || e.type === "module" ? `${e.type}:${String(e.path || e.route || e.module || "").trim().toLowerCase()}` : `content:${String(e.content_type || "").trim().toLowerCase()}:${String(e.slug || e.id || "").trim().toLowerCase()}`;
 }
-function te(e) {
-  const t = e.target;
-  if (!t) return {
-    url: "",
-    valid: !1,
-    message: "Target required"
-  };
-  switch (t.type) {
+function ie(i) {
+  const e = i.target;
+  if (!e)
+    return { url: "", valid: !1, message: "Target required" };
+  switch (e.type) {
     case "external": {
-      const r = String(t.url || "").trim(), i = /^https?:\/\//i.test(r);
+      const t = String(e.url || "").trim(), r = /^https?:\/\//i.test(t);
       return {
-        url: r,
-        valid: i,
-        message: i ? "Resolved external URL" : "External URL must start with http:// or https://"
+        url: t,
+        valid: r,
+        message: r ? "Resolved external URL" : "External URL must start with http:// or https://"
       };
     }
     case "route": {
-      const r = String(t.path || t.route || "").trim();
+      const t = String(e.path || e.route || "").trim();
       return {
-        url: r,
-        valid: r.startsWith("/"),
-        message: r.startsWith("/") ? "Resolved route path" : "Route path must start with /"
+        url: t,
+        valid: t.startsWith("/"),
+        message: t.startsWith("/") ? "Resolved route path" : "Route path must start with /"
       };
     }
     case "module": {
-      const r = String(t.path || t.module || "").trim();
+      const t = String(e.path || e.module || "").trim();
       return {
-        url: r,
-        valid: r.startsWith("/"),
-        message: r.startsWith("/") ? "Resolved module path" : "Module path must start with /"
+        url: t,
+        valid: t.startsWith("/"),
+        message: t.startsWith("/") ? "Resolved module path" : "Module path must start with /"
       };
     }
     case "content": {
-      const r = String(t.content_type || "").trim(), i = String(t.slug || t.id || "").trim(), a = r.length > 0 && i.length > 0;
+      const t = String(e.content_type || "").trim(), r = String(e.slug || e.id || "").trim(), s = t.length > 0 && r.length > 0;
       return {
-        url: a ? `/${r}/${i}` : "",
-        valid: a,
-        message: a ? "Resolved content URL" : "Content target requires content type and slug/id"
+        url: s ? `/${t}/${r}` : "",
+        valid: s,
+        message: s ? "Resolved content URL" : "Content target requires content type and slug/id"
       };
     }
     default:
-      return {
-        url: "",
-        valid: !1,
-        message: "Unsupported target type"
-      };
+      return { url: "", valid: !1, message: "Unsupported target type" };
   }
 }
-var k = class extends EventTarget {
+class z extends EventTarget {
   constructor(e) {
-    super(), this.client = e, this.state = { ...Z };
+    super(), this.client = e, this.state = { ...te };
   }
   snapshot() {
     return {
       ...this.state,
       menus: [...this.state.menus],
-      draft_items: m(this.state.draft_items),
+      draft_items: f(this.state.draft_items),
       bindings: [...this.state.bindings],
       profiles: [...this.state.profiles],
       validation_issues: [...this.state.validation_issues],
@@ -582,18 +562,15 @@ var k = class extends EventTarget {
         ...this.state.preview_result,
         menu: {
           ...this.state.preview_result.menu,
-          items: m(this.state.preview_result.menu.items)
+          items: f(this.state.preview_result.menu.items)
         }
       } : null
     };
   }
   async initialize() {
-    this.setState({
-      loading: !0,
-      error: ""
-    });
+    this.setState({ loading: !0, error: "" });
     try {
-      const e = await this.client.loadContracts(), [t, r, i] = await Promise.all([
+      const e = await this.client.loadContracts(), [t, r, s] = await Promise.all([
         this.client.listMenus(),
         this.client.listBindings(),
         this.client.listProfiles()
@@ -602,7 +579,7 @@ var k = class extends EventTarget {
         contracts: e,
         menus: t,
         bindings: r,
-        profiles: i,
+        profiles: s,
         selected_menu_id: a,
         loading: !1
       }), a && await this.selectMenu(a);
@@ -614,7 +591,7 @@ var k = class extends EventTarget {
     }
   }
   async refreshMenus() {
-    const e = await this.client.listMenus(), t = this.state.selected_menu_id, r = e.some((i) => i.id === t);
+    const e = await this.client.listMenus(), t = this.state.selected_menu_id, r = e.some((s) => s.id === t);
     this.setState({
       menus: e,
       selected_menu_id: r ? t : e[0]?.id || ""
@@ -646,7 +623,7 @@ var k = class extends EventTarget {
       this.setState({
         selected_menu_id: r.menu.id,
         selected_menu: r.menu,
-        draft_items: m(r.items),
+        draft_items: f(r.items),
         validation_issues: this.validateItems(r.items),
         loading: !1
       });
@@ -662,97 +639,95 @@ var k = class extends EventTarget {
     await this.refreshMenus(), await this.selectMenu(t.id);
   }
   async updateMenu(e) {
-    if (!this.state.selected_menu_id) return;
+    if (!this.state.selected_menu_id)
+      return;
     const t = await this.client.updateMenu(this.state.selected_menu_id, e);
     this.setState({ selected_menu: t }), await this.refreshMenus();
   }
   async setPublishState(e) {
-    if (!this.state.selected_menu_id) return;
+    if (!this.state.selected_menu_id)
+      return;
     const t = await this.client.publishMenu(this.state.selected_menu_id, e);
     this.setState({ selected_menu: t }), await this.refreshMenus();
   }
   async cloneSelectedMenu(e) {
-    if (!this.state.selected_menu_id) return;
+    if (!this.state.selected_menu_id)
+      return;
     const t = await this.client.cloneMenu(this.state.selected_menu_id, e);
     await this.refreshMenus(), await this.selectMenu(t.id);
   }
   async archiveSelectedMenu(e) {
-    if (!this.state.selected_menu_id) return;
+    if (!this.state.selected_menu_id)
+      return;
     const t = await this.client.archiveMenu(this.state.selected_menu_id, e);
     this.setState({ selected_menu: t }), await this.refreshMenus();
   }
   setDraftItems(e) {
     const t = this.validateItems(e);
-    this.setState({
-      draft_items: m(e),
-      validation_issues: t
-    });
+    this.setState({ draft_items: f(e), validation_issues: t });
   }
   addRootItem() {
     const e = {
       id: `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       label: "New Item",
-      target: {
-        type: "route",
-        path: "/"
-      },
+      target: { type: "route", path: "/" },
       children: []
     };
-    this.setDraftItems([...m(this.state.draft_items), e]);
+    this.setDraftItems([...f(this.state.draft_items), e]);
   }
   updateItem(e, t) {
-    const r = this.mapItems(this.state.draft_items, e, (i) => ({
-      ...i,
+    const r = this.mapItems(this.state.draft_items, e, (s) => ({
+      ...s,
       ...t,
-      target: t.target ? { ...t.target } : i.target
+      target: t.target ? { ...t.target } : s.target
     }));
     this.setDraftItems(r);
   }
   removeItem(e) {
-    const t = M(this.state.draft_items, e);
+    const t = C(this.state.draft_items, e);
     this.setDraftItems(t.next);
   }
   addChild(e) {
     const t = {
       id: `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       label: "New Child",
-      target: {
-        type: "route",
-        path: "/"
-      },
+      target: { type: "route", path: "/" },
       children: []
-    }, r = L(this.state.draft_items, e, t);
+    }, r = A(this.state.draft_items, e, t);
     r.inserted && this.setDraftItems(r.items);
   }
   moveItem(e, t, r) {
-    if (!e || !t || e === t) return;
-    const i = O(this.state.draft_items);
-    if (!i.has(e) || !i.has(t)) return;
-    const a = M(this.state.draft_items, e);
-    if (!a.node) return;
-    let s;
+    if (!e || !t || e === t)
+      return;
+    const s = O(this.state.draft_items);
+    if (!s.has(e) || !s.has(t))
+      return;
+    const a = C(this.state.draft_items, e);
+    if (!a.node)
+      return;
+    let n;
     switch (r) {
       case "before":
-        s = B(a.next, t, a.node);
+        n = k(a.next, t, a.node);
         break;
       case "after":
-        s = R(a.next, t, a.node);
+        n = F(a.next, t, a.node);
         break;
+      case "inside":
       default:
-        s = L(a.next, t, a.node);
+        n = A(a.next, t, a.node);
         break;
     }
-    s.inserted && this.setDraftItems(s.items);
+    n.inserted && this.setDraftItems(n.items);
   }
   async saveItems() {
-    if (!this.state.selected_menu_id) return;
+    if (!this.state.selected_menu_id)
+      return;
     const e = this.validateItems(this.state.draft_items);
-    if (this.setState({ validation_issues: e }), e.length > 0) throw new Error("Fix menu validation issues before saving");
+    if (this.setState({ validation_issues: e }), e.length > 0)
+      throw new Error("Fix menu validation issues before saving");
     const t = await this.client.upsertMenuItems(this.state.selected_menu_id, this.state.draft_items);
-    this.setState({
-      draft_items: m(t),
-      validation_issues: []
-    });
+    this.setState({ draft_items: f(t), validation_issues: [] });
   }
   async refreshBindings() {
     const e = await this.client.listBindings();
@@ -781,43 +756,40 @@ var k = class extends EventTarget {
     const t = await this.client.previewMenu(e);
     this.setState({ preview_result: t });
   }
-  async patchEntryNavigation(e, t, r, i) {
-    return this.client.patchEntryNavigation(e, t, r, i);
+  async patchEntryNavigation(e, t, r, s) {
+    return this.client.patchEntryNavigation(e, t, r, s);
   }
   resolveTarget(e) {
-    return te(e);
+    return ie(e);
   }
   mapItems(e, t, r) {
-    return e.map((i) => i.id === t ? r({
-      ...i,
-      children: m(i.children || [])
-    }) : {
-      ...i,
-      children: this.mapItems(i.children || [], t, r)
+    return e.map((s) => s.id === t ? r({ ...s, children: f(s.children || []) }) : {
+      ...s,
+      children: this.mapItems(s.children || [], t, r)
     });
   }
   validateItems(e) {
-    const t = [], r = /* @__PURE__ */ new Map(), i = (a, s, n) => {
+    const t = [], r = /* @__PURE__ */ new Map(), s = (a, n, o) => {
       a.label.trim() || t.push({
         code: "label_required",
         message: `Menu item ${a.id} requires a label`,
         item_id: a.id
-      }), n.has(a.id) && t.push({
+      }), o.has(a.id) && t.push({
         code: "cycle",
         message: `Cycle detected at menu item ${a.id}`,
         item_id: a.id
-      }), s > 8 && t.push({
+      }), n > 8 && t.push({
         code: "depth",
         message: `Menu depth exceeds max level at ${a.id}`,
         item_id: a.id
       });
-      const o = this.resolveTarget(a);
-      o.valid || t.push({
+      const l = this.resolveTarget(a);
+      l.valid || t.push({
         code: "invalid_target",
-        message: `${a.label || a.id}: ${o.message}`,
+        message: `${a.label || a.id}: ${l.message}`,
         item_id: a.id
       });
-      const c = ee(a);
+      const c = re(a);
       if (c) {
         const h = r.get(c);
         h && h !== a.id ? t.push({
@@ -826,10 +798,10 @@ var k = class extends EventTarget {
           item_id: a.id
         }) : r.set(c, a.id);
       }
-      const u = new Set(n);
-      u.add(a.id), (a.children || []).forEach((h) => i(h, s + 1, u));
+      const p = new Set(o);
+      p.add(a.id), (a.children || []).forEach((h) => s(h, n + 1, p));
     };
-    return e.forEach((a) => i(a, 1, /* @__PURE__ */ new Set())), t;
+    return e.forEach((a) => s(a, 1, /* @__PURE__ */ new Set())), t;
   }
   setState(e) {
     const t = Object.prototype.hasOwnProperty.call(e, "selected_menu_id") && e.selected_menu_id !== this.state.selected_menu_id;
@@ -838,283 +810,283 @@ var k = class extends EventTarget {
       ...e
     }, t && !Object.prototype.hasOwnProperty.call(e, "preview_result") && (this.state.preview_result = null), this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot() }));
   }
-};
-function l(e) {
-  return String(e ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function S(e, t) {
-  if (!e) return t;
+function u(i) {
+  return String(i ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function E(i, e) {
+  if (!i)
+    return e;
   try {
-    return JSON.parse(e);
+    return JSON.parse(i);
   } catch {
-    return t;
+    return e;
   }
 }
-function q(e) {
-  return e.split(",").map((t) => t.trim()).filter(Boolean).filter((t, r, i) => i.indexOf(t) === r).sort();
+function j(i) {
+  return i.split(",").map((e) => e.trim()).filter(Boolean).filter((e, t, r) => r.indexOf(e) === t).sort();
 }
-function $(e, t = "") {
-  const r = window.prompt(e, t);
-  return String(r || "").trim();
+function I(i, e = "") {
+  const t = window.prompt(i, e);
+  return String(t || "").trim();
 }
-function A(e, t) {
-  return t ? t.startsWith("/") ? t : `${e.replace(/\/+$/, "")}/${t.replace(/^\/+/, "")}` : "";
+function D(i, e) {
+  return e ? e.startsWith("/") ? e : `${i.replace(/\/+$/, "")}/${e.replace(/^\/+/, "")}` : "";
 }
-function F(e, t) {
-  const r = A(e, t || `${e}/api`);
-  return /\/api(\/|$)/.test(r) ? r : `${r.replace(/\/+$/, "")}/api`;
+function U(i, e) {
+  const t = D(i, e || `${i}/api`);
+  return /\/api(\/|$)/.test(t) ? t : `${t.replace(/\/+$/, "")}/api`;
 }
-function N(e) {
-  return String(e || "").trim().toLowerCase() === "true";
+function B(i) {
+  return String(i || "").trim().toLowerCase() === "true";
 }
-var re = class {
+class se {
   constructor(e, t) {
-    this.state = null, this.dragItemID = "", this.onClick = async (r) => {
-      const i = r.target, a = i.closest("[data-menu-select]");
-      if (a) {
-        const s = String(a.dataset.menuSelect || "").trim();
-        s && await this.store.selectMenu(s);
+    this.state = null, this.dragItemID = "", this.onClick = async (s) => {
+      const a = s.target, n = a.closest("[data-menu-select]");
+      if (n) {
+        const o = String(n.dataset.menuSelect || "").trim();
+        o && await this.store.selectMenu(o);
         return;
       }
-      if (i.closest("[data-menu-create]")) {
-        const s = $("New menu code (example: site.main):", "site.main");
-        if (!s) return;
+      if (a.closest("[data-menu-create]")) {
+        const o = I("New menu code (example: site.main):", "site.main");
+        if (!o) return;
         try {
-          await this.store.createMenu({
-            code: s,
-            name: s,
-            status: "draft"
-          });
-        } catch (n) {
-          this.showError(n);
+          await this.store.createMenu({ code: o, name: o, status: "draft" });
+        } catch (l) {
+          this.showError(l);
         }
         return;
       }
-      if (i.closest("[data-menu-save-meta]")) {
-        const s = this.root.querySelector('[data-menu-meta="code"]'), n = this.root.querySelector('[data-menu-meta="name"]'), o = this.root.querySelector('[data-menu-meta="locale"]'), c = this.root.querySelector('[data-menu-meta="description"]');
+      if (a.closest("[data-menu-save-meta]")) {
+        const o = this.root.querySelector('[data-menu-meta="code"]'), l = this.root.querySelector('[data-menu-meta="name"]'), c = this.root.querySelector('[data-menu-meta="locale"]'), p = this.root.querySelector('[data-menu-meta="description"]');
         try {
           await this.store.updateMenu({
-            code: String(s?.value || "").trim(),
-            name: String(n?.value || "").trim(),
-            locale: String(o?.value || "").trim(),
-            description: String(c?.value || "").trim()
+            code: String(o?.value || "").trim(),
+            name: String(l?.value || "").trim(),
+            locale: String(c?.value || "").trim(),
+            description: String(p?.value || "").trim()
           });
-        } catch (u) {
-          this.showError(u);
+        } catch (h) {
+          this.showError(h);
         }
         return;
       }
-      if (i.closest("[data-menu-publish]")) {
-        const s = String(i.closest("[data-menu-publish]").dataset.menuPublish || "").trim();
+      if (a.closest("[data-menu-publish]")) {
+        const o = String(a.closest("[data-menu-publish]").dataset.menuPublish || "").trim();
         try {
-          await this.store.setPublishState(s === "publish");
-        } catch (n) {
-          this.showError(n);
+          await this.store.setPublishState(o === "publish");
+        } catch (l) {
+          this.showError(l);
         }
         return;
       }
-      if (i.closest("[data-menu-clone]")) {
-        const s = this.state?.selected_menu;
-        if (!s) return;
-        const n = $("Clone menu code:", `${s.code}_clone`);
-        if (!n) return;
+      if (a.closest("[data-menu-clone]")) {
+        const o = this.state?.selected_menu;
+        if (!o) return;
+        const l = I("Clone menu code:", `${o.code}_clone`);
+        if (!l) return;
         try {
-          await this.store.cloneSelectedMenu(n);
-        } catch (o) {
-          this.showError(o);
-        }
-        return;
-      }
-      if (i.closest("[data-menu-archive]")) {
-        const s = String(i.closest("[data-menu-archive]").dataset.menuArchive || "").trim() === "archive";
-        try {
-          await this.store.archiveSelectedMenu(s);
-        } catch (n) {
-          this.showError(n);
-        }
-        return;
-      }
-      if (i.closest("[data-menu-add-root]")) {
-        this.store.addRootItem();
-        return;
-      }
-      if (i.closest("[data-menu-add-child]")) {
-        const s = String(i.closest("[data-menu-add-child]").dataset.menuAddChild || "").trim();
-        s && this.store.addChild(s);
-        return;
-      }
-      if (i.closest("[data-menu-remove-item]")) {
-        const s = String(i.closest("[data-menu-remove-item]").dataset.menuRemoveItem || "").trim();
-        s && this.store.removeItem(s);
-        return;
-      }
-      if (i.closest("[data-menu-save-items]")) {
-        try {
-          await this.store.saveItems();
-        } catch (s) {
-          this.showError(s);
-        }
-        return;
-      }
-      if (i.closest("[data-binding-save]")) {
-        const s = this.root.querySelector('[data-binding-field="location"]'), n = this.root.querySelector('[data-binding-field="menu_code"]'), o = this.root.querySelector('[data-binding-field="view_profile_code"]'), c = this.root.querySelector('[data-binding-field="status"]'), u = this.root.querySelector('[data-binding-field="locale"]'), h = this.root.querySelector('[data-binding-field="priority"]'), p = String(s?.value || "").trim();
-        if (!p) {
-          this.showError(/* @__PURE__ */ new Error("Binding location is required"));
-          return;
-        }
-        try {
-          await this.store.upsertBinding(p, {
-            location: p,
-            menu_code: String(n?.value || "").trim(),
-            view_profile_code: String(o?.value || "").trim(),
-            status: String(c?.value || "draft").trim().toLowerCase(),
-            locale: String(u?.value || "").trim(),
-            priority: Number.parseInt(String(h?.value || "0").trim(), 10) || 0
-          });
-        } catch (b) {
-          this.showError(b);
-        }
-        return;
-      }
-      if (i.closest("[data-profile-create]")) {
-        const s = $("Profile code:", "footer");
-        if (!s) return;
-        try {
-          await this.store.createProfile({
-            code: s,
-            name: s,
-            mode: "full",
-            status: "draft"
-          });
-        } catch (n) {
-          this.showError(n);
-        }
-        return;
-      }
-      if (i.closest("[data-profile-save]")) {
-        const s = this.root.querySelector('[data-profile-field="code"]'), n = this.root.querySelector('[data-profile-field="name"]'), o = this.root.querySelector('[data-profile-field="mode"]'), c = this.root.querySelector('[data-profile-field="max_top_level"]'), u = this.root.querySelector('[data-profile-field="max_depth"]'), h = this.root.querySelector('[data-profile-field="include_item_ids"]'), p = this.root.querySelector('[data-profile-field="exclude_item_ids"]'), b = String(s?.value || "").trim();
-        if (!b) {
-          this.showError(/* @__PURE__ */ new Error("Select a profile to update"));
-          return;
-        }
-        try {
-          await this.store.updateProfile(b, {
-            code: b,
-            name: String(n?.value || "").trim(),
-            mode: String(o?.value || "full").trim().toLowerCase(),
-            max_top_level: Number.parseInt(String(c?.value || "").trim(), 10) || void 0,
-            max_depth: Number.parseInt(String(u?.value || "").trim(), 10) || void 0,
-            include_item_ids: q(String(h?.value || "")),
-            exclude_item_ids: q(String(p?.value || ""))
-          });
-        } catch (z) {
-          this.showError(z);
-        }
-        return;
-      }
-      if (i.closest("[data-profile-delete]")) {
-        const s = this.root.querySelector('[data-profile-field="code"]'), n = String(s?.value || "").trim();
-        if (!n || n === "full") {
-          this.showError(/* @__PURE__ */ new Error("Select a non-default profile to delete"));
-          return;
-        }
-        if (!window.confirm(`Delete profile "${n}"?`)) return;
-        try {
-          await this.store.deleteProfile(n);
-        } catch (o) {
-          this.showError(o);
-        }
-        return;
-      }
-      if (i.closest("[data-profile-publish]")) {
-        const s = String(i.closest("[data-profile-publish]").dataset.profilePublish || "").trim(), n = this.root.querySelector('[data-profile-field="code"]'), o = String(n?.value || "").trim();
-        if (!o) {
-          this.showError(/* @__PURE__ */ new Error("Select a profile first"));
-          return;
-        }
-        try {
-          await this.store.publishProfile(o, s === "publish");
+          await this.store.cloneSelectedMenu(l);
         } catch (c) {
           this.showError(c);
         }
         return;
       }
-      if (i.closest("[data-preview-run]")) {
-        const s = this.state?.selected_menu_id || "";
-        if (!s) return;
-        const n = this.root.querySelector('[data-preview-field="location"]'), o = this.root.querySelector('[data-preview-field="locale"]'), c = this.root.querySelector('[data-preview-field="view_profile"]'), u = this.root.querySelector('[data-preview-field="include_drafts"]'), h = this.root.querySelector('[data-preview-field="preview_token"]');
+      if (a.closest("[data-menu-archive]")) {
+        const l = String(a.closest("[data-menu-archive]").dataset.menuArchive || "").trim() === "archive";
         try {
-          await this.store.preview({
-            menuId: s,
-            location: String(n?.value || "").trim(),
-            locale: String(o?.value || "").trim(),
-            view_profile: String(c?.value || "").trim(),
-            include_drafts: !!u?.checked,
-            preview_token: String(h?.value || "").trim()
-          });
-        } catch (p) {
-          this.showError(p);
-        }
-      }
-    }, this.onChange = (r) => {
-      const i = r.target, a = i.closest("[data-menu-item-field]");
-      if (a) {
-        const n = String(a.dataset.menuItemField || "").trim(), o = i, c = String(o.dataset.itemField || "").trim();
-        if (!n || !c) return;
-        const u = this.findItemByID(this.state?.draft_items || [], n);
-        if (!u) return;
-        if (c === "label") {
-          this.store.updateItem(n, { label: String(o.value || "").trim() });
-          return;
-        }
-        if (c === "target.type") {
-          const p = String(o.value || "route").trim().toLowerCase();
-          this.store.updateItem(n, { target: {
-            type: p,
-            path: p === "route" || p === "module" ? "/" : void 0,
-            url: p === "external" ? "https://" : void 0,
-            content_type: p === "content" ? "page" : void 0,
-            slug: p === "content" ? "home" : void 0
-          } });
-          return;
-        }
-        const h = { ...u.target || { type: "route" } };
-        if (c.startsWith("target.")) {
-          const p = c.replace("target.", "");
-          h[p] = String(o.value || "").trim(), this.store.updateItem(n, { target: h });
+          await this.store.archiveSelectedMenu(l);
+        } catch (c) {
+          this.showError(c);
         }
         return;
       }
-      const s = i.closest('[data-profile-field="code"]');
-      s && this.syncSelectedProfile(s.value);
-    }, this.onDragStart = (r) => {
-      const i = r.target.closest("[data-menu-item-id]");
-      if (!i) return;
-      const a = String(i.dataset.menuItemId || "").trim();
-      a && (this.dragItemID = a, i.classList.add("opacity-60"), r instanceof DragEvent && r.dataTransfer && (r.dataTransfer.effectAllowed = "move", r.dataTransfer.setData("text/plain", a)));
-    }, this.onDragOver = (r) => {
-      if (!(r instanceof DragEvent)) return;
-      const i = r.target.closest("[data-drop-zone]");
-      i && (r.preventDefault(), i.classList.add("bg-blue-100"));
-    }, this.onDragLeave = (r) => {
-      const i = r.target.closest("[data-drop-zone]");
-      i && i.classList.remove("bg-blue-100");
-    }, this.onDrop = (r) => {
-      if (!(r instanceof DragEvent)) return;
-      const i = r.target.closest("[data-drop-zone]");
-      if (!i) return;
-      r.preventDefault(), i.classList.remove("bg-blue-100");
-      const a = String(i.dataset.dropTarget || "").trim(), s = String(i.dataset.dropMode || "inside").trim(), n = this.dragItemID || String(r.dataTransfer?.getData("text/plain") || "").trim();
-      !n || !a || n === a || this.store.moveItem(n, a, s);
-    }, this.onDragEnd = (r) => {
+      if (a.closest("[data-menu-add-root]")) {
+        this.store.addRootItem();
+        return;
+      }
+      if (a.closest("[data-menu-add-child]")) {
+        const o = String(a.closest("[data-menu-add-child]").dataset.menuAddChild || "").trim();
+        o && this.store.addChild(o);
+        return;
+      }
+      if (a.closest("[data-menu-remove-item]")) {
+        const o = String(a.closest("[data-menu-remove-item]").dataset.menuRemoveItem || "").trim();
+        o && this.store.removeItem(o);
+        return;
+      }
+      if (a.closest("[data-menu-save-items]")) {
+        try {
+          await this.store.saveItems();
+        } catch (o) {
+          this.showError(o);
+        }
+        return;
+      }
+      if (a.closest("[data-binding-save]")) {
+        const o = this.root.querySelector('[data-binding-field="location"]'), l = this.root.querySelector('[data-binding-field="menu_code"]'), c = this.root.querySelector('[data-binding-field="view_profile_code"]'), p = this.root.querySelector('[data-binding-field="status"]'), h = this.root.querySelector('[data-binding-field="locale"]'), v = this.root.querySelector('[data-binding-field="priority"]'), m = String(o?.value || "").trim();
+        if (!m) {
+          this.showError(new Error("Binding location is required"));
+          return;
+        }
+        try {
+          await this.store.upsertBinding(m, {
+            location: m,
+            menu_code: String(l?.value || "").trim(),
+            view_profile_code: String(c?.value || "").trim(),
+            status: String(p?.value || "draft").trim().toLowerCase(),
+            locale: String(h?.value || "").trim(),
+            priority: Number.parseInt(String(v?.value || "0").trim(), 10) || 0
+          });
+        } catch (x) {
+          this.showError(x);
+        }
+        return;
+      }
+      if (a.closest("[data-profile-create]")) {
+        const o = I("Profile code:", "footer");
+        if (!o) return;
+        try {
+          await this.store.createProfile({ code: o, name: o, mode: "full", status: "draft" });
+        } catch (l) {
+          this.showError(l);
+        }
+        return;
+      }
+      if (a.closest("[data-profile-save]")) {
+        const o = this.root.querySelector('[data-profile-field="code"]'), l = this.root.querySelector('[data-profile-field="name"]'), c = this.root.querySelector('[data-profile-field="mode"]'), p = this.root.querySelector('[data-profile-field="max_top_level"]'), h = this.root.querySelector('[data-profile-field="max_depth"]'), v = this.root.querySelector('[data-profile-field="include_item_ids"]'), m = this.root.querySelector('[data-profile-field="exclude_item_ids"]'), x = String(o?.value || "").trim();
+        if (!x) {
+          this.showError(new Error("Select a profile to update"));
+          return;
+        }
+        try {
+          await this.store.updateProfile(x, {
+            code: x,
+            name: String(l?.value || "").trim(),
+            mode: String(c?.value || "full").trim().toLowerCase(),
+            max_top_level: Number.parseInt(String(p?.value || "").trim(), 10) || void 0,
+            max_depth: Number.parseInt(String(h?.value || "").trim(), 10) || void 0,
+            include_item_ids: j(String(v?.value || "")),
+            exclude_item_ids: j(String(m?.value || ""))
+          });
+        } catch (V) {
+          this.showError(V);
+        }
+        return;
+      }
+      if (a.closest("[data-profile-delete]")) {
+        const o = this.root.querySelector('[data-profile-field="code"]'), l = String(o?.value || "").trim();
+        if (!l || l === "full") {
+          this.showError(new Error("Select a non-default profile to delete"));
+          return;
+        }
+        if (!window.confirm(`Delete profile "${l}"?`))
+          return;
+        try {
+          await this.store.deleteProfile(l);
+        } catch (c) {
+          this.showError(c);
+        }
+        return;
+      }
+      if (a.closest("[data-profile-publish]")) {
+        const o = String(a.closest("[data-profile-publish]").dataset.profilePublish || "").trim(), l = this.root.querySelector('[data-profile-field="code"]'), c = String(l?.value || "").trim();
+        if (!c) {
+          this.showError(new Error("Select a profile first"));
+          return;
+        }
+        try {
+          await this.store.publishProfile(c, o === "publish");
+        } catch (p) {
+          this.showError(p);
+        }
+        return;
+      }
+      if (a.closest("[data-preview-run]")) {
+        const o = this.state?.selected_menu_id || "";
+        if (!o) return;
+        const l = this.root.querySelector('[data-preview-field="location"]'), c = this.root.querySelector('[data-preview-field="locale"]'), p = this.root.querySelector('[data-preview-field="view_profile"]'), h = this.root.querySelector('[data-preview-field="include_drafts"]'), v = this.root.querySelector('[data-preview-field="preview_token"]');
+        try {
+          await this.store.preview({
+            menuId: o,
+            location: String(l?.value || "").trim(),
+            locale: String(c?.value || "").trim(),
+            view_profile: String(p?.value || "").trim(),
+            include_drafts: !!h?.checked,
+            preview_token: String(v?.value || "").trim()
+          });
+        } catch (m) {
+          this.showError(m);
+        }
+      }
+    }, this.onChange = (s) => {
+      const a = s.target, n = a.closest("[data-menu-item-field]");
+      if (n) {
+        const l = String(n.dataset.menuItemField || "").trim(), c = a, p = String(c.dataset.itemField || "").trim();
+        if (!l || !p) return;
+        const h = this.findItemByID(this.state?.draft_items || [], l);
+        if (!h) return;
+        if (p === "label") {
+          this.store.updateItem(l, { label: String(c.value || "").trim() });
+          return;
+        }
+        if (p === "target.type") {
+          const m = String(c.value || "route").trim().toLowerCase();
+          this.store.updateItem(l, {
+            target: {
+              type: m,
+              path: m === "route" || m === "module" ? "/" : void 0,
+              url: m === "external" ? "https://" : void 0,
+              content_type: m === "content" ? "page" : void 0,
+              slug: m === "content" ? "home" : void 0
+            }
+          });
+          return;
+        }
+        const v = {
+          ...h.target || { type: "route" }
+        };
+        if (p.startsWith("target.")) {
+          const m = p.replace("target.", "");
+          v[m] = String(c.value || "").trim(), this.store.updateItem(l, { target: v });
+        }
+        return;
+      }
+      const o = a.closest('[data-profile-field="code"]');
+      o && this.syncSelectedProfile(o.value);
+    }, this.onDragStart = (s) => {
+      const n = s.target.closest("[data-menu-item-id]");
+      if (!n) return;
+      const o = String(n.dataset.menuItemId || "").trim();
+      o && (this.dragItemID = o, n.classList.add("opacity-60"), s instanceof DragEvent && s.dataTransfer && (s.dataTransfer.effectAllowed = "move", s.dataTransfer.setData("text/plain", o)));
+    }, this.onDragOver = (s) => {
+      if (!(s instanceof DragEvent)) return;
+      const n = s.target.closest("[data-drop-zone]");
+      n && (s.preventDefault(), n.classList.add("bg-blue-100"));
+    }, this.onDragLeave = (s) => {
+      const n = s.target.closest("[data-drop-zone]");
+      n && n.classList.remove("bg-blue-100");
+    }, this.onDrop = (s) => {
+      if (!(s instanceof DragEvent)) return;
+      const n = s.target.closest("[data-drop-zone]");
+      if (!n) return;
+      s.preventDefault(), n.classList.remove("bg-blue-100");
+      const o = String(n.dataset.dropTarget || "").trim(), l = String(n.dataset.dropMode || "inside").trim(), c = this.dragItemID || String(s.dataTransfer?.getData("text/plain") || "").trim();
+      !c || !o || c === o || this.store.moveItem(c, o, l);
+    }, this.onDragEnd = (s) => {
       this.dragItemID = "";
-      const i = r.target.closest("[data-menu-item-id]");
-      i && i.classList.remove("opacity-60"), this.root.querySelectorAll("[data-drop-zone]").forEach((a) => a.classList.remove("bg-blue-100"));
-    }, this.root = e, this.config = t, this.store = new k(new j({ basePath: t.apiBasePath }));
+      const n = s.target.closest("[data-menu-item-id]");
+      n && n.classList.remove("opacity-60"), this.root.querySelectorAll("[data-drop-zone]").forEach((o) => o.classList.remove("bg-blue-100"));
+    }, this.root = e, this.config = t;
+    const r = new R({ basePath: t.apiBasePath });
+    this.store = new z(r);
   }
   async init() {
     this.root.addEventListener("click", this.onClick), this.root.addEventListener("change", this.onChange), this.root.addEventListener("dragstart", this.onDragStart), this.root.addEventListener("dragover", this.onDragOver), this.root.addEventListener("dragleave", this.onDragLeave), this.root.addEventListener("drop", this.onDrop), this.root.addEventListener("dragend", this.onDragEnd), this.store.addEventListener("change", (t) => {
-      this.state = t.detail, this.render();
+      const r = t.detail;
+      this.state = r, this.render();
     }), await this.store.initialize();
     const e = String(this.config.initialMenuID || "").trim();
     e && await this.store.selectMenu(e);
@@ -1124,8 +1096,9 @@ var re = class {
   }
   render() {
     const e = this.state;
-    if (!e) return;
-    const t = e.selected_menu, r = e.validation_issues.map((s) => `<li class="text-xs text-amber-700">${l(s.message)}</li>`).join(""), i = e.preview_result?.menu.items || [];
+    if (!e)
+      return;
+    const t = e.selected_menu, r = e.validation_issues.map((n) => `<li class="text-xs text-amber-700">${u(n.message)}</li>`).join(""), s = e.preview_result?.menu.items || [];
     this.root.innerHTML = `
       <div class="grid gap-6 lg:grid-cols-[280px,1fr,360px]">
         <section class="bg-white border border-gray-200 rounded-xl p-4 space-y-3 h-fit">
@@ -1134,14 +1107,14 @@ var re = class {
             <button type="button" data-menu-create class="text-xs font-semibold text-blue-600 hover:text-blue-700">+ New</button>
           </div>
           <div class="space-y-2" data-menu-list>
-            ${e.menus.length === 0 ? '<p class="text-sm text-gray-500">No menus yet.</p>' : e.menus.map((s) => this.renderMenuCard(s, e.selected_menu_id)).join("")}
+            ${e.menus.length === 0 ? '<p class="text-sm text-gray-500">No menus yet.</p>' : e.menus.map((n) => this.renderMenuCard(n, e.selected_menu_id)).join("")}
           </div>
         </section>
 
         <section class="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
           <header class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-gray-900">${l(t?.name || "Menu Builder")}</h2>
+              <h2 class="text-base font-semibold text-gray-900">${u(t?.name || "Menu Builder")}</h2>
               <p class="text-xs text-gray-500">List, create, edit, publish, clone, and archive menu trees.</p>
             </div>
             <div class="flex items-center gap-2">
@@ -1153,30 +1126,30 @@ var re = class {
             </div>
           </header>
 
-          ${e.error ? `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${l(e.error)}</div>` : ""}
+          ${e.error ? `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${u(e.error)}</div>` : ""}
 
           <div class="grid gap-3 md:grid-cols-2">
             <label class="text-xs text-gray-600">
               Code
-              <input data-menu-meta="code" value="${l(t?.code || "")}" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+              <input data-menu-meta="code" value="${u(t?.code || "")}" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
             </label>
             <label class="text-xs text-gray-600">
               Name
-              <input data-menu-meta="name" value="${l(t?.name || "")}" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+              <input data-menu-meta="name" value="${u(t?.name || "")}" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
             </label>
             <label class="text-xs text-gray-600">
               Locale
-              <input data-menu-meta="locale" value="${l(t?.locale || "")}" placeholder="en" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+              <input data-menu-meta="locale" value="${u(t?.locale || "")}" placeholder="en" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
             </label>
             <label class="text-xs text-gray-600">
               Status
-              <input value="${l(t?.status || "draft")}" disabled class="mt-1 w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm text-gray-600" />
+              <input value="${u(t?.status || "draft")}" disabled class="mt-1 w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm text-gray-600" />
             </label>
           </div>
 
           <label class="text-xs text-gray-600 block">
             Description
-            <textarea data-menu-meta="description" rows="2" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm">${l(t?.description || "")}</textarea>
+            <textarea data-menu-meta="description" rows="2" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm">${u(t?.description || "")}</textarea>
           </label>
 
           <div class="flex items-center justify-between">
@@ -1204,13 +1177,13 @@ var re = class {
               <label class="text-xs text-gray-600">Menu
                 <select data-binding-field="menu_code" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
                   <option value="">Select menu</option>
-                  ${e.menus.map((s) => `<option value="${l(s.code)}">${l(s.code)}</option>`).join("")}
+                  ${e.menus.map((n) => `<option value="${u(n.code)}">${u(n.code)}</option>`).join("")}
                 </select>
               </label>
               <label class="text-xs text-gray-600">View Profile
                 <select data-binding-field="view_profile_code" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
                   <option value="">full</option>
-                  ${e.profiles.map((s) => `<option value="${l(s.code)}">${l(s.code)}</option>`).join("")}
+                  ${e.profiles.map((n) => `<option value="${u(n.code)}">${u(n.code)}</option>`).join("")}
                 </select>
               </label>
               <label class="text-xs text-gray-600">Locale <input data-binding-field="locale" placeholder="en" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" /></label>
@@ -1233,7 +1206,7 @@ var re = class {
             <label class="text-xs text-gray-600">Profile
               <select data-profile-field="code" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
                 <option value="">Select profile</option>
-                ${e.profiles.map((s) => `<option value="${l(s.code)}">${l(s.code)}</option>`).join("")}
+                ${e.profiles.map((n) => `<option value="${u(n.code)}">${u(n.code)}</option>`).join("")}
               </select>
             </label>
             <label class="text-xs text-gray-600">Name <input data-profile-field="name" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" /></label>
@@ -1269,10 +1242,10 @@ var re = class {
             <button type="button" data-preview-run class="px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded hover:bg-blue-700">Run Preview</button>
             ${e.preview_result ? `
               <div class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 space-y-1">
-                <div><strong>Items:</strong> ${i.length}</div>
-                ${e.preview_result.simulation?.location ? `<div><strong>Location:</strong> ${l(e.preview_result.simulation.location)}</div>` : ""}
-                ${e.preview_result.simulation?.view_profile ? `<div><strong>Profile:</strong> ${l(e.preview_result.simulation.view_profile)}</div>` : ""}
-                <div><strong>Top Labels:</strong> ${l(i.map((s) => s.label).join(", ") || "(none)")}</div>
+                <div><strong>Items:</strong> ${s.length}</div>
+                ${e.preview_result.simulation?.location ? `<div><strong>Location:</strong> ${u(e.preview_result.simulation.location)}</div>` : ""}
+                ${e.preview_result.simulation?.view_profile ? `<div><strong>Profile:</strong> ${u(e.preview_result.simulation.view_profile)}</div>` : ""}
+                <div><strong>Top Labels:</strong> ${u(s.map((n) => n.label).join(", ") || "(none)")}</div>
               </div>
             ` : ""}
           </div>
@@ -1286,13 +1259,13 @@ var re = class {
     const r = e.id === t;
     return `
       <button type="button"
-              data-menu-select="${l(e.id)}"
+              data-menu-select="${u(e.id)}"
               class="w-full text-left rounded-lg border px-3 py-2 ${r ? "border-blue-300 bg-blue-50" : "border-gray-200 hover:border-gray-300"}">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-medium text-gray-800 truncate">${l(e.name || e.code)}</span>
-          <span class="text-[10px] uppercase tracking-wide ${e.status === "published" ? "text-green-700" : "text-gray-500"}">${l(e.status)}</span>
+          <span class="text-sm font-medium text-gray-800 truncate">${u(e.name || e.code)}</span>
+          <span class="text-[10px] uppercase tracking-wide ${e.status === "published" ? "text-green-700" : "text-gray-500"}">${u(e.status)}</span>
         </div>
-        <div class="mt-0.5 text-xs text-gray-500 truncate">${l(e.code)}</div>
+        <div class="mt-0.5 text-xs text-gray-500 truncate">${u(e.code)}</div>
       </button>
     `;
   }
@@ -1300,68 +1273,63 @@ var re = class {
     return `<ul class="space-y-2">${e.map((t) => this.renderTreeNode(t)).join("")}</ul>`;
   }
   renderTreeNode(e) {
-    const t = String(e.target?.type || "route"), r = this.store.resolveTarget(e), i = this.renderTargetFields(e, t);
+    const t = String(e.target?.type || "route"), r = this.store.resolveTarget(e), s = this.renderTargetFields(e, t);
     return `
-      <li class="rounded border border-gray-200" data-menu-item-id="${l(e.id)}" draggable="true">
-        <div class="h-1 rounded-t bg-transparent" data-drop-zone data-drop-target="${l(e.id)}" data-drop-mode="before"></div>
-        <div class="px-2 py-2 space-y-2" data-drop-zone data-drop-target="${l(e.id)}" data-drop-mode="inside">
-          <div class="flex items-start gap-2" data-menu-item-field="${l(e.id)}">
+      <li class="rounded border border-gray-200" data-menu-item-id="${u(e.id)}" draggable="true">
+        <div class="h-1 rounded-t bg-transparent" data-drop-zone data-drop-target="${u(e.id)}" data-drop-mode="before"></div>
+        <div class="px-2 py-2 space-y-2" data-drop-zone data-drop-target="${u(e.id)}" data-drop-mode="inside">
+          <div class="flex items-start gap-2" data-menu-item-field="${u(e.id)}">
             <span class="cursor-move text-gray-400 pt-1" title="Drag to reorder">⋮⋮</span>
             <div class="flex-1 grid gap-2 md:grid-cols-[1fr,140px]">
               <input
                 data-item-field="label"
-                value="${l(e.label)}"
+                value="${u(e.label)}"
                 placeholder="Label"
                 class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
               />
               <select data-item-field="target.type" class="rounded border border-gray-300 px-2 py-1.5 text-sm">
-                ${[
-      "content",
-      "route",
-      "module",
-      "external"
-    ].map((a) => `<option value="${a}" ${a === t ? "selected" : ""}>${a}</option>`).join("")}
+                ${["content", "route", "module", "external"].map((a) => `<option value="${a}" ${a === t ? "selected" : ""}>${a}</option>`).join("")}
               </select>
             </div>
             <div class="flex items-center gap-1">
-              <button type="button" data-menu-add-child="${l(e.id)}" class="px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100 rounded">+Child</button>
-              <button type="button" data-menu-remove-item="${l(e.id)}" class="px-2 py-1 text-[11px] font-semibold text-red-700 bg-red-100 rounded">Delete</button>
+              <button type="button" data-menu-add-child="${u(e.id)}" class="px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-100 rounded">+Child</button>
+              <button type="button" data-menu-remove-item="${u(e.id)}" class="px-2 py-1 text-[11px] font-semibold text-red-700 bg-red-100 rounded">Delete</button>
             </div>
           </div>
-          <div data-menu-item-field="${l(e.id)}" class="grid gap-2 md:grid-cols-[1fr,auto]">
-            ${i}
+          <div data-menu-item-field="${u(e.id)}" class="grid gap-2 md:grid-cols-[1fr,auto]">
+            ${s}
             <div class="text-[11px] ${r.valid ? "text-green-700" : "text-amber-700"}">
               <div class="font-semibold">${r.valid ? "Resolved URL" : "Validation"}</div>
-              <div>${l(r.url || r.message)}</div>
+              <div>${u(r.url || r.message)}</div>
             </div>
           </div>
           ${e.children && e.children.length > 0 ? this.renderTree(e.children) : ""}
         </div>
-        <div class="h-1 rounded-b bg-transparent" data-drop-zone data-drop-target="${l(e.id)}" data-drop-mode="after"></div>
+        <div class="h-1 rounded-b bg-transparent" data-drop-zone data-drop-target="${u(e.id)}" data-drop-mode="after"></div>
       </li>
     `;
   }
   renderTargetFields(e, t) {
     return t === "external" ? `
         <label class="text-xs text-gray-600">External URL
-          <input data-item-field="target.url" value="${l(e.target?.url || "")}" placeholder="https://example.com" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+          <input data-item-field="target.url" value="${u(e.target?.url || "")}" placeholder="https://example.com" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
         </label>
       ` : t === "content" ? `
         <div class="grid gap-2 md:grid-cols-2">
           <label class="text-xs text-gray-600">Content Type
-            <input data-item-field="target.content_type" value="${l(e.target?.content_type || "")}" placeholder="page" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+            <input data-item-field="target.content_type" value="${u(e.target?.content_type || "")}" placeholder="page" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
           </label>
           <label class="text-xs text-gray-600">Slug / ID
-            <input data-item-field="target.slug" value="${l(e.target?.slug || e.target?.id || "")}" placeholder="home" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+            <input data-item-field="target.slug" value="${u(e.target?.slug || e.target?.id || "")}" placeholder="home" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
           </label>
         </div>
       ` : t === "module" ? `
         <label class="text-xs text-gray-600">Module Path
-          <input data-item-field="target.path" value="${l(e.target?.path || e.target?.module || "")}" placeholder="/docs" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+          <input data-item-field="target.path" value="${u(e.target?.path || e.target?.module || "")}" placeholder="/docs" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
         </label>
       ` : `
       <label class="text-xs text-gray-600">Route Path
-        <input data-item-field="target.path" value="${l(e.target?.path || e.target?.route || "")}" placeholder="/" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+        <input data-item-field="target.path" value="${u(e.target?.path || e.target?.route || "")}" placeholder="/" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
       </label>
     `;
   }
@@ -1380,10 +1348,10 @@ var re = class {
           <tbody>
             ${e.bindings.map((t) => `
               <tr>
-                <td class="px-2 py-1">${l(t.location)}</td>
-                <td class="px-2 py-1">${l(t.menu_code)}</td>
-                <td class="px-2 py-1">${l(t.view_profile_code || "full")}</td>
-                <td class="px-2 py-1">${l(t.status)}</td>
+                <td class="px-2 py-1">${u(t.location)}</td>
+                <td class="px-2 py-1">${u(t.menu_code)}</td>
+                <td class="px-2 py-1">${u(t.view_profile_code || "full")}</td>
+                <td class="px-2 py-1">${u(t.status)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -1393,18 +1361,20 @@ var re = class {
   }
   findItemByID(e, t) {
     for (const r of e) {
-      if (r.id === t) return r;
-      const i = this.findItemByID(r.children || [], t);
-      if (i) return i;
+      if (r.id === t)
+        return r;
+      const s = this.findItemByID(r.children || [], t);
+      if (s)
+        return s;
     }
     return null;
   }
   syncSelectedProfile(e) {
-    const t = (this.state?.profiles || []).find((i) => i.code === e);
+    const t = (this.state?.profiles || []).find((s) => s.code === e);
     if (!t) return;
-    const r = (i, a) => {
-      const s = this.root.querySelector(i);
-      s && (s.value = a);
+    const r = (s, a) => {
+      const n = this.root.querySelector(s);
+      n && (n.value = a);
     };
     r('[data-profile-field="name"]', t.name || ""), r('[data-profile-field="mode"]', t.mode || "full"), r('[data-profile-field="max_top_level"]', t.max_top_level ? String(t.max_top_level) : ""), r('[data-profile-field="max_depth"]', t.max_depth ? String(t.max_depth) : ""), r('[data-profile-field="include_item_ids"]', (t.include_item_ids || []).join(",")), r('[data-profile-field="exclude_item_ids"]', (t.exclude_item_ids || []).join(","));
   }
@@ -1417,26 +1387,24 @@ var re = class {
     console.error("[MenuBuilderUI]", r, e);
   }
   formatError(e) {
-    if (e instanceof w) {
+    if (e instanceof $) {
       const t = String(e.metadata?.field || "").trim();
       return t ? `${e.message} (${t})` : e.message;
     }
     return e instanceof Error ? e.message : String(e);
   }
-}, ie = class {
-  constructor(e, t, r, i, a, s) {
-    this.onChange = (n) => {
-      const o = n.target;
-      if (!o.matches("[data-navigation-location]")) return;
-      const c = String(o.dataset.navigationLocation || "").trim(), u = String(o.value || "").trim().toLowerCase();
-      c && [
-        "inherit",
-        "show",
-        "hide"
-      ].includes(u) && (this.state.overrides[c] = u);
-    }, this.onClick = async (n) => {
-      n.target.closest("[data-navigation-save]") && await this.saveOverrides();
-    }, this.root = e, this.store = t, this.contentType = r, this.recordID = i, this.config = a, this.state = s;
+}
+class ae {
+  constructor(e, t, r, s, a, n) {
+    this.onChange = (o) => {
+      const l = o.target;
+      if (!l.matches("[data-navigation-location]"))
+        return;
+      const c = String(l.dataset.navigationLocation || "").trim(), p = String(l.value || "").trim().toLowerCase();
+      c && ["inherit", "show", "hide"].includes(p) && (this.state.overrides[c] = p);
+    }, this.onClick = async (o) => {
+      o.target.closest("[data-navigation-save]") && await this.saveOverrides();
+    }, this.root = e, this.store = t, this.contentType = r, this.recordID = s, this.config = a, this.state = n;
   }
   init() {
     this.root.addEventListener("change", this.onChange), this.root.addEventListener("click", this.onClick), this.render("");
@@ -1454,13 +1422,18 @@ var re = class {
       return;
     }
     try {
-      const e = await this.store.patchEntryNavigation(this.contentType, this.recordID, this.state.overrides, this.config.eligible_locations);
+      const e = await this.store.patchEntryNavigation(
+        this.contentType,
+        this.recordID,
+        this.state.overrides,
+        this.config.eligible_locations
+      );
       this.state = {
         overrides: { ...e.overrides },
         effective_visibility: { ...e.effective_visibility }
       }, this.render("Saved entry navigation overrides.");
     } catch (e) {
-      if (e instanceof w) {
+      if (e instanceof $) {
         const t = String(e.metadata.field || "").trim();
         if (t.startsWith("_navigation.")) {
           this.render(`Invalid location: ${t.replace("_navigation.", "")}`);
@@ -1471,21 +1444,21 @@ var re = class {
     }
   }
   render(e) {
-    const t = this.config.eligible_locations.map((i) => {
-      const a = this.state.overrides[i] || "inherit", s = this.state.effective_visibility[i] === !0;
+    const t = this.config.eligible_locations.map((s) => {
+      const a = this.state.overrides[s] || "inherit", n = this.state.effective_visibility[s] === !0;
       return `
           <div class="grid gap-2 md:grid-cols-[1fr,180px,120px] items-center">
             <div>
-              <div class="text-sm font-medium text-gray-800">Show in ${l(i)}</div>
+              <div class="text-sm font-medium text-gray-800">Show in ${u(s)}</div>
               <div class="text-xs text-gray-500">Tri-state: inherit, show, hide</div>
             </div>
-            <select data-navigation-location="${l(i)}" class="rounded border border-gray-300 px-2 py-1.5 text-sm" ${this.config.allow_instance_override ? "" : "disabled"}>
+            <select data-navigation-location="${u(s)}" class="rounded border border-gray-300 px-2 py-1.5 text-sm" ${this.config.allow_instance_override ? "" : "disabled"}>
               <option value="inherit" ${a === "inherit" ? "selected" : ""}>inherit</option>
               <option value="show" ${a === "show" ? "selected" : ""}>show</option>
               <option value="hide" ${a === "hide" ? "selected" : ""}>hide</option>
             </select>
-            <span class="inline-flex justify-center rounded px-2 py-1 text-xs font-semibold ${s ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}">
-              ${s ? "Visible" : "Hidden"}
+            <span class="inline-flex justify-center rounded px-2 py-1 text-xs font-semibold ${n ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}">
+              ${n ? "Visible" : "Hidden"}
             </span>
           </div>
         `;
@@ -1494,10 +1467,10 @@ var re = class {
       <section class="bg-white border border-gray-200 rounded-xl p-4 space-y-3" data-entry-navigation-panel>
         <div>
           <h3 class="text-sm font-semibold text-gray-800">Entry Navigation Visibility</h3>
-          <p class="text-xs text-gray-500">${l(r)}</p>
+          <p class="text-xs text-gray-500">${u(r)}</p>
         </div>
         <div class="space-y-2">${t || '<p class="text-sm text-gray-500">No eligible locations configured.</p>'}</div>
-        ${e ? `<div class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">${l(e)}</div>` : ""}
+        ${e ? `<div class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">${u(e)}</div>` : ""}
         <div class="flex items-center justify-end">
           <button type="button" data-navigation-save class="px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded hover:bg-blue-700" ${this.config.allow_instance_override ? "" : "disabled"}>
             Save Visibility Overrides
@@ -1506,68 +1479,68 @@ var re = class {
       </section>
     `;
   }
-};
-function ae(e) {
+}
+function ne(i) {
   return {
-    enabled: N(e.dataset.navigationEnabled),
-    eligible_locations: S(e.dataset.navigationEligibleLocations, []),
-    default_locations: S(e.dataset.navigationDefaultLocations, []),
-    allow_instance_override: N(e.dataset.navigationAllowInstanceOverride),
-    merge_mode: String(e.dataset.navigationMergeMode || "").trim()
+    enabled: B(i.dataset.navigationEnabled),
+    eligible_locations: E(i.dataset.navigationEligibleLocations, []),
+    default_locations: E(i.dataset.navigationDefaultLocations, []),
+    allow_instance_override: B(i.dataset.navigationAllowInstanceOverride),
+    merge_mode: String(i.dataset.navigationMergeMode || "").trim()
   };
 }
-function se(e) {
+function oe(i) {
   return {
-    overrides: S(e.dataset.navigationOverrides, {}),
-    effective_visibility: S(e.dataset.navigationEffectiveVisibility, {})
+    overrides: E(i.dataset.navigationOverrides, {}),
+    effective_visibility: E(i.dataset.navigationEffectiveVisibility, {})
   };
 }
-async function ne(e) {
-  const t = A("/", String(e.dataset.basePath || "/admin")), r = new re(e, {
-    basePath: t,
-    apiBasePath: F(t, String(e.dataset.apiBasePath || `${t}/api`)),
-    initialMenuID: String(e.dataset.menuId || "").trim()
+async function le(i) {
+  const e = D("/", String(i.dataset.basePath || "/admin")), t = U(e, String(i.dataset.apiBasePath || `${e}/api`)), r = String(i.dataset.menuId || "").trim(), s = new se(i, {
+    basePath: e,
+    apiBasePath: t,
+    initialMenuID: r
   });
-  return await r.init(), r;
+  return await s.init(), s;
 }
-async function oe(e) {
-  const t = String(e.dataset.panelName || "").trim(), r = String(e.dataset.recordId || "").trim();
-  if (!t || !r) return null;
-  const i = A("/", String(e.dataset.basePath || "/admin")), a = new ie(e, new k(new j({ basePath: F(i, String(e.dataset.apiBasePath || `${i}/api`)) })), t, r, ae(e), se(e));
-  return a.init(), a;
+async function de(i) {
+  const e = String(i.dataset.panelName || "").trim(), t = String(i.dataset.recordId || "").trim();
+  if (!e || !t)
+    return null;
+  const r = D("/", String(i.dataset.basePath || "/admin")), s = U(r, String(i.dataset.apiBasePath || `${r}/api`)), a = new z(new R({ basePath: s })), n = ne(i), o = oe(i), l = new ae(i, a, e, t, n, o);
+  return l.init(), l;
 }
-function de(e) {
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", e, { once: !0 }) : e();
+function ce(i) {
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", i, { once: !0 }) : i();
 }
-de(() => {
-  document.querySelectorAll("[data-menu-builder-root]").forEach((e) => {
-    e.dataset.initialized !== "true" && ne(e).then(() => {
-      e.dataset.initialized = "true";
-    }).catch((t) => {
-      console.error("[menu-builder] failed to initialize", t), e.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${t instanceof Error ? t.message : String(t)}</div>`;
+ce(() => {
+  document.querySelectorAll("[data-menu-builder-root]").forEach((i) => {
+    i.dataset.initialized !== "true" && le(i).then(() => {
+      i.dataset.initialized = "true";
+    }).catch((e) => {
+      console.error("[menu-builder] failed to initialize", e), i.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
-  }), document.querySelectorAll("[data-entry-navigation-root]").forEach((e) => {
-    e.dataset.initialized !== "true" && oe(e).then(() => {
-      e.dataset.initialized = "true";
-    }).catch((t) => {
-      console.error("[entry-navigation] failed to initialize", t), e.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${t instanceof Error ? t.message : String(t)}</div>`;
+  }), document.querySelectorAll("[data-entry-navigation-root]").forEach((i) => {
+    i.dataset.initialized !== "true" && de(i).then(() => {
+      i.dataset.initialized = "true";
+    }).catch((e) => {
+      console.error("[entry-navigation] failed to initialize", e), i.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
   });
 });
 export {
-  ie as EntryNavigationOverrideUI,
-  j as MenuBuilderAPIClient,
-  w as MenuBuilderAPIError,
-  k as MenuBuilderStore,
-  re as MenuBuilderUI,
-  oe as initEntryNavigationOverrides,
-  ne as initMenuBuilder,
-  P as parseMenuBindingRecord,
-  H as parseMenuContracts,
-  _ as parseMenuItemNode,
-  v as parseMenuRecord,
-  y as parseMenuViewProfileRecord,
-  Y as parseNavigationOverrides
+  ae as EntryNavigationOverrideUI,
+  R as MenuBuilderAPIClient,
+  $ as MenuBuilderAPIError,
+  z as MenuBuilderStore,
+  se as MenuBuilderUI,
+  de as initEntryNavigationOverrides,
+  le as initMenuBuilder,
+  L as parseMenuBindingRecord,
+  Q as parseMenuContracts,
+  S as parseMenuItemNode,
+  y as parseMenuRecord,
+  _ as parseMenuViewProfileRecord,
+  ee as parseNavigationOverrides
 };
-
 //# sourceMappingURL=index.js.map

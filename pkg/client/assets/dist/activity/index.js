@@ -1,11 +1,13 @@
-import { t as E } from "../chunks/icon-renderer-BSHLmdoQ.js";
-var ae = {
+import { r as E } from "../chunks/icon-renderer-CRbgoQtj.js";
+const re = {
+  // Created
   created: "created",
   added: "created",
   inserted: "created",
   registered: "created",
   signed_up: "created",
   imported: "created",
+  // Updated
   updated: "updated",
   modified: "updated",
   changed: "updated",
@@ -15,11 +17,13 @@ var ae = {
   disabled: "updated",
   activated: "updated",
   deactivated: "updated",
+  // Deleted
   deleted: "deleted",
   removed: "deleted",
   destroyed: "deleted",
   purged: "deleted",
   archived: "deleted",
+  // Auth
   login: "auth",
   logout: "auth",
   logged_in: "auth",
@@ -29,32 +33,34 @@ var ae = {
   password_changed: "auth",
   token_refreshed: "auth",
   session_expired: "auth",
+  // Viewed
   viewed: "viewed",
   accessed: "viewed",
   read: "viewed",
   downloaded: "viewed",
   exported: "viewed"
-}, re = "actor_display", oe = "object_display", le = "object_deleted", ce = "actor_type", de = "actor_email", fe = "session_id", ue = "enriched_at", pe = "enricher_version", U = {
+}, oe = "actor_display", le = "object_display", ce = "object_deleted", de = "actor_type", fe = "actor_email", ue = "session_id", pe = "enriched_at", he = "enricher_version", F = {
   user: "user",
   system: "settings",
   job: "clock",
   api: "cloud",
   unknown: "help-circle"
-}, he = {
+}, me = {
   user: "User",
   system: "System",
   job: "Job",
   api: "API",
   unknown: "Unknown"
 };
-function F(e) {
+function Y(e) {
   if (typeof e != "string" || !e) return !1;
   const t = e.trim();
-  if (/^\[(REDACTED|HIDDEN|MASKED|REMOVED)\]$/i.test(t) || /^\*+$/.test(t) || /^[^*]+\*{3,}[^*]+$/.test(t)) return !0;
+  if (/^\[(REDACTED|HIDDEN|MASKED|REMOVED)\]$/i.test(t) || /^\*+$/.test(t) || /^[^*]+\*{3,}[^*]+$/.test(t))
+    return !0;
   const i = t.replace(/-/g, "");
   return !!/^[0-9a-f]{64,}$/i.test(i);
 }
-function Y(e) {
+function K(e) {
   if (!e || typeof e != "object") return !0;
   const t = Object.keys(e);
   return t.length === 0 ? !0 : t.every((i) => {
@@ -62,14 +68,14 @@ function Y(e) {
     return n == null || n === "";
   });
 }
-var K = {
+const G = {
   created: "plus",
   updated: "edit-pencil",
   deleted: "trash",
   auth: "key",
   viewed: "eye",
   system: "settings"
-}, me = {
+}, ge = {
   debug: "terminal",
   user: "user",
   users: "group",
@@ -98,7 +104,7 @@ var K = {
   content: "page-edit",
   repl: "terminal"
 };
-function G(e, t) {
+function J(e, t) {
   if (!e) return "";
   if (!t) return e;
   const i = e.trim();
@@ -106,43 +112,31 @@ function G(e, t) {
   const n = t[i];
   return typeof n == "string" && n.trim() !== "" ? n : e;
 }
-function J(e, t) {
-  if (!e) return {
-    namespace: "",
-    action: "",
-    icon: "activity",
-    category: "system"
-  };
-  const i = G(e, t);
+function W(e, t) {
+  if (!e)
+    return { namespace: "", action: "", icon: "activity", category: "system" };
+  const i = J(e, t);
   if (e.includes(".")) {
-    const s = e.split("."), a = s[0].toLowerCase(), r = s.slice(1).join("."), l = me[a] || "activity", c = s[s.length - 1], u = V(c);
-    return {
-      namespace: a,
-      action: i !== e ? i : r,
-      icon: l,
-      category: u
-    };
+    const a = e.split("."), r = a[0].toLowerCase(), o = a.slice(1).join("."), c = ge[r] || "activity", f = a[a.length - 1], h = N(f);
+    return { namespace: r, action: i !== e ? i : o, icon: c, category: h };
   }
-  const n = V(e);
+  const n = N(e);
   return {
     namespace: "",
     action: i !== e ? i : e,
-    icon: K[n],
+    icon: G[n],
     category: n
   };
 }
-function V(e) {
-  return e && ae[e.toLowerCase().trim().replace(/-/g, "_")] || "system";
+function N(e) {
+  if (!e) return "system";
+  const t = e.toLowerCase().trim().replace(/-/g, "_");
+  return re[t] || "system";
 }
-function ge(e) {
-  if (!e) return {
-    type: "",
-    id: ""
-  };
-  if (!e.includes(":")) return {
-    type: e,
-    id: ""
-  };
+function be(e) {
+  if (!e) return { type: "", id: "" };
+  if (!e.includes(":"))
+    return { type: e, id: "" };
   const t = e.indexOf(":");
   return {
     type: e.substring(0, t),
@@ -154,7 +148,7 @@ function S(e, t) {
   const i = e[t];
   return i == null ? "" : typeof i == "string" ? i.trim() : typeof i == "number" || typeof i == "boolean" ? String(i) : "";
 }
-function be(...e) {
+function ye(...e) {
   for (const t of e) {
     if (!t) continue;
     const i = t.trim();
@@ -162,117 +156,113 @@ function be(...e) {
   }
   return "";
 }
-function W(e) {
-  return be(S(e.metadata, re), e.actor);
-}
-function ye(e) {
-  return S(e.metadata, oe);
+function Q(e) {
+  return ye(S(e.metadata, oe), e.actor);
 }
 function ve(e) {
-  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[le] === !0;
+  return S(e.metadata, le);
 }
-function N(e) {
+function we(e) {
+  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[ce] === !0;
+}
+function B(e) {
   if (!e.metadata || typeof e.metadata != "object") return "unknown";
-  const t = e.metadata[ce];
+  const t = e.metadata[de];
   if (typeof t == "string") {
     const i = t.toLowerCase();
-    if (i in U) return i;
+    if (i in F)
+      return i;
   }
   return "unknown";
 }
-function Ue(e) {
-  return S(e.metadata, de);
-}
-function Q(e) {
+function Fe(e) {
   return S(e.metadata, fe);
 }
-function we(e) {
-  const t = S(e.metadata, ue), i = S(e.metadata, pe);
-  return !t && !i ? null : {
-    enrichedAt: t,
-    enricherVersion: i
-  };
+function X(e) {
+  return S(e.metadata, ue);
 }
 function xe(e) {
+  const t = S(e.metadata, pe), i = S(e.metadata, he);
+  return !t && !i ? null : { enrichedAt: t, enricherVersion: i };
+}
+function Ee(e) {
   return e ? e.charAt(0).toUpperCase() + e.slice(1) : "";
 }
-function O(e) {
-  return e ? e.split(/[_-]/).map(xe).join(" ") : "";
+function R(e) {
+  return e ? e.split(/[_-]/).map(Ee).join(" ") : "";
 }
-function o(e) {
+function l(e) {
   const t = document.createElement("div");
   return t.textContent = e, t.innerHTML;
 }
-function C(e, t = 7) {
+function I(e, t = 7) {
   if (!e) return "";
   const i = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(i) || e.length > t + 3 ? e.substring(0, t) : e;
 }
-function X(e) {
+function Z(e) {
   if (!e) return !1;
   const t = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(t);
 }
-function A(e, t = 8) {
+function C(e, t = 8) {
   if (!e) return "";
-  const i = C(e, t);
-  return i === e ? o(e) : `<span class="activity-id-short" title="${o(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${o(i)}</span>`;
+  const i = I(e, t);
+  return i === e ? l(e) : `<span class="activity-id-short" title="${l(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${l(i)}</span>`;
 }
-function Z(e, t, i) {
-  const { showActorTypeBadge: n = !1 } = i || {}, s = W(e) || "Unknown", a = e.action || "performed action on", r = G(a, t);
-  let l = "";
+function ee(e, t, i) {
+  const { showActorTypeBadge: n = !1 } = i || {}, s = Q(e) || "Unknown", a = e.action || "performed action on", r = J(a, t);
+  let o = "";
   if (n) {
-    const d = N(e);
-    d !== "user" && d !== "unknown" && (l = B(d, {
-      badge: !0,
-      size: "sm"
-    }) + " ");
+    const d = B(e);
+    d !== "user" && d !== "unknown" && (o = O(d, { badge: !0, size: "sm" }) + " ");
   }
-  const c = X(s) ? `${l}${A(s, 8)}` : `${l}<strong>${o(s)}</strong>`, u = ve(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
-  let p = "";
-  const h = ye(e);
-  if (h) p = o(h) + u;
+  const c = Z(s) ? `${o}${C(s, 8)}` : `${o}<strong>${l(s)}</strong>`, h = we(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
+  let u = "";
+  const m = ve(e);
+  if (m)
+    u = l(m) + h;
   else {
-    const { type: d, id: m } = ge(e.object);
-    if (d && m) {
-      const f = A(m, 8);
-      p = `${o(O(d))} #${f}${u}`;
-    } else d ? p = o(O(d)) + u : m && (p = `#${A(m, 8)}${u}`);
+    const { type: d, id: p } = be(e.object);
+    if (d && p) {
+      const g = C(p, 8);
+      u = `${l(R(d))} #${g}${h}`;
+    } else d ? u = l(R(d)) + h : p && (u = `#${C(p, 8)}${h}`);
   }
-  if (V(a) === "auth") {
+  if (N(a) === "auth") {
     const d = e.metadata?.ip || e.metadata?.IP;
-    return d ? `${c} ${o(r)} from ${o(String(d))}` : `${c} ${o(r)}`;
+    return d ? `${c} ${l(r)} from ${l(String(d))}` : `${c} ${l(r)}`;
   }
-  return p ? `${c} ${o(r)} <strong>${p}</strong>` : `${c} ${o(r)}`;
+  return u ? `${c} ${l(r)} <strong>${u}</strong>` : `${c} ${l(r)}`;
 }
-function Ee(e) {
+function Se(e) {
   if (!e) return "-";
   const t = new Date(e);
   return Number.isNaN(t.getTime()) ? e : t.toLocaleString();
-}
-function Se(e) {
-  if (!e) return "";
-  const t = new Date(e);
-  if (Number.isNaN(t.getTime())) return e;
-  const i = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), n = Math.floor(i / 1e3), s = Math.floor(n / 60), a = Math.floor(s / 60), r = Math.floor(a / 24);
-  return n < 60 ? "just now" : s < 60 ? `${s}m ago` : a < 24 ? `${a}h ago` : r < 7 ? `${r}d ago` : t.toLocaleDateString();
 }
 function Te(e) {
   if (!e) return "";
   const t = new Date(e);
   if (Number.isNaN(t.getTime())) return e;
-  const i = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), n = Math.floor(i / 1e3), s = Math.floor(n / 60), a = Math.floor(s / 60), r = Math.floor(a / 24), l = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (n < 60) return "just now";
-  if (s < 60) return l.format(-s, "minute");
-  if (a < 24) return l.format(-a, "hour");
-  if (r < 7) return l.format(-r, "day");
-  if (r < 30) {
-    const c = Math.floor(r / 7);
-    return l.format(-c, "week");
+  const n = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), s = Math.floor(n / 1e3), a = Math.floor(s / 60), r = Math.floor(a / 60), o = Math.floor(r / 24);
+  return s < 60 ? "just now" : a < 60 ? `${a}m ago` : r < 24 ? `${r}h ago` : o < 7 ? `${o}d ago` : t.toLocaleDateString();
+}
+function $e(e) {
+  if (!e) return "";
+  const t = new Date(e);
+  if (Number.isNaN(t.getTime())) return e;
+  const n = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), s = Math.floor(n / 1e3), a = Math.floor(s / 60), r = Math.floor(a / 60), o = Math.floor(r / 24), c = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (s < 60) return "just now";
+  if (a < 60) return c.format(-a, "minute");
+  if (r < 24) return c.format(-r, "hour");
+  if (o < 7) return c.format(-o, "day");
+  if (o < 30) {
+    const f = Math.floor(o / 7);
+    return c.format(-f, "week");
   }
   return t.toLocaleDateString();
 }
-function ee(e) {
+function te(e) {
   const t = /* @__PURE__ */ new Date(), i = new Date(t.getFullYear(), t.getMonth(), t.getDate()), n = new Date(i);
   n.setDate(n.getDate() - 1);
   const s = new Date(e.getFullYear(), e.getMonth(), e.getDate());
@@ -283,53 +273,57 @@ function ee(e) {
     year: s.getFullYear() !== t.getFullYear() ? "numeric" : void 0
   }).format(e);
 }
-function te(e) {
+function ie(e) {
   return new Date(e.getFullYear(), e.getMonth(), e.getDate());
 }
 function T(e) {
-  return `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}`;
+  const t = e.getFullYear(), i = String(e.getMonth() + 1).padStart(2, "0"), n = String(e.getDate()).padStart(2, "0");
+  return `${t}-${i}-${n}`;
 }
-function $e(e) {
+function Ae(e) {
   return !e || typeof e != "object" ? 0 : Object.keys(e).length;
 }
-function ie(e) {
+function ne(e) {
   if (e === null) return "hidden";
   if (e === void 0 || typeof e != "object") return "";
-  const t = $e(e);
-  return t === 0 || Y(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
+  const t = Ae(e);
+  return t === 0 || K(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
 }
-function ne(e) {
-  if (e === null) return `
+function se(e) {
+  if (e === null)
+    return `
       <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
         <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
       </div>
     `;
   if (e === void 0 || typeof e != "object") return "";
   const t = Object.entries(e);
-  return t.length === 0 || Y(e) ? `
+  return t.length === 0 || K(e) ? `
       <div class="activity-metadata-hidden" style="padding: 12px; background: #f9fafb; border-radius: 6px; border: 1px dashed #d1d5db; text-align: center;">
         <span style="color: #9ca3af; font-size: 12px; font-style: italic;">Metadata hidden</span>
       </div>
-    ` : t.map(([i, n]) => {
-    const s = o(i);
-    let a, r = !1;
-    if (F(n))
-      r = !0, a = `<span class="activity-masked-value" title="This value is masked">${o(String(n))}</span>`;
-    else if (i.endsWith("_old") || i.endsWith("_new")) a = o(R(n));
-    else if (typeof n == "object" && n !== null) {
-      const l = JSON.stringify(n);
-      a = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${o(l.length > 100 ? l.substring(0, 100) + "..." : l)}</code>`;
-    } else a = o(R(n));
+    ` : t.map(([n, s]) => {
+    const a = l(n);
+    let r, o = !1;
+    if (Y(s))
+      o = !0, r = `<span class="activity-masked-value" title="This value is masked">${l(String(s))}</span>`;
+    else if (n.endsWith("_old") || n.endsWith("_new"))
+      r = l(j(s));
+    else if (typeof s == "object" && s !== null) {
+      const f = JSON.stringify(s), h = f.length > 100 ? f.substring(0, 100) + "..." : f;
+      r = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${l(h)}</code>`;
+    } else
+      r = l(j(s));
     return `
-      <div class="activity-metadata-item${r ? " activity-metadata-item--masked" : ""}" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
-        <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${s}</span>
-        <span style="color: #111827; font-size: 12px; font-weight: 500; word-break: break-word;">${a}</span>
+      <div class="activity-metadata-item${o ? " activity-metadata-item--masked" : ""}" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+        <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${a}</span>
+        <span style="color: #111827; font-size: 12px; font-weight: 500; word-break: break-word;">${r}</span>
       </div>
     `;
   }).join("");
 }
-function se(e) {
-  const t = we(e);
+function ae(e) {
+  const t = xe(e);
   if (!t) return "";
   const i = [];
   if (t.enrichedAt) {
@@ -337,14 +331,14 @@ function se(e) {
     i.push(`
       <div style="display: flex; justify-content: space-between; gap: 8px;">
         <span style="color: #9ca3af; font-size: 11px;">Enriched at:</span>
-        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${o(s)}</span>
+        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${l(s)}</span>
       </div>
     `);
   }
   return t.enricherVersion && i.push(`
       <div style="display: flex; justify-content: space-between; gap: 8px;">
         <span style="color: #9ca3af; font-size: 11px;">Enricher version:</span>
-        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${o(t.enricherVersion)}</span>
+        <span style="color: #6b7280; font-size: 11px; font-family: ui-monospace, monospace;">${l(t.enricherVersion)}</span>
       </div>
     `), i.length === 0 ? "" : `
     <div class="activity-enrichment-debug" style="margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 4px; border: 1px dashed #e5e7eb;">
@@ -356,30 +350,30 @@ function se(e) {
     </div>
   `;
 }
-function R(e) {
+function j(e) {
   return e == null ? "-" : typeof e == "boolean" ? e ? "Yes" : "No" : typeof e == "number" ? String(e) : typeof e == "string" ? e.length > 100 ? e.substring(0, 100) + "..." : e : JSON.stringify(e);
 }
-function Ae(e) {
-  return e ? C(e, 7) : "";
-}
-function Fe(e) {
-  return `activity-action--${e}`;
+function Ce(e) {
+  return e ? I(e, 7) : "";
 }
 function Ye(e) {
-  const t = K[e];
+  return `activity-action--${e}`;
+}
+function Ke(e) {
+  const t = G[e];
   return E(`iconoir:${t}`, { extraClass: "activity-action-icon" });
 }
-function B(e, t) {
-  const { badge: i = !1, size: n = "md" } = t || {}, s = U[e], a = he[e], r = {
+function O(e, t) {
+  const { badge: i = !1, size: n = "md" } = t || {}, s = F[e], a = me[e], r = {
     sm: "12px",
     md: "14px",
     lg: "16px"
   };
   if (i) {
-    const l = E(`iconoir:${s}`, { size: r[n] });
+    const o = E(`iconoir:${s}`, { size: r[n] });
     return `
-      <span class="activity-actor-type-badge activity-actor-type-badge--${e}" title="${o(a)}">
-        ${l}
+      <span class="activity-actor-type-badge activity-actor-type-badge--${e}" title="${l(a)}">
+        ${o}
       </span>
     `;
   }
@@ -388,47 +382,54 @@ function B(e, t) {
     extraClass: `activity-actor-type-icon activity-actor-type-icon--${e}`
   });
 }
-function Ke(e) {
-  const t = W(e) || "Unknown", i = N(e), n = X(t) ? A(t, 8) : o(t);
-  return `${i !== "user" && i !== "unknown" ? B(i, {
-    badge: !0,
-    size: "sm"
-  }) + " " : ""}<strong>${n}</strong>`;
+function Ge(e) {
+  const t = Q(e) || "Unknown", i = B(e), n = Z(t) ? C(t, 8) : l(t);
+  return `${i !== "user" && i !== "unknown" ? O(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
 }
-function Ce(e, t = 10) {
-  return e ? C(e, t) : "";
+function Ie(e, t = 10) {
+  return e ? I(e, t) : "";
 }
-function Ie(e) {
-  return e ? F(e) ? "Session (masked)" : `Session ${Ce(e, 8)}` : "No session";
+function ke(e) {
+  return e ? Y(e) ? "Session (masked)" : `Session ${Ie(e, 8)}` : "No session";
 }
-var Le = {
+const Le = {
   container: "#activity-view-switcher",
   tableTab: '[data-view-tab="table"]',
   timelineTab: '[data-view-tab="timeline"]',
   tableView: "#activity-table-container",
   timelineView: "#activity-timeline-container",
   paginationContainer: "#activity-pagination"
-}, j = "activity-view-preference", x = "view", z = class {
-  constructor(e = {}, t) {
+}, z = "activity-view-preference", x = "view";
+class q {
+  constructor(t = {}, i) {
     this.currentView = "table", this.container = null, this.tableTab = null, this.timelineTab = null, this.tableView = null, this.timelineView = null, this.paginationContainer = null, this.handleTableClick = () => {
       this.setView("table");
     }, this.handleTimelineClick = () => {
       this.setView("timeline");
-    }, this.selectors = {
-      ...Le,
-      ...e
-    }, this.onViewChange = t;
+    }, this.selectors = { ...Le, ...t }, this.onViewChange = i;
   }
+  /**
+   * Initialize the view switcher
+   */
   init() {
     this.cacheElements(), this.bindEvents(), this.restoreView();
   }
+  /**
+   * Get the current view mode
+   */
   getView() {
     return this.currentView;
   }
-  setView(e, t = {}) {
-    const { persist: i = !0, updateUrl: n = !0 } = t;
-    e !== "table" && e !== "timeline" && (e = "table"), this.currentView = e, this.updateUI(), i && this.persistView(), n && this.updateUrlParam(), this.emitViewChange();
+  /**
+   * Set the view mode programmatically
+   */
+  setView(t, i = {}) {
+    const { persist: n = !0, updateUrl: s = !0 } = i;
+    t !== "table" && t !== "timeline" && (t = "table"), this.currentView = t, this.updateUI(), n && this.persistView(), s && this.updateUrlParam(), this.emitViewChange();
   }
+  /**
+   * Destroy the view switcher and clean up event listeners
+   */
   destroy() {
     this.tableTab?.removeEventListener("click", this.handleTableClick), this.timelineTab?.removeEventListener("click", this.handleTimelineClick);
   }
@@ -438,120 +439,115 @@ var Le = {
   bindEvents() {
     this.tableTab?.addEventListener("click", this.handleTableClick), this.timelineTab?.addEventListener("click", this.handleTimelineClick);
   }
+  /**
+   * Restore view from URL param or localStorage
+   */
   restoreView() {
-    const e = new URLSearchParams(window.location.search).get(x);
-    if (e === "table" || e === "timeline") {
-      this.setView(e, {
-        persist: !0,
-        updateUrl: !1
-      });
+    const i = new URLSearchParams(window.location.search).get(x);
+    if (i === "table" || i === "timeline") {
+      this.setView(i, { persist: !0, updateUrl: !1 });
       return;
     }
-    const t = localStorage.getItem(j);
-    if (t === "table" || t === "timeline") {
-      this.setView(t, {
-        persist: !1,
-        updateUrl: !0
-      });
+    const n = localStorage.getItem(z);
+    if (n === "table" || n === "timeline") {
+      this.setView(n, { persist: !1, updateUrl: !0 });
       return;
     }
-    this.setView("table", {
-      persist: !1,
-      updateUrl: !1
-    });
+    this.setView("table", { persist: !1, updateUrl: !1 });
   }
+  /**
+   * Update UI elements to reflect current view
+   */
   updateUI() {
-    const e = this.currentView === "table";
-    this.tableTab && (this.tableTab.setAttribute("aria-selected", e ? "true" : "false"), this.tableTab.classList.toggle("active", e)), this.timelineTab && (this.timelineTab.setAttribute("aria-selected", e ? "false" : "true"), this.timelineTab.classList.toggle("active", !e)), this.tableView && this.tableView.classList.toggle("hidden", !e), this.timelineView && this.timelineView.classList.toggle("hidden", e), this.paginationContainer && this.paginationContainer.classList.toggle("hidden", !e);
+    const t = this.currentView === "table";
+    this.tableTab && (this.tableTab.setAttribute("aria-selected", t ? "true" : "false"), this.tableTab.classList.toggle("active", t)), this.timelineTab && (this.timelineTab.setAttribute("aria-selected", t ? "false" : "true"), this.timelineTab.classList.toggle("active", !t)), this.tableView && this.tableView.classList.toggle("hidden", !t), this.timelineView && this.timelineView.classList.toggle("hidden", t), this.paginationContainer && this.paginationContainer.classList.toggle("hidden", !t);
   }
+  /**
+   * Persist view preference to localStorage
+   */
   persistView() {
     try {
-      localStorage.setItem(j, this.currentView);
+      localStorage.setItem(z, this.currentView);
     } catch {
     }
   }
+  /**
+   * Update URL parameter without page reload
+   */
   updateUrlParam() {
-    const e = new URLSearchParams(window.location.search);
-    this.currentView === "table" ? e.delete(x) : e.set(x, this.currentView);
-    const t = e.toString(), i = t ? `${window.location.pathname}?${t}` : window.location.pathname;
-    window.history.replaceState({}, "", i);
+    const t = new URLSearchParams(window.location.search);
+    this.currentView === "table" ? t.delete(x) : t.set(x, this.currentView);
+    const i = t.toString(), n = i ? `${window.location.pathname}?${i}` : window.location.pathname;
+    window.history.replaceState({}, "", n);
   }
+  /**
+   * Emit view change event
+   */
   emitViewChange() {
     this.onViewChange && this.onViewChange(this.currentView);
-    const e = new CustomEvent("activity:viewchange", {
+    const t = new CustomEvent("activity:viewchange", {
       bubbles: !0,
       detail: { view: this.currentView }
     });
-    document.dispatchEvent(e);
+    document.dispatchEvent(t);
   }
+  /**
+   * Get view param for inclusion in API requests
+   */
   static getViewFromUrl() {
     return new URLSearchParams(window.location.search).get(x) === "timeline" ? "timeline" : "table";
   }
-  static addViewToParams(e, t) {
-    t === "timeline" ? e.set(x, t) : e.delete(x);
+  /**
+   * Add view param to existing URLSearchParams (for query sync)
+   */
+  static addViewToParams(t, i) {
+    i === "timeline" ? t.set(x, i) : t.delete(x);
   }
-}, q = {
-  created: {
-    bg: "#ecfdf5",
-    color: "#10b981",
-    border: "#a7f3d0"
-  },
-  updated: {
-    bg: "#eff6ff",
-    color: "#3b82f6",
-    border: "#bfdbfe"
-  },
-  deleted: {
-    bg: "#fef2f2",
-    color: "#ef4444",
-    border: "#fecaca"
-  },
-  auth: {
-    bg: "#fffbeb",
-    color: "#f59e0b",
-    border: "#fde68a"
-  },
-  viewed: {
-    bg: "#f5f3ff",
-    color: "#8b5cf6",
-    border: "#ddd6fe"
-  },
-  system: {
-    bg: "#f9fafb",
-    color: "#6b7280",
-    border: "#e5e7eb"
-  }
+}
+const H = {
+  created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
+  updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
+  deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
+  auth: { bg: "#fffbeb", color: "#f59e0b", border: "#fde68a" },
+  viewed: { bg: "#f5f3ff", color: "#8b5cf6", border: "#ddd6fe" },
+  system: { bg: "#f9fafb", color: "#6b7280", border: "#e5e7eb" }
 };
-function ke(e) {
-  if (!e || e.length === 0) return [];
+function Me(e) {
+  if (!e || e.length === 0)
+    return [];
   const t = /* @__PURE__ */ new Map();
   return e.forEach((i) => {
     const n = new Date(i.created_at);
     if (Number.isNaN(n.getTime())) return;
-    const s = T(n), a = te(n);
+    const s = T(n), a = ie(n);
     t.has(s) || t.set(s, {
       date: a,
-      label: ee(n),
+      label: te(n),
       entries: [],
       collapsed: !1
     }), t.get(s).entries.push(i);
-  }), Array.from(t.values()).sort((i, n) => n.date.getTime() - i.date.getTime());
+  }), Array.from(t.values()).sort(
+    (i, n) => n.date.getTime() - i.date.getTime()
+  );
 }
-function Me(e) {
-  if (!e || e.length === 0) return [];
+function _e(e) {
+  if (!e || e.length === 0)
+    return [];
   const t = /* @__PURE__ */ new Map();
   e.forEach((n) => {
-    const s = Q(n) || "", a = s || "__no_session__";
+    const s = X(n) || "", a = s || "__no_session__";
     t.has(a) || t.set(a, {
       sessionId: s,
-      label: Ie(s),
+      label: ke(s),
       entries: [],
       collapsed: !1
     }), t.get(a).entries.push(n);
   });
   const i = Array.from(t.values());
   return i.forEach((n) => {
-    n.entries.sort((s, a) => new Date(a.created_at).getTime() - new Date(s.created_at).getTime());
+    n.entries.sort(
+      (s, a) => new Date(a.created_at).getTime() - new Date(s.created_at).getTime()
+    );
   }), i.sort((n, s) => {
     if (!n.sessionId && s.sessionId) return 1;
     if (n.sessionId && !s.sessionId) return -1;
@@ -559,47 +555,47 @@ function Me(e) {
     return (s.entries[0] ? new Date(s.entries[0].created_at).getTime() : 0) - a;
   });
 }
-function _e(e, t) {
-  if (!t || t.length === 0) return e;
+function De(e, t) {
+  if (!t || t.length === 0)
+    return e;
   const i = /* @__PURE__ */ new Map();
   e.forEach((s) => {
-    i.set(T(s.date), {
-      ...s,
-      entries: [...s.entries]
-    });
+    i.set(T(s.date), { ...s, entries: [...s.entries] });
   }), t.forEach((s) => {
     const a = new Date(s.created_at);
     if (Number.isNaN(a.getTime())) return;
-    const r = T(a), l = te(a);
+    const r = T(a), o = ie(a);
     i.has(r) || i.set(r, {
-      date: l,
-      label: ee(a),
+      date: o,
+      label: te(a),
       entries: [],
       collapsed: !1
     });
     const c = i.get(r);
-    c.entries.some((u) => u.id === s.id) || c.entries.push(s);
+    c.entries.some((f) => f.id === s.id) || c.entries.push(s);
   });
-  const n = Array.from(i.values()).sort((s, a) => a.date.getTime() - s.date.getTime());
+  const n = Array.from(i.values()).sort(
+    (s, a) => a.date.getTime() - s.date.getTime()
+  );
   return n.forEach((s) => {
-    s.entries.sort((a, r) => new Date(r.created_at).getTime() - new Date(a.created_at).getTime());
+    s.entries.sort(
+      (a, r) => new Date(r.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }), n;
 }
-function De(e) {
+function Ve(e) {
   if (!e) return "?";
   const t = e.replace(/-/g, "");
-  if (/^[0-9a-f]{32}$/i.test(t)) return e.substring(0, 2).toUpperCase();
+  if (/^[0-9a-f]{32}$/i.test(t))
+    return e.substring(0, 2).toUpperCase();
   const i = e.split(/[\s._-]+/).filter(Boolean);
   return i.length >= 2 ? (i[0][0] + i[1][0]).toUpperCase() : e.substring(0, 2).toUpperCase();
 }
-function M(e, t, i) {
-  const { showDebugInfo: n = !1 } = i || {}, s = J(e.action, t), a = Z(e, t), r = Te(e.created_at), l = ie(e.metadata), c = ne(e.metadata), u = n ? se(e) : "", p = q[s.category] || q.system, h = De(e.actor), d = N(e), m = d !== "user" && d !== "unknown" ? B(d, {
-    badge: !0,
-    size: "sm"
-  }) : "", f = document.createElement("div");
-  f.className = `timeline-entry timeline-entry--${s.category}`, f.dataset.entryId = e.id;
-  let g = "";
-  l === "hidden" ? g = `
+function _(e, t, i) {
+  const { showDebugInfo: n = !1 } = i || {}, s = W(e.action, t), a = ee(e, t), r = $e(e.created_at), o = ne(e.metadata), c = se(e.metadata), f = n ? ae(e) : "", h = H[s.category] || H.system, u = Ve(e.actor), m = B(e), y = m !== "user" && m !== "unknown" ? O(m, { badge: !0, size: "sm" }) : "", d = document.createElement("div");
+  d.className = `timeline-entry timeline-entry--${s.category}`, d.dataset.entryId = e.id;
+  let p = "";
+  o === "hidden" ? p = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle timeline-metadata-toggle--hidden"
@@ -615,16 +611,16 @@ function M(e, t, i) {
           <div class="timeline-metadata-grid">
             ${c}
           </div>
-          ${u}
+          ${f}
         </div>
       </div>
-    ` : l ? g = `
+    ` : o ? p = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle"
                 aria-expanded="false"
                 data-timeline-metadata="${e.id}">
-          <span>${l}</span>
+          <span>${o}</span>
           <svg class="timeline-metadata-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
@@ -633,10 +629,10 @@ function M(e, t, i) {
           <div class="timeline-metadata-grid">
             ${c}
           </div>
-          ${u}
+          ${f}
         </div>
       </div>
-    ` : u && (g = `
+    ` : f && (p = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle timeline-metadata-toggle--debug"
@@ -649,61 +645,61 @@ function M(e, t, i) {
           </svg>
         </button>
         <div class="timeline-metadata-content" data-timeline-metadata-content="${e.id}">
-          ${u}
+          ${f}
         </div>
       </div>
     `);
-  const y = m ? `<div class="timeline-entry-actor-type">${m}</div>` : "";
-  return f.innerHTML = `
+  const g = y ? `<div class="timeline-entry-actor-type">${y}</div>` : "";
+  return d.innerHTML = `
     <div class="timeline-entry-connector">
-      <div class="timeline-entry-dot" style="background-color: ${p.color}; border-color: ${p.border};"></div>
+      <div class="timeline-entry-dot" style="background-color: ${h.color}; border-color: ${h.border};"></div>
     </div>
     <div class="timeline-entry-card">
       <div class="timeline-entry-header">
-        <div class="timeline-entry-avatar" style="background-color: ${p.bg}; color: ${p.color};">
-          ${o(h)}
-          ${y}
+        <div class="timeline-entry-avatar" style="background-color: ${h.bg}; color: ${h.color};">
+          ${l(u)}
+          ${g}
         </div>
         <div class="timeline-entry-content">
           <div class="timeline-entry-action">
-            <span class="timeline-action-badge" style="background-color: ${p.bg}; color: ${p.color}; border-color: ${p.border};">
+            <span class="timeline-action-badge" style="background-color: ${h.bg}; color: ${h.color}; border-color: ${h.border};">
               ${E(`iconoir:${s.icon}`)}
-              <span>${o(s.action || e.action)}</span>
+              <span>${l(s.action || e.action)}</span>
             </span>
           </div>
           <div class="timeline-entry-sentence">${a}</div>
-          <div class="timeline-entry-time">${o(r)}</div>
+          <div class="timeline-entry-time">${l(r)}</div>
         </div>
       </div>
-      ${g}
+      ${p}
     </div>
-  `, f;
+  `, d;
 }
-function Ve(e, t, i) {
+function Ne(e, t, i) {
   const n = `${t}__${e.sessionId || "no-session"}`, s = document.createElement("div");
   s.className = "timeline-session-header", s.dataset.sessionGroup = n;
   const a = e.entries.length, r = a === 1 ? "1 entry" : `${a} entries`;
   s.innerHTML = `
     <button type="button" class="timeline-session-toggle" aria-expanded="${!e.collapsed}">
       <i class="iconoir-link" style="font-size: 12px; color: #9ca3af;"></i>
-      <span class="timeline-session-label">${o(e.label)}</span>
+      <span class="timeline-session-label">${l(e.label)}</span>
       <span class="timeline-session-count">${r}</span>
       <svg class="timeline-session-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
       </svg>
     </button>
   `;
-  const l = s.querySelector(".timeline-session-toggle");
-  return l && i && l.addEventListener("click", () => {
+  const o = s.querySelector(".timeline-session-toggle");
+  return o && i && o.addEventListener("click", () => {
     const c = !e.collapsed;
-    e.collapsed = c, l.setAttribute("aria-expanded", (!c).toString()), i(n, c);
+    e.collapsed = c, o.setAttribute("aria-expanded", (!c).toString()), i(n, c);
   }), s;
 }
-function Ne(e, t) {
+function Be(e, t) {
   const i = T(e.date), n = document.createElement("div");
   n.className = "timeline-date-header", n.dataset.dateGroup = i, n.innerHTML = `
     <button type="button" class="timeline-date-toggle" aria-expanded="${!e.collapsed}">
-      <span class="timeline-date-label">${o(e.label)}</span>
+      <span class="timeline-date-label">${l(e.label)}</span>
       <span class="timeline-date-count">${e.entries.length} ${e.entries.length === 1 ? "entry" : "entries"}</span>
       <svg class="timeline-date-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -716,133 +712,161 @@ function Ne(e, t) {
     e.collapsed = a, s.setAttribute("aria-expanded", (!a).toString()), t(i, a);
   }), n;
 }
-function Be(e, t, i, n) {
-  const { groupBySession: s = !0, showDebugInfo: a = !1, onSessionToggle: r, collapsedSessions: l = /* @__PURE__ */ new Set() } = n || {}, c = T(e.date), u = document.createElement("div");
-  u.className = "timeline-group", u.dataset.dateGroup = c;
-  const p = Ne(e, i);
-  u.appendChild(p);
-  const h = document.createElement("div");
-  if (h.className = "timeline-entries", e.collapsed && h.classList.add("collapsed"), s) {
-    const d = Me(e.entries), m = d.length > 1 || d.length === 1 && d[0].sessionId;
-    d.forEach((f) => {
-      const g = `${c}__${f.sessionId || "no-session"}`;
-      if (f.collapsed = l.has(g), m) {
-        const y = Ve(f, c, r);
-        h.appendChild(y);
+function Oe(e, t, i, n) {
+  const {
+    groupBySession: s = !0,
+    showDebugInfo: a = !1,
+    onSessionToggle: r,
+    collapsedSessions: o = /* @__PURE__ */ new Set()
+  } = n || {}, c = T(e.date), f = document.createElement("div");
+  f.className = "timeline-group", f.dataset.dateGroup = c;
+  const h = Be(e, i);
+  f.appendChild(h);
+  const u = document.createElement("div");
+  if (u.className = "timeline-entries", e.collapsed && u.classList.add("collapsed"), s) {
+    const m = _e(e.entries), y = m.length > 1 || m.length === 1 && m[0].sessionId;
+    m.forEach((d) => {
+      const p = `${c}__${d.sessionId || "no-session"}`;
+      if (d.collapsed = o.has(p), y) {
+        const g = Ne(d, c, r);
+        u.appendChild(g);
         const b = document.createElement("div");
-        b.className = "timeline-session-entries", b.dataset.sessionEntries = g, f.collapsed && b.classList.add("collapsed"), f.entries.forEach(($) => {
-          const v = M($, t, { showDebugInfo: a });
-          b.appendChild(v);
-        }), h.appendChild(b);
-      } else f.entries.forEach((y) => {
-        const b = M(y, t, { showDebugInfo: a });
-        h.appendChild(b);
-      });
+        b.className = "timeline-session-entries", b.dataset.sessionEntries = p, d.collapsed && b.classList.add("collapsed"), d.entries.forEach(($) => {
+          const A = _($, t, { showDebugInfo: a });
+          b.appendChild(A);
+        }), u.appendChild(b);
+      } else
+        d.entries.forEach((g) => {
+          const b = _(g, t, { showDebugInfo: a });
+          u.appendChild(b);
+        });
     });
-  } else e.entries.forEach((d) => {
-    const m = M(d, t, { showDebugInfo: a });
-    h.appendChild(m);
-  });
-  return u.appendChild(h), u;
+  } else
+    e.entries.forEach((m) => {
+      const y = _(m, t, { showDebugInfo: a });
+      u.appendChild(y);
+    });
+  return f.appendChild(u), f;
 }
-var Oe = class {
-  constructor(e, t, i) {
-    this.collapsedGroups = /* @__PURE__ */ new Set(), this.collapsedSessions = /* @__PURE__ */ new Set(), this.groups = [], this.container = e, this.actionLabels = t, this.options = {
+class Re {
+  constructor(t, i, n) {
+    this.collapsedGroups = /* @__PURE__ */ new Set(), this.collapsedSessions = /* @__PURE__ */ new Set(), this.groups = [], this.container = t, this.actionLabels = i, this.options = {
       groupBySession: !0,
       showDebugInfo: !1,
-      ...i
+      ...n
     };
   }
-  setOptions(e) {
-    this.options = {
-      ...this.options,
-      ...e
-    };
+  /**
+   * Update renderer options
+   */
+  setOptions(t) {
+    this.options = { ...this.options, ...t };
   }
-  render(e) {
-    if (this.groups = ke(e), this.container.innerHTML = "", this.groups.length === 0) {
+  /**
+   * Render the full timeline
+   */
+  render(t) {
+    if (this.groups = Me(t), this.container.innerHTML = "", this.groups.length === 0) {
       this.renderEmptyState();
       return;
     }
-    const t = document.createElement("div");
-    t.className = "timeline", this.groups.forEach((i) => {
-      const n = T(i.date);
-      i.collapsed = this.collapsedGroups.has(n);
-      const s = Be(i, this.actionLabels, (a, r) => {
-        this.handleGroupToggle(a, r);
-      }, {
-        groupBySession: this.options.groupBySession,
-        showDebugInfo: this.options.showDebugInfo,
-        onSessionToggle: (a, r) => {
-          this.handleSessionToggle(a, r);
+    const i = document.createElement("div");
+    i.className = "timeline", this.groups.forEach((n) => {
+      const s = T(n.date);
+      n.collapsed = this.collapsedGroups.has(s);
+      const a = Oe(
+        n,
+        this.actionLabels,
+        (r, o) => {
+          this.handleGroupToggle(r, o);
         },
-        collapsedSessions: this.collapsedSessions
-      });
-      t.appendChild(s);
-    }), this.container.appendChild(t), this.wireMetadataToggles();
+        {
+          groupBySession: this.options.groupBySession,
+          showDebugInfo: this.options.showDebugInfo,
+          onSessionToggle: (r, o) => {
+            this.handleSessionToggle(r, o);
+          },
+          collapsedSessions: this.collapsedSessions
+        }
+      );
+      i.appendChild(a);
+    }), this.container.appendChild(i), this.wireMetadataToggles();
   }
-  appendEntries(e) {
-    this.groups = _e(this.groups, e);
-    const t = this.groups.flatMap((i) => i.entries);
-    this.render(t);
+  /**
+   * Append more entries (for infinite scroll)
+   */
+  appendEntries(t) {
+    this.groups = De(this.groups, t);
+    const i = this.groups.flatMap((n) => n.entries);
+    this.render(i);
   }
+  /**
+   * Clear the timeline
+   */
   clear() {
     this.container.innerHTML = "", this.groups = [];
   }
+  /**
+   * Get current groups
+   */
   getGroups() {
     return this.groups;
   }
   renderEmptyState() {
-    const e = document.createElement("div");
-    e.className = "timeline-empty", e.innerHTML = `
+    const t = document.createElement("div");
+    t.className = "timeline-empty", t.innerHTML = `
       <div class="timeline-empty-icon">
         <i class="iconoir-clipboard-check"></i>
       </div>
       <p class="timeline-empty-title">No activity found</p>
       <p class="timeline-empty-subtitle">Activity entries will appear here when actions are logged.</p>
-    `, this.container.appendChild(e);
+    `, this.container.appendChild(t);
   }
-  handleGroupToggle(e, t) {
-    t ? this.collapsedGroups.add(e) : this.collapsedGroups.delete(e);
-    const i = this.container.querySelector(`[data-date-group="${e}"]`)?.querySelector(".timeline-entries");
-    i && i.classList.toggle("collapsed", t);
+  handleGroupToggle(t, i) {
+    i ? this.collapsedGroups.add(t) : this.collapsedGroups.delete(t);
+    const s = this.container.querySelector(`[data-date-group="${t}"]`)?.querySelector(".timeline-entries");
+    s && s.classList.toggle("collapsed", i);
   }
-  handleSessionToggle(e, t) {
-    t ? this.collapsedSessions.add(e) : this.collapsedSessions.delete(e);
-    const i = this.container.querySelector(`[data-session-entries="${e}"]`);
-    i && i.classList.toggle("collapsed", t);
+  handleSessionToggle(t, i) {
+    i ? this.collapsedSessions.add(t) : this.collapsedSessions.delete(t);
+    const n = this.container.querySelector(
+      `[data-session-entries="${t}"]`
+    );
+    n && n.classList.toggle("collapsed", i);
   }
   wireMetadataToggles() {
-    this.container.querySelectorAll("[data-timeline-metadata]").forEach((e) => {
-      e.addEventListener("click", () => {
-        const t = e.dataset.timelineMetadata, i = this.container.querySelector(`[data-timeline-metadata-content="${t}"]`);
-        if (!i) return;
-        const n = e.getAttribute("aria-expanded") !== "true";
-        e.setAttribute("aria-expanded", n.toString()), i.classList.toggle("expanded", n);
-        const s = e.querySelector(".timeline-metadata-chevron");
-        s && (s.style.transform = n ? "rotate(180deg)" : "rotate(0deg)");
+    this.container.querySelectorAll("[data-timeline-metadata]").forEach((i) => {
+      i.addEventListener("click", () => {
+        const n = i.dataset.timelineMetadata, s = this.container.querySelector(
+          `[data-timeline-metadata-content="${n}"]`
+        );
+        if (!s) return;
+        const r = !(i.getAttribute("aria-expanded") === "true");
+        i.setAttribute("aria-expanded", r.toString()), s.classList.toggle("expanded", r);
+        const o = i.querySelector(".timeline-metadata-chevron");
+        o && (o.style.transform = r ? "rotate(180deg)" : "rotate(0deg)");
       });
     });
   }
-};
-function Re() {
+}
+function je() {
   const e = document.createElement("div");
   return e.className = "timeline-loading", e.innerHTML = `
     <div class="timeline-loading-spinner"></div>
     <span>Loading more entries...</span>
   `, e;
 }
-function je() {
+function ze() {
   const e = document.createElement("div");
   return e.className = "timeline-end", e.innerHTML = `
     <span>No more entries</span>
   `, e;
 }
-function Ge() {
+function Je() {
   const e = document.createElement("div");
   return e.className = "timeline-sentinel", e.setAttribute("aria-hidden", "true"), e;
 }
-var ze = {
+const qe = {
   form: "#activity-filters",
   tableBody: "#activity-table-body",
   emptyState: "#activity-empty",
@@ -854,32 +878,21 @@ var ze = {
   refreshBtn: "#activity-refresh",
   clearBtn: "#activity-clear",
   limitInput: "#filter-limit"
-}, H = {
+}, P = {
   container: "#activity-timeline",
   sentinel: "#activity-timeline-sentinel"
-}, _ = [
-  "q",
-  "verb",
-  "channels",
-  "object_type",
-  "object_id"
-], D = ["since", "until"], qe = ["user_id", "actor_id"];
-function P(e) {
+}, D = ["q", "verb", "channels", "object_type", "object_id"], V = ["since", "until"], He = ["user_id", "actor_id"];
+function U(e) {
   return e !== null && typeof e == "object" && !Array.isArray(e);
 }
-function He(e) {
-  if (!P(e)) return {
-    textCode: "",
-    message: ""
-  };
-  const t = P(e.error) ? e.error : e;
-  return {
-    textCode: typeof t.text_code == "string" ? t.text_code.trim() : "",
-    message: typeof t.message == "string" ? t.message.trim() : ""
-  };
+function Pe(e) {
+  if (!U(e))
+    return { textCode: "", message: "" };
+  const t = U(e.error) ? e.error : e, i = typeof t.text_code == "string" ? t.text_code.trim() : "", n = typeof t.message == "string" ? t.message.trim() : "";
+  return { textCode: i, message: n };
 }
-var Je = class {
-  constructor(e, t = {}, i) {
+class We {
+  constructor(t, i = {}, n) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.viewSwitcher = null, this.timelineRenderer = null, this.timelineContainer = null, this.timelineSentinel = null, this.infiniteScrollObserver = null, this.isLoadingMore = !1, this.allEntriesLoaded = !1, this.cachedEntries = [], this.state = {
       limit: 50,
       offset: 0,
@@ -887,74 +900,106 @@ var Je = class {
       nextOffset: 0,
       hasMore: !1,
       extraParams: {}
-    }, this.config = e, this.selectors = {
-      ...ze,
-      ...t
-    }, this.toast = i || window.toastManager || null;
+    }, this.config = t, this.selectors = { ...qe, ...i }, this.toast = n || window.toastManager || null;
   }
+  /**
+   * Initialize the activity manager
+   */
   init() {
     this.cacheElements(), this.initViewSwitcher(), this.initTimeline(), this.bindEvents(), this.syncFromQuery(), this.loadActivity();
   }
+  /**
+   * Initialize the view switcher
+   */
   initViewSwitcher() {
-    this.viewSwitcher = new z({
-      container: "#activity-view-switcher",
-      tableTab: '[data-view-tab="table"]',
-      timelineTab: '[data-view-tab="timeline"]',
-      tableView: "#activity-table-container",
-      timelineView: "#activity-timeline-container",
-      paginationContainer: "#activity-pagination"
-    }, (e) => this.handleViewChange(e)), this.viewSwitcher.init();
+    this.viewSwitcher = new q(
+      {
+        container: "#activity-view-switcher",
+        tableTab: '[data-view-tab="table"]',
+        timelineTab: '[data-view-tab="timeline"]',
+        tableView: "#activity-table-container",
+        timelineView: "#activity-timeline-container",
+        paginationContainer: "#activity-pagination"
+      },
+      (t) => this.handleViewChange(t)
+    ), this.viewSwitcher.init();
   }
+  /**
+   * Initialize the timeline renderer
+   */
   initTimeline() {
-    this.timelineContainer = document.querySelector(H.container), this.timelineSentinel = document.querySelector(H.sentinel), this.timelineContainer && (this.timelineRenderer = new Oe(this.timelineContainer, this.config.actionLabels)), this.setupInfiniteScroll();
+    this.timelineContainer = document.querySelector(P.container), this.timelineSentinel = document.querySelector(P.sentinel), this.timelineContainer && (this.timelineRenderer = new Re(
+      this.timelineContainer,
+      this.config.actionLabels
+    )), this.setupInfiniteScroll();
   }
-  handleViewChange(e) {
-    e === "timeline" ? (this.allEntriesLoaded = !1, this.isLoadingMore = !1, this.state.offset = 0, this.loadActivity(), this.enableInfiniteScroll()) : (this.disableInfiniteScroll(), this.state.offset = 0, this.loadActivity());
+  /**
+   * Handle view change from switcher
+   */
+  handleViewChange(t) {
+    t === "timeline" ? (this.allEntriesLoaded = !1, this.isLoadingMore = !1, this.state.offset = 0, this.loadActivity(), this.enableInfiniteScroll()) : (this.disableInfiniteScroll(), this.state.offset = 0, this.loadActivity());
   }
+  /**
+   * Set up infinite scroll for timeline view
+   */
   setupInfiniteScroll() {
-    this.timelineSentinel && (this.infiniteScrollObserver = new IntersectionObserver((e) => {
-      e[0].isIntersecting && !this.isLoadingMore && !this.allEntriesLoaded && this.loadMoreEntries();
-    }, {
-      root: null,
-      rootMargin: "200px",
-      threshold: 0
-    }));
+    this.timelineSentinel && (this.infiniteScrollObserver = new IntersectionObserver(
+      (t) => {
+        t[0].isIntersecting && !this.isLoadingMore && !this.allEntriesLoaded && this.loadMoreEntries();
+      },
+      {
+        root: null,
+        rootMargin: "200px",
+        threshold: 0
+      }
+    ));
   }
+  /**
+   * Enable infinite scroll observation
+   */
   enableInfiniteScroll() {
     this.infiniteScrollObserver && this.timelineSentinel && this.infiniteScrollObserver.observe(this.timelineSentinel);
   }
+  /**
+   * Disable infinite scroll observation
+   */
   disableInfiniteScroll() {
     this.infiniteScrollObserver && this.timelineSentinel && this.infiniteScrollObserver.unobserve(this.timelineSentinel);
   }
+  /**
+   * Load more entries for infinite scroll
+   */
   async loadMoreEntries() {
-    if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore) return;
+    if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore)
+      return;
     this.isLoadingMore = !0;
-    const e = Re();
-    this.timelineSentinel?.parentElement?.insertBefore(e, this.timelineSentinel);
+    const t = je();
+    this.timelineSentinel?.parentElement?.insertBefore(t, this.timelineSentinel);
     try {
       this.state.offset = this.state.nextOffset;
-      const t = this.buildParams(), i = `${this.config.apiPath}?${t.toString()}`, n = await fetch(i, { headers: { Accept: "application/json" } });
-      if (!n.ok) throw new Error(`Failed to load more entries (${n.status})`);
-      const s = await n.json(), a = Array.isArray(s.entries) ? s.entries : [];
-      if (this.state.hasMore = !!s.has_more, this.state.nextOffset = typeof s.next_offset == "number" ? s.next_offset : this.state.offset + a.length, a.length === 0 ? this.allEntriesLoaded = !0 : (this.cachedEntries = [...this.cachedEntries, ...a], this.timelineRenderer && this.timelineRenderer.appendEntries(a)), !this.state.hasMore) {
+      const i = this.buildParams(), n = `${this.config.apiPath}?${i.toString()}`, s = await fetch(n, { headers: { Accept: "application/json" } });
+      if (!s.ok)
+        throw new Error(`Failed to load more entries (${s.status})`);
+      const a = await s.json(), r = Array.isArray(a.entries) ? a.entries : [];
+      if (this.state.hasMore = !!a.has_more, this.state.nextOffset = typeof a.next_offset == "number" ? a.next_offset : this.state.offset + r.length, r.length === 0 ? this.allEntriesLoaded = !0 : (this.cachedEntries = [...this.cachedEntries, ...r], this.timelineRenderer && this.timelineRenderer.appendEntries(r)), !this.state.hasMore) {
         this.allEntriesLoaded = !0;
-        const r = je();
-        this.timelineSentinel?.parentElement?.insertBefore(r, this.timelineSentinel);
+        const o = ze();
+        this.timelineSentinel?.parentElement?.insertBefore(o, this.timelineSentinel);
       }
-    } catch (t) {
-      console.error("Failed to load more entries:", t);
+    } catch (i) {
+      console.error("Failed to load more entries:", i);
     } finally {
-      e.remove(), this.isLoadingMore = !1;
+      t.remove(), this.isLoadingMore = !1;
     }
   }
   cacheElements() {
     this.form = document.querySelector(this.selectors.form), this.tableBody = document.querySelector(this.selectors.tableBody), this.emptyState = document.querySelector(this.selectors.emptyState), this.disabledState = document.querySelector(this.selectors.disabledState), this.errorState = document.querySelector(this.selectors.errorState), this.countEl = document.querySelector(this.selectors.countEl), this.prevBtn = document.querySelector(this.selectors.prevBtn), this.nextBtn = document.querySelector(this.selectors.nextBtn), this.refreshBtn = document.querySelector(this.selectors.refreshBtn), this.clearBtn = document.querySelector(this.selectors.clearBtn), this.limitInput = document.querySelector(this.selectors.limitInput);
   }
   bindEvents() {
-    this.form?.addEventListener("submit", (e) => {
-      e.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
+    this.form?.addEventListener("submit", (t) => {
+      t.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
     }), this.clearBtn?.addEventListener("click", () => {
-      _.forEach((e) => this.setInputValue(e, "")), D.forEach((e) => this.setInputValue(e, "")), this.state.offset = 0, this.loadActivity();
+      D.forEach((t) => this.setInputValue(t, "")), V.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
     }), this.prevBtn?.addEventListener("click", () => {
       this.state.offset = Math.max(0, this.state.offset - this.state.limit), this.loadActivity();
     }), this.nextBtn?.addEventListener("click", () => {
@@ -963,292 +1008,269 @@ var Je = class {
       this.loadActivity();
     });
   }
-  getInputValue(e) {
-    const t = document.getElementById(`filter-${e.replace(/_/g, "-")}`);
-    return t ? String(t.value || "").trim() : "";
+  getInputValue(t) {
+    const i = document.getElementById(`filter-${t.replace(/_/g, "-")}`);
+    return i ? String(i.value || "").trim() : "";
   }
-  setInputValue(e, t) {
-    const i = document.getElementById(`filter-${e.replace(/_/g, "-")}`);
-    i && (i.value = t || "");
+  setInputValue(t, i) {
+    const n = document.getElementById(`filter-${t.replace(/_/g, "-")}`);
+    n && (n.value = i || "");
   }
-  toLocalInput(e) {
-    if (!e) return "";
-    const t = new Date(e);
-    if (Number.isNaN(t.getTime())) return e;
-    const i = t.getTimezoneOffset() * 6e4;
-    return new Date(t.getTime() - i).toISOString().slice(0, 16);
+  toLocalInput(t) {
+    if (!t) return "";
+    const i = new Date(t);
+    if (Number.isNaN(i.getTime())) return t;
+    const n = i.getTimezoneOffset() * 6e4;
+    return new Date(i.getTime() - n).toISOString().slice(0, 16);
   }
-  toRFC3339(e) {
-    if (!e) return "";
-    const t = new Date(e);
-    return Number.isNaN(t.getTime()) ? "" : t.toISOString();
+  toRFC3339(t) {
+    if (!t) return "";
+    const i = new Date(t);
+    return Number.isNaN(i.getTime()) ? "" : i.toISOString();
   }
   syncFromQuery() {
-    const e = new URLSearchParams(window.location.search), t = parseInt(e.get("limit") || "", 10), i = parseInt(e.get("offset") || "", 10);
-    !Number.isNaN(t) && t > 0 && (this.state.limit = t), !Number.isNaN(i) && i >= 0 && (this.state.offset = i), this.limitInput && (this.limitInput.value = String(this.state.limit)), _.forEach((n) => this.setInputValue(n, e.get(n) || "")), D.forEach((n) => this.setInputValue(n, this.toLocalInput(e.get(n) || ""))), qe.forEach((n) => {
-      const s = e.get(n);
-      s && (this.state.extraParams[n] = s);
+    const t = new URLSearchParams(window.location.search), i = parseInt(t.get("limit") || "", 10), n = parseInt(t.get("offset") || "", 10);
+    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(n) && n >= 0 && (this.state.offset = n), this.limitInput && (this.limitInput.value = String(this.state.limit)), D.forEach((s) => this.setInputValue(s, t.get(s) || "")), V.forEach((s) => this.setInputValue(s, this.toLocalInput(t.get(s) || ""))), He.forEach((s) => {
+      const a = t.get(s);
+      a && (this.state.extraParams[s] = a);
     });
   }
   buildParams() {
-    const e = new URLSearchParams();
-    return e.set("limit", String(this.state.limit)), e.set("offset", String(this.state.offset)), _.forEach((t) => {
-      const i = this.getInputValue(t);
-      i && e.set(t, i);
-    }), D.forEach((t) => {
-      const i = this.toRFC3339(this.getInputValue(t));
-      i && e.set(t, i);
-    }), Object.entries(this.state.extraParams).forEach(([t, i]) => {
-      i && e.set(t, i);
-    }), e;
+    const t = new URLSearchParams();
+    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), D.forEach((i) => {
+      const n = this.getInputValue(i);
+      n && t.set(i, n);
+    }), V.forEach((i) => {
+      const n = this.toRFC3339(this.getInputValue(i));
+      n && t.set(i, n);
+    }), Object.entries(this.state.extraParams).forEach(([i, n]) => {
+      n && t.set(i, n);
+    }), t;
   }
-  syncUrl(e) {
-    this.viewSwitcher && z.addViewToParams(e, this.viewSwitcher.getView());
-    const t = e.toString(), i = t ? `${window.location.pathname}?${t}` : window.location.pathname;
-    window.history.replaceState({}, "", i);
+  syncUrl(t) {
+    this.viewSwitcher && q.addViewToParams(t, this.viewSwitcher.getView());
+    const i = t.toString(), n = i ? `${window.location.pathname}?${i}` : window.location.pathname;
+    window.history.replaceState({}, "", n);
   }
   resetStates() {
     this.disabledState?.classList.add("hidden"), this.errorState?.classList.add("hidden");
   }
-  showError(e) {
-    this.errorState && (this.errorState.textContent = e, this.errorState.classList.remove("hidden"));
+  showError(t) {
+    this.errorState && (this.errorState.textContent = t, this.errorState.classList.remove("hidden"));
   }
-  showDisabled(e) {
-    this.disabledState && (this.disabledState.textContent = e, this.disabledState.classList.remove("hidden"));
+  showDisabled(t) {
+    this.disabledState && (this.disabledState.textContent = t, this.disabledState.classList.remove("hidden"));
   }
   async loadActivity() {
     this.resetStates();
-    const e = this.buildParams();
-    this.syncUrl(e);
-    const t = `${this.config.apiPath}?${e.toString()}`;
+    const t = this.buildParams();
+    this.syncUrl(t);
+    const i = `${this.config.apiPath}?${t.toString()}`;
     try {
-      const i = await fetch(t, { headers: { Accept: "application/json" } });
-      if (!i.ok) {
-        let a = null;
+      const n = await fetch(i, { headers: { Accept: "application/json" } });
+      if (!n.ok) {
+        let o = null;
         try {
-          a = await i.json();
+          o = await n.json();
         } catch {
-          a = null;
+          o = null;
         }
-        const r = He(a);
-        if (i.status === 404 && r.textCode === "FEATURE_DISABLED") {
-          this.showDisabled(r.message || "Activity feature disabled."), this.renderRows([]), this.updatePagination(0);
+        const c = Pe(o);
+        if (n.status === 404 && c.textCode === "FEATURE_DISABLED") {
+          this.showDisabled(c.message || "Activity feature disabled."), this.renderRows([]), this.updatePagination(0);
           return;
         }
-        this.showError(r.message || `Failed to load activity (${i.status})`);
+        this.showError(c.message || `Failed to load activity (${n.status})`);
         return;
       }
-      const n = await i.json(), s = Array.isArray(n.entries) ? n.entries : [];
-      this.state.total = typeof n.total == "number" ? n.total : s.length, this.state.hasMore = !!n.has_more, this.state.nextOffset = typeof n.next_offset == "number" ? n.next_offset : this.state.offset + s.length, this.cachedEntries = s, this.allEntriesLoaded = !this.state.hasMore, this.isLoadingMore = !1, (this.viewSwitcher?.getView() || "table") === "timeline" ? this.renderTimeline(s) : this.renderRows(s), this.updatePagination(s.length);
+      const s = await n.json(), a = Array.isArray(s.entries) ? s.entries : [];
+      this.state.total = typeof s.total == "number" ? s.total : a.length, this.state.hasMore = !!s.has_more, this.state.nextOffset = typeof s.next_offset == "number" ? s.next_offset : this.state.offset + a.length, this.cachedEntries = a, this.allEntriesLoaded = !this.state.hasMore, this.isLoadingMore = !1, (this.viewSwitcher?.getView() || "table") === "timeline" ? this.renderTimeline(a) : this.renderRows(a), this.updatePagination(a.length);
     } catch {
       this.showError("Failed to load activity.");
     }
   }
-  renderTimeline(e) {
-    this.timelineRenderer && (this.timelineContainer?.parentElement?.querySelector(".timeline-end")?.remove(), this.timelineRenderer.render(e), this.enableInfiniteScroll());
+  /**
+   * Render entries in timeline view
+   */
+  renderTimeline(t) {
+    if (!this.timelineRenderer) return;
+    this.timelineContainer?.parentElement?.querySelector(".timeline-end")?.remove(), this.timelineRenderer.render(t), this.enableInfiniteScroll();
   }
-  renderRows(e) {
+  renderRows(t) {
     if (!this.tableBody) return;
-    if (this.tableBody.innerHTML = "", !e || e.length === 0) {
+    if (this.tableBody.innerHTML = "", !t || t.length === 0) {
       this.emptyState?.classList.remove("hidden");
       return;
     }
     this.emptyState?.classList.add("hidden");
-    let t = "";
-    e.forEach((i) => {
-      const n = Q(i);
-      n && n !== t ? (this.tableBody.appendChild(this.createSessionRow(n)), t = n) : n || (t = "");
-      const { mainRow: s, detailsRow: a } = this.createRowPair(i);
-      this.tableBody.appendChild(s), a && this.tableBody.appendChild(a);
+    let i = "";
+    t.forEach((n) => {
+      const s = X(n);
+      s && s !== i ? (this.tableBody.appendChild(this.createSessionRow(s)), i = s) : s || (i = "");
+      const { mainRow: a, detailsRow: r } = this.createRowPair(n);
+      this.tableBody.appendChild(a), r && this.tableBody.appendChild(r);
     }), this.wireMetadataToggles();
   }
-  createRowPair(e) {
-    const t = this.config.actionLabels || {}, i = J(e.action, t), n = Z(e, t, { showActorTypeBadge: !0 }), s = Ee(e.created_at), a = Se(e.created_at), r = ie(e.metadata), l = ne(e.metadata), c = se(e), u = Ae(e.channel), p = !!r, h = !!c, d = p || h, m = {
-      created: {
-        bg: "#ecfdf5",
-        color: "#10b981",
-        border: "#a7f3d0"
-      },
-      updated: {
-        bg: "#eff6ff",
-        color: "#3b82f6",
-        border: "#bfdbfe"
-      },
-      deleted: {
-        bg: "#fef2f2",
-        color: "#ef4444",
-        border: "#fecaca"
-      },
-      auth: {
-        bg: "#fffbeb",
-        color: "#f59e0b",
-        border: "#fde68a"
-      },
-      viewed: {
-        bg: "#f5f3ff",
-        color: "#8b5cf6",
-        border: "#ddd6fe"
-      },
-      system: {
-        bg: "#f9fafb",
-        color: "#6b7280",
-        border: "#e5e7eb"
-      }
-    }, f = m[i.category] || m.system, g = document.createElement("tr");
-    g.className = `activity-row activity-row--${i.category}`;
-    let y = "";
-    i.namespace ? y = `
+  createRowPair(t) {
+    const i = this.config.actionLabels || {}, n = W(t.action, i), s = ee(t, i, { showActorTypeBadge: !0 }), a = Se(t.created_at), r = Te(t.created_at), o = ne(t.metadata), c = se(t.metadata), f = ae(t), h = Ce(t.channel), u = !!o, m = !!f, y = u || m, d = {
+      created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
+      updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
+      deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
+      auth: { bg: "#fffbeb", color: "#f59e0b", border: "#fde68a" },
+      viewed: { bg: "#f5f3ff", color: "#8b5cf6", border: "#ddd6fe" },
+      system: { bg: "#f9fafb", color: "#6b7280", border: "#e5e7eb" }
+    }, p = d[n.category] || d.system, g = document.createElement("tr");
+    g.className = `activity-row activity-row--${n.category}`;
+    let b = "";
+    n.namespace ? b = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${o(i.namespace)}">
-            ${E(`iconoir:${i.icon}`, { size: "14px" })}
+          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${l(n.namespace)}">
+            ${E(`iconoir:${n.icon}`, { size: "14px" })}
           </span>
-          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
-            ${o(i.action)}
+          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${p.bg}; color: ${p.color}; border: 1px solid ${p.border};">
+            ${l(n.action)}
           </span>
         </div>
-      ` : y = `
-        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
-          ${E(`iconoir:${i.icon}`, { size: "14px" })}
-          <span>${o(i.action || "-")}</span>
+      ` : b = `
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${p.bg}; color: ${p.color}; border: 1px solid ${p.border};">
+          ${E(`iconoir:${n.icon}`, { size: "14px" })}
+          <span>${l(n.action || "-")}</span>
         </span>
       `;
-    let b = "";
-    e.channel ? b = `
-        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${o(e.channel)}">
-          ${o(u)}
-        </span>
-      ` : b = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     let $ = "";
-    if (d) {
-      let w = r || "", I = "activity-metadata-toggle", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", k = "";
-      r === "hidden" ? (w = "Hidden", I += " activity-metadata-toggle--hidden", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", k = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !p && h && (w = "Debug", I += " activity-metadata-toggle--debug", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", k = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), $ = `
+    t.channel ? $ = `
+        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${l(t.channel)}">
+          ${l(h)}
+        </span>
+      ` : $ = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
+    let A = "";
+    if (y) {
+      let v = o || "", k = "activity-metadata-toggle", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", M = "";
+      o === "hidden" ? (v = "Hidden", k += " activity-metadata-toggle--hidden", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", M = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !u && m && (v = "Debug", k += " activity-metadata-toggle--debug", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", M = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), A = `
         <button type="button"
-                class="${I}"
+                class="${k}"
                 style="${L}"
                 aria-expanded="false"
-                data-metadata-toggle="${e.id}">
-          ${k}
-          <span>${w}</span>
+                data-metadata-toggle="${t.id}">
+          ${M}
+          <span>${v}</span>
           <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
         </button>
       `;
-    } else $ = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
+    } else
+      A = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     g.innerHTML = `
-      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${f.color};">
-        <div style="font-size: 13px; color: #374151; white-space: nowrap;">${s}</div>
-        <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${a}</div>
+      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${p.color};">
+        <div style="font-size: 13px; color: #374151; white-space: nowrap;">${a}</div>
+        <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${r}</div>
       </td>
-      <td style="padding: 12px 16px; vertical-align: middle;">${y}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">${b}</td>
       <td style="padding: 12px 16px; vertical-align: middle;">
-        <div style="font-size: 13px; line-height: 1.5; color: #374151;">${n}</div>
+        <div style="font-size: 13px; line-height: 1.5; color: #374151;">${s}</div>
       </td>
-      <td style="padding: 12px 16px; vertical-align: middle; text-align: center;">${b}</td>
-      <td style="padding: 12px 16px; vertical-align: middle;">${$}</td>
+      <td style="padding: 12px 16px; vertical-align: middle; text-align: center;">${$}</td>
+      <td style="padding: 12px 16px; vertical-align: middle;">${A}</td>
     `;
-    let v = null;
-    if (d) {
-      v = document.createElement("tr"), v.className = "activity-details-row", v.style.display = "none", v.dataset.metadataContent = e.id;
-      let w = "";
-      p && (w += `
+    let w = null;
+    if (y) {
+      w = document.createElement("tr"), w.className = "activity-details-row", w.style.display = "none", w.dataset.metadataContent = t.id;
+      let v = "";
+      u && (v += `
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
-            ${l}
+            ${c}
           </div>
-        `), h && (w += c), v.innerHTML = `
-        <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${f.color};">
+        `), m && (v += f), w.innerHTML = `
+        <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${p.color};">
           <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
-            ${w}
+            ${v}
           </div>
         </td>
       `;
     }
-    return {
-      mainRow: g,
-      detailsRow: v
-    };
+    return { mainRow: g, detailsRow: w };
   }
-  createSessionRow(e) {
-    const t = document.createElement("tr");
-    t.className = "activity-session-row";
-    const i = C(e, 10);
-    return t.innerHTML = `
+  createSessionRow(t) {
+    const i = document.createElement("tr");
+    i.className = "activity-session-row";
+    const n = I(t, 10);
+    return i.innerHTML = `
       <td colspan="5" style="padding: 8px 16px; background: #f8fafc; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
         <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em;">
           <span>Session</span>
-          <span style="font-family: ui-monospace, monospace; font-weight: 600; color: #374151;" title="${o(e)}">${o(i)}</span>
+          <span style="font-family: ui-monospace, monospace; font-weight: 600; color: #374151;" title="${l(t)}">${l(n)}</span>
         </div>
       </td>
-    `, t;
+    `, i;
   }
   wireMetadataToggles() {
-    document.querySelectorAll("[data-metadata-toggle]").forEach((e) => {
-      e.addEventListener("click", () => {
-        const t = e.dataset.metadataToggle, i = document.querySelector(`tr[data-metadata-content="${t}"]`);
-        if (!i) return;
-        const n = e.getAttribute("aria-expanded") !== "true";
-        i.style.display = n ? "table-row" : "none", e.setAttribute("aria-expanded", n ? "true" : "false"), e.style.background = n ? "#e5e7eb" : "#f3f4f6";
-        const s = e.querySelector(".activity-metadata-chevron");
-        s && (s.style.transform = n ? "rotate(180deg)" : "rotate(0deg)");
+    document.querySelectorAll("[data-metadata-toggle]").forEach((i) => {
+      i.addEventListener("click", () => {
+        const n = i.dataset.metadataToggle, s = document.querySelector(`tr[data-metadata-content="${n}"]`);
+        if (!s) return;
+        const r = !(i.getAttribute("aria-expanded") === "true");
+        s.style.display = r ? "table-row" : "none", i.setAttribute("aria-expanded", r ? "true" : "false"), i.style.background = r ? "#e5e7eb" : "#f3f4f6";
+        const o = i.querySelector(".activity-metadata-chevron");
+        o && (o.style.transform = r ? "rotate(180deg)" : "rotate(0deg)");
       });
     });
   }
-  updatePagination(e) {
-    const t = Number.isFinite(this.state.total) ? this.state.total : 0, i = e > 0 ? this.state.offset + 1 : 0, n = this.state.offset + e;
-    this.countEl && (t > 0 ? this.countEl.textContent = `Showing ${i}-${n} of ${t}` : e > 0 ? this.countEl.textContent = `Showing ${i}-${n}` : this.countEl.textContent = "No activity entries"), this.prevBtn && (this.prevBtn.disabled = this.state.offset <= 0), this.nextBtn && (this.nextBtn.disabled = !this.state.hasMore);
+  updatePagination(t) {
+    const i = Number.isFinite(this.state.total) ? this.state.total : 0, n = t > 0 ? this.state.offset + 1 : 0, s = this.state.offset + t;
+    this.countEl && (i > 0 ? this.countEl.textContent = `Showing ${n}-${s} of ${i}` : t > 0 ? this.countEl.textContent = `Showing ${n}-${s}` : this.countEl.textContent = "No activity entries"), this.prevBtn && (this.prevBtn.disabled = this.state.offset <= 0), this.nextBtn && (this.nextBtn.disabled = !this.state.hasMore);
   }
-};
+}
 export {
-  K as ACTION_ICONS,
-  U as ACTOR_TYPE_ICONS,
-  he as ACTOR_TYPE_LABELS,
-  Je as ActivityManager,
-  z as ActivityViewSwitcher,
-  me as NAMESPACE_ICONS,
-  Oe as TimelineRenderer,
-  $e as countMetadataFields,
-  je as createEndIndicator,
-  Re as createLoadingIndicator,
-  Ge as createScrollSentinel,
-  o as escapeHtml,
-  Z as formatActivitySentence,
-  Ke as formatActorWithType,
-  Ae as formatChannel,
-  se as formatEnrichmentDebugInfo,
-  ne as formatMetadataExpanded,
-  Se as formatRelativeTime,
-  Te as formatRelativeTimeIntl,
-  Ce as formatSessionId,
-  Ee as formatTimestamp,
-  V as getActionCategory,
-  Fe as getActionClass,
-  Ye as getActionIconHtml,
-  Ue as getActorEmail,
-  N as getActorType,
-  B as getActorTypeIconHtml,
-  ee as getDateGroupLabel,
+  G as ACTION_ICONS,
+  F as ACTOR_TYPE_ICONS,
+  me as ACTOR_TYPE_LABELS,
+  We as ActivityManager,
+  q as ActivityViewSwitcher,
+  ge as NAMESPACE_ICONS,
+  Re as TimelineRenderer,
+  Ae as countMetadataFields,
+  ze as createEndIndicator,
+  je as createLoadingIndicator,
+  Je as createScrollSentinel,
+  l as escapeHtml,
+  ee as formatActivitySentence,
+  Ge as formatActorWithType,
+  Ce as formatChannel,
+  ae as formatEnrichmentDebugInfo,
+  se as formatMetadataExpanded,
+  Te as formatRelativeTime,
+  $e as formatRelativeTimeIntl,
+  Ie as formatSessionId,
+  Se as formatTimestamp,
+  N as getActionCategory,
+  Ye as getActionClass,
+  Ke as getActionIconHtml,
+  Fe as getActorEmail,
+  B as getActorType,
+  O as getActorTypeIconHtml,
+  te as getDateGroupLabel,
   T as getDateKey,
-  we as getEnrichmentInfo,
-  ie as getMetadataSummary,
-  Ie as getSessionGroupLabel,
-  Q as getSessionId,
-  te as getStartOfDay,
-  ke as groupEntriesByDate,
-  Me as groupEntriesBySession,
-  F as isMaskedValue,
-  Y as isMetadataHidden,
-  ve as isObjectDeleted,
-  _e as mergeEntriesIntoGroups,
-  J as parseActionString,
-  ge as parseObject,
-  Be as renderDateGroup,
-  Ne as renderDateGroupHeader,
-  Ve as renderSessionGroupHeader,
-  M as renderTimelineEntry,
-  G as resolveActionLabel,
-  W as resolveActorLabel,
-  ye as resolveObjectDisplay,
-  C as shortenId
+  xe as getEnrichmentInfo,
+  ne as getMetadataSummary,
+  ke as getSessionGroupLabel,
+  X as getSessionId,
+  ie as getStartOfDay,
+  Me as groupEntriesByDate,
+  _e as groupEntriesBySession,
+  Y as isMaskedValue,
+  K as isMetadataHidden,
+  we as isObjectDeleted,
+  De as mergeEntriesIntoGroups,
+  W as parseActionString,
+  be as parseObject,
+  Oe as renderDateGroup,
+  Be as renderDateGroupHeader,
+  Ne as renderSessionGroupHeader,
+  _ as renderTimelineEntry,
+  J as resolveActionLabel,
+  Q as resolveActorLabel,
+  ve as resolveObjectDisplay,
+  I as shortenId
 };
-
 //# sourceMappingURL=index.js.map

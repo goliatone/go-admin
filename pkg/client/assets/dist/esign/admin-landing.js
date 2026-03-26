@@ -1,6 +1,7 @@
-import { n, r as o, t as r } from "../chunks/landing-CHbgLh2n.js";
+import { L as g, b as i, i as o } from "../chunks/admin-landing-D7TTGyDX.js";
 export {
-  r as LandingPageController,
-  n as bootstrapLandingPage,
+  g as LandingPageController,
+  i as bootstrapLandingPage,
   o as initLandingPage
 };
+//# sourceMappingURL=admin-landing.js.map

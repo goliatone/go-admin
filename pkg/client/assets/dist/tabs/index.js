@@ -1,5 +1,5 @@
-function r(t) {
-  return String(t || "").replace(/[&<>"']/g, (e) => ({
+function r(i) {
+  return String(i || "").replace(/[&<>"']/g, (e) => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -7,46 +7,46 @@ function r(t) {
     "'": "&#39;"
   })[e] || e);
 }
-function c(t) {
-  return typeof t == "number" ? t.toLocaleString() : t == null ? "" : String(t);
+function c(i) {
+  return typeof i == "number" ? i.toLocaleString() : i == null ? "" : String(i);
 }
-function x(t) {
-  if (t == null || t === "") return null;
-  const e = new Date(t);
-  return Number.isNaN(e.getTime()) ? null : e;
+function x(i) {
+  if (i == null || i === "") return null;
+  const t = new Date(i);
+  return Number.isNaN(t.getTime()) ? null : t;
 }
-function v(t) {
-  const e = x(t);
-  return e ? new Intl.DateTimeFormat(void 0, {
+function v(i) {
+  const t = x(i);
+  return t ? new Intl.DateTimeFormat(void 0, {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(e) : String(t || "");
+  }).format(t) : String(i || "");
 }
-function b(t) {
-  const e = x(t);
-  if (!e) return String(t || "");
-  const s = e.getTime() - Date.now(), i = Math.abs(s), a = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" }), l = 1e3, d = 60 * l, n = 60 * d, o = 24 * n, u = 30 * o, g = 365 * o;
-  return i < d ? a.format(Math.round(s / l), "second") : i < n ? a.format(Math.round(s / d), "minute") : i < o ? a.format(Math.round(s / n), "hour") : i < u ? a.format(Math.round(s / o), "day") : i < g ? a.format(Math.round(s / u), "month") : a.format(Math.round(s / g), "year");
+function b(i) {
+  const t = x(i);
+  if (!t) return String(i || "");
+  const e = t.getTime() - Date.now(), s = Math.abs(e), a = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" }), l = 1e3, d = 60 * l, n = 60 * d, o = 24 * n, u = 30 * o, g = 365 * o;
+  return s < d ? a.format(Math.round(e / l), "second") : s < n ? a.format(Math.round(e / d), "minute") : s < o ? a.format(Math.round(e / n), "hour") : s < u ? a.format(Math.round(e / o), "day") : s < g ? a.format(Math.round(e / u), "month") : a.format(Math.round(e / g), "year");
 }
-function m(t) {
-  const e = t || document;
-  e.querySelectorAll("[data-relative-time]").forEach((s) => {
-    const i = s.getAttribute("data-relative-time");
-    if (!i) return;
-    s.textContent = b(i);
-    const a = v(i);
-    a && s.setAttribute("title", a);
-  }), e.querySelectorAll("[data-absolute-time]").forEach((s) => {
-    const i = s.getAttribute("data-absolute-time");
-    if (!i) return;
-    const a = v(i);
-    s.textContent = a, a && s.setAttribute("title", a);
+function m(i) {
+  const t = i || document;
+  t.querySelectorAll("[data-relative-time]").forEach((e) => {
+    const s = e.getAttribute("data-relative-time");
+    if (!s) return;
+    e.textContent = b(s);
+    const a = v(s);
+    a && e.setAttribute("title", a);
+  }), t.querySelectorAll("[data-absolute-time]").forEach((e) => {
+    const s = e.getAttribute("data-absolute-time");
+    if (!s) return;
+    const a = v(s);
+    e.textContent = a, a && e.setAttribute("title", a);
   });
 }
-function f(t) {
-  return t == null || String(t).trim() === "";
+function f(i) {
+  return i == null || String(i).trim() === "";
 }
-var h = {
+const h = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.user_activity_feed": "User Activity",
@@ -62,82 +62,68 @@ var h = {
   "esign.widget.delivery_health": "E-Sign Delivery Health",
   "esign.widget.pending_signatures": "E-Sign Pending Signatures"
 };
-function y(t) {
-  return t ? h[t] || t.replace(/_/g, " ") : "";
+function y(i) {
+  return i ? h[i] || i.replace(/_/g, " ") : "";
 }
-function w(t) {
-  const e = t?.value !== void 0 && t?.value !== null ? t.value : "-", s = r(e), i = String(t?.type || "text").toLowerCase();
-  if (i === "badge") return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${s}</span>`;
-  if (i === "status") {
-    const a = {
-      active: {
-        dot: "bg-green-500",
-        text: "text-green-700"
-      },
-      inactive: {
-        dot: "bg-gray-400",
-        text: "text-gray-600"
-      },
-      suspended: {
-        dot: "bg-red-500",
-        text: "text-red-700"
-      },
-      pending: {
-        dot: "bg-yellow-500",
-        text: "text-yellow-700"
-      }
-    }[String(e || "").toLowerCase()] || {
-      dot: "bg-gray-400",
-      text: "text-gray-700"
-    };
-    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${s} status"><span class="w-2 h-2 rounded-full ${a.dot}" aria-hidden="true"></span><span class="${a.text}">${s}</span></span>`;
+function w(i) {
+  const t = i?.value !== void 0 && i?.value !== null ? i.value : "-", e = r(t), s = String(i?.type || "text").toLowerCase();
+  if (s === "badge")
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${e}</span>`;
+  if (s === "status") {
+    const a = String(t || "").toLowerCase(), l = {
+      active: { dot: "bg-green-500", text: "text-green-700" },
+      inactive: { dot: "bg-gray-400", text: "text-gray-600" },
+      suspended: { dot: "bg-red-500", text: "text-red-700" },
+      pending: { dot: "bg-yellow-500", text: "text-yellow-700" }
+    }[a] || { dot: "bg-gray-400", text: "text-gray-700" };
+    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${e} status"><span class="w-2 h-2 rounded-full ${l.dot}" aria-hidden="true"></span><span class="${l.text}">${e}</span></span>`;
   }
-  if (i === "verified") {
-    const a = !!t?.verified;
-    return `<span class="inline-flex items-center gap-1.5"><span>${s}</span><span class="${a ? "text-green-500" : "text-gray-400"}">${a ? "✓" : "✕"}</span></span>`;
+  if (s === "verified") {
+    const a = !!i?.verified;
+    return `<span class="inline-flex items-center gap-1.5"><span>${e}</span><span class="${a ? "text-green-500" : "text-gray-400"}">${a ? "✓" : "✕"}</span></span>`;
   }
-  return i === "date" ? `<time datetime="${s}" data-absolute-time="${s}">${s}</time>` : i === "relative" ? `<time datetime="${s}" data-relative-time="${s}">${s}</time>` : s;
+  return s === "date" ? `<time datetime="${e}" data-absolute-time="${e}">${e}</time>` : s === "relative" ? `<time datetime="${e}" data-relative-time="${e}">${e}</time>` : e;
 }
-function $(t) {
-  const e = t.map((s) => {
-    const i = (Array.isArray(s?.fields) ? s.fields : []).filter((a) => !(a?.hide_if_empty && f(a?.value)));
-    return i.length ? `
+function $(i) {
+  const t = i.map((e) => {
+    const a = (Array.isArray(e?.fields) ? e.fields : []).filter((l) => !(l?.hide_if_empty && f(l?.value)));
+    return a.length ? `
       <div class="profile-section">
-        <div class="text-xs uppercase tracking-wider text-gray-500 mb-3 font-semibold">${r(s?.label || "")}</div>
+        <div class="text-xs uppercase tracking-wider text-gray-500 mb-3 font-semibold">${r(e?.label || "")}</div>
         <dl class="space-y-3">
-          ${i.map((a) => `
+          ${a.map((l) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-500">${r(a?.label || a?.key || "")}</dt>
-              <dd class="text-sm font-medium text-gray-900 text-right">${w(a)}</dd>
+              <dt class="text-sm text-gray-500">${r(l?.label || l?.key || "")}</dt>
+              <dd class="text-sm font-medium text-gray-900 text-right">${w(l)}</dd>
             </div>
           `).join("")}
         </dl>
       </div>
     ` : "";
   }).filter(Boolean);
-  return e.length ? `<div class="space-y-6">${e.join("")}</div>` : '<p class="text-gray-500">No profile data to display</p>';
+  return t.length ? `<div class="space-y-6">${t.join("")}</div>` : '<p class="text-gray-500">No profile data to display</p>';
 }
-function _(t) {
-  const e = t.definition || "", s = t.data || {};
-  if (e === "admin.widget.user_stats") {
-    const i = s.values || {
-      Total: s.total,
-      Active: s.active,
-      "New Today": s.new_today
-    };
-    return `<div class="metrics">${Object.entries(i).map(([a, l]) => `<div class="metric"><small>${r(a)}</small><span>${r(c(l))}</span></div>`).join("")}</div>`;
+function _(i) {
+  const t = i.definition || "", e = i.data || {};
+  if (t === "admin.widget.user_stats") {
+    const s = e.values || { Total: e.total, Active: e.active, "New Today": e.new_today };
+    return `<div class="metrics">${Object.entries(s).map(
+      ([a, l]) => `<div class="metric"><small>${r(a)}</small><span>${r(c(l))}</span></div>`
+    ).join("")}</div>`;
   }
-  if (e === "admin.widget.settings_overview") {
-    const i = s.values || {}, a = Object.entries(i);
-    return a.length ? `<dl class="space-y-2">${a.map(([l, d]) => `<div class="flex items-start justify-between gap-4"><dt class="text-sm text-gray-500">${r(l)}</dt><dd class="text-sm font-medium text-gray-900">${r(d ?? "-")}</dd></div>`).join("")}</dl>` : '<p class="text-gray-500">No settings to display</p>';
+  if (t === "admin.widget.settings_overview") {
+    const s = e.values || {}, a = Object.entries(s);
+    return a.length ? `<dl class="space-y-2">${a.map(
+      ([l, d]) => `<div class="flex items-start justify-between gap-4"><dt class="text-sm text-gray-500">${r(l)}</dt><dd class="text-sm font-medium text-gray-900">${r(d ?? "-")}</dd></div>`
+    ).join("")}</dl>` : '<p class="text-gray-500">No settings to display</p>';
   }
-  if (e === "admin.widget.user_profile_overview") {
-    const i = Array.isArray(s.sections) ? s.sections : [];
-    return i.length ? $(i) : '<p class="text-gray-500">No profile data to display</p>';
+  if (t === "admin.widget.user_profile_overview") {
+    const s = Array.isArray(e.sections) ? e.sections : [];
+    return s.length ? $(s) : '<p class="text-gray-500">No profile data to display</p>';
   }
-  if (e === "admin.widget.activity_feed" || e === "admin.widget.user_activity_feed") {
-    const i = s.entries || [];
-    return i.length ? `<ul class="space-y-3">${i.map((a) => {
+  if (t === "admin.widget.activity_feed" || t === "admin.widget.user_activity_feed") {
+    const s = e.entries || [];
+    return s.length ? `<ul class="space-y-3">${s.map((a) => {
       const l = String(a.actor || "system").trim() || "system", d = String(a.action || "updated").trim() || "updated", n = String(a.object || "").trim();
       return `
       <li class="py-3 border-b border-gray-100 last:border-b-0">
@@ -147,8 +133,8 @@ function _(t) {
       </li>`;
     }).join("")}</ul>` : '<p class="text-gray-500">No recent activity</p>';
   }
-  if (e === "esign.widget.agreement_stats") {
-    const i = s, a = Number(i.total || 0), l = Number(i.pending || 0), d = Number(i.completed || 0), n = Number(i.voided || 0) + Number(i.declined || 0) + Number(i.expired || 0), o = a > 0 ? Math.round(d * 100 / a) : 0, u = String(i.list_url || "").trim();
+  if (t === "esign.widget.agreement_stats") {
+    const s = e, a = Number(s.total || 0), l = Number(s.pending || 0), d = Number(s.completed || 0), n = Number(s.voided || 0) + Number(s.declined || 0) + Number(s.expired || 0), o = a > 0 ? Math.round(d * 100 / a) : 0, u = String(s.list_url || "").trim();
     return `
       <div>
         <div class="grid grid-cols-2 gap-4">
@@ -193,8 +179,8 @@ function _(t) {
       </div>
     `;
   }
-  if (e === "esign.widget.signing_activity") {
-    const i = s, a = Array.isArray(i.activities) ? i.activities : [], l = String(i.activity_url || "").trim(), d = (n) => {
+  if (t === "esign.widget.signing_activity") {
+    const s = e, a = Array.isArray(s.activities) ? s.activities : [], l = String(s.activity_url || "").trim(), d = (n) => {
       const o = String(n || "").toLowerCase();
       return o === "signed" || o === "completed" ? "bg-green-500" : o === "viewed" ? "bg-purple-500" : o === "sent" ? "bg-blue-500" : o === "declined" ? "bg-orange-500" : o === "voided" || o === "expired" ? "bg-red-500" : "bg-gray-400";
     };
@@ -243,17 +229,8 @@ function _(t) {
       ` : ""}
     `;
   }
-  if (e === "esign.widget.delivery_health") {
-    const i = s, a = Math.max(0, Math.min(100, Number(i.email_success_rate ?? 100))), l = Math.max(0, Math.min(100, Number(i.job_success_rate ?? 100))), d = Number(i.pending_retries || 0), n = String(i.period || "").trim(), o = (p) => p >= 95 ? {
-      text: "text-green-600",
-      bar: "bg-green-500"
-    } : p >= 80 ? {
-      text: "text-yellow-600",
-      bar: "bg-yellow-500"
-    } : {
-      text: "text-red-600",
-      bar: "bg-red-500"
-    }, u = o(a), g = o(l);
+  if (t === "esign.widget.delivery_health") {
+    const s = e, a = Math.max(0, Math.min(100, Number(s.email_success_rate ?? 100))), l = Math.max(0, Math.min(100, Number(s.job_success_rate ?? 100))), d = Number(s.pending_retries || 0), n = String(s.period || "").trim(), o = (p) => p >= 95 ? { text: "text-green-600", bar: "bg-green-500" } : p >= 80 ? { text: "text-yellow-600", bar: "bg-yellow-500" } : { text: "text-red-600", bar: "bg-red-500" }, u = o(a), g = o(l);
     return `
       <div class="space-y-4">
         <div>
@@ -265,8 +242,8 @@ function _(t) {
             <div class="h-2 rounded-full ${u.bar}" style="width: ${a}%"></div>
           </div>
           <div class="flex justify-between mt-1 text-xs text-gray-400">
-            <span>${r(c(i.emails_sent || 0))} sent</span>
-            <span>${r(c(i.emails_failed || 0))} failed</span>
+            <span>${r(c(s.emails_sent || 0))} sent</span>
+            <span>${r(c(s.emails_failed || 0))} failed</span>
           </div>
         </div>
         <div>
@@ -278,8 +255,8 @@ function _(t) {
             <div class="h-2 rounded-full ${g.bar}" style="width: ${l}%"></div>
           </div>
           <div class="flex justify-between mt-1 text-xs text-gray-400">
-            <span>${r(c(i.jobs_completed || 0))} completed</span>
-            <span>${r(c(i.jobs_failed || 0))} failed</span>
+            <span>${r(c(s.jobs_completed || 0))} completed</span>
+            <span>${r(c(s.jobs_failed || 0))} failed</span>
           </div>
         </div>
         ${d > 0 ? `
@@ -291,8 +268,8 @@ function _(t) {
       ${n ? `<div class="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400 text-center">Last ${r(n)}</div>` : ""}
     `;
   }
-  if (e === "esign.widget.pending_signatures") {
-    const i = s, a = Array.isArray(i.agreements) ? i.agreements : [], l = String(i.list_url || "").trim();
+  if (t === "esign.widget.pending_signatures") {
+    const s = e, a = Array.isArray(s.agreements) ? s.agreements : [], l = String(s.list_url || "").trim();
     return `
       ${a.length ? `
         <ul class="space-y-2">
@@ -342,61 +319,63 @@ function _(t) {
       ` : ""}
     `;
   }
-  return `<pre class="text-xs text-gray-600 overflow-auto">${r(JSON.stringify(s, null, 2))}</pre>`;
+  return `<pre class="text-xs text-gray-600 overflow-auto">${r(JSON.stringify(e, null, 2))}</pre>`;
 }
-function k(t) {
-  const e = t.metadata?.layout?.width || t.span || 12, s = t.data?.title || t.config?.title || t.title || y(t.definition);
+function k(i) {
+  const t = i.metadata?.layout?.width || i.span || 12, e = i.data?.title || i.config?.title || i.title || y(i.definition);
   return `
-    <article class="widget" data-widget="${r(t.id || t.definition || "")}" data-span="${r(e)}" style="--span: ${r(e)}">
-      <div class="widget__header mb-4"><h3 class="text-lg font-semibold text-gray-900">${r(s)}</h3></div>
-      <div class="widget__content">${_(t)}</div>
+    <article class="widget" data-widget="${r(i.id || i.definition || "")}" data-span="${r(t)}" style="--span: ${r(t)}">
+      <div class="widget__header mb-4"><h3 class="text-lg font-semibold text-gray-900">${r(e)}</h3></div>
+      <div class="widget__content">${_(i)}</div>
     </article>
   `;
 }
-function T(t) {
-  const e = Array.isArray(t.widgets) ? t.widgets : [], s = t.empty_message || "No widgets configured for this tab.";
-  return `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6">${e.length ? `<div class="widgets-grid" data-area-code="${r(t.area_code || "")}">${e.map(k).join("")}</div>` : `<p class="text-sm text-gray-500">${r(s)}</p>`}</div></div>`;
+function T(i) {
+  const t = Array.isArray(i.widgets) ? i.widgets : [], e = i.empty_message || "No widgets configured for this tab.";
+  return `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6">${t.length ? `<div class="widgets-grid" data-area-code="${r(i.area_code || "")}">${t.map(k).join("")}</div>` : `<p class="text-sm text-gray-500">${r(e)}</p>`}</div></div>`;
 }
-function A(t) {
-  const e = t.record || {}, s = Array.isArray(t.fields) ? t.fields : [], i = e.username || e.display_name || e.id || "", a = e.email || "";
+function A(i) {
+  const t = i.record || {}, e = Array.isArray(i.fields) ? i.fields : [], s = t.username || t.display_name || t.id || "", a = t.email || "", l = String(t.username || t.display_name || t.email || t.id || "?").slice(0, 1).toUpperCase();
   return `
     <div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
-        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(String(e.username || e.display_name || e.email || e.id || "?").slice(0, 1).toUpperCase())}</div>
+        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(l)}</div>
         <div>
-          <h2 class="text-xl font-semibold text-gray-900">${r(i)}</h2>
+          <h2 class="text-xl font-semibold text-gray-900">${r(s)}</h2>
           <p class="text-sm text-gray-500">${r(a)}</p>
         </div>
       </div>
       <div class="p-6">
         <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Details</div>
         <div class="grid grid-cols-2 gap-6">
-          ${s.map((l) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(l.label)}</div><div class="text-base font-medium text-gray-900">${r(l.value ?? "-")}</div></div>`).join("")}
+          ${e.map(
+    (d) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(d.label)}</div><div class="text-base font-medium text-gray-900">${r(d.value ?? "-")}</div></div>`
+  ).join("")}
         </div>
       </div>
     </div>
   `;
 }
-function S(t) {
-  const e = t.href || "", s = t.panel || "panel";
-  return e ? `
+function S(i) {
+  const t = i.href || "", e = i.panel || "panel";
+  return t ? `
     <div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-6 space-y-4">
         <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Linked Panel</div>
-        <p class="text-sm text-gray-500">This tab links to the ${r(s)} panel.</p>
-        <a href="${r(e)}" class="btn btn-secondary">Open panel</a>
+        <p class="text-sm text-gray-500">This tab links to the ${r(e)} panel.</p>
+        <a href="${r(t)}" class="btn btn-secondary">Open panel</a>
       </div>
     </div>
   ` : '<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6 text-sm text-gray-500">Panel link unavailable.</div></div>';
 }
-function j(t) {
-  return t.html ? t.html : `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6 text-sm text-gray-500">${t.template ? `Template tab "${r(t.template)}" requires server rendering.` : "Template tab is missing a template reference."}</div></div>`;
+function j(i) {
+  return i.html ? i.html : `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6 text-sm text-gray-500">${i.template ? `Template tab "${r(i.template)}" requires server rendering.` : "Template tab is missing a template reference."}</div></div>`;
 }
-function C(t) {
-  const e = t?.tab || t;
-  return !e || !e.kind ? '<p class="text-sm text-gray-500">No content available.</p>' : e.kind === "dashboard_area" || e.kind === "cms_area" ? T(e) : e.kind === "details" ? A(t) : e.kind === "panel" ? S(e) : e.kind === "template" ? j(e) : '<p class="text-sm text-gray-500">Tab content unavailable.</p>';
+function C(i) {
+  const t = i?.tab || i;
+  return !t || !t.kind ? '<p class="text-sm text-gray-500">No content available.</p>' : t.kind === "dashboard_area" || t.kind === "cms_area" ? T(t) : t.kind === "details" ? A(i) : t.kind === "panel" ? S(t) : t.kind === "template" ? j(t) : '<p class="text-sm text-gray-500">Tab content unavailable.</p>';
 }
-var N = class {
+class N {
   constructor(t, e, s = {}) {
     this.tabsNav = t, this.panelContainer = e, this.tabLinks = Array.from(t.querySelectorAll("[data-tab-id]")), this.basePath = (e.dataset.basePath || "").replace(/\/$/, ""), this.apiBasePath = (e.dataset.apiBasePath || "").replace(/\/$/, ""), this.panelName = e.dataset.panel || "", this.recordId = e.dataset.recordId || "", this.options = s, this.init();
   }
@@ -406,9 +385,10 @@ var N = class {
     t?.dataset.renderMode === "client" && this.loadTab(t, { silent: !0 });
   }
   buildEndpoint(t, e) {
-    if (!this.basePath || !this.panelName || !this.recordId || !e) return "";
-    const s = encodeURIComponent(e), i = encodeURIComponent(this.recordId);
-    return t === "json" ? `${this.apiBasePath || `${this.basePath}/api`}/${this.panelName}/${i}/tabs/${s}` : `${this.basePath}/${this.panelName}/${i}/tabs/${s}`;
+    if (!this.basePath || !this.panelName || !this.recordId || !e)
+      return "";
+    const s = encodeURIComponent(e), a = encodeURIComponent(this.recordId);
+    return t === "json" ? `${this.apiBasePath || `${this.basePath}/api`}/${this.panelName}/${a}/tabs/${s}` : `${this.basePath}/${this.panelName}/${a}/tabs/${s}`;
   }
   setActiveTab(t) {
     this.tabLinks.forEach((e) => {
@@ -431,42 +411,52 @@ var N = class {
     s !== "hybrid" && s !== "client" || (t.preventDefault(), this.loadTab(e));
   }
   async loadTab(t, e) {
-    const s = t.dataset.renderMode || "", i = t.dataset.tabId || "";
-    if (!s || !i) return !1;
-    const a = t.getAttribute("href") || "";
-    this.setActiveTab(i), e?.silent || this.updateUrl(a), this.panelContainer.innerHTML = '<p class="text-sm text-gray-500">Loading tab...</p>';
+    const s = t.dataset.renderMode || "", a = t.dataset.tabId || "";
+    if (!s || !a) return !1;
+    const l = t.getAttribute("href") || "";
+    this.setActiveTab(a), e?.silent || this.updateUrl(l), this.panelContainer.innerHTML = '<p class="text-sm text-gray-500">Loading tab...</p>';
     try {
       if (s === "hybrid") {
-        const l = this.buildEndpoint("html", i);
-        if (!l) throw new Error("missing html endpoint");
-        const d = await fetch(l, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-        if (!d.ok) throw new Error(`tab html ${d.status}`);
-        return this.panelContainer.innerHTML = await d.text(), m(this.panelContainer), !0;
+        const d = this.buildEndpoint("html", a);
+        if (!d) throw new Error("missing html endpoint");
+        const n = await fetch(d, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+        if (!n.ok) throw new Error(`tab html ${n.status}`);
+        return this.panelContainer.innerHTML = await n.text(), m(this.panelContainer), !0;
       }
       if (s === "client") {
-        const l = this.buildEndpoint("json", i);
-        if (!l) throw new Error("missing json endpoint");
-        const d = await fetch(l, { headers: { Accept: "application/json" } });
-        if (!d.ok) throw new Error(`tab json ${d.status}`);
-        const n = await d.json();
-        return this.panelContainer.innerHTML = C(n), m(this.panelContainer), !0;
+        const d = this.buildEndpoint("json", a);
+        if (!d) throw new Error("missing json endpoint");
+        const n = await fetch(d, {
+          headers: { Accept: "application/json" }
+        });
+        if (!n.ok) throw new Error(`tab json ${n.status}`);
+        const o = await n.json();
+        return this.panelContainer.innerHTML = C(o), m(this.panelContainer), !0;
       }
-    } catch (l) {
-      console.warn("[TabsController] Failed to load tab", l), this.options.onError?.(l), a && (window.location.href = a);
+    } catch (d) {
+      console.warn("[TabsController] Failed to load tab", d), this.options.onError?.(d), l && (window.location.href = l);
     }
     return !1;
   }
+  /**
+   * Get the currently active tab ID
+   */
   getActiveTabId() {
     return this.panelContainer.dataset.activeTab || "";
   }
+  /**
+   * Programmatically switch to a tab by ID
+   */
   switchToTab(t) {
     const e = this.tabLinks.find((s) => s.dataset.tabId === t);
     e && this.loadTab(e);
   }
-};
-function M(t) {
-  const e = document.querySelector(".panel-tabs"), s = document.querySelector("[data-tab-panel-container]");
-  return !e || !s ? null : new N(e, s, t);
+}
+function M(i) {
+  const t = document.querySelector(".panel-tabs"), e = document.querySelector("[data-tab-panel-container]");
+  return !t || !e ? null : new N(t, e, i);
 }
 export {
   N as TabsController,
@@ -485,5 +475,4 @@ export {
   k as renderWidget,
   T as renderWidgetPanel
 };
-
 //# sourceMappingURL=index.js.map

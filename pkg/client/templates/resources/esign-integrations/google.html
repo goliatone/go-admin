@@ -414,5 +414,5 @@
 
 {# Page configuration for module bootstrapping #}
 <script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
-<script type="module" src="{{ esign_module_path|default:base_path + "/assets/dist/esign/index.js" }}"></script>
+<script type="module" src="{{ esign_module_path }}"></script>
 {% endblock %}

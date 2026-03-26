@@ -1,87 +1,86 @@
-import { extractStructuredError as q } from "../toast/error-helpers.js";
-import { t as R } from "../chunks/http-client-D9Z2A1Pg.js";
-import { r as h, t as N } from "../chunks/translation-contracts-NuS3GLjo.js";
-import { G as b, K as I, W as v, n as w, r as A, t as P } from "../chunks/translation-shared-BSLmw_rJ.js";
-var U = {
+import { e as h, E as R } from "../chunks/index-YiVxcMWC.js";
+import { R as I, b as A, a0 as q, a1 as b, a2 as C, c as N } from "../chunks/style-constants-i2xRoO1L.js";
+import { h as w } from "../chunks/http-client-DZnuedzQ.js";
+import { extractStructuredError as P } from "../toast/error-helpers.js";
+const U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
   EXCHANGE_EXPORT: "admin.api.translations.export",
   EXCHANGE_IMPORT_VALIDATE: "admin.api.translations.import.validate",
   EXCHANGE_IMPORT_APPLY: "admin.api.translations.import.apply"
-}, C = `${v} border ${A} ${P} px-4 py-4`, k = `${v} border ${A} ${w} px-4 py-4`;
-function p() {
-  if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__) return h(window.__TRANSLATION_CAPABILITIES__);
+}, v = `${I} border ${A} ${N} px-4 py-4`, k = `${I} border ${A} ${q} px-4 py-4`;
+function m() {
+  if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__)
+    return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
-  if (e) try {
-    const n = e.textContent || "";
-    return h(JSON.parse(n));
-  } catch {
-  }
+  if (e)
+    try {
+      const n = e.textContent || "", s = JSON.parse(n);
+      return h(s);
+    } catch {
+    }
   const t = document.body;
-  if (t?.dataset?.translationCapabilities) try {
-    return h(JSON.parse(t.dataset.translationCapabilities));
-  } catch {
-  }
-  return { ...N };
+  if (t?.dataset?.translationCapabilities)
+    try {
+      return h(JSON.parse(t.dataset.translationCapabilities));
+    } catch {
+    }
+  return { ...R };
 }
 function y(e) {
-  if (!e) return {
-    visible: !1,
-    enabled: !1
-  };
-  const t = e.visible === !0 || e.visible === void 0 && e.enabled, n = e.entry ?? { enabled: e.enabled }, s = n.enabled === !0, a = n.reason || (e.enabled ? void 0 : "module disabled by capability mode"), r = n.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), o = n.permission;
+  if (!e)
+    return { visible: !1, enabled: !1 };
+  const t = e.visible === !0 || e.visible === void 0 && e.enabled, n = e.entry ?? { enabled: e.enabled }, s = n.enabled === !0, a = n.reason || (e.enabled ? void 0 : "module disabled by capability mode"), i = n.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), r = n.permission;
   return t ? !e.enabled || !s ? {
     visible: !0,
     enabled: !1,
     reason: a,
-    reasonCode: r,
-    permission: o
-  } : {
-    visible: !0,
-    enabled: !0
-  } : {
+    reasonCode: i,
+    permission: r
+  } : { visible: !0, enabled: !0 } : {
     visible: !1,
     enabled: !1,
     reason: a,
-    reasonCode: r,
-    permission: o
+    reasonCode: i,
+    permission: r
   };
 }
 function $(e) {
-  return (e ?? p()).modules.exchange.enabled;
+  return (e ?? m()).modules.exchange.enabled;
 }
 function S(e) {
-  return (e ?? p()).modules.queue.enabled;
+  return (e ?? m()).modules.queue.enabled;
 }
-function K(e) {
+function Y(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
-  const s = t ?? p(), a = U[e];
-  if (s.routes[a]) return s.routes[a];
-  const r = (n ?? "").replace(/\/+$/, "");
+  const s = t ?? m(), a = U[e];
+  if (s.routes[a])
+    return s.routes[a];
+  const i = (n ?? "").replace(/\/+$/, "");
   switch (e) {
     case "QUEUE":
-      return s.modules.queue.enabled ? `${r}/translations/queue` : null;
+      return s.modules.queue.enabled ? `${i}/translations/queue` : null;
     case "EXCHANGE_UI":
-      return s.modules.exchange.enabled ? `${r}/translations/exchange` : null;
+      return s.modules.exchange.enabled ? `${i}/translations/exchange` : null;
     default:
       return null;
   }
 }
 function L(e, t) {
-  const n = e ?? p(), s = (t ?? "").replace(/\/+$/, ""), a = [], r = y(n.modules.queue), o = E("QUEUE", n, s);
-  r.visible && o && a.push({
+  const n = e ?? m(), s = (t ?? "").replace(/\/+$/, ""), a = [], i = y(n.modules.queue), r = E("QUEUE", n, s);
+  i.visible && r && a.push({
     id: "translation-queue",
     label: "Translation Queue",
     icon: "iconoir-language",
-    href: o,
+    href: r,
     module: "queue",
-    enabled: r.enabled,
+    enabled: i.enabled,
     description: "Manage translation assignments and review workflow",
-    disabledReason: r.reason,
-    disabledReasonCode: r.reasonCode,
-    permission: r.permission
+    disabledReason: i.reason,
+    disabledReasonCode: i.reasonCode,
+    permission: i.permission
   });
   const l = y(n.modules.exchange), c = E("EXCHANGE_UI", n, s);
   return l.visible && c && a.push({
@@ -100,44 +99,44 @@ function L(e, t) {
 function O(e, t) {
   const { asListItem: n = !1, className: s = "" } = t ?? {}, a = document.createElement("a");
   a.href = e.enabled ? e.href : "#", a.className = `nav-item translation-operation-link ${s}`.trim(), a.setAttribute("data-entrypoint-id", e.id), a.setAttribute("data-module", e.module), a.setAttribute("data-enabled", e.enabled ? "true" : "false"), e.enabled || (a.setAttribute("aria-disabled", "true"), a.classList.add("opacity-60", "cursor-not-allowed"));
-  const r = e.disabledReason?.trim(), o = r ? `${e.description || e.label} (${r})` : e.description || e.label;
-  a.setAttribute("aria-label", o), a.setAttribute("title", o);
+  const i = e.disabledReason?.trim(), r = i ? `${e.description || e.label} (${i})` : e.description || e.label;
+  a.setAttribute("aria-label", r), a.setAttribute("title", r);
   const l = document.createElement("i");
   l.className = `${e.icon} flex-shrink-0`, l.style.fontSize = "var(--sidebar-icon-size, 20px)", l.setAttribute("aria-hidden", "true"), a.appendChild(l);
   const c = document.createElement("span");
   if (c.className = "nav-text flex-1", c.textContent = e.label, a.appendChild(c), e.badge) {
-    const i = document.createElement("span");
-    i.className = `ml-auto px-2 py-0.5 ${e.badgeVariant === "warning" ? "bg-yellow-500/20 text-yellow-400" : e.badgeVariant === "danger" ? "bg-red-500/20 text-red-400" : e.badgeVariant === "success" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"} text-xs font-medium rounded`, i.textContent = e.badge, i.setAttribute("aria-label", `${e.badge} badge`), a.appendChild(i);
+    const o = document.createElement("span"), u = e.badgeVariant === "warning" ? "bg-yellow-500/20 text-yellow-400" : e.badgeVariant === "danger" ? "bg-red-500/20 text-red-400" : e.badgeVariant === "success" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400";
+    o.className = `ml-auto px-2 py-0.5 ${u} text-xs font-medium rounded`, o.textContent = e.badge, o.setAttribute("aria-label", `${e.badge} badge`), a.appendChild(o);
   }
-  if (e.enabled || a.addEventListener("click", (i) => {
-    i.preventDefault(), i.stopPropagation();
+  if (e.enabled || a.addEventListener("click", (o) => {
+    o.preventDefault(), o.stopPropagation();
   }), n) {
-    const i = document.createElement("li");
-    return i.appendChild(a), i;
+    const o = document.createElement("li");
+    return o.appendChild(a), o;
   }
   return a;
 }
 function D(e, t, n, s) {
-  const { asListItems: a = !1, headerLabel: r } = s ?? {}, o = typeof e == "string" ? document.querySelector(e) : e;
-  if (!o) return;
+  const { asListItems: a = !1, headerLabel: i } = s ?? {}, r = typeof e == "string" ? document.querySelector(e) : e;
+  if (!r) return;
   const l = L(t, n);
   if (l.length === 0) {
-    o.style.display = "none";
+    r.style.display = "none";
     return;
   }
-  o.style.display = "", o.innerHTML = "";
+  r.style.display = "", r.innerHTML = "";
   const c = document.createElement("nav");
-  if (c.setAttribute("aria-label", r || "Translation operations"), c.setAttribute("role", "navigation"), r) {
-    const m = `translation-ops-header-${Date.now()}`, u = document.createElement("h3");
-    u.id = m, u.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", u.textContent = r, c.appendChild(u), c.setAttribute("aria-labelledby", m);
+  if (c.setAttribute("aria-label", i || "Translation operations"), c.setAttribute("role", "navigation"), i) {
+    const u = `translation-ops-header-${Date.now()}`, p = document.createElement("h3");
+    p.id = u, p.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", p.textContent = i, c.appendChild(p), c.setAttribute("aria-labelledby", u);
   }
-  const i = a ? document.createElement("ul") : document.createElement("div");
-  i.className = "space-y-0.5", a && i.setAttribute("role", "list");
-  for (const m of l) {
-    const u = O(m, { asListItem: a });
-    i.appendChild(u);
+  const o = a ? document.createElement("ul") : document.createElement("div");
+  o.className = "space-y-0.5", a && o.setAttribute("role", "list");
+  for (const u of l) {
+    const p = O(u, { asListItem: a });
+    o.appendChild(p);
   }
-  c.appendChild(i), o.appendChild(c);
+  c.appendChild(o), r.appendChild(c);
 }
 function g(e, t) {
   const n = e.headers.get(t);
@@ -151,34 +150,33 @@ function M(e, t) {
   };
 }
 function x(e) {
-  if (Array.isArray(e)) return e.length;
-  if (!e || typeof e != "object") return 0;
+  if (Array.isArray(e))
+    return e.length;
+  if (!e || typeof e != "object")
+    return 0;
   const t = e;
-  for (const n of [
-    "items",
-    "assignments",
-    "results",
-    "rows",
-    "families"
-  ]) if (Array.isArray(t[n])) return t[n].length;
+  for (const n of ["items", "assignments", "results", "rows", "families"])
+    if (Array.isArray(t[n]))
+      return t[n].length;
   return t.data && typeof t.data == "object" ? x(t.data) : Object.keys(t).length;
 }
 async function H(e) {
   const t = e.trim();
-  if (!t) return {
-    status: "empty",
-    message: "This shell route is ready, but the backing API contract has not been connected yet."
-  };
-  const n = await R(t, { method: "GET" }), s = M(n);
-  if (!n.ok) {
-    const r = await q(n);
+  if (!t)
     return {
-      status: n.status === 409 || r.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
-      message: r.message,
+      status: "empty",
+      message: "This shell route is ready, but the backing API contract has not been connected yet."
+    };
+  const n = await w(t, { method: "GET" }), s = M(n);
+  if (!n.ok) {
+    const i = await P(n);
+    return {
+      status: n.status === 409 || i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
+      message: i.message,
       requestId: s.requestId,
       traceId: s.traceId,
       statusCode: n.status,
-      errorCode: r.textCode
+      errorCode: i.textCode
     };
   }
   let a = null;
@@ -214,7 +212,7 @@ function G(e, t, n) {
         <p class="text-sm font-medium text-emerald-800">${d(t)}</p>
         <p class="mt-1 text-sm text-emerald-700">${s} contract item${s === 1 ? "" : "s"} available for this shell.</p>
       </div>
-      <div class="${C}">
+      <div class="${v}">
         <p class="text-sm ${b}">${d(n)}</p>
         <details class="mt-4">
           <summary class="cursor-pointer text-sm font-medium ${b}">Inspect payload</summary>
@@ -228,16 +226,19 @@ function G(e, t, n) {
 function X(e) {
   return `
     <div class="space-y-4">
-      ${_("Version conflict", e.message || "The shell route detected a canonical version conflict.")}
+      ${_(
+    "Version conflict",
+    e.message || "The shell route detected a canonical version conflict."
+  )}
       ${f(e)}
     </div>
   `;
 }
 function B(e, t) {
   return `
-    <div class="${C}">
+    <div class="${v}">
       <p class="text-sm font-semibold ${b}">${d(e)}</p>
-      <p class="mt-1 text-sm ${I}">${d(t)}</p>
+      <p class="mt-1 text-sm ${C}">${d(t)}</p>
     </div>
   `;
 }
@@ -253,7 +254,7 @@ function F() {
   return `
     <div class="${k}">
       <p class="text-sm font-medium ${b}">Loading translation shell...</p>
-      <p class="mt-1 text-sm ${I}">Waiting for the backing API response.</p>
+      <p class="mt-1 text-sm ${C}">Waiting for the backing API response.</p>
     </div>
   `;
 }
@@ -271,7 +272,10 @@ function T(e, t, n = {}) {
       return;
     case "error":
       e.innerHTML = `
-        ${_("Translation shell request failed", t.message || "The shell route could not load its backing payload.")}
+        ${_(
+        "Translation shell request failed",
+        t.message || "The shell route could not load its backing payload."
+      )}
         ${f(t)}
       `;
       return;
@@ -285,75 +289,89 @@ function T(e, t, n = {}) {
       e.innerHTML = F();
   }
 }
-async function Y(e) {
+async function K(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
-  if (!t) return null;
+  if (!t)
+    return null;
   T(t, { status: "loading" });
   const n = await H(t.dataset.endpoint || "");
   return T(t, n), n;
 }
-var Q = class {
-  constructor(e) {
+class Q {
+  constructor(t) {
     this.entrypoints = [], this.config = {
-      basePath: e.basePath,
-      capabilities: e.capabilities ?? p(),
-      container: e.container ?? "[data-translation-operations]",
-      onEntrypointClick: e.onEntrypointClick ?? (() => {
+      basePath: t.basePath,
+      capabilities: t.capabilities ?? m(),
+      container: t.container ?? "[data-translation-operations]",
+      onEntrypointClick: t.onEntrypointClick ?? (() => {
       })
     }, this.capabilities = this.config.capabilities, this.entrypoints = L(this.capabilities, this.config.basePath);
   }
+  /** Get capabilities */
   getCapabilities() {
     return this.capabilities;
   }
+  /** Get available entrypoints */
   getEntrypoints() {
     return this.entrypoints;
   }
+  /** Check if any operations are available */
   hasOperations() {
     return this.entrypoints.length > 0;
   }
+  /** Check if exchange is enabled */
   isExchangeEnabled() {
     return $(this.capabilities);
   }
+  /** Check if queue is enabled */
   isQueueEnabled() {
     return S(this.capabilities);
   }
-  getRoute(e) {
-    return E(e, this.capabilities, this.config.basePath);
+  /** Get route for a specific operation */
+  getRoute(t) {
+    return E(t, this.capabilities, this.config.basePath);
   }
+  /** Initialize and render entrypoints */
   init() {
     if (!this.hasOperations()) return;
-    const e = typeof this.config.container == "string" ? document.querySelector(this.config.container) : this.config.container;
-    e && (D(e, this.capabilities, this.config.basePath, { headerLabel: "Translations" }), e.querySelectorAll(".translation-operation-link").forEach((t) => {
-      t.addEventListener("click", (n) => {
-        const s = t.dataset.entrypointId, a = this.entrypoints.find((r) => r.id === s);
-        if (!a || !a.enabled) {
-          n.preventDefault();
+    const t = typeof this.config.container == "string" ? document.querySelector(this.config.container) : this.config.container;
+    t && (D(
+      t,
+      this.capabilities,
+      this.config.basePath,
+      { headerLabel: "Translations" }
+    ), t.querySelectorAll(".translation-operation-link").forEach((n) => {
+      n.addEventListener("click", (s) => {
+        const a = n.dataset.entrypointId, i = this.entrypoints.find((r) => r.id === a);
+        if (!i || !i.enabled) {
+          s.preventDefault();
           return;
         }
-        this.config.onEntrypointClick && this.config.onEntrypointClick(a);
+        this.config.onEntrypointClick && this.config.onEntrypointClick(i);
       });
     }));
   }
-};
+}
 function W(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
-  const t = new Q({ basePath: e ?? "" });
-  return t.init(), t;
+  const n = new Q({
+    basePath: e ?? ""
+  });
+  return n.init(), n;
 }
 export {
   Q as TranslationOperationsManager,
   L as buildTranslationEntrypoints,
-  p as extractTranslationCapabilities,
+  m as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  K as hasTranslationOperations,
+  Y as hasTranslationOperations,
   W as initTranslationOperations,
-  Y as initTranslationSurfaceShell,
+  K as initTranslationSurfaceShell,
   $ as isExchangeEnabled,
   S as isQueueEnabled,
   O as renderEntrypointLink,
   D as renderTranslationEntrypoints,
   T as renderTranslationSurfaceShell
 };
-
 //# sourceMappingURL=index.js.map
