@@ -591,10 +591,15 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 
 // WithWorkflow attaches a workflow engine to the admin orchestrator.
 func (a *Admin) WithWorkflow(w WorkflowEngine) *Admin {
+	if a == nil {
+		return a
+	}
 	a.workflow = w
 	applyCMSWorkflowDefaults(a)
 	if a.workflowRuntime != nil {
-		_ = a.bindWorkflowRuntime(a.workflowRuntime)
+		if err := a.bindWorkflowRuntime(a.workflowRuntime); err != nil {
+			a.loggerFor("admin.workflow.runtime").Warn("workflow runtime binding failed", "error", err)
+		}
 	}
 	return a
 }
