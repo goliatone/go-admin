@@ -164,6 +164,20 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	if ctx.Admin.users == nil {
 		return FeatureDisabledError{Feature: string(FeatureUsers)}
 	}
+	m.applyDefaults(ctx)
+	userBuilder := m.buildUsersPanel(ctx)
+	roleBuilder := m.buildRolesPanel(ctx)
+	if err := m.registerUsersPanels(ctx, userBuilder, roleBuilder); err != nil {
+		return err
+	}
+	if err := m.registerOptionalProfilesPanel(ctx); err != nil {
+		return err
+	}
+	m.registerUsersSearchAdapter(ctx)
+	return nil
+}
+
+func (m *UserManagementModule) applyDefaults(ctx ModuleContext) {
 	if m.menuCode == "" {
 		m.menuCode = ctx.Admin.navMenuCode
 	}
@@ -182,10 +196,10 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
 		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
 	}
+}
 
+func (m *UserManagementModule) buildUsersPanel(ctx ModuleContext) *PanelBuilder {
 	userRepo := NewUserPanelRepository(ctx.Admin.users)
-	roleRepo := NewRolePanelRepository(ctx.Admin.users)
-
 	userBuilder := ctx.Admin.Panel(usersModuleID).
 		WithRepository(userRepo).
 		ListFields(
@@ -228,41 +242,11 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			userBuilder = configured
 		}
 	}
+	return userBuilder
+}
 
-	if bus := ctx.Admin.Commands(); bus != nil {
-		_, _ = RegisterCommand(bus, newUserActivateCommand(ctx.Admin.users))
-		_, _ = RegisterCommand(bus, newUserSuspendCommand(ctx.Admin.users))
-		_, _ = RegisterCommand(bus, newUserDisableCommand(ctx.Admin.users))
-		_, _ = RegisterCommand(bus, newUserArchiveCommand(ctx.Admin.users))
-		_, _ = RegisterCommand(bus, newUserBulkAssignRoleCommand(ctx.Admin.users))
-		_, _ = RegisterCommand(bus, newUserBulkUnassignRoleCommand(ctx.Admin.users))
-	}
-
-	lifecycleActions := []Action{
-		{Name: "activate", CommandName: "users.activate", Permission: ctx.Admin.config.UsersUpdatePermission},
-		{Name: "suspend", CommandName: "users.suspend", Permission: ctx.Admin.config.UsersUpdatePermission},
-		{Name: "disable", CommandName: "users.disable", Permission: ctx.Admin.config.UsersUpdatePermission},
-		{Name: "archive", CommandName: "users.archive", Permission: ctx.Admin.config.UsersDeletePermission},
-	}
-	roleActions := []Action{
-		{
-			Name:            "assign-role",
-			Label:           "Assign Role",
-			CommandName:     userBulkAssignRoleCommandName,
-			Permission:      ctx.Admin.config.UsersUpdatePermission,
-			PayloadRequired: []string{"role_id"},
-		},
-		{
-			Name:            "unassign-role",
-			Label:           "Unassign Role",
-			CommandName:     userBulkUnassignRoleCommandName,
-			Permission:      ctx.Admin.config.UsersUpdatePermission,
-			PayloadRequired: []string{"role_id"},
-		},
-	}
-	userBuilder.Actions(lifecycleActions...)
-	userBuilder.BulkActions(append(lifecycleActions, roleActions...)...)
-
+func (m *UserManagementModule) buildRolesPanel(ctx ModuleContext) *PanelBuilder {
+	roleRepo := NewRolePanelRepository(ctx.Admin.users)
 	roleBuilder := ctx.Admin.Panel(rolesPanelID).
 		WithRepository(roleRepo).
 		WithUIRouteMode(PanelUIRouteModeCustom).
@@ -301,7 +285,39 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			roleBuilder = configured
 		}
 	}
+	return roleBuilder
+}
 
+func (m *UserManagementModule) registerUsersPanels(ctx ModuleContext, userBuilder, roleBuilder *PanelBuilder) error {
+	if bus := ctx.Admin.Commands(); bus != nil {
+		if err := registerUserCommands(bus, ctx.Admin.users); err != nil {
+			return err
+		}
+	}
+	lifecycleActions := []Action{
+		{Name: "activate", CommandName: "users.activate", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "suspend", CommandName: "users.suspend", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "disable", CommandName: "users.disable", Permission: ctx.Admin.config.UsersUpdatePermission},
+		{Name: "archive", CommandName: "users.archive", Permission: ctx.Admin.config.UsersDeletePermission},
+	}
+	roleActions := []Action{
+		{
+			Name:            "assign-role",
+			Label:           "Assign Role",
+			CommandName:     userBulkAssignRoleCommandName,
+			Permission:      ctx.Admin.config.UsersUpdatePermission,
+			PayloadRequired: []string{"role_id"},
+		},
+		{
+			Name:            "unassign-role",
+			Label:           "Unassign Role",
+			CommandName:     userBulkUnassignRoleCommandName,
+			Permission:      ctx.Admin.config.UsersUpdatePermission,
+			PayloadRequired: []string{"role_id"},
+		},
+	}
+	userBuilder.Actions(lifecycleActions...)
+	userBuilder.BulkActions(append(lifecycleActions, roleActions...)...)
 	if _, err := ctx.Admin.RegisterPanel(usersModuleID, userBuilder); err != nil {
 		return err
 	}
@@ -313,68 +329,119 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	if m.enableUserProfilesPanel {
-		profileStore := ProfileStore(nil)
-		if ctx.Admin.profile != nil {
-			profileStore = ctx.Admin.profile.Store()
-		}
-		profilesRepo := NewUserProfilesPanelRepository(ctx.Admin.users, profileStore, m.defaultLocale)
-		profilesBuilder := ctx.Admin.Panel(userProfilesPanelID).
-			WithRepository(profilesRepo).
-			ListFields(
-				Field{Name: "id", Label: "User ID", Type: "text"},
-				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
-				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
-				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
-				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
-			).
-			FormFields(
-				Field{Name: "id", Label: "User ID", Type: "text", Required: true},
-				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text", Required: true},
-				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
-				Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
-				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
-				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
-				Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
-			).
-			DetailFields(
-				Field{Name: "id", Label: "User ID", Type: "text", ReadOnly: true},
-				Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
-				Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
-				Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
-				Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
-				Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
-				Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
-			).
-			Filters(
-				Filter{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
-				Filter{Name: profileKeyEmail, Label: "Email", Type: "text"},
-				Filter{Name: profileKeyLocale, Label: "Locale", Type: "text"},
-				Filter{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
-			).
-			Permissions(PanelPermissions{
-				View:   ctx.Admin.config.UsersPermission,
-				Create: ctx.Admin.config.UsersCreatePermission,
-				Edit:   ctx.Admin.config.UsersUpdatePermission,
-				Delete: ctx.Admin.config.UsersDeletePermission,
-			})
-		if m.userProfilesPanelConfigurer != nil {
-			if configured := m.userProfilesPanelConfigurer(profilesBuilder); configured != nil {
-				profilesBuilder = configured
-			}
-		}
-		if _, err := ctx.Admin.RegisterPanel(userProfilesPanelID, profilesBuilder); err != nil {
-			return err
+func (m *UserManagementModule) registerOptionalProfilesPanel(ctx ModuleContext) error {
+	if !m.enableUserProfilesPanel {
+		return nil
+	}
+	profileStore := ProfileStore(nil)
+	if ctx.Admin.profile != nil {
+		profileStore = ctx.Admin.profile.Store()
+	}
+	profilesRepo := NewUserProfilesPanelRepository(ctx.Admin.users, profileStore, m.defaultLocale)
+	profilesBuilder := ctx.Admin.Panel(userProfilesPanelID).
+		WithRepository(profilesRepo).
+		ListFields(
+			Field{Name: "id", Label: "User ID", Type: "text"},
+			Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+			Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+			Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+			Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+		).
+		FormFields(
+			Field{Name: "id", Label: "User ID", Type: "text", Required: true},
+			Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text", Required: true},
+			Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+			Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
+			Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+			Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+			Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
+		).
+		DetailFields(
+			Field{Name: "id", Label: "User ID", Type: "text", ReadOnly: true},
+			Field{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+			Field{Name: profileKeyEmail, Label: "Email", Type: "email"},
+			Field{Name: profileKeyAvatarURL, Label: "Avatar URL", Type: "text"},
+			Field{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+			Field{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+			Field{Name: profileKeyBio, Label: "Bio", Type: "textarea"},
+		).
+		Filters(
+			Filter{Name: profileKeyDisplayName, Label: "Display Name", Type: "text"},
+			Filter{Name: profileKeyEmail, Label: "Email", Type: "text"},
+			Filter{Name: profileKeyLocale, Label: "Locale", Type: "text"},
+			Filter{Name: profileKeyTimezone, Label: "Timezone", Type: "text"},
+		).
+		Permissions(PanelPermissions{
+			View:   ctx.Admin.config.UsersPermission,
+			Create: ctx.Admin.config.UsersCreatePermission,
+			Edit:   ctx.Admin.config.UsersUpdatePermission,
+			Delete: ctx.Admin.config.UsersDeletePermission,
+		})
+	if m.userProfilesPanelConfigurer != nil {
+		if configured := m.userProfilesPanelConfigurer(profilesBuilder); configured != nil {
+			profilesBuilder = configured
 		}
 	}
+	_, err := ctx.Admin.RegisterPanel(userProfilesPanelID, profilesBuilder)
+	return err
+}
 
-	if ctx.Admin.SearchService() != nil && featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
-		ctx.Admin.SearchService().Register(usersModuleID, &userSearchAdapter{
-			service:    ctx.Admin.users,
-			permission: ctx.Admin.config.UsersPermission,
-			urls:       m.urls,
-		})
+func (m *UserManagementModule) registerUsersSearchAdapter(ctx ModuleContext) {
+	if ctx.Admin.SearchService() == nil || !featureEnabled(ctx.Admin.featureGate, FeatureSearch) {
+		return
+	}
+	ctx.Admin.SearchService().Register(usersModuleID, &userSearchAdapter{
+		service:    ctx.Admin.users,
+		permission: ctx.Admin.config.UsersPermission,
+		urls:       m.urls,
+	})
+}
+
+func registerUserCommands(bus *CommandBus, service *UserManagementService) error {
+	if bus == nil {
+		return nil
+	}
+	registrations := []struct {
+		name string
+		cmd  any
+	}{
+		{name: userActivateCommandName, cmd: newUserActivateCommand(service)},
+		{name: userSuspendCommandName, cmd: newUserSuspendCommand(service)},
+		{name: userDisableCommandName, cmd: newUserDisableCommand(service)},
+		{name: userArchiveCommandName, cmd: newUserArchiveCommand(service)},
+		{name: userBulkAssignRoleCommandName, cmd: newUserBulkAssignRoleCommand(service)},
+		{name: userBulkUnassignRoleCommandName, cmd: newUserBulkUnassignRoleCommand(service)},
+	}
+	for _, registration := range registrations {
+		switch cmd := registration.cmd.(type) {
+		case *userActivateCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		case *userSuspendCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		case *userDisableCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		case *userArchiveCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		case *userBulkAssignRoleCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		case *userBulkUnassignRoleCommand:
+			if _, err := RegisterCommand(bus, cmd); err != nil {
+				return fmt.Errorf("register user command %q: %w", registration.name, err)
+			}
+		}
 	}
 	return nil
 }
