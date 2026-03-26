@@ -101,6 +101,98 @@ func TestValidatePanelActionWiringFailsForMissingCommandFactory(t *testing.T) {
 	}
 }
 
+func TestValidatePanelActionWiringFailsForMissingCommandFactoryWhenBusDisabled(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	bus := NewCommandBus(false)
+	adm := mustNewAdmin(t, cfg, Dependencies{CommandBus: bus})
+
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	err := adm.validatePanelActionWiring()
+	if err == nil {
+		t.Fatalf("expected wiring validation to fail when bus is disabled and factory is missing")
+	}
+	if !panelActionWiringContainsReason(t, err, "command_factory_not_registered") {
+		t.Fatalf("expected command_factory_not_registered issue, got %v", err)
+	}
+}
+
+func TestValidatePanelActionWiringUsesRegisteredFactoryEvenWhenBusDisabled(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	bus := NewCommandBus(true)
+	adm := mustNewAdmin(t, cfg, Dependencies{CommandBus: bus})
+	defer adm.Commands().Reset()
+
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	if err := RegisterMessageFactory(adm.Commands(), "items.refresh", func(map[string]any, []string) (panelActionWiringMsg, error) {
+		return panelActionWiringMsg{}, nil
+	}); err != nil {
+		t.Fatalf("register factory: %v", err)
+	}
+	adm.Commands().Enable(false)
+
+	if err := adm.validatePanelActionWiring(); err != nil {
+		t.Fatalf("expected wiring validation to pass with pre-registered factory, got %v", err)
+	}
+}
+
+func TestValidatePanelActionWiringAcceptsFactoryRegisteredWhileBusDisabled(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	bus := NewCommandBus(false)
+	adm := mustNewAdmin(t, cfg, Dependencies{CommandBus: bus})
+	defer adm.Commands().Reset()
+
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	if err := RegisterMessageFactory(adm.Commands(), "items.refresh", func(map[string]any, []string) (panelActionWiringMsg, error) {
+		return panelActionWiringMsg{}, nil
+	}); err != nil {
+		t.Fatalf("register factory: %v", err)
+	}
+
+	if err := adm.validatePanelActionWiring(); err != nil {
+		t.Fatalf("expected wiring validation to pass with disabled-bus factory registration, got %v", err)
+	}
+}
+
+func TestValidatePanelActionWiringSkipsCommandValidationWithoutCommandOptIn(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	if err := adm.validatePanelActionWiring(); err != nil {
+		t.Fatalf("expected non-command installs to skip command factory validation, got %v", err)
+	}
+}
+
 func TestValidatePanelActionWiringAllowsPassiveBulkDelete(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
 	adm := mustNewAdmin(t, cfg, Dependencies{})
