@@ -50,6 +50,7 @@ type authUIOptions struct {
 	loginErrorQueryKey           string
 	loginIdentifierQueryKey      string
 	loginRememberQueryKey        string
+	loginRedirectResolver        func(c router.Context, fallback string) string
 }
 
 var (
@@ -107,6 +108,16 @@ func WithAuthUILoginRedirect(route string) AuthUIOption {
 	return func(opts *authUIOptions) {
 		if opts != nil {
 			opts.loginRedirectPath = strings.TrimSpace(route)
+		}
+	}
+}
+
+// WithAuthUILoginRedirectResolver overrides the login redirect target using the
+// current request context and a static fallback.
+func WithAuthUILoginRedirectResolver(resolver func(c router.Context, fallback string) string) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && resolver != nil {
+			opts.loginRedirectResolver = resolver
 		}
 	}
 }
@@ -252,12 +263,12 @@ func WithAuthUIThemeAssets(prefix string, assets map[string]string) AuthUIOption
 }
 
 // RegisterAuthUIRoutes registers login, logout, and password reset UI routes.
-func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error {
+func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth *auth.RouteAuthenticator, opts ...AuthUIOption) error {
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
-	if auther == nil {
-		return fmt.Errorf("auth auther is required")
+	if routeAuth == nil {
+		return fmt.Errorf("auth route authenticator is required")
 	}
 
 	options := authUIOptions{
@@ -327,7 +338,10 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		return featureEnabledWithContext(c.Context(), options.featureGate, "users.signup", authScope)
 	}
 
-	loginCookieName := strings.TrimSpace(cookieName)
+	loginCookieName := ""
+	if provider, ok := any(routeAuth).(interface{ AuthCookieName() string }); ok {
+		loginCookieName = strings.TrimSpace(provider.AuthCookieName())
+	}
 	if loginCookieName == "" {
 		loginCookieName = strings.TrimSpace(options.cookie.Name)
 	}
@@ -381,8 +395,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		payload := loginPayload{}
 		_ = c.Bind(&payload)
 
-		token, err := auther.Login(c.Context(), payload.Identifier, payload.Password)
-		if err != nil {
+		if err := routeAuth.Login(c, payload); err != nil {
 			errorCode := classifyLoginErrorCode(err)
 			return c.Redirect(
 				buildLoginFailureRedirect(
@@ -398,15 +411,13 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 			)
 		}
 
-		cookie := options.cookie
-		cookie.Name = loginCookieName
-		cookie.Value = token
-		if cookie.Path == "" {
-			cookie.Path = "/"
+		redirectTarget := options.loginRedirectPath
+		if options.loginRedirectResolver != nil {
+			if resolved := strings.TrimSpace(options.loginRedirectResolver(c, redirectTarget)); resolved != "" {
+				redirectTarget = resolved
+			}
 		}
-		c.Cookie(&cookie)
-
-		return c.Redirect(options.loginRedirectPath, fiber.StatusFound)
+		return c.Redirect(redirectTarget, fiber.StatusFound)
 	}, csrfMiddleware)
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
@@ -467,14 +478,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 	}
 
 	r.Post(options.logoutPath, func(c router.Context) error {
-		cookie := options.cookie
-		cookie.Name = loginCookieName
-		cookie.Value = ""
-		if cookie.Path == "" {
-			cookie.Path = "/"
-		}
-		cookie.MaxAge = -1
-		c.Cookie(&cookie)
+		routeAuth.Logout(c)
 		return c.Redirect(options.logoutRedirectPath, fiber.StatusFound)
 	}, csrfMiddleware)
 
@@ -485,6 +489,18 @@ type loginPayload struct {
 	Identifier string `form:"identifier" json:"identifier"`
 	Password   string `form:"password" json:"password"`
 	Remember   bool   `form:"remember" json:"remember"`
+}
+
+func (p loginPayload) GetIdentifier() string {
+	return strings.TrimSpace(p.Identifier)
+}
+
+func (p loginPayload) GetPassword() string {
+	return p.Password
+}
+
+func (p loginPayload) GetExtendedSession() bool {
+	return p.Remember
 }
 
 func stripRouteParams(route string) string {
