@@ -681,7 +681,7 @@ func main() {
 	if resolvedScopeCfg.Mode == quickstart.ScopeModeSingle {
 		authOptions = append(authOptions, setup.WithDefaultScope(resolvedScopeCfg.DefaultTenantID, resolvedScopeCfg.DefaultOrgID))
 	}
-	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
+	authn, routeAuth, _, _ := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
 	wrapAuthed := authn.WrapHandler
 	if scopeDebugEnabled {
 		wrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
@@ -1230,8 +1230,7 @@ func main() {
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
-		auther,
-		authCookieName,
+		routeAuth,
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),

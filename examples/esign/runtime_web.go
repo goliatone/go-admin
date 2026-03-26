@@ -198,11 +198,12 @@ type eSignAuthConfig struct {
 }
 
 type eSignAuthBundle struct {
-	Authenticator *coreadmin.GoAuthAuthenticator
-	Authorizer    coreadmin.Authorizer
-	Auther        *auth.Auther
-	CookieName    string
-	AdminConfig   coreadmin.AuthConfig
+	Authenticator      *coreadmin.GoAuthAuthenticator
+	RouteAuthenticator *auth.RouteAuthenticator
+	Authorizer         coreadmin.Authorizer
+	Auther             *auth.Auther
+	CookieName         string
+	AdminConfig        coreadmin.AuthConfig
 }
 
 func (c eSignAuthConfig) GetSigningKey() string         { return c.signingKey }
@@ -370,11 +371,12 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 		},
 	})
 	return eSignAuthBundle{
-		Authenticator: authn,
-		Authorizer:    authorizer,
-		Auther:        auther,
-		CookieName:    authCfg.GetContextKey(),
-		AdminConfig:   adminAuthCfg,
+		Authenticator:      authn,
+		RouteAuthenticator: routeAuth,
+		Authorizer:         authorizer,
+		Auther:             auther,
+		CookieName:         authCfg.GetContextKey(),
+		AdminConfig:        adminAuthCfg,
 	}, nil
 }
 
@@ -513,6 +515,7 @@ func registerESignWebRoutes(
 	cfg coreadmin.Config,
 	adm *coreadmin.Admin,
 	authn coreadmin.HandlerAuthenticator,
+	routeAuth *auth.RouteAuthenticator,
 	auther *auth.Auther,
 	cookieName string,
 	routes handlers.RouteSet,
@@ -527,8 +530,15 @@ func registerESignWebRoutes(
 	if authn == nil {
 		return fmt.Errorf("authenticator is required")
 	}
+	if routeAuth == nil {
+		return fmt.Errorf("route authenticator is required")
+	}
 	if auther == nil {
 		return fmt.Errorf("auther is required")
+	}
+	cookieName = strings.TrimSpace(cookieName)
+	if cookieName == "" {
+		return fmt.Errorf("auth cookie name is required")
 	}
 	basePath := strings.TrimSpace(adm.BasePath())
 	if basePath == "" {
@@ -583,8 +593,8 @@ func registerESignWebRoutes(
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
-		auther,
-		cookieName,
+		routeAuth,
+		quickstart.WithAuthUICookie(router.FirstPartySessionCookie(cookieName, "")),
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-esign", "password_reset"),
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),

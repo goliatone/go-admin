@@ -219,7 +219,7 @@ func main() {
 		logger.Fatal("initialize admin failed", "error", err)
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
-	if err := registerESignWebRoutes(r, cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
+	if err := registerESignWebRoutes(r, cfg, adm, authn, authBundle.RouteAuthenticator, auther, authCookieName, routes, esignModule); err != nil {
 		logger.Fatal("register web routes failed", "error", err)
 	}
 	if err := registerESignAgreementEventsRoute(r, adm, authn, esignModule, agreementStream); err != nil {

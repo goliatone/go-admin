@@ -117,8 +117,7 @@ func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		adminCfg,
-		auther,
-		authCookieName,
+		routeAuth,
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 		quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
