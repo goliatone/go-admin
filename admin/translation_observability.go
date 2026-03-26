@@ -4,7 +4,6 @@ import (
 	"context"
 	"expvar"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"log/slog"
 	"sort"
 	"strings"
 )
@@ -34,7 +33,22 @@ var defaultTranslationMetrics TranslationMetrics = &expvarTranslationMetrics{
 	qaOutcomes:         expvar.NewMap(translationQAOutcomeCountMetric),
 }
 
-var translationObservabilityLogger = slog.Default()
+var translationObservabilityLogger = ensureLogger(nil)
+
+func setTranslationObservabilityLogger(logger Logger) {
+	translationObservabilityLogger = ensureLogger(logger)
+}
+
+func translationObservabilityContextLogger(ctx context.Context) Logger {
+	logger := ensureLogger(translationObservabilityLogger)
+	if ctx == nil {
+		return logger
+	}
+	if withCtx := logger.WithContext(ctx); withCtx != nil {
+		return withCtx
+	}
+	return logger
+}
 
 type expvarTranslationMetrics struct {
 	blockedTransitions *expvar.Map
@@ -237,10 +251,7 @@ func sanitizeMetricTag(value string) string {
 }
 
 func logTranslationBlockedTransition(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError, entity, locale, transition, channel string) {
-	logger := translationObservabilityLogger
-	if logger == nil {
-		return
-	}
+	logger := translationObservabilityContextLogger(ctx)
 	attrs := []any{
 		"event", "translation.transition.blocked",
 		"entity", entity,
@@ -253,14 +264,11 @@ func logTranslationBlockedTransition(ctx context.Context, input TranslationPolic
 	if fields := normalizeMissingFieldsByLocale(missing.MissingFieldsByLocale); len(fields) > 0 {
 		attrs = append(attrs, "missing_fields_by_locale", fields)
 	}
-	logger.WarnContext(ctx, "translation workflow transition blocked", attrs...)
+	logger.Warn("translation workflow transition blocked", attrs...)
 }
 
 func logTranslationCreateAction(ctx context.Context, event translationCreateActionEvent, tags map[string]string) {
-	logger := translationObservabilityLogger
-	if logger == nil {
-		return
-	}
+	logger := translationObservabilityContextLogger(ctx)
 	attrs := []any{
 		"event", "translation.remediation.action",
 		"action", tags["transition"],
@@ -274,17 +282,14 @@ func logTranslationCreateAction(ctx context.Context, event translationCreateActi
 	}
 	if event.Err != nil {
 		attrs = append(attrs, "error", event.Err.Error())
-		logger.WarnContext(ctx, "translation remediation action failed", attrs...)
+		logger.Warn("translation remediation action failed", attrs...)
 		return
 	}
-	logger.InfoContext(ctx, "translation remediation action handled", attrs...)
+	logger.Info("translation remediation action handled", attrs...)
 }
 
 func logTranslationCreateLocale(ctx context.Context, event translationCreateLocaleEvent, tags map[string]string) {
-	logger := translationObservabilityLogger
-	if logger == nil {
-		return
-	}
+	logger := translationObservabilityContextLogger(ctx)
 	attrs := []any{
 		"event", "translation.family.create_locale",
 		"outcome", tags["outcome"],
@@ -297,17 +302,14 @@ func logTranslationCreateLocale(ctx context.Context, event translationCreateLoca
 	}
 	if event.Err != nil {
 		attrs = append(attrs, "error", event.Err.Error())
-		logger.WarnContext(ctx, "translation family create-locale failed", attrs...)
+		logger.Warn("translation family create-locale failed", attrs...)
 		return
 	}
-	logger.InfoContext(ctx, "translation family create-locale handled", attrs...)
+	logger.Info("translation family create-locale handled", attrs...)
 }
 
 func logTranslationReviewAction(ctx context.Context, event translationReviewActionEvent, tags map[string]string) {
-	logger := translationObservabilityLogger
-	if logger == nil {
-		return
-	}
+	logger := translationObservabilityContextLogger(ctx)
 	attrs := []any{
 		"event", "translation.review.action",
 		"action", tags["action"],
@@ -325,17 +327,14 @@ func logTranslationReviewAction(ctx context.Context, event translationReviewActi
 	}
 	if event.Err != nil {
 		attrs = append(attrs, "error", event.Err.Error())
-		logger.WarnContext(ctx, "translation review action failed", attrs...)
+		logger.Warn("translation review action failed", attrs...)
 		return
 	}
-	logger.InfoContext(ctx, "translation review action handled", attrs...)
+	logger.Info("translation review action handled", attrs...)
 }
 
 func logTranslationQAOutcome(ctx context.Context, event translationQAOutcomeEvent, tags map[string]string) {
-	logger := translationObservabilityLogger
-	if logger == nil {
-		return
-	}
+	logger := translationObservabilityContextLogger(ctx)
 	attrs := []any{
 		"event", "translation.qa.outcome",
 		"trigger", tags["trigger"],
@@ -349,5 +348,5 @@ func logTranslationQAOutcome(ctx context.Context, event translationQAOutcomeEven
 		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
 		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
 	}
-	logger.InfoContext(ctx, "translation qa outcome recorded", attrs...)
+	logger.Info("translation qa outcome recorded", attrs...)
 }
