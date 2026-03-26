@@ -1,5 +1,6 @@
-import { initBlockEditor as R, registerBlockTemplate as P, refreshBlockTemplateRegistry as j, markRequiredFields as H } from "./block_editor.js";
-function F(t) {
+import { escapeHTML as R } from "../shared/html.js";
+import { initBlockEditor as P, registerBlockTemplate as j, refreshBlockTemplateRegistry as H, markRequiredFields as F } from "./block_editor.js";
+function z(t) {
   if (!t) return {};
   try {
     const r = JSON.parse(t);
@@ -8,7 +9,7 @@ function F(t) {
   }
   return {};
 }
-function z(t, r) {
+function U(t, r) {
   if (!t) return r;
   try {
     return JSON.parse(t);
@@ -23,9 +24,6 @@ function D(t) {
     r.replace(/-/g, "_"),
     r.replace(/_/g, "-")
   ])) : [];
-}
-function U(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function V(t) {
   const r = t.trim(), n = r.replace(/\/+$/, "");
@@ -63,7 +61,7 @@ function W(t, r) {
       <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
-      <p class="text-xs text-red-700 dark:text-red-300">${U(r)}</p>
+      <p class="text-xs text-red-700 dark:text-red-300">${R(r)}</p>
     </div>
     <button type="button" data-picker-retry
             class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
@@ -112,14 +110,14 @@ async function K(t, r, n) {
   }
 }
 function M(t, r) {
-  P(t, {
+  j(t, {
     type: r.slug,
     label: r.label,
     icon: r.icon || void 0,
     schemaVersion: r.schema_version || void 0,
     requiredFields: r.required_fields ?? [],
     html: r.html
-  }), j(t);
+  }), H(t);
 }
 function G(t, r) {
   const n = typeof t.schema_version == "string" ? t.schema_version.trim() : "";
@@ -158,7 +156,7 @@ function Q(t, r, n) {
   const B = document.createElement("div");
   B.className = "p-4 space-y-4", B.setAttribute("data-block-body", "true"), B.innerHTML = t.html;
   const S = t.required_fields || [];
-  S.length > 0 && H(B, S), o.appendChild(f), o.appendChild(B);
+  S.length > 0 && F(B, S), o.appendChild(f), o.appendChild(B);
   const E = document.createElement("input");
   E.type = "hidden", E.name = "_type", E.value = t.slug, E.readOnly = !0, E.setAttribute("data-block-type-input", "true"), E.setAttribute("data-block-ignore", "true"), o.appendChild(E), o.dataset.blockSchema = v;
   const w = document.createElement("input");
@@ -295,7 +293,7 @@ function X(t, r, n) {
   };
 }
 async function O(t) {
-  const r = t.closest("[data-component-config]") || t, n = F(r.getAttribute("data-component-config")), o = t.dataset.apiBase || n.apiBase || "";
+  const r = t.closest("[data-component-config]") || t, n = z(r.getAttribute("data-component-config")), o = t.dataset.apiBase || n.apiBase || "";
   if (!o) {
     console.warn("block-library-picker: missing data-api-base");
     return;
@@ -305,7 +303,7 @@ async function O(t) {
     console.warn("block-library-picker: invalid api base", o);
     return;
   }
-  const l = z(t.dataset.allowedBlocks, n.allowedBlocks ?? []), b = parseInt(t.dataset.maxBlocks || "", 10) || n.maxBlocks || 0, x = n.lazyLoad !== !1, v = n.includeInactive === !0, L = n.sortable ?? t.dataset.blockSortable === "true", k = /* @__PURE__ */ new Set(), d = /* @__PURE__ */ new Map();
+  const l = U(t.dataset.allowedBlocks, n.allowedBlocks ?? []), b = parseInt(t.dataset.maxBlocks || "", 10) || n.maxBlocks || 0, x = n.lazyLoad !== !1, v = n.includeInactive === !0, L = n.sortable ?? t.dataset.blockSortable === "true", k = /* @__PURE__ */ new Set(), d = /* @__PURE__ */ new Map();
   let u;
   try {
     u = await J(f, v);
@@ -357,7 +355,7 @@ async function O(t) {
         console.error("block-library-picker: prefetch failed", s);
       }
   }
-  R(t);
+  P(t);
   const w = t.querySelector("[data-block-add-select]"), h = t.querySelector("[data-block-add]"), C = document.createElement("div");
   C.className = "mt-3", C.setAttribute("data-picker-controls", "true");
   const _ = document.createElement("div");

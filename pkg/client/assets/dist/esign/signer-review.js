@@ -1,5 +1,5 @@
 import { f as ht } from "../chunks/dom-helpers-CMRVXsMj.js";
-import { a as P } from "../chunks/html-Br-oQr7i.js";
+import { escapeHTML as P } from "../shared/html.js";
 import { a as jr, l as Or } from "../chunks/runtime-bhSs9hEJ.js";
 const Yr = "esign.signer.profile.v1", an = "esign.signer.profile.outbox.v1", pt = 90, on = 500 * 1024;
 class Wr {

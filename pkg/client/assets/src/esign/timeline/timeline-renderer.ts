@@ -17,6 +17,7 @@ import type {
 import { getColorClasses, getEventConfig } from './event-registry.js';
 import type { ProcessedTimelineItem, DateGroup, FilterStats } from './event-grouper.js';
 import { EventResolverContext, resolveActor, resolveMetadata } from './event-resolver.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
  * Format a timestamp for display
@@ -65,11 +66,6 @@ export function formatRelativeTime(ts: string): string {
 /**
  * Escape HTML for safe rendering
  */
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 /**
  * Render a metadata field as HTML

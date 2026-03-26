@@ -4,6 +4,7 @@
 
 import type { SQLEntry } from './types.js';
 import { formatDuration } from './utils.js';
+import { escapeAttribute as escapeAttr } from '../../shared/html.js';
 
 /**
  * Copy text to clipboard and provide visual feedback on the button.
@@ -228,14 +229,6 @@ export function sortToggleAttr(panelId: string): string {
 /**
  * Escape a string for use in an HTML attribute value.
  */
-function escapeAttr(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 /**
  * Build export text from selected SQL entries.

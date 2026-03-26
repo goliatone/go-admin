@@ -1,20 +1,8 @@
+export { escapeHTML } from '../shared/html.js';
+
 /**
  * Formatting utilities for tab panels
  */
-
-/**
- * Escape HTML special characters to prevent XSS
- */
-export function escapeHTML(raw: unknown): string {
-  const text = String(raw || '');
-  return text.replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[m] || m));
-}
 
 /**
  * Format a number with locale-specific separators

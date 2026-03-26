@@ -1,8 +1,4 @@
-export function escapeHtml(text: unknown): string {
-  const div = document.createElement('div');
-  div.textContent = String(text ?? '');
-  return div.innerHTML;
-}
+export { escapeHTML as escapeHtml } from '../../../shared/html.js';
 
 export function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info'): void {
   const toast = document.createElement('div');

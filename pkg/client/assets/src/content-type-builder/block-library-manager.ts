@@ -22,6 +22,7 @@ import { Modal, ConfirmModal, TextPromptModal } from '../shared/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Block Library Manager Component
@@ -1117,11 +1118,6 @@ class BlockVersionHistoryViewer extends Modal {
 // Utilities
 // =============================================================================
 
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function titleCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();

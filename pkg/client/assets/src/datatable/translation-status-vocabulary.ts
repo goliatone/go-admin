@@ -1,5 +1,6 @@
 import type { DisabledReasonCode, TranslationErrorEnvelope } from '../translation-contracts/index.js';
 import { normalizeActionBlockCode, type ActionBlockCodeInput } from './action-contracts.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 export type { DisabledReasonCode } from '../translation-contracts/index.js';
 export type { ActionBlockCodeInput } from './action-contracts.js';
 
@@ -949,11 +950,3 @@ export function getStatusVocabularyStyles(): string {
 // Helpers
 // ============================================================================
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}

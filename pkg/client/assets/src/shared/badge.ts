@@ -1,3 +1,6 @@
+import { escapeHTML as escapeHtml } from './html.js';
+import { escapeAttribute as escapeAttr } from './html.js';
+
 /**
  * Shared Badge Utility
  *
@@ -118,16 +121,3 @@ export function booleanChip(
 // Escape Helpers
 // ---------------------------------------------------------------------------
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;');
-}

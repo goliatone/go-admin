@@ -6,6 +6,7 @@
 import { badge, booleanChip as sharedBooleanChip } from '../shared/badge.js';
 import { parseDateLike } from '../shared/date-utils.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import {
   renderLocaleBadge,
   renderTranslationStatusCell,
@@ -34,14 +35,6 @@ export interface CellRendererContext {
 
 export type CellRenderer = (value: any, record: any, column: string, context?: CellRendererContext) => string;
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function compactJSON(value: any): string {
   try {

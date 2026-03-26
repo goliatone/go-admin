@@ -1,3 +1,6 @@
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
+
 /**
  * Grouped Mode Utilities for DataGrid (Phase 2)
  *
@@ -1105,25 +1108,6 @@ export function renderGroupHeaderRow(
       </td>
     </tr>
   `;
-}
-
-/**
- * Escape HTML special characters.
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-/**
- * Escape attribute value.
- */
-function escapeAttr(str: string): string {
-  return escapeHtml(str);
 }
 
 // ============================================================================

@@ -1,6 +1,7 @@
 import { S as k } from "./lineage-contracts-CFbDklQS.js";
 import { c as re, p as ne, o as ie, j as oe, m as ae, l as q, i as ce, S as H, a as le, h as j, r as de } from "./source-management-pages-Bzq4f4fH.js";
 import { f as ue } from "./dom-helpers-CMRVXsMj.js";
+import { escapeHTML as o } from "../shared/html.js";
 function N(t) {
   const s = document.getElementById(t)?.textContent?.trim();
   if (!s)
@@ -10,9 +11,6 @@ function N(t) {
   } catch (n) {
     return console.warn(`[SourceManagementRuntime] Failed to parse ${t}:`, n), null;
   }
-}
-function o(t) {
-  return String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function F(t) {
   const e = String(t ?? "").trim();
@@ -186,7 +184,7 @@ function S(t, e, ...s) {
   }
   return "";
 }
-const Ae = [
+const He = [
   k.SOURCE_DOCUMENT,
   k.SOURCE_REVISION
 ];
@@ -1445,12 +1443,12 @@ function Pe() {
   const l = se();
   return t.controllerMounted = l !== null, t.controllerMounted || t.issues.push("Runtime controller failed to mount"), t.success = t.hasBackendConfig && t.hasBackendPageModel && t.hasBackendRoutes && t.controllerMounted && t.issues.length === 0, t;
 }
-function He() {
+function je() {
   const t = Pe();
   if (!t.success)
     throw new Error(`V2 runtime initialization failed: ${t.issues.join("; ")}`);
 }
-function je(t) {
+function Ne(t) {
   if (console.group("V2 Source-Management Runtime Initialization"), console.log(`Success: ${t.success ? "YES" : "NO"}`), console.log(`Page: ${t.page ?? "unknown"}`), console.log(`Surface: ${t.surface ?? "unknown"}`), console.log(`Backend Config: ${t.hasBackendConfig ? "✓" : "✗"}`), console.log(`Backend Page Model: ${t.hasBackendPageModel ? "✓" : "✗"}`), console.log(`Backend Routes: ${t.hasBackendRoutes ? "✓" : "✗"}`), console.log(`Controller Mounted: ${t.controllerMounted ? "✓" : "✗"}`), t.issues.length > 0) {
     console.group("Issues");
     for (const e of t.issues)
@@ -1466,12 +1464,12 @@ export {
   Me as S,
   y as a,
   be as b,
-  Ae as c,
+  He as c,
   Pe as d,
-  He as e,
+  je as e,
   se as i,
-  je as l,
+  Ne as l,
   xe as r,
   A as t
 };
-//# sourceMappingURL=source-management-runtime-B1_JtJD8.js.map
+//# sourceMappingURL=source-management-runtime-Z5HaQKx6.js.map

@@ -1,5 +1,6 @@
 import type { ReviewConfigState, ReviewParticipantState } from './contracts';
 import type { SignerParticipantSummary } from './participants';
+import { escapeHTML as escapeHtml } from '../../../shared/html.js';
 
 interface ReviewConfigControllerOptions {
   getSignerParticipants(): SignerParticipantSummary[];
@@ -38,14 +39,6 @@ function normalizeReviewState(state: Partial<ReviewConfigState> | null | undefin
   };
 }
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export function createReviewConfigController(
   options: ReviewConfigControllerOptions,

@@ -1,3 +1,6 @@
+import { escapeHTML as escapeHtml } from './html.js';
+import { escapeAttribute as escapeAttr } from './html.js';
+
 /**
  * Shared Icon Renderer Utility
  *
@@ -434,19 +437,7 @@ function isEmoji(str: string): boolean {
 // Escape Helpers
 // ---------------------------------------------------------------------------
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;');
-}
 
 /**
  * Escapes a string for safe use as a CSS class name.

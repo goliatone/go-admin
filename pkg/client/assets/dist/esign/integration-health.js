@@ -1,5 +1,6 @@
-import { b as i, a as H, f as C } from "../chunks/dom-helpers-CMRVXsMj.js";
-class S {
+import { b as i, a as L, f as S } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { escapeHTML as l } from "../shared/html.js";
+class M {
   constructor(e) {
     this.healthData = null, this.autoRefreshTimer = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.elements = {
       timeRange: i("#time-range"),
@@ -75,10 +76,10 @@ class S {
       if (!r.ok)
         this.healthData = this.generateMockHealthData(a, s);
       else {
-        const l = await r.json();
-        this.healthData = l;
+        const o = await r.json();
+        this.healthData = o;
       }
-      this.renderHealthData(), H("Health data refreshed");
+      this.renderHealthData(), L("Health data refreshed");
     } catch (n) {
       console.error("Failed to load health data:", n), this.healthData = this.generateMockHealthData(a, s), this.renderHealthData();
     }
@@ -144,11 +145,11 @@ class S {
   generateActivityFeed(e) {
     const t = [], a = ["sync_completed", "sync_failed", "conflict_created", "conflict_resolved", "mapping_published"], s = ["salesforce", "hubspot", "bamboohr", "workday"];
     for (let n = 0; n < e; n++) {
-      const r = a[Math.floor(Math.random() * a.length)], l = s[Math.floor(Math.random() * s.length)];
+      const r = a[Math.floor(Math.random() * a.length)], o = s[Math.floor(Math.random() * s.length)];
       t.push({
         type: r,
-        provider: l,
-        message: this.getActivityMessage(r, l),
+        provider: o,
+        message: this.getActivityMessage(r, o),
         time: `${Math.floor(Math.random() * 60) + 1}m ago`,
         status: r.includes("failed") || r.includes("created") ? "warning" : "success"
       });
@@ -173,9 +174,9 @@ class S {
   generateTimeSeriesData(e, t) {
     const a = [], s = t === "sync" ? { success: [], failed: [] } : { pending: [], resolved: [] }, n = /* @__PURE__ */ new Date();
     for (let r = e - 1; r >= 0; r--) {
-      const l = new Date(n.getTime() - r * 36e5);
+      const o = new Date(n.getTime() - r * 36e5);
       a.push(
-        l.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+        o.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
       ), t === "sync" ? (s.success.push(Math.floor(Math.random() * 15) + 10), s.failed.push(Math.floor(Math.random() * 3))) : (s.pending.push(Math.floor(Math.random() * 5)), s.resolved.push(Math.floor(Math.random() * 8) + 2));
     }
     return { labels: a, datasets: s };
@@ -233,8 +234,8 @@ class S {
     e && (e.textContent = String(n.total)), t && (t.textContent = `${n.recoveryRate}%`), a && (a.textContent = n.avgAttempts.toFixed(1)), s && (s.innerHTML = n.recent.map(
       (r) => `
           <div class="flex justify-between items-center py-1">
-            <span>${this.escapeHtml(r.provider)} / ${this.escapeHtml(r.entity)}</span>
-            <span class="${r.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${this.escapeHtml(r.time)}</span>
+            <span>${l(r.provider)} / ${l(r.entity)}</span>
+            <span class="${r.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${l(r.time)}</span>
           </div>
         `
     ).join(""));
@@ -248,7 +249,7 @@ class S {
     e && (e.innerHTML = this.healthData.providerHealth.map(
       (t) => `
         <tr class="border-b last:border-0">
-          <td class="py-3 font-medium capitalize">${this.escapeHtml(t.provider)}</td>
+          <td class="py-3 font-medium capitalize">${l(t.provider)}</td>
           <td class="py-3">
             <span class="px-2 py-1 text-xs rounded-full ${t.status === "healthy" ? "bg-green-100 text-green-800" : t.status === "degraded" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}">
               ${t.status}
@@ -257,7 +258,7 @@ class S {
           <td class="py-3 ${t.successRate >= 95 ? "text-green-600" : t.successRate >= 80 ? "text-yellow-600" : "text-red-600"}">
             ${t.successRate.toFixed(1)}%
           </td>
-          <td class="py-3 text-gray-600">${this.escapeHtml(t.lastSync)}</td>
+          <td class="py-3 text-gray-600">${l(t.lastSync)}</td>
           <td class="py-3">
             ${t.conflicts > 0 ? `<span class="text-orange-600">${t.conflicts}</span>` : '<span class="text-gray-400">0</span>'}
           </td>
@@ -280,10 +281,10 @@ class S {
               </div>
               <div class="flex-1">
                 <div class="flex justify-between">
-                  <span class="font-medium capitalize">${this.escapeHtml(s.provider)}</span>
-                  <span class="text-xs text-gray-500">${this.escapeHtml(s.time)}</span>
+                  <span class="font-medium capitalize">${l(s.provider)}</span>
+                  <span class="text-xs text-gray-500">${l(s.time)}</span>
                 </div>
-                <p class="text-sm text-gray-700 mt-1">${this.escapeHtml(s.message)}</p>
+                <p class="text-sm text-gray-700 mt-1">${l(s.message)}</p>
               </div>
               <button class="flex-shrink-0 text-gray-400 hover:text-gray-600 dismiss-alert-btn" aria-label="Dismiss alert">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,8 +309,8 @@ class S {
   dismissAlert(e) {
     const a = e.currentTarget.closest(".flex.items-start");
     a && a.remove();
-    const { alertsList: s, noAlerts: n, alertCount: r } = this.elements, l = s?.querySelectorAll(":scope > div").length || 0;
-    r && (r.textContent = `${l} active`, l === 0 && (r.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", s && s.classList.add("hidden"), n && n.classList.remove("hidden")));
+    const { alertsList: s, noAlerts: n, alertCount: r } = this.elements, o = s?.querySelectorAll(":scope > div").length || 0;
+    r && (r.textContent = `${o} active`, o === 0 && (r.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", s && s.classList.add("hidden"), n && n.classList.remove("hidden")));
   }
   /**
    * Render activity feed
@@ -322,9 +323,9 @@ class S {
         <div class="flex items-center gap-3 py-2 border-b last:border-0">
           <div class="w-2 h-2 rounded-full ${t.status === "success" ? "bg-green-500" : "bg-yellow-500"}"></div>
           <div class="flex-1 text-sm">
-            <span class="text-gray-700">${this.escapeHtml(t.message)}</span>
+            <span class="text-gray-700">${l(t.message)}</span>
           </div>
-          <span class="text-xs text-gray-400">${this.escapeHtml(t.time)}</span>
+          <span class="text-xs text-gray-400">${l(t.time)}</span>
         </div>
       `
     ).join(""));
@@ -353,44 +354,40 @@ class S {
     if (!n) return;
     const r = n.getContext("2d");
     if (!r) return;
-    const l = n.width, d = n.height, c = 40, y = l - c * 2, v = d - c * 2;
-    r.clearRect(0, 0, l, d);
-    const u = t.labels, g = Object.values(t.datasets), p = y / u.length / (g.length + 1), x = Math.max(...g.flat()) || 1;
-    u.forEach((h, f) => {
-      const m = c + f * y / u.length + p / 2;
-      g.forEach((M, b) => {
-        const w = M[f] / x * v, $ = m + b * p, D = d - c - w;
-        r.fillStyle = a[b] || "#6b7280", r.fillRect($, D, p - 2, w);
-      }), f % Math.ceil(u.length / 6) === 0 && (r.fillStyle = "#6b7280", r.font = "10px sans-serif", r.textAlign = "center", r.fillText(h, m + g.length * p / 2, d - c + 15));
+    const o = n.width, f = n.height, h = 40, m = o - h * 2, x = f - h * 2;
+    r.clearRect(0, 0, o, f);
+    const g = t.labels, y = Object.values(t.datasets), p = m / g.length / (y.length + 1), b = Math.max(...y.flat()) || 1;
+    g.forEach((d, u) => {
+      const v = h + u * m / g.length + p / 2;
+      y.forEach(($, w) => {
+        const C = $[u] / b * x, D = v + w * p, k = f - h - C;
+        r.fillStyle = a[w] || "#6b7280", r.fillRect(D, k, p - 2, C);
+      }), u % Math.ceil(g.length / 6) === 0 && (r.fillStyle = "#6b7280", r.font = "10px sans-serif", r.textAlign = "center", r.fillText(d, v + y.length * p / 2, f - h + 15));
     }), r.fillStyle = "#6b7280", r.font = "10px sans-serif", r.textAlign = "right";
-    for (let h = 0; h <= 4; h++) {
-      const f = d - c - h * v / 4, m = Math.round(x * h / 4);
-      r.fillText(m.toString(), c - 5, f + 3);
+    for (let d = 0; d <= 4; d++) {
+      const u = f - h - d * x / 4, v = Math.round(b * d / 4);
+      r.fillText(v.toString(), h - 5, u + 3);
     }
   }
   /**
    * Escape HTML
    */
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
-function L(o) {
-  const e = new S(o);
-  return C(() => e.init()), e;
+function R(c) {
+  const e = new M(c);
+  return S(() => e.init()), e;
 }
-function T(o) {
+function A(c) {
   const e = {
-    basePath: o.basePath,
-    apiBasePath: o.apiBasePath || `${o.basePath}/api`,
-    autoRefreshInterval: o.autoRefreshInterval || 3e4
-  }, t = new S(e);
-  C(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
+    basePath: c.basePath,
+    apiBasePath: c.apiBasePath || `${c.basePath}/api`,
+    autoRefreshInterval: c.autoRefreshInterval || 3e4
+  }, t = new M(e);
+  S(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
 }
 export {
-  S as IntegrationHealthController,
-  T as bootstrapIntegrationHealth,
-  L as initIntegrationHealth
+  M as IntegrationHealthController,
+  A as bootstrapIntegrationHealth,
+  R as initIntegrationHealth
 };
 //# sourceMappingURL=integration-health.js.map

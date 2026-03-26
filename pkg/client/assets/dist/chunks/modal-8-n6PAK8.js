@@ -1,5 +1,5 @@
-import { a as p } from "./html-Br-oQr7i.js";
-const l = {
+import { escapeHTML as i } from "../shared/html.js";
+const d = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
@@ -7,13 +7,13 @@ const l = {
   "2xl": "max-w-2xl",
   "3xl": "max-w-3xl",
   "4xl": "max-w-4xl"
-}, m = 100, f = 10;
-class b {
+}, p = 100, m = 10;
+class f {
   constructor() {
     this.stack = [];
   }
   push(t) {
-    return this.stack.push(t), m + this.stack.length * f;
+    return this.stack.push(t), p + this.stack.length * m;
   }
   remove(t) {
     const e = this.stack.indexOf(t);
@@ -26,8 +26,8 @@ class b {
     return this.stack.length;
   }
 }
-const r = new b();
-class d {
+const r = new f();
+class l {
   constructor(t = {}) {
     this.backdrop = null, this.container = null, this._escHandler = null, this._isOpen = !1, this._options = {
       size: t.size ?? "lg",
@@ -54,13 +54,13 @@ class d {
     if (this._isOpen) return;
     const t = r.push(this);
     this.backdrop = document.createElement("div"), this.backdrop.className = "fixed inset-0 flex items-center justify-center bg-black/50 transition-opacity opacity-0", this.backdrop.style.zIndex = String(t), this.backdrop.style.transitionDuration = `${this._options.animationDuration}ms`, this._options.backdropDataAttr && this.backdrop.setAttribute(this._options.backdropDataAttr, "true");
-    const e = l[this._options.size] ?? l.lg, o = this._options.flexColumn ? "flex flex-col" : "", a = this._options.containerClass;
+    const e = d[this._options.size] ?? d.lg, n = this._options.flexColumn ? "flex flex-col" : "", o = this._options.containerClass;
     this.container = document.createElement("div"), this.container.className = [
       "bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full overflow-hidden",
       e,
       this._options.maxHeight,
-      o,
-      a
+      n,
+      o
     ].filter(Boolean).join(" "), this.container.innerHTML = this.renderContent(), this.backdrop.appendChild(this.container), document.body.appendChild(this.backdrop), this._options.lockBodyScroll && document.body.classList.add("overflow-hidden"), requestAnimationFrame(() => {
       this.backdrop?.classList.remove("opacity-0");
     }), this._bindBaseEvents(), this.bindContentEvents(), this._isOpen = !0, await this.onAfterShow(), this._manageFocus();
@@ -104,7 +104,7 @@ class d {
     this._escHandler && (document.removeEventListener("keydown", this._escHandler, !0), this._escHandler = null), this.backdrop?.remove(), this.backdrop = null, this.container = null, this._options.lockBodyScroll && r.count === 0 && document.body.classList.remove("overflow-hidden");
   }
 }
-class h extends d {
+class h extends l {
   constructor(t) {
     super({
       size: "md",
@@ -169,13 +169,13 @@ class h extends d {
     this._isDone || (this._isDone = !0, this._resolve(t), this.hide());
   }
 }
-const g = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500 px-3 py-2 text-sm border-gray-300";
-class k extends d {
+const b = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500 px-3 py-2 text-sm border-gray-300";
+class x extends l {
   constructor(t) {
     super({ size: "sm", initialFocus: "[data-prompt-input]" }), this.config = t;
   }
   renderContent() {
-    const t = this.config.inputClass ?? g;
+    const t = this.config.inputClass ?? b;
     return `
       <div class="p-5">
         <div class="text-base font-semibold text-gray-900 dark:text-white">${i(this.config.title)}</div>
@@ -200,7 +200,7 @@ class k extends d {
     `;
   }
   bindContentEvents() {
-    const t = this.container?.querySelector("[data-prompt-input]"), e = this.container?.querySelector("[data-prompt-error]"), o = this.container?.querySelector("[data-prompt-confirm]"), a = this.container?.querySelector("[data-prompt-cancel]"), u = (s) => {
+    const t = this.container?.querySelector("[data-prompt-input]"), e = this.container?.querySelector("[data-prompt-error]"), n = this.container?.querySelector("[data-prompt-confirm]"), o = this.container?.querySelector("[data-prompt-cancel]"), u = (s) => {
       e && (e.textContent = s, e.classList.remove("hidden"));
     }, c = () => {
       const s = t?.value.trim() ?? "";
@@ -210,20 +210,16 @@ class k extends d {
       }
       this.config.onConfirm(s), this.hide();
     };
-    o?.addEventListener("click", c), t?.addEventListener("keydown", (s) => {
+    n?.addEventListener("click", c), t?.addEventListener("keydown", (s) => {
       s.key === "Enter" && (s.preventDefault(), c());
-    }), a?.addEventListener("click", () => {
+    }), o?.addEventListener("click", () => {
       this.config.onCancel?.(), this.hide();
     });
   }
 }
-function i(n) {
-  return p(n);
-}
 export {
   h as C,
-  d as M,
-  k as T,
-  i as e
+  l as M,
+  x as T
 };
-//# sourceMappingURL=modal-CI6l6KPp.js.map
+//# sourceMappingURL=modal-8-n6PAK8.js.map

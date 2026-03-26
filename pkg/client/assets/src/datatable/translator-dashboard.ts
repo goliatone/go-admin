@@ -8,6 +8,8 @@
 import type { GateResult, CapabilityGate } from './capability-gate.js';
 import { createCapabilityGate, renderDisabledReasonBadge } from './capability-gate.js';
 import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
 
 // ============================================================================
 // Types
@@ -828,21 +830,7 @@ export class TranslatorDashboard {
 // Helper Functions
 // ============================================================================
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 function getDueStateClass(state: DueState): string {
   switch (state) {

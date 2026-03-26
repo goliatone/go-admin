@@ -11,6 +11,7 @@ import type { BlockDefinitionSummary } from '../types';
 import type { ContentTypeAPIClient } from '../api-client';
 import { checkboxClasses } from './field-input-classes';
 import { resolveIcon } from './icon-picker';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -266,13 +267,6 @@ function refreshInlineBlockPickerList(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 function titleCase(str: string): string {
   return str

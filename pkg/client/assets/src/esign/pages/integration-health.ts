@@ -4,6 +4,7 @@
  */
 
 import { qs, qsa, onReady, announce } from '../utils/dom-helpers.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
  * Configuration for the integration health page
@@ -537,8 +538,8 @@ export class IntegrationHealthController {
         .map(
           (r) => `
           <div class="flex justify-between items-center py-1">
-            <span>${this.escapeHtml(r.provider)} / ${this.escapeHtml(r.entity)}</span>
-            <span class="${r.status === 'recovered' ? 'text-green-600' : 'text-yellow-600'}">${this.escapeHtml(r.time)}</span>
+            <span>${escapeHtml(r.provider)} / ${escapeHtml(r.entity)}</span>
+            <span class="${r.status === 'recovered' ? 'text-green-600' : 'text-yellow-600'}">${escapeHtml(r.time)}</span>
           </div>
         `
         )
@@ -558,7 +559,7 @@ export class IntegrationHealthController {
       .map(
         (p) => `
         <tr class="border-b last:border-0">
-          <td class="py-3 font-medium capitalize">${this.escapeHtml(p.provider)}</td>
+          <td class="py-3 font-medium capitalize">${escapeHtml(p.provider)}</td>
           <td class="py-3">
             <span class="px-2 py-1 text-xs rounded-full ${
               p.status === 'healthy'
@@ -579,7 +580,7 @@ export class IntegrationHealthController {
           }">
             ${p.successRate.toFixed(1)}%
           </td>
-          <td class="py-3 text-gray-600">${this.escapeHtml(p.lastSync)}</td>
+          <td class="py-3 text-gray-600">${escapeHtml(p.lastSync)}</td>
           <td class="py-3">
             ${p.conflicts > 0 ? `<span class="text-orange-600">${p.conflicts}</span>` : '<span class="text-gray-400">0</span>'}
           </td>
@@ -628,10 +629,10 @@ export class IntegrationHealthController {
               </div>
               <div class="flex-1">
                 <div class="flex justify-between">
-                  <span class="font-medium capitalize">${this.escapeHtml(a.provider)}</span>
-                  <span class="text-xs text-gray-500">${this.escapeHtml(a.time)}</span>
+                  <span class="font-medium capitalize">${escapeHtml(a.provider)}</span>
+                  <span class="text-xs text-gray-500">${escapeHtml(a.time)}</span>
                 </div>
-                <p class="text-sm text-gray-700 mt-1">${this.escapeHtml(a.message)}</p>
+                <p class="text-sm text-gray-700 mt-1">${escapeHtml(a.message)}</p>
               </div>
               <button class="flex-shrink-0 text-gray-400 hover:text-gray-600 dismiss-alert-btn" aria-label="Dismiss alert">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -702,9 +703,9 @@ export class IntegrationHealthController {
         <div class="flex items-center gap-3 py-2 border-b last:border-0">
           <div class="w-2 h-2 rounded-full ${a.status === 'success' ? 'bg-green-500' : 'bg-yellow-500'}"></div>
           <div class="flex-1 text-sm">
-            <span class="text-gray-700">${this.escapeHtml(a.message)}</span>
+            <span class="text-gray-700">${escapeHtml(a.message)}</span>
           </div>
-          <span class="text-xs text-gray-400">${this.escapeHtml(a.time)}</span>
+          <span class="text-xs text-gray-400">${escapeHtml(a.time)}</span>
         </div>
       `
       )
@@ -797,11 +798,6 @@ export class IntegrationHealthController {
   /**
    * Escape HTML
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 }
 
 /**

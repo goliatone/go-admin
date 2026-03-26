@@ -4,6 +4,7 @@
  */
 
 import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
  * Configuration for the integration conflicts page
@@ -250,11 +251,6 @@ export class IntegrationConflictsController {
   /**
    * Escape HTML for safe rendering
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
 
   /**
    * Format date string
@@ -356,7 +352,7 @@ export class IntegrationConflictsController {
       providers
         .map(
           (p) =>
-            `<option value="${this.escapeHtml(p)}" ${p === currentProvider ? 'selected' : ''}>${this.escapeHtml(p)}</option>`
+            `<option value="${escapeHtml(p)}" ${p === currentProvider ? 'selected' : ''}>${escapeHtml(p)}</option>`
         )
         .join('');
   }
@@ -402,7 +398,7 @@ export class IntegrationConflictsController {
     conflictsList.innerHTML = filtered
       .map(
         (conflict) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(conflict.id)}">
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${escapeHtml(conflict.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
@@ -413,13 +409,13 @@ export class IntegrationConflictsController {
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(conflict.reason || 'Data conflict')}</span>
+                  <span class="font-medium text-gray-900">${escapeHtml(conflict.reason || 'Data conflict')}</span>
                   ${this.getEntityBadge(conflict.entity_kind)}
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-500">
-                  <span>${this.escapeHtml(conflict.provider)}</span>
+                  <span>${escapeHtml(conflict.provider)}</span>
                   <span>•</span>
-                  <span class="font-mono">${this.escapeHtml((conflict.external_id || '').slice(0, 12))}...</span>
+                  <span class="font-mono">${escapeHtml((conflict.external_id || '').slice(0, 12))}...</span>
                 </div>
               </div>
             </div>

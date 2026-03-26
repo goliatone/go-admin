@@ -1,6 +1,7 @@
-import { D as q, p as S, e as m, r as X, c as x, g as k, a as z, b as Y, d as G, f as V, h as W, i as Z, j as J, k as ee, l as te, m as se, n as L, o as re, q as ie, s as ne, t as O, u as ae, v as T, w as oe, x as H } from "../chunks/builtin-panels-CwxWfNxv.js";
-import { J as Ue, K as Ke, R as He, I as Qe, y as Xe, E as ze, H as Ye, z as Ge, G as Ve, C as We, L as Ze, A as Je, B as et, F as tt } from "../chunks/builtin-panels-CwxWfNxv.js";
+import { D as q, p as S, r as X, c as x, g as L, a as z, b as Y, d as G, e as V, f as W, h as Z, i as J, j as ee, k as te, l as se, m as k, n as re, o as ie, q as ne, s as O, t as ae, u as T, v as oe, w as H } from "../chunks/builtin-panels-Jiso1TXI.js";
+import { I as Ke, J as He, R as Qe, H as Xe, x as ze, C as Ye, G as Ge, y as Ve, F as We, B as Ze, K as Je, z as et, A as tt, E as st } from "../chunks/builtin-panels-Jiso1TXI.js";
 import { DebugReplPanel as le } from "./repl.js";
+import { escapeHTML as m } from "../shared/html.js";
 class ce {
   /**
    * @callback HookCallback
@@ -1363,10 +1364,10 @@ function N(i) {
   const t = i.match(/\.([^.[\]]+)$/);
   return t ? t[1] : i.replace(/^\$\.?/, "");
 }
-const Le = () => {
+const ke = () => {
   const i = S.getSortedIds();
   return i.length > 0 ? i : ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"];
-}, Q = /* @__PURE__ */ new Set(["shell", "console"]), ke = (i) => S.has(i) || Q.has(i), M = {
+}, Q = /* @__PURE__ */ new Set(["shell", "console"]), Le = (i) => S.has(i) || Q.has(i), M = {
   shell: "Shell",
   console: "Console"
 }, j = (i) => {
@@ -1412,7 +1413,7 @@ const Le = () => {
       mutates: c
     });
   }), e;
-}, Ie = (i) => Array.isArray(i) && i.length > 0 ? i.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : Le(), D = (i, e) => ve(i, e), $e = (i, e, t) => {
+}, Ie = (i) => Array.isArray(i) && i.length > 0 ? i.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ke(), D = (i, e) => ve(i, e), $e = (i, e, t) => {
   if (!i || !e)
     return;
   const r = e.split(".").map((n) => n.trim()).filter(Boolean);
@@ -1770,7 +1771,7 @@ class Re {
     else {
       const s = S.get(e);
       if (s && (s.renderConsole || s.render)) {
-        const n = k(s);
+        const n = L(s);
         let a = this.getStateForKey(n);
         if (s.applyFilters) {
           const c = this.getPanelFilterState(e, s);
@@ -1886,7 +1887,7 @@ class Re {
     if (r.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const s = r.map((l) => {
-      const c = l.session_id || "", h = l.username || l.user_id || "Unknown", d = se(l.last_activity || l.started_at), g = L(l.request_count ?? 0), b = !!c && c === this.activeSessionId, u = b ? "detach" : "attach", y = b ? "Detach" : "Attach", E = b ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", v = b ? "debug-session-row debug-session-row--active" : "debug-session-row", A = l.current_page || "-", R = l.ip || "-";
+      const c = l.session_id || "", h = l.username || l.user_id || "Unknown", d = se(l.last_activity || l.started_at), g = k(l.request_count ?? 0), b = !!c && c === this.activeSessionId, u = b ? "detach" : "attach", y = b ? "Detach" : "Attach", E = b ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", v = b ? "debug-session-row debug-session-row--active" : "debug-session-row", A = l.current_page || "-", R = l.ip || "-";
       return `
           <tr class="${v}">
             <td>
@@ -1911,7 +1912,7 @@ class Re {
     }).join(""), n = this.sessionsLoading ? "Refreshing..." : "Refresh";
     return `
       <div class="debug-session-toolbar">
-        <span class="debug-session-toolbar__label">${`${L(r.length)} active`}</span>
+        <span class="debug-session-toolbar__label">${`${k(r.length)} active`}</span>
         <div class="debug-session-toolbar__actions">
           <button class="debug-btn" data-session-action="refresh">
             <i class="iconoir-refresh"></i> ${n}
@@ -2055,7 +2056,7 @@ class Re {
     if (e !== "sessions") {
       const t = S.get(e);
       if (t) {
-        const r = k(t), s = { [r]: this.getStateForKey(r) };
+        const r = L(t), s = { [r]: this.getStateForKey(r) };
         return ne(s, t);
       }
     }
@@ -2098,14 +2099,14 @@ class Re {
   updateTabCounts() {
     this.panels.forEach((e) => {
       const t = this.panelCount(e), r = this.tabsEl.querySelector(`[data-panel-count="${e}"]`);
-      r && (r.textContent = L(t));
+      r && (r.textContent = k(t));
     });
   }
   updateConnectionStatus(e) {
     this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${L(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${k(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(e) {
     if (!e || !e.type)
@@ -2118,7 +2119,7 @@ class Re {
       return;
     const t = this.eventToPanel[e.type] || e.type, r = S.get(t);
     if (r) {
-      const s = k(r), n = this.getStateForKey(s), l = (r.handleEvent || ((c, h) => ae(c, h, this.maxLogEntries)))(n, e.payload);
+      const s = L(r), n = this.getStateForKey(s), l = (r.handleEvent || ((c, h) => ae(c, h, this.maxLogEntries)))(n, e.payload);
       this.setStateForKey(s, l);
     } else
       switch (e.type) {
@@ -2141,7 +2142,7 @@ class Re {
           this.handleCustomEvent(e.payload);
           break;
         default:
-          ke(t) || (this.state.extra[t] = e.payload);
+          Le(t) || (this.state.extra[t] = e.payload);
           break;
       }
     this.updateTabCounts(), t === this.activePanel && this.renderPanel();
@@ -2362,42 +2363,42 @@ const qe = (i) => {
 };
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", K) : K();
 export {
-  Ue as DATA_ATTRS,
+  Ke as DATA_ATTRS,
   Re as DebugPanel,
   q as DebugStream,
-  Ke as INTERACTION_CLASSES,
-  He as RemoteDebugStream,
+  He as INTERACTION_CLASSES,
+  Qe as RemoteDebugStream,
   G as attachCopyListeners,
   Y as attachExpandableRowListeners,
   x as consoleStyles,
-  Qe as copyToClipboard,
+  Xe as copyToClipboard,
   O as countPayload,
-  Xe as defaultGetCount,
+  ze as defaultGetCount,
   ae as defaultHandleEvent,
   m as escapeHTML,
-  ze as formatDuration,
+  Ye as formatDuration,
   J as formatJSON,
-  L as formatNumber,
+  k as formatNumber,
   se as formatTimestamp,
-  Ye as getLevelClass,
+  Ge as getLevelClass,
   ne as getPanelCount,
-  Ge as getPanelData,
-  k as getSnapshotKey,
-  Ve as getStatusClass,
-  We as getStyleConfig,
+  Ve as getPanelData,
+  L as getSnapshotKey,
+  We as getStatusClass,
+  Ze as getStyleConfig,
   qe as initDebugPanel,
   oe as isSlowDuration,
   H as normalizeEventTypes,
   S as panelRegistry,
   re as renderCustomPanel,
   ie as renderJSONPanel,
-  Ze as renderJSONViewer,
+  Je as renderJSONViewer,
   ee as renderLogsPanel,
-  Je as renderPanelContent,
+  et as renderPanelContent,
   W as renderRequestsPanel,
   te as renderRoutesPanel,
   Z as renderSQLPanel,
-  et as toolbarStyles,
-  tt as truncate
+  tt as toolbarStyles,
+  st as truncate
 };
 //# sourceMappingURL=index.js.map

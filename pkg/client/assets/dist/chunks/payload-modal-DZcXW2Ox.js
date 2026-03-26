@@ -1,4 +1,5 @@
-import { M as u, e as o } from "./modal-CI6l6KPp.js";
+import { M as u } from "./modal-8-n6PAK8.js";
+import { escapeHTML as o } from "../shared/html.js";
 class c extends u {
   constructor(e, t, r) {
     super({ size: "md", initialFocus: "[data-payload-field]", lockBodyScroll: !1 }), this.resolved = !1, this.modalConfig = e, this.onConfirm = t, this.onCancel = r;
@@ -173,4 +174,4 @@ class c extends u {
 export {
   c as PayloadInputModal
 };
-//# sourceMappingURL=payload-modal-C5KOUxSU.js.map
+//# sourceMappingURL=payload-modal-DZcXW2Ox.js.map

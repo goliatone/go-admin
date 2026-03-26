@@ -1,66 +1,67 @@
-import { C as r } from "./modal-CI6l6KPp.js";
-class l {
+import { C as n } from "./modal-8-n6PAK8.js";
+import { escapeHTML as o } from "../shared/html.js";
+class d {
   constructor(t = {}) {
     this.toasts = /* @__PURE__ */ new Map(), this.position = t.position || "top-right", this.container = this.getOrCreateContainer(), this.applyContainerClasses(this.container);
   }
   getOrCreateContainer() {
     const t = document.getElementById("toast-container");
     if (t) return t;
-    const e = document.createElement("div");
-    return e.id = "toast-container", document.body.appendChild(e), e;
+    const s = document.createElement("div");
+    return s.id = "toast-container", document.body.appendChild(s), s;
   }
   applyContainerClasses(t) {
-    const e = [
+    const s = [
       "toast-top-right",
       "toast-top-center",
       "toast-bottom-right",
       "toast-bottom-center"
     ];
-    t.classList.add("toast-container"), e.forEach((s) => t.classList.remove(s)), t.classList.add(`toast-${this.position}`);
+    t.classList.add("toast-container"), s.forEach((e) => t.classList.remove(e)), t.classList.add(`toast-${this.position}`);
   }
   show(t) {
-    const e = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, s = this.createToastElement(e, t);
-    this.container.appendChild(s), this.toasts.set(e, s), requestAnimationFrame(() => {
-      s.classList.add("toast-enter-active");
+    const s = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, e = this.createToastElement(s, t);
+    this.container.appendChild(e), this.toasts.set(s, e), requestAnimationFrame(() => {
+      e.classList.add("toast-enter-active");
     });
     const i = t.duration !== void 0 ? t.duration : 5e3;
-    i > 0 && setTimeout(() => this.dismiss(e), i);
+    i > 0 && setTimeout(() => this.dismiss(s), i);
   }
-  success(t, e) {
-    this.show({ message: t, type: "success", duration: e, dismissible: !0 });
+  success(t, s) {
+    this.show({ message: t, type: "success", duration: s, dismissible: !0 });
   }
-  error(t, e) {
-    this.show({ message: t, type: "error", duration: e || 0, dismissible: !0 });
+  error(t, s) {
+    this.show({ message: t, type: "error", duration: s || 0, dismissible: !0 });
   }
-  warning(t, e) {
-    this.show({ message: t, type: "warning", duration: e, dismissible: !0 });
+  warning(t, s) {
+    this.show({ message: t, type: "warning", duration: s, dismissible: !0 });
   }
-  info(t, e) {
-    this.show({ message: t, type: "info", duration: e, dismissible: !0 });
+  info(t, s) {
+    this.show({ message: t, type: "info", duration: s, dismissible: !0 });
   }
-  async confirm(t, e = {}) {
-    return r.confirm(t, {
-      title: e.title,
-      confirmText: e.confirmText,
-      cancelText: e.cancelText
+  async confirm(t, s = {}) {
+    return n.confirm(t, {
+      title: s.title,
+      confirmText: s.confirmText,
+      cancelText: s.cancelText
     });
   }
-  createToastElement(t, e) {
-    const s = document.createElement("div");
-    s.className = `toast toast-${e.type}`, s.setAttribute("data-toast-id", t);
-    const i = this.getIconForType(e.type);
-    if (s.innerHTML = `
+  createToastElement(t, s) {
+    const e = document.createElement("div");
+    e.className = `toast toast-${s.type}`, e.setAttribute("data-toast-id", t);
+    const i = this.getIconForType(s.type);
+    if (e.innerHTML = `
       <div class="toast-header">
         <div class="toast-header-left">
-          <div class="toast-icon toast-icon-${e.type}">
+          <div class="toast-icon toast-icon-${s.type}">
             ${i}
           </div>
           <svg class="toast-pin-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
           </svg>
-          <div class="toast-title">${this.escapeHtml(e.title || this.getDefaultTitle(e.type))}</div>
+          <div class="toast-title">${o(s.title || this.getDefaultTitle(s.type))}</div>
         </div>
-        ${e.dismissible !== !1 ? `
+        ${s.dismissible !== !1 ? `
           <button class="toast-dismiss" aria-label="Dismiss">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -69,18 +70,18 @@ class l {
         ` : ""}
       </div>
       <div class="toast-content">
-        <div class="toast-message">${this.escapeHtml(e.message)}</div>
+        <div class="toast-message">${o(s.message)}</div>
       </div>
-    `, e.dismissible !== !1) {
-      const a = s.querySelector(".toast-dismiss");
+    `, s.dismissible !== !1) {
+      const a = e.querySelector(".toast-dismiss");
       a && a.addEventListener("click", () => this.dismiss(t));
     }
-    return s;
+    return e;
   }
   dismiss(t) {
-    const e = this.toasts.get(t);
-    e && (e.classList.remove("toast-enter-active"), e.classList.add("toast-leave-active"), setTimeout(() => {
-      e.remove(), this.toasts.delete(t);
+    const s = this.toasts.get(t);
+    s && (s.classList.remove("toast-enter-active"), s.classList.add("toast-leave-active"), setTimeout(() => {
+      s.remove(), this.toasts.delete(t);
     }, 300));
   }
   getDefaultTitle(t) {
@@ -92,7 +93,7 @@ class l {
     }[t] || "Notification";
   }
   getIconForType(t) {
-    const e = {
+    const s = {
       success: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
       </svg>`,
@@ -106,17 +107,13 @@ class l {
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
       </svg>`
     };
-    return e[t] || e.info;
-  }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
+    return s[t] || s.info;
   }
 }
-class c {
+class u {
   show(t) {
-    const e = t.title ? `${t.title}: ` : "";
-    alert(e + t.message);
+    const s = t.title ? `${t.title}: ` : "";
+    alert(s + t.message);
   }
   success(t) {
     alert(t);
@@ -130,15 +127,15 @@ class c {
   info(t) {
     alert(t);
   }
-  async confirm(t, e) {
-    const s = e?.title ? `${e.title}
+  async confirm(t, s) {
+    const e = s?.title ? `${s.title}
 
 ` : "";
-    return Promise.resolve(confirm(s + t));
+    return Promise.resolve(confirm(e + t));
   }
 }
 export {
-  c as F,
-  l as T
+  u as F,
+  d as T
 };
-//# sourceMappingURL=toast-manager-DQTs-tOQ.js.map
+//# sourceMappingURL=toast-manager-BXE4J35T.js.map

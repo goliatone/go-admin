@@ -1,5 +1,6 @@
 import { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 import { MenuBuilderStore } from './store.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import type {
   EntryNavigationConfig,
   EntryNavigationState,
@@ -11,14 +12,6 @@ import type {
   NavigationOverrideValue,
 } from './types.js';
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function parseJSONData<T>(raw: string | undefined, fallback: T): T {
   if (!raw) {

@@ -1,5 +1,6 @@
-import { b as n, a as R, h as u, s as h, f as E } from "../chunks/dom-helpers-CMRVXsMj.js";
-class L {
+import { b as n, a as $, h as u, s as g, f as L } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { escapeHTML as b } from "../shared/html.js";
+class R {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
       announcements: n("#conflicts-announcements"),
@@ -65,15 +66,15 @@ class L {
       actionIgnoreBtn: c,
       cancelResolveBtn: s,
       resolveForm: f,
-      conflictDetailModal: g,
+      conflictDetailModal: h,
       resolveModal: v
     } = this.elements;
     e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), i?.addEventListener("click", () => this.closeConflictDetail()), o?.addEventListener("change", () => this.loadConflicts()), a?.addEventListener("change", () => this.renderConflicts()), l?.addEventListener("change", () => this.renderConflicts()), r?.addEventListener("click", () => this.openResolveModal("resolved")), c?.addEventListener("click", () => this.openResolveModal("ignored")), s?.addEventListener("click", () => this.closeResolveModal()), f?.addEventListener("submit", (d) => this.submitResolution(d)), document.addEventListener("keydown", (d) => {
-      d.key === "Escape" && (v && !v.classList.contains("hidden") ? this.closeResolveModal() : g && !g.classList.contains("hidden") && this.closeConflictDetail());
-    }), [g, v].forEach((d) => {
-      d?.addEventListener("click", (y) => {
-        const m = y.target;
-        (m === d || m.getAttribute("aria-hidden") === "true") && (d === g ? this.closeConflictDetail() : d === v && this.closeResolveModal());
+      d.key === "Escape" && (v && !v.classList.contains("hidden") ? this.closeResolveModal() : h && !h.classList.contains("hidden") && this.closeConflictDetail());
+    }), [h, v].forEach((d) => {
+      d?.addEventListener("click", (x) => {
+        const m = x.target;
+        (m === d || m.getAttribute("aria-hidden") === "true") && (d === h ? this.closeConflictDetail() : d === v && this.closeResolveModal());
       });
     });
   }
@@ -82,7 +83,7 @@ class L {
    */
   announce(e) {
     const { announcements: t } = this.elements;
-    t && (t.textContent = e), R(e);
+    t && (t.textContent = e), $(e);
   }
   /**
    * Show a specific page state
@@ -91,26 +92,22 @@ class L {
     const { loadingState: t, emptyState: i, errorState: o, conflictsList: a } = this.elements;
     switch (u(t), u(i), u(o), u(a), e) {
       case "loading":
-        h(t);
+        g(t);
         break;
       case "empty":
-        h(i);
+        g(i);
         break;
       case "error":
-        h(o);
+        g(o);
         break;
       case "list":
-        h(a);
+        g(a);
         break;
     }
   }
   /**
    * Escape HTML for safe rendering
    */
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e || "", t.innerHTML;
-  }
   /**
    * Format date string
    */
@@ -177,7 +174,7 @@ class L {
     if (!e) return;
     const t = e.value, i = [...new Set(this.conflicts.map((o) => o.provider).filter(Boolean))];
     e.innerHTML = '<option value="">All Providers</option>' + i.map(
-      (o) => `<option value="${this.escapeHtml(o)}" ${o === t ? "selected" : ""}>${this.escapeHtml(o)}</option>`
+      (o) => `<option value="${b(o)}" ${o === t ? "selected" : ""}>${b(o)}</option>`
     ).join("");
   }
   /**
@@ -200,7 +197,7 @@ class L {
     }
     e.innerHTML = c.map(
       (s) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(s.id)}">
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${b(s.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
@@ -211,13 +208,13 @@ class L {
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(s.reason || "Data conflict")}</span>
+                  <span class="font-medium text-gray-900">${b(s.reason || "Data conflict")}</span>
                   ${this.getEntityBadge(s.entity_kind)}
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-500">
-                  <span>${this.escapeHtml(s.provider)}</span>
+                  <span>${b(s.provider)}</span>
                   <span>•</span>
-                  <span class="font-mono">${this.escapeHtml((s.external_id || "").slice(0, 12))}...</span>
+                  <span class="font-mono">${b((s.external_id || "").slice(0, 12))}...</span>
                 </div>
               </div>
             </div>
@@ -238,7 +235,7 @@ class L {
    */
   openConflictDetail(e) {
     this.currentConflictId = e;
-    const t = this.conflicts.find((b) => b.id === e);
+    const t = this.conflicts.find((y) => y.id === e);
     if (!t) return;
     const {
       conflictDetailModal: i,
@@ -249,35 +246,35 @@ class L {
       detailExternalId: c,
       detailInternalId: s,
       detailBindingId: f,
-      detailConflictId: g,
+      detailConflictId: h,
       detailRunId: v,
       detailCreatedAt: d,
-      detailVersion: y,
+      detailVersion: x,
       detailPayload: m,
-      resolutionSection: C,
-      actionButtons: w,
-      detailResolvedAt: S,
-      detailResolvedBy: B,
-      detailResolution: x
+      resolutionSection: w,
+      actionButtons: S,
+      detailResolvedAt: B,
+      detailResolvedBy: E,
+      detailResolution: C
     } = this.elements;
-    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), g && (g.textContent = t.id), v && (v.textContent = t.run_id || "-"), d && (d.textContent = this.formatDate(t.created_at)), y && (y.textContent = String(t.version || 1)), m)
+    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), h && (h.textContent = t.id), v && (v.textContent = t.run_id || "-"), d && (d.textContent = this.formatDate(t.created_at)), x && (x.textContent = String(t.version || 1)), m)
       try {
-        const b = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
-        m.textContent = JSON.stringify(b, null, 2);
+        const y = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
+        m.textContent = JSON.stringify(y, null, 2);
       } catch {
         m.textContent = t.payload_json || "{}";
       }
     if (t.status === "resolved" || t.status === "ignored") {
-      if (h(C), u(w), S && (S.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), B && (B.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), x)
+      if (g(w), u(S), B && (B.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), E && (E.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), C)
         try {
-          const b = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
-          x.textContent = JSON.stringify(b, null, 2);
+          const y = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
+          C.textContent = JSON.stringify(y, null, 2);
         } catch {
-          x.textContent = t.resolution_json || "{}";
+          C.textContent = t.resolution_json || "{}";
         }
     } else
-      u(C), h(w);
-    h(i);
+      u(w), g(S);
+    g(i);
   }
   /**
    * Close conflict detail modal
@@ -290,7 +287,7 @@ class L {
    */
   openResolveModal(e = "resolved") {
     const { resolveModal: t, resolveForm: i, resolutionAction: o } = this.elements;
-    i?.reset(), o && (o.value = e), h(t);
+    i?.reset(), o && (o.value = e), g(t);
   }
   /**
    * Close resolve modal
@@ -353,20 +350,20 @@ class L {
     o && (t === "success" ? o.success(e) : o.error(e));
   }
 }
-function k(p) {
-  const e = new L(p);
-  return E(() => e.init()), e;
+function D(p) {
+  const e = new R(p);
+  return L(() => e.init()), e;
 }
-function M(p) {
+function I(p) {
   const e = {
     basePath: p.basePath,
     apiBasePath: p.apiBasePath || `${p.basePath}/api`
-  }, t = new L(e);
-  E(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
+  }, t = new R(e);
+  L(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
 export {
-  L as IntegrationConflictsController,
-  M as bootstrapIntegrationConflicts,
-  k as initIntegrationConflicts
+  R as IntegrationConflictsController,
+  I as bootstrapIntegrationConflicts,
+  D as initIntegrationConflicts
 };
 //# sourceMappingURL=integration-conflicts.js.map

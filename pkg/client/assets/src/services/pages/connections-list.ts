@@ -35,6 +35,7 @@ import {
 } from '../mutation-feedback.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -461,7 +462,7 @@ export class ConnectionsListManager {
         const displayName = this.config.getProviderName
           ? this.config.getProviderName(provider.id)
           : this.formatProviderId(provider.id);
-        return `<option value="${this.escapeHtml(provider.id)}">${this.escapeHtml(displayName)}</option>`;
+        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
       })
       .join('');
 
@@ -511,23 +512,23 @@ export class ConnectionsListManager {
     const actions = this.buildRowActions(connection);
 
     return `
-      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${this.escapeHtml(connection.id)}">
+      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${escapeHtml(connection.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(providerName)}</span>
+          <span class="font-medium text-gray-900">${escapeHtml(providerName)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             connection.scope_type === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
           }">
-            ${this.escapeHtml(connection.scope_type)}
+            ${escapeHtml(connection.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${this.escapeHtml(connection.scope_id)}">
-            ${this.escapeHtml(this.truncateId(connection.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${escapeHtml(connection.scope_id)}">
+            ${escapeHtml(this.truncateId(connection.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-gray-600" title="${this.escapeHtml(connection.external_account_id)}">
-            ${this.escapeHtml(this.truncateId(connection.external_account_id, 20))}
+          <span class="text-gray-600" title="${escapeHtml(connection.external_account_id)}">
+            ${escapeHtml(this.truncateId(connection.external_account_id, 20))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -536,8 +537,8 @@ export class ConnectionsListManager {
             ${status.label}
           </span>
           ${connection.last_error ? `
-            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${this.escapeHtml(connection.last_error)}">
-              ${this.escapeHtml(connection.last_error)}
+            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${escapeHtml(connection.last_error)}">
+              ${escapeHtml(connection.last_error)}
             </div>
           ` : ''}
         </td>
@@ -817,12 +818,6 @@ export class ConnectionsListManager {
     if (diffDays < 7) return `${diffDays}d ago`;
 
     return date.toLocaleDateString();
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

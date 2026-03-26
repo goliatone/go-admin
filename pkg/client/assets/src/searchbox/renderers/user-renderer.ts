@@ -4,6 +4,7 @@
  */
 
 import type { SearchResult, ResultRenderer, UserRendererConfig } from '../types.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 const DEFAULT_CONFIG: UserRendererConfig = {
   showDescription: true,
@@ -35,7 +36,7 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
 
     const avatarHtml = this.renderAvatar(avatar, result.label);
     const roleHtml = role ? this.renderRole(role) : '';
-    const emailHtml = email ? `<p class="text-xs text-gray-500 truncate">${this.escapeHtml(email)}</p>` : '';
+    const emailHtml = email ? `<p class="text-xs text-gray-500 truncate">${escapeHtml(email)}</p>` : '';
 
     return `
       <div class="${className}">
@@ -43,7 +44,7 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
           ${avatarHtml}
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(result.label)}</p>
+              <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(result.label)}</p>
               ${roleHtml}
             </div>
             ${emailHtml}
@@ -55,7 +56,7 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
 
   protected renderAvatar(avatar: string | undefined, name: string): string {
     if (avatar) {
-      return `<img src="${this.escapeHtml(avatar)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />`;
+      return `<img src="${escapeHtml(avatar)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />`;
     }
 
     if (!this.config.showAvatarPlaceholder) {
@@ -68,7 +69,7 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
 
     return `
       <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium" style="background-color: ${bgColor}">
-        ${this.escapeHtml(initials)}
+        ${escapeHtml(initials)}
       </div>
     `;
   }
@@ -84,7 +85,7 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
 
     const colorClass = roleColors[role.toLowerCase()] || roleColors.default;
 
-    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${this.escapeHtml(role)}</span>`;
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${escapeHtml(role)}</span>`;
   }
 
   protected getInitials(name: string): string {
@@ -120,11 +121,5 @@ export class UserRenderer<T = unknown> implements ResultRenderer<T> {
     const value = metadata[field];
     if (value === undefined || value === null) return undefined;
     return String(value);
-  }
-
-  protected escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }

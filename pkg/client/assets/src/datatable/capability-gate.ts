@@ -18,6 +18,8 @@ import {
   type TranslationModuleState,
 } from '../translation-contracts/index.js';
 import { renderReasonCodeBadge } from './translation-status-vocabulary.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
 
 export type CapabilityMode = TranslationCapabilityMode;
 export type ActionState = TranslationActionState;
@@ -359,21 +361,7 @@ export function renderDisabledReasonBadge(gate: GateResult): string {
   `.trim();
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 // ============================================================================
 // CSS Styles

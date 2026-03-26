@@ -5,6 +5,7 @@
  */
 
 import { renderIcon } from '../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Types
@@ -592,9 +593,4 @@ function renderActionButton(action: { text: string; onClick: () => void; variant
   `;
 }
 
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 

@@ -1,5 +1,5 @@
 import { D as s, k as t, l as r, E as i, P as o, b as E, f as n, d as C, g, j as l, e as A, h as c, a as m, c as d, i as D } from "../chunks/provenance-card-DHMrX2oO.js";
-import { A as p, d as N, b as R, e as T, a5 as O, f as _, a as f, g as v, i as L, l as S, c as I, r as b, s as w, w as V } from "../chunks/agreement-detail-BqJ_u1A1.js";
+import { A as p, d as N, b as R, e as T, a5 as O, f as _, a as f, g as v, i as L, l as S, c as I, r as b, s as w, w as V } from "../chunks/agreement-detail-QzNEpIFm.js";
 export {
   p as AgreementDetailPageController,
   s as DEFAULT_PROVENANCE_CARD_CONFIG,

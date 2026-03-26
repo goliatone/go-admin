@@ -18,6 +18,7 @@
 import { iconForKey } from '../field-type-picker';
 import { inputClasses } from './field-input-classes';
 import { getBuiltinEmojiTab, getBuiltinIconoirTab, getBuiltinIconsTab } from './icon-picker-data';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -591,10 +592,3 @@ function getAncestorZIndex(el: HTMLElement): number {
   return 50;
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

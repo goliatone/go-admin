@@ -25,6 +25,9 @@ export const IMPORTABLE_MIME_TYPES = [MIME_GOOGLE_DOC, MIME_PDF];
  * LocalStorage key for Google account ID
  */
 export const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
+
+export { escapeHtml };
 
 // --------------------------------------------------------------------------
 // Types
@@ -353,11 +356,6 @@ export function syncAccountIdToUrl(accountId: string): void {
 /**
  * Escape HTML to prevent XSS
  */
-export function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 /**
  * Render file icon HTML

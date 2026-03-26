@@ -1,12 +1,13 @@
-import { f as F, b as a, q as L, h as d, s as p, a as b } from "../chunks/dom-helpers-CMRVXsMj.js";
-import { d as C } from "../chunks/async-helpers-D7xplkWe.js";
-import { f as I, b as _ } from "../chunks/formatters-9EdySuC_.js";
-import { h as D } from "../chunks/http-client-DZnuedzQ.js";
-import { g as z, h as M, r as R } from "../chunks/lineage-contracts-CFbDklQS.js";
-const S = "esign.google.account_id", B = 25 * 1024 * 1024, $ = 2e3, E = 60, y = "application/vnd.google-apps.document", x = "application/pdf", T = "application/vnd.google-apps.folder", U = [y, x];
-class A {
+import { f as A, b as a, q as E, h as d, s as p, a as b } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { d as _ } from "../chunks/async-helpers-D7xplkWe.js";
+import { f as I, b as D } from "../chunks/formatters-9EdySuC_.js";
+import { h as z } from "../chunks/http-client-DZnuedzQ.js";
+import { escapeHTML as S } from "../shared/html.js";
+import { g as M, h as R, r as B } from "../chunks/lineage-contracts-CFbDklQS.js";
+const y = "esign.google.account_id", $ = 25 * 1024 * 1024, U = 2e3, T = 60, x = "application/vnd.google-apps.document", F = "application/pdf", k = "application/vnd.google-apps.folder", O = [x, F];
+class P {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || B, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || $, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       // Upload panel
       form: a("#document-upload-form"),
       fileInput: a("#pdf_file"),
@@ -22,8 +23,8 @@ class A {
       sourceObjectKeyInput: a("#source_object_key"),
       sourceOriginalNameInput: a("#source_original_name"),
       // Source tabs
-      sourceTabs: L(".source-tab"),
-      sourcePanels: L(".source-panel"),
+      sourceTabs: E(".source-tab"),
+      sourcePanels: E(".source-panel"),
       announcements: a("#doc-announcements"),
       // Google Drive panel
       searchInput: a("#drive-search"),
@@ -132,7 +133,7 @@ class A {
       driveAccountDropdown: l
     } = this.elements;
     if (e) {
-      const u = C(() => this.handleSearch(), 300);
+      const u = _(() => this.handleSearch(), 300);
       e.addEventListener("input", u);
     }
     t && t.addEventListener("click", () => this.clearSearch()), o && o.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), l && l.addEventListener("change", () => {
@@ -154,7 +155,7 @@ class A {
     if (o) return o;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(S)
+        window.localStorage.getItem(y)
       );
     } catch {
       return "";
@@ -237,7 +238,7 @@ class A {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(S, this.currentAccountId) : window.localStorage.removeItem(S);
+      this.currentAccountId ? window.localStorage.setItem(y, this.currentAccountId) : window.localStorage.removeItem(y);
     } catch {
     }
   }
@@ -400,7 +401,7 @@ class A {
     o && r.searchParams.set("tenant_id", o), s && r.searchParams.set("org_id", s);
     const i = new FormData();
     i.append("file", e);
-    const n = await D(r.toString(), {
+    const n = await z(r.toString(), {
       method: "POST",
       body: i,
       credentials: "same-origin"
@@ -469,32 +470,32 @@ class A {
    * Check if file is a Google Doc
    */
   isGoogleDoc(e) {
-    return e.mimeType === y;
+    return e.mimeType === x;
   }
   /**
    * Check if file is a PDF
    */
   isPDF(e) {
-    return e.mimeType === x;
+    return e.mimeType === F;
   }
   /**
    * Check if file is a folder
    */
   isFolder(e) {
-    return e.mimeType === T;
+    return e.mimeType === k;
   }
   /**
    * Check if file is importable
    */
   isImportable(e) {
-    return U.includes(e.mimeType);
+    return O.includes(e.mimeType);
   }
   /**
    * Get file type name
    */
   getFileTypeName(e) {
     const t = String(e || "").trim().toLowerCase();
-    return t === y ? "Google Document" : t === x ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === T ? "Folder" : "File";
+    return t === x ? "Google Document" : t === F ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === k ? "Folder" : "File";
   }
   /**
    * Get file icon HTML
@@ -572,7 +573,7 @@ class A {
               </svg>
             </div>
             <p class="text-sm text-gray-900 font-medium">Failed to load files</p>
-            <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(n instanceof Error ? n.message : "Unknown error")}</p>
+            <p class="text-xs text-gray-500 mt-1">${S(n instanceof Error ? n.message : "Unknown error")}</p>
             <button type="button" onclick="location.reload()" class="mt-3 text-sm text-blue-600 hover:text-blue-800">Try Again</button>
           </div>
         `), b(`Error: ${n instanceof Error ? n.message : "Unknown error"}`);
@@ -612,10 +613,10 @@ class A {
             ${i.html}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-gray-900 truncate">${this.escapeHtml(s.name || "Untitled")}</p>
+            <p class="font-medium text-gray-900 truncate">${S(s.name || "Untitled")}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(s.mimeType)}
-              ${s.modifiedTime ? " • " + _(s.modifiedTime) : ""}
+              ${s.modifiedTime ? " • " + D(s.modifiedTime) : ""}
               ${h ? " • Not importable" : ""}
             </p>
           </div>
@@ -660,7 +661,7 @@ class A {
           <li class="flex items-center">
             ${s > 0 ? '<svg class="w-4 h-4 text-gray-400 mx-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' : ""}
             <button type="button" data-folder-index="${s}" class="breadcrumb-item ${r ? "text-gray-900 font-medium cursor-default" : "text-blue-600 hover:text-blue-800 hover:underline"}">
-              ${this.escapeHtml(o.name)}
+              ${S(o.name)}
             </button>
           </li>
         `;
@@ -680,8 +681,8 @@ class A {
     this.selectedFile = e;
     const t = this.getFileIcon(e), o = this.getImportTypeInfo(e), { fileList: s } = this.elements;
     s && s.querySelectorAll(".file-item").forEach((w) => {
-      const k = parseInt(w.dataset.fileIndex || "0", 10);
-      this.currentFiles[k].id === e.id ? (w.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "true")) : (w.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "false"));
+      const C = parseInt(w.dataset.fileIndex || "0", 10);
+      this.currentFiles[C].id === e.id ? (w.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "true")) : (w.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "false"));
     });
     const {
       noSelection: r,
@@ -694,9 +695,9 @@ class A {
       importTypeLabel: g,
       importTypeDesc: f,
       snapshotWarning: v,
-      importDocumentTitle: P
+      importDocumentTitle: L
     } = this.elements;
-    r && d(r), i && p(i), n && d(n), l && (l.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, l.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), u && (u.textContent = e.name || "Untitled"), h && (h.textContent = this.getFileTypeName(e.mimeType)), o && m && (m.className = `p-3 rounded-lg border ${o.bgClass}`, g && (g.textContent = o.label, g.className = `text-xs font-medium ${o.textClass}`), f && (f.textContent = o.desc, f.className = `text-xs mt-1 ${o.textClass}`), v && (o.showSnapshot ? p(v) : d(v))), P && (P.value = e.name || ""), b(`Selected: ${e.name}`);
+    r && d(r), i && p(i), n && d(n), l && (l.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, l.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), u && (u.textContent = e.name || "Untitled"), h && (h.textContent = this.getFileTypeName(e.mimeType)), o && m && (m.className = `p-3 rounded-lg border ${o.bgClass}`, g && (g.textContent = o.label, g.className = `text-xs font-medium ${o.textClass}`), f && (f.textContent = o.desc, f.className = `text-xs mt-1 ${o.textClass}`), v && (o.showSnapshot ? p(v) : d(v))), L && (L.value = e.name || ""), b(`Selected: ${e.name}`);
   }
   /**
    * Clear drive selection
@@ -840,7 +841,7 @@ class A {
         const m = l.error?.code || "";
         throw { message: l.error?.message || "Failed to start import", code: m };
       }
-      const u = z(l);
+      const u = M(l);
       this.currentImportRunId = u.import_run_id, this.pollAttempts = 0;
       const h = new URL(window.location.href);
       this.currentImportRunId && h.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", h.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
@@ -854,14 +855,14 @@ class A {
    * Start polling for import status
    */
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), $);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), U);
   }
   /**
    * Poll import status
    */
   async pollImportStatus() {
     if (this.currentImportRunId) {
-      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > E) {
+      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > T) {
         this.showImportError(
           "Import is taking too long. Please check the documents list.",
           ""
@@ -877,7 +878,7 @@ class A {
         }), o = await t.json();
         if (!t.ok)
           throw new Error(o.error?.message || "Failed to check import status");
-        const s = M(o);
+        const s = R(o);
         switch (s.status) {
           case "queued":
             this.updateImportStatusMessage("Waiting in queue..."), this.startPolling();
@@ -887,7 +888,7 @@ class A {
             break;
           case "succeeded":
             this.showImportStatus("succeeded"), b("Import complete");
-            const i = R(s, {
+            const i = B(s, {
               agreements: this.config.routes.agreements,
               documents: this.config.routes.index,
               fallback: this.config.routes.index
@@ -905,7 +906,7 @@ class A {
             this.startPolling();
         }
       } catch (e) {
-        console.error("Poll error:", e), this.pollAttempts < E ? this.startPolling() : this.showImportError("Unable to check import status", "");
+        console.error("Poll error:", e), this.pollAttempts < T ? this.startPolling() : this.showImportError("Unable to check import status", "");
       }
     }
   }
@@ -921,16 +922,12 @@ class A {
   /**
    * Escape HTML
    */
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
-function V(c) {
-  const e = new A(c);
-  return F(() => e.init()), e;
+function K(c) {
+  const e = new P(c);
+  return A(() => e.init()), e;
 }
-function Q(c) {
+function W(c) {
   const e = {
     basePath: c.basePath,
     apiBasePath: c.apiBasePath || `${c.basePath}/api/v1`,
@@ -940,10 +937,10 @@ function Q(c) {
     googleAccountId: c.googleAccountId,
     maxFileSize: c.maxFileSize,
     routes: c.routes
-  }, t = new A(e);
-  F(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
+  }, t = new P(e);
+  A(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function H(c) {
+function j(c) {
   const e = String(c.basePath || c.base_path || "").trim(), t = c.routes && typeof c.routes == "object" ? c.routes : {}, o = c.features && typeof c.features == "object" ? c.features : {}, s = c.context && typeof c.context == "object" ? c.context : {}, r = String(t.index || "").trim();
   return !e && !r ? null : {
     basePath: e || "/admin",
@@ -963,7 +960,7 @@ function H(c) {
     }
   };
 }
-typeof document < "u" && F(() => {
+typeof document < "u" && A(() => {
   if (document.querySelector(
     '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
   )) {
@@ -972,16 +969,16 @@ typeof document < "u" && F(() => {
       try {
         const t = JSON.parse(
           e.textContent || "{}"
-        ), o = H(t);
-        o && new A(o).init();
+        ), o = j(t);
+        o && new P(o).init();
       } catch (t) {
         console.warn("Failed to parse document form page config:", t);
       }
   }
 });
 export {
-  A as DocumentFormController,
-  Q as bootstrapDocumentForm,
-  V as initDocumentForm
+  P as DocumentFormController,
+  W as bootstrapDocumentForm,
+  K as initDocumentForm
 };
 //# sourceMappingURL=document-form.js.map

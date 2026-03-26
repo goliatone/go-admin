@@ -1,3 +1,6 @@
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
+
 /**
  * Quick Filters Component (Phase 2)
  *
@@ -458,16 +461,3 @@ export function renderQuickFiltersHTML(options: {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttr(str: string): string {
-  return escapeHtml(str);
-}

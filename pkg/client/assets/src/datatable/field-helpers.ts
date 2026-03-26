@@ -1,3 +1,5 @@
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+
 /**
  * Field-Level Helpers for Translation Forms
  *
@@ -535,7 +537,7 @@ export class InterpolationPreview {
     const prefix = this.config.classPrefix;
 
     if (matches.length === 0) {
-      return this.escapeHtml(text);
+      return escapeHtml(text);
     }
 
     // Sort matches by start position
@@ -546,19 +548,19 @@ export class InterpolationPreview {
 
     for (const match of matches) {
       // Add text before this match
-      result += this.escapeHtml(text.slice(lastIndex, match.start));
+      result += escapeHtml(text.slice(lastIndex, match.start));
 
       // Add highlighted variable
       const sampleValue = this.getSampleValue(match.variable);
       const original = text.slice(match.start, match.end);
 
-      result += `<span class="${prefix}__variable" title="${this.escapeHtml(original)}">${this.escapeHtml(sampleValue ?? original)}</span>`;
+      result += `<span class="${prefix}__variable" title="${escapeHtml(original)}">${escapeHtml(sampleValue ?? original)}</span>`;
 
       lastIndex = match.end;
     }
 
     // Add remaining text
-    result += this.escapeHtml(text.slice(lastIndex));
+    result += escapeHtml(text.slice(lastIndex));
 
     return result;
   }
@@ -573,7 +575,7 @@ export class InterpolationPreview {
 
     return `<div class="${prefix}${isEmpty ? ` ${prefix}--empty` : ''}">
       <span class="${prefix}__label">Preview:</span>
-      <span class="${prefix}__content">${this.config.highlightVariables ? this.renderHighlightedPreview() : this.escapeHtml(this.getPreviewText())}</span>
+      <span class="${prefix}__content">${this.config.highlightVariables ? this.renderHighlightedPreview() : escapeHtml(this.getPreviewText())}</span>
     </div>`;
   }
 
@@ -620,15 +622,6 @@ export class InterpolationPreview {
     }
 
     return null;
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
   }
 }
 

@@ -14,6 +14,7 @@ import {
 } from '../ui-states.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -238,7 +239,7 @@ export class ProvidersCatalogManager {
 
     return `
       <div class="provider-card bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-           data-provider-id="${this.escapeHtml(provider.id)}">
+           data-provider-id="${escapeHtml(provider.id)}">
         <div class="p-4">
           <!-- Header -->
           <div class="flex items-start justify-between gap-3">
@@ -247,8 +248,8 @@ export class ProvidersCatalogManager {
                 ${renderIcon(data.icon, { size: '20px', extraClass: 'text-gray-600' })}
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-gray-900">${this.escapeHtml(data.displayName)}</h3>
-                <span class="text-xs text-gray-500">${this.escapeHtml(provider.auth_kind)}</span>
+                <h3 class="text-sm font-semibold text-gray-900">${escapeHtml(data.displayName)}</h3>
+                <span class="text-xs text-gray-500">${escapeHtml(provider.auth_kind)}</span>
               </div>
             </div>
             ${scopeBadges}
@@ -267,7 +268,7 @@ export class ProvidersCatalogManager {
             ${userCanConnect ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-                      data-provider-id="${this.escapeHtml(provider.id)}"
+                      data-provider-id="${escapeHtml(provider.id)}"
                       data-scope-type="user">
                 Connect as User
               </button>
@@ -275,7 +276,7 @@ export class ProvidersCatalogManager {
             ${orgCanConnect ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                      data-provider-id="${this.escapeHtml(provider.id)}"
+                      data-provider-id="${escapeHtml(provider.id)}"
                       data-scope-type="org">
                 Connect Org
               </button>
@@ -304,8 +305,8 @@ export class ProvidersCatalogManager {
       const [category, action] = cap.name.split('.');
       html += `
         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-              title="${this.escapeHtml(cap.name)}">
-          ${this.escapeHtml(action || cap.name)}
+              title="${escapeHtml(cap.name)}">
+          ${escapeHtml(action || cap.name)}
         </span>
       `;
     }
@@ -395,12 +396,6 @@ export class ProvidersCatalogManager {
         }
       });
     });
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

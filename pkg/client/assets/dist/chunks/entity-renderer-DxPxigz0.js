@@ -1,4 +1,5 @@
-const g = {
+import { escapeHTML as o } from "../shared/html.js";
+const f = {
   minChars: 2,
   debounceMs: 300,
   placeholder: "Search...",
@@ -7,7 +8,7 @@ const g = {
   maxResults: 10,
   dropdownClass: ""
 };
-class b {
+class w {
   constructor(e) {
     if (this.dropdown = null, this.debounceTimer = null, this.abortController = null, this.documentClickHandler = null, this.handleInput = () => {
       const t = this.input.value.trim();
@@ -40,7 +41,7 @@ class b {
       }
     }, this.handleFocus = () => {
       this.state.results.length > 0 && this.state.query.length >= this.config.minChars && this.openDropdown();
-    }, this.config = { ...g, ...e }, typeof e.input == "string") {
+    }, this.config = { ...f, ...e }, typeof e.input == "string") {
       const t = document.querySelector(e.input);
       if (!t) throw new Error(`SearchBox: Input element not found: ${e.input}`);
       this.input = t;
@@ -191,7 +192,7 @@ class b {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        ${this.escapeHtml(this.config.loadingText)}
+        ${o(this.config.loadingText)}
       </div>
     `);
   }
@@ -203,7 +204,7 @@ class b {
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        ${this.escapeHtml(e)}
+        ${o(e)}
       </div>
     `;
   }
@@ -213,13 +214,13 @@ class b {
     if (e.length === 0) {
       this.dropdown.innerHTML = `
         <div class="searchbox-empty px-4 py-3 text-sm text-gray-500">
-          ${this.escapeHtml(this.config.emptyText)}
+          ${o(this.config.emptyText)}
         </div>
       `;
       return;
     }
     const s = e.map((r, i) => {
-      const n = i === t, o = this.config.renderer.render(r, n);
+      const n = i === t, a = this.config.renderer.render(r, n);
       return `
         <div
           class="searchbox-item cursor-pointer"
@@ -227,15 +228,15 @@ class b {
           role="option"
           aria-selected="${n}"
         >
-          ${o}
+          ${a}
         </div>
       `;
     });
     this.dropdown.innerHTML = s.join(""), this.dropdown.querySelectorAll(".searchbox-item").forEach((r) => {
       r.addEventListener("click", (i) => {
         i.stopPropagation();
-        const n = parseInt(r.dataset.index || "0", 10), o = e[n];
-        o && this.selectResult(o);
+        const n = parseInt(r.dataset.index || "0", 10), a = e[n];
+        a && this.selectResult(a);
       });
     });
   }
@@ -244,10 +245,6 @@ class b {
     const e = this.dropdown.querySelector('[aria-selected="true"]');
     e && e.scrollIntoView({ block: "nearest" });
   }
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
 const m = {
   queryParam: "q",
@@ -255,7 +252,7 @@ const m = {
   params: {},
   headers: {}
 };
-class f {
+class b {
   constructor(e) {
     this.config = { ...m, ...e };
   }
@@ -306,20 +303,20 @@ class f {
     this.config.headers = e;
   }
 }
-function x(c, e) {
-  return new f({
-    endpoint: c,
+function y(d, e) {
+  return new b({
+    endpoint: d,
     queryParam: e.searchParam || "q",
     headers: e.headers,
     transform: (t) => {
       const s = t.data || t;
       return (Array.isArray(s) ? s : []).map((i) => {
-        const n = String(i.id || i.uuid || ""), o = typeof e.labelField == "function" ? e.labelField(i) : String(i[e.labelField] || ""), a = e.descriptionField ? typeof e.descriptionField == "function" ? e.descriptionField(i) : String(i[e.descriptionField] || "") : void 0, l = e.iconField ? String(i[e.iconField] || "") : void 0;
+        const n = String(i.id || i.uuid || ""), a = typeof e.labelField == "function" ? e.labelField(i) : String(i[e.labelField] || ""), l = e.descriptionField ? typeof e.descriptionField == "function" ? e.descriptionField(i) : String(i[e.descriptionField] || "") : void 0, c = e.iconField ? String(i[e.iconField] || "") : void 0;
         return {
           id: n,
-          label: o,
-          description: a,
-          icon: l,
+          label: a,
+          description: l,
+          icon: c,
           metadata: i,
           data: i
         };
@@ -337,20 +334,20 @@ const v = {
   roleField: "role",
   showAvatarPlaceholder: !0
 };
-class w {
+class C {
   constructor(e = {}) {
     this.config = { ...v, ...e };
   }
   render(e, t) {
-    const s = this.config.itemClass || "", r = t && this.config.selectedClass || "", i = `${s} ${r}`.trim(), n = e.metadata || {}, o = this.getMetadataValue(n, this.config.avatarField || "avatar"), a = this.getMetadataValue(n, this.config.emailField || "email"), l = this.getMetadataValue(n, this.config.roleField || "role"), d = this.renderAvatar(o, e.label), h = l ? this.renderRole(l) : "", p = a ? `<p class="text-xs text-gray-500 truncate">${this.escapeHtml(a)}</p>` : "";
+    const s = this.config.itemClass || "", r = t && this.config.selectedClass || "", i = `${s} ${r}`.trim(), n = e.metadata || {}, a = this.getMetadataValue(n, this.config.avatarField || "avatar"), l = this.getMetadataValue(n, this.config.emailField || "email"), c = this.getMetadataValue(n, this.config.roleField || "role"), h = this.renderAvatar(a, e.label), u = c ? this.renderRole(c) : "", p = l ? `<p class="text-xs text-gray-500 truncate">${o(l)}</p>` : "";
     return `
       <div class="${i}">
         <div class="flex items-center gap-3">
-          ${d}
+          ${h}
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(e.label)}</p>
-              ${h}
+              <p class="text-sm font-medium text-gray-900 truncate">${o(e.label)}</p>
+              ${u}
             </div>
             ${p}
           </div>
@@ -360,13 +357,13 @@ class w {
   }
   renderAvatar(e, t) {
     if (e)
-      return `<img src="${this.escapeHtml(e)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />`;
+      return `<img src="${o(e)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />`;
     if (!this.config.showAvatarPlaceholder)
       return "";
     const s = this.getInitials(t);
     return `
       <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-medium" style="background-color: ${this.getColorForName(t)}">
-        ${this.escapeHtml(s)}
+        ${o(s)}
       </div>
     `;
   }
@@ -378,7 +375,7 @@ class w {
       viewer: "bg-gray-100 text-gray-800",
       default: "bg-gray-100 text-gray-600"
     };
-    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t[e.toLowerCase()] || t.default}">${this.escapeHtml(e)}</span>`;
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t[e.toLowerCase()] || t.default}">${o(e)}</span>`;
   }
   getInitials(e) {
     const t = e.trim().split(/\s+/);
@@ -413,12 +410,8 @@ class w {
     if (s != null)
       return String(s);
   }
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
-const u = {
+const g = {
   showDescription: !0,
   showIcon: !0,
   itemClass: "px-4 py-3 hover:bg-gray-50",
@@ -436,27 +429,27 @@ const u = {
   },
   metadataFields: []
 };
-class C {
+class F {
   constructor(e = {}) {
     this.config = {
-      ...u,
+      ...g,
       ...e,
-      badgeColors: { ...u.badgeColors, ...e.badgeColors }
+      badgeColors: { ...g.badgeColors, ...e.badgeColors }
     };
   }
   render(e, t) {
-    const s = this.config.itemClass || "", r = t && this.config.selectedClass || "", i = `${s} ${r}`.trim(), n = e.metadata || {}, o = this.config.badgeField ? this.getMetadataValue(n, this.config.badgeField) : void 0, a = this.config.showIcon ? this.renderIcon(e.icon, e.label) : "", l = o ? this.renderBadge(o) : "", d = this.renderMetadataPills(n), h = this.config.showDescription && e.description ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${this.escapeHtml(e.description)}</p>` : "";
+    const s = this.config.itemClass || "", r = t && this.config.selectedClass || "", i = `${s} ${r}`.trim(), n = e.metadata || {}, a = this.config.badgeField ? this.getMetadataValue(n, this.config.badgeField) : void 0, l = this.config.showIcon ? this.renderIcon(e.icon, e.label) : "", c = a ? this.renderBadge(a) : "", h = this.renderMetadataPills(n), u = this.config.showDescription && e.description ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${o(e.description)}</p>` : "";
     return `
       <div class="${i}">
         <div class="flex items-center gap-3">
-          ${a}
+          ${l}
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(e.label)}</p>
-              ${l}
+              <p class="text-sm font-medium text-gray-900 truncate">${o(e.label)}</p>
+              ${c}
             </div>
+            ${u}
             ${h}
-            ${d}
           </div>
         </div>
       </div>
@@ -464,16 +457,16 @@ class C {
   }
   renderIcon(e, t) {
     if (e)
-      return e.startsWith("http") || e.startsWith("/") || e.startsWith("data:") ? `<img src="${this.escapeHtml(e)}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />` : `<span class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">${this.escapeHtml(e)}</span>`;
+      return e.startsWith("http") || e.startsWith("/") || e.startsWith("data:") ? `<img src="${o(e)}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />` : `<span class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">${o(e)}</span>`;
     const s = t.charAt(0).toUpperCase();
     return `
       <div class="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold" style="background-color: ${this.getColorForLabel(t)}">
-        ${this.escapeHtml(s)}
+        ${o(s)}
       </div>
     `;
   }
   renderBadge(e) {
-    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this.config.badgeColors?.[e.toLowerCase()] || this.config.badgeColors?.default || "bg-gray-100 text-gray-600"}">${this.escapeHtml(e)}</span>`;
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${this.config.badgeColors?.[e.toLowerCase()] || this.config.badgeColors?.default || "bg-gray-100 text-gray-600"}">${o(e)}</span>`;
   }
   renderMetadataPills(e) {
     if (!this.config.metadataFields || this.config.metadataFields.length === 0)
@@ -482,7 +475,7 @@ class C {
       const r = this.getMetadataValue(e, s);
       if (!r) return null;
       const i = s.replace(/([A-Z])/g, " $1").replace(/^./, (n) => n.toUpperCase());
-      return `<span class="text-xs text-gray-400">${this.escapeHtml(i)}: <span class="text-gray-600">${this.escapeHtml(r)}</span></span>`;
+      return `<span class="text-xs text-gray-400">${o(i)}: <span class="text-gray-600">${o(r)}</span></span>`;
     }).filter(Boolean);
     return t.length === 0 ? "" : `<div class="flex items-center gap-3 mt-1">${t.join("")}</div>`;
   }
@@ -515,16 +508,12 @@ class C {
     if (s != null)
       return String(s);
   }
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
 export {
-  f as A,
-  C as E,
-  b as S,
-  w as U,
-  x as c
+  b as A,
+  F as E,
+  w as S,
+  C as U,
+  y as c
 };
-//# sourceMappingURL=entity-renderer-Ck4g7jIm.js.map
+//# sourceMappingURL=entity-renderer-DxPxigz0.js.map

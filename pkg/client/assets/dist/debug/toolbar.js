@@ -1,5 +1,6 @@
-import { w as P, p as u, z, A as M, q as b, B as T, e as A, o as R, r as $, l as H, k as I, i as j, h as D, D as q, g as O, u as F, a as f, s as B, b as N, d as Q, M as _, f as G, x as E } from "../chunks/builtin-panels-CwxWfNxv.js";
-import { DebugReplPanel as K } from "./repl.js";
+import { v as P, p as u, y as z, z as M, o as b, A as T, n as A, r as R, k as $, j as H, h as I, f as j, D as q, g as D, t as O, a as f, q as F, b as B, d as N, L as Q, e as _, w as E } from "../chunks/builtin-panels-Jiso1TXI.js";
+import { DebugReplPanel as G } from "./repl.js";
+import { escapeHTML as K } from "../shared/html.js";
 const Y = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1040,7 +1041,7 @@ function x(o, t, e = 50, s) {
   const r = s?.newestFirst ?? !0, n = s?.slowThresholdMs ?? e;
   switch (o) {
     case "requests":
-      return D(t.requests || [], c, {
+      return j(t.requests || [], c, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1051,7 +1052,7 @@ function x(o, t, e = 50, s) {
         maxDetailLength: 80
       });
     case "sql":
-      return j(t.sql || [], c, {
+      return I(t.sql || [], c, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1060,7 +1061,7 @@ function x(o, t, e = 50, s) {
         // Toolbar uses SVG icons
       });
     case "logs":
-      return I(t.logs || [], c, {
+      return H(t.logs || [], c, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -1077,7 +1078,7 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return H(t.routes || [], c, {
+      return $(t.routes || [], c, {
         showName: !1
         // Toolbar doesn't show name column
       });
@@ -1092,14 +1093,14 @@ function x(o, t, e = 50, s) {
         showCount: !1
       });
     case "jserrors":
-      return $(t.jserrors || [], c, {
+      return R(t.jserrors || [], c, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return R(t.custom || {}, c, {
+      return A(t.custom || {}, c, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1113,7 +1114,7 @@ function x(o, t, e = 50, s) {
           showCount: !1
         });
       }
-      return `<div class="${c.emptyState}">Panel "${A(o)}" not available</div>`;
+      return `<div class="${c.emptyState}">Panel "${K(o)}" not available</div>`;
     }
   }
 }
@@ -1332,7 +1333,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     }
     const e = this.eventToPanel[t.type] || t.type, s = u.get(e);
     if (s) {
-      const a = O(s), r = this.snapshot[a], l = (s.handleEvent || ((i, d) => F(i, d, 500)))(r, t.payload);
+      const a = D(s), r = this.snapshot[a], l = (s.handleEvent || ((i, d) => O(i, d, 500)))(r, t.payload);
       this.snapshot[a] = l;
     } else
       switch (t.type) {
@@ -1480,7 +1481,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   getPanelCount(t) {
     const e = u.get(t);
     if (e)
-      return B(this.snapshot, e);
+      return F(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1550,7 +1551,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
-    s || (s = new K({
+    s || (s = new G({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1587,18 +1588,18 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     r && (r.style.height = `${a}px`);
   }
   attachExpandableRowListeners() {
-    N(this.shadow);
+    B(this.shadow);
   }
   attachCopyListeners() {
-    Q(this.shadow, { useIconFeedback: !1 });
+    N(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    _(this.shadow, (t, e) => {
+    Q(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && G(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && _(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
 h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;

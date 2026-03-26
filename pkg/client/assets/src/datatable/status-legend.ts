@@ -1,3 +1,5 @@
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+
 /**
  * Translation Status Legend Component
  *
@@ -147,7 +149,7 @@ export class StatusLegend {
     const iconSize = isSmall ? 'text-sm' : 'text-base';
 
     const titleHtml = title
-      ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${textSize}">${this.escapeHtml(title)}</span>`
+      ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${textSize}">${escapeHtml(title)}</span>`
       : '';
 
     const itemsHtml = items.map(item => this.renderItem(item, iconSize, textSize)).join('');
@@ -169,10 +171,10 @@ export class StatusLegend {
     return `
       <div class="status-legend-item inline-flex items-center gap-1"
            role="listitem"
-           title="${this.escapeHtml(item.description)}"
-           aria-label="${this.escapeHtml(item.label)}: ${this.escapeHtml(item.description)}">
+           title="${escapeHtml(item.description)}"
+           aria-label="${escapeHtml(item.label)}: ${escapeHtml(item.description)}">
         <span class="${item.colorClass} ${iconSize}" aria-hidden="true">${item.icon}</span>
-        <span class="text-gray-600 dark:text-gray-400 ${textSize}">${this.escapeHtml(item.label)}</span>
+        <span class="text-gray-600 dark:text-gray-400 ${textSize}">${escapeHtml(item.label)}</span>
       </div>
     `;
   }
@@ -195,18 +197,6 @@ export class StatusLegend {
     this.container = null;
   }
 
-  /**
-   * Escape HTML special characters
-   */
-  private escapeHtml(str: string): string {
-    // Use string replacement instead of DOM for Node.js test compatibility
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
 }
 
 // ============================================================================

@@ -4,6 +4,8 @@ import {
 } from '../translation-contracts/index.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError, type StructuredError } from '../toast/error-helpers.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
 import {
   BTN_PRIMARY_SM,
   BTN_SECONDARY_SM,
@@ -1644,21 +1646,7 @@ function formatDueDate(value?: string): string {
   });
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
-function escapeAttr(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 export function getAssignmentQueueStyles(): string {
   return `

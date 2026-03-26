@@ -1,6 +1,7 @@
-import { r as L } from "../chunks/translation-status-vocabulary-huaq_68y.js";
+import { r as L } from "../chunks/translation-status-vocabulary-BA9o2n8M.js";
 import { h as U, r as K } from "../chunks/http-client-DZnuedzQ.js";
 import { extractStructuredError as G } from "../toast/error-helpers.js";
+import { escapeHTML as o, escapeAttribute as d } from "../shared/html.js";
 import { H as T, h as Y, a as W, x as f, k as X, l as Z, m as J, P as C, Q as D, S as ee, U as te, V as se, W as ie, X as ae, Y as w, Z as $, _ as k, $ as re } from "../chunks/style-constants-i2xRoO1L.js";
 class E extends Error {
   constructor(e) {
@@ -1052,12 +1053,6 @@ function Q(t) {
     minute: "2-digit"
   });
 }
-function o(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function d(t) {
-  return t.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
 function Re() {
   return `
     .assignment-queue-screen {
@@ -1461,7 +1456,7 @@ function Ie(t, e) {
   const s = new ke(e);
   return s.mount(t), s;
 }
-function Le(t) {
+function Te(t) {
   const e = t.dataset.endpoint || t.dataset.assignmentListEndpoint || "";
   if (!e)
     return null;
@@ -1486,7 +1481,7 @@ export {
   Ie as createAssignmentQueueScreen,
   he as fetchAssignmentList,
   Re as getAssignmentQueueStyles,
-  Le as initAssignmentQueueScreen,
+  Te as initAssignmentQueueScreen,
   ve as normalizeAssignmentActionResponse,
   pe as normalizeAssignmentListMeta,
   fe as normalizeAssignmentListResponse,

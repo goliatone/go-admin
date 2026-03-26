@@ -1,5 +1,6 @@
-import { f as v, b as r, s as f, h as u, a as _ } from "../chunks/dom-helpers-CMRVXsMj.js";
-const x = "esign.google.account_id", S = {
+import { f as v, b as r, s as f, h as u, a as S } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { escapeHTML as x } from "../shared/html.js";
+const y = "esign.google.account_id", C = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -29,7 +30,7 @@ const x = "esign.google.account_id", S = {
     description: "Access files opened with this app"
   }
 };
-class y {
+class _ {
   constructor(t) {
     this.accounts = [], this.oauthWindow = null, this.oauthTimeout = null, this.pendingOAuthAccountId = null, this.pendingDisconnectAccountId = null, this.messageHandler = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       loadingState: r("#loading-state"),
@@ -85,17 +86,17 @@ class y {
       disconnectBtn: e,
       refreshBtn: n,
       retryBtn: o,
-      reauthBtn: c,
+      reauthBtn: i,
       oauthCancelBtn: s,
-      disconnectCancelBtn: i,
+      disconnectCancelBtn: c,
       disconnectConfirmBtn: l,
       accountIdInput: h,
       oauthModal: g,
       disconnectModal: d
     } = this.elements;
-    t && t.addEventListener("click", () => this.startOAuthFlow()), c && c.addEventListener("click", () => this.startOAuthFlow()), e && e.addEventListener("click", () => {
+    t && t.addEventListener("click", () => this.startOAuthFlow()), i && i.addEventListener("click", () => this.startOAuthFlow()), e && e.addEventListener("click", () => {
       this.pendingDisconnectAccountId = this.currentAccountId, d && f(d);
-    }), i && i.addEventListener("click", () => {
+    }), c && c.addEventListener("click", () => {
       this.pendingDisconnectAccountId = null, d && u(d);
     }), l && l.addEventListener("click", () => this.disconnect()), s && s.addEventListener("click", () => this.cancelOAuthFlow()), n && n.addEventListener("click", () => this.checkStatus()), o && o.addEventListener("click", () => this.checkStatus()), h && (h.addEventListener("change", () => {
       this.setCurrentAccountId(h.value, !0);
@@ -126,7 +127,7 @@ class y {
       return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(x)
+        window.localStorage.getItem(y)
       );
     } catch {
       return "";
@@ -186,7 +187,7 @@ class y {
    */
   persistAccountId() {
     try {
-      this.currentAccountId ? window.localStorage.setItem(x, this.currentAccountId) : window.localStorage.removeItem(x);
+      this.currentAccountId ? window.localStorage.setItem(y, this.currentAccountId) : window.localStorage.removeItem(y);
     } catch {
     }
   }
@@ -226,14 +227,14 @@ class y {
    */
   announce(t) {
     const { announcements: e } = this.elements;
-    e && (e.textContent = t), _(t);
+    e && (e.textContent = t), S(t);
   }
   /**
    * Show a specific state and hide others
    */
   showState(t) {
-    const { loadingState: e, disconnectedState: n, connectedState: o, errorState: c } = this.elements;
-    switch (u(e), u(n), u(o), u(c), t) {
+    const { loadingState: e, disconnectedState: n, connectedState: o, errorState: i } = this.elements;
+    switch (u(e), u(n), u(o), u(i), t) {
       case "loading":
         f(e);
         break;
@@ -244,7 +245,7 @@ class y {
         f(o);
         break;
       case "error":
-        f(c);
+        f(i);
         break;
     }
   }
@@ -299,13 +300,13 @@ class y {
           this.showState("disconnected"), this.updateStatusBadge(!1), this.announce("Google Drive is not connected");
           return;
         }
-        let c = `Failed to check status: ${t.status}`;
+        let i = `Failed to check status: ${t.status}`;
         try {
           const s = await t.json();
-          s?.error?.message && (c = s.error.message);
+          s?.error?.message && (i = s.error.message);
         } catch {
         }
-        throw new Error(c);
+        throw new Error(i);
       }
       const e = await t.json(), n = this.normalizeIntegrationPayload(e.integration || {});
       !this.currentAccountId && n.account_id && (this.currentAccountId = n.account_id, this.updateAccountScopeUI());
@@ -330,9 +331,9 @@ class y {
         if (Object.prototype.hasOwnProperty.call(t, I) && t[I] !== void 0 && t[I] !== null)
           return t[I];
       return A;
-    }, n = e(["expires_at", "ExpiresAt"], ""), o = e(["scopes", "Scopes"], []), c = this.normalizeAccountId(
+    }, n = e(["expires_at", "ExpiresAt"], ""), o = e(["scopes", "Scopes"], []), i = this.normalizeAccountId(
       e(["account_id", "AccountID"], "")
-    ), s = e(["connected", "Connected"], !1), i = e(["degraded", "Degraded"], !1), l = e(["degraded_reason", "DegradedReason"], ""), h = e(
+    ), s = e(["connected", "Connected"], !1), c = e(["degraded", "Degraded"], !1), l = e(["degraded_reason", "DegradedReason"], ""), h = e(
       ["email", "user_email", "account_email", "AccountEmail"],
       ""
     ), g = e(
@@ -356,7 +357,7 @@ class y {
     const p = typeof d == "boolean" ? d : (m === !0 || w === !0) && !g;
     return {
       connected: s,
-      account_id: c,
+      account_id: i,
       email: h,
       scopes: Array.isArray(o) ? o : [],
       expires_at: n,
@@ -364,7 +365,7 @@ class y {
       is_expiring_soon: w === !0,
       can_auto_refresh: g,
       needs_reauthorization: p,
-      degraded: i,
+      degraded: c,
       degraded_reason: l
     };
   }
@@ -372,7 +373,7 @@ class y {
    * Render connected state details
    */
   renderConnectedState(t) {
-    const { connectedEmail: e, connectedAccountId: n, scopesList: o, expiryInfo: c, reauthWarning: s, reauthReason: i } = this.elements;
+    const { connectedEmail: e, connectedAccountId: n, scopesList: o, expiryInfo: i, reauthWarning: s, reauthReason: c } = this.elements;
     e && (e.textContent = t.email || "Connected"), n && (n.textContent = t.account_id || this.currentAccountId ? `Account ID: ${t.account_id || this.currentAccountId}` : "Account ID: default"), this.renderScopes(t.scopes || []), this.renderExpiry(
       t.expires_at,
       t.is_expired,
@@ -392,15 +393,15 @@ class y {
         return;
       }
       e.innerHTML = t.map((n) => {
-        const o = S[n] || { label: n, description: "" };
+        const o = C[n] || { label: n, description: "" };
         return `
         <li class="flex items-start gap-2">
           <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
           </svg>
           <div>
-            <span class="text-sm font-medium text-gray-700">${this.escapeHtml(o.label)}</span>
-            ${o.description ? `<p class="text-xs text-gray-500">${this.escapeHtml(o.description)}</p>` : ""}
+            <span class="text-sm font-medium text-gray-700">${x(o.label)}</span>
+            ${o.description ? `<p class="text-xs text-gray-500">${x(o.description)}</p>` : ""}
           </div>
         </li>
       `;
@@ -410,18 +411,18 @@ class y {
   /**
    * Render token expiry information
    */
-  renderExpiry(t, e, n, o, c) {
-    const { expiryInfo: s, reauthWarning: i, reauthReason: l } = this.elements;
+  renderExpiry(t, e, n, o, i) {
+    const { expiryInfo: s, reauthWarning: c, reauthReason: l } = this.elements;
     if (!s) return;
     if (s.classList.remove("text-red-600", "text-amber-600"), s.classList.add("text-gray-500"), !t) {
-      s.textContent = "Access token status unknown", i && u(i);
+      s.textContent = "Access token status unknown", c && u(c);
       return;
     }
     const h = new Date(t), g = /* @__PURE__ */ new Date(), d = Math.max(
       1,
       Math.round((h.getTime() - g.getTime()) / (1e3 * 60))
     );
-    e ? o ? (s.textContent = "Access token expired, but refresh is available and will be applied automatically.", s.classList.remove("text-gray-500"), s.classList.add("text-amber-600"), i && u(i)) : (s.textContent = "Access token has expired. Please re-authorize.", s.classList.remove("text-gray-500"), s.classList.add("text-red-600"), i && f(i), l && (l.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (s.classList.remove("text-gray-500"), s.classList.add("text-amber-600"), o ? (s.textContent = `Token expires in approximately ${d} minute${d !== 1 ? "s" : ""}. Refresh is available automatically.`, i && u(i)) : (s.textContent = `Token expires in approximately ${d} minute${d !== 1 ? "s" : ""}`, i && f(i), l && (l.textContent = `Your access token will expire in ${d} minute${d !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (s.textContent = `Token valid until ${h.toLocaleDateString()} ${h.toLocaleTimeString()}`, i && u(i)), !c && i && u(i);
+    e ? o ? (s.textContent = "Access token expired, but refresh is available and will be applied automatically.", s.classList.remove("text-gray-500"), s.classList.add("text-amber-600"), c && u(c)) : (s.textContent = "Access token has expired. Please re-authorize.", s.classList.remove("text-gray-500"), s.classList.add("text-red-600"), c && f(c), l && (l.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (s.classList.remove("text-gray-500"), s.classList.add("text-amber-600"), o ? (s.textContent = `Token expires in approximately ${d} minute${d !== 1 ? "s" : ""}. Refresh is available automatically.`, c && u(c)) : (s.textContent = `Token expires in approximately ${d} minute${d !== 1 ? "s" : ""}`, c && f(c), l && (l.textContent = `Your access token will expire in ${d} minute${d !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (s.textContent = `Token valid until ${h.toLocaleDateString()} ${h.toLocaleTimeString()}`, c && u(c)), !i && c && u(c);
   }
   /**
    * Render degraded provider state
@@ -460,19 +461,19 @@ class y {
     const e = document.createElement("option");
     e.value = "", e.textContent = "Default Account", this.currentAccountId || (e.selected = !0), t.appendChild(e);
     const n = /* @__PURE__ */ new Set([""]);
-    for (const c of this.accounts) {
-      const s = this.normalizeAccountId(c.account_id);
+    for (const i of this.accounts) {
+      const s = this.normalizeAccountId(i.account_id);
       if (n.has(s))
         continue;
       n.add(s);
-      const i = document.createElement("option");
-      i.value = s;
-      const l = c.email || s || "Default", h = c.status !== "connected" ? ` (${c.status})` : "";
-      i.textContent = `${l}${h}`, s === this.currentAccountId && (i.selected = !0), t.appendChild(i);
+      const c = document.createElement("option");
+      c.value = s;
+      const l = i.email || s || "Default", h = i.status !== "connected" ? ` (${i.status})` : "";
+      c.textContent = `${l}${h}`, s === this.currentAccountId && (c.selected = !0), t.appendChild(c);
     }
     if (this.currentAccountId && !n.has(this.currentAccountId)) {
-      const c = document.createElement("option");
-      c.value = this.currentAccountId, c.textContent = `${this.currentAccountId} (new)`, c.selected = !0, t.appendChild(c);
+      const i = document.createElement("option");
+      i.value = this.currentAccountId, i.textContent = `${this.currentAccountId} (new)`, i.selected = !0, t.appendChild(i);
     }
     const o = document.createElement("option");
     o.value = "__new__", o.textContent = "+ Connect New Account...", t.appendChild(o);
@@ -502,14 +503,14 @@ class y {
       expired: "bg-red-100 text-red-700",
       needs_reauth: "bg-amber-100 text-amber-700",
       degraded: "bg-gray-100 text-gray-700"
-    }, c = {
+    }, i = {
       connected: "Connected",
       expired: "Expired",
       needs_reauth: "Re-auth needed",
       degraded: "Degraded"
-    }, s = e ? "ring-2 ring-blue-500" : "", i = n[t.status] || "bg-white border-gray-200", l = o[t.status] || "bg-gray-100 text-gray-700", h = c[t.status] || t.status, g = t.account_id || "default", d = t.email || (t.account_id ? t.account_id : "Default account");
+    }, s = e ? "ring-2 ring-blue-500" : "", c = n[t.status] || "bg-white border-gray-200", l = o[t.status] || "bg-gray-100 text-gray-700", h = i[t.status] || t.status, g = t.account_id || "default", d = t.email || (t.account_id ? t.account_id : "Default account");
     return `
-      <div class="account-card ${i} ${s} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(t.account_id)}">
+      <div class="account-card ${c} ${s} border rounded-xl p-4 relative" data-account-id="${x(t.account_id)}">
         ${e ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ""}
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full ${t.status === "connected" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
@@ -521,8 +522,8 @@ class y {
     </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(d)}</p>
-            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(g)}</p>
+            <p class="text-sm font-medium text-gray-900 truncate">${x(d)}</p>
+            <p class="text-xs text-gray-500">Account: ${x(g)}</p>
             <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${l}">
               ${h}
             </span>
@@ -559,19 +560,19 @@ class y {
     const { accountsGrid: t, disconnectModal: e } = this.elements;
     if (!t) return;
     t.querySelectorAll(".select-account-btn").forEach((o) => {
-      o.addEventListener("click", (c) => {
-        const i = c.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.setCurrentAccountId(i, !0);
+      o.addEventListener("click", (i) => {
+        const c = i.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.setCurrentAccountId(c, !0);
       });
     }), t.querySelectorAll(".reauth-account-btn").forEach((o) => {
-      o.addEventListener("click", (c) => {
-        const i = c.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.setCurrentAccountId(i, !1), this.startOAuthFlow(i);
+      o.addEventListener("click", (i) => {
+        const c = i.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.setCurrentAccountId(c, !1), this.startOAuthFlow(c);
       });
     }), t.querySelectorAll(".disconnect-account-btn").forEach((o) => {
-      o.addEventListener("click", (c) => {
-        const i = c.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.pendingDisconnectAccountId = i, e && f(e);
+      o.addEventListener("click", (i) => {
+        const c = i.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.pendingDisconnectAccountId = c, e && f(e);
       });
     });
     const n = t.querySelector("#connect-new-card");
@@ -580,10 +581,6 @@ class y {
   /**
    * Escape HTML for safe rendering
    */
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
-  }
   // OAuth Flow Methods
   /**
    * Start OAuth flow
@@ -591,18 +588,18 @@ class y {
   async startOAuthFlow(t) {
     const { oauthModal: e, errorMessage: n } = this.elements;
     e && f(e);
-    const o = this.resolveOAuthRedirectURI(), c = t !== void 0 ? this.normalizeAccountId(t) : this.currentAccountId;
-    this.pendingOAuthAccountId = c;
-    const s = this.buildGoogleOAuthUrl(o, c);
+    const o = this.resolveOAuthRedirectURI(), i = t !== void 0 ? this.normalizeAccountId(t) : this.currentAccountId;
+    this.pendingOAuthAccountId = i;
+    const s = this.buildGoogleOAuthUrl(o, i);
     if (!s) {
       e && u(e), n && (n.textContent = "Google OAuth is not configured: missing client ID."), this.pendingOAuthAccountId = null, this.showState("error"), this.announce("Google OAuth is not configured");
       return;
     }
-    const i = 500, l = 600, h = (window.screen.width - i) / 2, g = (window.screen.height - l) / 2;
+    const c = 500, l = 600, h = (window.screen.width - c) / 2, g = (window.screen.height - l) / 2;
     if (this.oauthWindow = window.open(
       s,
       "google_oauth",
-      `width=${i},height=${l},left=${h},top=${g},popup=yes`
+      `width=${c},height=${l},left=${h},top=${g},popup=yes`
     ), !this.oauthWindow) {
       e && u(e), this.pendingOAuthAccountId = null, this.showToast("Popup blocked. Allow popups for this site and try again.", "error"), this.announce("Popup blocked");
       return;
@@ -626,8 +623,8 @@ class y {
     if (!e) return !1;
     const n = /* @__PURE__ */ new Set(), o = this.normalizeOrigin(window.location.origin);
     o && n.add(o);
-    const c = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
-    c && n.add(c);
+    const i = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
+    i && n.add(i);
     for (const s of n)
       if (e === s || this.areEquivalentLoopbackOrigins(e, s))
         return !0;
@@ -707,7 +704,7 @@ class y {
       try {
         const o = this.resolveOAuthRedirectURI(), s = (typeof e.account_id == "string" ? this.normalizeAccountId(e.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
         s !== this.currentAccountId && this.setCurrentAccountId(s, !1);
-        const i = await fetch(
+        const c = await fetch(
           this.buildScopedAPIURL("/esign/integrations/google/connect", s),
           {
             method: "POST",
@@ -723,15 +720,15 @@ class y {
             })
           }
         );
-        if (!i.ok) {
-          const l = await i.json();
+        if (!c.ok) {
+          const l = await c.json();
           throw new Error(l.error?.message || "Failed to connect");
         }
         this.showToast("Google Drive connected successfully", "success"), this.announce("Google Drive connected successfully"), await Promise.all([this.checkStatus(), this.loadAccounts()]);
       } catch (o) {
         console.error("Connect error:", o);
-        const c = o instanceof Error ? o.message : "Unknown error";
-        this.showToast(`Failed to connect: ${c}`, "error"), this.announce(`Failed to connect: ${c}`);
+        const i = o instanceof Error ? o.message : "Unknown error";
+        this.showToast(`Failed to connect: ${i}`, "error"), this.announce(`Failed to connect: ${i}`);
       } finally {
         this.pendingOAuthAccountId = null;
       }
@@ -801,11 +798,11 @@ class y {
     o && (e === "success" ? o.success(t) : o.error(t));
   }
 }
-function E(a) {
-  const t = new y(a);
+function D(a) {
+  const t = new _(a);
   return v(() => t.init()), t;
 }
-function C(a) {
+function L(a) {
   const t = {
     basePath: a.basePath,
     apiBasePath: a.apiBasePath || `${a.basePath}/api`,
@@ -814,10 +811,10 @@ function C(a) {
     googleRedirectUri: a.googleRedirectUri,
     googleClientId: a.googleClientId,
     googleEnabled: a.googleEnabled !== !1
-  }, e = new y(t);
+  }, e = new _(t);
   v(() => e.init()), typeof window < "u" && (window.esignGoogleIntegrationController = e);
 }
-function L(a) {
+function k(a) {
   const t = a.features && typeof a.features == "object" ? a.features : {}, e = a.context && typeof a.context == "object" ? a.context : {}, n = String(a.basePath || a.base_path || "").trim();
   return n ? {
     basePath: n,
@@ -842,15 +839,15 @@ typeof document < "u" && v(() => {
   const t = document.getElementById("esign-page-config");
   if (t)
     try {
-      const e = JSON.parse(t.textContent || "{}"), n = L(e);
-      n && C(n);
+      const e = JSON.parse(t.textContent || "{}"), n = k(e);
+      n && L(n);
     } catch (e) {
       console.warn("Failed to parse Google integration page config:", e);
     }
 });
 export {
-  y as GoogleIntegrationController,
-  C as bootstrapGoogleIntegration,
-  E as initGoogleIntegration
+  _ as GoogleIntegrationController,
+  L as bootstrapGoogleIntegration,
+  D as initGoogleIntegration
 };
 //# sourceMappingURL=google-integration.js.map

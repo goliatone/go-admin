@@ -1,4 +1,5 @@
 import { DebugReplTerminal, type DebugReplKind, type DebugReplStatus } from './repl-terminal.js';
+import { escapeHTML } from '../../shared/html.js';
 
 type DebugReplPanelOptions = {
   kind: DebugReplKind;
@@ -36,15 +37,6 @@ const replOverlayIcon = '<i class="iconoir-terminal debug-repl__overlay-icon"></
 const replOverlayText = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>';
 const replOverlayButton = '<button class="debug-repl__overlay-btn" data-overlay-connect><i class="iconoir-play"></i> Connect</button>';
 
-const escapeHTML = (value: any): string => {
-  const str = String(value ?? '');
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
 
 export class DebugReplPanel {
   private options: DebugReplPanelOptions;

@@ -14,6 +14,7 @@
  */
 
 import { badge } from '../shared/badge.js';
+import { escapeAttribute as escapeAttr, escapeHTML as escapeHtml } from '../shared/html.js';
 import {
   getStatusDisplay,
   renderVocabularyStatusBadge,
@@ -205,18 +206,6 @@ export function hasTranslationContext(record: Record<string, unknown>): boolean 
   return ctx.familyId !== null || ctx.resolvedLocale !== null || ctx.availableLocales.length > 0;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttr(value: string): string {
-  return escapeHtml(value).replace(/"/g, '&quot;');
-}
 
 function renderMetaBadge(
   text: string,

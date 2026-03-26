@@ -1,4 +1,4 @@
-import { a as i, e as p } from "../chunks/html-Br-oQr7i.js";
+import { escapeHTML as i, escapeAttribute as p } from "../shared/html.js";
 import { r as z } from "../chunks/http-client-DZnuedzQ.js";
 import { extractStructuredError as F } from "../toast/error-helpers.js";
 import { E as R, i as I, j as S, L as P, d as $, k as j, l as A, m as v, H, h as B, a as K, f as L, q as U, p as D } from "../chunks/style-constants-i2xRoO1L.js";

@@ -7,6 +7,7 @@
 import type { UISchemaOverlay, UILayoutConfig, UITab, FieldDefinition } from './types';
 import { Modal } from '../shared/modal';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 export interface LayoutEditorConfig {
   layout: UILayoutConfig;
@@ -548,8 +549,3 @@ export class LayoutEditor extends Modal {
 // Utilities
 // =============================================================================
 
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}

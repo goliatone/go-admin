@@ -14,6 +14,7 @@ import type {
   InlineStatusChangeEvent,
 } from '../services/command-runtime.js';
 import type { AgreementLiveSection } from './types.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Types
@@ -637,11 +638,6 @@ export class InlineStatusManager {
 // Utilities
 // =============================================================================
 
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 // =============================================================================
 // Factory

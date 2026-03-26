@@ -8,6 +8,7 @@ import {
 import { normalizeDetailActionStatePayload } from './action-contracts.js';
 import type { ActionButton } from './actions.js';
 import { SchemaActionBuilder, type SchemaAction } from './schema-actions.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 export interface DetailActionsMountConfig {
   mount: HTMLElement;
@@ -30,14 +31,6 @@ function resolveDefaultNotifier(): ToastNotifier {
   return new FallbackNotifier();
 }
 
-function escapeHtml(value: string): string {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function actionKey(action: ActionButton, index: number): string {
   const raw = typeof action.id === 'string' && action.id.trim()

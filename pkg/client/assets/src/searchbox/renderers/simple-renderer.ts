@@ -4,6 +4,7 @@
  */
 
 import type { SearchResult, ResultRenderer, SimpleRendererConfig } from '../types.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 const DEFAULT_CONFIG: SimpleRendererConfig = {
   showDescription: true,
@@ -25,10 +26,10 @@ export class SimpleRenderer<T = unknown> implements ResultRenderer<T> {
     const className = `${baseClass} ${selectedClass}`.trim();
 
     const iconHtml = this.config.showIcon && result.icon ? this.renderIcon(result.icon) : '';
-    const labelHtml = this.escapeHtml(result.label);
+    const labelHtml = escapeHtml(result.label);
     const descriptionHtml =
       this.config.showDescription && result.description
-        ? `<p class="text-xs text-gray-500 mt-0.5">${this.escapeHtml(result.description)}</p>`
+        ? `<p class="text-xs text-gray-500 mt-0.5">${escapeHtml(result.description)}</p>`
         : '';
 
     return `
@@ -47,16 +48,10 @@ export class SimpleRenderer<T = unknown> implements ResultRenderer<T> {
   protected renderIcon(icon: string): string {
     // Check if it's a URL (for images)
     if (icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('data:')) {
-      return `<img src="${this.escapeHtml(icon)}" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />`;
+      return `<img src="${escapeHtml(icon)}" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />`;
     }
 
     // Otherwise treat as an icon name/class
-    return `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500">${this.escapeHtml(icon)}</span>`;
-  }
-
-  protected escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500">${escapeHtml(icon)}</span>`;
   }
 }

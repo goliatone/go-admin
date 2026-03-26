@@ -4,7 +4,10 @@
  */
 
 import type { ActivityEntry, ActionCategory, ParsedObject, ActorType } from './types.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+
+export { escapeHtml };
 
 /**
  * Mapping of verbs to action categories
@@ -374,11 +377,6 @@ function formatObjectType(type: string): string {
 /**
  * Escape HTML to prevent XSS
  */
-export function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 /**
  * Shorten a UUID or long string to first N characters (like git short hash)

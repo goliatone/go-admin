@@ -70,7 +70,7 @@ test('Phase 1 lineage contracts normalize import status payloads and candidate s
 
   assert.equal(linked.lineage_status, 'linked');
   assert.equal(linked.source_document?.id, 'src_doc_001');
-  assert.equal(linked.document_detail_url, '/admin/content/esign_documents/doc_001');
+  assert.equal(linked.document_detail_url, '/admin/content/documents/doc_001');
   assert.equal(candidate.confidence_band, 'medium');
   assert.equal(candidate.evidence[0].code, 'normalized_text_match');
 });

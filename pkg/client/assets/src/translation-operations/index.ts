@@ -25,6 +25,7 @@ import {
 } from '../translation-shared/index.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
+import { escapeHTML } from '../shared/html.js';
 
 /**
  * Configuration for TranslationOperationsManager
@@ -528,14 +529,6 @@ function renderShellLoadingState(): string {
   `;
 }
 
-function escapeHTML(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export function renderTranslationSurfaceShell(
   root: HTMLElement,

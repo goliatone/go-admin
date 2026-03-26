@@ -2,19 +2,11 @@
 // Used by both the full debug console and the debug toolbar
 
 import type { DurationResult } from './types.js';
+export { escapeHTML } from '../../shared/html.js';
 
 /**
  * Escape HTML special characters to prevent XSS
  */
-export const escapeHTML = (value: unknown): string => {
-  const str = String(value ?? '');
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
 
 /**
  * Format a timestamp value to a locale time string

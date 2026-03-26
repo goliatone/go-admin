@@ -1,4 +1,5 @@
-import { r as E } from "../chunks/icon-renderer-CRbgoQtj.js";
+import { escapeHTML as l } from "../shared/html.js";
+import { r as E } from "../chunks/icon-renderer-FL11lsYV.js";
 const re = {
   // Created
   created: "created",
@@ -175,7 +176,7 @@ function B(e) {
   }
   return "unknown";
 }
-function Fe(e) {
+function Ye(e) {
   return S(e.metadata, fe);
 }
 function X(e) {
@@ -190,10 +191,6 @@ function Ee(e) {
 }
 function R(e) {
   return e ? e.split(/[_-]/).map(Ee).join(" ") : "";
-}
-function l(e) {
-  const t = document.createElement("div");
-  return t.textContent = e, t.innerHTML;
 }
 function I(e, t = 7) {
   if (!e) return "";
@@ -356,10 +353,10 @@ function j(e) {
 function Ce(e) {
   return e ? I(e, 7) : "";
 }
-function Ye(e) {
+function Ke(e) {
   return `activity-action--${e}`;
 }
-function Ke(e) {
+function Ge(e) {
   const t = G[e];
   return E(`iconoir:${t}`, { extraClass: "activity-action-icon" });
 }
@@ -382,7 +379,7 @@ function O(e, t) {
     extraClass: `activity-actor-type-icon activity-actor-type-icon--${e}`
   });
 }
-function Ge(e) {
+function Je(e) {
   const t = Q(e) || "Unknown", i = B(e), n = Z(t) ? C(t, 8) : l(t);
   return `${i !== "user" && i !== "unknown" ? O(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
 }
@@ -862,7 +859,7 @@ function ze() {
     <span>No more entries</span>
   `, e;
 }
-function Je() {
+function We() {
   const e = document.createElement("div");
   return e.className = "timeline-sentinel", e.setAttribute("aria-hidden", "true"), e;
 }
@@ -891,7 +888,7 @@ function Pe(e) {
   const t = U(e.error) ? e.error : e, i = typeof t.text_code == "string" ? t.text_code.trim() : "", n = typeof t.message == "string" ? t.message.trim() : "";
   return { textCode: i, message: n };
 }
-class We {
+class Qe {
   constructor(t, i = {}, n) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.viewSwitcher = null, this.timelineRenderer = null, this.timelineContainer = null, this.timelineSentinel = null, this.infiniteScrollObserver = null, this.isLoadingMore = !1, this.allEntriesLoaded = !1, this.cachedEntries = [], this.state = {
       limit: 50,
@@ -1225,17 +1222,17 @@ export {
   G as ACTION_ICONS,
   F as ACTOR_TYPE_ICONS,
   me as ACTOR_TYPE_LABELS,
-  We as ActivityManager,
+  Qe as ActivityManager,
   q as ActivityViewSwitcher,
   ge as NAMESPACE_ICONS,
   Re as TimelineRenderer,
   Ae as countMetadataFields,
   ze as createEndIndicator,
   je as createLoadingIndicator,
-  Je as createScrollSentinel,
+  We as createScrollSentinel,
   l as escapeHtml,
   ee as formatActivitySentence,
-  Ge as formatActorWithType,
+  Je as formatActorWithType,
   Ce as formatChannel,
   ae as formatEnrichmentDebugInfo,
   se as formatMetadataExpanded,
@@ -1244,9 +1241,9 @@ export {
   Ie as formatSessionId,
   Se as formatTimestamp,
   N as getActionCategory,
-  Ye as getActionClass,
-  Ke as getActionIconHtml,
-  Fe as getActorEmail,
+  Ke as getActionClass,
+  Ge as getActionIconHtml,
+  Ye as getActorEmail,
   B as getActorType,
   O as getActorTypeIconHtml,
   te as getDateGroupLabel,

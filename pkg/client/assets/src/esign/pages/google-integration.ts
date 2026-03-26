@@ -11,6 +11,7 @@ import type {
   GoogleAccountInfo,
 } from '../types.js';
 import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 type IntegrationState = 'loading' | 'disconnected' | 'connected' | 'error';
 
@@ -772,8 +773,8 @@ export class GoogleIntegrationController {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
           </svg>
           <div>
-            <span class="text-sm font-medium text-gray-700">${this.escapeHtml(info.label)}</span>
-            ${info.description ? `<p class="text-xs text-gray-500">${this.escapeHtml(info.description)}</p>` : ''}
+            <span class="text-sm font-medium text-gray-700">${escapeHtml(info.label)}</span>
+            ${info.description ? `<p class="text-xs text-gray-500">${escapeHtml(info.description)}</p>` : ''}
           </div>
         </li>
       `;
@@ -1020,15 +1021,15 @@ export class GoogleIntegrationController {
     </svg>`;
 
     return `
-      <div class="account-card ${cardClass} ${borderClass} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(account.account_id)}">
+      <div class="account-card ${cardClass} ${borderClass} border rounded-xl p-4 relative" data-account-id="${escapeHtml(account.account_id)}">
         ${isActive ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ''}
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full ${account.status === 'connected' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center">
             ${googleIcon}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(email)}</p>
-            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(accountLabel)}</p>
+            <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(email)}</p>
+            <p class="text-xs text-gray-500">Account: ${escapeHtml(accountLabel)}</p>
             <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${badgeClass}">
               ${statusLabel}
             </span>
@@ -1106,11 +1107,6 @@ export class GoogleIntegrationController {
   /**
    * Escape HTML for safe rendering
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 
   // OAuth Flow Methods
 

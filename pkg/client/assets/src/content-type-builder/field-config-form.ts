@@ -23,6 +23,7 @@ import { Modal } from '../shared/modal';
 import { inputClasses, selectClasses, textareaClasses, checkboxClasses, labelClasses } from './shared/field-input-classes';
 import { loadAvailableBlocks, blockKey as sharedBlockKey, normalizeBlockSelection } from './shared/block-picker';
 import { resolveApiBasePath } from './shared/api-paths';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Field Config Form Component
@@ -1411,11 +1412,6 @@ export class FieldConfigForm extends Modal {
 // Utilities
 // =============================================================================
 
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function labelToFieldName(label: string): string {
   return label

@@ -35,6 +35,7 @@ import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './sha
 import { renderEntityHeader } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderFieldKebab, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Content Type Editor Component
@@ -2340,11 +2341,6 @@ interface DragState {
 // Utilities
 // =============================================================================
 
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function nameToSlug(name: string): string {
   return name

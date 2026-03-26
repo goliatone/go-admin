@@ -1,3 +1,4 @@
+import { escapeHTML as o } from "../shared/html.js";
 function C(e) {
   return typeof e == "string" ? e.trim() : "";
 }
@@ -104,7 +105,7 @@ function N(e) {
     bulk_action_state: t
   };
 }
-function B(e) {
+function H(e) {
   if (!c(e))
     return null;
   const t = w(e.bulk_action_state);
@@ -115,7 +116,7 @@ function B(e) {
   };
   return c(e.selection) && (s.selection = e.selection), s;
 }
-function H(e) {
+function U(e) {
   if (!c(e))
     return null;
   const t = Array.isArray(e.data) ? e.data : Array.isArray(e.records) ? e.records : null, s = t && t.map((i) => M(i) ?? i), a = N(e.$meta), n = { ...e };
@@ -128,13 +129,13 @@ function H(e) {
   }
   return n;
 }
-function U(e) {
+function V(e) {
   return c(e) ? c(e.data) ? {
     ...e,
     data: M(e.data)
   } : { ...e } : null;
 }
-function V(e, t) {
+function F(e, t) {
   const s = l(t);
   return s && T(e._action_state)[s] || null;
 }
@@ -562,17 +563,17 @@ function z(e) {
   const t = S(e);
   return t && t in f ? f[t] : null;
 }
-function F(e) {
+function q(e) {
   const t = S(e);
   return t && t in f ? f[t] : null;
 }
-function q(e, t) {
+function Y(e, t) {
   return p(e, t) !== null;
 }
-function Y(e) {
+function G(e) {
   return z(e) !== null;
 }
-function G(e) {
+function J(e) {
   switch (e) {
     case "core":
       return Object.keys(m);
@@ -591,13 +592,13 @@ function G(e) {
       return [];
   }
 }
-function J() {
+function Q() {
   return Object.keys(f);
 }
-function Q(e, t) {
+function X(e, t) {
   return p(e, t) ? `status-${e.toLowerCase()}` : "";
 }
-function X(e, t) {
+function W(e, t) {
   const s = p(e, t);
   return s ? `severity-${s.severity}` : "";
 }
@@ -645,7 +646,7 @@ function P(e, t = {}) {
     <span>${o(y)}</span>
   </span>`;
 }
-function W(e, t) {
+function K(e, t) {
   const s = z(e);
   if (!s)
     return "";
@@ -659,16 +660,16 @@ function W(e, t) {
     </svg>
   </span>`;
 }
-function K(e = {}) {
+function Z(e = {}) {
   return (t) => typeof t != "string" || !t ? '<span class="text-gray-400">-</span>' : O(t, e);
 }
-function Z(e = {}) {
+function ee(e = {}) {
   return (t) => typeof t != "string" || !t ? "" : P(t, e);
 }
-function ee(e) {
+function te(e) {
   e.schema_version !== 1 && console.warn("[TranslationStatusVocabulary] Unknown schema version:", e.schema_version);
 }
-function te() {
+function se() {
   return `
     /* Status Vocabulary Styles */
     [data-status],
@@ -695,33 +696,30 @@ function te() {
     }
   `;
 }
-function o(e) {
-  return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
 export {
-  W as A,
-  K as B,
+  K as A,
+  Z as B,
   m as C,
   f as D,
   A as E,
-  Z as F,
-  ee as G,
-  te as H,
+  ee as F,
+  te as G,
+  se as H,
   x as Q,
   j as a,
-  U as b,
+  V as b,
   w as c,
   D as d,
-  B as e,
-  V as f,
+  H as e,
+  F as f,
   p as g,
-  F as h,
+  q as h,
   P as i,
-  Q as j,
+  X as j,
   S as k,
   $ as l,
   T as m,
-  H as n,
+  U as n,
   M as o,
   N as p,
   v as q,
@@ -729,10 +727,10 @@ export {
   h as s,
   _ as t,
   z as u,
-  q as v,
-  Y as w,
-  G as x,
-  J as y,
-  X as z
+  Y as v,
+  G as w,
+  J as x,
+  Q as y,
+  W as z
 };
-//# sourceMappingURL=translation-status-vocabulary-huaq_68y.js.map
+//# sourceMappingURL=translation-status-vocabulary-BA9o2n8M.js.map

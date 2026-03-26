@@ -7,6 +7,7 @@ import type { ESignPageConfig, GoogleDriveFile } from '../types.js';
 import { qs, qsa, show, hide, onReady, announce, on, setLoading } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatDateTime } from '../utils/formatters.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
@@ -554,7 +555,7 @@ export class GoogleDrivePickerController {
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''}"
-        data-file-id="${this.escapeHtml(file.id)}"
+        data-file-id="${escapeHtml(file.id)}"
         data-is-folder="${isFolder}"
         role="option"
         aria-selected="${isSelected}"
@@ -565,7 +566,7 @@ export class GoogleDrivePickerController {
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
-            ${this.escapeHtml(file.name)}
+            ${escapeHtml(file.name)}
           </p>
           <p class="text-xs text-gray-500">
             ${formatDateTime(file.modifiedTime)}
@@ -757,11 +758,11 @@ export class GoogleDrivePickerController {
           ${index > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ''}
           <button
             type="button"
-            data-folder-id="${this.escapeHtml(item.id)}"
+            data-folder-id="${escapeHtml(item.id)}"
             data-folder-index="${index}"
             class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ${this.escapeHtml(item.name)}
+            ${escapeHtml(item.name)}
           </button>
         </li>
       `
@@ -1023,7 +1024,7 @@ export class GoogleDrivePickerController {
           </svg>
         </div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Files</h3>
-        <p class="text-sm text-gray-500 mb-4">${this.escapeHtml(message)}</p>
+        <p class="text-sm text-gray-500 mb-4">${escapeHtml(message)}</p>
         <button type="button" class="btn btn-secondary" onclick="location.reload()">
           Try Again
         </button>
@@ -1071,11 +1072,6 @@ export class GoogleDrivePickerController {
   /**
    * Escape HTML
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 }
 
 /**

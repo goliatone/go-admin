@@ -36,6 +36,7 @@ export default defineConfig({
         'translation-queue/index': resolve(__dirname, 'src/translation-queue/index.ts'),
         'translation-operations/index': resolve(__dirname, 'src/translation-operations/index.ts'),
         'services/index': resolve(__dirname, 'src/services/index.ts'),
+        'shared/html': resolve(__dirname, 'src/shared/html.ts'),
         // E-Sign module entries
         'esign/index': resolve(__dirname, 'src/esign/index.ts'),
         'esign/admin-landing': resolve(__dirname, 'src/esign/entries/admin-landing.ts'),

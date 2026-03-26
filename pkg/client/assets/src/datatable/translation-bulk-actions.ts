@@ -12,6 +12,7 @@
 
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // ============================================================================
 // Types
@@ -353,11 +354,3 @@ export function createBulkCreateMissingHandler(
 // Helper Functions
 // ============================================================================
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}

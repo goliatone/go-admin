@@ -8,6 +8,7 @@
  */
 
 import { renderIcon } from '../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Types
@@ -665,9 +666,4 @@ export function renderStateSourceLegend(): string {
 // Helpers
 // =============================================================================
 
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 

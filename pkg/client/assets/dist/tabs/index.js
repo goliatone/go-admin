@@ -1,12 +1,4 @@
-function r(i) {
-  return String(i || "").replace(/[&<>"']/g, (e) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[e] || e);
-}
+import { escapeHTML as r } from "../shared/html.js";
 function c(i) {
   return typeof i == "number" ? i.toLocaleString() : i == null ? "" : String(i);
 }
@@ -25,8 +17,8 @@ function v(i) {
 function b(i) {
   const t = x(i);
   if (!t) return String(i || "");
-  const e = t.getTime() - Date.now(), s = Math.abs(e), a = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" }), l = 1e3, d = 60 * l, n = 60 * d, o = 24 * n, u = 30 * o, g = 365 * o;
-  return s < d ? a.format(Math.round(e / l), "second") : s < n ? a.format(Math.round(e / d), "minute") : s < o ? a.format(Math.round(e / n), "hour") : s < u ? a.format(Math.round(e / o), "day") : s < g ? a.format(Math.round(e / u), "month") : a.format(Math.round(e / g), "year");
+  const e = t.getTime() - Date.now(), s = Math.abs(e), a = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" }), d = 1e3, l = 60 * d, n = 60 * l, o = 24 * n, u = 30 * o, g = 365 * o;
+  return s < l ? a.format(Math.round(e / d), "second") : s < n ? a.format(Math.round(e / l), "minute") : s < o ? a.format(Math.round(e / n), "hour") : s < u ? a.format(Math.round(e / o), "day") : s < g ? a.format(Math.round(e / u), "month") : a.format(Math.round(e / g), "year");
 }
 function m(i) {
   const t = i || document;
@@ -70,13 +62,13 @@ function w(i) {
   if (s === "badge")
     return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${e}</span>`;
   if (s === "status") {
-    const a = String(t || "").toLowerCase(), l = {
+    const a = String(t || "").toLowerCase(), d = {
       active: { dot: "bg-green-500", text: "text-green-700" },
       inactive: { dot: "bg-gray-400", text: "text-gray-600" },
       suspended: { dot: "bg-red-500", text: "text-red-700" },
       pending: { dot: "bg-yellow-500", text: "text-yellow-700" }
     }[a] || { dot: "bg-gray-400", text: "text-gray-700" };
-    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${e} status"><span class="w-2 h-2 rounded-full ${l.dot}" aria-hidden="true"></span><span class="${l.text}">${e}</span></span>`;
+    return `<span class="profile-status inline-flex items-center gap-1.5" aria-label="${e} status"><span class="w-2 h-2 rounded-full ${d.dot}" aria-hidden="true"></span><span class="${d.text}">${e}</span></span>`;
   }
   if (s === "verified") {
     const a = !!i?.verified;
@@ -86,15 +78,15 @@ function w(i) {
 }
 function $(i) {
   const t = i.map((e) => {
-    const a = (Array.isArray(e?.fields) ? e.fields : []).filter((l) => !(l?.hide_if_empty && f(l?.value)));
+    const a = (Array.isArray(e?.fields) ? e.fields : []).filter((d) => !(d?.hide_if_empty && f(d?.value)));
     return a.length ? `
       <div class="profile-section">
         <div class="text-xs uppercase tracking-wider text-gray-500 mb-3 font-semibold">${r(e?.label || "")}</div>
         <dl class="space-y-3">
-          ${a.map((l) => `
+          ${a.map((d) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-500">${r(l?.label || l?.key || "")}</dt>
-              <dd class="text-sm font-medium text-gray-900 text-right">${w(l)}</dd>
+              <dt class="text-sm text-gray-500">${r(d?.label || d?.key || "")}</dt>
+              <dd class="text-sm font-medium text-gray-900 text-right">${w(d)}</dd>
             </div>
           `).join("")}
         </dl>
@@ -108,13 +100,13 @@ function _(i) {
   if (t === "admin.widget.user_stats") {
     const s = e.values || { Total: e.total, Active: e.active, "New Today": e.new_today };
     return `<div class="metrics">${Object.entries(s).map(
-      ([a, l]) => `<div class="metric"><small>${r(a)}</small><span>${r(c(l))}</span></div>`
+      ([a, d]) => `<div class="metric"><small>${r(a)}</small><span>${r(c(d))}</span></div>`
     ).join("")}</div>`;
   }
   if (t === "admin.widget.settings_overview") {
     const s = e.values || {}, a = Object.entries(s);
     return a.length ? `<dl class="space-y-2">${a.map(
-      ([l, d]) => `<div class="flex items-start justify-between gap-4"><dt class="text-sm text-gray-500">${r(l)}</dt><dd class="text-sm font-medium text-gray-900">${r(d ?? "-")}</dd></div>`
+      ([d, l]) => `<div class="flex items-start justify-between gap-4"><dt class="text-sm text-gray-500">${r(d)}</dt><dd class="text-sm font-medium text-gray-900">${r(l ?? "-")}</dd></div>`
     ).join("")}</dl>` : '<p class="text-gray-500">No settings to display</p>';
   }
   if (t === "admin.widget.user_profile_overview") {
@@ -124,17 +116,17 @@ function _(i) {
   if (t === "admin.widget.activity_feed" || t === "admin.widget.user_activity_feed") {
     const s = e.entries || [];
     return s.length ? `<ul class="space-y-3">${s.map((a) => {
-      const l = String(a.actor || "system").trim() || "system", d = String(a.action || "updated").trim() || "updated", n = String(a.object || "").trim();
+      const d = String(a.actor || "system").trim() || "system", l = String(a.action || "updated").trim() || "updated", n = String(a.object || "").trim();
       return `
       <li class="py-3 border-b border-gray-100 last:border-b-0">
-        <div class="font-medium text-gray-900 text-sm">${r(l)}</div>
-        <div class="text-gray-500 text-sm mt-1">${r(d)}${n ? ` ${r(n)}` : ""}</div>
+        <div class="font-medium text-gray-900 text-sm">${r(d)}</div>
+        <div class="text-gray-500 text-sm mt-1">${r(l)}${n ? ` ${r(n)}` : ""}</div>
         ${a.created_at ? `<time class="text-xs text-gray-400 mt-1 block" datetime="${r(a.created_at)}" data-relative-time="${r(a.created_at)}">${r(a.created_at)}</time>` : ""}
       </li>`;
     }).join("")}</ul>` : '<p class="text-gray-500">No recent activity</p>';
   }
   if (t === "esign.widget.agreement_stats") {
-    const s = e, a = Number(s.total || 0), l = Number(s.pending || 0), d = Number(s.completed || 0), n = Number(s.voided || 0) + Number(s.declined || 0) + Number(s.expired || 0), o = a > 0 ? Math.round(d * 100 / a) : 0, u = String(s.list_url || "").trim();
+    const s = e, a = Number(s.total || 0), d = Number(s.pending || 0), l = Number(s.completed || 0), n = Number(s.voided || 0) + Number(s.declined || 0) + Number(s.expired || 0), o = a > 0 ? Math.round(l * 100 / a) : 0, u = String(s.list_url || "").trim();
     return `
       <div>
         <div class="grid grid-cols-2 gap-4">
@@ -143,11 +135,11 @@ function _(i) {
             <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
           </div>
           <div class="bg-blue-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-blue-700">${r(c(l))}</div>
+            <div class="text-2xl font-bold text-blue-700">${r(c(d))}</div>
             <div class="text-xs text-blue-600 uppercase tracking-wide">In Progress</div>
           </div>
           <div class="bg-green-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-green-700">${r(c(d))}</div>
+            <div class="text-2xl font-bold text-green-700">${r(c(l))}</div>
             <div class="text-xs text-green-600 uppercase tracking-wide">Completed</div>
           </div>
           <div class="bg-red-50 rounded-lg p-3 text-center">
@@ -180,7 +172,7 @@ function _(i) {
     `;
   }
   if (t === "esign.widget.signing_activity") {
-    const s = e, a = Array.isArray(s.activities) ? s.activities : [], l = String(s.activity_url || "").trim(), d = (n) => {
+    const s = e, a = Array.isArray(s.activities) ? s.activities : [], d = String(s.activity_url || "").trim(), l = (n) => {
       const o = String(n || "").toLowerCase();
       return o === "signed" || o === "completed" ? "bg-green-500" : o === "viewed" ? "bg-purple-500" : o === "sent" ? "bg-blue-500" : o === "declined" ? "bg-orange-500" : o === "voided" || o === "expired" ? "bg-red-500" : "bg-gray-400";
     };
@@ -190,7 +182,7 @@ function _(i) {
           ${a.map((n) => `
             <li class="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
               <div class="flex-shrink-0 mt-0.5">
-                <span class="w-2 h-2 inline-block rounded-full ${d(n.type)}" aria-hidden="true"></span>
+                <span class="w-2 h-2 inline-block rounded-full ${l(n.type)}" aria-hidden="true"></span>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium text-gray-900 truncate">
@@ -217,9 +209,9 @@ function _(i) {
           <p class="text-sm">No recent signing activity</p>
         </div>
       `}
-      ${l ? `
+      ${d ? `
         <div class="mt-3 pt-3 border-t border-gray-100 text-center">
-          <a href="${r(l)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+          <a href="${r(d)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
             View All Activity
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -230,7 +222,7 @@ function _(i) {
     `;
   }
   if (t === "esign.widget.delivery_health") {
-    const s = e, a = Math.max(0, Math.min(100, Number(s.email_success_rate ?? 100))), l = Math.max(0, Math.min(100, Number(s.job_success_rate ?? 100))), d = Number(s.pending_retries || 0), n = String(s.period || "").trim(), o = (p) => p >= 95 ? { text: "text-green-600", bar: "bg-green-500" } : p >= 80 ? { text: "text-yellow-600", bar: "bg-yellow-500" } : { text: "text-red-600", bar: "bg-red-500" }, u = o(a), g = o(l);
+    const s = e, a = Math.max(0, Math.min(100, Number(s.email_success_rate ?? 100))), d = Math.max(0, Math.min(100, Number(s.job_success_rate ?? 100))), l = Number(s.pending_retries || 0), n = String(s.period || "").trim(), o = (p) => p >= 95 ? { text: "text-green-600", bar: "bg-green-500" } : p >= 80 ? { text: "text-yellow-600", bar: "bg-yellow-500" } : { text: "text-red-600", bar: "bg-red-500" }, u = o(a), g = o(d);
     return `
       <div class="space-y-4">
         <div>
@@ -249,19 +241,19 @@ function _(i) {
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm text-gray-600">Job Processing</span>
-            <span class="text-sm font-semibold ${g.text}">${l}%</span>
+            <span class="text-sm font-semibold ${g.text}">${d}%</span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2">
-            <div class="h-2 rounded-full ${g.bar}" style="width: ${l}%"></div>
+            <div class="h-2 rounded-full ${g.bar}" style="width: ${d}%"></div>
           </div>
           <div class="flex justify-between mt-1 text-xs text-gray-400">
             <span>${r(c(s.jobs_completed || 0))} completed</span>
             <span>${r(c(s.jobs_failed || 0))} failed</span>
           </div>
         </div>
-        ${d > 0 ? `
+        ${l > 0 ? `
           <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            ${r(c(d))} items pending retry
+            ${r(c(l))} items pending retry
           </div>
         ` : ""}
       </div>
@@ -269,19 +261,19 @@ function _(i) {
     `;
   }
   if (t === "esign.widget.pending_signatures") {
-    const s = e, a = Array.isArray(s.agreements) ? s.agreements : [], l = String(s.list_url || "").trim();
+    const s = e, a = Array.isArray(s.agreements) ? s.agreements : [], d = String(s.list_url || "").trim();
     return `
       ${a.length ? `
         <ul class="space-y-2">
-          ${a.map((d) => {
-      const n = Array.isArray(d.pending_recipients) ? d.pending_recipients : [];
+          ${a.map((l) => {
+      const n = Array.isArray(l.pending_recipients) ? l.pending_recipients : [];
       return `
               <li class="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
                 <div class="text-sm font-medium text-gray-900 truncate">
-                  ${d.url ? `<a href="${r(d.url)}" class="hover:text-blue-600">${r(d.title || "Untitled")}</a>` : `${r(d.title || "Untitled")}`}
+                  ${l.url ? `<a href="${r(l.url)}" class="hover:text-blue-600">${r(l.title || "Untitled")}</a>` : `${r(l.title || "Untitled")}`}
                 </div>
                 <div class="text-xs text-gray-500 mt-0.5">
-                  ${r(c(d.pending_count || 0))} of ${r(c(d.total_recipients || 0))} signatures pending
+                  ${r(c(l.pending_count || 0))} of ${r(c(l.total_recipients || 0))} signatures pending
                 </div>
                 ${n.length ? `
                   <div class="mt-2 flex flex-wrap gap-1">
@@ -307,9 +299,9 @@ function _(i) {
           <p class="text-xs mt-1">No agreements pending signature</p>
         </div>
       `}
-      ${l ? `
+      ${d ? `
         <div class="mt-3 pt-3 border-t border-gray-100 text-center">
-          <a href="${r(l)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+          <a href="${r(d)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
             View All Pending
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -335,11 +327,11 @@ function T(i) {
   return `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6">${t.length ? `<div class="widgets-grid" data-area-code="${r(i.area_code || "")}">${t.map(k).join("")}</div>` : `<p class="text-sm text-gray-500">${r(e)}</p>`}</div></div>`;
 }
 function A(i) {
-  const t = i.record || {}, e = Array.isArray(i.fields) ? i.fields : [], s = t.username || t.display_name || t.id || "", a = t.email || "", l = String(t.username || t.display_name || t.email || t.id || "?").slice(0, 1).toUpperCase();
+  const t = i.record || {}, e = Array.isArray(i.fields) ? i.fields : [], s = t.username || t.display_name || t.id || "", a = t.email || "", d = String(t.username || t.display_name || t.email || t.id || "?").slice(0, 1).toUpperCase();
   return `
     <div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
-        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(l)}</div>
+        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(d)}</div>
         <div>
           <h2 class="text-xl font-semibold text-gray-900">${r(s)}</h2>
           <p class="text-sm text-gray-500">${r(a)}</p>
@@ -349,7 +341,7 @@ function A(i) {
         <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Details</div>
         <div class="grid grid-cols-2 gap-6">
           ${e.map(
-    (d) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(d.label)}</div><div class="text-base font-medium text-gray-900">${r(d.value ?? "-")}</div></div>`
+    (l) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(l.label)}</div><div class="text-base font-medium text-gray-900">${r(l.value ?? "-")}</div></div>`
   ).join("")}
         </div>
       </div>
@@ -413,30 +405,30 @@ class N {
   async loadTab(t, e) {
     const s = t.dataset.renderMode || "", a = t.dataset.tabId || "";
     if (!s || !a) return !1;
-    const l = t.getAttribute("href") || "";
-    this.setActiveTab(a), e?.silent || this.updateUrl(l), this.panelContainer.innerHTML = '<p class="text-sm text-gray-500">Loading tab...</p>';
+    const d = t.getAttribute("href") || "";
+    this.setActiveTab(a), e?.silent || this.updateUrl(d), this.panelContainer.innerHTML = '<p class="text-sm text-gray-500">Loading tab...</p>';
     try {
       if (s === "hybrid") {
-        const d = this.buildEndpoint("html", a);
-        if (!d) throw new Error("missing html endpoint");
-        const n = await fetch(d, {
+        const l = this.buildEndpoint("html", a);
+        if (!l) throw new Error("missing html endpoint");
+        const n = await fetch(l, {
           headers: { "X-Requested-With": "XMLHttpRequest" }
         });
         if (!n.ok) throw new Error(`tab html ${n.status}`);
         return this.panelContainer.innerHTML = await n.text(), m(this.panelContainer), !0;
       }
       if (s === "client") {
-        const d = this.buildEndpoint("json", a);
-        if (!d) throw new Error("missing json endpoint");
-        const n = await fetch(d, {
+        const l = this.buildEndpoint("json", a);
+        if (!l) throw new Error("missing json endpoint");
+        const n = await fetch(l, {
           headers: { Accept: "application/json" }
         });
         if (!n.ok) throw new Error(`tab json ${n.status}`);
         const o = await n.json();
         return this.panelContainer.innerHTML = C(o), m(this.panelContainer), !0;
       }
-    } catch (d) {
-      console.warn("[TabsController] Failed to load tab", d), this.options.onError?.(d), l && (window.location.href = l);
+    } catch (l) {
+      console.warn("[TabsController] Failed to load tab", l), this.options.onError?.(l), d && (window.location.href = d);
     }
     return !1;
   }
@@ -454,7 +446,7 @@ class N {
     e && this.loadTab(e);
   }
 }
-function M(i) {
+function L(i) {
   const t = document.querySelector(".panel-tabs"), e = document.querySelector("[data-tab-panel-container]");
   return !t || !e ? null : new N(t, e, i);
 }
@@ -465,7 +457,7 @@ export {
   c as formatNumber,
   b as formatRelativeTime,
   m as hydrateTimeElements,
-  M as initTabsController,
+  L as initTabsController,
   f as isEmptyValue,
   x as parseTimestamp,
   C as renderClientTab,

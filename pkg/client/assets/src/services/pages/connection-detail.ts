@@ -34,6 +34,7 @@ import {
 } from '../mutation-feedback.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -259,7 +260,7 @@ export class ConnectionDetailManager {
               </button>
             ` : ''}
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">${this.escapeHtml(providerName)}</h2>
+              <h2 class="text-xl font-semibold text-gray-900">${escapeHtml(providerName)}</h2>
               <p class="text-sm text-gray-500 mt-0.5">Connection Details</p>
             </div>
           </div>
@@ -279,18 +280,18 @@ export class ConnectionDetailManager {
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                 connection.scope_type === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
               }">
-                ${this.escapeHtml(connection.scope_type)}
+                ${escapeHtml(connection.scope_type)}
               </span>
-              <span class="text-sm text-gray-700" title="${this.escapeHtml(connection.scope_id)}">
-                ${this.escapeHtml(this.truncateId(connection.scope_id, 16))}
+              <span class="text-sm text-gray-700" title="${escapeHtml(connection.scope_id)}">
+                ${escapeHtml(this.truncateId(connection.scope_id, 16))}
               </span>
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">External Account</dt>
-            <dd class="mt-1 text-sm text-gray-700" title="${this.escapeHtml(connection.external_account_id)}">
-              ${this.escapeHtml(this.truncateId(connection.external_account_id, 20))}
+            <dd class="mt-1 text-sm text-gray-700" title="${escapeHtml(connection.external_account_id)}">
+              ${escapeHtml(this.truncateId(connection.external_account_id, 20))}
             </dd>
           </div>
 
@@ -316,7 +317,7 @@ export class ConnectionDetailManager {
             </div>
             <div>
               <h4 class="text-sm font-medium text-red-800">Last Error</h4>
-              <p class="text-sm text-red-700 mt-1">${this.escapeHtml(connection.last_error)}</p>
+              <p class="text-sm text-red-700 mt-1">${escapeHtml(connection.last_error)}</p>
             </div>
           </div>
         ` : ''}
@@ -431,7 +432,7 @@ export class ConnectionDetailManager {
           <div class="grant-row flex items-center justify-between px-4 py-3 hover:bg-gray-50">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <code class="text-sm font-mono text-gray-700">${this.escapeHtml(grantInfo.grant)}</code>
+                <code class="text-sm font-mono text-gray-700">${escapeHtml(grantInfo.grant)}</code>
                 ${grantInfo.isCapabilityRequired ? `
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-600" title="Required by capabilities">
                     ${renderIcon('iconoir:puzzle', { size: '10px', extraClass: 'mr-0.5' })}
@@ -441,7 +442,7 @@ export class ConnectionDetailManager {
               </div>
               ${capabilitiesList ? `
                 <p class="text-xs text-gray-500 mt-0.5">
-                  Used by: ${this.escapeHtml(capabilitiesList)}
+                  Used by: ${escapeHtml(capabilitiesList)}
                 </p>
               ` : ''}
             </div>
@@ -494,7 +495,7 @@ export class ConnectionDetailManager {
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
-                <h4 class="text-sm font-medium text-gray-900">${this.escapeHtml(this.formatLabel(capability.name))}</h4>
+                <h4 class="text-sm font-medium text-gray-900">${escapeHtml(this.formatLabel(capability.name))}</h4>
                 <p class="text-xs text-gray-500 mt-0.5">
                   ${capability.required_grants.length} required, ${capability.optional_grants.length} optional
                 </p>
@@ -583,7 +584,7 @@ export class ConnectionDetailManager {
           ${health.expires_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Expires At</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(health.expires_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.expires_at)}">
                 ${this.formatRelativeTime(health.expires_at)}
               </span>
             </div>
@@ -591,7 +592,7 @@ export class ConnectionDetailManager {
           ${health.last_refresh_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Last Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(health.last_refresh_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.last_refresh_at)}">
                 ${this.formatRelativeTime(health.last_refresh_at)}
               </span>
             </div>
@@ -599,7 +600,7 @@ export class ConnectionDetailManager {
           ${health.next_refresh_attempt_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(health.next_refresh_attempt_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${escapeHtml(health.next_refresh_attempt_at)}">
                 ${this.formatRelativeTime(health.next_refresh_attempt_at)}
               </span>
             </div>
@@ -608,7 +609,7 @@ export class ConnectionDetailManager {
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
                 ${renderIcon('iconoir:warning-circle', { size: '16px', extraClass: 'text-red-500 mt-0.5 flex-shrink-0' })}
-                <p class="text-sm text-red-700">${this.escapeHtml(health.last_error)}</p>
+                <p class="text-sm text-red-700">${escapeHtml(health.last_error)}</p>
               </div>
             </div>
           ` : ''}
@@ -686,7 +687,7 @@ export class ConnectionDetailManager {
           ${rateLimit.next_reset_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Reset</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(rateLimit.next_reset_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${escapeHtml(rateLimit.next_reset_at)}">
                 ${this.formatRelativeTime(rateLimit.next_reset_at)}
               </span>
             </div>
@@ -1018,12 +1019,6 @@ export class ConnectionDetailManager {
     const date = new Date(dateStr);
     if (Number.isNaN(date.getTime())) return dateStr;
     return date.toLocaleString();
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

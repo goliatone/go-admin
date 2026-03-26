@@ -1,3 +1,5 @@
+import { escapeHTML } from '../shared/html.js';
+
 import {
   initBlockEditor,
   registerBlockTemplate,
@@ -90,13 +92,6 @@ function blockSlugAliases(value: string): string[] {
   ]));
 }
 
-function escapeHTML(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 type PickerAPIBase = {
   listBase: string;

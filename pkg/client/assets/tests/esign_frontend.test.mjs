@@ -95,6 +95,10 @@ const agreementRuntimeDistPath = path.resolve(
   testFileDir,
   '../dist/esign/index.js',
 );
+const agreementFormRuntimeDistPath = path.resolve(
+  testFileDir,
+  '../dist/esign/agreement-form.js',
+);
 const agreementRuntimeDistChunksPath = path.resolve(
   testFileDir,
   '../dist/chunks',
@@ -164,7 +168,7 @@ function createEsignActionBuilder(overrides = {}) {
 }
 
 function readBuiltAgreementRuntimeSource() {
-  const sourceFiles = [agreementRuntimeDistPath];
+  const sourceFiles = [agreementRuntimeDistPath, agreementFormRuntimeDistPath];
   if (fs.existsSync(agreementRuntimeDistChunksPath)) {
     const chunkPaths = fs.readdirSync(agreementRuntimeDistChunksPath)
       .filter((name) => /^agreement-form-.*\.js$/.test(name))
@@ -14244,7 +14248,7 @@ test('Phase 32 template contract: integration pages bootstrap via module without
   const googleTemplate = fs.readFileSync(googleIntegrationTemplatePath, 'utf8');
   assert.match(googleTemplate, /data-esign-page="\{\{ esign_page\|default:"admin\.integrations\.google" \}\}"/);
   assert.match(googleTemplate, /<script id="esign-page-config" type="application\/json">\{\{ esign_page_config_json\|default:"\{\}"\|safe \}\}<\/script>/);
-  assert.match(googleTemplate, /<script type="module" src="\{\{ esign_module_path\|default:base_path \+ "\/assets\/dist\/esign\/index\.js" \}\}"><\/script>/);
+  assert.match(googleTemplate, /<script type="module" src="\{\{ esign_module_path \}\}"><\/script>/);
   assert.doesNotMatch(googleTemplate, /bootstrapGoogleIntegration/);
 });
 

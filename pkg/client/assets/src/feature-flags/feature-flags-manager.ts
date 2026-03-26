@@ -17,6 +17,7 @@ import { ScopeSearchBox } from './scope-search/scope-search-box.js';
 import { createCrudResolver } from '../searchbox/resolvers/api-resolver.js';
 import { UserRenderer } from '../searchbox/renderers/user-renderer.js';
 import { EntityRenderer } from '../searchbox/renderers/entity-renderer.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 const DEFAULT_SELECTORS: FeatureFlagsSelectors = {
   scopeSelect: '#flag-scope',
@@ -371,7 +372,7 @@ export class FeatureFlagsManager {
 
     const currentVal = this.currentOverrideValue(flag);
     const key = flag.key || '';
-    const description = flag.description ? this.escapeHtml(flag.description) : '';
+    const description = flag.description ? escapeHtml(flag.description) : '';
     const descriptionMarkup = description
       ? `<div class="mt-1 text-xs text-gray-500">${description}</div>`
       : '';
@@ -379,11 +380,11 @@ export class FeatureFlagsManager {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td class="px-5 py-4 text-sm">
-        <div class="text-gray-900 font-mono">${this.escapeHtml(key)}</div>
+        <div class="text-gray-900 font-mono">${escapeHtml(key)}</div>
         ${descriptionMarkup}
       </td>
       <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
-      <td class="px-5 py-4 text-sm text-gray-600 capitalize">${this.escapeHtml(source)}</td>
+      <td class="px-5 py-4 text-sm text-gray-600 capitalize">${escapeHtml(source)}</td>
       <td class="px-5 py-4 text-sm text-gray-600">${defaultValue}</td>
       <td class="px-5 py-4 text-sm">${overrideBadge}</td>
       <td class="px-5 py-4 text-sm">${this.renderActionMenu(key, currentVal, !mutable)}</td>
@@ -395,12 +396,12 @@ export class FeatureFlagsManager {
   private badge(label: string, intent: 'on' | 'off' | 'neutral'): string {
     const base = 'status-badge';
     if (intent === 'on') {
-      return `<span class="${base} status-active">${this.escapeHtml(label)}</span>`;
+      return `<span class="${base} status-active">${escapeHtml(label)}</span>`;
     }
     if (intent === 'off') {
-      return `<span class="${base} status-disabled">${this.escapeHtml(label)}</span>`;
+      return `<span class="${base} status-disabled">${escapeHtml(label)}</span>`;
     }
-    return `<span class="${base} status-draft">${this.escapeHtml(label)}</span>`;
+    return `<span class="${base} status-draft">${escapeHtml(label)}</span>`;
   }
 
   private normalizeOverrideState(flag: Flag): string {
@@ -420,7 +421,7 @@ export class FeatureFlagsManager {
     const currentOption = ACTION_OPTIONS.find((o) => o.value === currentValue);
 
     return `
-      <div class="relative action-menu ${disabledClass}" data-flag-key="${this.escapeHtml(key)}">
+      <div class="relative action-menu ${disabledClass}" data-flag-key="${escapeHtml(key)}">
         <button type="button" class="action-menu-trigger inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0" ${disabled ? 'disabled' : ''}>
           <span class="action-menu-label">${currentOption?.label || 'Default'}</span>
           ${ICONS.chevronDown}
@@ -466,11 +467,5 @@ export class FeatureFlagsManager {
         });
       });
     });
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }

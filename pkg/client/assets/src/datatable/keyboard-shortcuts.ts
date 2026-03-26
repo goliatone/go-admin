@@ -1,3 +1,5 @@
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+
 /**
  * Keyboard Shortcuts Registry
  *
@@ -612,22 +614,6 @@ export function renderShortcutsHelpContent(shortcuts: KeyboardShortcut[]): strin
 
   html += `</div>`;
   return html;
-}
-
-/**
- * Simple HTML escaping
- */
-function escapeHtml(text: string): string {
-  const div = typeof document !== 'undefined' ? document.createElement('div') : null;
-  if (div) {
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // ============================================================================

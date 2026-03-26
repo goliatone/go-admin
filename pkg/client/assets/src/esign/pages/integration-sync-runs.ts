@@ -4,6 +4,7 @@
  */
 
 import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
  * Configuration for the integration sync runs page
@@ -276,11 +277,6 @@ export class IntegrationSyncRunsController {
   /**
    * Escape HTML for safe rendering
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
 
   /**
    * Format date string
@@ -367,7 +363,7 @@ export class IntegrationSyncRunsController {
       this.mappings
         .map(
           (m) =>
-            `<option value="${this.escapeHtml(m.id)}">${this.escapeHtml(m.name)} (${this.escapeHtml(m.provider)})</option>`
+            `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)} (${escapeHtml(m.provider)})</option>`
         )
         .join('');
   }
@@ -429,7 +425,7 @@ export class IntegrationSyncRunsController {
       providers
         .map(
           (p) =>
-            `<option value="${this.escapeHtml(p)}" ${p === currentProvider ? 'selected' : ''}>${this.escapeHtml(p)}</option>`
+            `<option value="${escapeHtml(p)}" ${p === currentProvider ? 'selected' : ''}>${escapeHtml(p)}</option>`
         )
         .join('');
   }
@@ -477,7 +473,7 @@ export class IntegrationSyncRunsController {
     runsTimeline.innerHTML = filtered
       .map(
         (run) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${this.escapeHtml(run.id)}">
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${escapeHtml(run.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
@@ -488,10 +484,10 @@ export class IntegrationSyncRunsController {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(run.provider)}</span>
+                  <span class="font-medium text-gray-900">${escapeHtml(run.provider)}</span>
                   ${this.getDirectionBadge(run.direction)}
                 </div>
-                <p class="text-xs text-gray-500 font-mono">${this.escapeHtml(run.id.slice(0, 8))}...</p>
+                <p class="text-xs text-gray-500 font-mono">${escapeHtml(run.id.slice(0, 8))}...</p>
               </div>
             </div>
             <div class="text-right">
@@ -504,7 +500,7 @@ export class IntegrationSyncRunsController {
             run.cursor
               ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${this.escapeHtml(run.cursor)}</span></p>
+              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${escapeHtml(run.cursor)}</span></p>
             </div>
           `
               : ''
@@ -514,7 +510,7 @@ export class IntegrationSyncRunsController {
             run.last_error
               ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-red-600 truncate">Error: ${this.escapeHtml(run.last_error)}</p>
+              <p class="text-xs text-red-600 truncate">Error: ${escapeHtml(run.last_error)}</p>
             </div>
           `
               : ''
@@ -721,10 +717,10 @@ export class IntegrationSyncRunsController {
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-sm font-medium text-gray-900">${this.escapeHtml(cp.checkpoint_key)}</span>
+            <span class="text-sm font-medium text-gray-900">${escapeHtml(cp.checkpoint_key)}</span>
             <span class="text-xs text-gray-500">${this.formatDate(cp.created_at)}</span>
           </div>
-          <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${this.escapeHtml(cp.cursor)}</p>
+          <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${escapeHtml(cp.cursor)}</p>
         </div>
       </div>
     `

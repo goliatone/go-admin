@@ -1,5 +1,6 @@
 import type { ToastNotifier, ToastOptions, ConfirmOptions } from './types.js';
 import { ConfirmModal } from '../shared/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 type ToastPosition = 'top-right' | 'top-center' | 'bottom-right' | 'bottom-center';
 
@@ -104,7 +105,7 @@ export class ToastManager implements ToastNotifier {
           <svg class="toast-pin-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
           </svg>
-          <div class="toast-title">${this.escapeHtml(options.title || this.getDefaultTitle(options.type))}</div>
+          <div class="toast-title">${escapeHtml(options.title || this.getDefaultTitle(options.type))}</div>
         </div>
         ${options.dismissible !== false ? `
           <button class="toast-dismiss" aria-label="Dismiss">
@@ -115,7 +116,7 @@ export class ToastManager implements ToastNotifier {
         ` : ''}
       </div>
       <div class="toast-content">
-        <div class="toast-message">${this.escapeHtml(options.message)}</div>
+        <div class="toast-message">${escapeHtml(options.message)}</div>
       </div>
     `;
 
@@ -169,12 +170,6 @@ export class ToastManager implements ToastNotifier {
       </svg>`
     };
     return icons[type] || icons.info;
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

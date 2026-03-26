@@ -38,6 +38,10 @@ const agreementRuntimeDistPath = path.resolve(
   testFileDir,
   '../dist/esign/index.js',
 );
+const agreementFormRuntimeDistPath = path.resolve(
+  testFileDir,
+  '../dist/esign/agreement-form.js',
+);
 const agreementRuntimeDistChunksPath = path.resolve(
   testFileDir,
   '../dist/chunks',
@@ -69,7 +73,7 @@ function readSources(...filePaths) {
 }
 
 function readBuiltAgreementFormRuntime() {
-  const sourceFiles = [agreementRuntimeDistPath];
+  const sourceFiles = [agreementRuntimeDistPath, agreementFormRuntimeDistPath];
   if (fs.existsSync(agreementRuntimeDistChunksPath)) {
     const chunkPaths = fs.readdirSync(agreementRuntimeDistChunksPath)
       .filter((name) => /^agreement-form-.*\.js$/.test(name))

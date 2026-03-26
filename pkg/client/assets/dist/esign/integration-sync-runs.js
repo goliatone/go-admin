@@ -1,5 +1,6 @@
-import { b as n, a as B, h as f, s as y, f as R } from "../chunks/dom-helpers-CMRVXsMj.js";
-class $ {
+import { b as n, a as E, h as y, s as v, f as $ } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { escapeHTML as l } from "../shared/html.js";
+class B {
   constructor(t) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: n("#sync-announcements"),
@@ -64,21 +65,21 @@ class $ {
       closeDetailBtn: r,
       filterProvider: p,
       filterStatus: o,
-      filterDirection: d,
-      actionResumeBtn: x,
-      actionRetryBtn: S,
-      actionCompleteBtn: b,
-      actionFailBtn: u,
-      actionDiagnosticsBtn: w,
-      startSyncModal: g,
-      runDetailModal: m
+      filterDirection: u,
+      actionResumeBtn: S,
+      actionRetryBtn: b,
+      actionCompleteBtn: w,
+      actionFailBtn: h,
+      actionDiagnosticsBtn: k,
+      startSyncModal: m,
+      runDetailModal: f
     } = this.elements;
-    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (l) => this.startSync(l)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), r?.addEventListener("click", () => this.closeRunDetail()), p?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), d?.addEventListener("change", () => this.renderTimeline()), x?.addEventListener("click", () => this.runAction("resume")), S?.addEventListener("click", () => this.runAction("resume")), b?.addEventListener("click", () => this.runAction("complete")), u?.addEventListener("click", () => this.runAction("fail")), w?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (l) => {
-      l.key === "Escape" && (g && !g.classList.contains("hidden") && this.closeStartSyncModal(), m && !m.classList.contains("hidden") && this.closeRunDetail());
-    }), [g, m].forEach((l) => {
-      l?.addEventListener("click", (h) => {
-        const k = h.target;
-        (k === l || k.getAttribute("aria-hidden") === "true") && (l === g ? this.closeStartSyncModal() : l === m && this.closeRunDetail());
+    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (d) => this.startSync(d)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), r?.addEventListener("click", () => this.closeRunDetail()), p?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), u?.addEventListener("change", () => this.renderTimeline()), S?.addEventListener("click", () => this.runAction("resume")), b?.addEventListener("click", () => this.runAction("resume")), w?.addEventListener("click", () => this.runAction("complete")), h?.addEventListener("click", () => this.runAction("fail")), k?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (d) => {
+      d.key === "Escape" && (m && !m.classList.contains("hidden") && this.closeStartSyncModal(), f && !f.classList.contains("hidden") && this.closeRunDetail());
+    }), [m, f].forEach((d) => {
+      d?.addEventListener("click", (g) => {
+        const R = g.target;
+        (R === d || R.getAttribute("aria-hidden") === "true") && (d === m ? this.closeStartSyncModal() : d === f && this.closeRunDetail());
       });
     });
   }
@@ -87,35 +88,31 @@ class $ {
    */
   announce(t) {
     const { announcements: e } = this.elements;
-    e && (e.textContent = t), B(t);
+    e && (e.textContent = t), E(t);
   }
   /**
    * Show a specific page state
    */
   showState(t) {
     const { loadingState: e, emptyState: s, errorState: i, runsTimeline: c } = this.elements;
-    switch (f(e), f(s), f(i), f(c), t) {
+    switch (y(e), y(s), y(i), y(c), t) {
       case "loading":
-        y(e);
+        v(e);
         break;
       case "empty":
-        y(s);
+        v(s);
         break;
       case "error":
-        y(i);
+        v(i);
         break;
       case "list":
-        y(c);
+        v(c);
         break;
     }
   }
   /**
    * Escape HTML for safe rendering
    */
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t || "", e.innerHTML;
-  }
   /**
    * Format date string
    */
@@ -178,7 +175,7 @@ class $ {
   populateMappingSelect() {
     const { syncMappingSelect: t } = this.elements;
     t && (t.innerHTML = '<option value="">Select mapping...</option>' + this.mappings.map(
-      (e) => `<option value="${this.escapeHtml(e.id)}">${this.escapeHtml(e.name)} (${this.escapeHtml(e.provider)})</option>`
+      (e) => `<option value="${l(e.id)}">${l(e.name)} (${l(e.provider)})</option>`
     ).join(""));
   }
   /**
@@ -213,7 +210,7 @@ class $ {
     if (!t) return;
     const e = t.value, s = [...new Set(this.syncRuns.map((i) => i.provider).filter(Boolean))];
     t.innerHTML = '<option value="">All Providers</option>' + s.map(
-      (i) => `<option value="${this.escapeHtml(i)}" ${i === e ? "selected" : ""}>${this.escapeHtml(i)}</option>`
+      (i) => `<option value="${l(i)}" ${i === e ? "selected" : ""}>${l(i)}</option>`
     ).join("");
   }
   /**
@@ -238,7 +235,7 @@ class $ {
     }
     t.innerHTML = a.map(
       (r) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${this.escapeHtml(r.id)}">
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${l(r.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
@@ -249,10 +246,10 @@ class $ {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(r.provider)}</span>
+                  <span class="font-medium text-gray-900">${l(r.provider)}</span>
                   ${this.getDirectionBadge(r.direction)}
                 </div>
-                <p class="text-xs text-gray-500 font-mono">${this.escapeHtml(r.id.slice(0, 8))}...</p>
+                <p class="text-xs text-gray-500 font-mono">${l(r.id.slice(0, 8))}...</p>
               </div>
             </div>
             <div class="text-right">
@@ -263,13 +260,13 @@ class $ {
 
           ${r.cursor ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${this.escapeHtml(r.cursor)}</span></p>
+              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${l(r.cursor)}</span></p>
             </div>
           ` : ""}
 
           ${r.last_error ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-red-600 truncate">Error: ${this.escapeHtml(r.last_error)}</p>
+              <p class="text-xs text-red-600 truncate">Error: ${l(r.last_error)}</p>
             </div>
           ` : ""}
         </div>
@@ -284,13 +281,13 @@ class $ {
    */
   openStartSyncModal() {
     const { startSyncModal: t, startSyncForm: e } = this.elements;
-    e?.reset(), y(t), document.getElementById("sync-provider")?.focus();
+    e?.reset(), v(t), document.getElementById("sync-provider")?.focus();
   }
   /**
    * Close start sync modal
    */
   closeStartSyncModal() {
-    f(this.elements.startSyncModal);
+    y(this.elements.startSyncModal);
   }
   /**
    * Start a new sync run
@@ -335,7 +332,7 @@ class $ {
    */
   async openRunDetail(t) {
     this.currentRunId = t;
-    const e = this.syncRuns.find((h) => h.id === t);
+    const e = this.syncRuns.find((g) => g.id === t);
     if (!e) return;
     const {
       runDetailModal: s,
@@ -345,29 +342,29 @@ class $ {
       detailStatus: r,
       detailStarted: p,
       detailCompleted: o,
-      detailCursor: d,
-      detailAttempt: x,
-      detailErrorSection: S,
-      detailLastError: b,
-      detailCheckpoints: u,
-      actionResumeBtn: w,
-      actionRetryBtn: g,
-      actionCompleteBtn: m,
-      actionFailBtn: l
+      detailCursor: u,
+      detailAttempt: S,
+      detailErrorSection: b,
+      detailLastError: w,
+      detailCheckpoints: h,
+      actionResumeBtn: k,
+      actionRetryBtn: m,
+      actionCompleteBtn: f,
+      actionFailBtn: d
     } = this.elements;
-    i && (i.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), r && (r.innerHTML = this.getStatusBadge(e.status)), p && (p.textContent = this.formatDate(e.started_at)), o && (o.textContent = e.completed_at ? this.formatDate(e.completed_at) : "-"), d && (d.textContent = e.cursor || "-"), x && (x.textContent = String(e.attempt_count || 1)), e.last_error ? (b && (b.textContent = e.last_error), y(S)) : f(S), w && w.classList.toggle("hidden", e.status !== "running"), g && g.classList.toggle("hidden", e.status !== "failed"), m && m.classList.toggle("hidden", e.status !== "running"), l && l.classList.toggle("hidden", e.status !== "running"), u && (u.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), y(s);
+    i && (i.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), r && (r.innerHTML = this.getStatusBadge(e.status)), p && (p.textContent = this.formatDate(e.started_at)), o && (o.textContent = e.completed_at ? this.formatDate(e.completed_at) : "-"), u && (u.textContent = e.cursor || "-"), S && (S.textContent = String(e.attempt_count || 1)), e.last_error ? (w && (w.textContent = e.last_error), v(b)) : y(b), k && k.classList.toggle("hidden", e.status !== "running"), m && m.classList.toggle("hidden", e.status !== "failed"), f && f.classList.toggle("hidden", e.status !== "running"), d && d.classList.toggle("hidden", e.status !== "running"), h && (h.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), v(s);
     try {
-      const h = await fetch(`${this.syncRunsEndpoint}/${t}/checkpoints`, {
+      const g = await fetch(`${this.syncRunsEndpoint}/${t}/checkpoints`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (h.ok) {
-        const k = await h.json();
-        this.renderCheckpoints(k.checkpoints || []);
+      if (g.ok) {
+        const R = await g.json();
+        this.renderCheckpoints(R.checkpoints || []);
       } else
-        u && (u.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
-    } catch (h) {
-      console.error("Error loading checkpoints:", h), u && (u.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
+        h && (h.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
+    } catch (g) {
+      console.error("Error loading checkpoints:", g), h && (h.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
     }
   }
   /**
@@ -388,10 +385,10 @@ class $ {
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-sm font-medium text-gray-900">${this.escapeHtml(s.checkpoint_key)}</span>
+            <span class="text-sm font-medium text-gray-900">${l(s.checkpoint_key)}</span>
             <span class="text-xs text-gray-500">${this.formatDate(s.created_at)}</span>
           </div>
-          <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${this.escapeHtml(s.cursor)}</p>
+          <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${l(s.cursor)}</p>
         </div>
       </div>
     `
@@ -402,7 +399,7 @@ class $ {
    * Close run detail modal
    */
   closeRunDetail() {
-    f(this.elements.runDetailModal), this.currentRunId = null;
+    y(this.elements.runDetailModal), this.currentRunId = null;
   }
   /**
    * Run an action on the current sync run
@@ -415,7 +412,7 @@ class $ {
     const p = a.innerHTML;
     a.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     try {
-      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, d = await fetch(o, {
+      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, u = await fetch(o, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -427,15 +424,15 @@ class $ {
           t === "fail" ? { last_error: "Manually marked as failed" } : {}
         )
       });
-      if (!d.ok) {
-        const x = await d.json();
-        throw new Error(x.error?.message || `HTTP ${d.status}`);
+      if (!u.ok) {
+        const S = await u.json();
+        throw new Error(S.error?.message || `HTTP ${u.status}`);
       }
       this.showToast(`Sync run ${t} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
     } catch (o) {
       console.error(`${t} error:`, o);
-      const d = o instanceof Error ? o.message : "Unknown error";
-      this.showToast(`Failed: ${d}`, "error");
+      const u = o instanceof Error ? o.message : "Unknown error";
+      this.showToast(`Failed: ${u}`, "error");
     } finally {
       a.removeAttribute("disabled"), r?.removeAttribute("disabled"), a.innerHTML = p;
     }
@@ -469,20 +466,20 @@ class $ {
     i && (e === "success" ? i.success(t) : e === "error" ? i.error(t) : e === "info" && i.info && i.info(t));
   }
 }
-function L(v) {
-  const t = new $(v);
-  return R(() => t.init()), t;
+function C(x) {
+  const t = new B(x);
+  return $(() => t.init()), t;
 }
-function C(v) {
+function T(x) {
   const t = {
-    basePath: v.basePath,
-    apiBasePath: v.apiBasePath || `${v.basePath}/api`
-  }, e = new $(t);
-  R(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
+    basePath: x.basePath,
+    apiBasePath: x.apiBasePath || `${x.basePath}/api`
+  }, e = new B(t);
+  $(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
 }
 export {
-  $ as IntegrationSyncRunsController,
-  C as bootstrapIntegrationSyncRuns,
-  L as initIntegrationSyncRuns
+  B as IntegrationSyncRunsController,
+  T as bootstrapIntegrationSyncRuns,
+  C as initIntegrationSyncRuns
 };
 //# sourceMappingURL=integration-sync-runs.js.map

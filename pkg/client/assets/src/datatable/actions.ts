@@ -13,6 +13,7 @@ import {
   isHandledActionError,
 } from '../toast/error-helpers.js';
 import { Modal, escapeHtml as escapeModalHtml } from '../shared/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
 export type ActionRenderMode = 'inline' | 'dropdown';
@@ -330,10 +331,10 @@ export class ActionRenderer {
         ? `${action.label} unavailable: ${action.disabledReason}`
         : action.label;
       const reasonAssistiveText = disabledReasonId
-        ? `<span id="${disabledReasonId}" class="sr-only">${this.escapeHtml(action.disabledReason || 'Action unavailable')}</span>`
+        ? `<span id="${disabledReasonId}" class="sr-only">${escapeHtml(action.disabledReason || 'Action unavailable')}</span>`
         : '';
       const titleAttr = action.disabledReason
-        ? `title="${this.escapeHtml(action.disabledReason)}"`
+        ? `title="${escapeHtml(action.disabledReason)}"`
         : '';
 
       return `
@@ -345,7 +346,7 @@ export class ActionRenderer {
           data-record-id="${record.id}"
           data-disabled="${disabled}"
           ${ariaDisabledAttr}
-          aria-label="${this.escapeHtml(ariaLabel)}"
+          aria-label="${escapeHtml(ariaLabel)}"
           ${describedByAttr}
           ${titleAttr}
         >
@@ -428,10 +429,10 @@ export class ActionRenderer {
         ? `${action.label} unavailable: ${disabledReason}`
         : action.label;
       const titleAttr = action.disabledReason
-        ? `title="${this.escapeHtml(action.disabledReason)}"`
+        ? `title="${escapeHtml(action.disabledReason)}"`
         : '';
       const reasonMarkup = disabledReason
-        ? `<span id="${reasonID}" class="action-item-reason text-xs leading-5 text-gray-500">${this.escapeHtml(disabledReason)}</span>`
+        ? `<span id="${reasonID}" class="action-item-reason text-xs leading-5 text-gray-500">${escapeHtml(disabledReason)}</span>`
         : '';
 
       return `
@@ -444,12 +445,12 @@ export class ActionRenderer {
                 data-disabled="${disabled}"
                 role="menuitem"
                 ${ariaDisabledAttr}
-                aria-label="${this.escapeHtml(ariaLabel)}"
+                aria-label="${escapeHtml(ariaLabel)}"
                 ${describedByAttr}
                 ${titleAttr}>
           <span class="flex-shrink-0 w-5 h-5">${icon}</span>
           <span class="flex min-w-0 flex-1 flex-col items-start">
-            <span class="text-sm font-medium">${this.escapeHtml(action.label)}</span>
+            <span class="text-sm font-medium">${escapeHtml(action.label)}</span>
             ${reasonMarkup}
           </span>
         </button>
@@ -981,14 +982,5 @@ export class ActionRenderer {
 
   private sanitize(str: string): string {
     return str.toLowerCase().replace(/[^a-z0-9]/g, '-');
-  }
-
-  private escapeHtml(str: string): string {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }

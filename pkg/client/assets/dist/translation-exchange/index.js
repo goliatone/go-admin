@@ -1,11 +1,9 @@
+import { escapeHTML as o } from "../shared/html.js";
 import { n as x, a as k, b as C, c as U } from "../chunks/index-YiVxcMWC.js";
-import { C as V, H as B, T as W, a as q, B as f, R as $, b as _, c as j, d as F, I as E, e as v, f as R, g as z } from "../chunks/style-constants-i2xRoO1L.js";
+import { C as V, H as B, T as W, a as z, B as f, R as $, b as _, c as j, d as F, I as E, e as v, f as R, g as q } from "../chunks/style-constants-i2xRoO1L.js";
 const G = {
   root: "#translation-exchange-app"
 };
-function o(l) {
-  return String(l ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 function D(l) {
   switch (l) {
     case "completed":
@@ -31,7 +29,7 @@ function S(l) {
   }
 }
 function y(l) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${z(l)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${q(l)}`;
 }
 const m = `${F} p-5`, K = `${F} p-4`, L = `${$} border ${_} ${j} p-5`, A = `${$} border ${_} ${j} p-4`, I = `${$} border ${_} ${j} px-4 py-3`, H = `${$} border ${_} ${j} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", Y = `mt-2 text-2xl font-bold ${W}`;
 function O(l) {
@@ -123,7 +121,7 @@ function w(l, t) {
     index: typeof l.index == "number" ? l.index : t
   };
 }
-class it {
+class ot {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -718,7 +716,7 @@ class it {
             <div>
               <p class="${B}">Translation Exchange</p>
               <h1 class="${Y}">Translation Exchange Wizard</h1>
-              <p class="${q}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="${z}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="${f}" href="${o(
       `${this.config.apiPath}/template?format=json`
@@ -1248,7 +1246,7 @@ class it {
   }
 }
 export {
-  it as TranslationExchangeManager,
+  ot as TranslationExchangeManager,
   U as normalizeTranslationExchangeHistoryResponse,
   C as normalizeTranslationExchangeJob,
   x as normalizeTranslationExchangeUploadDescriptor,

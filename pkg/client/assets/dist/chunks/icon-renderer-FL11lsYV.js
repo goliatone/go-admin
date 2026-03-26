@@ -1,11 +1,11 @@
-const l = "iconoir", o = "var(--sidebar-icon-size, 20px)", u = ["https:"], d = [
+import { escapeAttribute as l, escapeHTML as u } from "../shared/html.js";
+const o = "iconoir", d = "var(--sidebar-icon-size, 20px)", p = ["https:"], m = [
   "image/svg+xml",
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif"
-];
-const p = {
+], g = 131072, h = {
   text: "text",
   textarea: "text",
   "rich-text": "edit-pencil",
@@ -37,7 +37,7 @@ const p = {
   color: "color-picker",
   location: "pin-alt"
 };
-function g(e) {
+function f(e) {
   const t = e;
   if (e = e.trim(), !e)
     return { type: "library", value: "", raw: t };
@@ -51,7 +51,7 @@ function g(e) {
     return { type: "svg", value: e, raw: t };
   if (e.startsWith("http://") || e.startsWith("https://") || e.startsWith("data:"))
     return { type: "url", value: e, raw: t };
-  if ($(e))
+  if (L(e))
     return { type: "emoji", value: e, raw: t };
   if (e.includes(":") && !e.includes("://")) {
     const n = e.indexOf(":"), s = e.slice(0, n), i = e.slice(n + 1);
@@ -59,76 +59,76 @@ function g(e) {
   }
   if (e.startsWith("iconoir-"))
     return { type: "library", library: "iconoir", value: e.slice(8), raw: t };
-  const r = p[e];
-  return r ? { type: "library", library: "iconoir", value: r, raw: t } : { type: "library", library: l, value: e, raw: t };
+  const r = h[e];
+  return r ? { type: "library", library: "iconoir", value: r, raw: t } : { type: "library", library: o, value: e, raw: t };
 }
-function L(e, t) {
-  const r = g(e);
-  return m(r, t);
+function W(e, t) {
+  const r = f(e);
+  return y(r, t);
 }
-function m(e, t) {
+function y(e, t) {
   if (!e.value && e.type === "library")
     return "";
-  const r = t?.size ?? o, n = t?.extraClass ?? "";
+  const r = t?.size ?? d, n = t?.extraClass ?? "";
   switch (e.type) {
     case "emoji":
-      return h(e.value, r, n);
+      return v(e.value, r, n);
     case "library":
-      return f(e.library ?? l, e.value, r, n);
+      return b(e.library ?? o, e.value, r, n);
     case "svg":
-      return t?.trusted ? y(e.value, r, n) : (console.warn("[icon-renderer] SVG content blocked for untrusted source"), "");
+      return t?.trusted ? w(e.value, r, n) : (console.warn("[icon-renderer] SVG content blocked for untrusted source"), "");
     case "url":
-      return v(e.value, r, n, t?.trusted);
+      return $(e.value, r, n, t?.trusted);
     default:
       return "";
   }
 }
-function h(e, t, r) {
+function v(e, t, r) {
   const n = `font-size: ${t}; line-height: 1; text-align: center; width: 1.25em;`;
-  return `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${n}">${x(e)}</span>`;
+  return `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${n}">${u(e)}</span>`;
 }
-function f(e, t, r, n) {
+function b(e, t, r, n) {
   const s = a(e), i = a(t), c = `font-size: ${r};`;
   return `<i class="${`${s}-${i} flex-shrink-0${n ? " " + n : ""}`}" style="${c}"></i>`;
 }
-function y(e, t, r) {
-  const n = I(e);
+function w(e, t, r) {
+  const n = k(e);
   if (!n)
     return "";
   const s = `flex-shrink-0${r ? " " + r : ""}`, i = `width: ${t}; height: ${t};`;
   return `<span class="${s}" style="${i}">${n}</span>`;
 }
-function v(e, t, r, n) {
-  const s = b(e, n);
+function $(e, t, r, n) {
+  const s = x(e, n);
   if (!s)
     return console.warn("[icon-renderer] URL blocked:", e), "";
   const i = `flex-shrink-0${r ? " " + r : ""}`, c = `width: ${t}; height: ${t}; object-fit: contain;`;
-  return `<img src="${k(s)}" class="${i}" style="${c}" alt="" aria-hidden="true">`;
+  return `<img src="${l(s)}" class="${i}" style="${c}" alt="" aria-hidden="true">`;
 }
-function b(e, t) {
+function x(e, t) {
   if (e = e.trim(), !e || e.toLowerCase().startsWith("javascript:"))
     return null;
   if (e.startsWith("data:"))
-    return w(e, t);
+    return I(e, t);
   try {
     const r = new URL(e);
-    return u.includes(r.protocol) ? t ? e : (console.warn("[icon-renderer] External URL blocked for untrusted source"), null) : null;
+    return p.includes(r.protocol) ? t ? e : (console.warn("[icon-renderer] External URL blocked for untrusted source"), null) : null;
   } catch {
     return null;
   }
 }
-function w(e, t) {
+function I(e, t) {
   if (!e.startsWith("data:"))
     return null;
-  if (e.length > 131072)
+  if (e.length > g)
     return console.warn("[icon-renderer] Data URI exceeds size limit"), null;
   const r = e.slice(5), n = r.indexOf(",");
   if (n < 0)
     return null;
   const i = r.slice(0, n).split(";")[0].trim();
-  return d.includes(i.toLowerCase()) ? !t && i.toLowerCase() === "image/svg+xml" ? (console.warn("[icon-renderer] SVG data URI blocked for untrusted source"), null) : e : (console.warn("[icon-renderer] Data URI MIME type not allowed:", i), null);
+  return m.includes(i.toLowerCase()) ? !t && i.toLowerCase() === "image/svg+xml" ? (console.warn("[icon-renderer] SVG data URI blocked for untrusted source"), null) : e : (console.warn("[icon-renderer] Data URI MIME type not allowed:", i), null);
 }
-function I(e) {
+function k(e) {
   if (!e.toLowerCase().includes("<svg"))
     return null;
   let t = e;
@@ -140,7 +140,7 @@ function I(e) {
     ""
   ), t = t.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, ""), t = t.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, ""), t = t.replace(/(href|xlink:href)\s*=\s*["']?\s*javascript:[^"'\s>]*["']?/gi, ""), t = t.replace(/(href|xlink:href|src)\s*=\s*["']?\s*(https?:|\/\/)[^"'\s>]*["']?/gi, ""), t = t.replace(/<!ENTITY\s+[^>]+>/gi, ""), t = t.replace(/<!DOCTYPE[^>]*\[[\s\S]*?\]>/gi, ""), t = t.replace(/<\?[\s\S]*?\?>/g, ""), t.toLowerCase().includes("<svg") ? t.trim() : null;
 }
-function $(e) {
+function L(e) {
   for (const t of e) {
     const r = t.codePointAt(0);
     if (r !== void 0 && (r === 65039 || r === 8205 || r >= 9728 && r <= 10175 || r >= 127744 && r <= 129791 || r >= 127995 && r <= 127999))
@@ -148,16 +148,10 @@ function $(e) {
   }
   return !1;
 }
-function x(e) {
-  return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function k(e) {
-  return e.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-}
 function a(e) {
   return e.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 export {
-  L as r
+  W as r
 };
-//# sourceMappingURL=icon-renderer-CRbgoQtj.js.map
+//# sourceMappingURL=icon-renderer-FL11lsYV.js.map

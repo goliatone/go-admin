@@ -1,14 +1,15 @@
-import { r as d } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { C as ct } from "../chunks/modal-CI6l6KPp.js";
-import { c as yt, m as mt, g as xt } from "../chunks/command-runtime-Devk4rE4.js";
-import { C as Oe, a as Be, f as ze, h as Ve, b as We, i as Ge, d as Je, n as Qe, p as Ke, e as Ye } from "../chunks/command-runtime-Devk4rE4.js";
-class R extends Error {
+import { r as u } from "../chunks/icon-renderer-FL11lsYV.js";
+import { escapeHTML as o } from "../shared/html.js";
+import { C as at } from "../chunks/modal-8-n6PAK8.js";
+import { c as ft, m as bt, g as yt } from "../chunks/command-runtime-DiUPApH6.js";
+import { C as He, a as Oe, f as Be, h as ze, b as Ve, i as We, d as Ge, n as Je, p as Qe, e as Ke } from "../chunks/command-runtime-DiUPApH6.js";
+class q extends Error {
   constructor(t, e, s, i) {
     super(t), this.name = "ServicesAPIError", this.code = e, this.statusCode = s, this.details = i;
   }
   static fromResponse(t, e) {
     const s = e.message || e.error || "Unknown error", i = e.text_code || "UNKNOWN_ERROR";
-    return new R(s, i, t, e.details);
+    return new q(s, i, t, e.details);
   }
   get isForbidden() {
     return this.statusCode === 403 || this.code === "FORBIDDEN";
@@ -23,7 +24,7 @@ class R extends Error {
     return this.statusCode === 409 || this.code === "CONFLICT";
   }
 }
-const w = {
+const S = {
   VIEW: "admin.services.view",
   CONNECT: "admin.services.connect",
   EDIT: "admin.services.edit",
@@ -31,18 +32,18 @@ const w = {
   RECONSENT: "admin.services.reconsent",
   ACTIVITY_VIEW: "admin.services.activity.view",
   WEBHOOKS: "admin.services.webhooks"
-}, vt = {
+}, mt = {
   basePath: "/admin/api/services",
   timeout: 3e4,
   headers: {}
 };
-function St() {
+function xt() {
   return (typeof globalThis < "u" ? globalThis.location : void 0)?.origin || "http://localhost";
 }
-class lt {
+class ot {
   constructor(t = {}) {
     this.abortControllers = /* @__PURE__ */ new Map(), this.config = {
-      ...vt,
+      ...mt,
       ...t
     };
   }
@@ -542,10 +543,10 @@ class lt {
     e && (e.abort(), this.abortControllers.delete(t));
   }
   async get(t, e = {}, s) {
-    const i = this.buildUrl(t, e), r = new AbortController(), a = () => r.abort();
-    s && (s.aborted ? r.abort() : s.addEventListener("abort", a, { once: !0 })), this.abortControllers.set(t, r);
+    const i = this.buildUrl(t, e), r = new AbortController(), n = () => r.abort();
+    s && (s.aborted ? r.abort() : s.addEventListener("abort", n, { once: !0 })), this.abortControllers.set(t, r);
     try {
-      const c = await this.fetchWithTimeout(i, {
+      const l = await this.fetchWithTimeout(i, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -553,37 +554,37 @@ class lt {
         },
         signal: r.signal
       }, t);
-      return this.handleResponse(c);
+      return this.handleResponse(l);
     } finally {
-      s && s.removeEventListener("abort", a), this.abortControllers.delete(t);
+      s && s.removeEventListener("abort", n), this.abortControllers.delete(t);
     }
   }
   async post(t, e, s, i) {
-    const r = this.buildUrl(t), a = new AbortController();
-    this.abortControllers.set(t, a);
-    const c = {
+    const r = this.buildUrl(t), n = new AbortController();
+    this.abortControllers.set(t, n);
+    const l = {
       "Content-Type": "application/json",
       Accept: "application/json",
       ...this.config.headers,
       ...i
-    }, o = s && s.trim() || this.createIdempotencyKey(t);
-    c["Idempotency-Key"] = o;
+    }, c = s && s.trim() || this.createIdempotencyKey(t);
+    l["Idempotency-Key"] = c;
     try {
-      const l = await this.fetchWithTimeout(r, {
+      const d = await this.fetchWithTimeout(r, {
         method: "POST",
-        headers: c,
+        headers: l,
         body: JSON.stringify(e),
-        signal: a.signal
+        signal: n.signal
       }, t);
-      return this.handleResponse(l);
+      return this.handleResponse(d);
     } finally {
       this.abortControllers.delete(t);
     }
   }
   buildUrl(t, e = {}) {
-    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, St());
-    for (const [r, a] of Object.entries(e))
-      a != null && a !== "" && i.searchParams.set(r, String(a));
+    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, xt());
+    for (const [r, n] of Object.entries(e))
+      n != null && n !== "" && i.searchParams.set(r, String(n));
     return i.toString();
   }
   async fetchWithTimeout(t, e, s) {
@@ -608,7 +609,7 @@ class lt {
       } catch {
         e = { error: t.statusText };
       }
-      const s = R.fromResponse(t.status, e);
+      const s = q.fromResponse(t.status, e);
       throw this.config.onError?.(s), s;
     }
     return t.json();
@@ -624,33 +625,33 @@ class lt {
     return t.page !== void 0 && t.per_page !== void 0 ? (e.offset = (t.page - 1) * t.per_page, e.limit = t.per_page, delete e.page, delete e.per_page) : t.per_page !== void 0 && (e.limit = t.per_page, delete e.per_page), e;
   }
 }
-let M = null;
-function T() {
-  return M || (M = new lt()), M;
+let P = null;
+function C() {
+  return P || (P = new ot()), P;
 }
-function Qt(n) {
-  M = n;
+function Jt(a) {
+  P = a;
 }
-function Kt(n = {}) {
-  return new lt(n);
+function Qt(a = {}) {
+  return new ot(a);
 }
-const wt = {
+const vt = {
   defaultPage: 1,
   defaultPerPage: 25,
   searchDelay: 300,
   useReplaceState: !1
 };
-function W() {
+function z() {
   if (typeof window < "u")
     return window;
 }
-function X() {
+function Y() {
   return typeof globalThis > "u" ? void 0 : globalThis.localStorage;
 }
-class H {
+class M {
   constructor(t = {}) {
     this.searchTimeout = null, this.initialized = !1, this.config = {
-      ...wt,
+      ...vt,
       ...t.config
     }, this.filterFields = new Set(t.filterFields || []), this.dateFields = new Set(t.dateFields || []), this.storageKey = t.storageKey || null, this.state = {
       page: this.config.defaultPage,
@@ -799,31 +800,31 @@ class H {
   // Private Methods
   // ---------------------------------------------------------------------------
   restoreFromURL() {
-    const t = W();
+    const t = z();
     if (!t?.location)
       return;
     const e = new URLSearchParams(t.location.search), s = e.get("page");
     if (s) {
-      const o = parseInt(s, 10);
-      !Number.isNaN(o) && o > 0 && (this.state.page = o);
+      const c = parseInt(s, 10);
+      !Number.isNaN(c) && c > 0 && (this.state.page = c);
     }
     const i = e.get("per_page");
     if (i) {
-      const o = parseInt(i, 10);
-      !Number.isNaN(o) && o > 0 && (this.state.per_page = o);
+      const c = parseInt(i, 10);
+      !Number.isNaN(c) && c > 0 && (this.state.per_page = c);
     }
     const r = e.get("q") || e.get("search");
     r && (this.state.search = r);
-    const a = e.get("sort_field"), c = e.get("sort_order");
-    a && (this.state.sort_field = a, this.state.sort_order = c === "desc" ? "desc" : "asc");
-    for (const o of this.filterFields) {
-      const l = e.get(String(o));
-      l !== null && (this.dateFields.has(o) ? this.state.filters[o] = this.toLocalInput(l) : this.state.filters[o] = l);
+    const n = e.get("sort_field"), l = e.get("sort_order");
+    n && (this.state.sort_field = n, this.state.sort_order = l === "desc" ? "desc" : "asc");
+    for (const c of this.filterFields) {
+      const d = e.get(String(c));
+      d !== null && (this.dateFields.has(c) ? this.state.filters[c] = this.toLocalInput(d) : this.state.filters[c] = d);
     }
   }
   restoreFromStorage() {
     if (!this.storageKey) return;
-    const t = X(), e = W();
+    const t = Y(), e = z();
     if (t)
       try {
         const s = t.getItem(this.storageKey);
@@ -837,7 +838,7 @@ class H {
   }
   saveToStorage() {
     if (!this.storageKey) return;
-    const t = X();
+    const t = Y();
     if (t)
       try {
         t.setItem(
@@ -849,7 +850,7 @@ class H {
       }
   }
   syncToURL() {
-    const t = W();
+    const t = z();
     if (!t?.location || !t.history)
       return;
     const e = new URLSearchParams();
@@ -857,8 +858,8 @@ class H {
     for (const [i, r] of Object.entries(this.state.filters))
       if (r != null && r !== "")
         if (this.dateFields.has(i)) {
-          const a = this.toRFC3339(r);
-          a && e.set(i, a);
+          const n = this.toRFC3339(r);
+          n && e.set(i, n);
         } else
           e.set(i, r);
     const s = e.toString() ? `${t.location.pathname}?${e.toString()}` : t.location.pathname;
@@ -880,41 +881,41 @@ class H {
     return new Date(e.getTime() - s).toISOString().slice(0, 16);
   }
 }
-function Yt(n, t) {
+function Kt(a, t) {
   let e = null;
   return Object.assign((...r) => {
     e && clearTimeout(e), e = setTimeout(() => {
-      n(...r), e = null;
+      a(...r), e = null;
     }, t);
   }, { cancel: () => {
     e && (clearTimeout(e), e = null);
   } });
 }
-function Zt(n, t) {
-  if (!("filters" in n)) {
-    const a = n, c = new URLSearchParams();
-    for (const [o, l] of Object.entries(a))
-      l != null && l !== "" && c.set(o, String(l));
-    return c;
+function Yt(a, t) {
+  if (!("filters" in a)) {
+    const n = a, l = new URLSearchParams();
+    for (const [c, d] of Object.entries(n))
+      d != null && d !== "" && l.set(c, String(d));
+    return l;
   }
-  const e = n, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
+  const e = a, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
   i && (e.page > 1 || r) && s.set("page", String(e.page)), (e.per_page !== 25 || r) && s.set("per_page", String(e.per_page)), e.search && s.set("q", e.search), e.sort_field && (s.set("sort_field", e.sort_field), e.sort_order && s.set("sort_order", e.sort_order));
-  for (const [a, c] of Object.entries(e.filters))
-    c != null && c !== "" && s.set(a, c);
+  for (const [n, l] of Object.entries(e.filters))
+    l != null && l !== "" && s.set(n, l);
   return s;
 }
-function Xt(n, t, e) {
+function Zt(a, t, e) {
   if (!e) {
-    const o = {};
-    for (const l of t) {
-      const h = n.get(String(l));
-      h !== null && (o[String(l)] = h);
+    const c = {};
+    for (const d of t) {
+      const p = a.get(String(d));
+      p !== null && (c[String(d)] = p);
     }
-    for (const l of ["page", "per_page", "q", "search", "sort_field", "sort_order"]) {
-      const h = n.get(l);
-      h !== null && (o[l] = h);
+    for (const d of ["page", "per_page", "q", "search", "sort_field", "sort_order"]) {
+      const p = a.get(d);
+      p !== null && (c[d] = p);
     }
-    return o;
+    return c;
   }
   const s = {
     page: e?.page ?? 1,
@@ -922,27 +923,27 @@ function Xt(n, t, e) {
     search: e?.search ?? "",
     filters: {},
     ...e
-  }, i = n.get("page");
+  }, i = a.get("page");
   if (i) {
-    const o = parseInt(i, 10);
-    Number.isNaN(o) || (s.page = Math.max(1, o));
+    const c = parseInt(i, 10);
+    Number.isNaN(c) || (s.page = Math.max(1, c));
   }
-  const r = n.get("per_page");
+  const r = a.get("per_page");
   if (r) {
-    const o = parseInt(r, 10);
-    Number.isNaN(o) || (s.per_page = Math.max(1, o));
+    const c = parseInt(r, 10);
+    Number.isNaN(c) || (s.per_page = Math.max(1, c));
   }
-  const a = n.get("q") || n.get("search");
-  a && (s.search = a);
-  const c = n.get("sort_field");
-  c && (s.sort_field = c, s.sort_order = n.get("sort_order") === "desc" ? "desc" : "asc");
-  for (const o of t) {
-    const l = n.get(String(o));
-    l !== null && (s.filters[o] = l);
+  const n = a.get("q") || a.get("search");
+  n && (s.search = n);
+  const l = a.get("sort_field");
+  l && (s.sort_field = l, s.sort_order = a.get("sort_order") === "desc" ? "desc" : "asc");
+  for (const c of t) {
+    const d = a.get(String(c));
+    d !== null && (s.filters[c] = d);
   }
   return s;
 }
-class N {
+class F {
   constructor() {
     this.state = {
       granted: /* @__PURE__ */ new Set(),
@@ -1072,98 +1073,98 @@ class N {
     this.listeners.forEach((e) => e(t));
   }
 }
-let G = null;
-function $() {
-  return G || (G = new N()), G;
+let V = null;
+function w() {
+  return V || (V = new F()), V;
 }
-function te(n) {
-  $().init(n);
+function Xt(a) {
+  w().init(a);
 }
-function k(n, t) {
+function L(a, t) {
   return (e) => {
-    const s = e instanceof N ? e : t || $(), i = Array.isArray(n) ? n : [n];
+    const s = e instanceof F ? e : t || w(), i = Array.isArray(a) ? a : [a];
     return () => s.hasAll(i);
   };
 }
-function ee(n, t) {
+function te(a, t) {
   return (e) => {
-    const s = e instanceof N ? e : t || $();
-    return () => s.hasAll(n);
+    const s = e instanceof F ? e : t || w();
+    return () => s.hasAll(a);
   };
 }
-function se(n, t) {
+function ee(a, t) {
   return (e) => {
-    const s = e instanceof N ? e : t || $();
-    return () => s.hasAny(n);
+    const s = e instanceof F ? e : t || w();
+    return () => s.hasAny(a);
   };
 }
-function ie(...n) {
-  const t = n.flatMap((e) => Array.isArray(e) ? e : [e]);
+function se(...a) {
+  const t = a.flatMap((e) => Array.isArray(e) ? e : [e]);
   return (e) => () => t.every((s) => s(e)());
 }
-function A(n) {
-  return k(w.VIEW, n)();
+function E(a) {
+  return L(S.VIEW, a)();
 }
-function C(n) {
-  return k(w.CONNECT, n)();
+function _(a) {
+  return L(S.CONNECT, a)();
 }
-function E(n) {
-  return k(w.EDIT, n)();
+function k(a) {
+  return L(S.EDIT, a)();
 }
-function Z(n) {
-  return k(w.REVOKE, n)();
+function K(a) {
+  return L(S.REVOKE, a)();
 }
-function dt(n) {
-  return k(w.RECONSENT, n)();
+function ct(a) {
+  return L(S.RECONSENT, a)();
 }
-function $t(n) {
-  return k(w.ACTIVITY_VIEW, n)();
+function St(a) {
+  return L(S.ACTIVITY_VIEW, a)();
 }
-function _t(n) {
-  if (n instanceof R)
-    return n.isForbidden;
-  if (!n || typeof n != "object")
+function wt(a) {
+  if (a instanceof q)
+    return a.isForbidden;
+  if (!a || typeof a != "object")
     return !1;
-  const t = n;
+  const t = a;
   return t.isForbidden === !0 || t.statusCode === 403 || t.code === "FORBIDDEN";
 }
-function re(n, t) {
-  return _t(n) ? (t(n), !0) : !1;
+function ie(a, t) {
+  return wt(a) ? (t(a), !0) : !1;
 }
-function ne(n, t, e, s) {
-  const i = s || $();
+function re(a, t, e, s) {
+  const i = s || w();
   return async () => {
-    if (!i.has(n)) {
+    if (!i.has(a)) {
       e?.();
       return;
     }
     return t();
   };
 }
-function J(n, t, e) {
-  const s = e || $(), { requires: i = [], requiresAny: r = [], onDenied: a, disableOnDenied: c } = t;
-  let o = !0, l = [];
-  i.length > 0 ? (l = s.getMissing(i), o = l.length === 0) : r.length > 0 && (o = s.hasAny(r), o || (l = r)), o || (c ? ((n instanceof HTMLButtonElement || n instanceof HTMLInputElement) && (n.disabled = !0), n.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), n.setAttribute("title", `Permission required: ${l.join(", ")}`)) : (n.style.display = "none", n.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? n.outerHTML = t.deniedContent : n.replaceWith(t.deniedContent)), a?.(l));
+function W(a, t, e) {
+  const s = e || w(), { requires: i = [], requiresAny: r = [], onDenied: n, disableOnDenied: l } = t;
+  let c = !0, d = [];
+  i.length > 0 ? (d = s.getMissing(i), c = d.length === 0) : r.length > 0 && (c = s.hasAny(r), c || (d = r)), c || (l ? ((a instanceof HTMLButtonElement || a instanceof HTMLInputElement) && (a.disabled = !0), a.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), a.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (a.style.display = "none", a.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? a.outerHTML = t.deniedContent : a.replaceWith(t.deniedContent)), n?.(d));
 }
-function ae(n = document.body, t) {
-  n.querySelectorAll("[data-permission-requires]").forEach((r) => {
-    const a = r.dataset.permissionRequires?.split(",").map((c) => c.trim());
-    a && a.length > 0 && J(r, { requires: a }, t);
-  }), n.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
-    const a = r.dataset.permissionRequiresAny?.split(",").map((c) => c.trim());
-    a && a.length > 0 && J(r, { requiresAny: a }, t);
-  }), n.querySelectorAll("[data-permission-disable]").forEach((r) => {
-    const a = r.dataset.permissionDisable?.split(",").map((c) => c.trim());
-    a && a.length > 0 && J(r, { requires: a, disableOnDenied: !0 }, t);
+function ne(a = document.body, t) {
+  a.querySelectorAll("[data-permission-requires]").forEach((r) => {
+    const n = r.dataset.permissionRequires?.split(",").map((l) => l.trim());
+    n && n.length > 0 && W(r, { requires: n }, t);
+  }), a.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
+    const n = r.dataset.permissionRequiresAny?.split(",").map((l) => l.trim());
+    n && n.length > 0 && W(r, { requiresAny: n }, t);
+  }), a.querySelectorAll("[data-permission-disable]").forEach((r) => {
+    const n = r.dataset.permissionDisable?.split(",").map((l) => l.trim());
+    n && n.length > 0 && W(r, { requires: n, disableOnDenied: !0 }, t);
   });
 }
-function Ct() {
+function $t() {
   if (typeof window > "u" || typeof document > "u")
     return [];
-  const n = window.__permissions;
-  if (Array.isArray(n))
-    return n.filter(
-      (e) => Object.values(w).includes(e)
+  const a = window.__permissions;
+  if (Array.isArray(a))
+    return a.filter(
+      (e) => Object.values(S).includes(e)
     );
   const t = document.body.dataset.permissions;
   if (t)
@@ -1171,17 +1172,17 @@ function Ct() {
       const e = JSON.parse(t);
       if (Array.isArray(e))
         return e.filter(
-          (s) => Object.values(w).includes(s)
+          (s) => Object.values(S).includes(s)
         );
     } catch {
     }
   return [];
 }
-function oe() {
-  const n = Ct(), t = $();
-  return t.init(n), t;
+function ae() {
+  const a = $t(), t = w();
+  return t.init(a), t;
 }
-const ut = {
+const lt = {
   providers: {
     icon: "iconoir:plug",
     title: "No providers available",
@@ -1218,8 +1219,8 @@ const ut = {
     message: "Nothing to display."
   }
 };
-function j(n = {}) {
-  const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = n, r = {
+function N(a = {}) {
+  const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = a, r = {
     sm: { spinner: "h-4 w-4", text: "text-xs", py: "py-4" },
     md: { spinner: "h-5 w-5", text: "text-sm", py: "py-8" },
     lg: { spinner: "h-8 w-8", text: "text-base", py: "py-16" }
@@ -1231,57 +1232,57 @@ function j(n = {}) {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <span class="${r.text}">${b(t)}</span>
+        <span class="${r.text}">${o(t)}</span>
       </div>
     </div>
   `;
 }
-function ht(n = {}) {
-  const t = ut[n.type || "generic"], {
+function dt(a = {}) {
+  const t = lt[a.type || "generic"], {
     icon: e = t.icon,
     iconClass: s = "text-gray-400",
     title: i = t.title,
     message: r = t.message,
-    containerClass: a = "",
-    action: c
-  } = n;
+    containerClass: n = "",
+    action: l
+  } = a;
   return `
-    <div class="ui-state ui-state-empty flex items-center justify-center py-12 ${a}" role="status" aria-label="Empty">
+    <div class="ui-state ui-state-empty flex items-center justify-center py-12 ${n}" role="status" aria-label="Empty">
       <div class="flex flex-col items-center gap-4 text-center max-w-sm">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
-          ${d(e, { size: "24px", extraClass: s })}
+          ${u(e, { size: "24px", extraClass: s })}
         </div>
         <div>
-          <h3 class="text-lg font-medium text-gray-900">${b(i)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${b(r)}</p>
+          <h3 class="text-lg font-medium text-gray-900">${o(i)}</h3>
+          <p class="text-sm text-gray-500 mt-1">${o(r)}</p>
         </div>
-        ${c ? gt(c) : ""}
+        ${l ? ht(l) : ""}
       </div>
     </div>
   `;
 }
-function pt(n = {}) {
+function ut(a = {}) {
   const {
     icon: t = "iconoir:search",
     iconClass: e = "text-gray-400",
     title: s = "No results found",
     query: i,
     filterCount: r = 0,
-    containerClass: a = "",
-    onReset: c
-  } = n;
-  let o = n.message;
-  return o || (i && r > 0 ? o = `No items match "${i}" with ${r} filter${r > 1 ? "s" : ""} applied.` : i ? o = `No items match "${i}".` : r > 0 ? o = `No items match the ${r} filter${r > 1 ? "s" : ""} applied.` : o = "Try adjusting your search or filters."), `
-    <div class="ui-state ui-state-no-results flex items-center justify-center py-12 ${a}" role="status" aria-label="No results">
+    containerClass: n = "",
+    onReset: l
+  } = a;
+  let c = a.message;
+  return c || (i && r > 0 ? c = `No items match "${i}" with ${r} filter${r > 1 ? "s" : ""} applied.` : i ? c = `No items match "${i}".` : r > 0 ? c = `No items match the ${r} filter${r > 1 ? "s" : ""} applied.` : c = "Try adjusting your search or filters."), `
+    <div class="ui-state ui-state-no-results flex items-center justify-center py-12 ${n}" role="status" aria-label="No results">
       <div class="flex flex-col items-center gap-4 text-center max-w-sm">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
-          ${d(t, { size: "24px", extraClass: e })}
+          ${u(t, { size: "24px", extraClass: e })}
         </div>
         <div>
-          <h3 class="text-lg font-medium text-gray-900">${b(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${b(o)}</p>
+          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
+          <p class="text-sm text-gray-500 mt-1">${o(c)}</p>
         </div>
-        ${c ? `
+        ${l ? `
           <button type="button" class="ui-state-reset-btn px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
             Clear filters
           </button>
@@ -1290,162 +1291,162 @@ function pt(n = {}) {
     </div>
   `;
 }
-function D(n = {}) {
+function j(a = {}) {
   const {
     icon: t = "iconoir:warning-triangle",
     iconClass: e = "text-red-500",
     title: s = "Something went wrong",
     error: i,
     compact: r = !1,
-    containerClass: a = "",
-    showRetry: c = !0,
-    retryText: o = "Try again"
-  } = n, l = n.message || i?.message || "An unexpected error occurred. Please try again.";
+    containerClass: n = "",
+    showRetry: l = !0,
+    retryText: c = "Try again"
+  } = a, d = a.message || i?.message || "An unexpected error occurred. Please try again.";
   return r ? `
-      <div class="ui-state ui-state-error ui-state-error-compact p-4 ${a}" role="alert">
+      <div class="ui-state ui-state-error ui-state-error-compact p-4 ${n}" role="alert">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 text-red-500" aria-hidden="true">
-            ${d(t, { size: "20px", extraClass: e })}
+            ${u(t, { size: "20px", extraClass: e })}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-red-800">${b(s)}</p>
-            <p class="text-sm text-red-700 mt-1">${b(l)}</p>
+            <p class="text-sm font-medium text-red-800">${o(s)}</p>
+            <p class="text-sm text-red-700 mt-1">${o(d)}</p>
           </div>
-          ${c ? `
+          ${l ? `
             <button type="button" class="ui-state-retry-btn flex-shrink-0 text-sm text-red-600 hover:text-red-700 font-medium">
-              ${b(o)}
+              ${o(c)}
             </button>
           ` : ""}
         </div>
       </div>
     ` : `
-    <div class="ui-state ui-state-error flex items-center justify-center py-16 ${a}" role="alert">
+    <div class="ui-state ui-state-error flex items-center justify-center py-16 ${n}" role="alert">
       <div class="flex flex-col items-center gap-4 text-center max-w-md">
         <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
-          ${d(t, { size: "24px", extraClass: e })}
+          ${u(t, { size: "24px", extraClass: e })}
         </div>
         <div>
-          <h3 class="text-lg font-medium text-gray-900">${b(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${b(l)}</p>
+          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
+          <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
         </div>
-        ${c ? `
+        ${l ? `
           <button type="button" class="ui-state-retry-btn px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
-            ${b(o)}
+            ${o(c)}
           </button>
         ` : ""}
       </div>
     </div>
   `;
 }
-function _(n = {}) {
+function $(a = {}) {
   const {
     icon: t = "iconoir:lock",
     iconClass: e = "text-amber-500",
     title: s = "Access Denied",
     resource: i,
     permission: r,
-    containerClass: a = "",
-    action: c
-  } = n;
-  let o = n.message;
-  return o || (i && r ? o = `You need the "${r}" permission to view ${i}.` : i ? o = `You don't have permission to view ${i}.` : o = "You don't have permission to access this resource."), `
-    <div class="ui-state ui-state-forbidden flex items-center justify-center py-16 ${a}" role="alert" aria-label="Access denied">
+    containerClass: n = "",
+    action: l
+  } = a;
+  let c = a.message;
+  return c || (i && r ? c = `You need the "${r}" permission to view ${i}.` : i ? c = `You don't have permission to view ${i}.` : c = "You don't have permission to access this resource."), `
+    <div class="ui-state ui-state-forbidden flex items-center justify-center py-16 ${n}" role="alert" aria-label="Access denied">
       <div class="flex flex-col items-center gap-4 text-center max-w-md">
         <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center" aria-hidden="true">
-          ${d(t, { size: "24px", extraClass: e })}
+          ${u(t, { size: "24px", extraClass: e })}
         </div>
         <div>
-          <h3 class="text-lg font-medium text-gray-900">${b(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${b(o)}</p>
+          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
+          <p class="text-sm text-gray-500 mt-1">${o(c)}</p>
         </div>
-        ${c ? gt(c) : ""}
+        ${l ? ht(l) : ""}
       </div>
     </div>
   `;
 }
-function U(n, t = {}) {
+function D(a, t = {}) {
   const { text: e = "Loading...", containerClass: s = "" } = t;
   return `
     <tr class="ui-state ui-state-table-loading ${s}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
+      <td colspan="${a}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center gap-2 text-gray-500" aria-busy="true">
           <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span class="text-sm">${b(e)}</span>
+          <span class="text-sm">${o(e)}</span>
         </div>
       </td>
     </tr>
   `;
 }
-function O(n, t = {}) {
+function U(a, t = {}) {
   const {
     icon: e = "iconoir:warning-triangle",
     iconClass: s = "text-red-500",
     title: i = "Failed to load data",
     error: r,
-    containerClass: a = "",
-    showRetry: c = !0,
-    retryText: o = "Try again"
-  } = t, l = t.message || r?.message || "An error occurred while loading.";
+    containerClass: n = "",
+    showRetry: l = !0,
+    retryText: c = "Try again"
+  } = t, d = t.message || r?.message || "An error occurred while loading.";
   return `
-    <tr class="ui-state ui-state-table-error ${a}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
+    <tr class="ui-state ui-state-table-error ${n}">
+      <td colspan="${a}" class="px-4 py-12 text-center">
         <div class="text-red-500 mb-2" aria-hidden="true">
-          ${d(e, { size: "24px", extraClass: s })}
+          ${u(e, { size: "24px", extraClass: s })}
         </div>
-        <p class="text-sm font-medium text-gray-900">${b(i)}</p>
-        <p class="text-sm text-gray-500 mt-1">${b(l)}</p>
-        ${c ? `
+        <p class="text-sm font-medium text-gray-900">${o(i)}</p>
+        <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
+        ${l ? `
           <button type="button" class="ui-state-retry-btn mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-            ${b(o)}
+            ${o(c)}
           </button>
         ` : ""}
       </td>
     </tr>
   `;
 }
-function ce(n, t = {}) {
-  const e = ut[t.type || "generic"], {
+function oe(a, t = {}) {
+  const e = lt[t.type || "generic"], {
     icon: s = e.icon,
     iconClass: i = "text-gray-400",
     title: r = e.title,
-    message: a = e.message,
-    containerClass: c = ""
+    message: n = e.message,
+    containerClass: l = ""
   } = t;
   return `
-    <tr class="ui-state ui-state-table-empty ${c}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
+    <tr class="ui-state ui-state-table-empty ${l}">
+      <td colspan="${a}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
-          ${d(s, { size: "24px", extraClass: i })}
+          ${u(s, { size: "24px", extraClass: i })}
         </div>
-        <h3 class="text-lg font-medium text-gray-900">${b(r)}</h3>
-        <p class="text-sm text-gray-500 mt-1">${b(a)}</p>
+        <h3 class="text-lg font-medium text-gray-900">${o(r)}</h3>
+        <p class="text-sm text-gray-500 mt-1">${o(n)}</p>
       </td>
     </tr>
   `;
 }
-function q(n, t = {}) {
+function T(a, t = {}) {
   const {
     icon: e = "iconoir:search",
     iconClass: s = "text-gray-400",
     title: i = "No results found",
     query: r,
-    filterCount: a = 0,
-    containerClass: c = "",
-    onReset: o
+    filterCount: n = 0,
+    containerClass: l = "",
+    onReset: c
   } = t;
-  let l = t.message;
-  return l || (r && a > 0 ? l = `No items match "${r}" with ${a} filter${a > 1 ? "s" : ""} applied.` : r ? l = `No items match "${r}".` : a > 0 ? l = `No items match the ${a} filter${a > 1 ? "s" : ""} applied.` : l = "Try adjusting your search or filters."), `
-    <tr class="ui-state ui-state-table-no-results ${c}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
+  let d = t.message;
+  return d || (r && n > 0 ? d = `No items match "${r}" with ${n} filter${n > 1 ? "s" : ""} applied.` : r ? d = `No items match "${r}".` : n > 0 ? d = `No items match the ${n} filter${n > 1 ? "s" : ""} applied.` : d = "Try adjusting your search or filters."), `
+    <tr class="ui-state ui-state-table-no-results ${l}">
+      <td colspan="${a}" class="px-4 py-12 text-center">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
-          ${d(e, { size: "24px", extraClass: s })}
+          ${u(e, { size: "24px", extraClass: s })}
         </div>
-        <h3 class="text-lg font-medium text-gray-900">${b(i)}</h3>
-        <p class="text-sm text-gray-500 mt-1">${b(l)}</p>
-        ${o ? `
+        <h3 class="text-lg font-medium text-gray-900">${o(i)}</h3>
+        <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
+        ${c ? `
           <button type="button" class="ui-state-reset-btn mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
             Clear filters
           </button>
@@ -1454,7 +1455,7 @@ function q(n, t = {}) {
     </tr>
   `;
 }
-class le {
+class ce {
   constructor(t) {
     this.currentState = "loading", this.container = t.container, this.config = t;
   }
@@ -1462,13 +1463,13 @@ class le {
    * Show loading state
    */
   showLoading(t) {
-    this.currentState = "loading", this.container.innerHTML = j(t);
+    this.currentState = "loading", this.container.innerHTML = N(t);
   }
   /**
    * Show empty state (no data)
    */
   showEmpty(t) {
-    this.currentState = "empty", this.container.innerHTML = ht(t);
+    this.currentState = "empty", this.container.innerHTML = dt(t);
   }
   /**
    * Show no-results state (filters returned nothing)
@@ -1476,7 +1477,7 @@ class le {
   showNoResults(t) {
     this.currentState = "no-results";
     const e = { ...t, onReset: t?.onReset || this.config.onReset };
-    this.container.innerHTML = pt(e), this.bindResetHandler();
+    this.container.innerHTML = ut(e), this.bindResetHandler();
   }
   /**
    * Show error state
@@ -1484,13 +1485,13 @@ class le {
   showError(t) {
     this.currentState = "error";
     const e = { ...t, onRetry: t?.onRetry || this.config.onRetry };
-    this.container.innerHTML = D(e), this.bindRetryHandler();
+    this.container.innerHTML = j(e), this.bindRetryHandler();
   }
   /**
    * Show forbidden state
    */
   showForbidden(t) {
-    this.currentState = "forbidden", this.container.innerHTML = _(t);
+    this.currentState = "forbidden", this.container.innerHTML = $(t);
   }
   /**
    * Show content (clears any state and allows content rendering)
@@ -1527,22 +1528,18 @@ class le {
     });
   }
 }
-function gt(n) {
+function ht(a) {
   return `
     <button type="button" class="ui-state-action-btn px-4 py-2 text-sm font-medium rounded-lg focus:ring-2 focus:ring-offset-2 transition-colors ${{
     primary: "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
     secondary: "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500",
     danger: "text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
-  }[n.variant || "primary"]}">
-      ${b(n.text)}
+  }[a.variant || "primary"]}">
+      ${o(a.text)}
     </button>
   `;
 }
-function b(n) {
-  const t = document.createElement("div");
-  return t.textContent = n, t.innerHTML;
-}
-class Lt {
+class _t {
   constructor(t) {
     this.state = "idle", this.feedbackTimeout = null, this.button = t.button, this.originalHTML = this.button.innerHTML, this.originalDisabled = this.button.disabled, this.config = {
       loadingText: t.loadingText ?? "Processing...",
@@ -1564,7 +1561,7 @@ class Lt {
            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
          </svg>` : "";
-    this.button.innerHTML = `${t}<span>${L(this.config.loadingText)}</span>`;
+    this.button.innerHTML = `${t}<span>${o(this.config.loadingText)}</span>`;
   }
   /** Set button to success state (briefly shows success, then returns to idle) */
   setSuccess() {
@@ -1572,7 +1569,7 @@ class Lt {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
       </svg>
-      <span>${L(this.config.successText)}</span>
+      <span>${o(this.config.successText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1583,7 +1580,7 @@ class Lt {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
       </svg>
-      <span>${L(this.config.errorText)}</span>
+      <span>${o(this.config.errorText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1600,79 +1597,79 @@ class Lt {
     this.feedbackTimeout && (clearTimeout(this.feedbackTimeout), this.feedbackTimeout = null);
   }
 }
-async function v(n) {
+async function x(a) {
   const {
     mutation: t,
     notifier: e,
     successMessage: s,
     errorMessagePrefix: i = "Operation failed",
     buttonConfig: r,
-    onSuccess: a,
-    onError: c,
-    showInlineRetry: o = !1,
-    retryContainer: l
-  } = n, h = r ? new Lt(r) : null;
+    onSuccess: n,
+    onError: l,
+    showInlineRetry: c = !1,
+    retryContainer: d
+  } = a, p = r ? new _t(r) : null;
   try {
-    h?.setLoading();
-    const u = await t();
-    if (h?.setSuccess(), e && s) {
-      const p = typeof s == "function" ? s(u) : s;
-      e.success(p);
+    p?.setLoading();
+    const h = await t();
+    if (p?.setSuccess(), e && s) {
+      const g = typeof s == "function" ? s(h) : s;
+      e.success(g);
     }
-    return l && Y(l), await a?.(u), { success: !0, result: u };
-  } catch (u) {
-    const p = u instanceof Error ? u : new Error(String(u));
-    return h?.setError(), e && e.error(`${i}: ${p.message}`), o && l && Tt({
-      container: l,
-      action: () => v(n).then(() => {
+    return d && Q(d), await n?.(h), { success: !0, result: h };
+  } catch (h) {
+    const g = h instanceof Error ? h : new Error(String(h));
+    return p?.setError(), e && e.error(`${i}: ${g.message}`), c && d && Ct({
+      container: d,
+      action: () => x(a).then(() => {
       }),
-      errorMessage: `${i}: ${p.message}`,
-      onDismiss: () => Y(l)
-    }), c?.(p), { success: !1, error: p };
+      errorMessage: `${i}: ${g.message}`,
+      onDismiss: () => Q(d)
+    }), l?.(g), { success: !1, error: g };
   }
 }
-async function de(n) {
-  const { confirmMessage: t, confirmOptions: e, ...s } = n;
-  return await ct.confirm(t, {
+async function le(a) {
+  const { confirmMessage: t, confirmOptions: e, ...s } = a;
+  return await at.confirm(t, {
     title: e?.title ?? "Confirm Action",
     confirmText: e?.confirmText ?? "Confirm",
     cancelText: e?.cancelText ?? "Cancel",
     confirmVariant: e?.variant ?? "primary"
-  }) ? { ...await v(s), cancelled: !1 } : { success: !1, cancelled: !0 };
+  }) ? { ...await x(s), cancelled: !1 } : { success: !1, cancelled: !0 };
 }
-function Tt(n) {
+function Ct(a) {
   const {
     container: t,
     action: e,
     errorMessage: s,
     retryText: i = "Retry",
     dismissText: r = "Dismiss",
-    onDismiss: a
-  } = n;
+    onDismiss: n
+  } = a;
   t.innerHTML = `
     <div class="mutation-retry-ui flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
       <div class="flex-shrink-0 text-red-500" aria-hidden="true">
-        ${d("iconoir:warning-triangle", { size: "20px" })}
+        ${u("iconoir:warning-triangle", { size: "20px" })}
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-red-700">${L(s)}</p>
+        <p class="text-sm text-red-700">${o(s)}</p>
         <div class="flex items-center gap-2 mt-2">
           <button type="button"
                   class="mutation-retry-btn px-3 py-1 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded transition-colors">
-            ${L(i)}
+            ${o(i)}
           </button>
           <button type="button"
                   class="mutation-dismiss-btn px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors">
-            ${L(r)}
+            ${o(r)}
           </button>
         </div>
       </div>
     </div>
   `;
-  const c = t.querySelector(".mutation-retry-btn"), o = t.querySelector(".mutation-dismiss-btn");
-  c?.addEventListener("click", async () => {
-    const l = c, h = l.textContent;
-    l.disabled = !0, l.innerHTML = `
+  const l = t.querySelector(".mutation-retry-btn"), c = t.querySelector(".mutation-dismiss-btn");
+  l?.addEventListener("click", async () => {
+    const d = l, p = d.textContent;
+    d.disabled = !0, d.innerHTML = `
       <svg class="animate-spin h-3 w-3 inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1682,45 +1679,45 @@ function Tt(n) {
     try {
       await e();
     } finally {
-      l.disabled = !1, l.textContent = h;
+      d.disabled = !1, d.textContent = p;
     }
-  }), o?.addEventListener("click", () => {
-    Y(t), a?.();
+  }), c?.addEventListener("click", () => {
+    Q(t), n?.();
   });
 }
-function Y(n) {
-  n.querySelector(".mutation-retry-ui")?.remove();
+function Q(a) {
+  a.querySelector(".mutation-retry-ui")?.remove();
 }
-function kt(n) {
-  const { action: t, resourceType: e, resourceName: s, additionalContext: i } = n, r = {
+function Lt(a) {
+  const { action: t, resourceType: e, resourceName: s, additionalContext: i } = a, r = {
     revoke: { verb: "revoke", noun: "Revoke", variant: "danger" },
     disconnect: { verb: "disconnect", noun: "Disconnect", variant: "danger" },
     uninstall: { verb: "uninstall", noun: "Uninstall", variant: "danger" },
     cancel: { verb: "cancel", noun: "Cancel", variant: "danger" },
     delete: { verb: "delete", noun: "Delete", variant: "danger" },
     refresh: { verb: "refresh", noun: "Refresh", variant: "primary" }
-  }, a = {
+  }, n = {
     connection: "connection",
     installation: "installation",
     subscription: "subscription",
     sync: "sync job"
-  }, c = r[t] || { verb: t, noun: t, variant: "primary" }, o = a[e] || e;
-  let l = `Are you sure you want to ${c.verb} this ${o}`;
-  return s && (l += ` (${s})`), l += "?", i && (l += ` ${i}`), c.variant === "danger" && (l += " This action cannot be undone."), {
-    message: l,
+  }, l = r[t] || { verb: t, noun: t, variant: "primary" }, c = n[e] || e;
+  let d = `Are you sure you want to ${l.verb} this ${c}`;
+  return s && (d += ` (${s})`), d += "?", i && (d += ` ${i}`), l.variant === "danger" && (d += " This action cannot be undone."), {
+    message: d,
     options: {
-      title: `${c.noun} ${o.charAt(0).toUpperCase() + o.slice(1)}`,
-      confirmText: c.noun,
+      title: `${l.noun} ${c.charAt(0).toUpperCase() + c.slice(1)}`,
+      confirmText: l.noun,
       cancelText: "Cancel",
-      variant: c.variant
+      variant: l.variant
     }
   };
 }
-async function B(n) {
-  const { message: t, options: e } = kt(n);
-  return ct.confirm(t, e);
+async function H(a) {
+  const { message: t, options: e } = Lt(a);
+  return at.confirm(t, e);
 }
-class z {
+class O {
   constructor() {
     this.inFlight = /* @__PURE__ */ new Set();
   }
@@ -1751,11 +1748,7 @@ class z {
     this.inFlight.clear();
   }
 }
-function L(n) {
-  const t = document.createElement("div");
-  return t.textContent = n, t.innerHTML;
-}
-const P = {
+const R = {
   // Connection lifecycle
   connected: {
     action: "connected",
@@ -1952,9 +1945,9 @@ const P = {
     category: "errors"
   }
 };
-class Et {
+class kt {
   constructor() {
-    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = tt;
+    this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = Z;
   }
   /**
    * Initialize the registry with backend-provided labels.
@@ -1975,14 +1968,14 @@ class Et {
   getLabel(t) {
     if (this.backendLabels[t])
       return this.backendLabels[t];
-    const e = P[t];
+    const e = R[t];
     return e ? e.label : this.fallbackFormatter(t);
   }
   /**
    * Get full entry information for an action (includes description, category).
    */
   getEntry(t) {
-    const e = P[t];
+    const e = R[t];
     return e ? {
       ...e,
       label: this.backendLabels[t] || e.label
@@ -1993,7 +1986,7 @@ class Et {
    */
   getAllLabels() {
     const t = {};
-    for (const [e, s] of Object.entries(P))
+    for (const [e, s] of Object.entries(R))
       t[e] = s.label;
     for (const [e, s] of Object.entries(this.backendLabels))
       t[e] = s;
@@ -2004,7 +1997,7 @@ class Et {
    */
   getActionsByCategory() {
     const t = {};
-    for (const e of Object.values(P)) {
+    for (const e of Object.values(R)) {
       const s = e.category || "other";
       t[s] || (t[s] = []), t[s].push({
         ...e,
@@ -2029,108 +2022,108 @@ class Et {
    * Reset to initial state.
    */
   reset() {
-    this.backendLabels = {}, this.fallbackFormatter = tt, this.initialized = !1;
+    this.backendLabels = {}, this.fallbackFormatter = Z, this.initialized = !1;
   }
 }
-const S = new Et();
-function ue(n = {}) {
-  S.init(n);
+const v = new kt();
+function de(a = {}) {
+  v.init(a);
 }
-function qt(n) {
-  return S.getLabel(n);
+function Tt(a) {
+  return v.getLabel(a);
 }
-function he(n) {
-  return S.getEntry(n);
+function ue(a) {
+  return v.getEntry(a);
 }
-function pe() {
-  return S.getAllLabels();
+function he() {
+  return v.getAllLabels();
 }
-function Rt() {
-  return S.getActionsByCategory();
+function qt() {
+  return v.getActionsByCategory();
 }
-function ge(n) {
-  S.setLabels(n);
+function pe(a) {
+  v.setLabels(a);
+}
+function ge() {
+  return v.isInitialized();
 }
 function fe() {
-  return S.isInitialized();
+  v.reset();
 }
-function be() {
-  S.reset();
+function be(a = {}) {
+  return (t) => a[t] ? a[t] : v.getLabel(t);
 }
-function ye(n = {}) {
-  return (t) => n[t] ? n[t] : S.getLabel(t);
+function Z(a) {
+  return a.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
-function tt(n) {
-  return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
-}
-function At(n) {
+function Et(a) {
   const {
     container: t,
     selector: e,
     onSelect: s,
     onFocus: i,
     onEscape: r,
-    wrap: a = !0,
-    autoFocus: c = !1,
-    keyHandlers: o = {}
-  } = n;
-  function l() {
+    wrap: n = !0,
+    autoFocus: l = !1,
+    keyHandlers: c = {}
+  } = a;
+  function d() {
     return Array.from(t.querySelectorAll(e));
   }
-  function h(g) {
-    const y = l();
+  function p(f) {
+    const y = d();
     if (y.length === 0) return;
-    let f = g;
-    a ? f = (g % y.length + y.length) % y.length : f = Math.max(0, Math.min(g, y.length - 1)), y.forEach((ft, bt) => {
-      ft.setAttribute("tabindex", bt === f ? "0" : "-1");
+    let b = f;
+    n ? b = (f % y.length + y.length) % y.length : b = Math.max(0, Math.min(f, y.length - 1)), y.forEach((pt, gt) => {
+      pt.setAttribute("tabindex", gt === b ? "0" : "-1");
     });
-    const x = y[f];
-    x.focus(), i?.(x, f);
+    const m = y[b];
+    m.focus(), i?.(m, b);
   }
-  function u(g) {
-    const y = l();
+  function h(f) {
+    const y = d();
     if (y.length === 0) return;
-    const f = g.target, x = y.indexOf(f);
-    if (x !== -1) {
-      if (o[g.key]) {
-        o[g.key](g, f, x);
+    const b = f.target, m = y.indexOf(b);
+    if (m !== -1) {
+      if (c[f.key]) {
+        c[f.key](f, b, m);
         return;
       }
-      switch (g.key) {
+      switch (f.key) {
         case "ArrowDown":
         case "ArrowRight":
-          g.preventDefault(), h(x + 1);
+          f.preventDefault(), p(m + 1);
           break;
         case "ArrowUp":
         case "ArrowLeft":
-          g.preventDefault(), h(x - 1);
+          f.preventDefault(), p(m - 1);
           break;
         case "Home":
-          g.preventDefault(), h(0);
+          f.preventDefault(), p(0);
           break;
         case "End":
-          g.preventDefault(), h(y.length - 1);
+          f.preventDefault(), p(y.length - 1);
           break;
         case "Enter":
         case " ":
-          g.preventDefault(), s?.(f, x);
+          f.preventDefault(), s?.(b, m);
           break;
         case "Escape":
-          g.preventDefault(), r?.();
+          f.preventDefault(), r?.();
           break;
       }
     }
   }
-  const p = l();
-  return p.forEach((g, y) => {
-    g.setAttribute("tabindex", y === 0 ? "0" : "-1"), g.hasAttribute("role") || g.setAttribute("role", "option");
-  }), t.hasAttribute("role") || t.setAttribute("role", "listbox"), t.addEventListener("keydown", u), c && p.length > 0 && h(0), () => {
-    t.removeEventListener("keydown", u);
+  const g = d();
+  return g.forEach((f, y) => {
+    f.setAttribute("tabindex", y === 0 ? "0" : "-1"), f.hasAttribute("role") || f.setAttribute("role", "option");
+  }), t.hasAttribute("role") || t.setAttribute("role", "listbox"), t.addEventListener("keydown", h), l && g.length > 0 && p(0), () => {
+    t.removeEventListener("keydown", h);
   };
 }
-function me(n, t) {
-  return At({
-    container: n,
+function ye(a, t) {
+  return Et({
+    container: a,
     selector: t,
     wrap: !0,
     onSelect: (e) => {
@@ -2138,7 +2131,7 @@ function me(n, t) {
     }
   });
 }
-const Pt = [
+const Rt = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -2146,32 +2139,32 @@ const Pt = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
-function It(n) {
-  const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = n, r = document.activeElement;
-  function a() {
-    return Array.from(t.querySelectorAll(Pt));
+function At(a) {
+  const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = a, r = document.activeElement;
+  function n() {
+    return Array.from(t.querySelectorAll(Rt));
   }
-  function c(o) {
-    if (o.key === "Escape") {
-      o.preventDefault(), i?.();
+  function l(c) {
+    if (c.key === "Escape") {
+      c.preventDefault(), i?.();
       return;
     }
-    if (o.key !== "Tab") return;
-    const l = a();
-    if (l.length === 0) return;
-    const h = l[0], u = l[l.length - 1];
-    o.shiftKey ? document.activeElement === h && (o.preventDefault(), u.focus()) : document.activeElement === u && (o.preventDefault(), h.focus());
+    if (c.key !== "Tab") return;
+    const d = n();
+    if (d.length === 0) return;
+    const p = d[0], h = d[d.length - 1];
+    c.shiftKey ? document.activeElement === p && (c.preventDefault(), h.focus()) : document.activeElement === h && (c.preventDefault(), p.focus());
   }
   return requestAnimationFrame(() => {
-    e ? (typeof e == "string" ? t.querySelector(e) : e)?.focus() : a()[0]?.focus();
-  }), t.addEventListener("keydown", c), t.hasAttribute("role") || t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), () => {
-    t.removeEventListener("keydown", c), t.removeAttribute("aria-modal"), (s || r)?.focus?.();
+    e ? (typeof e == "string" ? t.querySelector(e) : e)?.focus() : n()[0]?.focus();
+  }), t.addEventListener("keydown", l), t.hasAttribute("role") || t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), () => {
+    t.removeEventListener("keydown", l), t.removeAttribute("aria-modal"), (s || r)?.focus?.();
   };
 }
-function Mt(n) {
-  const t = `services-live-region-${n}`;
+function Pt(a) {
+  const t = `services-live-region-${a}`;
   let e = document.getElementById(t);
-  return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", n), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
+  return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", a), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
     position: "absolute",
     width: "1px",
     height: "1px",
@@ -2183,77 +2176,77 @@ function Mt(n) {
     border: "0"
   }), document.body.appendChild(e)), e;
 }
-function V(n, t = {}) {
-  const { priority: e = "polite", clear: s = !0 } = t, i = Mt(e);
+function B(a, t = {}) {
+  const { priority: e = "polite", clear: s = !0 } = t, i = Pt(e);
   s && (i.textContent = ""), setTimeout(() => {
-    i.textContent = n;
+    i.textContent = a;
   }, 100);
 }
-function xe(n) {
-  V(`Loading ${n}...`, { priority: "polite" });
+function me(a) {
+  B(`Loading ${a}...`, { priority: "polite" });
 }
-function ve(n) {
-  V(n, { priority: "polite" });
+function xe(a) {
+  B(a, { priority: "polite" });
 }
-function Se(n) {
-  V(`Error: ${n}`, { priority: "assertive" });
+function ve(a) {
+  B(`Error: ${a}`, { priority: "assertive" });
 }
-function we(n) {
-  V(`Navigating to ${n}`, { priority: "polite" });
+function Se(a) {
+  B(`Navigating to ${a}`, { priority: "polite" });
 }
-function $e(n, t, e) {
-  n.setAttribute("aria-expanded", String(e));
+function we(a, t, e) {
+  a.setAttribute("aria-expanded", String(e));
   const s = typeof t == "string" ? t : t.id;
-  s && n.setAttribute("aria-controls", s);
+  s && a.setAttribute("aria-controls", s);
 }
-function _e(n, t) {
-  n.setAttribute("aria-busy", String(t)), t ? n.setAttribute("aria-describedby", "loading-indicator") : n.removeAttribute("aria-describedby");
+function $e(a, t) {
+  a.setAttribute("aria-busy", String(t)), t ? a.setAttribute("aria-describedby", "loading-indicator") : a.removeAttribute("aria-describedby");
 }
-function Ce(n, t, e) {
-  n.setAttribute("role", "status"), n.setAttribute("aria-label", `Status: ${e}`);
+function _e(a, t, e) {
+  a.setAttribute("role", "status"), a.setAttribute("aria-label", `Status: ${e}`);
 }
-function Le(n, t) {
-  n.setAttribute("aria-sort", t), n.setAttribute("role", "columnheader");
+function Ce(a, t) {
+  a.setAttribute("aria-sort", t), a.setAttribute("role", "columnheader");
 }
-function Te(n, t, e = 100, s) {
-  n.setAttribute("role", "progressbar"), n.setAttribute("aria-valuenow", String(t)), n.setAttribute("aria-valuemin", "0"), n.setAttribute("aria-valuemax", String(e)), s && n.setAttribute("aria-label", s);
+function Le(a, t, e = 100, s) {
+  a.setAttribute("role", "progressbar"), a.setAttribute("aria-valuenow", String(t)), a.setAttribute("aria-valuemin", "0"), a.setAttribute("aria-valuemax", String(e)), s && a.setAttribute("aria-label", s);
 }
-function ke(n, t = "Skip to main content") {
+function ke(a, t = "Skip to main content") {
   const e = document.createElement("a");
-  return e.href = `#${n}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
+  return e.href = `#${a}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
 }
-function Ee(n, t = {}) {
+function Te(a, t = {}) {
   const { title: e, describedBy: s, onClose: i } = t;
-  if (n.setAttribute("role", "dialog"), n.setAttribute("aria-modal", "true"), e) {
-    const a = `dialog-title-${Date.now()}`, c = n.querySelector('h1, h2, h3, [role="heading"]');
-    c && (c.id = a, n.setAttribute("aria-labelledby", a));
+  if (a.setAttribute("role", "dialog"), a.setAttribute("aria-modal", "true"), e) {
+    const n = `dialog-title-${Date.now()}`, l = a.querySelector('h1, h2, h3, [role="heading"]');
+    l && (l.id = n, a.setAttribute("aria-labelledby", n));
   }
-  s && n.setAttribute("aria-describedby", s);
-  const r = It({
-    container: n,
+  s && a.setAttribute("aria-describedby", s);
+  const r = At({
+    container: a,
     onEscape: i
   });
   return () => {
-    r(), n.removeAttribute("aria-modal"), n.removeAttribute("aria-labelledby"), n.removeAttribute("aria-describedby");
+    r(), a.removeAttribute("aria-modal"), a.removeAttribute("aria-labelledby"), a.removeAttribute("aria-describedby");
   };
 }
-function Ft() {
+function It() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function qe(n) {
-  return Ft() ? 0 : n;
+function qe(a) {
+  return It() ? 0 : a;
 }
-const et = {
+const X = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   degraded: { label: "Degraded", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   disabled: { label: "Disabled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" }
-}, Ht = {
+}, Mt = {
   healthy: { label: "Healthy", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   warning: { label: "Warnings", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   error: { label: "Errors", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
 };
-class Re {
+class Ee {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -2303,7 +2296,7 @@ class Re {
           <div>
             <h2 class="text-lg font-semibold text-gray-900">Extension Diagnostics</h2>
             <p class="text-sm text-gray-500 mt-0.5">
-              Runtime v${m(this.state.runtimeVersion)} &middot;
+              Runtime v${o(this.state.runtimeVersion)} &middot;
               Worker ${this.state.workerStatus}
             </p>
           </div>
@@ -2313,7 +2306,7 @@ class Re {
             </span>
             <button type="button"
                     class="diagnostics-refresh px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
-              ${d("iconoir:refresh", { size: "16px" })}
+              ${u("iconoir:refresh", { size: "16px" })}
               Refresh
             </button>
           </div>
@@ -2352,7 +2345,7 @@ class Re {
           <div class="bg-white rounded-lg border border-red-200">
             <div class="px-4 py-3 border-b border-red-200 bg-red-50">
               <h3 class="text-base font-medium text-red-900 flex items-center gap-2">
-                ${d("iconoir:warning-circle", { size: "18px" })}
+                ${u("iconoir:warning-circle", { size: "18px" })}
                 Recent Errors (${this.state.recentErrors.length})
               </h3>
             </div>
@@ -2381,11 +2374,11 @@ class Re {
           <span class="text-2xl font-semibold text-gray-900">${e}</span>
         </div>
         <div class="flex items-center gap-2 mt-2">
-          ${Object.entries(s).map(([a, c]) => {
-      const o = et[a];
-      return c > 0 ? `
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${o.bg} ${o.text}">
-                ${c} ${o.label.toLowerCase()}
+          ${Object.entries(s).map(([n, l]) => {
+      const c = X[n];
+      return l > 0 ? `
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${c.bg} ${c.text}">
+                ${l} ${c.label.toLowerCase()}
               </span>
             ` : "";
     }).join("")}
@@ -2395,13 +2388,13 @@ class Re {
   }
   renderConfigHealthCard() {
     if (!this.state) return "";
-    const t = this.state.configHealth, e = Ht[t.status];
+    const t = this.state.configHealth, e = Mt[t.status];
     return `
       <div class="bg-white rounded-lg border ${t.status === "healthy" ? "border-gray-200" : "border-amber-200"} p-4">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-gray-500">Config Health</span>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </div>
@@ -2435,16 +2428,16 @@ class Re {
     `;
   }
   renderPackRow(t) {
-    const e = et[t.status];
+    const e = X[t.status];
     return `
-      <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${m(t.id)}">
+      <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${o(t.id)}">
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900">${m(t.name)}</span>
-              <span class="text-xs text-gray-400">v${m(t.version)}</span>
+              <span class="text-sm font-medium text-gray-900">${o(t.name)}</span>
+              <span class="text-xs text-gray-400">v${o(t.version)}</span>
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-                ${d(e.icon, { size: "10px" })}
+                ${u(e.icon, { size: "10px" })}
                 ${e.label}
               </span>
             </div>
@@ -2456,11 +2449,11 @@ class Re {
           </div>
           <div class="flex items-center gap-2">
             ${t.lastError ? `
-              <span class="text-xs text-red-600 truncate max-w-48" title="${m(t.lastError)}">
-                ${m(t.lastError.slice(0, 50))}${t.lastError.length > 50 ? "..." : ""}
+              <span class="text-xs text-red-600 truncate max-w-48" title="${o(t.lastError)}">
+                ${o(t.lastError.slice(0, 50))}${t.lastError.length > 50 ? "..." : ""}
               </span>
             ` : ""}
-            ${d("iconoir:nav-arrow-right", { size: "16px", extraClass: "text-gray-400" })}
+            ${u("iconoir:nav-arrow-right", { size: "16px", extraClass: "text-gray-400" })}
           </div>
         </div>
       </div>
@@ -2473,8 +2466,8 @@ class Re {
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900">${m(t.name)}</span>
-              <span class="text-xs text-gray-400">from ${m(t.sourcePack)}</span>
+              <span class="text-sm font-medium text-gray-900">${o(t.name)}</span>
+              <span class="text-xs text-gray-400">from ${o(t.sourcePack)}</span>
               ${t.enabled ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">Enabled</span>' : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">Disabled</span>'}
             </div>
             <div class="flex items-center gap-4 mt-1 text-xs text-gray-500">
@@ -2489,21 +2482,21 @@ class Re {
   }
   renderErrorRow(t) {
     return `
-      <div class="error-row px-4 py-3 hover:bg-red-50 cursor-pointer" data-error-id="${m(t.id)}">
+      <div class="error-row px-4 py-3 hover:bg-red-50 cursor-pointer" data-error-id="${o(t.id)}">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 mt-0.5">
-            ${d("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500" })}
+            ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500" })}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-red-800">${m(t.type)}</span>
-              <span class="text-xs text-gray-400">from ${m(t.packId)}</span>
+              <span class="text-sm font-medium text-red-800">${o(t.type)}</span>
+              <span class="text-xs text-gray-400">from ${o(t.packId)}</span>
             </div>
-            <p class="text-sm text-gray-700 mt-0.5">${m(t.message)}</p>
+            <p class="text-sm text-gray-700 mt-0.5">${o(t.message)}</p>
             <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
               <span>${this.formatTime(t.occurredAt)}</span>
               ${t.relatedEntity ? `
-                <span>${m(t.relatedEntity.type)}:${m(t.relatedEntity.id)}</span>
+                <span>${o(t.relatedEntity.type)}:${o(t.relatedEntity.id)}</span>
               ` : ""}
             </div>
           </div>
@@ -2514,7 +2507,7 @@ class Re {
   renderEmptyState(t) {
     return `
       <div class="px-4 py-8 text-center">
-        <p class="text-sm text-gray-500">${m(t)}</p>
+        <p class="text-sm text-gray-500">${o(t)}</p>
       </div>
     `;
   }
@@ -2561,12 +2554,12 @@ class Re {
   formatTime(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), a = Math.floor(i / 36e5);
-    return r < 1 ? "just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : e.toLocaleDateString();
+    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5);
+    return r < 1 ? "just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : e.toLocaleDateString();
   }
 }
-function F(n) {
-  const { source: t, packName: e, mode: s = "badge", context: i } = n, a = {
+function I(a) {
+  const { source: t, packName: e, mode: s = "badge", context: i } = a, n = {
     "go-services": {
       label: "Core",
       bg: "bg-blue-50",
@@ -2591,50 +2584,46 @@ function F(n) {
   }[t];
   return s === "tooltip" ? `
       <span class="state-source-indicator inline-flex items-center"
-            title="${m(a.description)}${i ? ` - ${i}` : ""}"
-            aria-label="${m(a.description)}">
-        ${d(a.icon, { size: "14px", extraClass: a.text })}
+            title="${o(n.description)}${i ? ` - ${i}` : ""}"
+            aria-label="${o(n.description)}">
+        ${u(n.icon, { size: "14px", extraClass: n.text })}
       </span>
     ` : `
-    <span class="state-source-indicator inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${a.bg} ${a.text}"
-          title="${m(a.description)}${i ? ` - ${i}` : ""}"
+    <span class="state-source-indicator inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${n.bg} ${n.text}"
+          title="${o(n.description)}${i ? ` - ${i}` : ""}"
           role="note"
-          aria-label="State source: ${m(a.description)}">
-      ${d(a.icon, { size: "12px" })}
-      <span>${m(a.label)}</span>
+          aria-label="State source: ${o(n.description)}">
+      ${u(n.icon, { size: "12px" })}
+      <span>${o(n.label)}</span>
     </span>
   `;
 }
-function Ae(n, t) {
+function Re(a, t) {
   const e = document.createElement("span");
-  e.innerHTML = F(t), n.appendChild(e.firstElementChild);
+  e.innerHTML = I(t), a.appendChild(e.firstElementChild);
 }
-function Pe() {
+function Ae() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
       <div class="space-y-2">
         <div class="flex items-center gap-3">
-          ${F({ source: "go-services" })}
+          ${I({ source: "go-services" })}
           <span class="text-sm text-gray-600">Data managed by go-services core runtime</span>
         </div>
         <div class="flex items-center gap-3">
-          ${F({ source: "downstream", packName: "Extension" })}
+          ${I({ source: "downstream", packName: "Extension" })}
           <span class="text-sm text-gray-600">Data managed by an installed extension package</span>
         </div>
         <div class="flex items-center gap-3">
-          ${F({ source: "mixed" })}
+          ${I({ source: "mixed" })}
           <span class="text-sm text-gray-600">Combination of core and extension-managed data</span>
         </div>
       </div>
     </div>
   `;
 }
-function m(n) {
-  const t = document.createElement("div");
-  return t.textContent = n, t.innerHTML;
-}
-const st = {
+const tt = {
   github: "iconoir:github",
   google: "iconoir:google",
   gmail: "iconoir:mail",
@@ -2648,7 +2637,7 @@ const st = {
   teams: "iconoir:group",
   onedrive: "iconoir:cloud",
   default: "iconoir:plugin"
-}, Nt = {
+}, Ft = {
   github: "GitHub",
   google: "Google",
   gmail: "Gmail",
@@ -2662,7 +2651,7 @@ const st = {
   teams: "Microsoft Teams",
   onedrive: "OneDrive"
 };
-class jt {
+class Nt {
   constructor(t) {
     this.container = null, this.providers = [], this.loading = !1, this.error = null, this.config = t;
   }
@@ -2674,7 +2663,7 @@ class jt {
       console.error("[ProvidersCatalog] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!E()()) {
       this.renderForbidden();
       return;
     }
@@ -2705,7 +2694,7 @@ class jt {
     if (this.container) {
       this.loading = !0, this.error = null, this.renderLoading();
       try {
-        const e = await T().listProviders();
+        const e = await C().listProviders();
         this.providers = e.providers || [], this.renderProviders();
       } catch (t) {
         this.error = t instanceof Error ? t : new Error(String(t)), this.renderError(), this.config.notifier && this.config.notifier.error(`Failed to load providers: ${this.error.message}`);
@@ -2715,21 +2704,21 @@ class jt {
     }
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = j({
+    this.container && (this.container.innerHTML = N({
       text: "Loading providers...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = D({
+    this.container.innerHTML = j({
       title: "Failed to load providers",
       error: this.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadProviders());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "service providers"
     }));
   }
@@ -2747,28 +2736,28 @@ class jt {
     `, this.bindCardEvents();
   }
   renderEmpty() {
-    this.container && (this.container.innerHTML = ht({
+    this.container && (this.container.innerHTML = dt({
       type: "providers"
     }));
   }
   buildProviderCard(t) {
-    const e = this.getProviderCardData(t), s = C()() && t.supported_scope_types.includes("user"), i = C()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
+    const e = this.getProviderCardData(t), s = _()() && t.supported_scope_types.includes("user"), i = _()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), n = this.buildScopeBadges(t.supported_scope_types);
     return `
       <div class="provider-card bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-           data-provider-id="${this.escapeHtml(t.id)}">
+           data-provider-id="${o(t.id)}">
         <div class="p-4">
           <!-- Header -->
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                ${d(e.icon, { size: "20px", extraClass: "text-gray-600" })}
+                ${u(e.icon, { size: "20px", extraClass: "text-gray-600" })}
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-gray-900">${this.escapeHtml(e.displayName)}</h3>
-                <span class="text-xs text-gray-500">${this.escapeHtml(t.auth_kind)}</span>
+                <h3 class="text-sm font-semibold text-gray-900">${o(e.displayName)}</h3>
+                <span class="text-xs text-gray-500">${o(t.auth_kind)}</span>
               </div>
             </div>
-            ${a}
+            ${n}
           </div>
 
           <!-- Capabilities -->
@@ -2784,7 +2773,7 @@ class jt {
             ${s ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-                      data-provider-id="${this.escapeHtml(t.id)}"
+                      data-provider-id="${o(t.id)}"
                       data-scope-type="user">
                 Connect as User
               </button>
@@ -2792,7 +2781,7 @@ class jt {
             ${i ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                      data-provider-id="${this.escapeHtml(t.id)}"
+                      data-provider-id="${o(t.id)}"
                       data-scope-type="org">
                 Connect Org
               </button>
@@ -2810,12 +2799,12 @@ class jt {
       return '<span class="text-xs text-gray-400">No capabilities defined</span>';
     const e = 4, s = t.slice(0, e), i = t.length - e;
     let r = '<div class="flex flex-wrap gap-1">';
-    for (const a of s) {
-      const [c, o] = a.name.split(".");
+    for (const n of s) {
+      const [l, c] = n.name.split(".");
       r += `
         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-              title="${this.escapeHtml(a.name)}">
-          ${this.escapeHtml(o || a.name)}
+              title="${o(n.name)}">
+          ${o(c || n.name)}
         </span>
       `;
     }
@@ -2833,14 +2822,14 @@ class jt {
     `;
   }
   getProviderCardData(t) {
-    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Nt[t.id.toLowerCase()] || this.formatProviderId(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : st[t.id.toLowerCase()] || st.default;
+    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Ft[t.id.toLowerCase()] || this.formatProviderId(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : tt[t.id.toLowerCase()] || tt.default;
     return {
       provider: t,
       displayName: e,
       icon: s,
       description: `${t.auth_kind} authentication`,
       capabilityCount: t.capabilities.length,
-      canConnect: C()()
+      canConnect: _()()
     };
   }
   formatProviderId(t) {
@@ -2853,38 +2842,34 @@ class jt {
         if (i.target.closest("button")) return;
         const r = s.dataset.providerId;
         if (r) {
-          const a = this.getProvider(r);
-          a && this.config.onSelect && this.config.onSelect(a);
+          const n = this.getProvider(r);
+          n && this.config.onSelect && this.config.onSelect(n);
         }
       });
     }), this.container.querySelectorAll(".provider-connect-btn").forEach((s) => {
       s.addEventListener("click", (i) => {
         i.stopPropagation();
-        const r = s.dataset.providerId, a = s.dataset.scopeType;
-        if (r && a) {
-          const c = this.getProvider(r);
-          c && this.config.onConnect && this.config.onConnect(c, a);
+        const r = s.dataset.providerId, n = s.dataset.scopeType;
+        if (r && n) {
+          const l = this.getProvider(r);
+          l && this.config.onConnect && this.config.onConnect(l, n);
         }
       });
     });
   }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
-  }
 }
-async function Ie(n) {
-  const t = new jt(n);
+async function Pe(a) {
+  const t = new Nt(a);
   return await t.init(), t;
 }
-const it = {
+const et = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
 };
-class Dt {
+class jt {
   constructor(t) {
     this.container = null, this.state = {
       connections: [],
@@ -2892,11 +2877,11 @@ class Dt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new O(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || T(), this.queryState = new H({
+    }, this.client = t.apiClient || C(), this.queryState = new M({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadConnections()
@@ -2913,7 +2898,7 @@ class Dt {
       console.error("[ConnectionsList] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!E()()) {
       this.renderForbidden();
       return;
     }
@@ -3008,9 +2993,9 @@ class Dt {
           <button type="button"
                   class="connections-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${d("iconoir:refresh", { size: "16px" })}
+            ${u("iconoir:refresh", { size: "16px" })}
           </button>
-          ${C()() && this.config.onConnect ? `
+          ${_()() && this.config.onConnect ? `
             <button type="button"
                     class="connections-connect-user px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
               Connect User
@@ -3044,7 +3029,7 @@ class Dt {
         <!-- Empty State -->
         <div class="connections-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${d("iconoir:link", { size: "24px", extraClass: "text-gray-400" })}
+            ${u("iconoir:link", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900">No connections found</h3>
           <p class="text-sm text-gray-500 mt-1">Connect a service to get started.</p>
@@ -3080,26 +3065,26 @@ class Dt {
   }
   bindEvents() {
     if (!this.container) return;
-    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (o) => {
-      this.queryState.setSearch(o.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((o) => {
-      o.addEventListener("change", () => {
-        const l = o.dataset.filter;
-        this.queryState.setFilter(l, o.value || void 0);
+    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (c) => {
+      this.queryState.setSearch(c.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((c) => {
+      c.addEventListener("change", () => {
+        const d = c.dataset.filter;
+        this.queryState.setFilter(d, c.value || void 0);
       });
     }), this.container.querySelector(".connections-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
     });
     const i = this.container.querySelector(".connections-connect-user"), r = this.container.querySelector(".connections-connect-org");
     i?.addEventListener("click", () => this.handleConnect("user")), r?.addEventListener("click", () => this.handleConnect("org"));
-    const a = this.container.querySelector(".connections-prev"), c = this.container.querySelector(".connections-next");
-    a?.addEventListener("click", () => this.queryState.prevPage()), c?.addEventListener("click", () => this.queryState.nextPage());
+    const n = this.container.querySelector(".connections-prev"), l = this.container.querySelector(".connections-next");
+    n?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderConnections() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-empty"), s = this.container?.querySelector(".connections-table-wrapper");
     if (t) {
       if (this.state.connections.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(6, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(6, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
           onReset: () => {
@@ -3124,12 +3109,12 @@ class Dt {
     if (!t) return;
     const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
       const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${this.escapeHtml(i.id)}">${this.escapeHtml(r)}</option>`;
+      return `<option value="${o(i.id)}">${o(r)}</option>`;
     }).join("");
     t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
   }
   handleConnect(t) {
-    if (!this.config.onConnect || !C()()) return;
+    if (!this.config.onConnect || !_()()) return;
     const s = this.container?.querySelector('[data-filter="provider_id"]')?.value || "";
     if (!s) {
       this.config.notifier?.error("Select a provider before starting a connection.");
@@ -3152,33 +3137,33 @@ class Dt {
     });
   }
   renderConnectionRow(t) {
-    const e = it[t.status] || it.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.formatDate(t.updated_at), r = this.buildRowActions(t);
+    const e = et[t.status] || et.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.formatDate(t.updated_at), r = this.buildRowActions(t);
     return `
-      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${this.escapeHtml(t.id)}">
+      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${o(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(s)}</span>
+          <span class="font-medium text-gray-900">${o(s)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${this.escapeHtml(t.scope_type)}
+            ${o(t.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${this.escapeHtml(t.scope_id)}">
-            ${this.escapeHtml(this.truncateId(t.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
+            ${o(this.truncateId(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-gray-600" title="${this.escapeHtml(t.external_account_id)}">
-            ${this.escapeHtml(this.truncateId(t.external_account_id, 20))}
+          <span class="text-gray-600" title="${o(t.external_account_id)}">
+            ${o(this.truncateId(t.external_account_id, 20))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
           ${t.last_error ? `
-            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${this.escapeHtml(t.last_error)}">
-              ${this.escapeHtml(t.last_error)}
+            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${o(t.last_error)}">
+              ${o(t.last_error)}
             </div>
           ` : ""}
         </td>
@@ -3193,26 +3178,26 @@ class Dt {
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && E()() && e.push(`
+    return t.status === "active" && k()() && e.push(`
         <button type="button"
                 class="connection-action-refresh p-1 text-gray-400 hover:text-blue-600"
                 data-action="refresh"
                 title="Refresh credentials">
-          ${d("iconoir:refresh", { size: "16px" })}
+          ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status === "needs_reconsent" && dt()() && e.push(`
+      `), t.status === "needs_reconsent" && ct()() && e.push(`
         <button type="button"
                 class="connection-action-reconsent p-1 text-gray-400 hover:text-orange-600"
                 data-action="reconsent"
                 title="Re-consent">
-          ${d("iconoir:redo", { size: "16px" })}
+          ${u("iconoir:redo", { size: "16px" })}
         </button>
-      `), t.status !== "disconnected" && Z()() && e.push(`
+      `), t.status !== "disconnected" && K()() && e.push(`
         <button type="button"
                 class="connection-action-revoke p-1 text-gray-400 hover:text-red-600"
                 data-action="revoke"
                 title="Revoke connection">
-          ${d("iconoir:cancel", { size: "16px" })}
+          ${u("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3243,7 +3228,7 @@ class Dt {
   async handleRefresh(t, e) {
     const s = this.getConnection(t);
     s && (this.actionQueue.isInFlight(`refresh-${t}`) || await this.actionQueue.execute(`refresh-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.refreshConnection(t, {
           provider_id: s.provider_id
         }),
@@ -3262,7 +3247,7 @@ class Dt {
   }
   async handleReconsent(t, e) {
     this.actionQueue.isInFlight(`reconsent-${t}`) || await this.actionQueue.execute(`reconsent-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.beginReconsent(t),
         notifier: this.config.notifier,
         errorMessagePrefix: "Failed to start re-consent",
@@ -3279,12 +3264,12 @@ class Dt {
   }
   async handleRevoke(t, e) {
     const s = this.getConnection(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await B({
+    await H({
       action: "revoke",
       resourceType: "connection",
       resourceName: i
     }) && (this.actionQueue.isInFlight(`revoke-${t}`) || await this.actionQueue.execute(`revoke-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.revokeConnection(t),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
@@ -3302,24 +3287,24 @@ class Dt {
   renderError() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = O(6, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(6, {
       title: "Failed to load connections",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnections());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "connections"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
-    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(6, { text: "Loading connections..." }));
+    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = D(6, { text: "Loading connections..." }));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), c = a < i, o = e > 1, l = this.container?.querySelector(".connections-info"), h = this.container?.querySelector(".connections-prev"), u = this.container?.querySelector(".connections-next");
-    l && (l.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No connections"), h && (h.disabled = !o), u && (u.disabled = !c);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".connections-info"), p = this.container?.querySelector(".connections-prev"), h = this.container?.querySelector(".connections-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No connections"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // Helpers
@@ -3333,31 +3318,27 @@ class Dt {
   formatDate(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), a = Math.floor(i / 36e5), c = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : c < 7 ? `${c}d ago` : e.toLocaleDateString();
-  }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
+    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
+    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
   }
 }
-async function Me(n) {
-  const t = new Dt(n);
+async function Ie(a) {
+  const t = new jt(a);
   return await t.init(), t;
 }
-const rt = {
+const st = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   suspended: { label: "Suspended", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:pause" },
   uninstalled: { label: "Uninstalled", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, nt = {
+}, it = {
   user: { label: "User", bg: "bg-blue-50", text: "text-blue-600" },
   workspace: { label: "Workspace", bg: "bg-indigo-50", text: "text-indigo-600" },
   org: { label: "Organization", bg: "bg-purple-50", text: "text-purple-600" },
   marketplace_app: { label: "Marketplace", bg: "bg-pink-50", text: "text-pink-600" },
   standard: { label: "Standard", bg: "bg-gray-50", text: "text-gray-600" }
 };
-class Ut {
+class Dt {
   constructor(t) {
     this.container = null, this.state = {
       installations: [],
@@ -3365,11 +3346,11 @@ class Ut {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new O(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || T(), this.queryState = new H({
+    }, this.client = t.apiClient || C(), this.queryState = new M({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadInstallations()
@@ -3386,7 +3367,7 @@ class Ut {
       console.error("[InstallationsList] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!E()()) {
       this.renderForbidden();
       return;
     }
@@ -3491,7 +3472,7 @@ class Ut {
           <button type="button"
                   class="installations-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${d("iconoir:refresh", { size: "16px" })}
+            ${u("iconoir:refresh", { size: "16px" })}
           </button>
         </div>
 
@@ -3517,7 +3498,7 @@ class Ut {
         <!-- Empty State -->
         <div class="installations-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${d("iconoir:download", { size: "24px", extraClass: "text-gray-400" })}
+            ${u("iconoir:download", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900">No installations found</h3>
           <p class="text-sm text-gray-500 mt-1">Install a service to get started.</p>
@@ -3551,12 +3532,12 @@ class Ut {
   }
   bindEvents() {
     if (!this.container) return;
-    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (a) => {
-      this.queryState.setSearch(a.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((a) => {
-      a.addEventListener("change", () => {
-        const c = a.dataset.filter;
-        this.queryState.setFilter(c, a.value || void 0);
+    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (n) => {
+      this.queryState.setSearch(n.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((n) => {
+      n.addEventListener("change", () => {
+        const l = n.dataset.filter;
+        this.queryState.setFilter(l, n.value || void 0);
       });
     }), this.container.querySelector(".installations-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
@@ -3568,7 +3549,7 @@ class Ut {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-empty"), s = this.container?.querySelector(".installations-table-wrapper");
     if (t) {
       if (this.state.installations.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
@@ -3583,11 +3564,11 @@ class Ut {
     });
   }
   renderInstallationRow(t) {
-    const e = rt[t.status] || rt.uninstalled, s = nt[t.install_type] || nt.standard, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.granted_at ? this.formatDate(t.granted_at) : "—", a = t.revoked_at ? this.formatDate(t.revoked_at) : "—", c = this.buildRowActions(t);
+    const e = st[t.status] || st.uninstalled, s = it[t.install_type] || it.standard, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.granted_at ? this.formatDate(t.granted_at) : "—", n = t.revoked_at ? this.formatDate(t.revoked_at) : "—", l = this.buildRowActions(t);
     return `
-      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${this.escapeHtml(t.id)}">
+      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${o(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(i)}</span>
+          <span class="font-medium text-gray-900">${o(i)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
@@ -3596,15 +3577,15 @@ class Ut {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${this.escapeHtml(t.scope_type)}
+            ${o(t.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${this.escapeHtml(t.scope_id)}">
-            ${this.escapeHtml(this.truncateId(t.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
+            ${o(this.truncateId(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
@@ -3612,29 +3593,29 @@ class Ut {
           ${r}
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">
-          ${a}
+          ${n}
         </td>
         <td class="px-4 py-3 text-right">
-          ${c}
+          ${l}
         </td>
       </tr>
     `;
   }
   buildRowActions(t) {
     const e = [];
-    return t.status === "active" && Z()() && e.push(`
+    return t.status === "active" && K()() && e.push(`
         <button type="button"
                 class="installation-action-uninstall p-1 text-gray-400 hover:text-red-600"
                 data-action="uninstall"
                 title="Uninstall">
-          ${d("iconoir:trash", { size: "16px" })}
+          ${u("iconoir:trash", { size: "16px" })}
         </button>
-      `), t.status === "uninstalled" && C()() && e.push(`
+      `), t.status === "uninstalled" && _()() && e.push(`
         <button type="button"
                 class="installation-action-reinstall p-1 text-gray-400 hover:text-green-600"
                 data-action="reinstall"
                 title="Reinstall">
-          ${d("iconoir:redo", { size: "16px" })}
+          ${u("iconoir:redo", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3661,12 +3642,12 @@ class Ut {
   }
   async handleUninstall(t, e) {
     const s = this.getInstallation(t), i = s ? this.config.getProviderName ? this.config.getProviderName(s.provider_id) : this.formatProviderId(s.provider_id) : void 0;
-    await B({
+    await H({
       action: "uninstall",
       resourceType: "installation",
       resourceName: i
     }) && (this.actionQueue.isInFlight(`uninstall-${t}`) || await this.actionQueue.execute(`uninstall-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.uninstallInstallation(t),
         notifier: this.config.notifier,
         successMessage: "Service uninstalled",
@@ -3688,20 +3669,20 @@ class Ut {
   renderError() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = O(7, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(7, {
       title: "Failed to load installations",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadInstallations());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "installations"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
-    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = U(7, { text: "Loading installations..." }));
+    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = D(7, { text: "Loading installations..." }));
   }
   async loadProviders() {
     try {
@@ -3716,13 +3697,13 @@ class Ut {
     if (!t) return;
     const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
       const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${this.escapeHtml(i.id)}">${this.escapeHtml(r)}</option>`;
+      return `<option value="${o(i.id)}">${o(r)}</option>`;
     }).join("");
     t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), c = a < i, o = e > 1, l = this.container?.querySelector(".installations-info"), h = this.container?.querySelector(".installations-prev"), u = this.container?.querySelector(".installations-next");
-    l && (l.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No installations"), h && (h.disabled = !o), u && (u.disabled = !c);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".installations-info"), p = this.container?.querySelector(".installations-prev"), h = this.container?.querySelector(".installations-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No installations"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // Helpers
@@ -3736,24 +3717,20 @@ class Ut {
   formatDate(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), a = Math.floor(i / 36e5), c = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : c < 7 ? `${c}d ago` : e.toLocaleDateString();
-  }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
+    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
+    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
   }
 }
-async function Fe(n) {
-  const t = new Ut(n);
+async function Me(a) {
+  const t = new Dt(a);
   return await t.init(), t;
 }
-const I = {
+const A = {
   success: { label: "Success", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failure: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending: { label: "Pending", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" }
 };
-class Ot {
+class Ut {
   constructor(t) {
     this.container = null, this.state = {
       entries: [],
@@ -3767,7 +3744,7 @@ class Ot {
       viewMode: "timeline",
       useDeepLinks: !0,
       ...t
-    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || T(), this.queryState = new H({
+    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || C(), this.queryState = new M({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadActivity()
@@ -3796,7 +3773,7 @@ class Ot {
       console.error("[ActivityPage] Container not found:", this.config.container);
       return;
     }
-    if (!$t()()) {
+    if (!St()()) {
       this.renderForbidden();
       return;
     }
@@ -3880,13 +3857,13 @@ class Ot {
             <button type="button"
                     class="activity-view-timeline px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "timeline" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Timeline view">
-              ${d("iconoir:timeline", { size: "16px" })}
+              ${u("iconoir:timeline", { size: "16px" })}
               <span class="ml-1.5">Timeline</span>
             </button>
             <button type="button"
                     class="activity-view-table px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Table view">
-              ${d("iconoir:table-rows", { size: "16px" })}
+              ${u("iconoir:table-rows", { size: "16px" })}
               <span class="ml-1.5">Table</span>
             </button>
           </div>
@@ -4000,7 +3977,7 @@ class Ot {
             <button type="button"
                     class="activity-reset flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
                     title="Reset filters">
-              ${d("iconoir:refresh", { size: "16px" })}
+              ${u("iconoir:refresh", { size: "16px" })}
               <span>Reset</span>
             </button>
           </div>
@@ -4040,7 +4017,7 @@ class Ot {
           <!-- Empty State -->
           <div class="activity-empty hidden py-12 text-center bg-white rounded-lg border border-gray-200">
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-              ${d("iconoir:activity", { size: "24px", extraClass: "text-gray-400" })}
+              ${u("iconoir:activity", { size: "24px", extraClass: "text-gray-400" })}
             </div>
             <h3 class="text-lg font-medium text-gray-900">No activity found</h3>
             <p class="text-sm text-gray-500 mt-1">Activity entries will appear here as actions occur.</p>
@@ -4069,18 +4046,18 @@ class Ot {
     `, this.restoreFilterValues());
   }
   renderProviderOptions() {
-    return !this.config.providers || this.config.providers.length === 0 ? "" : this.config.providers.map((t) => `<option value="${this.escapeHtml(t.id)}">${this.escapeHtml(t.name)}</option>`).join("");
+    return !this.config.providers || this.config.providers.length === 0 ? "" : this.config.providers.map((t) => `<option value="${o(t.id)}">${o(t.name)}</option>`).join("");
   }
   renderChannelOptions() {
-    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${this.escapeHtml(e)}">${this.escapeHtml(this.formatLabel(e))}</option>`).join("");
+    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${o(e)}">${o(this.formatLabel(e))}</option>`).join("");
   }
   renderActionOptions() {
     if (this.config.actions && this.config.actions.length > 0)
       return this.config.actions.map((i) => {
         const r = this.resolveActionLabel(i);
-        return `<option value="${this.escapeHtml(i)}">${this.escapeHtml(r)}</option>`;
+        return `<option value="${o(i)}">${o(r)}</option>`;
       }).join("");
-    const t = Rt(), e = {
+    const t = qt(), e = {
       connections: "Connections",
       credentials: "Credentials",
       sync: "Sync",
@@ -4092,11 +4069,11 @@ class Ot {
       other: "Other"
     }, s = [];
     for (const [i, r] of Object.entries(t)) {
-      const a = e[i] || this.formatLabel(i), c = r.map((o) => {
-        const l = this.resolveActionLabel(o.action);
-        return `<option value="${this.escapeHtml(o.action)}">${this.escapeHtml(l)}</option>`;
+      const n = e[i] || this.formatLabel(i), l = r.map((c) => {
+        const d = this.resolveActionLabel(c.action);
+        return `<option value="${o(c.action)}">${o(d)}</option>`;
       }).join("");
-      s.push(`<optgroup label="${this.escapeHtml(a)}">${c}</optgroup>`);
+      s.push(`<optgroup label="${o(n)}">${l}</optgroup>`);
     }
     return s.join("");
   }
@@ -4104,7 +4081,7 @@ class Ot {
    * Resolve action label using config override or centralized registry.
    */
   resolveActionLabel(t) {
-    return this.config.getActionLabel ? this.config.getActionLabel(t) : qt(t);
+    return this.config.getActionLabel ? this.config.getActionLabel(t) : Tt(t);
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4117,44 +4094,44 @@ class Ot {
   bindEvents() {
     if (!this.container) return;
     const t = this.container.querySelector(".activity-view-timeline"), e = this.container.querySelector(".activity-view-table");
-    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (u) => {
-      this.queryState.setSearch(u.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((u) => {
-      u.addEventListener("change", () => {
-        const p = u.dataset.filter;
-        this.queryState.setFilter(p, u.value || void 0);
+    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (h) => {
+      this.queryState.setSearch(h.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((h) => {
+      h.addEventListener("change", () => {
+        const g = h.dataset.filter;
+        this.queryState.setFilter(g, h.value || void 0);
       });
-    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((u) => {
-      u.addEventListener("change", () => {
-        const p = u.dataset.filter;
-        this.queryState.setFilter(p, u.value || void 0);
+    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((h) => {
+      h.addEventListener("change", () => {
+        const g = h.dataset.filter;
+        this.queryState.setFilter(g, h.value || void 0);
       });
     });
-    const a = this.container.querySelector('[data-filter="object_type"]'), c = this.container.querySelector('[data-filter="object_id"]');
-    a?.addEventListener("change", () => {
-      this.queryState.setFilter("object_type", a.value || void 0);
-    }), c?.addEventListener("change", () => {
-      this.queryState.setFilter("object_id", c.value || void 0);
+    const n = this.container.querySelector('[data-filter="object_type"]'), l = this.container.querySelector('[data-filter="object_id"]');
+    n?.addEventListener("change", () => {
+      this.queryState.setFilter("object_type", n.value || void 0);
+    }), l?.addEventListener("change", () => {
+      this.queryState.setFilter("object_id", l.value || void 0);
     }), this.container.querySelector(".activity-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
     });
-    const l = this.container.querySelector(".activity-prev"), h = this.container.querySelector(".activity-next");
-    l?.addEventListener("click", () => this.queryState.prevPage()), h?.addEventListener("click", () => this.queryState.nextPage());
+    const d = this.container.querySelector(".activity-prev"), p = this.container.querySelector(".activity-next");
+    d?.addEventListener("click", () => this.queryState.prevPage()), p?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderEntries() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-empty"), i = this.container?.querySelector(".activity-timeline-container"), r = this.container?.querySelector(".activity-table-container");
     if (this.state.entries.length === 0) {
-      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = pt({
+      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = ut({
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount(),
         containerClass: "bg-white rounded-lg border border-gray-200"
-      }), this.bindNoResultsActions(t))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = q(7, {
+      }), this.bindNoResultsActions(t))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = T(7, {
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount()
       }), this.bindNoResultsActions(e)))) : (i?.classList.add("hidden"), r?.classList.add("hidden"), s?.classList.remove("hidden")), this.updateFilterSummary();
       return;
     }
-    s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((a) => this.renderTimelineEntry(a)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((a) => this.renderTableRow(a)).join(""), this.bindEntryActions())), this.updateFilterSummary();
+    s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((n) => this.renderTimelineEntry(n)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((n) => this.renderTableRow(n)).join(""), this.bindEntryActions())), this.updateFilterSummary();
   }
   bindNoResultsActions(t) {
     t.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
@@ -4162,14 +4139,14 @@ class Ot {
     });
   }
   renderTimelineEntry(t) {
-    const e = I[t.status] || I.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
+    const e = A[t.status] || A.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), n = this.formatRelativeTime(t.created_at);
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
-           data-entry-id="${this.escapeHtml(t.id)}">
+           data-entry-id="${o(t.id)}">
         <!-- Status indicator -->
         <div class="flex-shrink-0">
           <div class="w-10 h-10 rounded-full ${e.bg} flex items-center justify-center">
-            ${d(e.icon, { size: "20px", extraClass: e.text })}
+            ${u(e.icon, { size: "20px", extraClass: e.text })}
           </div>
         </div>
 
@@ -4178,30 +4155,30 @@ class Ot {
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-sm font-medium text-gray-900">
-                ${this.escapeHtml(i)}
+                ${o(i)}
               </p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-xs text-gray-500">${this.escapeHtml(s)}</span>
+                <span class="text-xs text-gray-500">${o(s)}</span>
                 ${t.channel ? `
                   <span class="text-gray-300">&middot;</span>
-                  <span class="text-xs text-gray-500">${this.escapeHtml(t.channel)}</span>
+                  <span class="text-xs text-gray-500">${o(t.channel)}</span>
                 ` : ""}
                 ${t.object_type && t.object_id ? `
                   <span class="text-gray-300">&middot;</span>
                   <a href="${this.buildObjectLinkUrl(t.object_type, t.object_id)}"
                      class="activity-object-link text-xs text-blue-600 hover:text-blue-700"
-                     data-object-type="${this.escapeHtml(t.object_type)}"
-                     data-object-id="${this.escapeHtml(t.object_id)}">
-                    ${this.escapeHtml(t.object_type)}:${this.escapeHtml(this.truncateId(t.object_id))}
+                     data-object-type="${o(t.object_type)}"
+                     data-object-id="${o(t.object_id)}">
+                    ${o(t.object_type)}:${o(this.truncateId(t.object_id))}
                   </a>
                 ` : ""}
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-xs text-gray-500" title="${this.escapeHtml(r)}">${a}</p>
+              <p class="text-xs text-gray-500" title="${o(r)}">${n}</p>
               <div class="flex items-center gap-1 mt-1">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-                  ${this.escapeHtml(t.scope_type)}
+                  ${o(t.scope_type)}
                 </span>
               </div>
             </div>
@@ -4211,7 +4188,7 @@ class Ot {
           ${Object.keys(t.metadata || {}).length > 0 ? `
             <div class="mt-2 pt-2 border-t border-gray-100">
               <div class="text-xs text-gray-500 font-mono truncate">
-                ${this.escapeHtml(this.formatMetadataPreview(t.metadata))}
+                ${o(this.formatMetadataPreview(t.metadata))}
               </div>
             </div>
           ` : ""}
@@ -4227,41 +4204,41 @@ class Ot {
     `;
   }
   renderTableRow(t) {
-    const e = I[t.status] || I.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), a = this.formatRelativeTime(t.created_at);
+    const e = A[t.status] || A.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.resolveActionLabel(t.action), r = this.formatTime(t.created_at), n = this.formatRelativeTime(t.created_at);
     return `
-      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${this.escapeHtml(t.id)}">
+      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${o(t.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
-          <span class="text-sm text-gray-900" title="${this.escapeHtml(r)}">${a}</span>
+          <span class="text-sm text-gray-900" title="${o(r)}">${n}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm font-medium text-gray-900">${this.escapeHtml(s)}</span>
+          <span class="text-sm font-medium text-gray-900">${o(s)}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-700">${this.escapeHtml(i)}</span>
+          <span class="text-sm text-gray-700">${o(i)}</span>
         </td>
         <td class="px-4 py-3">
           ${t.object_type && t.object_id ? `
             <a href="${this.buildObjectLinkUrl(t.object_type, t.object_id)}"
                class="activity-object-link text-sm text-blue-600 hover:text-blue-700"
-               data-object-type="${this.escapeHtml(t.object_type)}"
-               data-object-id="${this.escapeHtml(t.object_id)}">
-              ${this.escapeHtml(t.object_type)}:${this.escapeHtml(this.truncateId(t.object_id))}
+               data-object-type="${o(t.object_type)}"
+               data-object-id="${o(t.object_id)}">
+              ${o(t.object_type)}:${o(this.truncateId(t.object_id))}
             </a>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${this.escapeHtml(t.scope_type)}
+            ${o(t.scope_type)}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-500">${this.escapeHtml(t.channel || "—")}</span>
+          <span class="text-sm text-gray-500">${o(t.channel || "—")}</span>
         </td>
       </tr>
     `;
@@ -4271,19 +4248,19 @@ class Ot {
       const i = s.dataset.entryId;
       i && s.addEventListener("click", (r) => {
         if (r.target.closest("a")) return;
-        const a = this.getEntry(i);
-        a && this.config.onSelect && this.config.onSelect(a);
+        const n = this.getEntry(i);
+        n && this.config.onSelect && this.config.onSelect(n);
       });
     }), this.container?.querySelectorAll(".activity-object-link")?.forEach((s) => {
       s.addEventListener("click", (i) => {
         i.preventDefault(), i.stopPropagation();
-        const r = s.dataset.objectType, a = s.dataset.objectId;
-        if (!(!r || !a)) {
+        const r = s.dataset.objectType, n = s.dataset.objectId;
+        if (!(!r || !n)) {
           if (this.config.onNavigate) {
-            this.config.onNavigate(r, a);
+            this.config.onNavigate(r, n);
             return;
           }
-          this.config.useDeepLinks && this.createDeepLinkNavigateHandler()(r, a);
+          this.config.useDeepLinks && this.createDeepLinkNavigateHandler()(r, n);
         }
       });
     });
@@ -4292,7 +4269,7 @@ class Ot {
    * Create a navigate handler that uses deep links with context preservation.
    */
   createDeepLinkNavigateHandler() {
-    return yt(
+    return ft(
       () => {
         const t = this.queryState.getState();
         return {
@@ -4311,19 +4288,19 @@ class Ot {
   buildObjectLinkUrl(t, e) {
     if (!this.config.useDeepLinks)
       return "#";
-    const s = mt(t);
+    const s = bt(t);
     if (!s)
       return "#";
     const i = this.queryState.getState(), r = {
       fromPage: window.location.pathname,
       filters: Object.fromEntries(
-        Object.entries(i.filters).filter(([, a]) => a)
+        Object.entries(i.filters).filter(([, n]) => n)
       ),
       search: i.search || void 0,
       page: i.page > 1 ? i.page : void 0,
       viewMode: this.state.viewMode
     };
-    return xt(s, e, r);
+    return yt(s, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -4342,29 +4319,29 @@ class Ot {
   }
   renderError() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container");
-    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = D({
+    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = j({
       title: "Failed to load activity",
       error: this.state.error,
       containerClass: "bg-white rounded-lg border border-gray-200",
       showRetry: !0
-    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = O(7, {
+    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = U(7, {
       title: "Failed to load activity",
       error: this.state.error,
       showRetry: !0
     }), e.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity())));
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "activity"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container"), r = this.container?.querySelector(".activity-empty");
-    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = j({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = U(7, { text: "Loading activity..." })))));
+    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = N({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = D(7, { text: "Loading activity..." })))));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), c = a < i, o = e > 1, l = this.container?.querySelector(".activity-info"), h = this.container?.querySelector(".activity-prev"), u = this.container?.querySelector(".activity-next");
-    l && (l.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No activity"), h && (h.disabled = !o), u && (u.disabled = !c);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".activity-info"), p = this.container?.querySelector(".activity-prev"), h = this.container?.querySelector(".activity-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i}` : "No activity"), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // View Mode Persistence
@@ -4406,37 +4383,33 @@ class Ot {
   formatRelativeTime(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), a = Math.floor(i / 36e5), c = Math.floor(i / 864e5);
-    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : a < 24 ? `${a}h ago` : c < 7 ? `${c}d ago` : e.toLocaleDateString();
+    const i = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), r = Math.floor(i / 6e4), n = Math.floor(i / 36e5), l = Math.floor(i / 864e5);
+    return r < 1 ? "Just now" : r < 60 ? `${r}m ago` : n < 24 ? `${n}h ago` : l < 7 ? `${l}d ago` : e.toLocaleDateString();
   }
   formatMetadataPreview(t) {
     return Object.entries(t).slice(0, 3).map(([s, i]) => `${s}: ${JSON.stringify(i)}`).join(", ");
   }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
-  }
 }
-async function He(n) {
-  const t = new Ot(n);
+async function Fe(a) {
+  const t = new Ut(a);
   return await t.init(), t;
 }
-const Q = {
+const G = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   expired: { label: "Expired", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   cancelled: { label: "Cancelled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, K = {
+}, J = {
   queued: { label: "Queued", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   running: { label: "Running", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:play" },
   succeeded: { label: "Succeeded", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   failed: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, at = {
+}, rt = {
   bootstrap: { label: "Bootstrap", description: "Full initial sync" },
   incremental: { label: "Incremental", description: "Delta changes only" },
   backfill: { label: "Backfill", description: "Historical data recovery" }
 };
-class Bt {
+class Ht {
   constructor(t) {
     this.container = null, this.state = {
       providers: [],
@@ -4447,12 +4420,12 @@ class Bt {
       loading: !1,
       error: null,
       activeTab: "subscriptions"
-    }, this.abortController = null, this.actionQueue = new z(), this.config = {
+    }, this.abortController = null, this.actionQueue = new O(), this.config = {
       perPage: 25,
       syncUrl: !0,
       activeTab: "subscriptions",
       ...t
-    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || T(), this.queryState = new H({
+    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || C(), this.queryState = new M({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadData()
@@ -4469,7 +4442,7 @@ class Bt {
       console.error("[SubscriptionsSyncPage] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!E()()) {
       this.renderForbidden();
       return;
     }
@@ -4540,23 +4513,23 @@ class Bt {
     this.state.subscriptions = s.subscriptions, this.state.subscriptionsTotal = s.total, this.queryState.updateFromResponse(s.total, s.has_next), this.renderSubscriptions(), this.updatePagination();
   }
   async loadSyncJobs(t) {
-    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), a = t.page || 1, c = t.per_page || this.config.perPage || 25, o = await this.loadSyncConnections({
+    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), n = t.page || 1, l = t.per_page || this.config.perPage || 25, c = await this.loadSyncConnections({
       providerId: e,
       connectionId: s,
       signal: this.abortController?.signal
-    }), u = (await Promise.all(
-      o.map(async (f) => {
+    }), h = (await Promise.all(
+      c.map(async (b) => {
         try {
-          const x = await this.client.getSyncStatus(f.id, this.abortController?.signal);
-          return { connection: f, summary: x.sync_summary };
-        } catch (x) {
-          if (x.name === "AbortError")
-            throw x;
+          const m = await this.client.getSyncStatus(b.id, this.abortController?.signal);
+          return { connection: b, summary: m.sync_summary };
+        } catch (m) {
+          if (m.name === "AbortError")
+            throw m;
           return null;
         }
       })
-    )).filter((f) => f !== null).map((f) => this.toSyncJob(f.connection, f.summary)).filter((f) => f !== null).filter((f) => i && f.status !== i ? !1 : r ? this.matchesSyncSearch(f, r) : !0), p = u.length, g = (a - 1) * c, y = u.slice(g, g + c);
-    this.state.syncJobs = y, this.state.syncJobsTotal = p, this.renderSyncJobs(), this.updatePagination();
+    )).filter((b) => b !== null).map((b) => this.toSyncJob(b.connection, b.summary)).filter((b) => b !== null).filter((b) => i && b.status !== i ? !1 : r ? this.matchesSyncSearch(b, r) : !0), g = h.length, f = (n - 1) * l, y = h.slice(f, f + l);
+    this.state.syncJobs = y, this.state.syncJobsTotal = g, this.renderSyncJobs(), this.updatePagination();
   }
   // ---------------------------------------------------------------------------
   // Rendering
@@ -4568,12 +4541,12 @@ class Bt {
         <div class="tabs-header flex items-center gap-4 mb-4 border-b border-gray-200">
           <button type="button"
                   class="tab-subscriptions px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "subscriptions" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${d("iconoir:bell", { size: "16px" })}
+            ${u("iconoir:bell", { size: "16px" })}
             <span class="ml-1.5">Subscriptions</span>
           </button>
           <button type="button"
                   class="tab-sync px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "sync" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${d("iconoir:sync", { size: "16px" })}
+            ${u("iconoir:sync", { size: "16px" })}
             <span class="ml-1.5">Sync Jobs</span>
           </button>
         </div>
@@ -4602,7 +4575,7 @@ class Bt {
             <button type="button"
                     class="reset-btn px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                     title="Reset filters">
-              ${d("iconoir:refresh", { size: "16px" })}
+              ${u("iconoir:refresh", { size: "16px" })}
             </button>
           </div>
         </div>
@@ -4654,7 +4627,7 @@ class Bt {
         <!-- Empty State -->
         <div class="empty-state hidden py-12 text-center bg-white rounded-lg border border-gray-200">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${d("iconoir:bell-off", { size: "24px", extraClass: "text-gray-400" })}
+            ${u("iconoir:bell-off", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900 empty-title">No subscriptions found</h3>
           <p class="text-sm text-gray-500 mt-1 empty-message">Subscriptions will appear here when created.</p>
@@ -4682,10 +4655,10 @@ class Bt {
     `, this.restoreFilterValues());
   }
   renderSubscriptionStatusOptions() {
-    return Object.entries(Q).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(G).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   renderSyncStatusOptions() {
-    return Object.entries(K).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(J).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   async loadProviders() {
     try {
@@ -4700,7 +4673,7 @@ class Bt {
     if (!t) return;
     const e = this.queryState.getState().filters.provider_id || "", s = this.state.providers.map((i) => {
       const r = this.config.getProviderName ? this.config.getProviderName(i.id) : this.formatProviderId(i.id);
-      return `<option value="${this.escapeHtml(i.id)}">${this.escapeHtml(r)}</option>`;
+      return `<option value="${o(i.id)}">${o(r)}</option>`;
     }).join("");
     t.innerHTML = `<option value="">All Providers</option>${s}`, t.value = e;
   }
@@ -4714,24 +4687,24 @@ class Bt {
   bindEvents() {
     if (!this.container) return;
     const t = this.container.querySelector(".tab-subscriptions"), e = this.container.querySelector(".tab-sync");
-    t?.addEventListener("click", () => this.setTab("subscriptions")), e?.addEventListener("click", () => this.setTab("sync")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (o) => {
-      this.queryState.setSearch(o.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((o) => {
-      o.addEventListener("change", () => {
-        const l = o.dataset.filter;
-        this.queryState.setFilter(l, o.value || void 0);
+    t?.addEventListener("click", () => this.setTab("subscriptions")), e?.addEventListener("click", () => this.setTab("sync")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (c) => {
+      this.queryState.setSearch(c.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((c) => {
+      c.addEventListener("change", () => {
+        const d = c.dataset.filter;
+        this.queryState.setFilter(d, c.value || void 0);
       });
     }), this.container.querySelector(".reset-btn")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
     });
-    const a = this.container.querySelector(".prev-btn"), c = this.container.querySelector(".next-btn");
-    a?.addEventListener("click", () => this.queryState.prevPage()), c?.addEventListener("click", () => this.queryState.nextPage());
+    const n = this.container.querySelector(".prev-btn"), l = this.container.querySelector(".next-btn");
+    n?.addEventListener("click", () => this.queryState.prevPage()), l?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderSubscriptions() {
     const t = this.container?.querySelector(".subscriptions-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".subscriptions-content");
     if (t) {
       if (this.state.subscriptions.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("subscriptions"));
@@ -4746,35 +4719,35 @@ class Bt {
     });
   }
   renderSubscriptionRow(t) {
-    const e = Q[t.status] || Q.errored, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = t.expires_at ? this.formatRelativeTime(t.expires_at) : "—", r = t.expires_at ? this.formatTime(t.expires_at) : "", a = this.formatRelativeTime(t.updated_at), c = t.expires_at && this.isExpiringSoon(t.expires_at);
+    const e = G[t.status] || G.errored, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = t.expires_at ? this.formatRelativeTime(t.expires_at) : "—", r = t.expires_at ? this.formatTime(t.expires_at) : "", n = this.formatRelativeTime(t.updated_at), l = t.expires_at && this.isExpiringSoon(t.expires_at);
     return `
-      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${this.escapeHtml(t.id)}">
+      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${o(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(s)}</span>
+          <span class="font-medium text-gray-900">${o(s)}</span>
         </td>
         <td class="px-4 py-3">
-          <div class="text-sm text-gray-700">${this.escapeHtml(t.resource_type)}</div>
-          <div class="text-xs text-gray-500" title="${this.escapeHtml(t.resource_id)}">
-            ${this.escapeHtml(this.truncateId(t.resource_id))}
+          <div class="text-sm text-gray-700">${o(t.resource_type)}</div>
+          <div class="text-xs text-gray-500" title="${o(t.resource_id)}">
+            ${o(this.truncateId(t.resource_id))}
           </div>
         </td>
         <td class="px-4 py-3">
-          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${this.escapeHtml(this.truncateId(t.channel_id, 16))}</code>
+          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${o(this.truncateId(t.channel_id, 16))}</code>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="${c ? "text-amber-600 font-medium" : "text-gray-500"}" title="${r}">
+          <span class="${l ? "text-amber-600 font-medium" : "text-gray-500"}" title="${r}">
             ${i}
           </span>
-          ${c ? d("iconoir:warning-triangle", { size: "12px", extraClass: "inline ml-1 text-amber-500" }) : ""}
+          ${l ? u("iconoir:warning-triangle", { size: "12px", extraClass: "inline ml-1 text-amber-500" }) : ""}
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">
-          ${a}
+          ${n}
         </td>
         <td class="px-4 py-3 text-right">
           ${this.buildSubscriptionActions(t)}
@@ -4784,19 +4757,19 @@ class Bt {
   }
   buildSubscriptionActions(t) {
     const e = [];
-    return t.status === "active" && E()() && e.push(`
+    return t.status === "active" && k()() && e.push(`
         <button type="button"
                 class="action-renew p-1 text-gray-400 hover:text-blue-600"
                 data-action="renew"
                 title="Renew subscription">
-          ${d("iconoir:refresh", { size: "16px" })}
+          ${u("iconoir:refresh", { size: "16px" })}
         </button>
-      `), t.status !== "cancelled" && E()() && e.push(`
+      `), t.status !== "cancelled" && k()() && e.push(`
         <button type="button"
                 class="action-cancel p-1 text-gray-400 hover:text-red-600"
                 data-action="cancel"
                 title="Cancel subscription">
-          ${d("iconoir:cancel", { size: "16px" })}
+          ${u("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4805,7 +4778,7 @@ class Bt {
       const s = e.dataset.subscriptionId;
       s && (e.addEventListener("click", (i) => {
         if (i.target.closest("button")) return;
-        const r = this.state.subscriptions.find((a) => a.id === s);
+        const r = this.state.subscriptions.find((n) => n.id === s);
         r && this.config.onSubscriptionSelect && this.config.onSubscriptionSelect(r);
       }), e.querySelectorAll("button[data-action]").forEach((i) => {
         i.addEventListener("click", async (r) => {
@@ -4825,7 +4798,7 @@ class Bt {
     const t = this.container?.querySelector(".sync-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".sync-content");
     if (t) {
       if (this.state.syncJobs.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = q(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = T(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), this.bindNoResultsActions(t)) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("sync"));
@@ -4835,11 +4808,11 @@ class Bt {
     }
   }
   renderSyncJobRow(t) {
-    const e = K[t.status] || K.failed, s = at[t.mode] || at.incremental, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", c = a ? this.formatRelativeTime(a) : this.formatRelativeTime(t.updated_at), o = typeof r.last_sync_error == "string" ? r.last_sync_error : "", l = t.checkpoint || "";
+    const e = J[t.status] || J.failed, s = rt[t.mode] || rt.incremental, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), r = t.metadata, n = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = n ? this.formatRelativeTime(n) : this.formatRelativeTime(t.updated_at), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
     return `
-      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${this.escapeHtml(t.id)}">
+      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${o(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(i)}</span>
+          <span class="font-medium text-gray-900">${o(i)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700" title="${s.description}">
@@ -4848,22 +4821,22 @@ class Bt {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${d(e.icon, { size: "12px" })}
+            ${u(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          ${l ? `
-            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${this.escapeHtml(l)}">
-              ${this.escapeHtml(this.truncateId(l, 16))}
+          ${d ? `
+            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${o(d)}">
+              ${o(this.truncateId(d, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-gray-500 text-sm">
-          ${c}
+          ${l}
         </td>
         <td class="px-4 py-3 text-xs">
-          ${o ? `<span class="text-red-600" title="${this.escapeHtml(o)}">${this.escapeHtml(this.truncateId(o, 48))}</span>` : '<span class="text-gray-400">—</span>'}
+          ${c ? `<span class="text-red-600" title="${o(c)}">${o(this.truncateId(c, 48))}</span>` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-right">
           ${this.buildSyncJobActions(t)}
@@ -4873,12 +4846,12 @@ class Bt {
   }
   buildSyncJobActions(t) {
     const e = [];
-    return t.status !== "running" && E()() && e.push(`
+    return t.status !== "running" && k()() && e.push(`
         <button type="button"
                 class="action-run p-1 text-gray-400 hover:text-green-600"
                 data-action="run"
                 title="Run sync now">
-          ${d("iconoir:play", { size: "16px" })}
+          ${u("iconoir:play", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4887,7 +4860,7 @@ class Bt {
       const s = e.dataset.jobId;
       s && (e.addEventListener("click", (i) => {
         if (i.target.closest("button")) return;
-        const r = this.state.syncJobs.find((a) => a.id === s);
+        const r = this.state.syncJobs.find((n) => n.id === s);
         r && this.config.onSyncJobSelect && this.config.onSyncJobSelect(r);
       }), e.querySelectorAll("button[data-action]").forEach((i) => {
         i.addEventListener("click", async (r) => {
@@ -4898,7 +4871,7 @@ class Bt {
   }
   async handleRenew(t, e) {
     this.actionQueue.isInFlight(`renew-${t}`) || await this.actionQueue.execute(`renew-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.renewSubscription(t),
         notifier: this.config.notifier,
         successMessage: "Subscription renewal initiated",
@@ -4914,11 +4887,11 @@ class Bt {
     });
   }
   async handleCancel(t, e) {
-    await B({
+    await H({
       action: "cancel",
       resourceType: "subscription"
     }) && (this.actionQueue.isInFlight(`cancel-${t}`) || await this.actionQueue.execute(`cancel-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.cancelSubscription(t),
         notifier: this.config.notifier,
         successMessage: "Subscription cancelled",
@@ -4934,15 +4907,15 @@ class Bt {
     }));
   }
   async handleRunSync(t, e) {
-    const s = this.state.syncJobs.find((c) => c.id === t);
+    const s = this.state.syncJobs.find((l) => l.id === t);
     if (!s) return;
-    const i = s.metadata, r = typeof i.run_resource_type == "string" && i.run_resource_type ? i.run_resource_type : "default", a = typeof i.run_resource_id == "string" && i.run_resource_id ? i.run_resource_id : "default";
+    const i = s.metadata, r = typeof i.run_resource_type == "string" && i.run_resource_type ? i.run_resource_type : "default", n = typeof i.run_resource_id == "string" && i.run_resource_id ? i.run_resource_id : "default";
     this.actionQueue.isInFlight(`sync-${t}`) || await this.actionQueue.execute(`sync-${t}`, async () => {
-      await v({
+      await x({
         mutation: () => this.client.runSync(s.connection_id, {
           provider_id: s.provider_id,
           resource_type: r,
-          resource_id: a
+          resource_id: n
         }),
         notifier: this.config.notifier,
         successMessage: "Sync job started",
@@ -4969,14 +4942,14 @@ class Bt {
     const t = this.state.activeTab === "subscriptions" ? ".subscriptions-content" : ".sync-content", e = this.container?.querySelector(t), s = this.container?.querySelector(".empty-state"), i = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody");
     if (!i) return;
     const r = 7;
-    i.innerHTML = O(r, {
+    i.innerHTML = U(r, {
       title: `Failed to load ${this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs"}`,
       error: this.state.error,
       showRetry: !0
     }), e?.classList.remove("hidden"), s?.classList.add("hidden"), i.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadData());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "subscriptions and sync"
     }));
   }
@@ -4984,22 +4957,22 @@ class Bt {
     const t = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-content") : this.container?.querySelector(".sync-content"), e = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody"), s = this.container?.querySelector(".empty-state");
     if (!this.state.loading || !e) return;
     if ((this.state.activeTab === "subscriptions" ? this.state.subscriptions : this.state.syncJobs).length === 0) {
-      const a = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
-      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = U(7, { text: a });
+      const n = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
+      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = D(7, { text: n });
     }
   }
   async loadSyncConnections(t) {
     const { providerId: e, connectionId: s, signal: i } = t;
     if (s)
       try {
-        const a = await this.client.getConnectionDetail(s, i);
-        return e && a.connection.provider_id !== e ? [] : [a.connection];
-      } catch (a) {
-        if (a.name === "AbortError")
-          throw a;
-        if (a instanceof R && a.isNotFound)
+        const n = await this.client.getConnectionDetail(s, i);
+        return e && n.connection.provider_id !== e ? [] : [n.connection];
+      } catch (n) {
+        if (n.name === "AbortError")
+          throw n;
+        if (n instanceof q && n.isNotFound)
           return [];
-        throw a;
+        throw n;
       }
     return (await this.client.listConnections({
       provider_id: e,
@@ -5008,7 +4981,7 @@ class Bt {
     }, i)).connections;
   }
   toSyncJob(t, e) {
-    const s = e.cursors[0], i = s?.resource_type || "default", r = s?.resource_id || "default", a = {
+    const s = e.cursors[0], i = s?.resource_type || "default", r = s?.resource_id || "default", n = {
       ...e.last_job?.metadata || {},
       last_synced_at: e.last_synced_at || null,
       last_sync_error: e.last_sync_error || "",
@@ -5018,7 +4991,7 @@ class Bt {
     return e.last_job ? {
       ...e.last_job,
       checkpoint: e.last_cursor || e.last_job.checkpoint,
-      metadata: a
+      metadata: n
     } : !e.last_cursor && !e.last_synced_at && !e.last_sync_error ? null : {
       id: `synthetic-sync-${t.id}`,
       connection_id: t.id,
@@ -5027,7 +5000,7 @@ class Bt {
       checkpoint: e.last_cursor || "",
       status: e.last_sync_error ? "failed" : "succeeded",
       attempts: 0,
-      metadata: a,
+      metadata: n,
       created_at: t.created_at,
       updated_at: e.last_synced_at || t.updated_at
     };
@@ -5045,8 +5018,8 @@ class Bt {
     ].join(" ").toLowerCase().includes(e);
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), c = a < i, o = e > 1, l = this.container?.querySelector(".info"), h = this.container?.querySelector(".prev-btn"), u = this.container?.querySelector(".next-btn"), p = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
-    l && (l.textContent = i > 0 ? `Showing ${r}-${a} of ${i} ${p}` : `No ${p}`), h && (h.disabled = !o), u && (u.disabled = !c);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, n = Math.min(e * s, i), l = n < i, c = e > 1, d = this.container?.querySelector(".info"), p = this.container?.querySelector(".prev-btn"), h = this.container?.querySelector(".next-btn"), g = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
+    d && (d.textContent = i > 0 ? `Showing ${r}-${n} of ${i} ${g}` : `No ${g}`), p && (p.disabled = !c), h && (h.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // Tab Persistence
@@ -5077,8 +5050,8 @@ class Bt {
   formatRelativeTime(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, a = Math.abs(i), c = Math.floor(a / 6e4), o = Math.floor(a / 36e5), l = Math.floor(a / 864e5);
-    return c < 1 ? r ? "Soon" : "Just now" : c < 60 ? r ? `in ${c}m` : `${c}m ago` : o < 24 ? r ? `in ${o}h` : `${o}h ago` : l < 7 ? r ? `in ${l}d` : `${l}d ago` : e.toLocaleDateString();
+    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, n = Math.abs(i), l = Math.floor(n / 6e4), c = Math.floor(n / 36e5), d = Math.floor(n / 864e5);
+    return l < 1 ? r ? "Soon" : "Just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
   }
   isExpiringSoon(t) {
     const e = new Date(t);
@@ -5086,28 +5059,24 @@ class Bt {
     const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime();
     return i > 0 && i < 864e5;
   }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
-  }
 }
-async function Ne(n) {
-  const t = new Bt(n);
+async function Ne(a) {
+  const t = new Ht(a);
   return await t.init(), t;
 }
-const ot = {
+const nt = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   disconnected: { label: "Disconnected", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, zt = {
+}, Ot = {
   granted: { label: "Granted", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check" },
   requested: { label: "Requested", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:clock" },
   missing: { label: "Missing", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:minus" },
   capability_required: { label: "Required", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" }
 };
-class Vt {
+class Bt {
   constructor(t) {
     this.container = null, this.state = {
       connection: null,
@@ -5118,7 +5087,7 @@ class Vt {
       loading: !1,
       error: null,
       reconsentInProgress: !1
-    }, this.abortController = null, this.actionQueue = new z(), this.config = t, this.client = t.apiClient || T();
+    }, this.abortController = null, this.actionQueue = new O(), this.config = t, this.client = t.apiClient || C();
   }
   /**
    * Initialize the detail panel
@@ -5128,7 +5097,7 @@ class Vt {
       console.error("[ConnectionDetail] Container not found:", this.config.container);
       return;
     }
-    if (!A()()) {
+    if (!E()()) {
       this.renderForbidden();
       return;
     }
@@ -5190,7 +5159,7 @@ class Vt {
   // ---------------------------------------------------------------------------
   render() {
     if (!this.container || !this.state.connection) return;
-    const t = this.state.connection, e = ot[t.status] || ot.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.buildGrantInfoList(), r = i.some((c) => c.status === "capability_required"), a = t.status === "needs_reconsent" || r;
+    const t = this.state.connection, e = nt[t.status] || nt.disconnected, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : this.formatProviderId(t.provider_id), i = this.buildGrantInfoList(), r = i.some((l) => l.status === "capability_required"), n = t.status === "needs_reconsent" || r;
     this.container.innerHTML = `
       <div class="connection-detail">
         <!-- Header -->
@@ -5198,17 +5167,17 @@ class Vt {
           <div class="flex items-center gap-4">
             ${this.config.onBack ? `
               <button type="button" class="back-btn p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                ${d("iconoir:arrow-left", { size: "20px" })}
+                ${u("iconoir:arrow-left", { size: "20px" })}
               </button>
             ` : ""}
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">${this.escapeHtml(s)}</h2>
+              <h2 class="text-xl font-semibold text-gray-900">${o(s)}</h2>
               <p class="text-sm text-gray-500 mt-0.5">Connection Details</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${e.bg} ${e.text}">
-              ${d(e.icon, { size: "16px" })}
+              ${u(e.icon, { size: "16px" })}
               ${e.label}
             </span>
           </div>
@@ -5220,18 +5189,18 @@ class Vt {
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Scope</dt>
             <dd class="mt-1 flex items-center gap-2">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-                ${this.escapeHtml(t.scope_type)}
+                ${o(t.scope_type)}
               </span>
-              <span class="text-sm text-gray-700" title="${this.escapeHtml(t.scope_id)}">
-                ${this.escapeHtml(this.truncateId(t.scope_id, 16))}
+              <span class="text-sm text-gray-700" title="${o(t.scope_id)}">
+                ${o(this.truncateId(t.scope_id, 16))}
               </span>
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">External Account</dt>
-            <dd class="mt-1 text-sm text-gray-700" title="${this.escapeHtml(t.external_account_id)}">
-              ${this.escapeHtml(this.truncateId(t.external_account_id, 20))}
+            <dd class="mt-1 text-sm text-gray-700" title="${o(t.external_account_id)}">
+              ${o(this.truncateId(t.external_account_id, 20))}
             </dd>
           </div>
 
@@ -5253,20 +5222,20 @@ class Vt {
         ${t.last_error ? `
           <div class="error-banner flex items-start gap-3 p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
             <div class="flex-shrink-0 text-red-500">
-              ${d("iconoir:warning-circle", { size: "20px" })}
+              ${u("iconoir:warning-circle", { size: "20px" })}
             </div>
             <div>
               <h4 class="text-sm font-medium text-red-800">Last Error</h4>
-              <p class="text-sm text-red-700 mt-1">${this.escapeHtml(t.last_error)}</p>
+              <p class="text-sm text-red-700 mt-1">${o(t.last_error)}</p>
             </div>
           </div>
         ` : ""}
 
-        ${a ? `
+        ${n ? `
           <div class="reconsent-banner flex items-center justify-between p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0 text-amber-500">
-                ${d("iconoir:warning-triangle", { size: "20px" })}
+                ${u("iconoir:warning-triangle", { size: "20px" })}
               </div>
               <div>
                 <h4 class="text-sm font-medium text-amber-800">Re-consent Required</h4>
@@ -5275,7 +5244,7 @@ class Vt {
                 </p>
               </div>
             </div>
-            ${dt()() ? `
+            ${ct()() ? `
               <button type="button"
                       class="reconsent-btn flex-shrink-0 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
                 Re-consent Now
@@ -5333,17 +5302,17 @@ class Vt {
 
         <!-- Actions -->
         <div class="actions flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-          ${E()() && t.status === "active" ? `
+          ${k()() && t.status === "active" ? `
             <button type="button"
                     class="refresh-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-              ${d("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
+              ${u("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
               Refresh Credentials
             </button>
           ` : ""}
-          ${Z()() && t.status !== "disconnected" ? `
+          ${K()() && t.status !== "disconnected" ? `
             <button type="button"
                     class="revoke-btn px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-              ${d("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
+              ${u("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
               Revoke Connection
             </button>
           ` : ""}
@@ -5353,28 +5322,28 @@ class Vt {
   }
   renderGrantMatrix(t) {
     return t.length === 0 ? "" : t.map((e) => {
-      const s = zt[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => this.formatLabel(r)).join(", ") : null;
+      const s = Ot[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => this.formatLabel(r)).join(", ") : null;
       return `
           <div class="grant-row flex items-center justify-between px-4 py-3 hover:bg-gray-50">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <code class="text-sm font-mono text-gray-700">${this.escapeHtml(e.grant)}</code>
+                <code class="text-sm font-mono text-gray-700">${o(e.grant)}</code>
                 ${e.isCapabilityRequired ? `
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-600" title="Required by capabilities">
-                    ${d("iconoir:puzzle", { size: "10px", extraClass: "mr-0.5" })}
+                    ${u("iconoir:puzzle", { size: "10px", extraClass: "mr-0.5" })}
                     Required
                   </span>
                 ` : ""}
               </div>
               ${i ? `
                 <p class="text-xs text-gray-500 mt-0.5">
-                  Used by: ${this.escapeHtml(i)}
+                  Used by: ${o(i)}
                 </p>
               ` : ""}
             </div>
             <div class="flex-shrink-0">
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
-                ${d(s.icon, { size: "12px" })}
+                ${u(s.icon, { size: "12px" })}
                 ${s.label}
               </span>
             </div>
@@ -5384,25 +5353,25 @@ class Vt {
   }
   renderCapabilities() {
     return !this.state.provider || !this.state.grantSnapshot ? "" : this.state.provider.capabilities.map((t) => {
-      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((u) => e.has(u)), i = t.optional_grants.every((u) => e.has(u)), r = s && i, a = s && !i, c = !s;
-      let o, l, h;
-      return r ? (o = "Fully Enabled", l = "bg-green-100 text-green-700", h = "iconoir:check-circle") : a ? (o = "Partially Enabled", l = "bg-blue-100 text-blue-700", h = "iconoir:half-moon") : (o = t.denied_behavior === "block" ? "Blocked" : "Degraded", l = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", h = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
+      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((h) => e.has(h)), i = t.optional_grants.every((h) => e.has(h)), r = s && i, n = s && !i, l = !s;
+      let c, d, p;
+      return r ? (c = "Fully Enabled", d = "bg-green-100 text-green-700", p = "iconoir:check-circle") : n ? (c = "Partially Enabled", d = "bg-blue-100 text-blue-700", p = "iconoir:half-moon") : (c = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", p = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
-                <h4 class="text-sm font-medium text-gray-900">${this.escapeHtml(this.formatLabel(t.name))}</h4>
+                <h4 class="text-sm font-medium text-gray-900">${o(this.formatLabel(t.name))}</h4>
                 <p class="text-xs text-gray-500 mt-0.5">
                   ${t.required_grants.length} required, ${t.optional_grants.length} optional
                 </p>
               </div>
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${l}">
-                ${d(h, { size: "12px" })}
-                ${o}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${d}">
+                ${u(p, { size: "12px" })}
+                ${c}
               </span>
             </div>
-            ${c && t.denied_behavior === "block" ? `
+            ${l && t.denied_behavior === "block" ? `
               <p class="text-xs text-red-600 mt-2">
-                Missing required: ${t.required_grants.filter((u) => !e.has(u)).join(", ")}
+                Missing required: ${t.required_grants.filter((h) => !e.has(h)).join(", ")}
               </p>
             ` : ""}
           </div>
@@ -5419,18 +5388,18 @@ class Vt {
     else if (t.last_error)
       e = "error", s = "Credential Error", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const a = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), o = (a.getTime() - c.getTime()) / (1e3 * 60 * 60);
-      o < 0 ? (e = "error", s = "Expired", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : o < 24 && (e = "warning", s = "Expiring Soon", i = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
+      const n = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), c = (n.getTime() - l.getTime()) / (1e3 * 60 * 60);
+      c < 0 ? (e = "error", s = "Expired", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : c < 24 && (e = "warning", s = "Expiring Soon", i = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
       <div class="credential-health-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${d("iconoir:key", { size: "20px" })}
+            ${u("iconoir:key", { size: "20px" })}
             Credential Health
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${i}">
-            ${d(r, { size: "12px" })}
+            ${u(r, { size: "12px" })}
             ${s}
           </span>
         </div>
@@ -5451,7 +5420,7 @@ class Vt {
           ${t.expires_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Expires At</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(t.expires_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${o(t.expires_at)}">
                 ${this.formatRelativeTime(t.expires_at)}
               </span>
             </div>
@@ -5459,7 +5428,7 @@ class Vt {
           ${t.last_refresh_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Last Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(t.last_refresh_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${o(t.last_refresh_at)}">
                 ${this.formatRelativeTime(t.last_refresh_at)}
               </span>
             </div>
@@ -5467,7 +5436,7 @@ class Vt {
           ${t.next_refresh_attempt_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(t.next_refresh_attempt_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${o(t.next_refresh_attempt_at)}">
                 ${this.formatRelativeTime(t.next_refresh_attempt_at)}
               </span>
             </div>
@@ -5475,8 +5444,8 @@ class Vt {
           ${t.last_error ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${d("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
-                <p class="text-sm text-red-700">${this.escapeHtml(t.last_error)}</p>
+                ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
+                <p class="text-sm text-red-700">${o(t.last_error)}</p>
               </div>
             </div>
           ` : ""}
@@ -5490,19 +5459,19 @@ class Vt {
       return "";
     let e = "healthy", s = "Normal", i = "bg-green-100 text-green-700", r = "iconoir:check-circle";
     if (t.exhausted_buckets > 0) {
-      const c = t.exhausted_buckets / Math.max(t.total_buckets, 1);
-      c >= 1 ? (e = "exhausted", s = "All Limits Exhausted", i = "bg-red-100 text-red-700", r = "iconoir:warning-circle") : c >= 0.5 ? (e = "warning", s = "High Usage", i = "bg-amber-100 text-amber-700", r = "iconoir:warning-triangle") : (e = "warning", s = "Some Limits Hit", i = "bg-amber-100 text-amber-700", r = "iconoir:clock");
+      const l = t.exhausted_buckets / Math.max(t.total_buckets, 1);
+      l >= 1 ? (e = "exhausted", s = "All Limits Exhausted", i = "bg-red-100 text-red-700", r = "iconoir:warning-circle") : l >= 0.5 ? (e = "warning", s = "High Usage", i = "bg-amber-100 text-amber-700", r = "iconoir:warning-triangle") : (e = "warning", s = "Some Limits Hit", i = "bg-amber-100 text-amber-700", r = "iconoir:clock");
     }
-    const a = t.total_buckets > 0 ? Math.round(t.exhausted_buckets / t.total_buckets * 100) : 0;
+    const n = t.total_buckets > 0 ? Math.round(t.exhausted_buckets / t.total_buckets * 100) : 0;
     return `
       <div class="rate-limit-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${d("iconoir:graph-up", { size: "20px" })}
+            ${u("iconoir:graph-up", { size: "20px" })}
             Rate Limits
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${i}">
-            ${d(r, { size: "12px" })}
+            ${u(r, { size: "12px" })}
             ${s}
           </span>
         </div>
@@ -5516,14 +5485,14 @@ class Vt {
               </span>
             </div>
             <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full transition-all duration-300 ${e === "healthy" ? "bg-green-500" : e === "warning" ? "bg-amber-500" : "bg-red-500"}" style="width: ${a}%"></div>
+              <div class="h-full transition-all duration-300 ${e === "healthy" ? "bg-green-500" : e === "warning" ? "bg-amber-500" : "bg-red-500"}" style="width: ${n}%"></div>
             </div>
           </div>
 
           ${t.next_reset_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Reset</span>
-              <span class="text-sm font-medium text-gray-900" title="${this.escapeHtml(t.next_reset_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${o(t.next_reset_at)}">
                 ${this.formatRelativeTime(t.next_reset_at)}
               </span>
             </div>
@@ -5541,7 +5510,7 @@ class Vt {
           ${e === "exhausted" ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${d("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
+                ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
                 <p class="text-sm text-red-700">
                   All rate limit buckets are exhausted. API requests may be throttled until limits reset.
                 </p>
@@ -5563,8 +5532,8 @@ class Vt {
   formatRelativeTime(t) {
     const e = new Date(t);
     if (Number.isNaN(e.getTime())) return t;
-    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, a = Math.abs(i), c = Math.floor(a / 6e4), o = Math.floor(a / 36e5), l = Math.floor(a / 864e5);
-    return c < 1 ? r ? "in a moment" : "just now" : c < 60 ? r ? `in ${c}m` : `${c}m ago` : o < 24 ? r ? `in ${o}h` : `${o}h ago` : l < 7 ? r ? `in ${l}d` : `${l}d ago` : e.toLocaleDateString();
+    const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, n = Math.abs(i), l = Math.floor(n / 6e4), c = Math.floor(n / 36e5), d = Math.floor(n / 864e5);
+    return l < 1 ? r ? "in a moment" : "just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
   }
   bindEvents() {
     if (!this.container) return;
@@ -5589,7 +5558,7 @@ class Vt {
     if (!this.state.connection) return;
     const t = this.container?.querySelector(".refresh-btn");
     this.actionQueue.isInFlight("refresh") || await this.actionQueue.execute("refresh", async () => {
-      await v({
+      await x({
         mutation: () => this.client.refreshConnection(this.config.connectionId, {
           provider_id: this.state.connection.provider_id
         }),
@@ -5609,14 +5578,14 @@ class Vt {
   async handleRevoke() {
     if (!this.state.connection) return;
     const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : this.formatProviderId(this.state.connection.provider_id);
-    if (!await B({
+    if (!await H({
       action: "revoke",
       resourceType: "connection",
       resourceName: t
     })) return;
     const s = this.container?.querySelector(".revoke-btn");
     this.actionQueue.isInFlight("revoke") || await this.actionQueue.execute("revoke", async () => {
-      await v({
+      await x({
         mutation: () => this.client.revokeConnection(this.config.connectionId),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
@@ -5642,21 +5611,21 @@ class Vt {
       `) : (t.disabled = !1, t.textContent = "Re-consent Now"));
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = j({
+    this.container && (this.container.innerHTML = N({
       text: "Loading connection details...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = D({
+    this.container.innerHTML = j({
       title: "Failed to Load Connection",
       error: this.state.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnection());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = _({
+    this.container && (this.container.innerHTML = $({
       resource: "connection details"
     }));
   }
@@ -5667,42 +5636,42 @@ class Vt {
     const t = this.state.grantSnapshot, e = this.state.provider;
     if (!t)
       return [];
-    const s = new Set(t.requested_grants), i = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Set();
+    const s = new Set(t.requested_grants), i = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), n = /* @__PURE__ */ new Set();
     if (e)
-      for (const h of e.capabilities) {
-        for (const u of h.required_grants) {
-          a.add(u);
-          const p = r.get(u) || [];
-          p.push(h.name), r.set(u, p);
+      for (const p of e.capabilities) {
+        for (const h of p.required_grants) {
+          n.add(h);
+          const g = r.get(h) || [];
+          g.push(p.name), r.set(h, g);
         }
-        for (const u of h.optional_grants) {
-          const p = r.get(u) || [];
-          p.push(h.name), r.set(u, p);
+        for (const h of p.optional_grants) {
+          const g = r.get(h) || [];
+          g.push(p.name), r.set(h, g);
         }
       }
-    const c = /* @__PURE__ */ new Set([
+    const l = /* @__PURE__ */ new Set([
       ...t.requested_grants,
       ...t.granted_grants,
-      ...a
-    ]), o = [];
-    for (const h of c) {
-      const u = i.has(h), p = s.has(h), g = a.has(h);
+      ...n
+    ]), c = [];
+    for (const p of l) {
+      const h = i.has(p), g = s.has(p), f = n.has(p);
       let y;
-      u ? y = "granted" : p ? y = "requested" : g ? y = "capability_required" : y = "missing", o.push({
-        grant: h,
+      h ? y = "granted" : g ? y = "requested" : f ? y = "capability_required" : y = "missing", c.push({
+        grant: p,
         status: y,
-        isRequired: p || g,
-        isCapabilityRequired: g,
-        capabilities: r.get(h) || []
+        isRequired: g || f,
+        isCapabilityRequired: f,
+        capabilities: r.get(p) || []
       });
     }
-    const l = {
+    const d = {
       capability_required: 0,
       granted: 1,
       requested: 2,
       missing: 3
     };
-    return o.sort((h, u) => l[h.status] - l[u.status]), o;
+    return c.sort((p, h) => d[p.status] - d[h.status]), c;
   }
   formatProviderId(t) {
     return t.split(/[-_]/).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
@@ -5717,120 +5686,116 @@ class Vt {
     const e = new Date(t);
     return Number.isNaN(e.getTime()) ? t : e.toLocaleString();
   }
-  escapeHtml(t) {
-    const e = document.createElement("div");
-    return e.textContent = t, e.innerHTML;
-  }
 }
-async function je(n) {
-  const t = new Vt(n);
+async function je(a) {
+  const t = new Bt(a);
   return await t.init(), t;
 }
 export {
-  z as ActionQueue,
-  Ot as ActivityPageManager,
-  Oe as CommandRuntimeController,
-  Vt as ConnectionDetailManager,
-  Dt as ConnectionsListManager,
-  P as DEFAULT_ACTION_LABELS,
-  Re as ExtensionDiagnosticsPanel,
-  Pt as FOCUSABLE_SELECTOR,
-  Ut as InstallationsListManager,
-  Lt as MutationButtonManager,
-  jt as ProvidersCatalogManager,
-  H as QueryStateManager,
-  lt as ServicesAPIClient,
-  R as ServicesAPIError,
-  N as ServicesPermissionManager,
-  w as ServicesPermissions,
-  Bt as SubscriptionsSyncPageManager,
-  le as UIStateManager,
-  Ae as addStateSourceIndicator,
-  Se as announceError,
-  xe as announceLoading,
-  we as announceNavigation,
-  ve as announceSuccess,
-  V as announceToScreenReader,
-  Zt as buildSearchParams,
-  C as canConnect,
-  E as canEdit,
-  dt as canReconsent,
-  Z as canRevoke,
-  $t as canViewActivity,
-  A as canViewServices,
-  Y as clearRetryUI,
-  ie as combineGuards,
-  Be as configureDeepLinks,
-  B as confirmServiceAction,
-  ye as createActionLabelResolver,
-  yt as createActivityNavigateHandler,
-  He as createActivityPage,
+  O as ActionQueue,
+  Ut as ActivityPageManager,
+  He as CommandRuntimeController,
+  Bt as ConnectionDetailManager,
+  jt as ConnectionsListManager,
+  R as DEFAULT_ACTION_LABELS,
+  Ee as ExtensionDiagnosticsPanel,
+  Rt as FOCUSABLE_SELECTOR,
+  Dt as InstallationsListManager,
+  _t as MutationButtonManager,
+  Nt as ProvidersCatalogManager,
+  M as QueryStateManager,
+  ot as ServicesAPIClient,
+  q as ServicesAPIError,
+  F as ServicesPermissionManager,
+  S as ServicesPermissions,
+  Ht as SubscriptionsSyncPageManager,
+  ce as UIStateManager,
+  Re as addStateSourceIndicator,
+  ve as announceError,
+  me as announceLoading,
+  Se as announceNavigation,
+  xe as announceSuccess,
+  B as announceToScreenReader,
+  Yt as buildSearchParams,
+  _ as canConnect,
+  k as canEdit,
+  ct as canReconsent,
+  K as canRevoke,
+  St as canViewActivity,
+  E as canViewServices,
+  Q as clearRetryUI,
+  se as combineGuards,
+  Oe as configureDeepLinks,
+  H as confirmServiceAction,
+  be as createActionLabelResolver,
+  ft as createActivityNavigateHandler,
+  Fe as createActivityPage,
   je as createConnectionDetail,
-  Me as createConnectionsList,
-  It as createFocusTrap,
-  Fe as createInstallationsList,
-  ze as createNavigationContext,
-  k as createPermissionGuard,
-  Ie as createProvidersCatalog,
-  Kt as createServicesClient,
+  Ie as createConnectionsList,
+  At as createFocusTrap,
+  Me as createInstallationsList,
+  Be as createNavigationContext,
+  L as createPermissionGuard,
+  Pe as createProvidersCatalog,
+  Qt as createServicesClient,
   ke as createSkipLink,
   Ne as createSubscriptionsSyncPage,
-  Yt as debounce,
-  Ve as deepLinkManager,
-  J as gateElement,
-  xt as generateDeepLink,
-  We as generateListLink,
-  he as getActionEntry,
-  qt as getActionLabel,
-  Rt as getActionsByCategory,
-  pe as getAllActionLabels,
+  Kt as debounce,
+  ze as deepLinkManager,
+  W as gateElement,
+  yt as generateDeepLink,
+  Ve as generateListLink,
+  ue as getActionEntry,
+  Tt as getActionLabel,
+  qt as getActionsByCategory,
+  he as getAllActionLabels,
   qe as getAnimationDuration,
-  $ as getPermissionManager,
-  kt as getServiceConfirmConfig,
-  T as getServicesClient,
-  re as handleForbidden,
-  ue as initActivityLabels,
-  Ge as initCommandRuntime,
-  ae as initPermissionGates,
-  te as initPermissions,
-  oe as initPermissionsFromContext,
-  fe as isActivityLabelsInitialized,
-  _t as isForbiddenError,
-  Ct as loadPermissionsFromContext,
-  mt as mapObjectTypeToEntity,
-  Je as navigateBack,
-  Qe as navigateToEntity,
-  Ke as parseCurrentDeepLink,
-  Ye as parseDeepLink,
-  Xt as parseSearchParams,
-  Ft as prefersReducedMotion,
-  ht as renderEmptyState,
-  D as renderErrorState,
-  _ as renderForbiddenState,
-  j as renderLoadingState,
-  pt as renderNoResultsState,
-  Tt as renderRetryUI,
-  F as renderStateSourceIndicator,
-  Pe as renderStateSourceLegend,
-  ce as renderTableEmptyState,
-  O as renderTableErrorState,
-  U as renderTableLoadingState,
-  q as renderTableNoResultsState,
-  ee as requireAll,
-  se as requireAny,
-  be as resetActivityLabels,
-  ge as setActionLabels,
-  $e as setExpandedState,
-  _e as setLoadingState,
-  Te as setProgress,
-  Qt as setServicesClient,
-  Le as setSortableHeader,
-  Ce as setStatusLabel,
-  Ee as setupDialogFocus,
-  At as setupKeyboardNavigation,
-  me as setupRovingTabindex,
-  de as withConfirmation,
-  v as withMutationFeedback,
-  ne as withPermission
+  w as getPermissionManager,
+  Lt as getServiceConfirmConfig,
+  C as getServicesClient,
+  ie as handleForbidden,
+  de as initActivityLabels,
+  We as initCommandRuntime,
+  ne as initPermissionGates,
+  Xt as initPermissions,
+  ae as initPermissionsFromContext,
+  ge as isActivityLabelsInitialized,
+  wt as isForbiddenError,
+  $t as loadPermissionsFromContext,
+  bt as mapObjectTypeToEntity,
+  Ge as navigateBack,
+  Je as navigateToEntity,
+  Qe as parseCurrentDeepLink,
+  Ke as parseDeepLink,
+  Zt as parseSearchParams,
+  It as prefersReducedMotion,
+  dt as renderEmptyState,
+  j as renderErrorState,
+  $ as renderForbiddenState,
+  N as renderLoadingState,
+  ut as renderNoResultsState,
+  Ct as renderRetryUI,
+  I as renderStateSourceIndicator,
+  Ae as renderStateSourceLegend,
+  oe as renderTableEmptyState,
+  U as renderTableErrorState,
+  D as renderTableLoadingState,
+  T as renderTableNoResultsState,
+  te as requireAll,
+  ee as requireAny,
+  fe as resetActivityLabels,
+  pe as setActionLabels,
+  we as setExpandedState,
+  $e as setLoadingState,
+  Le as setProgress,
+  Jt as setServicesClient,
+  Ce as setSortableHeader,
+  _e as setStatusLabel,
+  Te as setupDialogFocus,
+  Et as setupKeyboardNavigation,
+  ye as setupRovingTabindex,
+  le as withConfirmation,
+  x as withMutationFeedback,
+  re as withPermission
 };
 //# sourceMappingURL=index.js.map

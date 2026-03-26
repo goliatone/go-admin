@@ -2,6 +2,7 @@ import { e as h, E as R } from "../chunks/index-YiVxcMWC.js";
 import { R as I, b as A, a0 as q, a1 as b, a2 as C, c as N } from "../chunks/style-constants-i2xRoO1L.js";
 import { h as w } from "../chunks/http-client-DZnuedzQ.js";
 import { extractStructuredError as P } from "../toast/error-helpers.js";
+import { escapeHTML as d } from "../shared/html.js";
 const U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
@@ -51,7 +52,7 @@ function $(e) {
 function S(e) {
   return (e ?? m()).modules.queue.enabled;
 }
-function Y(e) {
+function K(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
@@ -258,9 +259,6 @@ function F() {
     </div>
   `;
 }
-function d(e) {
-  return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 function T(e, t, n = {}) {
   const s = n.title || e.dataset.title || "Translation Shell", a = n.description || e.dataset.description || "Translation shell route";
   switch (t.status) {
@@ -289,7 +287,7 @@ function T(e, t, n = {}) {
       e.innerHTML = F();
   }
 }
-async function K(e) {
+async function W(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
   if (!t)
     return null;
@@ -352,7 +350,7 @@ class Q {
     }));
   }
 }
-function W(e) {
+function Z(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
   const n = new Q({
     basePath: e ?? ""
@@ -365,9 +363,9 @@ export {
   m as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  Y as hasTranslationOperations,
-  W as initTranslationOperations,
-  K as initTranslationSurfaceShell,
+  K as hasTranslationOperations,
+  Z as initTranslationOperations,
+  W as initTranslationSurfaceShell,
   $ as isExchangeEnabled,
   S as isQueueEnabled,
   O as renderEntrypointLink,

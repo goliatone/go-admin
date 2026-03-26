@@ -34,6 +34,7 @@ import {
 } from '../deep-links.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -504,14 +505,14 @@ export class ActivityPageManager {
       return '';
     }
     return this.config.providers
-      .map((p) => `<option value="${this.escapeHtml(p.id)}">${this.escapeHtml(p.name)}</option>`)
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
       .join('');
   }
 
   private renderChannelOptions(): string {
     const channels = this.config.channels || ['connections', 'credentials', 'grants', 'webhooks', 'sync', 'lifecycle'];
     return channels
-      .map((c) => `<option value="${this.escapeHtml(c)}">${this.escapeHtml(this.formatLabel(c))}</option>`)
+      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(this.formatLabel(c))}</option>`)
       .join('');
   }
 
@@ -521,7 +522,7 @@ export class ActivityPageManager {
       return this.config.actions
         .map((a) => {
           const label = this.resolveActionLabel(a);
-          return `<option value="${this.escapeHtml(a)}">${this.escapeHtml(label)}</option>`;
+          return `<option value="${escapeHtml(a)}">${escapeHtml(label)}</option>`;
         })
         .join('');
     }
@@ -546,10 +547,10 @@ export class ActivityPageManager {
       const options = entries
         .map((entry) => {
           const label = this.resolveActionLabel(entry.action);
-          return `<option value="${this.escapeHtml(entry.action)}">${this.escapeHtml(label)}</option>`;
+          return `<option value="${escapeHtml(entry.action)}">${escapeHtml(label)}</option>`;
         })
         .join('');
-      optgroups.push(`<optgroup label="${this.escapeHtml(categoryLabel)}">${options}</optgroup>`);
+      optgroups.push(`<optgroup label="${escapeHtml(categoryLabel)}">${options}</optgroup>`);
     }
 
     return optgroups.join('');
@@ -731,7 +732,7 @@ export class ActivityPageManager {
 
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
-           data-entry-id="${this.escapeHtml(entry.id)}">
+           data-entry-id="${escapeHtml(entry.id)}">
         <!-- Status indicator -->
         <div class="flex-shrink-0">
           <div class="w-10 h-10 rounded-full ${status.bg} flex items-center justify-center">
@@ -744,32 +745,32 @@ export class ActivityPageManager {
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-sm font-medium text-gray-900">
-                ${this.escapeHtml(actionLabel)}
+                ${escapeHtml(actionLabel)}
               </p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-xs text-gray-500">${this.escapeHtml(providerName)}</span>
+                <span class="text-xs text-gray-500">${escapeHtml(providerName)}</span>
                 ${entry.channel ? `
                   <span class="text-gray-300">&middot;</span>
-                  <span class="text-xs text-gray-500">${this.escapeHtml(entry.channel)}</span>
+                  <span class="text-xs text-gray-500">${escapeHtml(entry.channel)}</span>
                 ` : ''}
                 ${entry.object_type && entry.object_id ? `
                   <span class="text-gray-300">&middot;</span>
                   <a href="${this.buildObjectLinkUrl(entry.object_type, entry.object_id)}"
                      class="activity-object-link text-xs text-blue-600 hover:text-blue-700"
-                     data-object-type="${this.escapeHtml(entry.object_type)}"
-                     data-object-id="${this.escapeHtml(entry.object_id)}">
-                    ${this.escapeHtml(entry.object_type)}:${this.escapeHtml(this.truncateId(entry.object_id))}
+                     data-object-type="${escapeHtml(entry.object_type)}"
+                     data-object-id="${escapeHtml(entry.object_id)}">
+                    ${escapeHtml(entry.object_type)}:${escapeHtml(this.truncateId(entry.object_id))}
                   </a>
                 ` : ''}
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-xs text-gray-500" title="${this.escapeHtml(time)}">${relativeTime}</p>
+              <p class="text-xs text-gray-500" title="${escapeHtml(time)}">${relativeTime}</p>
               <div class="flex items-center gap-1 mt-1">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs ${
                   entry.scope_type === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
                 }">
-                  ${this.escapeHtml(entry.scope_type)}
+                  ${escapeHtml(entry.scope_type)}
                 </span>
               </div>
             </div>
@@ -779,7 +780,7 @@ export class ActivityPageManager {
           ${Object.keys(entry.metadata || {}).length > 0 ? `
             <div class="mt-2 pt-2 border-t border-gray-100">
               <div class="text-xs text-gray-500 font-mono truncate">
-                ${this.escapeHtml(this.formatMetadataPreview(entry.metadata))}
+                ${escapeHtml(this.formatMetadataPreview(entry.metadata))}
               </div>
             </div>
           ` : ''}
@@ -805,23 +806,23 @@ export class ActivityPageManager {
     const relativeTime = this.formatRelativeTime(entry.created_at);
 
     return `
-      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${this.escapeHtml(entry.id)}">
+      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${escapeHtml(entry.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
-          <span class="text-sm text-gray-900" title="${this.escapeHtml(time)}">${relativeTime}</span>
+          <span class="text-sm text-gray-900" title="${escapeHtml(time)}">${relativeTime}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm font-medium text-gray-900">${this.escapeHtml(providerName)}</span>
+          <span class="text-sm font-medium text-gray-900">${escapeHtml(providerName)}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-700">${this.escapeHtml(actionLabel)}</span>
+          <span class="text-sm text-gray-700">${escapeHtml(actionLabel)}</span>
         </td>
         <td class="px-4 py-3">
           ${entry.object_type && entry.object_id ? `
             <a href="${this.buildObjectLinkUrl(entry.object_type, entry.object_id)}"
                class="activity-object-link text-sm text-blue-600 hover:text-blue-700"
-               data-object-type="${this.escapeHtml(entry.object_type)}"
-               data-object-id="${this.escapeHtml(entry.object_id)}">
-              ${this.escapeHtml(entry.object_type)}:${this.escapeHtml(this.truncateId(entry.object_id))}
+               data-object-type="${escapeHtml(entry.object_type)}"
+               data-object-id="${escapeHtml(entry.object_id)}">
+              ${escapeHtml(entry.object_type)}:${escapeHtml(this.truncateId(entry.object_id))}
             </a>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -829,7 +830,7 @@ export class ActivityPageManager {
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             entry.scope_type === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
           }">
-            ${this.escapeHtml(entry.scope_type)}
+            ${escapeHtml(entry.scope_type)}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -839,7 +840,7 @@ export class ActivityPageManager {
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-500">${this.escapeHtml(entry.channel || '—')}</span>
+          <span class="text-sm text-gray-500">${escapeHtml(entry.channel || '—')}</span>
         </td>
       </tr>
     `;
@@ -1153,12 +1154,6 @@ export class ActivityPageManager {
   private formatMetadataPreview(metadata: Record<string, unknown>): string {
     const entries = Object.entries(metadata).slice(0, 3);
     return entries.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ');
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

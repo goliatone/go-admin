@@ -16,13 +16,14 @@
  *   new MyModal().show();
  */
 
-import { escapeHTML } from './html.js';
+import { escapeHTML, escapeHTML as escapeHtml } from './html.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+export { escapeHtml };
 
 export interface ModalOptions {
   /** Maximum width. Default: 'lg' */
@@ -494,7 +495,3 @@ export class TextPromptModal extends Modal {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-export function escapeHtml(str: string): string {
-  return escapeHTML(str);
-}

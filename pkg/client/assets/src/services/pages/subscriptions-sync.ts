@@ -31,6 +31,7 @@ import {
 } from '../mutation-feedback.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -512,7 +513,7 @@ export class SubscriptionsSyncPageManager {
         const displayName = this.config.getProviderName
           ? this.config.getProviderName(provider.id)
           : this.formatProviderId(provider.id);
-        return `<option value="${this.escapeHtml(provider.id)}">${this.escapeHtml(displayName)}</option>`;
+        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
       })
       .join('');
 
@@ -635,18 +636,18 @@ export class SubscriptionsSyncPageManager {
     const isExpiringSoon = subscription.expires_at && this.isExpiringSoon(subscription.expires_at);
 
     return `
-      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${this.escapeHtml(subscription.id)}">
+      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${escapeHtml(subscription.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(providerName)}</span>
+          <span class="font-medium text-gray-900">${escapeHtml(providerName)}</span>
         </td>
         <td class="px-4 py-3">
-          <div class="text-sm text-gray-700">${this.escapeHtml(subscription.resource_type)}</div>
-          <div class="text-xs text-gray-500" title="${this.escapeHtml(subscription.resource_id)}">
-            ${this.escapeHtml(this.truncateId(subscription.resource_id))}
+          <div class="text-sm text-gray-700">${escapeHtml(subscription.resource_type)}</div>
+          <div class="text-xs text-gray-500" title="${escapeHtml(subscription.resource_id)}">
+            ${escapeHtml(this.truncateId(subscription.resource_id))}
           </div>
         </td>
         <td class="px-4 py-3">
-          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${this.escapeHtml(this.truncateId(subscription.channel_id, 16))}</code>
+          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${escapeHtml(this.truncateId(subscription.channel_id, 16))}</code>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bg} ${status.text}">
@@ -789,9 +790,9 @@ export class SubscriptionsSyncPageManager {
     const cursor = job.checkpoint || '';
 
     return `
-      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${this.escapeHtml(job.id)}">
+      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${escapeHtml(job.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(providerName)}</span>
+          <span class="font-medium text-gray-900">${escapeHtml(providerName)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700" title="${mode.description}">
@@ -806,8 +807,8 @@ export class SubscriptionsSyncPageManager {
         </td>
         <td class="px-4 py-3">
           ${cursor ? `
-            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${this.escapeHtml(cursor)}">
-              ${this.escapeHtml(this.truncateId(cursor, 16))}
+            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${escapeHtml(cursor)}">
+              ${escapeHtml(this.truncateId(cursor, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -816,7 +817,7 @@ export class SubscriptionsSyncPageManager {
         </td>
         <td class="px-4 py-3 text-xs">
           ${errorText
-            ? `<span class="text-red-600" title="${this.escapeHtml(errorText)}">${this.escapeHtml(this.truncateId(errorText, 48))}</span>`
+            ? `<span class="text-red-600" title="${escapeHtml(errorText)}">${escapeHtml(this.truncateId(errorText, 48))}</span>`
             : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-right">
@@ -1254,12 +1255,6 @@ export class SubscriptionsSyncPageManager {
     const diffMs = date.getTime() - now.getTime();
     // Expires within 24 hours
     return diffMs > 0 && diffMs < 86400000;
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

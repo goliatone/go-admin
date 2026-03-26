@@ -32,6 +32,7 @@ import {
 } from './source-management-pages.js';
 
 import { onReady } from './utils/dom-helpers.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 type SourceManagementRuntimePage =
   | 'admin.sources.browser'
@@ -97,14 +98,6 @@ function parseJSONScript<T>(id: string): T | null {
   }
 }
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function formatDateTime(value: string | undefined): string {
   const input = String(value ?? '').trim();

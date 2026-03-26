@@ -1,3 +1,5 @@
+import { escapeHTML } from '../shared/html.js';
+
 import type {
   ApplyRequest,
   ApplyResponse,
@@ -97,15 +99,6 @@ interface HistoryState {
   jobStatus: string;
   selectedJobId: string;
   message: string;
-}
-
-function escapeHTML(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function jobStatusSeverity(status: string): BadgeSeverity {

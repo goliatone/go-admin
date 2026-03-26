@@ -1,7 +1,8 @@
 import "./provenance-card-DHMrX2oO.js";
-import { i as ne } from "./command-runtime-Devk4rE4.js";
-import { executeActionRequest as ie, formatStructuredErrorForDisplay as ae } from "../toast/error-helpers.js";
-var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
+import { escapeHTML as v } from "../shared/html.js";
+import { i as re } from "./command-runtime-DiUPApH6.js";
+import { executeActionRequest as ne, formatStructuredErrorForDisplay as ie } from "../toast/error-helpers.js";
+var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
   constructor(r) {
     if (this.options = r, this.running = !1, this.connectLoop = null, this.controller = null, this.heartbeatDegradeTimer = null, this.heartbeatFailoverTimer = null, this.reconnectTimer = null, this.reconnectWaiterResolve = null, this.reconnectAttempt = 0, this.serverRetryMs = null, this.recoveryPending = !1, !r.url || r.url.trim() === "")
       throw new Error("go-router SSE client requires a url");
@@ -73,7 +74,7 @@ var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
           return;
         await this.scheduleReconnect();
       } catch (e) {
-        if (!this.running || this.diagnosticsState.failoverTriggered || fe(e) && !this.running)
+        if (!this.running || this.diagnosticsState.failoverTriggered || ge(e) && !this.running)
           return;
         await this.scheduleReconnect();
       } finally {
@@ -90,10 +91,10 @@ var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
         if (i)
           return;
         n += t.decode(a, { stream: !0 });
-        const s = me(n);
+        const s = ue(n);
         n = s.remainder;
         for (const c of s.frames) {
-          const l = pe(c);
+          const l = me(c);
           if (l && (this.dispatch(l), !this.running || this.diagnosticsState.failoverTriggered))
             return;
         }
@@ -105,7 +106,7 @@ var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
   dispatch(r) {
     if (r.retry !== null && r.retry > 0 && (this.serverRetryMs = r.retry), r.data === "" && r.id === null && r.event === "message")
       return;
-    const e = ge(r.data);
+    const e = pe(r.data);
     switch (r.event) {
       case "heartbeat":
         this.handleHeartbeat(e);
@@ -173,7 +174,7 @@ var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
     r.set("Accept", "text/event-stream");
     try {
       const e = await this.options.getHeaders?.();
-      return ue(r, e), r;
+      return de(r, e), r;
     } catch {
       throw this.enterFailover("auth_failed"), new Error("auth_failed");
     }
@@ -183,20 +184,20 @@ var se = 3e3, $ = 45e3, oe = 5, ce = 3e4, le = 0.2, de = class {
     return r && this.diagnosticsState.lastEventId && t.searchParams.set("cursor", this.diagnosticsState.lastEventId), this.options.enableClientTuning && (typeof this.options.heartbeatMs == "number" && this.options.heartbeatMs > 0 && t.searchParams.set("heartbeat_ms", String(this.options.heartbeatMs)), typeof this.options.retryMs == "number" && this.options.retryMs > 0 && t.searchParams.set("retry_ms", String(this.options.retryMs))), t.toString();
   }
   computeReconnectDelay(r) {
-    const e = this.resolveRetryMs(), t = Math.min(e * 2 ** Math.max(0, r - 1), ce), n = t * le * Math.random();
+    const e = this.resolveRetryMs(), t = Math.min(e * 2 ** Math.max(0, r - 1), oe), n = t * ce * Math.random();
     return Math.round(t + n);
   }
   resolveRetryMs() {
-    return typeof this.serverRetryMs == "number" && this.serverRetryMs > 0 ? this.serverRetryMs : typeof this.options.retryMs == "number" && this.options.retryMs > 0 ? this.options.retryMs : se;
+    return typeof this.serverRetryMs == "number" && this.serverRetryMs > 0 ? this.serverRetryMs : typeof this.options.retryMs == "number" && this.options.retryMs > 0 ? this.options.retryMs : ae;
   }
   resolveHeartbeatTimeoutMs() {
     return typeof this.options.heartbeatTimeoutMs == "number" && this.options.heartbeatTimeoutMs > 0 ? this.options.heartbeatTimeoutMs : typeof this.options.heartbeatMs == "number" && this.options.heartbeatMs > 0 ? Math.max(this.options.heartbeatMs * 2, $) : $;
   }
   resolveMaxReconnectAttempts() {
-    return typeof this.options.maxReconnectAttempts == "number" && this.options.maxReconnectAttempts >= 0 ? this.options.maxReconnectAttempts : oe;
+    return typeof this.options.maxReconnectAttempts == "number" && this.options.maxReconnectAttempts >= 0 ? this.options.maxReconnectAttempts : se;
   }
 };
-function ue(r, e) {
+function de(r, e) {
   if (e) {
     if (e instanceof Headers) {
       e.forEach((t, n) => {
@@ -213,7 +214,7 @@ function ue(r, e) {
       r.set(t, n);
   }
 }
-function me(r) {
+function ue(r) {
   const e = r.replace(/\r\n/g, `
 `), t = e.split(`
 
@@ -223,7 +224,7 @@ function me(r) {
     remainder: t[t.length - 1] ?? ""
   };
 }
-function pe(r) {
+function me(r) {
   const e = r.split(`
 `), t = [];
   let n = null, i = "message", a = null;
@@ -256,7 +257,7 @@ function pe(r) {
     retry: a
   };
 }
-function ge(r) {
+function pe(r) {
   if (r === "")
     return null;
   try {
@@ -265,15 +266,15 @@ function ge(r) {
     return r;
   }
 }
-function fe(r) {
+function ge(r) {
   return r instanceof Error && r.name === "AbortError";
 }
-function he(r) {
-  return new de(r);
+function fe(r) {
+  return new le(r);
 }
-var ve = he;
-const ye = ve;
-function we(r) {
+var he = fe;
+const ve = he;
+function ye(r) {
   if (!r || typeof r != "object")
     return null;
   const e = r;
@@ -297,12 +298,12 @@ function we(r) {
     metadata: e.metadata && typeof e.metadata == "object" ? e.metadata : void 0
   };
 }
-class be {
+class we {
   constructor(e) {
-    this.listeners = /* @__PURE__ */ new Set(), this.client = ye({
+    this.listeners = /* @__PURE__ */ new Set(), this.client = ve({
       url: e,
       onEvent: (t) => {
-        const n = we(t.payload);
+        const n = ye(t.payload);
         n && this.emit({
           type: n.type,
           resourceType: n.resource_type,
@@ -356,7 +357,7 @@ const V = {
   delivery: "#agreement-delivery-panel [data-live-status-target]",
   artifacts: "#agreement-artifacts-panel [data-live-status-target]",
   timeline: "#agreement-timeline [data-live-status-target]"
-}, _e = {
+}, be = {
   review_status: "#agreement-review-status-panel",
   review_config: "#agreement-review-configuration-panel",
   participants: "#review-participants-panel",
@@ -364,7 +365,7 @@ const V = {
   delivery: "#agreement-delivery-panel",
   artifacts: "#agreement-artifacts-panel",
   timeline: "#agreement-timeline"
-}, Se = "#agreement-page-status-target", k = {
+}, _e = "#agreement-page-status-target", k = {
   submitting: {
     text: "Sending...",
     icon: "spinner",
@@ -514,7 +515,7 @@ const J = {
   refresh: '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
   retry: '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
 };
-function xe(r, e, t = V) {
+function Se(r, e, t = V) {
   const n = {
     target: null,
     section: null,
@@ -537,7 +538,7 @@ function xe(r, e, t = V) {
     if (a)
       return n.target = a, n.section = i, n;
     const s = document.querySelector(
-      _e[i]
+      be[i]
     );
     if (s) {
       const c = s.querySelector(
@@ -548,45 +549,45 @@ function xe(r, e, t = V) {
     }
   }
   if (t.usePageFallback) {
-    const a = document.querySelector(Se);
+    const a = document.querySelector(_e);
     if (a)
       return n.target = a, n;
   }
   return n;
 }
-function Ee(r) {
+function xe(r) {
   const e = String(r || "").toLowerCase();
   return e.includes("review") || e.includes("approve") || e.includes("request_changes") || e.includes("force_approve") ? "review_status" : e.includes("participant") || e.includes("notify_reviewer") || e.includes("reminder") || e.includes("on_behalf") ? "participants" : e.includes("comment") || e.includes("thread") || e.includes("reply") ? "comments" : e.includes("resend") || e.includes("delivery") || e.includes("email") || e.includes("send") ? "delivery" : e.includes("artifact") || e.includes("job") || e.includes("retry_job") || e.includes("retry_artifact") ? "artifacts" : null;
 }
-function Ae(r, e) {
+function Ee(r, e) {
   const t = k[r.state], n = r.message || G(r.commandName, r.state, t.text), i = document.createElement("span"), a = t.pulse ? "inline-status-pulse" : "";
   i.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${a}`.trim(), i.setAttribute("data-inline-status", e), i.setAttribute("data-status-state", r.state), i.setAttribute("data-command-name", r.commandName || ""), i.setAttribute("role", "status"), i.setAttribute("aria-live", t.ariaLive);
   const s = J[t.icon] || "";
-  return i.innerHTML = `${s}<span class="inline-status-text">${W(n)}</span>`, i;
+  return i.innerHTML = `${s}<span class="inline-status-text">${v(n)}</span>`, i;
 }
-function Te(r, e) {
+function Ae(r, e) {
   const t = k[e.state], n = e.message || G(e.commandName, e.state, t.text);
   r.setAttribute("data-status-state", e.state), r.setAttribute("data-command-name", e.commandName || ""), r.setAttribute("aria-live", t.ariaLive);
   const i = t.pulse ? "inline-status-pulse" : "";
   r.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${i}`.trim();
   const a = J[t.icon] || "";
-  r.innerHTML = `${a}<span class="inline-status-text">${W(n)}</span>`;
+  r.innerHTML = `${a}<span class="inline-status-text">${v(n)}</span>`;
 }
-function Re(r) {
+function Te(r) {
   const e = document.querySelector(`[data-inline-status="${r}"]`);
   e && e.remove();
 }
-function Ce() {
+function Re() {
   document.querySelectorAll("[data-inline-status]").forEach((r) => r.remove());
 }
-function ke(r = 5e3) {
+function Ce(r = 5e3) {
   const e = Date.now();
   document.querySelectorAll("[data-inline-status]").forEach((t) => {
     const n = t.getAttribute("data-status-state"), i = parseInt(t.getAttribute("data-status-timestamp") || "0", 10);
     (n === "completed" || n === "failed") && i > 0 && e - i > r && t.remove();
   });
 }
-class Me {
+class ke {
   constructor(e = {}) {
     this.clearTimers = /* @__PURE__ */ new Map(), this.config = { ...V, ...e };
   }
@@ -596,16 +597,16 @@ class Me {
   handleStatusChange(e) {
     const { entry: t } = e;
     this.clearTimer(t.correlationId);
-    const n = t.section || Ee(t.commandName), { target: i } = xe(n, t.participantId, this.config);
+    const n = t.section || xe(t.commandName), { target: i } = Se(n, t.participantId, this.config);
     if (!i)
       return;
     const a = document.querySelector(
       `[data-inline-status="${t.correlationId}"]`
     );
     if (a)
-      Te(a, t);
+      Ae(a, t);
     else {
-      const s = Ae(t, t.correlationId);
+      const s = Ee(t, t.correlationId);
       s.setAttribute("data-status-timestamp", String(t.timestamp)), this.insertStatusElement(i, s);
     }
     t.state === "completed" && this.config.completedClearDelay > 0 ? this.scheduleRemoval(t.correlationId, this.config.completedClearDelay) : t.state === "failed" && this.config.failedClearDelay > 0 && this.scheduleRemoval(t.correlationId, this.config.failedClearDelay);
@@ -614,7 +615,7 @@ class Me {
    * Clear all statuses and timers
    */
   clear() {
-    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Ce();
+    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Re();
   }
   /**
    * Clear completed/failed statuses that may have lingered
@@ -629,7 +630,7 @@ class Me {
    * Called after a fragment refresh to clean up stale statuses
    */
   reconcileAfterRefresh() {
-    this.clearTerminalStatuses(), ke(1e3);
+    this.clearTerminalStatuses(), Ce(1e3);
   }
   insertStatusElement(e, t) {
     const n = e.querySelector("[data-live-status-insert]");
@@ -648,7 +649,7 @@ class Me {
   scheduleRemoval(e, t) {
     this.clearTimer(e);
     const n = setTimeout(() => {
-      Re(e), this.clearTimers.delete(e);
+      Te(e), this.clearTimers.delete(e);
     }, t);
     this.clearTimers.set(e, n);
   }
@@ -657,12 +658,8 @@ class Me {
     t && (clearTimeout(t), this.clearTimers.delete(e));
   }
 }
-function W(r) {
-  const e = document.createElement("div");
-  return e.textContent = r, e.innerHTML;
-}
-function Le(r) {
-  return new Me(r);
+function Me(r) {
+  return new ke(r);
 }
 const H = {
   green: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" },
@@ -675,7 +672,7 @@ const H = {
   indigo: { bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-500" },
   cyan: { bg: "bg-cyan-100", text: "text-cyan-700", dot: "bg-cyan-500" },
   amber: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" }
-}, De = {
+}, Le = {
   label: "Event",
   icon: "info-circle",
   color: "gray",
@@ -793,7 +790,7 @@ const S = {
   agreement_voided: o("Agreement Voided", "cancel", "red", "lifecycle", 1),
   agreement_declined: o("Agreement Declined", "xmark", "orange", "lifecycle", 1),
   agreement_expired: o("Agreement Expired", "clock", "purple", "lifecycle", 1)
-}, Ie = {
+}, De = {
   // Underscore to dot conversions
   agreement_created: "agreement.created",
   agreement_updated: "agreement.updated",
@@ -812,7 +809,7 @@ const S = {
 };
 function x(r) {
   const e = String(r || "").trim().toLowerCase();
-  return Ie[e] || e;
+  return De[e] || e;
 }
 function w(r) {
   const e = x(r);
@@ -820,17 +817,17 @@ function w(r) {
     return S[e];
   if (S[r])
     return S[r];
-  const t = Be(r);
+  const t = Ie(r);
   return {
-    ...De,
+    ...Le,
     label: t
   };
 }
-function Be(r) {
+function Ie(r) {
   const e = String(r || "").trim();
   return e && e.replace(/[._]/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, (t) => t.toUpperCase()).trim() || "Event";
 }
-function K(r) {
+function W(r) {
   return H[r] || H.gray;
 }
 function St(r) {
@@ -839,7 +836,7 @@ function St(r) {
 function xt(r) {
   return w(r).groupable;
 }
-const M = 3, $e = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, Ne = /^[0-9a-f]{24,32}$/i, Pe = /* @__PURE__ */ new Set([
+const M = 3, Be = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, $e = /^[0-9a-f]{24,32}$/i, Ne = /* @__PURE__ */ new Set([
   "correlation_id",
   "correlationid",
   "session_id",
@@ -850,7 +847,7 @@ const M = 3, $e = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   "spanid",
   "request_id",
   "requestid"
-]), He = [
+]), Pe = [
   "status",
   "result",
   "guard_policy",
@@ -859,7 +856,7 @@ const M = 3, $e = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   "decision_status",
   "state",
   "outcome"
-], Fe = /* @__PURE__ */ new Set([
+], He = /* @__PURE__ */ new Set([
   "participant_id",
   "recipient_id",
   "signer_id",
@@ -869,7 +866,7 @@ const M = 3, $e = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   "thread_id",
   "reviewer_id",
   "actor_id"
-]), qe = {
+]), Fe = {
   user: "Sender",
   sender: "Sender",
   reviewer: "Reviewer",
@@ -879,7 +876,7 @@ const M = 3, $e = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   system: "System",
   admin: "Admin",
   automation: "Automation"
-}, Ue = {
+}, qe = {
   user: "#2563eb",
   sender: "#2563eb",
   reviewer: "#7c3aed",
@@ -894,7 +891,7 @@ function g(r) {
   if (!r || typeof r != "string")
     return !1;
   const e = r.trim();
-  return $e.test(e) || Ne.test(e);
+  return Be.test(e) || $e.test(e);
 }
 function b(r, e) {
   const t = String(r || "").trim(), n = String(e || "").trim();
@@ -902,13 +899,13 @@ function b(r, e) {
 }
 function L(r) {
   const e = String(r || "").trim().toLowerCase();
-  return qe[e] || (e ? e.replace(/_/g, " ").replace(/\b\w/g, (t) => t.toUpperCase()) : "Participant");
+  return Fe[e] || (e ? e.replace(/_/g, " ").replace(/\b\w/g, (t) => t.toUpperCase()) : "Participant");
 }
-function Y(r) {
+function K(r) {
   const e = String(r || "").trim().toLowerCase();
-  return Ue[e] || "#64748b";
+  return qe[e] || "#64748b";
 }
-function X(r, e = "P") {
+function Y(r, e = "P") {
   const t = String(r || "").trim();
   return t ? t.split(/\s+/).map((i) => i[0] || "").join("").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 2) || String(e || "P").trim().slice(0, 2).toUpperCase() || "P" : String(e || "P").trim().slice(0, 2).toUpperCase() || "P";
 }
@@ -929,46 +926,46 @@ function D(r, e) {
     return i === t || a === t;
   }) || null;
 }
-function Z(r, e) {
+function X(r, e) {
   if (!e)
     return null;
   const t = String(e).trim();
   return r.fieldDefinitions.find((n) => String(n.id || "").trim() === t) || null;
 }
-function ze(r, e) {
+function Ue(r, e) {
   const t = String(e.actor_type || "").trim(), n = String(e.actor_id || "").trim(), i = [];
   t === "recipient" || t === "signer" ? i.push(b("recipient", n), b("signer", n)) : t === "user" || t === "sender" ? i.push(b("user", n), b("sender", n)) : t === "reviewer" || t === "external" ? i.push(b("reviewer", n), b("external", n)) : i.push(b(t, n));
   const a = i.map((A) => r.actors[A]).find(Boolean) || {}, s = String(a.display_name || a.name || "").trim(), c = String(a.email || "").trim(), l = D(r, n), d = l ? String(l.display_name || l.name || "").trim() : "", u = l ? String(l.email || "").trim() : "", m = r.currentUserId && n === r.currentUserId, f = L(a.role || a.actor_type || t);
   let h = "";
   s && !g(s) ? h = s : c && !g(c) ? h = c : d && !g(d) ? h = d : u && !g(u) ? h = u : m ? h = "You" : f ? h = f : h = "Unknown User";
-  const p = String(a.role || a.actor_type || t || "participant").trim() || "participant", v = String(a.actor_type || t).trim();
+  const p = String(a.role || a.actor_type || t || "participant").trim() || "participant", y = String(a.actor_type || t).trim();
   return {
     name: h,
     role: p,
-    actor_type: v,
+    actor_type: y,
     email: c || u || void 0,
-    initials: X(h, f),
-    color: Y(v)
+    initials: Y(h, f),
+    color: K(y)
   };
+}
+function ze(r) {
+  const e = r.toLowerCase();
+  return !!(Ne.has(e) || e.startsWith("_"));
 }
 function Oe(r) {
   const e = r.toLowerCase();
-  return !!(Pe.has(e) || e.startsWith("_"));
-}
-function je(r) {
-  const e = r.toLowerCase();
-  return He.some((t) => e.includes(t));
+  return Pe.some((t) => e.includes(t));
 }
 function I(r) {
   return r.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-function Ve(r, e, t) {
+function je(r, e, t) {
   if (t == null)
     return { displayValue: "-", isResolved: !1 };
   if (typeof t == "object")
     return { displayValue: "[Complex Data]", isResolved: !1 };
   const n = String(t).trim();
-  if (Fe.has(e.toLowerCase())) {
+  if (He.has(e.toLowerCase())) {
     if (e.toLowerCase().includes("participant") || e.toLowerCase().includes("recipient") || e.toLowerCase().includes("signer")) {
       const i = D(r, n);
       if (i) {
@@ -980,7 +977,7 @@ function Ve(r, e, t) {
       }
     }
     if (e.toLowerCase().includes("field")) {
-      const i = Z(r, n);
+      const i = X(r, n);
       if (i) {
         const a = String(i.label || "").trim(), s = String(i.type || "").trim();
         if (a && !g(a))
@@ -994,25 +991,25 @@ function Ve(r, e, t) {
   }
   return g(n) ? { displayValue: "", isResolved: !1 } : { displayValue: n, isResolved: !1 };
 }
-function Ge(r, e) {
+function Ve(r, e) {
   const t = e.metadata || {}, n = [];
   for (const [i, a] of Object.entries(t)) {
-    if (Oe(i))
+    if (ze(i))
       continue;
-    const { displayValue: s, isResolved: c } = Ve(r, i, a);
+    const { displayValue: s, isResolved: c } = je(r, i, a);
     s && n.push({
       key: i,
       displayKey: I(i),
       value: a,
       displayValue: s,
-      isBadge: je(i),
+      isBadge: Oe(i),
       isHidden: !1
     });
   }
   return n;
 }
 function Et(r, e) {
-  const t = Z(r, e);
+  const t = X(r, e);
   if (!t)
     return null;
   const n = String(t.label || "").trim();
@@ -1031,24 +1028,24 @@ function At(r, e) {
   const i = String(t.email || "").trim();
   return i && !g(i) ? i : null;
 }
-const Je = 5 * 60 * 1e3, We = 20;
-function Ke(r, e = !1) {
+const Ge = 5 * 60 * 1e3, Je = 20;
+function We(r, e = !1) {
   return [...r].sort((t, n) => {
     const i = new Date(t.created_at || 0).getTime(), a = new Date(n.created_at || 0).getTime();
     return e ? i - a : a - i;
   });
 }
-function Ye(r, e) {
+function Ke(r, e) {
   const t = x(r.event_type), n = x(e.event_type);
   if (t !== n || !w(t).groupable)
     return !1;
   const a = new Date(r.created_at || 0).getTime(), s = new Date(e.created_at || 0).getTime();
-  return !(Math.abs(a - s) > Je);
+  return !(Math.abs(a - s) > Ge);
 }
-function Xe(r, e) {
+function Ye(r, e) {
   return e === "all" ? !0 : w(r.event_type).priority <= M;
 }
-function Ze(r, e) {
+function Xe(r, e) {
   const t = [];
   let n = [], i = "";
   const a = () => {
@@ -1079,7 +1076,7 @@ function Ze(r, e) {
     }
   };
   for (const s of r) {
-    if (!Xe(s, e))
+    if (!Ye(s, e))
       continue;
     const c = x(s.event_type), l = w(c);
     if (!l.groupable) {
@@ -1098,12 +1095,12 @@ function Ze(r, e) {
       });
       continue;
     }
-    n.length === 0 ? (n.push(s), i = c) : i === c && n.length < We && Ye(n[n.length - 1], s) ? n.push(s) : (a(), n.push(s), i = c);
+    n.length === 0 ? (n.push(s), i = c) : i === c && n.length < Je && Ke(n[n.length - 1], s) ? n.push(s) : (a(), n.push(s), i = c);
   }
   return a(), t;
 }
-function Qe(r, e) {
-  const t = Ke(r, !1), n = Ze(t, e);
+function Ze(r, e) {
+  const t = We(r, !1), n = Xe(t, e);
   let i = 0, a = 0, s = 0;
   for (const l of n)
     l.type === "event" ? i++ : l.type === "group" && l.group && (a++, s += l.group.events.length, i += l.group.events.length);
@@ -1119,7 +1116,7 @@ function Qe(r, e) {
     }
   };
 }
-function et(r) {
+function Qe(r) {
   const e = /* @__PURE__ */ new Date(), t = new Date(e);
   return t.setDate(t.getDate() - 1), r.toDateString() === e.toDateString() ? "Today" : r.toDateString() === t.toDateString() ? "Yesterday" : r.toLocaleDateString(void 0, {
     weekday: "long",
@@ -1127,7 +1124,7 @@ function et(r) {
     day: "numeric"
   });
 }
-function tt(r) {
+function et(r) {
   const e = /* @__PURE__ */ new Map();
   for (const t of r) {
     let n;
@@ -1140,7 +1137,7 @@ function tt(r) {
     const i = new Date(n), a = i.toLocaleDateString();
     e.has(a) || e.set(a, {
       dateKey: a,
-      dateLabel: et(i),
+      dateLabel: Qe(i),
       items: []
     }), e.get(a).items.push(t);
   }
@@ -1169,12 +1166,8 @@ function B(r) {
     return r;
   }
 }
-function y(r) {
-  const e = document.createElement("div");
-  return e.textContent = r, e.innerHTML;
-}
-function rt(r) {
-  const e = y(r.displayKey), t = y(r.displayValue);
+function tt(r) {
+  const e = v(r.displayKey), t = v(r.displayValue);
   return r.isBadge ? `
       <div class="flex items-center gap-1.5">
         <span class="text-gray-500">${e}:</span>
@@ -1187,11 +1180,11 @@ function rt(r) {
     </div>
   `;
 }
-function nt(r, e) {
-  const t = Ge(e, r);
+function rt(r, e) {
+  const t = Ve(e, r);
   if (t.length === 0)
     return "";
-  const n = y(r.id), i = t.map(rt).join("");
+  const n = v(r.id), i = t.map(tt).join("");
   return `
     <button type="button" class="timeline-meta-toggle mt-2 text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
             aria-expanded="false" data-event-id="${n}">
@@ -1205,8 +1198,8 @@ function nt(r, e) {
     </div>
   `;
 }
-function Q(r, e, t = !1) {
-  const n = w(r.event_type), i = K(n.color), a = ze(e, r), s = B(r.created_at), c = E(r.created_at), l = nt(r, e), d = y(r.id), u = y(a.name), m = y(n.label);
+function Z(r, e, t = !1) {
+  const n = w(r.event_type), i = W(n.color), a = Ue(e, r), s = B(r.created_at), c = E(r.created_at), l = rt(r, e), d = v(r.id), u = v(a.name), m = v(n.label);
   return `
     <div class="timeline-entry relative pl-8 pb-6 ${t ? "last:pb-0" : ""}" role="listitem" data-event-id="${d}">
       <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${i.dot} ring-4 ring-white" aria-hidden="true"></div>
@@ -1225,15 +1218,15 @@ function Q(r, e, t = !1) {
             ${l}
           </div>
           <div class="text-right flex-shrink-0">
-            <div class="text-xs text-gray-500" title="${y(c)}">${y(s)}</div>
+            <div class="text-xs text-gray-500" title="${v(c)}">${v(s)}</div>
           </div>
         </div>
       </div>
     </div>
   `;
 }
-function it(r, e) {
-  const t = r.config, n = K(t.color), i = r.events.length, a = B(r.endTime), s = E(r.endTime), c = y(t.label), l = `group-${r.events[0]?.id || Date.now()}`;
+function nt(r, e) {
+  const t = r.config, n = W(t.color), i = r.events.length, a = B(r.endTime), s = E(r.endTime), c = v(t.label), l = `group-${r.events[0]?.id || Date.now()}`;
   return `
     <div class="timeline-group relative pl-8 pb-6" role="listitem" data-group-id="${l}">
       <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${n.dot} ring-4 ring-white" aria-hidden="true"></div>
@@ -1258,7 +1251,7 @@ function it(r, e) {
             </button>
           </div>
           <div class="text-right flex-shrink-0">
-            <div class="text-xs text-gray-500" title="${y(s)}">${y(a)}</div>
+            <div class="text-xs text-gray-500" title="${v(s)}">${v(a)}</div>
           </div>
         </div>
         <div class="timeline-group-content hidden mt-3 pt-3 border-t border-gray-100" data-group-content="${l}">
@@ -1268,14 +1261,14 @@ function it(r, e) {
     </div>
   `;
 }
-function at(r, e, t = !1) {
-  return r.type === "event" && r.event ? Q(r.event, e, t) : r.type === "group" && r.group ? it(r.group) : "";
+function it(r, e, t = !1) {
+  return r.type === "event" && r.event ? Z(r.event, e, t) : r.type === "group" && r.group ? nt(r.group) : "";
 }
-function st(r, e) {
-  const t = r.items.map((n, i) => at(n, e, i === r.items.length - 1)).join("");
+function at(r, e) {
+  const t = r.items.map((n, i) => it(n, e, i === r.items.length - 1)).join("");
   return `
     <div class="mb-6">
-      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pl-8">${y(r.dateLabel)}</div>
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pl-8">${v(r.dateLabel)}</div>
       ${t}
     </div>
   `;
@@ -1291,7 +1284,7 @@ function q() {
     </div>
   `;
 }
-function ot(r) {
+function st(r) {
   return `
     <div class="text-center py-8 text-gray-500">
       <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1302,7 +1295,7 @@ function ot(r) {
     </div>
   `;
 }
-function ct() {
+function ot() {
   return `
     <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
       <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
@@ -1320,7 +1313,7 @@ function U(r, e) {
     </div>
   `;
 }
-function lt(r) {
+function ct(r) {
   const e = r === "condensed";
   return `
     <div class="timeline-view-toggle flex items-center gap-2 text-sm">
@@ -1333,15 +1326,15 @@ function lt(r) {
     </div>
   `;
 }
-function dt(r, e, t, n) {
+function lt(r, e, t, n) {
   if (t.totalEvents === 0)
     return q();
   if (t.visibleEvents === 0)
     return t.hiddenEvents > 0 && n === "condensed" ? `
-        ${ot(t.hiddenEvents)}
+        ${st(t.hiddenEvents)}
         ${U(t.hiddenEvents, n)}
       ` : q();
-  const i = r.map((s) => st(s, e)).join(""), a = U(t.hiddenEvents, n);
+  const i = r.map((s) => at(s, e)).join(""), a = U(t.hiddenEvents, n);
   return `
     <div class="relative">
       ${i}
@@ -1349,7 +1342,7 @@ function dt(r, e, t, n) {
     ${a}
   `;
 }
-function ee(r) {
+function Q(r) {
   r.querySelectorAll(".timeline-meta-toggle").forEach((e) => {
     e.addEventListener("click", () => {
       const t = e.getAttribute("data-event-id");
@@ -1363,7 +1356,7 @@ function ee(r) {
     });
   });
 }
-function ut(r, e, t) {
+function dt(r, e, t) {
   r.querySelectorAll(".timeline-group-toggle").forEach((n) => {
     n.addEventListener("click", () => {
       const i = n.getAttribute("data-group-id");
@@ -1381,14 +1374,14 @@ function ut(r, e, t) {
       `, !s && a.children.length === 0) {
         const l = t(i);
         if (l) {
-          const d = l.events.map((u, m) => Q(u, e, m === l.events.length - 1)).join("");
-          a.innerHTML = d, ee(a);
+          const d = l.events.map((u, m) => Z(u, e, m === l.events.length - 1)).join("");
+          a.innerHTML = d, Q(a);
         }
       }
     });
   });
 }
-class te {
+class ee {
   constructor(e) {
     this.container = null, this.refreshBtn = null, this.viewToggle = null, this.viewMode = "condensed", this.processedItems = [], this.dateGroups = [], this.stats = {
       totalEvents: 0,
@@ -1444,21 +1437,21 @@ class te {
   render() {
     if (!this.container)
       return;
-    const e = this.bootstrap.events || [], { items: t, stats: n } = Qe(e, this.viewMode);
-    this.processedItems = t, this.stats = n, this.dateGroups = tt(t), this.groupMap.clear();
+    const e = this.bootstrap.events || [], { items: t, stats: n } = Ze(e, this.viewMode);
+    this.processedItems = t, this.stats = n, this.dateGroups = et(t), this.groupMap.clear();
     for (const s of t)
       if (s.type === "group" && s.group) {
         const c = `group-${s.group.events[0]?.id || Date.now()}`;
         this.groupMap.set(c, s.group);
       }
-    const i = dt(this.dateGroups, this.resolverContext, n, this.viewMode);
-    this.container.innerHTML = i, ee(this.container), ut(
+    const i = lt(this.dateGroups, this.resolverContext, n, this.viewMode);
+    this.container.innerHTML = i, Q(this.container), dt(
       this.container,
       this.resolverContext,
       (s) => this.groupMap.get(s)
     );
     const a = this.container.querySelector(".timeline-show-all-btn");
-    a && a.addEventListener("click", () => this.setViewMode("all")), this.viewToggle && (this.viewToggle.innerHTML = lt(this.viewMode), this.wireViewToggle());
+    a && a.addEventListener("click", () => this.setViewMode("all")), this.viewToggle && (this.viewToggle.innerHTML = ct(this.viewMode), this.wireViewToggle());
   }
   /**
    * Wire up view mode toggle buttons
@@ -1475,7 +1468,7 @@ class te {
    * Show loading state
    */
   showLoading() {
-    this.container && (this.container.innerHTML = ct());
+    this.container && (this.container.innerHTML = ot());
   }
   /**
    * Refresh timeline data
@@ -1557,7 +1550,7 @@ class te {
   }
 }
 function Rt(r) {
-  const e = new te(r);
+  const e = new ee(r);
   return e.init(), e;
 }
 function Ct(r, e) {
@@ -1585,7 +1578,7 @@ function Ct(r, e) {
     return console.warn(`Failed to parse ${r}:`, i), n;
   }
 }
-function mt(r, e) {
+function ut(r, e) {
   if (!e || typeof e != "object")
     return r;
   const t = {
@@ -1609,7 +1602,7 @@ function T(r, e, t = document) {
     return r;
   try {
     const i = JSON.parse(n.textContent);
-    return mt(r, i);
+    return ut(r, i);
   } catch (i) {
     return console.warn(`Failed to parse ${e}:`, i), r;
   }
@@ -1639,10 +1632,10 @@ function C(r, e, t, n = document) {
     return console.warn(`Failed to parse ${r}:`, s), T(i, e, n);
   }
 }
-function pt(r) {
+function mt(r) {
   return E(r);
 }
-function gt(r) {
+function pt(r) {
   return B(r);
 }
 function z(r = document) {
@@ -1650,13 +1643,13 @@ function z(r = document) {
     if (e.classList.contains("recipient-timestamp"))
       return;
     const t = e.getAttribute("data-timestamp");
-    t && (e.textContent = pt(t));
+    t && (e.textContent = mt(t));
   }), r.querySelectorAll(".recipient-timestamp").forEach((e) => {
     const t = e.getAttribute("data-timestamp");
-    t && (e.textContent = gt(t));
+    t && (e.textContent = pt(t));
   });
 }
-function ft(r = document) {
+function gt(r = document) {
   r.addEventListener("click", (e) => {
     const t = e.target;
     if (!(t instanceof Element))
@@ -1686,7 +1679,7 @@ function _(r, e) {
   const t = String(r || "").trim(), n = String(e || "").trim();
   return !t || !n ? "" : `${t}:${n}`;
 }
-function ht(r, e) {
+function ft(r, e) {
   if (!e)
     return null;
   const t = String(e).trim();
@@ -1698,17 +1691,17 @@ function ht(r, e) {
 function R(r, e, t) {
   const n = t.actor_map && typeof t.actor_map == "object" ? t.actor_map : {}, i = Array.isArray(t.participants) ? t.participants : [], a = String(r || "").trim(), s = String(e || "").trim(), c = [];
   a === "recipient" || a === "signer" ? c.push(_("recipient", e), _("signer", e)) : a === "user" || a === "sender" ? c.push(_("user", e), _("sender", e)) : a === "reviewer" || a === "external" ? c.push(_("reviewer", e), _("external", e)) : c.push(_(a, e));
-  const l = c.map((A) => n[A]).find(Boolean) || {}, d = String(l.display_name || l.name || "").trim(), u = String(l.email || "").trim(), m = ht(i, s), f = m ? String(m.display_name || m.name || "").trim() : "", h = m ? String(m.email || "").trim() : "", p = L(l.role || l.actor_type || a);
-  let v = "";
-  return d && !g(d) ? v = d : u && !g(u) ? v = u : f && !g(f) ? v = f : h && !g(h) ? v = h : p ? v = p : v = "Unknown User", {
-    name: v,
+  const l = c.map((A) => n[A]).find(Boolean) || {}, d = String(l.display_name || l.name || "").trim(), u = String(l.email || "").trim(), m = ft(i, s), f = m ? String(m.display_name || m.name || "").trim() : "", h = m ? String(m.email || "").trim() : "", p = L(l.role || l.actor_type || a);
+  let y = "";
+  return d && !g(d) ? y = d : u && !g(u) ? y = u : f && !g(f) ? y = f : h && !g(h) ? y = h : p ? y = p : y = "Unknown User", {
+    name: y,
     role: String(l.role || l.actor_type || a || "participant").trim() || "participant",
     actor_type: String(l.actor_type || a).trim()
   };
 }
 function O(r) {
   document.querySelectorAll("[data-review-actor-avatar]").forEach((e) => {
-    const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r), a = Y(i.actor_type), s = X(i.name, i.role);
+    const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r), a = K(i.actor_type), s = Y(i.name, i.role);
     e.textContent = s, e.style.backgroundColor = a, e.style.color = "#ffffff";
   }), document.querySelectorAll("[data-review-actor-name]").forEach((e) => {
     const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r);
@@ -1718,7 +1711,7 @@ function O(r) {
     e.textContent = L(i.role || i.actor_type);
   });
 }
-function vt(r, e, t = document) {
+function ht(r, e, t = document) {
   const n = t.querySelector(`#${r}`);
   if (!n?.textContent)
     return e;
@@ -1740,7 +1733,7 @@ const j = {
   override_at: "",
   actor_map: {},
   participants: []
-}, yt = {
+}, vt = {
   review_status: ["#agreement-review-status-panel"],
   review_config: ["#agreement-review-configuration-panel", "#agreement-review-bootstrap"],
   participants: ["#review-participants-panel", "#agreement-participants-panel", "#participant-progress-panel"],
@@ -1749,7 +1742,7 @@ const j = {
   artifacts: ["#agreement-artifacts-panel", "#download-status-notice-static"],
   timeline: ["#agreement-timeline-bootstrap"]
 };
-class re {
+class te {
   constructor(e) {
     this.timelineController = null, this.commandRuntimeController = null, this.feedbackAdapter = null, this.inlineStatusManager = null, this.inlineStatusUnsubscribe = null, this.initialized = !1, this.clickHandler = (t) => {
       this.handleDocumentClick(t);
@@ -1761,7 +1754,7 @@ class re {
    * Initialize the page controller
    */
   init() {
-    this.initialized || (this.initialized = !0, this.hydrateReviewBootstrap(), z(), ft(), O(this.reviewBootstrap), this.initializeReviewWorkspace(), this.syncAgreementThreadAnchorFields(), this.initializeDeliveryState(), this.initInlineStatusManager(), this.initFeedbackAdapter(), this.initCommandRuntime(), this.feedbackAdapter?.start(), document.addEventListener("click", this.clickHandler), document.addEventListener("change", this.changeHandler), this.initTimeline());
+    this.initialized || (this.initialized = !0, this.hydrateReviewBootstrap(), z(), gt(), O(this.reviewBootstrap), this.initializeReviewWorkspace(), this.syncAgreementThreadAnchorFields(), this.initializeDeliveryState(), this.initInlineStatusManager(), this.initFeedbackAdapter(), this.initCommandRuntime(), this.feedbackAdapter?.start(), document.addEventListener("click", this.clickHandler), document.addEventListener("change", this.changeHandler), this.initTimeline());
   }
   /**
    * Initialize the timeline controller
@@ -1774,7 +1767,7 @@ class re {
         agreement_id: this.config.agreementId
       }
     );
-    this.timelineController = new te({
+    this.timelineController = new ee({
       containerId: "agreement-timeline",
       refreshButtonId: "timeline-refresh",
       viewToggleId: "timeline-view-toggle",
@@ -1789,7 +1782,7 @@ class re {
    * Hydrate review bootstrap from JSON script
    */
   hydrateReviewBootstrap(e = document) {
-    const t = vt(
+    const t = ht(
       "agreement-review-bootstrap",
       j,
       e
@@ -1950,7 +1943,7 @@ class re {
     n && i && (n.textContent = i.textContent || "");
   }
   initInlineStatusManager() {
-    this.inlineStatusManager = Le({
+    this.inlineStatusManager = Me({
       completedClearDelay: 3e3,
       failedClearDelay: 8e3,
       usePageFallback: !0
@@ -1958,12 +1951,12 @@ class re {
   }
   initFeedbackAdapter() {
     const e = String(this.config.feedback?.sseEndpoint || "").trim();
-    this.feedbackAdapter?.stop(), this.feedbackAdapter = e ? new be(e) : null;
+    this.feedbackAdapter?.stop(), this.feedbackAdapter = e ? new we(e) : null;
   }
   resolveLiveSelectors(e) {
     const t = /* @__PURE__ */ new Set();
     return e.forEach((n) => {
-      (yt[n] || []).forEach((i) => {
+      (vt[n] || []).forEach((i) => {
         t.add(i);
       });
     }), Array.from(t);
@@ -2005,7 +1998,7 @@ class re {
   }
   initCommandRuntime() {
     const e = document.getElementById("agreement-review-command-region");
-    e && (this.inlineStatusUnsubscribe?.(), this.commandRuntimeController?.destroy(), this.commandRuntimeController = ne({
+    e && (this.inlineStatusUnsubscribe?.(), this.commandRuntimeController?.destroy(), this.commandRuntimeController = re({
       mount: e,
       apiBasePath: this.config.apiBasePath,
       panelName: this.panelName,
@@ -2028,13 +2021,13 @@ class re {
   async executeAction(e, t = {}) {
     const n = this.buildScopedURL(
       `${this.config.apiBasePath}/panels/${this.panelName}/actions/${e}`
-    ), i = await ie(
+    ), i = await ne(
       n,
       { id: this.config.agreementId, ...t },
       { credentials: "same-origin" }
     );
     if (!i.success || i.error) {
-      const a = ae(i.error || {
+      const a = ie(i.error || {
         textCode: null,
         message: `${e} failed`,
         metadata: null,
@@ -2232,9 +2225,9 @@ class re {
           `${this.config.agreementId}-certificate.pdf`,
           "Standalone audit certificate"
         ), this.showDownloadNotice("Standalone audit certificate downloaded successfully.", "success");
-      } catch (v) {
+      } catch (y) {
         this.showDownloadNotice(
-          v instanceof Error ? v.message : "Unable to download standalone audit certificate.",
+          y instanceof Error ? y.message : "Unable to download standalone audit certificate.",
           "warning"
         );
       } finally {
@@ -2330,76 +2323,76 @@ class re {
 function kt(r) {
   if (!r)
     return console.warn("Agreement detail page config not provided"), null;
-  const e = new re(r);
+  const e = new te(r);
   return document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => e.init()) : e.init(), e;
 }
 function Mt(r) {
-  const e = new re(r);
+  const e = new te(r);
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => e.init()) : e.init(), window.__agreementDetailController = e;
 }
 function Lt() {
   return window.__agreementDetailController || null;
 }
 export {
-  te as $,
-  re as A,
-  Be as B,
+  ee as $,
+  te as A,
+  Ie as B,
   P as C,
   V as D,
   S as E,
-  K as F,
+  W as F,
   St as G,
   xt as H,
-  Me as I,
+  ke as I,
   b as J,
   L as K,
-  Y as L,
-  X as M,
+  K as L,
+  Y as M,
   F as N,
-  ze as O,
-  Se as P,
-  Ge as Q,
+  Ue as O,
+  _e as P,
+  Ve as Q,
   Et as R,
   N as S,
   H as T,
   At as U,
-  Qe as V,
-  tt as W,
+  Ze as V,
+  et as W,
   Tt as X,
-  et as Y,
-  dt as Z,
-  ot as _,
+  Qe as Y,
+  lt as Z,
+  st as _,
   z as a,
   Rt as a0,
   Ct as a1,
   C as a2,
-  mt as a3,
+  ut as a3,
   T as a4,
-  gt as a5,
+  pt as a5,
   Mt as b,
   R as c,
   O as d,
-  ht as e,
-  pt as f,
+  ft as e,
+  mt as f,
   Lt as g,
-  Le as h,
+  Me as h,
   kt as i,
-  xe as j,
-  Ee as k,
+  Se as j,
+  xe as k,
   g as l,
-  Ae as m,
-  Re as n,
-  Ce as o,
-  ke as p,
+  Ee as m,
+  Te as n,
+  Re as o,
+  Ce as p,
   G as q,
   _ as r,
-  vt as s,
-  _e as t,
-  Te as u,
+  ht as s,
+  be as t,
+  Ae as u,
   k as v,
-  ft as w,
-  De as x,
+  gt as w,
+  Le as x,
   M as y,
   w as z
 };
-//# sourceMappingURL=agreement-detail-BqJ_u1A1.js.map
+//# sourceMappingURL=agreement-detail-QzNEpIFm.js.map

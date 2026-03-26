@@ -1,22 +1,23 @@
-import { F as U } from "../chunks/toast-manager-DQTs-tOQ.js";
-import { executeStructuredRequest as nt, formatStructuredErrorForDisplay as G, createStructuredActionError as ae, isHandledActionError as T, getStructuredActionError as H, extractErrorMessage as Zt, executeActionRequest as Re, isTranslationBlocker as er, extractTranslationBlocker as tr } from "../toast/error-helpers.js";
-import { extractExchangeError as wl, generateExchangeReport as xl, groupRowResultsByStatus as Sl, isExchangeError as $l, parseImportResult as Cl } from "../toast/error-helpers.js";
-import { M as st, e as m, T as He } from "../chunks/modal-CI6l6KPp.js";
-import { b as ie, a as rr } from "../chunks/badge-CqKzZ9y5.js";
-import { p as le } from "../chunks/date-utils-Ch6PxlHn.js";
-import { r as nr } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { g as ot, r as V, a as sr, n as or, b as at, c as it, d as lt, e as ar, f as ct, h as dt, i as ir, j as ut } from "../chunks/translation-status-vocabulary-huaq_68y.js";
-import { C as Al, D as El, t as Ll, E as _l, q as Rl, s as Il, Q as Bl, F as Ml, B as Pl, y as Tl, u as Dl, z as Fl, H as ql, x as Ol, G as jl, w as zl, v as Nl, k as Hl, l as Gl, m as Ul, p as Vl, o as Kl, A as Jl } from "../chunks/translation-status-vocabulary-huaq_68y.js";
-import { h as L, r as lr } from "../chunks/http-client-DZnuedzQ.js";
-import { S as cr } from "../chunks/sortable.esm-DOKudrbz.js";
-import { e as dr, E as ur } from "../chunks/index-YiVxcMWC.js";
-let pr = class pt extends st {
+import { F as O } from "../chunks/toast-manager-BXE4J35T.js";
+import { executeStructuredRequest as Ue, formatStructuredErrorForDisplay as q, createStructuredActionError as W, isHandledActionError as R, getStructuredActionError as F, extractErrorMessage as qt, executeActionRequest as ve, isTranslationBlocker as Ot, extractTranslationBlocker as jt } from "../toast/error-helpers.js";
+import { extractExchangeError as nl, generateExchangeReport as sl, groupRowResultsByStatus as ol, isExchangeError as il, parseImportResult as al } from "../toast/error-helpers.js";
+import { M as He, T as Re } from "../chunks/modal-8-n6PAK8.js";
+import { escapeHTML as u, escapeAttribute as b } from "../shared/html.js";
+import { b as X, a as zt } from "../chunks/badge-CH1Zu3Xp.js";
+import { p as Z } from "../chunks/date-utils-Ch6PxlHn.js";
+import { r as Nt } from "../chunks/icon-renderer-FL11lsYV.js";
+import { g as Ve, r as j, a as Gt, n as Ut, b as Ke, c as Je, d as Ye, e as Ht, f as Qe, h as We, i as Vt, j as Xe } from "../chunks/translation-status-vocabulary-BA9o2n8M.js";
+import { C as cl, D as dl, t as ul, E as pl, q as hl, s as fl, Q as ml, F as gl, B as bl, y as yl, u as vl, z as wl, H as xl, x as Sl, G as Cl, w as $l, v as kl, k as Al, l as El, m as Ll, p as _l, o as Rl, A as Il } from "../chunks/translation-status-vocabulary-BA9o2n8M.js";
+import { h as $, r as Kt } from "../chunks/http-client-DZnuedzQ.js";
+import { S as Jt } from "../chunks/sortable.esm-DOKudrbz.js";
+import { e as Yt, E as Qt } from "../chunks/index-YiVxcMWC.js";
+let Wt = class Ze extends He {
   constructor(e, t, n) {
     super({ size: "md", initialFocus: "[data-payload-field]", lockBodyScroll: !1 }), this.resolved = !1, this.config = e, this.onConfirm = t, this.onCancel = n;
   }
   static prompt(e) {
     return new Promise((t) => {
-      new pt(
+      new Ze(
         e,
         (s) => t(s),
         () => t(null)
@@ -28,7 +29,7 @@ let pr = class pt extends st {
     return `
       <form class="flex flex-col" data-payload-form>
         <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">${m(this.config.title)}</h3>
+          <h3 class="text-lg font-semibold text-gray-900">${u(this.config.title)}</h3>
           <p class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
         </div>
         <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
@@ -38,12 +39,12 @@ let pr = class pt extends st {
           <button type="button"
                   data-payload-cancel
                   class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-            ${m(this.config.cancelLabel ?? "Cancel")}
+            ${u(this.config.cancelLabel ?? "Cancel")}
           </button>
           <button type="submit"
                   data-payload-confirm
                   class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 cursor-pointer">
-            ${m(this.config.confirmLabel ?? "Continue")}
+            ${u(this.config.confirmLabel ?? "Continue")}
           </button>
         </div>
       </form>
@@ -54,14 +55,14 @@ let pr = class pt extends st {
       this.clearErrors();
       const s = {};
       let o = null;
-      for (const a of this.config.fields) {
-        const i = this.container?.querySelector(
-          `[data-payload-field="${a.name}"]`
+      for (const i of this.config.fields) {
+        const a = this.container?.querySelector(
+          `[data-payload-field="${i.name}"]`
         );
-        if (!i)
+        if (!a)
           continue;
-        const l = i.value.trim();
-        s[a.name] = l, l || (o || (o = i), this.showFieldError(a.name, "This field is required."));
+        const l = a.value.trim();
+        s[i.name] = l, l || (o || (o = a), this.showFieldError(i.name, "This field is required."));
       }
       if (o) {
         o.focus();
@@ -79,11 +80,11 @@ let pr = class pt extends st {
     return this.resolved || (this.resolved = !0, this.onCancel()), !0;
   }
   renderField(e) {
-    const t = e.description ? `<p class="text-xs text-gray-500 mt-1">${m(e.description)}</p>` : "", n = e.options && e.options.length > 0 ? this.renderSelect(e) : this.renderInput(e);
+    const t = e.description ? `<p class="text-xs text-gray-500 mt-1">${u(e.description)}</p>` : "", n = e.options && e.options.length > 0 ? this.renderSelect(e) : this.renderInput(e);
     return `
       <div>
         <label class="block text-sm font-medium text-gray-800 mb-1.5" for="payload-field-${e.name}">
-          ${m(e.label)}
+          ${u(e.label)}
         </label>
         ${n}
         ${t}
@@ -93,8 +94,8 @@ let pr = class pt extends st {
   }
   renderSelect(e) {
     const t = e.value, s = (e.options || []).map((o) => {
-      const a = o.value === t ? " selected" : "";
-      return `<option value="${m(o.value)}"${a}>${m(o.label)}</option>`;
+      const i = o.value === t ? " selected" : "";
+      return `<option value="${u(o.value)}"${i}>${u(o.label)}</option>`;
     }).join("");
     return `
       <select id="payload-field-${e.name}"
@@ -113,14 +114,14 @@ let pr = class pt extends st {
                   data-payload-field="${e.name}"
                   rows="4"
                   class="${t}"
-                  placeholder="${e.type === "array" ? "[...]" : "{...}"}">${m(e.value)}</textarea>
+                  placeholder="${e.type === "array" ? "[...]" : "{...}"}">${u(e.value)}</textarea>
       `;
     const n = e.type === "integer" || e.type === "number" ? "number" : "text";
     return `
       <input id="payload-field-${e.name}"
              type="${n}"
              data-payload-field="${e.name}"
-             value="${m(e.value)}"
+             value="${u(e.value)}"
              class="${t}" />
     `;
   }
@@ -134,9 +135,9 @@ let pr = class pt extends st {
     n && (n.textContent = t, n.classList.remove("hidden"));
   }
 };
-class hr {
+class Xt {
   constructor(e = {}) {
-    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new U(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
+    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new O(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
   }
   /**
    * Render row actions as HTML
@@ -148,21 +149,21 @@ class hr {
       (o) => !o.condition || o.condition(e)
     );
     return n.length === 0 ? '<div class="flex justify-end gap-2"></div>' : `<div class="flex justify-end gap-2">${n.map((o) => {
-      const a = this.getVariantClass(o.variant || "secondary"), i = o.icon ? this.renderIcon(o.icon) : "", l = o.className || "", c = o.disabled === !0, d = this.getActionKey(o), u = c ? "opacity-50 cursor-not-allowed" : "", p = c ? 'aria-disabled="true"' : "", h = c && o.disabledReason ? `${d}-disabled-reason` : "", f = h ? `aria-describedby="${h}"` : "", y = c && o.disabledReason ? `${o.label} unavailable: ${o.disabledReason}` : o.label, v = h ? `<span id="${h}" class="sr-only">${this.escapeHtml(o.disabledReason || "Action unavailable")}</span>` : "", g = o.disabledReason ? `title="${this.escapeHtml(o.disabledReason)}"` : "";
+      const i = this.getVariantClass(o.variant || "secondary"), a = o.icon ? this.renderIcon(o.icon) : "", l = o.className || "", c = o.disabled === !0, d = this.getActionKey(o), p = c ? "opacity-50 cursor-not-allowed" : "", h = c ? 'aria-disabled="true"' : "", f = c && o.disabledReason ? `${d}-disabled-reason` : "", m = f ? `aria-describedby="${f}"` : "", y = c && o.disabledReason ? `${o.label} unavailable: ${o.disabledReason}` : o.label, v = f ? `<span id="${f}" class="sr-only">${u(o.disabledReason || "Action unavailable")}</span>` : "", g = o.disabledReason ? `title="${u(o.disabledReason)}"` : "";
       return `
         <button
           type="button"
-          class="btn btn-sm ${a} ${l} ${u}"
+          class="btn btn-sm ${i} ${l} ${p}"
           data-action-id="${this.sanitize(o.label)}"
           data-action-key="${d}"
           data-record-id="${e.id}"
           data-disabled="${c}"
-          ${p}
-          aria-label="${this.escapeHtml(y)}"
-          ${f}
+          ${h}
+          aria-label="${u(y)}"
+          ${m}
           ${g}
         >
-          ${i}
+          ${a}
           ${this.sanitize(o.label)}
         </button>
         ${v}
@@ -174,7 +175,7 @@ class hr {
    */
   renderRowActionsDropdown(e, t) {
     const n = t.filter(
-      (a) => !a.condition || a.condition(e)
+      (i) => !i.condition || i.condition(e)
     );
     if (n.length === 0)
       return '<div class="text-sm text-gray-400">No actions</div>';
@@ -204,24 +205,24 @@ class hr {
    */
   buildDropdownItems(e, t) {
     return t.map((n, s) => {
-      const o = n.variant === "danger", a = n.disabled === !0, i = this.getActionKey(n), l = n.icon ? this.renderIcon(n.icon) : "", c = this.shouldShowDivider(n, s, t), d = a ? (n.disabledReason || "Action unavailable").trim() : "", u = d ? `${i}-disabled-reason` : "", p = c ? '<div class="action-divider border-t border-gray-200 my-1"></div>' : "", h = a ? "action-item text-gray-400 cursor-not-allowed" : o ? "action-item text-red-600 hover:bg-red-50" : "action-item text-gray-700 hover:bg-gray-50", f = a ? 'aria-disabled="true"' : "", y = u ? `aria-describedby="${u}"` : "", v = d ? `${n.label} unavailable: ${d}` : n.label, g = n.disabledReason ? `title="${this.escapeHtml(n.disabledReason)}"` : "", $ = d ? `<span id="${u}" class="action-item-reason text-xs leading-5 text-gray-500">${this.escapeHtml(d)}</span>` : "";
+      const o = n.variant === "danger", i = n.disabled === !0, a = this.getActionKey(n), l = n.icon ? this.renderIcon(n.icon) : "", c = this.shouldShowDivider(n, s, t), d = i ? (n.disabledReason || "Action unavailable").trim() : "", p = d ? `${a}-disabled-reason` : "", h = c ? '<div class="action-divider border-t border-gray-200 my-1"></div>' : "", f = i ? "action-item text-gray-400 cursor-not-allowed" : o ? "action-item text-red-600 hover:bg-red-50" : "action-item text-gray-700 hover:bg-gray-50", m = i ? 'aria-disabled="true"' : "", y = p ? `aria-describedby="${p}"` : "", v = d ? `${n.label} unavailable: ${d}` : n.label, g = n.disabledReason ? `title="${u(n.disabledReason)}"` : "", x = d ? `<span id="${p}" class="action-item-reason text-xs leading-5 text-gray-500">${u(d)}</span>` : "";
       return `
-        ${p}
+        ${h}
         <button type="button"
-                class="${h} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
+                class="${f} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
                 data-action-id="${this.sanitize(n.label)}"
-                data-action-key="${i}"
+                data-action-key="${a}"
                 data-record-id="${e.id}"
-                data-disabled="${a}"
+                data-disabled="${i}"
                 role="menuitem"
-                ${f}
-                aria-label="${this.escapeHtml(v)}"
+                ${m}
+                aria-label="${u(v)}"
                 ${y}
                 ${g}>
           <span class="flex-shrink-0 w-5 h-5">${l}</span>
           <span class="flex min-w-0 flex-1 flex-col items-start">
-            <span class="text-sm font-medium">${this.escapeHtml(n.label)}</span>
-            ${$}
+            <span class="text-sm font-medium">${u(n.label)}</span>
+            ${x}
           </span>
         </button>
       `;
@@ -261,16 +262,16 @@ class hr {
       const o = this.getActionKey(s);
       e.querySelectorAll(
         `[data-action-key="${o}"]`
-      ).forEach((i) => {
-        const l = i, c = l.dataset.recordId, d = n[c];
-        d && l.addEventListener("click", async (u) => {
-          if (u.preventDefault(), !(l.getAttribute("aria-disabled") === "true" || l.dataset.disabled === "true"))
+      ).forEach((a) => {
+        const l = a, c = l.dataset.recordId, d = n[c];
+        d && l.addEventListener("click", async (p) => {
+          if (p.preventDefault(), !(l.getAttribute("aria-disabled") === "true" || l.dataset.disabled === "true"))
             try {
               await s.action(d);
-            } catch (p) {
-              console.error(`Action "${s.label}" failed:`, p);
-              const h = p instanceof Error ? p.message : `Action "${s.label}" failed`;
-              this.notifier.error(h);
+            } catch (h) {
+              console.error(`Action "${s.label}" failed:`, h);
+              const f = h instanceof Error ? h.message : `Action "${s.label}" failed`;
+              this.notifier.error(f);
             }
         });
       });
@@ -285,9 +286,9 @@ class hr {
     const n = document.createElement("span");
     n.className = "text-sm font-medium text-blue-900", n.id = "selected-count", n.textContent = "0 items selected", t.appendChild(n);
     const s = document.createElement("div");
-    s.className = "flex gap-2 flex-1", e.forEach((a) => {
-      const i = document.createElement("button");
-      i.type = "button", i.className = "btn btn-sm btn-primary", i.dataset.bulkAction = a.id, a.icon ? i.innerHTML = `${this.renderIcon(a.icon)} ${a.label}` : i.textContent = a.label, s.appendChild(i);
+    s.className = "flex gap-2 flex-1", e.forEach((i) => {
+      const a = document.createElement("button");
+      a.type = "button", a.className = "btn btn-sm btn-primary", a.dataset.bulkAction = i.id, i.icon ? a.innerHTML = `${this.renderIcon(i.icon)} ${i.label}` : a.textContent = i.label, s.appendChild(a);
     }), t.appendChild(s);
     const o = document.createElement("button");
     return o.type = "button", o.className = "btn btn-sm btn-secondary", o.id = "clear-selection-btn", o.textContent = "Clear Selection", t.appendChild(o), t;
@@ -308,23 +309,23 @@ class hr {
     const n = await this.resolveBulkActionPayload(e, t);
     if (n !== null)
       try {
-        const s = await nt(e.endpoint, {
+        const s = await Ue(e.endpoint, {
           method: e.method || "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json"
           },
           body: JSON.stringify(n)
-        }, async (a) => ({
+        }, async (i) => ({
           success: !0,
-          data: await a.json().catch(() => {
+          data: await i.json().catch(() => {
           })
         }));
         if (!s.success) {
-          const a = s.error, i = a ? G(a, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
-          throw e.onError || this.notifier.error(i), a ? ae(a, `Bulk action '${e.id}' failed`, !0) : ae({
+          const i = s.error, a = i ? q(i, `Bulk action '${e.id}' failed`) : `Bulk action '${e.id}' failed`;
+          throw e.onError || this.notifier.error(a), i ? W(i, `Bulk action '${e.id}' failed`, !0) : W({
             textCode: null,
-            message: i,
+            message: a,
             metadata: null,
             fields: null,
             validationErrors: null
@@ -333,7 +334,7 @@ class hr {
         const o = s.data;
         this.notifier.success(this.buildBulkSuccessMessage(e, o, t.length)), e.onSuccess && e.onSuccess(o);
       } catch (s) {
-        if (console.error(`Bulk action "${e.id}" failed:`, s), !e.onError && !T(s)) {
+        if (console.error(`Bulk action "${e.id}" failed:`, s), !e.onError && !R(s)) {
           const o = s instanceof Error ? s.message : "Bulk action failed";
           this.notifier.error(o);
         }
@@ -348,26 +349,26 @@ class hr {
     s?.properties && Object.entries(s.properties).forEach(([l, c]) => {
       n[l] === void 0 && c && c.default !== void 0 && (n[l] = c.default);
     });
-    const a = this.collectRequiredFields(e.payloadRequired, s).filter((l) => l !== "ids" && this.isEmptyPayloadValue(n[l]));
-    if (a.length === 0)
+    const i = this.collectRequiredFields(e.payloadRequired, s).filter((l) => l !== "ids" && this.isEmptyPayloadValue(n[l]));
+    if (i.length === 0)
       return n;
-    const i = await this.requestRequiredFields(e, a, s, n);
-    if (i === null)
+    const a = await this.requestRequiredFields(e, i, s, n);
+    if (a === null)
       return null;
-    for (const l of a) {
-      const c = s?.properties?.[l], d = i[l] ?? "", u = this.coercePromptValue(d, l, c);
-      if (u.error)
-        return this.notifier.error(u.error), null;
-      n[l] = u.value;
+    for (const l of i) {
+      const c = s?.properties?.[l], d = a[l] ?? "", p = this.coercePromptValue(d, l, c);
+      if (p.error)
+        return this.notifier.error(p.error), null;
+      n[l] = p.value;
     }
     return n;
   }
   collectRequiredFields(e, t) {
-    const n = [], s = /* @__PURE__ */ new Set(), o = (a) => {
-      const i = a.trim();
-      !i || s.has(i) || (s.add(i), n.push(i));
+    const n = [], s = /* @__PURE__ */ new Set(), o = (i) => {
+      const a = i.trim();
+      !a || s.has(a) || (s.add(a), n.push(a));
     };
-    return Array.isArray(e) && e.forEach((a) => o(String(a))), Array.isArray(t?.required) && t.required.forEach((a) => o(String(a))), n;
+    return Array.isArray(e) && e.forEach((i) => o(String(i))), Array.isArray(t?.required) && t.required.forEach((i) => o(String(i))), n;
   }
   normalizePayloadSchema(e) {
     if (!e || typeof e != "object")
@@ -383,18 +384,18 @@ class hr {
     };
   }
   async requestRequiredFields(e, t, n, s) {
-    const o = t.map((a) => {
-      const i = n?.properties?.[a], l = typeof i?.type == "string" ? i.type.toLowerCase() : "string";
+    const o = t.map((i) => {
+      const a = n?.properties?.[i], l = typeof a?.type == "string" ? a.type.toLowerCase() : "string";
       return {
-        name: a,
-        label: (i?.title || a).trim(),
-        description: (i?.description || "").trim() || void 0,
-        value: this.stringifyPromptDefault(s[a] !== void 0 ? s[a] : i?.default),
+        name: i,
+        label: (a?.title || i).trim(),
+        description: (a?.description || "").trim() || void 0,
+        value: this.stringifyPromptDefault(s[i] !== void 0 ? s[i] : a?.default),
         type: l,
-        options: this.buildSchemaOptions(i)
+        options: this.buildSchemaOptions(a)
       };
     });
-    return pr.prompt({
+    return Wt.prompt({
       title: `Complete ${e.label || e.id}`,
       fields: o
     });
@@ -437,14 +438,14 @@ class hr {
   }
   coercePromptValue(e, t, n) {
     if (Array.isArray(n?.oneOf) && n.oneOf.length > 0) {
-      const a = n.oneOf.find(
-        (i) => i && Object.prototype.hasOwnProperty.call(i, "const") && this.stringifyPromptDefault(i.const) === e
+      const i = n.oneOf.find(
+        (a) => a && Object.prototype.hasOwnProperty.call(a, "const") && this.stringifyPromptDefault(a.const) === e
       );
-      if (!a || !Object.prototype.hasOwnProperty.call(a, "const")) {
-        const i = n.oneOf.map((l) => typeof l?.title == "string" && l.title.trim() ? l.title.trim() : this.stringifyPromptDefault(l.const)).filter((l) => l !== "").join(", ");
-        return { value: e, error: `${t} must be one of: ${i}` };
+      if (!i || !Object.prototype.hasOwnProperty.call(i, "const")) {
+        const a = n.oneOf.map((l) => typeof l?.title == "string" && l.title.trim() ? l.title.trim() : this.stringifyPromptDefault(l.const)).filter((l) => l !== "").join(", ");
+        return { value: e, error: `${t} must be one of: ${a}` };
       }
-      return { value: a.const };
+      return { value: i.const };
     }
     const s = (n?.type || "string").toLowerCase();
     if (e === "")
@@ -452,26 +453,26 @@ class hr {
     let o = e;
     switch (s) {
       case "integer": {
-        const a = Number.parseInt(e, 10);
-        if (Number.isNaN(a))
+        const i = Number.parseInt(e, 10);
+        if (Number.isNaN(i))
           return { value: e, error: `${t} must be an integer.` };
-        o = a;
+        o = i;
         break;
       }
       case "number": {
-        const a = Number.parseFloat(e);
-        if (Number.isNaN(a))
+        const i = Number.parseFloat(e);
+        if (Number.isNaN(i))
           return { value: e, error: `${t} must be a number.` };
-        o = a;
+        o = i;
         break;
       }
       case "boolean": {
-        const a = e.toLowerCase();
-        if (["true", "1", "yes", "y", "on"].includes(a)) {
+        const i = e.toLowerCase();
+        if (["true", "1", "yes", "y", "on"].includes(i)) {
           o = !0;
           break;
         }
-        if (["false", "0", "no", "n", "off"].includes(a)) {
+        if (["false", "0", "no", "n", "off"].includes(i)) {
           o = !1;
           break;
         }
@@ -480,12 +481,12 @@ class hr {
       case "array":
       case "object": {
         try {
-          const a = JSON.parse(e);
-          if (s === "array" && !Array.isArray(a))
+          const i = JSON.parse(e);
+          if (s === "array" && !Array.isArray(i))
             return { value: e, error: `${t} must be a JSON array.` };
-          if (s === "object" && (a === null || Array.isArray(a) || typeof a != "object"))
+          if (s === "object" && (i === null || Array.isArray(i) || typeof i != "object"))
             return { value: e, error: `${t} must be a JSON object.` };
-          o = a;
+          o = i;
         } catch {
           return { value: e, error: `${t} must be valid JSON.` };
         }
@@ -494,14 +495,14 @@ class hr {
       default:
         o = e;
     }
-    return Array.isArray(n?.enum) && n.enum.length > 0 && !n.enum.some((i) => i === o || String(i) === String(o)) ? { value: o, error: `${t} must be one of: ${n.enum.map((i) => String(i)).join(", ")}` } : { value: o };
+    return Array.isArray(n?.enum) && n.enum.length > 0 && !n.enum.some((a) => a === o || String(a) === String(o)) ? { value: o, error: `${t} must be one of: ${n.enum.map((a) => String(a)).join(", ")}` } : { value: o };
   }
   isEmptyPayloadValue(e) {
     return e == null ? !0 : typeof e == "string" ? e.trim() === "" : Array.isArray(e) ? e.length === 0 : typeof e == "object" ? Object.keys(e).length === 0 : !1;
   }
   buildBulkSuccessMessage(e, t, n) {
-    const s = e.label || e.id || "Bulk action", o = t && typeof t == "object" ? t.summary : null, a = o && typeof o.succeeded == "number" ? o.succeeded : typeof t?.processed == "number" ? t.processed : n, i = o && typeof o.failed == "number" ? o.failed : 0;
-    return i > 0 ? `${s} completed: ${a} succeeded, ${i} failed.` : `${s} completed for ${a} item${a === 1 ? "" : "s"}.`;
+    const s = e.label || e.id || "Bulk action", o = t && typeof t == "object" ? t.summary : null, i = o && typeof o.succeeded == "number" ? o.succeeded : typeof t?.processed == "number" ? t.processed : n, a = o && typeof o.failed == "number" ? o.failed : 0;
+    return a > 0 ? `${s} completed: ${i} succeeded, ${a} failed.` : `${s} completed for ${i} item${i === 1 ? "" : "s"}.`;
   }
   getVariantClass(e) {
     return {
@@ -538,11 +539,8 @@ class hr {
   sanitize(e) {
     return e.toLowerCase().replace(/[^a-z0-9]/g, "-");
   }
-  escapeHtml(e) {
-    return String(e).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
 }
-function P(r) {
+function _(r) {
   const e = {
     requestedLocale: null,
     resolvedLocale: null,
@@ -554,49 +552,43 @@ function P(r) {
     entityType: null,
     recordId: null
   };
-  return !r || typeof r != "object" || (e.requestedLocale = O(r, [
+  return !r || typeof r != "object" || (e.requestedLocale = P(r, [
     "requested_locale"
-  ]), e.resolvedLocale = O(r, [
+  ]), e.resolvedLocale = P(r, [
     "resolved_locale",
     "locale"
-  ]), e.availableLocales = Sr(r, [
+  ]), e.availableLocales = ir(r, [
     "available_locales"
-  ]), e.missingRequestedLocale = Ue(r, [
+  ]), e.missingRequestedLocale = Be(r, [
     "missing_requested_locale"
-  ]), e.fallbackUsed = Ue(r, [
+  ]), e.fallbackUsed = Be(r, [
     "fallback_used"
-  ]), e.familyId = O(r, [
+  ]), e.familyId = P(r, [
     "family_id"
-  ]), e.status = O(r, ["status"]), e.entityType = O(r, ["entity_type", "type", "_type"]), e.recordId = O(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
+  ]), e.status = P(r, ["status"]), e.entityType = P(r, ["entity_type", "type", "_type"]), e.recordId = P(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
 }
-function Da(r) {
-  const e = P(r);
+function vi(r) {
+  const e = _(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
-function Fa(r) {
-  const e = P(r);
+function wi(r) {
+  const e = _(r);
   return e.familyId !== null || e.resolvedLocale !== null || e.availableLocales.length > 0;
 }
-function ht(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-function fr(r) {
-  return ht(r).replace(/"/g, "&quot;");
-}
-function M(r, e = {}, t = "neutral") {
+function L(r, e = {}, t = "neutral") {
   const n = r.trim();
   if (!n)
     return "";
   const { size: s = "sm", extraClass: o = "" } = e;
-  return `<span class="inline-flex items-center rounded-full border font-medium ${s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1"} ${t === "info" ? "bg-blue-50 text-blue-700 border-blue-200" : t === "warning" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-700 border-slate-200"} ${o}">${ht(n)}</span>`;
+  return `<span class="inline-flex items-center rounded-full border font-medium ${s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1"} ${t === "info" ? "bg-blue-50 text-blue-700 border-blue-200" : t === "warning" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-700 border-slate-200"} ${o}">${u(n)}</span>`;
 }
-function ft(r, e) {
+function et(r, e) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const t = r, n = t[e];
   return n && typeof n == "object" && !Array.isArray(n) ? n : t;
 }
-function N(r, e) {
+function D(r, e) {
   for (const t of e) {
     const n = r[t];
     if (typeof n == "string" && n.trim())
@@ -604,7 +596,7 @@ function N(r, e) {
   }
   return "";
 }
-function Se(r, e) {
+function pe(r, e) {
   for (const t of e) {
     const n = r[t];
     if (typeof n == "number" && Number.isFinite(n))
@@ -617,47 +609,47 @@ function Se(r, e) {
   }
   return null;
 }
-function mt(r) {
+function tt(r) {
   const e = typeof r.family_member_count == "number" ? Math.trunc(r.family_member_count) : Number(r.family_member_count);
   if (Number.isFinite(e) && e > 0)
     return Math.trunc(e);
-  const t = _(r);
+  const t = k(r);
   if (t.availableLocales.length > 0)
     return t.availableLocales.length;
-  const n = P(r);
+  const n = _(r);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
 }
-function qa(r, e = {}) {
+function xi(r, e = {}) {
   const t = typeof r.translation_family_url == "string" ? r.translation_family_url.trim() : "";
   if (!t)
     return '<span class="text-gray-400">-</span>';
-  const n = mt(r), s = n && n > 0 ? M(`${n} ${n === 1 ? "locale" : "locales"}`, e, "info") : "";
+  const n = tt(r), s = n && n > 0 ? L(`${n} ${n === 1 ? "locale" : "locales"}`, e, "info") : "";
   return `
     <div class="inline-flex items-center gap-2">
-      <a href="${fr(t)}" class="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline">View family</a>
+      <a href="${b(t)}" class="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline">View family</a>
       ${s}
     </div>
   `.trim();
 }
-function Oa(r, e = {}) {
-  const t = mt(r);
-  return !t || t <= 0 ? '<span class="text-gray-400">-</span>' : M(`${t} ${t === 1 ? "locale" : "locales"}`, e, "info");
+function Si(r, e = {}) {
+  const t = tt(r);
+  return !t || t <= 0 ? '<span class="text-gray-400">-</span>' : L(`${t} ${t === 1 ? "locale" : "locales"}`, e, "info");
 }
-function ja(r, e = {}) {
-  const t = ft(r, "translation_assignment_summary");
+function Ci(r, e = {}) {
+  const t = et(r, "translation_assignment_summary");
   if (!t)
     return '<span class="text-gray-400">-</span>';
-  const n = N(t, ["status"]), s = N(t, ["label"]), o = N(t, ["assignee_id"]), a = N(t, ["priority"]), i = Se(t, ["active_count", "open_count"]), l = [];
-  return n ? l.push(V(n, { domain: "queue", size: "sm", showIcon: !1 })) : s && l.push(M(s, e, "info")), i !== null && i >= 0 && l.push(M(`${i} active`, e, "neutral")), o && l.push(M(`@${o}`, e, "neutral")), a && l.push(M(a, e, a === "urgent" || a === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
+  const n = D(t, ["status"]), s = D(t, ["label"]), o = D(t, ["assignee_id"]), i = D(t, ["priority"]), a = pe(t, ["active_count", "open_count"]), l = [];
+  return n ? l.push(j(n, { domain: "queue", size: "sm", showIcon: !1 })) : s && l.push(L(s, e, "info")), a !== null && a >= 0 && l.push(L(`${a} active`, e, "neutral")), o && l.push(L(`@${o}`, e, "neutral")), i && l.push(L(i, e, i === "urgent" || i === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
-function za(r, e = {}) {
-  const t = ft(r, "translation_exchange_summary");
+function $i(r, e = {}) {
+  const t = et(r, "translation_exchange_summary");
   if (!t)
     return '<span class="text-gray-400">-</span>';
-  const n = N(t, ["status", "last_job_status"]), s = N(t, ["label", "last_job_label"]), o = Se(t, ["pending_count"]), a = Se(t, ["error_count"]), i = [];
-  return n ? i.push(V(n, { domain: "exchange", size: "sm", showIcon: !1 })) : s && i.push(M(s, e, "info")), o !== null && o >= 0 && i.push(M(`${o} pending`, e, "neutral")), a !== null && a > 0 && i.push(M(`${a} errors`, e, "warning")), i.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${i.join("")}</div>`;
+  const n = D(t, ["status", "last_job_status"]), s = D(t, ["label", "last_job_label"]), o = pe(t, ["pending_count"]), i = pe(t, ["error_count"]), a = [];
+  return n ? a.push(j(n, { domain: "exchange", size: "sm", showIcon: !1 })) : s && a.push(L(s, e, "info")), o !== null && o >= 0 && a.push(L(`${o} pending`, e, "neutral")), i !== null && i > 0 && a.push(L(`${i} errors`, e, "warning")), a.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${a.join("")}</div>`;
 }
-function _(r) {
+function k(r) {
   const e = {
     familyId: null,
     requiredLocales: [],
@@ -673,97 +665,97 @@ function _(r) {
     return e;
   const t = r.translation_readiness;
   if (t && typeof t == "object") {
-    e.hasReadinessMetadata = !0, e.familyId = O(r, [
+    e.hasReadinessMetadata = !0, e.familyId = P(r, [
       "translation_readiness.family_id",
       "family_id"
-    ]), e.requiredLocales = Array.isArray(t.required_locales) ? t.required_locales.filter((a) => typeof a == "string") : [], e.availableLocales = Array.isArray(t.available_locales) ? t.available_locales.filter((a) => typeof a == "string") : [], e.missingRequiredLocales = Array.isArray(t.missing_required_locales) ? t.missing_required_locales.filter((a) => typeof a == "string") : [];
+    ]), e.requiredLocales = Array.isArray(t.required_locales) ? t.required_locales.filter((i) => typeof i == "string") : [], e.availableLocales = Array.isArray(t.available_locales) ? t.available_locales.filter((i) => typeof i == "string") : [], e.missingRequiredLocales = Array.isArray(t.missing_required_locales) ? t.missing_required_locales.filter((i) => typeof i == "string") : [];
     const n = t.missing_required_fields_by_locale;
     if (n && typeof n == "object" && !Array.isArray(n))
-      for (const [a, i] of Object.entries(n))
-        Array.isArray(i) && (e.missingRequiredFieldsByLocale[a] = i.filter(
+      for (const [i, a] of Object.entries(n))
+        Array.isArray(a) && (e.missingRequiredFieldsByLocale[i] = a.filter(
           (l) => typeof l == "string"
         ));
     const s = t.readiness_state;
-    typeof s == "string" && mr(s) && (e.readinessState = s);
+    typeof s == "string" && Zt(s) && (e.readinessState = s);
     const o = t.ready_for_transition;
     if (o && typeof o == "object" && !Array.isArray(o))
-      for (const [a, i] of Object.entries(o))
-        typeof i == "boolean" && (e.readyForTransition[a] = i);
+      for (const [i, a] of Object.entries(o))
+        typeof a == "boolean" && (e.readyForTransition[i] = a);
     e.evaluatedChannel = typeof t.evaluated_channel == "string" ? t.evaluated_channel : null;
   }
   return e;
 }
-function Na(r) {
-  return _(r).hasReadinessMetadata;
+function ki(r) {
+  return k(r).hasReadinessMetadata;
 }
-function Ha(r, e) {
-  return _(r).readyForTransition[e] === !0;
+function Ai(r, e) {
+  return k(r).readyForTransition[e] === !0;
 }
-function mr(r) {
+function Zt(r) {
   return ["ready", "missing_locales", "missing_fields", "missing_locales_and_fields"].includes(r);
 }
-function gt(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { showFallbackIndicator: n = !0, size: s = "default", extraClass: o = "" } = e;
+function rt(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : _(r), { showFallbackIndicator: n = !0, size: s = "default", extraClass: o = "" } = e;
   if (!t.resolvedLocale)
     return "";
-  const a = t.resolvedLocale.toUpperCase(), i = t.fallbackUsed || t.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
-  return i && n ? `<span class="${c} bg-amber-100 text-amber-800 ${o}"
+  const i = t.resolvedLocale.toUpperCase(), a = t.fallbackUsed || t.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
+  return a && n ? `<span class="${c} bg-amber-100 text-amber-800 ${o}"
                   title="Showing ${t.resolvedLocale} content (${t.requestedLocale || "requested locale"} not available)"
-                  aria-label="Fallback locale: ${a}">
+                  aria-label="Fallback locale: ${i}">
       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
       </svg>
-      ${a}
+      ${i}
     </span>` : `<span class="${c} bg-blue-100 text-blue-800 ${o}"
-                title="Locale: ${a}"
-                aria-label="Locale: ${a}">
-    ${a}
+                title="Locale: ${i}"
+                aria-label="Locale: ${i}">
+    ${i}
   </span>`;
 }
-function gr(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { maxLocales: n = 3, size: s = "default" } = e;
+function er(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : _(r), { maxLocales: n = 3, size: s = "default" } = e;
   if (t.availableLocales.length === 0)
     return "";
-  const o = s === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", a = s === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", i = t.availableLocales.slice(0, n), l = t.availableLocales.length - n, c = i.map((u) => `<span class="${u === t.resolvedLocale ? `${a} rounded bg-blue-100 text-blue-700 font-medium` : `${a} rounded bg-gray-100 text-gray-600`}">${u.toUpperCase()}</span>`).join(""), d = l > 0 ? `<span class="${a} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
+  const o = s === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", i = s === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", a = t.availableLocales.slice(0, n), l = t.availableLocales.length - n, c = a.map((p) => `<span class="${p === t.resolvedLocale ? `${i} rounded bg-blue-100 text-blue-700 font-medium` : `${i} rounded bg-gray-100 text-gray-600`}">${p.toUpperCase()}</span>`).join(""), d = l > 0 ? `<span class="${i} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
   return `<span class="inline-flex items-center ${o}"
                 title="Available locales: ${t.availableLocales.join(", ")}"
                 aria-label="Available locales: ${t.availableLocales.join(", ")}">
     ${c}${d}
   </span>`;
 }
-function br(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { showResolvedLocale: n = !0, size: s = "default" } = e, o = [];
-  return n && t.resolvedLocale && o.push(gt(t, { size: s, showFallbackIndicator: !0 })), t.availableLocales.length > 1 && o.push(gr(t, { ...e, size: s })), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${o.join("")}</div>`;
+function tr(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : _(r), { showResolvedLocale: n = !0, size: s = "default" } = e, o = [];
+  return n && t.resolvedLocale && o.push(rt(t, { size: s, showFallbackIndicator: !0 })), t.availableLocales.length > 1 && o.push(er(t, { ...e, size: s })), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${o.join("")}</div>`;
 }
-function Ga(r, e = "default") {
+function Ei(r, e = "default") {
   if (!r)
     return "";
   const t = r.trim();
-  if (ot(t) !== null)
-    return V(t, { size: e === "sm" ? "sm" : "default" });
+  if (Ve(t) !== null)
+    return j(t, { size: e === "sm" ? "sm" : "default" });
   const n = t.toLowerCase();
-  return ie(r, "status", n, { size: e === "sm" ? "sm" : void 0 });
+  return X(r, "status", n, { size: e === "sm" ? "sm" : void 0 });
 }
-function Ua(r, e = {}) {
-  const t = _(r);
+function Li(r, e = {}) {
+  const t = k(r);
   if (!t.hasReadinessMetadata)
     return "";
-  const { size: n = "default", showDetailedTooltip: s = !0, extraClass: o = "" } = e, i = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, l = t.readinessState || "ready", { icon: c, label: d, bgClass: u, textClass: p, tooltip: h } = yr(l, t, s);
-  return `<span class="${i} ${u} ${p} ${o}"
-                title="${h}"
+  const { size: n = "default", showDetailedTooltip: s = !0, extraClass: o = "" } = e, a = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, l = t.readinessState || "ready", { icon: c, label: d, bgClass: p, textClass: h, tooltip: f } = rr(l, t, s);
+  return `<span class="${a} ${p} ${h} ${o}"
+                title="${f}"
                 aria-label="${d}"
                 data-readiness-state="${l}">
     ${c}
     <span>${d}</span>
   </span>`;
 }
-function Va(r, e = {}) {
-  const t = _(r);
+function _i(r, e = {}) {
+  const t = k(r);
   if (!t.hasReadinessMetadata)
     return "";
-  const n = t.readyForTransition.publish === !0, { size: s = "default", extraClass: o = "" } = e, a = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
+  const n = t.readyForTransition.publish === !0, { size: s = "default", extraClass: o = "" } = e, i = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
   if (n)
-    return `<span class="inline-flex items-center gap-1 rounded font-medium ${a} bg-green-100 text-green-700 ${o}"
+    return `<span class="inline-flex items-center gap-1 rounded font-medium ${i} bg-green-100 text-green-700 ${o}"
                   title="Ready to publish"
                   aria-label="Ready to publish">
       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -771,60 +763,60 @@ function Va(r, e = {}) {
       </svg>
       Ready
     </span>`;
-  const i = t.missingRequiredLocales.length, l = i > 0 ? `Missing translations: ${t.missingRequiredLocales.join(", ")}` : "Not ready to publish";
-  return `<span class="inline-flex items-center gap-1 rounded font-medium ${a} bg-amber-100 text-amber-700 ${o}"
+  const a = t.missingRequiredLocales.length, l = a > 0 ? `Missing translations: ${t.missingRequiredLocales.join(", ")}` : "Not ready to publish";
+  return `<span class="inline-flex items-center gap-1 rounded font-medium ${i} bg-amber-100 text-amber-700 ${o}"
                 title="${l}"
                 aria-label="Not ready to publish">
     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
       <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
     </svg>
-    ${i > 0 ? `${i} missing` : "Not ready"}
+    ${a > 0 ? `${a} missing` : "Not ready"}
   </span>`;
 }
-function Ka(r, e = {}) {
-  const t = _(r);
+function Ri(r, e = {}) {
+  const t = k(r);
   if (!t.hasReadinessMetadata || t.requiredLocales.length === 0)
     return "";
-  const { size: n = "default", extraClass: s = "" } = e, o = n === "sm" ? "text-xs" : "text-sm", a = t.requiredLocales.length, i = t.availableLocales.filter(
+  const { size: n = "default", extraClass: s = "" } = e, o = n === "sm" ? "text-xs" : "text-sm", i = t.requiredLocales.length, a = t.availableLocales.filter(
     (d) => t.requiredLocales.includes(d)
-  ).length, c = a > 0 && i === a ? "text-green-600" : i > 0 ? "text-amber-600" : "text-gray-500";
+  ).length, c = i > 0 && a === i ? "text-green-600" : a > 0 ? "text-amber-600" : "text-gray-500";
   return `<span class="${o} ${c} font-medium ${s}"
-                title="Locale completeness: ${i} of ${a} required locales available"
-                aria-label="${i} of ${a} locales">
-    ${i}/${a}
+                title="Locale completeness: ${a} of ${i} required locales available"
+                aria-label="${a} of ${i} locales">
+    ${a}/${i}
   </span>`;
 }
-function Ja(r, e = {}) {
-  const t = _(r);
+function Ii(r, e = {}) {
+  const t = k(r);
   if (!t.hasReadinessMetadata || t.readinessState === "ready")
     return "";
-  const { size: n = "default", extraClass: s = "" } = e, o = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", a = t.missingRequiredLocales.length, i = a > 0, l = Object.keys(t.missingRequiredFieldsByLocale).length > 0;
-  let c = "bg-amber-100", d = "text-amber-800", u = "", p = "";
-  return i && l ? (c = "bg-red-100", d = "text-red-800", u = `${a} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : i ? (c = "bg-amber-100", d = "text-amber-800", u = `${a} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}`) : l && (c = "bg-yellow-100", d = "text-yellow-800", u = "Incomplete", p = `Incomplete fields in: ${Object.keys(t.missingRequiredFieldsByLocale).join(", ")}`), u ? `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${o} ${c} ${d} ${s}"
-                title="${p}"
-                aria-label="${p}"
+  const { size: n = "default", extraClass: s = "" } = e, o = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = t.missingRequiredLocales.length, a = i > 0, l = Object.keys(t.missingRequiredFieldsByLocale).length > 0;
+  let c = "bg-amber-100", d = "text-amber-800", p = "", h = "";
+  return a && l ? (c = "bg-red-100", d = "text-red-800", p = `${i} missing`, h = `Missing translations: ${t.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : a ? (c = "bg-amber-100", d = "text-amber-800", p = `${i} missing`, h = `Missing translations: ${t.missingRequiredLocales.join(", ")}`) : l && (c = "bg-yellow-100", d = "text-yellow-800", p = "Incomplete", h = `Incomplete fields in: ${Object.keys(t.missingRequiredFieldsByLocale).join(", ")}`), p ? `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${o} ${c} ${d} ${s}"
+                title="${h}"
+                aria-label="${h}"
                 data-missing-translations="true"
-                data-missing-count="${a}">
+                data-missing-count="${i}">
     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-    <span>${u}</span>
+    <span>${p}</span>
   </span>` : "";
 }
-function Ya(r) {
-  const e = _(r);
+function Bi(r) {
+  const e = k(r);
   return e.hasReadinessMetadata ? e.readinessState !== "ready" : !1;
 }
-function Qa(r) {
-  return _(r).missingRequiredLocales.length;
+function Mi(r) {
+  return k(r).missingRequiredLocales.length;
 }
-function yr(r, e, t) {
-  const n = ot(r, "core"), s = n ? sr(n, "sm") : "", o = n?.bgClass || "bg-gray-100", a = n?.textClass || "text-gray-600", i = n?.label || "Unknown", l = n?.description || "Unknown readiness state";
+function rr(r, e, t) {
+  const n = Ve(r, "core"), s = n ? Gt(n, "sm") : "", o = n?.bgClass || "bg-gray-100", i = n?.textClass || "text-gray-600", a = n?.label || "Unknown", l = n?.description || "Unknown readiness state";
   switch (r) {
     case "ready":
       return {
         icon: s,
-        label: i,
+        label: a,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: l
       };
     case "missing_locales": {
@@ -833,7 +825,7 @@ function yr(r, e, t) {
         icon: s,
         label: `${c.length} missing`,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: d
       };
     }
@@ -843,71 +835,71 @@ function yr(r, e, t) {
         icon: s,
         label: "Incomplete",
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: d
       };
     }
     case "missing_locales_and_fields": {
-      const c = e.missingRequiredLocales, d = Object.keys(e.missingRequiredFieldsByLocale), u = [];
-      c.length > 0 && u.push(`Missing: ${c.join(", ")}`), d.length > 0 && u.push(`Incomplete: ${d.join(", ")}`);
-      const p = t ? u.join("; ") : "Missing translations and incomplete fields";
+      const c = e.missingRequiredLocales, d = Object.keys(e.missingRequiredFieldsByLocale), p = [];
+      c.length > 0 && p.push(`Missing: ${c.join(", ")}`), d.length > 0 && p.push(`Incomplete: ${d.join(", ")}`);
+      const h = t ? p.join("; ") : "Missing translations and incomplete fields";
       return {
         icon: s,
         label: "Not ready",
         bgClass: o,
-        textClass: a,
-        tooltip: p
+        textClass: i,
+        tooltip: h
       };
     }
     default:
       return {
         icon: s,
-        label: i,
+        label: a,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: l
       };
   }
 }
-function vr(r, e = {}) {
-  const { size: t = "sm", maxLocales: n = 5, showLabels: s = !1 } = e, o = _(r);
+function nr(r, e = {}) {
+  const { size: t = "sm", maxLocales: n = 5, showLabels: s = !1 } = e, o = k(r);
   if (!o.hasReadinessMetadata)
     return '<span class="text-gray-400">-</span>';
-  const { requiredLocales: a, availableLocales: i, missingRequiredFieldsByLocale: l } = o, c = a.length > 0 ? a : i;
+  const { requiredLocales: i, availableLocales: a, missingRequiredFieldsByLocale: l } = o, c = i.length > 0 ? i : a;
   if (c.length === 0)
     return '<span class="text-gray-400">-</span>';
-  const d = new Set(i), u = wr(l), p = c.slice(0, n).map((f) => {
-    const y = d.has(f), v = y && u.has(f), g = y && !v;
-    let $, D, E;
-    g ? ($ = "bg-green-100 text-green-700 border-green-300", D = "●", E = "Complete") : v ? ($ = "bg-amber-100 text-amber-700 border-amber-300", D = "◐", E = "Incomplete") : ($ = "bg-white text-gray-400 border-gray-300 border-dashed", D = "○", E = "Missing");
-    const x = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", K = s ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
+  const d = new Set(a), p = sr(l), h = c.slice(0, n).map((m) => {
+    const y = d.has(m), v = y && p.has(m), g = y && !v;
+    let x, I, C;
+    g ? (x = "bg-green-100 text-green-700 border-green-300", I = "●", C = "Complete") : v ? (x = "bg-amber-100 text-amber-700 border-amber-300", I = "◐", C = "Incomplete") : (x = "bg-white text-gray-400 border-gray-300 border-dashed", I = "○", C = "Missing");
+    const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", z = s ? `<span class="font-medium">${m.toUpperCase()}</span>` : "";
     return `
-        <span class="inline-flex items-center gap-0.5 ${x} rounded border ${$}"
-              title="${f.toUpperCase()}: ${E}"
-              aria-label="${f.toUpperCase()}: ${E}"
-              data-locale="${f}"
-              data-state="${E.toLowerCase()}">
-          ${K}
-          <span aria-hidden="true">${D}</span>
+        <span class="inline-flex items-center gap-0.5 ${w} rounded border ${x}"
+              title="${m.toUpperCase()}: ${C}"
+              aria-label="${m.toUpperCase()}: ${C}"
+              data-locale="${m}"
+              data-state="${C.toLowerCase()}">
+          ${z}
+          <span aria-hidden="true">${I}</span>
         </span>
       `;
-  }).join(""), h = c.length > n ? `<span class="text-[10px] text-gray-500" title="${c.length - n} more locales">+${c.length - n}</span>` : "";
-  return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${p}${h}</div>`;
+  }).join(""), f = c.length > n ? `<span class="text-[10px] text-gray-500" title="${c.length - n} more locales">+${c.length - n}</span>` : "";
+  return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${h}${f}</div>`;
 }
-function wr(r) {
+function sr(r) {
   const e = /* @__PURE__ */ new Set();
   if (r && typeof r == "object")
     for (const [t, n] of Object.entries(r))
       Array.isArray(n) && n.length > 0 && e.add(t);
   return e;
 }
-function Wa(r = {}) {
-  return (e, t, n) => vr(t, r);
+function Pi(r = {}) {
+  return (e, t, n) => nr(t, r);
 }
-function Xa(r, e = {}) {
+function Ti(r, e = {}) {
   if (!r.fallbackUsed && !r.missingRequestedLocale)
     return "";
-  const { showCreateButton: t = !0, createTranslationUrl: n, panelName: s } = e, o = r.requestedLocale || "requested locale", a = r.resolvedLocale || "default", i = t ? `
+  const { showCreateButton: t = !0, createTranslationUrl: n, panelName: s } = e, o = r.requestedLocale || "requested locale", i = r.resolvedLocale || "default", a = t ? `
     <button type="button"
             class="inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900 underline"
             data-action="create-translation"
@@ -940,40 +932,40 @@ function Xa(r, e = {}) {
           </h3>
           <p class="mt-1 text-sm text-amber-700">
             The <strong>${o.toUpperCase()}</strong> translation doesn't exist yet.
-            You're viewing content from <strong>${a.toUpperCase()}</strong>.
+            You're viewing content from <strong>${i.toUpperCase()}</strong>.
             <span class="block mt-1 text-amber-600">Editing is disabled until you create the missing translation.</span>
           </p>
-          ${i ? `<div class="mt-3">${i}</div>` : ""}
+          ${a ? `<div class="mt-3">${a}</div>` : ""}
         </div>
       </div>
     </div>
   `;
 }
-function Ge(r = {}) {
-  return (e, t, n) => br(t, r);
+function Ie(r = {}) {
+  return (e, t, n) => tr(t, r);
 }
-function xr(r = {}) {
-  return (e, t, n) => gt(t, r);
+function or(r = {}) {
+  return (e, t, n) => rt(t, r);
 }
-function O(r, e) {
+function P(r, e) {
   for (const t of e) {
-    const n = Ie(r, t);
+    const n = we(r, t);
     if (typeof n == "string" && n.trim())
       return n;
   }
   return null;
 }
-function Sr(r, e) {
+function ir(r, e) {
   for (const t of e) {
-    const n = Ie(r, t);
+    const n = we(r, t);
     if (Array.isArray(n))
       return n.filter((s) => typeof s == "string");
   }
   return [];
 }
-function Ue(r, e) {
+function Be(r, e) {
   for (const t of e) {
-    const n = Ie(r, t);
+    const n = we(r, t);
     if (typeof n == "boolean")
       return n;
     if (n === "true") return !0;
@@ -981,7 +973,7 @@ function Ue(r, e) {
   }
   return !1;
 }
-function Ie(r, e) {
+function we(r, e) {
   const t = e.split(".");
   let n = r;
   for (const s of t) {
@@ -991,7 +983,7 @@ function Ie(r, e) {
   }
   return n;
 }
-const B = '<span class="text-gray-400">-</span>', $r = [
+const E = '<span class="text-gray-400">-</span>', ar = [
   "name",
   "label",
   "title",
@@ -1004,17 +996,14 @@ const B = '<span class="text-gray-400">-</span>', $r = [
   "blockType",
   "block_type"
 ];
-function J(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-function Cr(r) {
+function lr(r) {
   try {
     return JSON.stringify(r);
   } catch {
     return String(r);
   }
 }
-function kr(r) {
+function cr(r) {
   const e = [], t = (s) => {
     if (typeof s != "string") return;
     const o = s.trim();
@@ -1024,7 +1013,7 @@ function kr(r) {
   const n = r.display_keys ?? r.displayKeys;
   return Array.isArray(n) && n.forEach(t), e;
 }
-function Ar(r, e) {
+function dr(r, e) {
   if (!e) return;
   if (Object.prototype.hasOwnProperty.call(r, e))
     return r[e];
@@ -1039,7 +1028,7 @@ function Ar(r, e) {
   }
   return n;
 }
-function Er(r) {
+function ur(r) {
   if (r == null)
     return "";
   switch (typeof r) {
@@ -1054,45 +1043,45 @@ function Er(r) {
       return "";
   }
 }
-function $e(r, e) {
+function he(r, e) {
   if (r == null)
     return "";
   if (Array.isArray(r))
-    return Ce(r, e);
+    return fe(r, e);
   if (typeof r != "object")
     return String(r);
-  const n = [...kr(e), ...$r], s = /* @__PURE__ */ new Set();
+  const n = [...cr(e), ...ar], s = /* @__PURE__ */ new Set();
   for (const o of n) {
     if (s.has(o)) continue;
     s.add(o);
-    const a = Ar(r, o), i = Er(a);
-    if (i)
-      return i;
+    const i = dr(r, o), a = ur(i);
+    if (a)
+      return a;
   }
-  return Cr(r);
+  return lr(r);
 }
-function Ce(r, e) {
+function fe(r, e) {
   if (!Array.isArray(r) || r.length === 0)
     return "";
-  const t = r.map((a) => $e(a, e).trim()).filter(Boolean);
+  const t = r.map((i) => he(i, e).trim()).filter(Boolean);
   if (t.length === 0)
     return "";
   const n = Number(e.preview_limit ?? e.previewLimit ?? 3), s = Number.isFinite(n) && n > 0 ? Math.floor(n) : 3, o = t.slice(0, s);
   return t.length <= s ? o.join(", ") : `${o.join(", ")} +${t.length - s} more`;
 }
-function Lr(r, e, t, n) {
+function pr(r, e, t, n) {
   const s = r[e] ?? r[t] ?? n, o = Number(s);
   return Number.isFinite(o) && o > 0 ? Math.floor(o) : n;
 }
-function _r(r, e, t, n) {
+function hr(r, e, t, n) {
   const s = r[e] ?? r[t];
   return s == null ? n : typeof s == "boolean" ? s : typeof s == "string" ? s.toLowerCase() === "true" || s === "1" : !!s;
 }
-function Rr(r, e, t, n) {
+function fr(r, e, t, n) {
   const s = r[e] ?? r[t];
   return s == null ? n : String(s).trim() || n;
 }
-function Ir(r) {
+function mr(r) {
   if (r == null)
     return "";
   if (typeof r == "string")
@@ -1107,7 +1096,7 @@ function Ir(r) {
   }
   return "";
 }
-function Br(r) {
+function gr(r) {
   switch (r) {
     case "muted":
       return "bg-gray-100 text-gray-600";
@@ -1118,20 +1107,20 @@ function Br(r) {
       return "bg-blue-50 text-blue-700";
   }
 }
-class Mr {
+class br {
   constructor() {
     this.renderers = /* @__PURE__ */ new Map(), this.defaultRenderer = (e) => {
       if (e == null)
-        return B;
+        return E;
       if (typeof e == "boolean")
         return e ? "Yes" : "No";
       if (Array.isArray(e)) {
-        const t = Ce(e, {});
-        return t ? J(t) : B;
+        const t = fe(e, {});
+        return t ? u(t) : E;
       }
       if (typeof e == "object") {
-        const t = $e(e, {});
-        return t ? J(t) : B;
+        const t = he(e, {});
+        return t ? u(t) : E;
       }
       return String(e);
     }, this.registerDefaultRenderers();
@@ -1160,14 +1149,14 @@ class Mr {
   registerDefaultRenderers() {
     this.renderers.set("_badge", (e) => {
       const t = String(e).toLowerCase();
-      return ie(String(e), "status", t);
+      return X(String(e), "status", t);
     }), this.renderers.set("_date", (e) => {
       if (!e) return '<span class="text-gray-400">-</span>';
-      const t = le(e);
+      const t = Z(e);
       return t ? t.toLocaleDateString() : String(e);
     }), this.renderers.set("_datetime", (e) => {
       if (!e) return '<span class="text-gray-400">-</span>';
-      const t = le(e);
+      const t = Z(e);
       return t ? t.toLocaleString() : String(e);
     }), this.renderers.set("_boolean", (e) => `<div class="flex justify-center">${!!e ? '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>' : '<svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>'}</div>`), this.renderers.set("_link", (e, t) => e ? `<a href="${t.url || t.link || "#"}" class="text-blue-600 hover:text-blue-800 underline">${e}</a>` : '<span class="text-gray-400">-</span>'), this.renderers.set("_email", (e) => e ? `<a href="mailto:${e}" class="text-blue-600 hover:text-blue-800">${e}</a>` : '<span class="text-gray-400">-</span>'), this.renderers.set("_url", (e) => e ? `<a href="${e}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
         ${e}
@@ -1189,53 +1178,53 @@ class Mr {
       return t.length <= n ? t : `<span title="${t}">${t.substring(0, n)}...</span>`;
     }), this.renderers.set("_array", (e, t, n, s) => {
       if (!Array.isArray(e) || e.length === 0)
-        return B;
-      const o = s?.options || {}, a = Ce(e, o);
-      return a ? J(a) : B;
+        return E;
+      const o = s?.options || {}, i = fe(e, o);
+      return i ? u(i) : E;
     }), this.renderers.set("_object", (e, t, n, s) => {
       if (e == null)
-        return B;
-      const o = s?.options || {}, a = $e(e, o);
-      return a ? J(a) : B;
+        return E;
+      const o = s?.options || {}, i = he(e, o);
+      return i ? u(i) : E;
     }), this.renderers.set("_tags", (e) => !Array.isArray(e) || e.length === 0 ? '<span class="text-gray-400">-</span>' : e.map(
       (t) => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${t}</span>`
     ).join("")), this.renderers.set("blocks_chips", (e, t, n, s) => {
       if (!Array.isArray(e) || e.length === 0)
-        return B;
-      const o = s?.options || {}, a = Lr(o, "max_visible", "maxVisible", 3), i = _r(o, "show_count", "showCount", !0), l = Rr(o, "chip_variant", "chipVariant", "default"), c = o.block_icons_map || o.blockIconsMap || {}, d = [], u = e.slice(0, a);
-      for (const f of u) {
-        const y = Ir(f);
+        return E;
+      const o = s?.options || {}, i = pr(o, "max_visible", "maxVisible", 3), a = hr(o, "show_count", "showCount", !0), l = fr(o, "chip_variant", "chipVariant", "default"), c = o.block_icons_map || o.blockIconsMap || {}, d = [], p = e.slice(0, i);
+      for (const m of p) {
+        const y = mr(m);
         if (!y) continue;
-        const v = c[y] || "view-grid", g = nr(v, { size: "14px", extraClass: "flex-shrink-0" }), $ = Br(l);
+        const v = c[y] || "view-grid", g = Nt(v, { size: "14px", extraClass: "flex-shrink-0" }), x = gr(l);
         d.push(
-          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${$}">${g}<span>${J(y)}</span></span>`
+          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${x}">${g}<span>${u(y)}</span></span>`
         );
       }
       if (d.length === 0)
-        return B;
-      const p = e.length - a;
-      let h = "";
-      return i && p > 0 && (h = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${p} more</span>`), `<div class="flex flex-wrap gap-1">${d.join("")}${h}</div>`;
+        return E;
+      const h = e.length - i;
+      let f = "";
+      return a && h > 0 && (f = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${h} more</span>`), `<div class="flex flex-wrap gap-1">${d.join("")}${f}</div>`;
     }), this.renderers.set("_image", (e) => e ? `<img src="${e}" alt="Thumbnail" class="h-10 w-10 rounded object-cover" />` : '<span class="text-gray-400">-</span>'), this.renderers.set("_avatar", (e, t) => {
       const n = t.name || t.username || t.email || "U", s = n.charAt(0).toUpperCase();
       return e ? `<img src="${e}" alt="${n}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${s}</div>`;
     });
   }
 }
-const Za = {
+const Di = {
   /**
    * Status badge renderer with custom colors
    */
   statusBadge: (r) => (e) => {
     const t = String(e).toLowerCase();
-    return ie(String(e), "status", t);
+    return X(String(e), "status", t);
   },
   /**
    * Role badge renderer with color mapping
    */
   roleBadge: (r) => (e) => {
     const t = String(e).toLowerCase();
-    return ie(String(e), "role", t);
+    return X(String(e), "role", t);
   },
   /**
    * Combined name+email renderer
@@ -1247,52 +1236,52 @@ const Za = {
   /**
    * Boolean chip renderer with icon + label (e.g., [✓ Yes] or [✕ No])
    */
-  booleanChip: (r) => (e) => rr(!!e, r),
+  booleanChip: (r) => (e) => zt(!!e, r),
   /**
    * Relative time renderer (e.g., "2 hours ago")
    */
   relativeTime: (r) => {
     if (!r) return '<span class="text-gray-400">-</span>';
-    const e = le(r);
+    const e = Z(r);
     if (!e)
       return String(r);
-    const n = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), s = Math.floor(n / 6e4), o = Math.floor(n / 36e5), a = Math.floor(n / 864e5);
-    return s < 1 ? "Just now" : s < 60 ? `${s} minute${s > 1 ? "s" : ""} ago` : o < 24 ? `${o} hour${o > 1 ? "s" : ""} ago` : a < 30 ? `${a} day${a > 1 ? "s" : ""} ago` : e.toLocaleDateString();
+    const n = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), s = Math.floor(n / 6e4), o = Math.floor(n / 36e5), i = Math.floor(n / 864e5);
+    return s < 1 ? "Just now" : s < 60 ? `${s} minute${s > 1 ? "s" : ""} ago` : o < 24 ? `${o} hour${o > 1 ? "s" : ""} ago` : i < 30 ? `${i} day${i > 1 ? "s" : ""} ago` : e.toLocaleDateString();
   },
   /**
    * Locale badge renderer - shows current locale with fallback indicator
    */
-  localeBadge: xr(),
+  localeBadge: or(),
   /**
    * Translation status renderer - shows locale + available locales
    */
-  translationStatus: Ge(),
+  translationStatus: Ie(),
   /**
    * Compact translation status for smaller cells
    */
-  translationStatusCompact: Ge({ size: "sm", maxLocales: 2 })
-}, Pr = "datagrid.state.", ge = "datagrid.share.", bt = "datagrid.share.index", Tr = 20;
-function Dr(r) {
+  translationStatusCompact: Ie({ size: "sm", maxLocales: 2 })
+}, yr = "datagrid.state.", ae = "datagrid.share.", nt = "datagrid.share.index", vr = 20;
+function wr(r) {
   return String(r || "").trim() || "default";
 }
-function be(r, e = {}) {
+function le(r, e = {}) {
   if (!Array.isArray(r)) return;
   const t = r.map((n) => typeof n == "string" ? n.trim() : "").filter((n) => n.length > 0);
   return t.length === 0 ? e.allowEmpty === !0 ? [] : void 0 : Array.from(new Set(t));
 }
-function W(r) {
+function G(r) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const e = r, t = { version: 1 };
   (e.viewMode === "flat" || e.viewMode === "grouped" || e.viewMode === "matrix") && (t.viewMode = e.viewMode), (e.expandMode === "all" || e.expandMode === "none" || e.expandMode === "explicit") && (t.expandMode = e.expandMode);
-  const n = be(e.expandedGroups, { allowEmpty: !0 });
+  const n = le(e.expandedGroups, { allowEmpty: !0 });
   n !== void 0 && (t.expandedGroups = n);
-  const s = be(e.hiddenColumns, { allowEmpty: !0 });
+  const s = le(e.hiddenColumns, { allowEmpty: !0 });
   s !== void 0 && (t.hiddenColumns = s);
-  const o = be(e.columnOrder);
+  const o = le(e.columnOrder);
   return o && (t.columnOrder = o), typeof e.updatedAt == "number" && Number.isFinite(e.updatedAt) && (t.updatedAt = e.updatedAt), t;
 }
-function Ve(r) {
+function Me(r) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const e = r, t = { version: 1 };
@@ -1301,57 +1290,57 @@ function Ve(r) {
     s && (t.search = s);
   }
   typeof e.page == "number" && Number.isFinite(e.page) && (t.page = Math.max(1, Math.trunc(e.page))), typeof e.perPage == "number" && Number.isFinite(e.perPage) && (t.perPage = Math.max(1, Math.trunc(e.perPage))), Array.isArray(e.filters) && (t.filters = e.filters), Array.isArray(e.sort) && (t.sort = e.sort);
-  const n = W(e.persisted);
+  const n = G(e.persisted);
   return n && (t.persisted = n), typeof e.updatedAt == "number" && Number.isFinite(e.updatedAt) && (t.updatedAt = e.updatedAt), t;
 }
-function Fr(r) {
+function xr(r) {
   const e = String(r || "").trim();
   return e ? e.replace(/\/+$/, "") : "/api/panels/preferences";
 }
-function qr(r) {
+function Sr(r) {
   return String(r || "").trim().replace(/[^a-zA-Z0-9._-]/g, "");
 }
-function Or() {
+function Cr() {
   const r = Date.now().toString(36), e = Math.random().toString(36).slice(2, 10);
   return `${r}${e}`.slice(0, 16);
 }
-function jr(r) {
+function $r(r) {
   try {
-    const e = localStorage.getItem(bt);
+    const e = localStorage.getItem(nt);
     if (!e) return [];
     const t = JSON.parse(e);
     if (!Array.isArray(t)) return [];
     const n = t.map((s) => {
       if (!s || typeof s != "object" || Array.isArray(s)) return null;
-      const o = s, a = typeof o.token == "string" ? o.token.trim() : "", i = typeof o.updatedAt == "number" ? o.updatedAt : 0;
-      return !a || !Number.isFinite(i) ? null : { token: a, updatedAt: i };
+      const o = s, i = typeof o.token == "string" ? o.token.trim() : "", a = typeof o.updatedAt == "number" ? o.updatedAt : 0;
+      return !i || !Number.isFinite(a) ? null : { token: i, updatedAt: a };
     }).filter((s) => s !== null).sort((s, o) => o.updatedAt - s.updatedAt);
     return n.length <= r ? n : n.slice(0, r);
   } catch {
     return [];
   }
 }
-function zr(r) {
+function kr(r) {
   try {
-    localStorage.setItem(bt, JSON.stringify(r));
+    localStorage.setItem(nt, JSON.stringify(r));
   } catch {
   }
 }
-class yt {
+class st {
   constructor(e) {
-    const t = Dr(e.key);
-    this.key = t, this.persistedStorageKey = `${Pr}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || Tr);
+    const t = wr(e.key);
+    this.key = t, this.persistedStorageKey = `${yr}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || vr);
   }
   loadPersistedState() {
     try {
       const e = localStorage.getItem(this.persistedStorageKey);
-      return e ? W(JSON.parse(e)) : null;
+      return e ? G(JSON.parse(e)) : null;
     } catch {
       return null;
     }
   }
   savePersistedState(e) {
-    const t = W(e);
+    const t = G(e);
     if (t) {
       t.updatedAt || (t.updatedAt = Date.now());
       try {
@@ -1367,18 +1356,18 @@ class yt {
     }
   }
   createShareState(e) {
-    const t = Ve(e);
+    const t = Me(e);
     if (!t) return null;
     t.updatedAt || (t.updatedAt = Date.now());
-    const n = Or(), s = `${ge}${n}`;
+    const n = Cr(), s = `${ae}${n}`;
     try {
       localStorage.setItem(s, JSON.stringify(t));
-      const o = jr(this.maxShareEntries).filter((a) => a.token !== n);
+      const o = $r(this.maxShareEntries).filter((i) => i.token !== n);
       for (o.unshift({ token: n, updatedAt: t.updatedAt }); o.length > this.maxShareEntries; ) {
-        const a = o.pop();
-        a && localStorage.removeItem(`${ge}${a.token}`);
+        const i = o.pop();
+        i && localStorage.removeItem(`${ae}${i.token}`);
       }
-      return zr(o), n;
+      return kr(o), n;
     } catch {
       return null;
     }
@@ -1387,16 +1376,16 @@ class yt {
     const t = String(e || "").trim();
     if (!t) return null;
     try {
-      const n = localStorage.getItem(`${ge}${t}`);
-      return n ? Ve(JSON.parse(n)) : null;
+      const n = localStorage.getItem(`${ae}${t}`);
+      return n ? Me(JSON.parse(n)) : null;
     } catch {
       return null;
     }
   }
 }
-class Nr extends yt {
+class Ar extends st {
   constructor(e) {
-    super(e), this.syncTimeout = null, this.preferencesEndpoint = Fr(e.preferencesEndpoint), this.resource = qr(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3);
+    super(e), this.syncTimeout = null, this.preferencesEndpoint = xr(e.preferencesEndpoint), this.resource = Sr(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3);
   }
   get serverStateKey() {
     return `ui.datagrid.${this.resource}.state`;
@@ -1414,14 +1403,14 @@ class Nr extends yt {
         return;
       const n = await t.json(), s = this.extractFirstRecord(n);
       if (!s) return;
-      const o = this.extractMap(s.effective), a = this.extractMap(s.raw), i = o[this.serverStateKey] ?? a[this.serverStateKey], l = W(i);
+      const o = this.extractMap(s.effective), i = this.extractMap(s.raw), a = o[this.serverStateKey] ?? i[this.serverStateKey], l = G(a);
       l && super.savePersistedState(l);
     } catch {
     }
   }
   savePersistedState(e) {
     super.savePersistedState(e);
-    const t = W(e);
+    const t = G(e);
     t && this.scheduleServerSync(t);
   }
   clearPersistedState() {
@@ -1439,7 +1428,7 @@ class Nr extends yt {
   }
   async syncToServer(e) {
     try {
-      await L(this.preferencesEndpoint, {
+      await $(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         json: {
@@ -1453,7 +1442,7 @@ class Nr extends yt {
   }
   async clearServerState() {
     try {
-      await L(this.preferencesEndpoint, {
+      await $(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         json: {
@@ -1479,56 +1468,56 @@ class Nr extends yt {
     return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
   }
 }
-function Hr(r) {
-  return (r.mode || "local") === "preferences" ? new Nr(r) : new yt(r);
+function Er(r) {
+  return (r.mode || "local") === "preferences" ? new Ar(r) : new st(r);
 }
-function Gr(r, e = {}) {
+function Lr(r, e = {}) {
   const {
     groupByField: t = "family_id",
     defaultExpanded: n = !0,
     expandMode: s = "explicit",
     expandedGroups: o = /* @__PURE__ */ new Set()
-  } = e, a = /* @__PURE__ */ new Map(), i = [];
+  } = e, i = /* @__PURE__ */ new Map(), a = [];
   for (const c of r) {
-    const d = Wr(c, t);
+    const d = Tr(c, t);
     if (d) {
-      const u = a.get(d);
-      u ? u.push(c) : a.set(d, [c]);
+      const p = i.get(d);
+      p ? p.push(c) : i.set(d, [c]);
     } else
-      i.push(c);
+      a.push(c);
   }
   const l = [];
-  for (const [c, d] of a) {
-    const u = Ct(d), p = wt(c, s, o, n);
+  for (const [c, d] of i) {
+    const p = dt(d), h = it(c, s, o, n);
     l.push({
       groupId: c,
       records: d,
-      summary: u,
-      expanded: p,
+      summary: p,
+      expanded: h,
       summaryFromBackend: !1
       // We're computing client-side here
     });
   }
   return l.sort((c, d) => {
-    const u = r.indexOf(c.records[0]), p = r.indexOf(d.records[0]);
-    return u - p;
+    const p = r.indexOf(c.records[0]), h = r.indexOf(d.records[0]);
+    return p - h;
   }), {
     groups: l,
-    ungrouped: i,
+    ungrouped: a,
     totalGroups: l.length,
     totalRecords: r.length
   };
 }
-function vt(r) {
+function ot(r) {
   if (r.length === 0)
     return !1;
   let e = !1;
   for (const t of r) {
-    if (Vr(t)) {
+    if (Rr(t)) {
       e = !0;
       continue;
     }
-    if (xt(t)) {
+    if (at(t)) {
       e = !0;
       continue;
     }
@@ -1536,62 +1525,62 @@ function vt(r) {
   }
   return e;
 }
-function Ur(r, e = {}) {
+function _r(r, e = {}) {
   const {
     defaultExpanded: t = !0,
     expandMode: n = "explicit",
     expandedGroups: s = /* @__PURE__ */ new Set()
   } = e;
-  if (!vt(r))
+  if (!ot(r))
     return null;
-  const o = [], a = [];
-  let i = 0;
+  const o = [], i = [];
+  let a = 0;
   for (const l of r) {
-    if (xt(l)) {
-      a.push({ ...l }), i += 1;
+    if (at(l)) {
+      i.push({ ...l }), a += 1;
       continue;
     }
-    const c = Kr(l);
+    const c = Ir(l);
     if (!c)
       return null;
-    const d = $t(l), u = Yr(l, d), p = wt(c, n, s, t);
+    const d = ct(l), p = Mr(l, d), h = it(c, n, s, t);
     o.push({
       groupId: c,
-      displayLabel: Qr(l, d),
+      displayLabel: Pr(l, d),
       records: d,
-      summary: u,
-      expanded: p,
-      summaryFromBackend: Jr(l)
-    }), i += d.length;
+      summary: p,
+      expanded: h,
+      summaryFromBackend: Br(l)
+    }), a += d.length;
   }
   return {
     groups: o,
-    ungrouped: a,
+    ungrouped: i,
     totalGroups: o.length,
-    totalRecords: i
+    totalRecords: a
   };
 }
-function wt(r, e, t, n) {
+function it(r, e, t, n) {
   return e === "all" ? !t.has(r) : e === "none" ? t.has(r) : t.size === 0 ? n : t.has(r);
 }
-function Vr(r) {
-  const e = r, t = typeof e.group_by == "string" ? e.group_by.trim().toLowerCase() : "", n = St(r);
+function Rr(r) {
+  const e = r, t = typeof e.group_by == "string" ? e.group_by.trim().toLowerCase() : "", n = lt(r);
   if (!(t === "family_id" || n === "group"))
     return !1;
-  const o = $t(r);
+  const o = ct(r);
   return Array.isArray(o);
 }
-function xt(r) {
-  return St(r) === "ungrouped";
+function at(r) {
+  return lt(r) === "ungrouped";
 }
-function St(r) {
+function lt(r) {
   const e = r._group;
   if (!e || typeof e != "object" || Array.isArray(e))
     return "";
   const t = e.row_type;
   return typeof t == "string" ? t.trim().toLowerCase() : "";
 }
-function Kr(r) {
+function Ir(r) {
   const e = r.family_id;
   if (typeof e == "string" && e.trim())
     return e.trim();
@@ -1601,7 +1590,7 @@ function Kr(r) {
   const n = t.id;
   return typeof n == "string" && n.trim() ? n.trim() : null;
 }
-function $t(r) {
+function ct(r) {
   const e = r, t = Array.isArray(e.records) ? e.records : e.children;
   if (Array.isArray(t)) {
     const s = t.filter((o) => !!o && typeof o == "object" && !Array.isArray(o)).map((o) => ({ ...o }));
@@ -1611,69 +1600,69 @@ function $t(r) {
   const n = e.parent;
   return n && typeof n == "object" && !Array.isArray(n) ? [{ ...n }] : [];
 }
-function Jr(r) {
+function Br(r) {
   const e = r.family_summary;
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
-function Yr(r, e) {
+function Mr(r, e) {
   const t = r.family_summary;
   if (!t || typeof t != "object" || Array.isArray(t))
-    return Ct(e);
-  const n = t, s = Array.isArray(n.available_locales) ? n.available_locales.filter(z) : [], o = Array.isArray(n.missing_locales) ? n.missing_locales.filter(z) : [], a = kt(n.readiness_state) ? n.readiness_state : null, i = Math.max(e.length, typeof n.child_count == "number" ? Math.max(n.child_count, 0) : 0);
+    return dt(e);
+  const n = t, s = Array.isArray(n.available_locales) ? n.available_locales.filter(T) : [], o = Array.isArray(n.missing_locales) ? n.missing_locales.filter(T) : [], i = ut(n.readiness_state) ? n.readiness_state : null, a = Math.max(e.length, typeof n.child_count == "number" ? Math.max(n.child_count, 0) : 0);
   return {
-    totalItems: typeof n.total_items == "number" ? Math.max(n.total_items, 0) : i,
+    totalItems: typeof n.total_items == "number" ? Math.max(n.total_items, 0) : a,
     availableLocales: s,
     missingLocales: o,
-    readinessState: a,
+    readinessState: i,
     readyForPublish: typeof n.ready_for_publish == "boolean" ? n.ready_for_publish : null
   };
 }
-function Qr(r, e) {
+function Pr(r, e) {
   const t = r.family_label;
   if (typeof t == "string" && t.trim())
     return t.trim();
   const n = r.family_summary;
   if (n && typeof n == "object" && !Array.isArray(n)) {
-    const i = n.group_label;
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+    const a = n.group_label;
+    if (typeof a == "string" && a.trim())
+      return a.trim();
   }
   const s = r._group;
   if (s && typeof s == "object" && !Array.isArray(s)) {
-    const i = s.label;
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+    const a = s.label;
+    if (typeof a == "string" && a.trim())
+      return a.trim();
   }
-  const o = [], a = r.parent;
-  if (a && typeof a == "object" && !Array.isArray(a)) {
-    const i = a;
-    o.push(i.title, i.name, i.slug, i.path);
+  const o = [], i = r.parent;
+  if (i && typeof i == "object" && !Array.isArray(i)) {
+    const a = i;
+    o.push(a.title, a.name, a.slug, a.path);
   }
   e.length > 0 && o.push(e[0].title, e[0].name, e[0].slug, e[0].path);
-  for (const i of o)
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+  for (const a of o)
+    if (typeof a == "string" && a.trim())
+      return a.trim();
 }
-function Wr(r, e) {
+function Tr(r, e) {
   const t = r[e];
   return typeof t == "string" && t.trim() ? t : null;
 }
-function Ct(r) {
+function dt(r) {
   const e = /* @__PURE__ */ new Set(), t = /* @__PURE__ */ new Set();
   let n = !1, s = 0;
-  for (const a of r) {
-    const i = a.translation_readiness;
-    if (i) {
-      const c = i.available_locales, d = i.missing_required_locales, u = i.readiness_state;
-      Array.isArray(c) && c.filter(z).forEach((p) => e.add(p)), Array.isArray(d) && d.filter(z).forEach((p) => t.add(p)), (u === "missing_fields" || u === "missing_locales_and_fields") && (n = !0), u === "ready" && s++;
+  for (const i of r) {
+    const a = i.translation_readiness;
+    if (a) {
+      const c = a.available_locales, d = a.missing_required_locales, p = a.readiness_state;
+      Array.isArray(c) && c.filter(T).forEach((h) => e.add(h)), Array.isArray(d) && d.filter(T).forEach((h) => t.add(h)), (p === "missing_fields" || p === "missing_locales_and_fields") && (n = !0), p === "ready" && s++;
     }
-    const l = a.available_locales;
-    Array.isArray(l) && l.filter(z).forEach((c) => e.add(c));
+    const l = i.available_locales;
+    Array.isArray(l) && l.filter(T).forEach((c) => e.add(c));
   }
   let o = null;
   if (r.length > 0) {
-    const a = s === r.length, i = t.size > 0;
-    a ? o = "ready" : i && n ? o = "missing_locales_and_fields" : i ? o = "missing_locales" : n && (o = "missing_fields");
+    const i = s === r.length, a = t.size > 0;
+    i ? o = "ready" : a && n ? o = "missing_locales_and_fields" : a ? o = "missing_locales" : n && (o = "missing_fields");
   }
   return {
     totalItems: r.length,
@@ -1683,10 +1672,10 @@ function Ct(r) {
     readyForPublish: o === "ready"
   };
 }
-function z(r) {
+function T(r) {
   return typeof r == "string";
 }
-function Xr(r, e) {
+function Dr(r, e) {
   const t = r.groups.map((n) => {
     const s = e.get(n.groupId);
     return s ? {
@@ -1703,7 +1692,7 @@ function Xr(r, e) {
     groups: t
   };
 }
-function Zr(r) {
+function Fr(r) {
   const e = /* @__PURE__ */ new Map(), t = r.group_summaries;
   if (!t || typeof t != "object" || Array.isArray(t))
     return e;
@@ -1712,32 +1701,32 @@ function Zr(r) {
       const o = s;
       e.set(n, {
         totalItems: typeof o.total_items == "number" ? o.total_items : void 0,
-        availableLocales: Array.isArray(o.available_locales) ? o.available_locales.filter(z) : void 0,
-        missingLocales: Array.isArray(o.missing_locales) ? o.missing_locales.filter(z) : void 0,
-        readinessState: kt(o.readiness_state) ? o.readiness_state : void 0,
+        availableLocales: Array.isArray(o.available_locales) ? o.available_locales.filter(T) : void 0,
+        missingLocales: Array.isArray(o.missing_locales) ? o.missing_locales.filter(T) : void 0,
+        readinessState: ut(o.readiness_state) ? o.readiness_state : void 0,
         readyForPublish: typeof o.ready_for_publish == "boolean" ? o.ready_for_publish : void 0
       });
     }
   return e;
 }
-function kt(r) {
+function ut(r) {
   return r === "ready" || r === "missing_locales" || r === "missing_fields" || r === "missing_locales_and_fields";
 }
-const de = "datagrid-expand-state-";
-function ke(r) {
+const te = "datagrid-expand-state-";
+function me(r) {
   if (!Array.isArray(r))
     return [];
   const e = [];
   for (const t of r) {
-    const n = Me(t);
+    const n = Se(t);
     if (n && !e.includes(n)) {
-      if (e.length >= Be) break;
+      if (e.length >= xe) break;
       e.push(n);
     }
   }
   return e;
 }
-function At(r) {
+function pt(r) {
   if (!r)
     return null;
   try {
@@ -1746,118 +1735,118 @@ function At(r) {
       return {
         version: 2,
         mode: "explicit",
-        ids: ke(e)
+        ids: me(e)
       };
     if (!e || typeof e != "object" || Array.isArray(e))
       return null;
-    const t = ne(e.mode, "explicit"), n = ke(e.ids);
+    const t = Y(e.mode, "explicit"), n = me(e.ids);
     return { version: 2, mode: t, ids: n };
   } catch {
     return null;
   }
 }
-function en(r) {
+function qr(r) {
   try {
-    const e = de + r, t = At(localStorage.getItem(e));
+    const e = te + r, t = pt(localStorage.getItem(e));
     if (t)
       return new Set(t.ids);
   } catch {
   }
   return /* @__PURE__ */ new Set();
 }
-function tn(r) {
+function Or(r) {
   try {
-    const e = de + r, t = At(localStorage.getItem(e));
+    const e = te + r, t = pt(localStorage.getItem(e));
     if (t)
       return t.mode;
   } catch {
   }
   return "explicit";
 }
-function rn(r) {
+function jr(r) {
   try {
-    const e = de + r;
+    const e = te + r;
     return localStorage.getItem(e) !== null;
   } catch {
     return !1;
   }
 }
-function ei(r, e, t = "explicit") {
+function Fi(r, e, t = "explicit") {
   try {
-    const n = de + r, s = ke(Array.from(e)), o = {
+    const n = te + r, s = me(Array.from(e)), o = {
       version: 2,
-      mode: ne(t, "explicit"),
+      mode: Y(t, "explicit"),
       ids: s
     };
     localStorage.setItem(n, JSON.stringify(o));
   } catch {
   }
 }
-function ti(r, e) {
+function qi(r, e) {
   const t = r.groups.map((n) => n.groupId === e ? { ...n, expanded: !n.expanded } : n);
   return { ...r, groups: t };
 }
-function ri(r) {
+function Oi(r) {
   const e = r.groups.map((t) => ({
     ...t,
     expanded: !0
   }));
   return { ...r, groups: e };
 }
-function ni(r) {
+function ji(r) {
   const e = r.groups.map((t) => ({
     ...t,
     expanded: !1
   }));
   return { ...r, groups: e };
 }
-function si(r) {
+function zi(r) {
   const e = /* @__PURE__ */ new Set();
   for (const t of r.groups)
     t.expanded && e.add(t.groupId);
   return e;
 }
-const Et = "datagrid-view-mode-", Be = 200, nn = 256;
-function ne(r, e = "explicit") {
+const ht = "datagrid-view-mode-", xe = 200, zr = 256;
+function Y(r, e = "explicit") {
   return r === "all" || r === "none" || r === "explicit" ? r : e;
 }
-function sn(r) {
+function Nr(r) {
   try {
-    const e = Et + r, t = localStorage.getItem(e);
-    if (t && Lt(t))
+    const e = ht + r, t = localStorage.getItem(e);
+    if (t && ft(t))
       return t;
   } catch {
   }
   return null;
 }
-function oi(r, e) {
+function Ni(r, e) {
   try {
-    const t = Et + r;
+    const t = ht + r;
     localStorage.setItem(t, e);
   } catch {
   }
 }
-function Lt(r) {
+function ft(r) {
   return r === "flat" || r === "grouped" || r === "matrix";
 }
-function _t(r) {
-  return r && Lt(r) ? r : null;
+function mt(r) {
+  return r && ft(r) ? r : null;
 }
-function ai(r) {
+function Gi(r) {
   if (!(r instanceof Set) || r.size === 0)
     return "";
   const e = Array.from(new Set(
-    Array.from(r).map((t) => Me(t)).filter((t) => t !== null)
-  )).slice(0, Be).sort();
+    Array.from(r).map((t) => Se(t)).filter((t) => t !== null)
+  )).slice(0, xe).sort();
   return e.length === 0 ? "" : e.map((t) => encodeURIComponent(t)).join(",");
 }
-function on(r) {
+function Gr(r) {
   const e = /* @__PURE__ */ new Set();
   if (!r)
     return e;
   const t = r.split(",");
   for (const n of t) {
-    if (e.size >= Be)
+    if (e.size >= xe)
       break;
     if (!n)
       continue;
@@ -1867,12 +1856,12 @@ function on(r) {
     } catch {
       continue;
     }
-    const o = Me(s);
+    const o = Se(s);
     o && e.add(o);
   }
   return e;
 }
-function Me(r) {
+function Se(r) {
   if (typeof r != "string")
     return null;
   let e = r.trim();
@@ -1884,21 +1873,21 @@ function Me(r) {
       typeof t == "string" && t.trim() && (e = t.trim());
     } catch {
     }
-  return e.length > nn ? null : e;
+  return e.length > zr ? null : e;
 }
-function an(r, e = {}) {
-  const { summary: t } = r, { size: n = "sm" } = e, s = n === "sm" ? "text-xs" : "text-sm", o = t.availableLocales.length, a = t.missingLocales.length, i = o + a;
+function Ur(r, e = {}) {
+  const { summary: t } = r, { size: n = "sm" } = e, s = n === "sm" ? "text-xs" : "text-sm", o = t.availableLocales.length, i = t.missingLocales.length, a = o + i;
   let l = "";
   if (t.readinessState) {
-    const u = ln(t.readinessState);
+    const p = Hr(t.readinessState);
     l = `
-      <span class="${s} px-1.5 py-0.5 rounded ${u.bgClass} ${u.textClass}"
-            title="${u.description}">
-        ${u.icon} ${u.label}
+      <span class="${s} px-1.5 py-0.5 rounded ${p.bgClass} ${p.textClass}"
+            title="${p.description}">
+        ${p.icon} ${p.label}
       </span>
     `;
   }
-  const c = i > 0 ? `<span class="${s} text-gray-500">${o}/${i} locales</span>` : "", d = `<span class="${s} text-gray-500">${t.totalItems} item${t.totalItems !== 1 ? "s" : ""}</span>`;
+  const c = a > 0 ? `<span class="${s} text-gray-500">${o}/${a} locales</span>` : "", d = `<span class="${s} text-gray-500">${t.totalItems} item${t.totalItems !== 1 ? "s" : ""}</span>`;
   return `
     <div class="inline-flex items-center gap-2">
       ${l}
@@ -1907,7 +1896,7 @@ function an(r, e = {}) {
     </div>
   `;
 }
-function ln(r) {
+function Hr(r) {
   switch (r) {
     case "ready":
       return {
@@ -1951,7 +1940,7 @@ function ln(r) {
       };
   }
 }
-function cn(r) {
+function Vr(r) {
   if (typeof r.displayLabel == "string" && r.displayLabel.trim())
     return r.displayLabel.trim();
   if (r.groupId.startsWith("ungrouped:"))
@@ -1968,11 +1957,11 @@ function cn(r) {
   }
   return `Translation Group (${r.groupId.length > 8 ? r.groupId.slice(0, 8) + "..." : r.groupId})`;
 }
-function dn(r, e, t = {}) {
-  const { showExpandIcon: n = !0 } = t, s = n ? `<span class="expand-icon mr-2" aria-hidden="true">${r.expanded ? "▼" : "▶"}</span>` : "", o = an(r), a = Pe(cn(r)), i = r.records.length, l = i > 1 ? `<span class="ml-2 text-xs text-gray-500">(${i} locales)</span>` : "";
+function Kr(r, e, t = {}) {
+  const { showExpandIcon: n = !0 } = t, s = n ? `<span class="expand-icon mr-2" aria-hidden="true">${r.expanded ? "▼" : "▶"}</span>` : "", o = Ur(r), i = u(Vr(r)), a = r.records.length, l = a > 1 ? `<span class="ml-2 text-xs text-gray-500">(${a} locales)</span>` : "";
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
-        data-group-id="${un(r.groupId)}"
+        data-group-id="${b(r.groupId)}"
         data-expanded="${r.expanded}"
         role="row"
         aria-expanded="${r.expanded}"
@@ -1981,7 +1970,7 @@ function dn(r, e, t = {}) {
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             ${s}
-            <span class="font-medium text-gray-700">${a}</span>
+            <span class="font-medium text-gray-700">${i}</span>
             ${l}
           </div>
           ${o}
@@ -1990,13 +1979,7 @@ function dn(r, e, t = {}) {
     </tr>
   `;
 }
-function Pe(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function un(r) {
-  return Pe(r);
-}
-function pn(r) {
+function Jr(r) {
   return `
     <tr>
       <td colspan="${r + 2}" class="px-6 py-12 text-center">
@@ -2012,7 +1995,7 @@ function pn(r) {
     </tr>
   `;
 }
-function ii(r) {
+function Ui(r) {
   return `
     <tr>
       <td colspan="${r + 2}" class="px-6 py-12 text-center">
@@ -2027,7 +2010,7 @@ function ii(r) {
     </tr>
   `;
 }
-function li(r, e, t) {
+function Hi(r, e, t) {
   const n = t ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
     <tr>
@@ -2038,45 +2021,45 @@ function li(r, e, t) {
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">Error loading groups</h3>
-          <p class="mt-1 text-sm text-gray-500">${Pe(e)}</p>
+          <p class="mt-1 text-sm text-gray-500">${u(e)}</p>
           ${n}
         </div>
       </td>
     </tr>
   `;
 }
-function hn(r = 768) {
+function Yr(r = 768) {
   return typeof window > "u" ? !1 : window.innerWidth < r;
 }
-function Te(r, e = 768) {
-  return hn(e) && r === "grouped" ? "flat" : r;
+function Ce(r, e = 768) {
+  return Yr(e) && r === "grouped" ? "flat" : r;
 }
-const X = "search", Z = "page", ee = "perPage", te = "filters", re = "sort", ue = "state", De = "hiddenColumns", pe = "view_mode", ce = "expanded_groups", Fe = [
-  X,
-  Z,
-  ee,
-  te,
+const U = "search", H = "page", V = "perPage", K = "filters", J = "sort", re = "state", $e = "hiddenColumns", ne = "view_mode", ee = "expanded_groups", ke = [
+  U,
+  H,
+  V,
+  K,
+  J,
   re,
-  ue,
-  De,
-  pe,
-  ce
-], Rt = 1800, It = 600;
-function Ke(r, e) {
+  $e,
+  ne,
+  ee
+], gt = 1800, bt = 600;
+function Pe(r, e) {
   const t = e.toString();
   return t ? `${r}?${t}` : r;
 }
-function fn(r, e) {
+function Qr(r, e) {
   for (const t of e)
     r.delete(t);
 }
-function mn(r) {
+function Wr(r) {
   const e = Math.max(
     256,
-    r.config.urlState?.maxURLLength || Rt
+    r.config.urlState?.maxURLLength || gt
   ), t = Math.max(
     64,
-    r.config.urlState?.maxFiltersLength || It
+    r.config.urlState?.maxFiltersLength || bt
   ), n = r.config.urlState?.enableStateToken !== !1;
   return {
     maxURLLength: e,
@@ -2084,7 +2067,7 @@ function mn(r) {
     enableStateToken: n
   };
 }
-function gn(r, e, t) {
+function Xr(r, e, t) {
   const n = String(e || "").trim();
   if (!n)
     return null;
@@ -2095,36 +2078,36 @@ function gn(r, e, t) {
     return console.warn(`[DataGrid] Failed to parse ${t} payload from URL:`, s), null;
   }
 }
-function bn(r, e, t = {}) {
-  const n = t.merge === !0, s = new Set(r.config.columns.map((i) => i.field)), o = Array.isArray(e.hiddenColumns) ? new Set(
-    e.hiddenColumns.map((i) => String(i || "").trim()).filter((i) => i.length > 0 && s.has(i))
+function Zr(r, e, t = {}) {
+  const n = t.merge === !0, s = new Set(r.config.columns.map((a) => a.field)), o = Array.isArray(e.hiddenColumns) ? new Set(
+    e.hiddenColumns.map((a) => String(a || "").trim()).filter((a) => a.length > 0 && s.has(a))
   ) : null;
   o ? (r.state.hiddenColumns = o, r.hasPersistedHiddenColumnState = !0) : n || (r.state.hiddenColumns = new Set(
-    r.config.columns.filter((i) => i.hidden).map((i) => i.field)
+    r.config.columns.filter((a) => a.hidden).map((a) => a.field)
   ), r.hasPersistedHiddenColumnState = !1);
-  const a = Array.isArray(e.columnOrder) ? e.columnOrder.map((i) => String(i || "").trim()).filter((i) => i.length > 0 && s.has(i)) : null;
-  if (a && a.length > 0) {
-    const i = r.mergeColumnOrder(a);
-    r.state.columnOrder = i, r.hasPersistedColumnOrderState = !0, r.didRestoreColumnOrder = !0;
+  const i = Array.isArray(e.columnOrder) ? e.columnOrder.map((a) => String(a || "").trim()).filter((a) => a.length > 0 && s.has(a)) : null;
+  if (i && i.length > 0) {
+    const a = r.mergeColumnOrder(i);
+    r.state.columnOrder = a, r.hasPersistedColumnOrderState = !0, r.didRestoreColumnOrder = !0;
     const l = r.defaultColumns.map((d) => d.field);
-    r.shouldReorderDOMOnRestore = l.join("|") !== i.join("|");
+    r.shouldReorderDOMOnRestore = l.join("|") !== a.join("|");
     const c = new Map(r.config.columns.map((d) => [d.field, d]));
-    r.config.columns = i.map((d) => c.get(d)).filter((d) => d !== void 0);
-  } else n || (r.state.columnOrder = r.config.columns.map((i) => i.field), r.hasPersistedColumnOrderState = !1, r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1);
+    r.config.columns = a.map((d) => c.get(d)).filter((d) => d !== void 0);
+  } else n || (r.state.columnOrder = r.config.columns.map((a) => a.field), r.hasPersistedColumnOrderState = !1, r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1);
   if (r.config.enableGroupedMode) {
     if (e.viewMode) {
-      const i = _t(e.viewMode);
-      i && (r.state.viewMode = Te(i));
+      const a = mt(e.viewMode);
+      a && (r.state.viewMode = Ce(a));
     }
-    r.state.expandMode = ne(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
-      e.expandedGroups.map((i) => String(i || "").trim()).filter(Boolean)
+    r.state.expandMode = Y(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
+      e.expandedGroups.map((a) => String(a || "").trim()).filter(Boolean)
     ), r.state.hasPersistedExpandState = !0) : e.expandMode !== void 0 && (r.state.hasPersistedExpandState = !0);
   }
 }
-function yn(r, e) {
+function en(r, e) {
   e.persisted && r.applyPersistedStateSnapshot(e.persisted, { merge: !0 }), typeof e.search == "string" && (r.state.search = e.search), typeof e.page == "number" && Number.isFinite(e.page) && (r.state.currentPage = Math.max(1, Math.trunc(e.page))), typeof e.perPage == "number" && Number.isFinite(e.perPage) && (r.state.perPage = Math.max(1, Math.trunc(e.perPage))), Array.isArray(e.filters) && (r.state.filters = e.filters), Array.isArray(e.sort) && (r.state.sort = e.sort);
 }
-function vn(r) {
+function tn(r) {
   const e = {
     version: 1,
     hiddenColumns: Array.from(r.state.hiddenColumns),
@@ -2133,7 +2116,7 @@ function vn(r) {
   };
   return r.config.enableGroupedMode && (e.viewMode = r.state.viewMode, e.expandMode = r.state.expandMode, e.expandedGroups = Array.from(r.state.expandedGroups)), e;
 }
-function wn(r) {
+function rn(r) {
   return {
     version: 1,
     search: r.state.search || void 0,
@@ -2145,80 +2128,80 @@ function wn(r) {
     updatedAt: Date.now()
   };
 }
-function xn(r) {
+function nn(r) {
   r.stateStore.savePersistedState(r.buildPersistedStateSnapshot());
 }
-function Sn(r) {
+function sn(r) {
   const e = new URLSearchParams(window.location.search);
-  r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1, r.hasURLStateOverrides = Fe.some((c) => e.has(c));
-  const t = e.get(ue);
+  r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1, r.hasURLStateOverrides = ke.some((c) => e.has(c));
+  const t = e.get(re);
   if (t) {
     const c = r.stateStore.resolveShareState(t);
     c && r.applyShareStateSnapshot(c);
   }
-  const n = e.get(X);
+  const n = e.get(U);
   if (n) {
     r.state.search = n;
     const c = document.querySelector(r.selectors.searchInput);
     c && (c.value = n);
   }
-  const s = e.get(Z);
+  const s = e.get(H);
   if (s) {
     const c = parseInt(s, 10);
     r.state.currentPage = Number.isNaN(c) ? 1 : Math.max(1, c);
   }
-  const o = e.get(ee);
+  const o = e.get(V);
   if (o) {
     const c = parseInt(o, 10), d = r.config.perPage || 10;
     r.state.perPage = Number.isNaN(c) ? d : Math.max(1, c);
-    const u = document.querySelector(r.selectors.perPageSelect);
-    u && (u.value = String(r.state.perPage));
+    const p = document.querySelector(r.selectors.perPageSelect);
+    p && (p.value = String(r.state.perPage));
   }
-  const a = e.get(te);
-  if (a) {
-    const c = r.parseJSONArray(a, "filters");
+  const i = e.get(K);
+  if (i) {
+    const c = r.parseJSONArray(i, "filters");
     c && (r.state.filters = c);
   }
-  const i = e.get(re);
-  if (i) {
-    const c = r.parseJSONArray(i, "sort");
+  const a = e.get(J);
+  if (a) {
+    const c = r.parseJSONArray(a, "sort");
     c && (r.state.sort = c);
   }
   if (r.config.enableGroupedMode) {
-    const c = _t(e.get(pe));
-    c && (r.state.viewMode = Te(c)), e.has(ce) && (r.state.expandedGroups = on(
-      e.get(ce)
+    const c = mt(e.get(ne));
+    c && (r.state.viewMode = Ce(c)), e.has(ee) && (r.state.expandedGroups = Gr(
+      e.get(ee)
     ), r.state.expandMode = "explicit", r.state.hasPersistedExpandState = !0);
   }
-  const l = e.get(De);
+  const l = e.get($e);
   if (l) {
     const c = r.parseJSONArray(l, "hidden columns");
     if (c) {
-      const d = new Set(r.config.columns.map((u) => u.field));
+      const d = new Set(r.config.columns.map((p) => p.field));
       r.state.hiddenColumns = new Set(
-        c.map((u) => typeof u == "string" ? u.trim() : "").filter((u) => u.length > 0 && d.has(u))
+        c.map((p) => typeof p == "string" ? p.trim() : "").filter((p) => p.length > 0 && d.has(p))
       );
     }
   } else if (!r.hasPersistedHiddenColumnState && r.config.behaviors?.columnVisibility) {
-    const c = r.config.columns.map((u) => u.field), d = r.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(c);
+    const c = r.config.columns.map((p) => p.field), d = r.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(c);
     d.size > 0 && (r.state.hiddenColumns = d);
   }
   if (!r.hasPersistedColumnOrderState && r.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
-    const c = r.config.columns.map((u) => u.field), d = r.config.behaviors.columnVisibility.loadColumnOrderFromCache(c);
+    const c = r.config.columns.map((p) => p.field), d = r.config.behaviors.columnVisibility.loadColumnOrderFromCache(c);
     if (d && d.length > 0) {
-      const u = r.mergeColumnOrder(d);
-      r.state.columnOrder = u, r.didRestoreColumnOrder = !0;
-      const p = r.defaultColumns.map((f) => f.field);
-      r.shouldReorderDOMOnRestore = p.join("|") !== u.join("|");
-      const h = new Map(r.config.columns.map((f) => [f.field, f]));
-      r.config.columns = u.map((f) => h.get(f)).filter((f) => f !== void 0);
+      const p = r.mergeColumnOrder(d);
+      r.state.columnOrder = p, r.didRestoreColumnOrder = !0;
+      const h = r.defaultColumns.map((m) => m.field);
+      r.shouldReorderDOMOnRestore = h.join("|") !== p.join("|");
+      const f = new Map(r.config.columns.map((m) => [m.field, m]));
+      r.config.columns = p.map((m) => f.get(m)).filter((m) => m !== void 0);
     }
   }
   r.persistStateSnapshot(), console.log("[DataGrid] State restored from URL:", r.state), setTimeout(() => {
     r.applyRestoredState();
   }, 0);
 }
-function $n(r) {
+function on(r) {
   const e = document.querySelector(r.selectors.searchInput);
   e && (e.value = r.state.search);
   const t = document.querySelector(r.selectors.perPageSelect);
@@ -2231,29 +2214,29 @@ function $n(r) {
   const n = r.config.columns.filter((s) => !r.state.hiddenColumns.has(s.field)).map((s) => s.field);
   r.updateColumnVisibility(n, !0), r.state.sort.length > 0 && r.updateSortIndicators();
 }
-function Cn(r, e = {}) {
+function an(r, e = {}) {
   r.persistStateSnapshot();
   const t = r.getURLStateConfig(), n = new URLSearchParams(window.location.search);
-  fn(n, Fe), r.state.search && n.set(X, r.state.search), r.state.currentPage > 1 && n.set(Z, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && n.set(ee, String(r.state.perPage));
+  Qr(n, ke), r.state.search && n.set(U, r.state.search), r.state.currentPage > 1 && n.set(H, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && n.set(V, String(r.state.perPage));
   let s = !1;
   if (r.state.filters.length > 0) {
-    const i = JSON.stringify(r.state.filters);
-    i.length <= t.maxFiltersLength ? n.set(te, i) : s = !0;
+    const a = JSON.stringify(r.state.filters);
+    a.length <= t.maxFiltersLength ? n.set(K, a) : s = !0;
   }
-  r.state.sort.length > 0 && n.set(re, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && n.set(pe, r.state.viewMode);
-  let o = Ke(window.location.pathname, n);
-  const a = o.length > t.maxURLLength;
-  if (t.enableStateToken && (s || a)) {
-    n.delete(X), n.delete(Z), n.delete(ee), n.delete(te), n.delete(re);
-    const i = r.stateStore.createShareState(r.buildShareStateSnapshot());
-    i && n.set(ue, i), o = Ke(window.location.pathname, n);
+  r.state.sort.length > 0 && n.set(J, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && n.set(ne, r.state.viewMode);
+  let o = Pe(window.location.pathname, n);
+  const i = o.length > t.maxURLLength;
+  if (t.enableStateToken && (s || i)) {
+    n.delete(U), n.delete(H), n.delete(V), n.delete(K), n.delete(J);
+    const a = r.stateStore.createShareState(r.buildShareStateSnapshot());
+    a && n.set(re, a), o = Pe(window.location.pathname, n);
   }
   e.replace ? window.history.replaceState({}, "", o) : window.history.pushState({}, "", o), console.log("[DataGrid] URL updated:", o);
 }
-async function kn(r) {
+async function ln(r) {
   console.log("[DataGrid] ===== refresh() CALLED ====="), console.log("[DataGrid] Current sort state:", JSON.stringify(r.state.sort)), r.abortController && r.abortController.abort(), r.abortController = new AbortController();
   try {
-    const e = r.buildApiUrl(), t = await L(e, {
+    const e = r.buildApiUrl(), t = await $(e, {
       signal: r.abortController.signal,
       method: "GET",
       accept: "application/json"
@@ -2263,14 +2246,14 @@ async function kn(r) {
         return;
       throw new Error(`HTTP error! status: ${t.status}`);
     }
-    const n = await t.json(), s = or(n) || n;
+    const n = await t.json(), s = Ut(n) || n;
     console.log("[DataGrid] API Response:", s), console.log("[DataGrid] API Response data array:", s.data), console.log("[DataGrid] API Response total:", s.total, "count:", s.count, "$meta:", s.$meta);
     const o = s.data || s.records || [];
     if (r.handleGroupedModePayloadFallback(o))
       return;
     r.lastSchema = s.schema || null, r.lastForm = s.form || null, r.setBulkActionState(s.$meta?.bulk_action_state || null, s.schema?.bulk_action_state_config || null);
-    const a = r.getResponseTotal(s);
-    if (r.normalizePagination(a))
+    const i = r.getResponseTotal(s);
+    if (r.normalizePagination(i))
       return r.refresh();
     console.log("[DataGrid] About to call renderData()..."), r.renderData(s), console.log("[DataGrid] renderData() completed"), r.updatePaginationUI(s), r.updateBulkActionsBar(), console.log("[DataGrid] ===== refresh() COMPLETED =====");
   } catch (e) {
@@ -2281,7 +2264,7 @@ async function kn(r) {
     console.error("[DataGrid] Error fetching data:", e), r.showError("Failed to load data");
   }
 }
-function An(r) {
+function cn(r) {
   const e = new URLSearchParams(), t = r.buildQueryParams();
   Object.entries(t).forEach(([s, o]) => {
     o != null && e.append(s, String(o));
@@ -2289,13 +2272,13 @@ function An(r) {
   const n = `${r.config.apiEndpoint}?${e.toString()}`;
   return console.log(`[DataGrid] API URL: ${n}`), n;
 }
-function En(r) {
+function dn(r) {
   const e = new URLSearchParams(), t = r.buildQueryParams();
   return Object.entries(t).forEach(([n, s]) => {
     s != null && e.append(n, String(s));
   }), e.toString();
 }
-function Ln(r) {
+function un(r) {
   const e = {};
   if (r.config.behaviors?.pagination) {
     const t = r.config.behaviors.pagination.buildQuery(
@@ -2318,10 +2301,10 @@ function Ln(r) {
   }
   return r.isGroupedViewActive() && (e.group_by = r.config.groupByField || "family_id"), e;
 }
-function _n(r, e) {
+function pn(r, e) {
   return e.total !== void 0 && e.total !== null ? e.total : e.$meta?.count !== void 0 && e.$meta?.count !== null ? e.$meta.count : e.count !== void 0 && e.count !== null ? e.count : null;
 }
-function Rn(r, e) {
+function hn(r, e) {
   if (e === null)
     return !1;
   const t = Math.max(1, r.state.perPage || r.config.perPage || 10), n = Math.max(1, Math.ceil(e / t));
@@ -2330,8 +2313,8 @@ function Rn(r, e) {
   const o = t !== r.state.perPage || s !== r.state.currentPage;
   return o && (r.state.perPage = t, r.state.currentPage = s, r.pushStateToURL()), e === 0 ? !1 : o;
 }
-async function In(r, e) {
-  const t = await L(`${r.config.apiEndpoint}/${e}`, {
+async function fn(r, e) {
+  const t = await $(`${r.config.apiEndpoint}/${e}`, {
     method: "GET",
     accept: "application/json"
   });
@@ -2343,8 +2326,8 @@ async function In(r, e) {
     tabs: s.schema?.tabs || []
   };
 }
-function Bn(r, e) {
-  const t = at(e) || e;
+function mn(r, e) {
+  const t = Ke(e) || e;
   if (t && typeof t == "object" && "data" in t) {
     const n = t;
     return {
@@ -2355,67 +2338,67 @@ function Bn(r, e) {
   }
   return { data: e };
 }
-function Mn(r) {
+function gn(r) {
   return r.lastSchema;
 }
-function Pn(r) {
+function bn(r) {
   return r.lastForm;
 }
-function Tn(r) {
+function yn(r) {
   return r.lastSchema?.tabs || [];
 }
-function Dn(r, e, t, n) {
+function vn(r, e, t, n) {
   const s = r.config.groupByField || "family_id", o = t.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
-  let a = Ur(o, {
+  let i = _r(o, {
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
     expandedGroups: r.state.expandedGroups
   });
-  a || (a = Gr(o, {
+  i || (i = Lr(o, {
     groupByField: s,
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
     expandedGroups: r.state.expandedGroups
   }));
-  const i = Zr(e);
-  i.size > 0 && (a = Xr(a, i)), r.state.groupedData = a;
+  const a = Fr(e);
+  a.size > 0 && (i = Dr(i, a)), r.state.groupedData = i;
   const l = r.config.columns.length;
-  for (const c of a.groups) {
-    const d = dn(c, l);
+  for (const c of i.groups) {
+    const d = Kr(c, l);
     n.insertAdjacentHTML("beforeend", d);
-    const u = n.lastElementChild;
-    u && (u.addEventListener("click", () => r.toggleGroup(c.groupId)), u.addEventListener("keydown", (p) => {
-      (p.key === "Enter" || p.key === " ") && (p.preventDefault(), r.toggleGroup(c.groupId));
+    const p = n.lastElementChild;
+    p && (p.addEventListener("click", () => r.toggleGroup(c.groupId)), p.addEventListener("keydown", (h) => {
+      (h.key === "Enter" || h.key === " ") && (h.preventDefault(), r.toggleGroup(c.groupId));
     }));
-    for (const p of c.records) {
-      p.id && (r.recordsById[p.id] = p);
-      const h = r.createTableRow(p);
-      h.dataset.groupId = c.groupId, h.classList.add("group-child-row"), c.expanded || (h.style.display = "none"), n.appendChild(h);
+    for (const h of c.records) {
+      h.id && (r.recordsById[h.id] = h);
+      const f = r.createTableRow(h);
+      f.dataset.groupId = c.groupId, f.classList.add("group-child-row"), c.expanded || (f.style.display = "none"), n.appendChild(f);
     }
   }
-  for (const c of a.ungrouped) {
+  for (const c of i.ungrouped) {
     c.id && (r.recordsById[c.id] = c);
     const d = r.createTableRow(c);
     n.appendChild(d);
   }
-  console.log(`[DataGrid] Rendered ${a.groups.length} groups, ${a.ungrouped.length} ungrouped`);
+  console.log(`[DataGrid] Rendered ${i.groups.length} groups, ${i.ungrouped.length} ungrouped`);
 }
-function Fn(r) {
+function wn(r) {
   return r.config.enableGroupedMode ? r.state.viewMode === "grouped" || r.state.viewMode === "matrix" : !1;
 }
-function qn(r, e) {
+function xn(r, e) {
   r.isGroupedViewActive() && (r.state.viewMode = "flat", r.state.groupedData = null, r.pushStateToURL({ replace: !0 }), r.notify(e, "warning"), r.refresh());
 }
-function On(r, e) {
+function Sn(r, e) {
   return !r.isGroupedViewActive() || ![400, 404, 405, 422].includes(e) ? !1 : (r.fallbackGroupedMode("Grouped pagination is not supported by this panel. Switched to flat view."), !0);
 }
-function jn(r, e) {
+function Cn(r, e) {
   if (!r.isGroupedViewActive() || e.length === 0)
     return !1;
   const t = e.filter((n) => !!n && typeof n == "object" && !Array.isArray(n));
-  return t.length !== e.length || !vt(t) ? (r.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
+  return t.length !== e.length || !ot(t) ? (r.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
 }
-function zn(r, e) {
+function $n(r, e) {
   if (!r.state.groupedData) return;
   const t = String(e || "").trim();
   if (!t) return;
@@ -2424,7 +2407,7 @@ function zn(r, e) {
   const s = r.state.groupedData.groups.find((o) => o.groupId === t);
   s && (s.expanded = r.isGroupExpandedByState(t)), r.updateGroupVisibility(t), r.pushStateToURL({ replace: !0 });
 }
-function Nn(r, e) {
+function kn(r, e) {
   if (!r.config.enableGroupedMode)
     return;
   const t = new Set(
@@ -2432,13 +2415,13 @@ function Nn(r, e) {
   );
   r.state.expandMode = "explicit", r.state.expandedGroups = t, r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh();
 }
-function Hn(r) {
+function An(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "all", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
-function Gn(r) {
+function En(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "none", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
-function Un(r, e) {
+function Ln(r, e) {
   const t = r.tableEl?.querySelector("tbody");
   if (!t) return;
   const n = t.querySelector(`tr[data-group-id="${e}"]`);
@@ -2446,34 +2429,34 @@ function Un(r, e) {
   const s = r.isGroupExpandedByState(e);
   n.dataset.expanded = String(s), n.setAttribute("aria-expanded", String(s));
   const o = n.querySelector(".expand-icon");
-  o && (o.textContent = s ? "▼" : "▶"), t.querySelectorAll(`tr.group-child-row[data-group-id="${e}"]`).forEach((i) => {
-    i.style.display = s ? "" : "none";
+  o && (o.textContent = s ? "▼" : "▶"), t.querySelectorAll(`tr.group-child-row[data-group-id="${e}"]`).forEach((a) => {
+    a.style.display = s ? "" : "none";
   });
 }
-function Vn(r) {
+function _n(r) {
   if (r.state.groupedData)
     for (const e of r.state.groupedData.groups)
       e.expanded = r.isGroupExpandedByState(e.groupId), r.updateGroupVisibility(e.groupId);
 }
-function Kn(r, e, t = !1) {
-  const n = ne(r.state.expandMode, "explicit");
+function Rn(r, e, t = !1) {
+  const n = Y(r.state.expandMode, "explicit");
   return n === "all" ? !r.state.expandedGroups.has(e) : n === "none" ? r.state.expandedGroups.has(e) : r.state.expandedGroups.size === 0 ? t : r.state.expandedGroups.has(e);
 }
-function Jn(r, e) {
+function In(r, e) {
   if (!r.config.enableGroupedMode) {
     console.warn("[DataGrid] Grouped mode not enabled");
     return;
   }
-  const t = Te(e);
+  const t = Ce(e);
   r.state.viewMode = t, t === "flat" && (r.state.groupedData = null), r.pushStateToURL(), r.refresh();
 }
-function Yn(r) {
+function Bn(r) {
   return r.state.viewMode;
 }
-function Qn(r) {
+function Mn(r) {
   return r.state.groupedData;
 }
-function Wn(r) {
+function Pn(r) {
   return {
     textCode: null,
     message: r,
@@ -2482,7 +2465,7 @@ function Wn(r) {
     validationErrors: null
   };
 }
-async function Xn(r) {
+async function Tn(r) {
   const e = String(r.confirmMessage || "Are you sure you want to delete this item?").trim() || "Are you sure you want to delete this item?", t = String(r.confirmTitle || "Confirm Delete").trim() || "Confirm Delete";
   if (r.notifier?.confirm)
     return r.notifier.confirm(e, {
@@ -2493,10 +2476,10 @@ async function Xn(r) {
   const n = globalThis.window;
   return n && typeof n.confirm == "function" ? n.confirm(e) : !0;
 }
-async function Bt(r) {
-  if (!await Xn(r))
+async function yt(r) {
+  if (!await Tn(r))
     return null;
-  const t = await nt(r.endpoint, {
+  const t = await Ue(r.endpoint, {
     method: "DELETE",
     headers: {
       Accept: "application/json"
@@ -2504,26 +2487,26 @@ async function Bt(r) {
   });
   if (t.success)
     return await r.onSuccess?.(t), t;
-  const n = String(r.fallbackMessage || "Delete failed").trim() || "Delete failed", s = t.error || Wn(n), o = {
+  const n = String(r.fallbackMessage || "Delete failed").trim() || "Delete failed", s = t.error || Pn(n), o = {
     ...s,
-    message: G(s, n)
+    message: q(s, n)
   };
-  throw o.textCode && r.reconcileOnDomainFailure && await r.reconcileOnDomainFailure(o), await r.onError?.(o), ae(o, n, !!r.onError);
+  throw o.textCode && r.reconcileOnDomainFailure && await r.reconcileOnDomainFailure(o), await r.onError?.(o), W(o, n, !!r.onError);
 }
-function Zn(r, e, t = !1) {
+function Dn(r, e, t = !1) {
   if (!r.tableEl) return;
   const n = new Set(e);
-  r.state.hiddenColumns.clear(), r.config.columns.forEach((a) => {
-    n.has(a.field) || r.state.hiddenColumns.add(a.field);
-  }), t || r.pushStateToURL(), r.tableEl.querySelectorAll("thead th[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && (a.style.display = n.has(i) ? "" : "none");
-  }), r.tableEl.querySelectorAll("tbody td[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && (a.style.display = n.has(i) ? "" : "none");
+  r.state.hiddenColumns.clear(), r.config.columns.forEach((i) => {
+    n.has(i.field) || r.state.hiddenColumns.add(i.field);
+  }), t || r.pushStateToURL(), r.tableEl.querySelectorAll("thead th[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && (i.style.display = n.has(a) ? "" : "none");
+  }), r.tableEl.querySelectorAll("tbody td[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && (i.style.display = n.has(a) ? "" : "none");
   }), r.syncColumnVisibilityCheckboxes();
 }
-function es(r) {
+function Fn(r) {
   if (r.columnManager) {
     r.columnManager.syncWithGridState();
     return;
@@ -2536,7 +2519,7 @@ function es(r) {
     n && (n.checked = !r.state.hiddenColumns.has(t.field));
   });
 }
-function ts(r, e) {
+function qn(r, e) {
   const t = r.tableEl?.querySelector("tbody");
   if (!t) {
     console.error("[DataGrid] tbody not found!");
@@ -2547,7 +2530,7 @@ function ts(r, e) {
   console.log(`[DataGrid] renderData() called with ${n.length} items`), console.log("[DataGrid] First 3 items:", n.slice(0, 3));
   const s = r.getResponseTotal(e);
   if (r.state.totalRows = s ?? n.length, n.length === 0) {
-    r.isGroupedViewActive() ? t.innerHTML = pn(r.config.columns.length) : t.innerHTML = `
+    r.isGroupedViewActive() ? t.innerHTML = Jr(r.config.columns.length) : t.innerHTML = `
           <tr>
             <td colspan="${r.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
               No results found
@@ -2556,23 +2539,23 @@ function ts(r, e) {
         `;
     return;
   }
-  r.recordsById = {}, r.isGroupedViewActive() ? r.renderGroupedData(e, n, t) : r.renderFlatData(n, t), r.state.hiddenColumns.size > 0 && t.querySelectorAll("td[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && r.state.hiddenColumns.has(i) && (a.style.display = "none");
+  r.recordsById = {}, r.isGroupedViewActive() ? r.renderGroupedData(e, n, t) : r.renderFlatData(n, t), r.state.hiddenColumns.size > 0 && t.querySelectorAll("td[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && r.state.hiddenColumns.has(a) && (i.style.display = "none");
   }), r.updateSelectionBindings();
 }
-function rs(r, e, t) {
+function On(r, e, t) {
   e.forEach((n, s) => {
     console.log(`[DataGrid] Rendering row ${s + 1}: id=${n.id}`), n.id && (r.recordsById[n.id] = n);
     const o = r.createTableRow(n);
     t.appendChild(o);
   }), console.log(`[DataGrid] Finished appending ${e.length} rows to tbody`), console.log("[DataGrid] tbody.children.length =", t.children.length);
 }
-function ns(r, e) {
+function jn(r, e) {
   const t = e.rendererOptions ?? e.renderer_options;
   return !t || typeof t != "object" || Array.isArray(t) ? {} : t;
 }
-function ss(r, e) {
+function zn(r, e) {
   const t = document.createElement("tr");
   let n = ["hover:bg-gray-50"];
   r.config.rowClassProvider && (n = n.concat(r.config.rowClassProvider(e))), t.className = n.join(" ");
@@ -2584,48 +2567,48 @@ function ss(r, e) {
                data-id="${e.id}">
         <span class="sr-only">Select</span>
       </label>
-    `, t.appendChild(s), r.config.columns.forEach((i) => {
+    `, t.appendChild(s), r.config.columns.forEach((a) => {
     const l = document.createElement("td");
-    l.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", i.field);
-    const c = e[i.field], d = typeof i.renderer == "string" ? i.renderer.trim() : "", u = {
-      options: r.resolveRendererOptions(i)
+    l.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", a.field);
+    const c = e[a.field], d = typeof a.renderer == "string" ? a.renderer.trim() : "", p = {
+      options: r.resolveRendererOptions(a)
     };
-    if (i.render)
-      l.innerHTML = i.render(c, e);
-    else if (r.cellRendererRegistry.has(i.field)) {
-      const p = r.cellRendererRegistry.get(i.field);
-      l.innerHTML = p(c, e, i.field, u);
+    if (a.render)
+      l.innerHTML = a.render(c, e);
+    else if (r.cellRendererRegistry.has(a.field)) {
+      const h = r.cellRendererRegistry.get(a.field);
+      l.innerHTML = h(c, e, a.field, p);
     } else if (d && r.cellRendererRegistry.has(d)) {
-      const p = r.cellRendererRegistry.get(d);
-      l.innerHTML = p(c, e, i.field, u);
+      const h = r.cellRendererRegistry.get(d);
+      l.innerHTML = h(c, e, a.field, p);
     } else if (c == null)
       l.textContent = "-";
-    else if (i.field.includes("_at")) {
-      const p = le(c);
-      l.textContent = p ? p.toLocaleDateString() : String(c);
+    else if (a.field.includes("_at")) {
+      const h = Z(c);
+      l.textContent = h ? h.toLocaleDateString() : String(c);
     } else
       l.textContent = String(c);
     t.appendChild(l);
   });
-  const o = r.config.actionBasePath || r.config.apiEndpoint, a = document.createElement("td");
-  if (a.className = "px-6 py-4 whitespace-nowrap text-end text-sm font-medium", a.dataset.role = "actions", a.dataset.fixed = "right", r.config.rowActions) {
-    const i = r.config.rowActions(e);
-    a.innerHTML = r.actionRenderer.renderRowActions(e, i), i.forEach((l) => {
-      const c = r.sanitizeActionId(l.label), d = a.querySelector(`[data-action-id="${c}"]`);
-      l.disabled || d && d.addEventListener("click", async (u) => {
-        if (u.preventDefault(), !d.disabled)
+  const o = r.config.actionBasePath || r.config.apiEndpoint, i = document.createElement("td");
+  if (i.className = "px-6 py-4 whitespace-nowrap text-end text-sm font-medium", i.dataset.role = "actions", i.dataset.fixed = "right", r.config.rowActions) {
+    const a = r.config.rowActions(e);
+    i.innerHTML = r.actionRenderer.renderRowActions(e, a), a.forEach((l) => {
+      const c = r.sanitizeActionId(l.label), d = i.querySelector(`[data-action-id="${c}"]`);
+      l.disabled || d && d.addEventListener("click", async (p) => {
+        if (p.preventDefault(), !d.disabled)
           try {
             await l.action(e);
-          } catch (p) {
-            if (console.error(`Action "${l.label}" failed:`, p), H(p)?.textCode && await r.refresh(), !T(p)) {
-              const f = p instanceof Error ? p.message : `Action "${l.label}" failed`;
-              r.notify(f, "error");
+          } catch (h) {
+            if (console.error(`Action "${l.label}" failed:`, h), F(h)?.textCode && await r.refresh(), !R(h)) {
+              const m = h instanceof Error ? h.message : `Action "${l.label}" failed`;
+              r.notify(m, "error");
             }
           }
       });
     });
   } else if (r.config.useDefaultActions !== !1) {
-    const i = [
+    const a = [
       {
         label: "View",
         icon: "eye",
@@ -2651,29 +2634,29 @@ function ss(r, e) {
         variant: "danger"
       }
     ];
-    a.innerHTML = r.actionRenderer.renderRowActions(e, i), i.forEach((l) => {
-      const c = r.sanitizeActionId(l.label), d = a.querySelector(`[data-action-id="${c}"]`);
-      d && d.addEventListener("click", async (u) => {
-        if (u.preventDefault(), u.stopPropagation(), !d.disabled)
+    i.innerHTML = r.actionRenderer.renderRowActions(e, a), a.forEach((l) => {
+      const c = r.sanitizeActionId(l.label), d = i.querySelector(`[data-action-id="${c}"]`);
+      d && d.addEventListener("click", async (p) => {
+        if (p.preventDefault(), p.stopPropagation(), !d.disabled)
           try {
             await l.action();
-          } catch (p) {
-            if (console.error(`Action "${l.label}" failed:`, p), H(p)?.textCode && await r.refresh(), !T(p)) {
-              const f = p instanceof Error ? p.message : `Action "${l.label}" failed`;
-              r.notify(f, "error");
+          } catch (h) {
+            if (console.error(`Action "${l.label}" failed:`, h), F(h)?.textCode && await r.refresh(), !R(h)) {
+              const m = h instanceof Error ? h.message : `Action "${l.label}" failed`;
+              r.notify(m, "error");
             }
           }
       });
     });
   }
-  return t.appendChild(a), t;
+  return t.appendChild(i), t;
 }
-function os(r, e) {
+function Nn(r, e) {
   return e.toLowerCase().replace(/[^a-z0-9]/g, "-");
 }
-async function as(r, e) {
+async function Gn(r, e) {
   try {
-    await Bt({
+    await yt({
       endpoint: `${r.config.apiEndpoint}/${e}`,
       confirmMessage: "Are you sure you want to delete this item?",
       confirmTitle: "Confirm Delete",
@@ -2681,7 +2664,7 @@ async function as(r, e) {
         await r.refresh();
       },
       onError: (t) => {
-        r.showError(G(t, "Delete failed"));
+        r.showError(q(t, "Delete failed"));
       },
       reconcileOnDomainFailure: async () => {
         await r.refresh();
@@ -2691,14 +2674,14 @@ async function as(r, e) {
       }
     });
   } catch (t) {
-    console.error("Error deleting item:", t), T(t) || r.showError(t instanceof Error ? t.message : "Failed to delete item");
+    console.error("Error deleting item:", t), R(t) || r.showError(t instanceof Error ? t.message : "Failed to delete item");
   }
 }
-function is(r, e) {
-  const t = r.getResponseTotal(e) ?? r.state.totalRows, n = r.state.perPage * (r.state.currentPage - 1), s = t === 0 ? 0 : n + 1, o = Math.min(n + r.state.perPage, t), a = document.querySelector(r.selectors.tableInfoStart), i = document.querySelector(r.selectors.tableInfoEnd), l = document.querySelector(r.selectors.tableInfoTotal);
-  a && (a.textContent = String(s)), i && (i.textContent = String(o)), l && (l.textContent = String(t)), r.renderPaginationButtons(t);
+function Un(r, e) {
+  const t = r.getResponseTotal(e) ?? r.state.totalRows, n = r.state.perPage * (r.state.currentPage - 1), s = t === 0 ? 0 : n + 1, o = Math.min(n + r.state.perPage, t), i = document.querySelector(r.selectors.tableInfoStart), a = document.querySelector(r.selectors.tableInfoEnd), l = document.querySelector(r.selectors.tableInfoTotal);
+  i && (i.textContent = String(s)), a && (a.textContent = String(o)), l && (l.textContent = String(t)), r.renderPaginationButtons(t);
 }
-function ls(r, e) {
+function Hn(r, e) {
   const t = document.querySelector(r.selectors.paginationContainer);
   if (!t) return;
   const n = Math.ceil(e / r.state.perPage);
@@ -2718,10 +2701,10 @@ function ls(r, e) {
         <span>Previous</span>
       </button>
     `);
-  const a = 5;
-  let i = Math.max(1, o - Math.floor(a / 2)), l = Math.min(n, i + a - 1);
-  l - i < a - 1 && (i = Math.max(1, l - a + 1));
-  for (let c = i; c <= l; c++) {
+  const i = 5;
+  let a = Math.max(1, o - Math.floor(i / 2)), l = Math.min(n, a + i - 1);
+  l - a < i - 1 && (a = Math.max(1, l - i + 1));
+  for (let c = a; c <= l; c++) {
     const d = c === o;
     s.push(`
         <button type="button"
@@ -2748,7 +2731,7 @@ function ls(r, e) {
     });
   });
 }
-class cs {
+class Vn {
   constructor(e) {
     this.sortable = null, this.searchInput = null, this.columnListEl = null, this.countBadgeEl = null, this.container = e.container, this.grid = e.grid, this.onReorder = e.onReorder, this.onToggle = e.onToggle, this.onReset = e.onReset, this.initialize();
   }
@@ -2765,9 +2748,9 @@ class cs {
     const n = this.createHeader(e.length, e.length - t.size);
     this.container.appendChild(n);
     const s = document.createElement("div");
-    s.className = "column-list", s.setAttribute("role", "list"), s.setAttribute("aria-label", "Column visibility and order"), this.columnListEl = s, e.forEach((a) => {
-      const i = this.createColumnItem(a.field, a.label || a.field, !t.has(a.field));
-      s.appendChild(i);
+    s.className = "column-list", s.setAttribute("role", "list"), s.setAttribute("aria-label", "Column visibility and order"), this.columnListEl = s, e.forEach((i) => {
+      const a = this.createColumnItem(i.field, i.label || i.field, !t.has(i.field));
+      s.appendChild(a);
     }), this.container.appendChild(s);
     const o = this.createFooter();
     this.container.appendChild(o);
@@ -2782,10 +2765,10 @@ class cs {
     s.className = "column-search-container";
     const o = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     o.setAttribute("class", "column-search-icon"), o.setAttribute("viewBox", "0 0 24 24"), o.setAttribute("fill", "none"), o.setAttribute("stroke", "currentColor"), o.setAttribute("stroke-width", "2");
-    const a = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    a.setAttribute("cx", "11"), a.setAttribute("cy", "11"), a.setAttribute("r", "8");
-    const i = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    i.setAttribute("d", "m21 21-4.3-4.3"), o.appendChild(a), o.appendChild(i);
+    const i = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    i.setAttribute("cx", "11"), i.setAttribute("cy", "11"), i.setAttribute("r", "8");
+    const a = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    a.setAttribute("d", "m21 21-4.3-4.3"), o.appendChild(i), o.appendChild(a);
     const l = document.createElement("input");
     l.type = "text", l.className = "column-search-input", l.placeholder = "Filter columns...", l.setAttribute("aria-label", "Filter columns"), this.searchInput = l, l.addEventListener("input", () => {
       this.filterColumns(l.value);
@@ -2799,8 +2782,8 @@ class cs {
   filterColumns(e) {
     const t = e.toLowerCase().trim();
     this.container.querySelectorAll(".column-item").forEach((s) => {
-      const o = s.querySelector(".column-label")?.textContent?.toLowerCase() || "", a = t === "" || o.includes(t);
-      s.style.display = a ? "" : "none";
+      const o = s.querySelector(".column-label")?.textContent?.toLowerCase() || "", i = t === "" || o.includes(t);
+      s.style.display = i ? "" : "none";
     }), this.updateScrollShadows();
   }
   /**
@@ -2827,8 +2810,8 @@ class cs {
    */
   updateScrollShadows() {
     if (!this.columnListEl) return;
-    const e = this.columnListEl, t = e.scrollTop, n = e.scrollHeight, s = e.clientHeight, o = n > s, a = o && t > 0, i = o && t + s < n - 1;
-    e.classList.toggle("column-list--shadow-top", a), e.classList.toggle("column-list--shadow-bottom", i);
+    const e = this.columnListEl, t = e.scrollTop, n = e.scrollHeight, s = e.clientHeight, o = n > s, i = o && t > 0, a = o && t + s < n - 1;
+    e.classList.toggle("column-list--shadow-top", i), e.classList.toggle("column-list--shadow-bottom", a);
   }
   /**
    * Create footer with Reset to Default button
@@ -2844,8 +2827,8 @@ class cs {
     s.setAttribute("d", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8");
     const o = document.createElementNS("http://www.w3.org/2000/svg", "path");
     o.setAttribute("d", "M3 3v5h5"), n.appendChild(s), n.appendChild(o);
-    const a = document.createElement("span");
-    return a.textContent = "Reset to Default", t.appendChild(n), t.appendChild(a), t.addEventListener("click", () => {
+    const i = document.createElement("span");
+    return i.textContent = "Reset to Default", t.appendChild(n), t.appendChild(i), t.addEventListener("click", () => {
       this.handleReset();
     }), e.appendChild(t), e;
   }
@@ -2861,10 +2844,10 @@ class cs {
    * Includes full ARIA support for accessibility
    */
   createColumnItem(e, t, n) {
-    const s = `column-item-${e}`, o = `column-switch-${e}`, a = document.createElement("div");
-    a.className = "column-item", a.id = s, a.dataset.column = e, a.setAttribute("role", "listitem");
-    const i = document.createElement("div");
-    i.className = "column-item-content";
+    const s = `column-item-${e}`, o = `column-switch-${e}`, i = document.createElement("div");
+    i.className = "column-item", i.id = s, i.dataset.column = e, i.setAttribute("role", "listitem");
+    const a = document.createElement("div");
+    a.className = "column-item-content";
     const l = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     l.setAttribute("class", "drag-handle"), l.setAttribute("viewBox", "0 0 20 20"), l.setAttribute("fill", "currentColor"), l.setAttribute("aria-hidden", "true"), l.setAttribute("focusable", "false"), [
       [5, 4],
@@ -2878,22 +2861,22 @@ class cs {
       g.setAttribute("cx", String(y)), g.setAttribute("cy", String(v)), g.setAttribute("r", "1.5"), l.appendChild(g);
     });
     const d = document.createElement("span");
-    d.className = "column-label", d.id = `${s}-label`, d.textContent = t, i.appendChild(l), i.appendChild(d);
-    const u = document.createElement("label");
-    u.className = "column-switch", u.htmlFor = o;
-    const p = document.createElement("input");
-    p.type = "checkbox", p.id = o, p.dataset.column = e, p.checked = n, p.setAttribute("role", "switch"), p.setAttribute("aria-checked", String(n)), p.setAttribute("aria-labelledby", `${s}-label`), p.setAttribute("aria-describedby", `${s}-desc`);
-    const h = document.createElement("span");
-    h.id = `${s}-desc`, h.className = "sr-only", h.textContent = `Press Space or Enter to toggle ${t} column visibility. Currently ${n ? "visible" : "hidden"}.`;
+    d.className = "column-label", d.id = `${s}-label`, d.textContent = t, a.appendChild(l), a.appendChild(d);
+    const p = document.createElement("label");
+    p.className = "column-switch", p.htmlFor = o;
+    const h = document.createElement("input");
+    h.type = "checkbox", h.id = o, h.dataset.column = e, h.checked = n, h.setAttribute("role", "switch"), h.setAttribute("aria-checked", String(n)), h.setAttribute("aria-labelledby", `${s}-label`), h.setAttribute("aria-describedby", `${s}-desc`);
     const f = document.createElement("span");
-    return f.className = "column-switch-slider", f.setAttribute("aria-hidden", "true"), u.appendChild(p), u.appendChild(f), a.appendChild(i), a.appendChild(u), a.appendChild(h), a;
+    f.id = `${s}-desc`, f.className = "sr-only", f.textContent = `Press Space or Enter to toggle ${t} column visibility. Currently ${n ? "visible" : "hidden"}.`;
+    const m = document.createElement("span");
+    return m.className = "column-switch-slider", m.setAttribute("aria-hidden", "true"), p.appendChild(h), p.appendChild(m), i.appendChild(a), i.appendChild(p), i.appendChild(f), i;
   }
   /**
    * Setup SortableJS for drag-and-drop reordering
    */
   setupDragAndDrop() {
     const e = this.container.querySelector(".column-list") || this.container;
-    this.sortable = cr.create(e, {
+    this.sortable = Jt.create(e, {
       animation: 150,
       handle: ".drag-handle",
       ghostClass: "column-item-ghost",
@@ -2922,10 +2905,10 @@ class cs {
         if (!n) return;
         const s = t.checked;
         t.setAttribute("aria-checked", String(s));
-        const o = `column-item-${n}-desc`, a = this.container.querySelector(`#${o}`);
-        if (a) {
-          const i = this.container.querySelector(`#column-item-${n}-label`)?.textContent || n;
-          a.textContent = `Press Space or Enter to toggle ${i} column visibility. Currently ${s ? "visible" : "hidden"}.`;
+        const o = `column-item-${n}-desc`, i = this.container.querySelector(`#${o}`);
+        if (i) {
+          const a = this.container.querySelector(`#column-item-${n}-label`)?.textContent || n;
+          i.textContent = `Press Space or Enter to toggle ${a} column visibility. Currently ${s ? "visible" : "hidden"}.`;
         }
         this.onToggle && this.onToggle(n, s), this.grid.config.behaviors?.columnVisibility && this.grid.config.behaviors.columnVisibility.toggleColumn(n, this.grid), this.updateCountBadge();
       });
@@ -2971,17 +2954,17 @@ class cs {
     this.sortable && (this.sortable.destroy(), this.sortable = null);
   }
 }
-function ds(r, e, t, n, s) {
-  const o = (a) => {
-    const i = a.target;
-    if (!i)
+function Kn(r, e, t, n, s) {
+  const o = (i) => {
+    const a = i.target;
+    if (!a)
       return;
-    const l = i.closest(t);
-    !l || !(l instanceof HTMLElement) || n(a, l);
+    const l = a.closest(t);
+    !l || !(l instanceof HTMLElement) || n(i, l);
   };
   return r.addEventListener(e, o, s), () => r.removeEventListener(e, o, s);
 }
-function us(r) {
+function Jn(r) {
   const e = document.querySelector(r.selectors.searchInput);
   if (!e) {
     console.warn(`[DataGrid] Search input not found: ${r.selectors.searchInput}`);
@@ -2999,20 +2982,20 @@ function us(r) {
     e.value = "", e.focus(), n(), r.state.search = "", r.pushStateToURL(), r.config.behaviors?.search ? await r.config.behaviors.search.onSearch("", r) : (r.resetPagination(), await r.refresh());
   }), n();
 }
-function ps(r) {
+function Yn(r) {
   const e = document.querySelector(r.selectors.perPageSelect);
   e && e.addEventListener("change", async () => {
     r.state.perPage = parseInt(e.value, 10), r.resetPagination(), r.pushStateToURL(), await r.refresh();
   });
 }
-function hs(r) {
+function Qn(r) {
   document.querySelectorAll(r.selectors.filterRow).forEach((t) => {
     const n = async () => {
-      const s = t.dataset.filterColumn, o = t instanceof HTMLInputElement ? t.type.toLowerCase() : "", a = t instanceof HTMLSelectElement ? "eq" : o === "" || o === "text" || o === "search" || o === "email" || o === "tel" || o === "url" ? "ilike" : "eq", i = t.dataset.filterOperator || a, l = t.value;
+      const s = t.dataset.filterColumn, o = t instanceof HTMLInputElement ? t.type.toLowerCase() : "", i = t instanceof HTMLSelectElement ? "eq" : o === "" || o === "text" || o === "search" || o === "email" || o === "tel" || o === "url" ? "ilike" : "eq", a = t.dataset.filterOperator || i, l = t.value;
       if (!s) return;
       const c = r.state.filters.findIndex((d) => d.column === s);
       if (l) {
-        const d = { column: s, operator: i, value: l };
+        const d = { column: s, operator: a, value: l };
         c >= 0 ? r.state.filters[c] = d : r.state.filters.push(d);
       } else
         c >= 0 && r.state.filters.splice(c, 1);
@@ -3021,9 +3004,9 @@ function hs(r) {
     t.addEventListener("input", n), t.addEventListener("change", n);
   });
 }
-function fs(r) {
+function Wn(r) {
   const e = document.querySelector(r.selectors.columnToggleBtn), t = document.querySelector(r.selectors.columnToggleMenu);
-  !e || !t || (r.columnManager = new cs({
+  !e || !t || (r.columnManager = new Vn({
     container: t,
     grid: r,
     onToggle: (n, s) => {
@@ -3034,7 +3017,7 @@ function fs(r) {
     }
   }));
 }
-function ms(r) {
+function Xn(r) {
   const e = document.querySelector(r.selectors.exportMenu);
   if (!e) return;
   const t = e.querySelectorAll("[data-export-format]");
@@ -3042,33 +3025,33 @@ function ms(r) {
     n.addEventListener("click", async () => {
       const s = n.dataset.exportFormat;
       if (!s || !r.config.behaviors?.export) return;
-      const o = r.config.behaviors.export.getConcurrency?.() || "single", a = [];
-      o === "single" ? t.forEach((d) => a.push(d)) : o === "per-format" && a.push(n);
-      const i = (d) => {
-        const u = d.querySelector(".export-icon"), p = d.querySelector(".export-spinner");
-        u && u.classList.add("hidden"), p && p.classList.remove("hidden");
+      const o = r.config.behaviors.export.getConcurrency?.() || "single", i = [];
+      o === "single" ? t.forEach((d) => i.push(d)) : o === "per-format" && i.push(n);
+      const a = (d) => {
+        const p = d.querySelector(".export-icon"), h = d.querySelector(".export-spinner");
+        p && p.classList.add("hidden"), h && h.classList.remove("hidden");
       }, l = (d) => {
-        const u = d.querySelector(".export-icon"), p = d.querySelector(".export-spinner");
-        u && u.classList.remove("hidden"), p && p.classList.add("hidden");
+        const p = d.querySelector(".export-icon"), h = d.querySelector(".export-spinner");
+        p && p.classList.remove("hidden"), h && h.classList.add("hidden");
       };
-      a.forEach((d) => {
-        d.setAttribute("data-export-loading", "true"), d.disabled = !0, i(d);
+      i.forEach((d) => {
+        d.setAttribute("data-export-loading", "true"), d.disabled = !0, a(d);
       });
       const c = o === "none";
-      c && (n.setAttribute("data-export-loading", "true"), i(n));
+      c && (n.setAttribute("data-export-loading", "true"), a(n));
       try {
         await r.config.behaviors.export.export(s, r);
       } catch (d) {
         console.error("[DataGrid] Export failed:", d);
       } finally {
-        a.forEach((d) => {
+        i.forEach((d) => {
           d.removeAttribute("data-export-loading"), d.disabled = !1, l(d);
         }), c && (n.removeAttribute("data-export-loading"), l(n));
       }
     });
   });
 }
-function gs(r) {
+function Zn(r) {
   if (!r.tableEl) return;
   r.tableEl.querySelectorAll("[data-sort-column]").forEach((n) => {
     n.addEventListener("click", async (s) => {
@@ -3076,33 +3059,33 @@ function gs(r) {
       const o = n.dataset.sortColumn;
       if (!o) return;
       console.log(`[DataGrid] Sort button clicked for field: ${o}`);
-      const a = r.state.sort.find((l) => l.field === o);
-      let i = null;
-      a ? a.direction === "asc" ? (i = "desc", a.direction = i) : (r.state.sort = r.state.sort.filter((l) => l.field !== o), i = null, console.log(`[DataGrid] Sort cleared for field: ${o}`)) : (i = "asc", r.state.sort = [{ field: o, direction: i }]), console.log("[DataGrid] New sort state:", r.state.sort), r.pushStateToURL(), i !== null && r.config.behaviors?.sort ? (console.log("[DataGrid] Calling custom sort behavior"), await r.config.behaviors.sort.onSort(o, i, r)) : (console.log("[DataGrid] Calling refresh() for sort"), await r.refresh()), console.log("[DataGrid] Updating sort indicators"), r.updateSortIndicators();
+      const i = r.state.sort.find((l) => l.field === o);
+      let a = null;
+      i ? i.direction === "asc" ? (a = "desc", i.direction = a) : (r.state.sort = r.state.sort.filter((l) => l.field !== o), a = null, console.log(`[DataGrid] Sort cleared for field: ${o}`)) : (a = "asc", r.state.sort = [{ field: o, direction: a }]), console.log("[DataGrid] New sort state:", r.state.sort), r.pushStateToURL(), a !== null && r.config.behaviors?.sort ? (console.log("[DataGrid] Calling custom sort behavior"), await r.config.behaviors.sort.onSort(o, a, r)) : (console.log("[DataGrid] Calling refresh() for sort"), await r.refresh()), console.log("[DataGrid] Updating sort indicators"), r.updateSortIndicators();
     });
   }), r.tableEl.querySelectorAll("[data-sort]").forEach((n) => {
     n.addEventListener("click", async () => {
       const s = n.dataset.sort;
       if (!s) return;
-      const o = r.state.sort.find((i) => i.field === s);
-      let a = null;
-      o ? o.direction === "asc" ? (a = "desc", o.direction = a) : (r.state.sort = r.state.sort.filter((i) => i.field !== s), a = null) : (a = "asc", r.state.sort = [{ field: s, direction: a }]), r.pushStateToURL(), a !== null && r.config.behaviors?.sort ? await r.config.behaviors.sort.onSort(s, a, r) : await r.refresh(), r.updateSortIndicators();
+      const o = r.state.sort.find((a) => a.field === s);
+      let i = null;
+      o ? o.direction === "asc" ? (i = "desc", o.direction = i) : (r.state.sort = r.state.sort.filter((a) => a.field !== s), i = null) : (i = "asc", r.state.sort = [{ field: s, direction: i }]), r.pushStateToURL(), i !== null && r.config.behaviors?.sort ? await r.config.behaviors.sort.onSort(s, i, r) : await r.refresh(), r.updateSortIndicators();
     });
   });
 }
-function bs(r) {
+function es(r) {
   if (!r.tableEl) return;
   r.tableEl.querySelectorAll("[data-sort-column]").forEach((n) => {
     const s = n.dataset.sortColumn;
     if (!s) return;
-    const o = r.state.sort.find((i) => i.field === s), a = n.querySelector("svg");
-    a && (o ? (n.classList.remove("opacity-0"), n.classList.add("opacity-100"), o.direction === "asc" ? (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />', a.classList.add("text-blue-600"), a.classList.remove("text-gray-400")) : (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />', a.classList.add("text-blue-600"), a.classList.remove("text-gray-400"))) : (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />', a.classList.remove("text-blue-600"), a.classList.add("text-gray-400")));
+    const o = r.state.sort.find((a) => a.field === s), i = n.querySelector("svg");
+    i && (o ? (n.classList.remove("opacity-0"), n.classList.add("opacity-100"), o.direction === "asc" ? (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />', i.classList.add("text-blue-600"), i.classList.remove("text-gray-400")) : (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />', i.classList.add("text-blue-600"), i.classList.remove("text-gray-400"))) : (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />', i.classList.remove("text-blue-600"), i.classList.add("text-gray-400")));
   }), r.tableEl.querySelectorAll("[data-sort]").forEach((n) => {
-    const s = n.dataset.sort, o = r.state.sort.find((i) => i.field === s), a = n.querySelector(".sort-indicator");
-    a && (a.textContent = o ? o.direction === "asc" ? "↑" : "↓" : "");
+    const s = n.dataset.sort, o = r.state.sort.find((a) => a.field === s), i = n.querySelector(".sort-indicator");
+    i && (i.textContent = o ? o.direction === "asc" ? "↑" : "↓" : "");
   });
 }
-function ys(r) {
+function ts(r) {
   const e = document.querySelector(r.selectors.selectAllCheckbox);
   e && e.addEventListener("change", () => {
     document.querySelectorAll(r.selectors.rowCheckboxes).forEach((n) => {
@@ -3112,7 +3095,7 @@ function ys(r) {
     }), r.updateBulkActionsBar();
   }), r.updateSelectionBindings();
 }
-function vs(r) {
+function rs(r) {
   document.querySelectorAll(r.selectors.rowCheckboxes).forEach((t) => {
     const n = t.dataset.id;
     n && (t.checked = r.state.selectedRows.has(n)), t.addEventListener("change", () => {
@@ -3120,17 +3103,17 @@ function vs(r) {
     });
   });
 }
-function Mt() {
+function vt() {
   return Array.from(document.querySelectorAll("[data-bulk-action]"));
 }
-function ws(r) {
+function ns(r) {
   if (!r)
     return null;
   let e = r.querySelector("[data-bulk-action-state-reasons]");
   return e || (e = document.createElement("div"), e.dataset.bulkActionStateReasons = "true", e.className = "hidden mt-3 text-sm text-gray-700", r.appendChild(e), e);
 }
-function Pt(r) {
-  const e = document.getElementById("bulk-actions-overlay"), t = ws(e);
+function wt(r) {
+  const e = document.getElementById("bulk-actions-overlay"), t = ns(e);
   if (t) {
     if (!r.length) {
       t.classList.add("hidden"), t.innerHTML = "";
@@ -3143,7 +3126,7 @@ function Pt(r) {
   `).join("");
   }
 }
-function xs(r, e, t) {
+function ss(r, e, t) {
   const n = e?.enabled === !1, s = typeof e?.reason == "string" ? e.reason.trim() : "";
   return r.dataset.disabled = n ? "true" : "false", r.setAttribute("aria-disabled", n ? "true" : "false"), r.dataset.bulkState = n ? "disabled" : "enabled", r.classList.toggle("opacity-50", n), r.classList.toggle("cursor-not-allowed", n), n && s ? (r.setAttribute("title", s), {
     actionId: r.dataset.bulkAction || "",
@@ -3151,40 +3134,40 @@ function xs(r, e, t) {
     reason: s
   }) : (r.removeAttribute("title"), null);
 }
-function Ss(r) {
-  const e = Mt(), t = "Checking selected records...", n = [];
+function os(r) {
+  const e = vt(), t = "Checking selected records...", n = [];
   e.forEach((s) => {
     s.dataset.disabled = "true", s.dataset.bulkState = "loading", s.setAttribute("aria-disabled", "true"), s.setAttribute("title", t), s.classList.add("opacity-50", "cursor-not-allowed"), n.push({
       actionId: s.dataset.bulkAction || "",
       label: s.textContent?.trim() || s.dataset.bulkAction || "Action",
       reason: t
     });
-  }), Pt(n);
+  }), wt(n);
 }
-function Tt(r) {
-  return lt(r.bulkActionStateConfig);
+function xt(r) {
+  return Ye(r.bulkActionStateConfig);
 }
-function $s(r, e, t) {
-  r.bulkActionState = it(e), r.bulkActionStateConfig = lt(t), r.applyBulkActionState(r.bulkActionState);
+function is(r, e, t) {
+  r.bulkActionState = Je(e), r.bulkActionStateConfig = Ye(t), r.applyBulkActionState(r.bulkActionState);
 }
-function Cs(r, e) {
-  const t = it(e);
+function as(r, e) {
+  const t = Je(e);
   r.bulkActionState = t;
   const n = [];
-  Mt().forEach((s) => {
+  vt().forEach((s) => {
     const o = s.dataset.bulkAction;
     if (!o)
       return;
-    const a = xs(
+    const i = ss(
       s,
       t[o] || null,
       s.textContent?.trim() || o
     );
-    a && n.push(a);
-  }), Pt(n);
+    i && n.push(i);
+  }), wt(n);
 }
-async function ks(r) {
-  const e = Tt(r), t = typeof e?.selection_state_endpoint == "string" ? e.selection_state_endpoint.trim() : "";
+async function ls(r) {
+  const e = xt(r), t = typeof e?.selection_state_endpoint == "string" ? e.selection_state_endpoint.trim() : "";
   if (!t) {
     r.applyBulkActionState(r.bulkActionState);
     return;
@@ -3195,47 +3178,47 @@ async function ks(r) {
     return;
   }
   r.bulkActionStateAbortController && r.bulkActionStateAbortController.abort(), r.bulkActionStateAbortController = new AbortController(), r.bulkActionStateRequestSeq += 1;
-  const s = r.bulkActionStateRequestSeq, o = typeof r.buildQueryString == "function" ? r.buildQueryString() : "", a = o ? `${t}${t.includes("?") ? "&" : "?"}${o}` : t;
+  const s = r.bulkActionStateRequestSeq, o = typeof r.buildQueryString == "function" ? r.buildQueryString() : "", i = o ? `${t}${t.includes("?") ? "&" : "?"}${o}` : t;
   try {
-    const i = await L(a, {
+    const a = await $(i, {
       method: "POST",
       signal: r.bulkActionStateAbortController.signal,
       json: { ids: n }
     });
-    if (!i.ok)
-      throw new Error(`Bulk action state request failed: ${i.status}`);
-    const l = ar(await i.json());
+    if (!a.ok)
+      throw new Error(`Bulk action state request failed: ${a.status}`);
+    const l = Ht(await a.json());
     if (!l || s !== r.bulkActionStateRequestSeq)
       return;
     r.applyBulkActionState({
       ...r.bulkActionState,
       ...l.bulk_action_state
     });
-  } catch (i) {
-    if (i instanceof Error && i.name === "AbortError")
+  } catch (a) {
+    if (a instanceof Error && a.name === "AbortError")
       return;
-    console.warn("[DataGrid] Failed to refresh selection-sensitive bulk action state:", i), s === r.bulkActionStateRequestSeq && r.applyBulkActionState(r.bulkActionState);
+    console.warn("[DataGrid] Failed to refresh selection-sensitive bulk action state:", a), s === r.bulkActionStateRequestSeq && r.applyBulkActionState(r.bulkActionState);
   }
 }
-function As(r) {
+function cs(r) {
   r.bulkActionStateDebounce && (clearTimeout(r.bulkActionStateDebounce), r.bulkActionStateDebounce = null);
-  const e = Tt(r), t = r.state.selectedRows.size;
+  const e = xt(r), t = r.state.selectedRows.size;
   if (!e?.selection_sensitive || !e.selection_state_endpoint || t === 0) {
     r.bulkActionStateAbortController && (r.bulkActionStateAbortController.abort(), r.bulkActionStateAbortController = null), r.applyBulkActionState(r.bulkActionState);
     return;
   }
-  Ss();
+  os();
   const n = typeof e.debounce_ms == "number" ? e.debounce_ms : 150;
   r.bulkActionStateDebounce = window.setTimeout(() => {
-    r.bulkActionStateDebounce = null, ks(r);
+    r.bulkActionStateDebounce = null, ls(r);
   }, n);
 }
-function Es(r) {
+function ds(r) {
   const t = document.getElementById("bulk-actions-overlay")?.dataset?.bulkBase || "";
   document.querySelectorAll("[data-bulk-action]").forEach((o) => {
     o.addEventListener("click", async () => {
-      const a = o, i = a.dataset.bulkAction;
-      if (!i || a.getAttribute("aria-disabled") === "true" || a.dataset.disabled === "true")
+      const i = o, a = i.dataset.bulkAction;
+      if (!a || i.getAttribute("aria-disabled") === "true" || i.dataset.disabled === "true")
         return;
       const l = Array.from(r.state.selectedRows);
       if (l.length === 0) {
@@ -3243,48 +3226,48 @@ function Es(r) {
         return;
       }
       if (r.config.bulkActions) {
-        const c = r.config.bulkActions.find((d) => d.id === i);
+        const c = r.config.bulkActions.find((d) => d.id === a);
         if (c) {
           try {
             await r.actionRenderer.executeBulkAction(c, l), r.state.selectedRows.clear(), r.updateBulkActionsBar(), await r.refresh();
           } catch (d) {
-            console.error("Bulk action failed:", d), H(d)?.textCode && await r.refresh(), T(d) || r.showError(d instanceof Error ? d.message : "Bulk action failed");
+            console.error("Bulk action failed:", d), F(d)?.textCode && await r.refresh(), R(d) || r.showError(d instanceof Error ? d.message : "Bulk action failed");
           }
           return;
         }
       }
       if (t) {
-        const c = `${t}/${i}`, d = a.dataset.bulkConfirm, u = r.parseDatasetStringArray(a.dataset.bulkPayloadRequired), p = r.parseDatasetObject(a.dataset.bulkPayloadSchema), h = {
-          id: i,
-          label: a.textContent?.trim() || i,
+        const c = `${t}/${a}`, d = i.dataset.bulkConfirm, p = r.parseDatasetStringArray(i.dataset.bulkPayloadRequired), h = r.parseDatasetObject(i.dataset.bulkPayloadSchema), f = {
+          id: a,
+          label: i.textContent?.trim() || a,
           endpoint: c,
           confirm: d,
-          payloadRequired: u,
-          payloadSchema: p
+          payloadRequired: p,
+          payloadSchema: h
         };
         try {
-          await r.actionRenderer.executeBulkAction(h, l), r.state.selectedRows.clear(), r.updateBulkActionsBar(), await r.refresh();
-        } catch (f) {
-          console.error("Bulk action failed:", f), H(f)?.textCode && await r.refresh(), T(f) || r.showError(f instanceof Error ? f.message : "Bulk action failed");
+          await r.actionRenderer.executeBulkAction(f, l), r.state.selectedRows.clear(), r.updateBulkActionsBar(), await r.refresh();
+        } catch (m) {
+          console.error("Bulk action failed:", m), F(m)?.textCode && await r.refresh(), R(m) || r.showError(m instanceof Error ? m.message : "Bulk action failed");
         }
         return;
       }
       if (r.config.behaviors?.bulkActions)
         try {
-          await r.config.behaviors.bulkActions.execute(i, l, r), r.state.selectedRows.clear(), r.updateBulkActionsBar();
+          await r.config.behaviors.bulkActions.execute(a, l, r), r.state.selectedRows.clear(), r.updateBulkActionsBar();
         } catch (c) {
-          console.error("Bulk action failed:", c), H(c)?.textCode && await r.refresh(), T(c) || r.showError(c instanceof Error ? c.message : "Bulk action failed");
+          console.error("Bulk action failed:", c), F(c)?.textCode && await r.refresh(), R(c) || r.showError(c instanceof Error ? c.message : "Bulk action failed");
         }
     });
   });
   const s = document.getElementById("clear-selection-btn");
   s && s.addEventListener("click", () => {
-    r.state.selectedRows.clear(), r.updateBulkActionsBar(), document.querySelectorAll(".table-checkbox").forEach((i) => i.checked = !1);
-    const a = document.querySelector(r.selectors.selectAllCheckbox);
-    a && (a.checked = !1);
+    r.state.selectedRows.clear(), r.updateBulkActionsBar(), document.querySelectorAll(".table-checkbox").forEach((a) => a.checked = !1);
+    const i = document.querySelector(r.selectors.selectAllCheckbox);
+    i && (i.checked = !1);
   }), r.bindOverflowMenu();
 }
-function Ls(r) {
+function us(r) {
   const e = document.getElementById("bulk-more-btn"), t = document.getElementById("bulk-overflow-menu");
   !e || !t || (e.addEventListener("click", (n) => {
     n.stopPropagation(), t.classList.toggle("hidden");
@@ -3296,7 +3279,7 @@ function Ls(r) {
     n.stopPropagation();
   }));
 }
-function _s(r) {
+function ps(r) {
   const e = document.getElementById("bulk-actions-overlay"), t = document.getElementById("selected-count"), n = r.state.selectedRows.size;
   if (console.log("[DataGrid] updateBulkActionsBar - overlay:", e, "countEl:", t, "count:", n), !e || !t) {
     console.error("[DataGrid] Missing bulk actions elements!");
@@ -3304,32 +3287,32 @@ function _s(r) {
   }
   t.textContent = String(n), n > 0 ? (e.classList.remove("hidden"), e.offsetHeight) : e.classList.add("hidden"), r.syncBulkActionState();
 }
-function Rs(r) {
+function hs(r) {
   const e = document.getElementById("bulk-clear-selection");
   console.log("[DataGrid] Binding clear button:", e), e ? e.addEventListener("click", () => {
     console.log("[DataGrid] Clear button clicked!"), r.clearSelection();
   }) : console.error("[DataGrid] Clear button not found!");
 }
-function Is(r) {
+function fs(r) {
   console.log("[DataGrid] Clearing selection..."), r.state.selectedRows.clear();
   const e = document.querySelector(r.selectors.selectAllCheckbox);
   e && (e.checked = !1), r.updateBulkActionsBar(), r.updateSelectionBindings();
 }
-function Bs(r, e, t) {
-  const n = e.getBoundingClientRect(), s = t.offsetHeight || 300, a = window.innerHeight - n.bottom, i = n.top, l = a < s && i > a, c = n.right - (t.offsetWidth || 224);
+function ms(r, e, t) {
+  const n = e.getBoundingClientRect(), s = t.offsetHeight || 300, i = window.innerHeight - n.bottom, a = n.top, l = i < s && a > i, c = n.right - (t.offsetWidth || 224);
   t.style.left = `${Math.max(10, c)}px`, l ? (t.style.top = `${n.top - s - 8}px`, t.style.bottom = "auto") : (t.style.top = `${n.bottom + 8}px`, t.style.bottom = "auto");
 }
-function Ms(r) {
+function gs(r) {
   r.dropdownAbortController && r.dropdownAbortController.abort(), r.dropdownAbortController = new AbortController();
   const { signal: e } = r.dropdownAbortController;
   document.querySelectorAll("[data-dropdown-toggle]").forEach((t) => {
     const n = t.dataset.dropdownToggle, s = document.getElementById(n || "");
     s && !s.classList.contains("hidden") && s.classList.add("hidden");
-  }), ds(document, "click", "[data-dropdown-toggle]", (t, n) => {
+  }), Kn(document, "click", "[data-dropdown-toggle]", (t, n) => {
     t.stopPropagation();
     const s = n.dataset.dropdownToggle, o = document.getElementById(s || "");
-    o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((a) => {
-      const i = a.dataset.dropdownToggle, l = document.getElementById(i || "");
+    o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((i) => {
+      const a = i.dataset.dropdownToggle, l = document.getElementById(a || "");
       l && l !== o && l.classList.add("hidden");
     }), o.classList.toggle("hidden"));
   }, { signal: e }), document.addEventListener("click", (t) => {
@@ -3337,17 +3320,17 @@ function Ms(r) {
     if (n) {
       t.stopPropagation();
       const o = n.closest("[data-dropdown]")?.querySelector(".actions-menu");
-      document.querySelectorAll(".actions-menu").forEach((i) => {
-        i !== o && i.classList.add("hidden");
+      document.querySelectorAll(".actions-menu").forEach((a) => {
+        a !== o && a.classList.add("hidden");
       });
-      const a = o?.classList.contains("hidden");
-      o?.classList.toggle("hidden"), n.setAttribute("aria-expanded", a ? "true" : "false"), a && o && r.positionDropdownMenu(n, o);
+      const i = o?.classList.contains("hidden");
+      o?.classList.toggle("hidden"), n.setAttribute("aria-expanded", i ? "true" : "false"), i && o && r.positionDropdownMenu(n, o);
     } else
       t.target.closest("[data-dropdown-toggle], #column-toggle-menu, #export-menu") || (document.querySelectorAll(".actions-menu").forEach(
         (o) => o.classList.add("hidden")
       ), document.querySelectorAll("[data-dropdown-toggle]").forEach((o) => {
-        const a = o.dataset.dropdownToggle, i = document.getElementById(a || "");
-        i && i.classList.add("hidden");
+        const i = o.dataset.dropdownToggle, a = document.getElementById(i || "");
+        a && a.classList.add("hidden");
       }));
   }, { signal: e }), document.addEventListener("keydown", (t) => {
     t.key === "Escape" && (document.querySelectorAll(".actions-menu").forEach((n) => {
@@ -3360,19 +3343,19 @@ function Ms(r) {
     }));
   }, { signal: e });
 }
-function Ps(r, e) {
+function bs(r, e) {
   console.error(e), r.notifier.error(e);
 }
-function Ts(r, e, t) {
+function ys(r, e, t) {
   r.notifier.show({ message: e, type: t });
 }
-async function Ds(r, e) {
+async function vs(r, e) {
   return r.notifier.confirm(e);
 }
-async function Fs(r, e) {
-  return e instanceof Response ? Zt(e) : e instanceof Error ? e.message : "An unexpected error occurred";
+async function ws(r, e) {
+  return e instanceof Response ? qt(e) : e instanceof Error ? e.message : "An unexpected error occurred";
 }
-function qs(r, e) {
+function xs(r, e) {
   if (e)
     try {
       const t = JSON.parse(e);
@@ -3385,7 +3368,7 @@ function qs(r, e) {
       return;
     }
 }
-function Os(r, e) {
+function Ss(r, e) {
   if (e)
     try {
       const t = JSON.parse(e);
@@ -3395,25 +3378,25 @@ function Os(r, e) {
       return;
     }
 }
-function js(r, e) {
+function Cs(r, e) {
   if (!r.tableEl) return;
   const t = r.mergeColumnOrder(e);
   r.state.columnOrder = t;
   const n = new Map(r.config.columns.map((s) => [s.field, s]));
   r.config.columns = t.map((s) => n.get(s)).filter((s) => s !== void 0), r.reorderTableColumns(t), r.persistStateSnapshot(), console.log("[DataGrid] Columns reordered:", t);
 }
-function zs(r) {
+function $s(r) {
   r.config.behaviors?.columnVisibility?.clearSavedPrefs?.(), r.config.columns = r.defaultColumns.map((t) => ({ ...t })), r.state.columnOrder = r.config.columns.map((t) => t.field);
   const e = r.config.columns.filter((t) => !t.hidden).map((t) => t.field);
   r.tableEl ? (r.reorderTableColumns(r.state.columnOrder), r.updateColumnVisibility(e)) : (r.state.hiddenColumns = new Set(
     r.config.columns.filter((t) => t.hidden).map((t) => t.field)
   ), r.persistStateSnapshot()), r.columnManager && (r.columnManager.refresh(), r.columnManager.syncWithGridState()), console.log("[DataGrid] Columns reset to default");
 }
-function Ns(r, e) {
-  const t = new Set(r.config.columns.map((a) => a.field)), n = new Set(e), s = e.filter((a) => t.has(a)), o = r.config.columns.map((a) => a.field).filter((a) => !n.has(a));
+function ks(r, e) {
+  const t = new Set(r.config.columns.map((i) => i.field)), n = new Set(e), s = e.filter((i) => t.has(i)), o = r.config.columns.map((i) => i.field).filter((i) => !n.has(i));
   return [...s, ...o];
 }
-function Hs(r, e) {
+function As(r, e) {
   if (!r.tableEl) return;
   const t = r.tableEl.querySelector("thead tr:first-child");
   t && r.reorderRowCells(t, e, "th");
@@ -3422,27 +3405,27 @@ function Hs(r, e) {
     r.reorderRowCells(o, e, "td");
   });
 }
-function Gs(r, e, t, n) {
+function Es(r, e, t, n) {
   const s = Array.from(e.querySelectorAll(`${n}[data-column]`)), o = new Map(
     s.map((d) => [d.dataset.column, d])
-  ), a = Array.from(e.querySelectorAll(n)), i = e.querySelector(`${n}[data-role="selection"]`) || a.find((d) => d.querySelector('input[type="checkbox"]')), l = e.querySelector(`${n}[data-role="actions"]`) || a.find(
+  ), i = Array.from(e.querySelectorAll(n)), a = e.querySelector(`${n}[data-role="selection"]`) || i.find((d) => d.querySelector('input[type="checkbox"]')), l = e.querySelector(`${n}[data-role="actions"]`) || i.find(
     (d) => !d.dataset.column && (d.querySelector("[data-action]") || d.querySelector("[data-action-id]") || d.querySelector(".dropdown"))
   ), c = [];
-  i && c.push(i), t.forEach((d) => {
-    const u = o.get(d);
-    u && c.push(u);
+  a && c.push(a), t.forEach((d) => {
+    const p = o.get(d);
+    p && c.push(p);
   }), l && c.push(l), c.forEach((d) => {
     e.appendChild(d);
   });
 }
-const A = class A {
+const S = class S {
   constructor(e) {
     this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.lastSchema = null, this.lastForm = null, this.bulkActionState = {}, this.bulkActionStateConfig = null, this.bulkActionStateDebounce = null, this.bulkActionStateAbortController = null, this.bulkActionStateRequestSeq = 0, this.hasURLStateOverrides = !1, this.hasPersistedHiddenColumnState = !1, this.hasPersistedColumnOrderState = !1, this.config = {
       perPage: 10,
       searchDelay: 300,
       behaviors: {},
       ...e
-    }, this.notifier = e.notifier || new U(), this.selectors = {
+    }, this.notifier = e.notifier || new O(), this.selectors = {
       table: `#${e.tableId}`,
       searchInput: "#table-search",
       perPageSelect: "#table-per-page",
@@ -3462,24 +3445,24 @@ const A = class A {
       ...e.selectors
     };
     const t = this.config.panelId || this.config.tableId;
-    this.stateStore = this.config.stateStore || Hr({
+    this.stateStore = this.config.stateStore || Er({
       key: t,
       ...this.config.stateStoreConfig || {}
     });
-    const n = this.stateStore.loadPersistedState(), s = new Set(this.config.columns.map((x) => x.field)), o = new Set(
-      this.config.columns.filter((x) => x.hidden).map((x) => x.field)
-    ), a = !!n && Array.isArray(n.hiddenColumns);
-    this.hasPersistedHiddenColumnState = a;
-    const i = new Set(
-      (n?.hiddenColumns || []).filter((x) => s.has(x))
-    ), l = this.config.columns.map((x) => x.field), c = !!n && Array.isArray(n.columnOrder) && n.columnOrder.length > 0;
+    const n = this.stateStore.loadPersistedState(), s = new Set(this.config.columns.map((w) => w.field)), o = new Set(
+      this.config.columns.filter((w) => w.hidden).map((w) => w.field)
+    ), i = !!n && Array.isArray(n.hiddenColumns);
+    this.hasPersistedHiddenColumnState = i;
+    const a = new Set(
+      (n?.hiddenColumns || []).filter((w) => s.has(w))
+    ), l = this.config.columns.map((w) => w.field), c = !!n && Array.isArray(n.columnOrder) && n.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = c;
-    const d = (n?.columnOrder || []).filter((x) => s.has(x)), u = c ? [...d, ...l.filter((x) => !d.includes(x))] : l, p = this.config.enableGroupedMode ? rn(t) : !1, h = this.config.enableGroupedMode ? sn(t) : null, f = this.config.enableGroupedMode ? tn(t) : "explicit", y = this.config.enableGroupedMode ? en(t) : /* @__PURE__ */ new Set(), v = ne(
+    const d = (n?.columnOrder || []).filter((w) => s.has(w)), p = c ? [...d, ...l.filter((w) => !d.includes(w))] : l, h = this.config.enableGroupedMode ? jr(t) : !1, f = this.config.enableGroupedMode ? Nr(t) : null, m = this.config.enableGroupedMode ? Or(t) : "explicit", y = this.config.enableGroupedMode ? qr(t) : /* @__PURE__ */ new Set(), v = Y(
       n?.expandMode,
-      f
+      m
     ), g = new Set(
-      (n?.expandedGroups || Array.from(y)).map((x) => String(x).trim()).filter(Boolean)
-    ), $ = this.config.enableGroupedMode ? n?.expandMode !== void 0 || g.size > 0 || p : !1, E = (this.config.enableGroupedMode ? n?.viewMode || h : null) || this.config.defaultViewMode || "flat";
+      (n?.expandedGroups || Array.from(y)).map((w) => String(w).trim()).filter(Boolean)
+    ), x = this.config.enableGroupedMode ? n?.expandMode !== void 0 || g.size > 0 || h : !1, C = (this.config.enableGroupedMode ? n?.viewMode || f : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -3488,20 +3471,20 @@ const A = class A {
       filters: [],
       sort: [],
       selectedRows: /* @__PURE__ */ new Set(),
-      hiddenColumns: a ? i : o,
-      columnOrder: u,
-      viewMode: E,
+      hiddenColumns: i ? a : o,
+      columnOrder: p,
+      viewMode: C,
       expandMode: v,
       groupedData: null,
       expandedGroups: g,
-      hasPersistedExpandState: $
-    }, this.actionRenderer = new hr({
+      hasPersistedExpandState: x
+    }, this.actionRenderer = new Xt({
       mode: this.config.actionRenderMode || "dropdown",
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier
-    }), this.cellRendererRegistry = new Mr(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([x, K]) => {
-      this.cellRendererRegistry.register(x, K);
-    }), this.defaultColumns = this.config.columns.map((x) => ({ ...x }));
+    }), this.cellRendererRegistry = new br(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([w, z]) => {
+      this.cellRendererRegistry.register(w, z);
+    }), this.defaultColumns = this.config.columns.map((w) => ({ ...w }));
   }
   init() {
     if (console.log("[DataGrid] Initializing with config:", this.config), this.tableEl = document.querySelector(this.selectors.table), !this.tableEl) {
@@ -3517,247 +3500,247 @@ const A = class A {
     });
   }
   getURLStateConfig() {
-    return mn(this);
+    return Wr(this);
   }
   parseJSONArray(e, t) {
-    return gn(this, e, t);
+    return Xr(this, e, t);
   }
   applyPersistedStateSnapshot(e, t = {}) {
-    bn(this, e, t);
+    Zr(this, e, t);
   }
   applyShareStateSnapshot(e) {
-    yn(this, e);
+    en(this, e);
   }
   buildPersistedStateSnapshot() {
-    return vn(this);
+    return tn(this);
   }
   buildShareStateSnapshot() {
-    return wn(this);
+    return rn(this);
   }
   persistStateSnapshot() {
-    xn(this);
+    nn(this);
   }
   restoreStateFromURL() {
-    Sn(this);
+    sn(this);
   }
   applyRestoredState() {
-    $n(this);
+    on(this);
   }
   pushStateToURL(e = {}) {
-    Cn(this, e);
+    an(this, e);
   }
   syncURL() {
     this.pushStateToURL();
   }
   async refresh() {
-    return kn(this);
+    return ln(this);
   }
   buildApiUrl() {
-    return An(this);
+    return cn(this);
   }
   buildQueryString() {
-    return En(this);
+    return dn(this);
   }
   buildQueryParams() {
-    return Ln(this);
+    return un(this);
   }
   getResponseTotal(e) {
-    return _n(this, e);
+    return pn(this, e);
   }
   normalizePagination(e) {
-    return Rn(this, e);
+    return hn(this, e);
   }
   resetPagination() {
     this.state.currentPage = 1;
   }
   updateColumnVisibility(e, t = !1) {
-    Zn(this, e, t);
+    Dn(this, e, t);
   }
   syncColumnVisibilityCheckboxes() {
-    es(this);
+    Fn(this);
   }
   renderData(e) {
-    ts(this, e);
-  }
-  renderFlatData(e, t) {
-    rs(this, e, t);
-  }
-  renderGroupedData(e, t, n) {
-    Dn(this, e, t, n);
-  }
-  isGroupedViewActive() {
-    return Fn(this);
-  }
-  fallbackGroupedMode(e) {
     qn(this, e);
   }
+  renderFlatData(e, t) {
+    On(this, e, t);
+  }
+  renderGroupedData(e, t, n) {
+    vn(this, e, t, n);
+  }
+  isGroupedViewActive() {
+    return wn(this);
+  }
+  fallbackGroupedMode(e) {
+    xn(this, e);
+  }
   handleGroupedModeStatusFallback(e) {
-    return On(this, e);
+    return Sn(this, e);
   }
   handleGroupedModePayloadFallback(e) {
-    return jn(this, e);
+    return Cn(this, e);
   }
   toggleGroup(e) {
-    zn(this, e);
+    $n(this, e);
   }
   setExpandedGroups(e) {
-    Nn(this, e);
+    kn(this, e);
   }
   expandAllGroups() {
-    Hn(this);
+    An(this);
   }
   collapseAllGroups() {
-    Gn(this);
+    En(this);
   }
   updateGroupVisibility(e) {
-    Un(this, e);
+    Ln(this, e);
   }
   updateGroupedRowsFromState() {
-    Vn(this);
+    _n(this);
   }
   isGroupExpandedByState(e, t = !1) {
-    return Kn(this, e, t);
+    return Rn(this, e, t);
   }
   setViewMode(e) {
-    Jn(this, e);
+    In(this, e);
   }
   getViewMode() {
-    return Yn(this);
+    return Bn(this);
   }
   getGroupedData() {
-    return Qn(this);
-  }
-  async fetchDetail(e) {
-    return In(this, e);
-  }
-  getSchema() {
     return Mn(this);
   }
+  async fetchDetail(e) {
+    return fn(this, e);
+  }
+  getSchema() {
+    return gn(this);
+  }
   getForm() {
-    return Pn(this);
+    return bn(this);
   }
   getTabs() {
-    return Tn(this);
+    return yn(this);
   }
   normalizeDetailResponse(e) {
-    return Bn(this, e);
+    return mn(this, e);
   }
   resolveRendererOptions(e) {
-    return ns(this, e);
+    return jn(this, e);
   }
   createTableRow(e) {
-    return ss(this, e);
+    return zn(this, e);
   }
   sanitizeActionId(e) {
-    return os(this, e);
+    return Nn(this, e);
   }
   async handleDelete(e) {
-    return as(this, e);
+    return Gn(this, e);
   }
   updatePaginationUI(e) {
-    is(this, e);
+    Un(this, e);
   }
   renderPaginationButtons(e) {
-    ls(this, e);
+    Hn(this, e);
   }
   bindSearchInput() {
-    us(this);
+    Jn(this);
   }
   bindPerPageSelect() {
-    ps(this);
+    Yn(this);
   }
   bindFilterInputs() {
-    hs(this);
+    Qn(this);
   }
   bindColumnVisibility() {
-    fs(this);
+    Wn(this);
   }
   bindExportButtons() {
-    ms(this);
+    Xn(this);
   }
   bindSorting() {
-    gs(this);
+    Zn(this);
   }
   updateSortIndicators() {
-    bs(this);
+    es(this);
   }
   bindSelection() {
-    ys(this);
+    ts(this);
   }
   updateSelectionBindings() {
-    vs(this);
+    rs(this);
   }
   bindBulkActions() {
-    Es(this);
+    ds(this);
   }
   bindOverflowMenu() {
-    Ls();
+    us();
   }
   updateBulkActionsBar() {
-    _s(this);
+    ps(this);
   }
   setBulkActionState(e, t) {
-    $s(this, e, t);
+    is(this, e, t);
   }
   applyBulkActionState(e) {
-    Cs(this, e);
+    as(this, e);
   }
   syncBulkActionState() {
-    As(this);
+    cs(this);
   }
   bindBulkClearButton() {
-    Rs(this);
+    hs(this);
   }
   clearSelection() {
-    Is(this);
+    fs(this);
   }
   positionDropdownMenu(e, t) {
-    Bs(this, e, t);
+    ms(this, e, t);
   }
   bindDropdownToggles() {
-    Ms(this);
+    gs(this);
   }
   showError(e) {
-    Ps(this, e);
+    bs(this, e);
   }
   notify(e, t) {
-    Ts(this, e, t);
+    ys(this, e, t);
   }
   async confirmAction(e) {
-    return Ds(this, e);
+    return vs(this, e);
   }
   async extractError(e) {
-    return Fs(this, e);
+    return ws(this, e);
   }
   parseDatasetStringArray(e) {
-    return qs(this, e);
+    return xs(this, e);
   }
   parseDatasetObject(e) {
-    return Os(this, e);
+    return Ss(this, e);
   }
   reorderColumns(e) {
-    js(this, e);
+    Cs(this, e);
   }
   resetColumnsToDefault() {
-    zs(this);
+    $s(this);
   }
   mergeColumnOrder(e) {
-    return Ns(this, e);
+    return ks(this, e);
   }
   reorderTableColumns(e) {
-    Hs(this, e);
+    As(this, e);
   }
   reorderRowCells(e, t, n) {
-    Gs(this, e, t, n);
+    Es(this, e, t, n);
   }
   destroy() {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.bulkActionStateAbortController && (this.bulkActionStateAbortController.abort(), this.bulkActionStateAbortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.bulkActionStateDebounce && (clearTimeout(this.bulkActionStateDebounce), this.bulkActionStateDebounce = null), console.log("[DataGrid] Instance destroyed");
   }
 };
-A.URL_KEY_SEARCH = X, A.URL_KEY_PAGE = Z, A.URL_KEY_PER_PAGE = ee, A.URL_KEY_FILTERS = te, A.URL_KEY_SORT = re, A.URL_KEY_STATE = ue, A.URL_KEY_HIDDEN_COLUMNS = De, A.URL_KEY_VIEW_MODE = pe, A.URL_KEY_EXPANDED_GROUPS = ce, A.MANAGED_URL_KEYS = Fe, A.DEFAULT_MAX_URL_LENGTH = Rt, A.DEFAULT_MAX_FILTERS_LENGTH = It;
-let Ae = A;
-typeof window < "u" && (window.DataGrid = Ae);
-const Je = {
+S.URL_KEY_SEARCH = U, S.URL_KEY_PAGE = H, S.URL_KEY_PER_PAGE = V, S.URL_KEY_FILTERS = K, S.URL_KEY_SORT = J, S.URL_KEY_STATE = re, S.URL_KEY_HIDDEN_COLUMNS = $e, S.URL_KEY_VIEW_MODE = ne, S.URL_KEY_EXPANDED_GROUPS = ee, S.MANAGED_URL_KEYS = ke, S.DEFAULT_MAX_URL_LENGTH = gt, S.DEFAULT_MAX_FILTERS_LENGTH = bt;
+let ge = S;
+typeof window < "u" && (window.DataGrid = ge);
+const Te = {
   text: [
     { label: "contains", value: "ilike" },
     { label: "equals", value: "eq" },
@@ -3783,9 +3766,9 @@ const Je = {
     { label: "between", value: "between" }
   ]
 };
-class ci {
+class Vi {
   constructor(e) {
-    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new U();
+    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new O();
   }
   init() {
     if (this.modal = document.getElementById("advanced-search-modal"), this.container = document.getElementById("search-criteria-container"), this.searchInput = document.getElementById("table-search"), this.clearBtn = document.getElementById("search-clear-btn"), !this.modal || !this.container) {
@@ -3826,8 +3809,8 @@ class ci {
     document.getElementById("advanced-search-btn")?.addEventListener("click", () => this.open());
     const t = document.getElementById("advanced-search-close"), n = document.getElementById("advanced-search-cancel"), s = document.getElementById("advanced-search-overlay");
     t?.addEventListener("click", () => this.close()), n?.addEventListener("click", () => this.close()), s?.addEventListener("click", () => this.close()), document.getElementById("add-criteria-btn")?.addEventListener("click", () => this.addCriterion()), document.getElementById("advanced-search-apply")?.addEventListener("click", () => this.applySearch());
-    const i = document.getElementById("save-search-preset-btn"), l = document.getElementById("load-search-preset-btn");
-    i?.addEventListener("click", () => this.savePreset()), l?.addEventListener("click", () => this.loadPreset());
+    const a = document.getElementById("save-search-preset-btn"), l = document.getElementById("load-search-preset-btn");
+    a?.addEventListener("click", () => this.savePreset()), l?.addEventListener("click", () => this.loadPreset());
   }
   bindClearButton() {
     if (!this.searchInput || !this.clearBtn) return;
@@ -3894,7 +3877,7 @@ class ci {
         </svg>
       </button>
     `, n.querySelectorAll("select, input").forEach((o) => {
-      o.addEventListener("change", (a) => this.updateCriterion(a.target));
+      o.addEventListener("change", (i) => this.updateCriterion(i.target));
     }), n.querySelector('[data-action="remove"]')?.addEventListener("click", () => {
       this.removeCriterion(t);
     }), n;
@@ -3936,8 +3919,8 @@ class ci {
       </button>
     `, t.querySelectorAll("[data-logic-index]").forEach((s) => {
       s.addEventListener("click", (o) => {
-        const a = o.target, i = parseInt(a.dataset.logicIndex || "0", 10), l = a.dataset.logicValue;
-        this.criteria[i].logic = l, this.renderCriteria();
+        const i = o.target, a = parseInt(i.dataset.logicIndex || "0", 10), l = i.dataset.logicValue;
+        this.criteria[a].logic = l, this.renderCriteria();
       });
     }), t;
   }
@@ -3948,13 +3931,13 @@ class ci {
     n === "field" ? (this.criteria[t].field = s, this.renderCriteria()) : n === "operator" ? this.criteria[t].operator = s : n === "value" && (this.criteria[t].value = s);
   }
   getOperatorsForField(e) {
-    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Je[e.type] || Je.text;
+    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Te[e.type] || Te.text;
   }
   applySearch() {
     this.pushCriteriaToURL(), this.config.onSearch(this.criteria), this.renderChips(), this.close();
   }
   savePreset() {
-    new He({
+    new Re({
       title: "Save Search Preset",
       label: "Preset name",
       placeholder: "e.g. Active users filter",
@@ -3971,7 +3954,7 @@ class ci {
       this.notifier.warning("No saved presets found.");
       return;
     }
-    new He({
+    new Re({
       title: "Load Search Preset",
       label: `Available presets: ${t.join(", ")}`,
       placeholder: "Enter preset name",
@@ -4010,8 +3993,8 @@ class ci {
         return;
       }
       t && (t.placeholder = "", t.style.display = ""), n && n.classList.remove("hidden"), this.criteria.forEach((s, o) => {
-        const a = this.createChip(s, o);
-        e.appendChild(a);
+        const i = this.createChip(s, o);
+        e.appendChild(i);
       });
     }
   }
@@ -4021,9 +4004,9 @@ class ci {
   createChip(e, t) {
     const n = document.createElement("div");
     n.className = "inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded border border-blue-200";
-    const o = this.config.fields.find((l) => l.name === e.field)?.label || e.field, a = e.operator === "ilike" ? "contains" : e.operator === "eq" ? "is" : e.operator;
+    const o = this.config.fields.find((l) => l.name === e.field)?.label || e.field, i = e.operator === "ilike" ? "contains" : e.operator === "eq" ? "is" : e.operator;
     n.innerHTML = `
-      <span>${o} ${a} "${e.value}"</span>
+      <span>${o} ${i} "${e.value}"</span>
       <button type="button"
               data-chip-index="${t}"
               class="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
@@ -4033,8 +4016,8 @@ class ci {
         </svg>
       </button>
     `;
-    const i = n.querySelector("[data-chip-index]");
-    return i && i.addEventListener("click", () => {
+    const a = n.querySelector("[data-chip-index]");
+    return a && a.addEventListener("click", () => {
       this.removeChip(t);
     }), n;
   }
@@ -4051,7 +4034,7 @@ class ci {
     this.criteria = [], this.renderCriteria(), this.renderChips(), this.config.onClear && this.config.onClear();
   }
 }
-const Ye = {
+const De = {
   text: [
     { label: "contains", value: "ilike" },
     { label: "is", value: "eq" },
@@ -4075,9 +4058,9 @@ const Ye = {
     { label: "is not", value: "ne" }
   ]
 };
-class di {
+class Ki {
   constructor(e) {
-    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new U(), this.structure = { groups: [], groupLogic: [] }, this.init();
+    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new O(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
   init() {
     if (this.panel = document.getElementById("filter-panel"), this.overlay = document.getElementById("filter-overlay"), this.previewElement = document.getElementById("filter-preview-text"), !this.panel) {
@@ -4182,10 +4165,10 @@ class di {
       <button type="button" data-remove-group="${t}" class="text-xs text-red-600 hover:text-red-800">
         Remove group
       </button>
-    `, n.appendChild(s), e.conditions.forEach((a, i) => {
-      const l = this.createConditionElement(a, t, i);
-      if (n.appendChild(l), i < e.conditions.length - 1) {
-        const c = this.createConditionConnector(t, i, e.logic);
+    `, n.appendChild(s), e.conditions.forEach((i, a) => {
+      const l = this.createConditionElement(i, t, a);
+      if (n.appendChild(l), a < e.conditions.length - 1) {
+        const c = this.createConditionConnector(t, a, e.logic);
         n.appendChild(c);
       }
     });
@@ -4200,7 +4183,7 @@ class di {
   createConditionElement(e, t, n) {
     const s = document.createElement("div");
     s.className = "flex items-center gap-2 mb-2";
-    const o = this.config.fields.find((a) => a.name === e.field) || this.config.fields[0];
+    const o = this.config.fields.find((i) => i.name === e.field) || this.config.fields[0];
     return s.innerHTML = `
       <div class="flex items-center text-gray-400 cursor-move" title="Drag to reorder">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -4210,14 +4193,14 @@ class di {
       </div>
 
       <select data-cond="${t}-${n}-field" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
-        ${this.config.fields.map((a) => `
-          <option value="${a.name}" ${a.name === e.field ? "selected" : ""}>${a.label}</option>
+        ${this.config.fields.map((i) => `
+          <option value="${i.name}" ${i.name === e.field ? "selected" : ""}>${i.label}</option>
         `).join("")}
       </select>
 
       <select data-cond="${t}-${n}-operator" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
-        ${this.getOperatorsForField(o).map((a) => `
-          <option value="${a.value}" ${a.value === e.operator ? "selected" : ""}>${a.label}</option>
+        ${this.getOperatorsForField(o).map((i) => `
+          <option value="${i.value}" ${i.value === e.operator ? "selected" : ""}>${i.label}</option>
         `).join("")}
       </select>
 
@@ -4242,8 +4225,8 @@ class di {
     return e.type === "select" && e.options ? `
         <select data-cond="${n}-${s}-value" class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white">
           <option value="">Select...</option>
-          ${e.options.map((a) => `
-            <option value="${a.value}" ${a.value === t.value ? "selected" : ""}>${a.label}</option>
+          ${e.options.map((i) => `
+            <option value="${i.value}" ${i.value === t.value ? "selected" : ""}>${i.label}</option>
           `).join("")}
         </select>
       ` : `
@@ -4281,8 +4264,8 @@ class di {
       </button>
     `, t.querySelectorAll("[data-group-logic]").forEach((s) => {
       s.addEventListener("click", (o) => {
-        const a = o.target, i = parseInt(a.dataset.groupLogic || "0", 10), l = a.dataset.logicValue;
-        this.structure.groupLogic[i] = l, this.render();
+        const i = o.target, a = parseInt(i.dataset.groupLogic || "0", 10), l = i.dataset.logicValue;
+        this.structure.groupLogic[a] = l, this.render();
       });
     }), t;
   }
@@ -4291,20 +4274,20 @@ class di {
     n && n.addEventListener("click", () => this.removeGroup(t));
     const s = e.querySelector(`[data-add-condition="${t}"]`);
     s && s.addEventListener("click", () => this.addCondition(t)), e.querySelectorAll("[data-cond]").forEach((o) => {
-      const a = o, [i, l, c] = a.dataset.cond.split("-"), d = parseInt(i, 10), u = parseInt(l, 10);
-      a.addEventListener("change", () => {
-        c === "field" ? (this.structure.groups[d].conditions[u].field = a.value, this.render()) : c === "operator" ? (this.structure.groups[d].conditions[u].operator = a.value, this.updatePreview()) : c === "value" && (this.structure.groups[d].conditions[u].value = a.value, this.updatePreview());
+      const i = o, [a, l, c] = i.dataset.cond.split("-"), d = parseInt(a, 10), p = parseInt(l, 10);
+      i.addEventListener("change", () => {
+        c === "field" ? (this.structure.groups[d].conditions[p].field = i.value, this.render()) : c === "operator" ? (this.structure.groups[d].conditions[p].operator = i.value, this.updatePreview()) : c === "value" && (this.structure.groups[d].conditions[p].value = i.value, this.updatePreview());
       });
     }), e.querySelectorAll("[data-remove-cond]").forEach((o) => {
-      o.addEventListener("click", (a) => {
-        const l = a.target.closest("[data-remove-cond]");
+      o.addEventListener("click", (i) => {
+        const l = i.target.closest("[data-remove-cond]");
         if (!l) return;
         const [c, d] = l.dataset.removeCond.split("-").map(Number);
         this.removeCondition(c, d);
       });
     }), e.querySelectorAll("[data-add-cond-or], [data-add-cond-and]").forEach((o) => {
-      o.addEventListener("click", (a) => {
-        const i = a.target, l = i.dataset.addCondOr !== void 0, c = l ? i.dataset.addCondOr : i.dataset.addCondAnd;
+      o.addEventListener("click", (i) => {
+        const a = i.target, l = a.dataset.addCondOr !== void 0, c = l ? a.dataset.addCondOr : a.dataset.addCondAnd;
         if (!c) return;
         const [d] = c.split("-").map(Number);
         this.structure.groups[d].logic = l ? "or" : "and", this.addCondition(d);
@@ -4322,7 +4305,7 @@ class di {
     this.structure.groups.splice(e, 1), e < this.structure.groupLogic.length ? this.structure.groupLogic.splice(e, 1) : e > 0 && this.structure.groupLogic.length > 0 && this.structure.groupLogic.splice(e - 1, 1), this.structure.groups.length === 0 ? this.addGroup() : this.render();
   }
   getOperatorsForField(e) {
-    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Ye[e.type] || Ye.text;
+    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : De[e.type] || De.text;
   }
   updatePreview() {
     const e = this.generateSQLPreview(), t = this.generateTextPreview();
@@ -4338,8 +4321,8 @@ class di {
   generateSQLPreview() {
     const e = this.structure.groups.map((t) => {
       const n = t.conditions.filter((s) => s.value !== "" && s.value !== null).map((s) => {
-        const o = s.operator.toUpperCase(), a = typeof s.value == "string" ? `'${s.value}'` : s.value;
-        return `${s.field} ${o === "ILIKE" ? "ILIKE" : o === "EQ" ? "=" : o} ${a}`;
+        const o = s.operator.toUpperCase(), i = typeof s.value == "string" ? `'${s.value}'` : s.value;
+        return `${s.field} ${o === "ILIKE" ? "ILIKE" : o === "EQ" ? "=" : o} ${i}`;
       });
       return n.length === 0 ? "" : n.length === 1 ? n[0] : `( ${n.join(` ${t.logic.toUpperCase()} `)} )`;
     }).filter((t) => t !== "");
@@ -4352,8 +4335,8 @@ class di {
   generateTextPreview() {
     const e = this.structure.groups.map((t) => {
       const n = t.conditions.filter((s) => s.value !== "" && s.value !== null).map((s) => {
-        const o = this.config.fields.find((l) => l.name === s.field), a = o?.label || s.field, i = this.getOperatorsForField(o).find((l) => l.value === s.operator)?.label || s.operator;
-        return `${a} ${i} "${s.value}"`;
+        const o = this.config.fields.find((l) => l.name === s.field), i = o?.label || s.field, a = this.getOperatorsForField(o).find((l) => l.value === s.operator)?.label || s.operator;
+        return `${i} ${a} "${s.value}"`;
       });
       return n.length === 0 ? "" : n.length === 1 ? n[0] : `( ${n.join(` ${t.logic.toUpperCase()} `)} )`;
     }).filter((t) => t !== "");
@@ -4441,7 +4424,7 @@ class di {
     this.structure = e, this.render();
   }
 }
-class ui {
+class Ji {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0)
       throw new Error("At least one searchable field is required");
@@ -4458,18 +4441,18 @@ class ui {
     t.resetPagination(), await t.refresh();
   }
 }
-class pi {
+class Yi {
   buildFilters(e) {
     const t = {}, n = /* @__PURE__ */ new Map();
     return e.forEach((s) => {
       if (s.value === null || s.value === void 0 || s.value === "")
         return;
-      const o = s.operator || "eq", a = s.column;
-      n.has(a) || n.set(a, { operator: o, values: [] }), n.get(a).values.push(s.value);
+      const o = s.operator || "eq", i = s.column;
+      n.has(i) || n.set(i, { operator: o, values: [] }), n.get(i).values.push(s.value);
     }), n.forEach((s, o) => {
       if (s.values.length === 1) {
-        const a = s.operator === "eq" ? o : `${o}__${s.operator}`;
-        t[a] = s.values[0];
+        const i = s.operator === "eq" ? o : `${o}__${s.operator}`;
+        t[i] = s.values[0];
       } else
         s.operator === "ilike" ? t[`${o}__ilike`] = s.values.join(",") : s.operator === "eq" ? t[`${o}__in`] = s.values.join(",") : t[`${o}__${s.operator}`] = s.values.join(",");
     }), t;
@@ -4478,7 +4461,7 @@ class pi {
     n.resetPagination(), await n.refresh();
   }
 }
-class hi {
+class Qi {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -4489,7 +4472,7 @@ class hi {
     await t.refresh();
   }
 }
-class fi {
+class Wi {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((n) => `${n.field} ${n.direction}`).join(",") };
   }
@@ -4497,7 +4480,7 @@ class fi {
     await n.refresh();
   }
 }
-class mi {
+class Xi {
   constructor(e) {
     if (!e || !e.endpoint)
       throw new Error("export endpoint is required");
@@ -4514,11 +4497,11 @@ class mi {
   async export(e, t) {
     if (!t)
       throw new Error("datagrid instance is required");
-    const n = Us(t, this.config, e);
-    n.delivery = Vs(this.config, e);
+    const n = Ls(t, this.config, e);
+    n.delivery = _s(this.config, e);
     let s;
     try {
-      s = await L(this.getEndpoint(), {
+      s = await $(this.getEndpoint(), {
         method: "POST",
         json: n,
         headers: {
@@ -4526,35 +4509,35 @@ class mi {
         }
       });
     } catch (o) {
-      const a = o instanceof Error ? o.message : "Network error during export";
-      throw F(t, "error", a), o;
+      const i = o instanceof Error ? o.message : "Network error during export";
+      throw B(t, "error", i), o;
     }
     if (s.status === 202) {
       const o = await s.json().catch(() => ({}));
-      F(t, "info", "Export queued. You can download it when ready.");
-      const a = o?.status_url || "";
-      if (a) {
-        const i = Ys(o, a);
+      B(t, "info", "Export queued. You can download it when ready.");
+      const i = o?.status_url || "";
+      if (i) {
+        const a = Bs(o, i);
         try {
-          await Qs(a, {
-            intervalMs: Ks(this.config),
-            timeoutMs: Js(this.config)
+          await Ms(i, {
+            intervalMs: Rs(this.config),
+            timeoutMs: Is(this.config)
           });
-          const l = await L(i, {
+          const l = await $(a, {
             method: "GET",
             headers: {
               Accept: "application/octet-stream"
             }
           });
           if (!l.ok) {
-            const c = await Ee(l);
-            throw F(t, "error", c), new Error(c);
+            const c = await be(l);
+            throw B(t, "error", c), new Error(c);
           }
-          await We(l, n.definition || n.resource || "export", n.format), F(t, "success", "Export ready.");
+          await qe(l, n.definition || n.resource || "export", n.format), B(t, "success", "Export ready.");
           return;
         } catch (l) {
           const c = l instanceof Error ? l.message : "Export failed";
-          throw F(t, "error", c), l;
+          throw B(t, "error", c), l;
         }
       }
       if (o?.download_url) {
@@ -4564,16 +4547,16 @@ class mi {
       return;
     }
     if (!s.ok) {
-      const o = await Ee(s);
-      throw F(t, "error", o), new Error(o);
+      const o = await be(s);
+      throw B(t, "error", o), new Error(o);
     }
-    await We(s, n.definition || n.resource || "export", n.format), F(t, "success", "Export ready.");
+    await qe(s, n.definition || n.resource || "export", n.format), B(t, "success", "Export ready.");
   }
 }
-function Us(r, e, t) {
-  const n = so(t), s = Xs(r, e), o = Zs(r, e), a = eo(r), i = to(a), l = {
+function Ls(r, e, t) {
+  const n = zs(t), s = Ts(r, e), o = Ds(r, e), i = Fs(r), a = qs(i), l = {
     format: n,
-    query: i,
+    query: a,
     selection: s,
     columns: o,
     delivery: e.delivery || "auto"
@@ -4582,51 +4565,51 @@ function Us(r, e, t) {
   const c = e.sourceVariant || e.variant;
   return c && (l.source_variant = c), l;
 }
-function Vs(r, e) {
+function _s(r, e) {
   return r.delivery ? r.delivery : (r.asyncFormats && r.asyncFormats.length > 0 ? r.asyncFormats : ["pdf"]).includes(e) ? "async" : "auto";
 }
-function Ks(r) {
+function Rs(r) {
   const e = Number(r.statusPollIntervalMs);
   return Number.isFinite(e) && e > 0 ? e : 2e3;
 }
-function Js(r) {
+function Is(r) {
   const e = Number(r.statusPollTimeoutMs);
   return Number.isFinite(e) && e >= 0 ? e : 3e5;
 }
-function Ys(r, e) {
+function Bs(r, e) {
   return r?.download_url ? r.download_url : `${e.replace(/\/+$/, "")}/download`;
 }
-async function Qs(r, e) {
+async function Ms(r, e) {
   const t = Date.now(), n = Math.max(250, e.intervalMs);
   for (; ; ) {
-    const s = await L(r, {
+    const s = await $(r, {
       method: "GET",
       headers: {
         Accept: "application/json"
       }
     });
     if (!s.ok) {
-      const i = await Ee(s);
-      throw new Error(i);
+      const a = await be(s);
+      throw new Error(a);
     }
-    const o = await s.json().catch(() => ({})), a = String(o?.state || "").toLowerCase();
-    if (a === "completed")
+    const o = await s.json().catch(() => ({})), i = String(o?.state || "").toLowerCase();
+    if (i === "completed")
       return o;
-    if (a === "failed")
+    if (i === "failed")
       throw new Error("Export failed");
-    if (a === "canceled")
+    if (i === "canceled")
       throw new Error("Export canceled");
-    if (a === "deleted")
+    if (i === "deleted")
       throw new Error("Export deleted");
     if (e.timeoutMs > 0 && Date.now() - t > e.timeoutMs)
       throw new Error("Export status timed out");
-    await Ws(n);
+    await Ps(n);
   }
 }
-function Ws(r) {
+function Ps(r) {
   return new Promise((e) => setTimeout(e, r));
 }
-function Xs(r, e) {
+function Ts(r, e) {
   if (e.selection?.mode)
     return e.selection;
   const t = Array.from(r.state.selectedRows || []), n = t.length > 0 ? "ids" : "all";
@@ -4635,68 +4618,68 @@ function Xs(r, e) {
     ids: n === "ids" ? t : []
   };
 }
-function Zs(r, e) {
+function Ds(r, e) {
   if (Array.isArray(e.columns) && e.columns.length > 0)
     return e.columns.slice();
   const t = r.state?.hiddenColumns ? new Set(r.state.hiddenColumns) : /* @__PURE__ */ new Set();
   return (Array.isArray(r.state?.columnOrder) && r.state.columnOrder.length > 0 ? r.state.columnOrder : r.config.columns.map((s) => s.field)).filter((s) => !t.has(s));
 }
-function eo(r) {
+function Fs(r) {
   const e = {}, t = r.config.behaviors || {};
   return t.pagination && Object.assign(e, t.pagination.buildQuery(r.state.currentPage, r.state.perPage)), r.state.search && t.search && Object.assign(e, t.search.buildQuery(r.state.search)), r.state.filters.length > 0 && t.filter && Object.assign(e, t.filter.buildFilters(r.state.filters)), r.state.sort.length > 0 && t.sort && Object.assign(e, t.sort.buildQuery(r.state.sort)), e;
 }
-function to(r) {
+function qs(r) {
   const e = {}, t = [];
   return Object.entries(r).forEach(([n, s]) => {
     if (s == null || s === "")
       return;
     switch (n) {
       case "limit":
-        e.limit = Qe(s);
+        e.limit = Fe(s);
         return;
       case "offset":
-        e.offset = Qe(s);
+        e.offset = Fe(s);
         return;
       case "order":
       case "sort":
-        e.sort = no(String(s));
+        e.sort = js(String(s));
         return;
       case "q":
       case "search":
         e.search = String(s);
         return;
     }
-    const { field: o, op: a } = ro(n);
-    o && t.push({ field: o, op: a, value: s });
+    const { field: o, op: i } = Os(n);
+    o && t.push({ field: o, op: i, value: s });
   }), t.length > 0 && (e.filters = t), e;
 }
-function ro(r) {
+function Os(r) {
   const e = r.split("__"), t = e[0]?.trim() || "", n = e[1]?.trim() || "eq";
   return { field: t, op: n };
 }
-function no(r) {
+function js(r) {
   return r ? r.split(",").map((e) => e.trim()).filter(Boolean).map((e) => {
     const t = e.split(/\s+/), n = t[0] || "", s = t[1] || "asc";
     return { field: n, desc: s.toLowerCase() === "desc" };
   }).filter((e) => e.field) : [];
 }
-function so(r) {
+function zs(r) {
   const e = String(r || "").trim().toLowerCase();
   return e === "excel" || e === "xls" ? "xlsx" : e || "csv";
 }
-function Qe(r) {
+function Fe(r) {
   const e = Number(r);
   return Number.isFinite(e) ? e : 0;
 }
-async function We(r, e, t) {
-  const n = await r.blob(), s = oo(r, e, t), o = URL.createObjectURL(n), a = document.createElement("a");
-  a.href = o, a.download = s, a.rel = "noopener", document.body.appendChild(a), a.click(), a.remove(), URL.revokeObjectURL(o);
+async function qe(r, e, t) {
+  const n = await r.blob(), s = Ns(r, e, t), o = URL.createObjectURL(n), i = document.createElement("a");
+  i.href = o, i.download = s, i.rel = "noopener", document.body.appendChild(i), i.click(), i.remove(), URL.revokeObjectURL(o);
 }
-function oo(r, e, t) {
+function Ns(r, e, t) {
   const n = r.headers.get("content-disposition") || "", s = `${e}.${t}`;
-  return ao(n) || s;
+  return Gs(n) || s;
 }
-function ao(r) {
+function Gs(r) {
   if (!r) return null;
   const e = r.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   if (e && e[1])
@@ -4704,7 +4687,7 @@ function ao(r) {
   const t = r.match(/filename="?([^";]+)"?/i);
   return t && t[1] ? t[1].trim() : null;
 }
-async function Ee(r) {
+async function be(r) {
   if ((r.headers.get("content-type") || "").includes("application/json")) {
     const n = await r.json().catch(() => ({}));
     if (n?.error?.message)
@@ -4715,7 +4698,7 @@ async function Ee(r) {
   const t = await r.text().catch(() => "");
   return t || `Export failed (${r.status})`;
 }
-function F(r, e, t) {
+function B(r, e, t) {
   const n = r.config.notifier;
   if (n && typeof n[e] == "function") {
     n[e](t);
@@ -4728,7 +4711,7 @@ function F(r, e, t) {
   }
   e === "error" && alert(t);
 }
-class gi {
+class Zi {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -4739,30 +4722,30 @@ class gi {
     return this.baseEndpoint.endsWith("s") ? this.baseEndpoint : `${this.baseEndpoint}s`;
   }
   async execute(e, t, n) {
-    const s = this.getActionEndpoint(e), o = await L(s, {
+    const s = this.getActionEndpoint(e), o = await $(s, {
       method: "POST",
       json: { ids: t },
       accept: "application/json"
     });
     if (!o.ok) {
-      const a = await lr(o, `Bulk action '${e}' failed`);
-      throw new Error(`Bulk action '${e}' failed: ${a}`);
+      const i = await Kt(o, `Bulk action '${e}' failed`);
+      throw new Error(`Bulk action '${e}' failed: ${i}`);
     }
     await n.refresh();
   }
 }
-function io(r) {
+function Us(r) {
   const e = (r || "").trim();
   return !e || e === "/" ? "" : "/" + e.replace(/^\/+|\/+$/g, "");
 }
-function lo(r) {
+function Hs(r) {
   const e = (r || "").trim();
   return !e || e === "/" ? "" : e.replace(/\/+$/, "");
 }
-function Dt(r) {
+function St(r) {
   return typeof r == "object" && r !== null && "version" in r && r.version === 2;
 }
-class co {
+class Vs {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -4777,15 +4760,15 @@ class co {
    * Preserves column order when writing visibility updates
    */
   toggleColumn(e, t) {
-    const n = !t.state.hiddenColumns.has(e), s = t.config.columns.filter((i) => i.field === e ? !n : !t.state.hiddenColumns.has(i.field)).map((i) => i.field), o = {};
-    t.config.columns.forEach((i) => {
-      o[i.field] = s.includes(i.field);
+    const n = !t.state.hiddenColumns.has(e), s = t.config.columns.filter((a) => a.field === e ? !n : !t.state.hiddenColumns.has(a.field)).map((a) => a.field), o = {};
+    t.config.columns.forEach((a) => {
+      o[a.field] = s.includes(a.field);
     });
-    const a = this.cachedOrder || t.state.columnOrder;
+    const i = this.cachedOrder || t.state.columnOrder;
     this.savePrefs({
       version: 2,
       visibility: o,
-      order: a.length > 0 ? a : void 0
+      order: i.length > 0 ? i : void 0
     }), t.updateColumnVisibility(s);
   }
   /**
@@ -4829,8 +4812,8 @@ class co {
       const t = this.loadPrefs();
       if (!t) return /* @__PURE__ */ new Set();
       const n = new Set(e), s = /* @__PURE__ */ new Set();
-      return Object.entries(t.visibility).forEach(([o, a]) => {
-        !a && n.has(o) && s.add(o);
+      return Object.entries(t.visibility).forEach(([o, i]) => {
+        !i && n.has(o) && s.add(o);
       }), s;
     } catch (t) {
       return console.warn("Failed to load column visibility state:", t), /* @__PURE__ */ new Set();
@@ -4844,7 +4827,7 @@ class co {
       const e = localStorage.getItem(this.storageKey);
       if (!e) return null;
       const t = JSON.parse(e);
-      if (Dt(t))
+      if (St(t))
         return t;
       const s = {
         version: 2,
@@ -4878,11 +4861,11 @@ class co {
     }
   }
 }
-class bi extends co {
+class ea extends Vs {
   constructor(e, t) {
     const n = t.localStorageKey || `${t.resource}_datatable_columns`;
     super(e, n), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
-    const s = io(t.basePath), o = lo(t.apiBasePath);
+    const s = Us(t.basePath), o = Hs(t.apiBasePath);
     t.preferencesEndpoint ? this.preferencesEndpoint = t.preferencesEndpoint : o ? this.preferencesEndpoint = `${o}/panels/preferences` : s ? this.preferencesEndpoint = `${s}/api/panels/preferences` : this.preferencesEndpoint = "/api/panels/preferences", this.syncDebounce = t.syncDebounce ?? 1e3;
   }
   /**
@@ -4910,7 +4893,7 @@ class bi extends co {
    */
   async loadFromServer() {
     try {
-      const e = await L(this.preferencesEndpoint, {
+      const e = await $(this.preferencesEndpoint, {
         method: "GET",
         credentials: "same-origin",
         headers: {
@@ -4926,7 +4909,7 @@ class bi extends co {
       if (!s || !s[this.serverPrefsKey])
         return console.log("[ServerColumnVisibility] No column preferences in server response"), null;
       const o = s[this.serverPrefsKey];
-      return Dt(o) ? (this.serverPrefs = o, this.savePrefs(o), console.log("[ServerColumnVisibility] Loaded prefs from server:", o), o) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", o), null);
+      return St(o) ? (this.serverPrefs = o, this.savePrefs(o), console.log("[ServerColumnVisibility] Loaded prefs from server:", o), o) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", o), null);
     } catch (e) {
       return console.warn("[ServerColumnVisibility] Error loading server prefs:", e), null;
     }
@@ -4939,10 +4922,10 @@ class bi extends co {
     const t = this.serverPrefs;
     if (t) {
       const n = /* @__PURE__ */ new Set();
-      Object.entries(t.visibility).forEach(([a, i]) => {
-        i || n.add(a);
+      Object.entries(t.visibility).forEach(([i, a]) => {
+        a || n.add(i);
       });
-      const s = new Set(e), o = (t.order || []).filter((a) => s.has(a));
+      const s = new Set(e), o = (t.order || []).filter((i) => s.has(i));
       return {
         hiddenColumns: n,
         columnOrder: o
@@ -4975,7 +4958,7 @@ class bi extends co {
       order: e.state.columnOrder.length > 0 ? e.state.columnOrder : void 0
     };
     try {
-      const s = await L(this.preferencesEndpoint, {
+      const s = await $(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5009,7 +4992,7 @@ class bi extends co {
    */
   async clearServerPrefs() {
     try {
-      const e = await L(this.preferencesEndpoint, {
+      const e = await $(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5032,27 +5015,27 @@ class bi extends co {
     }
   }
 }
-const uo = {
+const Ks = {
   async prompt(r) {
-    const { PayloadInputModal: e } = await import("../chunks/payload-modal-C5KOUxSU.js");
+    const { PayloadInputModal: e } = await import("../chunks/payload-modal-DZcXW2Ox.js");
     return e.prompt(r);
   }
 };
-function po(r) {
+function Js(r) {
   const e = r.trim(), t = e.indexOf("?");
   return t === -1 ? { path: e, query: "" } : {
     path: e.slice(0, t),
     query: e.slice(t + 1)
   };
 }
-function q(r, e, t = "", n = "") {
-  const { path: s, query: o } = po(r), a = s.replace(/\/+$/, ""), i = t.replace(/^\/+/, "");
-  let l = `${a}/${encodeURIComponent(e)}`;
-  i && (l += `/${i}`);
+function M(r, e, t = "", n = "") {
+  const { path: s, query: o } = Js(r), i = s.replace(/\/+$/, ""), a = t.replace(/^\/+/, "");
+  let l = `${i}/${encodeURIComponent(e)}`;
+  a && (l += `/${a}`);
   const c = [];
   return o && c.push(o), n && c.push(n), c.length > 0 ? `${l}?${c.join("&")}` : l;
 }
-const Xe = {
+const Oe = {
   view: 100,
   view_family: 150,
   edit: 200,
@@ -5067,8 +5050,8 @@ const Xe = {
   restore: 1100,
   delete: 9e3
   // Destructive actions last
-}, ho = 5e3;
-class Ft {
+}, Ys = 5e3;
+class Ct {
   constructor(e) {
     this.seenActions = /* @__PURE__ */ new Set(), this.config = {
       useDefaultFallback: !0,
@@ -5093,24 +5076,24 @@ class Ft {
     let s = 0;
     const o = this.buildQueryContext();
     if (Array.isArray(t) && t.length > 0) {
-      for (const a of t) {
-        if (!a.name) continue;
-        const i = this.resolveRecordActionState(e, a.name);
-        if (!this.shouldIncludeAction(e, a, i)) continue;
-        const l = a.name.toLowerCase();
+      for (const i of t) {
+        if (!i.name) continue;
+        const a = this.resolveRecordActionState(e, i.name);
+        if (!this.shouldIncludeAction(e, i, a)) continue;
+        const l = i.name.toLowerCase();
         if (this.seenActions.has(l)) continue;
         this.seenActions.add(l);
-        const c = this.normalizeContextBoundActionState(e, a, i), d = this.buildActionFromSchema(e, a, o, c);
+        const c = this.normalizeContextBoundActionState(e, i, a), d = this.buildActionFromSchema(e, i, o, c);
         d && n.push({
           action: d,
-          name: a.name,
-          order: this.resolveActionOrder(a.name, a.order),
+          name: i.name,
+          order: this.resolveActionOrder(i.name, i.order),
           insertionIndex: s++
         });
       }
       this.config.appendDefaultActions && this.appendDefaultActionsOrdered(n, e, o, s);
     } else this.config.useDefaultFallback && this.appendDefaultActionsOrdered(n, e, o, s);
-    return n.sort((a, i) => a.order !== i.order ? a.order - i.order : a.insertionIndex - i.insertionIndex), n.map((a) => a.action);
+    return n.sort((i, a) => i.order !== a.order ? i.order - a.order : i.insertionIndex - a.insertionIndex), n.map((i) => i.action);
   }
   /**
    * Resolve action order using precedence:
@@ -5123,17 +5106,17 @@ class Ft {
     if (typeof t == "number" && Number.isFinite(t))
       return t;
     const n = e.toLowerCase();
-    return this.config.actionOrderOverride?.[n] !== void 0 ? this.config.actionOrderOverride[n] : Xe[n] !== void 0 ? Xe[n] : ho;
+    return this.config.actionOrderOverride?.[n] !== void 0 ? this.config.actionOrderOverride[n] : Oe[n] !== void 0 ? Oe[n] : Ys;
   }
   /**
    * Build a single action from schema definition
    */
   buildActionFromSchema(e, t, n, s) {
-    const o = t.name, a = t.label || t.label_key || o, i = t.variant || "secondary", l = t.icon, c = this.isNavigationAction(t), d = o === "delete";
+    const o = t.name, i = t.label || t.label_key || o, a = t.variant || "secondary", l = t.icon, c = this.isNavigationAction(t), d = o === "delete";
     return c ? this.applyActionState(
-      this.buildNavigationAction(e, t, a, i, l, n),
+      this.buildNavigationAction(e, t, i, a, l, n),
       s
-    ) : d ? this.applyActionState(this.buildDeleteAction(e, a, i, l), s) : this.applyActionState(this.buildPostAction(e, t, a, i, l), s);
+    ) : d ? this.applyActionState(this.buildDeleteAction(e, i, a, l), s) : this.applyActionState(this.buildPostAction(e, t, i, a, l), s);
   }
   /**
    * Check if action is a navigation action
@@ -5145,7 +5128,7 @@ class Ft {
     return this.matchesActionScope(t.scope) ? this.missingRequiredContext(e, t).length === 0 ? !0 : n !== null : !1;
   }
   resolveRecordActionState(e, t) {
-    return ct(e, t);
+    return Qe(e, t);
   }
   applyActionState(e, t) {
     if (!t || t.enabled !== !1)
@@ -5177,7 +5160,7 @@ class Ft {
       return t;
     const n = typeof e.reason_code == "string" ? e.reason_code.trim() : "";
     if (n) {
-      const s = dt({ reason_code: n });
+      const s = We({ reason_code: n });
       if (s?.message)
         return s.message;
     }
@@ -5211,11 +5194,11 @@ class Ft {
       return [];
     const s = [];
     for (const o of n) {
-      const a = typeof o == "string" ? o.trim() : "";
-      if (!a)
+      const i = typeof o == "string" ? o.trim() : "";
+      if (!i)
         continue;
-      const i = this.resolveRecordContextValue(e, a);
-      this.isEmptyPayloadValue(i) && s.push(a);
+      const a = this.resolveRecordContextValue(e, i);
+      this.isEmptyPayloadValue(a) && s.push(i);
     }
     return s;
   }
@@ -5236,26 +5219,26 @@ class Ft {
     if (!n) return;
     if (!n.includes("."))
       return e[n];
-    const s = n.split(".").map((a) => a.trim()).filter(Boolean);
+    const s = n.split(".").map((i) => i.trim()).filter(Boolean);
     if (s.length === 0) return;
     let o = e;
-    for (const a of s) {
+    for (const i of s) {
       if (!o || typeof o != "object" || Array.isArray(o))
         return;
-      o = o[a];
+      o = o[i];
     }
     return o;
   }
   /**
    * Build navigation action (view, edit, etc.)
    */
-  buildNavigationAction(e, t, n, s, o, a) {
-    const i = String(e.id || ""), l = this.config.actionBasePath;
+  buildNavigationAction(e, t, n, s, o, i) {
+    const a = String(e.id || ""), l = this.config.actionBasePath;
     let c;
     if (t.href) {
-      const d = this.interpolateHrefTemplate(t.href, e, i);
-      a ? c = d.includes("?") ? `${d}&${a}` : `${d}?${a}` : c = d;
-    } else t.name === "edit" ? c = q(l, i, "edit", a) : c = q(l, i, "", a);
+      const d = this.interpolateHrefTemplate(t.href, e, a);
+      i ? c = d.includes("?") ? `${d}&${i}` : `${d}?${i}` : c = d;
+    } else t.name === "edit" ? c = M(l, a, "edit", i) : c = M(l, a, "", i);
     return {
       id: t.name,
       label: n,
@@ -5268,13 +5251,13 @@ class Ft {
   }
   interpolateHrefTemplate(e, t, n) {
     const s = e.trim();
-    return s && s.replace(/\{([^}]+)\}/g, (o, a) => {
-      const i = String(a || "").trim();
-      if (!i)
+    return s && s.replace(/\{([^}]+)\}/g, (o, i) => {
+      const a = String(i || "").trim();
+      if (!a)
         return "";
-      if (i === "id")
+      if (a === "id")
         return n;
-      const l = this.resolveRecordContextValue(t, i);
+      const l = this.resolveRecordContextValue(t, a);
       return l == null ? "" : String(l);
     });
   }
@@ -5282,27 +5265,27 @@ class Ft {
    * Build delete action with confirmation
    */
   buildDeleteAction(e, t, n, s) {
-    const o = String(e.id || ""), a = this.config.apiEndpoint;
+    const o = String(e.id || ""), i = this.config.apiEndpoint;
     return {
       id: "delete",
       label: t,
       icon: s || "trash",
       variant: n === "secondary" ? "danger" : n,
       action: async () => {
-        await Bt({
-          endpoint: `${a}/${o}`,
+        await yt({
+          endpoint: `${i}/${o}`,
           fallbackMessage: "Delete failed",
-          onSuccess: async (i) => {
+          onSuccess: async (a) => {
             this.config.onActionSuccess?.("delete", {
               success: !0,
-              data: i.data
+              data: a.data
             });
           },
-          onError: async (i) => {
-            this.config.onActionError?.("delete", i);
+          onError: async (a) => {
+            this.config.onActionError?.("delete", a);
           },
-          reconcileOnDomainFailure: async (i) => {
-            i.textCode && this.config.reconcileOnDomainFailure && await this.config.reconcileOnDomainFailure("delete", i);
+          reconcileOnDomainFailure: async (a) => {
+            a.textCode && this.config.reconcileOnDomainFailure && await this.config.reconcileOnDomainFailure("delete", a);
           }
         });
       }
@@ -5312,31 +5295,31 @@ class Ft {
    * Build POST action for workflow/panel actions
    */
   buildPostAction(e, t, n, s, o) {
-    const a = String(e.id || ""), i = t.name, l = `${this.config.apiEndpoint}/actions/${i}`;
+    const i = String(e.id || ""), a = t.name, l = `${this.config.apiEndpoint}/actions/${a}`;
     return {
-      id: i,
+      id: a,
       label: n,
-      icon: o || this.getDefaultIcon(i),
+      icon: o || this.getDefaultIcon(a),
       variant: s,
       action: async () => {
         if (t.confirm && !window.confirm(t.confirm))
           return;
         const c = await this.buildActionPayload(e, t);
         c !== null && await this.executePostAction({
-          actionName: i,
+          actionName: a,
           endpoint: l,
           payload: c,
-          recordId: a
+          recordId: i
         });
       }
     };
   }
   async executePostAction(e) {
-    const t = await Re(e.endpoint, e.payload);
+    const t = await ve(e.endpoint, e.payload);
     if (t.success)
       return e.actionName.toLowerCase() === "create_translation" && t.data ? (this.handleCreateTranslationSuccess(t.data, e.payload), t) : (this.handleActionRedirectSuccess(t.data) || this.config.onActionSuccess?.(e.actionName, t), t);
-    if (t.error && er(t.error)) {
-      const n = tr(t.error);
+    if (t.error && Ot(t.error)) {
+      const n = jt(t.error);
       if (n && this.config.onTranslationBlocker) {
         const s = { ...e.payload }, o = this.getContentChannel() || n.channel || null;
         return this.config.onTranslationBlocker({
@@ -5364,13 +5347,13 @@ class Ft {
     const n = typeof e.redirect_record_id == "string" ? e.redirect_record_id.trim() : "";
     if (!n)
       return !1;
-    const s = e.redirect_to_edit === !0 || e.mode === "redirect", o = this.buildQueryContext(), a = q(
+    const s = e.redirect_to_edit === !0 || e.mode === "redirect", o = this.buildQueryContext(), i = M(
       this.config.actionBasePath,
       n,
       s ? "edit" : "",
       o
     );
-    return window.location.href = a, !0;
+    return window.location.href = i, !0;
   }
   async handleStructuredActionFailure(e, t, n) {
     if (!t.error)
@@ -5379,7 +5362,7 @@ class Ft {
       ...t.error,
       message: s
     };
-    throw o.textCode && this.config.reconcileOnDomainFailure && await this.config.reconcileOnDomainFailure(e, o), this.config.onActionError?.(e, o), ae(o, n, !!this.config.onActionError);
+    throw o.textCode && this.config.reconcileOnDomainFailure && await this.config.reconcileOnDomainFailure(e, o), this.config.onActionError?.(e, o), W(o, n, !!this.config.onActionError);
   }
   /**
    * Handle successful create_translation action:
@@ -5392,19 +5375,19 @@ class Ft {
       console.warn("[SchemaActionBuilder] create_translation response missing id");
       return;
     }
-    const o = this.config.actionBasePath, a = new URLSearchParams();
-    s && a.set("locale", s);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = a.toString(), c = `${o}/${n}/edit${l ? `?${l}` : ""}`, d = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(s || "unknown");
-    typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${u} translation created`, {
+    const o = this.config.actionBasePath, i = new URLSearchParams();
+    s && i.set("locale", s);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = i.toString(), c = `${o}/${n}/edit${l ? `?${l}` : ""}`, d = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", p = this.localeLabel(s || "unknown");
+    typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${p} translation created`, {
       action: {
         label: `View ${d.toUpperCase()}`,
         handler: () => {
-          const h = new URLSearchParams();
-          h.set("locale", d), i && h.set("channel", i);
-          const f = typeof t.id == "string" ? t.id : String(t.id || n);
-          window.location.href = `${o}/${f}/edit?${h.toString()}`;
+          const f = new URLSearchParams();
+          f.set("locale", d), a && f.set("channel", a);
+          const m = typeof t.id == "string" ? t.id : String(t.id || n);
+          window.location.href = `${o}/${m}/edit?${f.toString()}`;
         }
       }
     }) : console.log(`[SchemaActionBuilder] Translation created: ${s}`), window.location.href = c;
@@ -5422,22 +5405,22 @@ class Ft {
       const d = this.resolveExpectedVersion(e);
       d !== null && (s.expected_version = d);
     }
-    const a = this.normalizePayloadSchema(t.payload_schema), i = this.collectRequiredFields(t.payload_required, a);
-    if (n === "create_translation" && this.applySchemaTranslationContext(s, e, a), a?.properties)
-      for (const [d, u] of Object.entries(a.properties))
-        s[d] === void 0 && u.default !== void 0 && (s[d] = u.default);
-    i.includes("idempotency_key") && this.isEmptyPayloadValue(s.idempotency_key) && (s.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
-    const l = i.filter((d) => this.isEmptyPayloadValue(s[d]));
+    const i = this.normalizePayloadSchema(t.payload_schema), a = this.collectRequiredFields(t.payload_required, i);
+    if (n === "create_translation" && this.applySchemaTranslationContext(s, e, i), i?.properties)
+      for (const [d, p] of Object.entries(i.properties))
+        s[d] === void 0 && p.default !== void 0 && (s[d] = p.default);
+    a.includes("idempotency_key") && this.isEmptyPayloadValue(s.idempotency_key) && (s.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
+    const l = a.filter((d) => this.isEmptyPayloadValue(s[d]));
     if (l.length === 0)
       return s;
-    const c = await this.promptForPayload(t, l, a, s, e);
+    const c = await this.promptForPayload(t, l, i, s, e);
     if (c === null)
       return null;
     for (const d of l) {
-      const u = a?.properties?.[d], p = c[d] ?? "", h = this.coercePromptValue(p, d, u);
-      if (h.error)
-        throw new Error(h.error);
-      s[d] = h.value;
+      const p = i?.properties?.[d], h = c[d] ?? "", f = this.coercePromptValue(h, d, p);
+      if (f.error)
+        throw new Error(f.error);
+      s[d] = f.value;
     }
     return s;
   }
@@ -5448,7 +5431,7 @@ class Ft {
   async promptForPayload(e, t, n, s, o) {
     if (t.length === 0)
       return {};
-    const a = t.map((l) => {
+    const i = t.map((l) => {
       const c = n?.properties?.[l];
       return {
         name: l,
@@ -5459,18 +5442,18 @@ class Ft {
         options: this.buildFieldOptions(l, e.name, c, o, s)
       };
     });
-    return await uo.prompt({
+    return await Ks.prompt({
       title: `Complete ${e.label || e.name}`,
-      fields: a
+      fields: i
     });
   }
   /**
    * Build field options from schema property
    */
   buildFieldOptions(e, t, n, s, o) {
-    const a = this.deriveCreateTranslationLocaleOptions(e, t, s, n, o);
-    if (a && a.length > 0)
-      return a;
+    const i = this.deriveCreateTranslationLocaleOptions(e, t, s, n, o);
+    if (i && i.length > 0)
+      return i;
     if (!n)
       return;
     if (n.oneOf)
@@ -5483,9 +5466,9 @@ class Ft {
         value: this.stringifyDefault(l),
         label: this.stringifyDefault(l)
       }));
-    const i = this.buildExtensionFieldOptions(n);
-    if (i && i.length > 0)
-      return i;
+    const a = this.buildExtensionFieldOptions(n);
+    if (a && a.length > 0)
+      return a;
   }
   buildExtensionFieldOptions(e) {
     const t = e, n = t["x-options"] ?? t.x_options ?? t.xOptions;
@@ -5502,22 +5485,22 @@ class Ft {
       }
       if (!o || typeof o != "object")
         continue;
-      const a = o.value, i = this.stringifyDefault(a);
-      if (!i)
+      const i = o.value, a = this.stringifyDefault(i);
+      if (!a)
         continue;
-      const l = o.label, c = this.stringifyDefault(l) || i;
-      s.push({ value: i, label: c });
+      const l = o.label, c = this.stringifyDefault(l) || a;
+      s.push({ value: a, label: c });
     }
     return s.length > 0 ? s : void 0;
   }
   deriveCreateTranslationLocaleOptions(e, t, n, s, o) {
     if (e.trim().toLowerCase() !== "locale" || t.trim().toLowerCase() !== "create_translation" || !n || typeof n != "object")
       return;
-    const a = this.asObject(n.translation_readiness), i = o && typeof o == "object" ? o : {};
-    let l = this.asStringArray(i.missing_locales);
-    if (l.length === 0 && (l = this.asStringArray(a?.missing_required_locales)), l.length === 0 && (l = this.asStringArray(n.missing_locales)), l.length === 0 && a) {
-      const v = this.asStringArray(a.required_locales), g = new Set(this.asStringArray(a.available_locales));
-      l = v.filter(($) => !g.has($));
+    const i = this.asObject(n.translation_readiness), a = o && typeof o == "object" ? o : {};
+    let l = this.asStringArray(a.missing_locales);
+    if (l.length === 0 && (l = this.asStringArray(i?.missing_required_locales)), l.length === 0 && (l = this.asStringArray(n.missing_locales)), l.length === 0 && i) {
+      const v = this.asStringArray(i.required_locales), g = new Set(this.asStringArray(i.available_locales));
+      l = v.filter((x) => !g.has(x));
     }
     const c = this.asStringArray(s?.enum);
     if (c.length > 0) {
@@ -5526,25 +5509,25 @@ class Ft {
     }
     if (l.length === 0)
       return;
-    const d = this.extractStringField(i, "recommended_locale") || this.extractStringField(n, "recommended_locale") || this.extractStringField(a || {}, "recommended_locale"), u = this.asStringArray(
-      i.required_for_publish ?? n.required_for_publish ?? a?.required_for_publish ?? a?.required_locales
-    ), p = this.asStringArray(
-      i.existing_locales ?? n.existing_locales ?? a?.available_locales
-    ), h = this.createTranslationLocaleLabelMap(s), f = /* @__PURE__ */ new Set(), y = [];
+    const d = this.extractStringField(a, "recommended_locale") || this.extractStringField(n, "recommended_locale") || this.extractStringField(i || {}, "recommended_locale"), p = this.asStringArray(
+      a.required_for_publish ?? n.required_for_publish ?? i?.required_for_publish ?? i?.required_locales
+    ), h = this.asStringArray(
+      a.existing_locales ?? n.existing_locales ?? i?.available_locales
+    ), f = this.createTranslationLocaleLabelMap(s), m = /* @__PURE__ */ new Set(), y = [];
     for (const v of l) {
       const g = v.trim().toLowerCase();
-      if (!g || f.has(g))
+      if (!g || m.has(g))
         continue;
-      f.add(g);
-      const $ = d?.toLowerCase() === g, D = u.includes(g), E = [];
-      D && E.push("Required for publishing"), p.length > 0 && E.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
-      const x = E.length > 0 ? E.join(" • ") : void 0, K = h[g] || this.localeLabel(g);
-      let Ne = `${g.toUpperCase()} - ${K}`;
-      $ && (Ne += " (recommended)"), y.push({
+      m.add(g);
+      const x = d?.toLowerCase() === g, I = p.includes(g), C = [];
+      I && C.push("Required for publishing"), h.length > 0 && C.push(`${h.length} translation${h.length > 1 ? "s" : ""} exist`);
+      const w = C.length > 0 ? C.join(" • ") : void 0, z = f[g] || this.localeLabel(g);
+      let _e = `${g.toUpperCase()} - ${z}`;
+      x && (_e += " (recommended)"), y.push({
         value: g,
-        label: Ne,
-        description: x,
-        recommended: $
+        label: _e,
+        description: w,
+        recommended: x
       });
     }
     return y.sort((v, g) => v.recommended && !g.recommended ? -1 : !v.recommended && g.recommended ? 1 : v.value.localeCompare(g.value)), y.length > 0 ? y : void 0;
@@ -5554,12 +5537,12 @@ class Ft {
       return;
     const s = this.extractTranslationContextMap(n);
     if (Object.keys(s).length !== 0)
-      for (const [o, a] of Object.entries(s)) {
-        const i = o.trim(), l = a.trim();
-        if (!i || !l || !this.isEmptyPayloadValue(e[i]))
+      for (const [o, i] of Object.entries(s)) {
+        const a = o.trim(), l = i.trim();
+        if (!a || !l || !this.isEmptyPayloadValue(e[a]))
           continue;
         const c = this.resolveRecordContextValue(t, l);
-        c != null && (e[i] = this.clonePayloadValue(c));
+        c != null && (e[a] = this.clonePayloadValue(c));
       }
   }
   extractTranslationContextMap(e) {
@@ -5568,8 +5551,8 @@ class Ft {
       return {};
     const n = {};
     for (const [s, o] of Object.entries(t)) {
-      const a = s.trim(), i = typeof o == "string" ? o.trim() : "";
-      !a || !i || (n[a] = i);
+      const i = s.trim(), a = typeof o == "string" ? o.trim() : "";
+      !i || !a || (n[i] = a);
     }
     return n;
   }
@@ -5582,19 +5565,19 @@ class Ft {
       return t;
     if (Array.isArray(e.oneOf))
       for (const o of e.oneOf) {
-        const a = this.stringifyDefault(o?.const).trim().toLowerCase();
-        if (!a)
+        const i = this.stringifyDefault(o?.const).trim().toLowerCase();
+        if (!i)
           continue;
-        const i = this.stringifyDefault(o?.title).trim();
-        i && (t[a] = i);
+        const a = this.stringifyDefault(o?.title).trim();
+        a && (t[i] = a);
       }
     const n = e, s = n["x-options"] ?? n.x_options ?? n.xOptions;
     if (Array.isArray(s))
       for (const o of s) {
         if (!o || typeof o != "object")
           continue;
-        const a = this.stringifyDefault(o.value).trim().toLowerCase(), i = this.stringifyDefault(o.label).trim();
-        a && i && (t[a] = i);
+        const i = this.stringifyDefault(o.value).trim().toLowerCase(), a = this.stringifyDefault(o.label).trim();
+        i && a && (t[i] = a);
       }
     return t;
   }
@@ -5663,20 +5646,20 @@ class Ft {
       for (const [l, c] of Object.entries(t))
         c && typeof c == "object" && !Array.isArray(c) && (n[l] = c);
     }
-    const s = e.required, o = Array.isArray(s) ? s.filter((l) => typeof l == "string").map((l) => l.trim()).filter((l) => l.length > 0) : void 0, a = e["x-translation-context"] ?? e.x_translation_context, i = a && typeof a == "object" && !Array.isArray(a) ? a : void 0;
+    const s = e.required, o = Array.isArray(s) ? s.filter((l) => typeof l == "string").map((l) => l.trim()).filter((l) => l.length > 0) : void 0, i = e["x-translation-context"] ?? e.x_translation_context, a = i && typeof i == "object" && !Array.isArray(i) ? i : void 0;
     return {
       type: typeof e.type == "string" ? e.type : void 0,
       required: o,
       properties: n,
-      ...i ? { "x-translation-context": i } : {}
+      ...a ? { "x-translation-context": a } : {}
     };
   }
   collectRequiredFields(e, t) {
-    const n = [], s = /* @__PURE__ */ new Set(), o = (a) => {
-      const i = a.trim();
-      !i || s.has(i) || (s.add(i), n.push(i));
+    const n = [], s = /* @__PURE__ */ new Set(), o = (i) => {
+      const a = i.trim();
+      !a || s.has(a) || (s.add(a), n.push(a));
     };
-    return Array.isArray(e) && e.forEach((a) => o(String(a))), Array.isArray(t?.required) && t.required.forEach((a) => o(String(a))), n;
+    return Array.isArray(e) && e.forEach((i) => o(String(i))), Array.isArray(t?.required) && t.required.forEach((i) => o(String(i))), n;
   }
   isEmptyPayloadValue(e) {
     return e == null ? !0 : typeof e == "string" ? e.trim() === "" : Array.isArray(e) ? e.length === 0 : typeof e == "object" ? Object.keys(e).length === 0 : !1;
@@ -5690,12 +5673,12 @@ class Ft {
     if (s.length === 0)
       return { value: s };
     if (o === "number" || o === "integer") {
-      const a = Number(s);
-      return Number.isFinite(a) ? { value: o === "integer" ? Math.trunc(a) : a } : { value: null, error: `${t} must be a valid number` };
+      const i = Number(s);
+      return Number.isFinite(i) ? { value: o === "integer" ? Math.trunc(i) : i } : { value: null, error: `${t} must be a valid number` };
     }
     if (o === "boolean") {
-      const a = s.toLowerCase();
-      return a === "true" || a === "1" || a === "yes" ? { value: !0 } : a === "false" || a === "0" || a === "no" ? { value: !1 } : { value: null, error: `${t} must be true or false` };
+      const i = s.toLowerCase();
+      return i === "true" || i === "1" || i === "yes" ? { value: !0 } : i === "false" || i === "0" || i === "no" ? { value: !1 } : { value: null, error: `${t} must be true or false` };
     }
     if (o === "array" || o === "object")
       try {
@@ -5706,7 +5689,7 @@ class Ft {
     return { value: s };
   }
   buildActionErrorMessage(e, t) {
-    return G(t, `${e} failed`);
+    return q(t, `${e} failed`);
   }
   /**
    * Build URL query context from locale/channel
@@ -5721,7 +5704,7 @@ class Ft {
    * Append default actions (view, edit, delete) avoiding duplicates
    */
   appendDefaultActions(e, t, n) {
-    const s = String(t.id || ""), o = this.config.actionBasePath, a = [
+    const s = String(t.id || ""), o = this.config.actionBasePath, i = [
       {
         name: "view",
         button: {
@@ -5730,7 +5713,7 @@ class Ft {
           icon: "eye",
           variant: "secondary",
           action: () => {
-            window.location.href = q(o, s, "", n);
+            window.location.href = M(o, s, "", n);
           }
         }
       },
@@ -5742,7 +5725,7 @@ class Ft {
           icon: "edit",
           variant: "primary",
           action: () => {
-            window.location.href = q(o, s, "edit", n);
+            window.location.href = M(o, s, "edit", n);
           }
         }
       },
@@ -5751,14 +5734,14 @@ class Ft {
         button: this.buildDeleteAction(t, "Delete", "danger", "trash")
       }
     ];
-    for (const i of a)
-      this.seenActions.has(i.name) || (this.seenActions.add(i.name), e.push(i.button));
+    for (const a of i)
+      this.seenActions.has(a.name) || (this.seenActions.add(a.name), e.push(a.button));
   }
   /**
    * Append default actions with ordering metadata
    */
   appendDefaultActionsOrdered(e, t, n, s) {
-    const o = String(t.id || ""), a = this.config.actionBasePath, i = [
+    const o = String(t.id || ""), i = this.config.actionBasePath, a = [
       {
         name: "view",
         button: {
@@ -5767,7 +5750,7 @@ class Ft {
           icon: "eye",
           variant: "secondary",
           action: () => {
-            window.location.href = q(a, o, "", n);
+            window.location.href = M(i, o, "", n);
           }
         }
       },
@@ -5779,7 +5762,7 @@ class Ft {
           icon: "edit",
           variant: "primary",
           action: () => {
-            window.location.href = q(a, o, "edit", n);
+            window.location.href = M(i, o, "edit", n);
           }
         }
       },
@@ -5789,7 +5772,7 @@ class Ft {
       }
     ];
     let l = s;
-    for (const c of i)
+    for (const c of a)
       this.seenActions.has(c.name) || (this.seenActions.add(c.name), e.push({
         action: c.button,
         name: c.name,
@@ -5818,23 +5801,20 @@ class Ft {
     }[e.toLowerCase()];
   }
 }
-function yi(r, e, t) {
-  return new Ft(t).buildRowActions(r, e);
+function ta(r, e, t) {
+  return new Ct(t).buildRowActions(r, e);
 }
-function vi(r) {
+function ra(r) {
   return r.schema?.actions;
 }
-function fo() {
+function Qs() {
   const r = globalThis.window;
-  return r?.toastManager ? r.toastManager : new U();
+  return r?.toastManager ? r.toastManager : new O();
 }
-function w(r) {
-  return String(r).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-function Le(r, e) {
+function ye(r, e) {
   return (typeof r.id == "string" && r.id.trim() ? r.id.trim() : `${r.label}-${e + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `action-${e + 1}`;
 }
-function mo(r, e) {
+function Ws(r, e) {
   const t = "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2";
   if (e)
     return `${t} cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 focus:ring-gray-300`;
@@ -5851,7 +5831,7 @@ function mo(r, e) {
       return `${t} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500`;
   }
 }
-function go(r, e) {
+function Xs(r, e) {
   const t = "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors";
   if (e)
     return `${t} cursor-not-allowed text-gray-400`;
@@ -5866,7 +5846,7 @@ function go(r, e) {
       return `${t} text-gray-700 hover:bg-gray-50`;
   }
 }
-function Ze(r) {
+function je(r) {
   const e = {
     edit: "iconoir-edit-pencil",
     delete: "iconoir-trash",
@@ -5883,7 +5863,7 @@ function Ze(r) {
   }, t = String(r.id || "").toLowerCase().replace(/[^a-z_]/g, "_");
   return e[t] || "";
 }
-function bo(r) {
+function Zs(r) {
   const e = r.findIndex((n) => String(n.id || "").toLowerCase() === "edit");
   if (e >= 0)
     return {
@@ -5896,44 +5876,44 @@ function bo(r) {
     rest: [...r.slice(0, t), ...r.slice(t + 1)]
   } : r.length === 1 ? { primary: r[0], rest: [] } : { primary: null, rest: r };
 }
-function yo(r) {
+function eo(r) {
   if (r.length === 0)
     return "";
-  const { primary: e, rest: t } = bo(r);
+  const { primary: e, rest: t } = Zs(r);
   let n = "";
   if (e) {
-    const o = e.disabled === !0, a = Le(e, 0), i = Ze(e), l = o ? (e.disabledReason || "Action unavailable").trim() : "", c = l ? `detail-action-reason-${a}` : "", d = c ? `aria-describedby="${c}"` : "", u = l ? `${e.label} unavailable: ${l}` : e.label, p = o && e.remediation?.href && e.remediation?.label ? `
+    const o = e.disabled === !0, i = ye(e, 0), a = je(e), l = o ? (e.disabledReason || "Action unavailable").trim() : "", c = l ? `detail-action-reason-${i}` : "", d = c ? `aria-describedby="${c}"` : "", p = l ? `${e.label} unavailable: ${l}` : e.label, h = o && e.remediation?.href && e.remediation?.label ? `
           <a
-            href="${w(e.remediation.href.trim())}"
+            href="${u(e.remediation.href.trim())}"
             class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            data-detail-action-remediation="${w(a)}"
+            data-detail-action-remediation="${u(i)}"
           >
-            ${w(e.remediation.label.trim())}
+            ${u(e.remediation.label.trim())}
           </a>
-        ` : "", h = l ? `title="${w(l)}"` : "", f = o && l ? `<span
+        ` : "", f = l ? `title="${u(l)}"` : "", m = o && l ? `<span
            class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
-           title="${w(l)}"
+           title="${u(l)}"
            aria-hidden="true"
          >?</span>
-         <span class="sr-only" data-detail-action-reason="${w(a)}" id="detail-action-reason-${w(a)}">${w(l)}</span>` : "";
+         <span class="sr-only" data-detail-action-reason="${u(i)}" id="detail-action-reason-${u(i)}">${u(l)}</span>` : "";
     n = `
-      <div data-detail-action-card="${w(a)}" class="flex items-center gap-2">
+      <div data-detail-action-card="${u(i)}" class="flex items-center gap-2">
         <button
           type="button"
-          class="${mo(e, o)}"
-          data-detail-action-button="${w(a)}"
-          data-detail-action-name="${w(e.id || e.label)}"
+          class="${Ws(e, o)}"
+          data-detail-action-button="${u(i)}"
+          data-detail-action-name="${u(e.id || e.label)}"
           data-disabled="${o}"
           aria-disabled="${o ? "true" : "false"}"
-          aria-label="${w(u)}"
+          aria-label="${u(p)}"
           ${d}
-          ${h}
-        >
-          ${i ? `<i class="${i}"></i>` : ""}
-          ${w(e.label)}
           ${f}
+        >
+          ${a ? `<i class="${a}"></i>` : ""}
+          ${u(e.label)}
+          ${m}
         </button>
-        ${o && p ? p : ""}
+        ${o && h ? h : ""}
       </div>
     `;
   }
@@ -5956,38 +5936,38 @@ function yo(r) {
           role="menu"
           aria-orientation="vertical"
         >
-          ${t.map((a, i) => {
-    const l = a.disabled === !0, c = Le(a, e ? i + 1 : i), d = Ze(a), u = l ? (a.disabledReason || "Action unavailable").trim() : "", p = u ? `detail-action-reason-${c}` : "", h = p ? `aria-describedby="${p}"` : "", f = u ? `${a.label} unavailable: ${u}` : a.label, y = a.variant === "danger" && i > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", v = u ? `title="${w(u)}"` : "", g = l && a.remediation?.href && a.remediation?.label ? `
+          ${t.map((i, a) => {
+    const l = i.disabled === !0, c = ye(i, e ? a + 1 : a), d = je(i), p = l ? (i.disabledReason || "Action unavailable").trim() : "", h = p ? `detail-action-reason-${c}` : "", f = h ? `aria-describedby="${h}"` : "", m = p ? `${i.label} unavailable: ${p}` : i.label, y = i.variant === "danger" && a > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", v = p ? `title="${u(p)}"` : "", g = l && i.remediation?.href && i.remediation?.label ? `
             <a
-              href="${w(a.remediation.href.trim())}"
+              href="${u(i.remediation.href.trim())}"
               class="block px-4 pb-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
-              data-detail-action-remediation="${w(c)}"
+              data-detail-action-remediation="${u(c)}"
             >
-              ${w(a.remediation.label.trim())}
+              ${u(i.remediation.label.trim())}
             </a>
-          ` : "", $ = l && u ? `<span
+          ` : "", x = l && p ? `<span
              class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
-             title="${w(u)}"
+             title="${u(p)}"
              aria-hidden="true"
            >?</span>
-           <span class="sr-only" data-detail-action-reason="${w(c)}" id="detail-action-reason-${w(c)}">${w(u)}</span>` : "";
+           <span class="sr-only" data-detail-action-reason="${u(c)}" id="detail-action-reason-${u(c)}">${u(p)}</span>` : "";
     return `
         ${y}
-        <div data-detail-action-card="${w(c)}" class="space-y-1">
+        <div data-detail-action-card="${u(c)}" class="space-y-1">
           <button
             type="button"
-            class="${go(a, l)}"
-            data-detail-action-button="${w(c)}"
-            data-detail-action-name="${w(a.id || a.label)}"
+            class="${Xs(i, l)}"
+            data-detail-action-button="${u(c)}"
+            data-detail-action-name="${u(i.id || i.label)}"
             data-disabled="${l}"
             aria-disabled="${l ? "true" : "false"}"
-            aria-label="${w(f)}"
-            ${h}
+            aria-label="${u(m)}"
+            ${f}
             ${v}
           >
             ${d ? `<i class="${d} text-base"></i>` : '<span class="w-4"></span>'}
-            <span class="flex-1">${w(a.label)}</span>
-            ${$}
+            <span class="flex-1">${u(i.label)}</span>
+            ${x}
             ${l ? '<i class="iconoir-lock text-gray-400 text-xs ml-1"></i>' : ""}
           </button>
           ${l && g ? g : ""}
@@ -6003,9 +5983,9 @@ function yo(r) {
     </div>
   `;
 }
-class vo {
+class to {
   constructor(e) {
-    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || fo(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
+    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || Qs(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
   }
   async init() {
     this.mount && (this.mount.setAttribute("aria-busy", "true"), await this.refresh());
@@ -6022,33 +6002,33 @@ class vo {
       this.mount.innerHTML = "", this.mount.setAttribute("aria-busy", "false");
       return;
     }
-    const s = this.panelName(), o = this.recordID(), a = this.panelBasePath(), i = `${this.apiBasePath()}/panels/${encodeURIComponent(s)}`, l = new URLSearchParams(window.location.search), c = l.get("locale") || void 0, d = l.get("channel") || l.get("environment") || void 0, u = new Ft({
-      apiEndpoint: i,
-      actionBasePath: a,
+    const s = this.panelName(), o = this.recordID(), i = this.panelBasePath(), a = `${this.apiBasePath()}/panels/${encodeURIComponent(s)}`, l = new URLSearchParams(window.location.search), c = l.get("locale") || void 0, d = l.get("channel") || l.get("environment") || void 0, p = new Ct({
+      apiEndpoint: a,
+      actionBasePath: i,
       panelName: s,
       locale: c,
       channel: d,
       actionContext: "detail",
-      onActionSuccess: async (p) => {
-        if (p === "delete") {
-          const h = this.backHref();
-          if (h) {
-            window.location.assign(h);
+      onActionSuccess: async (h) => {
+        if (h === "delete") {
+          const f = this.backHref();
+          if (f) {
+            window.location.assign(f);
             return;
           }
-          window.location.assign(a);
+          window.location.assign(i);
           return;
         }
         await this.refresh();
       },
-      onActionError: (p, h) => {
-        this.notifier.error(G(h, `${p} failed`));
+      onActionError: (h, f) => {
+        this.notifier.error(q(f, `${h} failed`));
       },
       reconcileOnDomainFailure: async () => {
         await this.refresh();
       }
     });
-    this.record = t, this.actions = u.buildRowActions(t, n), this.mount.innerHTML = yo(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(o), this.attachDropdownListeners();
+    this.record = t, this.actions = p.buildRowActions(t, n), this.mount.innerHTML = eo(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(o), this.attachDropdownListeners();
   }
   async fetchDetailPayload() {
     const e = this.detailEndpoint();
@@ -6062,21 +6042,21 @@ class vo {
     if (!t.ok)
       return this.notifier.error(`Actions unavailable (${t.status})`), null;
     const n = await t.json().catch(() => null);
-    return !n || typeof n != "object" ? null : at(n);
+    return !n || typeof n != "object" ? null : Ke(n);
   }
   attachListeners(e) {
     this.actions.forEach((t, n) => {
-      const s = Le(t, n), o = this.mount.querySelector(`[data-detail-action-button="${s}"]`);
-      o && o.addEventListener("click", async (a) => {
-        if (a.preventDefault(), !(o.getAttribute("aria-disabled") === "true" || o.dataset.disabled === "true"))
+      const s = ye(t, n), o = this.mount.querySelector(`[data-detail-action-button="${s}"]`);
+      o && o.addEventListener("click", async (i) => {
+        if (i.preventDefault(), !(o.getAttribute("aria-disabled") === "true" || o.dataset.disabled === "true"))
           try {
             await t.action({
               ...this.record || {},
               id: e
             });
-          } catch (i) {
-            if (!T(i)) {
-              const l = H(i), c = l ? G(l, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
+          } catch (a) {
+            if (!R(a)) {
+              const l = F(a), c = l ? q(l, `${t.label} failed`) : a instanceof Error ? a.message : `${t.label} failed`;
               this.notifier.error(c);
             }
           }
@@ -6117,11 +6097,11 @@ class vo {
     const e = this.panelName(), t = this.recordID();
     if (!e || !t)
       return "";
-    const n = new URLSearchParams(window.location.search), s = n.get("locale"), o = n.get("channel") || n.get("environment"), a = `${this.apiBasePath()}/panels/${encodeURIComponent(e)}/${encodeURIComponent(t)}`;
+    const n = new URLSearchParams(window.location.search), s = n.get("locale"), o = n.get("channel") || n.get("environment"), i = `${this.apiBasePath()}/panels/${encodeURIComponent(e)}/${encodeURIComponent(t)}`;
     if (!s && !o)
-      return a;
-    const i = new URLSearchParams();
-    return s && i.set("locale", s), o && i.set("channel", o), `${a}?${i.toString()}`;
+      return i;
+    const a = new URLSearchParams();
+    return s && a.set("locale", s), o && a.set("channel", o), `${i}?${a.toString()}`;
   }
   apiBasePath() {
     return String(this.mount.dataset.apiBasePath || "").trim().replace(/\/$/, "");
@@ -6143,15 +6123,15 @@ class vo {
     return String(this.mount.dataset.recordId || "").trim();
   }
 }
-async function wi(r = document) {
+async function na(r = document) {
   const e = Array.from(r.querySelectorAll("[data-panel-detail-actions]")), t = [];
   for (const n of e) {
-    const s = new vo({ mount: n });
+    const s = new to({ mount: n });
     t.push(s), await s.init();
   }
   return t;
 }
-class qe extends st {
+class Ae extends He {
   constructor(e) {
     super({
       size: "lg",
@@ -6173,7 +6153,7 @@ class qe extends st {
   static showBlocker(e) {
     return new Promise((t) => {
       const n = e.onDismiss;
-      new qe({
+      new Ae({
         ...e,
         onDismiss: () => {
           n?.(), t();
@@ -6195,7 +6175,7 @@ class qe extends st {
             </div>
             <div>
               <h2 id="blocker-title" class="text-lg font-semibold text-gray-900 dark:text-white">
-                Cannot ${m(e)} ${m(t)}
+                Cannot ${u(e)} ${u(t)}
               </h2>
               <p id="blocker-description" class="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
                 ${this.renderDescription(n)}
@@ -6225,7 +6205,7 @@ class qe extends st {
                   data-blocker-retry
                   class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-describedby="retry-hint">
-            Retry ${m(e)}
+            Retry ${u(e)}
           </button>
         </div>
         <p id="retry-hint" class="sr-only">Retry the blocked action after creating missing translations</p>
@@ -6236,20 +6216,20 @@ class qe extends st {
     return e ? "Required translations are missing or incomplete. Create or complete the translations listed below." : "Required translations are missing. Create the translations listed below to continue.";
   }
   renderLocaleItem(e) {
-    const t = this.localeStates.get(e) || { loading: !1, created: !1 }, n = this.config.missingFieldsByLocale?.[e], s = Array.isArray(n) && n.length > 0, o = this.getLocaleLabel(e), a = t.loading ? "disabled" : "";
+    const t = this.localeStates.get(e) || { loading: !1, created: !1 }, n = this.config.missingFieldsByLocale?.[e], s = Array.isArray(n) && n.length > 0, o = this.getLocaleLabel(e), i = t.loading ? "disabled" : "";
     return `
       <li class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${t.loading ? "opacity-50" : ""}"
-          data-locale-item="${m(e)}"
+          data-locale-item="${u(e)}"
           role="listitem">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 uppercase tracking-wide"
                     aria-label="Locale code">
-                ${m(e)}
+                ${u(e)}
               </span>
               <span class="text-sm font-medium text-gray-900 dark:text-white">
-                ${m(o)}
+                ${u(o)}
               </span>
               ${t.created ? `
                 <span class="inline-flex items-center text-xs text-green-600 dark:text-green-400" role="status">
@@ -6266,7 +6246,7 @@ class qe extends st {
                 <div class="flex flex-wrap gap-1.5">
                   ${n.map((l) => `
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-                      ${m(l)}
+                      ${u(l)}
                     </span>
                   `).join("")}
                 </div>
@@ -6274,7 +6254,7 @@ class qe extends st {
             ` : ""}
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            ${t.created ? this.renderOpenButton(e, t.newRecordId) : this.renderCreateButton(e, a)}
+            ${t.created ? this.renderOpenButton(e, t.newRecordId) : this.renderCreateButton(e, i)}
             ${this.renderOpenButton(e, void 0, t.created)}
           </div>
         </div>
@@ -6294,7 +6274,7 @@ class qe extends st {
     return `
       <button type="button"
               data-blocker-action="create"
-              data-locale="${m(e)}"
+              data-locale="${u(e)}"
               ${t}
               class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
               aria-label="Create ${this.getLocaleLabel(e)} translation">
@@ -6307,15 +6287,15 @@ class qe extends st {
   }
   renderOpenButton(e, t, n = !1) {
     if (n) return "";
-    const s = this.config.navigationBasePath, o = t || this.config.recordId, a = new URLSearchParams();
-    a.set("locale", e);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = `${s}/${o}/edit?${a.toString()}`;
+    const s = this.config.navigationBasePath, o = t || this.config.recordId, i = new URLSearchParams();
+    i.set("locale", e);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = `${s}/${o}/edit?${i.toString()}`;
     return `
-      <a href="${m(l)}"
+      <a href="${u(l)}"
          data-blocker-action="open"
-         data-locale="${m(e)}"
+         data-locale="${u(e)}"
          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors"
          aria-label="Open ${this.getLocaleLabel(e)} translation">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -6353,14 +6333,14 @@ class qe extends st {
       await this.handleRetry();
     }), this.container?.querySelectorAll('[data-blocker-action="create"]')?.forEach((o) => {
       o.addEventListener("click", () => {
-        const a = o.getAttribute("data-locale");
-        a && this.handleCreateTranslation(a);
+        const i = o.getAttribute("data-locale");
+        i && this.handleCreateTranslation(i);
       });
     });
     const s = this.container?.querySelectorAll("[data-locale-item]");
-    s?.forEach((o, a) => {
-      o.addEventListener("keydown", (i) => {
-        i.key === "ArrowDown" && a < s.length - 1 ? (i.preventDefault(), s[a + 1].querySelector("[data-blocker-action]")?.focus()) : i.key === "ArrowUp" && a > 0 && (i.preventDefault(), s[a - 1].querySelector("[data-blocker-action]")?.focus());
+    s?.forEach((o, i) => {
+      o.addEventListener("keydown", (a) => {
+        a.key === "ArrowDown" && i < s.length - 1 ? (a.preventDefault(), s[i + 1].querySelector("[data-blocker-action]")?.focus()) : a.key === "ArrowUp" && i > 0 && (a.preventDefault(), s[i - 1].querySelector("[data-blocker-action]")?.focus());
       });
     });
   }
@@ -6374,20 +6354,20 @@ class qe extends st {
           locale: e
         }, s = this.getContentChannel();
         s && (n.channel = s), this.config.panelName && (n.policy_entity = this.config.panelName);
-        const o = `${this.config.apiEndpoint}/actions/create_translation`, a = await Re(o, n);
-        if (a.success) {
-          t.loading = !1, t.created = !0, a.data?.id && (t.newRecordId = String(a.data.id)), this.updateLocaleItemUI(e);
-          const i = {
+        const o = `${this.config.apiEndpoint}/actions/create_translation`, i = await ve(o, n);
+        if (i.success) {
+          t.loading = !1, t.created = !0, i.data?.id && (t.newRecordId = String(i.data.id)), this.updateLocaleItemUI(e);
+          const a = {
             id: t.newRecordId || this.config.recordId,
             locale: e,
-            status: String(a.data?.status || "draft"),
-            family_id: a.data?.family_id ? String(a.data.family_id) : void 0
+            status: String(i.data?.status || "draft"),
+            family_id: i.data?.family_id ? String(i.data.family_id) : void 0
           };
-          this.config.onCreateSuccess?.(e, i);
+          this.config.onCreateSuccess?.(e, a);
         } else {
           t.loading = !1, this.updateLocaleItemUI(e);
-          const i = a.error?.message || "Failed to create translation";
-          this.config.onError?.(i);
+          const a = i.error?.message || "Failed to create translation";
+          this.config.onError?.(a);
         }
       } catch (n) {
         t.loading = !1, this.updateLocaleItemUI(e);
@@ -6403,8 +6383,8 @@ class qe extends st {
     if (!s) return;
     const o = document.createElement("div");
     o.innerHTML = this.renderLocaleItem(e);
-    const a = o.firstElementChild;
-    a && (s.replaceChild(a, t), a.querySelector('[data-blocker-action="create"]')?.addEventListener("click", () => {
+    const i = o.firstElementChild;
+    i && (s.replaceChild(i, t), i.querySelector('[data-blocker-action="create"]')?.addEventListener("click", () => {
       this.handleCreateTranslation(e);
     }));
   }
@@ -6424,16 +6404,16 @@ class qe extends st {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 }
-async function xi(r) {
+async function sa(r) {
   try {
-    await qe.showBlocker(r);
+    await Ae.showBlocker(r);
   } catch (e) {
     console.error("[TranslationBlockerModal] Render failed, using fallback:", e);
     const t = r.transition || "complete action", n = r.missingLocales.join(", "), s = `Cannot ${t}: Missing translations for ${n}`;
     typeof window < "u" && "toastManager" in window ? window.toastManager.error(s) : alert(s);
   }
 }
-const wo = [
+const ro = [
   {
     key: "ready",
     label: "Ready",
@@ -6463,7 +6443,7 @@ const wo = [
     description: "Viewing fallback content or stale data"
   }
 ];
-class qt {
+class $t {
   constructor(e) {
     this.container = null;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -6473,7 +6453,7 @@ class qt {
       title: e.title || "",
       orientation: e.orientation || "horizontal",
       size: e.size || "default",
-      items: e.items || wo
+      items: e.items || ro
     }, this.container = t;
   }
   /**
@@ -6490,13 +6470,13 @@ class qt {
    * Build HTML for the legend
    */
   buildHTML() {
-    const { title: e, orientation: t, size: n, items: s, containerClass: o } = this.config, a = t === "vertical", i = n === "sm", l = a ? "flex-col" : "flex-row flex-wrap", c = i ? "gap-2" : "gap-4", d = i ? "text-xs" : "text-sm", u = i ? "text-sm" : "text-base", p = e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${d}">${this.escapeHtml(e)}</span>` : "", h = s.map((f) => this.renderItem(f, u, d)).join("");
+    const { title: e, orientation: t, size: n, items: s, containerClass: o } = this.config, i = t === "vertical", a = n === "sm", l = i ? "flex-col" : "flex-row flex-wrap", c = a ? "gap-2" : "gap-4", d = a ? "text-xs" : "text-sm", p = a ? "text-sm" : "text-base", h = e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${d}">${u(e)}</span>` : "", f = s.map((m) => this.renderItem(m, p, d)).join("");
     return `
       <div class="status-legend inline-flex items-center ${l} ${c} ${o}"
            role="list"
            aria-label="Translation status legend">
-        ${p}
         ${h}
+        ${f}
       </div>
     `;
   }
@@ -6507,10 +6487,10 @@ class qt {
     return `
       <div class="status-legend-item inline-flex items-center gap-1"
            role="listitem"
-           title="${this.escapeHtml(e.description)}"
-           aria-label="${this.escapeHtml(e.label)}: ${this.escapeHtml(e.description)}">
+           title="${u(e.description)}"
+           aria-label="${u(e.label)}: ${u(e.description)}">
         <span class="${e.colorClass} ${t}" aria-hidden="true">${e.icon}</span>
-        <span class="text-gray-600 dark:text-gray-400 ${n}">${this.escapeHtml(e.label)}</span>
+        <span class="text-gray-600 dark:text-gray-400 ${n}">${u(e.label)}</span>
       </div>
     `;
   }
@@ -6526,39 +6506,33 @@ class qt {
   destroy() {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
-  /**
-   * Escape HTML special characters
-   */
-  escapeHtml(e) {
-    return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-  }
 }
-function xo(r) {
-  const e = new qt(r);
+function no(r) {
+  const e = new $t(r);
   return e.render(), e;
 }
-function Si() {
+function oa() {
   const r = document.querySelectorAll("[data-status-legend]"), e = [];
   return r.forEach((t) => {
     if (t.hasAttribute("data-status-legend-init"))
       return;
-    const n = t.dataset.orientation || "horizontal", s = t.dataset.size || "default", o = t.dataset.title || "", a = xo({
+    const n = t.dataset.orientation || "horizontal", s = t.dataset.size || "default", o = t.dataset.title || "", i = no({
       container: t,
       orientation: n,
       size: s,
       title: o
     });
-    t.setAttribute("data-status-legend-init", "true"), e.push(a);
+    t.setAttribute("data-status-legend-init", "true"), e.push(i);
   }), e;
 }
-function $i(r = {}) {
+function ia(r = {}) {
   const e = document.createElement("div");
-  return new qt({
+  return new $t({
     container: e,
     ...r
   }).buildHTML();
 }
-const Ot = [
+const kt = [
   {
     key: "all",
     label: "All",
@@ -6605,7 +6579,7 @@ const Ot = [
     description: "Records currently viewed in fallback mode"
   }
 ];
-class So {
+class so {
   constructor(e) {
     if (this.container = null, this.config = e, this.container = typeof e.container == "string" ? document.querySelector(e.container) : e.container, this.state = {
       activeKey: null,
@@ -6625,7 +6599,7 @@ class So {
       console.warn("[QuickFilters] Container not found");
       return;
     }
-    const { size: e = "default", containerClass: t = "" } = this.config, n = e === "sm" ? "text-xs" : "text-sm", s = e === "sm" ? "px-2 py-1" : "px-3 py-1.5", o = this.config.filters.map((a) => this.renderFilterButton(a, n, s)).join("");
+    const { size: e = "default", containerClass: t = "" } = this.config, n = e === "sm" ? "text-xs" : "text-sm", s = e === "sm" ? "px-2 py-1" : "px-3 py-1.5", o = this.config.filters.map((i) => this.renderFilterButton(i, n, s)).join("");
     this.container.innerHTML = `
       <div class="quick-filters inline-flex items-center gap-1 flex-wrap ${t}"
            role="group"
@@ -6638,18 +6612,18 @@ class So {
    * Render a single filter button
    */
   renderFilterButton(e, t, n) {
-    const s = this.state.capabilities.get(e.key), o = s?.supported !== !1, a = this.state.activeKey === e.key, i = s?.disabledReason || "Filter not available", l = `inline-flex items-center gap-1 ${n} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
+    const s = this.state.capabilities.get(e.key), o = s?.supported !== !1, i = this.state.activeKey === e.key, a = s?.disabledReason || "Filter not available", l = `inline-flex items-center gap-1 ${n} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
     let c, d;
-    o ? a ? (c = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, d = 'aria-pressed="true"') : (c = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", d = 'aria-pressed="false"') : (c = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", d = `aria-disabled="true" title="${_e(i)}"`);
-    const u = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
+    o ? i ? (c = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, d = 'aria-pressed="true"') : (c = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", d = 'aria-pressed="false"') : (c = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", d = `aria-disabled="true" title="${b(a)}"`);
+    const p = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
     return `
       <button type="button"
               class="quick-filter-btn ${l} ${c}"
-              data-filter-key="${_e(e.key)}"
+              data-filter-key="${b(e.key)}"
               ${d}
               ${o ? "" : "disabled"}>
-        ${u}
-        <span>${Oe(e.label)}</span>
+        ${p}
+        <span>${u(e.label)}</span>
       </button>
     `;
   }
@@ -6723,58 +6697,52 @@ class So {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 }
-function $o(r, e, t = {}) {
-  return new So({
+function oo(r, e, t = {}) {
+  return new so({
     container: r,
-    filters: Ot,
+    filters: kt,
     onFilterSelect: e,
     ...t
   });
 }
-function Ci(r) {
+function aa(r) {
   const e = document.querySelectorAll("[data-quick-filters]"), t = [];
   return e.forEach((n) => {
     if (n.hasAttribute("data-quick-filters-init"))
       return;
-    const s = n.dataset.size || "default", o = $o(
+    const s = n.dataset.size || "default", o = oo(
       n,
-      (a) => r(a, n),
+      (i) => r(i, n),
       { size: s }
     );
     n.setAttribute("data-quick-filters-init", "true"), t.push(o);
   }), t;
 }
-function ki(r = {}) {
+function la(r = {}) {
   const {
-    filters: e = Ot,
+    filters: e = kt,
     activeKey: t = null,
     capabilities: n = [],
     size: s = "default",
     containerClass: o = ""
-  } = r, a = s === "sm" ? "text-xs" : "text-sm", i = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
+  } = r, i = s === "sm" ? "text-xs" : "text-sm", a = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
   for (const d of n)
     l.set(d.key, d);
   const c = e.map((d) => {
-    const u = l.get(d.key), p = u?.supported !== !1, h = t === d.key, f = u?.disabledReason || "Filter not available", y = `inline-flex items-center gap-1 ${i} ${a} rounded-full font-medium`;
+    const p = l.get(d.key), h = p?.supported !== !1, f = t === d.key, m = p?.disabledReason || "Filter not available", y = `inline-flex items-center gap-1 ${a} ${i} rounded-full font-medium`;
     let v;
-    p ? h ? v = `${d.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : v = d.styleClass || "bg-gray-100 text-gray-700" : v = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
-    const g = d.icon ? `<span>${d.icon}</span>` : "", $ = p ? "" : `title="${_e(f)}"`;
-    return `<span class="${y} ${v}" ${$}>${g}<span>${Oe(d.label)}</span></span>`;
+    h ? f ? v = `${d.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : v = d.styleClass || "bg-gray-100 text-gray-700" : v = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
+    const g = d.icon ? `<span>${d.icon}</span>` : "", x = h ? "" : `title="${b(m)}"`;
+    return `<span class="${y} ${v}" ${x}>${g}<span>${u(d.label)}</span></span>`;
   }).join("");
   return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${o}">${c}</div>`;
 }
-function Oe(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function _e(r) {
-  return Oe(r);
-}
-const ye = "go-admin:translation-panel-expanded";
-class Co {
+const ce = "go-admin:translation-panel-expanded";
+class io {
   constructor(e) {
     this.toggleButton = null, this.panelElement = null, this.expandAllButton = null, this.collapseAllButton = null, this.groupControls = null, this.viewModeButtons = [], this.expanded = !1, this.boundToggleHandler = null, this.config = {
       ...e,
-      storageKey: e.storageKey || ye
+      storageKey: e.storageKey || ce
     };
   }
   init() {
@@ -6819,7 +6787,7 @@ class Co {
     if (typeof window > "u" || !window.localStorage)
       return !1;
     try {
-      return window.localStorage.getItem(this.config.storageKey || ye) === "true";
+      return window.localStorage.getItem(this.config.storageKey || ce) === "true";
     } catch {
       return !1;
     }
@@ -6827,7 +6795,7 @@ class Co {
   persistExpandedState(e) {
     if (!(typeof window > "u" || !window.localStorage))
       try {
-        window.localStorage.setItem(this.config.storageKey || ye, e ? "true" : "false");
+        window.localStorage.setItem(this.config.storageKey || ce, e ? "true" : "false");
       } catch {
       }
   }
@@ -6847,13 +6815,13 @@ class Co {
     }));
   }
 }
-function Ai(r) {
-  return new Co(r);
+function ca(r) {
+  return new io(r);
 }
-async function ko(r, e, t = {}) {
-  const { apiEndpoint: n, notifier: s = new U(), maxFailuresToShow: o = 5 } = r, a = `${n}/bulk/create-missing-translations`;
+async function ao(r, e, t = {}) {
+  const { apiEndpoint: n, notifier: s = new O(), maxFailuresToShow: o = 5 } = r, i = `${n}/bulk/create-missing-translations`;
   try {
-    const i = await fetch(a, {
+    const a = await fetch(i, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -6864,39 +6832,39 @@ async function ko(r, e, t = {}) {
         locales: t.locales
       })
     });
-    if (!i.ok) {
-      const d = await i.text();
-      let u = `Request failed: ${i.status}`;
+    if (!a.ok) {
+      const d = await a.text();
+      let p = `Request failed: ${a.status}`;
       try {
-        const p = JSON.parse(d);
-        u = p.error || p.message || u;
+        const h = JSON.parse(d);
+        p = h.error || h.message || p;
       } catch {
-        d && (u = d);
+        d && (p = d);
       }
-      throw new Error(u);
+      throw new Error(p);
     }
-    const l = await i.json(), c = Ao(l, o);
-    return Eo(c, s), r.onSuccess && r.onSuccess(c), c;
-  } catch (i) {
-    const l = i instanceof Error ? i : new Error(String(i));
+    const l = await a.json(), c = lo(l, o);
+    return co(c, s), r.onSuccess && r.onSuccess(c), c;
+  } catch (a) {
+    const l = a instanceof Error ? a : new Error(String(a));
     throw s.error(`Failed to create translations: ${l.message}`), r.onError && r.onError(l), l;
   }
 }
-function Ao(r, e) {
-  const t = r.data || [], n = r.created_count ?? t.filter((l) => l.success).length, s = r.failed_count ?? t.filter((l) => !l.success).length, o = r.skipped_count ?? 0, a = r.total ?? t.length, i = t.filter((l) => !l.success && l.error).slice(0, e).map((l) => ({
+function lo(r, e) {
+  const t = r.data || [], n = r.created_count ?? t.filter((l) => l.success).length, s = r.failed_count ?? t.filter((l) => !l.success).length, o = r.skipped_count ?? 0, i = r.total ?? t.length, a = t.filter((l) => !l.success && l.error).slice(0, e).map((l) => ({
     id: l.id,
     locale: l.locale,
     error: l.error || "Unknown error"
   }));
   return {
-    total: a,
+    total: i,
     created: n,
     failed: s,
     skipped: o,
-    failures: i
+    failures: a
   };
 }
-function Eo(r, e) {
+function co(r, e) {
   const { created: t, failed: n, skipped: s, total: o } = r;
   if (o === 0) {
     e.info("No translations to create");
@@ -6906,8 +6874,8 @@ function Eo(r, e) {
     `Created ${t}, failed ${n}${s > 0 ? `, skipped ${s}` : ""}`
   );
 }
-function Ei(r) {
-  const { created: e, failed: t, skipped: n, total: s, failures: o } = r, a = `
+function da(r) {
+  const { created: e, failed: t, skipped: n, total: s, failures: o } = r, i = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
         <div class="text-2xl font-bold text-green-700">${e}</div>
@@ -6923,8 +6891,8 @@ function Ei(r) {
       </div>
     </div>
   `;
-  let i = "";
-  return o.length > 0 && (i = `
+  let a = "";
+  return o.length > 0 && (a = `
       <div class="mt-4">
         <h4 class="text-sm font-medium text-gray-700 mb-2">Failure Details</h4>
         <div class="border rounded overflow-hidden">
@@ -6940,9 +6908,9 @@ function Ei(r) {
               ${o.map(
     (c) => `
         <tr>
-          <td class="px-3 py-2 text-sm text-gray-700">${ve(c.id)}</td>
-          <td class="px-3 py-2 text-sm text-gray-700">${ve(c.locale)}</td>
-          <td class="px-3 py-2 text-sm text-red-600">${ve(c.error)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${u(c.id)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${u(c.locale)}</td>
+          <td class="px-3 py-2 text-sm text-red-600">${u(c.error)}</td>
         </tr>
       `
   ).join("")}
@@ -6956,17 +6924,17 @@ function Ei(r) {
       <div class="mb-4 text-sm text-gray-600">
         Processed ${s} item${s !== 1 ? "s" : ""}
       </div>
-      ${a}
       ${i}
+      ${a}
     </div>
   `;
 }
-function Li(r) {
+function ua(r) {
   const { created: e, failed: t, skipped: n } = r, s = [];
   return e > 0 && s.push(`<span class="text-green-600">+${e}</span>`), t > 0 && s.push(`<span class="text-red-600">${t} failed</span>`), n > 0 && s.push(`<span class="text-yellow-600">${n} skipped</span>`), s.join(" · ");
 }
-function _i(r, e, t) {
-  return async (n) => ko(
+function pa(r, e, t) {
+  return async (n) => ao(
     {
       apiEndpoint: r,
       notifier: e,
@@ -6975,10 +6943,7 @@ function _i(r, e, t) {
     n
   );
 }
-function ve(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-const Lo = {
+const uo = {
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -6997,11 +6962,11 @@ const Lo = {
   no: "Norwegian",
   fi: "Finnish"
 };
-function I(r) {
+function A(r) {
   const e = r.toLowerCase();
-  return Lo[e] || r.toUpperCase();
+  return uo[e] || r.toUpperCase();
 }
-class he {
+class se {
   constructor(e) {
     this.element = null, this.config = {
       size: "sm",
@@ -7022,22 +6987,22 @@ class he {
    * Use when generating static HTML.
    */
   render() {
-    const { locale: e, size: t, mode: n, localeExists: s } = this.config, { loading: o, created: a, error: i } = this.state, l = I(e), c = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", d = n === "button" ? "rounded-lg" : "rounded-full";
-    let u, p = "";
-    o ? (u = "bg-gray-100 text-gray-600 border-gray-300", p = this.renderSpinner()) : a ? (u = "bg-green-100 text-green-700 border-green-300", p = this.renderCheckIcon()) : i ? (u = "bg-red-100 text-red-700 border-red-300", p = this.renderErrorIcon()) : s ? u = "bg-blue-100 text-blue-700 border-blue-300" : u = "bg-amber-100 text-amber-700 border-amber-300";
-    const h = this.renderActions();
+    const { locale: e, size: t, mode: n, localeExists: s } = this.config, { loading: o, created: i, error: a } = this.state, l = A(e), c = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", d = n === "button" ? "rounded-lg" : "rounded-full";
+    let p, h = "";
+    o ? (p = "bg-gray-100 text-gray-600 border-gray-300", h = this.renderSpinner()) : i ? (p = "bg-green-100 text-green-700 border-green-300", h = this.renderCheckIcon()) : a ? (p = "bg-red-100 text-red-700 border-red-300", h = this.renderErrorIcon()) : s ? p = "bg-blue-100 text-blue-700 border-blue-300" : p = "bg-amber-100 text-amber-700 border-amber-300";
+    const f = this.renderActions();
     return `
-      <div class="inline-flex items-center gap-1.5 ${c} ${d} border ${u}"
-           data-locale-action="${m(e)}"
+      <div class="inline-flex items-center gap-1.5 ${c} ${d} border ${p}"
+           data-locale-action="${u(e)}"
            data-locale-exists="${s}"
            data-loading="${o}"
-           data-created="${a}"
+           data-created="${i}"
            role="group"
            aria-label="${l} translation">
-        ${p}
-        <span class="font-medium uppercase tracking-wide" aria-hidden="true">${m(e)}</span>
-        <span class="sr-only">${l}</span>
         ${h}
+        <span class="font-medium uppercase tracking-wide" aria-hidden="true">${u(e)}</span>
+        <span class="sr-only">${l}</span>
+        ${f}
       </div>
     `;
   }
@@ -7045,15 +7010,15 @@ class he {
    * Render action buttons (create/open).
    */
   renderActions() {
-    const { locale: e, localeExists: t, size: n } = this.config, { loading: s, created: o } = this.state, a = n === "sm" ? "p-0.5" : "p-1", i = n === "sm" ? "w-3 h-3" : "w-4 h-4", l = [];
+    const { locale: e, localeExists: t, size: n } = this.config, { loading: s, created: o } = this.state, i = n === "sm" ? "p-0.5" : "p-1", a = n === "sm" ? "w-3 h-3" : "w-4 h-4", l = [];
     if (!t && !o && !s && l.push(`
         <button type="button"
-                class="inline-flex items-center justify-center ${a} rounded hover:bg-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
+                class="inline-flex items-center justify-center ${i} rounded hover:bg-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
                 data-action="create"
-                data-locale="${m(e)}"
-                aria-label="Create ${I(e)} translation"
-                title="Create ${I(e)} translation">
-          <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                data-locale="${u(e)}"
+                aria-label="Create ${A(e)} translation"
+                title="Create ${A(e)} translation">
+          <svg class="${a}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
         </button>
@@ -7061,12 +7026,12 @@ class he {
       const c = o ? "hover:bg-green-200" : "hover:bg-blue-200", d = o ? "focus:ring-green-500" : "focus:ring-blue-500";
       l.push(`
         <button type="button"
-                class="inline-flex items-center justify-center ${a} rounded ${c} focus:outline-none focus:ring-1 ${d} transition-colors"
+                class="inline-flex items-center justify-center ${i} rounded ${c} focus:outline-none focus:ring-1 ${d} transition-colors"
                 data-action="open"
-                data-locale="${m(e)}"
-                aria-label="Open ${I(e)} translation"
-                title="Open ${I(e)} translation">
-          <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                data-locale="${u(e)}"
+                aria-label="Open ${A(e)} translation"
+                title="Open ${A(e)} translation">
+          <svg class="${a}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
           </svg>
         </button>
@@ -7104,7 +7069,7 @@ class he {
           locale: this.config.locale
         }, t = this.getContentChannel();
         t && (e.channel = t), this.config.panelName && (e.policy_entity = this.config.panelName);
-        const n = `${this.config.apiEndpoint}/actions/create_translation`, s = await Re(n, e);
+        const n = `${this.config.apiEndpoint}/actions/create_translation`, s = await ve(n, e);
         if (s.success) {
           const o = s.data?.id ? String(s.data.id) : void 0;
           this.setState({
@@ -7112,13 +7077,13 @@ class he {
             created: !0,
             newRecordId: o
           });
-          const a = {
+          const i = {
             id: o || this.config.recordId,
             locale: this.config.locale,
             status: String(s.data?.status || "draft"),
             familyId: s.data?.family_id ? String(s.data.family_id) : void 0
           };
-          this.config.onCreateSuccess?.(this.config.locale, a);
+          this.config.onCreateSuccess?.(this.config.locale, i);
         } else {
           const o = s.error?.message || "Failed to create translation";
           this.setState({ loading: !1, error: o }), this.config.onError?.(this.config.locale, o);
@@ -7133,11 +7098,11 @@ class he {
    * Handle open translation action.
    */
   handleOpen() {
-    const { locale: e, navigationBasePath: t, recordId: n } = this.config, { newRecordId: s } = this.state, o = s || n, a = new URLSearchParams();
-    a.set("locale", e);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = `${t}/${o}/edit?${a.toString()}`;
+    const { locale: e, navigationBasePath: t, recordId: n } = this.config, { newRecordId: s } = this.state, o = s || n, i = new URLSearchParams();
+    i.set("locale", e);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = `${t}/${o}/edit?${i.toString()}`;
     this.config.onOpen?.(e, l), window.location.href = l;
   }
   /**
@@ -7187,35 +7152,35 @@ class he {
     return { ...this.state };
   }
 }
-function jt(r) {
-  return new he(r).render();
+function At(r) {
+  return new se(r).render();
 }
-function Ri(r, e) {
+function ha(r, e) {
   return r.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${r.map((n) => {
     const s = { ...e, locale: n };
-    return jt(s);
+    return At(s);
   }).join("")}
     </div>
   `;
 }
-function Ii(r, e) {
+function fa(r, e) {
   const t = /* @__PURE__ */ new Map();
   return r.querySelectorAll("[data-locale-action]").forEach((s) => {
     const o = s.getAttribute("data-locale-action");
     if (!o) return;
-    const a = s.getAttribute("data-locale-exists") === "true", i = { ...e, locale: o, localeExists: a }, l = new he(i), c = s.parentElement;
+    const i = s.getAttribute("data-locale-exists") === "true", a = { ...e, locale: o, localeExists: i }, l = new se(a), c = s.parentElement;
     c && (l.mount(c), t.set(o, l));
   }), t;
 }
-function et(r, e, t, n) {
+function ze(r, e, t, n) {
   const s = new URLSearchParams();
   s.set("locale", t);
   const o = String(n ?? "").trim();
   return o && s.set("channel", o), `${r}/${e}/edit?${s.toString()}`;
 }
-class je {
+class Ee {
   constructor(e) {
     this.element = null, this.localeChip = null, this.config = {
       showFormLockMessage: !0,
@@ -7252,14 +7217,14 @@ class je {
   render() {
     if (!this.isInFallbackMode())
       return "";
-    const { context: e, showFormLockMessage: t } = this.config, n = e.requestedLocale || "requested", s = e.resolvedLocale || "default", o = I(n), a = I(s), i = this.renderPrimaryCta(), l = this.renderSecondaryCta(), c = t ? this.renderFormLockMessage() : "";
+    const { context: e, showFormLockMessage: t } = this.config, n = e.requestedLocale || "requested", s = e.resolvedLocale || "default", o = A(n), i = A(s), a = this.renderPrimaryCta(), l = this.renderSecondaryCta(), c = t ? this.renderFormLockMessage() : "";
     return `
       <div class="fallback-banner bg-amber-50 border border-amber-200 rounded-lg shadow-sm"
            role="alert"
            aria-live="polite"
            data-fallback-banner="true"
-           data-requested-locale="${m(n)}"
-           data-resolved-locale="${m(s)}">
+           data-requested-locale="${u(n)}"
+           data-resolved-locale="${u(s)}">
         <div class="p-4">
           <div class="flex items-start gap-3">
             <!-- Warning Icon -->
@@ -7275,16 +7240,16 @@ class je {
                 Viewing fallback content
               </h3>
               <p class="mt-1 text-sm text-amber-700">
-                The <strong class="font-medium">${m(o)}</strong> (${m(n.toUpperCase())})
+                The <strong class="font-medium">${u(o)}</strong> (${u(n.toUpperCase())})
                 translation doesn't exist yet. You're viewing content from
-                <strong class="font-medium">${m(a)}</strong> (${m(s.toUpperCase())}).
+                <strong class="font-medium">${u(i)}</strong> (${u(s.toUpperCase())}).
               </p>
 
               ${c}
 
               <!-- Actions -->
               <div class="mt-4 flex flex-wrap items-center gap-3">
-                ${i}
+                ${a}
                 ${l}
               </div>
             </div>
@@ -7297,21 +7262,21 @@ class je {
    * Render the primary CTA (Create missing locale).
    */
   renderPrimaryCta() {
-    const { context: e, apiEndpoint: t, navigationBasePath: n, panelName: s, channel: o } = this.config, a = e.requestedLocale, i = String(o ?? "").trim();
-    return !a || !e.recordId ? "" : `
+    const { context: e, apiEndpoint: t, navigationBasePath: n, panelName: s, channel: o } = this.config, i = e.requestedLocale, a = String(o ?? "").trim();
+    return !i || !e.recordId ? "" : `
       <button type="button"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
               data-action="create-translation"
-              data-locale="${m(a)}"
-              data-record-id="${m(e.recordId)}"
-              data-api-endpoint="${m(t)}"
-              data-panel="${m(s || "")}"
-              data-channel="${m(i)}"
-              aria-label="Create ${I(a)} translation">
+              data-locale="${u(i)}"
+              data-record-id="${u(e.recordId)}"
+              data-api-endpoint="${u(t)}"
+              data-panel="${u(s || "")}"
+              data-channel="${u(a)}"
+              aria-label="Create ${A(i)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
-        Create ${m(a.toUpperCase())} translation
+        Create ${u(i.toUpperCase())} translation
       </button>
     `;
   }
@@ -7322,17 +7287,17 @@ class je {
     const { context: e, navigationBasePath: t, channel: n } = this.config, s = e.resolvedLocale;
     if (!s || !e.recordId)
       return "";
-    const o = et(t, e.recordId, s, n);
+    const o = ze(t, e.recordId, s, n);
     return `
-      <a href="${m(o)}"
+      <a href="${u(o)}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
-         data-locale="${m(s)}"
-         aria-label="Open ${I(s)} translation">
+         data-locale="${u(s)}"
+         aria-label="Open ${A(s)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>
-        Open ${m(s.toUpperCase())} (source)
+        Open ${u(s.toUpperCase())} (source)
       </a>
     `;
   }
@@ -7372,30 +7337,30 @@ class je {
    * Handle create translation action.
    */
   async handleCreate() {
-    const { context: e, apiEndpoint: t, panelName: n, channel: s, navigationBasePath: o } = this.config, a = e.requestedLocale, i = e.recordId, l = String(s ?? "").trim() || void 0;
-    if (!a || !i) return;
-    await new he({
-      locale: a,
-      recordId: i,
+    const { context: e, apiEndpoint: t, panelName: n, channel: s, navigationBasePath: o } = this.config, i = e.requestedLocale, a = e.recordId, l = String(s ?? "").trim() || void 0;
+    if (!i || !a) return;
+    await new se({
+      locale: i,
+      recordId: a,
       apiEndpoint: t,
       navigationBasePath: o,
       panelName: n,
       channel: l,
       localeExists: !1,
-      onCreateSuccess: (d, u) => {
-        this.config.onCreateSuccess?.(d, u);
-        const p = et(o, u.id, d, l);
-        window.location.href = p;
+      onCreateSuccess: (d, p) => {
+        this.config.onCreateSuccess?.(d, p);
+        const h = ze(o, p.id, d, l);
+        window.location.href = h;
       },
-      onError: (d, u) => {
-        this.config.onError?.(u);
+      onError: (d, p) => {
+        this.config.onError?.(p);
       }
     }).handleCreate();
   }
 }
-function _o(r, e) {
+function po(r, e) {
   if (!e.locked) {
-    Ro(r);
+    ho(r);
     return;
   }
   if (r.classList.add("form-locked", "pointer-events-none", "opacity-75"), r.setAttribute("data-form-locked", "true"), r.setAttribute("data-lock-reason", e.reason || ""), r.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((n) => {
@@ -7405,50 +7370,50 @@ function _o(r, e) {
     n.setAttribute("data-form-lock-overlay", "true"), n.className = "absolute inset-0 bg-amber-50/30 cursor-not-allowed z-10", n.setAttribute("title", e.reason || "Form is locked"), window.getComputedStyle(r).position === "static" && (r.style.position = "relative"), r.appendChild(n);
   }
 }
-function Ro(r) {
+function ho(r) {
   r.classList.remove("form-locked", "pointer-events-none", "opacity-75"), r.removeAttribute("data-form-locked"), r.removeAttribute("data-lock-reason"), r.querySelectorAll('[data-was-enabled="true"]').forEach((n) => {
     n.removeAttribute("disabled"), n.removeAttribute("data-was-enabled"), n.removeAttribute("aria-disabled");
   }), r.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function Bi(r) {
+function ma(r) {
   return r.getAttribute("data-form-locked") === "true";
 }
-function Mi(r) {
+function ga(r) {
   return r.getAttribute("data-lock-reason");
 }
-function Pi(r, e) {
-  const t = P(r);
-  return new je({ ...e, context: t }).render();
+function ba(r, e) {
+  const t = _(r);
+  return new Ee({ ...e, context: t }).render();
 }
-function Ti(r) {
-  const e = P(r);
+function ya(r) {
+  const e = _(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
-function Di(r, e) {
-  const t = new je(e);
+function va(r, e) {
+  const t = new Ee(e);
   return t.mount(r), t;
 }
-function Fi(r, e) {
-  const t = P(e), s = new je({
+function wa(r, e) {
+  const t = _(e), s = new Ee({
     context: t,
     apiEndpoint: "",
     navigationBasePath: ""
   }).getFormLockState();
-  return _o(r, s), s;
+  return po(r, s), s;
 }
-class zt {
+class Et {
   constructor(e, t) {
     this.chips = /* @__PURE__ */ new Map(), this.element = null, this.config = {
       maxChips: 3,
       size: "sm",
       ...t
-    }, this.readiness = _(e), this.actionState = this.extractActionState(e, "create_translation");
+    }, this.readiness = k(e), this.actionState = this.extractActionState(e, "create_translation");
   }
   /**
    * Extract action state for a specific action from the record.
    */
   extractActionState(e, t) {
-    return ct(e, t);
+    return Qe(e, t);
   }
   /**
    * Check if the create_translation action is enabled.
@@ -7464,7 +7429,7 @@ class zt {
       return null;
     if (this.actionState?.reason)
       return this.actionState.reason;
-    const e = dt({ reason_code: this.actionState?.reason_code });
+    const e = We({ reason_code: this.actionState?.reason_code });
     if (e?.message)
       return e.message;
     const t = String(this.actionState?.reason_code || "").trim().toLowerCase();
@@ -7494,15 +7459,15 @@ class zt {
       return "";
     const t = this.isCreateActionEnabled(), n = this.getDisabledReason(), s = this.getOverflowCount(), o = e.map(
       (l) => this.renderChip(l, t, n)
-    ).join(""), a = s > 0 ? this.renderOverflow(s) : "";
+    ).join(""), i = s > 0 ? this.renderOverflow(s) : "";
     return `
       <div class="${t ? "inline-flex items-center gap-1.5 flex-wrap" : "inline-flex items-center gap-1.5 flex-wrap opacity-60"}"
            data-inline-locale-chips="true"
-           data-record-id="${m(this.config.recordId)}"
+           data-record-id="${u(this.config.recordId)}"
            data-action-enabled="${t}"
            role="list"
            aria-label="Missing translations">
-        ${o}${a}
+        ${o}${i}
       </div>
     `;
   }
@@ -7510,13 +7475,13 @@ class zt {
    * Render a single locale chip.
    */
   renderChip(e, t, n) {
-    const { recordId: s, apiEndpoint: o, navigationBasePath: a, panelName: i, channel: l, size: c } = this.config, d = String(l ?? "").trim() || void 0;
-    return t ? jt({
+    const { recordId: s, apiEndpoint: o, navigationBasePath: i, panelName: a, channel: l, size: c } = this.config, d = String(l ?? "").trim() || void 0;
+    return t ? At({
       locale: e,
       recordId: s,
       apiEndpoint: o,
-      navigationBasePath: a,
-      panelName: i,
+      navigationBasePath: i,
+      panelName: a,
       channel: d,
       localeExists: !1,
       size: c,
@@ -7529,18 +7494,18 @@ class zt {
    * Render a disabled locale chip (no action buttons).
    */
   renderDisabledChip(e, t, n) {
-    const s = n === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", o = t || "Translation creation unavailable", a = I(e);
+    const s = n === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", o = t || "Translation creation unavailable", i = A(e);
     return `
       <div class="inline-flex items-center gap-1 ${s} rounded-full border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
-           data-locale="${m(e)}"
+           data-locale="${u(e)}"
            data-disabled="true"
-           title="${m(o)}"
+           title="${u(o)}"
            role="listitem"
-           aria-label="${a} translation (unavailable)">
+           aria-label="${i} translation (unavailable)">
         <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
           <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
         </svg>
-        <span class="font-medium uppercase tracking-wide">${m(e)}</span>
+        <span class="font-medium uppercase tracking-wide">${u(e)}</span>
       </div>
     `;
   }
@@ -7551,7 +7516,7 @@ class zt {
     const { size: t } = this.config, n = t === "md" ? "text-sm px-2 py-1" : "text-xs px-1.5 py-0.5", s = this.readiness.missingRequiredLocales.join(", ").toUpperCase();
     return `
       <span class="${n} rounded text-gray-500 font-medium"
-            title="Also missing: ${m(s)}"
+            title="Also missing: ${u(s)}"
             aria-label="${e} more missing translations">
         +${e}
       </span>
@@ -7571,7 +7536,7 @@ class zt {
     this.element.querySelectorAll("[data-locale-action]").forEach((t) => {
       const n = t.getAttribute("data-locale-action");
       if (!n) return;
-      const s = new he({
+      const s = new se({
         locale: n,
         recordId: this.config.recordId,
         apiEndpoint: this.config.apiEndpoint,
@@ -7583,10 +7548,10 @@ class zt {
         onCreateSuccess: this.config.onCreateSuccess,
         onError: this.config.onError
       });
-      this.chips.set(n, s), t.querySelector('[data-action="create"]')?.addEventListener("click", async (i) => {
-        i.preventDefault(), i.stopPropagation(), await s.handleCreate();
-      }), t.querySelector('[data-action="open"]')?.addEventListener("click", (i) => {
-        i.preventDefault(), i.stopPropagation(), s.handleOpen();
+      this.chips.set(n, s), t.querySelector('[data-action="create"]')?.addEventListener("click", async (a) => {
+        a.preventDefault(), a.stopPropagation(), await s.handleCreate();
+      }), t.querySelector('[data-action="open"]')?.addEventListener("click", (a) => {
+        a.preventDefault(), a.stopPropagation(), s.handleOpen();
       });
     });
   }
@@ -7597,29 +7562,29 @@ class zt {
     return this.chips.get(e);
   }
 }
-function Io(r, e) {
+function fo(r, e) {
   const t = String(r.id || "");
-  return t ? new zt(r, { ...e, recordId: t }).render() : "";
+  return t ? new Et(r, { ...e, recordId: t }).render() : "";
 }
-function qi(r) {
-  const e = _(r);
+function xa(r) {
+  const e = k(r);
   return e.hasReadinessMetadata && e.missingRequiredLocales.length > 0;
 }
-function Oi(r, e, t) {
-  const n = String(e.id || ""), s = new zt(e, { ...t, recordId: n });
+function Sa(r, e, t) {
+  const n = String(e.id || ""), s = new Et(e, { ...t, recordId: n });
   return s.mount(r), s;
 }
-function ji(r) {
-  return (e, t, n) => Io(t, r);
+function Ca(r) {
+  return (e, t, n) => fo(t, r);
 }
-function fe() {
+function oe() {
   return typeof navigator > "u" ? !1 : /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 }
-function Bo() {
-  return fe() ? "⌘" : "Ctrl";
+function mo() {
+  return oe() ? "⌘" : "Ctrl";
 }
-function Mo(r) {
-  if (fe())
+function go(r) {
+  if (oe())
     switch (r) {
       case "ctrl":
         return "⌃";
@@ -7641,11 +7606,11 @@ function Mo(r) {
       return "Win";
   }
 }
-function Nt(r) {
-  const e = r.modifiers.map(Mo), t = Po(r.key);
-  return fe() ? [...e, t].join("") : [...e, t].join("+");
+function Lt(r) {
+  const e = r.modifiers.map(go), t = bo(r.key);
+  return oe() ? [...e, t].join("") : [...e, t].join("+");
 }
-function Po(r) {
+function bo(r) {
   return {
     Enter: "↵",
     Escape: "Esc",
@@ -7658,7 +7623,7 @@ function Po(r) {
     "]": "]"
   }[r] || r.toUpperCase();
 }
-class Ht {
+class _t {
   constructor(e = {}) {
     this.shortcuts = /* @__PURE__ */ new Map(), this.keydownHandler = null, this.boundElement = null, this.config = {
       enabled: !0,
@@ -7783,8 +7748,8 @@ class Ht {
     const n = t.key.toLowerCase(), s = e.key.toLowerCase();
     if (n !== s && t.code.toLowerCase() !== s)
       return !1;
-    const o = fe(), a = new Set(e.modifiers), i = a.has("ctrl"), l = a.has("meta"), c = a.has("alt"), d = a.has("shift");
-    return !(i && !(o ? t.metaKey : t.ctrlKey) || l && !o && !t.metaKey || c && !t.altKey || d && !t.shiftKey || !i && !l && (o ? t.metaKey : t.ctrlKey) || !c && t.altKey || !d && t.shiftKey);
+    const o = oe(), i = new Set(e.modifiers), a = i.has("ctrl"), l = i.has("meta"), c = i.has("alt"), d = i.has("shift");
+    return !(a && !(o ? t.metaKey : t.ctrlKey) || l && !o && !t.metaKey || c && !t.altKey || d && !t.shiftKey || !a && !l && (o ? t.metaKey : t.ctrlKey) || !c && t.altKey || !d && t.shiftKey);
   }
   /**
    * Check if an input element is focused.
@@ -7802,7 +7767,7 @@ class Ht {
     this.unbind(), this.shortcuts.clear();
   }
 }
-function To(r) {
+function yo(r) {
   const e = [];
   return r.onSave && e.push({
     id: "save",
@@ -7850,12 +7815,12 @@ function To(r) {
     handler: r.onCreateTranslation
   }), e;
 }
-function zi(r) {
+function $a(r) {
   const e = /* @__PURE__ */ new Map();
   for (const o of r) {
     if (o.enabled === !1) continue;
-    const a = e.get(o.category) || [];
-    a.push(o), e.set(o.category, a);
+    const i = e.get(o.category) || [];
+    i.push(o), e.set(o.category, i);
   }
   const t = {
     save: "Save & Submit",
@@ -7872,20 +7837,20 @@ function zi(r) {
       </div>
   `;
   for (const o of n) {
-    const a = e.get(o);
-    if (!(!a || a.length === 0)) {
+    const i = e.get(o);
+    if (!(!i || i.length === 0)) {
       s += `
       <div class="mb-4">
         <h4 class="text-sm font-medium text-gray-700 mb-2">${t[o]}</h4>
         <dl class="space-y-1">
     `;
-      for (const i of a) {
-        const l = Nt(i);
+      for (const a of i) {
+        const l = Lt(a);
         s += `
           <div class="flex justify-between items-center py-1">
-            <dt class="text-sm text-gray-600">${j(i.description)}</dt>
+            <dt class="text-sm text-gray-600">${u(a.description)}</dt>
             <dd class="flex-shrink-0 ml-4">
-              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${j(l)}</kbd>
+              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${u(l)}</kbd>
             </dd>
           </div>
       `;
@@ -7898,26 +7863,22 @@ function zi(r) {
   }
   return s += "</div>", s;
 }
-function j(r) {
-  const e = typeof document < "u" ? document.createElement("div") : null;
-  return e ? (e.textContent = r, e.innerHTML) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-const Gt = "admin_keyboard_shortcuts_settings", Ut = "admin_keyboard_shortcuts_hint_dismissed", oe = {
+const Rt = "admin_keyboard_shortcuts_settings", It = "admin_keyboard_shortcuts_hint_dismissed", Q = {
   enabled: !0,
   shortcuts: {},
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
 };
-function me() {
+function ie() {
   return typeof localStorage > "u" || !localStorage || typeof localStorage.getItem != "function" || typeof localStorage.setItem != "function" ? null : localStorage;
 }
-function Do() {
-  const r = me();
+function vo() {
+  const r = ie();
   if (!r)
-    return { ...oe };
+    return { ...Q };
   try {
-    const e = r.getItem(Gt);
+    const e = r.getItem(Rt);
     if (!e)
-      return { ...oe };
+      return { ...Q };
     const t = JSON.parse(e);
     return {
       enabled: typeof t.enabled == "boolean" ? t.enabled : !0,
@@ -7925,40 +7886,40 @@ function Do() {
       updatedAt: typeof t.updatedAt == "string" ? t.updatedAt : (/* @__PURE__ */ new Date()).toISOString()
     };
   } catch {
-    return { ...oe };
+    return { ...Q };
   }
 }
-function Ni(r) {
-  const e = me();
+function ka(r) {
+  const e = ie();
   if (e)
     try {
       const t = {
         ...r,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      e.setItem(Gt, JSON.stringify(t));
+      e.setItem(Rt, JSON.stringify(t));
     } catch {
     }
 }
-function Fo() {
-  const r = me();
-  return r ? r.getItem(Ut) === "true" : !1;
+function wo() {
+  const r = ie();
+  return r ? r.getItem(It) === "true" : !1;
 }
-function qo() {
-  const r = me();
+function xo() {
+  const r = ie();
   if (r)
     try {
-      r.setItem(Ut, "true");
+      r.setItem(It, "true");
     } catch {
     }
 }
-function Oo(r) {
-  if (Fo())
+function So(r) {
+  if (wo())
     return null;
-  const { container: e, position: t = "bottom", onDismiss: n, onShowHelp: s, autoDismissMs: o = 1e4 } = r, a = document.createElement("div");
-  a.className = `shortcuts-discovery-hint fixed ${t === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, a.setAttribute("role", "alert"), a.setAttribute("aria-live", "polite");
-  const i = Bo();
-  a.innerHTML = `
+  const { container: e, position: t = "bottom", onDismiss: n, onShowHelp: s, autoDismissMs: o = 1e4 } = r, i = document.createElement("div");
+  i.className = `shortcuts-discovery-hint fixed ${t === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, i.setAttribute("role", "alert"), i.setAttribute("aria-live", "polite");
+  const a = mo();
+  i.innerHTML = `
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
       <div class="flex items-start gap-3">
         <div class="flex-shrink-0">
@@ -7972,7 +7933,7 @@ function Oo(r) {
           </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">?</kbd>
-            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${i}+S</kbd> to save.
+            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${a}+S</kbd> to save.
           </p>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" data-hint-action="show-help"
@@ -7996,19 +7957,19 @@ function Oo(r) {
     </div>
   `;
   const l = (c) => {
-    c && qo(), a.remove(), n?.();
+    c && xo(), i.remove(), n?.();
   };
-  return a.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
+  return i.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
     l(!0), s?.();
-  }), a.querySelector('[data-hint-action="dismiss"]')?.addEventListener("click", () => {
+  }), i.querySelector('[data-hint-action="dismiss"]')?.addEventListener("click", () => {
     l(!0);
-  }), a.querySelector('[data-hint-action="close"]')?.addEventListener("click", () => {
+  }), i.querySelector('[data-hint-action="close"]')?.addEventListener("click", () => {
     l(!1);
   }), o > 0 && setTimeout(() => {
-    a.parentElement && l(!1);
-  }, o), e.appendChild(a), a;
+    i.parentElement && l(!1);
+  }, o), e.appendChild(i), i;
 }
-function Hi(r) {
+function Aa(r) {
   const { container: e, shortcuts: t, settings: n, onSettingsChange: s } = r, o = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -8016,12 +7977,12 @@ function Hi(r) {
     actions: "Actions",
     help: "Help",
     other: "Other"
-  }, a = /* @__PURE__ */ new Map();
-  for (const p of t) {
-    const h = a.get(p.category) || [];
-    h.push(p), a.set(p.category, h);
+  }, i = /* @__PURE__ */ new Map();
+  for (const h of t) {
+    const f = i.get(h.category) || [];
+    f.push(h), i.set(h.category, f);
   }
-  const i = ["save", "locale", "navigation", "actions", "help", "other"];
+  const a = ["save", "locale", "navigation", "actions", "help", "other"];
   let l = `
     <div class="shortcuts-settings space-y-6">
       <!-- Global toggle -->
@@ -8049,33 +8010,33 @@ function Hi(r) {
       <!-- Per-shortcut toggles -->
       <div class="${n.enabled ? "" : "opacity-50 pointer-events-none"}" data-shortcuts-list>
   `;
-  for (const p of i) {
-    const h = a.get(p);
-    if (!(!h || h.length === 0)) {
+  for (const h of a) {
+    const f = i.get(h);
+    if (!(!f || f.length === 0)) {
       l += `
       <div class="space-y-2">
         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          ${o[p]}
+          ${o[h]}
         </h4>
         <div class="space-y-1">
     `;
-      for (const f of h) {
-        const y = n.shortcuts[f.id] !== !1, v = Nt(f);
+      for (const m of f) {
+        const y = n.shortcuts[m.id] !== !1, v = Lt(m);
         l += `
         <div class="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
           <div class="flex items-center gap-3">
             <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs font-mono text-gray-700 dark:text-gray-300">
-              ${j(v)}
+              ${u(v)}
             </kbd>
-            <span class="text-sm text-gray-700 dark:text-gray-300">${j(f.description)}</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">${u(m.description)}</span>
           </div>
           <input type="checkbox"
-                 id="shortcut-${j(f.id)}"
+                 id="shortcut-${u(m.id)}"
                  data-settings-action="toggle-shortcut"
-                 data-shortcut-id="${j(f.id)}"
+                 data-shortcut-id="${u(m.id)}"
                  ${y ? "checked" : ""}
                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                 aria-label="Enable ${j(f.description)} shortcut">
+                 aria-label="Enable ${u(m.description)} shortcut">
         </div>
       `;
       }
@@ -8098,29 +8059,29 @@ function Hi(r) {
       </div>
     </div>
   `, e.innerHTML = l, e.querySelector('[data-settings-action="toggle-global"]')?.addEventListener("click", () => {
-    const p = {
+    const h = {
       ...n,
       enabled: !n.enabled
     };
-    s(p);
-  }), e.querySelectorAll('[data-settings-action="toggle-shortcut"]').forEach((p) => {
-    p.addEventListener("change", () => {
-      const h = p.getAttribute("data-shortcut-id");
-      if (!h) return;
-      const f = {
+    s(h);
+  }), e.querySelectorAll('[data-settings-action="toggle-shortcut"]').forEach((h) => {
+    h.addEventListener("change", () => {
+      const f = h.getAttribute("data-shortcut-id");
+      if (!f) return;
+      const m = {
         ...n,
         shortcuts: {
           ...n.shortcuts,
-          [h]: p.checked
+          [f]: h.checked
         }
       };
-      s(f);
+      s(m);
     });
   }), e.querySelector('[data-settings-action="reset"]')?.addEventListener("click", () => {
-    s({ ...oe });
+    s({ ...Q });
   });
 }
-function jo(r, e) {
+function Co(r, e) {
   const t = r;
   t.config && (t.config.enabled = e.enabled);
   for (const n of r.getShortcuts()) {
@@ -8128,35 +8089,35 @@ function jo(r, e) {
     r.setEnabled(n.id, s);
   }
 }
-let we = null;
-function Gi() {
-  return we || (we = new Ht()), we;
+let de = null;
+function Ea() {
+  return de || (de = new _t()), de;
 }
-function zo(r, e) {
-  const t = Do(), n = new Ht({
+function $o(r, e) {
+  const t = vo(), n = new _t({
     ...e,
     enabled: t.enabled
-  }), s = To(r);
+  }), s = yo(r);
   for (const o of s)
     n.register(o);
-  return jo(n, t), n.bind(), n;
+  return Co(n, t), n.bind(), n;
 }
-function Ui(r, e) {
-  const t = zo(r, e);
-  return e.hintContainer && Oo({
+function La(r, e) {
+  const t = $o(r, e);
+  return e.hintContainer && So({
     container: e.hintContainer,
     onShowHelp: e.onShowHelp,
     onDismiss: () => {
     }
   }), t;
 }
-const No = 1500, Ho = 2e3, ze = "autosave", Q = {
+const ko = 1500, Ao = 2e3, Le = "autosave", N = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
   error: "Save failed",
   conflict: "Conflict detected"
-}, Go = {
+}, Eo = {
   title: "Save Conflict",
   message: "This content was modified by someone else. Choose how to proceed:",
   useServer: "Use server version",
@@ -8164,23 +8125,23 @@ const No = 1500, Ho = 2e3, ze = "autosave", Q = {
   viewDiff: "View differences",
   dismiss: "Dismiss"
 };
-class Vt {
+class Bt {
   constructor(e = {}) {
     this.state = "idle", this.conflictInfo = null, this.pendingData = null, this.lastError = null, this.debounceTimer = null, this.savedTimer = null, this.listeners = [], this.isDirty = !1, this.config = {
       container: e.container,
       onSave: e.onSave,
-      debounceMs: e.debounceMs ?? No,
-      savedDurationMs: e.savedDurationMs ?? Ho,
+      debounceMs: e.debounceMs ?? ko,
+      savedDurationMs: e.savedDurationMs ?? Ao,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
-      classPrefix: e.classPrefix ?? ze,
-      labels: { ...Q, ...e.labels },
+      classPrefix: e.classPrefix ?? Le,
+      labels: { ...N, ...e.labels },
       // Phase 3b conflict handling (TX-074)
       enableConflictDetection: e.enableConflictDetection ?? !1,
       onConflictResolve: e.onConflictResolve,
       fetchServerState: e.fetchServerState,
       allowForceSave: e.allowForceSave ?? !0,
-      conflictLabels: { ...Go, ...e.conflictLabels }
+      conflictLabels: { ...Eo, ...e.conflictLabels }
     };
   }
   // ---------------------------------------------------------------------------
@@ -8429,13 +8390,13 @@ class Vt {
     if (t)
       switch (e) {
         case "saved":
-          t.success(this.config.labels.saved ?? Q.saved, 2e3);
+          t.success(this.config.labels.saved ?? N.saved, 2e3);
           break;
         case "error":
-          t.error(this.lastError?.message ?? this.config.labels.error ?? Q.error);
+          t.error(this.lastError?.message ?? this.config.labels.error ?? N.error);
           break;
         case "conflict":
-          t.warning?.(this.config.labels.conflict ?? Q.conflict);
+          t.warning?.(this.config.labels.conflict ?? N.conflict);
           break;
       }
   }
@@ -8486,8 +8447,8 @@ class Vt {
     e && e.addEventListener("click", () => this.retry());
   }
 }
-function Vi(r) {
-  return new Vt({
+function _a(r) {
+  return new Bt({
     debounceMs: 1500,
     savedDurationMs: 2e3,
     showToasts: !1,
@@ -8504,8 +8465,8 @@ function Vi(r) {
     ...r
   });
 }
-function Ki(r, e = {}) {
-  const t = e.classPrefix ?? ze, s = { ...Q, ...e.labels }[r] || "";
+function Ra(r, e = {}) {
+  const t = e.classPrefix ?? Le, s = { ...N, ...e.labels }[r] || "";
   let o = "";
   switch (r) {
     case "saving":
@@ -8526,7 +8487,7 @@ function Ki(r, e = {}) {
     <span class="${t}__label">${s}</span>
   </div>`;
 }
-function Ji(r = ze) {
+function Ia(r = Le) {
   return `
     .${r} {
       display: inline-flex;
@@ -8666,46 +8627,46 @@ function Ji(r = ze) {
     }
   `;
 }
-function Yi(r, e) {
+function Ba(r, e) {
   const { watchFields: t, indicatorSelector: n, ...s } = e;
   let o = s.container;
   !o && n && (o = r.querySelector(n) ?? void 0);
-  const a = new Vt({
+  const i = new Bt({
     ...s,
     container: o
-  }), i = () => {
-    const p = new FormData(r), h = {};
-    return p.forEach((f, y) => {
-      h[y] = f;
-    }), h;
-  }, l = (p) => {
-    const h = p.target;
-    if (h) {
+  }), a = () => {
+    const h = new FormData(r), f = {};
+    return h.forEach((m, y) => {
+      f[y] = m;
+    }), f;
+  }, l = (h) => {
+    const f = h.target;
+    if (f) {
       if (t && t.length > 0) {
-        const f = h.name;
-        if (!f || !t.includes(f))
+        const m = f.name;
+        if (!m || !t.includes(m))
           return;
       }
-      a.markDirty(i());
+      i.markDirty(a());
     }
   };
-  r.addEventListener("input", l), r.addEventListener("change", l), r.addEventListener("submit", async (p) => {
-    a.hasPendingChanges() && (p.preventDefault(), await a.save() && r.submit());
+  r.addEventListener("input", l), r.addEventListener("change", l), r.addEventListener("submit", async (h) => {
+    i.hasPendingChanges() && (h.preventDefault(), await i.save() && r.submit());
   });
-  const c = (p) => {
-    a.hasPendingChanges() && (p.preventDefault(), p.returnValue = "");
+  const c = (h) => {
+    i.hasPendingChanges() && (h.preventDefault(), h.returnValue = "");
   };
   window.addEventListener("beforeunload", c);
   const d = () => {
-    document.hidden && a.hasPendingChanges() && a.save();
+    document.hidden && i.hasPendingChanges() && i.save();
   };
   document.addEventListener("visibilitychange", d);
-  const u = a.destroy.bind(a);
-  return a.destroy = () => {
-    r.removeEventListener("input", l), r.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", d), u();
-  }, a;
+  const p = i.destroy.bind(i);
+  return i.destroy = () => {
+    r.removeEventListener("input", l), r.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", d), p();
+  }, i;
 }
-const Kt = "char-counter", Uo = "interpolation-preview", Jt = "dir-toggle", Yt = [
+const Mt = "char-counter", Lo = "interpolation-preview", Pt = "dir-toggle", Tt = [
   // Mustache/Handlebars: {{name}}, {{user.name}}
   { pattern: /\{\{(\w+(?:\.\w+)*)\}\}/g, name: "Mustache", example: "{{name}}" },
   // ICU MessageFormat: {name}, {count, plural, ...}
@@ -8715,7 +8676,7 @@ const Kt = "char-counter", Uo = "interpolation-preview", Jt = "dir-toggle", Yt =
   // Ruby/Python named: %(name)s, ${name}
   { pattern: /%\((\w+)\)[sdf]/g, name: "Named Printf", example: "%(name)s" },
   { pattern: /\$\{(\w+)\}/g, name: "Template Literal", example: "${name}" }
-], Vo = {
+], _o = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -8725,7 +8686,7 @@ const Kt = "char-counter", Uo = "interpolation-preview", Jt = "dir-toggle", Yt =
   item: "Product",
   total: "100"
 };
-class Ko {
+class Ro {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -8734,7 +8695,7 @@ class Ko {
       hardLimit: e.hardLimit,
       thresholds: e.thresholds ?? this.buildDefaultThresholds(e),
       enforceHardLimit: e.enforceHardLimit ?? !1,
-      classPrefix: e.classPrefix ?? Kt,
+      classPrefix: e.classPrefix ?? Mt,
       formatDisplay: e.formatDisplay ?? this.defaultFormatDisplay.bind(this)
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
@@ -8806,15 +8767,15 @@ class Ko {
     return t ? `${e} / ${t}` : `${e}`;
   }
 }
-class Jo {
+class Io {
   constructor(e) {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? Vo,
-      patterns: [...Yt, ...e.customPatterns ?? []],
+      sampleValues: e.sampleValues ?? _o,
+      patterns: [...Tt, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
-      classPrefix: e.classPrefix ?? Uo
+      classPrefix: e.classPrefix ?? Lo
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
   // ---------------------------------------------------------------------------
@@ -8845,9 +8806,9 @@ class Jo {
     let e = this.config.input.value;
     for (const t of this.config.patterns)
       t.pattern.lastIndex = 0, e = e.replace(t.pattern, (n, s) => {
-        const a = (s ?? n).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        for (const [i, l] of Object.entries(this.config.sampleValues))
-          if (i.toLowerCase() === a)
+        const i = (s ?? n).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        for (const [a, l] of Object.entries(this.config.sampleValues))
+          if (a.toLowerCase() === i)
             return l;
         return n;
       });
@@ -8870,15 +8831,15 @@ class Jo {
   renderHighlightedPreview() {
     const e = this.config.input.value, t = this.getMatches(), n = this.config.classPrefix;
     if (t.length === 0)
-      return this.escapeHtml(e);
-    t.sort((a, i) => a.start - i.start);
+      return u(e);
+    t.sort((i, a) => i.start - a.start);
     let s = "", o = 0;
-    for (const a of t) {
-      s += this.escapeHtml(e.slice(o, a.start));
-      const i = this.getSampleValue(a.variable), l = e.slice(a.start, a.end);
-      s += `<span class="${n}__variable" title="${this.escapeHtml(l)}">${this.escapeHtml(i ?? l)}</span>`, o = a.end;
+    for (const i of t) {
+      s += u(e.slice(o, i.start));
+      const a = this.getSampleValue(i.variable), l = e.slice(i.start, i.end);
+      s += `<span class="${n}__variable" title="${u(l)}">${u(a ?? l)}</span>`, o = i.end;
     }
-    return s += this.escapeHtml(e.slice(o)), s;
+    return s += u(e.slice(o)), s;
   }
   /**
    * Render the preview HTML structure.
@@ -8887,7 +8848,7 @@ class Jo {
     const e = this.config.classPrefix, n = this.getMatches().length === 0;
     return `<div class="${e}${n ? ` ${e}--empty` : ""}">
       <span class="${e}__label">Preview:</span>
-      <span class="${e}__content">${this.config.highlightVariables ? this.renderHighlightedPreview() : this.escapeHtml(this.getPreviewText())}</span>
+      <span class="${e}__content">${this.config.highlightVariables ? this.renderHighlightedPreview() : u(this.getPreviewText())}</span>
     </div>`;
   }
   /**
@@ -8909,18 +8870,15 @@ class Jo {
         return s;
     return null;
   }
-  escapeHtml(e) {
-    return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-  }
 }
-class Yo {
+class Bo {
   constructor(e) {
     this.toggleEl = null, this.config = {
       input: e.input,
       container: e.container,
       initialDirection: e.initialDirection ?? "auto",
       persistenceKey: e.persistenceKey,
-      classPrefix: e.classPrefix ?? Jt,
+      classPrefix: e.classPrefix ?? Pt,
       onChange: e.onChange
     }, this.currentDirection = this.resolveInitialDirection(), this.init();
   }
@@ -9003,26 +8961,26 @@ class Yo {
     </svg>`;
   }
 }
-function Qi(r, e = {}) {
+function Ma(r, e = {}) {
   const t = [], n = [], s = [];
   for (const o of e.charCounterFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && t.push(new Ko({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && t.push(new Ro({
+      input: i,
       ...e.charCounterConfig
     }));
   }
   for (const o of e.interpolationFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && n.push(new Jo({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && n.push(new Io({
+      input: i,
       ...e.interpolationConfig
     }));
   }
   for (const o of e.directionToggleFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && s.push(new Yo({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && s.push(new Bo({
+      input: i,
       persistenceKey: `dir-${o}`,
       ...e.directionToggleConfig
     }));
@@ -9036,20 +8994,20 @@ function Qi(r, e = {}) {
     }
   };
 }
-function Wi(r, e, t, n = Kt) {
+function Pa(r, e, t, n = Mt) {
   const s = [n];
   t && s.push(`${n}--${t}`);
   const o = e ? `${r} / ${e}` : `${r}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${o}</span>`;
 }
-function Xi(r, e = Jt) {
+function Ta(r, e = Pt) {
   const t = r === "rtl", n = t ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${e}" aria-pressed="${t}" title="Toggle text direction (${r.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
     <span class="${e}__label">${r.toUpperCase()}</span>
   </button>`;
 }
-function Zi() {
+function Da() {
   return `
     /* Character Counter */
     .char-counter {
@@ -9129,7 +9087,7 @@ function Zi() {
     }
   `;
 }
-function el(r, e = Yt) {
+function Fa(r, e = Tt) {
   const t = [];
   for (const n of e) {
     n.pattern.lastIndex = 0;
@@ -9144,25 +9102,25 @@ function el(r, e = Yt) {
   }
   return t;
 }
-function tl(r, e, t) {
+function qa(r, e, t) {
   return t && r >= t ? "error" : e && r >= e ? "warning" : null;
 }
-function rl(r) {
+function Oa(r) {
   return typeof r == "string" && ["none", "core", "core+exchange", "core+queue", "full"].includes(r) ? r : "none";
 }
-function Qo(r) {
+function Mo(r) {
   return r === "core+exchange" || r === "full";
 }
-function Wo(r) {
+function Po(r) {
   return r === "core+queue" || r === "full";
 }
-function nl(r) {
+function ja(r) {
   return r !== "none";
 }
-function Xo(r) {
-  return !r || typeof r != "object" ? null : dr(r);
+function To(r) {
+  return !r || typeof r != "object" ? null : Yt(r);
 }
-class Qt {
+class Dt {
   constructor(e) {
     this.capabilities = e;
   }
@@ -9183,7 +9141,7 @@ class Qt {
    */
   isModuleEnabledByMode(e) {
     const t = this.capabilities.profile;
-    return e === "exchange" ? Qo(t) : Wo(t);
+    return e === "exchange" ? Mo(t) : Po(t);
   }
   /**
    * Get module state from capabilities
@@ -9295,38 +9253,32 @@ class Qt {
     return this.capabilities.features[e] === !0;
   }
 }
-function tt(r) {
-  const e = Xo(r);
-  return e ? new Qt(e) : null;
+function Ne(r) {
+  const e = To(r);
+  return e ? new Dt(e) : null;
 }
-function sl() {
-  return new Qt({ ...ur });
+function za() {
+  return new Dt({ ...Qt });
 }
-function ol(r) {
-  return r.visible ? r.enabled ? "" : `aria-disabled="true"${r.reason ? ` title="${Wt(r.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
+function Na(r) {
+  return r.visible ? r.enabled ? "" : `aria-disabled="true"${r.reason ? ` title="${b(r.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
-function Zo(r) {
+function Do(r) {
   if (r.enabled || !r.reason)
     return "";
   const e = (r.reasonCode || "").trim();
-  return e ? ir(e, { size: "sm", showFullMessage: !0 }) : `
+  return e ? Vt(e, { size: "sm", showFullMessage: !0 }) : `
     <span class="capability-gate-reason text-gray-500 bg-gray-100"
           role="status"
-          aria-label="${Wt(r.reason)}">
+          aria-label="${b(r.reason)}">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block mr-1">
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
       </svg>
-      ${ea(r.reason)}
+      ${u(r.reason)}
     </span>
   `.trim();
 }
-function ea(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function Wt(r) {
-  return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function al() {
+function Ga() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -9363,29 +9315,29 @@ function al() {
     }
   `;
 }
-function ta(r, e) {
+function Fo(r, e) {
   if (!e.visible) {
     r.style.display = "none", r.setAttribute("aria-hidden", "true");
     return;
   }
-  r.style.display = "", r.removeAttribute("aria-hidden"), e.enabled ? (r.removeAttribute("aria-disabled"), r.classList.remove("capability-gate-disabled"), r.removeAttribute("title"), delete r.dataset.reasonCode, r.removeEventListener("click", rt, !0)) : (r.setAttribute("aria-disabled", "true"), r.classList.add("capability-gate-disabled"), e.reason && (r.setAttribute("title", e.reason), r.dataset.reasonCode = e.reasonCode || ""), r.addEventListener("click", rt, !0));
+  r.style.display = "", r.removeAttribute("aria-hidden"), e.enabled ? (r.removeAttribute("aria-disabled"), r.classList.remove("capability-gate-disabled"), r.removeAttribute("title"), delete r.dataset.reasonCode, r.removeEventListener("click", Ge, !0)) : (r.setAttribute("aria-disabled", "true"), r.classList.add("capability-gate-disabled"), e.reason && (r.setAttribute("title", e.reason), r.dataset.reasonCode = e.reasonCode || ""), r.addEventListener("click", Ge, !0));
 }
-function rt(r) {
+function Ge(r) {
   r.currentTarget.getAttribute("aria-disabled") === "true" && (r.preventDefault(), r.stopPropagation());
 }
-function il(r, e) {
+function Ua(r, e) {
   r.querySelectorAll("[data-capability-gate]").forEach((n) => {
     const s = n.dataset.capabilityGate;
     if (s)
       try {
-        const o = JSON.parse(s), a = e.gateNavItem(o);
-        ta(n, a);
+        const o = JSON.parse(s), i = e.gateNavItem(o);
+        Fo(n, i);
       } catch {
         console.warn("Invalid capability gate config:", s);
       }
   });
 }
-const ra = {
+const qo = {
   title: "My Translation Work",
   myAssignments: "My Assignments",
   dueSoon: "Due Soon",
@@ -9407,7 +9359,7 @@ const ra = {
   status: "Status",
   targetLocale: "Target",
   sourceTitle: "Content"
-}, na = [
+}, Oo = [
   {
     id: "all",
     label: "All",
@@ -9430,18 +9382,18 @@ const ra = {
     filters: { status: "review" }
   }
 ];
-class sa {
+class jo {
   constructor(e) {
     this.container = null, this.state = "loading", this.gateResult = null, this.data = null, this.error = null, this.activePreset = "all", this.refreshTimer = null, this.config = {
       myWorkEndpoint: e.myWorkEndpoint,
       queueEndpoint: e.queueEndpoint || "",
       panelBaseUrl: e.panelBaseUrl || "",
       capabilityGate: e.capabilityGate,
-      filterPresets: e.filterPresets || na,
+      filterPresets: e.filterPresets || Oo,
       refreshInterval: e.refreshInterval || 0,
       onAssignmentClick: e.onAssignmentClick,
       onActionClick: e.onActionClick,
-      labels: { ...ra, ...e.labels || {} }
+      labels: { ...qo, ...e.labels || {} }
     };
   }
   /**
@@ -9522,7 +9474,7 @@ class sa {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="translator-dashboard" role="region" aria-label="${S(e.title)}">
+      <div class="translator-dashboard" role="region" aria-label="${u(e.title)}">
         ${this.renderHeader()}
         ${this.renderSummaryCards()}
         ${this.renderFilterBar()}
@@ -9534,7 +9486,7 @@ class sa {
     const e = this.config.labels;
     return `
       <div class="dashboard-header">
-        <h2 class="dashboard-title">${S(e.title)}</h2>
+        <h2 class="dashboard-title">${u(e.title)}</h2>
         <button type="button" class="dashboard-refresh-btn" aria-label="Refresh">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
             <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm-1.621-6.01a7 7 0 00-11.712 3.138.75.75 0 001.449.39 5.5 5.5 0 019.201-2.466l.312.311H10.51a.75.75 0 000 1.5h4.243a.75.75 0 00.75-.75V3.295a.75.75 0 00-1.5 0v2.43l-.311-.311z" clip-rule="evenodd" />
@@ -9560,7 +9512,7 @@ class sa {
     return `
       <div class="summary-card ${s}" role="listitem" data-summary="${e}">
         <div class="summary-count">${n}</div>
-        <div class="summary-label">${S(t)}</div>
+        <div class="summary-label">${u(t)}</div>
       </div>
     `;
   }
@@ -9590,7 +9542,7 @@ class sa {
               aria-selected="${t}"
               data-preset="${e.id}">
         ${e.icon || ""}
-        <span class="filter-label">${S(e.label)}</span>
+        <span class="filter-label">${u(e.label)}</span>
         ${s}
       </button>
     `;
@@ -9616,7 +9568,7 @@ class sa {
     return `
       <div class="dashboard-loading" role="status" aria-busy="true">
         <div class="loading-spinner"></div>
-        <p>${S(e.loading)}</p>
+        <p>${u(e.loading)}</p>
       </div>
     `;
   }
@@ -9627,9 +9579,9 @@ class sa {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-10 h-10 text-red-500">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
         </svg>
-        <p class="error-message">${S(e.error)}</p>
-        ${this.error ? `<p class="error-detail">${S(this.error.message)}</p>` : ""}
-        <button type="button" class="retry-btn">${S(e.retry)}</button>
+        <p class="error-message">${u(e.error)}</p>
+        ${this.error ? `<p class="error-detail">${u(this.error.message)}</p>` : ""}
+        <button type="button" class="retry-btn">${u(e.retry)}</button>
       </div>
     `;
   }
@@ -9640,8 +9592,8 @@ class sa {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12 text-gray-400">
           <path fill-rule="evenodd" d="M2.5 3A1.5 1.5 0 001 4.5v4A1.5 1.5 0 002.5 10h6A1.5 1.5 0 0010 8.5v-4A1.5 1.5 0 008.5 3h-6zm11 2A1.5 1.5 0 0012 6.5v7a1.5 1.5 0 001.5 1.5h4a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0017.5 5h-4zm-10 7A1.5 1.5 0 002 13.5v2A1.5 1.5 0 003.5 17h5A1.5 1.5 0 0010 15.5v-2A1.5 1.5 0 008.5 12h-5z" clip-rule="evenodd" />
         </svg>
-        <p class="empty-title">${S(e.noAssignments)}</p>
-        <p class="empty-description">${S(e.noAssignmentsDescription)}</p>
+        <p class="empty-title">${u(e.noAssignments)}</p>
+        <p class="empty-description">${u(e.noAssignmentsDescription)}</p>
       </div>
     `;
   }
@@ -9651,7 +9603,7 @@ class sa {
    * This is distinct from error state (transport failure) and empty state (no data).
    */
   renderDisabled() {
-    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? Zo(this.gateResult) : "";
+    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? Do(this.gateResult) : "";
     return `
       <div class="dashboard-disabled" role="alert" aria-live="polite">
         <div class="disabled-icon">
@@ -9660,7 +9612,7 @@ class sa {
           </svg>
         </div>
         <p class="disabled-title">Translator Dashboard Unavailable</p>
-        <p class="disabled-description">${S(e)}</p>
+        <p class="disabled-description">${u(e)}</p>
         ${t}
         <p class="disabled-help-text">
           Contact your administrator if you believe you should have access to this feature.
@@ -9677,11 +9629,11 @@ class sa {
         <table class="assignment-table" role="grid" aria-label="Translation assignments">
           <thead>
             <tr>
-              <th scope="col">${S(e.sourceTitle)}</th>
-              <th scope="col">${S(e.targetLocale)}</th>
-              <th scope="col">${S(e.status)}</th>
-              <th scope="col">${S(e.dueDate)}</th>
-              <th scope="col">${S(e.priority)}</th>
+              <th scope="col">${u(e.sourceTitle)}</th>
+              <th scope="col">${u(e.targetLocale)}</th>
+              <th scope="col">${u(e.status)}</th>
+              <th scope="col">${u(e.dueDate)}</th>
+              <th scope="col">${u(e.priority)}</th>
               <th scope="col" class="actions-col">Actions</th>
             </tr>
           </thead>
@@ -9694,22 +9646,22 @@ class sa {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = oa(e.due_state), n = aa(e.priority), s = V(e.queue_state, {
+    const t = zo(e.due_state), n = No(e.priority), s = j(e.queue_state, {
       domain: "queue",
       size: "sm"
-    }), o = e.due_date ? la(new Date(e.due_date)) : "-";
+    }), o = e.due_date ? Uo(new Date(e.due_date)) : "-";
     return `
-      <tr class="assignment-row" data-assignment-id="${Y(e.id)}">
+      <tr class="assignment-row" data-assignment-id="${b(e.id)}">
         <td class="title-cell">
           <div class="title-content">
-            <span class="source-title">${S(e.source_title || e.source_path || e.id)}</span>
-            <span class="entity-type">${S(e.entity_type)}</span>
+            <span class="source-title">${u(e.source_title || e.source_path || e.id)}</span>
+            <span class="entity-type">${u(e.entity_type)}</span>
           </div>
         </td>
         <td class="locale-cell">
-          <span class="locale-badge">${S(e.target_locale.toUpperCase())}</span>
+          <span class="locale-badge">${u(e.target_locale.toUpperCase())}</span>
           <span class="locale-arrow">←</span>
-          <span class="locale-badge source">${S(e.source_locale.toUpperCase())}</span>
+          <span class="locale-badge source">${u(e.source_locale.toUpperCase())}</span>
         </td>
         <td class="status-cell">
           ${s}
@@ -9718,7 +9670,7 @@ class sa {
           ${o}
         </td>
         <td class="priority-cell">
-          <span class="priority-indicator ${n}">${S(ia(e.priority))}</span>
+          <span class="priority-indicator ${n}">${u(Go(e.priority))}</span>
         </td>
         <td class="actions-cell">
           ${this.renderAssignmentActions(e)}
@@ -9729,7 +9681,7 @@ class sa {
   renderAssignmentActions(e) {
     const t = this.config.labels, n = [], s = typeof this.config.onActionClick == "function";
     n.push(`
-      <button type="button" class="action-btn open-btn" data-action="open" title="${Y(t.openAssignment)}">
+      <button type="button" class="action-btn open-btn" data-action="open" title="${b(t.openAssignment)}">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
           <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
           <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
@@ -9738,19 +9690,19 @@ class sa {
     `);
     const o = e.review_actions;
     return s && e.queue_state === "in_progress" && o.submit_review.enabled && n.push(`
-        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${Y(t.submitForReview)}">
+        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${b(t.submitForReview)}">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
           </svg>
         </button>
       `), s && e.queue_state === "review" && (o.approve.enabled && n.push(`
-          <button type="button" class="action-btn approve-btn" data-action="approve" title="${Y(t.approve)}">
+          <button type="button" class="action-btn approve-btn" data-action="approve" title="${b(t.approve)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
           </button>
         `), o.reject.enabled && n.push(`
-          <button type="button" class="action-btn reject-btn" data-action="reject" title="${Y(t.reject)}">
+          <button type="button" class="action-btn reject-btn" data-action="reject" title="${b(t.reject)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -9759,29 +9711,29 @@ class sa {
   }
   attachEventListeners() {
     if (!this.container) return;
-    this.container.querySelector(".dashboard-refresh-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelectorAll(".filter-preset").forEach((a) => {
-      a.addEventListener("click", () => {
-        const i = a.dataset.preset;
-        i && this.setActivePreset(i);
+    this.container.querySelector(".dashboard-refresh-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelectorAll(".filter-preset").forEach((i) => {
+      i.addEventListener("click", () => {
+        const a = i.dataset.preset;
+        a && this.setActivePreset(a);
       });
-    }), this.container.querySelectorAll(".assignment-row").forEach((a) => {
-      const i = a.dataset.assignmentId;
-      if (!i || !this.data) return;
-      const l = this.data.assignments.find((d) => d.id === i);
+    }), this.container.querySelectorAll(".assignment-row").forEach((i) => {
+      const a = i.dataset.assignmentId;
+      if (!a || !this.data) return;
+      const l = this.data.assignments.find((d) => d.id === a);
       if (!l) return;
-      a.querySelectorAll(".action-btn").forEach((d) => {
-        d.addEventListener("click", async (u) => {
-          u.stopPropagation();
-          const p = d.dataset.action;
-          p && (p === "open" ? this.openAssignment(l) : typeof this.config.onActionClick == "function" && await this.config.onActionClick(p, l));
+      i.querySelectorAll(".action-btn").forEach((d) => {
+        d.addEventListener("click", async (p) => {
+          p.stopPropagation();
+          const h = d.dataset.action;
+          h && (h === "open" ? this.openAssignment(l) : typeof this.config.onActionClick == "function" && await this.config.onActionClick(h, l));
         });
-      }), a.addEventListener("click", () => {
+      }), i.addEventListener("click", () => {
         this.openAssignment(l);
       });
-    }), this.container.querySelectorAll(".summary-card").forEach((a) => {
-      a.addEventListener("click", () => {
-        const i = a.dataset.summary;
-        i === "review" ? this.setActivePreset("review") : i === "due_soon" || i === "overdue" ? this.setActivePreset("due_soon") : this.setActivePreset("all");
+    }), this.container.querySelectorAll(".summary-card").forEach((i) => {
+      i.addEventListener("click", () => {
+        const a = i.dataset.summary;
+        a === "review" ? this.setActivePreset("review") : a === "due_soon" || a === "overdue" ? this.setActivePreset("due_soon") : this.setActivePreset("all");
       });
     });
   }
@@ -9801,13 +9753,7 @@ class sa {
     return !n || !s ? "" : `${t}/${encodeURIComponent(n)}/${encodeURIComponent(s)}/edit`;
   }
 }
-function S(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function Y(r) {
-  return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function oa(r) {
+function zo(r) {
   switch (r) {
     case "overdue":
       return "due-overdue";
@@ -9819,7 +9765,7 @@ function oa(r) {
       return "";
   }
 }
-function aa(r) {
+function No(r) {
   switch (r) {
     case "urgent":
       return "priority-urgent";
@@ -9833,14 +9779,14 @@ function aa(r) {
       return "priority-normal";
   }
 }
-function ia(r) {
+function Go(r) {
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
-function la(r) {
+function Uo(r) {
   const e = /* @__PURE__ */ new Date(), t = r.getTime() - e.getTime(), n = Math.ceil(t / (1e3 * 60 * 60 * 24));
   return n < 0 ? `${Math.abs(n)}d overdue` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : n <= 7 ? `${n}d` : r.toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
-function ll() {
+function Ha() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -10231,19 +10177,19 @@ function ll() {
     }
   `;
 }
-function ca(r, e) {
-  const t = new sa(e);
+function Ho(r, e) {
+  const t = new jo(e);
   return t.mount(r), t;
 }
-function cl(r) {
-  return da(r);
+function Va(r) {
+  return Vo(r);
 }
-function da(r, e = {}) {
+function Vo(r, e = {}) {
   const t = r.dataset.myWorkEndpoint;
   if (!t)
     return console.warn("TranslatorDashboard: Missing data-my-work-endpoint attribute"), null;
-  const n = ua(e);
-  return ca(r, {
+  const n = Ko(e);
+  return Ho(r, {
     myWorkEndpoint: t,
     panelBaseUrl: r.dataset.panelBaseUrl,
     queueEndpoint: r.dataset.queueEndpoint,
@@ -10251,15 +10197,15 @@ function da(r, e = {}) {
     capabilityGate: n || void 0
   });
 }
-function ua(r) {
+function Ko(r) {
   if (r.capabilityGate)
     return r.capabilityGate;
   if (r.capabilitiesPayload !== void 0)
-    return tt(r.capabilitiesPayload);
-  const e = pa();
-  return e === null ? null : tt(e);
+    return Ne(r.capabilitiesPayload);
+  const e = Jo();
+  return e === null ? null : Ne(e);
 }
-function pa() {
+function Jo() {
   if (typeof window < "u") {
     const r = window.__TRANSLATION_CAPABILITIES__;
     if (r && typeof r == "object")
@@ -10276,7 +10222,7 @@ function pa() {
   }
   return null;
 }
-const ha = {
+const Yo = {
   title: "Import Translations",
   selectFile: "Select file or paste data",
   validateButton: "Validate",
@@ -10309,7 +10255,7 @@ const ha = {
   continueOnError: "Continue on error",
   dryRun: "Dry run (preview only)"
 };
-class fa {
+class Qo {
   constructor(e) {
     this.container = null, this.state = "idle", this.validationResult = null, this.previewRows = [], this.selection = {
       selected: /* @__PURE__ */ new Set(),
@@ -10321,7 +10267,7 @@ class fa {
       dryRun: !1,
       async: !1
     }, this.error = null, this.file = null, this.rawData = "";
-    const t = { ...ha, ...e.labels || {} };
+    const t = { ...Yo, ...e.labels || {} };
     this.config = {
       validateEndpoint: e.validateEndpoint,
       applyEndpoint: e.applyEndpoint,
@@ -10424,11 +10370,11 @@ class fa {
     }
     this.state = "applying", this.error = null, this.render();
     try {
-      const a = {
+      const i = {
         rows: (this.validationResult?.results.filter(
           (c) => n.includes(c.index)
         ) || []).map((c) => {
-          const d = this.previewRows.find((u) => u.index === c.index);
+          const d = this.previewRows.find((p) => p.index === c.index);
           return {
             ...c,
             resolution: d?.resolution
@@ -10439,17 +10385,17 @@ class fa {
         continue_on_error: t.continueOnError,
         dry_run: t.dryRun,
         async: t.async
-      }, i = await fetch(this.config.applyEndpoint, {
+      }, a = await fetch(this.config.applyEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json"
         },
-        body: JSON.stringify(a)
+        body: JSON.stringify(i)
       });
-      if (!i.ok)
-        throw new Error(`Apply failed: ${i.status}`);
-      const l = await i.json();
+      if (!a.ok)
+        throw new Error(`Apply failed: ${a.status}`);
+      const l = await a.json();
       return this.state = "applied", this.config.onApplyComplete?.(l), this.render(), l;
     } catch (s) {
       return this.error = s instanceof Error ? s : new Error(String(s)), this.state = "error", this.config.onError?.(this.error), this.render(), null;
@@ -10515,7 +10461,7 @@ class fa {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="exchange-import" role="dialog" aria-label="${b(e.title)}">
+      <div class="exchange-import" role="dialog" aria-label="${u(e.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}
@@ -10526,7 +10472,7 @@ class fa {
     const e = this.config.labels;
     return `
       <div class="import-header">
-        <h3 class="import-title">${b(e.title)}</h3>
+        <h3 class="import-title">${u(e.title)}</h3>
         ${this.validationResult ? this.renderSummaryBadges() : ""}
       </div>
     `;
@@ -10536,10 +10482,10 @@ class fa {
     const e = this.validationResult.summary, t = this.config.labels;
     return `
       <div class="import-summary-badges">
-        <span class="summary-badge success">${e.succeeded} ${b(t.success)}</span>
-        <span class="summary-badge error">${e.failed} ${b(t.error)}</span>
-        <span class="summary-badge conflict">${e.conflicts} ${b(t.conflict)}</span>
-        <span class="summary-badge skipped">${e.skipped} ${b(t.skipped)}</span>
+        <span class="summary-badge success">${e.succeeded} ${u(t.success)}</span>
+        <span class="summary-badge error">${e.failed} ${u(t.error)}</span>
+        <span class="summary-badge conflict">${e.conflicts} ${u(t.conflict)}</span>
+        <span class="summary-badge skipped">${e.skipped} ${u(t.skipped)}</span>
       </div>
     `;
   }
@@ -10567,7 +10513,7 @@ class fa {
       <div class="import-file-input">
         <label class="file-dropzone">
           <input type="file" accept=".csv,.json" class="file-input" />
-          <span class="dropzone-text">${b(e.selectFile)}</span>
+          <span class="dropzone-text">${u(e.selectFile)}</span>
         </label>
         <div class="or-divider">or</div>
         <textarea class="data-input" placeholder="Paste JSON or CSV data here..." rows="5"></textarea>
@@ -10578,7 +10524,7 @@ class fa {
     return `
       <div class="import-loading" role="status" aria-busy="true">
         <div class="loading-spinner"></div>
-        <p>${b(e)}</p>
+        <p>${u(e)}</p>
       </div>
     `;
   }
@@ -10588,22 +10534,22 @@ class fa {
       <div class="import-preview">
         <div class="preview-toolbar">
           <div class="selection-controls">
-            <button type="button" class="select-all-btn">${b(e.selectAll)}</button>
-            <button type="button" class="deselect-all-btn">${b(e.deselectAll)}</button>
-            <span class="selection-count">${t} / ${n} ${b(e.selectedCount)}</span>
+            <button type="button" class="select-all-btn">${u(e.selectAll)}</button>
+            <button type="button" class="deselect-all-btn">${u(e.deselectAll)}</button>
+            <span class="selection-count">${t} / ${n} ${u(e.selectedCount)}</span>
           </div>
           <div class="import-options">
             <label class="option-checkbox">
               <input type="checkbox" name="allowCreateMissing" ${this.applyOptions.allowCreateMissing ? "checked" : ""} />
-              ${b(e.allowCreateMissing)}
+              ${u(e.allowCreateMissing)}
             </label>
             <label class="option-checkbox">
               <input type="checkbox" name="continueOnError" ${this.applyOptions.continueOnError ? "checked" : ""} />
-              ${b(e.continueOnError)}
+              ${u(e.continueOnError)}
             </label>
             <label class="option-checkbox">
               <input type="checkbox" name="dryRun" ${this.applyOptions.dryRun ? "checked" : ""} />
-              ${b(e.dryRun)}
+              ${u(e.dryRun)}
             </label>
           </div>
         </div>
@@ -10614,11 +10560,11 @@ class fa {
                 <th scope="col" class="select-col">
                   <input type="checkbox" class="select-all-checkbox" ${this.selection.allSelected && this.selection.excluded.size === 0 ? "checked" : ""} />
                 </th>
-                <th scope="col">${b(e.resource)}</th>
-                <th scope="col">${b(e.field)}</th>
-                <th scope="col">${b(e.status)}</th>
-                <th scope="col">${b(e.translatedText)}</th>
-                <th scope="col">${b(e.conflictResolution)}</th>
+                <th scope="col">${u(e.resource)}</th>
+                <th scope="col">${u(e.field)}</th>
+                <th scope="col">${u(e.status)}</th>
+                <th scope="col">${u(e.translatedText)}</th>
+                <th scope="col">${u(e.conflictResolution)}</th>
               </tr>
             </thead>
             <tbody>
@@ -10631,7 +10577,7 @@ class fa {
   }
   renderPreviewRow(e) {
     this.config.labels;
-    const t = ut(e.status, "exchange"), n = e.status === "error", s = V(e.status, {
+    const t = Xe(e.status, "exchange"), n = e.status === "error", s = j(e.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -10641,16 +10587,16 @@ class fa {
           <input type="checkbox" class="row-checkbox" ${e.isSelected ? "checked" : ""} ${n ? "disabled" : ""} />
         </td>
         <td class="resource-cell">
-          <span class="resource-type">${b(e.resource)}</span>
-          <span class="entity-id">${b(e.entityId)}</span>
+          <span class="resource-type">${u(e.resource)}</span>
+          <span class="entity-id">${u(e.entityId)}</span>
         </td>
-        <td class="field-cell">${b(e.fieldPath)}</td>
+        <td class="field-cell">${u(e.fieldPath)}</td>
         <td class="status-cell">
           ${s}
-          ${e.error ? `<span class="error-message" title="${se(e.error)}">${b(ma(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${b(e.error)}">${u(Wo(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
-          <span class="translation-text" title="${se(e.targetLocale)}">${b(e.targetLocale)}</span>
+          <span class="translation-text" title="${b(e.targetLocale)}">${u(e.targetLocale)}</span>
         </td>
         <td class="resolution-cell">
           ${e.status === "conflict" ? this.renderConflictResolution(e) : "-"}
@@ -10662,12 +10608,12 @@ class fa {
     const t = this.config.labels, n = e.resolution || "skip";
     return `
       <select class="resolution-select" data-index="${e.index}">
-        <option value="skip" ${n === "skip" ? "selected" : ""}>${b(t.skip)}</option>
-        <option value="keep_current" ${n === "keep_current" ? "selected" : ""}>${b(t.keepCurrent)}</option>
-        <option value="accept_incoming" ${n === "accept_incoming" ? "selected" : ""}>${b(t.acceptIncoming)}</option>
-        <option value="force" ${n === "force" ? "selected" : ""}>${b(t.force)}</option>
+        <option value="skip" ${n === "skip" ? "selected" : ""}>${u(t.skip)}</option>
+        <option value="keep_current" ${n === "keep_current" ? "selected" : ""}>${u(t.keepCurrent)}</option>
+        <option value="accept_incoming" ${n === "accept_incoming" ? "selected" : ""}>${u(t.acceptIncoming)}</option>
+        <option value="force" ${n === "force" ? "selected" : ""}>${u(t.force)}</option>
       </select>
-      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${se(t.conflictDetails)}">?</button>` : ""}
+      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${b(t.conflictDetails)}">?</button>` : ""}
     `;
   }
   renderApplyResult() {
@@ -10688,8 +10634,8 @@ class fa {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-10 h-10 text-red-500">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
         </svg>
-        <p class="error-message">${b(this.error?.message || e.error)}</p>
-        <button type="button" class="reset-btn">${b(e.cancelButton)}</button>
+        <p class="error-message">${u(this.error?.message || e.error)}</p>
+        <button type="button" class="reset-btn">${u(e.cancelButton)}</button>
       </div>
     `;
   }
@@ -10697,18 +10643,18 @@ class fa {
     const e = this.config.labels, t = this.state === "validated" && this.getSelectedIndices().length > 0, n = this.getApplyGate();
     return `
       <div class="import-footer">
-        <button type="button" class="cancel-btn">${b(e.cancelButton)}</button>
+        <button type="button" class="cancel-btn">${u(e.cancelButton)}</button>
         ${this.state === "idle" ? `
           <button type="button" class="validate-btn" ${!this.file && !this.rawData ? "disabled" : ""}>
-            ${b(e.validateButton)}
+            ${u(e.validateButton)}
           </button>
         ` : ""}
         ${this.state === "validated" ? `
           <button type="button"
                   class="apply-btn"
                   ${!t || !n.enabled ? "disabled" : ""}
-                  ${n.enabled ? "" : `aria-disabled="true" title="${se(n.reason || e.applyDisabledReason)}"`}>
-            ${b(e.applyButton)}
+                  ${n.enabled ? "" : `aria-disabled="true" title="${b(n.reason || e.applyDisabledReason)}"`}>
+            ${u(e.applyButton)}
           </button>
         ` : ""}
       </div>
@@ -10719,42 +10665,36 @@ class fa {
   }
   attachEventListeners() {
     if (!this.container) return;
-    this.container.querySelector(".file-input")?.addEventListener("change", (h) => {
-      const f = h.target;
-      f.files?.[0] && this.setFile(f.files[0]);
-    }), this.container.querySelector(".data-input")?.addEventListener("input", (h) => {
-      const f = h.target;
-      this.rawData = f.value;
-    }), this.container.querySelector(".validate-btn")?.addEventListener("click", () => this.validate()), this.container.querySelector(".apply-btn")?.addEventListener("click", () => this.apply()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.reset()), this.container.querySelector(".reset-btn")?.addEventListener("click", () => this.reset()), this.container.querySelector(".select-all-btn")?.addEventListener("click", () => this.selectAll()), this.container.querySelector(".deselect-all-btn")?.addEventListener("click", () => this.deselectAll()), this.container.querySelector(".select-all-checkbox")?.addEventListener("change", (h) => {
-      h.target.checked ? this.selectAll() : this.deselectAll();
-    }), this.container.querySelectorAll(".row-checkbox").forEach((h) => {
-      h.addEventListener("change", () => {
-        const f = h.closest(".preview-row"), y = parseInt(f?.dataset.index || "", 10);
+    this.container.querySelector(".file-input")?.addEventListener("change", (f) => {
+      const m = f.target;
+      m.files?.[0] && this.setFile(m.files[0]);
+    }), this.container.querySelector(".data-input")?.addEventListener("input", (f) => {
+      const m = f.target;
+      this.rawData = m.value;
+    }), this.container.querySelector(".validate-btn")?.addEventListener("click", () => this.validate()), this.container.querySelector(".apply-btn")?.addEventListener("click", () => this.apply()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.reset()), this.container.querySelector(".reset-btn")?.addEventListener("click", () => this.reset()), this.container.querySelector(".select-all-btn")?.addEventListener("click", () => this.selectAll()), this.container.querySelector(".deselect-all-btn")?.addEventListener("click", () => this.deselectAll()), this.container.querySelector(".select-all-checkbox")?.addEventListener("change", (f) => {
+      f.target.checked ? this.selectAll() : this.deselectAll();
+    }), this.container.querySelectorAll(".row-checkbox").forEach((f) => {
+      f.addEventListener("change", () => {
+        const m = f.closest(".preview-row"), y = parseInt(m?.dataset.index || "", 10);
         isNaN(y) || this.toggleRowSelection(y);
       });
-    }), this.container.querySelectorAll(".resolution-select").forEach((h) => {
-      h.addEventListener("change", () => {
-        const f = parseInt(h.dataset.index || "", 10);
-        isNaN(f) || this.setRowResolution(f, h.value);
+    }), this.container.querySelectorAll(".resolution-select").forEach((f) => {
+      f.addEventListener("change", () => {
+        const m = parseInt(f.dataset.index || "", 10);
+        isNaN(m) || this.setRowResolution(m, f.value);
       });
-    }), this.container.querySelectorAll(".option-checkbox input").forEach((h) => {
-      h.addEventListener("change", () => {
-        const f = h.name;
-        f && this.setApplyOption(f, h.checked);
+    }), this.container.querySelectorAll(".option-checkbox input").forEach((f) => {
+      f.addEventListener("change", () => {
+        const m = f.name;
+        m && this.setApplyOption(m, f.checked);
       });
     });
   }
 }
-function b(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function se(r) {
-  return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function ma(r, e) {
+function Wo(r, e) {
   return r.length <= e ? r : r.slice(0, e - 3) + "...";
 }
-function dl() {
+function Ka() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -11093,18 +11033,18 @@ function dl() {
     }
   `;
 }
-function ga(r, e) {
-  const t = new fa(e);
+function Xo(r, e) {
+  const t = new Qo(e);
   return t.mount(r), t;
 }
-function ul(r) {
+function Ja(r) {
   const e = r.dataset.validateEndpoint, t = r.dataset.applyEndpoint;
-  return !e || !t ? (console.warn("ExchangeImport: Missing required data attributes"), null) : ga(r, {
+  return !e || !t ? (console.warn("ExchangeImport: Missing required data attributes"), null) : Xo(r, {
     validateEndpoint: e,
     applyEndpoint: t
   });
 }
-const ba = {
+const Zo = {
   title: "Job Progress",
   running: "In Progress",
   completed: "Completed",
@@ -11123,15 +11063,15 @@ const ba = {
   startedAt: "Started",
   elapsed: "Elapsed",
   conflicts: "Conflicts"
-}, ya = 2e3, va = 300, wa = "async_job_";
-class Xt {
+}, ei = 2e3, ti = 300, ri = "async_job_";
+class Ft {
   constructor(e = {}) {
     this.container = null, this.job = null, this.pollingState = "idle", this.pollTimer = null, this.pollAttempts = 0, this.startTime = null, this.error = null;
-    const t = { ...ba, ...e.labels || {} };
+    const t = { ...Zo, ...e.labels || {} };
     this.config = {
-      storageKeyPrefix: e.storageKeyPrefix || wa,
-      pollInterval: e.pollInterval || ya,
-      maxPollAttempts: e.maxPollAttempts || va,
+      storageKeyPrefix: e.storageKeyPrefix || ri,
+      pollInterval: e.pollInterval || ei,
+      maxPollAttempts: e.maxPollAttempts || ti,
       onComplete: e.onComplete,
       onFailed: e.onFailed,
       onError: e.onError,
@@ -11320,7 +11260,7 @@ class Xt {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="async-progress" role="region" aria-label="${C(e.title)}">
+      <div class="async-progress" role="region" aria-label="${u(e.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}
@@ -11332,14 +11272,14 @@ class Xt {
     if (!this.job)
       return `
         <div class="progress-header idle">
-          <h4 class="progress-title">${C(e.title)}</h4>
-          <span class="progress-status">${C(e.noActiveJob)}</span>
+          <h4 class="progress-title">${u(e.title)}</h4>
+          <span class="progress-status">${u(e.noActiveJob)}</span>
         </div>
       `;
-    const t = ut(this.job.status, "exchange"), n = this.getStatusLabel(), s = this.pollingState === "paused" ? `<span class="progress-status ${t}">${C(n)}</span>` : V(this.job.status, { domain: "exchange", size: "sm" });
+    const t = Xe(this.job.status, "exchange"), n = this.getStatusLabel(), s = this.pollingState === "paused" ? `<span class="progress-status ${t}">${u(n)}</span>` : j(this.job.status, { domain: "exchange", size: "sm" });
     return `
       <div class="progress-header ${t}">
-        <h4 class="progress-title">${C(e.title)}</h4>
+        <h4 class="progress-title">${u(e.title)}</h4>
         ${s}
       </div>
     `;
@@ -11355,15 +11295,15 @@ class Xt {
         ${this.renderProgressBar(n)}
         <div class="progress-counters">
           <span class="counter processed">
-            <span class="counter-label">${C(e.processed)}:</span>
+            <span class="counter-label">${u(e.processed)}:</span>
             <span class="counter-value">${t.processed}${t.total ? ` / ${t.total}` : ""}</span>
           </span>
           <span class="counter succeeded">
-            <span class="counter-label">${C(e.succeeded)}:</span>
+            <span class="counter-label">${u(e.succeeded)}:</span>
             <span class="counter-value">${t.succeeded}</span>
           </span>
           <span class="counter failed">
-            <span class="counter-label">${C(e.failedCount)}:</span>
+            <span class="counter-label">${u(e.failedCount)}:</span>
             <span class="counter-value">${t.failed}</span>
           </span>
         </div>
@@ -11397,13 +11337,13 @@ class Xt {
     return `
       <div class="progress-info">
         <span class="info-item">
-          <span class="info-label">${C(e.jobId)}:</span>
-          <code class="info-value">${C(this.job.id)}</code>
+          <span class="info-label">${u(e.jobId)}:</span>
+          <code class="info-value">${u(this.job.id)}</code>
         </span>
         ${t ? `
           <span class="info-item">
-            <span class="info-label">${C(e.elapsed)}:</span>
-            <span class="info-value">${C(t)}</span>
+            <span class="info-label">${u(e.elapsed)}:</span>
+            <span class="info-value">${u(t)}</span>
           </span>
         ` : ""}
       </div>
@@ -11416,13 +11356,13 @@ class Xt {
     return `
       <div class="progress-conflicts">
         <span class="conflicts-header">
-          <span class="conflicts-label">${C(e.conflicts)}:</span>
+          <span class="conflicts-label">${u(e.conflicts)}:</span>
           <span class="conflicts-count">${t.total}</span>
         </span>
         <div class="conflicts-by-type">
           ${Object.entries(t.by_type).map(([n, s]) => `
               <span class="conflict-type">
-                <span class="type-name">${C(n)}:</span>
+                <span class="type-name">${u(n)}:</span>
                 <span class="type-count">${s}</span>
               </span>
             `).join("")}
@@ -11434,13 +11374,13 @@ class Xt {
     const e = this.error?.message || this.job?.error;
     return e ? `
       <div class="progress-error" role="alert">
-        <span class="error-message">${C(e)}</span>
+        <span class="error-message">${u(e)}</span>
       </div>
     ` : "";
   }
   renderFooter() {
     const e = this.config.labels, t = [];
-    return this.pollingState === "paused" && t.push(`<button type="button" class="resume-btn">${C(e.resume)}</button>`), this.pollingState === "polling" && t.push(`<button type="button" class="cancel-btn">${C(e.cancel)}</button>`), (this.error || this.job?.status === "failed") && t.push(`<button type="button" class="retry-btn">${C(e.retry)}</button>`), (this.job?.status === "completed" || this.job?.status === "failed") && t.push(`<button type="button" class="dismiss-btn">${C(e.dismiss)}</button>`), t.length === 0 ? "" : `
+    return this.pollingState === "paused" && t.push(`<button type="button" class="resume-btn">${u(e.resume)}</button>`), this.pollingState === "polling" && t.push(`<button type="button" class="cancel-btn">${u(e.cancel)}</button>`), (this.error || this.job?.status === "failed") && t.push(`<button type="button" class="retry-btn">${u(e.retry)}</button>`), (this.job?.status === "completed" || this.job?.status === "failed") && t.push(`<button type="button" class="dismiss-btn">${u(e.dismiss)}</button>`), t.length === 0 ? "" : `
       <div class="progress-footer">
         ${t.join("")}
       </div>
@@ -11471,18 +11411,15 @@ class Xt {
     const s = Math.floor(n / 60), o = n % 60;
     if (s < 60)
       return `${s}m ${o}s`;
-    const a = Math.floor(s / 60), i = s % 60;
-    return `${a}h ${i}m`;
+    const i = Math.floor(s / 60), a = s % 60;
+    return `${i}h ${a}m`;
   }
   attachEventListeners() {
     if (!this.container) return;
     this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset());
   }
 }
-function C(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function pl() {
+function Ya() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -11716,22 +11653,22 @@ function pl() {
     }
   `;
 }
-function xa(r, e) {
-  const t = new Xt(e);
+function ni(r, e) {
+  const t = new Ft(e);
   return t.mount(r), t;
 }
-function hl(r) {
+function Qa(r) {
   const e = r.dataset.pollInterval ? parseInt(r.dataset.pollInterval, 10) : void 0, t = r.dataset.autoStart !== "false";
-  return xa(r, {
+  return ni(r, {
     pollInterval: e,
     autoStart: t
   });
 }
-function fl(r, e) {
-  const t = new Xt(e);
+function Wa(r, e) {
+  const t = new Ft(e);
   return t.hasPersistedJob(r) ? t : null;
 }
-const xe = {
+const ue = {
   sourceColumn: "Source",
   targetColumn: "Translation",
   driftBannerTitle: "Source content has changed",
@@ -11741,7 +11678,7 @@ const xe = {
   copySourceButton: "Copy from source",
   fieldChangedIndicator: "Source changed"
 };
-function Sa(r) {
+function si(r) {
   const e = {
     sourceHash: null,
     sourceVersion: null,
@@ -11758,15 +11695,15 @@ function Sa(r) {
   }
   return e;
 }
-function $a(r, e) {
+function oi(r, e) {
   return !r || !r.hasDrift ? !1 : r.changedFieldsSummary.fields.some(
     (t) => t.toLowerCase() === e.toLowerCase()
   );
 }
-function ml(r) {
+function Xa(r) {
   return !r || !r.hasDrift ? [] : [...r.changedFieldsSummary.fields];
 }
-class Ca {
+class ii {
   constructor(e) {
     this.container = null, this.driftAcknowledged = !1;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -11782,7 +11719,7 @@ class Ca {
       onChange: e.onChange,
       onDriftAcknowledge: e.onDriftAcknowledge,
       onCopySource: e.onCopySource,
-      labels: { ...xe, ...e.labels }
+      labels: { ...ue, ...e.labels }
     }, this.container = t;
   }
   /**
@@ -11799,23 +11736,23 @@ class Ca {
    * Build HTML for the editor
    */
   buildHTML() {
-    const { drift: e, labels: t, sourceLocale: n, targetLocale: s, fields: o } = this.config, a = this.shouldShowDriftBanner() ? this.renderDriftBanner(e, t) : "", i = o.map((l) => this.renderFieldRow(l, t)).join("");
+    const { drift: e, labels: t, sourceLocale: n, targetLocale: s, fields: o } = this.config, i = this.shouldShowDriftBanner() ? this.renderDriftBanner(e, t) : "", a = o.map((l) => this.renderFieldRow(l, t)).join("");
     return `
       <div class="side-by-side-editor" data-source-locale="${n}" data-target-locale="${s}">
-        ${a}
+        ${i}
         <div class="sbs-columns">
           <div class="sbs-header">
             <div class="sbs-column-header sbs-source-header">
-              <span class="sbs-column-title">${R(t.sourceColumn)}</span>
+              <span class="sbs-column-title">${u(t.sourceColumn)}</span>
               <span class="sbs-locale-badge">${n.toUpperCase()}</span>
             </div>
             <div class="sbs-column-header sbs-target-header">
-              <span class="sbs-column-title">${R(t.targetColumn)}</span>
+              <span class="sbs-column-title">${u(t.targetColumn)}</span>
               <span class="sbs-locale-badge">${s.toUpperCase()}</span>
             </div>
           </div>
           <div class="sbs-fields">
-            ${i}
+            ${a}
           </div>
         </div>
       </div>
@@ -11825,7 +11762,7 @@ class Ca {
    * Render the drift warning banner
    */
   renderDriftBanner(e, t) {
-    const n = { ...xe, ...t }, s = e.changedFieldsSummary.count, o = e.changedFieldsSummary.fields, a = o.length > 0 ? `<ul class="sbs-drift-fields-list">${o.map((i) => `<li>${R(i)}</li>`).join("")}</ul>` : "";
+    const n = { ...ue, ...t }, s = e.changedFieldsSummary.count, o = e.changedFieldsSummary.fields, i = o.length > 0 ? `<ul class="sbs-drift-fields-list">${o.map((a) => `<li>${u(a)}</li>`).join("")}</ul>` : "";
     return `
       <div class="sbs-drift-banner" role="alert" aria-live="polite" data-drift-banner="true">
         <div class="sbs-drift-icon">
@@ -11834,16 +11771,16 @@ class Ca {
           </svg>
         </div>
         <div class="sbs-drift-content">
-          <h3 class="sbs-drift-title">${R(n.driftBannerTitle)}</h3>
+          <h3 class="sbs-drift-title">${u(n.driftBannerTitle)}</h3>
           <p class="sbs-drift-description">
-            ${R(n.driftBannerDescription)}
+            ${u(n.driftBannerDescription)}
             ${s > 0 ? `<span class="sbs-drift-count">${s} field${s !== 1 ? "s" : ""} changed.</span>` : ""}
           </p>
-          ${a}
+          ${i}
         </div>
         <div class="sbs-drift-actions">
           <button type="button" class="sbs-drift-acknowledge" data-action="acknowledge-drift">
-            ${R(n.driftAcknowledgeButton)}
+            ${u(n.driftAcknowledgeButton)}
           </button>
         </div>
       </div>
@@ -11853,27 +11790,27 @@ class Ca {
    * Render a single field row
    */
   renderFieldRow(e, t) {
-    const n = { ...xe, ...t }, s = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${R(n.fieldChangedIndicator)}">
+    const n = { ...ue, ...t }, s = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${u(n.fieldChangedIndicator)}">
           <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
           </svg>
-        </span>` : "", o = this.renderSourceField(e), a = this.renderTargetField(e), i = `
+        </span>` : "", o = this.renderSourceField(e), i = this.renderTargetField(e), a = `
       <button type="button"
               class="sbs-copy-source"
               data-action="copy-source"
-              data-field="${k(e.key)}"
-              title="${k(n.copySourceButton)}"
-              aria-label="${k(n.copySourceButton)} for ${k(e.label)}">
+              data-field="${b(e.key)}"
+              title="${b(n.copySourceButton)}"
+              aria-label="${b(n.copySourceButton)} for ${b(e.label)}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </button>
     `;
     return `
-      <div class="${e.hasSourceChanged ? "sbs-field-row sbs-field-changed-row" : "sbs-field-row"}" data-field-key="${k(e.key)}">
+      <div class="${e.hasSourceChanged ? "sbs-field-row sbs-field-changed-row" : "sbs-field-row"}" data-field-key="${b(e.key)}">
         <div class="sbs-field-header">
           <label class="sbs-field-label">
-            ${R(e.label)}
+            ${u(e.label)}
             ${e.required ? '<span class="sbs-required">*</span>' : ""}
           </label>
           ${s}
@@ -11883,10 +11820,10 @@ class Ca {
             ${o}
           </div>
           <div class="sbs-field-actions">
-            ${i}
+            ${a}
           </div>
           <div class="sbs-target-field">
-            ${a}
+            ${i}
           </div>
         </div>
       </div>
@@ -11896,17 +11833,17 @@ class Ca {
    * Render source field (read-only)
    */
   renderSourceField(e) {
-    const t = R(e.sourceValue || "");
+    const t = u(e.sourceValue || "");
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <div class="sbs-source-content sbs-textarea-field"
-             data-field="${k(e.key)}"
-             aria-label="Source: ${k(e.label)}">
+             data-field="${b(e.key)}"
+             aria-label="Source: ${b(e.label)}">
           ${t || '<span class="sbs-empty">Empty</span>'}
         </div>
       ` : `
       <div class="sbs-source-content sbs-text-field"
-           data-field="${k(e.key)}"
-           aria-label="Source: ${k(e.label)}">
+           data-field="${b(e.key)}"
+           aria-label="Source: ${b(e.label)}">
         ${t || '<span class="sbs-empty">Empty</span>'}
       </div>
     `;
@@ -11915,22 +11852,22 @@ class Ca {
    * Render target field (editable)
    */
   renderTargetField(e) {
-    const t = R(e.targetValue || ""), n = e.placeholder ? `placeholder="${k(e.placeholder)}"` : "", s = e.required ? "required" : "", o = e.maxLength ? `maxlength="${e.maxLength}"` : "";
+    const t = u(e.targetValue || ""), n = e.placeholder ? `placeholder="${b(e.placeholder)}"` : "", s = e.required ? "required" : "", o = e.maxLength ? `maxlength="${e.maxLength}"` : "";
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <textarea class="sbs-target-input sbs-textarea-input"
-                  name="${k(e.key)}"
-                  data-field="${k(e.key)}"
-                  aria-label="Translation: ${k(e.label)}"
+                  name="${b(e.key)}"
+                  data-field="${b(e.key)}"
+                  aria-label="Translation: ${b(e.label)}"
                   ${n}
                   ${s}
                   ${o}>${t}</textarea>
       ` : `
       <input type="text"
              class="sbs-target-input sbs-text-input"
-             name="${k(e.key)}"
-             data-field="${k(e.key)}"
+             name="${b(e.key)}"
+             data-field="${b(e.key)}"
              value="${t}"
-             aria-label="Translation: ${k(e.label)}"
+             aria-label="Translation: ${b(e.label)}"
              ${n}
              ${s}
              ${o}>
@@ -12028,24 +11965,24 @@ class Ca {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 }
-function ka(r) {
-  const e = new Ca(r);
+function ai(r) {
+  const e = new ii(r);
   return e.render(), e;
 }
-function gl(r, e, t, n, s) {
-  const o = Sa(e), a = n.map((i) => ({
-    key: i,
-    label: i.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+function Za(r, e, t, n, s) {
+  const o = si(e), i = n.map((a) => ({
+    key: a,
+    label: a.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
     type: "text",
-    hasSourceChanged: $a(o, i),
-    sourceValue: String(t[i] || ""),
-    targetValue: String(e[i] || ""),
+    hasSourceChanged: oi(o, a),
+    sourceValue: String(t[a] || ""),
+    targetValue: String(e[a] || ""),
     sourceLocale: s.sourceLocale || "en",
     targetLocale: s.targetLocale || ""
   }));
-  return ka({
+  return ai({
     container: r,
-    fields: a,
+    fields: i,
     drift: o,
     sourceLocale: s.sourceLocale || "en",
     targetLocale: s.targetLocale || "",
@@ -12054,7 +11991,7 @@ function gl(r, e, t, n, s) {
     ...s
   });
 }
-function bl() {
+function el() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -12424,233 +12361,227 @@ function bl() {
     }
   `;
 }
-function R(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function k(r) {
-  return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
 export {
-  hr as ActionRenderer,
-  ci as AdvancedSearch,
-  Xt as AsyncProgress,
-  Vt as AutosaveIndicator,
-  Al as CORE_READINESS_DISPLAY,
-  Qt as CapabilityGate,
-  Mr as CellRendererRegistry,
-  Ko as CharacterCounter,
-  cs as ColumnManager,
-  Za as CommonRenderers,
-  na as DEFAULT_FILTER_PRESETS,
-  Yt as DEFAULT_INTERPOLATION_PATTERNS,
-  Vo as DEFAULT_SAMPLE_VALUES,
-  xe as DEFAULT_SIDE_BY_SIDE_LABELS,
-  wo as DEFAULT_STATUS_LEGEND_ITEMS,
-  Ot as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  El as DISABLED_REASON_DISPLAY,
-  Ae as DataGrid,
-  co as DefaultColumnVisibilityBehavior,
-  vo as DetailActionsController,
-  Yo as DirectionToggle,
-  Ll as EXCHANGE_JOB_STATUS_DISPLAY,
-  _l as EXCHANGE_ROW_STATUS_DISPLAY,
-  fa as ExchangeImport,
-  je as FallbackBanner,
-  di as FilterBuilder,
-  gi as GoCrudBulkActionBehavior,
-  mi as GoCrudExportBehavior,
-  pi as GoCrudFilterBehavior,
-  hi as GoCrudPaginationBehavior,
-  ui as GoCrudSearchBehavior,
-  fi as GoCrudSortBehavior,
-  zt as InlineLocaleChips,
-  Jo as InterpolationPreview,
-  Ht as KeyboardShortcutRegistry,
-  yt as LocalDataGridStateStore,
-  he as LocaleActionChip,
-  uo as PayloadInputModal,
-  Nr as PreferencesDataGridStateStore,
-  Rl as QUEUE_CONTENT_STATE_DISPLAY,
-  Il as QUEUE_DUE_STATE_DISPLAY,
-  Bl as QUEUE_STATE_DISPLAY,
-  So as QuickFilters,
-  Ft as SchemaActionBuilder,
-  bi as ServerColumnVisibilityBehavior,
-  Ca as SideBySideEditor,
-  qt as StatusLegend,
-  qe as TranslationBlockerModal,
-  Co as TranslationPanel,
-  sa as TranslatorDashboard,
-  _o as applyFormLock,
-  ta as applyGateToElement,
-  jo as applyShortcutSettings,
-  et as buildLocaleEditUrl,
-  yi as buildSchemaRowActions,
-  fl as checkForPersistedJob,
-  ni as collapseAllGroups,
-  xa as createAsyncProgress,
-  _i as createBulkCreateMissingHandler,
-  tt as createCapabilityGate,
-  Hr as createDataGridStateStore,
-  sl as createEmptyCapabilityGate,
-  ga as createExchangeImport,
-  ji as createInlineLocaleChipsRenderer,
-  xr as createLocaleBadgeRenderer,
-  Ml as createReasonCodeCellRenderer,
-  ka as createSideBySideEditor,
-  Pl as createStatusCellRenderer,
-  xo as createStatusLegend,
-  Vi as createTranslationAutosave,
-  Wa as createTranslationMatrixRenderer,
-  Ai as createTranslationPanel,
-  $o as createTranslationQuickFilters,
-  To as createTranslationShortcuts,
-  Ge as createTranslationStatusRenderer,
-  ca as createTranslatorDashboard,
-  on as decodeExpandedGroupsToken,
-  el as detectInterpolations,
-  qo as dismissShortcutHint,
-  ai as encodeExpandedGroupsToken,
-  ko as executeBulkCreateMissing,
-  ri as expandAllGroups,
-  Zr as extractBackendSummaries,
-  Xo as extractCapabilities,
-  wl as extractExchangeError,
-  vi as extractSchemaActions,
-  Sa as extractSourceTargetDrift,
-  P as extractTranslationContext,
-  _ as extractTranslationReadiness,
-  Nt as formatShortcutDisplay,
-  xl as generateExchangeReport,
-  dt as getActionBlockDisplay,
-  Tl as getAllReasonCodes,
-  pl as getAsyncProgressStyles,
-  Ji as getAutosaveIndicatorStyles,
-  al as getCapabilityGateStyles,
-  ml as getChangedFields,
-  tl as getCharCountSeverity,
-  Gi as getDefaultShortcutRegistry,
-  Dl as getDisabledReasonDisplay,
-  dl as getExchangeImportStyles,
-  si as getExpandedGroupIds,
-  Zi as getFieldHelperStyles,
-  Mi as getFormLockReason,
-  I as getLocaleLabel,
-  Qa as getMissingTranslationsCount,
-  Mo as getModifierSymbol,
-  en as getPersistedExpandState,
-  sn as getPersistedViewMode,
-  Bo as getPrimaryModifierLabel,
-  Fl as getSeverityCssClass,
-  bl as getSideBySideEditorStyles,
-  ut as getStatusCssClass,
-  ot as getStatusDisplay,
-  ql as getStatusVocabularyStyles,
-  Ol as getStatusesForDomain,
-  ll as getTranslatorDashboardStyles,
-  Te as getViewModeForViewport,
-  Sl as groupRowResultsByStatus,
-  as as handleDelete,
-  vt as hasBackendGroupedRows,
-  $a as hasFieldDrift,
-  Ya as hasMissingTranslations,
-  Fa as hasTranslationContext,
-  Na as hasTranslationReadiness,
-  hl as initAsyncProgress,
-  il as initCapabilityGating,
-  ul as initExchangeImport,
-  Di as initFallbackBanner,
-  Qi as initFieldHelpers,
-  Yi as initFormAutosave,
-  Fi as initFormLock,
-  Oi as initInlineLocaleChips,
-  zo as initKeyboardShortcuts,
-  Ui as initKeyboardShortcutsWithDiscovery,
-  Ii as initLocaleActionChips,
-  wi as initPanelDetailActions,
-  Ci as initQuickFilters,
-  gl as initSideBySideEditorFromRecord,
-  Si as initStatusLegends,
-  cl as initTranslatorDashboard,
-  da as initTranslatorDashboardWithOptions,
-  jl as initializeVocabularyFromPayload,
-  nl as isCoreEnabled,
-  Qo as isExchangeEnabled,
-  $l as isExchangeError,
-  Bi as isFormLocked,
-  Da as isInFallbackMode,
-  fe as isMacPlatform,
-  hn as isNarrowViewport,
-  Wo as isQueueEnabled,
-  Ha as isReadyForTransition,
-  Fo as isShortcutHintDismissed,
-  zl as isValidReasonCode,
-  Nl as isValidStatus,
-  Do as loadShortcutSettings,
-  Xr as mergeBackendSummaries,
-  Hl as normalizeActionBlockCode,
-  Gl as normalizeActionState,
-  Ul as normalizeActionStateMap,
-  Vl as normalizeActionStateMeta,
-  Kl as normalizeActionStateRecord,
-  Ur as normalizeBackendGroupedRows,
-  lt as normalizeBulkActionStateConfig,
-  it as normalizeBulkActionStateMap,
-  ar as normalizeBulkActionStateResponse,
-  at as normalizeDetailActionStatePayload,
-  or as normalizeListActionStatePayload,
-  rl as parseCapabilityMode,
-  Cl as parseImportResult,
-  _t as parseViewMode,
-  ei as persistExpandState,
-  oi as persistViewMode,
-  Ro as removeFormLock,
-  Ki as renderAutosaveIndicator,
-  gr as renderAvailableLocalesIndicator,
-  Li as renderBulkResultInline,
-  Ei as renderBulkResultSummary,
-  Wi as renderCharacterCounter,
-  yo as renderDetailActions,
-  Xi as renderDirectionToggle,
-  Zo as renderDisabledReasonBadge,
-  Oo as renderDiscoveryHint,
-  Pi as renderFallbackBannerFromRecord,
-  Xa as renderFallbackWarning,
-  ol as renderGateAriaAttributes,
-  dn as renderGroupHeaderRow,
-  an as renderGroupHeaderSummary,
-  pn as renderGroupedEmptyState,
-  li as renderGroupedErrorState,
-  ii as renderGroupedLoadingState,
-  Io as renderInlineLocaleChips,
-  jt as renderLocaleActionChip,
-  Ri as renderLocaleActionList,
-  gt as renderLocaleBadge,
-  Ka as renderLocaleCompleteness,
-  Ja as renderMissingTranslationsBadge,
-  Va as renderPublishReadinessBadge,
-  ki as renderQuickFiltersHTML,
-  Ua as renderReadinessIndicator,
-  ir as renderReasonCodeBadge,
-  Jl as renderReasonCodeIndicator,
-  Hi as renderShortcutSettingsUI,
-  zi as renderShortcutsHelpContent,
-  Ga as renderStatusBadge,
-  $i as renderStatusLegendHTML,
-  ja as renderTranslationAssignmentSummary,
-  za as renderTranslationExchangeSummary,
-  qa as renderTranslationFamilyLink,
-  Oa as renderTranslationFamilyMemberCount,
-  vr as renderTranslationMatrixCell,
-  br as renderTranslationStatusCell,
-  V as renderVocabularyStatusBadge,
-  sr as renderVocabularyStatusIcon,
-  ct as resolveActionState,
-  Ni as saveShortcutSettings,
-  Ti as shouldShowFallbackBanner,
-  qi as shouldShowInlineLocaleChips,
-  xi as showTranslationBlocker,
-  ti as toggleGroupExpand,
-  Gr as transformToGroups
+  Xt as ActionRenderer,
+  Vi as AdvancedSearch,
+  Ft as AsyncProgress,
+  Bt as AutosaveIndicator,
+  cl as CORE_READINESS_DISPLAY,
+  Dt as CapabilityGate,
+  br as CellRendererRegistry,
+  Ro as CharacterCounter,
+  Vn as ColumnManager,
+  Di as CommonRenderers,
+  Oo as DEFAULT_FILTER_PRESETS,
+  Tt as DEFAULT_INTERPOLATION_PATTERNS,
+  _o as DEFAULT_SAMPLE_VALUES,
+  ue as DEFAULT_SIDE_BY_SIDE_LABELS,
+  ro as DEFAULT_STATUS_LEGEND_ITEMS,
+  kt as DEFAULT_TRANSLATION_QUICK_FILTERS,
+  dl as DISABLED_REASON_DISPLAY,
+  ge as DataGrid,
+  Vs as DefaultColumnVisibilityBehavior,
+  to as DetailActionsController,
+  Bo as DirectionToggle,
+  ul as EXCHANGE_JOB_STATUS_DISPLAY,
+  pl as EXCHANGE_ROW_STATUS_DISPLAY,
+  Qo as ExchangeImport,
+  Ee as FallbackBanner,
+  Ki as FilterBuilder,
+  Zi as GoCrudBulkActionBehavior,
+  Xi as GoCrudExportBehavior,
+  Yi as GoCrudFilterBehavior,
+  Qi as GoCrudPaginationBehavior,
+  Ji as GoCrudSearchBehavior,
+  Wi as GoCrudSortBehavior,
+  Et as InlineLocaleChips,
+  Io as InterpolationPreview,
+  _t as KeyboardShortcutRegistry,
+  st as LocalDataGridStateStore,
+  se as LocaleActionChip,
+  Ks as PayloadInputModal,
+  Ar as PreferencesDataGridStateStore,
+  hl as QUEUE_CONTENT_STATE_DISPLAY,
+  fl as QUEUE_DUE_STATE_DISPLAY,
+  ml as QUEUE_STATE_DISPLAY,
+  so as QuickFilters,
+  Ct as SchemaActionBuilder,
+  ea as ServerColumnVisibilityBehavior,
+  ii as SideBySideEditor,
+  $t as StatusLegend,
+  Ae as TranslationBlockerModal,
+  io as TranslationPanel,
+  jo as TranslatorDashboard,
+  po as applyFormLock,
+  Fo as applyGateToElement,
+  Co as applyShortcutSettings,
+  ze as buildLocaleEditUrl,
+  ta as buildSchemaRowActions,
+  Wa as checkForPersistedJob,
+  ji as collapseAllGroups,
+  ni as createAsyncProgress,
+  pa as createBulkCreateMissingHandler,
+  Ne as createCapabilityGate,
+  Er as createDataGridStateStore,
+  za as createEmptyCapabilityGate,
+  Xo as createExchangeImport,
+  Ca as createInlineLocaleChipsRenderer,
+  or as createLocaleBadgeRenderer,
+  gl as createReasonCodeCellRenderer,
+  ai as createSideBySideEditor,
+  bl as createStatusCellRenderer,
+  no as createStatusLegend,
+  _a as createTranslationAutosave,
+  Pi as createTranslationMatrixRenderer,
+  ca as createTranslationPanel,
+  oo as createTranslationQuickFilters,
+  yo as createTranslationShortcuts,
+  Ie as createTranslationStatusRenderer,
+  Ho as createTranslatorDashboard,
+  Gr as decodeExpandedGroupsToken,
+  Fa as detectInterpolations,
+  xo as dismissShortcutHint,
+  Gi as encodeExpandedGroupsToken,
+  ao as executeBulkCreateMissing,
+  Oi as expandAllGroups,
+  Fr as extractBackendSummaries,
+  To as extractCapabilities,
+  nl as extractExchangeError,
+  ra as extractSchemaActions,
+  si as extractSourceTargetDrift,
+  _ as extractTranslationContext,
+  k as extractTranslationReadiness,
+  Lt as formatShortcutDisplay,
+  sl as generateExchangeReport,
+  We as getActionBlockDisplay,
+  yl as getAllReasonCodes,
+  Ya as getAsyncProgressStyles,
+  Ia as getAutosaveIndicatorStyles,
+  Ga as getCapabilityGateStyles,
+  Xa as getChangedFields,
+  qa as getCharCountSeverity,
+  Ea as getDefaultShortcutRegistry,
+  vl as getDisabledReasonDisplay,
+  Ka as getExchangeImportStyles,
+  zi as getExpandedGroupIds,
+  Da as getFieldHelperStyles,
+  ga as getFormLockReason,
+  A as getLocaleLabel,
+  Mi as getMissingTranslationsCount,
+  go as getModifierSymbol,
+  qr as getPersistedExpandState,
+  Nr as getPersistedViewMode,
+  mo as getPrimaryModifierLabel,
+  wl as getSeverityCssClass,
+  el as getSideBySideEditorStyles,
+  Xe as getStatusCssClass,
+  Ve as getStatusDisplay,
+  xl as getStatusVocabularyStyles,
+  Sl as getStatusesForDomain,
+  Ha as getTranslatorDashboardStyles,
+  Ce as getViewModeForViewport,
+  ol as groupRowResultsByStatus,
+  Gn as handleDelete,
+  ot as hasBackendGroupedRows,
+  oi as hasFieldDrift,
+  Bi as hasMissingTranslations,
+  wi as hasTranslationContext,
+  ki as hasTranslationReadiness,
+  Qa as initAsyncProgress,
+  Ua as initCapabilityGating,
+  Ja as initExchangeImport,
+  va as initFallbackBanner,
+  Ma as initFieldHelpers,
+  Ba as initFormAutosave,
+  wa as initFormLock,
+  Sa as initInlineLocaleChips,
+  $o as initKeyboardShortcuts,
+  La as initKeyboardShortcutsWithDiscovery,
+  fa as initLocaleActionChips,
+  na as initPanelDetailActions,
+  aa as initQuickFilters,
+  Za as initSideBySideEditorFromRecord,
+  oa as initStatusLegends,
+  Va as initTranslatorDashboard,
+  Vo as initTranslatorDashboardWithOptions,
+  Cl as initializeVocabularyFromPayload,
+  ja as isCoreEnabled,
+  Mo as isExchangeEnabled,
+  il as isExchangeError,
+  ma as isFormLocked,
+  vi as isInFallbackMode,
+  oe as isMacPlatform,
+  Yr as isNarrowViewport,
+  Po as isQueueEnabled,
+  Ai as isReadyForTransition,
+  wo as isShortcutHintDismissed,
+  $l as isValidReasonCode,
+  kl as isValidStatus,
+  vo as loadShortcutSettings,
+  Dr as mergeBackendSummaries,
+  Al as normalizeActionBlockCode,
+  El as normalizeActionState,
+  Ll as normalizeActionStateMap,
+  _l as normalizeActionStateMeta,
+  Rl as normalizeActionStateRecord,
+  _r as normalizeBackendGroupedRows,
+  Ye as normalizeBulkActionStateConfig,
+  Je as normalizeBulkActionStateMap,
+  Ht as normalizeBulkActionStateResponse,
+  Ke as normalizeDetailActionStatePayload,
+  Ut as normalizeListActionStatePayload,
+  Oa as parseCapabilityMode,
+  al as parseImportResult,
+  mt as parseViewMode,
+  Fi as persistExpandState,
+  Ni as persistViewMode,
+  ho as removeFormLock,
+  Ra as renderAutosaveIndicator,
+  er as renderAvailableLocalesIndicator,
+  ua as renderBulkResultInline,
+  da as renderBulkResultSummary,
+  Pa as renderCharacterCounter,
+  eo as renderDetailActions,
+  Ta as renderDirectionToggle,
+  Do as renderDisabledReasonBadge,
+  So as renderDiscoveryHint,
+  ba as renderFallbackBannerFromRecord,
+  Ti as renderFallbackWarning,
+  Na as renderGateAriaAttributes,
+  Kr as renderGroupHeaderRow,
+  Ur as renderGroupHeaderSummary,
+  Jr as renderGroupedEmptyState,
+  Hi as renderGroupedErrorState,
+  Ui as renderGroupedLoadingState,
+  fo as renderInlineLocaleChips,
+  At as renderLocaleActionChip,
+  ha as renderLocaleActionList,
+  rt as renderLocaleBadge,
+  Ri as renderLocaleCompleteness,
+  Ii as renderMissingTranslationsBadge,
+  _i as renderPublishReadinessBadge,
+  la as renderQuickFiltersHTML,
+  Li as renderReadinessIndicator,
+  Vt as renderReasonCodeBadge,
+  Il as renderReasonCodeIndicator,
+  Aa as renderShortcutSettingsUI,
+  $a as renderShortcutsHelpContent,
+  Ei as renderStatusBadge,
+  ia as renderStatusLegendHTML,
+  Ci as renderTranslationAssignmentSummary,
+  $i as renderTranslationExchangeSummary,
+  xi as renderTranslationFamilyLink,
+  Si as renderTranslationFamilyMemberCount,
+  nr as renderTranslationMatrixCell,
+  tr as renderTranslationStatusCell,
+  j as renderVocabularyStatusBadge,
+  Gt as renderVocabularyStatusIcon,
+  Qe as resolveActionState,
+  ka as saveShortcutSettings,
+  ya as shouldShowFallbackBanner,
+  xa as shouldShowInlineLocaleChips,
+  sa as showTranslationBlocker,
+  qi as toggleGroupExpand,
+  Lr as transformToGroups
 };
 //# sourceMappingURL=index.js.map

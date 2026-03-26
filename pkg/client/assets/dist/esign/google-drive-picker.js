@@ -1,19 +1,20 @@
-import { b as r, s as g, h as m, a as b, q as T, f as F } from "../chunks/dom-helpers-CMRVXsMj.js";
-import { d as k } from "../chunks/async-helpers-D7xplkWe.js";
-import { b as y } from "../chunks/formatters-9EdySuC_.js";
-import { g as P, h as A, r as B } from "../chunks/lineage-contracts-CFbDklQS.js";
-const I = "esign.google.account_id", x = {
+import { b as r, s as g, h as u, a as b, q as k, f as S } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { d as P } from "../chunks/async-helpers-D7xplkWe.js";
+import { b as L } from "../chunks/formatters-9EdySuC_.js";
+import { escapeHTML as I } from "../shared/html.js";
+import { g as A, h as B, r as M } from "../chunks/lineage-contracts-CFbDklQS.js";
+const y = "esign.google.account_id", x = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
   "application/vnd.google-apps.presentation": "slide",
   "application/pdf": "pdf",
   default: "file"
-}, L = [
+}, F = [
   "application/vnd.google-apps.document",
   "application/pdf"
 ];
-class S {
+class T {
   constructor(e) {
     this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       searchInput: r("#drive-search"),
@@ -69,8 +70,8 @@ class S {
       clearSearchBtn: t,
       refreshBtn: i,
       loadMoreBtn: n,
-      importBtn: s,
-      clearSelectionBtn: o,
+      importBtn: o,
+      clearSelectionBtn: s,
       importCancelBtn: c,
       importConfirmBtn: h,
       importForm: a,
@@ -79,12 +80,12 @@ class S {
       viewGridBtn: f
     } = this.elements;
     if (e) {
-      const p = k(() => this.handleSearch(), 300);
+      const p = P(() => this.handleSearch(), 300);
       e.addEventListener("input", p), e.addEventListener("keydown", (v) => {
         v.key === "Enter" && (v.preventDefault(), this.handleSearch());
       });
     }
-    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), s && s.addEventListener("click", () => this.showImportModal()), o && o.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (p) => {
+    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), o && o.addEventListener("click", () => this.showImportModal()), s && s.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (p) => {
       p.preventDefault(), this.handleImport();
     }), l && l.addEventListener("click", (p) => {
       const v = p.target;
@@ -105,7 +106,7 @@ class S {
     if (i) return i;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(I)
+        window.localStorage.getItem(y)
       );
     } catch {
       return "";
@@ -123,7 +124,7 @@ class S {
   updateScopedUI() {
     this.syncScopedURLState();
     const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : m(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : u(e)), t) {
       const i = t.dataset.baseHref || t.getAttribute("href");
       i && t.setAttribute("href", this.applyAccountIdToPath(i));
     }
@@ -135,7 +136,7 @@ class S {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(I, this.currentAccountId) : window.localStorage.removeItem(I);
+      this.currentAccountId ? window.localStorage.setItem(y, this.currentAccountId) : window.localStorage.removeItem(y);
     } catch {
     }
   }
@@ -167,15 +168,15 @@ class S {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), i = String(e.name || e.Name || "").trim(), n = String(e.mimeType || e.MimeType || "").trim(), s = String(e.modifiedTime || e.ModifiedTime || "").trim(), o = String(
+    const t = String(e.id || e.ID || "").trim(), i = String(e.name || e.Name || "").trim(), n = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), s = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
     ).trim(), c = String(e.parentId || e.ParentID || "").trim(), h = String(e.ownerEmail || e.OwnerEmail || "").trim(), a = Array.isArray(e.parents) ? e.parents : c ? [c] : [], l = Array.isArray(e.owners) ? e.owners : h ? [{ emailAddress: h }] : [];
     return {
       id: t,
       name: i,
       mimeType: n,
-      modifiedTime: s,
-      webViewLink: o,
+      modifiedTime: o,
+      webViewLink: s,
       parents: a,
       owners: l,
       size: e.size,
@@ -193,26 +194,26 @@ class S {
     e || (this.currentFiles = [], this.nextPageToken = null, t && g(t));
     try {
       const n = this.currentFolderPath[this.currentFolderPath.length - 1];
-      let s;
-      this.searchQuery ? s = this.buildScopedAPIURL(
+      let o;
+      this.searchQuery ? o = this.buildScopedAPIURL(
         `/esign/integrations/google/files?q=${encodeURIComponent(this.searchQuery)}`
-      ) : s = this.buildScopedAPIURL(
+      ) : o = this.buildScopedAPIURL(
         `/esign/integrations/google/files?folder_id=${encodeURIComponent(n.id)}`
-      ), this.nextPageToken && (s += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
-      const o = await fetch(s, {
+      ), this.nextPageToken && (o += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
+      const s = await fetch(o, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!o.ok)
-        throw new Error(`Failed to load files: ${o.status}`);
-      const c = await o.json(), h = Array.isArray(c.files) ? c.files.map((a) => this.normalizeDriveFile(a)) : [];
+      if (!s.ok)
+        throw new Error(`Failed to load files: ${s.status}`);
+      const c = await s.json(), h = Array.isArray(c.files) ? c.files.map((a) => this.normalizeDriveFile(a)) : [];
       e ? this.currentFiles = [...this.currentFiles, ...h] : this.currentFiles = h, this.nextPageToken = c.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), b(
         this.searchQuery ? `Found ${this.currentFiles.length} files` : `Loaded ${this.currentFiles.length} files`
       );
     } catch (n) {
       console.error("Error loading files:", n), this.renderError(n instanceof Error ? n.message : "Failed to load files"), b("Error loading files");
     } finally {
-      this.isLoading = !1, t && m(t);
+      this.isLoading = !1, t && u(t);
     }
   }
   /**
@@ -221,7 +222,7 @@ class S {
   renderFiles() {
     const { fileList: e, loadingState: t } = this.elements;
     if (!e) return;
-    if (t && m(t), this.currentFiles.length === 0) {
+    if (t && u(t), this.currentFiles.length === 0) {
       e.innerHTML = `
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -246,25 +247,25 @@ class S {
    * Render a single file item
    */
   renderFileItem(e) {
-    const t = e.mimeType === "application/vnd.google-apps.folder", i = L.includes(e.mimeType), n = this.selectedFile?.id === e.id, s = x[e.mimeType] || x.default, o = this.getFileIcon(s);
+    const t = e.mimeType === "application/vnd.google-apps.folder", i = F.includes(e.mimeType), n = this.selectedFile?.id === e.id, o = x[e.mimeType] || x.default, s = this.getFileIcon(o);
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${n ? "bg-blue-50 border-l-2 border-blue-500" : ""}"
-        data-file-id="${this.escapeHtml(e.id)}"
+        data-file-id="${I(e.id)}"
         data-is-folder="${t}"
         role="option"
         aria-selected="${n}"
         tabindex="0"
       >
         <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
-          ${o}
+          ${s}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
-            ${this.escapeHtml(e.name)}
+            ${I(e.name)}
           </p>
           <p class="text-xs text-gray-500">
-            ${y(e.modifiedTime)}
+            ${L(e.modifiedTime)}
           </p>
         </div>
         ${i ? '<span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">Importable</span>' : ""}
@@ -291,8 +292,8 @@ class S {
   handleFileListClick(e) {
     const i = e.target.closest(".file-item");
     if (!i) return;
-    const n = i.dataset.fileId, s = i.dataset.isFolder === "true";
-    n && (s ? this.navigateToFolder(n) : this.selectFile(n));
+    const n = i.dataset.fileId, o = i.dataset.isFolder === "true";
+    n && (o ? this.navigateToFolder(n) : this.selectFile(n));
   }
   /**
    * Navigate into a folder
@@ -323,20 +324,20 @@ class S {
       filePreview: t,
       previewIcon: i,
       previewTitle: n,
-      previewType: s,
-      previewFileId: o,
+      previewType: o,
+      previewFileId: s,
       previewOwner: c,
       previewModified: h,
       importBtn: a,
       openInGoogleBtn: l
     } = this.elements;
     if (!this.selectedFile) {
-      e && g(e), t && m(t);
+      e && g(e), t && u(t);
       return;
     }
-    e && m(e), t && g(t);
-    const d = this.selectedFile, f = L.includes(d.mimeType);
-    n && (n.textContent = d.name), s && (s.textContent = this.getMimeTypeLabel(d.mimeType)), o && (o.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = y(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
+    e && u(e), t && g(t);
+    const d = this.selectedFile, f = F.includes(d.mimeType);
+    n && (n.textContent = d.name), o && (o.textContent = this.getMimeTypeLabel(d.mimeType)), s && (s.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = L(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
   }
   /**
    * Get human-readable mime type label
@@ -357,7 +358,7 @@ class S {
     const { breadcrumb: e, listTitle: t } = this.elements;
     if (!e) return;
     if (this.searchQuery) {
-      m(e), t && (t.textContent = "Search Results");
+      u(e), t && (t.textContent = "Search Results");
       return;
     }
     g(e);
@@ -365,23 +366,23 @@ class S {
     t && (t.textContent = i.name);
     const n = e.querySelector("ol");
     n && (n.innerHTML = this.currentFolderPath.map(
-      (s, o) => `
+      (o, s) => `
         <li class="flex items-center">
-          ${o > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
+          ${s > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
           <button
             type="button"
-            data-folder-id="${this.escapeHtml(s.id)}"
-            data-folder-index="${o}"
+            data-folder-id="${I(o.id)}"
+            data-folder-index="${s}"
             class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ${this.escapeHtml(s.name)}
+            ${I(o.name)}
           </button>
         </li>
       `
-    ).join(""), T(".breadcrumb-item", n).forEach((s) => {
-      s.addEventListener("click", () => {
-        const o = parseInt(s.dataset.folderIndex || "0", 10);
-        this.navigateToBreadcrumb(o);
+    ).join(""), k(".breadcrumb-item", n).forEach((o) => {
+      o.addEventListener("click", () => {
+        const s = parseInt(o.dataset.folderIndex || "0", 10);
+        this.navigateToBreadcrumb(s);
       });
     }));
   }
@@ -403,7 +404,7 @@ class S {
    */
   updatePagination() {
     const { pagination: e, loadMoreBtn: t } = this.elements;
-    e && (this.nextPageToken ? g(e) : m(e));
+    e && (this.nextPageToken ? g(e) : u(e));
   }
   /**
    * Handle search
@@ -412,14 +413,14 @@ class S {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
     if (!e) return;
     const i = e.value.trim();
-    this.searchQuery = i, t && (i ? g(t) : m(t)), this.clearSelection(), this.loadFiles();
+    this.searchQuery = i, t && (i ? g(t) : u(t)), this.clearSelection(), this.loadFiles();
   }
   /**
    * Clear search
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && m(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
+    e && (e.value = ""), t && u(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
   }
   /**
    * Refresh file list
@@ -447,8 +448,8 @@ class S {
     if (!this.selectedFile) return;
     const { importModal: e, importGoogleFileId: t, importDocumentTitle: i, importAgreementTitle: n } = this.elements;
     if (t && (t.value = this.selectedFile.id), i) {
-      const s = this.selectedFile.name.replace(/\.[^/.]+$/, "");
-      i.value = s;
+      const o = this.selectedFile.name.replace(/\.[^/.]+$/, "");
+      i.value = o;
     }
     n && (n.value = ""), e && g(e);
   }
@@ -457,7 +458,7 @@ class S {
    */
   hideImportModal() {
     const { importModal: e } = this.elements;
-    e && m(e);
+    e && u(e);
   }
   /**
    * Handle import form submission
@@ -469,8 +470,8 @@ class S {
       importSpinner: t,
       importBtnText: i,
       importDocumentTitle: n,
-      importAgreementTitle: s
-    } = this.elements, o = this.selectedFile.id, c = n?.value.trim() || this.selectedFile.name, h = s?.value.trim() || "";
+      importAgreementTitle: o
+    } = this.elements, s = this.selectedFile.id, c = n?.value.trim() || this.selectedFile.name, h = o?.value.trim() || "";
     e && e.setAttribute("disabled", "true"), t && g(t), i && (i.textContent = "Importing...");
     try {
       const a = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
@@ -481,7 +482,7 @@ class S {
           Accept: "application/json"
         },
         body: JSON.stringify({
-          google_file_id: o,
+          google_file_id: s,
           document_title: c,
           agreement_title: h || void 0
         })
@@ -490,9 +491,9 @@ class S {
         const p = await a.json();
         throw new Error(p.error?.message || "Import failed");
       }
-      const l = await a.json(), d = P(l), f = A(l);
+      const l = await a.json(), d = A(l), f = B(l);
       if (this.showToast("Import started successfully", "success"), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
-        window.location.href = B(f, {
+        window.location.href = M(f, {
           agreements: this.config.pickerRoutes.agreements,
           documents: this.config.pickerRoutes.documents,
           fallback: this.config.pickerRoutes.documents
@@ -506,7 +507,7 @@ class S {
       const l = a instanceof Error ? a.message : "Import failed";
       this.showToast(l, "error"), b(`Error: ${l}`);
     } finally {
-      e && e.removeAttribute("disabled"), t && m(t), i && (i.textContent = "Import");
+      e && e.removeAttribute("disabled"), t && u(t), i && (i.textContent = "Import");
     }
   }
   /**
@@ -522,7 +523,7 @@ class S {
           </svg>
         </div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Files</h3>
-        <p class="text-sm text-gray-500 mb-4">${this.escapeHtml(e)}</p>
+        <p class="text-sm text-gray-500 mb-4">${I(e)}</p>
         <button type="button" class="btn btn-secondary" onclick="location.reload()">
           Try Again
         </button>
@@ -550,29 +551,25 @@ class S {
   /**
    * Escape HTML
    */
-  escapeHtml(e) {
-    const t = document.createElement("div");
-    return t.textContent = e, t.innerHTML;
-  }
 }
-function R(u) {
-  const e = new S(u);
-  return F(() => e.init()), e;
+function V(m) {
+  const e = new T(m);
+  return S(() => e.init()), e;
 }
-function H(u) {
+function _(m) {
   const e = {
-    basePath: u.basePath,
-    apiBasePath: u.apiBasePath || `${u.basePath}/api`,
-    userId: u.userId,
-    googleAccountId: u.googleAccountId,
-    googleConnected: u.googleConnected !== !1,
-    pickerRoutes: u.pickerRoutes
-  }, t = new S(e);
-  F(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+    basePath: m.basePath,
+    apiBasePath: m.apiBasePath || `${m.basePath}/api`,
+    userId: m.userId,
+    googleAccountId: m.googleAccountId,
+    googleConnected: m.googleConnected !== !1,
+    pickerRoutes: m.pickerRoutes
+  }, t = new T(e);
+  S(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
 export {
-  S as GoogleDrivePickerController,
-  H as bootstrapGoogleDrivePicker,
-  R as initGoogleDrivePicker
+  T as GoogleDrivePickerController,
+  _ as bootstrapGoogleDrivePicker,
+  V as initGoogleDrivePicker
 };
 //# sourceMappingURL=google-drive-picker.js.map

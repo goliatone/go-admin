@@ -4,6 +4,7 @@
  */
 
 import type { SearchResult, ResultRenderer, EntityRendererConfig } from '../types.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 const DEFAULT_CONFIG: EntityRendererConfig = {
   showDescription: true,
@@ -48,7 +49,7 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
     const metadataPillsHtml = this.renderMetadataPills(metadata);
     const descriptionHtml =
       this.config.showDescription && result.description
-        ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${this.escapeHtml(result.description)}</p>`
+        ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${escapeHtml(result.description)}</p>`
         : '';
 
     return `
@@ -57,7 +58,7 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
           ${iconHtml}
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(result.label)}</p>
+              <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(result.label)}</p>
               ${badgeHtml}
             </div>
             ${descriptionHtml}
@@ -72,10 +73,10 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
     if (icon) {
       // Check if it's a URL
       if (icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('data:')) {
-        return `<img src="${this.escapeHtml(icon)}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />`;
+        return `<img src="${escapeHtml(icon)}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />`;
       }
       // Otherwise it's an emoji or icon class
-      return `<span class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">${this.escapeHtml(icon)}</span>`;
+      return `<span class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">${escapeHtml(icon)}</span>`;
     }
 
     // Generate placeholder with first letter
@@ -84,7 +85,7 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
 
     return `
       <div class="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold" style="background-color: ${bgColor}">
-        ${this.escapeHtml(initial)}
+        ${escapeHtml(initial)}
       </div>
     `;
   }
@@ -93,7 +94,7 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
     const colorClass =
       this.config.badgeColors?.[value.toLowerCase()] || this.config.badgeColors?.default || 'bg-gray-100 text-gray-600';
 
-    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${this.escapeHtml(value)}</span>`;
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${escapeHtml(value)}</span>`;
   }
 
   protected renderMetadataPills(metadata: Record<string, unknown>): string {
@@ -109,7 +110,7 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
         // Format field name for display
         const fieldLabel = field.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
 
-        return `<span class="text-xs text-gray-400">${this.escapeHtml(fieldLabel)}: <span class="text-gray-600">${this.escapeHtml(value)}</span></span>`;
+        return `<span class="text-xs text-gray-400">${escapeHtml(fieldLabel)}: <span class="text-gray-600">${escapeHtml(value)}</span></span>`;
       })
       .filter(Boolean);
 
@@ -142,11 +143,5 @@ export class EntityRenderer<T = unknown> implements ResultRenderer<T> {
     const value = metadata[field];
     if (value === undefined || value === null) return undefined;
     return String(value);
-  }
-
-  protected escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }

@@ -2,6 +2,7 @@ import type { AgreementTitleSourceShape } from './bootstrap-config';
 import type { AgreementDocumentOption, DocumentSummary, DocumentTypeaheadState, DocumentPreviewState } from './contracts';
 import type { DocumentPreviewCard } from './preview-card';
 import { normalizeDocumentOption, parsePositiveInt } from './normalization';
+import { escapeHTML as escapeHtml } from '../../../shared/html.js';
 
 declare global {
   interface Window {
@@ -76,11 +77,6 @@ function elementById<T extends HTMLElement>(id: string): T | null {
   return element instanceof HTMLElement ? element as T : null;
 }
 
-function escapeHtml(text: unknown): string {
-  const div = document.createElement('div');
-  div.textContent = String(text ?? '');
-  return div.innerHTML;
-}
 
 function isDocumentSelectionError(error: unknown): error is { message?: unknown; code?: unknown; status?: unknown; name?: unknown } {
   return typeof error === 'object' && error !== null;

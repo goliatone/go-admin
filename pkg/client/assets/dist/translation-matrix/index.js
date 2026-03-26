@@ -1,5 +1,5 @@
 import { d as $ } from "../chunks/index-YiVxcMWC.js";
-import { e as g, a as m } from "../chunks/html-Br-oQr7i.js";
+import { escapeAttribute as g, escapeHTML as m } from "../shared/html.js";
 import { r as M } from "../chunks/http-client-DZnuedzQ.js";
 import { extractStructuredError as R } from "../toast/error-helpers.js";
 import { E as C, i as I, j as L, H, h as U, a as Q, L as X, k as Y, l as K, m as W, q as G, x as v, D as V, F as J, J as Z, K as ee, N as te, O as ae, f as re, p as se } from "../chunks/style-constants-i2xRoO1L.js";

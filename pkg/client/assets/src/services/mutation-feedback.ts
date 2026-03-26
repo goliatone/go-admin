@@ -12,6 +12,7 @@
 import type { ToastNotifier, ConfirmOptions } from '../toast/types.js';
 import { ConfirmModal } from '../shared/modal.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Types
@@ -518,9 +519,4 @@ export class ActionQueue {
 // Helper Functions
 // =============================================================================
 
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 

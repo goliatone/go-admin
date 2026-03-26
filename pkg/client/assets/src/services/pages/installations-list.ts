@@ -32,6 +32,7 @@ import {
 } from '../mutation-feedback.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // =============================================================================
 // Types
@@ -439,9 +440,9 @@ export class InstallationsListManager {
     const actions = this.buildRowActions(installation);
 
     return `
-      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${this.escapeHtml(installation.id)}">
+      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${escapeHtml(installation.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${this.escapeHtml(providerName)}</span>
+          <span class="font-medium text-gray-900">${escapeHtml(providerName)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${installType.bg} ${installType.text}">
@@ -452,10 +453,10 @@ export class InstallationsListManager {
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             installation.scope_type === 'user' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
           }">
-            ${this.escapeHtml(installation.scope_type)}
+            ${escapeHtml(installation.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${this.escapeHtml(installation.scope_id)}">
-            ${this.escapeHtml(this.truncateId(installation.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${escapeHtml(installation.scope_id)}">
+            ${escapeHtml(this.truncateId(installation.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -649,7 +650,7 @@ export class InstallationsListManager {
         const displayName = this.config.getProviderName
           ? this.config.getProviderName(provider.id)
           : this.formatProviderId(provider.id);
-        return `<option value="${this.escapeHtml(provider.id)}">${this.escapeHtml(displayName)}</option>`;
+        return `<option value="${escapeHtml(provider.id)}">${escapeHtml(displayName)}</option>`;
       })
       .join('');
 
@@ -711,12 +712,6 @@ export class InstallationsListManager {
     if (diffDays < 7) return `${diffDays}d ago`;
 
     return date.toLocaleDateString();
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 }
 

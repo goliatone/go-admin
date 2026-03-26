@@ -7,6 +7,7 @@ import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js'
 import { debounce } from '../utils/async-helpers.js';
 import { formatFileSize, formatDateTime } from '../utils/formatters.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
@@ -1228,7 +1229,7 @@ export class DocumentFormController {
               </svg>
             </div>
             <p class="text-sm text-gray-900 font-medium">Failed to load files</p>
-            <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(error instanceof Error ? error.message : 'Unknown error')}</p>
+            <p class="text-xs text-gray-500 mt-1">${escapeHtml(error instanceof Error ? error.message : 'Unknown error')}</p>
             <button type="button" onclick="location.reload()" class="mt-3 text-sm text-blue-600 hover:text-blue-800">Try Again</button>
           </div>
         `;
@@ -1279,7 +1280,7 @@ export class DocumentFormController {
             ${icon.html}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-gray-900 truncate">${this.escapeHtml(file.name || 'Untitled')}</p>
+            <p class="font-medium text-gray-900 truncate">${escapeHtml(file.name || 'Untitled')}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(file.mimeType)}
               ${file.modifiedTime ? ' \u2022 ' + formatDateTime(file.modifiedTime) : ''}
@@ -1355,7 +1356,7 @@ export class DocumentFormController {
           <li class="flex items-center">
             ${index > 0 ? '<svg class="w-4 h-4 text-gray-400 mx-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' : ''}
             <button type="button" data-folder-index="${index}" class="breadcrumb-item ${isLast ? 'text-gray-900 font-medium cursor-default' : 'text-blue-600 hover:text-blue-800 hover:underline'}">
-              ${this.escapeHtml(folder.name)}
+              ${escapeHtml(folder.name)}
             </button>
           </li>
         `;
@@ -1791,11 +1792,6 @@ export class DocumentFormController {
   /**
    * Escape HTML
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 }
 
 /**

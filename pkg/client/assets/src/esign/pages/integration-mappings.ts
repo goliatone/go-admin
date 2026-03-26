@@ -5,6 +5,7 @@
 
 import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
  * Configuration for the integration mappings page
@@ -358,11 +359,6 @@ export class IntegrationMappingsController {
   /**
    * Escape HTML for safe rendering
    */
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
 
   /**
    * Format date string
@@ -439,7 +435,7 @@ export class IntegrationMappingsController {
     const providers = [...new Set(this.mappings.map((m) => m.provider).filter(Boolean))];
     filterProvider.innerHTML =
       '<option value="">All Providers</option>' +
-      providers.map((p) => `<option value="${this.escapeHtml(p)}">${this.escapeHtml(p)}</option>`).join('');
+      providers.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
   }
 
   /**
@@ -472,31 +468,31 @@ export class IntegrationMappingsController {
         (m) => `
       <tr class="hover:bg-gray-50">
         <td class="px-6 py-4">
-          <div class="font-medium text-gray-900">${this.escapeHtml(m.name)}</div>
-          <div class="text-xs text-gray-500">${this.escapeHtml(m.compiled_hash ? m.compiled_hash.slice(0, 12) + '...' : '')}</div>
+          <div class="font-medium text-gray-900">${escapeHtml(m.name)}</div>
+          <div class="text-xs text-gray-500">${escapeHtml(m.compiled_hash ? m.compiled_hash.slice(0, 12) + '...' : '')}</div>
         </td>
-        <td class="px-6 py-4 text-sm text-gray-700">${this.escapeHtml(m.provider)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">${escapeHtml(m.provider)}</td>
         <td class="px-6 py-4">${this.getStatusBadge(m.status)}</td>
         <td class="px-6 py-4 text-sm text-gray-700">v${m.version || 1}</td>
         <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(m.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${this.escapeHtml(m.id)}" aria-label="Preview ${this.escapeHtml(m.name)}">
+            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Preview ${escapeHtml(m.name)}">
               Preview
             </button>
-            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${this.escapeHtml(m.id)}" aria-label="Edit ${this.escapeHtml(m.name)}">
+            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Edit ${escapeHtml(m.name)}">
               Edit
             </button>
             ${
               m.status === 'draft'
                 ? `
-              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${this.escapeHtml(m.id)}" aria-label="Publish ${this.escapeHtml(m.name)}">
+              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Publish ${escapeHtml(m.name)}">
                 Publish
               </button>
             `
                 : ''
             }
-            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${this.escapeHtml(m.id)}" aria-label="Delete ${this.escapeHtml(m.name)}">
+            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Delete ${escapeHtml(m.name)}">
               Delete
             </button>
           </div>
@@ -543,8 +539,8 @@ export class IntegrationMappingsController {
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg schema-field-row';
     row.innerHTML = `
-      <input type="text" placeholder="object" value="${this.escapeHtml(field.object || '')}" class="field-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
-      <input type="text" placeholder="field" value="${this.escapeHtml(field.field || '')}" class="field-name flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <input type="text" placeholder="object" value="${escapeHtml(field.object || '')}" class="field-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+      <input type="text" placeholder="field" value="${escapeHtml(field.field || '')}" class="field-name flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
       <select class="field-type px-2 py-1 border border-gray-300 rounded text-sm">
         <option value="string" ${field.type === 'string' ? 'selected' : ''}>string</option>
         <option value="number" ${field.type === 'number' ? 'selected' : ''}>number</option>
@@ -571,8 +567,8 @@ export class IntegrationMappingsController {
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg mapping-rule-row';
     row.innerHTML = `
-      <input type="text" placeholder="source_object" value="${this.escapeHtml(rule.source_object || '')}" class="rule-source-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
-      <input type="text" placeholder="source_field" value="${this.escapeHtml(rule.source_field || '')}" class="rule-source-field flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <input type="text" placeholder="source_object" value="${escapeHtml(rule.source_object || '')}" class="rule-source-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+      <input type="text" placeholder="source_field" value="${escapeHtml(rule.source_field || '')}" class="rule-source-field flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
       <span class="text-gray-400">→</span>
       <select class="rule-target-entity px-2 py-1 border border-gray-300 rounded text-sm">
         <option value="participant" ${rule.target_entity === 'participant' ? 'selected' : ''}>participant</option>
@@ -580,7 +576,7 @@ export class IntegrationMappingsController {
         <option value="field_definition" ${rule.target_entity === 'field_definition' ? 'selected' : ''}>field_definition</option>
         <option value="field_instance" ${rule.target_entity === 'field_instance' ? 'selected' : ''}>field_instance</option>
       </select>
-      <input type="text" placeholder="target_path" value="${this.escapeHtml(rule.target_path || '')}" class="rule-target-path flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <input type="text" placeholder="target_path" value="${escapeHtml(rule.target_path || '')}" class="rule-target-path flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
       <button type="button" class="remove-rule-btn text-red-500 hover:text-red-600" aria-label="Remove rule">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -849,7 +845,7 @@ export class IntegrationMappingsController {
               </svg>
               <div>
                 <p class="font-medium">Validation Passed</p>
-                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${this.escapeHtml((result.mapping?.compiled_hash || '').slice(0, 16))}</code></p>
+                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${escapeHtml((result.mapping?.compiled_hash || '').slice(0, 16))}</code></p>
               </div>
             </div>
           `;
@@ -866,7 +862,7 @@ export class IntegrationMappingsController {
               </svg>
               <div>
                 <p class="font-medium">Validation Failed</p>
-                <ul class="text-sm mt-1 list-disc list-inside">${errors.map((e: string) => `<li>${this.escapeHtml(e)}</li>`).join('')}</ul>
+                <ul class="text-sm mt-1 list-disc list-inside">${errors.map((e: string) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
               </div>
             </div>
           `;
@@ -879,7 +875,7 @@ export class IntegrationMappingsController {
     } catch (error) {
       console.error('Validation error:', error);
       if (formValidationStatus) {
-        formValidationStatus.innerHTML = `<div class="text-red-600">Error: ${this.escapeHtml(error instanceof Error ? error.message : 'Unknown error')}</div>`;
+        formValidationStatus.innerHTML = `<div class="text-red-600">Error: ${escapeHtml(error instanceof Error ? error.message : 'Unknown error')}</div>`;
         show(formValidationStatus);
       }
     } finally {
@@ -1103,13 +1099,13 @@ export class IntegrationMappingsController {
       .map(
         (rule) => `
       <tr>
-        <td class="px-3 py-2 font-mono text-xs">${this.escapeHtml(rule.source_object ? rule.source_object + '.' : '')}${this.escapeHtml(rule.source_field)}</td>
+        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(rule.source_object ? rule.source_object + '.' : '')}${escapeHtml(rule.source_field)}</td>
         <td class="px-3 py-2 text-center text-gray-400">→</td>
         <td class="px-3 py-2">
-          <span class="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">${this.escapeHtml(rule.target_entity)}</span>
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">${escapeHtml(rule.target_entity)}</span>
         </td>
-        <td class="px-3 py-2 font-mono text-xs">${this.escapeHtml(rule.target_path)}</td>
-        <td class="px-3 py-2" data-rule-source="${this.escapeHtml(rule.source_field)}">
+        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(rule.target_path)}</td>
+        <td class="px-3 py-2" data-rule-source="${escapeHtml(rule.source_field)}">
           <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Pending</span>
         </td>
       </tr>
@@ -1331,14 +1327,14 @@ export class IntegrationMappingsController {
             (p) => `
           <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
             <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
-              ${this.escapeHtml(String(p.name || p.email || '?').charAt(0).toUpperCase())}
+              ${escapeHtml(String(p.name || p.email || '?').charAt(0).toUpperCase())}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(String(p.name || '-'))}</p>
-              <p class="text-xs text-gray-500 truncate">${this.escapeHtml(String(p.email || '-'))}</p>
+              <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(String(p.name || '-'))}</p>
+              <p class="text-xs text-gray-500 truncate">${escapeHtml(String(p.email || '-'))}</p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${this.escapeHtml(String(p.role))}</span>
+              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${escapeHtml(String(p.role))}</span>
               <span class="text-xs text-gray-500">Stage ${p.signing_stage}</span>
             </div>
           </div>
@@ -1360,9 +1356,9 @@ export class IntegrationMappingsController {
           .map(
             (f) => `
           <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
-            <span class="font-mono text-xs text-gray-600">${this.escapeHtml(f.path)}</span>
+            <span class="font-mono text-xs text-gray-600">${escapeHtml(f.path)}</span>
             <span class="text-gray-400">=</span>
-            <span class="text-gray-900">${this.escapeHtml(String(f.value))}</span>
+            <span class="text-gray-900">${escapeHtml(String(f.value))}</span>
           </div>
         `
           )
@@ -1382,8 +1378,8 @@ export class IntegrationMappingsController {
           .map(
             ([key, value]) => `
           <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-600">${this.escapeHtml(key)}:</span>
-            <span class="text-gray-900">${this.escapeHtml(String(value))}</span>
+            <span class="text-gray-600">${escapeHtml(key)}:</span>
+            <span class="text-gray-900">${escapeHtml(String(value))}</span>
           </div>
         `
           )
@@ -1398,7 +1394,7 @@ export class IntegrationMappingsController {
 
     // Update rule status indicators
     (result.matched_rules || []).forEach((rule) => {
-      const cell = previewRulesTbody?.querySelector(`[data-rule-source="${this.escapeHtml(rule.source)}"] span`);
+      const cell = previewRulesTbody?.querySelector(`[data-rule-source="${escapeHtml(rule.source)}"] span`);
       if (cell) {
         if (rule.matched) {
           cell.className = 'px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700';

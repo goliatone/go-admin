@@ -17,6 +17,8 @@ import type {
   ExchangeImportResult,
 } from '../toast/error-helpers.js';
 import { renderVocabularyStatusBadge, getStatusCssClass } from './translation-status-vocabulary.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
 
 // ============================================================================
 // Types
@@ -843,21 +845,7 @@ export class ExchangeImport {
 // Helper Functions
 // ============================================================================
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 // Local getStatusClass removed - now using shared getStatusCssClass from translation-status-vocabulary.ts (TX-053)
 
