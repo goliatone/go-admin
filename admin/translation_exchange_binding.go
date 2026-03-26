@@ -1725,7 +1725,7 @@ func translationExchangeAuthCookieName(cfg auth.Config) string {
 	if cfg == nil {
 		return ""
 	}
-	for _, part := range strings.Split(cfg.GetTokenLookup(), ",") {
+	for part := range strings.SplitSeq(cfg.GetTokenLookup(), ",") {
 		part = strings.TrimSpace(part)
 		if after, ok := strings.CutPrefix(part, "cookie:"); ok {
 			return strings.TrimSpace(after)
