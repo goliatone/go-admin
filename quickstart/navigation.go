@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -56,7 +55,10 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 
 	logf := opts.Logf
 	if logf == nil && !opts.SkipLogger {
-		logf = log.Printf
+		logger := resolveQuickstartNamedLogger("quickstart.navigation", nil, nil)
+		logf = func(format string, args ...any) {
+			ensureQuickstartLogger(logger).Info(fmt.Sprintf(format, args...))
+		}
 	}
 
 	locale := strings.TrimSpace(opts.Locale)
