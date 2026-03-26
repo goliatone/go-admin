@@ -226,16 +226,23 @@ func (r *TranslationExchangeRuntime) heartbeatLoop(ctx context.Context, jobID st
 	}
 }
 
+func (r *TranslationExchangeRuntime) failJob(ctx context.Context, jobID string, failure error) {
+	if r == nil || r.store == nil {
+		return
+	}
+	_, _ = r.store.FailJob(ctx, jobID, r.workerID, map[string]any{"failed": 1}, failure, time.Now().UTC())
+}
+
 func (r *TranslationExchangeRuntime) executeExportJob(ctx context.Context, job translationExchangeAsyncJob, progressMu *sync.Mutex, currentProgress *map[string]any) {
 	exporter, _, _ := r.handlers()
 	if r == nil || exporter == nil {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, errors.New("translation exchange exporter not configured"), time.Now().UTC())
+		r.failJob(ctx, job.ID, errors.New("translation exchange exporter not configured"))
 		return
 	}
 	input := translationExchangeExportInputFromRequest(job.Request)
 	result, err := exporter.Export(ctx, input)
 	if err != nil {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, err, time.Now().UTC())
+		r.failJob(ctx, job.ID, err)
 		return
 	}
 	responsePayload := translationExchangeExportResultPayload(result)
@@ -255,12 +262,12 @@ func (r *TranslationExchangeRuntime) executeExportJob(ctx context.Context, job t
 func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job translationExchangeAsyncJob, progressMu *sync.Mutex, currentProgress *map[string]any) {
 	_, applier, applyService := r.handlers()
 	if r == nil || (applyService == nil && applier == nil) {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, errors.New("translation exchange apply service not configured"), time.Now().UTC())
+		r.failJob(ctx, job.ID, errors.New("translation exchange apply service not configured"))
 		return
 	}
 	rows, err := r.store.ListJobRows(ctx, job.ID)
 	if err != nil {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, err, time.Now().UTC())
+		r.failJob(ctx, job.ID, err)
 		return
 	}
 	if applyService == nil {
@@ -284,7 +291,7 @@ func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job tr
 		}
 		outcome, applyErr := applyService.applyImportRow(ctx, input, stored.Input, stored.RowIndex, seen, resolutions)
 		if applyErr != nil {
-			_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, applyErr, time.Now().UTC())
+			r.failJob(ctx, job.ID, applyErr)
 			return
 		}
 		stored.Result = &outcome.RowResult
@@ -340,13 +347,13 @@ func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job tr
 
 func (r *TranslationExchangeRuntime) executeApplyJobWithExecutor(ctx context.Context, job translationExchangeAsyncJob, rows []translationExchangeStoredRow, applier TranslationExchangeApplier, progressMu *sync.Mutex, currentProgress *map[string]any) {
 	if applier == nil {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, errors.New("translation exchange apply service not configured"), time.Now().UTC())
+		r.failJob(ctx, job.ID, errors.New("translation exchange apply service not configured"))
 		return
 	}
 	input := translationExchangeApplyInputFromRequest(job.Request, rows)
 	result, err := applier.ApplyImport(ctx, input)
 	if err != nil {
-		_, _ = r.store.FailJob(ctx, job.ID, r.workerID, map[string]any{"failed": 1}, err, time.Now().UTC())
+		r.failJob(ctx, job.ID, err)
 		return
 	}
 	resultsByIndex := map[int]TranslationExchangeRowResult{}
