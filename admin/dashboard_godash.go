@@ -26,6 +26,8 @@ func (d *Dashboard) setComponents(comp *dashboardComponents) {
 	if d == nil {
 		return
 	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.components = comp
 }
 
@@ -116,14 +118,35 @@ func (a *Admin) dashboardRenderer() dashcmp.Renderer {
 }
 
 func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
+	if d == nil {
+		return dashcmp.NewRegistry(), map[string]DashboardProviderSpec{}
+	}
+	d.mu.RLock()
+	providers := make(map[string]registeredProvider, len(d.providers))
+	for code, provider := range d.providers {
+		providers[code] = provider
+	}
+	d.mu.RUnlock()
+	return buildDashboardProviders(providers)
+}
+
+func (d *Dashboard) buildDashboardProvidersLocked() (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
+	if d == nil {
+		return dashcmp.NewRegistry(), map[string]DashboardProviderSpec{}
+	}
+	providers := make(map[string]registeredProvider, len(d.providers))
+	for code, provider := range d.providers {
+		providers[code] = provider
+	}
+	return buildDashboardProviders(providers)
+}
+
+func buildDashboardProviders(providers map[string]registeredProvider) (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
 	registry := dashcmp.NewRegistry()
 	specs := map[string]DashboardProviderSpec{}
-	if d == nil {
-		return registry, specs
-	}
-	for code, provider := range d.providers {
+	for code, provider := range providers {
 		spec := provider.spec
-		specs[code] = spec
+		specs[code] = cloneDashboardProviderSpec(spec)
 		def := dashcmp.WidgetDefinition{
 			Code:   spec.Code,
 			Name:   spec.Name,
@@ -275,7 +298,9 @@ func (s *dashboardPreferenceStore) SaveLayoutOverrides(ctx context.Context, view
 	}
 	layout := s.buildLayoutFromOverrides(ctx, overrides, adminOverrides)
 	if len(layout) > 0 {
-		_, _ = s.prefs.SaveDashboardLayout(ctx, viewer.UserID, layout)
+		if _, err := s.prefs.SaveDashboardLayout(ctx, viewer.UserID, layout); err != nil {
+			return err
+		}
 	}
 	return nil
 }
